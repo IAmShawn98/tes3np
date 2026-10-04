@@ -6,11 +6,15 @@ global LauncherScale := 100
 global LauncherScaleMode := "Auto"
 global LauncherBaseWidth := 960
 global LauncherBaseHeight := 716
+global AccessibilityTextSize := "Normal"
 
 LoadLauncherScale()
 {
-    global DataFile, LauncherScale, LauncherScaleMode
+    global DataFile, LauncherScale, LauncherScaleMode, AccessibilityTextSize
     saved := IniRead(DataFile, "Launcher", "Scale", "Auto")
+    AccessibilityTextSize := IniRead(DataFile, "Accessibility", "TextSize", "Normal")
+    if !RegExMatch(AccessibilityTextSize, "^(Normal|Large|Extra Large)$")
+        AccessibilityTextSize := "Normal"
     if saved = "Auto" || saved = ""
     {
         LauncherScaleMode := "Auto"
@@ -23,23 +27,35 @@ LoadLauncherScale()
 
 OpenLauncherSettings(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize
     settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
     settings.BackColor := "E2CEA2"
     settings.SetFont("s11 c382314", "Segoe UI")
     settings.Add("Text", "x20 y18 w330 h26", "Display & Accessibility")
     settings.SetFont("s9 c382314", "Segoe UI")
-    settings.Add("Text", "x20 y48 w330 h50", "Automatic is recommended. tes3np will stay at full size when possible and shrink only when needed to fit your screen.")
+    settings.Add("Text", "x20 y48 w330 h44", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.SetFont("s9 Bold c382314", "Segoe UI")
+    settings.Add("Text", "x20 y100 w120 h22", "Launcher size")
     settings.SetFont("s10 c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x20 y108 w330 Choose" choice, choices)
-    apply := settings.Add("Button", "x20 y154 w158 h34 Default", "Preview & Apply")
-    cancel := settings.Add("Button", "x192 y154 w158 h34", "Cancel")
-    apply.OnEvent("Click", PreviewLauncherScale.Bind(settings, scaleList))
+    scaleList := settings.Add("DropDownList", "x145 y96 w205 Choose" choice, choices)
+
+    settings.SetFont("s9 Bold c382314", "Segoe UI")
+    settings.Add("Text", "x20 y142 w120 h22", "Interface text")
+    settings.SetFont("s10 c382314", "Segoe UI")
+    textChoices := ["Normal", "Large", "Extra Large"]
+    textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
+    textList := settings.Add("DropDownList", "x145 y138 w205 Choose" textChoice, textChoices)
+    settings.SetFont("s8 c5A4027", "Segoe UI")
+    settings.Add("Text", "x20 y174 w330 h38", "Larger text applies to tes3np interface controls and dialogs. Artwork and game content are unchanged.")
+
+    apply := settings.Add("Button", "x20 y222 w158 h34 Default", "Preview & Apply")
+    cancel := settings.Add("Button", "x192 y222 w158 h34", "Cancel")
+    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList))
     cancel.OnEvent("Click", (*) => settings.Destroy())
     settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h208")
+    settings.Show("w370 h276")
 }
 
 ScaleChoiceIndex(scale)
@@ -47,36 +63,50 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-PreviewLauncherScale(settings, scaleList, *)
+PreviewLauncherSettings(settings, scaleList, textList, *)
 {
-    global LauncherScale, LauncherScaleMode
+    global LauncherScale, LauncherScaleMode, AccessibilityTextSize
     oldScale := LauncherScale
     oldMode := LauncherScaleMode
+    oldText := AccessibilityTextSize
     if scaleList.Value = 1
     {
         LauncherScaleMode := "Auto"
         LauncherScale := GetAutomaticLauncherScale()
-        pending := "Auto"
+        pendingScale := "Auto"
     }
     else
     {
         LauncherScaleMode := "Manual"
         LauncherScale := Integer(StrReplace(scaleList.Text, "%"))
-        pending := LauncherScale
+        pendingScale := LauncherScale
     }
+    AccessibilityTextSize := textList.Text
     settings.Hide()
     ApplyLauncherScaleToWindow(true)
-    result := MsgBox("Does this launcher size look good?`n`nChoose Yes to keep it. Choose No to return to your previous size.", "tes3np — Confirm Launcher Size", "YesNo Icon?")
+    ApplyAccessibilityTextSize()
+    result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
     if result = "Yes"
     {
-        SaveLauncherScale(pending)
+        SaveLauncherScale(pendingScale)
+        SaveAccessibilityTextSize(AccessibilityTextSize)
         settings.Destroy()
         return
     }
     LauncherScale := oldScale
     LauncherScaleMode := oldMode
+    AccessibilityTextSize := oldText
     ApplyLauncherScaleToWindow(true)
+    ApplyAccessibilityTextSize()
     settings.Show()
+}
+
+; Compatibility wrapper for any older call sites.
+PreviewLauncherScale(settings, scaleList, *)
+{
+    global AccessibilityTextSize
+    dummy := {Text: AccessibilityTextSize}
+    PreviewLauncherSettings(settings, scaleList, dummy)
 }
 
 SaveLauncherScale(value)
@@ -84,6 +114,37 @@ SaveLauncherScale(value)
     global DataFile
     DirCreate(AppDataDirectory)
     IniWrite(value, DataFile, "Launcher", "Scale")
+}
+
+SaveAccessibilityTextSize(value)
+{
+    global DataFile
+    DirCreate(AppDataDirectory)
+    IniWrite(value, DataFile, "Accessibility", "TextSize")
+}
+
+AccessibilityFontSize(baseSize)
+{
+    global AccessibilityTextSize
+    multiplier := AccessibilityTextSize = "Extra Large" ? 1.35 : AccessibilityTextSize = "Large" ? 1.18 : 1.0
+    return Round(baseSize * multiplier)
+}
+
+ApplyAccessibilityTextSize()
+{
+    global LauncherGui, ButtonFaces
+    if !IsObject(LauncherGui)
+        return
+    ; Custom themed controls are repainted using their current GUI font. Keep their
+    ; geometry fixed so increasing text cannot move buttons off the artwork.
+    for handle, face in ButtonFaces
+    {
+        if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel")
+            continue
+        size := AccessibilityFontSize(face.Book ? 10 : 10)
+        face.Control.SetFont("s" size " Bold", "Segoe UI")
+        DllCall("RedrawWindow", "Ptr", handle, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
+    }
 }
 
 GetAutomaticLauncherScale()
