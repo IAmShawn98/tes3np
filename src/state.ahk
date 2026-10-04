@@ -1,4 +1,4 @@
-﻿; Shared application state. Initialized before the UI is constructed.
+; Shared application state. Initialized before the UI is constructed.
 global Profiles := []
 global Client := {PID: 0, HWND: 0, Phase: "stopped", Deadline: 0, Enabled: false, Profile: 0}
 global CharacterPage := 0
@@ -39,7 +39,7 @@ global PatchFrame := 0
 global SetupComplete := false
 
 ; Shared defaults; saved profile keys and runtime phase names remain compatible.
-global AppConfig := {Build: 143, Server: "NerevarineProphecies.servegame.com:25565",
+global AppConfig := {Build: 144, Server: "NerevarineProphecies.servegame.com:25565",
     Wiki: "https://wiki.nerevarineprophecies.com/Main_Page", UsernameDelay: 20,
     PasswordDelay: 3, LoadDelay: 20, WatchdogMs: 1000, TooltipMs: 100,
     GameWindowWaitMs: 30000, RetryMs: 5000, ClaimWaitMs: 10000}
