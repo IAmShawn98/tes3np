@@ -68,7 +68,7 @@ Patching release checks are listed in [PATCHING.md](PATCHING.md). Menu availabil
 
 ## Collaboration tooling
 
-Start with [CONTRIBUTING.md](../CONTRIBUTING.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+Start with [ARCHITECTURE.md](ARCHITECTURE.md).
 Run `python scripts/project.py check` for source/manifest checks and
 `powershell -NoProfile -File scripts/check-powershell.ps1` for actual PowerShell
 parser checks on Windows. The GitHub workflow runs both.
