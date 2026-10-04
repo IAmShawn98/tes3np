@@ -1,0 +1,30 @@
+ASSET USAGE & COMMUNITY GUIDELINES
+Project: TES3MP: Nerevarine Prophecies
+Project Discord: https://discord.gg/FMTT9EB2M
+Author: Learwolf
+Author Email: ddrlear@yahoo.com
+Date: September 30, 2026
+------------------------------
+
+   1. Server-Exclusive Use (Unless Permitted): 
+      The 3D models, textures, and assets provided in this package are designed exclusively for use within the Nerevarine Prophecies TES3MP server ecosystem. 
+	  You are prohibited from extracting, porting, or reusing these files on any other TES3MP server, multiplayer host, standalone project, or external mod 
+	  without explicit, prior written permission from Learwolf.
+	  
+   2. Inspiration & AI Disclaimer: 
+      These assets were generated with the assistance of AI tools and are a creative mashup heavily inspired by The Elder Scrolls III: Morrowind, alongside 
+	  elements from other classic gaming universes.
+	  
+   3. Intellectual Property Acknowledgement: 
+      We claim no exclusive legal copyright or ownership over the underlying concept designs, trademarks, or lore belonging to Bethesda Softworks (creators of 
+	  The Elder Scrolls), or any other respective game studios whose worlds inspire our content. This is a strictly non-commercial, fan-driven project created 
+	  out of passion for these universes.
+	  
+   4. Respect the Server Integration: 
+      While the aesthetic roots were AI-assisted, a massive amount of human effort went into prompting, cleaning up meshes, custom texturing, and scripting 
+	  these assets to function properly within our multiplayer framework. Please respect our team's time and dedication by keeping these assets strictly 
+	  intact within this project.
+	  
+   5. Permissions & Reporting: 
+      If you wish to request permission to use any assets from this project, or if you would like to report an instance of unauthorized asset use outside our 
+	  server, please contact Learwolf directly via our Project Discord or at the email listed above.
