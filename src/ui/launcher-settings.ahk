@@ -9,16 +9,23 @@ global LauncherBaseHeight := 716
 global AccessibilityTextSize := "Normal"
 global EnhancedReadability := false
 global ReduceMotion := false
+global FollowWindowsAccessibility := true
+
+global WindowsHighContrastDetected := false
+global WindowsAnimationsDisabled := false
 
 LoadLauncherScale()
 {
-    global DataFile, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion
+    global DataFile, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
     saved := IniRead(DataFile, "Launcher", "Scale", "Auto")
     AccessibilityTextSize := IniRead(DataFile, "Accessibility", "TextSize", "Normal")
     EnhancedReadability := IniRead(DataFile, "Accessibility", "EnhancedReadability", "0") = "1"
     ReduceMotion := IniRead(DataFile, "Accessibility", "ReduceMotion", "0") = "1"
+    FollowWindowsAccessibility := IniRead(DataFile, "Accessibility", "FollowWindows", "1") = "1"
     if !RegExMatch(AccessibilityTextSize, "^(Normal|Large|Extra Large)$")
         AccessibilityTextSize := "Normal"
+    DetectWindowsAccessibility()
+    ApplyWindowsAccessibilityPreferences()
     if saved = "Auto" || saved = ""
     {
         LauncherScaleMode := "Auto"
@@ -29,9 +36,40 @@ LoadLauncherScale()
     LauncherScale := RegExMatch(saved, "^(?:50|60|70|80|90|100)$") ? Integer(saved) : GetAutomaticLauncherScale()
 }
 
+DetectWindowsAccessibility()
+{
+    global WindowsHighContrastDetected, WindowsAnimationsDisabled
+    WindowsHighContrastDetected := false
+    WindowsAnimationsDisabled := false
+
+    ; HIGHCONTRASTW: cbSize, dwFlags, lpszDefaultScheme.
+    hcSize := A_PtrSize = 8 ? 16 : 12
+    hc := Buffer(hcSize, 0)
+    NumPut("UInt", hcSize, hc, 0)
+    if DllCall("SystemParametersInfoW", "UInt", 0x0042, "UInt", hcSize, "Ptr", hc.Ptr, "UInt", 0)
+        WindowsHighContrastDetected := (NumGet(hc, 4, "UInt") & 0x00000001) != 0
+
+    animations := Buffer(4, 0)
+    if DllCall("SystemParametersInfoW", "UInt", 0x1042, "UInt", 0, "Ptr", animations.Ptr, "UInt", 0)
+        WindowsAnimationsDisabled := NumGet(animations, 0, "Int") = 0
+}
+
+ApplyWindowsAccessibilityPreferences()
+{
+    global FollowWindowsAccessibility, WindowsHighContrastDetected, WindowsAnimationsDisabled, EnhancedReadability, ReduceMotion
+    if !FollowWindowsAccessibility
+        return
+    ; Windows preferences only opt accessibility features in. They never turn off a
+    ; launcher preference the user explicitly enabled.
+    if WindowsHighContrastDetected
+        EnhancedReadability := true
+    if WindowsAnimationsDisabled
+        ReduceMotion := true
+}
+
 OpenLauncherSettings(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility, WindowsHighContrastDetected, WindowsAnimationsDisabled
     settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
     settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
     settings.SetFont("s11 Bold c241408", "Segoe UI")
@@ -64,14 +102,21 @@ OpenLauncherSettings(*)
     settings.SetFont("s8 c5A4027", "Segoe UI")
     settings.Add("Text", "x38 y270 w312 h38", "Reduces nonessential animated feedback and keeps interface changes as immediate and still as possible.")
 
-    apply := settings.Add("Button", "x20 y318 w158 h34 Default", "Preview & Apply")
-    cancel := settings.Add("Button", "x192 y318 w158 h34", "Cancel")
-    reset := settings.Add("Button", "x20 y362 w330 h34", "Reset Display & Accessibility")
-    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, "Applying display & accessibility..."))
+    settings.SetFont("s9 Bold c382314", "Segoe UI")
+    followWindows := settings.Add("CheckBox", "x20 y314 w330 h24", "Follow Windows accessibility settings")
+    followWindows.Value := FollowWindowsAccessibility ? 1 : 0
+    settings.SetFont("s8 c5A4027", "Segoe UI")
+    detected := WindowsHighContrastDetected ? "High contrast detected." : WindowsAnimationsDisabled ? "Reduced Windows animations detected." : "No additional Windows accessibility preferences detected."
+    settings.Add("Text", "x38 y338 w312 h38", detected)
+
+    apply := settings.Add("Button", "x20 y386 w158 h34 Default", "Preview & Apply")
+    cancel := settings.Add("Button", "x192 y386 w158 h34", "Cancel")
+    reset := settings.Add("Button", "x20 y430 w330 h34", "Reset Display & Accessibility")
+    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying display & accessibility..."))
     cancel.OnEvent("Click", (*) => settings.Destroy())
-    reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox))
+    reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
     settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h416")
+    settings.Show("w370 h484")
 }
 
 ScaleChoiceIndex(scale)
@@ -79,26 +124,28 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMotionBox, *)
+ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
 {
-    result := MsgBox("Reset display and accessibility settings to their defaults?`n`nLauncher size: Automatic`nInterface text: Normal`nEnhanced readability: Off`nReduce motion: Off", "tes3np — Reset Display & Accessibility", "YesNo Icon?")
+    result := MsgBox("Reset display and accessibility settings to their defaults?`n`nLauncher size: Automatic`nInterface text: Normal`nEnhanced readability: Off`nReduce motion: Off`nFollow Windows accessibility settings: On", "tes3np — Reset Display & Accessibility", "YesNo Icon?")
     if result != "Yes"
         return
     scaleList.Choose(1)
     textList.Choose(1)
     readability.Value := 0
     reduceMotionBox.Value := 0
-    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, "Resetting display & accessibility...")
+    followWindows.Value := 1
+    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Resetting display & accessibility...")
 }
 
-PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, loadingMessage, *)
+PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, loadingMessage, *)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
     oldScale := LauncherScale
     oldMode := LauncherScaleMode
     oldText := AccessibilityTextSize
     oldReadability := EnhancedReadability
     oldReduceMotion := ReduceMotion
+    oldFollowWindows := FollowWindowsAccessibility
     if scaleList.Value = 1
     {
         LauncherScaleMode := "Auto"
@@ -114,6 +161,9 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     AccessibilityTextSize := textList.Text
     EnhancedReadability := readability.Value = 1
     ReduceMotion := reduceMotionBox.Value = 1
+    FollowWindowsAccessibility := followWindows.Value = 1
+    DetectWindowsAccessibility()
+    ApplyWindowsAccessibilityPreferences()
     settings.Hide()
 
     BeginInterfaceUpdate(LauncherGui, loadingMessage, true, 8)
@@ -136,6 +186,7 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         SaveAccessibilityTextSize(AccessibilityTextSize)
         SaveEnhancedReadability(EnhancedReadability)
         SaveReduceMotion(ReduceMotion)
+        SaveFollowWindowsAccessibility(FollowWindowsAccessibility)
         settings.Destroy()
         return
     }
@@ -144,6 +195,7 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability
     ReduceMotion := oldReduceMotion
+    FollowWindowsAccessibility := oldFollowWindows
 
     BeginInterfaceUpdate(LauncherGui, "Restoring previous display settings...", true, 8)
     try
@@ -186,6 +238,13 @@ SaveReduceMotion(value)
     global DataFile
     DirCreate(AppDataDirectory)
     IniWrite(value ? "1" : "0", DataFile, "Accessibility", "ReduceMotion")
+}
+
+SaveFollowWindowsAccessibility(value)
+{
+    global DataFile
+    DirCreate(AppDataDirectory)
+    IniWrite(value ? "1" : "0", DataFile, "Accessibility", "FollowWindows")
 }
 
 AccessibilityFontSize(baseSize)
