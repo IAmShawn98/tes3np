@@ -9,6 +9,7 @@ $buildRoot = Join-Path ([IO.Path]::GetTempPath()) ('tes3np-build-' + [guid]::New
 $null = New-Item $buildRoot -ItemType Directory
 function Get-ReleaseTool([string]$Repository, [string]$Pattern, [string]$Name) {
     $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
+    if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
     $release = Invoke-RestMethod ("https://api.github.com/repos/$Repository/releases/latest") -Headers $headers
     $asset = $release.assets | Where-Object { $_.name -match $Pattern } | Select-Object -First 1
     if (!$asset) { throw "Official release has no matching archive: $Repository $Pattern" }
