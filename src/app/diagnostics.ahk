@@ -1,6 +1,7 @@
 ; Public-alpha diagnostics and lightweight launcher logging.
 
 global LauncherLogFile := AppDataDirectory "\launcher.log"
+global PatchLogMirrorOffset := -1
 
 LogLauncherEvent(message)
 {
@@ -10,6 +11,80 @@ LogLauncherEvent(message)
         DirCreate(AppDataDirectory)
         FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " message "`n", LauncherLogFile, "UTF-8")
     }
+}
+
+; The PowerShell patch worker owns patch-all.log. Mirror only new worker events into
+; launcher.log so public-alpha reports have one useful timeline without changing the
+; worker's existing dedicated diagnostic logs.
+SyncPatchLogToLauncherLog(includeExisting := false)
+{
+    global PatchLogMirrorOffset, LauncherLogFile
+    patchLog := AppDataDirectory "\patch-all.log"
+    if !FileExist(patchLog)
+    {
+        PatchLogMirrorOffset := 0
+        return
+    }
+    try
+    {
+        file := FileOpen(patchLog, "r", "UTF-8")
+        if !IsObject(file)
+            return
+        size := file.Length
+        if PatchLogMirrorOffset < 0
+        {
+            PatchLogMirrorOffset := includeExisting ? 0 : size
+            file.Close()
+            return
+        }
+        if size < PatchLogMirrorOffset
+            PatchLogMirrorOffset := 0
+        if size = PatchLogMirrorOffset
+        {
+            file.Close()
+            return
+        }
+        file.Pos := PatchLogMirrorOffset
+        newText := file.Read()
+        PatchLogMirrorOffset := file.Pos
+        file.Close()
+        for rawLine in StrSplit(newText, "`n", "`r")
+        {
+            line := Trim(rawLine)
+            if line = ""
+                continue
+            ; patch-all.log already begins with its own timestamp. Keep it as worker
+            ; detail while launcher.log supplies the unified event timestamp.
+            if RegExMatch(line, "^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s+(.*)$", &match)
+                line := match[1]
+            LogLauncherEvent("PATCH | " SanitizeDiagnosticText(line))
+        }
+    }
+    catch
+    {
+        ; Mirroring is best-effort and must never interfere with patching.
+    }
+}
+
+InitializePatchLogMirror()
+{
+    global PatchLogMirrorOffset
+    PatchLogMirrorOffset := -1
+    SyncPatchLogToLauncherLog(false)
+}
+
+SanitizeDiagnosticText(text)
+{
+    appData := EnvGet("APPDATA")
+    localAppData := EnvGet("LOCALAPPDATA")
+    userProfile := EnvGet("USERPROFILE")
+    if localAppData != ""
+        text := StrReplace(text, localAppData, "%LOCALAPPDATA%", false)
+    if appData != ""
+        text := StrReplace(text, appData, "%APPDATA%", false)
+    if userProfile != ""
+        text := StrReplace(text, userProfile, "%USERPROFILE%", false)
+    return text
 }
 
 OpenTroubleshooting(*)
@@ -44,6 +119,7 @@ OpenLauncherDataFolder(*)
 OpenLauncherLog(*)
 {
     global LauncherLogFile
+    SyncPatchLogToLauncherLog()
     DirCreate(AppDataDirectory)
     if !FileExist(LauncherLogFile)
         FileAppend("tes3np launcher log`n", LauncherLogFile, "UTF-8")
@@ -55,6 +131,7 @@ ClearLauncherLog(*)
     global LauncherLogFile
     if MsgBox("Clear the launcher log?", "tes3np — Clear Log", "YesNo Icon?") != "Yes"
         return
+    SyncPatchLogToLauncherLog()
     try FileDelete(LauncherLogFile)
     LogLauncherEvent("Launcher log cleared by user.")
     MsgBox("Launcher log cleared.", "tes3np")
@@ -62,6 +139,7 @@ ClearLauncherLog(*)
 
 CopyLauncherDiagnostics(*)
 {
+    SyncPatchLogToLauncherLog()
     A_Clipboard := BuildLauncherDiagnostics()
     LogLauncherEvent("Diagnostic information copied to clipboard.")
     MsgBox("Diagnostic information copied to the clipboard.`n`nYou can paste it into Discord or a bug report.", "tes3np — Diagnostics")
@@ -69,18 +147,7 @@ CopyLauncherDiagnostics(*)
 
 SanitizeDiagnosticPath(path)
 {
-    ; Replace the current Windows user's profile roots before a report is shared.
-    ; Do the more-specific AppData roots first so they become useful portable labels.
-    appData := EnvGet("APPDATA")
-    localAppData := EnvGet("LOCALAPPDATA")
-    userProfile := EnvGet("USERPROFILE")
-    if localAppData != ""
-        path := StrReplace(path, localAppData, "%LOCALAPPDATA%", false)
-    if appData != ""
-        path := StrReplace(path, appData, "%APPDATA%", false)
-    if userProfile != ""
-        path := StrReplace(path, userProfile, "%USERPROFILE%", false)
-    return path
+    return SanitizeDiagnosticText(path)
 }
 
 BuildLauncherDiagnostics()
