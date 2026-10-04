@@ -51,19 +51,18 @@ BundledMarkerlessHash()
 
 SHA256File(path)
 {
-    ; Use Windows PowerShell's built-in SHA-256 implementation. No extra software is required.
+    ; Windows certutil avoids nested PowerShell quoting and requires no extra software.
     temporary := A_Temp "\tes3np-client-hash-" A_TickCount "-" DllCall("GetCurrentProcessId") ".txt"
-    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
-    if !FileExist(powershell)
-        return ""
-    command := '"' powershell '" -NoProfile -NonInteractive -Command "(Get-FileHash -LiteralPath ''"'
-        . StrReplace(path, "'", "''") . "'' -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content -LiteralPath '"'
-        . StrReplace(temporary, "'", "''") . "'' -NoNewline -Encoding ASCII""
+    command := A_ComSpec ' /D /C certutil -hashfile "' path '" SHA256 > "' temporary '"'
     try
     {
         RunWait(command, , "Hide")
         if FileExist(temporary)
-            return StrLower(Trim(FileRead(temporary, "UTF-8")))
+        {
+            output := FileRead(temporary, "UTF-8")
+            if RegExMatch(output, "i)\b([0-9a-f]{64})\b", &match)
+                return StrLower(match[1])
+        }
     }
     catch
     {
