@@ -88,12 +88,12 @@ ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMoti
     textList.Choose(1)
     readability.Value := 0
     reduceMotionBox.Value := 0
-    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox)
+    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, "Resetting display & accessibility...")
 }
 
-PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, *)
+PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, loadingMessage := "Applying display & accessibility...", *)
 {
-    global LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion
     oldScale := LauncherScale
     oldMode := LauncherScaleMode
     oldText := AccessibilityTextSize
@@ -115,9 +115,20 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     EnhancedReadability := readability.Value = 1
     ReduceMotion := reduceMotionBox.Value = 1
     settings.Hide()
-    ApplyLauncherScaleToWindow(true)
-    ApplyAccessibilityTextSize()
-    ApplyEnhancedReadability()
+
+    BeginInterfaceUpdate(LauncherGui, loadingMessage, true, 8)
+    try
+    {
+        SetInterfaceLoadingText("Adjusting launcher size...")
+        ApplyLauncherScaleToWindow(true)
+        SetInterfaceLoadingText("Updating interface text...")
+        ApplyAccessibilityTextSize()
+        SetInterfaceLoadingText("Updating readability...")
+        ApplyEnhancedReadability()
+        SetInterfaceLoadingText("Finishing display update...")
+    }
+    finally EndInterfaceUpdate()
+
     result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
     if result = "Yes"
     {
@@ -133,9 +144,19 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability
     ReduceMotion := oldReduceMotion
-    ApplyLauncherScaleToWindow(true)
-    ApplyAccessibilityTextSize()
-    ApplyEnhancedReadability()
+
+    BeginInterfaceUpdate(LauncherGui, "Restoring previous display settings...", true, 8)
+    try
+    {
+        SetInterfaceLoadingText("Restoring launcher size...")
+        ApplyLauncherScaleToWindow(true)
+        SetInterfaceLoadingText("Restoring interface text...")
+        ApplyAccessibilityTextSize()
+        SetInterfaceLoadingText("Restoring readability...")
+        ApplyEnhancedReadability()
+        SetInterfaceLoadingText("Finishing display restore...")
+    }
+    finally EndInterfaceUpdate()
     settings.Show()
 }
 
