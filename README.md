@@ -7,11 +7,17 @@ Launch Morrowind on the Nerevarine Prophecies multiplayer server, save your char
 - A Windows PC.
 - Morrowind **Game of the Year Edition**, installed with Tribunal and Bloodmoon.
 - **TES3MP 0.8.1 for Windows 64-bit**, downloaded and extracted.
-- **AutoHotkey v2**, installed. The launcher currently runs as an `.ahk` file.
+- For the source ZIP only: **AutoHotkey v2**, installed. The Windows executable package includes it.
 
 Morrowind and TES3MP are not included in this download.
 
-## Install in 4 steps
+## Install the Windows launcher
+
+Download the **tes3np-windows** package from the completed **Build Windows launcher** run under this repository’s **Actions** tab. Extract the downloaded artifact ZIP, then extract `tes3np-windows.zip`. Move the `tes3np` folder into your TES3MP folder and double-click **tes3np.exe**. Its custom icon is embedded, and no separate AutoHotkey installation is needed. Keep the accompanying folders together.
+
+Choose **Patch Tes3mp** if shown, finish setup, then choose **Start New Adventure** or **Returning Fetcher**.
+
+## Install from source in 4 steps
 
 1. **Download:** Click the green **Code** button on this GitHub page, then **Download ZIP**.
 2. **Extract:** Right-click the ZIP and choose **Extract All**. Move the extracted launcher folder into your TES3MP folder—the folder containing `tes3mp.exe`. Keep everything inside the launcher folder together.

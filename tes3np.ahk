@@ -21,4 +21,6 @@
 ; Native paint notifications must remain eligible inside timer callbacks.
 Thread("Interrupt", 0)
 CoordMode("Mouse", "Screen")
+if A_Args.Length && A_Args[1] = "--check"
+    ExitApp(0)
 StartLauncher()
