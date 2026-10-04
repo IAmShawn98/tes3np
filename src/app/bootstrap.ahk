@@ -22,8 +22,6 @@ StartLauncher()
     LoadLauncherScale()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
-    ; Startup only reads tes3np's saved setup state. File detection/verification happens
-    ; exclusively when the user explicitly starts Install / Repair or Verify.
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
@@ -32,6 +30,9 @@ StartLauncher()
     AddStyledButton(LauncherGui, 805, 675, 140, 32, "Check for Updates", CheckForUpdates)
     OnMessage(0x0201, HandleMouseDown)
     OnMessage(0x0202, ReleaseButton)
+    OnMessage(0x0100, HandleThemedButtonKey)
+    OnMessage(0x0007, HandleThemedButtonFocus)
+    OnMessage(0x0008, HandleThemedButtonFocus)
     OnMessage(0x0215, HandleCaptureLost)
     LauncherGui.OnEvent("Close", QuitLauncher)
     OnExit(GuardPatchExit)
@@ -99,7 +100,6 @@ SetWindowIcons()
     {
         icon := LoadPicture(A_ScriptDir "\assets\icons\tes3np.ico", "Icon1 w" entry[2] " h" entry[2], &imageType)
         IconHandles.Push(icon)
-        ; Direct HWND messaging also works before the window becomes visible.
         DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x80,
             "UPtr", entry[1], "Ptr", icon, "Ptr")
     }
