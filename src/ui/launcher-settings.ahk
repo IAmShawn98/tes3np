@@ -4,7 +4,6 @@
 
 global LauncherScale := 100
 global LauncherScaleMode := "Auto"
-
 global LauncherBaseWidth := 960
 global LauncherBaseHeight := 716
 
@@ -35,9 +34,9 @@ OpenLauncherSettings(*)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x20 y108 w330 Choose" choice, choices)
-    apply := settings.Add("Button", "x20 y154 w158 h34 Default", "Apply")
+    apply := settings.Add("Button", "x20 y154 w158 h34 Default", "Preview & Apply")
     cancel := settings.Add("Button", "x192 y154 w158 h34", "Cancel")
-    apply.OnEvent("Click", ApplyLauncherScale.Bind(settings, scaleList))
+    apply.OnEvent("Click", PreviewLauncherScale.Bind(settings, scaleList))
     cancel.OnEvent("Click", (*) => settings.Destroy())
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.Show("w370 h208")
@@ -48,39 +47,54 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-ApplyLauncherScale(settings, scaleList, *)
+PreviewLauncherScale(settings, scaleList, *)
 {
-    global LauncherScale, LauncherScaleMode, DataFile
+    global LauncherScale, LauncherScaleMode
+    oldScale := LauncherScale
+    oldMode := LauncherScaleMode
     if scaleList.Value = 1
     {
         LauncherScaleMode := "Auto"
         LauncherScale := GetAutomaticLauncherScale()
-        saved := "Auto"
+        pending := "Auto"
     }
     else
     {
         LauncherScaleMode := "Manual"
         LauncherScale := Integer(StrReplace(scaleList.Text, "%"))
-        saved := LauncherScale
+        pending := LauncherScale
     }
-    DirCreate(AppDataDirectory)
-    IniWrite(saved, DataFile, "Launcher", "Scale")
-    settings.Destroy()
+    settings.Hide()
     ApplyLauncherScaleToWindow(true)
+    result := MsgBox("Does this launcher size look good?`n`nChoose Yes to keep it. Choose No to return to your previous size.", "tes3np — Confirm Launcher Size", "YesNo Icon?")
+    if result = "Yes"
+    {
+        SaveLauncherScale(pending)
+        settings.Destroy()
+        return
+    }
+    LauncherScale := oldScale
+    LauncherScaleMode := oldMode
+    ApplyLauncherScaleToWindow(true)
+    settings.Show()
+}
+
+SaveLauncherScale(value)
+{
+    global DataFile
+    DirCreate(AppDataDirectory)
+    IniWrite(value, DataFile, "Launcher", "Scale")
 }
 
 GetAutomaticLauncherScale()
 {
     global LauncherBaseWidth, LauncherBaseHeight
-    ; Use the monitor containing the mouse pointer. This naturally follows the screen
-    ; the user is working on, including multi-monitor systems.
     MouseGetPos(&mouseX, &mouseY)
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     workWidth := right - left
     workHeight := bottom - top
     fit := Min(1.0, workWidth / LauncherBaseWidth, workHeight / LauncherBaseHeight)
-    ; Keep a little breathing room around the launcher and use predictable 10% steps.
     if fit < 1
         fit := Max(0.5, fit * 0.96)
     percent := Floor((fit * 100) / 10) * 10
@@ -112,7 +126,6 @@ ApplyLauncherScaleToWindow(center := false)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     x := left + Max(0, ((right - left) - width) // 2)
     y := top + Max(0, ((bottom - top) - height) // 2)
-    flags := center ? 0x0004 | 0x0010 : 0x0004 | 0x0010
     DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y,
-        "Int", width, "Int", height, "UInt", flags)
+        "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
 }
