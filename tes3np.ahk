@@ -16,6 +16,7 @@
 #Include src\ui\macros.ahk
 #Include src\ui\macro-bindings.ahk
 #Include src\ui\patcher.ahk
+#Include src\ui\launcher-settings.ahk
 #Include src\app\client-detection.ahk
 #Include src\app\update-check.ahk
 #Include src\app\bootstrap.ahk
