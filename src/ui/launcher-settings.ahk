@@ -135,16 +135,30 @@ ApplyAccessibilityTextSize()
     global LauncherGui, ButtonFaces
     if !IsObject(LauncherGui)
         return
-    ; Custom themed controls are repainted using their current GUI font. Keep their
-    ; geometry fixed so increasing text cannot move buttons off the artwork.
-    for handle, face in ButtonFaces
+
+    ; Changing HFONT on a custom-painted control can invalidate it while its parent
+    ; is also being resized/revealed. Suppress intermediate parent painting, update
+    ; every font, then explicitly paint every themed button before revealing once.
+    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0) ; WM_SETREDRAW false
+    try
     {
-        if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel")
-            continue
-        size := AccessibilityFontSize(face.Book ? 10 : 10)
-        face.Control.SetFont("s" size " Bold", "Segoe UI")
-        DllCall("RedrawWindow", "Ptr", handle, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
+        for handle, face in ButtonFaces
+        {
+            if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
+                continue
+            size := AccessibilityFontSize(10)
+            face.Control.SetFont("s" size " Bold", "Segoe UI")
+        }
     }
+    finally
+    {
+        DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW true
+    }
+
+    ; Force one complete synchronous repaint. The hover timer should never be needed
+    ; to repair a missing button after an accessibility setting changes.
+    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
+    RepaintMenuButtons()
 }
 
 GetAutomaticLauncherScale()
