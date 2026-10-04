@@ -44,60 +44,27 @@ try {
     $compiler = Join-Path $tools 'Compiler\Ahk2Exe.exe'; $base = Join-Path $tools 'AutoHotkey64.exe'; $package = Join-Path $buildRoot 'tes3np'
     $null = New-Item $package -ItemType Directory
 
-    $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'
-    $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
+    $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
     $smokeArgs = '/in "' + $smokeSource + '" /out "' + $smokeExe + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation (45 second timeout)' 45000
+    $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
-    Step 'Ahk2Exe smoke compilation succeeded; compiler/runtime pair is functional'
 
-    # Compile cumulative include probes. This isolates the first project include which makes
-    # Ahk2Exe preprocessing hang without executing the real launcher or changing production code.
-    $includes = @(
-        'src\state.ahk',
-        'src\data\settings.ahk',
-        'src\data\backup.ahk',
-        'src\game\session.ahk',
-        'src\ui\renderer.ahk',
-        'src\ui\windows.ahk',
-        'src\ui\controls.ahk',
-        'src\ui\loading.ahk',
-        'src\ui\front-page.ahk',
-        'src\ui\actions.ahk',
-        'src\ui\characters.ahk',
-        'src\ui\macros.ahk',
-        'src\ui\macro-bindings.ahk',
-        'src\ui\patcher.ahk',
-        'src\ui\launcher-settings.ahk',
-        'src\app\client-detection.ahk',
-        'src\app\update-check.ahk',
-        'src\app\diagnostics.ahk',
-        'src\app\bootstrap.ahk'
-    )
-    $probeSource = Join-Path $projectRoot '.ci-include-probe.ahk'
-    $probeExe = Join-Path $buildRoot 'include-probe.exe'
-    $probeLines = @('#Requires AutoHotkey v2.0')
-    try {
-        for ($i = 0; $i -lt $includes.Count; $i++) {
-            $probeLines += '#Include ' + $includes[$i]
-            $probeText = ($probeLines + 'ExitApp(0)') -join "`n"
-            [IO.File]::WriteAllText($probeSource, $probeText + "`n", (New-Object Text.UTF8Encoding($true)))
-            if (Test-Path $probeExe) { Remove-Item $probeExe -Force }
-            $probeArgs = '/in "' + $probeSource + '" /out "' + $probeExe + '" /base "' + $base + '" /compress 0 /silent verbose'
-            $label = "Include probe $($i + 1)/$($includes.Count): $($includes[$i])"
-            $probeCode = Invoke-Compiler $compiler $probeArgs $label 20000
-            if ($probeCode -ne 0 -or !(Test-Path $probeExe)) { throw "$label failed." }
-            Step "$label succeeded"
-        }
-    }
-    finally { Remove-Item $probeSource -Force -ErrorAction SilentlyContinue }
-    Step 'All cumulative include probes compiled successfully'
+    # Compile the exact known-good main revision in a separate checkout. This preserves every
+    # include dependency and tells us whether the current toolchain can still build main.
+    $mainRoot = Join-Path $buildRoot 'main-source'
+    Step 'Checking out known-good main source for control build'
+    & git -c advice.detachedHead=false worktree add --detach $mainRoot main
+    if ($LASTEXITCODE -ne 0) { throw 'Could not create main control worktree.' }
+    $mainSource = Join-Path $mainRoot 'tes3np.ahk'; $mainExe = Join-Path $buildRoot 'main-control.exe'
+    $mainArgs = '/in "' + $mainSource + '" /out "' + $mainExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $mainCode = Invoke-Compiler $compiler $mainArgs 'Known-good main launcher control compilation' 120000
+    if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
+    Step 'Known-good main launcher compiled successfully with current toolchain'
 
-    $source = Join-Path $projectRoot 'tes3np.ahk'
-    $executable = Join-Path $package 'tes3np.exe'
+    $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $compileCode = Invoke-Compiler $compiler $arguments 'tes3np Ahk2Exe compilation (120 second timeout)' 120000
+    $compileCode = Invoke-Compiler $compiler $arguments 'Updater-branch tes3np compilation' 120000
     if ($compileCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
     Step 'Starting compiled launcher --check (30 second timeout)'
     $check = Start-Process $executable -ArgumentList '--check' -PassThru
@@ -117,4 +84,7 @@ try {
     Step 'Compressing final Windows package'; Compress-Archive $package $archive -CompressionLevel Optimal
     Step "Build complete: $archive"
 }
-finally { Step 'Cleaning temporary build directory'; Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
+finally {
+    if ($mainRoot -and (Test-Path $mainRoot)) { & git worktree remove --force $mainRoot 2>$null }
+    Step 'Cleaning temporary build directory'; Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
