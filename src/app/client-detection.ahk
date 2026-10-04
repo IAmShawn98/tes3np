@@ -1,7 +1,7 @@
 ﻿; TES3MP client detection. This is only run from explicit patch/verify actions.
 ; The stock hash is from an untouched TES3MP 0.8.1 Win64 tes3mp.exe.
 
-CheckModifiedClientForPatch(tesFolder)
+CheckModifiedClientForPatch(tesFolder, action := "Apply")
 {
     global DataFile
     executable := tesFolder != "" ? tesFolder "\tes3mp.exe" : ""
@@ -15,6 +15,14 @@ CheckModifiedClientForPatch(tesFolder)
     {
         ; A normal client should not inherit an earlier custom-client skip choice.
         try IniDelete(DataFile, "Patch", "CustomClientChoice")
+        return true
+    }
+
+    if action = "Verify"
+    {
+        message := "It looks like you're using a modified version of TES3MP that isn't part of the official tes3np patches.`n`n"
+            . "If you choose Install / Repair, you'll be asked whether to replace this executable with the Markerless build or keep your existing custom version."
+        MsgBox(message, "Custom TES3MP Client Detected", "Iconi")
         return true
     }
 
