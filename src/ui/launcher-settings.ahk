@@ -130,44 +130,33 @@ AccessibilityFontSize(baseSize)
     return Round(baseSize * multiplier)
 }
 
-AccessibilityButtonScale()
-{
-    global AccessibilityTextSize
-    return AccessibilityTextSize = "Extra Large" ? 1.38 : AccessibilityTextSize = "Large" ? 1.20 : 1.0
-}
-
 ApplyAccessibilityTextSize()
 {
     global LauncherGui, ButtonFaces
     if !IsObject(LauncherGui)
         return
 
+    ; Keep the launcher's geometry fixed. Enlarging controls caused neighboring
+    ; buttons to overlap and pushed controls outside the artwork at large text sizes.
+    ; Compact footer buttons get a conservative font cap instead.
     DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
-        buttonScale := AccessibilityButtonScale()
         for handle, face in ButtonFaces
         {
             if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
                 continue
 
             size := AccessibilityFontSize(10)
-            face.Control.SetFont("s" size " Bold", "Segoe UI")
-
             if face.HasOwnProp("BaseWidth")
             {
-                newWidth := Round(face.BaseWidth * buttonScale)
-                newHeight := Round(face.BaseHeight * (buttonScale > 1 ? Min(buttonScale, 1.22) : 1))
-                newX := face.BaseX - ((newWidth - face.BaseWidth) // 2)
-
-                ; Keep controls inside the 960px launcher canvas. This is especially
-                ; important for the two bottom-right buttons.
-                if newX < 6
-                    newX := 6
-                if newX + newWidth > 954
-                    newX := 954 - newWidth
-                face.Control.Move(newX, , newWidth, newHeight)
+                ; Always restore the exact authored layout first so switching back
+                ; from a larger text setting cannot leave stale oversized controls.
+                face.Control.Move(face.BaseX, , face.BaseWidth, face.BaseHeight)
+                if face.BaseWidth < 180
+                    size := Min(size, 11)
             }
+            face.Control.SetFont("s" size " Bold", "Segoe UI")
         }
     }
     finally
