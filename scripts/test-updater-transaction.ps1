@@ -10,11 +10,12 @@ function New-Fixture {
     return @($install,(Join-Path $root 'stage'),$state)
 }
 function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
-    # Run fault injection in a child pwsh process. The updater intentionally emits
-    # Write-Error and exits 1; the parent test must inspect that exit code rather
-    # than allowing ErrorActionPreference=Stop to abort the test harness itself.
     & pwsh -NoProfile -NonInteractive -File $updater -InstallDir $fixture[0] -StageDir $fixture[1] -StateFile $fixture[2] -Version '9.9.9-alpha' -TestMode -FailAt $failAt *> $null
-    return $LASTEXITCODE
+    $code=$LASTEXITCODE
+    # A nonzero child status is the expected test result, not the harness result.
+    # Run a harmless native command so GitHub receives a clean native exit state.
+    & cmd /c exit 0
+    return $code
 }
 try {
     $f=New-Fixture; & $updater -InstallDir $f[0] -StageDir $f[1] -StateFile $f[2] -Version '9.9.9-alpha' -TestMode
@@ -37,4 +38,6 @@ try {
     if ((Get-Content $f[2] -Raw) -notmatch 'State=ROLLED_BACK') { throw 'Rollback state not recorded after install failure.' }
     Write-Host 'PASS: failure after installation restores known-good launcher.'
     Write-Host 'All updater transaction tests passed.'
+    & cmd /c exit 0
+    exit 0
 } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
