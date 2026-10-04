@@ -4,9 +4,13 @@ You only need to do this setup once. The launcher installs the supplied server p
 
 ## 1. Prepare your game
 
-Install Morrowind Game of the Year Edition, including Tribunal and Bloodmoon. Download and extract TES3MP **0.8.1 for Windows 64-bit**. Install AutoHotkey **v2** so Windows can open the launcher.
+Install Morrowind Game of the Year Edition, including Tribunal and Bloodmoon. Download and extract TES3MP **0.8.1 for Windows 64-bit**. If using the source ZIP, install AutoHotkey **v2**. The Windows executable package includes the runtime.
 
 ## 2. Download the launcher
+
+For the executable package, download **tes3np-windows** from the completed **Build Windows launcher** run under **Actions**. Extract the artifact ZIP and the `tes3np-windows.zip` inside it. Move the resulting `tes3np` folder into your TES3MP folder. Open **tes3np.exe**; keep all its accompanying folders together.
+
+The instructions below also explain the source ZIP alternative.
 
 On the tes3np GitHub page, click **Code → Download ZIP**. Right-click the downloaded ZIP and choose **Extract All**. Open the extracted folder; you should see `tes3np.ahk` alongside folders such as `src`, `assets`, `scripts`, and `patches`.
 
@@ -14,7 +18,7 @@ Move that entire folder into the TES3MP folder containing `tes3mp.exe`. Do not r
 
 ## 3. Run setup
 
-Double-click **tes3np.ahk**. If the launcher shows **Patch Tes3mp**, open it.
+Double-click **tes3np.exe** (or **tes3np.ahk** for the source ZIP). If the launcher shows **Patch Tes3mp**, open it.
 
 Check the suggested locations. Use **Browse** if one is wrong:
 
