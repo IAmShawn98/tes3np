@@ -19,6 +19,7 @@ StartLauncher()
     A_TrayMenu.Add("Patch Tes3mp", OpenPatcher)
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
+    LoadLauncherScale()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
     ; Startup only reads tes3np's saved setup state. File detection/verification happens
@@ -27,6 +28,7 @@ StartLauncher()
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    AddStyledButton(LauncherGui, 650, 675, 145, 32, "Launcher Settings", OpenLauncherSettings)
     AddStyledButton(LauncherGui, 805, 675, 140, 32, "Check for Updates", CheckForUpdates)
     OnMessage(0x0201, HandleMouseDown)
     OnMessage(0x0202, ReleaseButton)
@@ -42,9 +44,11 @@ StartLauncher()
 
 ShowLauncherWindow(*)
 {
-    global LauncherGui
+    global LauncherGui, LauncherScale
     PrepareWindowDisplay(LauncherGui)
     LauncherGui.Show("w960 h716")
+    if LauncherScale != 100
+        ApplyLauncherScaleToWindow()
     RevealWindowDisplay(LauncherGui)
 }
 
