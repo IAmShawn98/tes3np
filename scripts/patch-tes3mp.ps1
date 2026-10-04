@@ -18,15 +18,18 @@ $journal = @()
 $changed = @()
 $rollbackReady = $false
 $logs = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'tes3np'
+$settingsFile = Join-Path $logs 'settings.ini'
+$skipMarkerless = $false
+if ([IO.File]::Exists($settingsFile)) {
+    $skipMarkerless = [IO.File]::ReadAllLines($settingsFile) | Where-Object { $_.Trim() -ieq 'CustomClientChoice=skip' } | Select-Object -First 1
+    $skipMarkerless = [bool]$skipMarkerless
+}
 
 function Replace-ExistingFile([string]$Source, [string]$Destination) {
-    # Windows PowerShell can marshal $null as an empty string for this overload.
-    # Use a real temporary backup path; persistent patch backups are separate.
     $replacementBackup = $Destination + '.tes3np-replace-' + [guid]::NewGuid().ToString('N')
     [IO.File]::Replace($Source, $Destination, $replacementBackup)
     try { [IO.File]::Delete($replacementBackup) } catch { }
 }
-
 function Write-AtomicText([string]$Path, [string]$Text, [Text.Encoding]$Encoding = $utf8) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path)) | Out-Null
     $temporary = $Path + '.tmp'
@@ -54,7 +57,6 @@ function Canonical([string]$Path) {
     return $full.TrimEnd([char]92,[char]47)
 }
 function Ensure-PlainPath([string]$Path) {
-    # Prevent junction/symlink traversal into another installation.
     $node = Canonical $Path
     $root = [IO.Path]::GetPathRoot($node)
     while ($node) {
@@ -69,13 +71,10 @@ function Ensure-PlainPath([string]$Path) {
     }
 }
 function Assert-GameClosed {
-    if (Get-Process -Name 'tes3mp','openmw','openmw-launcher','tes3mp-browser' -ErrorAction SilentlyContinue) {
-        throw 'Close TES3MP, its terminal, and the OpenMW launcher before continuing.'
-    }
+    if (Get-Process -Name 'tes3mp','openmw','openmw-launcher','tes3mp-browser' -ErrorAction SilentlyContinue) { throw 'Close TES3MP, its terminal, and the OpenMW launcher before continuing.' }
 }
 function Make-Config([string]$Original) {
     $lines = @($Original -split '\r?\n')
-    # TES3MP 0.8.1 uses a simple user configuration. Do not guess config chains.
     if ($lines | Where-Object { $_ -match '^\s*config\s*=' }) { throw 'This configuration redirects to other configuration folders. Select the active user openmw.cfg instead.' }
     $kept = @($lines | Where-Object { $_ -notmatch '^\s*content\s*=\s*"?NP Expansion Pack\.esp"?\s*$' })
     $data = Join-Path $MorrowindFolder 'Data Files'
@@ -86,11 +85,9 @@ function Make-Config([string]$Original) {
             try { if ((Canonical $value) -ieq (Canonical $data)) { $hasData = $true } } catch { }
         }
     }
-    # A fresh configuration needs the three official masters. Existing orders stay intact.
     $contents = @($kept | Where-Object { $_ -match '^\s*content\s*=' })
-    if ($contents.Count -eq 0) {
-        $kept += 'content=Morrowind.esm','content=Tribunal.esm','content=Bloodmoon.esm'
-    } else {
+    if ($contents.Count -eq 0) { $kept += 'content=Morrowind.esm','content=Tribunal.esm','content=Bloodmoon.esm' }
+    else {
         foreach ($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')) {
             $pattern = '^\s*content\s*=\s*"?' + [regex]::Escape($master) + '"?\s*$'
             if (-not ($kept | Where-Object { $_ -match $pattern })) { throw 'Existing load order is missing an official master. Configure Morrowind, Tribunal and Bloodmoon first.' }
@@ -117,7 +114,7 @@ function Copy-Verified([string]$Source, [string]$Target, [string]$Expected) {
 try {
     [IO.Directory]::CreateDirectory($JobFolder) | Out-Null
     Progress 'Checking installation' 0
-    Log-Event ("$Action started.")
+    Log-Event ("$Action started. Markerless skip: $skipMarkerless")
     $TesFolder = Canonical $TesFolder
     $MorrowindFolder = Canonical $MorrowindFolder
     $ConfigFile = [IO.Path]::GetFullPath($ConfigFile)
@@ -131,165 +128,107 @@ try {
     if ([IO.Path]::GetFileName($ConfigFile) -ine 'openmw.cfg') { throw 'Select an openmw.cfg configuration file.' }
 
     if ($Action -eq 'Restore') {
-        $field = 'Restore backup'
-        $fileLabel = 'journal.json'
-        Progress 'Checking backup' 5
+        $field = 'Restore backup'; $fileLabel = 'journal.json'; Progress 'Checking backup' 5
         $backupJournal = Join-Path $RestoreFolder 'journal.json'
         if (-not [IO.File]::Exists($backupJournal)) { throw 'The patch backup was not found.' }
         $saved = Get-Content -LiteralPath $backupJournal -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($saved.Completed -ne $true -or $saved.Restored -eq $true -or (Canonical $saved.TesFolder) -ine $TesFolder -or (Canonical $saved.MorrowindFolder) -ine $MorrowindFolder -or (Canonical $saved.ConfigFile) -ine $ConfigFile) {
-            throw 'This backup does not match the selected installation or has already been restored.'
-        }
+        if ($saved.Completed -ne $true -or $saved.Restored -eq $true -or (Canonical $saved.TesFolder) -ine $TesFolder -or (Canonical $saved.MorrowindFolder) -ine $MorrowindFolder -or (Canonical $saved.ConfigFile) -ine $ConfigFile) { throw 'This backup does not match the selected installation or has already been restored.' }
         foreach ($item in $saved.Files) {
-            $fileLabel = [IO.Path]::GetFileName($item.Target)
-            Ensure-PlainPath $item.Target
+            $fileLabel = [IO.Path]::GetFileName($item.Target); Ensure-PlainPath $item.Target
             if (-not [IO.File]::Exists($item.Target) -or (Hash $item.Target) -ne $item.InstalledHash) { throw 'Files have changed since this patch. Restore was stopped to preserve your changes.' }
             if ($item.Existed -and (-not [IO.File]::Exists($item.Backup) -or (Hash $item.Backup) -ne $item.OriginalHash)) { throw 'A backup file is missing or damaged.' }
         }
         $i = 0
         foreach ($item in $saved.Files) {
-            # A failed restore can itself be rolled back to the patched state.
-            $backup = Join-Path $JobFolder ('rollback\' + $i)
-            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
+            $backup = Join-Path $JobFolder ('rollback\' + $i); [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
             [IO.File]::Copy($item.Target,$backup,$false)
-            $journal += [pscustomobject]@{Target=$item.Target;Existed=$true;Backup=$backup;OriginalHash=$item.InstalledHash;InstalledHash=$item.OriginalHash}
-            $i++
+            $journal += [pscustomobject]@{Target=$item.Target;Existed=$true;Backup=$backup;OriginalHash=$item.InstalledHash;InstalledHash=$item.OriginalHash}; $i++
         }
-        $rollbackReady = $true
-        $i = 0
+        $rollbackReady = $true; $i = 0
         foreach ($item in $saved.Files) {
-            $fileLabel = [IO.Path]::GetFileName($item.Target)
-            Assert-GameClosed
+            $fileLabel = [IO.Path]::GetFileName($item.Target); Assert-GameClosed
             Progress ('Restoring ' + [IO.Path]::GetFileName($item.Target)) ([int](10 + 85 * $i / [Math]::Max(1,$saved.Files.Count)))
             $changed += $journal[$i]
-            if ($item.Existed) { Copy-Verified $item.Backup $item.Target $item.OriginalHash }
-            else { [IO.File]::Delete($item.Target) }
-            Log-Event ('Restored managed file ' + ($i + 1) + '.')
-            $i++
+            if ($item.Existed) { Copy-Verified $item.Backup $item.Target $item.OriginalHash } else { [IO.File]::Delete($item.Target) }
+            Log-Event ('Restored managed file ' + ($i + 1) + '.'); $i++
         }
-        $saved.Restored = $true
-        Write-AtomicText $backupJournal ($saved | ConvertTo-Json -Depth 6)
-        Progress 'Restore complete' 100
-        Result 'success' 'Previous files restored. Patch again before using NP launch features.' $saved.PreviousBackup
-        Log-Event 'Restore completed.'
-        exit 0
+        $saved.Restored = $true; Write-AtomicText $backupJournal ($saved | ConvertTo-Json -Depth 6)
+        Progress 'Restore complete' 100; Result 'success' 'Previous files restored. Patch again before using NP launch features.' $saved.PreviousBackup; Log-Event 'Restore completed.'; exit 0
     }
 
-    $field = 'Morrowind folder'
-    Progress 'Checking Morrowind game files' 5
+    $field = 'Morrowind folder'; Progress 'Checking Morrowind game files' 5
     foreach ($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')) {
         $fileLabel = 'Data Files/' + $master
         if (-not [IO.File]::Exists((Join-Path $MorrowindFolder ('Data Files\' + $master)))) { throw ('Required official master is missing: ' + $master + '. Choose the Morrowind GOTY installation folder.') }
     }
     Ensure-PlainPath (Join-Path $MorrowindFolder 'Data Files')
-    $field = 'TES3MP folder'
-    $fileLabel = 'openmw.cfg'
+    $field = 'TES3MP folder'; $fileLabel = 'openmw.cfg'
     if (-not [IO.File]::Exists((Join-Path $TesFolder 'openmw.cfg'))) { throw 'This TES3MP installation is missing its bundled openmw.cfg. Extract a complete TES3MP client first.' }
-    $fileLabel = 'tes3mp.exe'
-    $binary = [IO.File]::ReadAllBytes($executable)
-    $offset = [BitConverter]::ToInt32($binary,60)
-    if ($offset -lt 64 -or ($offset + 6) -gt $binary.Length -or [BitConverter]::ToUInt16($binary,$offset+4) -ne 0x8664 -or [Text.Encoding]::ASCII.GetString($binary) -notmatch 'Your client is on version 0\.8\.1') {
-        throw 'These bundled patches require TES3MP 0.8.1 for 64-bit Windows.'
-    }
+    $fileLabel = 'tes3mp.exe'; $binary = [IO.File]::ReadAllBytes($executable); $offset = [BitConverter]::ToInt32($binary,60)
+    if ($offset -lt 64 -or ($offset + 6) -gt $binary.Length -or [BitConverter]::ToUInt16($binary,$offset+4) -ne 0x8664 -or [Text.Encoding]::ASCII.GetString($binary) -notmatch 'Your client is on version 0\.8\.1') { throw 'These bundled patches require TES3MP 0.8.1 for 64-bit Windows.' }
     Progress 'Verifying bundled patch files' 10
-    $field = 'Bundled patches'
-    $fileLabel = 'patches/manifest.json'
+    $field = 'Bundled patches'; $fileLabel = 'patches/manifest.json'
     $manifest = Get-Content -LiteralPath (Join-Path $PayloadFolder 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $plan = @()
-    $i = 0
+    $plan = @(); $i = 0
     foreach ($file in $manifest.Files) {
-        $fileLabel = 'patches/' + $file.Path
-        $relative = $file.Path.Replace('/', '\')
+        $fileLabel = 'patches/' + $file.Path; $relative = $file.Path.Replace('/', '\')
         if ($relative -match '(^|\\)\.\.($|\\)|:' -or [IO.Path]::IsPathRooted($relative)) { throw 'Invalid bundled patch path.' }
-        $source = Join-Path $PayloadFolder $relative
-        Ensure-PlainPath $source
+        $source = Join-Path $PayloadFolder $relative; Ensure-PlainPath $source
         if (-not [IO.File]::Exists($source) -or (Hash $source) -ne $file.SHA256) { throw 'A bundled patch file is missing or damaged. Extract a fresh launcher ZIP.' }
-        if ($relative -eq 'markerless\tes3mp.exe') { $target = $executable }
+        if ($relative -eq 'markerless\tes3mp.exe') {
+            $target = $executable
+            if ($skipMarkerless) { $i++; Progress 'Keeping custom tes3mp.exe' ([int](10 + 20 * $i / $manifest.Files.Count)); continue }
+        }
         elseif ($relative.StartsWith('expansion-pack\Data Files\')) { $target = Join-Path $MorrowindFolder $relative.Substring('expansion-pack\'.Length) }
         elseif ($relative -eq 'expansion-pack\LICENSE.txt') { $target = Join-Path $TesFolder 'tes3np-NP-EP-LICENSE.txt' }
         else { throw 'Unknown bundled patch file.' }
         Ensure-PlainPath $target
-        if ($Action -ne 'Verify' -or $relative -ne 'expansion-pack\LICENSE.txt') {
-            $plan += [pscustomobject]@{Source=$source;Target=$target;Hash=$file.SHA256}
-        }
-        $i++
-        Progress ('Checking ' + [IO.Path]::GetFileName($source)) ([int](10 + 20 * $i / $manifest.Files.Count))
+        if ($Action -ne 'Verify' -or $relative -ne 'expansion-pack\LICENSE.txt') { $plan += [pscustomobject]@{Source=$source;Target=$target;Hash=$file.SHA256} }
+        $i++; Progress ('Checking ' + [IO.Path]::GetFileName($source)) ([int](10 + 20 * $i / $manifest.Files.Count))
     }
-    $field = 'OpenMW configuration'
-    $fileLabel = 'openmw.cfg'
+    $field = 'OpenMW configuration'; $fileLabel = 'openmw.cfg'
     $originalConfig = if ([IO.File]::Exists($ConfigFile)) { [IO.File]::ReadAllText($ConfigFile) } else { '' }
-    $configuration = Make-Config $originalConfig
-    $stagedConfig = Join-Path $JobFolder 'prepared-openmw.cfg'
-    if ($configuration.AlreadyGood) { [IO.File]::Copy($ConfigFile,$stagedConfig,$true) }
-    else { [IO.File]::WriteAllText($stagedConfig,$configuration.Text,$utf8) }
+    $configuration = Make-Config $originalConfig; $stagedConfig = Join-Path $JobFolder 'prepared-openmw.cfg'
+    if ($configuration.AlreadyGood) { [IO.File]::Copy($ConfigFile,$stagedConfig,$true) } else { [IO.File]::WriteAllText($stagedConfig,$configuration.Text,$utf8) }
     $plan += [pscustomobject]@{Source=$stagedConfig;Target=$ConfigFile;Hash=(Hash $stagedConfig)}
     $needed = @($plan | Where-Object { -not [IO.File]::Exists($_.Target) -or (Hash $_.Target) -ne $_.Hash })
     if ($Action -eq 'Verify') {
         if ($needed.Count) {
-            $fileLabel = [IO.Path]::GetFileName($needed[0].Target)
-            $field = 'Installed files / configuration'
+            $fileLabel = [IO.Path]::GetFileName($needed[0].Target); $field = 'Installed files / configuration'
             Log-Event ('Setup needed: verification found ' + $needed.Count + ' missing or different managed file(s). First mismatch: ' + $fileLabel + '.')
             Progress 'Setup needed' 100
-            Result 'needs_setup' 'This copy of TES3MP needs the Nerevarine Prophecies patches. Click Install / Repair to install or update the required files. Your game has not been changed by this check.' $PreviousBackup
-            exit 0
+            Result 'needs_setup' 'This copy of TES3MP needs the Nerevarine Prophecies patches. Click Install / Repair to install or update the required files. Your game has not been changed by this check.' $PreviousBackup; exit 0
         }
         Progress 'Verification complete' 100
-        Result 'success' 'Markerless client, EP files and plugin load order verified.' $PreviousBackup
-        Log-Event 'Verification completed.'
-        exit 0
+        $verifiedMessage = if ($skipMarkerless) { 'Custom TES3MP client preserved; EP files and plugin load order verified.' } else { 'Markerless client, EP files and plugin load order verified.' }
+        Result 'success' $verifiedMessage $PreviousBackup; Log-Event 'Verification completed.'; exit 0
     }
     if (-not $needed.Count) {
         Progress 'Already installed and verified' 100
-        Result 'success' 'Already installed. All patch files and EP configuration verified.' $PreviousBackup
-        Log-Event 'No file changes needed; verification completed.'
-        exit 0
+        $alreadyMessage = if ($skipMarkerless) { 'Already installed. Custom tes3mp.exe preserved; EP files and configuration verified.' } else { 'Already installed. All patch files and EP configuration verified.' }
+        Result 'success' $alreadyMessage $PreviousBackup; Log-Event 'No file changes needed; verification completed.'; exit 0
     }
-    Progress 'Backing up files before changes' 35
-    $i = 0
+    Progress 'Backing up files before changes' 35; $i = 0
     foreach ($item in $needed) {
-        $field = 'Backup storage'
-        $fileLabel = [IO.Path]::GetFileName($item.Target)
-        $exists = [IO.File]::Exists($item.Target)
-        $backup = Join-Path $JobFolder ('backup\' + $i)
-        $originalHash = ''
-        if ($exists) {
-            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
-            [IO.File]::Copy($item.Target,$backup,$false)
-            $originalHash = Hash $item.Target
-            if ((Hash $backup) -ne $originalHash) { throw 'A backup file failed verification.' }
-        }
+        $field = 'Backup storage'; $fileLabel = [IO.Path]::GetFileName($item.Target); $exists = [IO.File]::Exists($item.Target); $backup = Join-Path $JobFolder ('backup\' + $i); $originalHash = ''
+        if ($exists) { [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null; [IO.File]::Copy($item.Target,$backup,$false); $originalHash = Hash $item.Target; if ((Hash $backup) -ne $originalHash) { throw 'A backup file failed verification.' } }
         Progress ('Backing up ' + [IO.Path]::GetFileName($item.Target)) ([int](30 + 10 * $i / $needed.Count))
-        $journal += [pscustomobject]@{Target=$item.Target;Existed=$exists;Backup=$backup;OriginalHash=$originalHash;InstalledHash=$item.Hash}
-        $i++
+        $journal += [pscustomobject]@{Target=$item.Target;Existed=$exists;Backup=$backup;OriginalHash=$originalHash;InstalledHash=$item.Hash}; $i++
     }
     $record = [pscustomobject]@{Completed=$false;Restored=$false;TesFolder=$TesFolder;MorrowindFolder=$MorrowindFolder;ConfigFile=$ConfigFile;PreviousBackup=$PreviousBackup;Files=$journal}
-    Write-AtomicText (Join-Path $JobFolder 'journal.json') ($record | ConvertTo-Json -Depth 6)
-    $rollbackReady = $true
-    $i = 0
+    Write-AtomicText (Join-Path $JobFolder 'journal.json') ($record | ConvertTo-Json -Depth 6); $rollbackReady = $true; $i = 0
     foreach ($item in $needed) {
-        $field = 'Installation destination'
-        $fileLabel = [IO.Path]::GetFileName($item.Target)
-        Assert-GameClosed
-        Progress ('Patching ' + [IO.Path]::GetFileName($item.Target)) ([int](40 + 50 * $i / $needed.Count))
-        $changed += $journal[$i]
-        Copy-Verified $item.Source $item.Target $item.Hash
-        Log-Event ('Installed managed file ' + ($i + 1) + '.')
-        $i++
+        $field = 'Installation destination'; $fileLabel = [IO.Path]::GetFileName($item.Target); Assert-GameClosed
+        Progress ('Patching ' + [IO.Path]::GetFileName($item.Target)) ([int](40 + 50 * $i / $needed.Count)); $changed += $journal[$i]
+        Copy-Verified $item.Source $item.Target $item.Hash; Log-Event ('Installed managed file ' + ($i + 1) + '.'); $i++
     }
     Progress 'Verifying installed files and load order' 95
     foreach ($item in $plan) { $fileLabel = [IO.Path]::GetFileName($item.Target); if ((Hash $item.Target) -ne $item.Hash) { throw 'Installed file verification failed.' } }
-    $record.Completed = $true
-    Write-AtomicText (Join-Path $JobFolder 'journal.json') ($record | ConvertTo-Json -Depth 6)
-    Progress 'Setup complete' 100
-    Result 'success' 'Markerless client and NP Expansion Pack installed and verified. Direct connect is ready through tes3np.' $JobFolder
-    Log-Event 'Setup completed.'
-    exit 0
+    $record.Completed = $true; Write-AtomicText (Join-Path $JobFolder 'journal.json') ($record | ConvertTo-Json -Depth 6); Progress 'Setup complete' 100
+    $successMessage = if ($skipMarkerless) { 'Custom tes3mp.exe preserved. NP Expansion Pack installed and verified. Direct connect is ready through tes3np.' } else { 'Markerless client and NP Expansion Pack installed and verified. Direct connect is ready through tes3np.' }
+    Result 'success' $successMessage $JobFolder; Log-Event 'Setup completed.'; exit 0
 } catch {
-    $baseError = $_.Exception.GetBaseException()
-    $reason = $baseError.Message
-    $errorType = $baseError.GetType().FullName
-    $hresult = $baseError.HResult.ToString('X8')
-    $win32 = $baseError.HResult -band 0xFFFF
+    $baseError = $_.Exception.GetBaseException(); $reason = $baseError.Message; $errorType = $baseError.GetType().FullName; $hresult = $baseError.HResult.ToString('X8'); $win32 = $baseError.HResult -band 0xFFFF
     if ($hresult.StartsWith('8007')) {
         switch ($win32) {
             5 { $reason = 'Access denied. Check write permissions for this location.' }
@@ -301,27 +240,16 @@ try {
             3 { $reason = 'The required folder/path was not found.' }
         }
     }
-    # Retain cause/type/codes without exposing personal installation paths.
-    $reason = [regex]::Replace($reason, '"[A-Za-z]:\\[^"\r\n]*"', '[path omitted]')
-    $reason = [regex]::Replace($reason, '[A-Za-z]:\\[^\r\n]+', '[path omitted]')
-    $reason = [regex]::Replace($reason, '\\\\[^\r\n]+', '[network path omitted]')
-    $reason = ($reason -replace '[\r\n]+',' ').Trim()
-    $failureLine = $_.InvocationInfo.ScriptLineNumber
-    $failureFunction = ($_.ScriptStackTrace -split "`r?`n")[0] -replace ", .*: line", ": line"
+    $reason = [regex]::Replace($reason, '"[A-Za-z]:\\[^"\r\n]*"', '[path omitted]'); $reason = [regex]::Replace($reason, '[A-Za-z]:\\[^\r\n]+', '[path omitted]'); $reason = [regex]::Replace($reason, '\\\\[^\r\n]+', '[network path omitted]'); $reason = ($reason -replace '[\r\n]+',' ').Trim()
+    $failureLine = $_.InvocationInfo.ScriptLineNumber; $failureFunction = ($_.ScriptStackTrace -split "`r?`n")[0] -replace ", .*: line", ": line"
     $message = "Source line: $failureLine | Function: $failureFunction | Step: $stage | Field: $field | File: $fileLabel | Reason: $reason | Error type: $errorType | HRESULT: 0x$hresult"
     if ($hresult.StartsWith('8007')) { $message += " | Win32: $win32" }
     $rollbackFailed = $false
     if ($rollbackReady) {
         foreach ($item in @($changed | Select-Object -Last 10000)) {
-            try {
-                if ($item.Existed) { Copy-Verified $item.Backup $item.Target $item.OriginalHash }
-                elseif ([IO.File]::Exists($item.Target)) { [IO.File]::Delete($item.Target) }
-            } catch { $rollbackFailed = $true }
+            try { if ($item.Existed) { Copy-Verified $item.Backup $item.Target $item.OriginalHash } elseif ([IO.File]::Exists($item.Target)) { [IO.File]::Delete($item.Target) } } catch { $rollbackFailed = $true }
         }
-        if ($rollbackFailed) { $message += ' Automatic rollback could not restore every file; keep the patch backup for recovery.' }
-        else { $message += ' Changes from this attempt were rolled back.' }
+        if ($rollbackFailed) { $message += ' Automatic rollback could not restore every file; keep the patch backup for recovery.' } else { $message += ' Changes from this attempt were rolled back.' }
     }
-    Log-Event ($message) $true
-    Result 'error' $message
-    exit 1
+    Log-Event ($message) $true; Result 'error' $message; exit 1
 }
