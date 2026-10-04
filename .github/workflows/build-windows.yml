@@ -30,3 +30,30 @@ jobs:
           name: tes3np-windows
           path: dist/tes3np-windows.zip
           if-no-files-found: error
+      - name: Publish latest public test build
+        if: github.ref == 'refs/heads/main'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
+          $repo = 'IAmShawn98/tes3np-releases'
+          $tag = 'latest-alpha'
+          $asset = 'dist/tes3np-windows.zip'
+          $notes = @"
+          Automated tes3np development build from the private source repository.
+
+          Version: v0.1.0-alpha
+          Source revision: $env:GITHUB_SHA
+
+          This is development software intended for testing. Extract the ZIP completely and run tes3np.exe from the included tes3np folder.
+          "@
+          gh release view $tag --repo $repo *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.0-alpha - Latest Test Build' --notes $notes --prerelease
+          }
+          else {
+            gh release upload $tag $asset --repo $repo --clobber
+            gh release edit $tag --repo $repo --title 'tes3np v0.1.0-alpha - Latest Test Build' --notes $notes --prerelease
+          }
