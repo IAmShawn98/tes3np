@@ -39,6 +39,9 @@ jobs:
       - name: Generate and verify update metadata
         shell: pwsh
         run: ./scripts/generate-update-metadata.ps1
+      - name: Test updater metadata failure handling
+        shell: pwsh
+        run: ./scripts/test-update-metadata.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: tes3np-windows
