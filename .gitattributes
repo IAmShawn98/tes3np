@@ -1,0 +1,15 @@
+* text=auto
+*.ahk text eol=crlf
+*.ps1 text eol=crlf
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.png binary
+*.ico binary
+*.exe binary
+*.tga binary
+*.dds binary
+*.nif binary
+*.esp binary
+*.zip binary
