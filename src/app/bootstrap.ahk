@@ -3,16 +3,17 @@
 StartLauncher()
 {
     global LauncherGui, HoverTimer, SetupComplete, DataFile
+    LogLauncherEvent("Launcher startup beginning.")
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
         "headings\together.png", "controls\button.png", "backgrounds\character-book.png", "icons\tes3np.ico"]
     {
         if !FileExist(A_ScriptDir "\assets\" asset)
         {
+            LogLauncherEvent("Startup failed: missing asset " asset)
             MsgBox("A required asset is missing: " asset "`nExtract the entire ZIP before running tes3np.", "tes3np")
             ExitApp()
         }
     }
-
     A_TrayMenu.Add("Open Launcher", ShowLauncherWindow)
     A_TrayMenu.Default := "Open Launcher"
     A_TrayMenu.Add("Stop game recovery", StopClient)
@@ -43,6 +44,7 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
     FinishLauncherStartup()
+    LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
 ShowLauncherWindow(*)
@@ -110,6 +112,7 @@ SetWindowIcons()
 CleanupLauncher(*)
 {
     global LauncherGui, HoverTimer, IconHandles, CharacterPage
+    LogLauncherEvent("Launcher shutting down.")
     StopClient()
     CleanupMacros()
     CleanupPatcher()
