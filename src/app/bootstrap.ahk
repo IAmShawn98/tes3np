@@ -2,7 +2,7 @@
 
 StartLauncher()
 {
-    global LauncherGui, HoverTimer
+    global LauncherGui, HoverTimer, SetupComplete, DataFile
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
         "headings\together.png", "controls\button.png", "backgrounds\character-book.png", "icons\tes3np.ico"]
     {
@@ -21,6 +21,9 @@ StartLauncher()
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
+    ; Startup only reads tes3np's saved setup state. File detection/verification happens
+    ; exclusively when the user explicitly starts Install / Repair or Verify.
+    SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
@@ -33,8 +36,7 @@ StartLauncher()
     global SelectedProfile, Profiles
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
-    CheckModifiedClientFirstRun()
-    BeginStartupPatchCheck()
+    FinishLauncherStartup()
 }
 
 ShowLauncherWindow(*)
