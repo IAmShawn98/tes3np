@@ -66,15 +66,29 @@ OpenLauncherSettings(*)
 
     apply := settings.Add("Button", "x20 y318 w158 h34 Default", "Preview & Apply")
     cancel := settings.Add("Button", "x192 y318 w158 h34", "Cancel")
+    reset := settings.Add("Button", "x20 y362 w330 h34", "Reset Display & Accessibility")
     apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox))
     cancel.OnEvent("Click", (*) => settings.Destroy())
+    reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox))
     settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h372")
+    settings.Show("w370 h416")
 }
 
 ScaleChoiceIndex(scale)
 {
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
+}
+
+ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMotionBox, *)
+{
+    result := MsgBox("Reset display and accessibility settings to their defaults?`n`nLauncher size: Automatic`nInterface text: Normal`nEnhanced readability: Off`nReduce motion: Off", "tes3np — Reset Display & Accessibility", "YesNo Icon?")
+    if result != "Yes"
+        return
+    scaleList.Choose(1)
+    textList.Choose(1)
+    readability.Value := 0
+    reduceMotionBox.Value := 0
+    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox)
 }
 
 PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, *)
