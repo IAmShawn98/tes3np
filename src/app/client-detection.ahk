@@ -1,20 +1,22 @@
-﻿; TES3MP client detection.
+﻿; TES3MP client detection. This is only run from explicit patch/verify actions.
 ; The stock hash is from an untouched TES3MP 0.8.1 Win64 tes3mp.exe.
 
-CheckModifiedClientFirstRun()
+CheckModifiedClientForPatch(tesFolder)
 {
     global DataFile
-
-    tesFolder := FindTES3MPFolder()
     executable := tesFolder != "" ? tesFolder "\tes3mp.exe" : ""
     if executable = "" || !FileExist(executable)
-        return
+        return true
 
     stockHash := "b885c89ac370748a8d15ed6eed8583a953c1593f69e19916db8c904e6da1a550"
     markerlessHash := BundledMarkerlessHash()
     installedHash := SHA256File(executable)
     if installedHash = "" || installedHash = stockHash || (markerlessHash != "" && installedHash = markerlessHash)
-        return
+    {
+        ; A normal client should not inherit an earlier custom-client skip choice.
+        try IniDelete(DataFile, "Patch", "CustomClientChoice")
+        return true
+    }
 
     message := "It looks like you're using a custom patch of TES3MP.`n`n"
         . "Would you like the patcher to overwrite your custom tes3mp.exe with the Markerless build, or would you like us to skip it instead?`n`n"
@@ -23,12 +25,11 @@ CheckModifiedClientFirstRun()
     answer := MsgBox(message, "Custom TES3MP Patch Detected", "YesNo Icon?")
     choice := answer = "Yes" ? "overwrite" : "skip"
     DirCreate(AppDataDirectory)
-    ; Store the answer for this launch so the patcher knows what to do. Startup no longer
-    ; treats this value as a reason to suppress the prompt on future launches.
+    ; This value controls only the patch/verify operation being started. Detection runs again
+    ; the next time the user explicitly starts Install / Repair or Verify.
     IniWrite(choice, DataFile, "Patch", "CustomClientChoice")
     try IniDelete(DataFile, "Patch", "ModifiedClientPrompt")
-    if answer = "Yes"
-        OpenPatcher()
+    return true
 }
 
 ShouldSkipMarkerless()
