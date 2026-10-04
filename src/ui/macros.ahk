@@ -1,4 +1,4 @@
-﻿; Local macro packages. Import extracts files; only Run executes a chosen script.
+; Local macro packages. Import extracts files; only Run executes a chosen script.
 
 OpenMacros(*)
 {
@@ -288,8 +288,8 @@ RunSelectedMacro(*)
     if ReadMacroBindings(macro).Length && !MacroBindingsReady(macro)
         if !ShowMacroBindings(macro)
             return
-    interpreter := A_AhkPath
-    if A_IsCompiled || !FileExist(interpreter)
+    interpreter := A_IsCompiled ? A_ScriptDir "\runtime\AutoHotkey64.exe" : A_AhkPath
+    if !FileExist(interpreter)
     {
         interpreter := FileSelect(1, , "Choose AutoHotkey executable for this macro", "AutoHotkey (*.exe)")
         if interpreter = ""
