@@ -30,8 +30,7 @@ AddStyledButton(gui, x, y, width, height, text, action)
     gui.SetFont("s10 Bold", "Segoe UI")
     button := gui.Add("Custom", "ClassButton x" x " y" y " w" width " h" height " +0xB +Tabstop", text)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
-    ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action,
-        Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal"}
+    ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action, Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal"}
     AttachButtonPainter(button.Hwnd)
     return button
 }
@@ -40,8 +39,7 @@ AddBookLabel(gui, x, y, width, height, text)
 {
     global ButtonFaces
     label := gui.Add("Text", "x" x " y" y " w" width " h" height, text)
-    ButtonFaces[label.Hwnd] := {Control: label, Label: label, Action: 0, IsLabel: true,
-        Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal"}
+    ButtonFaces[label.Hwnd] := {Control: label, Label: label, Action: 0, IsLabel: true, Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal"}
     AttachButtonPainter(label.Hwnd)
     return label
 }
@@ -71,7 +69,7 @@ ShowButtonFace(handle)
         return
     face := ButtonFaces[handle]
     focused := DllCall("GetFocus", "Ptr") = handle
-    state := PressedButton && HoverButton && ButtonFaces[PressedButton] = face && ButtonFaces[HoverButton] = face ? "down" : HoverButton && ButtonFaces[HoverButton] = face ? "hover" : focused ? "focus" : "normal"
+    state := PressedButton && HoverButton && ButtonFaces[PressedButton] = face && ButtonFaces[HoverButton] = face ? "down" : (HoverButton && ButtonFaces[HoverButton] = face) || focused ? "hover" : "normal"
     if face.State = state
         return
     face.State := state
@@ -108,8 +106,7 @@ UpdateButtonHover()
             if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || window != face.Window || !button.Visible || !button.Enabled
                 continue
             DllCall("GetWindowRect", "Ptr", button.Hwnd, "Ptr", rect)
-            if x >= NumGet(rect, 0, "Int") && x < NumGet(rect, 8, "Int")
-                && y >= NumGet(rect, 4, "Int") && y < NumGet(rect, 12, "Int")
+            if x >= NumGet(rect, 0, "Int") && x < NumGet(rect, 8, "Int") && y >= NumGet(rect, 4, "Int") && y < NumGet(rect, 12, "Int")
             {
                 nextHover := button.Hwnd
                 break
@@ -152,7 +149,6 @@ ReleaseButton(wParam, lParam, msg, hwnd)
     if !PressedButton
         return
     handle := PressedButton
-    face := ButtonFaces[handle]
     x := (lParam & 0xFFFF) << 48 >> 48
     y := ((lParam >> 16) & 0xFFFF) << 48 >> 48
     GuiCtrlFromHwnd(handle).GetPos(, , &width, &height)
