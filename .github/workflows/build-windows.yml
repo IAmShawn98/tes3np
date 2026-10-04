@@ -34,10 +34,11 @@ jobs:
           if-no-files-found: error
       - name: Publish latest public test build
         if: github.ref == 'refs/heads/main'
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
         run: |
+          $ErrorActionPreference = 'Stop'
           if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
           $repo = 'IAmShawn98/tes3np-releases'
           $tag = 'latest-alpha'
@@ -52,8 +53,11 @@ jobs:
           "@
 
           $releaseExists = $false
-          gh release view $tag --repo $repo 2>$null | Out-Null
+          $oldNativePreference = $PSNativeCommandUseErrorActionPreference
+          $PSNativeCommandUseErrorActionPreference = $false
+          gh release view $tag --repo $repo *> $null
           if ($LASTEXITCODE -eq 0) { $releaseExists = $true }
+          $PSNativeCommandUseErrorActionPreference = $oldNativePreference
 
           if ($releaseExists) {
             gh release upload $tag $asset --repo $repo --clobber
