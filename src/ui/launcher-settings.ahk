@@ -67,7 +67,7 @@ OpenLauncherSettings(*)
     apply := settings.Add("Button", "x20 y318 w158 h34 Default", "Preview & Apply")
     cancel := settings.Add("Button", "x192 y318 w158 h34", "Cancel")
     reset := settings.Add("Button", "x20 y362 w330 h34", "Reset Display & Accessibility")
-    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox))
+    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, "Applying display & accessibility..."))
     cancel.OnEvent("Click", (*) => settings.Destroy())
     reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox))
     settings.OnEvent("Escape", (*) => settings.Destroy())
@@ -91,7 +91,7 @@ ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMoti
     PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, "Resetting display & accessibility...")
 }
 
-PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, loadingMessage := "Applying display & accessibility...", *)
+PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, loadingMessage, *)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion
     oldScale := LauncherScale
