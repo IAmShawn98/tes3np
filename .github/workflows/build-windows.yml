@@ -1,0 +1,29 @@
+name: Build Windows launcher
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate complete source and payload
+        run: python scripts/project.py check
+      - name: Parse PowerShell helpers
+        shell: powershell
+        run: ./scripts/check-powershell.ps1
+      - name: Compile launcher with custom icon and package
+        shell: powershell
+        run: ./scripts/build-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tes3np-windows
+          path: dist/tes3np-windows.zip
+          if-no-files-found: error
