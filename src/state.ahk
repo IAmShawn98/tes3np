@@ -39,7 +39,7 @@ global PatchFrame := 0
 global SetupComplete := false
 
 ; Shared defaults; saved profile keys and runtime phase names remain compatible.
-global AppConfig := {Version: "0.1.0-alpha", Server: "NerevarineProphecies.servegame.com:25565",
+global AppConfig := {Version: "0.1.1-alpha", Server: "NerevarineProphecies.servegame.com:25565",
     Wiki: "https://wiki.nerevarineprophecies.com/Main_Page", UsernameDelay: 20,
     PasswordDelay: 3, LoadDelay: 20, WatchdogMs: 1000, TooltipMs: 100,
     GameWindowWaitMs: 30000, RetryMs: 5000, ClaimWaitMs: 10000}
