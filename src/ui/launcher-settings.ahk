@@ -130,33 +130,51 @@ AccessibilityFontSize(baseSize)
     return Round(baseSize * multiplier)
 }
 
+AccessibilityButtonScale()
+{
+    global AccessibilityTextSize
+    return AccessibilityTextSize = "Extra Large" ? 1.38 : AccessibilityTextSize = "Large" ? 1.20 : 1.0
+}
+
 ApplyAccessibilityTextSize()
 {
     global LauncherGui, ButtonFaces
     if !IsObject(LauncherGui)
         return
 
-    ; Changing HFONT on a custom-painted control can invalidate it while its parent
-    ; is also being resized/revealed. Suppress intermediate parent painting, update
-    ; every font, then explicitly paint every themed button before revealing once.
-    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0) ; WM_SETREDRAW false
+    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
+        buttonScale := AccessibilityButtonScale()
         for handle, face in ButtonFaces
         {
             if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
                 continue
+
             size := AccessibilityFontSize(10)
             face.Control.SetFont("s" size " Bold", "Segoe UI")
+
+            if face.HasOwnProp("BaseWidth")
+            {
+                newWidth := Round(face.BaseWidth * buttonScale)
+                newHeight := Round(face.BaseHeight * (buttonScale > 1 ? Min(buttonScale, 1.22) : 1))
+                newX := face.BaseX - ((newWidth - face.BaseWidth) // 2)
+
+                ; Keep controls inside the 960px launcher canvas. This is especially
+                ; important for the two bottom-right buttons.
+                if newX < 6
+                    newX := 6
+                if newX + newWidth > 954
+                    newX := 954 - newWidth
+                face.Control.Move(newX, , newWidth, newHeight)
+            }
         }
     }
     finally
     {
-        DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW true
+        DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     }
 
-    ; Force one complete synchronous repaint. The hover timer should never be needed
-    ; to repair a missing button after an accessibility setting changes.
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }
@@ -167,8 +185,6 @@ GetAutomaticLauncherScale()
     MouseGetPos(&mouseX, &mouseY)
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    ; AHK's GUI dimensions are logical pixels and Windows applies the current DPI
-    ; scale when the window is shown. Compare against that real on-screen size.
     dpiFactor := A_ScreenDPI / 96
     requiredWidth := LauncherBaseWidth * dpiFactor
     requiredHeight := LauncherBaseHeight * dpiFactor
@@ -209,9 +225,6 @@ ApplyLauncherScaleToWindow(center := false)
     if LauncherScaleMode = "Auto"
         LauncherScale := GetAutomaticLauncherScale()
 
-    ; 100% must be restored through Gui.Show(), not a raw SetWindowPos size.
-    ; Gui.Show uses AHK's DPI-aware logical coordinates; SetWindowPos uses physical
-    ; pixels and was the reason a 100% restore clipped the right/bottom of the UI.
     if LauncherScale = 100
     {
         LauncherGui.Show("w" LauncherBaseWidth " h" LauncherBaseHeight)
@@ -220,8 +233,6 @@ ApplyLauncherScaleToWindow(center := false)
         return
     }
 
-    ; Reduced-size preview remains intentionally temporary until the user confirms it.
-    ; Account for Windows DPI when converting logical launcher dimensions to pixels.
     dpiFactor := A_ScreenDPI / 96
     scale := LauncherScale / 100
     width := Round(LauncherBaseWidth * dpiFactor * scale)
