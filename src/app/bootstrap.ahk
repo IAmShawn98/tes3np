@@ -33,6 +33,7 @@ StartLauncher()
     global SelectedProfile, Profiles
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
+    CheckModifiedClientFirstRun()
     BeginStartupPatchCheck()
 }
 
