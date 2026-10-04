@@ -45,12 +45,10 @@ InitButtonPainter()
         DllCall("FreeLibrary", "Ptr", module)
         throw Error("Could not initialize the graphics library.")
     }
-    artwork := 0, parchment := 0
+    artwork := 0, parchment := 0, book := 0, background := 0, quest := 0, together := 0
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\controls\button.png", "Ptr*", &artwork)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\controls\scroll-panel.png", "Ptr*", &parchment)
-    book := 0
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\backgrounds\character-book.png", "Ptr*", &book)
-    background := 0, quest := 0, together := 0
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\backgrounds\launcher.png", "Ptr*", &background)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\quest.png", "Ptr*", &quest)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\together.png", "Ptr*", &together)
@@ -106,19 +104,11 @@ PaintButton(wParam, lParam, *)
                 DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height - 2, "Int", 44, "Int", 171, "Int", 2086, "Int", 390, "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
             else
                 DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height)
-
-            ; Enhanced readability keeps the original art but substantially darkens
-            ; the label plate. Hover/focus becomes deliberately brighter so keyboard
-            ; navigation is obvious without changing the Morrowind visual language.
-            if EnhancedReadability
-                overlay := face.State = "down" ? 0xE0100803 : face.State = "hover" ? 0xB06A4518 : 0xC0180C04
-            else
-                overlay := face.State = "down" ? 0xA02B190A : face.State = "hover" ? 0x802B190A : 0x602B190A
+            overlay := EnhancedReadability ? (face.State = "down" ? 0xE0100803 : face.State = "hover" ? 0xB06A4518 : 0xC0180C04) : (face.State = "down" ? 0xA02B190A : face.State = "hover" ? 0x802B190A : 0x602B190A)
             brush := 0
             DllCall("gdiplus\GdipCreateSolidFill", "UInt", overlay, "Ptr*", &brush)
             DllCall("gdiplus\GdipFillRectangleI", "Ptr", graphics, "Ptr", brush, "Int", face.Book ? 1 : Round(5 * scale), "Int", (face.Book ? 1 : Round(12 * scale)) + shift, "Int", face.Book ? width - 2 : Round(210 * scale), "Int", face.Book ? height - 4 : Round(24 * scale))
             DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
-
             if EnhancedReadability && face.State = "hover"
             {
                 pen := 0
@@ -217,16 +207,12 @@ DisposeButtonPainter(*)
                 DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", ButtonPaintCallback, "UPtr", 1)
         CallbackFree(ButtonPaintCallback)
     }
-    DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.Artwork)
-    DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.Parchment)
-    DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.Book)
-    DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.Background)
+    for image in [ButtonPaint.Artwork, ButtonPaint.Parchment, ButtonPaint.Book, ButtonPaint.Background]
+        DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
     for heading in ButtonPaint.Headings
         DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.Headings[heading])
     DllCall("gdiplus\GdiplusShutdown", "Ptr", ButtonPaint.Token)
-    ButtonPaint.Token := 0
     DllCall("FreeLibrary", "Ptr", ButtonPaint.Module)
-    ButtonPaint.Module := 0
 }
 
 PaintLoadingPanel(handle, target, width, height)
@@ -268,24 +254,56 @@ FillLoadingRect(dc, left, top, right, bottom, color)
     DllCall("DeleteObject", "Ptr", brush)
 }
 
+; Info cards deliberately retain their original artwork-integrated renderer.
+; Accessibility contrast applies only to interactive controls, never these cards.
 PaintInfoCard(handle, target, width, height)
 {
-    global ButtonFaces
+    global ButtonFaces, ButtonPaint
+    face := ButtonFaces[handle]
     dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
     bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
     oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
-    FillLoadingRect(dc, 0, 0, width, height, 0x5CA4C5)
-    FillLoadingRect(dc, 1, 1, width - 1, height - 1, 0x071016)
+    graphics := 0, brush := 0
+    face.Control.GetPos(, , &logicalWidth)
+    scale := width / logicalWidth
+    DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
+    DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
+    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Background, "Int", Round(-face.X * scale), "Int", Round((-4 - face.Y) * scale), "Int", Round(960 * scale), "Int", Round(720 * scale))
+    tile := Max(1, Round(4 * scale))
+    y := 0
+    while y < height
+    {
+        x := 0
+        while x < width
+        {
+            edgeX := Min(1, (x + tile / 2) / (28 * scale), (width - x - tile / 2) / (28 * scale))
+            edgeY := Min(1, (y + tile / 2) / (22 * scale), (height - y - tile / 2) / (38 * scale))
+            alpha := Round(190 * Max(0, edgeX) * Max(0, edgeY))
+            DllCall("gdiplus\GdipCreateSolidFill", "UInt", (alpha << 24) | 0x191710, "Ptr*", &brush)
+            DllCall("gdiplus\GdipFillRectangle", "Ptr", graphics, "Ptr", brush, "Float", x, "Float", y, "Float", Min(tile, width - x), "Float", Min(tile, height - y))
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+            x += tile
+        }
+        y += tile
+    }
+    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Headings[face.Heading], "Int", Round(12 * scale), "Int", Round(3 * scale), "Int", Round(256 * scale), "Int", Round(85 * scale))
+    DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
     font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
     oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
     DllCall("SetBkMode", "Ptr", dc, "Int", 1)
-    DllCall("SetTextColor", "Ptr", dc, "UInt", ButtonFaces[handle].HasOwnProp("TextColor") ? ButtonFaces[handle].TextColor : 0x5CA4C5)
     rect := Buffer(16, 0)
-    NumPut("Int", 8, "Int", 6, "Int", width - 8, "Int", height - 6, rect)
-    DllCall("DrawTextW", "Ptr", dc, "WStr", ButtonFaces[handle].Control.Text, "Int", -1, "Ptr", rect, "UInt", 0x810)
-    DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+    NumPut("Int", Round(18 * scale), "Int", Round(82 * scale), "Int", width - Round(18 * scale), "Int", height - Round(16 * scale), rect)
+    shadowRect := Buffer(16, 0)
+    Loop 4
+        NumPut("Int", NumGet(rect, (A_Index - 1) * 4, "Int") + Max(1, Round(scale)), shadowRect, (A_Index - 1) * 4)
+    DllCall("SetTextColor", "Ptr", dc, "UInt", 0x080808)
+    DllCall("DrawTextW", "Ptr", dc, "WStr", face.Control.Text, "Int", -1, "Ptr", shadowRect, "UInt", 0x810)
+    DllCall("SetTextColor", "Ptr", dc, "UInt", 0xC5E2F2)
+    DllCall("DrawTextW", "Ptr", dc, "WStr", face.Control.Text, "Int", -1, "Ptr", rect, "UInt", 0x810)
+    DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0x00CC0020)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
     DllCall("DeleteObject", "Ptr", bitmap)
     DllCall("DeleteDC", "Ptr", dc)
+    return true
 }
