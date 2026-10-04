@@ -7,12 +7,14 @@ global LauncherScaleMode := "Auto"
 global LauncherBaseWidth := 960
 global LauncherBaseHeight := 716
 global AccessibilityTextSize := "Normal"
+global EnhancedReadability := false
 
 LoadLauncherScale()
 {
-    global DataFile, LauncherScale, LauncherScaleMode, AccessibilityTextSize
+    global DataFile, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability
     saved := IniRead(DataFile, "Launcher", "Scale", "Auto")
     AccessibilityTextSize := IniRead(DataFile, "Accessibility", "TextSize", "Normal")
+    EnhancedReadability := IniRead(DataFile, "Accessibility", "EnhancedReadability", "0") = "1"
     if !RegExMatch(AccessibilityTextSize, "^(Normal|Large|Extra Large)$")
         AccessibilityTextSize := "Normal"
     if saved = "Auto" || saved = ""
@@ -27,10 +29,10 @@ LoadLauncherScale()
 
 OpenLauncherSettings(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability
     settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
-    settings.BackColor := "E2CEA2"
-    settings.SetFont("s11 c382314", "Segoe UI")
+    settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
+    settings.SetFont("s11 Bold c241408", "Segoe UI")
     settings.Add("Text", "x20 y18 w330 h26", "Display & Accessibility")
     settings.SetFont("s9 c382314", "Segoe UI")
     settings.Add("Text", "x20 y48 w330 h44", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
@@ -47,15 +49,19 @@ OpenLauncherSettings(*)
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x145 y138 w205 Choose" textChoice, textChoices)
-    settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y174 w330 h38", "Larger text applies to tes3np interface controls and dialogs. Artwork and game content are unchanged.")
 
-    apply := settings.Add("Button", "x20 y222 w158 h34 Default", "Preview & Apply")
-    cancel := settings.Add("Button", "x192 y222 w158 h34", "Cancel")
-    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList))
+    settings.SetFont("s9 Bold c382314", "Segoe UI")
+    readability := settings.Add("CheckBox", "x20 y178 w330 h24", "Enhanced readability")
+    readability.Value := EnhancedReadability ? 1 : 0
+    settings.SetFont("s8 c5A4027", "Segoe UI")
+    settings.Add("Text", "x38 y202 w312 h38", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+
+    apply := settings.Add("Button", "x20 y250 w158 h34 Default", "Preview & Apply")
+    cancel := settings.Add("Button", "x192 y250 w158 h34", "Cancel")
+    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability))
     cancel.OnEvent("Click", (*) => settings.Destroy())
     settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h276")
+    settings.Show("w370 h304")
 }
 
 ScaleChoiceIndex(scale)
@@ -63,12 +69,13 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-PreviewLauncherSettings(settings, scaleList, textList, *)
+PreviewLauncherSettings(settings, scaleList, textList, readability, *)
 {
-    global LauncherScale, LauncherScaleMode, AccessibilityTextSize
+    global LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability
     oldScale := LauncherScale
     oldMode := LauncherScaleMode
     oldText := AccessibilityTextSize
+    oldReadability := EnhancedReadability
     if scaleList.Value = 1
     {
         LauncherScaleMode := "Auto"
@@ -82,31 +89,28 @@ PreviewLauncherSettings(settings, scaleList, textList, *)
         pendingScale := LauncherScale
     }
     AccessibilityTextSize := textList.Text
+    EnhancedReadability := readability.Value = 1
     settings.Hide()
     ApplyLauncherScaleToWindow(true)
     ApplyAccessibilityTextSize()
+    ApplyEnhancedReadability()
     result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
     if result = "Yes"
     {
         SaveLauncherScale(pendingScale)
         SaveAccessibilityTextSize(AccessibilityTextSize)
+        SaveEnhancedReadability(EnhancedReadability)
         settings.Destroy()
         return
     }
     LauncherScale := oldScale
     LauncherScaleMode := oldMode
     AccessibilityTextSize := oldText
+    EnhancedReadability := oldReadability
     ApplyLauncherScaleToWindow(true)
     ApplyAccessibilityTextSize()
+    ApplyEnhancedReadability()
     settings.Show()
-}
-
-; Compatibility wrapper for any older call sites.
-PreviewLauncherScale(settings, scaleList, *)
-{
-    global AccessibilityTextSize
-    dummy := {Text: AccessibilityTextSize}
-    PreviewLauncherSettings(settings, scaleList, dummy)
 }
 
 SaveLauncherScale(value)
@@ -123,6 +127,13 @@ SaveAccessibilityTextSize(value)
     IniWrite(value, DataFile, "Accessibility", "TextSize")
 }
 
+SaveEnhancedReadability(value)
+{
+    global DataFile
+    DirCreate(AppDataDirectory)
+    IniWrite(value ? "1" : "0", DataFile, "Accessibility", "EnhancedReadability")
+}
+
 AccessibilityFontSize(baseSize)
 {
     global AccessibilityTextSize
@@ -135,10 +146,6 @@ ApplyAccessibilityTextSize()
     global LauncherGui, ButtonFaces
     if !IsObject(LauncherGui)
         return
-
-    ; Keep the launcher's geometry fixed. Enlarging controls caused neighboring
-    ; buttons to overlap and pushed controls outside the artwork at large text sizes.
-    ; Compact footer buttons get a conservative font cap instead.
     DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
@@ -146,12 +153,9 @@ ApplyAccessibilityTextSize()
         {
             if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
                 continue
-
             size := AccessibilityFontSize(10)
             if face.HasOwnProp("BaseWidth")
             {
-                ; Always restore the exact authored layout first so switching back
-                ; from a larger text setting cannot leave stale oversized controls.
                 face.Control.Move(face.BaseX, , face.BaseWidth, face.BaseHeight)
                 if face.BaseWidth < 180
                     size := Min(size, 11)
@@ -163,7 +167,24 @@ ApplyAccessibilityTextSize()
     {
         DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     }
+    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
+    RepaintMenuButtons()
+}
 
+ApplyEnhancedReadability()
+{
+    global LauncherGui, ButtonFaces, EnhancedReadability
+    if !IsObject(LauncherGui)
+        return
+    for handle, face in ButtonFaces
+    {
+        if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
+            continue
+        if EnhancedReadability
+            face.TextColor := 0xFFFFFF
+        else if face.HasOwnProp("TextColor")
+            face.DeleteProp("TextColor")
+    }
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }
@@ -213,7 +234,6 @@ ApplyLauncherScaleToWindow(center := false)
     global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
     if LauncherScaleMode = "Auto"
         LauncherScale := GetAutomaticLauncherScale()
-
     if LauncherScale = 100
     {
         LauncherGui.Show("w" LauncherBaseWidth " h" LauncherBaseHeight)
@@ -221,7 +241,6 @@ ApplyLauncherScaleToWindow(center := false)
             CenterLauncherWithoutResizing()
         return
     }
-
     dpiFactor := A_ScreenDPI / 96
     scale := LauncherScale / 100
     width := Round(LauncherBaseWidth * dpiFactor * scale)
@@ -231,6 +250,5 @@ ApplyLauncherScaleToWindow(center := false)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     x := left + Max(0, ((right - left) - width) // 2)
     y := top + Max(0, ((bottom - top) - height) // 2)
-    DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y,
-        "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
+    DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
 }
