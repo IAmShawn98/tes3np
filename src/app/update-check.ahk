@@ -70,10 +70,10 @@ GetFullPath(path)
     size := DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", 0, "Ptr", 0, "Ptr", 0, "UInt")
     if !size
         throw Error("Unable to resolve update confirmation path.")
-    buffer := Buffer(size * 2, 0)
-    if !DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", size, "Ptr", buffer, "Ptr", 0, "UInt")
+    pathBuffer := Buffer(size * 2, 0)
+    if !DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", size, "Ptr", pathBuffer, "Ptr", 0, "UInt")
         throw Error("Unable to resolve update confirmation path.")
-    return StrGet(buffer)
+    return StrGet(pathBuffer)
 }
 
 DownloadUpdateText(url)
