@@ -1,0 +1,23 @@
+name: Static and PowerShell checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check source and available patch payload
+        run: python scripts/project.py check --allow-missing-payload
+      - name: Parse workers with Windows PowerShell 5.1
+        shell: powershell
+        run: ./scripts/check-powershell.ps1
