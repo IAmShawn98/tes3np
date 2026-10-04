@@ -133,11 +133,14 @@ StartPatchAction(action, *)
     global PatchTesInput, PatchMorrowindInput, PatchConfigInput, PatchPage, DataFile
     if PatchInProgress()
         return
+    tesFolder := Trim(PatchTesInput.Value)
+    if action != "Restore" && !CheckModifiedClientForPatch(tesFolder, action)
+        return
     if action = "Restore" && MsgBox("Restore files replaced by the most recent patch? Files changed afterward will be protected and may prevent restore.", "Restore Backup", 0x124) != "Yes"
         return
     if action = "Apply" && MsgBox("Install the markerless client, copy the NP Expansion Pack into Morrowind, and enable NP Expansion Pack.esp last in the selected load order? Replaced files will be backed up.", "Patch Tes3mp", 0x124) != "Yes"
         return
-    StartPatchWorker(action, Trim(PatchTesInput.Value), Trim(PatchMorrowindInput.Value), Trim(PatchConfigInput.Value), PatchPage)
+    StartPatchWorker(action, tesFolder, Trim(PatchMorrowindInput.Value), Trim(PatchConfigInput.Value), PatchPage)
 }
 
 StartPatchWorker(action, tesFolder, morrowindFolder, configFile, sourceGui, startup := false)
@@ -333,14 +336,8 @@ CheckPatchWorker()
 
 BeginStartupPatchCheck()
 {
-    global LauncherGui, SetupComplete
-    SetupComplete := false
-    config := PatchConfigurationPath()
-    tes := FindTES3MPFolder()
-    morrowind := FindMorrowindFolder(config)
-    if tes != "" && morrowind != ""
-        if StartPatchWorker("Verify", tes, morrowind, config, LauncherGui, true)
-            return
+    ; Startup deliberately does not inspect or verify game files. Verification only happens
+    ; after the user explicitly chooses Verify or Install / Repair from Patch Tes3mp.
     FinishLauncherStartup()
 }
 
