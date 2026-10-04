@@ -22,15 +22,13 @@
 #Include src\app\diagnostics.ahk
 #Include src\app\bootstrap.ahk
 
-; Keep noninteractive modes ahead of normal launcher initialization. This lets CI and
-; the updater validate/start-confirm the executable without entering GUI/timer setup.
+; Native paint notifications must remain eligible inside timer callbacks.
+Thread("Interrupt", 0)
+CoordMode("Mouse", "Screen")
 if A_Args.Length && A_Args[1] = "--check"
     ExitApp(0)
 if A_Args.Length >= 3 && A_Args[1] = "--update-confirm" {
     ConfirmInstalledUpdate(A_Args[2], A_Args[3])
     ExitApp(0)
 }
-
-Thread("Interrupt", 0)
-CoordMode("Mouse", "Screen")
 StartLauncher()
