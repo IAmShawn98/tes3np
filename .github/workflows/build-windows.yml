@@ -36,7 +36,7 @@ jobs:
         shell: pwsh
         run: ./scripts/test-updater-transaction.ps1
       - name: Compile launcher with custom icon and package
-        shell: powershell
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/build-windows.ps1
