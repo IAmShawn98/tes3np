@@ -194,14 +194,24 @@ HandleThemedButtonKey(wParam, lParam, msg, hwnd)
 
 HandleThemedButtonFocus(wParam, lParam, msg, hwnd)
 {
-    global ButtonFaces
-    ; WM_SETFOCUS gives us the newly focused button in hwnd and the old control
-    ; in wParam. WM_KILLFOCUS gives us the old button in hwnd and the new control
-    ; in wParam. Repaint both sides explicitly so the old highlight cannot stick.
-    if ButtonFaces.Has(hwnd)
+    global ButtonFaces, HoverButton
+    if !ButtonFaces.Has(hwnd)
+        return
+
+    if msg = 0x0008 ; WM_KILLFOCUS fires before GetFocus() has changed, so force the old button out of keyboard-highlight state.
+    {
+        face := ButtonFaces[hwnd]
+        state := HoverButton = hwnd ? "hover" : "normal"
+        if face.State != state
+        {
+            face.State := state
+            DllCall("RedrawWindow", "Ptr", face.Control.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
+        }
+        return
+    }
+
+    if msg = 0x0007 ; WM_SETFOCUS
         ShowButtonFace(hwnd)
-    if wParam && ButtonFaces.Has(wParam)
-        ShowButtonFace(wParam)
 }
 
 HandleMouseDown(wParam, lParam, msg, hwnd)
