@@ -80,7 +80,7 @@ StartProfileSession(profile, executable, queue := 0)
     global Client
     batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
     LogLauncherEvent("GAME | Launch requested | Character: " profile.Name batchText ".")
-    Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true,
+    Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
         LoadDelay: profile.LoadDelay, AutoReconnect: profile.AutoReconnect, Queue: queue}
@@ -113,8 +113,6 @@ SetClientStatus(text)
     UpdateGameStatusTooltip()
 }
 
-; UI-only refresh: follows the game and hides immediately when another window is active.
-; Recovery decisions remain exclusively in ClientTick.
 UpdateGameStatusTooltip(*)
 {
     global Client
@@ -211,6 +209,7 @@ RetryClient(reason)
     }
     Client.PID := 0
     Client.HWND := 0
+    Client.LaunchIssued := false
     Client.Phase := "retry"
     Client.Deadline := A_TickCount + AppConfig.RetryMs
     SetClientStatus(reason " — retrying in 5 seconds.")
@@ -225,6 +224,12 @@ ClientTick()
     {
         if Client.Phase = "launch"
         {
+            ; Claim this launch attempt before Run(). If the watchdog re-enters while
+            ; Run is still in progress, the second invocation exits instead of
+            ; starting another TES3MP process.
+            if Client.LaunchIssued
+                return
+            Client.LaunchIssued := true
             SplitPath(Client.Executable, , &workingDirectory)
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
@@ -238,6 +243,7 @@ ClientTick()
             SetClientStatus("Restarting client in " remaining " seconds.")
             if remaining = 0
             {
+                Client.LaunchIssued := false
                 Client.Phase := "launch"
                 LogLauncherEvent("GAME | Recovery retry starting.")
             }
@@ -375,6 +381,7 @@ ClientTick()
     }
     catch Error as err
     {
+        Client.LaunchIssued := false
         LogLauncherEvent("GAME | ERROR | Client launch/login exception: " err.Message ".")
         RetryClient("Client launch or login failed")
     }
