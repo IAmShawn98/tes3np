@@ -15,10 +15,7 @@ AddLauncherButton(y, name, action)
     global LauncherGui, ButtonFaces
     InitButtonPainter()
     LauncherGui.SetFont("s10 Bold", "Segoe UI")
-    ; BS_OWNERDRAW: artwork and text are drawn together into an offscreen buffer.
-    ; Custom prevents AutoHotkey's standard Button handling from restoring
-    ; the Windows push-button style during focus/default-button updates.
-    button := LauncherGui.Add("Custom", "ClassButton x370 y" (y - 11) " w220 h48 +0xB", name)
+    button := LauncherGui.Add("Custom", "ClassButton x370 y" (y - 11) " w220 h48 +0xB +Tabstop", name)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
     face := {Control: button, Label: button, Action: action, Y: y, Gui: LauncherGui, Window: LauncherGui.Hwnd, Book: false, State: "normal"}
     ButtonFaces[button.Hwnd] := face
@@ -31,7 +28,7 @@ AddStyledButton(gui, x, y, width, height, text, action)
     global ButtonFaces
     InitButtonPainter()
     gui.SetFont("s10 Bold", "Segoe UI")
-    button := gui.Add("Custom", "ClassButton x" x " y" y " w" width " h" height " +0xB", text)
+    button := gui.Add("Custom", "ClassButton x" x " y" y " w" width " h" height " +0xB +Tabstop", text)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
     ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action,
         Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal"}
@@ -73,18 +70,17 @@ ShowButtonFace(handle)
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
         return
     face := ButtonFaces[handle]
-    state := PressedButton && HoverButton && ButtonFaces[PressedButton] = face && ButtonFaces[HoverButton] = face ? "down" : HoverButton && ButtonFaces[HoverButton] = face ? "hover" : "normal"
+    focused := DllCall("GetFocus", "Ptr") = handle
+    state := PressedButton && HoverButton && ButtonFaces[PressedButton] = face && ButtonFaces[HoverButton] = face ? "down" : HoverButton && ButtonFaces[HoverButton] = face ? "hover" : focused ? "focus" : "normal"
     if face.State = state
         return
     face.State := state
-    ; Paint this transition immediately instead of waiting for a queued WM_PAINT.
     DllCall("RedrawWindow", "Ptr", face.Control.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
 }
 
 RepaintMenuButtons(*)
 {
     global ButtonFaces
-    ; Includes launcher, character book and currently visible editing controls.
     for handle, face in ButtonFaces
         if DllCall("IsWindow", "Ptr", handle)
             PaintButtonNow(handle)
@@ -96,14 +92,11 @@ FinishButtonDisplay()
     if IsSet(InterfaceUpdating) && InterfaceUpdating
         return
     RepaintMenuButtons()
-
 }
 
 UpdateButtonHover()
 {
     global LauncherGui, ButtonFaces, HoverButton, PressedButton, MenuRows
-    ; Capture can report a button HWND after the pointer has left it. Use the
-    ; physical pointer and screen bounds instead of the captured control ID.
     MouseGetPos(&x, &y, &window)
     nextHover := 0
     if window
@@ -126,13 +119,12 @@ UpdateButtonHover()
     previous := HoverButton
     previousPress := PressedButton
     HoverButton := nextHover
-    ; Recover from a release handled by the native control or another window.
     if PressedButton && !GetKeyState("LButton", "P")
     {
         PressedButton := 0
         DllCall("ReleaseCapture")
     }
-    for handle in [previous, nextHover, previousPress]
+    for handle in [previous, nextHover, previousPress, DllCall("GetFocus", "Ptr")]
         if handle
             ShowButtonFace(handle)
 }
@@ -142,6 +134,7 @@ PressButton(wParam, lParam, msg, hwnd)
     global ButtonFaces, PressedButton, HoverButton
     if !ButtonFaces.Has(hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel") || !ButtonFaces[hwnd].Control.Enabled
         return
+    DllCall("SetFocus", "Ptr", hwnd)
     PressedButton := hwnd
     HoverButton := hwnd
     DllCall("SetCapture", "Ptr", hwnd)
@@ -160,7 +153,6 @@ ReleaseButton(wParam, lParam, msg, hwnd)
         return
     handle := PressedButton
     face := ButtonFaces[handle]
-    ; Coordinates are relative to the captured picture, including releases outside.
     x := (lParam & 0xFFFF) << 48 >> 48
     y := ((lParam >> 16) & 0xFFFF) << 48 >> 48
     GuiCtrlFromHwnd(handle).GetPos(, , &width, &height)
@@ -170,20 +162,50 @@ ReleaseButton(wParam, lParam, msg, hwnd)
     HoverButton := inside ? handle : 0
     ShowButtonFace(handle)
     if inside
-    {
-        if ButtonNeedsRenderCover(face)
-        {
-            BeginInterfaceUpdate(face.Gui, LoadingMessageForButton(face), ButtonLoadsContent(face), LoadingStepsForButton(face))
-            try face.Action.Call()
-            finally EndInterfaceUpdate()
-        }
-        else
-            face.Action.Call()
-    }
+        ActivateThemedButton(handle)
     return 0
 }
 
-; The loading card is one opaque buffered paint, including its lettering and bar.
+ActivateThemedButton(handle)
+{
+    global ButtonFaces
+    if !ButtonFaces.Has(handle)
+        return
+    face := ButtonFaces[handle]
+    if face.HasOwnProp("IsLabel") || !face.Control.Enabled || !face.Control.Visible
+        return
+    if ButtonNeedsRenderCover(face)
+    {
+        BeginInterfaceUpdate(face.Gui, LoadingMessageForButton(face), ButtonLoadsContent(face), LoadingStepsForButton(face))
+        try face.Action.Call()
+        finally EndInterfaceUpdate()
+    }
+    else
+        face.Action.Call()
+}
+
+HandleThemedButtonKey(wParam, lParam, msg, hwnd)
+{
+    global ButtonFaces
+    if !ButtonFaces.Has(hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel")
+        return
+    if wParam = 0x0D || wParam = 0x20
+    {
+        ActivateThemedButton(hwnd)
+        return 0
+    }
+}
+
+HandleThemedButtonFocus(wParam, lParam, msg, hwnd)
+{
+    global ButtonFaces
+    if ButtonFaces.Has(hwnd)
+    {
+        ShowButtonFace(hwnd)
+        if lParam && ButtonFaces.Has(lParam)
+            ShowButtonFace(lParam)
+    }
+}
 
 HandleMouseDown(wParam, lParam, msg, hwnd)
 {
