@@ -53,15 +53,20 @@ try {
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
     Step 'Ahk2Exe smoke compilation succeeded; compiler/runtime pair is functional'
 
-    # Ahk2Exe invokes AutoHotkey while preprocessing. A source error can otherwise open
-    # an invisible GUI error dialog on a headless runner and make the compiler appear hung.
-    # Run the exact source first with /ErrorStdOut so parser/load errors become CI output.
+    # Run the launcher's built-in --check path directly through AutoHotkey before compiling.
+    # Pass one fully quoted command line to Start-Process: PowerShell's string-array form can
+    # collapse the script/argument boundary for native executables and accidentally start the GUI.
     $source = Join-Path $projectRoot 'tes3np.ahk'
     $stdout = Join-Path $buildRoot 'source-check.stdout.txt'
     $stderr = Join-Path $buildRoot 'source-check.stderr.txt'
-    Step 'Validating full tes3np source with AutoHotkey /ErrorStdOut (30 second timeout)'
-    $sourceCheck = Start-Process $base -ArgumentList @('/ErrorStdOut', $source, '--check') -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-    if (!$sourceCheck.WaitForExit(30000)) { try { $sourceCheck.Kill() } catch {}; throw 'AutoHotkey source validation timed out after 30 seconds.' }
+    $sourceCheckArgs = '/ErrorStdOut "' + $source + '" --check'
+    Step 'Validating full tes3np source via its --check path (30 second timeout)'
+    $sourceCheck = Start-Process $base -ArgumentList $sourceCheckArgs -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    if (!$sourceCheck.WaitForExit(30000)) {
+        try { $sourceCheck.Kill() } catch {}
+        Get-Process AutoHotkey* -ErrorAction SilentlyContinue | ForEach-Object { Step ("Lingering source-check process: {0} PID {1}" -f $_.ProcessName,$_.Id) }
+        throw 'AutoHotkey source validation timed out after 30 seconds.'
+    }
     $sourceOut = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { '' }
     $sourceErr = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
     if ($sourceOut) { Write-Host "AUTOHOTKEY STDOUT:`n$sourceOut" }
