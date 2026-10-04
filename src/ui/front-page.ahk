@@ -51,7 +51,7 @@ UpdateCharacterMenuLabel()
     MenuEntries := []
     if !IsTES3MPSetupComplete()
     {
-        MenuEntries.Push(["Patch Tes3mp", OpenPatcher], ["Check for Updates", CheckForUpdates], ["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
+        MenuEntries.Push(["Patch Tes3mp", OpenPatcher], ["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
         ScrollMenu(0)
         return
     }
@@ -59,7 +59,7 @@ UpdateCharacterMenuLabel()
         MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])
     MenuEntries.Push(["Start New Adventure", StartNewAdventure],
         [Profiles.Length ? "Manage Characters" : "Returning Fetcher", OpenCharacters],
-        ["Macros", OpenMacros], ["Check for Updates", CheckForUpdates], ["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
+        ["Macros", OpenMacros], ["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
     ScrollMenu(MenuOffset)
 }
 
