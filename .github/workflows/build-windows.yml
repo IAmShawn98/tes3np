@@ -35,10 +35,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/build-windows.ps1
+      - name: Generate and verify update metadata
+        shell: pwsh
+        run: ./scripts/generate-update-metadata.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: tes3np-windows
-          path: dist/tes3np-windows.zip
+          path: |
+            dist/tes3np-windows.zip
+            dist/tes3np-windows.zip.sha256
+            dist/tes3np-update.json
           if-no-files-found: error
       - name: Publish latest public test build
         if: github.ref == 'refs/heads/main'
@@ -50,11 +56,17 @@ jobs:
           if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
           $repo = 'IAmShawn98/tes3np-releases'
           $tag = 'latest-alpha'
-          $asset = 'dist/tes3np-windows.zip'
+          $assets = @(
+            'dist/tes3np-windows.zip',
+            'dist/tes3np-windows.zip.sha256',
+            'dist/tes3np-update.json'
+          )
+          $manifest = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json
+          $version = $manifest.version
           $notes = @"
           Automated tes3np development build from the private source repository.
 
-          Version: v0.1.4-alpha
+          Version: v$version
           Source revision: $env:GITHUB_SHA
 
           Changes in v0.1.4-alpha:
@@ -75,12 +87,16 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $oldNativePreference
 
           if ($releaseExists) {
-            gh release upload $tag $asset --repo $repo --clobber
-            if ($LASTEXITCODE -ne 0) { throw 'Failed to upload the public release package.' }
-            gh release edit $tag --repo $repo --title 'tes3np v0.1.4-alpha - Latest Test Build' --notes $notes --prerelease
+            # Upload all build assets before changing release metadata. Clients must
+            # never be told a new version exists before its package metadata is ready.
+            foreach ($asset in $assets) {
+              gh release upload $tag $asset --repo $repo --clobber
+              if ($LASTEXITCODE -ne 0) { throw "Failed to upload public release asset: $asset" }
+            }
+            gh release edit $tag --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Failed to update the public release.' }
           }
           else {
-            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.4-alpha - Latest Test Build' --notes $notes --prerelease
+            gh release create $tag @assets --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Failed to create the public release. Check RELEASE_PUBLISH_TOKEN permissions.' }
           }
