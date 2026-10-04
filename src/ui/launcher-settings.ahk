@@ -41,14 +41,11 @@ DetectWindowsAccessibility()
     global WindowsHighContrastDetected, WindowsAnimationsDisabled
     WindowsHighContrastDetected := false
     WindowsAnimationsDisabled := false
-
-    ; HIGHCONTRASTW: cbSize, dwFlags, lpszDefaultScheme.
     hcSize := A_PtrSize = 8 ? 16 : 12
     hc := Buffer(hcSize, 0)
     NumPut("UInt", hcSize, hc, 0)
     if DllCall("SystemParametersInfoW", "UInt", 0x0042, "UInt", hcSize, "Ptr", hc.Ptr, "UInt", 0)
         WindowsHighContrastDetected := (NumGet(hc, 4, "UInt") & 0x00000001) != 0
-
     animations := Buffer(4, 0)
     if DllCall("SystemParametersInfoW", "UInt", 0x1042, "UInt", 0, "Ptr", animations.Ptr, "UInt", 0)
         WindowsAnimationsDisabled := NumGet(animations, 0, "Int") = 0
@@ -59,8 +56,6 @@ ApplyWindowsAccessibilityPreferences()
     global FollowWindowsAccessibility, WindowsHighContrastDetected, WindowsAnimationsDisabled, EnhancedReadability, ReduceMotion
     if !FollowWindowsAccessibility
         return
-    ; Windows preferences only opt accessibility features in. They never turn off a
-    ; launcher preference the user explicitly enabled.
     if WindowsHighContrastDetected
         EnhancedReadability := true
     if WindowsAnimationsDisabled
@@ -82,41 +77,38 @@ OpenLauncherSettings(*)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x145 y96 w205 Choose" choice, choices)
-
     settings.SetFont("s9 Bold c382314", "Segoe UI")
     settings.Add("Text", "x20 y142 w120 h22", "Interface text")
     settings.SetFont("s10 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x145 y138 w205 Choose" textChoice, textChoices)
-
     settings.SetFont("s9 Bold c382314", "Segoe UI")
     readability := settings.Add("CheckBox", "x20 y178 w330 h24", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
     settings.Add("Text", "x38 y202 w312 h38", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
-
     settings.SetFont("s9 Bold c382314", "Segoe UI")
     reduceMotionBox := settings.Add("CheckBox", "x20 y246 w330 h24", "Reduce motion")
     reduceMotionBox.Value := ReduceMotion ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
     settings.Add("Text", "x38 y270 w312 h38", "Reduces nonessential animated feedback and keeps interface changes as immediate and still as possible.")
-
     settings.SetFont("s9 Bold c382314", "Segoe UI")
     followWindows := settings.Add("CheckBox", "x20 y314 w330 h24", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
     detected := WindowsHighContrastDetected ? "High contrast detected." : WindowsAnimationsDisabled ? "Reduced Windows animations detected." : "No additional Windows accessibility preferences detected."
     settings.Add("Text", "x38 y338 w312 h38", detected)
-
     apply := settings.Add("Button", "x20 y386 w158 h34 Default", "Preview & Apply")
     cancel := settings.Add("Button", "x192 y386 w158 h34", "Cancel")
     reset := settings.Add("Button", "x20 y430 w330 h34", "Reset Display & Accessibility")
+    troubleshoot := settings.Add("Button", "x20 y474 w330 h34", "Troubleshooting & Diagnostics")
     apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying display & accessibility..."))
     cancel.OnEvent("Click", (*) => settings.Destroy())
     reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
+    troubleshoot.OnEvent("Click", OpenTroubleshooting)
     settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h484")
+    settings.Show("w370 h528")
 }
 
 ScaleChoiceIndex(scale)
@@ -140,23 +132,15 @@ ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMoti
 PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, loadingMessage, *)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
-    oldScale := LauncherScale
-    oldMode := LauncherScaleMode
-    oldText := AccessibilityTextSize
-    oldReadability := EnhancedReadability
-    oldReduceMotion := ReduceMotion
-    oldFollowWindows := FollowWindowsAccessibility
+    oldScale := LauncherScale, oldMode := LauncherScaleMode, oldText := AccessibilityTextSize
+    oldReadability := EnhancedReadability, oldReduceMotion := ReduceMotion, oldFollowWindows := FollowWindowsAccessibility
     if scaleList.Value = 1
     {
-        LauncherScaleMode := "Auto"
-        LauncherScale := GetAutomaticLauncherScale()
-        pendingScale := "Auto"
+        LauncherScaleMode := "Auto", LauncherScale := GetAutomaticLauncherScale(), pendingScale := "Auto"
     }
     else
     {
-        LauncherScaleMode := "Manual"
-        LauncherScale := Integer(StrReplace(scaleList.Text, "%"))
-        pendingScale := LauncherScale
+        LauncherScaleMode := "Manual", LauncherScale := Integer(StrReplace(scaleList.Text, "%")), pendingScale := LauncherScale
     }
     AccessibilityTextSize := textList.Text
     EnhancedReadability := readability.Value = 1
@@ -165,7 +149,6 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     DetectWindowsAccessibility()
     ApplyWindowsAccessibilityPreferences()
     settings.Hide()
-
     BeginInterfaceUpdate(LauncherGui, loadingMessage, true, 8)
     try
     {
@@ -178,7 +161,6 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         SetInterfaceLoadingText("Finishing display update...")
     }
     finally EndInterfaceUpdate()
-
     result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
     if result = "Yes"
     {
@@ -190,13 +172,8 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         settings.Destroy()
         return
     }
-    LauncherScale := oldScale
-    LauncherScaleMode := oldMode
-    AccessibilityTextSize := oldText
-    EnhancedReadability := oldReadability
-    ReduceMotion := oldReduceMotion
-    FollowWindowsAccessibility := oldFollowWindows
-
+    LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
+    EnhancedReadability := oldReadability, ReduceMotion := oldReduceMotion, FollowWindowsAccessibility := oldFollowWindows
     BeginInterfaceUpdate(LauncherGui, "Restoring previous display settings...", true, 8)
     try
     {
@@ -218,42 +195,36 @@ SaveLauncherScale(value)
     DirCreate(AppDataDirectory)
     IniWrite(value, DataFile, "Launcher", "Scale")
 }
-
 SaveAccessibilityTextSize(value)
 {
     global DataFile
     DirCreate(AppDataDirectory)
     IniWrite(value, DataFile, "Accessibility", "TextSize")
 }
-
 SaveEnhancedReadability(value)
 {
     global DataFile
     DirCreate(AppDataDirectory)
     IniWrite(value ? "1" : "0", DataFile, "Accessibility", "EnhancedReadability")
 }
-
 SaveReduceMotion(value)
 {
     global DataFile
     DirCreate(AppDataDirectory)
     IniWrite(value ? "1" : "0", DataFile, "Accessibility", "ReduceMotion")
 }
-
 SaveFollowWindowsAccessibility(value)
 {
     global DataFile
     DirCreate(AppDataDirectory)
     IniWrite(value ? "1" : "0", DataFile, "Accessibility", "FollowWindows")
 }
-
 AccessibilityFontSize(baseSize)
 {
     global AccessibilityTextSize
     multiplier := AccessibilityTextSize = "Extra Large" ? 1.35 : AccessibilityTextSize = "Large" ? 1.18 : 1.0
     return Round(baseSize * multiplier)
 }
-
 ApplyAccessibilityTextSize()
 {
     global LauncherGui, ButtonFaces
@@ -276,14 +247,10 @@ ApplyAccessibilityTextSize()
             face.Control.SetFont("s" size " Bold", "Segoe UI")
         }
     }
-    finally
-    {
-        DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
-    }
+    finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }
-
 ApplyEnhancedReadability()
 {
     global LauncherGui, ButtonFaces, EnhancedReadability
@@ -301,7 +268,6 @@ ApplyEnhancedReadability()
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }
-
 GetAutomaticLauncherScale()
 {
     global LauncherBaseWidth, LauncherBaseHeight
@@ -309,15 +275,13 @@ GetAutomaticLauncherScale()
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     dpiFactor := A_ScreenDPI / 96
-    requiredWidth := LauncherBaseWidth * dpiFactor
-    requiredHeight := LauncherBaseHeight * dpiFactor
+    requiredWidth := LauncherBaseWidth * dpiFactor, requiredHeight := LauncherBaseHeight * dpiFactor
     fit := Min(1.0, (right - left) / requiredWidth, (bottom - top) / requiredHeight)
     if fit < 1
         fit := Max(0.5, fit * 0.96)
     percent := Floor((fit * 100) / 10) * 10
     return Max(50, Min(100, percent))
 }
-
 MonitorFromPoint(x, y)
 {
     count := MonitorGetCount()
@@ -329,7 +293,6 @@ MonitorFromPoint(x, y)
     }
     return MonitorGetPrimary()
 }
-
 CenterLauncherWithoutResizing()
 {
     global LauncherGui
@@ -337,11 +300,9 @@ CenterLauncherWithoutResizing()
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     WinGetPos(,, &width, &height, "ahk_id " LauncherGui.Hwnd)
-    x := left + Max(0, ((right - left) - width) // 2)
-    y := top + Max(0, ((bottom - top) - height) // 2)
+    x := left + Max(0, ((right - left) - width) // 2), y := top + Max(0, ((bottom - top) - height) // 2)
     WinMove(x, y,,, "ahk_id " LauncherGui.Hwnd)
 }
-
 ApplyLauncherScaleToWindow(center := false)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
@@ -354,14 +315,11 @@ ApplyLauncherScaleToWindow(center := false)
             CenterLauncherWithoutResizing()
         return
     }
-    dpiFactor := A_ScreenDPI / 96
-    scale := LauncherScale / 100
-    width := Round(LauncherBaseWidth * dpiFactor * scale)
-    height := Round(LauncherBaseHeight * dpiFactor * scale)
+    dpiFactor := A_ScreenDPI / 96, scale := LauncherScale / 100
+    width := Round(LauncherBaseWidth * dpiFactor * scale), height := Round(LauncherBaseHeight * dpiFactor * scale)
     MouseGetPos(&mouseX, &mouseY)
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    x := left + Max(0, ((right - left) - width) // 2)
-    y := top + Max(0, ((bottom - top) - height) // 2)
+    x := left + Max(0, ((right - left) - width) // 2), y := top + Max(0, ((bottom - top) - height) // 2)
     DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
 }
