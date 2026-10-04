@@ -54,18 +54,15 @@ jobs:
           $notes = @"
           Automated tes3np development build from the private source repository.
 
-          Version: v0.1.3-alpha
+          Version: v0.1.4-alpha
           Source revision: $env:GITHUB_SHA
 
-          Changes in v0.1.3-alpha:
-          - Added Launcher Settings with automatic/manual launcher scaling for smaller or high-DPI displays.
-          - Added interface text sizing, enhanced readability, reduced motion, and Windows accessibility preference detection.
-          - Added safe display-setting previews with confirmation and a one-click Display & Accessibility reset.
-          - Added Troubleshooting & Diagnostics tools for opening AppData/logs and copying privacy-sanitized diagnostic reports.
-          - Added launcher, update, game-session, recovery, and patch/verification logging for easier public-alpha bug reports.
-          - Diagnostic reports now include a unique report ID and timestamp while sanitizing personal Windows user paths.
-          - Added a game-launch guard to prevent duplicate TES3MP processes from one launch attempt.
-          - Improved interface redraw/focus behavior and accessibility button feedback.
+          Changes in v0.1.4-alpha:
+          - Fixed automatic launcher scaling on smaller and high-DPI displays so the launcher contents scale with the window instead of being clipped at the bottom.
+          - Automatic mode now recalculates the appropriate scale when the launcher is shown and centers the complete launcher inside the monitor work area.
+          - Preserved proportional button, artwork, heading, and interface sizing while fitting the launcher to the available screen.
+
+          Includes all accessibility, diagnostics, logging, patch verification, and launch reliability improvements from v0.1.3-alpha.
 
           This is development software intended for testing. Extract the ZIP completely and run tes3np.exe from the included tes3np folder.
           "@
@@ -80,10 +77,10 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $asset --repo $repo --clobber
             if ($LASTEXITCODE -ne 0) { throw 'Failed to upload the public release package.' }
-            gh release edit $tag --repo $repo --title 'tes3np v0.1.3-alpha - Latest Test Build' --notes $notes --prerelease
+            gh release edit $tag --repo $repo --title 'tes3np v0.1.4-alpha - Latest Test Build' --notes $notes --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Failed to update the public release.' }
           }
           else {
-            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.3-alpha - Latest Test Build' --notes $notes --prerelease
+            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.4-alpha - Latest Test Build' --notes $notes --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Failed to create the public release. Check RELEASE_PUBLISH_TOKEN permissions.' }
           }
