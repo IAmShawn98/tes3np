@@ -1,6 +1,6 @@
 # Changelog
 
-## Build 143 — 2026-10-03
+## v0.1.0-alpha — 2026-10-03
 
 - Split entry wiring, lifecycle, renderer and window helpers into focused modules.
 - Replace obsolete template/demo identifiers with launcher names.
@@ -8,7 +8,8 @@
 - Handle malformed saved character counts and enforce the ten-character load limit.
 - Add collaboration documentation, issue/PR templates, formatting rules, CI and
   repeatable packaging. Retain the required payload EXE in Git.
-- Preserve build 142's installer fixes and friendly setup-needed behavior.
+- Preserve installer fixes and friendly setup-needed behavior from earlier development.
+- Add a compiled Windows launcher with the custom tes3np icon and automatic GitHub Actions builds.
 
-Validation: static source, payload hashes and package integrity. Windows runtime
-testing of the refactor is pending.
+Validation: static source, payload hashes, package integrity, PowerShell parsing and
+compiled-launcher validation. Full Windows GUI/TES3MP runtime testing is still required.
