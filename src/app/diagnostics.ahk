@@ -20,7 +20,7 @@ OpenTroubleshooting(*)
     window.SetFont("s11 Bold c241408", "Segoe UI")
     window.Add("Text", "x20 y18 w360 h26", "Troubleshooting & Diagnostics")
     window.SetFont("s9 c382314", "Segoe UI")
-    window.Add("Text", "x20 y48 w360 h42", "Tools for reporting launcher problems during the public alpha. Diagnostics never include passwords.")
+    window.Add("Text", "x20 y48 w360 h42", "Tools for reporting launcher problems during the public alpha. Diagnostics never include passwords and personal user paths are sanitized.")
     openData := window.Add("Button", "x20 y102 w175 h34", "Open AppData Folder")
     openLog := window.Add("Button", "x205 y102 w175 h34", "Open Launcher Log")
     copyInfo := window.Add("Button", "x20 y146 w360 h34", "Copy Diagnostic Information")
@@ -67,16 +67,37 @@ CopyLauncherDiagnostics(*)
     MsgBox("Diagnostic information copied to the clipboard.`n`nYou can paste it into Discord or a bug report.", "tes3np — Diagnostics")
 }
 
+SanitizeDiagnosticPath(path)
+{
+    ; Replace the current Windows user's profile roots before a report is shared.
+    ; Do the more-specific AppData roots first so they become useful portable labels.
+    appData := EnvGet("APPDATA")
+    localAppData := EnvGet("LOCALAPPDATA")
+    userProfile := EnvGet("USERPROFILE")
+    if localAppData != ""
+        path := StrReplace(path, localAppData, "%LOCALAPPDATA%", false)
+    if appData != ""
+        path := StrReplace(path, appData, "%APPDATA%", false)
+    if userProfile != ""
+        path := StrReplace(path, userProfile, "%USERPROFILE%", false)
+    return path
+}
+
 BuildLauncherDiagnostics()
 {
     global AppConfig, AppDataDirectory, DataFile, LauncherScale, LauncherScaleMode
     global AccessibilityTextSize, EnhancedReadability, ReduceMotion, SetupComplete
-    installPath := A_ScriptDir
+    installPath := SanitizeDiagnosticPath(A_ScriptDir)
+    appDataPath := SanitizeDiagnosticPath(AppDataDirectory)
     scaleText := LauncherScaleMode = "Auto" ? "Automatic (" LauncherScale "%)" : LauncherScale "%"
     dpiPercent := Round((A_ScreenDPI / 96) * 100)
     patchComplete := SetupComplete ? "Yes" : "No"
     settingsPresent := FileExist(DataFile) ? "Yes" : "No"
+    reportTime := FormatTime(, "yyyy-MM-dd HH:mm:ss")
+    reportId := FormatTime(, "yyyyMMdd-HHmmss") "-" Format("{:04X}", Random(0, 65535))
     return "tes3np Diagnostics`r`n"
+        . "Diagnostic ID: " reportId "`r`n"
+        . "Generated: " reportTime " local time`r`n"
         . "Launcher version: v" AppConfig.Version "`r`n"
         . "AutoHotkey: " A_AhkVersion "`r`n"
         . "Windows: " A_OSVersion " (" (A_Is64bitOS ? "64-bit" : "32-bit") ")`r`n"
@@ -88,5 +109,5 @@ BuildLauncherDiagnostics()
         . "Patch setup complete: " patchComplete "`r`n"
         . "Settings file present: " settingsPresent "`r`n"
         . "Install path: " installPath "`r`n"
-        . "AppData path: " AppDataDirectory
+        . "AppData path: " appDataPath
 }
