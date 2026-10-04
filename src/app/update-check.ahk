@@ -47,6 +47,35 @@ CheckForUpdates(*)
     }
 }
 
+; Called only by the freshly installed launcher. The updater waits for this handshake before
+; deleting its rollback copy. Restrict the state file to our own temp staging directory so a
+; manually supplied --update-confirm argument cannot turn the launcher into an arbitrary INI writer.
+ConfirmInstalledUpdate(version, stateFile)
+{
+    expectedState := A_Temp "\tes3np-update\update-state.ini"
+    if StrLower(GetFullPath(stateFile)) != StrLower(GetFullPath(expectedState))
+        throw Error("Update confirmation state path is invalid.")
+    if !RegExMatch(version, "^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
+        throw Error("Update confirmation version is invalid.")
+    if !FileExist(stateFile)
+        throw Error("Update confirmation state file is missing.")
+    stagedVersion := IniRead(stateFile, "Update", "Version", "")
+    if stagedVersion != version
+        throw Error("Update confirmation version does not match staged update.")
+    IniWrite("CONFIRMED", stateFile, "Update", "State")
+}
+
+GetFullPath(path)
+{
+    size := DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", 0, "Ptr", 0, "Ptr", 0, "UInt")
+    if !size
+        throw Error("Unable to resolve update confirmation path.")
+    buffer := Buffer(size * 2, 0)
+    if !DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", size, "Ptr", buffer, "Ptr", 0, "UInt")
+        throw Error("Unable to resolve update confirmation path.")
+    return StrGet(buffer)
+}
+
 DownloadUpdateText(url)
 {
     request := ComObject("WinHttp.WinHttpRequest.5.1")
