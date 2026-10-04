@@ -1,11 +1,9 @@
-﻿; First-run TES3MP client detection.
+﻿; TES3MP client detection.
 ; The stock hash is from an untouched TES3MP 0.8.1 Win64 tes3mp.exe.
 
 CheckModifiedClientFirstRun()
 {
     global DataFile
-    if IniRead(DataFile, "Patch", "CustomClientChoice", "") != ""
-        return
 
     tesFolder := FindTES3MPFolder()
     executable := tesFolder != "" ? tesFolder "\tes3mp.exe" : ""
@@ -25,8 +23,9 @@ CheckModifiedClientFirstRun()
     answer := MsgBox(message, "Custom TES3MP Patch Detected", "YesNo Icon?")
     choice := answer = "Yes" ? "overwrite" : "skip"
     DirCreate(AppDataDirectory)
+    ; Store the answer for this launch so the patcher knows what to do. Startup no longer
+    ; treats this value as a reason to suppress the prompt on future launches.
     IniWrite(choice, DataFile, "Patch", "CustomClientChoice")
-    ; Remove the short-lived earlier setting so this choice is the single source of truth.
     try IniDelete(DataFile, "Patch", "ModifiedClientPrompt")
     if answer = "Yes"
         OpenPatcher()
