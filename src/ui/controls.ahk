@@ -77,6 +77,19 @@ ShowButtonFace(handle)
     DllCall("RedrawWindow", "Ptr", face.Control.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
 }
 
+SyncKeyboardFocus(*)
+{
+    global ButtonFaces, KeyboardFocusButton
+    focused := DllCall("GetFocus", "Ptr")
+    nextFocus := ButtonFaces.Has(focused) && !ButtonFaces[focused].HasOwnProp("IsLabel") ? focused : 0
+    previous := KeyboardFocusButton
+    KeyboardFocusButton := nextFocus
+    if previous && previous != nextFocus
+        ShowButtonFace(previous)
+    if nextFocus
+        ShowButtonFace(nextFocus)
+}
+
 RepaintMenuButtons(*)
 {
     global ButtonFaces
@@ -133,6 +146,7 @@ PressButton(wParam, lParam, msg, hwnd)
     if !ButtonFaces.Has(hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel") || !ButtonFaces[hwnd].Control.Enabled
         return
     DllCall("SetFocus", "Ptr", hwnd)
+    SetTimer(SyncKeyboardFocus, -1)
     PressedButton := hwnd
     HoverButton := hwnd
     DllCall("SetCapture", "Ptr", hwnd)
@@ -184,6 +198,11 @@ ActivateThemedButton(handle)
 HandleThemedButtonKey(wParam, lParam, msg, hwnd)
 {
     global ButtonFaces
+    if wParam = 0x09 ; Tab: let Windows/AHK move focus, then read the final focused control.
+    {
+        SetTimer(SyncKeyboardFocus, -1)
+        return
+    }
     if !ButtonFaces.Has(hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel")
         return
     if wParam = 0x0D || wParam = 0x20
@@ -195,27 +214,9 @@ HandleThemedButtonKey(wParam, lParam, msg, hwnd)
 
 HandleThemedButtonFocus(wParam, lParam, msg, hwnd)
 {
-    global ButtonFaces, KeyboardFocusButton
-    if !ButtonFaces.Has(hwnd)
-        return
-
-    if msg = 0x0008 ; WM_KILLFOCUS
-    {
-        oldFocus := KeyboardFocusButton
-        if oldFocus = hwnd
-            KeyboardFocusButton := 0
-        ShowButtonFace(hwnd)
-        return
-    }
-
-    if msg = 0x0007 ; WM_SETFOCUS
-    {
-        previous := KeyboardFocusButton
-        KeyboardFocusButton := hwnd
-        if previous && previous != hwnd
-            ShowButtonFace(previous)
-        ShowButtonFace(hwnd)
-    }
+    ; Focus notifications happen during Windows' focus transition. Defer reading
+    ; GetFocus until the transition has completed so visual state always matches reality.
+    SetTimer(SyncKeyboardFocus, -1)
 }
 
 HandleMouseDown(wParam, lParam, msg, hwnd)
