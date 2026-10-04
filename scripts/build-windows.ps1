@@ -63,16 +63,25 @@ try {
     if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
     Step 'Known-good main launcher compiled successfully with current toolchain'
 
-    # Hybrid A/B: keep the known-good main launcher and every dependency intact, replacing
-    # only update-check.ahk with the updater-branch version. If this hangs, the regression is
-    # conclusively inside that file rather than tes3np.ahk or the build/release scripts.
+    # Hybrid A: only update-check.ahk from the updater branch.
     Step 'Preparing main + updater update-check.ahk hybrid control'
     Copy-Item (Join-Path $projectRoot 'src\app\update-check.ahk') (Join-Path $mainRoot 'src\app\update-check.ahk') -Force
     $hybridExe = Join-Path $buildRoot 'hybrid-update-check.exe'
     $hybridArgs = '/in "' + $mainSource + '" /out "' + $hybridExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $hybridCode = Invoke-Compiler $compiler $hybridArgs 'Hybrid main + updater update-check compilation' 60000
     if ($hybridCode -ne 0 -or !(Test-Path $hybridExe)) { throw 'Hybrid update-check compilation failed.' }
-    Step 'Hybrid update-check compiled successfully; regression is outside update-check.ahk'
+    Step 'Hybrid update-check compiled successfully'
+
+    # Hybrid B: now replace only the entrypoint with the updater branch version. Since Hybrid A
+    # already contains updater update-check.ahk, this tests the exact interaction of the two changed
+    # AHK files while every other source file remains the known-good main revision.
+    Step 'Preparing main + updater update-check + updater tes3np.ahk hybrid control'
+    Copy-Item (Join-Path $projectRoot 'tes3np.ahk') $mainSource -Force
+    $entryExe = Join-Path $buildRoot 'hybrid-entrypoint.exe'
+    $entryArgs = '/in "' + $mainSource + '" /out "' + $entryExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $entryCode = Invoke-Compiler $compiler $entryArgs 'Hybrid with updater tes3np.ahk compilation' 60000
+    if ($entryCode -ne 0 -or !(Test-Path $entryExe)) { throw 'Hybrid updater entrypoint compilation failed.' }
+    Step 'Hybrid updater entrypoint compiled successfully; regression is outside the changed AHK source pair'
 
     $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
