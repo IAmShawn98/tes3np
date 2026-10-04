@@ -92,9 +92,12 @@ GetAutomaticLauncherScale()
     MouseGetPos(&mouseX, &mouseY)
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    workWidth := right - left
-    workHeight := bottom - top
-    fit := Min(1.0, workWidth / LauncherBaseWidth, workHeight / LauncherBaseHeight)
+    ; AHK's GUI dimensions are logical pixels and Windows applies the current DPI
+    ; scale when the window is shown. Compare against that real on-screen size.
+    dpiFactor := A_ScreenDPI / 96
+    requiredWidth := LauncherBaseWidth * dpiFactor
+    requiredHeight := LauncherBaseHeight * dpiFactor
+    fit := Min(1.0, (right - left) / requiredWidth, (bottom - top) / requiredHeight)
     if fit < 1
         fit := Max(0.5, fit * 0.96)
     percent := Floor((fit * 100) / 10) * 10
@@ -113,14 +116,41 @@ MonitorFromPoint(x, y)
     return MonitorGetPrimary()
 }
 
+CenterLauncherWithoutResizing()
+{
+    global LauncherGui
+    MouseGetPos(&mouseX, &mouseY)
+    monitor := MonitorFromPoint(mouseX, mouseY)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    WinGetPos(,, &width, &height, "ahk_id " LauncherGui.Hwnd)
+    x := left + Max(0, ((right - left) - width) // 2)
+    y := top + Max(0, ((bottom - top) - height) // 2)
+    WinMove(x, y,,, "ahk_id " LauncherGui.Hwnd)
+}
+
 ApplyLauncherScaleToWindow(center := false)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
     if LauncherScaleMode = "Auto"
         LauncherScale := GetAutomaticLauncherScale()
+
+    ; 100% must be restored through Gui.Show(), not a raw SetWindowPos size.
+    ; Gui.Show uses AHK's DPI-aware logical coordinates; SetWindowPos uses physical
+    ; pixels and was the reason a 100% restore clipped the right/bottom of the UI.
+    if LauncherScale = 100
+    {
+        LauncherGui.Show("w" LauncherBaseWidth " h" LauncherBaseHeight)
+        if center
+            CenterLauncherWithoutResizing()
+        return
+    }
+
+    ; Reduced-size preview remains intentionally temporary until the user confirms it.
+    ; Account for Windows DPI when converting logical launcher dimensions to pixels.
+    dpiFactor := A_ScreenDPI / 96
     scale := LauncherScale / 100
-    width := Round(LauncherBaseWidth * scale)
-    height := Round(LauncherBaseHeight * scale)
+    width := Round(LauncherBaseWidth * dpiFactor * scale)
+    height := Round(LauncherBaseHeight * dpiFactor * scale)
     MouseGetPos(&mouseX, &mouseY)
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
