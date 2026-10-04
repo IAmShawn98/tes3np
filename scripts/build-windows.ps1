@@ -50,11 +50,14 @@ try {
     $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
 
-    # Compile the exact known-good main revision in a separate checkout. This preserves every
-    # include dependency and tells us whether the current toolchain can still build main.
+    # Actions/checkout uses a shallow single-ref checkout, so fetch main explicitly before
+    # creating the known-good control worktree.
     $mainRoot = Join-Path $buildRoot 'main-source'
+    Step 'Fetching known-good main source for control build'
+    & git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+    if ($LASTEXITCODE -ne 0) { throw 'Could not fetch main for control build.' }
     Step 'Checking out known-good main source for control build'
-    & git -c advice.detachedHead=false worktree add --detach $mainRoot main
+    & git -c advice.detachedHead=false worktree add --detach $mainRoot refs/remotes/origin/main
     if ($LASTEXITCODE -ne 0) { throw 'Could not create main control worktree.' }
     $mainSource = Join-Path $mainRoot 'tes3np.ahk'; $mainExe = Join-Path $buildRoot 'main-control.exe'
     $mainArgs = '/in "' + $mainSource + '" /out "' + $mainExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
