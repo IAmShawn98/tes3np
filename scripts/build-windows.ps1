@@ -44,7 +44,7 @@ try {
     $compiler = Join-Path $tools 'Compiler\Ahk2Exe.exe'; $base = Join-Path $tools 'AutoHotkey64.exe'; $package = Join-Path $buildRoot 'tes3np'
     $null = New-Item $package -ItemType Directory
 
-    # First prove whether this Ahk2Exe/base pair can compile anything at all on the runner.
+    # Prove the downloaded compiler/runtime pair is healthy.
     $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'
     $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
@@ -53,8 +53,24 @@ try {
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
     Step 'Ahk2Exe smoke compilation succeeded; compiler/runtime pair is functional'
 
+    # Ahk2Exe invokes AutoHotkey while preprocessing. A source error can otherwise open
+    # an invisible GUI error dialog on a headless runner and make the compiler appear hung.
+    # Run the exact source first with /ErrorStdOut so parser/load errors become CI output.
+    $source = Join-Path $projectRoot 'tes3np.ahk'
+    $stdout = Join-Path $buildRoot 'source-check.stdout.txt'
+    $stderr = Join-Path $buildRoot 'source-check.stderr.txt'
+    Step 'Validating full tes3np source with AutoHotkey /ErrorStdOut (30 second timeout)'
+    $sourceCheck = Start-Process $base -ArgumentList @('/ErrorStdOut', $source, '--check') -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    if (!$sourceCheck.WaitForExit(30000)) { try { $sourceCheck.Kill() } catch {}; throw 'AutoHotkey source validation timed out after 30 seconds.' }
+    $sourceOut = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { '' }
+    $sourceErr = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
+    if ($sourceOut) { Write-Host "AUTOHOTKEY STDOUT:`n$sourceOut" }
+    if ($sourceErr) { Write-Host "AUTOHOTKEY STDERR:`n$sourceErr" }
+    Step "AutoHotkey source validation exited with code $($sourceCheck.ExitCode)"
+    if ($sourceCheck.ExitCode -ne 0) { throw 'Full tes3np source failed AutoHotkey validation; see stderr above.' }
+
     $executable = Join-Path $package 'tes3np.exe'
-    $arguments = '/in "' + (Join-Path $projectRoot 'tes3np.ahk') + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $compileCode = Invoke-Compiler $compiler $arguments 'tes3np Ahk2Exe compilation (120 second timeout)' 120000
     if ($compileCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
     Step 'Starting compiled launcher --check (30 second timeout)'
