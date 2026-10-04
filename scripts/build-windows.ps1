@@ -1,4 +1,4 @@
-# Build a portable launcher using pinned official AutoHotkey tools.
+# Build a portable launcher using official AutoHotkey release tools.
 [CmdletBinding()]
 param([string]$OutputDirectory = '')
 $ErrorActionPreference = 'Stop'
@@ -7,17 +7,25 @@ if (!$OutputDirectory) { $OutputDirectory = Join-Path $projectRoot 'dist' }
 $null = New-Item $OutputDirectory -ItemType Directory -Force
 $buildRoot = Join-Path ([IO.Path]::GetTempPath()) ('tes3np-build-' + [guid]::NewGuid())
 $null = New-Item $buildRoot -ItemType Directory
-function Get-VerifiedTool([string]$Url, [string]$Name, [string]$Hash) {
+function Get-ReleaseTool([string]$Repository, [string]$Pattern, [string]$Name) {
+    $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
+    $release = Invoke-RestMethod ("https://api.github.com/repos/$Repository/releases/latest") -Headers $headers
+    $asset = $release.assets | Where-Object { $_.name -match $Pattern } | Select-Object -First 1
+    if (!$asset) { throw "Official release has no matching archive: $Repository $Pattern" }
     $file = Join-Path $buildRoot $Name
-    Invoke-WebRequest $Url -OutFile $file -UseBasicParsing
-    if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $Hash) {
-        throw "Downloaded tool checksum did not match: $Name"
+    Write-Output "Downloading $Repository $($release.tag_name): $($asset.name)" | Out-Host
+    Invoke-WebRequest $asset.browser_download_url -OutFile $file -UseBasicParsing
+    if ($asset.digest -match '^sha256:(.+)$') {
+        if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $Matches[1]) {
+            throw "Downloaded tool checksum did not match: $Name"
+        }
     }
+    Add-Content (Join-Path $buildRoot 'BUILD-TOOLS.txt') ("$Repository $($release.tag_name) $($asset.name) SHA256 " + (Get-FileHash $file -Algorithm SHA256).Hash)
     return $file
 }
 try {
-    $ahkZip = Get-VerifiedTool 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.28/AutoHotkey_2.0.28.zip' 'autohotkey.zip' 'B63BE7548792B4AD0DFE424D91CC69376694ED2F758245B7A75A0C77D693B478'
-    $compilerZip = Get-VerifiedTool 'https://github.com/AutoHotkey/Ahk2Exe/releases/download/Ahk2Exe1.1.37.02a2/Ahk2Exe.zip' 'compiler.zip' 'C29B8C3A5124850D79FC9E66E2CA79677C377D7F31631AD3022BA159C5D9E3BE'
+    $ahkZip = Get-ReleaseTool 'AutoHotkey/AutoHotkey' '^AutoHotkey_2\.0\..+\.zip$' 'autohotkey.zip'
+    $compilerZip = Get-ReleaseTool 'AutoHotkey/Ahk2Exe' '\.zip$' 'compiler.zip'
     $tools = Join-Path $buildRoot 'tools'
     Expand-Archive $ahkZip $tools
     Expand-Archive $compilerZip (Join-Path $tools 'Compiler')
@@ -48,6 +56,7 @@ try {
     $license = Get-ChildItem $tools -File | Where-Object { $_.Name -match '^(license|copying)(\..*)?$' } | Select-Object -First 1
     if (!$license) { throw 'AutoHotkey license is missing from the official archive.' }
     Copy-Item $license.FullName (Join-Path $runtime 'LICENSE.txt')
+    Copy-Item (Join-Path $buildRoot 'BUILD-TOOLS.txt') $package
     Copy-Item (Join-Path $projectRoot 'docs\INSTALLATION.md') (Join-Path $package 'INSTALLATION.md')
     Set-Content (Join-Path $package 'START-HERE.txt') @'
 TES3NP - Nerevarine Prophecies Launcher
