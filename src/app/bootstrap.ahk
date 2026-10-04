@@ -1,8 +1,11 @@
 ﻿; Application startup, quick-launch choice, tray wiring and shutdown.
 
+global LauncherControlLayout := Map()
+global LauncherVersionLabel := 0
+
 StartLauncher()
 {
-    global LauncherGui, HoverTimer, SetupComplete, DataFile
+    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel
     InitializePatchLogMirror()
     LogLauncherEvent("Launcher startup beginning.")
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
@@ -27,9 +30,10 @@ StartLauncher()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
-    LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     AddStyledButton(LauncherGui, 650, 675, 145, 32, "Launcher Settings", OpenLauncherSettings)
     AddStyledButton(LauncherGui, 805, 675, 140, 32, "Check for Updates", CheckForUpdates)
+    CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
     OnMessage(0x0201, HandleMouseDown)
@@ -48,13 +52,64 @@ StartLauncher()
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
+CaptureLauncherControlLayout()
+{
+    global LauncherGui, LauncherControlLayout
+    LauncherControlLayout := Map()
+    for control in LauncherGui
+    {
+        try
+        {
+            control.GetPos(&x, &y, &width, &height)
+            LauncherControlLayout[control.Hwnd] := {Control: control, X: x, Y: y, Width: width, Height: height}
+        }
+    }
+}
+
+ApplyLauncherControlScale()
+{
+    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherVersionLabel
+    if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
+        return
+    scale := LauncherScale / 100
+    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+    try
+    {
+        for hwnd, item in LauncherControlLayout
+        {
+            if !DllCall("IsWindow", "Ptr", hwnd)
+                continue
+            item.Control.Move(Round(item.X * scale), Round(item.Y * scale), Round(item.Width * scale), Round(item.Height * scale))
+        }
+        for hwnd, face in ButtonFaces
+        {
+            if !DllCall("IsWindow", "Ptr", hwnd) || face.Window != LauncherGui.Hwnd
+                continue
+            if face.HasOwnProp("IsInfo")
+                face.Control.SetFont("s" Max(7, Round(10 * scale)) " Norm", "Palatino Linotype")
+            else if !face.HasOwnProp("IsLabel")
+                face.Control.SetFont("s" Max(7, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
+        }
+        if IsObject(LauncherHeading)
+            LauncherHeading.SetFont("s" Max(9, Round(14 * scale)) " Bold", "Georgia")
+        if IsObject(LauncherVersionLabel)
+            LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
+    }
+    finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
+    RepaintMenuButtons()
+}
+
 ShowLauncherWindow(*)
 {
-    global LauncherGui, LauncherScale
+    global LauncherGui, LauncherScale, LauncherScaleMode
+    if LauncherScaleMode = "Auto"
+        LauncherScale := GetAutomaticLauncherScale()
     PrepareWindowDisplay(LauncherGui)
     LauncherGui.Show("w960 h716")
-    if LauncherScale != 100
-        ApplyLauncherScaleToWindow()
+    ApplyLauncherScaleToWindow()
+    ApplyLauncherControlScale()
+    CenterLauncherWithoutResizing()
     RevealWindowDisplay(LauncherGui)
 }
 
