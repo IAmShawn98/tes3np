@@ -17,9 +17,7 @@ function Get-ReleaseTool([string]$Repository, [string]$Pattern, [string]$Name) {
     Write-Output "Downloading $Repository $($release.tag_name): $($asset.name)" | Out-Host
     Invoke-WebRequest $asset.browser_download_url -OutFile $file -UseBasicParsing
     if ($asset.digest -match '^sha256:(.+)$') {
-        if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $Matches[1]) {
-            throw "Downloaded tool checksum did not match: $Name"
-        }
+        if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $Matches[1]) { throw "Downloaded tool checksum did not match: $Name" }
     }
     Add-Content (Join-Path $buildRoot 'BUILD-TOOLS.txt') ("$Repository $($release.tag_name) $($asset.name) SHA256 " + (Get-FileHash $file -Algorithm SHA256).Hash)
     return $file
@@ -38,21 +36,13 @@ try {
     $arguments = '/in "' + (Join-Path $projectRoot 'tes3np.ahk') + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $process = Start-Process $compiler -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
-    # AutoHotkey parses every included function before this no-GUI check exits.
-    # --check must be the script's first argument. /ErrorStdOut is an interpreter
-    # switch and is not appropriate once the script has been compiled to an EXE.
     $check = Start-Process $executable -ArgumentList '--check' -PassThru
     if (!$check.WaitForExit(30000)) { $check.Kill(); throw 'Compiled launcher validation timed out.' }
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
-    foreach ($folder in @('assets', 'patches')) {
-        Copy-Item (Join-Path $projectRoot $folder) $package -Recurse
-    }
+    foreach ($folder in @('assets', 'patches')) { Copy-Item (Join-Path $projectRoot $folder) $package -Recurse }
     $scripts = Join-Path $package 'scripts'
     $null = New-Item $scripts -ItemType Directory
-    foreach ($worker in @('import-macro.ps1', 'patch-tes3mp.ps1')) {
-        Copy-Item (Join-Path $PSScriptRoot $worker) $scripts
-    }
-    # Imported AHK v2 macros need an interpreter; ship it beside its license.
+    foreach ($worker in @('import-macro.ps1', 'patch-tes3mp.ps1', 'tes3np-updater.ps1')) { Copy-Item (Join-Path $PSScriptRoot $worker) $scripts }
     $runtime = Join-Path $package 'runtime'
     $null = New-Item $runtime -ItemType Directory
     Copy-Item $base $runtime
@@ -77,6 +67,4 @@ you do not need to install it separately. See INSTALLATION.md for help.
     Compress-Archive $package $archive -CompressionLevel Optimal
     Write-Output "Built $archive"
 }
-finally {
-    Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue
-}
+finally { Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
