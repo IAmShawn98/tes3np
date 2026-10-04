@@ -19,7 +19,7 @@ AddLauncherButton(y, name, action)
     LauncherGui.SetFont("s10 Bold", "Segoe UI")
     button := LauncherGui.Add("Custom", "ClassButton x370 y" (y - 11) " w220 h48 +0xB +Tabstop", name)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
-    face := {Control: button, Label: button, Action: action, Y: y, Gui: LauncherGui, Window: LauncherGui.Hwnd, Book: false, State: "normal"}
+    face := {Control: button, Label: button, Action: action, Y: y, Gui: LauncherGui, Window: LauncherGui.Hwnd, Book: false, State: "normal", BaseX: 370, BaseWidth: 220, BaseHeight: 48}
     ButtonFaces[button.Hwnd] := face
     AttachButtonPainter(button.Hwnd)
     return button
@@ -32,7 +32,7 @@ AddStyledButton(gui, x, y, width, height, text, action)
     gui.SetFont("s10 Bold", "Segoe UI")
     button := gui.Add("Custom", "ClassButton x" x " y" y " w" width " h" height " +0xB +Tabstop", text)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
-    ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action, Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal"}
+    ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action, Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal", BaseX: x, BaseWidth: width, BaseHeight: height}
     AttachButtonPainter(button.Hwnd)
     return button
 }
