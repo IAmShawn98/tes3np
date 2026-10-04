@@ -4,7 +4,7 @@
 CheckModifiedClientFirstRun()
 {
     global DataFile
-    if IniRead(DataFile, "Patch", "ModifiedClientPrompt", "") != ""
+    if IniRead(DataFile, "Patch", "CustomClientChoice", "") != ""
         return
 
     tesFolder := FindTES3MPFolder()
@@ -18,11 +18,24 @@ CheckModifiedClientFirstRun()
     if installedHash = "" || installedHash = stockHash || (markerlessHash != "" && installedHash = markerlessHash)
         return
 
-    answer := MsgBox("You are using a modified TES3MP client already.`n`nDo you wish to patch it with the Markerless build?", "Modified TES3MP Client Detected", "YesNo Icon?")
+    message := "It looks like you're using a custom patch of TES3MP.`n`n"
+        . "Would you like the patcher to overwrite your custom tes3mp.exe with the Markerless build, or would you like us to skip it instead?`n`n"
+        . "Yes — overwrite the custom tes3mp.exe with Markerless.`n"
+        . "No — keep the custom tes3mp.exe and skip Markerless."
+    answer := MsgBox(message, "Custom TES3MP Patch Detected", "YesNo Icon?")
+    choice := answer = "Yes" ? "overwrite" : "skip"
     DirCreate(AppDataDirectory)
-    IniWrite(answer = "Yes" ? "yes" : "no", DataFile, "Patch", "ModifiedClientPrompt")
+    IniWrite(choice, DataFile, "Patch", "CustomClientChoice")
+    ; Remove the short-lived earlier setting so this choice is the single source of truth.
+    try IniDelete(DataFile, "Patch", "ModifiedClientPrompt")
     if answer = "Yes"
         OpenPatcher()
+}
+
+ShouldSkipMarkerless()
+{
+    global DataFile
+    return IniRead(DataFile, "Patch", "CustomClientChoice", "") = "skip"
 }
 
 BundledMarkerlessHash()
