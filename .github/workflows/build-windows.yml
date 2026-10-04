@@ -46,8 +46,13 @@ jobs:
           $notes = @"
           Automated tes3np development build from the private source repository.
 
-          Version: v0.1.0-alpha
+          Version: v0.1.1-alpha
           Source revision: $env:GITHUB_SHA
+
+          Changes in v0.1.1-alpha:
+          - Detect custom TES3MP executables during Verify and Install / Repair instead of launcher startup.
+          - Verify warns when an unofficial modified TES3MP client is present without changing it.
+          - Install / Repair lets the user choose whether to replace a custom executable with Markerless or keep the custom executable.
 
           This is development software intended for testing. Extract the ZIP completely and run tes3np.exe from the included tes3np folder.
           "@
@@ -62,10 +67,10 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $asset --repo $repo --clobber
             if ($LASTEXITCODE -ne 0) { throw 'Failed to upload the public release package.' }
-            gh release edit $tag --repo $repo --title 'tes3np v0.1.0-alpha - Latest Test Build' --notes $notes --prerelease
+            gh release edit $tag --repo $repo --title 'tes3np v0.1.1-alpha - Latest Test Build' --notes $notes --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Failed to update the public release.' }
           }
           else {
-            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.0-alpha - Latest Test Build' --notes $notes --prerelease
+            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.1-alpha - Latest Test Build' --notes $notes --prerelease
             if ($LASTEXITCODE -ne 0) { throw 'Failed to create the public release. Check RELEASE_PUBLISH_TOKEN permissions.' }
           }
