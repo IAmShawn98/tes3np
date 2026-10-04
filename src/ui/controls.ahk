@@ -1,5 +1,7 @@
 ﻿; Themed control builders, pointer state and event routing.
 
+global KeyboardFocusButton := 0
+
 DragLauncher(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, DragStrip
@@ -64,12 +66,11 @@ SetBookTick(tick, checked)
 
 ShowButtonFace(handle)
 {
-    global ButtonFaces, HoverButton, PressedButton
+    global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
         return
     face := ButtonFaces[handle]
-    focused := DllCall("GetFocus", "Ptr") = handle
-    state := PressedButton && HoverButton && ButtonFaces[PressedButton] = face && ButtonFaces[HoverButton] = face ? "down" : (HoverButton && ButtonFaces[HoverButton] = face) || focused ? "hover" : "normal"
+    state := PressedButton = handle ? "down" : (HoverButton = handle || KeyboardFocusButton = handle) ? "hover" : "normal"
     if face.State = state
         return
     face.State := state
@@ -94,7 +95,7 @@ FinishButtonDisplay()
 
 UpdateButtonHover()
 {
-    global LauncherGui, ButtonFaces, HoverButton, PressedButton, MenuRows
+    global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
     MouseGetPos(&x, &y, &window)
     nextHover := 0
     if window
@@ -121,7 +122,7 @@ UpdateButtonHover()
         PressedButton := 0
         DllCall("ReleaseCapture")
     }
-    for handle in [previous, nextHover, previousPress, DllCall("GetFocus", "Ptr")]
+    for handle in [previous, nextHover, previousPress, KeyboardFocusButton]
         if handle
             ShowButtonFace(handle)
 }
@@ -194,24 +195,27 @@ HandleThemedButtonKey(wParam, lParam, msg, hwnd)
 
 HandleThemedButtonFocus(wParam, lParam, msg, hwnd)
 {
-    global ButtonFaces, HoverButton
+    global ButtonFaces, KeyboardFocusButton
     if !ButtonFaces.Has(hwnd)
         return
 
-    if msg = 0x0008 ; WM_KILLFOCUS fires before GetFocus() has changed, so force the old button out of keyboard-highlight state.
+    if msg = 0x0008 ; WM_KILLFOCUS
     {
-        face := ButtonFaces[hwnd]
-        state := HoverButton = hwnd ? "hover" : "normal"
-        if face.State != state
-        {
-            face.State := state
-            DllCall("RedrawWindow", "Ptr", face.Control.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
-        }
+        oldFocus := KeyboardFocusButton
+        if oldFocus = hwnd
+            KeyboardFocusButton := 0
+        ShowButtonFace(hwnd)
         return
     }
 
     if msg = 0x0007 ; WM_SETFOCUS
+    {
+        previous := KeyboardFocusButton
+        KeyboardFocusButton := hwnd
+        if previous && previous != hwnd
+            ShowButtonFace(previous)
         ShowButtonFace(hwnd)
+    }
 }
 
 HandleMouseDown(wParam, lParam, msg, hwnd)
