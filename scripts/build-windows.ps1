@@ -50,8 +50,6 @@ try {
     $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
 
-    # Actions/checkout uses a shallow single-ref checkout, so fetch main explicitly before
-    # creating the known-good control worktree.
     $mainRoot = Join-Path $buildRoot 'main-source'
     Step 'Fetching known-good main source for control build'
     & git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
@@ -64,6 +62,17 @@ try {
     $mainCode = Invoke-Compiler $compiler $mainArgs 'Known-good main launcher control compilation' 120000
     if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
     Step 'Known-good main launcher compiled successfully with current toolchain'
+
+    # Hybrid A/B: keep the known-good main launcher and every dependency intact, replacing
+    # only update-check.ahk with the updater-branch version. If this hangs, the regression is
+    # conclusively inside that file rather than tes3np.ahk or the build/release scripts.
+    Step 'Preparing main + updater update-check.ahk hybrid control'
+    Copy-Item (Join-Path $projectRoot 'src\app\update-check.ahk') (Join-Path $mainRoot 'src\app\update-check.ahk') -Force
+    $hybridExe = Join-Path $buildRoot 'hybrid-update-check.exe'
+    $hybridArgs = '/in "' + $mainSource + '" /out "' + $hybridExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $hybridCode = Invoke-Compiler $compiler $hybridArgs 'Hybrid main + updater update-check compilation' 60000
+    if ($hybridCode -ne 0 -or !(Test-Path $hybridExe)) { throw 'Hybrid update-check compilation failed.' }
+    Step 'Hybrid update-check compiled successfully; regression is outside update-check.ahk'
 
     $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
