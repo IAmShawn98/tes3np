@@ -38,7 +38,9 @@ try {
     $process = Start-Process $compiler -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
     # AutoHotkey parses every included function before this no-GUI check exits.
-    $check = Start-Process $executable -ArgumentList '/ErrorStdOut --check' -PassThru
+    # --check must be the script's first argument. /ErrorStdOut is an interpreter
+    # switch and is not appropriate once the script has been compiled to an EXE.
+    $check = Start-Process $executable -ArgumentList '--check' -PassThru
     if (!$check.WaitForExit(30000)) { $check.Kill(); throw 'Compiled launcher validation timed out.' }
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
     foreach ($folder in @('assets', 'patches')) {
