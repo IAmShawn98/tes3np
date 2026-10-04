@@ -6,6 +6,7 @@ global UpdateReleasePage := "https://github.com/IAmShawn98/tes3np-releases/relea
 CheckForUpdates(*)
 {
     global AppConfig, UpdateReleaseApi, UpdateReleasePage
+    LogLauncherEvent("UPDATE | Checking GitHub for latest public release. Current: v" AppConfig.Version ".")
     try
     {
         request := ComObject("WinHttp.WinHttpRequest.5.1")
@@ -19,17 +20,28 @@ CheckForUpdates(*)
         if !RegExMatch(body, '"name"\s*:\s*"tes3np v([^" ]+)', &match)
             throw Error("The public release did not contain a recognizable tes3np version.")
         latest := match[1]
+        LogLauncherEvent("UPDATE | Release check completed. Current: v" AppConfig.Version " | Latest: v" latest ".")
         if CompareTes3npVersions(latest, AppConfig.Version) <= 0
         {
+            LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
             MsgBox("You're already running the latest public version of tes3np.`n`nInstalled: v" AppConfig.Version, "tes3np — Up to date", "Iconi")
             return
         }
+        LogLauncherEvent("UPDATE | Update available: v" latest ".")
         message := "tes3np v" latest " is available.`n`nYou are currently running v" AppConfig.Version ".`n`nOpen the official public release page to download the update?"
         if MsgBox(message, "tes3np — Update available", "YesNo Iconi") = "Yes"
+        {
+            LogLauncherEvent("UPDATE | User opened official public release page for v" latest ".")
             Run(UpdateReleasePage)
+        }
+        else
+            LogLauncherEvent("UPDATE | User declined to open the public release page.")
     }
     catch Error as err
+    {
+        LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
         MsgBox("tes3np couldn't check GitHub for updates right now.`n`n" err.Message, "tes3np — Update check", "Icon!")
+    }
 }
 
 CompareTes3npVersions(left, right)
