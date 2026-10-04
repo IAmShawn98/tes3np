@@ -1,0 +1,78 @@
+param(
+    [Parameter(Mandatory=$true)][string]$InstallDir,
+    [Parameter(Mandatory=$true)][string]$StageDir,
+    [Parameter(Mandatory=$true)][string]$StateFile,
+    [Parameter(Mandatory=$true)][string]$Version,
+    [int]$ParentPid = 0,
+    [switch]$TestMode,
+    [ValidateSet('','after-backup','after-install')][string]$FailAt = ''
+)
+$ErrorActionPreference = 'Stop'
+
+function Set-State([string]$State) {
+    $dir = Split-Path -Parent $StateFile
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    @("[Update]","State=$State","Version=$Version","UpdatedUtc=$([DateTime]::UtcNow.ToString('o'))") | Set-Content -LiteralPath $StateFile -Encoding UTF8
+}
+function Wait-Parent {
+    if ($ParentPid -le 0) { return }
+    try { Wait-Process -Id $ParentPid -Timeout 30 -ErrorAction Stop } catch {
+        if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) { throw 'Launcher did not exit in time.' }
+    }
+}
+function Assert-SafePaths {
+    $install = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\')
+    $stage = [IO.Path]::GetFullPath($StageDir).TrimEnd('\')
+    if (-not (Test-Path -LiteralPath $install -PathType Container)) { throw 'Install directory does not exist.' }
+    if (-not (Test-Path -LiteralPath $stage -PathType Container)) { throw 'Staged update directory does not exist.' }
+    if ($install -eq $stage -or $stage.StartsWith($install + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Staging directory must be outside the live installation.' }
+    if (-not (Get-ChildItem -LiteralPath $stage -Filter tes3np.exe -Recurse -File | Select-Object -First 1)) { throw 'Staged launcher is missing.' }
+}
+function Get-PayloadRoot {
+    $exe = Get-ChildItem -LiteralPath $StageDir -Filter tes3np.exe -Recurse -File | Select-Object -First 1
+    return $exe.Directory.FullName
+}
+
+$rollback = Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($InstallDir))) ('.tes3np-rollback-' + $Version)
+$installed = $false
+try {
+    Assert-SafePaths
+    Wait-Parent
+    Set-State 'PREPARING'
+    if (Test-Path -LiteralPath $rollback) { Remove-Item -LiteralPath $rollback -Recurse -Force }
+    New-Item -ItemType Directory -Path $rollback | Out-Null
+    Set-State 'BACKING_UP'
+    # Preserve a complete known-good copy. AppData is external and is never touched.
+    Copy-Item -LiteralPath (Join-Path $InstallDir '*') -Destination $rollback -Recurse -Force
+    Set-State 'BACKED_UP'
+    if ($FailAt -eq 'after-backup') { throw 'Injected failure after backup.' }
+
+    $payload = Get-PayloadRoot
+    Set-State 'INSTALLING'
+    # Copy staged launcher-owned payload over the live installation. Do not delete
+    # unrelated user files in the install directory.
+    Copy-Item -LiteralPath (Join-Path $payload '*') -Destination $InstallDir -Recurse -Force
+    $installed = $true
+    Set-State 'AWAITING_CONFIRMATION'
+    if ($FailAt -eq 'after-install') { throw 'Injected failure after install.' }
+
+    if (-not $TestMode) {
+        $newExe = Join-Path $InstallDir 'tes3np.exe'
+        if (-not (Test-Path -LiteralPath $newExe)) { throw 'Updated launcher is missing after installation.' }
+        Start-Process -FilePath $newExe -ArgumentList '--update-confirm', $Version
+    }
+    Set-State 'LAUNCHED'
+    exit 0
+}
+catch {
+    $message = $_.Exception.Message
+    try {
+        Set-State 'ROLLING_BACK'
+        if (Test-Path -LiteralPath $rollback) {
+            Copy-Item -LiteralPath (Join-Path $rollback '*') -Destination $InstallDir -Recurse -Force
+            Set-State 'ROLLED_BACK'
+        } else { Set-State 'FAILED' }
+    } catch { Set-State 'ROLLBACK_FAILED' }
+    Write-Error $message
+    exit 1
+}
