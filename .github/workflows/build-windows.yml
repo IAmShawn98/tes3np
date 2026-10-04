@@ -31,6 +31,9 @@ jobs:
       - name: Parse PowerShell helpers
         shell: powershell
         run: ./scripts/check-powershell.ps1
+      - name: Test launcher updater validation
+        shell: pwsh
+        run: ./scripts/test-update-client.ps1
       - name: Compile launcher with custom icon and package
         shell: powershell
         env:
@@ -91,8 +94,6 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $oldNativePreference
 
           if ($releaseExists) {
-            # Upload all build assets before changing release metadata. Clients must
-            # never be told a new version exists before its package metadata is ready.
             foreach ($asset in $assets) {
               gh release upload $tag $asset --repo $repo --clobber
               if ($LASTEXITCODE -ne 0) { throw "Failed to upload public release asset: $asset" }
