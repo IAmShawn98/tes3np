@@ -195,12 +195,13 @@ HandleThemedButtonKey(wParam, lParam, msg, hwnd)
 HandleThemedButtonFocus(wParam, lParam, msg, hwnd)
 {
     global ButtonFaces
+    ; WM_SETFOCUS gives us the newly focused button in hwnd and the old control
+    ; in wParam. WM_KILLFOCUS gives us the old button in hwnd and the new control
+    ; in wParam. Repaint both sides explicitly so the old highlight cannot stick.
     if ButtonFaces.Has(hwnd)
-    {
         ShowButtonFace(hwnd)
-        if lParam && ButtonFaces.Has(lParam)
-            ShowButtonFace(lParam)
-    }
+    if wParam && ButtonFaces.Has(wParam)
+        ShowButtonFace(wParam)
 }
 
 HandleMouseDown(wParam, lParam, msg, hwnd)
