@@ -25,6 +25,7 @@ StartLauncher()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
+    LoadDailyLoginSchedule()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
