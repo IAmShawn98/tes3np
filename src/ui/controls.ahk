@@ -164,10 +164,11 @@ ReleaseButton(wParam, lParam, msg, hwnd)
     if !PressedButton
         return
     handle := PressedButton
-    x := (lParam & 0xFFFF) << 48 >> 48
-    y := ((lParam >> 16) & 0xFFFF) << 48 >> 48
-    GuiCtrlFromHwnd(handle).GetPos(, , &width, &height)
-    inside := x >= 0 && y >= 0 && x < width * A_ScreenDPI / 96 && y < height * A_ScreenDPI / 96
+    MouseGetPos(&screenX, &screenY)
+    rect := Buffer(16, 0)
+    DllCall("GetWindowRect", "Ptr", handle, "Ptr", rect)
+    inside := screenX >= NumGet(rect, 0, "Int") && screenX < NumGet(rect, 8, "Int")
+        && screenY >= NumGet(rect, 4, "Int") && screenY < NumGet(rect, 12, "Int")
     PressedButton := 0
     DllCall("ReleaseCapture")
     HoverButton := inside ? handle : 0
