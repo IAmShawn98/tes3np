@@ -61,15 +61,28 @@ StartTransactionalUpdate(version, staged)
     worker := A_ScriptDir "\scripts\tes3np-updater.ps1"
     stateFile := A_Temp "\tes3np-update\update-state.ini"
     expectedStage := A_Temp "\tes3np-update\staged"
+
     if !FileExist(worker)
         throw Error("Updater worker is missing from this installation.")
     if !FileExist(stateFile)
         throw Error("Update state file is missing.")
     if StrLower(GetFullPath(staged)) != StrLower(GetFullPath(expectedStage))
         throw Error("Staged update path is invalid.")
+
     pid := DllCall("GetCurrentProcessId", "UInt")
-    args := ' -NoProfile -NonInteractive -File "' worker '" -InstallDir "' A_ScriptDir '" -StageDir "' staged '" -StateFile "' stateFile '" -Version "' version '" -ParentPid ' pid
-    Run('powershell.exe' args, A_ScriptDir, "Hide")
+
+    psArgs := '-NoProfile -ExecutionPolicy Bypass -File "' worker
+        . '" -InstallDir "' A_ScriptDir
+        . '" -StageDir "' staged
+        . '" -StateFile "' stateFile
+        . '" -Version "' version
+        . '" -ParentPid ' pid
+
+    command := A_ComSpec ' /D /S /C start "" /B powershell.exe ' psArgs
+    Run(command, A_ScriptDir, "Hide")
+
+    ; Give the detached updater worker time to start before tes3np exits.
+    Sleep(500)
 }
 
 ConfirmInstalledUpdate(version, stateFile)
