@@ -74,7 +74,9 @@ try {
     if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
     Step 'Known-good main launcher compiled successfully with current toolchain'
 
-    # Hybrid A: only update-check.ahk from the updater branch.
+    # Keep the updater-specific update-check control because it verifies the update
+    # module against the known-good main launcher. The old hybrid-entrypoint control
+    # was only diagnostic scaffolding and became stale as the branch gained modules.
     Step 'Preparing main + updater update-check.ahk hybrid control'
     Copy-Item (Join-Path $projectRoot 'src\app\update-check.ahk') (Join-Path $mainRoot 'src\app\update-check.ahk') -Force
     $hybridExe = Join-Path $buildRoot 'hybrid-update-check.exe'
@@ -83,30 +85,11 @@ try {
     if ($hybridCode -ne 0 -or !(Test-Path $hybridExe)) { throw 'Hybrid update-check compilation failed.' }
     Step 'Hybrid update-check compiled successfully'
 
-    # Hybrid B uses the updater entrypoint. Copy any branch-only includes referenced by that
-    # entrypoint into the known-good control tree first so this test still isolates entrypoint
-    # compatibility instead of failing merely because the control checkout predates a new module.
-    Step 'Preparing main + updater update-check + updater tes3np.ahk hybrid control'
-    $branchOnlyIncludes = @('src\app\daily-login-scheduler.ahk')
-    foreach ($relative in $branchOnlyIncludes) {
-        $sourceInclude = Join-Path $projectRoot $relative
-        if (Test-Path $sourceInclude) {
-            $targetInclude = Join-Path $mainRoot $relative
-            $targetDir = Split-Path $targetInclude -Parent
-            if (!(Test-Path $targetDir)) { $null = New-Item $targetDir -ItemType Directory -Force }
-            Copy-Item $sourceInclude $targetInclude -Force
-        }
-    }
-    Copy-Item (Join-Path $projectRoot 'tes3np.ahk') $mainSource -Force
-    $entryExe = Join-Path $buildRoot 'hybrid-entrypoint.exe'
-    $entryArgs = '/in "' + $mainSource + '" /out "' + $entryExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $entryCode = Invoke-Compiler $compiler $entryArgs 'Hybrid with updater tes3np.ahk compilation' 60000
-    if ($entryCode -ne 0 -or !(Test-Path $entryExe)) { throw 'Hybrid updater entrypoint compilation failed.' }
-    Step 'Hybrid updater entrypoint compiled successfully; regression is outside the changed AHK source pair'
-
+    # The authoritative test is the complete current branch, not a partial mixture
+    # of main and branch files.
     $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $compileCode = Invoke-Compiler $compiler $arguments 'Updater-branch tes3np compilation' 120000
+    $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
     if ($compileCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
     Step 'Starting compiled launcher --check (30 second timeout)'
     $check = Start-Process $executable -ArgumentList '--check' -PassThru
