@@ -46,7 +46,7 @@ CheckForUpdates(*)
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
-        MsgBox("tes3np couldn't safely prepare or start the update.`n`nNo update was intentionally installed.`n`n" err.Message, "tes3np — Update", "Icon!")
+        MsgBox("tes3np couldn't safely prepare or start the update.`n`nNo update was installed. The current launcher remains unchanged unless the transactional installer had already started; in that case it will automatically roll back if the new launcher cannot confirm a successful start.`n`n" err.Message, "tes3np — Update", "Icon!")
     } finally {
         UpdateBusy := false
     }
