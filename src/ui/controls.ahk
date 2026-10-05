@@ -68,20 +68,24 @@ ShowButtonFace(handle)
 {
     global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
+    {
+        if ButtonFaces.Has(handle)
+            ButtonFaces.Delete(handle)
         return
+    }
     face := ButtonFaces[handle]
     state := PressedButton = handle ? "down" : (HoverButton = handle || KeyboardFocusButton = handle) ? "hover" : "normal"
     if face.State = state
         return
     face.State := state
-    DllCall("RedrawWindow", "Ptr", face.Control.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
+    DllCall("RedrawWindow", "Ptr", handle, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
 }
 
 SyncKeyboardFocus(*)
 {
     global ButtonFaces, KeyboardFocusButton
     focused := DllCall("GetFocus", "Ptr")
-    nextFocus := ButtonFaces.Has(focused) && !ButtonFaces[focused].HasOwnProp("IsLabel") ? focused : 0
+    nextFocus := ButtonFaces.Has(focused) && DllCall("IsWindow", "Ptr", focused) && !ButtonFaces[focused].HasOwnProp("IsLabel") ? focused : 0
     previous := KeyboardFocusButton
     KeyboardFocusButton := nextFocus
     if previous && previous != nextFocus
@@ -93,17 +97,32 @@ SyncKeyboardFocus(*)
 RepaintMenuButtons(*)
 {
     global ButtonFaces
+    stale := []
     for handle, face in ButtonFaces
-        if DllCall("IsWindow", "Ptr", handle)
-            PaintButtonNow(handle)
+    {
+        if !DllCall("IsWindow", "Ptr", handle)
+        {
+            stale.Push(handle)
+            continue
+        }
+        PaintButtonNow(handle)
+    }
+    for handle in stale
+        ButtonFaces.Delete(handle)
 }
 
 SyncDynamicButtonGeometry()
 {
     global ButtonFaces, LauncherGui
+    stale := []
     for handle, face in ButtonFaces
     {
-        if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel")
+        if !DllCall("IsWindow", "Ptr", handle)
+        {
+            stale.Push(handle)
+            continue
+        }
+        if face.HasOwnProp("IsLabel")
             continue
         ; Launcher controls keep their original base geometry for display scaling.
         ; Other windows can intentionally resize/move controls while refreshing,
@@ -117,6 +136,8 @@ SyncDynamicButtonGeometry()
         face.BaseWidth := width
         face.BaseHeight := height
     }
+    for handle in stale
+        ButtonFaces.Delete(handle)
 }
 
 FinishButtonDisplay()
@@ -133,22 +154,30 @@ UpdateButtonHover()
     global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
     MouseGetPos(&x, &y, &window)
     nextHover := 0
+    stale := []
     if window
     {
         rect := Buffer(16, 0)
         for handle, face in ButtonFaces
         {
-            button := face.Control
-            if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || window != face.Window || !button.Visible || !button.Enabled
+            if !DllCall("IsWindow", "Ptr", handle)
+            {
+                stale.Push(handle)
                 continue
-            DllCall("GetWindowRect", "Ptr", button.Hwnd, "Ptr", rect)
+            }
+            button := face.Control
+            if face.HasOwnProp("IsLabel") || window != face.Window || !button.Visible || !button.Enabled
+                continue
+            DllCall("GetWindowRect", "Ptr", handle, "Ptr", rect)
             if x >= NumGet(rect, 0, "Int") && x < NumGet(rect, 8, "Int") && y >= NumGet(rect, 4, "Int") && y < NumGet(rect, 12, "Int")
             {
-                nextHover := button.Hwnd
+                nextHover := handle
                 break
             }
         }
     }
+    for handle in stale
+        ButtonFaces.Delete(handle)
     previous := HoverButton
     previousPress := PressedButton
     HoverButton := nextHover
@@ -165,7 +194,7 @@ UpdateButtonHover()
 PressButton(wParam, lParam, msg, hwnd)
 {
     global ButtonFaces, PressedButton, HoverButton
-    if !ButtonFaces.Has(hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel") || !ButtonFaces[hwnd].Control.Enabled
+    if !ButtonFaces.Has(hwnd) || !DllCall("IsWindow", "Ptr", hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel") || !ButtonFaces[hwnd].Control.Enabled
         return
     DllCall("SetFocus", "Ptr", hwnd)
     SetTimer(SyncKeyboardFocus, -1)
@@ -186,6 +215,15 @@ ReleaseButton(wParam, lParam, msg, hwnd)
     if !PressedButton
         return
     handle := PressedButton
+    if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
+    {
+        if ButtonFaces.Has(handle)
+            ButtonFaces.Delete(handle)
+        PressedButton := 0
+        HoverButton := 0
+        DllCall("ReleaseCapture")
+        return 0
+    }
     MouseGetPos(&screenX, &screenY)
     rect := Buffer(16, 0)
     DllCall("GetWindowRect", "Ptr", handle, "Ptr", rect)
@@ -203,8 +241,12 @@ ReleaseButton(wParam, lParam, msg, hwnd)
 ActivateThemedButton(handle)
 {
     global ButtonFaces
-    if !ButtonFaces.Has(handle)
+    if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
+    {
+        if ButtonFaces.Has(handle)
+            ButtonFaces.Delete(handle)
         return
+    }
     face := ButtonFaces[handle]
     if face.HasOwnProp("IsLabel") || !face.Control.Enabled || !face.Control.Visible
         return
@@ -226,7 +268,7 @@ HandleThemedButtonKey(wParam, lParam, msg, hwnd)
         SetTimer(SyncKeyboardFocus, -1)
         return
     }
-    if !ButtonFaces.Has(hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel")
+    if !ButtonFaces.Has(hwnd) || !DllCall("IsWindow", "Ptr", hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel")
         return
     if wParam = 0x0D || wParam = 0x20
     {
