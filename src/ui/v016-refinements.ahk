@@ -95,19 +95,7 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w370 h472")
-    ApplyV016ScrollRegion(settings.Hwnd)
     FinishButtonDisplay()
-}
-
-ApplyV016ScrollRegion(hwnd)
-{
-    ; WinSetRegion polygon coordinates are expressed in the window's logical
-    ; coordinate space. Passing the already DPI-scaled client dimensions caused
-    ; both invalid region strings and the earlier over-cropping on scaled displays.
-    ; Keep the region in the same 370x472 coordinate system as the GUI/artwork.
-    ; AutoHotkey polygon points require X-Y pairs (not X,Y pairs).
-    region := "7-30 13-17 357-17 363-30 363-430 359-463 11-463 7-430"
-    try WinSetRegion(region, "ahk_id " hwnd)
 }
 
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
