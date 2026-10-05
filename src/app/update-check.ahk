@@ -33,7 +33,12 @@ CheckForUpdates(*)
         if choice = "Yes" {
             staged := DownloadAndStageUpdate(manifest)
             LogLauncherEvent("UPDATE | READY | Verified update staged for v" latest ".")
-            MsgBox("tes3np v" latest " was downloaded and verified successfully.`n`nThe update is staged safely, but automatic installation is not enabled in this development build yet.", "tes3np — Update verified", "Iconi")
+            if MsgBox("tes3np v" latest " was downloaded and verified successfully.`n`nInstall it now? The launcher will close and automatically roll back if the updated launcher cannot confirm a successful start.", "tes3np — Update verified", "YesNo Iconi") = "Yes" {
+                StartTransactionalUpdate(manifest.version, staged)
+                LogLauncherEvent("UPDATE | Transactional installer started for v" latest ".")
+                ExitApp(0)
+            }
+            LogLauncherEvent("UPDATE | Installation deferred for verified update v" latest ".")
         } else {
             LogLauncherEvent("UPDATE | User deferred update v" latest ".")
             if MsgBox("Open the official release page instead?", "tes3np — Update available", "YesNo Iconi") = "Yes"
@@ -41,15 +46,28 @@ CheckForUpdates(*)
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
-        MsgBox("tes3np couldn't safely prepare the update.`n`nNo update was installed and the current launcher was not changed.`n`n" err.Message, "tes3np — Update check", "Icon!")
+        MsgBox("tes3np couldn't safely prepare or start the update.`n`nNo update was intentionally installed.`n`n" err.Message, "tes3np — Update", "Icon!")
     } finally {
         UpdateBusy := false
     }
 }
 
-; Called only by the freshly installed launcher. The updater waits for this handshake before
-; deleting its rollback copy. Restrict the state file to our own temp staging directory so a
-; manually supplied --update-confirm argument cannot turn the launcher into an arbitrary INI writer.
+StartTransactionalUpdate(version, staged)
+{
+    worker := A_ScriptDir "\scripts\tes3np-updater.ps1"
+    stateFile := A_Temp "\tes3np-update\update-state.ini"
+    expectedStage := A_Temp "\tes3np-update\staged"
+    if !FileExist(worker)
+        throw Error("Updater worker is missing from this installation.")
+    if !FileExist(stateFile)
+        throw Error("Update state file is missing.")
+    if StrLower(GetFullPath(staged)) != StrLower(GetFullPath(expectedStage))
+        throw Error("Staged update path is invalid.")
+    pid := DllCall("GetCurrentProcessId", "UInt")
+    args := ' -NoProfile -NonInteractive -File "' worker '" -InstallDir "' A_ScriptDir '" -StageDir "' staged '" -StateFile "' stateFile '" -Version "' version '" -ParentPid ' pid
+    Run('powershell.exe' args, A_ScriptDir, "Hide")
+}
+
 ConfirmInstalledUpdate(version, stateFile)
 {
     expectedState := A_Temp "\tes3np-update\update-state.ini"
@@ -134,8 +152,6 @@ GetFileSha256(path)
 
 ValidateUpdateArchive(package, stage)
 {
-    ; Extraction occurs only after size/hash verification. PowerShell validates every
-    ; entry path before extraction to prevent traversal outside the staging directory.
     script := "$ErrorActionPreference='Stop';" .
         "$z=[IO.Compression.ZipFile]::OpenRead('" PsQuote(package) "');" .
         "$root=[IO.Path]::GetFullPath('" PsQuote(stage) "'+[IO.Path]::DirectorySeparatorChar);" .
@@ -143,7 +159,7 @@ ValidateUpdateArchive(package, stage)
         "$z.Dispose();[IO.Compression.ZipFile]::ExtractToDirectory('" PsQuote(package) "','" PsQuote(stage) "');" .
         "$exe=Get-ChildItem -LiteralPath '" PsQuote(stage) "' -Filter tes3np.exe -Recurse | Select-Object -First 1;if(-not $exe){throw 'tes3np.exe missing from staged package'}"
     shell := ComObject("WScript.Shell")
-    command := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' StrReplace(script, '"', '\"') '"'
+    command := 'powershell.exe -NoProfile -NonInteractive -Command "' StrReplace(script, '"', '\"') '"'
     exitCode := shell.Run(command, 0, true)
     if exitCode != 0
         throw Error("Update package failed safe staging validation.")
