@@ -5,6 +5,22 @@ global UpdateManifestUrl := "https://github.com/IAmShawn98/tes3np-releases/relea
 global UpdatePackageUrl := "https://github.com/IAmShawn98/tes3np-releases/releases/download/latest-alpha/tes3np-windows.zip"
 global UpdateBusy := false
 
+CheckForUpdateAvailability(*)
+{
+    global AppConfig, UpdateManifestUrl
+    ; Startup availability checks are intentionally silent. A network or metadata
+    ; failure must never interrupt normal launcher use; the button simply stays hidden.
+    try {
+        manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
+        available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
+        SetLauncherUpdateAvailable(available)
+        LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
+    } catch Error as err {
+        SetLauncherUpdateAvailable(false)
+        LogLauncherEvent("UPDATE | Startup availability check unavailable | " SanitizeDiagnosticPath(err.Message))
+    }
+}
+
 CheckForUpdates(*)
 {
     global AppConfig, UpdateReleasePage, UpdateManifestUrl, UpdateBusy, LauncherGui
@@ -19,15 +35,18 @@ CheckForUpdates(*)
         latest := manifest.version
         LogLauncherEvent("UPDATE | Manifest validated. Current: v" AppConfig.Version " | Latest: v" latest ".")
         if !manifest.updateEnabled {
+            SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | Automatic installation disabled by release metadata.")
             MsgBox("Automatic updating is temporarily unavailable. You can still use tes3np normally or view the official release page.", "tes3np — Update check", "Iconi")
             return
         }
         if CompareTes3npVersions(latest, AppConfig.Version) <= 0 {
+            SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
             MsgBox("You're already running the latest public version of tes3np.`n`nInstalled: v" AppConfig.Version, "tes3np — Up to date", "Iconi")
             return
         }
+        SetLauncherUpdateAvailable(true)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         choice := MsgBox("tes3np v" latest " is available.`n`nInstalled: v" AppConfig.Version "`n`nDownload and verify the update now?", "tes3np — Update available", "YesNo Iconi")
         if choice = "Yes" {
