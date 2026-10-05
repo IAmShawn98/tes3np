@@ -58,6 +58,14 @@ ApplyV016CharacterLayout(*)
         ; Daily-login controls are part of Launch Settings and must hide with the
         ; rest of that panel whenever the add/edit character form is open.
         LaunchSettingsControls.Push(dailyHeading, dailyDescription, dailyButton)
+        ; Keep the bottom action stack on the same 32px rhythm as the existing
+        ; Launch All / Wipe buttons: Add 475, Daily 507, Launch All 539, Wipe 571.
+        dailyButton.Move(70, 507, 370, 25)
+        ButtonFaces[dailyButton.Hwnd].Y := 507
+        LaunchAllButton.Move(70, 539, 370, 25)
+        ButtonFaces[LaunchAllButton.Hwnd].Y := 539
+        WipeCharacterButton.Move(70, 571, 370, 25)
+        ButtonFaces[WipeCharacterButton.Hwnd].Y := 571
         V016CharacterLayoutApplied := true
     }
 }
