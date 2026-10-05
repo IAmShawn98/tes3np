@@ -181,7 +181,10 @@ UpdateButtonHover()
     previous := HoverButton
     previousPress := PressedButton
     HoverButton := nextHover
-    if PressedButton && !GetKeyState("LButton", "P")
+    ; Do not let the hover timer clear a real button press. WM_LBUTTONUP owns
+    ; PressedButton/capture lifetime; polling GetKeyState here could race the release
+    ; message and swallow the activation, causing the intermittent "click twice" bug.
+    if PressedButton && (!ButtonFaces.Has(PressedButton) || !DllCall("IsWindow", "Ptr", PressedButton))
     {
         PressedButton := 0
         DllCall("ReleaseCapture")
