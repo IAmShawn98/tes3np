@@ -28,13 +28,30 @@ Thread("Interrupt", 0)
 CoordMode("Mouse", "Screen")
 if A_Args.Length && A_Args[1] = "--check"
     ExitApp(0)
-if HandleUpdaterStartupMode()
-    ExitApp(0)
+HandleUpdaterStartupMode()
 StartLauncher()
 
 HandleUpdaterStartupMode() {
+    global AppConfig
     if A_Args.Length < 3 || A_Args[1] != "--update-confirm"
         return false
-    ConfirmInstalledUpdate(A_Args[2], A_Args[3])
+
+    version := A_Args[2]
+    stateFile := A_Args[3]
+    expectedState := A_Temp "\tes3np-update\update-state.ini"
+
+    ; The newly installed executable is the authority for its own compiled version.
+    ; Confirm only when the worker requested this exact build and the state file is
+    ; the updater's fixed temp-state path. This avoids depending on a second copy of
+    ; the version value inside the state file during the startup handshake.
+    if StrLower(GetFullPath(stateFile)) != StrLower(GetFullPath(expectedState))
+        throw Error("Update confirmation state path is invalid.")
+    if version != AppConfig.Version
+        throw Error("Update confirmation version does not match installed launcher.")
+    if !FileExist(stateFile)
+        throw Error("Update confirmation state file is missing.")
+
+    IniWrite("CONFIRMED", stateFile, "Update", "State")
+    LogLauncherEvent("UPDATE | CONFIRMED | Updated launcher v" AppConfig.Version " confirmed successful startup.")
     return true
 }
