@@ -49,16 +49,11 @@ OpenLauncherSettingsV016(*)
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
     global V016SettingsGuiHwnd
 
-    ; Use a chroma key that is deliberately far away from both the parchment art
-    ; and Windows' blue selection/highlight colors. Only untouched GUI canvas uses
-    ; this exact key, so controls cannot punch transparent holes through the scroll.
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
     settings.BackColor := "010101"
     V016SettingsGuiHwnd := settings.Hwnd
 
-    ; Slight overscan keeps antialiased parchment edge pixels over the client edge,
-    ; preventing the chroma key from bleeding through as a colored fringe.
     settings.Add("Picture", "x-12 y-18 w372 h474", A_ScriptDir "\assets\controls\scroll-panel.png")
 
     settings.SetFont("s12 Bold c241408", "Segoe UI")
@@ -82,13 +77,19 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x9 y179 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
+    ; Native checkbox controls paint their own background. With a chroma-keyed GUI
+    ; that background becomes a literal hole through the parchment, so place a small
+    ; parchment-colored backing strip beneath each checkbox before creating it.
+    settings.Add("Text", "x9 y207 w330 h22 BackgroundE3C47F")
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x9 y207 w330 h22", "Enhanced readability")
+    readability := settings.Add("CheckBox", "x9 y207 w330 h22 BackgroundTrans", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x27 y231 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+
+    settings.Add("Text", "x9 y265 w330 h22 BackgroundE3C47F")
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x9 y265 w330 h22", "Follow Windows accessibility settings")
+    followWindows := settings.Add("CheckBox", "x9 y265 w330 h22 BackgroundTrans", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
@@ -101,7 +102,6 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w348 h446")
-    ; Exact-color transparency only: no alpha fade and no region clipping.
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
