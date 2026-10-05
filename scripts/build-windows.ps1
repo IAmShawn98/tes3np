@@ -26,7 +26,11 @@ try {
     $null = New-Item $tools -ItemType Directory
     $null = New-Item $package -ItemType Directory
 
-    $headers = @{ 'User-Agent' = 'tes3np-build' }
+    $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
+    if ($env:GITHUB_TOKEN) {
+        $headers['Authorization'] = "Bearer $($env:GITHUB_TOKEN)"
+        $headers['X-GitHub-Api-Version'] = '2022-11-28'
+    }
     Step 'Querying AutoHotkey/AutoHotkey release metadata'
     $ahkRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
     $ahkAsset = $ahkRelease.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
