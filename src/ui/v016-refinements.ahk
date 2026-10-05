@@ -69,37 +69,35 @@ OpenLauncherSettingsV016(*)
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x208 y145 w352 Choose" choice, choices)
     settings.SetFont("s10 Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x34 y190 w526 h48 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x34 y185 w526 h42 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s11 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x34 y256 w155 h26 BackgroundTrans", "Interface text")
+    settings.Add("Text", "x34 y236 w155 h26 BackgroundTrans", "Interface text")
     settings.SetFont("s12 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x208 y250 w352 Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x208 y230 w352 Choose" textChoice, textChoices)
     settings.SetFont("s10 Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x34 y295 w526 h34 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x34 y270 w526 h30 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s13 Bold c382314", "Segoe UI Symbol")
-    readability := settings.Add("Text", "x34 y350 w526 h34 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
+    readability := settings.Add("Text", "x34 y315 w526 h34 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s10 Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x76 y394 w484 h50 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.Add("Text", "x76 y352 w484 h44 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
-    ; Keep the second toggle fully clear of the action buttons.
     settings.SetFont("s13 Bold c382314", "Segoe UI Symbol")
-    followWindows := settings.Add("Text", "x34 y446 w526 h34 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
+    followWindows := settings.Add("Text", "x34 y404 w526 h34 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
     followWindows.OnEvent("Click", ToggleV016FollowWindows.Bind(followWindows))
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    ; Action group begins below the full toggle row so nothing overlaps or clips.
-    AddStyledButton(settings, 34, 490, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 310, 490, 250, 40, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 34, 540, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 34, 590, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, 34, 447, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 310, 447, 250, 40, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 34, 495, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 34, 543, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
