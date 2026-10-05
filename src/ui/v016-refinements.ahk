@@ -2,6 +2,8 @@
 
 global V016CharacterLayoutApplied := false
 
+global V016SettingsDragHwnd := 0
+
 InitializeV016UiRefinements()
 {
     SetTimer(ApplyV016CharacterLayout, 250)
@@ -29,12 +31,18 @@ ApplyV016CharacterLayout(*)
 
 OpenLauncherSettingsV016(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
-    settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
-    settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
-    ; Reuse the launcher's parchment scroll as the settings-panel artwork. The
-    ; picture is added first so all interactive controls remain above it.
-    scrollBackground := settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility, V016SettingsDragHwnd
+    ; Frameless popup: the parchment itself is the complete settings window.
+    settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
+    settings.MarginX := 0, settings.MarginY := 0
+    settings.BackColor := "E2CEA2"
+    settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
+
+    ; Invisible drag surface across the top roll so the frameless panel can still be moved.
+    dragSurface := settings.Add("Text", "x18 y8 w334 h42 BackgroundTrans")
+    V016SettingsDragHwnd := dragSurface.Hwnd
+    dragSurface.OnEvent("Click", (*) => 0)
+
     settings.SetFont("s11 Bold c241408", "Segoe UI")
     settings.Add("Text", "x20 y18 w330 h26 BackgroundTrans", "Launcher Settings")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
@@ -54,8 +62,6 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s8 c5A4027", "Segoe UI")
     settings.Add("Text", "x20 y170 w330 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    ; AutoHotkey CheckBox controls do not support BackgroundTrans. Keep their
-    ; native control background while the surrounding labels remain transparent.
     readability := settings.Add("CheckBox", "x20 y210 w330 h24", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
@@ -65,16 +71,17 @@ OpenLauncherSettingsV016(*)
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
-    apply := settings.Add("Button", "x20 y330 w158 h34 Default", "Preview & Apply")
-    cancel := settings.Add("Button", "x192 y330 w158 h34", "Cancel")
-    reset := settings.Add("Button", "x20 y374 w330 h34", "Reset Launcher Settings")
-    appData := settings.Add("Button", "x20 y418 w330 h34", "AppData Settings")
-    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
-    cancel.OnEvent("Click", (*) => settings.Destroy())
-    reset.OnEvent("Click", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
-    appData.OnEvent("Click", OpenAppDataSettingsV016)
+
+    ; Use the same owner-drawn Morrowind buttons used throughout tes3np.
+    apply := AddStyledButton(settings, 20, 330, 158, 34, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
+    cancel := AddStyledButton(settings, 192, 330, 158, 34, "Cancel", (*) => settings.Destroy())
+    reset := AddStyledButton(settings, 20, 374, 330, 34, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
+    appData := AddStyledButton(settings, 20, 418, 330, 34, "AppData Settings", OpenAppDataSettingsV016)
+
     settings.OnEvent("Escape", (*) => settings.Destroy())
+    settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w370 h472")
+    FinishButtonDisplay()
 }
 
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
