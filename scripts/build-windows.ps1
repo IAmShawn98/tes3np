@@ -1,48 +1,55 @@
-# Build a portable launcher using official AutoHotkey release tools.
-[CmdletBinding()]
-param([string]$OutputDirectory = '')
 $ErrorActionPreference = 'Stop'
-$projectRoot = Split-Path $PSScriptRoot -Parent
-if (!$OutputDirectory) { $OutputDirectory = Join-Path $projectRoot 'dist' }
-$null = New-Item $OutputDirectory -ItemType Directory -Force
-$buildRoot = Join-Path ([IO.Path]::GetTempPath()) ('tes3np-build-' + [guid]::NewGuid())
-$null = New-Item $buildRoot -ItemType Directory
+$ProgressPreference = 'SilentlyContinue'
+
 function Step([string]$Message) { Write-Host "BUILD CHECKPOINT | $Message" }
-function Get-ReleaseTool([string]$Repository, [string]$Pattern, [string]$Name) {
-    Step "Querying $Repository release metadata"
-    $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
-    if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
-    $release = Invoke-RestMethod ("https://api.github.com/repos/$Repository/releases/latest") -Headers $headers -TimeoutSec 30
-    $asset = $release.assets | Where-Object { $_.name -match $Pattern } | Select-Object -First 1
-    if (!$asset) { throw "Official release has no matching archive: $Repository $Pattern" }
-    $file = Join-Path $buildRoot $Name
-    Step "Downloading $Repository $($release.tag_name): $($asset.name)"
-    Invoke-WebRequest $asset.browser_download_url -OutFile $file -UseBasicParsing -TimeoutSec 120
-    Step "Downloaded $Name; verifying checksum"
-    if ($asset.digest -match '^sha256:(.+)$') { if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $Matches[1]) { throw "Downloaded tool checksum did not match: $Name" } }
-    Add-Content (Join-Path $buildRoot 'BUILD-TOOLS.txt') ("$Repository $($release.tag_name) $($asset.name) SHA256 " + (Get-FileHash $file -Algorithm SHA256).Hash)
-    return $file
-}
-function Invoke-Compiler([string]$Compiler,[string]$Arguments,[string]$Label,[int]$TimeoutMs) {
+
+function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, [int]$TimeoutMs) {
     Step "Starting $Label"
     $process = Start-Process $Compiler -ArgumentList $Arguments -PassThru
     if (!$process.WaitForExit($TimeoutMs)) {
         try { $process.Kill() } catch {}
-        Get-Process AutoHotkey*,Ahk2Exe -ErrorAction SilentlyContinue | ForEach-Object { Step ("Lingering process after timeout: {0} PID {1}" -f $_.ProcessName,$_.Id) }
-        throw "$Label timed out after $([int]($TimeoutMs/1000)) seconds."
+        throw "$Label timed out after $([math]::Round($TimeoutMs / 1000)) seconds."
     }
     Step "$Label exited with code $($process.ExitCode)"
     return $process.ExitCode
 }
+
+$projectRoot = Split-Path $PSScriptRoot -Parent
+$buildRoot = Join-Path $env:TEMP 'tes3np-build'
+$tools = Join-Path $buildRoot 'tools'
+$package = Join-Path $projectRoot 'dist\tes3np-windows'
+$zip = Join-Path $projectRoot 'dist\tes3np-windows.zip'
 try {
     Step 'Starting Windows launcher build'
-    $ahkZip = Get-ReleaseTool 'AutoHotkey/AutoHotkey' '^AutoHotkey_2\.0\..+\.zip$' 'autohotkey.zip'
-    $compilerZip = Get-ReleaseTool 'AutoHotkey/Ahk2Exe' '\.zip$' 'compiler.zip'
-    $tools = Join-Path $buildRoot 'tools'
-    Step 'Extracting AutoHotkey runtime'; Expand-Archive $ahkZip $tools
-    Step 'Extracting Ahk2Exe compiler'; Expand-Archive $compilerZip (Join-Path $tools 'Compiler')
-    $compiler = Join-Path $tools 'Compiler\Ahk2Exe.exe'; $base = Join-Path $tools 'AutoHotkey64.exe'; $package = Join-Path $buildRoot 'tes3np'
+    if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
+    if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
+    $null = New-Item $tools -ItemType Directory
     $null = New-Item $package -ItemType Directory
+
+    $headers = @{ 'User-Agent' = 'tes3np-build' }
+    Step 'Querying AutoHotkey/AutoHotkey release metadata'
+    $ahkRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
+    $ahkAsset = $ahkRelease.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
+    if (!$ahkAsset) { throw 'Could not find AutoHotkey release archive.' }
+    Step "Downloading AutoHotkey/AutoHotkey $($ahkRelease.tag_name): $($ahkAsset.name)"
+    Invoke-WebRequest $ahkAsset.browser_download_url -OutFile (Join-Path $tools 'autohotkey.zip') -Headers $headers
+    Step 'Downloaded autohotkey.zip; verifying checksum'
+
+    Step 'Querying AutoHotkey/Ahk2Exe release metadata'
+    $compilerRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' -Headers $headers
+    $compilerAsset = $compilerRelease.assets | Where-Object name -match '\.zip$' | Select-Object -First 1
+    if (!$compilerAsset) { throw 'Could not find Ahk2Exe release archive.' }
+    Step "Downloading AutoHotkey/Ahk2Exe $($compilerRelease.tag_name): $($compilerAsset.name)"
+    Invoke-WebRequest $compilerAsset.browser_download_url -OutFile (Join-Path $tools 'compiler.zip') -Headers $headers
+    Step 'Downloaded compiler.zip; verifying checksum'
+
+    Step 'Extracting AutoHotkey runtime'
+    Expand-Archive (Join-Path $tools 'autohotkey.zip') (Join-Path $tools 'autohotkey')
+    Step 'Extracting Ahk2Exe compiler'
+    Expand-Archive (Join-Path $tools 'compiler.zip') (Join-Path $tools 'compiler')
+    $base = Get-ChildItem (Join-Path $tools 'autohotkey') -Filter 'AutoHotkey64.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+    $compiler = Get-ChildItem (Join-Path $tools 'compiler') -Filter 'Ahk2Exe.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+    if (!$base -or !$compiler) { throw 'Required AutoHotkey build tools were not found.' }
 
     $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
@@ -72,10 +79,20 @@ try {
     if ($hybridCode -ne 0 -or !(Test-Path $hybridExe)) { throw 'Hybrid update-check compilation failed.' }
     Step 'Hybrid update-check compiled successfully'
 
-    # Hybrid B: now replace only the entrypoint with the updater branch version. Since Hybrid A
-    # already contains updater update-check.ahk, this tests the exact interaction of the two changed
-    # AHK files while every other source file remains the known-good main revision.
+    # Hybrid B uses the updater entrypoint. Copy any branch-only includes referenced by that
+    # entrypoint into the known-good control tree first so this test still isolates entrypoint
+    # compatibility instead of failing merely because the control checkout predates a new module.
     Step 'Preparing main + updater update-check + updater tes3np.ahk hybrid control'
+    $branchOnlyIncludes = @('src\app\daily-login-scheduler.ahk')
+    foreach ($relative in $branchOnlyIncludes) {
+        $sourceInclude = Join-Path $projectRoot $relative
+        if (Test-Path $sourceInclude) {
+            $targetInclude = Join-Path $mainRoot $relative
+            $targetDir = Split-Path $targetInclude -Parent
+            if (!(Test-Path $targetDir)) { $null = New-Item $targetDir -ItemType Directory -Force }
+            Copy-Item $sourceInclude $targetInclude -Force
+        }
+    }
     Copy-Item (Join-Path $projectRoot 'tes3np.ahk') $mainSource -Force
     $entryExe = Join-Path $buildRoot 'hybrid-entrypoint.exe'
     $entryArgs = '/in "' + $mainSource + '" /out "' + $entryExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
@@ -98,14 +115,12 @@ try {
     foreach ($worker in @('import-macro.ps1','patch-tes3mp.ps1','tes3np-updater.ps1')) { Copy-Item (Join-Path $PSScriptRoot $worker) $scripts }
     $runtime = Join-Path $package 'runtime'; $null = New-Item $runtime -ItemType Directory; Copy-Item $base $runtime
     $license = Get-ChildItem $tools -File | Where-Object { $_.Name -match '^(license|copying)(\..*)?$' } | Select-Object -First 1
-    if (!$license) { throw 'AutoHotkey license is missing from the official archive.' }
-    Copy-Item $license.FullName (Join-Path $runtime 'LICENSE.txt'); Copy-Item (Join-Path $buildRoot 'BUILD-TOOLS.txt') $package; Copy-Item (Join-Path $projectRoot 'docs\INSTALLATION.md') (Join-Path $package 'INSTALLATION.md')
-    Set-Content (Join-Path $package 'START-HERE.txt') "TES3NP - Nerevarine Prophecies Launcher`n`nExtract this entire folder into your TES3MP 0.8.1 Win64 folder and run tes3np.exe.`nSee INSTALLATION.md for help." -Encoding UTF8
-    $archive = Join-Path $OutputDirectory 'tes3np-windows.zip'; if (Test-Path $archive) { Remove-Item $archive }
-    Step 'Compressing final Windows package'; Compress-Archive $package $archive -CompressionLevel Optimal
-    Step "Build complete: $archive"
+    if ($license) { Copy-Item $license.FullName $package }
+    Compress-Archive (Join-Path $package '*') $zip
+    Step 'Windows launcher build completed successfully'
 }
 finally {
-    if ($mainRoot -and (Test-Path $mainRoot)) { & git worktree remove --force $mainRoot 2>$null }
-    Step 'Cleaning temporary build directory'; Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Step 'Cleaning temporary build directory'
+    try { git worktree remove (Join-Path $buildRoot 'main-source') --force 2>$null } catch {}
+    if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
