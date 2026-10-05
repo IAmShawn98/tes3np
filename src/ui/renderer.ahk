@@ -152,7 +152,24 @@ PaintButton(wParam, lParam, *)
             DllCall("DeleteObject", "Ptr", pen)
         }
         else
-            DllCall("DrawTextW", "Ptr", dc, "WStr", face.Label.Text, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x825)
+        {
+            ; A themed control can be destroyed while its final paint message is still
+            ; unwinding. Never dereference the Gui.Control after that point.
+            if !DllCall("IsWindow", "Ptr", handle)
+            {
+                if ButtonFaces.Has(handle)
+                    ButtonFaces.Delete(handle)
+                return
+            }
+            try labelText := face.Label.Text
+            catch
+            {
+                if ButtonFaces.Has(handle)
+                    ButtonFaces.Delete(handle)
+                return
+            }
+            DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x825)
+        }
         DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
