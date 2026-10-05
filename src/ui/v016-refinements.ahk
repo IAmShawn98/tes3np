@@ -58,14 +58,16 @@ ApplyV016CharacterLayout(*)
         ; Daily-login controls are part of Launch Settings and must hide with the
         ; rest of that panel whenever the add/edit character form is open.
         LaunchSettingsControls.Push(dailyHeading, dailyDescription, dailyButton)
-        ; Keep the bottom action stack on the same 32px rhythm as the existing
-        ; Launch All / Wipe buttons: Add 475, Daily 507, Launch All 539, Wipe 571.
-        dailyButton.Move(70, 507, 370, 25)
-        ButtonFaces[dailyButton.Hwnd].Y := 507
-        LaunchAllButton.Move(70, 539, 370, 25)
-        ButtonFaces[LaunchAllButton.Hwnd].Y := 539
-        WipeCharacterButton.Move(70, 571, 370, 25)
-        ButtonFaces[WipeCharacterButton.Hwnd].Y := 571
+        ; Use an exact 35px top-to-top rhythm for four 30px buttons (5px gaps).
+        ; This avoids the mixed 30px/25px heights that made the stack look uneven.
+        AddCharacterButton.Move(70, 455, 370, 30)
+        ButtonFaces[AddCharacterButton.Hwnd].Y := 455
+        dailyButton.Move(70, 490, 370, 30)
+        ButtonFaces[dailyButton.Hwnd].Y := 490
+        LaunchAllButton.Move(70, 525, 370, 30)
+        ButtonFaces[LaunchAllButton.Hwnd].Y := 525
+        WipeCharacterButton.Move(70, 560, 370, 30)
+        ButtonFaces[WipeCharacterButton.Hwnd].Y := 560
         V016CharacterLayoutApplied := true
     }
 }
