@@ -86,19 +86,20 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s10 Bold c5A4027", "Segoe UI")
     settings.Add("Text", "x76 y394 w484 h50 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
+    ; Keep the second toggle fully clear of the action buttons.
     settings.SetFont("s13 Bold c382314", "Segoe UI Symbol")
-    followWindows := settings.Add("Text", "x34 y462 w526 h34 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
+    followWindows := settings.Add("Text", "x34 y446 w526 h34 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
     followWindows.OnEvent("Click", ToggleV016FollowWindows.Bind(followWindows))
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    ; Pull the action group higher into the open parchment area.
-    AddStyledButton(settings, 34, 475, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 310, 475, 250, 40, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 34, 525, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 34, 575, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
+    ; Action group begins below the full toggle row so nothing overlaps or clips.
+    AddStyledButton(settings, 34, 490, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 310, 490, 250, 40, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 34, 540, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 34, 590, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
