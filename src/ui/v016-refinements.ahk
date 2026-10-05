@@ -57,8 +57,6 @@ OpenLauncherSettingsV016(*)
     V016ReadabilityState := EnhancedReadability ? 1 : 0
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    ; Extra-large parchment so the settings breathe while the scroll itself remains
-    ; the only visible window surface.
     settings.Add("Picture", "x-20 y-30 w620 h780", A_ScriptDir "\assets\controls\scroll-panel.png")
 
     settings.SetFont("s16 Bold c241408", "Segoe UI")
@@ -96,11 +94,11 @@ OpenLauncherSettingsV016(*)
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    ; Keep the action group closer to the settings instead of riding the bottom curl.
-    AddStyledButton(settings, 34, 500, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 310, 500, 250, 40, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 34, 550, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 34, 600, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
+    ; Pull the action group higher into the open parchment area.
+    AddStyledButton(settings, 34, 475, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 310, 475, 250, 40, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 34, 525, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 34, 575, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
