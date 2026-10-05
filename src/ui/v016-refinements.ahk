@@ -114,7 +114,7 @@ OpenLauncherSettingsV016(*)
     readability := settings.Add("Text", "x" V016S(34) " y" V016S(291) " w" V016S(526) " h" V016S(34) " +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s" V016Font(10) " Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x" V016S(76) " y" V016S(322) " w" V016S(484) " h" V016S(44) " BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.Add("Text", "x" V016S(76) " y" V016S(322) " w" V016S(484) " h" V016S(44) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
