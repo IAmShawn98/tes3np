@@ -215,8 +215,24 @@ ReleaseButton(wParam, lParam, msg, hwnd)
         return 0
     if ReleaseMenuScroll()
         return 0
+    ; A mouse-up can occasionally arrive after capture/focus churn cleared the
+    ; tracked press. If it lands on a live themed button, treat that button as
+    ; the click target instead of swallowing the first click.
     if !PressedButton
+    {
+        if ButtonFaces.Has(hwnd) && DllCall("IsWindow", "Ptr", hwnd)
+        {
+            face := ButtonFaces[hwnd]
+            if !face.HasOwnProp("IsLabel") && face.Control.Enabled && face.Control.Visible
+            {
+                HoverButton := hwnd
+                ShowButtonFace(hwnd)
+                ActivateThemedButton(hwnd)
+                return 0
+            }
+        }
         return
+    }
     handle := PressedButton
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
     {
