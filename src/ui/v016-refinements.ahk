@@ -27,7 +27,7 @@ V016Font(value)
 HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 {
     global V016SettingsGuiHwnd
-    if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", V016SettingsGuiHwnd)
+    if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd, "Int")
         return
     pt := Buffer(8, 0)
     NumPut("Int", lParam & 0xFFFF, pt, 0)
@@ -74,7 +74,7 @@ OpenLauncherSettingsV016(*)
     V016ReadabilityState := EnhancedReadability ? 1 : 0
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    settings.Add("Picture", "x" V016S(-20) " y" V016S(-30) " w" V016S(620) " h" V016S(780), A_ScriptDir "\assets\controls\scroll-panel.png")
+    settings.Add("Picture", "x" V016S(-20) " y" V016S(-30) " w" V016S(620) " h" V016S(780), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
 
     settings.SetFont("s" V016Font(16) " Bold c241408", "Segoe UI")
     settings.Add("Text", "x" V016S(34) " y" V016S(101) " w" V016S(526) " h" V016S(38) " Center BackgroundTrans", "Launcher Settings")
