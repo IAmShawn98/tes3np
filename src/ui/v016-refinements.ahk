@@ -95,10 +95,11 @@ OpenLauncherSettingsV016(*)
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
+    ; Keep the primary action row fixed; use the open lower scroll area for secondary actions.
     AddStyledButton(settings, 34, 411, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, 310, 411, 250, 40, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 34, 459, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 34, 507, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, 34, 495, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 34, 551, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
