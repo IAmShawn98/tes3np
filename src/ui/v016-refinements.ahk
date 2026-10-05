@@ -77,22 +77,21 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x9 y179 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    ; Keep the parchment visible behind the native checkbox rows. AutoHotkey v2
-    ; CheckBox controls do not support BackgroundTrans, so the backing strips do
-    ; the visual work while the checkbox itself uses its supported native painting.
-    settings.Add("Text", "x9 y207 w330 h22 BackgroundE3C47F")
+    ; Do not use native CheckBox controls on this chroma-keyed window: Windows paints
+    ; their client background independently and it punches rectangular holes through
+    ; the parchment. These compact text toggles keep the parchment itself untouched.
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x9 y207 w330 h22", "Enhanced readability")
+    readability := settings.Add("Text", "x9 y207 w330 h22 +0x100 BackgroundTrans", (EnhancedReadability ? "☑" : "☐") "  Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
+    readability.OnEvent("Click", ToggleV016TextCheck.Bind(readability, "Enhanced readability"))
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x27 y231 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
-    settings.Add("Text", "x9 y265 w330 h22 BackgroundE3C47F")
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x9 y265 w330 h22", "Follow Windows accessibility settings")
+    followWindows := settings.Add("Text", "x9 y265 w330 h22 +0x100 BackgroundTrans", (FollowWindowsAccessibility ? "☑" : "☐") "  Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
-    reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
-    reduceMotionBox.Value := 0
+    followWindows.OnEvent("Click", ToggleV016TextCheck.Bind(followWindows, "Follow Windows accessibility settings"))
+    reduceMotionBox := {Value: 0}
 
     AddStyledButton(settings, 9, 297, 158, 28, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
     AddStyledButton(settings, 181, 297, 158, 28, "Cancel", (*) => settings.Destroy())
@@ -106,11 +105,19 @@ OpenLauncherSettingsV016(*)
     FinishButtonDisplay()
 }
 
+ToggleV016TextCheck(control, label, *)
+{
+    control.Value := control.Value ? 0 : 1
+    control.Text := (control.Value ? "☑" : "☐") "  " label
+}
+
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
 {
     if MsgBox("Reset launcher settings to their defaults?", "tes3np — Reset Launcher Settings", "YesNo Icon?") != "Yes"
         return
     scaleList.Choose(1), textList.Choose(1), readability.Value := 0, reduceMotionBox.Value := 0, followWindows.Value := 1
+    readability.Text := "☐  Enhanced readability"
+    followWindows.Text := "☑  Follow Windows accessibility settings"
     PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Resetting launcher settings...")
 }
 
