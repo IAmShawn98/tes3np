@@ -15,8 +15,6 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
     if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
         return
 
-    ; Make the parchment's upper roll behave like a normal title bar. Using
-    ; WM_NCHITTEST avoids relying on a transparent child control to receive clicks.
     pt := Buffer(8, 0)
     NumPut("Int", lParam & 0xFFFF, pt, 0)
     NumPut("Int", (lParam >> 16) & 0xFFFF, pt, 4)
@@ -53,13 +51,10 @@ OpenLauncherSettingsV016(*)
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
-    ; This exact key color is used only for the otherwise-visible rectangular GUI
-    ; canvas surrounding the scroll. It becomes transparent after Show().
     settings.BackColor := "D9B875"
     V016SettingsGuiHwnd := settings.Hwnd
     settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
 
-    ; Heading: centered, stronger, and kept comfortably below the upper roll.
     settings.SetFont("s12 Bold c241408", "Segoe UI")
     settings.Add("Text", "x20 y76 w330 h28 Center BackgroundTrans", "Launcher Settings")
 
@@ -101,11 +96,36 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w370 h472")
 
-    ; Remove only the flat backing canvas. Unlike WinSetRegion this preserves the
-    ; complete scroll artwork and every control while letting the main launcher show
-    ; naturally around the parchment edges.
-    WinSetTransColor("D9B875 255", "ahk_id " settings.Hwnd)
+    ; Do not color-key the parchment. The old TransColor method also keyed pixels
+    ; inside the artwork and native checkbox backgrounds, which caused blue holes
+    ; and gold speckles. Instead, trim only the outer GUI canvas with a DPI-aware
+    ; native window region. The region is calculated from the real client size so
+    ; it remains correct at Windows display scaling above 100%.
+    ApplyV016ScrollRegion(settings.Hwnd)
     FinishButtonDisplay()
+}
+
+ApplyV016ScrollRegion(hwnd)
+{
+    rect := Buffer(16, 0)
+    DllCall("GetClientRect", "Ptr", hwnd, "Ptr", rect)
+    w := NumGet(rect, 8, "Int")
+    h := NumGet(rect, 12, "Int")
+    if w <= 0 || h <= 0
+        return
+
+    ; The visible scroll occupies roughly x=8..362 and y=18..462 in the
+    ; 370x472 source. Scale those measurements to the actual client pixels.
+    sx := w / 370.0
+    sy := h / 472.0
+    x1 := Round(7 * sx), x2 := Round(363 * sx)
+    y1 := Round(17 * sy), y2 := Round(463 * sy)
+
+    ; A gently shaped polygon follows the scroll's outer silhouette while keeping
+    ; every rolled end intact. It removes only the redundant backing canvas.
+    pts := x1 "," Round(30*sy) " " Round(13*sx) "," y1 " " Round(357*sx) "," y1 " " x2 "," Round(30*sy)
+        . " " x2 "," Round(430*sy) " " Round(359*sx) "," y2 " " Round(11*sx) "," y2 " " x1 "," Round(430*sy)
+    WinSetRegion(pts, "ahk_id " hwnd)
 }
 
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
