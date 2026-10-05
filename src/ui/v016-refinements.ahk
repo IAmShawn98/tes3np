@@ -95,37 +95,19 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w370 h472")
-
-    ; Do not color-key the parchment. The old TransColor method also keyed pixels
-    ; inside the artwork and native checkbox backgrounds, which caused blue holes
-    ; and gold speckles. Instead, trim only the outer GUI canvas with a DPI-aware
-    ; native window region. The region is calculated from the real client size so
-    ; it remains correct at Windows display scaling above 100%.
     ApplyV016ScrollRegion(settings.Hwnd)
     FinishButtonDisplay()
 }
 
 ApplyV016ScrollRegion(hwnd)
 {
-    rect := Buffer(16, 0)
-    DllCall("GetClientRect", "Ptr", hwnd, "Ptr", rect)
-    w := NumGet(rect, 8, "Int")
-    h := NumGet(rect, 12, "Int")
-    if w <= 0 || h <= 0
-        return
-
-    ; The visible scroll occupies roughly x=8..362 and y=18..462 in the
-    ; 370x472 source. Scale those measurements to the actual client pixels.
-    sx := w / 370.0
-    sy := h / 472.0
-    x1 := Round(7 * sx), x2 := Round(363 * sx)
-    y1 := Round(17 * sy), y2 := Round(463 * sy)
-
-    ; A gently shaped polygon follows the scroll's outer silhouette while keeping
-    ; every rolled end intact. It removes only the redundant backing canvas.
-    pts := x1 "," Round(30*sy) " " Round(13*sx) "," y1 " " Round(357*sx) "," y1 " " x2 "," Round(30*sy)
-        . " " x2 "," Round(430*sy) " " Round(359*sx) "," y2 " " Round(11*sx) "," y2 " " x1 "," Round(430*sy)
-    WinSetRegion(pts, "ahk_id " hwnd)
+    ; WinSetRegion polygon coordinates are expressed in the window's logical
+    ; coordinate space. Passing the already DPI-scaled client dimensions caused
+    ; both invalid region strings and the earlier over-cropping on scaled displays.
+    ; Keep the region in the same 370x472 coordinate system as the GUI/artwork.
+    ; AutoHotkey polygon points require X-Y pairs (not X,Y pairs).
+    region := "7-30 13-17 357-17 363-30 363-430 359-463 11-463 7-430"
+    try WinSetRegion(region, "ahk_id " hwnd)
 }
 
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
