@@ -166,6 +166,9 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     FollowWindowsAccessibility := followWindows.Value = 1
     DetectWindowsAccessibility()
     ApplyWindowsAccessibilityPreferences()
+    ; Launcher Settings disables the owner while open. Preview temporarily hides
+    ; that window, so re-enable the launcher before showing its preview/update UI.
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
     settings.Hide()
     BeginInterfaceUpdate(LauncherGui, loadingMessage, true, 8)
     try
@@ -205,6 +208,8 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
     finally EndInterfaceUpdate()
     settings.Show()
+    ; Settings is modal again once the preview has been rejected/restored.
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
 }
 
 SaveLauncherScale(value)
