@@ -49,17 +49,17 @@ OpenLauncherSettingsV016(*)
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
     global V016SettingsGuiHwnd
 
-    ; Borderless scroll-shaped settings window. A chroma-key background makes only
-    ; the small amount of GUI canvas outside the parchment invisible; unlike a
-    ; window region this does not alter coordinates, DPI scaling, or control bounds.
+    ; Use a chroma key that is deliberately far away from both the parchment art
+    ; and Windows' blue selection/highlight colors. Only untouched GUI canvas uses
+    ; this exact key, so controls cannot punch transparent holes through the scroll.
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
-    settings.BackColor := "FF00FF"
+    settings.BackColor := "010101"
     V016SettingsGuiHwnd := settings.Hwnd
 
-    ; Keep the known-good full scroll placement. The magenta pixels left around its
-    ; irregular silhouette are made transparent after the window is shown.
-    settings.Add("Picture", "x-11 y-17 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
+    ; Slight overscan keeps antialiased parchment edge pixels over the client edge,
+    ; preventing the chroma key from bleeding through as a colored fringe.
+    settings.Add("Picture", "x-12 y-18 w372 h474", A_ScriptDir "\assets\controls\scroll-panel.png")
 
     settings.SetFont("s12 Bold c241408", "Segoe UI")
     settings.Add("Text", "x9 y59 w330 h28 Center BackgroundTrans", "Launcher Settings")
@@ -101,9 +101,8 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w348 h446")
-    ; Remove only the unused GUI canvas around the scroll. Controls and parchment
-    ; remain fully opaque and the existing HTCAPTION handler keeps dragging intact.
-    WinSetTransColor("FF00FF 255", "ahk_id " settings.Hwnd)
+    ; Exact-color transparency only: no alpha fade and no region clipping.
+    WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
 
