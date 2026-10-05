@@ -28,7 +28,7 @@ SaveDailyLoginSchedule(enabled, time)
     IniWrite(time, DataFile, "DailyLogin", "Time")
 }
 
-OpenDailyLoginScheduleSettings(owner := 0, *)
+OpenDailyLoginScheduleDialog(owner := 0, *)
 {
     global LauncherGui, DailyLoginScheduleEnabled, DailyLoginScheduleTime
     ownerHwnd := IsObject(owner) ? owner.Hwnd : LauncherGui.Hwnd
