@@ -32,31 +32,34 @@ OpenLauncherSettingsV016(*)
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
     settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
     settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
+    ; Reuse the launcher's parchment scroll as the settings-panel artwork. The
+    ; picture is added first so all interactive controls remain above it.
+    scrollBackground := settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
     settings.SetFont("s11 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x20 y18 w330 h26", "Launcher Settings")
+    settings.Add("Text", "x20 y18 w330 h26 BackgroundTrans", "Launcher Settings")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y58 w120 h22", "Launcher size")
+    settings.Add("Text", "x20 y58 w120 h22 BackgroundTrans", "Launcher size")
     settings.SetFont("s10 c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x145 y54 w205 Choose" choice, choices)
     settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y88 w330 h40", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x20 y88 w330 h40 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y140 w120 h22", "Interface text")
+    settings.Add("Text", "x20 y140 w120 h22 BackgroundTrans", "Interface text")
     settings.SetFont("s10 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x145 y136 w205 Choose" textChoice, textChoices)
     settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y170 w330 h28", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x20 y170 w330 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x20 y210 w330 h24", "Enhanced readability")
+    readability := settings.Add("CheckBox", "x20 y210 w330 h24 BackgroundTrans", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x38 y234 w312 h38", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.Add("Text", "x38 y234 w312 h38 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x20 y280 w330 h24", "Follow Windows accessibility settings")
+    followWindows := settings.Add("CheckBox", "x20 y280 w330 h24 BackgroundTrans", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
