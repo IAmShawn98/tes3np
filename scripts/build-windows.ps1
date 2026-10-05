@@ -74,9 +74,6 @@ try {
     if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
     Step 'Known-good main launcher compiled successfully with current toolchain'
 
-    # Keep the updater-specific update-check control because it verifies the update
-    # module against the known-good main launcher. The old hybrid-entrypoint control
-    # was only diagnostic scaffolding and became stale as the branch gained modules.
     Step 'Preparing main + updater update-check.ahk hybrid control'
     Copy-Item (Join-Path $projectRoot 'src\app\update-check.ahk') (Join-Path $mainRoot 'src\app\update-check.ahk') -Force
     $hybridExe = Join-Path $buildRoot 'hybrid-update-check.exe'
@@ -85,8 +82,6 @@ try {
     if ($hybridCode -ne 0 -or !(Test-Path $hybridExe)) { throw 'Hybrid update-check compilation failed.' }
     Step 'Hybrid update-check compiled successfully'
 
-    # The authoritative test is the complete current branch, not a partial mixture
-    # of main and branch files.
     $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
@@ -111,3 +106,8 @@ finally {
     try { git worktree remove (Join-Path $buildRoot 'main-source') --force 2>$null } catch {}
     if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
+
+# External commands used during the diagnostic/control build can leave LASTEXITCODE
+# non-zero even after the complete launcher build succeeds. Explicitly return success
+# once every build/validation/package checkpoint above has completed.
+exit 0
