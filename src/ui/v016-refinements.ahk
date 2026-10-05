@@ -77,19 +77,19 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x9 y179 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    ; Native checkbox controls paint their own background. With a chroma-keyed GUI
-    ; that background becomes a literal hole through the parchment, so place a small
-    ; parchment-colored backing strip beneath each checkbox before creating it.
+    ; Keep the parchment visible behind the native checkbox rows. AutoHotkey v2
+    ; CheckBox controls do not support BackgroundTrans, so the backing strips do
+    ; the visual work while the checkbox itself uses its supported native painting.
     settings.Add("Text", "x9 y207 w330 h22 BackgroundE3C47F")
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x9 y207 w330 h22 BackgroundTrans", "Enhanced readability")
+    readability := settings.Add("CheckBox", "x9 y207 w330 h22", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x27 y231 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
     settings.Add("Text", "x9 y265 w330 h22 BackgroundE3C47F")
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x9 y265 w330 h22 BackgroundTrans", "Follow Windows accessibility settings")
+    followWindows := settings.Add("CheckBox", "x9 y265 w330 h22", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
