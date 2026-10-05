@@ -96,10 +96,11 @@ OpenLauncherSettingsV016(*)
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, 34, 524, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 310, 524, 250, 40, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 34, 580, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 34, 636, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
+    ; Keep the action group closer to the settings instead of riding the bottom curl.
+    AddStyledButton(settings, 34, 500, 250, 40, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 310, 500, 250, 40, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 34, 550, 526, 40, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 34, 600, 526, 40, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
