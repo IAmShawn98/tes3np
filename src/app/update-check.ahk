@@ -161,17 +161,32 @@ GetFileSha256(path)
 
 ValidateUpdateArchive(package, stage)
 {
-    script := "$ErrorActionPreference='Stop';" .
-        "$z=[IO.Compression.ZipFile]::OpenRead('" PsQuote(package) "');" .
-        "$root=[IO.Path]::GetFullPath('" PsQuote(stage) "'+[IO.Path]::DirectorySeparatorChar);" .
-        "foreach($e in $z.Entries){$p=[IO.Path]::GetFullPath([IO.Path]::Combine($root,$e.FullName));if(-not $p.StartsWith($root,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe archive path'}};" .
-        "$z.Dispose();[IO.Compression.ZipFile]::ExtractToDirectory('" PsQuote(package) "','" PsQuote(stage) "');" .
-        "$exe=Get-ChildItem -LiteralPath '" PsQuote(stage) "' -Filter tes3np.exe -Recurse | Select-Object -First 1;if(-not $exe){throw 'tes3np.exe missing from staged package'}"
-    shell := ComObject("WScript.Shell")
-    command := 'powershell.exe -NoProfile -NonInteractive -Command "' StrReplace(script, '"', '\"') '"'
-    exitCode := shell.Run(command, 0, true)
-    if exitCode != 0
-        throw Error("Update package failed safe staging validation.")
+    scriptPath := A_Temp "\tes3np-validate-update-" A_TickCount ".ps1"
+    script := "$ErrorActionPreference='Stop'`r`n" .
+        "Add-Type -AssemblyName System.IO.Compression.FileSystem`r`n" .
+        "$package='" PsQuote(package) "'`r`n" .
+        "$stage='" PsQuote(stage) "'`r`n" .
+        "$z=[IO.Compression.ZipFile]::OpenRead($package)`r`n" .
+        "$root=[IO.Path]::GetFullPath($stage+[IO.Path]::DirectorySeparatorChar)`r`n" .
+        "try {`r`n" .
+        "  foreach($e in $z.Entries){`r`n" .
+        "    $p=[IO.Path]::GetFullPath([IO.Path]::Combine($root,$e.FullName))`r`n" .
+        "    if(-not $p.StartsWith($root,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe archive path'}`r`n" .
+        "  }`r`n" .
+        "} finally { $z.Dispose() }`r`n" .
+        "[IO.Compression.ZipFile]::ExtractToDirectory($package,$stage)`r`n" .
+        "$exe=Get-ChildItem -LiteralPath $stage -Filter tes3np.exe -Recurse | Select-Object -First 1`r`n" .
+        "if(-not $exe){throw 'tes3np.exe missing from staged package'}`r`n"
+    try {
+        FileAppend(script, scriptPath, "UTF-8")
+        shell := ComObject("WScript.Shell")
+        command := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '"'
+        exitCode := shell.Run(command, 0, true)
+        if exitCode != 0
+            throw Error("Update package failed safe staging validation.")
+    } finally {
+        try FileDelete(scriptPath)
+    }
     LogLauncherEvent("UPDATE | Package staged and structure validated.")
 }
 
