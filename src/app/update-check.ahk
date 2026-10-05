@@ -7,7 +7,7 @@ global UpdateBusy := false
 
 CheckForUpdates(*)
 {
-    global AppConfig, UpdateReleasePage, UpdateManifestUrl, UpdateBusy
+    global AppConfig, UpdateReleasePage, UpdateManifestUrl, UpdateBusy, LauncherGui
     if UpdateBusy {
         LogLauncherEvent("UPDATE | Check ignored because another update operation is active.")
         return
@@ -31,7 +31,11 @@ CheckForUpdates(*)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         choice := MsgBox("tes3np v" latest " is available.`n`nInstalled: v" AppConfig.Version "`n`nDownload and verify the update now?", "tes3np — Update available", "YesNo Iconi")
         if choice = "Yes" {
-            staged := DownloadAndStageUpdate(manifest)
+            BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
+            try {
+                staged := DownloadAndStageUpdate(manifest)
+                SetInterfaceLoadingText("Update ready to install...")
+            } finally EndInterfaceUpdate()
             LogLauncherEvent("UPDATE | READY | Verified update staged for v" latest ".")
             if MsgBox("tes3np v" latest " was downloaded and verified successfully.`n`nInstall it now? The launcher will close and automatically roll back if the updated launcher cannot confirm a successful start.", "tes3np — Update verified", "YesNo Iconi") = "Yes" {
                 StartTransactionalUpdate(manifest.version, staged)
@@ -115,19 +119,24 @@ DownloadAndStageUpdate(manifest)
     stage := root "\staged"
     try DirDelete(root, true)
     DirCreate(root)
+    SetInterfaceLoadingText("Downloading update...")
     LogLauncherEvent("UPDATE | Download started | v" manifest.version ".")
     Download(UpdatePackageUrl, part)
     if !FileExist(part)
         throw Error("Downloaded update package is missing.")
+    SetInterfaceLoadingText("Checking download size...")
     actualSize := FileGetSize(part)
     if actualSize != manifest.size
         throw Error("Downloaded update size does not match trusted metadata.")
+    SetInterfaceLoadingText("Verifying update...")
     actualHash := GetFileSha256(part)
     if StrLower(actualHash) != StrLower(manifest.sha256)
         throw Error("Downloaded update failed SHA-256 verification.")
     FileMove(part, package, true)
     LogLauncherEvent("UPDATE | Download verified | SHA-256 and size match trusted metadata.")
+    SetInterfaceLoadingText("Preparing update...")
     ValidateUpdateArchive(package, stage)
+    SetInterfaceLoadingText("Saving update state...")
     state := root "\update-state.ini"
     IniWrite("STAGED", state, "Update", "State")
     IniWrite(manifest.version, state, "Update", "Version")
