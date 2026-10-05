@@ -42,8 +42,7 @@ HandleUpdaterStartupMode() {
 
     ; The newly installed executable is the authority for its own compiled version.
     ; Confirm only when the worker requested this exact build and the state file is
-    ; the updater's fixed temp-state path. This avoids depending on a second copy of
-    ; the version value inside the state file during the startup handshake.
+    ; the updater's fixed temp-state path.
     if StrLower(GetFullPath(stateFile)) != StrLower(GetFullPath(expectedState))
         throw Error("Update confirmation state path is invalid.")
     if version != AppConfig.Version
@@ -51,7 +50,17 @@ HandleUpdaterStartupMode() {
     if !FileExist(stateFile)
         throw Error("Update confirmation state file is missing.")
 
-    IniWrite("CONFIRMED", stateFile, "Update", "State")
+    ; Publish confirmation as one complete file replacement. IniWrite uses the
+    ; Windows profile API, while the PowerShell worker reads the file directly;
+    ; replacing the complete file avoids cache/partial-write visibility problems
+    ; between those two APIs.
+    confirmTemp := stateFile ".confirm.tmp"
+    try FileDelete(confirmTemp)
+    confirmation := "[Update]`r`nState=CONFIRMED`r`nVersion=" AppConfig.Version
+        . "`r`nUpdatedUtc=" FormatTime(A_NowUTC, "yyyy-MM-ddTHH:mm:ssZ") "`r`n"
+    FileAppend(confirmation, confirmTemp, "UTF-8")
+    FileMove(confirmTemp, stateFile, true)
+
     LogLauncherEvent("UPDATE | CONFIRMED | Updated launcher v" AppConfig.Version " confirmed successful startup.")
     return true
 }
