@@ -63,6 +63,15 @@ OpenLauncherSettingsV016(*)
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
     global V016SettingsGuiHwnd, V016SettingsScale, V016ReadabilityState, V016FollowWindowsState
 
+    ; Launcher Settings is a single modal-style window. If it is already open,
+    ; bring that instance forward instead of creating duplicates.
+    if V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd, "Int")
+    {
+        WinActivate("ahk_id " V016SettingsGuiHwnd)
+        return
+    }
+    V016SettingsGuiHwnd := 0
+
     ; Use the same resolved launcher scale (automatic or manual) as the main window.
     ; AHK still handles monitor DPI; this factor handles tes3np's own 50-100% launcher scale.
     V016SettingsScale := LauncherScale / 100
@@ -112,15 +121,32 @@ OpenLauncherSettingsV016(*)
     reduceMotionBox := {Value: 0}
 
     AddStyledButton(settings, V016S(34), V016S(431), V016S(250), V016S(40), "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(310), V016S(431), V016S(250), V016S(40), "Close", (*) => settings.Destroy())
+    AddStyledButton(settings, V016S(310), V016S(431), V016S(250), V016S(40), "Close", CloseLauncherSettingsV016.Bind(settings))
     AddStyledButton(settings, V016S(34), V016S(515), V016S(526), V016S(40), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(34), V016S(571), V016S(526), V016S(40), "AppData Settings", OpenAppDataSettingsV016)
 
-    settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.OnEvent("Close", (*) => settings.Destroy())
+    settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
+    settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
+    settings.OnEvent("Size", (*) => 0)
     settings.Show("w" V016S(594) " h" V016S(720))
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
+}
+
+CloseLauncherSettingsV016(settings, *)
+{
+    global LauncherGui, V016SettingsGuiHwnd
+    hwnd := 0
+    try hwnd := settings.Hwnd
+    if hwnd && V016SettingsGuiHwnd = hwnd
+        V016SettingsGuiHwnd := 0
+    try settings.Destroy()
+    if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd, "Int")
+    {
+        DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
+        WinActivate("ahk_id " LauncherGui.Hwnd)
+    }
 }
 
 V016CheckLabel(state, label)
