@@ -1,25 +1,29 @@
 ; v0.1.16 test-branch UI refinements.
 
 global V016CharacterLayoutApplied := false
-global V016SettingsDragHwnd := 0
 global V016SettingsGuiHwnd := 0
 
 InitializeV016UiRefinements()
 {
     SetTimer(ApplyV016CharacterLayout, 250)
-    OnMessage(0x201, HandleV016SettingsMouseDown)
+    OnMessage(0x84, HandleV016SettingsHitTest)
 }
 
-HandleV016SettingsMouseDown(wParam, lParam, msg, hwnd)
+HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 {
-    global V016SettingsDragHwnd, V016SettingsGuiHwnd
-    if !V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
+    global V016SettingsGuiHwnd
+    if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
         return
-    if hwnd != V016SettingsDragHwnd
-        return
-    DllCall("ReleaseCapture")
-    PostMessage(0xA1, 2, 0, , "ahk_id " V016SettingsGuiHwnd)
-    return 0
+
+    ; Make the parchment's upper roll behave like a normal title bar. Using
+    ; WM_NCHITTEST avoids relying on a transparent child control to receive clicks.
+    pt := Buffer(8, 0)
+    NumPut("Int", lParam & 0xFFFF, pt, 0)
+    NumPut("Int", (lParam >> 16) & 0xFFFF, pt, 4)
+    DllCall("ScreenToClient", "Ptr", V016SettingsGuiHwnd, "Ptr", pt)
+    localY := NumGet(pt, 4, "Int")
+    if localY >= 0 && localY <= 62
+        return 2 ; HTCAPTION
 }
 
 ApplyV016CharacterLayout(*)
@@ -45,23 +49,19 @@ ApplyV016CharacterLayout(*)
 OpenLauncherSettingsV016(*)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
-    global V016SettingsDragHwnd, V016SettingsGuiHwnd
+    global V016SettingsGuiHwnd
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
+    ; This exact key color is used only for the otherwise-visible rectangular GUI
+    ; canvas surrounding the scroll. It becomes transparent after Show().
     settings.BackColor := "D9B875"
     V016SettingsGuiHwnd := settings.Hwnd
-
-    ; The artwork fills the complete client area. Do not region-crop the GUI: that
-    ; was clipping controls and the lower half of the scroll on scaled displays.
     settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
 
-    ; Full-width upper roll is the drag handle. Content begins below it.
-    dragSurface := settings.Add("Text", "x10 y4 w350 h54 BackgroundTrans")
-    V016SettingsDragHwnd := dragSurface.Hwnd
-
-    settings.SetFont("s11 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x20 y76 w330 h24 BackgroundTrans", "Launcher Settings")
+    ; Heading: centered, stronger, and kept comfortably below the upper roll.
+    settings.SetFont("s12 Bold c241408", "Segoe UI")
+    settings.Add("Text", "x20 y76 w330 h28 Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s8 Bold c382314", "Segoe UI")
     settings.Add("Text", "x20 y108 w100 h20 BackgroundTrans", "Launcher size")
@@ -100,6 +100,11 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
     settings.Show("w370 h472")
+
+    ; Remove only the flat backing canvas. Unlike WinSetRegion this preserves the
+    ; complete scroll artwork and every control while letting the main launcher show
+    ; naturally around the parchment edges.
+    WinSetTransColor("D9B875 255", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
 
