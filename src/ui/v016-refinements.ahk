@@ -210,22 +210,48 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
 OpenAppDataSettingsV016(*)
 {
     global LauncherGui
-    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — AppData Settings")
+    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — AppData")
     window.BackColor := "E2CEA2"
     window.SetFont("s11 Bold c241408", "Segoe UI")
-    window.Add("Text", "x20 y18 w380 h26", "AppData Settings")
+    window.Add("Text", "x20 y18 w520 h26", "AppData")
     window.SetFont("s9 c382314", "Segoe UI")
-    window.Add("Text", "x20 y48 w380 h60", "Manage tes3np's saved launcher data and logs. You can open their folder, copy their data, or delete them when appropriate.")
-    logs := window.Add("Button", "x20 y122 w380 h34", "Launcher Logs")
-    diagnostics := window.Add("Button", "x20 y166 w380 h34", "Diagnostic Information")
-    reset := window.Add("Button", "x20 y210 w380 h34", "Reset AppData")
-    close := window.Add("Button", "x20 y260 w380 h34 Default", "Close")
-    logs.OnEvent("Click", ShowLauncherLogActions)
-    diagnostics.OnEvent("Click", ShowDiagnosticActions)
+    window.Add("Text", "x20 y48 w520 h92", "AppData stores the launcher's settings and all of your local characters you added to the launcher. Make sure before tampering with these files you export your character data under the 'Manage Characters' page. This way if something goes wrong you can fully restore all your set characters and preferences.")
+    openFolder := window.Add("Button", "x20 y150 w520 h34", "Open AppData Folder")
+    copyLauncher := window.Add("Button", "x20 y194 w255 h34", "Copy Launcher Log")
+    copyRender := window.Add("Button", "x285 y194 w255 h34", "Copy Render Errors Log")
+    copyPatch := window.Add("Button", "x20 y238 w255 h34", "Copy Patch Log")
+    copyPatchErrors := window.Add("Button", "x285 y238 w255 h34", "Copy Patch Errors Log")
+    reset := window.Add("Button", "x20 y292 w520 h34", "Reset AppData")
+    close := window.Add("Button", "x20 y336 w520 h34 Default", "Close")
+    openFolder.OnEvent("Click", OpenLauncherDataFolder)
+    copyLauncher.OnEvent("Click", CopyAppDataLog.Bind("launcher.log", true))
+    copyRender.OnEvent("Click", CopyAppDataLog.Bind("render-errors.log"))
+    copyPatch.OnEvent("Click", CopyAppDataLog.Bind("patch-all.log"))
+    copyPatchErrors.OnEvent("Click", CopyAppDataLog.Bind("patch-errors.log"))
     reset.OnEvent("Click", ShowResetAppDataActions)
     close.OnEvent("Click", (*) => window.Destroy())
     window.OnEvent("Escape", (*) => window.Destroy())
-    window.Show("w420 h314")
+    window.Show("w560 h390")
+}
+
+CopyAppDataLog(filename, syncLauncher := false, *)
+{
+    global AppDataDirectory
+    if syncLauncher
+        SyncPatchLogToLauncherLog()
+    path := AppDataDirectory "\" filename
+    if !FileExist(path)
+    {
+        MsgBox(filename " does not exist yet.", "tes3np — AppData")
+        return
+    }
+    try A_Clipboard := FileRead(path, "UTF-8")
+    catch as err
+    {
+        MsgBox("Could not read " filename ".\n\n" err.Message, "tes3np — AppData")
+        return
+    }
+    MsgBox(filename " copied to the clipboard.", "tes3np — AppData")
 }
 
 ShowLauncherLogActions(*)
