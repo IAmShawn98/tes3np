@@ -15,10 +15,11 @@ HandleV016SettingsMouseDown(wParam, lParam, msg, hwnd)
     global V016SettingsDragHwnd, V016SettingsGuiHwnd
     if !V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
         return
+    ; Any click on the dedicated transparent top-roll surface drags the frameless window.
     if hwnd != V016SettingsDragHwnd
         return
     DllCall("ReleaseCapture")
-    SendMessage(0xA1, 2, 0, , "ahk_id " V016SettingsGuiHwnd)
+    PostMessage(0xA1, 2, 0, , "ahk_id " V016SettingsGuiHwnd)
     return 0
 }
 
@@ -49,58 +50,60 @@ OpenLauncherSettingsV016(*)
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
-    ; Match the edge pixels of the parchment so there is no contrasting panel
-    ; around the artwork. The GUI is also sized to the artwork itself.
     settings.BackColor := "D9B875"
     V016SettingsGuiHwnd := settings.Hwnd
     settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
 
-    ; The title is part of the content area, not printed on the rolled lip.
-    ; The upper roll itself remains a clean drag handle.
-    dragSurface := settings.Add("Text", "x18 y4 w334 h42 BackgroundTrans")
+    ; Keep the top roll free of interactive controls so it doubles as the drag handle.
+    dragSurface := settings.Add("Text", "x12 y4 w346 h48 BackgroundTrans")
     V016SettingsDragHwnd := dragSurface.Hwnd
 
+    ; Start the content clearly below the upper rolled lip.
     settings.SetFont("s11 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x20 y56 w330 h24 BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x20 y68 w330 h24 BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y92 w100 h20 BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x20 y102 w100 h20 BackgroundTrans", "Launcher size")
     settings.SetFont("s9 c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x132 y88 w218 Choose" choice, choices)
+    scaleList := settings.Add("DropDownList", "x132 y98 w218 Choose" choice, choices)
     settings.SetFont("s7 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y118 w330 h30 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x20 y128 w330 h30 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y154 w100 h20 BackgroundTrans", "Interface text")
+    settings.Add("Text", "x20 y164 w100 h20 BackgroundTrans", "Interface text")
     settings.SetFont("s9 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x132 y150 w218 Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x132 y160 w218 Choose" textChoice, textChoices)
     settings.SetFont("s7 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y180 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x20 y190 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x20 y208 w330 h22", "Enhanced readability")
+    readability := settings.Add("CheckBox", "x20 y218 w330 h22", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s7 c5A4027", "Segoe UI")
-    settings.Add("Text", "x38 y232 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.Add("Text", "x38 y242 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x20 y266 w330 h22", "Follow Windows accessibility settings")
+    followWindows := settings.Add("CheckBox", "x20 y276 w330 h22", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
 
-    AddStyledButton(settings, 20, 300, 158, 30, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
-    AddStyledButton(settings, 192, 300, 158, 30, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 20, 340, 330, 30, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
-    AddStyledButton(settings, 20, 380, 330, 30, "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, 20, 310, 158, 30, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
+    AddStyledButton(settings, 192, 310, 158, 30, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 20, 350, 330, 30, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
+    AddStyledButton(settings, 20, 390, 330, 30, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
-    ; Explicit client size prevents AutoHotkey from adding extra blank canvas.
     settings.Show("w370 h472")
+
+    ; scroll-panel.png has transparent padding around the actual parchment. Crop the
+    ; native window itself to the visible scroll silhouette instead of showing the
+    ; GUI's rectangular backing canvas. Coordinates follow the artwork's outer edge.
+    WinSetRegion("8-18 362-18 368-40 368-438 360-462 10-462 2-438 2-40", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
 
