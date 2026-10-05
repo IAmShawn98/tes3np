@@ -31,15 +31,12 @@ SaveDailyLoginSchedule(enabled, time)
 CheckDailyLoginSchedule(*)
 {
     global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate
-    global DataFile, AppDataDirectory, LaunchAllQueue, LaunchAllActive
-    if !DailyLoginScheduleEnabled || LaunchAllActive
+    global DataFile, AppDataDirectory, Client
+    if !DailyLoginScheduleEnabled || Client.Enabled
         return
     nowTime := FormatTime(, "HH:mm")
     today := FormatTime(, "yyyy-MM-dd")
     if nowTime != DailyLoginScheduleTime || DailyLoginLastRunDate = today
-        return
-    ; Do not interrupt a game/session the launcher is already managing.
-    if IsSet(LaunchAllQueue) && LaunchAllQueue.Length
         return
     if !StartScheduledDailyLogin()
         return
@@ -50,9 +47,22 @@ CheckDailyLoginSchedule(*)
 
 StartScheduledDailyLogin()
 {
-    ; Session code supplies this reusable entry point. It intentionally skips the
-    ; manual confirmation prompt while preserving the same validated queue.
-    try return StartLaunchAllCharacters(true)
-    catch
+    global Client, Profiles
+    if Client.Enabled || Profiles.Length < 2
         return false
+    executable := GetSharedExecutable()
+    queue := []
+    for profile in Profiles
+    {
+        if !ValidateLaunch(profile, executable)
+        {
+            LogLauncherEvent("GAME | Scheduled daily login skipped because a character or executable needs attention.")
+            return false
+        }
+        queue.Push(profile.Clone())
+    }
+    profile := queue.RemoveAt(1)
+    LogLauncherEvent("GAME | Scheduled daily login starting. Characters: " (queue.Length + 1) ".")
+    StartProfileSession(profile, executable, queue)
+    return true
 }
