@@ -154,7 +154,16 @@ ToggleV016Readability(control, *)
 {
     global V016ReadabilityState
     V016ReadabilityState := !V016ReadabilityState
-    control.Text := V016CheckLabel(V016ReadabilityState, "Enhanced readability")
+    ; Updating this custom-painted label synchronously from its click callback can
+    ; re-enter the renderer. Defer the visual refresh until the click message unwinds.
+    SetTimer(UpdateV016ReadabilityLabel.Bind(control, V016ReadabilityState), -1)
+}
+
+UpdateV016ReadabilityLabel(control, state)
+{
+    if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd, "Int")
+        return
+    try control.Text := V016CheckLabel(state, "Enhanced readability")
 }
 
 ToggleV016FollowWindows(control, *)
