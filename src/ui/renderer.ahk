@@ -1,4 +1,4 @@
-﻿; Native buffered painting and GDI resource lifetime. Do not perform product actions here.
+; Native buffered painting and GDI resource lifetime. Do not perform product actions here.
 
 AttachButtonPainter(handle)
 {
@@ -264,8 +264,11 @@ PaintInfoCard(handle, target, width, height)
     bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
     oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
     graphics := 0, brush := 0
-    face.Control.GetPos(, , &logicalWidth)
-    scale := width / logicalWidth
+    ; Use the card's original design width as the scale baseline.
+    ; GetPos() returns the already-scaled control size, which makes the old
+    ; calculation lose the launcher scale and clip the heading artwork.
+    baseWidth := face.HasOwnProp("Width") && face.Width > 0 ? face.Width : 280
+    scale := width / baseWidth
     DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
     DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
     DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Background, "Int", Round(-face.X * scale), "Int", Round((-4 - face.Y) * scale), "Int", Round(960 * scale), "Int", Round(720 * scale))
