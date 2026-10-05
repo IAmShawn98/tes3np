@@ -49,16 +49,16 @@ OpenLauncherSettingsV016(*)
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
     global V016SettingsGuiHwnd
 
-    ; The scroll artwork itself is the window. The client area is tightened to the
-    ; parchment bounds instead of placing the scroll inside a larger tan canvas.
+    ; Borderless scroll-shaped settings window. A chroma-key background makes only
+    ; the small amount of GUI canvas outside the parchment invisible; unlike a
+    ; window region this does not alter coordinates, DPI scaling, or control bounds.
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
-    settings.BackColor := "D9B875"
+    settings.BackColor := "FF00FF"
     V016SettingsGuiHwnd := settings.Hwnd
 
-    ; Crop the *image placement*, not the window region. This keeps all controls in
-    ; normal GUI coordinates and avoids the DPI/WinSetRegion clipping failures.
-    ; The original panel's useful parchment occupies roughly x11..359, y17..463.
+    ; Keep the known-good full scroll placement. The magenta pixels left around its
+    ; irregular silhouette are made transparent after the window is shown.
     settings.Add("Picture", "x-11 y-17 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
 
     settings.SetFont("s12 Bold c241408", "Segoe UI")
@@ -100,8 +100,10 @@ OpenLauncherSettingsV016(*)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
-    ; 348x446 is the parchment's own bounding box. No extra background container.
     settings.Show("w348 h446")
+    ; Remove only the unused GUI canvas around the scroll. Controls and parchment
+    ; remain fully opaque and the existing HTCAPTION handler keeps dragging intact.
+    WinSetTransColor("FF00FF 255", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
 
