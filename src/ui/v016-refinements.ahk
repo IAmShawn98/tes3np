@@ -2,6 +2,8 @@
 
 global V016CharacterLayoutApplied := false
 global V016SettingsGuiHwnd := 0
+global V016ReadabilityState := 0
+global V016FollowWindowsState := 0
 
 InitializeV016UiRefinements()
 {
@@ -47,12 +49,14 @@ ApplyV016CharacterLayout(*)
 OpenLauncherSettingsV016(*)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
-    global V016SettingsGuiHwnd
+    global V016SettingsGuiHwnd, V016ReadabilityState, V016FollowWindowsState
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
     settings.BackColor := "010101"
     V016SettingsGuiHwnd := settings.Hwnd
+    V016ReadabilityState := EnhancedReadability ? 1 : 0
+    V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
     settings.Add("Picture", "x-12 y-18 w372 h474", A_ScriptDir "\assets\controls\scroll-panel.png")
 
@@ -77,25 +81,27 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x9 y179 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    ; Do not use native CheckBox controls on this chroma-keyed window: Windows paints
-    ; their client background independently and it punches rectangular holes through
-    ; the parchment. These compact text toggles keep the parchment itself untouched.
+    ; Native checkbox controls punch opaque rectangles through the chroma-keyed
+    ; parchment. Use clickable text rows and keep their state separately instead.
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    readability := settings.Add("Text", "x9 y207 w330 h22 +0x100 BackgroundTrans", (EnhancedReadability ? "☑" : "☐") "  Enhanced readability")
-    readability.Value := EnhancedReadability ? 1 : 0
-    readability.OnEvent("Click", ToggleV016TextCheck.Bind(readability, "Enhanced readability"))
+    readability := settings.Add("Text", "x9 y207 w330 h22 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
+    readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s7 c5A4027", "Segoe UI")
     settings.Add("Text", "x27 y231 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
     settings.SetFont("s8 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("Text", "x9 y265 w330 h22 +0x100 BackgroundTrans", (FollowWindowsAccessibility ? "☑" : "☐") "  Follow Windows accessibility settings")
-    followWindows.Value := FollowWindowsAccessibility ? 1 : 0
-    followWindows.OnEvent("Click", ToggleV016TextCheck.Bind(followWindows, "Follow Windows accessibility settings"))
+    followWindows := settings.Add("Text", "x9 y265 w330 h22 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
+    followWindows.OnEvent("Click", ToggleV016FollowWindows.Bind(followWindows))
+
+    ; PreviewLauncherSettings expects .Value objects. Proxies expose the separate
+    ; toggle state without trying to assign a Value property to a Text control.
+    readabilityValue := {Value: V016ReadabilityState}
+    followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, 9, 297, 158, 28, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
+    AddStyledButton(settings, 9, 297, 158, 28, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, 181, 297, 158, 28, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 9, 333, 330, 28, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
+    AddStyledButton(settings, 9, 333, 330, 28, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, 9, 369, 330, 28, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
@@ -105,20 +111,44 @@ OpenLauncherSettingsV016(*)
     FinishButtonDisplay()
 }
 
-ToggleV016TextCheck(control, label, *)
+V016CheckLabel(state, label)
 {
-    control.Value := control.Value ? 0 : 1
-    control.Text := (control.Value ? "☑" : "☐") "  " label
+    return (state ? "☑" : "☐") "  " label
 }
 
-ResetLauncherSettingsV016(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
+ToggleV016Readability(control, *)
 {
+    global V016ReadabilityState
+    V016ReadabilityState := !V016ReadabilityState
+    control.Text := V016CheckLabel(V016ReadabilityState, "Enhanced readability")
+}
+
+ToggleV016FollowWindows(control, *)
+{
+    global V016FollowWindowsState
+    V016FollowWindowsState := !V016FollowWindowsState
+    control.Text := V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings")
+}
+
+ApplyV016LauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, *)
+{
+    global V016ReadabilityState, V016FollowWindowsState
+    readabilityValue.Value := V016ReadabilityState
+    followWindowsValue.Value := V016FollowWindowsState
+    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Applying launcher settings...")
+}
+
+ResetLauncherSettingsV016(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue, *)
+{
+    global V016ReadabilityState, V016FollowWindowsState
     if MsgBox("Reset launcher settings to their defaults?", "tes3np — Reset Launcher Settings", "YesNo Icon?") != "Yes"
         return
-    scaleList.Choose(1), textList.Choose(1), readability.Value := 0, reduceMotionBox.Value := 0, followWindows.Value := 1
-    readability.Text := "☐  Enhanced readability"
-    followWindows.Text := "☑  Follow Windows accessibility settings"
-    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Resetting launcher settings...")
+    scaleList.Choose(1), textList.Choose(1)
+    V016ReadabilityState := 0, V016FollowWindowsState := 1
+    readability.Text := V016CheckLabel(0, "Enhanced readability")
+    followWindows.Text := V016CheckLabel(1, "Follow Windows accessibility settings")
+    readabilityValue.Value := 0, reduceMotionBox.Value := 0, followWindowsValue.Value := 1
+    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Resetting launcher settings...")
 }
 
 OpenAppDataSettingsV016(*)
