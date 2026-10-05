@@ -16,14 +16,13 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
     global V016SettingsGuiHwnd
     if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
         return
-
     pt := Buffer(8, 0)
     NumPut("Int", lParam & 0xFFFF, pt, 0)
     NumPut("Int", (lParam >> 16) & 0xFFFF, pt, 4)
     DllCall("ScreenToClient", "Ptr", V016SettingsGuiHwnd, "Ptr", pt)
     localY := NumGet(pt, 4, "Int")
-    if localY >= 0 && localY <= 62
-        return 2 ; HTCAPTION
+    if localY >= 0 && localY <= 72
+        return 2
 }
 
 ApplyV016CharacterLayout(*)
@@ -58,55 +57,55 @@ OpenLauncherSettingsV016(*)
     V016ReadabilityState := EnhancedReadability ? 1 : 0
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    settings.Add("Picture", "x-12 y-18 w372 h474", A_ScriptDir "\assets\controls\scroll-panel.png")
+    ; Give the parchment and its content more breathing room while retaining the
+    ; transparent irregular scroll silhouette.
+    settings.Add("Picture", "x-14 y-21 w428 h552", A_ScriptDir "\assets\controls\scroll-panel.png")
 
-    settings.SetFont("s12 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x9 y59 w330 h28 Center BackgroundTrans", "Launcher Settings")
+    settings.SetFont("s14 Bold c241408", "Segoe UI")
+    settings.Add("Text", "x18 y70 w376 h32 Center BackgroundTrans", "Launcher Settings")
 
-    settings.SetFont("s8 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x9 y91 w100 h20 BackgroundTrans", "Launcher size")
-    settings.SetFont("s9 c382314", "Segoe UI")
+    settings.SetFont("s10 Bold c382314", "Segoe UI")
+    settings.Add("Text", "x18 y108 w125 h24 BackgroundTrans", "Launcher size")
+    settings.SetFont("s11 c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x121 y87 w218 Choose" choice, choices)
-    settings.SetFont("s7 c5A4027", "Segoe UI")
-    settings.Add("Text", "x9 y117 w330 h30 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    scaleList := settings.Add("DropDownList", "x151 y103 w243 Choose" choice, choices)
+    settings.SetFont("s9 Bold c5A4027", "Segoe UI")
+    settings.Add("Text", "x18 y139 w376 h40 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
-    settings.SetFont("s8 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x9 y153 w100 h20 BackgroundTrans", "Interface text")
-    settings.SetFont("s9 c382314", "Segoe UI")
+    settings.SetFont("s10 Bold c382314", "Segoe UI")
+    settings.Add("Text", "x18 y187 w125 h24 BackgroundTrans", "Interface text")
+    settings.SetFont("s11 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x121 y149 w218 Choose" textChoice, textChoices)
-    settings.SetFont("s7 c5A4027", "Segoe UI")
-    settings.Add("Text", "x9 y179 w330 h22 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    textList := settings.Add("DropDownList", "x151 y182 w243 Choose" textChoice, textChoices)
+    settings.SetFont("s9 Bold c5A4027", "Segoe UI")
+    settings.Add("Text", "x18 y218 w376 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    ; Native checkbox controls punch opaque rectangles through the chroma-keyed
-    ; parchment. Use clickable text rows and keep their state separately instead.
-    settings.SetFont("s8 Bold c382314", "Segoe UI")
-    readability := settings.Add("Text", "x9 y207 w330 h22 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
+    ; Text toggles avoid the opaque native CheckBox background. The larger glyph
+    ; and type make them read like deliberate parchment controls rather than tiny UI.
+    settings.SetFont("s11 Bold c382314", "Segoe UI Symbol")
+    readability := settings.Add("Text", "x18 y257 w376 h28 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
-    settings.SetFont("s7 c5A4027", "Segoe UI")
-    settings.Add("Text", "x27 y231 w312 h28 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.SetFont("s9 Bold c5A4027", "Segoe UI")
+    settings.Add("Text", "x48 y291 w346 h42 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
-    settings.SetFont("s8 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("Text", "x9 y265 w330 h22 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
+    settings.SetFont("s11 Bold c382314", "Segoe UI Symbol")
+    followWindows := settings.Add("Text", "x18 y340 w376 h28 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
     followWindows.OnEvent("Click", ToggleV016FollowWindows.Bind(followWindows))
 
-    ; PreviewLauncherSettings expects .Value objects. Proxies expose the separate
-    ; toggle state without trying to assign a Value property to a Text control.
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, 9, 297, 158, 28, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 181, 297, 158, 28, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 9, 333, 330, 28, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 9, 369, 330, 28, "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, 18, 384, 178, 32, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 216, 384, 178, 32, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 18, 427, 376, 32, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 18, 470, 376, 32, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
-    settings.Show("w348 h446")
+    settings.Show("w412 h520")
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
