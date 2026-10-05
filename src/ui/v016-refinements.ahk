@@ -112,7 +112,7 @@ OpenLauncherSettingsV016(*)
     reduceMotionBox := {Value: 0}
 
     AddStyledButton(settings, V016S(34), V016S(431), V016S(250), V016S(40), "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(310), V016S(431), V016S(250), V016S(40), "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, V016S(310), V016S(431), V016S(250), V016S(40), "Close", (*) => settings.Destroy())
     AddStyledButton(settings, V016S(34), V016S(515), V016S(526), V016S(40), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(34), V016S(571), V016S(526), V016S(40), "AppData Settings", OpenAppDataSettingsV016)
 
