@@ -82,7 +82,9 @@ PaintButton(wParam, lParam, *)
             return
         if face.HasOwnProp("IsInfo")
             return PaintInfoCard(handle, target, width, height)
-{
+        if face.HasOwnProp("IsLoading")
+            return PaintLoadingPanel(handle, target, width, height)
+        scale := width / 220
     global ButtonFaces, ButtonPaint
     face := ButtonFaces[handle]
     dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
