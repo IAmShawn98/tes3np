@@ -74,14 +74,6 @@ try {
     if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
     Step 'Known-good main launcher compiled successfully with current toolchain'
 
-    Step 'Preparing main + updater update-check.ahk hybrid control'
-    Copy-Item (Join-Path $projectRoot 'src\app\update-check.ahk') (Join-Path $mainRoot 'src\app\update-check.ahk') -Force
-    $hybridExe = Join-Path $buildRoot 'hybrid-update-check.exe'
-    $hybridArgs = '/in "' + $mainSource + '" /out "' + $hybridExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $hybridCode = Invoke-Compiler $compiler $hybridArgs 'Hybrid main + updater update-check compilation' 60000
-    if ($hybridCode -ne 0 -or !(Test-Path $hybridExe)) { throw 'Hybrid update-check compilation failed.' }
-    Step 'Hybrid update-check compiled successfully'
-
     $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
