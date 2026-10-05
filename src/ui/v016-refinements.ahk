@@ -21,7 +21,7 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
     NumPut("Int", (lParam >> 16) & 0xFFFF, pt, 4)
     DllCall("ScreenToClient", "Ptr", V016SettingsGuiHwnd, "Ptr", pt)
     localY := NumGet(pt, 4, "Int")
-    if localY >= 0 && localY <= 72
+    if localY >= 0 && localY <= 82
         return 2
 }
 
@@ -57,55 +57,53 @@ OpenLauncherSettingsV016(*)
     V016ReadabilityState := EnhancedReadability ? 1 : 0
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    ; Give the parchment and its content more breathing room while retaining the
-    ; transparent irregular scroll silhouette.
-    settings.Add("Picture", "x-14 y-21 w428 h552", A_ScriptDir "\assets\controls\scroll-panel.png")
+    ; Larger parchment with extra space around the content. Keep the same irregular
+    ; transparent scroll silhouette and simply spread the existing layout into it.
+    settings.Add("Picture", "x-16 y-24 w492 h636", A_ScriptDir "\assets\controls\scroll-panel.png")
 
     settings.SetFont("s14 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x18 y70 w376 h32 Center BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x24 y82 w432 h32 Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s10 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x18 y108 w125 h24 BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x24 y122 w135 h24 BackgroundTrans", "Launcher size")
     settings.SetFont("s11 c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x151 y103 w243 Choose" choice, choices)
+    scaleList := settings.Add("DropDownList", "x171 y117 w285 Choose" choice, choices)
     settings.SetFont("s9 Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x18 y139 w376 h40 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x24 y157 w432 h42 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s10 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x18 y187 w125 h24 BackgroundTrans", "Interface text")
+    settings.Add("Text", "x24 y211 w135 h24 BackgroundTrans", "Interface text")
     settings.SetFont("s11 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x151 y182 w243 Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x171 y206 w285 Choose" textChoice, textChoices)
     settings.SetFont("s9 Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x18 y218 w376 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x24 y246 w432 h30 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    ; Text toggles avoid the opaque native CheckBox background. The larger glyph
-    ; and type make them read like deliberate parchment controls rather than tiny UI.
     settings.SetFont("s11 Bold c382314", "Segoe UI Symbol")
-    readability := settings.Add("Text", "x18 y257 w376 h28 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
+    readability := settings.Add("Text", "x24 y292 w432 h30 +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s9 Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x48 y291 w346 h42 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.Add("Text", "x58 y330 w398 h44 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
     settings.SetFont("s11 Bold c382314", "Segoe UI Symbol")
-    followWindows := settings.Add("Text", "x18 y340 w376 h28 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
+    followWindows := settings.Add("Text", "x24 y388 w432 h30 +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
     followWindows.OnEvent("Click", ToggleV016FollowWindows.Bind(followWindows))
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: V016FollowWindowsState}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, 18, 384, 178, 32, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 216, 384, 178, 32, "Cancel", (*) => settings.Destroy())
-    AddStyledButton(settings, 18, 427, 376, 32, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, 18, 470, 376, 32, "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, 24, 438, 204, 34, "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 252, 438, 204, 34, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 24, 484, 432, 34, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, 24, 530, 432, 34, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
-    settings.Show("w412 h520")
+    settings.Show("w480 h600")
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
