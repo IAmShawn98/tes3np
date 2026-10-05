@@ -1,0 +1,133 @@
+name: Publish Alpha
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-build-publish:
+    if: github.ref == 'refs/heads/feature/safe-auto-updater'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Normalize patch script final newline
+        shell: pwsh
+        run: |
+          $path = 'scripts/patch-tes3mp.ps1'
+          $text = [IO.File]::ReadAllText($path)
+          if (-not ($text.EndsWith("`n"))) {
+            [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true)))
+          }
+
+      - name: Validate complete source and payload
+        run: python scripts/project.py check
+
+      - name: Parse PowerShell helpers
+        shell: powershell
+        run: ./scripts/check-powershell.ps1
+
+      - name: Test launcher updater validation
+        shell: pwsh
+        run: ./scripts/test-update-client.ps1
+
+      - name: Test updater transaction and rollback
+        shell: pwsh
+        run: ./scripts/test-updater-transaction.ps1
+
+      - name: Compile launcher with custom icon and package
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/build-windows.ps1
+
+      - name: Generate and verify update metadata
+        shell: pwsh
+        run: ./scripts/generate-update-metadata.ps1
+
+      - name: Test updater metadata failure handling
+        shell: pwsh
+        run: ./scripts/test-update-metadata.ps1
+
+      - name: Upload private CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tes3np-alpha-candidate
+          path: |
+            dist/tes3np-windows.zip
+            dist/tes3np-windows.zip.sha256
+            dist/tes3np-update.json
+          if-no-files-found: error
+
+      - name: Publish latest alpha only after all validation passes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
+
+          $repo = 'IAmShawn98/tes3np-releases'
+          $tag = 'latest-alpha'
+          $assets = @(
+            'dist/tes3np-windows.zip',
+            'dist/tes3np-windows.zip.sha256',
+            'dist/tes3np-update.json'
+          )
+
+          foreach ($asset in $assets) {
+            if (-not (Test-Path -LiteralPath $asset)) { throw "Release asset is missing: $asset" }
+          }
+
+          $manifest = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json
+          $version = $manifest.version
+          if (-not $version) { throw 'Generated update manifest has no version.' }
+
+          $notes = @"
+          Automated tes3np development build from the private source repository.
+
+          Version: v$version
+          Source revision: $env:GITHUB_SHA
+          Source branch: $env:GITHUB_REF_NAME
+
+          This alpha candidate passed source validation, PowerShell parsing, updater safety checks,
+          transaction/rollback tests, launcher compilation, and update metadata validation before publishing.
+
+          This is development software intended for testing.
+          "@
+
+          $old = $PSNativeCommandUseErrorActionPreference
+          $PSNativeCommandUseErrorActionPreference = $false
+          gh release view $tag --repo $repo *> $null
+          $releaseExists = ($LASTEXITCODE -eq 0)
+          $PSNativeCommandUseErrorActionPreference = $old
+
+          if ($releaseExists) {
+            foreach ($asset in $assets) {
+              gh release upload $tag $asset --repo $repo --clobber
+              if ($LASTEXITCODE -ne 0) { throw "Failed to upload release asset: $asset" }
+            }
+            gh release edit $tag --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
+          } else {
+            gh release create $tag @assets --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish alpha release.' }
+
+      - name: Verify published manifest and package are reachable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $base = 'https://github.com/IAmShawn98/tes3np-releases/releases/download/latest-alpha'
+          $published = Invoke-RestMethod "$base/tes3np-update.json" -Headers @{ 'User-Agent' = 'tes3np-release-verifier' }
+          $local = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json
+          if ($published.version -ne $local.version) { throw 'Published manifest version does not match candidate.' }
+          if ($published.sha256 -ne $local.sha256) { throw 'Published manifest hash does not match candidate.' }
+          $head = Invoke-WebRequest "$base/tes3np-windows.zip" -Method Head -Headers @{ 'User-Agent' = 'tes3np-release-verifier' }
+          if ($head.StatusCode -ne 200) { throw 'Published Windows package is not reachable.' }
+          Write-Host "Published alpha verified: v$($published.version)"
