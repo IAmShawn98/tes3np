@@ -112,18 +112,14 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(10) " Bold c5A4027", "Segoe UI")
     settings.Add("Text", "x" V016S(76) " y" V016S(322) " w" V016S(484) " h" V016S(44) " BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
 
-    settings.SetFont("s" V016Font(13) " Bold c382314", "Segoe UI Symbol")
-    followWindows := settings.Add("Text", "x" V016S(34) " y" V016S(370) " w" V016S(526) " h" V016S(34) " +0x100 BackgroundTrans", V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings"))
-    followWindows.OnEvent("Click", ToggleV016FollowWindows.Bind(followWindows))
-
     readabilityValue := {Value: V016ReadabilityState}
-    followWindowsValue := {Value: V016FollowWindowsState}
+    followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, V016S(34), V016S(431), V016S(250), V016S(40), "Preview & Apply", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(310), V016S(431), V016S(250), V016S(40), "Close", CloseLauncherSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(34), V016S(515), V016S(526), V016S(40), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(34), V016S(571), V016S(526), V016S(40), "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(34), V016S(370), V016S(250), V016S(40), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(310), V016S(370), V016S(250), V016S(40), "Close", CloseLauncherSettingsV016.Bind(settings))
+    AddStyledButton(settings, V016S(34), V016S(454), V016S(526), V016S(40), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(34), V016S(510), V016S(526), V016S(40), "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
@@ -176,7 +172,7 @@ ApplyV016LauncherSettings(settings, scaleList, textList, readabilityValue, reduc
     PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Applying launcher settings...")
 }
 
-ResetLauncherSettingsV016(settings, scaleList, textList, readability, followWindows, readabilityValue, reduceMotionBox, followWindowsValue, *)
+ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue, *)
 {
     global V016ReadabilityState, V016FollowWindowsState
     if MsgBox("Reset launcher settings to their defaults?", "tes3np — Reset Launcher Settings", "YesNo Icon?") != "Yes"
@@ -184,7 +180,6 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, followWind
     scaleList.Choose(1), textList.Choose(1)
     V016ReadabilityState := 0, V016FollowWindowsState := 1
     readability.Text := V016CheckLabel(0, "Enhanced readability")
-    followWindows.Text := V016CheckLabel(1, "Follow Windows accessibility settings")
     readabilityValue.Value := 0, reduceMotionBox.Value := 0, followWindowsValue.Value := 1
     PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Resetting launcher settings...")
 }
