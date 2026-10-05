@@ -54,12 +54,14 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s8 c5A4027", "Segoe UI")
     settings.Add("Text", "x20 y170 w330 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x20 y210 w330 h24 BackgroundTrans", "Enhanced readability")
+    ; AutoHotkey CheckBox controls do not support BackgroundTrans. Keep their
+    ; native control background while the surrounding labels remain transparent.
+    readability := settings.Add("CheckBox", "x20 y210 w330 h24", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
     settings.Add("Text", "x38 y234 w312 h38 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x20 y280 w330 h24 BackgroundTrans", "Follow Windows accessibility settings")
+    followWindows := settings.Add("CheckBox", "x20 y280 w330 h24", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
