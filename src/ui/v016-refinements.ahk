@@ -49,12 +49,12 @@ ApplyV016CharacterLayout(*)
         ExecutableInput.GetPos(, &executableY, , &executableHeight)
         global LaunchSettingsControls
         CharacterPage.SetFont("s9 Bold c382314", "Segoe UI")
-        dailyHeading := CharacterPage.Add("Text", "x525 y" (executableY + executableHeight + 14) " w360 h22 BackgroundTrans", "Daily Character Login")
+        dailyHeading := CharacterPage.Add("Text", "x70 y610 w370 h22 BackgroundTrans Hidden", "Daily Character Login")
         CharacterPage.SetFont("s8 c5A4027", "Segoe UI")
-        dailyDescription := CharacterPage.Add("Text", "x525 y" (executableY + executableHeight + 36) " w360 h34 BackgroundTrans", "Optionally run Launch All & Close automatically once per day while tes3np is running.")
+        dailyDescription := CharacterPage.Add("Text", "x70 y610 w370 h34 BackgroundTrans Hidden", "Optionally run Launch All & Close automatically once per day while tes3np is running.")
         global DailyLoginScheduleEnabled, DailyLoginScheduleTime
         label := DailyLoginScheduleEnabled ? "Daily Login: On — " DailyLoginScheduleTime : "Daily Login: Off"
-        dailyButton := AddStyledButton(CharacterPage, 525, executableY + executableHeight + 73, 360, 30, label, OpenDailyLoginScheduleDialog)
+        dailyButton := AddStyledButton(CharacterPage, 70, 505, 370, 30, label, OpenDailyLoginScheduleDialog)
         ; Daily-login controls are part of Launch Settings and must hide with the
         ; rest of that panel whenever the add/edit character form is open.
         LaunchSettingsControls.Push(dailyHeading, dailyDescription, dailyButton)
