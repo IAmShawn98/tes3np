@@ -98,11 +98,33 @@ RepaintMenuButtons(*)
             PaintButtonNow(handle)
 }
 
+SyncDynamicButtonGeometry()
+{
+    global ButtonFaces, LauncherGui
+    for handle, face in ButtonFaces
+    {
+        if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel")
+            continue
+        ; Launcher controls keep their original base geometry for display scaling.
+        ; Other windows can intentionally resize/move controls while refreshing,
+        ; so make that live geometry the new themed-button baseline.
+        if IsObject(LauncherGui) && face.Window = LauncherGui.Hwnd
+            continue
+        face.Control.GetPos(&x, &y, &width, &height)
+        face.X := x
+        face.Y := y
+        face.BaseX := x
+        face.BaseWidth := width
+        face.BaseHeight := height
+    }
+}
+
 FinishButtonDisplay()
 {
     global InterfaceUpdating
     if IsSet(InterfaceUpdating) && InterfaceUpdating
         return
+    SyncDynamicButtonGeometry()
     RepaintMenuButtons()
 }
 
