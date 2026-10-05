@@ -1,12 +1,29 @@
 ; v0.1.16 test-branch UI refinements.
 
 global V016CharacterLayoutApplied := false
-
 global V016SettingsDragHwnd := 0
+global V016SettingsGuiHwnd := 0
+
+global V016SettingsTransparencyColor := "010203"
 
 InitializeV016UiRefinements()
 {
     SetTimer(ApplyV016CharacterLayout, 250)
+    OnMessage(0x201, HandleV016SettingsMouseDown)
+}
+
+HandleV016SettingsMouseDown(wParam, lParam, msg, hwnd)
+{
+    global V016SettingsDragHwnd, V016SettingsGuiHwnd
+    if !V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
+        return
+    ; Only the top parchment roll is a drag handle. All buttons, dropdowns and
+    ; checkboxes retain their normal mouse behavior.
+    if hwnd != V016SettingsDragHwnd
+        return
+    DllCall("ReleaseCapture")
+    SendMessage(0xA1, 2, 0, , "ahk_id " V016SettingsGuiHwnd)
+    return 0
 }
 
 ApplyV016CharacterLayout(*)
@@ -31,56 +48,64 @@ ApplyV016CharacterLayout(*)
 
 OpenLauncherSettingsV016(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility, V016SettingsDragHwnd
-    ; Frameless popup: the parchment itself is the complete settings window.
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
+    global V016SettingsDragHwnd, V016SettingsGuiHwnd, V016SettingsTransparencyColor
+
+    ; The GUI is larger than the parchment by a few pixels, but that surrounding
+    ; key color is made fully transparent so only the scroll itself is visible.
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
-    settings.BackColor := "E2CEA2"
-    settings.Add("Picture", "x0 y0 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
+    settings.BackColor := V016SettingsTransparencyColor
+    V016SettingsGuiHwnd := settings.Hwnd
 
-    ; Invisible drag surface across the top roll so the frameless panel can still be moved.
-    dragSurface := settings.Add("Text", "x18 y8 w334 h42 BackgroundTrans")
+    settings.Add("Picture", "x8 y8 w370 h472", A_ScriptDir "\assets\controls\scroll-panel.png")
+
+    ; Dedicated drag strip over the top roll. It deliberately stops before the
+    ; controls below, so the rest of the interface remains fully interactive.
+    dragSurface := settings.Add("Text", "x26 y10 w334 h35 BackgroundTrans")
     V016SettingsDragHwnd := dragSurface.Hwnd
-    dragSurface.OnEvent("Click", (*) => 0)
 
     settings.SetFont("s11 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x20 y18 w330 h26 BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x28 y26 w330 h26 BackgroundTrans", "Launcher Settings")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y58 w120 h22 BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x28 y66 w120 h22 BackgroundTrans", "Launcher size")
     settings.SetFont("s10 c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x145 y54 w205 Choose" choice, choices)
+    scaleList := settings.Add("DropDownList", "x153 y62 w205 Choose" choice, choices)
     settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y88 w330 h40 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x28 y96 w330 h40 BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y140 w120 h22 BackgroundTrans", "Interface text")
+    settings.Add("Text", "x28 y148 w120 h22 BackgroundTrans", "Interface text")
     settings.SetFont("s10 c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x145 y136 w205 Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x153 y144 w205 Choose" textChoice, textChoices)
     settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x20 y170 w330 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x28 y178 w330 h28 BackgroundTrans", "Choose how big or small the launcher interface is for you.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x20 y210 w330 h24", "Enhanced readability")
+    readability := settings.Add("CheckBox", "x28 y218 w330 h24", "Enhanced readability")
     readability.Value := EnhancedReadability ? 1 : 0
     settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x38 y234 w312 h38 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
+    settings.Add("Text", "x46 y242 w312 h38 BackgroundTrans", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x20 y280 w330 h24", "Follow Windows accessibility settings")
+    followWindows := settings.Add("CheckBox", "x28 y288 w330 h24", "Follow Windows accessibility settings")
     followWindows.Value := FollowWindowsAccessibility ? 1 : 0
     reduceMotionBox := settings.Add("CheckBox", "x-500 y-500 w1 h1 Hidden", "")
     reduceMotionBox.Value := 0
 
-    ; Use the same owner-drawn Morrowind buttons used throughout tes3np.
-    apply := AddStyledButton(settings, 20, 330, 158, 34, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
-    cancel := AddStyledButton(settings, 192, 330, 158, 34, "Cancel", (*) => settings.Destroy())
-    reset := AddStyledButton(settings, 20, 374, 330, 34, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
-    appData := AddStyledButton(settings, 20, 418, 330, 34, "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, 28, 338, 158, 34, "Preview & Apply", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying launcher settings..."))
+    AddStyledButton(settings, 200, 338, 158, 34, "Cancel", (*) => settings.Destroy())
+    AddStyledButton(settings, 28, 382, 330, 34, "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
+    AddStyledButton(settings, 28, 426, 330, 34, "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", (*) => settings.Destroy())
     settings.OnEvent("Close", (*) => settings.Destroy())
-    settings.Show("w370 h472")
+    settings.OnEvent("Size", (*) => 0)
+    settings.Show("w386 h488")
+    ; Chroma-key the unused GUI surface away. This is the same visual approach
+    ; used by shaped launcher windows: the parchment edge becomes the window edge.
+    WinSetTransColor(V016SettingsTransparencyColor, "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
 }
 
