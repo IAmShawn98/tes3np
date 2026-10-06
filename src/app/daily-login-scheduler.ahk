@@ -89,30 +89,10 @@ OpenDailyLoginScheduleDialog(owner := 0, *)
     schedule.Add("Text", "x20 y184 w330 h48", "Enter the time however you prefer, such as 9 PM, 9:30 PM, 21:30, or 2130. The launcher must be running at that time.")
     save := schedule.Add("Button", "x20 y234 w158 h34 Default", "Save")
     cancel := schedule.Add("Button", "x192 y234 w158 h34", "Cancel")
-    enabled.OnEvent("Click", PromptDailyLoginTime.Bind(enabled, timeEdit))
     save.OnEvent("Click", SaveDailyLoginScheduleDialog.Bind(schedule, enabled, timeEdit))
     cancel.OnEvent("Click", (*) => schedule.Destroy())
     schedule.OnEvent("Escape", (*) => schedule.Destroy())
     schedule.Show("w370 h288")
-}
-
-PromptDailyLoginTime(enabled, timeEdit, *)
-{
-    if !enabled.Value
-        return
-    result := InputBox("What time should tes3np run the daily character logins?`n`nExamples: 9 PM, 9:30 PM, 21:30, or 2130.", "tes3np — Daily Login Time", "w360 h150", timeEdit.Text)
-    if result.Result != "OK"
-    {
-        enabled.Value := 0
-        return
-    }
-    if !RegExMatch(result.Value, "^(?:[01]\d|2[0-3]):[0-5]\d$")
-    {
-        MsgBox("Enter a valid time such as 09:30 or 21:00.", "tes3np")
-        enabled.Value := 0
-        return
-    }
-    timeEdit.Text := result.Value
 }
 
 SaveDailyLoginScheduleDialog(schedule, enabled, timeEdit, *)
