@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/safe-auto-updater
 
 permissions:
   contents: read
@@ -22,23 +23,36 @@ jobs:
         run: |
           $path = 'scripts/patch-tes3mp.ps1'
           $text = [IO.File]::ReadAllText($path)
-          if (-not ($text.EndsWith("`n"))) {
-            [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true)))
-          }
+          if (-not ($text.EndsWith("`n"))) { [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true))) }
       - name: Validate complete source and payload
         run: python scripts/project.py check
       - name: Parse PowerShell helpers
         shell: powershell
         run: ./scripts/check-powershell.ps1
+      - name: Test launcher updater validation
+        shell: pwsh
+        run: ./scripts/test-update-client.ps1
+      - name: Test updater transaction and rollback
+        shell: pwsh
+        run: ./scripts/test-updater-transaction.ps1
       - name: Compile launcher with custom icon and package
-        shell: powershell
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/build-windows.ps1
+      - name: Generate and verify update metadata
+        shell: pwsh
+        run: ./scripts/generate-update-metadata.ps1
+      - name: Test updater metadata failure handling
+        shell: pwsh
+        run: ./scripts/test-update-metadata.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: tes3np-windows
-          path: dist/tes3np-windows.zip
+          path: |
+            dist/tes3np-windows.zip
+            dist/tes3np-windows.zip.sha256
+            dist/tes3np-update.json
           if-no-files-found: error
       - name: Publish latest public test build
         if: github.ref == 'refs/heads/main'
@@ -48,39 +62,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
-          $repo = 'IAmShawn98/tes3np-releases'
-          $tag = 'latest-alpha'
-          $asset = 'dist/tes3np-windows.zip'
-          $notes = @"
-          Automated tes3np development build from the private source repository.
-
-          Version: v0.1.4-alpha
-          Source revision: $env:GITHUB_SHA
-
-          Changes in v0.1.4-alpha:
-          - Fixed automatic launcher scaling on smaller and high-DPI displays so the launcher contents scale with the window instead of being clipped at the bottom.
-          - Automatic mode now recalculates the appropriate scale when the launcher is shown and centers the complete launcher inside the monitor work area.
-          - Preserved proportional button, artwork, heading, and interface sizing while fitting the launcher to the available screen.
-
-          Includes all accessibility, diagnostics, logging, patch verification, and launch reliability improvements from v0.1.3-alpha.
-
-          This is development software intended for testing. Extract the ZIP completely and run tes3np.exe from the included tes3np folder.
-          "@
-
-          $releaseExists = $false
-          $oldNativePreference = $PSNativeCommandUseErrorActionPreference
-          $PSNativeCommandUseErrorActionPreference = $false
-          gh release view $tag --repo $repo *> $null
-          if ($LASTEXITCODE -eq 0) { $releaseExists = $true }
-          $PSNativeCommandUseErrorActionPreference = $oldNativePreference
-
+          $repo = 'IAmShawn98/tes3np-releases'; $tag = 'latest-alpha'
+          $assets = @('dist/tes3np-windows.zip','dist/tes3np-windows.zip.sha256','dist/tes3np-update.json')
+          $manifest = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json; $version = $manifest.version
+          $notes = "Automated tes3np development build from the private source repository.`n`nVersion: v$version`nSource revision: $env:GITHUB_SHA`n`nThis is development software intended for testing."
+          $releaseExists = $false; $old = $PSNativeCommandUseErrorActionPreference; $PSNativeCommandUseErrorActionPreference = $false
+          gh release view $tag --repo $repo *> $null; if ($LASTEXITCODE -eq 0) { $releaseExists = $true }; $PSNativeCommandUseErrorActionPreference = $old
           if ($releaseExists) {
-            gh release upload $tag $asset --repo $repo --clobber
-            if ($LASTEXITCODE -ne 0) { throw 'Failed to upload the public release package.' }
-            gh release edit $tag --repo $repo --title 'tes3np v0.1.4-alpha - Latest Test Build' --notes $notes --prerelease
-            if ($LASTEXITCODE -ne 0) { throw 'Failed to update the public release.' }
-          }
-          else {
-            gh release create $tag $asset --repo $repo --title 'tes3np v0.1.4-alpha - Latest Test Build' --notes $notes --prerelease
-            if ($LASTEXITCODE -ne 0) { throw 'Failed to create the public release. Check RELEASE_PUBLISH_TOKEN permissions.' }
-          }
+            foreach ($asset in $assets) { gh release upload $tag $asset --repo $repo --clobber; if ($LASTEXITCODE -ne 0) { throw "Failed to upload: $asset" } }
+            gh release edit $tag --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
+          } else { gh release create $tag @assets --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease }
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish public release.' }

@@ -2,10 +2,12 @@
 
 global LauncherControlLayout := Map()
 global LauncherVersionLabel := 0
+global LauncherSettingsButton := 0
+global LauncherUpdateButton := 0
 
 StartLauncher()
 {
-    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel
+    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton
     InitializePatchLogMirror()
     LogLauncherEvent("Launcher startup beginning.")
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
@@ -25,17 +27,20 @@ StartLauncher()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
+    LoadDailyLoginSchedule()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
-    AddStyledButton(LauncherGui, 650, 675, 145, 32, "Launcher Settings", OpenLauncherSettings)
-    AddStyledButton(LauncherGui, 805, 675, 140, 32, "Check for Updates", CheckForUpdates)
+    LauncherSettingsButton := AddStyledButton(LauncherGui, 805, 675, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
+    LauncherUpdateButton := AddStyledButton(LauncherGui, 650, 675, 140, 32, "Update Available", CheckForUpdates)
+    LauncherUpdateButton.Visible := false
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
+    InitializeV016UiRefinements()
     OnMessage(0x0201, HandleMouseDown)
     OnMessage(0x0202, ReleaseButton)
     OnMessage(0x0100, HandleThemedButtonKey)
@@ -49,7 +54,28 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
     FinishLauncherStartup()
+    SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
+}
+
+SetLauncherUpdateAvailable(isAvailable)
+{
+    global LauncherSettingsButton, LauncherUpdateButton, LauncherControlLayout
+    if !IsObject(LauncherSettingsButton) || !IsObject(LauncherUpdateButton)
+        return
+    ; The right-most slot always belongs to Launcher Settings. When an update is
+    ; available, Update Available appears immediately to its left.
+    LauncherSettingsButton.Move(805, 675, 140, 32)
+    LauncherUpdateButton.Move(650, 675, 140, 32)
+    LauncherUpdateButton.Visible := isAvailable
+    if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
+        LauncherControlLayout[LauncherSettingsButton.Hwnd].X := 805
+        LauncherControlLayout[LauncherSettingsButton.Hwnd].Y := 675
+    }
+    if LauncherControlLayout.Has(LauncherUpdateButton.Hwnd) {
+        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 650
+        LauncherControlLayout[LauncherUpdateButton.Hwnd].Y := 675
+    }
 }
 
 CaptureLauncherControlLayout()
@@ -174,7 +200,6 @@ CleanupLauncher(*)
     CleanupMacros()
     CleanupPatcher()
     SetTimer(HoverTimer, 0)
-    DllCall("ReleaseCapture")
     SetTimer(ShowSlowInterfaceLoading, 0)
     SetTimer(ReleaseInterfaceFrame, 0)
     ReleaseInterfaceFrame()
