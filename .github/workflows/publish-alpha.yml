@@ -72,42 +72,19 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
-
           $repo = 'IAmShawn98/tes3np-releases'
           $tag = 'latest-alpha'
-          $assets = @(
-            'dist/tes3np-windows.zip',
-            'dist/tes3np-windows.zip.sha256',
-            'dist/tes3np-update.json'
-          )
-
-          foreach ($asset in $assets) {
-            if (-not (Test-Path -LiteralPath $asset)) { throw "Release asset is missing: $asset" }
-          }
-
+          $assets = @('dist/tes3np-windows.zip','dist/tes3np-windows.zip.sha256','dist/tes3np-update.json')
+          foreach ($asset in $assets) { if (-not (Test-Path -LiteralPath $asset)) { throw "Release asset is missing: $asset" } }
           $manifest = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json
           $version = $manifest.version
           if (-not $version) { throw 'Generated update manifest has no version.' }
-
-          $notes = @"
-          Automated tes3np development build from the private source repository.
-
-          Version: v$version
-          Source revision: $env:GITHUB_SHA
-          Source branch: $env:GITHUB_REF_NAME
-
-          This alpha candidate passed source validation, PowerShell parsing, updater safety checks,
-          transaction/rollback tests, launcher compilation, and update metadata validation before publishing.
-
-          This is development software intended for testing.
-          "@
-
+          $notes = "Automated tes3np development build.`n`nVersion: v$version`nSource revision: $env:GITHUB_SHA`nSource branch: $env:GITHUB_REF_NAME`n`nThis alpha candidate passed the updater safety and build validation suite before publishing."
           $old = $PSNativeCommandUseErrorActionPreference
           $PSNativeCommandUseErrorActionPreference = $false
           gh release view $tag --repo $repo *> $null
           $releaseExists = ($LASTEXITCODE -eq 0)
           $PSNativeCommandUseErrorActionPreference = $old
-
           if ($releaseExists) {
             foreach ($asset in $assets) {
               gh release upload $tag $asset --repo $repo --clobber
