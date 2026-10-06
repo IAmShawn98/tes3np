@@ -328,6 +328,18 @@ StartScheduledDailyLogin()
     return true
 }
 
+CancelScheduledDailyLoginForToday()
+{
+    global DailyLoginLastRunDate, DailyLoginScheduleDue, DataFile, AppDataDirectory
+    today := FormatTime(, "yyyy-MM-dd")
+    DailyLoginLastRunDate := today
+    DailyLoginScheduleDue := false
+    DirCreate(AppDataDirectory)
+    IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
+    LogLauncherEvent("GAME | Scheduled Daily Login cancelled for today after game was closed.")
+    RefreshDailyLoginButton()
+}
+
 MarkScheduledDailyLoginComplete()
 {
     global DailyLoginLastRunDate, DailyLoginScheduleDue, DataFile, AppDataDirectory
