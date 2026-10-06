@@ -1,135 +1,205 @@
-; In-app scheduler for the optional daily multi-character login routine.
-; Disabled by default and driven by the launcher's own timer, not Windows Task Scheduler.
+; Multi-event scheduler. Daily Login is the first supported scheduled action.
+; Events recur once per day at their configured local clock time.
 
-global DailyLoginScheduleEnabled := false
-global DailyLoginScheduleTime := "12:00"
-global DailyLoginScheduleDisplay := "12:00"
-global DailyLoginLastRunDate := ""
-global DailyLoginLastCheckMinute := ""
-global DailyLoginCountdownTarget := ""
-global DailyLoginScheduleDue := false
-global DailyLoginPreviousRemaining := ""
+global ScheduledEvents := []
+global ScheduledEventsListView := 0
+global ScheduledEventsWindow := 0
+global ActiveScheduledEventId := ""
+global NextScheduledEventId := 1
 
 LoadDailyLoginSchedule()
 {
-    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginLastRunDate, DailyLoginScheduleDue, DailyLoginPreviousRemaining
-    DailyLoginScheduleEnabled := IniRead(DataFile, "DailyLogin", "Scheduled", "0") = "1"
-    DailyLoginScheduleTime := IniRead(DataFile, "DailyLogin", "Time", "12:00")
-    DailyLoginScheduleDisplay := IniRead(DataFile, "DailyLogin", "DisplayTime", DailyLoginScheduleTime)
-    DailyLoginLastRunDate := IniRead(DataFile, "DailyLogin", "LastRunDate", "")
-    try DailyLoginScheduleTime := ParseDailyLoginTime(DailyLoginScheduleDisplay)
-    catch
+    global ScheduledEvents, NextScheduledEventId, DataFile
+    ScheduledEvents := []
+    count := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
+    maxId := 0
+    Loop count
     {
-        DailyLoginScheduleTime := "12:00"
-        DailyLoginScheduleDisplay := "12:00"
+        section := "ScheduledEvent" A_Index
+        id := Integer(IniRead(DataFile, section, "Id", A_Index))
+        name := IniRead(DataFile, section, "Name", "Daily Login")
+        type := IniRead(DataFile, section, "Type", "DailyLogin")
+        time := IniRead(DataFile, section, "Time", "12:00")
+        lastRun := IniRead(DataFile, section, "LastRunDate", "")
+        try time := ParseDailyLoginTime(time)
+        catch
+            continue
+        ScheduledEvents.Push({Id: id, Name: name, Type: type, Time: time, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time)})
+        maxId := Max(maxId, id)
     }
-    DailyLoginScheduleDue := false
-    DailyLoginPreviousRemaining := GetDailyLoginSecondsRemainingRaw()
-    ; Use one authoritative 1-second tick for both the visible countdown and
-    ; the scheduled action. Keeping these on separate timers allowed the UI to
-    ; cross zero independently of the launch check.
+
+    ; Migrate the old single Daily Login schedule once.
+    if !ScheduledEvents.Length && IniRead(DataFile, "DailyLogin", "Scheduled", "0") = "1"
+    {
+        oldTime := IniRead(DataFile, "DailyLogin", "Time", "12:00")
+        oldLastRun := IniRead(DataFile, "DailyLogin", "LastRunDate", "")
+        try oldTime := ParseDailyLoginTime(oldTime)
+        catch
+            oldTime := "12:00"
+        ScheduledEvents.Push({Id: 1, Name: "Daily Login", Type: "DailyLogin", Time: oldTime, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime)})
+        maxId := 1
+        SaveScheduledEvents()
+    }
+    NextScheduledEventId := maxId + 1
     SetTimer(UpdateDailyLoginCountdown, 1000)
 }
 
 ParseDailyLoginTime(value)
 {
     value := Trim(value)
-    compact := RegExReplace(StrLower(value), "\s+", "")
+    compact := RegExReplace(StrLower(value), "\\s+", "")
     compact := StrReplace(compact, ".", "")
     if compact = ""
-        throw Error("Enter a time for Daily Login.")
-
-    ; 12-hour input: 9 PM, 9pm, 9:30 p.m., 09:30AM.
-    if RegExMatch(compact, "^(1[0-2]|0?[1-9])(?::?([0-5]\d))?(am|pm)$", &match)
+        throw Error("Enter a time for the event.")
+    if RegExMatch(compact, "^(1[0-2]|0?[1-9])(?::?([0-5]\\d))?(am|pm)$", &match)
     {
-        hour := Integer(match[1])
-        minute := match[2] = "" ? 0 : Integer(match[2])
+        hour := Integer(match[1]), minute := match[2] = "" ? 0 : Integer(match[2])
         if match[3] = "am"
             hour := hour = 12 ? 0 : hour
         else
             hour := hour = 12 ? 12 : hour + 12
         return Format("{:02}:{:02}", hour, minute)
     }
-
-    ; 24-hour input: 21:00, 9:30, 21, 9.
-    if RegExMatch(compact, "^(2[0-3]|[01]?\d)(?::([0-5]\d))?$", &match)
+    if RegExMatch(compact, "^(2[0-3]|[01]?\\d)(?::([0-5]\\d))?$", &match)
         return Format("{:02}:{:02}", Integer(match[1]), match[2] = "" ? 0 : Integer(match[2]))
-
-    ; Clock-style shorthand: 930, 0930, 2130.
-    if RegExMatch(compact, "^(\d{1,2})([0-5]\d)$", &match)
+    if RegExMatch(compact, "^(\\d{1,2})([0-5]\\d)$", &match)
     {
         hour := Integer(match[1])
         if hour <= 23
             return Format("{:02}:{:02}", hour, Integer(match[2]))
     }
-    throw Error("Enter a time such as 9 PM, 9:30 PM, 21:30, 9:30, or 2130.")
+    throw Error("Enter a valid event time.")
 }
 
-SaveDailyLoginSchedule(enabled, time)
+SaveScheduledEvents()
 {
-    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginScheduleDue, DailyLoginLastRunDate, DailyLoginPreviousRemaining
-    normalized := ParseDailyLoginTime(time)
-    DailyLoginScheduleEnabled := enabled
-    DailyLoginScheduleTime := normalized
-    DailyLoginScheduleDisplay := Trim(time)
-    DailyLoginScheduleDue := false
-    DailyLoginPreviousRemaining := ""
-    ; Saving a schedule is a fresh request. A previous failed/started attempt must
-    ; not suppress the newly saved time for the rest of the day.
-    DailyLoginLastRunDate := ""
+    global ScheduledEvents, DataFile, AppDataDirectory
     DirCreate(AppDataDirectory)
-    IniWrite(enabled ? "1" : "0", DataFile, "DailyLogin", "Scheduled")
-    IniWrite(normalized, DataFile, "DailyLogin", "Time")
-    IniWrite(DailyLoginScheduleDisplay, DataFile, "DailyLogin", "DisplayTime")
-    IniWrite("", DataFile, "DailyLogin", "LastRunDate")
-    RefreshDailyLoginButton()
+    oldCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
+    Loop oldCount
+        try IniDelete(DataFile, "ScheduledEvent" A_Index)
+    IniWrite(ScheduledEvents.Length, DataFile, "ScheduledEvents", "Count")
+    for index, event in ScheduledEvents
+    {
+        section := "ScheduledEvent" index
+        IniWrite(event.Id, DataFile, section, "Id")
+        IniWrite(event.Name, DataFile, section, "Name")
+        IniWrite(event.Type, DataFile, section, "Type")
+        IniWrite(event.Time, DataFile, section, "Time")
+        IniWrite(event.LastRunDate, DataFile, section, "LastRunDate")
+    }
 }
 
-OpenDailyLoginScheduleDialog(owner := 0, *)
+OpenScheduledEventsMenu(owner := 0, *)
 {
-    global LauncherGui, DailyLoginScheduleEnabled, DailyLoginScheduleTime
-    ownerHwnd := IsObject(owner) ? owner.Hwnd : LauncherGui.Hwnd
-    schedule := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Daily Login Schedule")
-    schedule.BackColor := "E2CEA2"
-    schedule.SetFont("s11 Bold c241408", "Segoe UI")
-    schedule.Add("Text", "x20 y18 w330 h26", "Daily Login Points")
-    schedule.SetFont("s9 c382314", "Segoe UI")
-    schedule.Add("Text", "x20 y50 w330 h50", "Choose when tes3np should automatically log every saved character in and out for daily login points.")
-    schedule.SetFont("s9 Bold c382314", "Segoe UI")
-    enabled := schedule.Add("CheckBox", "x20 y108 w330 h24", "Enable daily login schedule")
-    enabled.Value := DailyLoginScheduleEnabled ? 1 : 0
-
-    schedule.Add("Text", "x20 y148 w52 h22", "Hour")
-    schedule.Add("Text", "x92 y148 w52 h22", "Minute")
-    schedule.Add("Text", "x164 y148 w90 h22", "Clock")
-    schedule.SetFont("s10 c382314", "Segoe UI")
-
-    currentHour := Integer(SubStr(DailyLoginScheduleTime, 1, 2))
-    currentMinute := SubStr(DailyLoginScheduleTime, 4, 2)
-    use24 := currentHour > 12
-    displayHour := use24 ? currentHour : (currentHour = 0 ? 12 : currentHour > 12 ? currentHour - 12 : currentHour)
-    hourEdit := schedule.Add("Edit", "x20 y172 w52 h28 Center Number", displayHour)
-    minuteEdit := schedule.Add("Edit", "x92 y172 w52 h28 Center Number", currentMinute)
-    clockMode := schedule.Add("DropDownList", "x164 y172 w100 h120 Choose1", ["AM / PM", "24-hour"])
-    meridiem := schedule.Add("DropDownList", "x274 y172 w76 h120", ["AM", "PM"])
-    if use24
+    global LauncherGui, ScheduledEventsWindow, ScheduledEventsListView
+    if IsObject(ScheduledEventsWindow)
     {
-        clockMode.Choose(2)
-        hourEdit.Text := currentHour
-        meridiem.Enabled := false
+        try {
+            WinActivate("ahk_id " ScheduledEventsWindow.Hwnd)
+            return
+        }
     }
-    else
-        meridiem.Choose(currentHour >= 12 ? 2 : 1)
+    ownerHwnd := IsObject(owner) ? owner.Hwnd : LauncherGui.Hwnd
+    menu := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Scheduled Events")
+    menu.BackColor := "E2CEA2"
+    menu.SetFont("s14 Bold c241408", "Segoe UI")
+    menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
+    menu.SetFont("s9 c382314", "Segoe UI")
+    menu.Add("Text", "x20 y52 w600 h36", "Create timed launcher events. Each event runs once per day at its scheduled time.")
+    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Type", "Time", "Countdown"])
+    lv.ModifyCol(1, 190), lv.ModifyCol(2, 130), lv.ModifyCol(3, 100), lv.ModifyCol(4, 150)
+    add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
+    edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
+    del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
+    close := menu.Add("Button", "x416 y412 w204 h32", "Close")
+    add.OnEvent("Click", (*) => OpenScheduledEventEditor(menu))
+    edit.OnEvent("Click", (*) => EditSelectedScheduledEvent())
+    del.OnEvent("Click", (*) => DeleteSelectedScheduledEvent())
+    close.OnEvent("Click", (*) => CloseScheduledEventsMenu())
+    lv.OnEvent("DoubleClick", (*) => EditSelectedScheduledEvent())
+    menu.OnEvent("Close", (*) => CloseScheduledEventsMenu())
+    menu.OnEvent("Escape", (*) => CloseScheduledEventsMenu())
+    ScheduledEventsWindow := menu
+    ScheduledEventsListView := lv
+    RefreshScheduledEventsList()
+    menu.Show("w640 h464")
+}
 
+CloseScheduledEventsMenu()
+{
+    global ScheduledEventsWindow, ScheduledEventsListView
+    if IsObject(ScheduledEventsWindow)
+        try ScheduledEventsWindow.Destroy()
+    ScheduledEventsWindow := 0
+    ScheduledEventsListView := 0
+}
+
+RefreshScheduledEventsList()
+{
+    global ScheduledEvents, ScheduledEventsListView
+    if !IsObject(ScheduledEventsListView)
+        return
+    selected := ScheduledEventsListView.GetNext()
+    ScheduledEventsListView.Delete()
+    for event in ScheduledEvents
+        ScheduledEventsListView.Add(, event.Name, ScheduledEventTypeLabel(event.Type), FormatScheduledEventTime(event.Time), FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
+    if selected && selected <= ScheduledEvents.Length
+        ScheduledEventsListView.Modify(selected, "Select Focus")
+}
+
+ScheduledEventTypeLabel(type)
+{
+    return type = "DailyLogin" ? "Daily Login" : type
+}
+
+FormatScheduledEventTime(time)
+{
+    hour := Integer(SubStr(time, 1, 2)), minute := SubStr(time, 4, 2)
+    meridiem := hour >= 12 ? "PM" : "AM"
+    displayHour := Mod(hour, 12)
+    if displayHour = 0
+        displayHour := 12
+    return displayHour ":" minute " " meridiem
+}
+
+OpenScheduledEventEditor(owner, eventIndex := 0)
+{
+    global ScheduledEvents
+    editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", Type: "DailyLogin", Time: "12:00"}
+    editor := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", editing ? "tes3np — Edit Event" : "tes3np — Schedule Event")
+    editor.BackColor := "E2CEA2"
+    editor.SetFont("s10 Bold c382314", "Segoe UI")
+    editor.Add("Text", "x20 y20 w330 h22", "Event name")
+    editor.SetFont("s10 c382314", "Segoe UI")
+    nameEdit := editor.Add("Edit", "x20 y46 w330 h30", event.Name)
+    editor.SetFont("s10 Bold c382314", "Segoe UI")
+    editor.Add("Text", "x20 y92 w330 h22", "Event type")
+    editor.SetFont("s10 c382314", "Segoe UI")
+    typeList := editor.Add("DropDownList", "x20 y118 w330 h120 Choose1", ["Daily Login"])
+
+    hour24 := Integer(SubStr(event.Time, 1, 2)), minute := SubStr(event.Time, 4, 2)
+    displayHour := Mod(hour24, 12)
+    if displayHour = 0
+        displayHour := 12
+    editor.SetFont("s10 Bold c382314", "Segoe UI")
+    editor.Add("Text", "x20 y164 w60 h22", "Hour")
+    editor.Add("Text", "x92 y164 w60 h22", "Minute")
+    editor.Add("Text", "x164 y164 w90 h22", "Clock")
+    editor.SetFont("s10 c382314", "Segoe UI")
+    hourEdit := editor.Add("Edit", "x20 y190 w52 h28 Center Number", displayHour)
+    minuteEdit := editor.Add("Edit", "x92 y190 w52 h28 Center Number", minute)
+    clockMode := editor.Add("DropDownList", "x164 y190 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    meridiem := editor.Add("DropDownList", "x274 y190 w76 h120", ["AM", "PM"])
+    meridiem.Choose(hour24 >= 12 ? 2 : 1)
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
-    schedule.SetFont("s8 c5A4027", "Segoe UI")
-    schedule.Add("Text", "x20 y210 w330 h34", "Choose AM/PM or switch to a 24-hour clock to match your regional preference.")
-    save := schedule.Add("Button", "x20 y250 w158 h34 Default", "Save")
-    cancel := schedule.Add("Button", "x192 y250 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveDailyLoginClockDialog.Bind(schedule, enabled, hourEdit, minuteEdit, clockMode, meridiem))
-    cancel.OnEvent("Click", (*) => schedule.Destroy())
-    schedule.OnEvent("Escape", (*) => schedule.Destroy())
-    schedule.Show("w370 h304")
+    save := editor.Add("Button", "x20 y244 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
+    cancel := editor.Add("Button", "x192 y244 w158 h34", "Cancel")
+    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, typeList, hourEdit, minuteEdit, clockMode, meridiem))
+    cancel.OnEvent("Click", (*) => editor.Destroy())
+    editor.OnEvent("Escape", (*) => editor.Destroy())
+    editor.Show("w370 h298")
 }
 
 UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
@@ -154,29 +224,35 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveDailyLoginClockDialog(schedule, enabled, hourEdit, minuteEdit, clockMode, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, typeList, hourEdit, minuteEdit, clockMode, meridiem, *)
 {
-    hourText := Trim(hourEdit.Text)
-    minuteText := Trim(minuteEdit.Text)
-    if !RegExMatch(hourText, "^\d{1,2}$") || !RegExMatch(minuteText, "^\d{1,2}$")
+    global ScheduledEvents, NextScheduledEventId
+    name := Trim(nameEdit.Text)
+    if name = ""
+    {
+        MsgBox("Enter a name for this event.", "tes3np")
+        return
+    }
+    hourText := Trim(hourEdit.Text), minuteText := Trim(minuteEdit.Text)
+    if !RegExMatch(hourText, "^\\d{1,2}$") || !RegExMatch(minuteText, "^\\d{1,2}$")
     {
         MsgBox("Choose a valid hour and minute.", "tes3np")
         return
     }
     hour := Integer(hourText), minute := Integer(minuteText)
-    if minute < 0 || minute > 59
+    if minute > 59
     {
         MsgBox("Minutes must be between 00 and 59.", "tes3np")
         return
     }
     if clockMode.Value = 2
     {
-        if hour < 0 || hour > 23
+        if hour > 23
         {
             MsgBox("24-hour time uses hours 0 through 23.", "tes3np")
             return
         }
-        value := Format("{:02}:{:02}", hour, minute)
+        time := Format("{:02}:{:02}", hour, minute)
     }
     else
     {
@@ -185,56 +261,98 @@ SaveDailyLoginClockDialog(schedule, enabled, hourEdit, minuteEdit, clockMode, me
             MsgBox("AM/PM time uses hours 1 through 12.", "tes3np")
             return
         }
-        value := hour ":" Format("{:02}", minute) " " meridiem.Text
+        hour24 := hour
+        if meridiem.Text = "AM" && hour = 12
+            hour24 := 0
+        else if meridiem.Text = "PM" && hour != 12
+            hour24 += 12
+        time := Format("{:02}:{:02}", hour24, minute)
     }
-    try SaveDailyLoginSchedule(enabled.Value = 1, value)
-    catch Error as err
+    type := "DailyLogin"
+    if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
-        MsgBox(err.Message, "tes3np")
-        return
+        event := ScheduledEvents[eventIndex]
+        event.Name := name, event.Type := type, event.Time := time
+        event.LastRunDate := "", event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time)
     }
-    schedule.Destroy()
+    else
+    {
+        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, Type: type, Time: time, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time)})
+        NextScheduledEventId += 1
+    }
+    SaveScheduledEvents()
+    editor.Destroy()
+    RefreshScheduledEventsList()
+    RefreshDailyLoginButton()
 }
 
-SaveDailyLoginScheduleDialog(schedule, enabled, timeEdit, *)
+EditSelectedScheduledEvent()
 {
-    try SaveDailyLoginSchedule(enabled.Value = 1, Trim(timeEdit.Text))
-    catch Error as err
+    global ScheduledEventsListView, ScheduledEventsWindow
+    if !IsObject(ScheduledEventsListView)
+        return
+    row := ScheduledEventsListView.GetNext()
+    if !row
     {
-        MsgBox(err.Message, "tes3np")
+        MsgBox("Select an event to edit.", "tes3np")
         return
     }
-    schedule.Destroy()
+    OpenScheduledEventEditor(ScheduledEventsWindow, row)
+}
+
+DeleteSelectedScheduledEvent()
+{
+    global ScheduledEvents, ScheduledEventsListView
+    if !IsObject(ScheduledEventsListView)
+        return
+    row := ScheduledEventsListView.GetNext()
+    if !row
+    {
+        MsgBox("Select an event to delete.", "tes3np")
+        return
+    }
+    event := ScheduledEvents[row]
+    if MsgBox("Delete the scheduled event '" event.Name "'?", "tes3np", "YesNo Icon?") != "Yes"
+        return
+    ScheduledEvents.RemoveAt(row)
+    SaveScheduledEvents()
+    RefreshScheduledEventsList()
+    RefreshDailyLoginButton()
 }
 
 RefreshDailyLoginButton()
 {
-    global V016DailyLoginControls, DailyLoginScheduleEnabled, DailyLoginScheduleTime
+    global V016DailyLoginControls, ScheduledEvents
     if !IsObject(V016DailyLoginControls) || V016DailyLoginControls.Length < 1
         return
     button := V016DailyLoginControls[1]
-    if !DailyLoginScheduleEnabled
-    {
-        button.Text := "Daily Login: Off"
-        return
-    }
-    button.Text := "Daily Login — " FormatDailyLoginCountdown(GetDailyLoginSecondsRemaining())
+    button.Text := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
 }
 
-GetDailyLoginSecondsRemaining()
+UpdateDailyLoginCountdown(*)
 {
-    global DailyLoginScheduleTime, DailyLoginLastRunDate, DailyLoginScheduleDue
+    CheckDailyLoginSchedule()
+    RefreshScheduledEventsList()
+}
+
+GetScheduledEventRawRemaining(time)
+{
     now := A_Now
+    target := SubStr(now, 1, 8) StrReplace(time, ":") "00"
+    return DateDiff(target, now, "Seconds")
+}
+
+GetScheduledEventSecondsRemaining(event)
+{
     today := FormatTime(, "yyyy-MM-dd")
-    target := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
-    remaining := DateDiff(target, now, "Seconds")
-    ; Do not visually roll over to tomorrow until today's scheduled action has
-    ; actually started successfully.
-    if (remaining <= 0 || DailyLoginScheduleDue) && DailyLoginLastRunDate != today
+    remaining := GetScheduledEventRawRemaining(event.Time)
+    if event.Due && event.LastRunDate != today
         return 0
     if remaining <= 0
-        target := DateAdd(target, 1, "Days")
-    return Max(0, DateDiff(target, now, "Seconds"))
+        target := DateAdd(SubStr(A_Now, 1, 8) StrReplace(event.Time, ":") "00", 1, "Days")
+    else
+        target := SubStr(A_Now, 1, 8) StrReplace(event.Time, ":") "00"
+    return Max(0, DateDiff(target, A_Now, "Seconds"))
 }
 
 FormatDailyLoginCountdown(seconds)
@@ -245,94 +363,56 @@ FormatDailyLoginCountdown(seconds)
     return Format("{:02}:{:02}:{:02}", hours, minutes, secs)
 }
 
-UpdateDailyLoginCountdown(*)
-{
-    global DailyLoginScheduleEnabled
-    if !DailyLoginScheduleEnabled
-        return
-
-    ; The countdown and launch trigger intentionally share this exact tick.
-    ; Check the schedule first so reaching zero cannot visually roll forward
-    ; without giving the scheduled login routine its chance to start.
-    CheckDailyLoginSchedule()
-    RefreshDailyLoginButton()
-}
-
 CheckDailyLoginSchedule(*)
 {
-    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate, DailyLoginScheduleDue
-    global DataFile, AppDataDirectory, Client
-    if !DailyLoginScheduleEnabled
-        return
-
+    global ScheduledEvents, Client, ActiveScheduledEventId
     today := FormatTime(, "yyyy-MM-dd")
-    if DailyLoginLastRunDate = today
-        return
-
-    ; Trigger only when the live countdown actually crosses the scheduled time.
-    ; An overdue schedule loaded at startup must not remain armed and unexpectedly
-    ; launch later while the user is doing something unrelated in the launcher.
-    global DailyLoginPreviousRemaining
-    remaining := GetDailyLoginSecondsRemainingRaw()
-    if DailyLoginPreviousRemaining = ""
+    for event in ScheduledEvents
     {
-        DailyLoginPreviousRemaining := remaining
-        return
-    }
-    crossedTarget := DailyLoginPreviousRemaining > 0 && remaining <= 0
-    DailyLoginPreviousRemaining := remaining
-    if crossedTarget
-        DailyLoginScheduleDue := true
-    if !DailyLoginScheduleDue
-        return
+        if event.LastRunDate = today
+            continue
+        remaining := GetScheduledEventRawRemaining(event.Time)
+        crossed := event.PreviousRemaining > 0 && remaining <= 0
+        event.PreviousRemaining := remaining
+        if crossed
+            event.Due := true
+        if !event.Due
+            continue
+        if event.Type != "DailyLogin"
+            continue
 
-    ; If TES3MP is already open when the reminder becomes due, let the user
-    ; decide whether to interrupt the current session or skip today's run.
-    gamePid := ProcessExist("tes3mp.exe")
-    if Client.Enabled || gamePid
-    {
-        LogLauncherEvent("GAME | Daily Login is due while TES3MP is already running; awaiting user choice.")
-        choice := MsgBox("Daily Login is ready, but TES3MP is already running.\n\nRun Daily Login now? This will close the current TES3MP session.\n\nChoose No to cancel Daily Login for today.", "Daily Login", "YesNo Icon?")
-        if choice != "Yes"
+        gamePid := ProcessExist("tes3mp.exe")
+        if Client.Enabled || gamePid
         {
-            CancelScheduledDailyLoginForToday("user cancelled because game was already running")
+            LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due while TES3MP is already running; awaiting user choice.")
+            choice := MsgBox("'" event.Name "' is ready, but TES3MP is already running.\n\nRun this event now? This will close the current TES3MP session.\n\nChoose No to cancel this event for today.", "Scheduled Event", "YesNo Icon?")
+            if choice != "Yes"
+            {
+                CompleteScheduledEventForToday(event, "cancelled by user")
+                continue
+            }
+            if Client.Enabled
+            {
+                currentPid := Client.PID
+                StopClient()
+                if currentPid && ProcessExist(currentPid)
+                    try ProcessClose(currentPid)
+            }
+            else if gamePid
+                try ProcessClose(gamePid)
+            Sleep(500)
+        }
+
+        ActiveScheduledEventId := event.Id
+        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Type: Daily Login.")
+        if !StartScheduledDailyLogin()
+        {
+            ActiveScheduledEventId := ""
+            LogLauncherEvent("GAME | Scheduled event could not start; will retry.")
             return
         }
-
-        ; Stop launcher monitoring first so closing the current game cannot be
-        ; mistaken for a failed Daily Login and retrigger the scheduler.
-        if Client.Enabled
-        {
-            currentPid := Client.PID
-            StopClient()
-            if currentPid && ProcessExist(currentPid)
-                try ProcessClose(currentPid)
-        }
-        else if gamePid
-            try ProcessClose(gamePid)
-
-        Sleep(500)
-        LogLauncherEvent("GAME | User approved Daily Login; existing TES3MP session closed.")
-    }
-
-    LogLauncherEvent("GAME | Daily Login countdown reached zero; starting scheduled login.")
-    if !StartScheduledDailyLogin()
-    {
-        LogLauncherEvent("GAME | Daily Login is due but could not start; will retry.")
         return
     }
-
-    ; Do not mark today complete here. Starting TES3MP is not completion.
-    ; The batch session marks Daily Login complete only after every character
-    ; reaches the claim/close path successfully.
-}
-
-GetDailyLoginSecondsRemainingRaw()
-{
-    global DailyLoginScheduleTime
-    now := A_Now
-    target := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
-    return DateDiff(target, now, "Seconds")
 }
 
 StartScheduledDailyLogin()
@@ -345,10 +425,7 @@ StartScheduledDailyLogin()
     for profile in Profiles
     {
         if !ValidateLaunch(profile, executable)
-        {
-            LogLauncherEvent("GAME | Scheduled daily login skipped because a character or executable needs attention.")
             return false
-        }
         queue.Push(profile.Clone())
     }
     profile := queue.RemoveAt(1)
@@ -357,26 +434,48 @@ StartScheduledDailyLogin()
     return true
 }
 
+FindScheduledEventById(id)
+{
+    global ScheduledEvents
+    for event in ScheduledEvents
+        if event.Id = id
+            return event
+    return 0
+}
+
+CompleteScheduledEventForToday(event, reason := "completed")
+{
+    event.LastRunDate := FormatTime(, "yyyy-MM-dd")
+    event.Due := false
+    SaveScheduledEvents()
+    LogLauncherEvent("GAME | Scheduled event '" event.Name "' " reason " for today.")
+    RefreshScheduledEventsList()
+}
+
 CancelScheduledDailyLoginForToday(reason := "game was closed")
 {
-    global DailyLoginLastRunDate, DailyLoginScheduleDue, DataFile, AppDataDirectory
-    today := FormatTime(, "yyyy-MM-dd")
-    DailyLoginLastRunDate := today
-    DailyLoginScheduleDue := false
-    DirCreate(AppDataDirectory)
-    IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
-    LogLauncherEvent("GAME | Scheduled Daily Login cancelled for today | Reason: " reason ".")
-    RefreshDailyLoginButton()
+    global ActiveScheduledEventId
+    if ActiveScheduledEventId = ""
+        return
+    event := FindScheduledEventById(ActiveScheduledEventId)
+    if IsObject(event)
+        CompleteScheduledEventForToday(event, "cancelled | Reason: " reason)
+    ActiveScheduledEventId := ""
 }
 
 MarkScheduledDailyLoginComplete()
 {
-    global DailyLoginLastRunDate, DailyLoginScheduleDue, DataFile, AppDataDirectory
-    today := FormatTime(, "yyyy-MM-dd")
-    DailyLoginLastRunDate := today
-    DailyLoginScheduleDue := false
-    DirCreate(AppDataDirectory)
-    IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
-    LogLauncherEvent("GAME | SUCCESS | Scheduled Daily Login completed for today.")
-    RefreshDailyLoginButton()
+    global ActiveScheduledEventId
+    if ActiveScheduledEventId = ""
+        return
+    event := FindScheduledEventById(ActiveScheduledEventId)
+    if IsObject(event)
+        CompleteScheduledEventForToday(event, "completed")
+    ActiveScheduledEventId := ""
+}
+
+; Compatibility entry point for older UI callers.
+OpenDailyLoginScheduleDialog(owner := 0, *)
+{
+    OpenScheduledEventsMenu(owner)
 }
