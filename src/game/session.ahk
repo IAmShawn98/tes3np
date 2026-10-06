@@ -258,8 +258,11 @@ ClientTick()
             ; the user closed it (or it exited unexpectedly), so cancel the
             ; entire monitored session instead of logging another character in.
             LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
+            scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
             if IsObject(Client.Queue)
                 Client.Queue := 0
+            if scheduledDailyLogin
+                CancelScheduledDailyLoginForToday()
             StopClient()
             SetClientStatus("Game closed.")
             return
