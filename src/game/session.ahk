@@ -193,27 +193,20 @@ RetryClient(reason)
     {
         try ProcessClose(Client.PID)
     }
-    if !Client.AutoReconnect
+    ; A closed game client stays closed. Only an active batch advances to the
+    ; next queued character; normal sessions never restart automatically.
+    if IsObject(Client.Queue)
     {
-        if IsObject(Client.Queue)
-        {
-            Client.Phase := "closing"
-            Client.Deadline := A_TickCount
-            SetClientStatus(reason " — auto reconnect disabled; continuing the list.")
-        }
-        else
-        {
-            StopClient()
-            SetClientStatus(reason " — auto reconnect disabled.")
-        }
-        return
+        Client.Phase := "closing"
+        Client.Deadline := A_TickCount
+        SetClientStatus(reason " — continuing the list.")
     }
-    Client.PID := 0
-    Client.HWND := 0
-    Client.LaunchIssued := false
-    Client.Phase := "retry"
-    Client.Deadline := A_TickCount + AppConfig.RetryMs
-    SetClientStatus(reason " — retrying in 5 seconds.")
+    else
+    {
+        StopClient()
+        SetClientStatus(reason " — game closed.")
+    }
+    return
 }
 
 ClientTick()
