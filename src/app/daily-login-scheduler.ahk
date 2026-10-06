@@ -65,16 +65,20 @@ ParseDailyLoginTime(value)
 
 SaveDailyLoginSchedule(enabled, time)
 {
-    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginScheduleDue
+    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginScheduleDue, DailyLoginLastRunDate
     normalized := ParseDailyLoginTime(time)
     DailyLoginScheduleEnabled := enabled
     DailyLoginScheduleTime := normalized
     DailyLoginScheduleDisplay := Trim(time)
     DailyLoginScheduleDue := false
+    ; Saving a schedule is a fresh request. A previous failed/started attempt must
+    ; not suppress the newly saved time for the rest of the day.
+    DailyLoginLastRunDate := ""
     DirCreate(AppDataDirectory)
     IniWrite(enabled ? "1" : "0", DataFile, "DailyLogin", "Scheduled")
     IniWrite(normalized, DataFile, "DailyLogin", "Time")
     IniWrite(DailyLoginScheduleDisplay, DataFile, "DailyLogin", "DisplayTime")
+    IniWrite("", DataFile, "DailyLogin", "LastRunDate")
     RefreshDailyLoginButton()
 }
 
@@ -277,10 +281,9 @@ CheckDailyLoginSchedule(*)
         return
     }
 
-    DailyLoginLastRunDate := today
-    DailyLoginScheduleDue := false
-    DirCreate(AppDataDirectory)
-    IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
+    ; Do not mark today complete here. Starting TES3MP is not completion.
+    ; The batch session marks Daily Login complete only after every character
+    ; reaches the claim/close path successfully.
 }
 
 GetDailyLoginSecondsRemainingRaw()
@@ -309,6 +312,18 @@ StartScheduledDailyLogin()
     }
     profile := queue.RemoveAt(1)
     LogLauncherEvent("GAME | Scheduled daily login starting. Characters: " (queue.Length + 1) ".")
-    StartProfileSession(profile, executable, queue)
+    StartProfileSession(profile, executable, queue, true)
     return true
+}
+
+MarkScheduledDailyLoginComplete()
+{
+    global DailyLoginLastRunDate, DailyLoginScheduleDue, DataFile, AppDataDirectory
+    today := FormatTime(, "yyyy-MM-dd")
+    DailyLoginLastRunDate := today
+    DailyLoginScheduleDue := false
+    DirCreate(AppDataDirectory)
+    IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
+    LogLauncherEvent("GAME | SUCCESS | Scheduled Daily Login completed for today.")
+    RefreshDailyLoginButton()
 }
