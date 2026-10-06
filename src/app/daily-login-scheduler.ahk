@@ -236,7 +236,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, hourEdit, minu
         return
     }
     hourText := Trim(hourEdit.Text), minuteText := Trim(minuteEdit.Text)
-    if !RegExMatch(hourText, "^\\d{1,2}$") || !RegExMatch(minuteText, "^\\d{1,2}$")
+    if hourText = "" || minuteText = "" || !IsInteger(hourText) || !IsInteger(minuteText)
     {
         MsgBox("Choose a valid hour and minute.", "tes3np")
         return
