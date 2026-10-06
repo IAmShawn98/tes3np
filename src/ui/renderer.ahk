@@ -307,7 +307,7 @@ PaintInfoCard(handle, target, width, height)
         }
         y += tile
     }
-    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Headings[face.Heading], "Int", Round(12 * scale), "Int", Round(3 * scale), "Int", Round(256 * scale), "Int", Round(85 * scale))
+    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Headings[face.Heading], "Int", Round(8 * scale), "Int", Round(3 * scale), "Int", Round(264 * scale), "Int", Round(85 * scale))
     DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
     font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
     oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
