@@ -123,6 +123,27 @@ jobs:
           }
           if ($LASTEXITCODE -ne 0) { throw 'Failed to publish alpha release.' }
 
+          # Keep the public README download example synchronized with the release.
+          $readmeJson = gh api "repos/$repo/contents/README.md" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to read public README.' }
+          $readmeText = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($readmeJson.content -replace '\\s', '')))
+          $versionedName = "tes3np-v$version-windows.zip"
+          $updatedReadme = [regex]::Replace(
+            $readmeText,
+            'tes3np-v[^\x60\s]+-windows\.zip',
+            $versionedName
+          )
+          if ($updatedReadme -ne $readmeText) {
+            $encodedReadme = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($updatedReadme))
+            $payload = @{
+              message = "Update README for v$version"
+              content = $encodedReadme
+              sha = $readmeJson.sha
+            } | ConvertTo-Json
+            $payload | gh api --method PUT "repos/$repo/contents/README.md" --input -
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to update public README version.' }
+          }
+
       - name: Verify published manifest and package are reachable
         shell: pwsh
         run: |
