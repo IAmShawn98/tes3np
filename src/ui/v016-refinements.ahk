@@ -5,6 +5,7 @@ global V016SettingsGuiHwnd := 0
 global V016SettingsScale := 1.0
 global V016ReadabilityState := 0
 global V016FollowWindowsState := 0
+global V016DailyLoginControls := []
 
 InitializeV016UiRefinements()
 {
@@ -58,6 +59,11 @@ ApplyV016CharacterLayout(*)
         ; Daily-login controls are part of Launch Settings and must hide with the
         ; rest of that panel whenever the add/edit character form is open.
         LaunchSettingsControls.Push(dailyHeading, dailyDescription, dailyButton)
+        global V016DailyLoginControls
+        V016DailyLoginControls := [dailyHeading, dailyDescription, dailyButton]
+        hasCharacters := Profiles.Length > 0
+        for control in V016DailyLoginControls
+            control.Visible := hasCharacters
         ; Use an exact 35px top-to-top rhythm for four 30px buttons (5px gaps).
         ; This avoids the mixed 30px/25px heights that made the stack look uneven.
         AddCharacterButton.Move(70, 455, 370, 30)
