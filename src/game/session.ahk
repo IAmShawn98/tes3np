@@ -193,19 +193,13 @@ RetryClient(reason)
     {
         try ProcessClose(Client.PID)
     }
-    ; A closed game client stays closed. Only an active batch advances to the
-    ; next queued character; normal sessions never restart automatically.
+    ; Retry/error paths must never advance a queued Daily Login. The only
+    ; legitimate queue advance is the successful claim-complete path, which
+    ; explicitly enters "closing" before closing TES3MP itself.
     if IsObject(Client.Queue)
-    {
-        Client.Phase := "closing"
-        Client.Deadline := A_TickCount
-        SetClientStatus(reason " — continuing the list.")
-    }
-    else
-    {
-        StopClient()
-        SetClientStatus(reason " — game closed.")
-    }
+        Client.Queue := 0
+    StopClient()
+    SetClientStatus(reason " — session stopped.")
     return
 }
 
