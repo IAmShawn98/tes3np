@@ -106,7 +106,7 @@ RefreshProfiles()
         ; the older button positions.
         actionY := Profiles.Length ? 455 : 130
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        CharacterDescription.Move(70, 80, 370, Profiles.Length ? 108 : 48)
+        CharacterDescription.Move(70, 80, 370, Profiles.Length ? 108 : 90)
         ; Individual characters already have Play buttons in their rows. Keep the
         ; legacy full-width Launch Character button hidden; showing it here after
         ; an import overlaps Daily Login and the action stack.
