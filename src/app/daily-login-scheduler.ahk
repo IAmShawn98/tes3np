@@ -3,34 +3,75 @@
 
 global DailyLoginScheduleEnabled := false
 global DailyLoginScheduleTime := "12:00"
+global DailyLoginScheduleDisplay := "12:00"
 global DailyLoginLastRunDate := ""
 
 LoadDailyLoginSchedule()
 {
-    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate
+    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginLastRunDate
     DailyLoginScheduleEnabled := IniRead(DataFile, "DailyLogin", "Scheduled", "0") = "1"
     DailyLoginScheduleTime := IniRead(DataFile, "DailyLogin", "Time", "12:00")
+    DailyLoginScheduleDisplay := IniRead(DataFile, "DailyLogin", "DisplayTime", DailyLoginScheduleTime)
     DailyLoginLastRunDate := IniRead(DataFile, "DailyLogin", "LastRunDate", "")
-    if !RegExMatch(DailyLoginScheduleTime, "^(?:[01]\d|2[0-3]):[0-5]\d$")
+    try DailyLoginScheduleTime := ParseDailyLoginTime(DailyLoginScheduleDisplay)
+    catch
+    {
         DailyLoginScheduleTime := "12:00"
+        DailyLoginScheduleDisplay := "12:00"
+    }
     SetTimer(CheckDailyLoginSchedule, 30000)
+}
+
+ParseDailyLoginTime(value)
+{
+    value := Trim(value)
+    compact := RegExReplace(StrLower(value), "\\s+", "")
+    compact := StrReplace(compact, ".", "")
+    if compact = ""
+        throw Error("Enter a time for Daily Login.")
+
+    ; 12-hour input: 9 PM, 9pm, 9:30 p.m., 09:30AM.
+    if RegExMatch(compact, "^(1[0-2]|0?[1-9])(?::?([0-5]\\d))?(am|pm)$", &match)
+    {
+        hour := Integer(match[1])
+        minute := match[2] = "" ? 0 : Integer(match[2])
+        if match[3] = "am"
+            hour := hour = 12 ? 0 : hour
+        else
+            hour := hour = 12 ? 12 : hour + 12
+        return Format("{:02}:{:02}", hour, minute)
+    }
+
+    ; 24-hour input: 21:00, 9:30, 21, 9.
+    if RegExMatch(compact, "^(2[0-3]|[01]?\\d)(?::([0-5]\\d))?$", &match)
+        return Format("{:02}:{:02}", Integer(match[1]), match[2] = "" ? 0 : Integer(match[2]))
+
+    ; Clock-style shorthand: 930, 0930, 2130.
+    if RegExMatch(compact, "^(\\d{1,2})([0-5]\\d)$", &match)
+    {
+        hour := Integer(match[1])
+        if hour <= 23
+            return Format("{:02}:{:02}", hour, Integer(match[2]))
+    }
+    throw Error("Enter a time such as 9 PM, 9:30 PM, 21:30, 9:30, or 2130.")
 }
 
 SaveDailyLoginSchedule(enabled, time)
 {
-    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime
-    if !RegExMatch(time, "^(?:[01]\d|2[0-3]):[0-5]\d$")
-        throw Error("Choose a valid time in 24-hour HH:MM format.")
+    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay
+    normalized := ParseDailyLoginTime(time)
     DailyLoginScheduleEnabled := enabled
-    DailyLoginScheduleTime := time
+    DailyLoginScheduleTime := normalized
+    DailyLoginScheduleDisplay := Trim(time)
     DirCreate(AppDataDirectory)
     IniWrite(enabled ? "1" : "0", DataFile, "DailyLogin", "Scheduled")
-    IniWrite(time, DataFile, "DailyLogin", "Time")
+    IniWrite(normalized, DataFile, "DailyLogin", "Time")
+    IniWrite(DailyLoginScheduleDisplay, DataFile, "DailyLogin", "DisplayTime")
 }
 
 OpenDailyLoginScheduleDialog(owner := 0, *)
 {
-    global LauncherGui, DailyLoginScheduleEnabled, DailyLoginScheduleTime
+    global LauncherGui, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay
     ownerHwnd := IsObject(owner) ? owner.Hwnd : LauncherGui.Hwnd
     schedule := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Daily Login Schedule")
     schedule.BackColor := "E2CEA2"
@@ -43,9 +84,9 @@ OpenDailyLoginScheduleDialog(owner := 0, *)
     enabled.Value := DailyLoginScheduleEnabled ? 1 : 0
     schedule.Add("Text", "x20 y154 w110 h22", "Daily time")
     schedule.SetFont("s10 c382314", "Segoe UI")
-    timeEdit := schedule.Add("Edit", "x140 y150 w100 h26 Center", DailyLoginScheduleTime)
+    timeEdit := schedule.Add("Edit", "x140 y150 w140 h26 Center", DailyLoginScheduleDisplay)
     schedule.SetFont("s8 c5A4027", "Segoe UI")
-    schedule.Add("Text", "x20 y184 w330 h38", "Use 24-hour time (HH:MM), such as 09:30 or 21:00. The launcher must be running at that time.")
+    schedule.Add("Text", "x20 y184 w330 h48", "Enter the time however you prefer, such as 9 PM, 9:30 PM, 21:30, or 2130. The launcher must be running at that time.")
     save := schedule.Add("Button", "x20 y234 w158 h34 Default", "Save")
     cancel := schedule.Add("Button", "x192 y234 w158 h34", "Cancel")
     enabled.OnEvent("Click", PromptDailyLoginTime.Bind(enabled, timeEdit))
@@ -59,7 +100,7 @@ PromptDailyLoginTime(enabled, timeEdit, *)
 {
     if !enabled.Value
         return
-    result := InputBox("What time should tes3np run the daily character logins?`n`nUse 24-hour HH:MM format.", "tes3np — Daily Login Time", "w360 h150", timeEdit.Text)
+    result := InputBox("What time should tes3np run the daily character logins?`n`nExamples: 9 PM, 9:30 PM, 21:30, or 2130.", "tes3np — Daily Login Time", "w360 h150", timeEdit.Text)
     if result.Result != "OK"
     {
         enabled.Value := 0
