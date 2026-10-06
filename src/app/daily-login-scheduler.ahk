@@ -414,7 +414,7 @@ CheckDailyLoginSchedule(*)
         if Client.Enabled || gamePid
         {
             LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due while TES3MP is already running; awaiting user choice.")
-            choice := MsgBox("'" event.Name "' is ready, but TES3MP is already running.\n\nRun this event now? This will close the current TES3MP session.\n\nChoose No to cancel this event for today.", "Scheduled Event", "YesNo Icon?")
+            choice := MsgBox("'" event.Name "' is ready, but TES3MP is already running.\n\nLog in for this event now? This will close the current TES3MP session.\n\nChoose No to skip this occurrence.", "Scheduled Event", "YesNo Icon?")
             if choice != "Yes"
             {
                 CompleteScheduledEventForToday(event, "cancelled by user")
@@ -430,6 +430,17 @@ CheckDailyLoginSchedule(*)
             else if gamePid
                 try ProcessClose(gamePid)
             Sleep(500)
+        }
+
+        if !(Client.Enabled || gamePid)
+        {
+            LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; awaiting user choice.")
+            choice := MsgBox("'" event.Name "' is ready.\n\nWould you like to log in for this event now?", "Scheduled Event", "YesNo Icon?")
+            if choice != "Yes"
+            {
+                CompleteScheduledEventForToday(event, "cancelled by user")
+                continue
+            }
         }
 
         ActiveScheduledEventId := event.Id
