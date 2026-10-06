@@ -8,7 +8,7 @@ BuildFrontPage()
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
     DragStrip := LauncherGui.Add("Text", "x0 y0 w960 h48 BackgroundTrans +0x100")
-    LauncherGui.SetFont("s10 Bold cE6C86A", "Segoe UI")
+    LauncherGui.SetFont("s10 Bold cC5A45C", "Segoe UI")
     NPClockLabel := LauncherGui.Add("Text", "x18 y8 w150 h24 BackgroundTrans", "")
     UpdateNPClockLabel()
     SetTimer(UpdateNPClockLabel, 1000)
@@ -185,5 +185,5 @@ UpdateNPClockLabel(*)
     minute := Mod(totalMinutes, 60)
     displayHour := Mod(hour - 1, 12) + 1
     suffix := hour >= 12 ? "PM" : "AM"
-    NPClockLabel.Text := "In-Game: " displayHour ":" Format("{:02}", minute) " " suffix
+    NPClockLabel.Text := "Game Time: " displayHour ":" Format("{:02}", minute) " " suffix
 }
