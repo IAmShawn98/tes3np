@@ -146,7 +146,7 @@ SaveDailyLoginClockDialog(schedule, enabled, hourEdit, minuteEdit, clockMode, me
 {
     hourText := Trim(hourEdit.Text)
     minuteText := Trim(minuteEdit.Text)
-    if !RegExMatch(hourText, "^\\d{1,2}$") || !RegExMatch(minuteText, "^\\d{1,2}$")
+    if !RegExMatch(hourText, "^\d{1,2}$") || !RegExMatch(minuteText, "^\d{1,2}$")
     {
         MsgBox("Choose a valid hour and minute.", "tes3np")
         return
