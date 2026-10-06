@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchAllButton, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces
+    global CharacterPage, LauncherGui, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces
     if IsObject(CharacterPage)
     {
         PrepareWindowDisplay(CharacterPage)
@@ -58,7 +58,6 @@ OpenCharacterPage(*)
     SessionStatus := CharacterPage.Add("Text", "x70 y555 w370 h50 Hidden", "")
     SetInterfaceLoadingText("Loading Launch button...")
     LaunchCharacterButton := AddStyledButton(CharacterPage, 70, 510, 370, 30, "Launch character", LaunchProfile)
-    LaunchAllButton := AddStyledButton(CharacterPage, 70, 545, 370, 25, "Launch All & Close", LaunchAllCharacters)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character Data", WipeCharacterData)
     AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
@@ -75,7 +74,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchAllButton, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice, V016DailyLoginControls
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice, V016DailyLoginControls
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -119,21 +118,16 @@ RefreshProfiles()
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
         {
-            ; Daily Login sits between Add Character and Launch All.
+            ; Daily Login sits directly below Add Character.
             if IsObject(V016DailyLoginControls) && V016DailyLoginControls.Length
             {
                 dailyButton := V016DailyLoginControls[1]
                 MoveStyledButton(dailyButton, 70, 490, 370, 30)
             }
-            if Profiles.Length >= 2
-            {
-                MoveStyledButton(LaunchAllButton, 70, 525, 370, 30)
-            }
-            MoveStyledButton(WipeCharacterButton, 70, 560, 370, 30)
+            MoveStyledButton(WipeCharacterButton, 70, 525, 370, 30)
         }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
-        LaunchAllButton.Visible := Profiles.Length >= 2
         if IsObject(V016DailyLoginControls)
             for control in V016DailyLoginControls
                 control.Visible := Profiles.Length > 0
