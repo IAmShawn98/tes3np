@@ -94,11 +94,18 @@ jobs:
             $versionedChecksum
           )
           foreach ($asset in $assets) { if (-not (Test-Path -LiteralPath $asset)) { throw "Release asset is missing: $asset" } }
-          $changelog = Get-Content 'CHANGELOG.md' -Raw
-          $escapedVersion = [regex]::Escape($version)
-          $match = [regex]::Match($changelog, "(?ms)^## v$escapedVersion(?:\\s+—[^\\r\\n]*)?\\r?\\n(?<notes>.*?)(?=^## |\\z)")
-          if (-not $match.Success) { throw "No CHANGELOG.md section found for v$version." }
-          $notes = $match.Groups['notes'].Value.Trim()
+          $changelogLines = Get-Content 'CHANGELOG.md'
+          $heading = "## v$version"
+          $start = -1
+          for ($i = 0; $i -lt $changelogLines.Count; $i++) {
+            if ($changelogLines[$i].StartsWith($heading)) { $start = $i + 1; break }
+          }
+          if ($start -lt 0) { throw "No CHANGELOG.md section found for v$version." }
+          $end = $changelogLines.Count
+          for ($i = $start; $i -lt $changelogLines.Count; $i++) {
+            if ($changelogLines[$i].StartsWith('## ')) { $end = $i; break }
+          }
+          $notes = (($changelogLines[$start..($end - 1)] -join "`n").Trim())
           if (-not $notes) { throw "CHANGELOG.md section for v$version is empty." }
           $old = $PSNativeCommandUseErrorActionPreference
           $PSNativeCommandUseErrorActionPreference = $false
