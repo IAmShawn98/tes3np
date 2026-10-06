@@ -65,6 +65,7 @@ ApplyWindowsAccessibilityPreferences()
 OpenLauncherSettings(*)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility, WindowsHighContrastDetected, WindowsAnimationsDisabled
+    global DailyLoginScheduleEnabled, DailyLoginScheduleTime
     settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
     settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
     settings.SetFont("s11 Bold c241408", "Segoe UI")
@@ -99,16 +100,33 @@ OpenLauncherSettings(*)
     settings.SetFont("s8 c5A4027", "Segoe UI")
     detected := WindowsHighContrastDetected ? "High contrast detected." : WindowsAnimationsDisabled ? "Reduced Windows animations detected." : "No additional Windows accessibility preferences detected."
     settings.Add("Text", "x38 y338 w312 h38", detected)
-    apply := settings.Add("Button", "x20 y386 w158 h34 Default", "Preview & Apply")
-    cancel := settings.Add("Button", "x192 y386 w158 h34", "Cancel")
-    reset := settings.Add("Button", "x20 y430 w330 h34", "Reset Display & Accessibility")
-    troubleshoot := settings.Add("Button", "x20 y474 w330 h34", "Troubleshooting & Diagnostics")
+
+    settings.SetFont("s11 Bold c241408", "Segoe UI")
+    settings.Add("Text", "x20 y386 w330 h26", "Daily Character Login")
+    settings.SetFont("s9 c382314", "Segoe UI")
+    settings.Add("Text", "x20 y414 w330 h40", "Optionally run Launch All & Close automatically once per day while tes3np is running.")
+    settings.SetFont("s9 Bold c382314", "Segoe UI")
+    scheduleButtonText := DailyLoginScheduleEnabled ? "Daily Login: On — " DailyLoginScheduleTime : "Daily Login: Off"
+    schedule := settings.Add("Button", "x20 y458 w330 h34", scheduleButtonText)
+
+    apply := settings.Add("Button", "x20 y510 w158 h34 Default", "Preview & Apply")
+    cancel := settings.Add("Button", "x192 y510 w158 h34", "Cancel")
+    reset := settings.Add("Button", "x20 y554 w330 h34", "Reset Display & Accessibility")
+    troubleshoot := settings.Add("Button", "x20 y598 w330 h34", "Troubleshooting & Diagnostics")
+    schedule.OnEvent("Click", OpenDailyLoginScheduleSettings.Bind(settings))
     apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying display & accessibility..."))
     cancel.OnEvent("Click", (*) => settings.Destroy())
     reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
     troubleshoot.OnEvent("Click", OpenTroubleshooting)
     settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h528")
+    settings.Show("w370 h652")
+}
+
+OpenDailyLoginScheduleSettings(parent, *)
+{
+    parent.Hide()
+    OpenDailyLoginScheduleDialog()
+    try parent.Destroy()
 }
 
 ScaleChoiceIndex(scale)
@@ -148,6 +166,9 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     FollowWindowsAccessibility := followWindows.Value = 1
     DetectWindowsAccessibility()
     ApplyWindowsAccessibilityPreferences()
+    ; Launcher Settings disables the owner while open. Preview temporarily hides
+    ; that window, so re-enable the launcher before showing its preview/update UI.
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
     settings.Hide()
     BeginInterfaceUpdate(LauncherGui, loadingMessage, true, 8)
     try
@@ -187,6 +208,8 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
     finally EndInterfaceUpdate()
     settings.Show()
+    ; Settings is modal again once the preview has been rejected/restored.
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
 }
 
 SaveLauncherScale(value)
@@ -308,18 +331,21 @@ ApplyLauncherScaleToWindow(center := false)
     global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
     if LauncherScaleMode = "Auto"
         LauncherScale := GetAutomaticLauncherScale()
-    if LauncherScale = 100
-    {
-        LauncherGui.Show("w" LauncherBaseWidth " h" LauncherBaseHeight)
-        if center
-            CenterLauncherWithoutResizing()
-        return
-    }
-    dpiFactor := A_ScreenDPI / 96, scale := LauncherScale / 100
-    width := Round(LauncherBaseWidth * dpiFactor * scale), height := Round(LauncherBaseHeight * dpiFactor * scale)
+
+    ; Window size and every captured launcher control must use the same scale in
+    ; the same operation. Previously settings preview resized only the outer
+    ; window, leaving the artwork/buttons at their old scale until restart.
+    dpiFactor := A_ScreenDPI / 96
+    scale := LauncherScale / 100
+    width := Round(LauncherBaseWidth * dpiFactor * scale)
+    height := Round(LauncherBaseHeight * dpiFactor * scale)
     MouseGetPos(&mouseX, &mouseY)
     monitor := MonitorFromPoint(mouseX, mouseY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    x := left + Max(0, ((right - left) - width) // 2), y := top + Max(0, ((bottom - top) - height) // 2)
+    x := left + Max(0, ((right - left) - width) // 2)
+    y := top + Max(0, ((bottom - top) - height) // 2)
     DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
+    ApplyLauncherControlScale()
+    if center
+        CenterLauncherWithoutResizing()
 }

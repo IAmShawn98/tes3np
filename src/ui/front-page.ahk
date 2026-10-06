@@ -7,17 +7,12 @@ BuildFrontPage()
     LauncherGui.Opt("+OwnDialogs")
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
-    ; SS_NOTIFY (+0x100) makes the top strip receive mouse input.
-    ; Only this strip can initiate a drag; button clicks remain untouched.
     DragStrip := LauncherGui.Add("Text", "x0 y0 w960 h48 BackgroundTrans +0x100")
-    ; The parchment is an independent UI picture, not baked into the background.
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
-    ; Each feature card paints its frame, heading and live text in one buffer.
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
     AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Battle powerful enemies in camps across Vvardenfell and Solstheim, and team up to conquer formidable bosses. Master tradeskills such as fishing and crafting, secure a personal vault, and buy a home of your own. The path to godhood is never a lonely one!")
     LauncherGui.SetFont("s14 Bold", "Georgia")
-    ; The heading is a native text control, not part of the background image.
     LauncherHeading := LauncherGui.Add("Text", "x340 y408 w280 h30 Center BackgroundTrans c382314", "Game Launcher")
     LauncherGui.SetFont("s11", "Segoe UI")
     HoverButton := 0
@@ -56,14 +51,20 @@ UpdateCharacterMenuLabel()
         return
     }
     if SelectedProfile > 0 && SelectedProfile <= Profiles.Length
+    {
         MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])
-    MenuEntries.Push(["Start New Adventure", StartNewAdventure],
-        [Profiles.Length ? "Manage Characters" : "Returning Fetcher", OpenCharacters],
-        ["Macros", OpenMacros], ["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
+        MenuEntries.Push([Profiles.Length ? "Manage Characters" : "Returning Fetcher", OpenCharacters])
+        MenuEntries.Push(["Start New Adventure", StartNewAdventure])
+    }
+    else
+    {
+        MenuEntries.Push(["Start New Adventure", StartNewAdventure])
+        MenuEntries.Push([Profiles.Length ? "Manage Characters" : "Returning Fetcher", OpenCharacters])
+    }
+    MenuEntries.Push(["Our Wiki", OpenWiki], ["Macros", OpenMacros], ["Quit Launcher", QuitLauncher])
     ScrollMenu(MenuOffset)
 }
 
- ; Menu scrolling stays on the main GUI, avoiding child-window positioning.
 BuildButtonViewport()
 {
     global LauncherGui, MenuOffset, ScrollTrack, ScrollThumb, ScrollDragging

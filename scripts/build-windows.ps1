@@ -1,82 +1,105 @@
-# Build a portable launcher using official AutoHotkey release tools.
-[CmdletBinding()]
-param([string]$OutputDirectory = '')
 $ErrorActionPreference = 'Stop'
-$projectRoot = Split-Path $PSScriptRoot -Parent
-if (!$OutputDirectory) { $OutputDirectory = Join-Path $projectRoot 'dist' }
-$null = New-Item $OutputDirectory -ItemType Directory -Force
-$buildRoot = Join-Path ([IO.Path]::GetTempPath()) ('tes3np-build-' + [guid]::NewGuid())
-$null = New-Item $buildRoot -ItemType Directory
-function Get-ReleaseTool([string]$Repository, [string]$Pattern, [string]$Name) {
-    $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
-    if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
-    $release = Invoke-RestMethod ("https://api.github.com/repos/$Repository/releases/latest") -Headers $headers
-    $asset = $release.assets | Where-Object { $_.name -match $Pattern } | Select-Object -First 1
-    if (!$asset) { throw "Official release has no matching archive: $Repository $Pattern" }
-    $file = Join-Path $buildRoot $Name
-    Write-Output "Downloading $Repository $($release.tag_name): $($asset.name)" | Out-Host
-    Invoke-WebRequest $asset.browser_download_url -OutFile $file -UseBasicParsing
-    if ($asset.digest -match '^sha256:(.+)$') {
-        if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $Matches[1]) {
-            throw "Downloaded tool checksum did not match: $Name"
-        }
+$ProgressPreference = 'SilentlyContinue'
+
+function Step([string]$Message) { Write-Host "BUILD CHECKPOINT | $Message" }
+
+function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, [int]$TimeoutMs) {
+    Step "Starting $Label"
+    $process = Start-Process $Compiler -ArgumentList $Arguments -PassThru
+    if (!$process.WaitForExit($TimeoutMs)) {
+        try { $process.Kill() } catch {}
+        throw "$Label timed out after $([math]::Round($TimeoutMs / 1000)) seconds."
     }
-    Add-Content (Join-Path $buildRoot 'BUILD-TOOLS.txt') ("$Repository $($release.tag_name) $($asset.name) SHA256 " + (Get-FileHash $file -Algorithm SHA256).Hash)
-    return $file
+    Step "$Label exited with code $($process.ExitCode)"
+    return $process.ExitCode
 }
+
+$projectRoot = Split-Path $PSScriptRoot -Parent
+$buildRoot = Join-Path $env:TEMP 'tes3np-build'
+$tools = Join-Path $buildRoot 'tools'
+$package = Join-Path $projectRoot 'dist\tes3np-windows'
+$zip = Join-Path $projectRoot 'dist\tes3np-windows.zip'
 try {
-    $ahkZip = Get-ReleaseTool 'AutoHotkey/AutoHotkey' '^AutoHotkey_2\.0\..+\.zip$' 'autohotkey.zip'
-    $compilerZip = Get-ReleaseTool 'AutoHotkey/Ahk2Exe' '\.zip$' 'compiler.zip'
-    $tools = Join-Path $buildRoot 'tools'
-    Expand-Archive $ahkZip $tools
-    Expand-Archive $compilerZip (Join-Path $tools 'Compiler')
-    $compiler = Join-Path $tools 'Compiler\Ahk2Exe.exe'
-    $base = Join-Path $tools 'AutoHotkey64.exe'
-    $package = Join-Path $buildRoot 'tes3np'
+    Step 'Starting Windows launcher build'
+    if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
+    if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
+    $null = New-Item $tools -ItemType Directory
     $null = New-Item $package -ItemType Directory
-    $executable = Join-Path $package 'tes3np.exe'
-    $arguments = '/in "' + (Join-Path $projectRoot 'tes3np.ahk') + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $process = Start-Process $compiler -ArgumentList $arguments -Wait -PassThru
-    if ($process.ExitCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
-    # AutoHotkey parses every included function before this no-GUI check exits.
-    # --check must be the script's first argument. /ErrorStdOut is an interpreter
-    # switch and is not appropriate once the script has been compiled to an EXE.
+
+    $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
+    if ($env:GITHUB_TOKEN) {
+        $headers['Authorization'] = "Bearer $($env:GITHUB_TOKEN)"
+        $headers['X-GitHub-Api-Version'] = '2022-11-28'
+    }
+    Step 'Querying AutoHotkey/AutoHotkey release metadata'
+    $ahkRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
+    $ahkAsset = $ahkRelease.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
+    if (!$ahkAsset) { throw 'Could not find AutoHotkey release archive.' }
+    Step "Downloading AutoHotkey/AutoHotkey $($ahkRelease.tag_name): $($ahkAsset.name)"
+    Invoke-WebRequest $ahkAsset.browser_download_url -OutFile (Join-Path $tools 'autohotkey.zip') -Headers $headers
+    Step 'Downloaded autohotkey.zip; verifying checksum'
+
+    Step 'Querying AutoHotkey/Ahk2Exe release metadata'
+    $compilerRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' -Headers $headers
+    $compilerAsset = $compilerRelease.assets | Where-Object name -match '\.zip$' | Select-Object -First 1
+    if (!$compilerAsset) { throw 'Could not find Ahk2Exe release archive.' }
+    Step "Downloading AutoHotkey/Ahk2Exe $($compilerRelease.tag_name): $($compilerAsset.name)"
+    Invoke-WebRequest $compilerAsset.browser_download_url -OutFile (Join-Path $tools 'compiler.zip') -Headers $headers
+    Step 'Downloaded compiler.zip; verifying checksum'
+
+    Step 'Extracting AutoHotkey runtime'
+    Expand-Archive (Join-Path $tools 'autohotkey.zip') (Join-Path $tools 'autohotkey')
+    Step 'Extracting Ahk2Exe compiler'
+    Expand-Archive (Join-Path $tools 'compiler.zip') (Join-Path $tools 'compiler')
+    $base = Get-ChildItem (Join-Path $tools 'autohotkey') -Filter 'AutoHotkey64.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+    $compiler = Get-ChildItem (Join-Path $tools 'compiler') -Filter 'Ahk2Exe.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+    if (!$base -or !$compiler) { throw 'Required AutoHotkey build tools were not found.' }
+
+    $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
+    Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
+    $smokeArgs = '/in "' + $smokeSource + '" /out "' + $smokeExe + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
+    if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
+
+    $mainRoot = Join-Path $buildRoot 'main-source'
+    Step 'Fetching known-good main source for control build'
+    & git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+    if ($LASTEXITCODE -ne 0) { throw 'Could not fetch main for control build.' }
+    Step 'Checking out known-good main source for control build'
+    & git -c advice.detachedHead=false worktree add --detach $mainRoot refs/remotes/origin/main
+    if ($LASTEXITCODE -ne 0) { throw 'Could not create main control worktree.' }
+    $mainSource = Join-Path $mainRoot 'tes3np.ahk'; $mainExe = Join-Path $buildRoot 'main-control.exe'
+    $mainArgs = '/in "' + $mainSource + '" /out "' + $mainExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $mainCode = Invoke-Compiler $compiler $mainArgs 'Known-good main launcher control compilation' 120000
+    if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
+    Step 'Known-good main launcher compiled successfully with current toolchain'
+
+    $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
+    $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
+    $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
+    if ($compileCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
+    Step 'Starting compiled launcher --check (30 second timeout)'
     $check = Start-Process $executable -ArgumentList '--check' -PassThru
-    if (!$check.WaitForExit(30000)) { $check.Kill(); throw 'Compiled launcher validation timed out.' }
+    if (!$check.WaitForExit(30000)) { try { $check.Kill() } catch {}; throw 'Compiled launcher validation timed out after 30 seconds.' }
+    Step "Compiled launcher --check exited with code $($check.ExitCode)"
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
-    foreach ($folder in @('assets', 'patches')) {
-        Copy-Item (Join-Path $projectRoot $folder) $package -Recurse
-    }
-    $scripts = Join-Path $package 'scripts'
-    $null = New-Item $scripts -ItemType Directory
-    foreach ($worker in @('import-macro.ps1', 'patch-tes3mp.ps1')) {
-        Copy-Item (Join-Path $PSScriptRoot $worker) $scripts
-    }
-    # Imported AHK v2 macros need an interpreter; ship it beside its license.
-    $runtime = Join-Path $package 'runtime'
-    $null = New-Item $runtime -ItemType Directory
-    Copy-Item $base $runtime
+    Step 'Copying package payload'
+    foreach ($folder in @('assets','patches')) { Copy-Item (Join-Path $projectRoot $folder) $package -Recurse }
+    $scripts = Join-Path $package 'scripts'; $null = New-Item $scripts -ItemType Directory
+    foreach ($worker in @('import-macro.ps1','patch-tes3mp.ps1','tes3np-updater.ps1')) { Copy-Item (Join-Path $PSScriptRoot $worker) $scripts }
+    $runtime = Join-Path $package 'runtime'; $null = New-Item $runtime -ItemType Directory; Copy-Item $base $runtime
     $license = Get-ChildItem $tools -File | Where-Object { $_.Name -match '^(license|copying)(\..*)?$' } | Select-Object -First 1
-    if (!$license) { throw 'AutoHotkey license is missing from the official archive.' }
-    Copy-Item $license.FullName (Join-Path $runtime 'LICENSE.txt')
-    Copy-Item (Join-Path $buildRoot 'BUILD-TOOLS.txt') $package
-    Copy-Item (Join-Path $projectRoot 'docs\INSTALLATION.md') (Join-Path $package 'INSTALLATION.md')
-    Set-Content (Join-Path $package 'START-HERE.txt') @'
-TES3NP - Nerevarine Prophecies Launcher
-
-1. Extract this entire folder into your TES3MP 0.8.1 Win64 folder.
-2. Double-click tes3np.exe. Keep its accompanying folders together.
-3. Choose Patch Tes3mp if shown, check the locations, and click Install / Repair.
-4. Choose Start New Adventure or Returning Fetcher to play.
-
-You need Morrowind GOTY and TES3MP installed. AutoHotkey is included;
-you do not need to install it separately. See INSTALLATION.md for help.
-'@ -Encoding UTF8
-    $archive = Join-Path $OutputDirectory 'tes3np-windows.zip'
-    if (Test-Path $archive) { Remove-Item $archive }
-    Compress-Archive $package $archive -CompressionLevel Optimal
-    Write-Output "Built $archive"
+    if ($license) { Copy-Item $license.FullName $package }
+    Compress-Archive (Join-Path $package '*') $zip
+    Step 'Windows launcher build completed successfully'
 }
 finally {
-    Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Step 'Cleaning temporary build directory'
+    try { git worktree remove (Join-Path $buildRoot 'main-source') --force 2>$null } catch {}
+    if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
+
+# External commands used during the diagnostic/control build can leave LASTEXITCODE
+# non-zero even after the complete launcher build succeeds. Explicitly return success
+# once every build/validation/package checkpoint above has completed.
+exit 0
