@@ -26,10 +26,11 @@ LoadDailyLoginSchedule()
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
         recurring := IniRead(DataFile, section, "Recurring", "1") = "1"
+        completed := IniRead(DataFile, section, "Completed", "0") = "1"
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -41,7 +42,7 @@ LoadDailyLoginSchedule()
         try oldTime := ParseDailyLoginTime(oldTime)
         catch
             oldTime := "12:00"
-        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, Recurring: true, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
+        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, Recurring: true, Completed: false, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
         IniWrite("0", DataFile, "DailyLogin", "Scheduled")
         maxId := 1
         SaveScheduledEvents()
@@ -93,6 +94,7 @@ SaveScheduledEvents()
         IniWrite(event.TimeBasis, DataFile, section, "TimeBasis")
         IniWrite(event.Time, DataFile, section, "Time")
         IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
+        IniWrite(event.HasOwnProp("Completed") && event.Completed ? "1" : "0", DataFile, section, "Completed")
         IniWrite(event.LastRunDate, DataFile, section, "LastRunDate")
     }
 }
@@ -150,7 +152,7 @@ RefreshScheduledEventsList()
     selected := ScheduledEventsListView.GetNext()
     ScheduledEventsListView.Delete()
     for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, event.TimeBasis = "Game" ? "In-Game" : "IRL", FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
+        ScheduledEventsListView.Add(, event.Name, event.TimeBasis = "Game" ? "In-Game" : "IRL", FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
     if selected && selected <= ScheduledEvents.Length
         ScheduledEventsListView.Modify(selected, "Select Focus")
 }
@@ -170,7 +172,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
 {
     global ScheduledEvents
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
-    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Recurring: true}
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Recurring: true, Completed: false}
     editor := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", editing ? "tes3np — Edit Event" : "tes3np — Schedule Event")
     editor.BackColor := "E2CEA2"
     editor.SetFont("s10 Bold c382314", "Segoe UI")
@@ -280,11 +282,11 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, recurringCheck
     {
         event := ScheduledEvents[eventIndex]
         event.Name := name, event.TimeBasis := timeBasis, event.Time := time, event.Recurring := recurring
-        event.LastRunDate := "", event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time, timeBasis)
+        event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time, timeBasis)
     }
     else
     {
-        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
         NextScheduledEventId += 1
     }
     SaveScheduledEvents()
@@ -389,6 +391,8 @@ CheckDailyLoginSchedule(*)
     today := FormatTime(, "yyyy-MM-dd")
     for event in ScheduledEvents
     {
+        if event.HasOwnProp("Completed") && event.Completed
+            continue
         if event.LastRunDate = today
             continue
         remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
@@ -467,16 +471,7 @@ CompleteScheduledEventForToday(event, reason := "completed", successful := false
     event.LastRunDate := FormatTime(, "yyyy-MM-dd")
     event.Due := false
     if successful && !event.Recurring
-    {
-        for index, scheduledEvent in ScheduledEvents
-        {
-            if scheduledEvent.Id = event.Id
-            {
-                ScheduledEvents.RemoveAt(index)
-                break
-            }
-        }
-    }
+        event.Completed := true
     SaveScheduledEvents()
     LogLauncherEvent("GAME | Scheduled event '" event.Name "' " reason " for today.")
     RefreshScheduledEventsList()
