@@ -7,10 +7,11 @@ global DailyLoginScheduleDisplay := "12:00"
 global DailyLoginLastRunDate := ""
 global DailyLoginLastCheckMinute := ""
 global DailyLoginCountdownTarget := ""
+global DailyLoginScheduleDue := false
 
 LoadDailyLoginSchedule()
 {
-    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginLastRunDate
+    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginLastRunDate, DailyLoginScheduleDue
     DailyLoginScheduleEnabled := IniRead(DataFile, "DailyLogin", "Scheduled", "0") = "1"
     DailyLoginScheduleTime := IniRead(DataFile, "DailyLogin", "Time", "12:00")
     DailyLoginScheduleDisplay := IniRead(DataFile, "DailyLogin", "DisplayTime", DailyLoginScheduleTime)
@@ -21,6 +22,7 @@ LoadDailyLoginSchedule()
         DailyLoginScheduleTime := "12:00"
         DailyLoginScheduleDisplay := "12:00"
     }
+    DailyLoginScheduleDue := false
     SetTimer(CheckDailyLoginSchedule, 1000)
     SetTimer(UpdateDailyLoginCountdown, 1000)
 }
@@ -61,11 +63,12 @@ ParseDailyLoginTime(value)
 
 SaveDailyLoginSchedule(enabled, time)
 {
-    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay
+    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginScheduleDue
     normalized := ParseDailyLoginTime(time)
     DailyLoginScheduleEnabled := enabled
     DailyLoginScheduleTime := normalized
     DailyLoginScheduleDisplay := Trim(time)
+    DailyLoginScheduleDue := false
     DirCreate(AppDataDirectory)
     IniWrite(enabled ? "1" : "0", DataFile, "DailyLogin", "Scheduled")
     IniWrite(normalized, DataFile, "DailyLogin", "Time")
@@ -211,14 +214,14 @@ RefreshDailyLoginButton()
 
 GetDailyLoginSecondsRemaining()
 {
-    global DailyLoginScheduleTime, DailyLoginLastRunDate
+    global DailyLoginScheduleTime, DailyLoginLastRunDate, DailyLoginScheduleDue
     now := A_Now
     today := FormatTime(, "yyyy-MM-dd")
     target := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
     remaining := DateDiff(target, now, "Seconds")
     ; Do not visually roll over to tomorrow until today's scheduled action has
     ; actually started successfully.
-    if remaining <= 0 && DailyLoginLastRunDate != today
+    if (remaining <= 0 || DailyLoginScheduleDue) && DailyLoginLastRunDate != today
         return 0
     if remaining <= 0
         target := DateAdd(target, 1, "Days")
@@ -242,23 +245,32 @@ UpdateDailyLoginCountdown(*)
 
 CheckDailyLoginSchedule(*)
 {
-    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate
+    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate, DailyLoginScheduleDue
     global DataFile, AppDataDirectory, Client
     if !DailyLoginScheduleEnabled
         return
 
-    ; Drive the action from the same second-based countdown shown to the user.
-    ; The old minute-equality check could miss the launch while the visible
-    ; countdown independently rolled over to tomorrow.
-    remaining := GetDailyLoginSecondsRemainingRaw()
     today := FormatTime(, "yyyy-MM-dd")
-    if remaining > 0 || DailyLoginLastRunDate = today || Client.Enabled
+    if DailyLoginLastRunDate = today
         return
 
-    if !StartScheduledDailyLogin()
+    ; Latch the schedule once its target has been reached. This prevents the UI
+    ; countdown from rolling into tomorrow before the actual login sequence has
+    ; successfully begun.
+    if GetDailyLoginSecondsRemainingRaw() <= 0
+        DailyLoginScheduleDue := true
+    if !DailyLoginScheduleDue || Client.Enabled
         return
+
+    LogLauncherEvent("GAME | Daily Login countdown reached zero; starting scheduled login.")
+    if !StartScheduledDailyLogin()
+    {
+        LogLauncherEvent("GAME | Daily Login is due but could not start; will retry.")
+        return
+    }
 
     DailyLoginLastRunDate := today
+    DailyLoginScheduleDue := false
     DirCreate(AppDataDirectory)
     IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
 }
