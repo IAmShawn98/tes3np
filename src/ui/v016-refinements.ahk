@@ -49,17 +49,17 @@ ApplyV016CharacterLayout(*)
         LaunchCharacterButton.Visible := false
         ExecutableInput.GetPos(, &executableY, , &executableHeight)
         global LaunchSettingsControls
-        global DailyLoginScheduleEnabled, DailyLoginScheduleTime
-        label := DailyLoginScheduleEnabled ? "Daily Login: On — " DailyLoginScheduleTime : "Daily Login: Off"
-        dailyButton := AddStyledButton(CharacterPage, 70, 510, 370, 25, label, OpenDailyLoginScheduleDialog)
-        ; Daily Login belongs to the character action stack, not Launch Settings.
+        global ScheduledEvents
+        label := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
+        dailyButton := AddStyledButton(CharacterPage, 70, 510, 370, 25, label, OpenScheduledEventsMenu)
+        ; Scheduled Events belongs to the character action stack, not Launch Settings.
         ; Keep it independent so opening the add/edit form does not hide it.
         global V016DailyLoginControls
         V016DailyLoginControls := [dailyButton]
         hasCharacters := Profiles.Length > 0
         for control in V016DailyLoginControls
             control.Visible := hasCharacters
-        ; Keep the character actions contiguous: Add Character, Daily Login, then Wipe Character Data.
+        ; Keep the character actions contiguous: Add Character, Scheduled Events, then Wipe Character Data.
         addY := Profiles.Length ? 455 : 185
         AddCharacterButton.Move(70, addY, 370, 30)
         ButtonFaces[AddCharacterButton.Hwnd].Y := addY
