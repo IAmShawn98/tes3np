@@ -98,8 +98,13 @@ RefreshProfiles()
         CharacterDescription.Text := Profiles.Length
             ? "Here is a list of all your Nerevarine Prophecies characters. Click the checkmark next to any character name to favorite it for the games quick launch feature. You can freely add, update, and delete your characters from the launcher. This will NOT delete your characters in-game!"
             : "This will be a list of all your Nerevarine Prophecies characters. You will be able to add, edit and launch your characters from here."
-        AddCharacterButton.Move(70, Profiles.Length ? 475 : 130)
-        ButtonFaces[AddCharacterButton.Hwnd].Y := Profiles.Length ? 475 : 130
+        ; Keep the character action stack in one canonical layout. The v0.1.16
+        ; refinement creates Daily Login after this window is built, so refreshes
+        ; (including Import Data) must preserve that layout instead of restoring
+        ; the older button positions.
+        actionY := Profiles.Length ? 455 : 130
+        AddCharacterButton.Move(70, actionY, 370, 30)
+        ButtonFaces[AddCharacterButton.Hwnd].Y := actionY
         CharacterDescription.Move(70, 80, 370, Profiles.Length ? 108 : 48)
         LaunchCharacterButton.Visible := Profiles.Length > 0
         transferX := Profiles.Length ? 775 : 70
@@ -108,9 +113,23 @@ RefreshProfiles()
         ButtonFaces[DataTransferButton.Hwnd].X := transferX
         ButtonFaces[DataTransferButton.Hwnd].Y := transferY
         WipeCharacterButton.Visible := Profiles.Length > 0
-        wipeY := Profiles.Length >= 2 ? 577 : 545
-        WipeCharacterButton.Move(70, wipeY)
-        ButtonFaces[WipeCharacterButton.Hwnd].Y := wipeY
+        if Profiles.Length > 0
+        {
+            ; Daily Login sits between Add Character and Launch All.
+            if IsObject(V016DailyLoginControls) && V016DailyLoginControls.Length
+            {
+                dailyButton := V016DailyLoginControls[1]
+                dailyButton.Move(70, 490, 370, 30)
+                ButtonFaces[dailyButton.Hwnd].Y := 490
+            }
+            if Profiles.Length >= 2
+            {
+                LaunchAllButton.Move(70, 525, 370, 30)
+                ButtonFaces[LaunchAllButton.Hwnd].Y := 525
+            }
+            WipeCharacterButton.Move(70, 560, 370, 30)
+            ButtonFaces[WipeCharacterButton.Hwnd].Y := 560
+        }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
         LaunchAllButton.Visible := Profiles.Length >= 2
