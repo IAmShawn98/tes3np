@@ -8,10 +8,11 @@ global DailyLoginLastRunDate := ""
 global DailyLoginLastCheckMinute := ""
 global DailyLoginCountdownTarget := ""
 global DailyLoginScheduleDue := false
+global DailyLoginPreviousRemaining := ""
 
 LoadDailyLoginSchedule()
 {
-    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginLastRunDate, DailyLoginScheduleDue
+    global DataFile, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginLastRunDate, DailyLoginScheduleDue, DailyLoginPreviousRemaining
     DailyLoginScheduleEnabled := IniRead(DataFile, "DailyLogin", "Scheduled", "0") = "1"
     DailyLoginScheduleTime := IniRead(DataFile, "DailyLogin", "Time", "12:00")
     DailyLoginScheduleDisplay := IniRead(DataFile, "DailyLogin", "DisplayTime", DailyLoginScheduleTime)
@@ -23,6 +24,7 @@ LoadDailyLoginSchedule()
         DailyLoginScheduleDisplay := "12:00"
     }
     DailyLoginScheduleDue := false
+    DailyLoginPreviousRemaining := GetDailyLoginSecondsRemainingRaw()
     ; Use one authoritative 1-second tick for both the visible countdown and
     ; the scheduled action. Keeping these on separate timers allowed the UI to
     ; cross zero independently of the launch check.
@@ -65,12 +67,13 @@ ParseDailyLoginTime(value)
 
 SaveDailyLoginSchedule(enabled, time)
 {
-    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginScheduleDue, DailyLoginLastRunDate
+    global DataFile, AppDataDirectory, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay, DailyLoginScheduleDue, DailyLoginLastRunDate, DailyLoginPreviousRemaining
     normalized := ParseDailyLoginTime(time)
     DailyLoginScheduleEnabled := enabled
     DailyLoginScheduleTime := normalized
     DailyLoginScheduleDisplay := Trim(time)
     DailyLoginScheduleDue := false
+    DailyLoginPreviousRemaining := ""
     ; Saving a schedule is a fresh request. A previous failed/started attempt must
     ; not suppress the newly saved time for the rest of the day.
     DailyLoginLastRunDate := ""
@@ -266,10 +269,19 @@ CheckDailyLoginSchedule(*)
     if DailyLoginLastRunDate = today
         return
 
-    ; Latch the schedule once its target has been reached. This prevents the UI
-    ; countdown from rolling into tomorrow before the actual login sequence has
-    ; successfully begun.
-    if GetDailyLoginSecondsRemainingRaw() <= 0
+    ; Trigger only when the live countdown actually crosses the scheduled time.
+    ; An overdue schedule loaded at startup must not remain armed and unexpectedly
+    ; launch later while the user is doing something unrelated in the launcher.
+    global DailyLoginPreviousRemaining
+    remaining := GetDailyLoginSecondsRemainingRaw()
+    if DailyLoginPreviousRemaining = ""
+    {
+        DailyLoginPreviousRemaining := remaining
+        return
+    }
+    crossedTarget := DailyLoginPreviousRemaining > 0 && remaining <= 0
+    DailyLoginPreviousRemaining := remaining
+    if crossedTarget
         DailyLoginScheduleDue := true
     if !DailyLoginScheduleDue || Client.Enabled
         return
