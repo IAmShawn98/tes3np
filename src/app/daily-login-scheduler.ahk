@@ -400,10 +400,13 @@ CheckDailyLoginSchedule(*)
     {
         if event.HasOwnProp("Completed") && event.Completed
             continue
-        if event.LastRunDate = today
+        if event.TimeBasis != "Game" && event.LastRunDate = today
             continue
         remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
-        crossed := event.PreviousRemaining > 0 && remaining <= 0
+        if event.TimeBasis = "Game"
+            crossed := remaining > event.PreviousRemaining
+        else
+            crossed := event.PreviousRemaining > 0 && remaining <= 0
         event.PreviousRemaining := remaining
         if crossed
             event.Due := true
@@ -516,6 +519,54 @@ MarkScheduledDailyLoginComplete()
     if IsObject(event)
         CompleteScheduledEventForToday(event, "completed", true)
     ActiveScheduledEventId := ""
+}
+
+SaveScheduledEventShutdownTime()
+{
+    global DataFile
+    IniWrite(A_Now, DataFile, "ScheduledEvents", "LastLauncherExit")
+}
+
+ShowMissedScheduledEvents(*)
+{
+    global ScheduledEvents, DataFile, NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
+    lastExit := IniRead(DataFile, "ScheduledEvents", "LastLauncherExit", "")
+    if !RegExMatch(lastExit, "^\d{14}$")
+        return
+
+    missed := []
+    for event in ScheduledEvents
+    {
+        if event.HasOwnProp("Completed") && event.Completed
+            continue
+        targetMinute := Integer(SubStr(event.Time, 1, 2)) * 60 + Integer(SubStr(event.Time, 4, 2))
+        wasMissed := false
+        if event.TimeBasis = "Game"
+        {
+            beforeMinutes := NPClockAnchorMinute + DateDiff(lastExit, NPClockAnchorReal, "Seconds") * NPClockTimescale / 60
+            nowMinutes := NPClockAnchorMinute + DateDiff(A_Now, NPClockAnchorReal, "Seconds") * NPClockTimescale / 60
+            beforeOccurrence := Floor((beforeMinutes - targetMinute) / 1440)
+            nowOccurrence := Floor((nowMinutes - targetMinute) / 1440)
+            wasMissed := nowOccurrence > beforeOccurrence
+        }
+        else
+        {
+            cursor := SubStr(lastExit, 1, 8) event.Time.Replace(":", "") "00"
+            if cursor <= lastExit
+                cursor := DateAdd(cursor, 1, "Days")
+            wasMissed := cursor <= A_Now
+        }
+        if wasMissed
+            missed.Push(event.Name)
+    }
+
+    if missed.Length
+    {
+        message := "You missed the following scheduled event" (missed.Length = 1 ? "" : "s") " while the launcher was closed:`n`n"
+        for name in missed
+            message .= "• " name "`n"
+        MsgBox(RTrim(message, "`n"), "Missed Scheduled Events", "Icon!")
+    }
 }
 
 ; Compatibility entry point for older UI callers.
