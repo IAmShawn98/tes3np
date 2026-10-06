@@ -22,7 +22,7 @@ OpenCharacterPage(*)
     LaunchSettingsHeading := AddBookLabel(CharacterPage, 525, 45, 360, 30, "Launch Settings")
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
-    CharacterPage.SetFont("s9 Norm c382314", "Segoe UI")
+    CharacterPage.SetFont("s9.5 Bold c241408", "Segoe UI")
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w370 h108 BackgroundTrans", "")
     Loop 10
     {
@@ -45,7 +45,9 @@ OpenCharacterPage(*)
     CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 435, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
+    CharacterPage.SetFont("s10 Bold c241408", "Segoe UI")
     executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "TES3MP executable")
+    CharacterPage.SetFont("s10 Norm c382314", "Segoe UI")
     SetInterfaceLoadingText("Loading executable field...")
     ExecutableInput := AddThemedEdit(CharacterPage, "x525 y137 w270", GetSharedExecutable())
     ExecutableInput.OnEvent("Change", SaveSharedExecutable)
