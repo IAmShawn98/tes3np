@@ -5,6 +5,7 @@ global DailyLoginScheduleEnabled := false
 global DailyLoginScheduleTime := "12:00"
 global DailyLoginScheduleDisplay := "12:00"
 global DailyLoginLastRunDate := ""
+global DailyLoginLastCheckMinute := ""
 
 LoadDailyLoginSchedule()
 {
@@ -19,7 +20,7 @@ LoadDailyLoginSchedule()
         DailyLoginScheduleTime := "12:00"
         DailyLoginScheduleDisplay := "12:00"
     }
-    SetTimer(CheckDailyLoginSchedule, 30000)
+    SetTimer(CheckDailyLoginSchedule, 1000)
 }
 
 ParseDailyLoginTime(value)
@@ -108,16 +109,34 @@ SaveDailyLoginScheduleDialog(schedule, enabled, timeEdit, *)
 
 CheckDailyLoginSchedule(*)
 {
-    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate
+    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate, DailyLoginLastCheckMinute
     global DataFile, AppDataDirectory, Client
-    if !DailyLoginScheduleEnabled || Client.Enabled
+    if !DailyLoginScheduleEnabled
         return
-    nowTime := FormatTime(, "HH:mm")
-    today := FormatTime(, "yyyy-MM-dd")
+
+    nowStamp := FormatTime(, "yyyy-MM-dd HH:mm")
+    if nowStamp = DailyLoginLastCheckMinute
+        return
+    DailyLoginLastCheckMinute := nowStamp
+
+    nowTime := SubStr(nowStamp, 12)
+    today := SubStr(nowStamp, 1, 10)
     if nowTime != DailyLoginScheduleTime || DailyLoginLastRunDate = today
         return
-    if !StartScheduledDailyLogin()
+
+    ; If a session happens to be active at the scheduled minute, keep checking
+    ; during that minute instead of silently losing today's run.
+    if Client.Enabled
+    {
+        DailyLoginLastCheckMinute := ""
         return
+    }
+
+    if !StartScheduledDailyLogin()
+    {
+        DailyLoginLastCheckMinute := ""
+        return
+    }
     DailyLoginLastRunDate := today
     DirCreate(AppDataDirectory)
     IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
