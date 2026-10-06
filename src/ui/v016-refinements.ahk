@@ -61,8 +61,9 @@ ApplyV016CharacterLayout(*)
             control.Visible := hasCharacters
         ; Use an exact 35px top-to-top rhythm for four 30px buttons (5px gaps).
         ; This avoids the mixed 30px/25px heights that made the stack look uneven.
-        AddCharacterButton.Move(70, 455, 370, 30)
-        ButtonFaces[AddCharacterButton.Hwnd].Y := 455
+        addY := Profiles.Length ? 455 : 130
+        AddCharacterButton.Move(70, addY, 370, 30)
+        ButtonFaces[AddCharacterButton.Hwnd].Y := addY
         dailyButton.Move(70, 490, 370, 30)
         ButtonFaces[dailyButton.Hwnd].Y := 490
         LaunchAllButton.Move(70, 525, 370, 30)
