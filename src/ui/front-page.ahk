@@ -1,13 +1,17 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
 BuildFrontPage()
 {
-    global LauncherGui, DragStrip, LauncherHeading
+    global LauncherGui, DragStrip, LauncherHeading, NPClockLabel
     global ButtonFaces, HoverButton, PressedButton
     ButtonFaces := Map()
     LauncherGui.Opt("+OwnDialogs")
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
     DragStrip := LauncherGui.Add("Text", "x0 y0 w960 h48 BackgroundTrans +0x100")
+    LauncherGui.SetFont("s10 Bold cE6C86A", "Segoe UI")
+    NPClockLabel := LauncherGui.Add("Text", "x18 y8 w150 h24 BackgroundTrans", "")
+    UpdateNPClockLabel()
+    SetTimer(UpdateNPClockLabel, 1000)
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
@@ -164,4 +168,22 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
     delta := (wParam >> 16) << 48 >> 48
     ScrollMenu(MenuOffset + (delta > 0 ? -20 : 20))
     return 0
+}
+
+
+UpdateNPClockLabel(*)
+{
+    global NPClockLabel, NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
+    if !IsObject(NPClockLabel)
+        return
+    elapsed := DateDiff(A_Now, NPClockAnchorReal, "Seconds")
+    minuteOfDay := Mod(NPClockAnchorMinute + elapsed * NPClockTimescale / 60, 1440)
+    if minuteOfDay < 0
+        minuteOfDay += 1440
+    totalMinutes := Floor(minuteOfDay)
+    hour := Floor(totalMinutes / 60)
+    minute := Mod(totalMinutes, 60)
+    displayHour := Mod(hour - 1, 12) + 1
+    suffix := hour >= 12 ? "PM" : "AM"
+    NPClockLabel.Text := "In-Game: " displayHour ":" Format("{:02}", minute) " " suffix
 }
