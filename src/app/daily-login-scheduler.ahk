@@ -25,10 +25,11 @@ LoadDailyLoginSchedule()
         timeBasis := IniRead(DataFile, section, "TimeBasis", "IRL")
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
+        recurring := IniRead(DataFile, section, "Recurring", "1") = "1"
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -40,7 +41,7 @@ LoadDailyLoginSchedule()
         try oldTime := ParseDailyLoginTime(oldTime)
         catch
             oldTime := "12:00"
-        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
+        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, Recurring: true, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
         IniWrite("0", DataFile, "DailyLogin", "Scheduled")
         maxId := 1
         SaveScheduledEvents()
@@ -91,6 +92,7 @@ SaveScheduledEvents()
         IniWrite(event.Name, DataFile, section, "Name")
         IniWrite(event.TimeBasis, DataFile, section, "TimeBasis")
         IniWrite(event.Time, DataFile, section, "Time")
+        IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
         IniWrite(event.LastRunDate, DataFile, section, "LastRunDate")
     }
 }
@@ -112,8 +114,8 @@ OpenScheduledEventsMenu(owner := 0, *)
     menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
     menu.SetFont("s9 c382314", "Segoe UI")
     menu.Add("Text", "x20 y52 w600 h36", "Create timed launcher events. Each event runs once per day at its scheduled time.")
-    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Time Basis", "Time", "Countdown"])
-    lv.ModifyCol(1, 190), lv.ModifyCol(2, 130), lv.ModifyCol(3, 100), lv.ModifyCol(4, 150)
+    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Time Basis", "Time", "Repeat", "Countdown"])
+    lv.ModifyCol(1, 155), lv.ModifyCol(2, 105), lv.ModifyCol(3, 90), lv.ModifyCol(4, 80), lv.ModifyCol(5, 130)
     add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
     edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
     del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
@@ -148,7 +150,7 @@ RefreshScheduledEventsList()
     selected := ScheduledEventsListView.GetNext()
     ScheduledEventsListView.Delete()
     for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, event.TimeBasis = "Game" ? "In-Game" : "IRL", FormatScheduledEventTime(event.Time), FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
+        ScheduledEventsListView.Add(, event.Name, event.TimeBasis = "Game" ? "In-Game" : "IRL", FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
     if selected && selected <= ScheduledEvents.Length
         ScheduledEventsListView.Modify(selected, "Select Focus")
 }
@@ -168,7 +170,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
 {
     global ScheduledEvents
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
-    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00"}
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Recurring: true}
     editor := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", editing ? "tes3np — Edit Event" : "tes3np — Schedule Event")
     editor.BackColor := "E2CEA2"
     editor.SetFont("s10 Bold c382314", "Segoe UI")
@@ -180,28 +182,30 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     editor.SetFont("s10 c382314", "Segoe UI")
     basisList := editor.Add("DropDownList", "x20 y118 w330 h120", ["IRL Time", "In-Game Time"])
     basisList.Choose(event.TimeBasis = "Game" ? 2 : 1)
+    recurringCheck := editor.Add("CheckBox", "x20 y150 w330 h24", "Recurring")
+    recurringCheck.Value := event.Recurring ? 1 : 0
 
     hour24 := Integer(SubStr(event.Time, 1, 2)), minute := SubStr(event.Time, 4, 2)
     displayHour := Mod(hour24, 12)
     if displayHour = 0
         displayHour := 12
     editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y164 w60 h22", "Hour")
-    editor.Add("Text", "x92 y164 w60 h22", "Minute")
-    editor.Add("Text", "x164 y164 w90 h22", "Clock")
+    editor.Add("Text", "x20 y184 w60 h22", "Hour")
+    editor.Add("Text", "x92 y184 w60 h22", "Minute")
+    editor.Add("Text", "x164 y184 w90 h22", "Clock")
     editor.SetFont("s10 c382314", "Segoe UI")
-    hourEdit := editor.Add("Edit", "x20 y190 w52 h28 Center Number", displayHour)
-    minuteEdit := editor.Add("Edit", "x92 y190 w52 h28 Center Number", minute)
-    clockMode := editor.Add("DropDownList", "x164 y190 w100 h120 Choose1", ["AM / PM", "24-hour"])
-    meridiem := editor.Add("DropDownList", "x274 y190 w76 h120", ["AM", "PM"])
+    hourEdit := editor.Add("Edit", "x20 y210 w52 h28 Center Number", displayHour)
+    minuteEdit := editor.Add("Edit", "x92 y210 w52 h28 Center Number", minute)
+    clockMode := editor.Add("DropDownList", "x164 y210 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    meridiem := editor.Add("DropDownList", "x274 y210 w76 h120", ["AM", "PM"])
     meridiem.Choose(hour24 >= 12 ? 2 : 1)
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
-    save := editor.Add("Button", "x20 y244 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
-    cancel := editor.Add("Button", "x192 y244 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, basisList, hourEdit, minuteEdit, clockMode, meridiem))
+    save := editor.Add("Button", "x20 y264 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
+    cancel := editor.Add("Button", "x192 y264 w158 h34", "Cancel")
+    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, basisList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem))
     cancel.OnEvent("Click", (*) => editor.Destroy())
     editor.OnEvent("Escape", (*) => editor.Destroy())
-    editor.Show("w370 h298")
+    editor.Show("w370 h318")
 }
 
 UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
@@ -226,7 +230,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, hourEdit, minuteEdit, clockMode, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
 {
     global ScheduledEvents, NextScheduledEventId
     name := Trim(nameEdit.Text)
@@ -271,15 +275,16 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, hourEdit, minu
         time := Format("{:02}:{:02}", hour24, minute)
     }
     timeBasis := basisList.Value = 2 ? "Game" : "IRL"
+    recurring := recurringCheck.Value = 1
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := timeBasis, event.Time := time
+        event.Name := name, event.TimeBasis := timeBasis, event.Time := time, event.Recurring := recurring
         event.LastRunDate := "", event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time, timeBasis)
     }
     else
     {
-        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
         NextScheduledEventId += 1
     }
     SaveScheduledEvents()
@@ -456,11 +461,24 @@ FindScheduledEventById(id)
 
 CompleteScheduledEventForToday(event, reason := "completed")
 {
+    global ScheduledEvents
     event.LastRunDate := FormatTime(, "yyyy-MM-dd")
     event.Due := false
+    if !event.Recurring
+    {
+        for index, scheduledEvent in ScheduledEvents
+        {
+            if scheduledEvent.Id = event.Id
+            {
+                ScheduledEvents.RemoveAt(index)
+                break
+            }
+        }
+    }
     SaveScheduledEvents()
     LogLauncherEvent("GAME | Scheduled event '" event.Name "' " reason " for today.")
     RefreshScheduledEventsList()
+    RefreshDailyLoginButton()
 }
 
 CancelScheduledDailyLoginForToday(reason := "game was closed")
