@@ -134,7 +134,7 @@ ShowLauncherWindow(*)
     ; existing launcher immediately behind a loading cover, do the expensive
     ; resize/repaint work, then reveal the completed page.
     LauncherGui.Show("w960 h716")
-    BeginInterfaceUpdate(LauncherGui, "Returning to launcher...", true)
+    BeginInterfaceUpdate(LauncherGui, "Waiting for Jiub...", true)
     try
     {
         if LauncherScaleMode = "Auto"
