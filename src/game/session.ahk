@@ -34,6 +34,7 @@ ValidateLaunch(profile, executable)
 
 LaunchProfileIndex(index)
 {
+    LogLauncherEvent("GAME | SOURCE | Manual character launch requested | Index: " index ".")
     global Client, Profiles
     if Client.Enabled
     {
@@ -50,6 +51,7 @@ LaunchProfileIndex(index)
 
 LaunchAllCharacters(*)
 {
+    LogLauncherEvent("GAME | SOURCE | LaunchAllCharacters invoked.")
     global Client, Profiles, DataFile, CharacterPage
     if Client.Enabled
     {
@@ -78,6 +80,8 @@ LaunchAllCharacters(*)
 StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false)
 {
     global Client
+    source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : "Manual character"
+    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profile.Name ".")
     batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
     LogLauncherEvent("GAME | Launch requested | Character: " profile.Name batchText ".")
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
@@ -211,6 +215,7 @@ ClientTick()
                 return
             Client.LaunchIssued := true
             SplitPath(Client.Executable, , &workingDirectory)
+            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
             Client.Phase := "window"
