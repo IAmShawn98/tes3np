@@ -211,12 +211,18 @@ RefreshDailyLoginButton()
 
 GetDailyLoginSecondsRemaining()
 {
-    global DailyLoginScheduleTime
+    global DailyLoginScheduleTime, DailyLoginLastRunDate
     now := A_Now
-    todayTarget := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
-    if DateDiff(todayTarget, now, "Seconds") <= 0
-        todayTarget := DateAdd(todayTarget, 1, "Days")
-    return Max(0, DateDiff(todayTarget, now, "Seconds"))
+    today := FormatTime(, "yyyy-MM-dd")
+    target := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
+    remaining := DateDiff(target, now, "Seconds")
+    ; Do not visually roll over to tomorrow until today's scheduled action has
+    ; actually started successfully.
+    if remaining <= 0 && DailyLoginLastRunDate != today
+        return 0
+    if remaining <= 0
+        target := DateAdd(target, 1, "Days")
+    return Max(0, DateDiff(target, now, "Seconds"))
 }
 
 FormatDailyLoginCountdown(seconds)
@@ -236,37 +242,33 @@ UpdateDailyLoginCountdown(*)
 
 CheckDailyLoginSchedule(*)
 {
-    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate, DailyLoginLastCheckMinute
+    global DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginLastRunDate
     global DataFile, AppDataDirectory, Client
     if !DailyLoginScheduleEnabled
         return
 
-    nowStamp := FormatTime(, "yyyy-MM-dd HH:mm")
-    if nowStamp = DailyLoginLastCheckMinute
+    ; Drive the action from the same second-based countdown shown to the user.
+    ; The old minute-equality check could miss the launch while the visible
+    ; countdown independently rolled over to tomorrow.
+    remaining := GetDailyLoginSecondsRemainingRaw()
+    today := FormatTime(, "yyyy-MM-dd")
+    if remaining > 0 || DailyLoginLastRunDate = today || Client.Enabled
         return
-    DailyLoginLastCheckMinute := nowStamp
-
-    nowTime := SubStr(nowStamp, 12)
-    today := SubStr(nowStamp, 1, 10)
-    if nowTime != DailyLoginScheduleTime || DailyLoginLastRunDate = today
-        return
-
-    ; If a session happens to be active at the scheduled minute, keep checking
-    ; during that minute instead of silently losing today's run.
-    if Client.Enabled
-    {
-        DailyLoginLastCheckMinute := ""
-        return
-    }
 
     if !StartScheduledDailyLogin()
-    {
-        DailyLoginLastCheckMinute := ""
         return
-    }
+
     DailyLoginLastRunDate := today
     DirCreate(AppDataDirectory)
     IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
+}
+
+GetDailyLoginSecondsRemainingRaw()
+{
+    global DailyLoginScheduleTime
+    now := A_Now
+    target := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
+    return DateDiff(target, now, "Seconds")
 }
 
 StartScheduledDailyLogin()
