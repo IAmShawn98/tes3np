@@ -27,6 +27,9 @@ StartLauncher()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
+    ; Scheduled Daily Login can run before the Characters page has ever been
+    ; opened, so its saved profiles must already exist in memory at startup.
+    LoadProfiles()
     LoadDailyLoginSchedule()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
