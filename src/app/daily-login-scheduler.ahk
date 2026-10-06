@@ -6,6 +6,7 @@ global DailyLoginScheduleTime := "12:00"
 global DailyLoginScheduleDisplay := "12:00"
 global DailyLoginLastRunDate := ""
 global DailyLoginLastCheckMinute := ""
+global DailyLoginCountdownTarget := ""
 
 LoadDailyLoginSchedule()
 {
@@ -21,6 +22,7 @@ LoadDailyLoginSchedule()
         DailyLoginScheduleDisplay := "12:00"
     }
     SetTimer(CheckDailyLoginSchedule, 1000)
+    SetTimer(UpdateDailyLoginCountdown, 1000)
 }
 
 ParseDailyLoginTime(value)
@@ -68,32 +70,118 @@ SaveDailyLoginSchedule(enabled, time)
     IniWrite(enabled ? "1" : "0", DataFile, "DailyLogin", "Scheduled")
     IniWrite(normalized, DataFile, "DailyLogin", "Time")
     IniWrite(DailyLoginScheduleDisplay, DataFile, "DailyLogin", "DisplayTime")
+    RefreshDailyLoginButton()
 }
 
 OpenDailyLoginScheduleDialog(owner := 0, *)
 {
-    global LauncherGui, DailyLoginScheduleEnabled, DailyLoginScheduleTime, DailyLoginScheduleDisplay
+    global LauncherGui, DailyLoginScheduleEnabled, DailyLoginScheduleTime
     ownerHwnd := IsObject(owner) ? owner.Hwnd : LauncherGui.Hwnd
     schedule := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Daily Login Schedule")
     schedule.BackColor := "E2CEA2"
     schedule.SetFont("s11 Bold c241408", "Segoe UI")
     schedule.Add("Text", "x20 y18 w330 h26", "Daily Login Points")
     schedule.SetFont("s9 c382314", "Segoe UI")
-    schedule.Add("Text", "x20 y50 w330 h50", "Optionally run Launch All & Close once each day while tes3np is open. This setting is off by default.")
+    schedule.Add("Text", "x20 y50 w330 h50", "Choose when tes3np should automatically log every saved character in and out for daily login points.")
     schedule.SetFont("s9 Bold c382314", "Segoe UI")
-    enabled := schedule.Add("CheckBox", "x20 y112 w330 h24", "Run automatically every day")
+    enabled := schedule.Add("CheckBox", "x20 y108 w330 h24", "Enable daily login schedule")
     enabled.Value := DailyLoginScheduleEnabled ? 1 : 0
-    schedule.Add("Text", "x20 y154 w110 h22", "Daily time")
+
+    schedule.Add("Text", "x20 y148 w52 h22", "Hour")
+    schedule.Add("Text", "x92 y148 w52 h22", "Minute")
+    schedule.Add("Text", "x164 y148 w90 h22", "Clock")
     schedule.SetFont("s10 c382314", "Segoe UI")
-    timeEdit := schedule.Add("Edit", "x140 y150 w140 h26 Center", DailyLoginScheduleDisplay)
+
+    currentHour := Integer(SubStr(DailyLoginScheduleTime, 1, 2))
+    currentMinute := SubStr(DailyLoginScheduleTime, 4, 2)
+    use24 := currentHour > 12
+    displayHour := use24 ? currentHour : (currentHour = 0 ? 12 : currentHour > 12 ? currentHour - 12 : currentHour)
+    hourEdit := schedule.Add("Edit", "x20 y172 w52 h28 Center Number", displayHour)
+    minuteEdit := schedule.Add("Edit", "x92 y172 w52 h28 Center Number", currentMinute)
+    clockMode := schedule.Add("DropDownList", "x164 y172 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    meridiem := schedule.Add("DropDownList", "x274 y172 w76 h120", ["AM", "PM"])
+    if use24
+    {
+        clockMode.Choose(2)
+        hourEdit.Text := currentHour
+        meridiem.Enabled := false
+    }
+    else
+        meridiem.Choose(currentHour >= 12 ? 2 : 1)
+
+    clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
     schedule.SetFont("s8 c5A4027", "Segoe UI")
-    schedule.Add("Text", "x20 y184 w330 h48", "Enter the time however you prefer, such as 9 PM, 9:30 PM, 21:30, or 2130. The launcher must be running at that time.")
-    save := schedule.Add("Button", "x20 y234 w158 h34 Default", "Save")
-    cancel := schedule.Add("Button", "x192 y234 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveDailyLoginScheduleDialog.Bind(schedule, enabled, timeEdit))
+    schedule.Add("Text", "x20 y210 w330 h34", "Choose AM/PM or switch to a 24-hour clock to match your regional preference.")
+    save := schedule.Add("Button", "x20 y250 w158 h34 Default", "Save")
+    cancel := schedule.Add("Button", "x192 y250 w158 h34", "Cancel")
+    save.OnEvent("Click", SaveDailyLoginClockDialog.Bind(schedule, enabled, hourEdit, minuteEdit, clockMode, meridiem))
     cancel.OnEvent("Click", (*) => schedule.Destroy())
     schedule.OnEvent("Escape", (*) => schedule.Destroy())
-    schedule.Show("w370 h288")
+    schedule.Show("w370 h304")
+}
+
+UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
+{
+    use24 := clockMode.Value = 2
+    meridiem.Enabled := !use24
+    hour := Integer(hourEdit.Text = "" ? 0 : hourEdit.Text)
+    if use24
+    {
+        if hour >= 1 && hour <= 12 && meridiem.Text = "PM" && hour != 12
+            hour += 12
+        else if hour = 12 && meridiem.Text = "AM"
+            hour := 0
+    }
+    else
+    {
+        if hour = 0
+            hour := 12
+        else if hour > 12
+            hour -= 12
+    }
+    hourEdit.Text := hour
+}
+
+SaveDailyLoginClockDialog(schedule, enabled, hourEdit, minuteEdit, clockMode, meridiem, *)
+{
+    hourText := Trim(hourEdit.Text)
+    minuteText := Trim(minuteEdit.Text)
+    if !RegExMatch(hourText, "^\\d{1,2}$") || !RegExMatch(minuteText, "^\\d{1,2}$")
+    {
+        MsgBox("Choose a valid hour and minute.", "tes3np")
+        return
+    }
+    hour := Integer(hourText), minute := Integer(minuteText)
+    if minute < 0 || minute > 59
+    {
+        MsgBox("Minutes must be between 00 and 59.", "tes3np")
+        return
+    }
+    if clockMode.Value = 2
+    {
+        if hour < 0 || hour > 23
+        {
+            MsgBox("24-hour time uses hours 0 through 23.", "tes3np")
+            return
+        }
+        value := Format("{:02}:{:02}", hour, minute)
+    }
+    else
+    {
+        if hour < 1 || hour > 12
+        {
+            MsgBox("AM/PM time uses hours 1 through 12.", "tes3np")
+            return
+        }
+        value := hour ":" Format("{:02}", minute) " " meridiem.Text
+    }
+    try SaveDailyLoginSchedule(enabled.Value = 1, value)
+    catch Error as err
+    {
+        MsgBox(err.Message, "tes3np")
+        return
+    }
+    schedule.Destroy()
 }
 
 SaveDailyLoginScheduleDialog(schedule, enabled, timeEdit, *)
@@ -105,6 +193,45 @@ SaveDailyLoginScheduleDialog(schedule, enabled, timeEdit, *)
         return
     }
     schedule.Destroy()
+}
+
+RefreshDailyLoginButton()
+{
+    global V016DailyLoginControls, DailyLoginScheduleEnabled, DailyLoginScheduleTime
+    if !IsObject(V016DailyLoginControls) || V016DailyLoginControls.Length < 1
+        return
+    button := V016DailyLoginControls[1]
+    if !DailyLoginScheduleEnabled
+    {
+        button.Text := "Daily Login: Off"
+        return
+    }
+    button.Text := "Daily Login — " FormatDailyLoginCountdown(GetDailyLoginSecondsRemaining())
+}
+
+GetDailyLoginSecondsRemaining()
+{
+    global DailyLoginScheduleTime
+    now := A_Now
+    todayTarget := SubStr(now, 1, 8) StrReplace(DailyLoginScheduleTime, ":") "00"
+    if DateDiff(todayTarget, now, "Seconds") <= 0
+        todayTarget := DateAdd(todayTarget, 1, "Days")
+    return Max(0, DateDiff(todayTarget, now, "Seconds"))
+}
+
+FormatDailyLoginCountdown(seconds)
+{
+    hours := Floor(seconds / 3600)
+    minutes := Floor(Mod(seconds, 3600) / 60)
+    secs := Mod(seconds, 60)
+    return Format("{:02}:{:02}:{:02}", hours, minutes, secs)
+}
+
+UpdateDailyLoginCountdown(*)
+{
+    global DailyLoginScheduleEnabled
+    if DailyLoginScheduleEnabled
+        RefreshDailyLoginButton()
 }
 
 CheckDailyLoginSchedule(*)
