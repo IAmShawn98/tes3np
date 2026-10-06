@@ -83,7 +83,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
-        LoadDelay: profile.LoadDelay, AutoReconnect: profile.AutoReconnect, Queue: queue,
+        LoadDelay: profile.LoadDelay, Queue: queue,
         ScheduledDailyLogin: scheduledDailyLogin}
     SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
@@ -188,19 +188,11 @@ RetryClient(reason)
 {
     global Client
     profileName := IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure"
-    LogLauncherEvent("GAME | RETRY | Character: " profileName " | Reason: " reason " | Auto reconnect: " (Client.AutoReconnect ? "On" : "Off") ".")
-    if Client.PID && ProcessExist(Client.PID)
-    {
-        try ProcessClose(Client.PID)
-    }
-    ; Retry/error paths must never advance a queued Daily Login. The only
-    ; legitimate queue advance is the successful claim-complete path, which
-    ; explicitly enters "closing" before closing TES3MP itself.
+    LogLauncherEvent("GAME | STOP | Character: " profileName " | Reason: " reason ".")
     if IsObject(Client.Queue)
         Client.Queue := 0
     StopClient()
     SetClientStatus(reason " — session stopped.")
-    return
 }
 
 ClientTick()
@@ -224,18 +216,6 @@ ClientTick()
             Client.Phase := "window"
             Client.Deadline := A_TickCount + AppConfig.GameWindowWaitMs
             LogLauncherEvent("GAME | TES3MP process started | PID: " pid ".")
-        }
-        if Client.Phase = "retry"
-        {
-            remaining := Max(0, Ceil((Client.Deadline - A_TickCount) / 1000))
-            SetClientStatus("Restarting client in " remaining " seconds.")
-            if remaining = 0
-            {
-                Client.LaunchIssued := false
-                Client.Phase := "launch"
-                LogLauncherEvent("GAME | Recovery retry starting.")
-            }
-            return
         }
         if Client.Phase = "closing"
         {
@@ -344,8 +324,8 @@ ClientTick()
         if Client.Phase = "loading"
         {
             Client.Phase := "playing"
-            SetClientStatus(Client.AutoReconnect ? "Login inputs completed. Auto reconnect is on." : "Login inputs completed. Auto reconnect is off.")
-            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Auto reconnect: " (Client.AutoReconnect ? "On" : "Off") ".")
+            SetClientStatus("Login inputs completed.")
+            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " |LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name ".")
             return
         }
         WinActivate("ahk_id " hwnd)
@@ -374,7 +354,7 @@ ClientTick()
         else
         {
             Client.Phase := "playing"
-            SetClientStatus(Client.AutoReconnect ? "Login inputs completed. Auto reconnect is on." : "Login inputs completed. Auto reconnect is off.")
+            SetClientStatus("Login inputs completed.")
             LogLauncherEvent("GAME | SUCCESS | Login state completed.")
         }
     }
