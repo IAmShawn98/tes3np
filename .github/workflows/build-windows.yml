@@ -54,22 +54,3 @@ jobs:
             dist/tes3np-windows.zip.sha256
             dist/tes3np-update.json
           if-no-files-found: error
-      - name: Publish latest public test build
-        if: github.ref == 'refs/heads/main'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if (-not $env:GH_TOKEN) { throw 'RELEASE_PUBLISH_TOKEN is not configured.' }
-          $repo = 'IAmShawn98/tes3np-releases'; $tag = 'latest-alpha'
-          $assets = @('dist/tes3np-windows.zip','dist/tes3np-windows.zip.sha256','dist/tes3np-update.json')
-          $manifest = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json; $version = $manifest.version
-          $notes = "Automated tes3np development build from the private source repository.`n`nVersion: v$version`nSource revision: $env:GITHUB_SHA`n`nThis is development software intended for testing."
-          $releaseExists = $false; $old = $PSNativeCommandUseErrorActionPreference; $PSNativeCommandUseErrorActionPreference = $false
-          gh release view $tag --repo $repo *> $null; if ($LASTEXITCODE -eq 0) { $releaseExists = $true }; $PSNativeCommandUseErrorActionPreference = $old
-          if ($releaseExists) {
-            foreach ($asset in $assets) { gh release upload $tag $asset --repo $repo --clobber; if ($LASTEXITCODE -ne 0) { throw "Failed to upload: $asset" } }
-            gh release edit $tag --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
-          } else { gh release create $tag @assets --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease }
-          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish public release.' }
