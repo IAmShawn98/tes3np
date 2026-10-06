@@ -461,12 +461,12 @@ FindScheduledEventById(id)
     return 0
 }
 
-CompleteScheduledEventForToday(event, reason := "completed")
+CompleteScheduledEventForToday(event, reason := "completed", successful := false)
 {
     global ScheduledEvents
     event.LastRunDate := FormatTime(, "yyyy-MM-dd")
     event.Due := false
-    if !event.Recurring
+    if successful && !event.Recurring
     {
         for index, scheduledEvent in ScheduledEvents
         {
@@ -501,7 +501,7 @@ MarkScheduledDailyLoginComplete()
         return
     event := FindScheduledEventById(ActiveScheduledEventId)
     if IsObject(event)
-        CompleteScheduledEventForToday(event, "completed")
+        CompleteScheduledEventForToday(event, "completed", true)
     ActiveScheduledEventId := ""
 }
 
