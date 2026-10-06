@@ -65,7 +65,7 @@ ApplyWindowsAccessibilityPreferences()
 OpenLauncherSettings(*)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility, WindowsHighContrastDetected, WindowsAnimationsDisabled
-    global DailyLoginScheduleEnabled, DailyLoginScheduleTime
+    global ScheduledEvents
     settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
     settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
     settings.SetFont("s11 Bold c241408", "Segoe UI")
@@ -104,9 +104,9 @@ OpenLauncherSettings(*)
     settings.SetFont("s11 Bold c241408", "Segoe UI")
     settings.Add("Text", "x20 y386 w330 h26", "Daily Character Login")
     settings.SetFont("s9 c382314", "Segoe UI")
-    settings.Add("Text", "x20 y414 w330 h40", "Optionally run Launch All & Close automatically once per day while tes3np is running.")
+    settings.Add("Text", "x20 y414 w330 h40", "Create and manage timed launcher events, including automatic Daily Login runs.")
     settings.SetFont("s9 Bold c382314", "Segoe UI")
-    scheduleButtonText := DailyLoginScheduleEnabled ? "Daily Login: On — " DailyLoginScheduleTime : "Daily Login: Off"
+    scheduleButtonText := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
     schedule := settings.Add("Button", "x20 y458 w330 h34", scheduleButtonText)
 
     apply := settings.Add("Button", "x20 y510 w158 h34 Default", "Preview & Apply")
@@ -125,7 +125,7 @@ OpenLauncherSettings(*)
 OpenDailyLoginScheduleSettings(parent, *)
 {
     parent.Hide()
-    OpenDailyLoginScheduleDialog()
+    OpenScheduledEventsMenu()
     try parent.Destroy()
 }
 
