@@ -366,6 +366,8 @@ GetScheduledEventSecondsRemaining(event)
     remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
     if event.Due && event.LastRunDate != today
         return 0
+    if event.TimeBasis = "Game"
+        return Max(0, remaining)
     if remaining <= 0
         target := DateAdd(SubStr(A_Now, 1, 8) StrReplace(event.Time, ":") "00", 1, "Days")
     else
