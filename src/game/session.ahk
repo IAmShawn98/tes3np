@@ -274,6 +274,15 @@ ClientTick()
         }
         if !ProcessExist(Client.PID)
         {
+            ; A user-closed game is final for a normal session. Do not route it
+            ; through retry/reconnect state, which can relaunch on a later UI action.
+            if !IsObject(Client.Queue)
+            {
+                LogLauncherEvent("GAME | Game process closed by user; session ended.")
+                StopClient()
+                SetClientStatus("Game closed.")
+                return
+            }
             RetryClient("Game process closed")
             return
         }
