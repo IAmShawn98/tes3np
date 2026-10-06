@@ -2,15 +2,20 @@
 
 ## v0.1.17-alpha — 2026-10-05
 
-- Add safe public-alpha updating with validated manifests, SHA-256 verification, transactional installation, rollback protection, and release publishing checks.
-- Add automatic launcher scaling for smaller and high-DPI displays, including proportional control and settings-window scaling.
-- Redesign Launcher Settings with interface text sizing, enhanced readability, preview behavior, and modal interaction that prevents duplicate settings windows or background clicks.
-- Restore the Quest & Conquer and Play Together artwork on the launcher and refine the main launcher layout.
-- Improve themed-button rendering and click handling, including fixes for destroyed-control crashes, paint artifacts, and intermittently swallowed first clicks.
-- Add Daily Login scheduling and integrate its controls with the Manage Characters layout.
-- Refine character management layout, action-button sizing and spacing, and Launch Settings visibility while adding or editing characters.
-- Redesign AppData tools with direct log-copy actions, AppData-folder access, clearer recovery guidance, and simplified controls.
-- Reorder the main launcher so Our Wiki appears above Macros.
+### What's New
+
+- Added safe automatic launcher updates with package validation and rollback protection.
+- Added automatic launcher scaling for smaller and high-DPI displays.
+- Redesigned Launcher Settings with interface text sizing, Enhanced Readability, and change previews.
+- Added Daily Login scheduling to Manage Characters.
+- Redesigned AppData tools with direct access to the AppData folder and individual log-copy actions.
+
+### Fixes & Improvements
+
+- Improved themed-button rendering and click reliability.
+- Improved character management layout, action-button sizing, spacing, and Launch Settings visibility while adding or editing characters.
+- Reordered the main launcher so Our Wiki appears above Macros.
+- Various launcher UI and reliability improvements.
 
 ## v0.1.0-alpha — 2026-10-03
 
