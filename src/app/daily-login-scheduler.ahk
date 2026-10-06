@@ -23,7 +23,9 @@ LoadDailyLoginSchedule()
         DailyLoginScheduleDisplay := "12:00"
     }
     DailyLoginScheduleDue := false
-    SetTimer(CheckDailyLoginSchedule, 1000)
+    ; Use one authoritative 1-second tick for both the visible countdown and
+    ; the scheduled action. Keeping these on separate timers allowed the UI to
+    ; cross zero independently of the launch check.
     SetTimer(UpdateDailyLoginCountdown, 1000)
 }
 
@@ -239,8 +241,14 @@ FormatDailyLoginCountdown(seconds)
 UpdateDailyLoginCountdown(*)
 {
     global DailyLoginScheduleEnabled
-    if DailyLoginScheduleEnabled
-        RefreshDailyLoginButton()
+    if !DailyLoginScheduleEnabled
+        return
+
+    ; The countdown and launch trigger intentionally share this exact tick.
+    ; Check the schedule first so reaching zero cannot visually roll forward
+    ; without giving the scheduled login routine its chance to start.
+    CheckDailyLoginSchedule()
+    RefreshDailyLoginButton()
 }
 
 CheckDailyLoginSchedule(*)
