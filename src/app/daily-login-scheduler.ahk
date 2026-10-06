@@ -234,7 +234,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
 
 SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
 {
-    global ScheduledEvents, NextScheduledEventId
+    global ScheduledEvents, NextScheduledEventId, DataFile
     name := Trim(nameEdit.Text)
     if name = ""
     {
@@ -290,6 +290,13 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, recurringCheck
         NextScheduledEventId += 1
     }
     SaveScheduledEvents()
+    ; Verify persistence immediately instead of relying only on the in-memory row.
+    savedCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
+    if savedCount != ScheduledEvents.Length
+    {
+        MsgBox("The scheduled event could not be saved to settings.ini.", "tes3np")
+        return
+    }
     editor.Destroy()
     RefreshScheduledEventsList()
     RefreshDailyLoginButton()
