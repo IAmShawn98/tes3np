@@ -274,16 +274,15 @@ ClientTick()
         }
         if !ProcessExist(Client.PID)
         {
-            ; A user-closed game is final for a normal session. Do not route it
-            ; through retry/reconnect state, which can relaunch on a later UI action.
-            if !IsObject(Client.Queue)
-            {
-                LogLauncherEvent("GAME | Game process closed by user; session ended.")
-                StopClient()
-                SetClientStatus("Game closed.")
-                return
-            }
-            RetryClient("Game process closed")
+            ; Only the explicit "closing" phase above is allowed to advance a
+            ; Daily Login queue. If TES3MP disappears during any other phase,
+            ; the user closed it (or it exited unexpectedly), so cancel the
+            ; entire monitored session instead of logging another character in.
+            LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
+            if IsObject(Client.Queue)
+                Client.Queue := 0
+            StopClient()
+            SetClientStatus("Game closed.")
             return
         }
         hwnd := FindGameWindow(Client.PID)
