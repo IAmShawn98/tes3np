@@ -7,6 +7,10 @@ global ScheduledEventsWindow := 0
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 
+global NPClockAnchorReal := "20261006152900"
+global NPClockAnchorMinute := 107
+global NPClockTimescale := 30
+
 LoadDailyLoginSchedule()
 {
     global ScheduledEvents, NextScheduledEventId, DataFile
@@ -18,13 +22,13 @@ LoadDailyLoginSchedule()
         section := "ScheduledEvent" A_Index
         id := Integer(IniRead(DataFile, section, "Id", A_Index))
         name := IniRead(DataFile, section, "Name", "Daily Login")
-        type := IniRead(DataFile, section, "Type", "DailyLogin")
+        timeBasis := IniRead(DataFile, section, "TimeBasis", "IRL")
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, Type: type, Time: time, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -36,7 +40,8 @@ LoadDailyLoginSchedule()
         try oldTime := ParseDailyLoginTime(oldTime)
         catch
             oldTime := "12:00"
-        ScheduledEvents.Push({Id: 1, Name: "Daily Login", Type: "DailyLogin", Time: oldTime, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime)})
+        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
+        IniWrite("0", DataFile, "DailyLogin", "Scheduled")
         maxId := 1
         SaveScheduledEvents()
     }
@@ -84,7 +89,7 @@ SaveScheduledEvents()
         section := "ScheduledEvent" index
         IniWrite(event.Id, DataFile, section, "Id")
         IniWrite(event.Name, DataFile, section, "Name")
-        IniWrite(event.Type, DataFile, section, "Type")
+        IniWrite(event.TimeBasis, DataFile, section, "TimeBasis")
         IniWrite(event.Time, DataFile, section, "Time")
         IniWrite(event.LastRunDate, DataFile, section, "LastRunDate")
     }
@@ -107,7 +112,7 @@ OpenScheduledEventsMenu(owner := 0, *)
     menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
     menu.SetFont("s9 c382314", "Segoe UI")
     menu.Add("Text", "x20 y52 w600 h36", "Create timed launcher events. Each event runs once per day at its scheduled time.")
-    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Type", "Time", "Countdown"])
+    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Time Basis", "Time", "Countdown"])
     lv.ModifyCol(1, 190), lv.ModifyCol(2, 130), lv.ModifyCol(3, 100), lv.ModifyCol(4, 150)
     add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
     edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
@@ -143,15 +148,11 @@ RefreshScheduledEventsList()
     selected := ScheduledEventsListView.GetNext()
     ScheduledEventsListView.Delete()
     for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, ScheduledEventTypeLabel(event.Type), FormatScheduledEventTime(event.Time), FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
+        ScheduledEventsListView.Add(, event.Name, event.TimeBasis = "Game" ? "In-Game" : "IRL", FormatScheduledEventTime(event.Time), FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
     if selected && selected <= ScheduledEvents.Length
         ScheduledEventsListView.Modify(selected, "Select Focus")
 }
 
-ScheduledEventTypeLabel(type)
-{
-    return type = "DailyLogin" ? "Daily Login" : type
-}
 
 FormatScheduledEventTime(time)
 {
@@ -167,7 +168,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
 {
     global ScheduledEvents
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
-    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", Type: "DailyLogin", Time: "12:00"}
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00"}
     editor := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", editing ? "tes3np — Edit Event" : "tes3np — Schedule Event")
     editor.BackColor := "E2CEA2"
     editor.SetFont("s10 Bold c382314", "Segoe UI")
@@ -175,9 +176,10 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     editor.SetFont("s10 c382314", "Segoe UI")
     nameEdit := editor.Add("Edit", "x20 y46 w330 h30", event.Name)
     editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y92 w330 h22", "Event type")
+    editor.Add("Text", "x20 y92 w330 h22", "Time basis")
     editor.SetFont("s10 c382314", "Segoe UI")
-    typeList := editor.Add("DropDownList", "x20 y118 w330 h120 Choose1", ["Daily Login"])
+    basisList := editor.Add("DropDownList", "x20 y118 w330 h120", ["IRL Time", "In-Game Time"])
+    basisList.Choose(event.TimeBasis = "Game" ? 2 : 1)
 
     hour24 := Integer(SubStr(event.Time, 1, 2)), minute := SubStr(event.Time, 4, 2)
     displayHour := Mod(hour24, 12)
@@ -196,7 +198,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
     save := editor.Add("Button", "x20 y244 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
     cancel := editor.Add("Button", "x192 y244 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, typeList, hourEdit, minuteEdit, clockMode, meridiem))
+    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, basisList, hourEdit, minuteEdit, clockMode, meridiem))
     cancel.OnEvent("Click", (*) => editor.Destroy())
     editor.OnEvent("Escape", (*) => editor.Destroy())
     editor.Show("w370 h298")
@@ -268,16 +270,16 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, typeList, hourEdit, minut
             hour24 += 12
         time := Format("{:02}:{:02}", hour24, minute)
     }
-    type := "DailyLogin"
+    timeBasis := basisList.Value = 2 ? "Game" : "IRL"
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.Type := type, event.Time := time
-        event.LastRunDate := "", event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time)
+        event.Name := name, event.TimeBasis := timeBasis, event.Time := time
+        event.LastRunDate := "", event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time, timeBasis)
     }
     else
     {
-        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, Type: type, Time: time, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time)})
+        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time)})
         NextScheduledEventId += 1
     }
     SaveScheduledEvents()
@@ -345,7 +347,7 @@ GetScheduledEventRawRemaining(time)
 GetScheduledEventSecondsRemaining(event)
 {
     today := FormatTime(, "yyyy-MM-dd")
-    remaining := GetScheduledEventRawRemaining(event.Time)
+    remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
     if event.Due && event.LastRunDate != today
         return 0
     if remaining <= 0
@@ -378,8 +380,6 @@ CheckDailyLoginSchedule(*)
             event.Due := true
         if !event.Due
             continue
-        if event.Type != "DailyLogin"
-            continue
 
         gamePid := ProcessExist("tes3mp.exe")
         if Client.Enabled || gamePid
@@ -404,7 +404,7 @@ CheckDailyLoginSchedule(*)
         }
 
         ActiveScheduledEventId := event.Id
-        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Type: Daily Login.")
+        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: " (event.TimeBasis = "Game" ? "In-Game" : "IRL") ".")
         if !StartScheduledDailyLogin()
         {
             ActiveScheduledEventId := ""
