@@ -104,7 +104,7 @@ RefreshProfiles()
         ; refinement creates Daily Login after this window is built, so refreshes
         ; (including Import Data) must preserve that layout instead of restoring
         ; the older button positions.
-        actionY := Profiles.Length ? 455 : 130
+        actionY := Profiles.Length ? 455 : 185
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         CharacterDescription.Move(70, 80, 370, Profiles.Length ? 108 : 90)
         ; Individual characters already have Play buttons in their rows. Keep the
@@ -112,7 +112,7 @@ RefreshProfiles()
         ; an import overlaps Daily Login and the action stack.
         LaunchCharacterButton.Visible := false
         transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : 170
+        transferY := Profiles.Length ? 575 : 225
         DataTransferButton.Move(transferX, transferY, Profiles.Length ? 110 : 370, 30)
         ButtonFaces[DataTransferButton.Hwnd].X := transferX
         ButtonFaces[DataTransferButton.Hwnd].Y := transferY
