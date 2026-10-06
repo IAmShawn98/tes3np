@@ -52,9 +52,8 @@ ApplyV016CharacterLayout(*)
         global DailyLoginScheduleEnabled, DailyLoginScheduleTime
         label := DailyLoginScheduleEnabled ? "Daily Login: On — " DailyLoginScheduleTime : "Daily Login: Off"
         dailyButton := AddStyledButton(CharacterPage, 70, 510, 370, 25, label, OpenDailyLoginScheduleDialog)
-        ; Daily-login controls are part of Launch Settings and must hide with the
-        ; rest of that panel whenever the add/edit character form is open.
-        LaunchSettingsControls.Push(dailyButton)
+        ; Daily Login belongs to the character action stack, not Launch Settings.
+        ; Keep it independent so opening the add/edit form does not hide it.
         global V016DailyLoginControls
         V016DailyLoginControls := [dailyButton]
         hasCharacters := Profiles.Length > 0
