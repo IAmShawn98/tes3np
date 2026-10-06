@@ -343,13 +343,7 @@ BeginStartupPatchCheck()
 
 FinishLauncherStartup()
 {
-    global Profiles, LauncherGui
     UpdateCharacterMenuLabel()
-    if IsTES3MPSetupComplete() && Profiles.Length
-    {
-        LauncherGui.Hide()
-        ShowStartupChoice()
-    }
 }
 
 GuardPatchExit(*)
