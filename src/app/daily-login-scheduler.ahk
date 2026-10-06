@@ -25,13 +25,13 @@ LoadDailyLoginSchedule()
 ParseDailyLoginTime(value)
 {
     value := Trim(value)
-    compact := RegExReplace(StrLower(value), "\\s+", "")
+    compact := RegExReplace(StrLower(value), "\s+", "")
     compact := StrReplace(compact, ".", "")
     if compact = ""
         throw Error("Enter a time for Daily Login.")
 
     ; 12-hour input: 9 PM, 9pm, 9:30 p.m., 09:30AM.
-    if RegExMatch(compact, "^(1[0-2]|0?[1-9])(?::?([0-5]\\d))?(am|pm)$", &match)
+    if RegExMatch(compact, "^(1[0-2]|0?[1-9])(?::?([0-5]\d))?(am|pm)$", &match)
     {
         hour := Integer(match[1])
         minute := match[2] = "" ? 0 : Integer(match[2])
@@ -43,11 +43,11 @@ ParseDailyLoginTime(value)
     }
 
     ; 24-hour input: 21:00, 9:30, 21, 9.
-    if RegExMatch(compact, "^(2[0-3]|[01]?\\d)(?::([0-5]\\d))?$", &match)
+    if RegExMatch(compact, "^(2[0-3]|[01]?\d)(?::([0-5]\d))?$", &match)
         return Format("{:02}:{:02}", Integer(match[1]), match[2] = "" ? 0 : Integer(match[2]))
 
     ; Clock-style shorthand: 930, 0930, 2130.
-    if RegExMatch(compact, "^(\\d{1,2})([0-5]\\d)$", &match)
+    if RegExMatch(compact, "^(\d{1,2})([0-5]\d)$", &match)
     {
         hour := Integer(match[1])
         if hour <= 23
