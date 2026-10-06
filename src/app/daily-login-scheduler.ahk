@@ -279,7 +279,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, typeList, hourEdit, minut
     }
     else
     {
-        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time)})
+        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
         NextScheduledEventId += 1
     }
     SaveScheduledEvents()
@@ -337,8 +337,19 @@ UpdateDailyLoginCountdown(*)
     RefreshScheduledEventsList()
 }
 
-GetScheduledEventRawRemaining(time)
+GetScheduledEventRawRemaining(time, timeBasis := "IRL")
 {
+    if timeBasis = "Game"
+    {
+        global NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
+        elapsed := DateDiff(A_Now, NPClockAnchorReal, "Seconds")
+        currentMinute := Mod(NPClockAnchorMinute + (elapsed * NPClockTimescale / 60), 1440)
+        if currentMinute < 0
+            currentMinute += 1440
+        targetMinute := Integer(SubStr(time, 1, 2)) * 60 + Integer(SubStr(time, 4, 2))
+        gameMinutes := Mod(targetMinute - currentMinute + 1440, 1440)
+        return Ceil(gameMinutes * 60 / NPClockTimescale)
+    }
     now := A_Now
     target := SubStr(now, 1, 8) StrReplace(time, ":") "00"
     return DateDiff(target, now, "Seconds")
@@ -373,7 +384,7 @@ CheckDailyLoginSchedule(*)
     {
         if event.LastRunDate = today
             continue
-        remaining := GetScheduledEventRawRemaining(event.Time)
+        remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
         crossed := event.PreviousRemaining > 0 && remaining <= 0
         event.PreviousRemaining := remaining
         if crossed
