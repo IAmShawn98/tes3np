@@ -325,7 +325,7 @@ ClientTick()
         {
             Client.Phase := "playing"
             SetClientStatus("Login inputs completed.")
-            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " |LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name ".")
+            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name ".")
             return
         }
         WinActivate("ahk_id " hwnd)
