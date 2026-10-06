@@ -79,7 +79,12 @@ jobs:
           $manifest = Get-Content 'dist/tes3np-update.json' -Raw | ConvertFrom-Json
           $version = $manifest.version
           if (-not $version) { throw 'Generated update manifest has no version.' }
-          $notes = "Automated tes3np development build.`n`nVersion: v$version`nSource revision: $env:GITHUB_SHA`nSource branch: $env:GITHUB_REF_NAME`n`nThis alpha candidate passed the updater safety and build validation suite before publishing."
+          $changelog = Get-Content 'CHANGELOG.md' -Raw
+          $escapedVersion = [regex]::Escape($version)
+          $match = [regex]::Match($changelog, "(?ms)^## v$escapedVersion(?:\\s+—[^\\r\\n]*)?\\r?\\n(?<notes>.*?)(?=^## |\\z)")
+          if (-not $match.Success) { throw "No CHANGELOG.md section found for v$version." }
+          $notes = $match.Groups['notes'].Value.Trim()
+          if (-not $notes) { throw "CHANGELOG.md section for v$version is empty." }
           $old = $PSNativeCommandUseErrorActionPreference
           $PSNativeCommandUseErrorActionPreference = $false
           gh release view $tag --repo $repo *> $null
