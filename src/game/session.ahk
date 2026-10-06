@@ -75,7 +75,7 @@ LaunchAllCharacters(*)
     StartProfileSession(profile, executable, queue)
 }
 
-StartProfileSession(profile, executable, queue := 0)
+StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false)
 {
     global Client
     batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
@@ -83,7 +83,8 @@ StartProfileSession(profile, executable, queue := 0)
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
-        LoadDelay: profile.LoadDelay, AutoReconnect: profile.AutoReconnect, Queue: queue}
+        LoadDelay: profile.LoadDelay, AutoReconnect: profile.AutoReconnect, Queue: queue,
+        ScheduledDailyLogin: scheduledDailyLogin}
     SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
@@ -265,11 +266,14 @@ ClientTick()
                 queue := Client.Queue
                 profile := queue.RemoveAt(1)
                 LogLauncherEvent("GAME | Batch advancing to next character | Remaining after next: " queue.Length ".")
-                StartProfileSession(profile, Client.Executable, queue)
+                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin)
             }
             else
             {
                 LogLauncherEvent("GAME | SUCCESS | All batch characters completed.")
+                scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
+                if scheduledDailyLogin
+                    MarkScheduledDailyLoginComplete()
                 StopClient()
                 SetClientStatus("All characters completed. Game clients closed.")
             }
