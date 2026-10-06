@@ -226,7 +226,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, typeList, hourEdit, minuteEdit, clockMode, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, hourEdit, minuteEdit, clockMode, meridiem, *)
 {
     global ScheduledEvents, NextScheduledEventId
     name := Trim(nameEdit.Text)
