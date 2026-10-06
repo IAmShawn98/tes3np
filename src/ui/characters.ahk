@@ -73,7 +73,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchAllButton, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchAllButton, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice, V016DailyLoginControls
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -114,6 +114,9 @@ RefreshProfiles()
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
         LaunchAllButton.Visible := Profiles.Length >= 2
+        if IsObject(V016DailyLoginControls)
+            for control in V016DailyLoginControls
+                control.Visible := Profiles.Length > 0
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
         LaunchCharacterButton.Text := SelectedProfile ? "Launch " Profiles[SelectedProfile].Name : "Launch character"
         LaunchCharacterButton.Enabled := SelectedProfile > 0
