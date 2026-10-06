@@ -103,8 +103,7 @@ RefreshProfiles()
         ; (including Import Data) must preserve that layout instead of restoring
         ; the older button positions.
         actionY := Profiles.Length ? 455 : 130
-        AddCharacterButton.Move(70, actionY, 370, 30)
-        ButtonFaces[AddCharacterButton.Hwnd].Y := actionY
+        MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         CharacterDescription.Move(70, 80, 370, Profiles.Length ? 108 : 48)
         LaunchCharacterButton.Visible := Profiles.Length > 0
         transferX := Profiles.Length ? 775 : 70
@@ -119,16 +118,13 @@ RefreshProfiles()
             if IsObject(V016DailyLoginControls) && V016DailyLoginControls.Length
             {
                 dailyButton := V016DailyLoginControls[1]
-                dailyButton.Move(70, 490, 370, 30)
-                ButtonFaces[dailyButton.Hwnd].Y := 490
+                MoveStyledButton(dailyButton, 70, 490, 370, 30)
             }
             if Profiles.Length >= 2
             {
-                LaunchAllButton.Move(70, 525, 370, 30)
-                ButtonFaces[LaunchAllButton.Hwnd].Y := 525
+                MoveStyledButton(LaunchAllButton, 70, 525, 370, 30)
             }
-            WipeCharacterButton.Move(70, 560, 370, 30)
-            ButtonFaces[WipeCharacterButton.Hwnd].Y := 560
+            MoveStyledButton(WipeCharacterButton, 70, 560, 370, 30)
         }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
@@ -142,6 +138,24 @@ RefreshProfiles()
         FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
+}
+
+MoveStyledButton(control, x, y, width, height)
+{
+    global ButtonFaces
+    control.Move(x, y, width, height)
+    if ButtonFaces.Has(control.Hwnd)
+    {
+        face := ButtonFaces[control.Hwnd]
+        face.X := x
+        face.Y := y
+        face.W := width
+        face.H := height
+        ; AddStyledButton uses a separate painted face over the native button.
+        ; Move that face too; updating metadata alone leaves the old artwork behind.
+        if face.HasOwnProp("Control") && IsObject(face.Control)
+            face.Control.Move(x, y, width, height)
+    }
 }
 
 EditVisibleProfile(position, *)
