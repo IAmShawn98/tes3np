@@ -283,8 +283,37 @@ CheckDailyLoginSchedule(*)
     DailyLoginPreviousRemaining := remaining
     if crossedTarget
         DailyLoginScheduleDue := true
-    if !DailyLoginScheduleDue || Client.Enabled
+    if !DailyLoginScheduleDue
         return
+
+    ; If TES3MP is already open when the reminder becomes due, let the user
+    ; decide whether to interrupt the current session or skip today's run.
+    gamePid := ProcessExist("tes3mp.exe")
+    if Client.Enabled || gamePid
+    {
+        LogLauncherEvent("GAME | Daily Login is due while TES3MP is already running; awaiting user choice.")
+        choice := MsgBox("Daily Login is ready, but TES3MP is already running.\n\nRun Daily Login now? This will close the current TES3MP session.\n\nChoose No to cancel Daily Login for today.", "Daily Login", "YesNo Icon?")
+        if choice != "Yes"
+        {
+            CancelScheduledDailyLoginForToday("user cancelled because game was already running")
+            return
+        }
+
+        ; Stop launcher monitoring first so closing the current game cannot be
+        ; mistaken for a failed Daily Login and retrigger the scheduler.
+        if Client.Enabled
+        {
+            currentPid := Client.PID
+            StopClient()
+            if currentPid && ProcessExist(currentPid)
+                try ProcessClose(currentPid)
+        }
+        else if gamePid
+            try ProcessClose(gamePid)
+
+        Sleep(500)
+        LogLauncherEvent("GAME | User approved Daily Login; existing TES3MP session closed.")
+    }
 
     LogLauncherEvent("GAME | Daily Login countdown reached zero; starting scheduled login.")
     if !StartScheduledDailyLogin()
@@ -328,7 +357,7 @@ StartScheduledDailyLogin()
     return true
 }
 
-CancelScheduledDailyLoginForToday()
+CancelScheduledDailyLoginForToday(reason := "game was closed")
 {
     global DailyLoginLastRunDate, DailyLoginScheduleDue, DataFile, AppDataDirectory
     today := FormatTime(, "yyyy-MM-dd")
@@ -336,7 +365,7 @@ CancelScheduledDailyLoginForToday()
     DailyLoginScheduleDue := false
     DirCreate(AppDataDirectory)
     IniWrite(today, DataFile, "DailyLogin", "LastRunDate")
-    LogLauncherEvent("GAME | Scheduled Daily Login cancelled for today after game was closed.")
+    LogLauncherEvent("GAME | Scheduled Daily Login cancelled for today | Reason: " reason ".")
     RefreshDailyLoginButton()
 }
 
