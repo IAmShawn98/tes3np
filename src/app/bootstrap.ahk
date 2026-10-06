@@ -129,14 +129,21 @@ ApplyLauncherControlScale()
 ShowLauncherWindow(*)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode
-    if LauncherScaleMode = "Auto"
-        LauncherScale := GetAutomaticLauncherScale()
-    PrepareWindowDisplay(LauncherGui)
+    ; Returning from a child window should never expose a blank/transparent
+    ; launcher while its scale and themed controls are being restored. Show the
+    ; existing launcher immediately behind a loading cover, do the expensive
+    ; resize/repaint work, then reveal the completed page.
     LauncherGui.Show("w960 h716")
-    ApplyLauncherScaleToWindow()
-    ApplyLauncherControlScale()
-    CenterLauncherWithoutResizing()
-    RevealWindowDisplay(LauncherGui)
+    BeginInterfaceUpdate(LauncherGui, "Returning to launcher...", true)
+    try
+    {
+        if LauncherScaleMode = "Auto"
+            LauncherScale := GetAutomaticLauncherScale()
+        ApplyLauncherScaleToWindow()
+        ApplyLauncherControlScale()
+        CenterLauncherWithoutResizing()
+    }
+    finally EndInterfaceUpdate()
 }
 
 ShowStartupChoice()
