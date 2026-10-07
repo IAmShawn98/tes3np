@@ -531,7 +531,7 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(11) " c382314", "Segoe UI")
     readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
     readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
-    readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
+    readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
@@ -571,6 +571,13 @@ CloseLauncherSettingsV016(settings, *)
 V016CheckLabel(state, label)
 {
     return (state ? "☑" : "☐") "  " label
+}
+
+ToggleV016ReadabilityControl(control, *)
+{
+    global V016ReadabilityState
+    V016ReadabilityState := !V016ReadabilityState
+    UpdateV016ReadabilityLabel(control, V016ReadabilityState)
 }
 
 ToggleV016ReadabilityParts(*)
