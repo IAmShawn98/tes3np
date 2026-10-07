@@ -325,6 +325,32 @@ MagicCardsGlyphSourceRect(glyph, atlasWidth, atlasHeight)
 }
 
 
+MagicCardsWrapText(text, maxWidth, fontHeight)
+{
+    global LauncherMagicCardsData
+    if !IsObject(LauncherMagicCardsData)
+        return [text]
+
+    scale := fontHeight / LauncherMagicCardsData.FontSize
+    words := StrSplit(text, " ")
+    lines := []
+    line := ""
+    for word in words
+    {
+        candidate := line = "" ? word : line " " word
+        if line != "" && MagicCardsMeasureText(candidate, scale) > maxWidth
+        {
+            lines.Push(line)
+            line := word
+        }
+        else
+            line := candidate
+    }
+    if line != ""
+        lines.Push(line)
+    return lines.Length ? lines : [""]
+}
+
 MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, center := false)
 {
     ; Render the vanilla bitmap glyphs into a 32-bit DIB that an AHK Picture
@@ -338,11 +364,23 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
 
     stride := width * 4
     out := Buffer(stride * height, 0)
-    runWidth := MagicCardsMeasureText(text, fontHeight / LauncherMagicCardsData.FontSize)
-    penX := center ? Max(0, Floor((width - runWidth) / 2)) : 0
-    run := MagicCardsGlyphRun(text, penX, 0, fontHeight)
-    if !IsObject(run)
-        return false
+    scale := fontHeight / LauncherMagicCardsData.FontSize
+    lines := MagicCardsWrapText(text, width, fontHeight)
+    lineHeight := Max(1, Round(fontHeight * 1.15))
+    run := []
+    lineY := 0
+    for line in lines
+    {
+        if lineY >= height
+            break
+        runWidth := MagicCardsMeasureText(line, scale)
+        penX := center ? Max(0, Floor((width - runWidth) / 2)) : 0
+        lineRun := MagicCardsGlyphRun(line, penX, lineY, fontHeight)
+        if IsObject(lineRun)
+            for item in lineRun
+                run.Push(item)
+        lineY += lineHeight
+    }
 
     for item in run
     {
@@ -370,9 +408,10 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
                 if alpha = 0
                     continue
                 dstOff := (py * width + px) * 4
-                NumPut("UChar", (color >> 16) & 0xFF, out, dstOff)
+                ; Windows 32-bit DIB pixels are BGRA.
+                NumPut("UChar", color & 0xFF, out, dstOff)
                 NumPut("UChar", (color >> 8) & 0xFF, out, dstOff + 1)
-                NumPut("UChar", color & 0xFF, out, dstOff + 2)
+                NumPut("UChar", (color >> 16) & 0xFF, out, dstOff + 2)
                 NumPut("UChar", alpha, out, dstOff + 3)
             }
         }
