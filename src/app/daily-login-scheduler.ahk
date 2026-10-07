@@ -140,7 +140,7 @@ OpenScheduledEventsBook(*)
     global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
     global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls
     global DataTransferButton, CharacterLimitNotice, ScheduledEventsBookControls, ScheduledEventsBookRows
-    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey, ScheduledEventsBookCharacterHeadingText
+    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey, CharacterHeading
 
     if !IsObject(CharacterPage)
         return
@@ -150,19 +150,7 @@ OpenScheduledEventsBook(*)
 
     ; Hide the normal character-book content while preserving it for Back.
     ; Reuse the existing left heading instead of drawing another heading over it.
-    ScheduledEventsBookCharacterHeadingText := "Your Characters"
-    try {
-        ; The first text control after the drag strip is the persistent left-page heading.
-        for control in CharacterPage
-        {
-            if control.Type = "Text" && control.Text = "Your Characters"
-            {
-                control.Text := "Schedule Event"
-                ScheduledEventsBookCharacterHeadingText := control
-                break
-            }
-        }
-    }
+    CharacterHeading.Text := "Schedule Event"
     CharacterDescription.Visible := false
     AddCharacterButton.Visible := false
     WipeCharacterButton.Visible := false
@@ -297,7 +285,7 @@ CloseScheduledEventsBook(*)
     global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
     global CharacterRows, CharacterDescription, LaunchSettingsHeading, LaunchSettingsControls
     global AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, DataTransferButton
-    global CharacterLimitNotice, Profiles, ScheduledEventsBookCharacterHeadingText
+    global CharacterLimitNotice, Profiles, CharacterHeading
 
     for control in ScheduledEventsBookControls
         try control.Destroy()
@@ -308,9 +296,7 @@ CloseScheduledEventsBook(*)
     ScheduledEventsBookRows := []
     ScheduledEventsBookMode := false
 
-    if IsObject(ScheduledEventsBookCharacterHeadingText)
-        ScheduledEventsBookCharacterHeadingText.Text := "Your Characters"
-    ScheduledEventsBookCharacterHeadingText := ""
+    CharacterHeading.Text := "Your Characters"
     LaunchSettingsHeading.Text := "Launch Settings"
     for control in LaunchSettingsControls
         control.Visible := true
