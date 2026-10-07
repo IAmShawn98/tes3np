@@ -76,11 +76,12 @@ global LauncherMorrowindFontPath := ""
 global LauncherMorrowindFontLoaded := false
 global LauncherMagicCardsFnt := ""
 global LauncherMagicCardsTex := ""
+global LauncherMagicCardsData := false
 
 InitializeLauncherMorrowindFont()
 {
     global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
-    global LauncherMagicCardsFnt, LauncherMagicCardsTex
+    global LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
 
     ; Do not substitute MysticCards/Georgia and call it the Morrowind journal font.
     ; Vanilla Morrowind's journal uses its own Magic_Cards_Regular bitmap glyphs.
@@ -89,12 +90,14 @@ InitializeLauncherMorrowindFont()
     LauncherMorrowindFontLoaded := false
     LauncherMagicCardsFnt := ""
     LauncherMagicCardsTex := ""
+    LauncherMagicCardsData := false
 
     fontPair := FindVanillaMagicCardsFont()
     if IsObject(fontPair)
     {
         LauncherMagicCardsFnt := fontPair.Fnt
         LauncherMagicCardsTex := fontPair.Tex
+        LauncherMagicCardsData := LoadMagicCardsBitmapFont(fontPair.Fnt)
     }
 }
 
@@ -199,12 +202,60 @@ LoadMagicCardsBitmapFont(fntPath)
     return false
 }
 
+
+MagicCardsMeasureText(text, scale := 1.0)
+{
+    global LauncherMagicCardsData
+    if !IsObject(LauncherMagicCardsData)
+        return 0
+    width := 0.0
+    Loop Parse text
+    {
+        code := Ord(A_LoopField)
+        if code < 0 || code > 255
+            code := 63
+        width += LauncherMagicCardsData.Glyphs[code + 1].Width * scale
+    }
+    return Round(width)
+}
+
+MagicCardsGlyphRun(text, x, y, height)
+{
+    ; Produce exact per-glyph layout from the vanilla metrics. Keeping this
+    ; independent of AHK's text controls prevents Windows font fallback from
+    ; changing the journal lettering.
+    global LauncherMagicCardsData
+    if !IsObject(LauncherMagicCardsData) || LauncherMagicCardsData.FontSize <= 0
+        return false
+    scale := height / LauncherMagicCardsData.FontSize
+    penX := x
+    run := []
+    Loop Parse text
+    {
+        code := Ord(A_LoopField)
+        if code < 0 || code > 255
+            code := 63
+        glyph := LauncherMagicCardsData.Glyphs[code + 1]
+        advance := glyph.Width * scale
+        run.Push({
+            Code: code, X: penX, Y: y, Height: height, Advance: advance,
+            TopLeftX: glyph.TopLeftX, TopLeftY: glyph.TopLeftY,
+            TopRightX: glyph.TopRightX, TopRightY: glyph.TopRightY,
+            BottomLeftX: glyph.BottomLeftX, BottomLeftY: glyph.BottomLeftY,
+            BottomRightX: glyph.BottomRightX, BottomRightY: glyph.BottomRightY
+        })
+        penX += advance
+    }
+    return run
+}
+
 ReleaseLauncherMorrowindFont()
 {
-    global LauncherMorrowindFontLoaded, LauncherMagicCardsFnt, LauncherMagicCardsTex
+    global LauncherMorrowindFontLoaded, LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
     LauncherMorrowindFontLoaded := false
     LauncherMagicCardsFnt := ""
     LauncherMagicCardsTex := ""
+    LauncherMagicCardsData := false
 }
 
 OpenLauncherSettingsV016(*)
