@@ -180,13 +180,11 @@ ReleaseInterfaceFrame()
 
 ReleaseCapturedInterfaceFrame(frame)
 {
-    global ButtonFaces, ButtonPaintCallback
     if !IsObject(frame)
         return
     if IsObject(frame.Panel)
     {
-        DllCall("comctl32\RemoveWindowSubclass", "Ptr", frame.Panel.Hwnd, "Ptr", ButtonPaintCallback, "UPtr", 1)
-        ButtonFaces.Delete(frame.Panel.Hwnd)
+        DestroyBookControl(frame.Panel)
         frame.Card.Destroy()
         frame.Dim.Destroy()
     }
