@@ -322,36 +322,30 @@ ToggleScheduledEventFromBook(index, *)
 
 CloseScheduledEventsBook(*)
 {
-    global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
-    global CharacterRows, CharacterDescription, LaunchSettingsHeading, LaunchSettingsControls
-    global AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, DataTransferButton
-    global CharacterLimitNotice, Profiles, CharacterHeading, LaunchCharacterButton, SessionStatus, ScheduledEventsBookHiddenControls
+    global CharacterPage, ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
 
+    ; Destroy the temporary scheduler view, then rebuild the Character Book from
+    ; scratch. Reusing the same transparent AHK controls leaves stale pixels and
+    ; painted button faces behind on this textured background.
+    ScheduledEventsBookMode := false
     for control in ScheduledEventsBookControls
         try control.Destroy()
     for row in ScheduledEventsBookRows
         for control in row
             try control.Destroy()
-    ; Repaint once after the page state has been completely restored.
     ScheduledEventsBookControls := []
     ScheduledEventsBookRows := []
-    ScheduledEventsBookMode := false
 
-    CharacterHeading.Text := "Your Characters"
-    LaunchSettingsHeading.Text := "Launch Settings"
-    ; Restore the exact pre-scheduler visibility state, then let RefreshProfiles
-    ; update character-dependent controls. This also restores painted button faces.
-    for control in ScheduledEventsBookHiddenControls
-        SetBookControlVisible(control, true)
-    ScheduledEventsBookHiddenControls := []
-    LaunchCharacterButton.Visible := false
-    SessionStatus.Visible := false
-    RefreshProfiles()
-    ; The scheduler page uses transparent text over the parchment. After those
-    ; controls are destroyed, paint the fully restored Characters page on the
-    ; next UI tick; otherwise Windows can leave scheduler glyphs/button faces
-    ; cached over the restored controls until the window is resized.
-    SetTimer(PaintCharactersBook, -1)
+    try CharacterPage.Destroy()
+    CharacterPage := 0
+    SetTimer(ReopenCharacterBookAfterScheduler, -1)
+}
+
+ReopenCharacterBookAfterScheduler()
+{
+    ; ShowCharacterPage creates a clean book/control tree with the current
+    ; profiles, launch settings and scheduler state.
+    ShowCharacterPage()
 }
 
 PaintCharactersBook()
