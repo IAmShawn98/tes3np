@@ -243,7 +243,7 @@ BuildScheduledEventsBookRows()
             try control.Destroy()
         }
     ScheduledEventsBookRows := []
-    try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+    try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", false)
 
     y := 100
     if !ScheduledEvents.Length
@@ -251,7 +251,6 @@ BuildScheduledEventsBookRows()
         CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
         empty := CharacterPage.Add("Text", "x525 y110 w360 h50 Center BackgroundTrans", "No scheduled events yet.")
         ScheduledEventsBookRows.Push([empty])
-        PaintScheduledEventsBook()
         return
     }
 
@@ -280,7 +279,6 @@ BuildScheduledEventsBookRows()
         ScheduledEventsBookRows.Push([nameLabel, detailLabel, edit, del, start])
         y += 102
     }
-    PaintScheduledEventsBook()
 }
 
 RefreshScheduledEventsBook()
@@ -405,7 +403,7 @@ CloseScheduledEventsBook(*)
         ApplyV016CharacterLayout()
         ; Clear pixels left by the scheduler's transparent text before the
         ; loading cover is released, then paint the restored character page.
-        try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+        try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", false)
         FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
@@ -472,7 +470,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
         }
     ScheduledEventsBookRows := []
     ; Erase the old event-list pixels before placing editor controls.
-    try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+    try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", false)
 
     CharacterPage.SetFont("s11 Bold c241408", LauncherMorrowindFont)
     nameLabel := CharacterPage.Add("Text", "x525 y95 w330 h22 BackgroundTrans", "Event name")
@@ -520,8 +518,6 @@ OpenScheduledEventBookEditor(eventIndex := 0)
 
     ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringTick, recurringLabel, hourLabel, minuteLabel, thirdLabel,
         hourEdit, minuteEdit, clockMode, secondEdit, meridiem, save, cancel]]
-    FinishButtonDisplay()
-    PaintScheduledEventsBook()
     }
     finally EndInterfaceUpdate()
 }
