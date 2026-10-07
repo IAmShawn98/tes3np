@@ -194,13 +194,6 @@ EditVisibleProfile(position, *)
     EditProfile((CharacterListPage - 1) * 10 + position)
 }
 
-ChangeCharacterPage(direction, *)
-{
-    global CharacterListPage
-    CharacterListPage += direction
-    RefreshProfiles()
-}
-
 ChooseProfile(position, control, *)
 {
     global SelectedProfile, CharacterListPage
