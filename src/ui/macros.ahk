@@ -162,10 +162,12 @@ CheckMacroImport()
     global MacroImport, MacroImportButton, MacroStatus
     if !IsObject(MacroImport)
         return
+    timedOut := false
     if ProcessExist(MacroImport.PID)
     {
         if A_TickCount - MacroImport.Started < 120000
             return
+        timedOut := true
         try ProcessClose(MacroImport.PID)
     }
     SetTimer(CheckMacroImport, 0)
@@ -173,8 +175,10 @@ CheckMacroImport()
     MacroImport := 0
     try
     {
+        if timedOut
+            throw Error("ZIP extraction timed out after 120 seconds.")
         if !FileExist(pending.Folder "\.import-success") || FileExist(pending.Folder "\.import-error")
-            {
+        {
             detail := FileExist(pending.Folder "\.import-error") ? SubStr(FileRead(pending.Folder "\.import-error", "UTF-8"), 1, 200) : "ZIP extraction helper did not complete. Check that scripts/import-macro.ps1 is present and PowerShell can run."
             throw Error(detail)
         }
