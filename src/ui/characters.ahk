@@ -114,7 +114,10 @@ RefreshProfiles()
         ; refinement creates Daily Login after this window is built, so refreshes
         ; (including Import Data) must preserve that layout instead of restoring
         ; the older button positions.
-        actionY := Profiles.Length ? 455 : 185
+        ; Match the canonical v0.1.16 character-book action layout after every
+        ; refresh/import. Import previously restored an older Y-position set,
+        ; making the three left-page buttons jump upward until the page reopened.
+        actionY := Profiles.Length ? 505 : 185
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         CharacterDescription.Move(70, 80, 390, Profiles.Length ? 165 : 90)
         ; Individual characters already have Play buttons in their rows. Keep the
@@ -135,9 +138,9 @@ RefreshProfiles()
             if IsObject(V016DailyLoginControls) && V016DailyLoginControls.Length
             {
                 dailyButton := V016DailyLoginControls[1]
-                MoveStyledButton(dailyButton, 70, 490, 370, 30)
+                MoveStyledButton(dailyButton, 70, 540, 370, 30)
             }
-            MoveStyledButton(WipeCharacterButton, 70, 525, 370, 30)
+            MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
         }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
