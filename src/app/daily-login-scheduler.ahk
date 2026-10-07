@@ -200,8 +200,8 @@ OpenScheduledEventsBook(*)
     LaunchSettingsHeading.Text := "Scheduled Events"
 
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
-    description := CharacterPage.Add("Text", "x70 y90 w370 h120 BackgroundTrans",
-        "Need a reminder for a boss spawn or timed in-game event? Add a timed event or countdown, then press 'Start' or use a hotkey in-game to begin it at the exact moment you need. The launcher will remind you when it's due!")
+    description := CharacterPage.Add("Text", "x70 y90 w370 h105 BackgroundTrans",
+        "Need a reminder for boss spawns, timed quests, or daily login points? Schedule countdowns, reminders, and automatic character logins. Start events manually or with an in-game hotkey. The scheduler will alert you while the launcher is open and show any missed events the next time you launch it.")
 
     add := AddStyledButton(CharacterPage, 70, 180, 370, 30, "Schedule New Event", (*) => OpenScheduledEventEditor(CharacterPage))
     hotkey := AddStyledButton(CharacterPage, 70, 215, 370, 30, "Hotkey: " DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey), (*) => EditScheduledCountdownHotkey(hotkey))
