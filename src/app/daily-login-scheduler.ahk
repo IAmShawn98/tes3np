@@ -264,14 +264,18 @@ BuildScheduledEventsBookRows()
             ? FormatDailyLoginCountdown(event.DurationSeconds)
             : FormatScheduledEventTime(event.Time)
         statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
-        label := CharacterPage.Add("Text", "x525 y" y " w205 h48 BackgroundTrans",
+        ; Give the event text the full row width and keep actions on their own
+        ; line below it. The old 205px label could disappear behind the custom
+        ; button faces, leaving only Edit/Delete/Start visible.
+        label := CharacterPage.Add("Text", "x525 y" y " w355 h42 BackgroundTrans",
             event.Name "`n" modeText "  •  " statusText)
-        edit := AddStyledButton(CharacterPage, 735, y + 4, 70, 26, "Edit", EditScheduledEventFromBook.Bind(index))
-        del := AddStyledButton(CharacterPage, 810, y + 4, 70, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
-        start := AddStyledButton(CharacterPage, 735, y + 32, 145, 24, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
+        edit := AddStyledButton(CharacterPage, 525, y + 44, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
+        del := AddStyledButton(CharacterPage, 635, y + 44, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
+        start := AddStyledButton(CharacterPage, 745, y + 44, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
         ScheduledEventsBookRows.Push([label, edit, del, start])
-        y += 66
+        y += 82
     }
+    PaintScheduledEventsBook()
 }
 
 RefreshScheduledEventsBook()
