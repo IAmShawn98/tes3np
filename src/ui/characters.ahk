@@ -25,7 +25,7 @@ OpenCharacterPage(*)
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w370 h108 BackgroundTrans", "")
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w370 h140 BackgroundTrans", "")
     CharacterDescriptionMagic := false
     Loop 10
     {
@@ -116,7 +116,7 @@ RefreshProfiles()
         ; the older button positions.
         actionY := Profiles.Length ? 455 : 185
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        CharacterDescription.Move(70, 80, 370, Profiles.Length ? 108 : 90)
+        CharacterDescription.Move(70, 80, 370, Profiles.Length ? 140 : 90)
         ; Individual characters already have Play buttons in their rows. Keep the
         ; legacy full-width Launch Character button hidden; showing it here after
         ; an import overlaps Daily Login and the action stack.
