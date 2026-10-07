@@ -645,24 +645,46 @@ DisplayScheduledCountdownHotkey(key)
 EditScheduledCountdownHotkey(button, *)
 {
     global ScheduledCountdownHotkey, DataFile
+    picker := Gui("+Owner" ScheduledEventsWindow.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Countdown Hotkey")
+    picker.BackColor := "E2CEA2"
+    picker.SetFont("s10 Bold c382314", "Segoe UI")
+    picker.Add("Text", "x20 y18 w330 h22", "Press the key you want to use")
+    picker.SetFont("s9 c382314", "Segoe UI")
+    picker.Add("Text", "x20 y46 w330 h36", "Click the box below, then press any key, including F1–F24.")
+    keyControl := picker.Add("Hotkey", "x20 y88 w330 h30")
     currentKey := DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey)
-    result := InputBox("Enter any AutoHotkey key name to start an armed countdown while you are in-game. Examples: F1, F8, F12, J, Space, Numpad1", "Countdown Hotkey",, currentKey)
-    if result.Result != "OK" || Trim(result.Value) = ""
+    try keyControl.Value := currentKey
+    save := picker.Add("Button", "x20 y134 w158 h34 Default", "Save Hotkey")
+    cancel := picker.Add("Button", "x192 y134 w158 h34", "Cancel")
+    save.OnEvent("Click", SaveScheduledCountdownHotkey.Bind(picker, keyControl, button))
+    cancel.OnEvent("Click", (*) => picker.Destroy())
+    picker.OnEvent("Escape", (*) => picker.Destroy())
+    picker.Show("w370 h188")
+}
+
+SaveScheduledCountdownHotkey(picker, keyControl, button, *)
+{
+    global ScheduledCountdownHotkey, DataFile
+    cleanKey := Trim(keyControl.Value)
+    if cleanKey = ""
+    {
+        MsgBox("Press a key first.", "tes3np")
         return
-    newKey := NormalizeScheduledCountdownHotkey(result.Value)
+    }
+    newKey := NormalizeScheduledCountdownHotkey(cleanKey)
     oldKey := ScheduledCountdownHotkey
     try Hotkey(oldKey, "Off")
     try Hotkey(newKey, StartArmedScheduledCountdown, "On")
     catch
     {
         try Hotkey(oldKey, StartArmedScheduledCountdown, "On")
-        MsgBox("That key is not a valid AutoHotkey key name.", "tes3np")
+        MsgBox("That key could not be registered.", "tes3np")
         return
     }
     ScheduledCountdownHotkey := newKey
-    cleanKey := DisplayScheduledCountdownHotkey(newKey)
-    IniWrite(cleanKey, DataFile, "ScheduledEvents", "CountdownHotkey")
-    button.Text := "Hotkey: " cleanKey
+    IniWrite(DisplayScheduledCountdownHotkey(newKey), DataFile, "ScheduledEvents", "CountdownHotkey")
+    button.Text := "Hotkey: " DisplayScheduledCountdownHotkey(newKey)
+    picker.Destroy()
 }
 
 ArmSelectedScheduledCountdown(*)
