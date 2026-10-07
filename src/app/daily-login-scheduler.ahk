@@ -259,9 +259,11 @@ BuildScheduledEventsBookRows()
     {
         if index > 7
             break
-        modeText := event.HasOwnProp("Mode") && event.Mode = "Countdown"
-            ? FormatDailyLoginCountdown(event.DurationSeconds)
-            : FormatScheduledEventTime(event.Time)
+        modeText := event.StartedAt != ""
+            ? FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event))
+            : (event.HasOwnProp("Mode") && event.Mode = "Countdown"
+                ? FormatDailyLoginCountdown(event.DurationSeconds)
+                : FormatScheduledEventTime(event.Time))
         statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
         ; Use a clear title/details hierarchy instead of packing everything into
         ; one small text control.
@@ -750,6 +752,7 @@ UpdateDailyLoginCountdown(*)
 {
     CheckDailyLoginSchedule()
     RefreshScheduledEventsList()
+    RefreshScheduledEventsBook()
 }
 
 GetScheduledEventRawRemaining(time, timeBasis := "IRL")
@@ -1114,6 +1117,7 @@ StartArmedScheduledCountdown(*)
 
     SaveScheduledEvents()
     RefreshScheduledEventsList()
+    RefreshScheduledEventsBook()
     TrayTip("Event started", "'" event.Name "' is now running and locked.", "Iconi")
 }
 
