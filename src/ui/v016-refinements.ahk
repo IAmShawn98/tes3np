@@ -412,8 +412,10 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
                 srcG := NumGet(atlas.Pixels, srcOff + 1, "UChar")
                 srcB := NumGet(atlas.Pixels, srcOff + 2, "UChar")
                 alpha := NumGet(atlas.Pixels, srcOff + 3, "UChar")
-                coverage := Round(((srcR + srcG + srcB) / 3) * alpha / 255)
-                if coverage < 24
+                ; In the vanilla TEX atlas RGB is the glyph artwork/color, while
+                ; alpha is its coverage. Do not multiply RGB brightness into the
+                ; mask: that was selectively erasing the lighter/brown glyphs.
+                if alpha < 24
                     continue
                 dstOff := (py * width + px) * 4
                 ; Keep accepted glyph pixels opaque for strong parchment contrast,
