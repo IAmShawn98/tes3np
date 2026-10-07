@@ -1,17 +1,13 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
 BuildFrontPage()
 {
-    global LauncherGui, DragStrip, LauncherHeading, NPClockLabel
+    global LauncherGui, DragStrip, LauncherHeading
     global ButtonFaces, HoverButton, PressedButton
     ButtonFaces := Map()
     LauncherGui.Opt("+OwnDialogs")
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
     DragStrip := LauncherGui.Add("Text", "x0 y0 w960 h48 BackgroundTrans +0x100")
-    LauncherGui.SetFont("s10 Bold cC5A45C", "Segoe UI")
-    NPClockLabel := LauncherGui.Add("Text", "x18 y8 w150 h24 BackgroundTrans", "")
-    UpdateNPClockLabel()
-    SetTimer(UpdateNPClockLabel, 1000)
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
