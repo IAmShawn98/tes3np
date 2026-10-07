@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces
+    global CharacterPage, LauncherGui, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces
     if IsObject(CharacterPage)
     {
         PrepareWindowDisplay(CharacterPage)
@@ -26,6 +26,7 @@ OpenCharacterPage(*)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w370 h108 BackgroundTrans", "")
+    CharacterDescriptionMagic := false
     Loop 10
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
@@ -76,7 +77,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice, V016DailyLoginControls
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice, V016DailyLoginControls
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -98,9 +99,14 @@ RefreshProfiles()
                 SetBookTick(controls.Tick, SelectedProfile = index)
             }
         }
-        CharacterDescription.Text := Profiles.Length
+        descriptionText := Profiles.Length
             ? "Here is a list of all your Nerevarine Prophecies characters. Click the checkmark next to any character name to favorite it for the games quick launch feature. You can freely add, update, and delete your characters from the launcher. This will NOT delete your characters in-game!"
             : "This will be a list of all your Nerevarine Prophecies characters. You will be able to add, edit and launch your characters from here."
+        CharacterDescription.Text := descriptionText
+        if IsObject(CharacterDescriptionMagic)
+            CharacterDescriptionMagic.Visible := false
+        CharacterDescriptionMagic := AddMagicCardsText(CharacterPage, 70, 80, 370, Profiles.Length ? 108 : 90, descriptionText, 17, 0xFF241408)
+        CharacterDescription.Visible := !IsObject(CharacterDescriptionMagic)
         ; Keep the character action stack in one canonical layout. The v0.1.16
         ; refinement creates Daily Login after this window is built, so refreshes
         ; (including Import Data) must preserve that layout instead of restoring
