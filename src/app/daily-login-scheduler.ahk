@@ -154,7 +154,7 @@ SetBookControlVisible(control, visible)
 
 OpenScheduledEventsBook(*)
 {
-    BeginInterfaceUpdate(CharacterPage, "Loading scheduled events...", false)
+    BeginInterfaceUpdate(CharacterPage, "Loading scheduled events...", true)
     try
     {
     global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
@@ -329,7 +329,7 @@ CloseScheduledEventsBook(*)
 {
     global CharacterPage, ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows, CharacterHeading, LaunchSettingsHeading, ScheduledEventsBookHiddenControls
 
-    BeginInterfaceUpdate(CharacterPage, "Loading characters...", false)
+    BeginInterfaceUpdate(CharacterPage, "Loading characters...", true)
     try
     {
         ScheduledEventsBookMode := false
