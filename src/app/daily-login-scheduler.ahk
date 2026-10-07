@@ -700,7 +700,10 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         MsgBox("Choose at least one character for Log In Up to 4 Chars.", "tes3np")
         return
     }
-    loginProfiles := loginAction = "LoginUpTo4" ? loginProfilesState.Value : ""
+    ; Preserve the Up-to-4 character selection even when another action is
+    ; chosen. Switching the dropdown should change behavior, not erase that
+    ; option's saved configuration.
+    loginProfiles := loginProfilesState.Value
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
