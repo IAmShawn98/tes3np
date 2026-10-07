@@ -11,6 +11,7 @@ global ScheduledCountdownArmedEventId := ""
 global ScheduledEventsBookControls := []
 global ScheduledEventsBookRows := []
 global ScheduledEventsBookMode := false
+global ScheduledEventsBookHiddenControls := []
 global ScheduledEventsBookCharacterHeadingText := ""
 
 
@@ -135,12 +136,20 @@ OpenScheduledEventsMenu(owner := 0, *)
     OpenScheduledEventsBook()
 }
 
+SetBookControlVisible(control, visible)
+{
+    global ButtonFaces
+    try control.Visible := visible
+    try if ButtonFaces.Has(control.Hwnd)
+        ButtonFaces[control.Hwnd].Control.Visible := visible
+}
+
 OpenScheduledEventsBook(*)
 {
     global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
     global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, LaunchCharacterButton, SessionStatus
     global DataTransferButton, CharacterLimitNotice, ScheduledEventsBookControls, ScheduledEventsBookRows
-    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey, CharacterHeading
+    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey, CharacterHeading, ScheduledEventsBookHiddenControls
 
     if !IsObject(CharacterPage)
         return
@@ -151,26 +160,30 @@ OpenScheduledEventsBook(*)
     ; Hide the normal character-book content while preserving it for Back.
     ; Reuse the existing left heading instead of drawing another heading over it.
     CharacterHeading.Text := "Schedule Event"
-    CharacterDescription.Visible := false
-    LaunchCharacterButton.Visible := false
-    SessionStatus.Visible := false
-    AddCharacterButton.Visible := false
-    WipeCharacterButton.Visible := false
-    DataTransferButton.Visible := false
-    CharacterLimitNotice.Visible := false
-    for row in CharacterRows
-    {
-        row.Tick.Visible := false
-        row.Name.Visible := false
-        row.Play.Visible := false
-        row.Edit.Visible := false
-        row.Remove.Visible := false
+    ScheduledEventsBookHiddenControls := []
+    HideForSchedule(control) {
+        global ScheduledEventsBookHiddenControls
+        try if control.Visible {
+            ScheduledEventsBookHiddenControls.Push(control)
+            SetBookControlVisible(control, false)
+        }
+    }
+    HideForSchedule(CharacterDescription)
+    HideForSchedule(LaunchCharacterButton)
+    HideForSchedule(SessionStatus)
+    HideForSchedule(AddCharacterButton)
+    HideForSchedule(WipeCharacterButton)
+    HideForSchedule(DataTransferButton)
+    HideForSchedule(CharacterLimitNotice)
+    for row in CharacterRows {
+        HideForSchedule(row.Tick), HideForSchedule(row.Name), HideForSchedule(row.Play)
+        HideForSchedule(row.Edit), HideForSchedule(row.Remove)
     }
     if IsObject(V016DailyLoginControls)
         for control in V016DailyLoginControls
-            control.Visible := false
+            HideForSchedule(control)
     for control in LaunchSettingsControls
-        control.Visible := false
+        HideForSchedule(control)
 
     ; Reuse the existing right heading too.
     LaunchSettingsHeading.Text := "Scheduled Events"
