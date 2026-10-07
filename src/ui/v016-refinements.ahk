@@ -469,7 +469,12 @@ AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center
         }
         return false
     }
-    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
+    try
+        pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
+    finally
+        ; The Picture control copies the supplied HBITMAP. The temporary bitmap
+        ; returned by the vanilla-font renderer remains ours and must be released.
+        DllCall("DeleteObject", "Ptr", hbm)
     return pic
 }
 
