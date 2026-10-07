@@ -241,7 +241,8 @@ BuildScheduledEventsBookRows()
         ; one small text control.
         ; Event rows need stronger hierarchy/contrast than the surrounding
         ; parchment copy: larger title and larger bold timer/status.
-        CharacterPage.SetFont("s15 Bold c120900", LauncherMorrowindFont)
+        nameColor := event.StartedAt != "" ? "3F6B3A" : "315A7D"
+        CharacterPage.SetFont("s15 Bold c" nameColor, LauncherMorrowindFont)
         nameLabel := CharacterPage.Add("Text", "x525 y" y " w355 h28 BackgroundTrans", event.Name)
         CharacterPage.SetFont("s12 Bold c120900", LauncherMorrowindFont)
         detailLabel := CharacterPage.Add("Text", "x525 y" (y + 30) " w355 h24 BackgroundTrans",
@@ -332,7 +333,7 @@ UpdateScheduledEventBookRow(index)
     if index < 1 || index > ScheduledEvents.Length || index > ScheduledEventsBookRows.Length
         return
     row := ScheduledEventsBookRows[index]
-    if row.Length < 5
+    if row.Length != 5
         return
     event := ScheduledEvents[index]
     modeText := event.StartedAt != ""
@@ -342,6 +343,7 @@ UpdateScheduledEventBookRow(index)
             : FormatScheduledEventTime(event.Time))
     statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
     try row[2].Text := modeText " • " statusText
+    try row[1].SetFont("c" (event.StartedAt != "" ? "3F6B3A" : "315A7D"))
     try
     {
         row[5].Text := event.StartedAt != "" ? "Stop Event" : "Start Event"
