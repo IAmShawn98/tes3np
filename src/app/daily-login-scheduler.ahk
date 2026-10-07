@@ -719,9 +719,8 @@ RefreshScheduledEventLockButton(button)
     }
     event := ScheduledEvents[row]
     modeName := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "Specific Time (IRL)"
-    armed := ScheduledEventArmedIds.Has(event.Id)
     running := event.StartedAt != "" && event.HasOwnProp("Locked") && event.Locked
-    button.Text := running || armed ? "Stop " modeName : "Start " modeName
+    button.Text := running ? "Stop " modeName : "Start " modeName
 }
 
 ToggleSelectedScheduledEventLock(button, *)
@@ -735,12 +734,11 @@ ToggleSelectedScheduledEventLock(button, *)
     }
     event := ScheduledEvents[row]
     modeName := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "Specific Time (IRL)"
-    armed := ScheduledEventArmedIds.Has(event.Id)
     running := event.StartedAt != "" && event.HasOwnProp("Locked") && event.Locked
 
-    if running || armed
+    if running
     {
-        ; Stop completely disarms/resets this event.
+        ; Stop the captured timer and require Start before another hotkey can be used.
         if ScheduledEventArmedIds.Has(event.Id)
             ScheduledEventArmedIds.Delete(event.Id)
         if ScheduledCountdownArmedEventId = event.Id
@@ -752,13 +750,14 @@ ToggleSelectedScheduledEventLock(button, *)
     }
     else
     {
-        ; Start only arms it. Nothing ticks until the in-game hotkey is pressed.
+        ; Start means "wait for my hotkey". The clock remains frozen until then.
         event.Locked := false
         event.StartedAt := ""
         event.Due := false
         event.Completed := false
         ScheduledEventArmedIds[event.Id] := true
         ScheduledCountdownArmedEventId := event.Id
+        TrayTip("Waiting for hotkey", "'" event.Name "' will start when you press the configured hotkey in-game.", "Iconi")
     }
 
     SaveScheduledEvents()
@@ -794,6 +793,8 @@ StartArmedScheduledCountdown(*)
         event.PreviousRemaining := event.DurationSeconds
     else
         event.PreviousRemaining := GetScheduledEventRawRemaining(event.Time, "IRL")
+    if ScheduledEventArmedIds.Has(event.Id)
+        ScheduledEventArmedIds.Delete(event.Id)
     ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
     RefreshScheduledEventsList()
