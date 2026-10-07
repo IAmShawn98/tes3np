@@ -98,7 +98,12 @@ InitializeLauncherMorrowindFont()
         LauncherMagicCardsFnt := fontPair.Fnt
         LauncherMagicCardsTex := fontPair.Tex
         LauncherMagicCardsData := LoadMagicCardsBitmapFont(fontPair.Fnt)
+        try LogLauncherEvent("UI | Vanilla journal font found: " fontPair.Fnt)
+        if !IsObject(LauncherMagicCardsData)
+            try LogLauncherEvent("UI | Vanilla journal font parser failed; using fallback text.")
     }
+    else
+        try LogLauncherEvent("UI | Vanilla journal font not found; using fallback text.")
 }
 
 FindVanillaMagicCardsFont()
@@ -122,7 +127,11 @@ FindVanillaMagicCardsFont()
     ; Also check the standard Steam/GOG-style Morrowind locations without
     ; requiring the launcher to redistribute Bethesda's font assets.
     candidates.Push(A_ProgramFiles "\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
-    candidates.Push(A_ProgramFiles " (x86)\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
+    if A_Is64bitOS
+        candidates.Push(EnvGet("ProgramFiles(x86)") "\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
+    candidates.Push(A_ProgramFiles "\\GOG Galaxy\\Games\\Morrowind\\Data Files\\Fonts")
+    if A_Is64bitOS
+        candidates.Push(EnvGet("ProgramFiles(x86)") "\\GOG Galaxy\\Games\\Morrowind\\Data Files\\Fonts")
 
     for dir in candidates
     {
