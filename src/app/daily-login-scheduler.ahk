@@ -416,34 +416,17 @@ CheckDailyLoginSchedule(*)
         gamePid := ProcessExist("tes3mp.exe")
         if Client.Enabled || gamePid
         {
-            LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due while TES3MP is already running; awaiting user choice.")
-            choice := MsgBox("'" event.Name "' is ready, but TES3MP is already running.\n\nLog in for this event now? This will close the current TES3MP session.\n\nChoose No to skip this occurrence.", "Scheduled Event", "YesNo Icon?")
-            if choice != "Yes"
-            {
-                CompleteScheduledEventForToday(event, "cancelled by user")
-                continue
-            }
-            if Client.Enabled
-            {
-                currentPid := Client.PID
-                StopClient()
-                if currentPid && ProcessExist(currentPid)
-                    try ProcessClose(currentPid)
-            }
-            else if gamePid
-                try ProcessClose(gamePid)
-            Sleep(500)
+            LogLauncherEvent("GAME | Scheduled event '" event.Name "' became due while TES3MP was already running; alert suppressed.")
+            CompleteScheduledEventForToday(event, "skipped because game was already running")
+            continue
         }
 
-        if !(Client.Enabled || gamePid)
+        LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; awaiting user choice.")
+        choice := MsgBox("'" event.Name "' is ready.\n\nWould you like to log in for this event now?", "Scheduled Event", "YesNo Icon?")
+        if choice != "Yes"
         {
-            LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; awaiting user choice.")
-            choice := MsgBox("'" event.Name "' is ready.\n\nWould you like to log in for this event now?", "Scheduled Event", "YesNo Icon?")
-            if choice != "Yes"
-            {
-                CompleteScheduledEventForToday(event, "cancelled by user")
-                continue
-            }
+            CompleteScheduledEventForToday(event, "cancelled by user")
+            continue
         }
 
         ActiveScheduledEventId := event.Id
