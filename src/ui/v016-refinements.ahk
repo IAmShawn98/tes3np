@@ -71,9 +71,48 @@ ApplyV016CharacterLayout(*)
     }
 }
 
+global LauncherMorrowindFont := "Georgia"
+global LauncherMorrowindFontPath := ""
+global LauncherMorrowindFontLoaded := false
+
+InitializeLauncherMorrowindFont()
+{
+    global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
+    fontDir := A_ScriptDir "\\assets\\fonts"
+    fontPath := fontDir "\\MysticCards.ttf"
+    LauncherMorrowindFontPath := fontPath
+    if !FileExist(fontPath)
+    {
+        try
+        {
+            DirCreate(fontDir)
+            Download("https://raw.githubusercontent.com/OpenMW/openmw/master/files/data/fonts/MysticCards.ttf", fontPath)
+        }
+    }
+    if FileExist(fontPath)
+    {
+        try
+        {
+            if DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int") > 0
+            {
+                LauncherMorrowindFont := "MysticCards"
+                LauncherMorrowindFontLoaded := true
+            }
+        }
+    }
+}
+
+ReleaseLauncherMorrowindFont()
+{
+    global LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
+    if LauncherMorrowindFontLoaded && LauncherMorrowindFontPath != ""
+        try DllCall("Gdi32.dll\\RemoveFontResourceExW", "Str", LauncherMorrowindFontPath, "UInt", 0x10, "Ptr", 0)
+    LauncherMorrowindFontLoaded := false
+}
+
 OpenLauncherSettingsV016(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility, LauncherMorrowindFont
     global V016SettingsGuiHwnd, V016SettingsScale, V016ReadabilityState, V016FollowWindowsState
 
     ; Launcher Settings is a single modal-style window. If it is already open,
@@ -98,31 +137,31 @@ OpenLauncherSettingsV016(*)
 
     settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
 
-    settings.SetFont("s" V016Font(16) " Bold c241408", "Georgia")
+    settings.SetFont("s" V016Font(16) " Bold c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(76) " w" V016S(448) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
-    settings.SetFont("s" V016Font(11) " Bold c382314", "Georgia")
+    settings.SetFont("s" V016Font(11) " Bold c382314", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
-    settings.SetFont("s" V016Font(12) " c382314", "Georgia")
+    settings.SetFont("s" V016Font(12) " c382314", LauncherMorrowindFont)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
-    settings.SetFont("s" V016Font(10) " Bold c5A4027", "Georgia")
+    settings.SetFont("s" V016Font(10) " Bold c5A4027", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
-    settings.SetFont("s" V016Font(11) " Bold c382314", "Georgia")
+    settings.SetFont("s" V016Font(11) " Bold c382314", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
-    settings.SetFont("s" V016Font(12) " c382314", "Georgia")
+    settings.SetFont("s" V016Font(12) " c382314", LauncherMorrowindFont)
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
-    settings.SetFont("s" V016Font(10) " Bold c5A4027", "Georgia")
+    settings.SetFont("s" V016Font(10) " Bold c5A4027", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    settings.SetFont("s" V016Font(13) " Bold c382314", "Georgia")
+    settings.SetFont("s" V016Font(13) " Bold c382314", LauncherMorrowindFont)
     readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
-    settings.SetFont("s" V016Font(10) " Bold c5A4027", "Georgia")
+    settings.SetFont("s" V016Font(10) " Bold c5A4027", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
