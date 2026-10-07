@@ -84,6 +84,25 @@ PaintButton(wParam, lParam, *)
             return PaintInfoCard(handle, target, width, height)
         if face.HasOwnProp("IsLoading")
             return PaintLoadingPanel(handle, target, width, height)
+        isLabel := face.HasOwnProp("IsLabel")
+        labelText := ""
+        if !face.HasOwnProp("IsTick")
+        {
+            ; Resolve control-backed text before allocating any GDI resources.
+            ; Controls can be destroyed while a queued paint is unwinding.
+            if !DllCall("IsWindow", "Ptr", handle)
+            {
+                ButtonFaces.Delete(handle)
+                return
+            }
+            try labelText := face.Label.Text
+            catch
+            {
+                if ButtonFaces.Has(handle)
+                    ButtonFaces.Delete(handle)
+                return
+            }
+        }
         scale := width / 220
         dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
         bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
@@ -101,7 +120,6 @@ PaintButton(wParam, lParam, *)
         else
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))
         shift := face.State = "down" ? 2 : 0
-        isLabel := face.HasOwnProp("IsLabel")
         if !isLabel
         {
             if face.Book
@@ -152,24 +170,7 @@ PaintButton(wParam, lParam, *)
             DllCall("DeleteObject", "Ptr", pen)
         }
         else
-        {
-            ; A themed control can be destroyed while its final paint message is still
-            ; unwinding. Never dereference the Gui.Control after that point.
-            if !DllCall("IsWindow", "Ptr", handle)
-            {
-                if ButtonFaces.Has(handle)
-                    ButtonFaces.Delete(handle)
-                return
-            }
-            try labelText := face.Label.Text
-            catch
-            {
-                if ButtonFaces.Has(handle)
-                    ButtonFaces.Delete(handle)
-                return
-            }
             DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x825)
-        }
         DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
