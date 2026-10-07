@@ -123,9 +123,11 @@ RefreshProfiles()
         LaunchCharacterButton.Visible := false
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : 225
-        DataTransferButton.Move(transferX, transferY, Profiles.Length ? 110 : 370, 30)
-        ButtonFaces[DataTransferButton.Hwnd].X := transferX
-        ButtonFaces[DataTransferButton.Hwnd].Y := transferY
+        ; Keep the native button and its custom painted face in sync when
+        ; Import Data changes from the wide empty-state button back to Export Data.
+        ; Updating only X/Y left the painted face at its previous 370px width,
+        ; which could draw a second/overflowing Export Data face off the book.
+        MoveStyledButton(DataTransferButton, transferX, transferY, Profiles.Length ? 110 : 370, 30)
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
         {
