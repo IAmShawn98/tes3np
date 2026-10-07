@@ -32,10 +32,13 @@ LoadDailyLoginSchedule()
         mode := IniRead(DataFile, section, "Mode", "IRL")
         durationSeconds := Integer(IniRead(DataFile, section, "DurationSeconds", "0"))
         startedAt := IniRead(DataFile, section, "StartedAt", "")
+        loginAction := IniRead(DataFile, section, "LoginAction", "LoginCloseAll")
+        if loginAction != "LoginCloseAll" && loginAction != "LoginUpTo4" && loginAction != "AlertOnly"
+            loginAction := "LoginCloseAll"
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, Recurring: recurring, Locked: locked, Armed: armed, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, LoginAction: loginAction, Recurring: recurring, Locked: locked, Armed: armed, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -47,7 +50,7 @@ LoadDailyLoginSchedule()
         try oldTime := ParseDailyLoginTime(oldTime)
         catch
             oldTime := "12:00"
-        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, Recurring: true, Completed: false, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
+        ScheduledEvents.Push({Id: 1, Name: "Daily Login", TimeBasis: "IRL", Time: oldTime, LoginAction: "LoginCloseAll", Recurring: true, Completed: false, LastRunDate: oldLastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(oldTime, "IRL")})
         IniWrite("0", DataFile, "DailyLogin", "Scheduled")
         maxId := 1
         SaveScheduledEvents()
@@ -109,6 +112,7 @@ SaveScheduledEvents()
         IniWrite(event.HasOwnProp("Mode") ? event.Mode : "IRL", DataFile, section, "Mode")
         IniWrite(event.HasOwnProp("DurationSeconds") ? event.DurationSeconds : 0, DataFile, section, "DurationSeconds")
         IniWrite(event.HasOwnProp("StartedAt") ? event.StartedAt : "", DataFile, section, "StartedAt")
+        IniWrite(event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll", DataFile, section, "LoginAction")
         IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
         IniWrite(event.HasOwnProp("Locked") && event.Locked ? "1" : "0", DataFile, section, "Locked")
         IniWrite(event.HasOwnProp("Armed") && event.Armed ? "1" : "0", DataFile, section, "Armed")
@@ -402,7 +406,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     {
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     LaunchSettingsHeading.Text := editing ? "Edit Scheduled Event" : "Schedule New Event"
-    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, Recurring: true, Completed: false}
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, LoginAction: "LoginCloseAll", Recurring: true, Completed: false}
 
     ; Replace the right-page event list with the editor.
     for row in ScheduledEventsBookRows
@@ -451,16 +455,24 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     meridiem := CharacterPage.Add("DropDownList", "x785 y295 w70 h120 BackgroundE2CEA2 c382314", ["AM", "PM"])
     meridiem.Choose(hour24 >= 12 ? 2 : 1)
 
+    CharacterPage.SetFont("s11 Bold c241408", LauncherMorrowindFont)
+    loginActionLabel := CharacterPage.Add("Text", "x525 y335 w330 h22 BackgroundTrans", "When this event starts")
+    CharacterPage.SetFont("s10 Norm c241408", "Segoe UI")
+    loginActionList := CharacterPage.Add("DropDownList", "x525 y360 w330 h120 BackgroundE2CEA2 c382314",
+        ["Login & Close All", "Log In Up to 4 Chars", "Don't Ask to Log Me In"])
+    savedLoginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
+    loginActionList.Choose(savedLoginAction = "LoginUpTo4" ? 2 : savedLoginAction = "AlertOnly" ? 3 : 1)
+
     UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
     modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
 
-    save := AddStyledButton(CharacterPage, 525, 350, 155, 30, editing ? "Save Changes" : "Schedule Event",
-        SaveScheduledEventBookEditor.Bind(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem))
-    cancel := AddStyledButton(CharacterPage, 700, 350, 155, 30, "Cancel", CancelScheduledEventBookEditor)
+    save := AddStyledButton(CharacterPage, 525, 420, 155, 30, editing ? "Save Changes" : "Schedule Event",
+        SaveScheduledEventBookEditor.Bind(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList))
+    cancel := AddStyledButton(CharacterPage, 700, 420, 155, 30, "Cancel", CancelScheduledEventBookEditor)
 
     ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringTick, recurringLabel, hourLabel, minuteLabel, thirdLabel,
-        hourEdit, minuteEdit, clockMode, secondEdit, meridiem, save, cancel]]
+        hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionLabel, loginActionList, save, cancel]]
     }
     finally EndInterfaceUpdate()
 }
@@ -471,7 +483,7 @@ ToggleScheduledBookRecurring(state, tick, *)
     SetBookTick(tick, state.Value)
 }
 
-SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
+SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, *)
 {
     global CharacterPage
     BeginInterfaceUpdate(CharacterPage, "Saving scheduled event...", true)
@@ -480,7 +492,7 @@ SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hou
         ; Reuse the existing validation/save routine with a harmless object that
         ; provides Destroy(), then rebuild the right-page event list.
         editorShim := {Destroy: (*) => 0}
-        SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem)
+        SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList)
         RefreshScheduledEventsBook()
     }
     finally EndInterfaceUpdate()
@@ -538,7 +550,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, *)
 {
     global ScheduledEvents, NextScheduledEventId, DataFile
     name := Trim(nameEdit.Text)
@@ -609,15 +621,16 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         }
     }
     recurring := recurringCheck.Value = 1
+    loginAction := loginActionList.Value = 2 ? "LoginUpTo4" : loginActionList.Value = 3 ? "AlertOnly" : "LoginCloseAll"
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring, event.Locked := false, event.Armed := true
+        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.LoginAction := loginAction, event.Recurring := recurring, event.Locked := false, event.Armed := true
         event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")
     }
     else
     {
-        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Locked: false, Armed: true, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
+        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", LoginAction: loginAction, Recurring: recurring, Locked: false, Armed: true, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
         ScheduledEvents.Push(event)
         NextScheduledEventId += 1
     }
@@ -753,8 +766,18 @@ CheckDailyLoginSchedule(*)
             continue
         }
 
+        loginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
+        if loginAction = "AlertOnly"
+        {
+            LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; reminder-only alert shown.")
+            MsgBox("'" event.Name "' is happening now.", "Scheduled Event", "Iconi")
+            CompleteScheduledEventForToday(event, "alerted", true)
+            continue
+        }
+
         LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; awaiting user choice.")
-        choice := MsgBox("'" event.Name "' is ready.\n\nWould you like to log in for this event now?", "Scheduled Event", "YesNo Icon?")
+        actionText := loginAction = "LoginUpTo4" ? "log in up to 4 characters" : "log in and close all characters"
+        choice := MsgBox("'" event.Name "' is ready.\n\nWould you like tes3np to " actionText " now?", "Scheduled Event", "YesNo Icon?")
         if choice != "Yes"
         {
             CompleteScheduledEventForToday(event, "cancelled by user")
@@ -762,8 +785,8 @@ CheckDailyLoginSchedule(*)
         }
 
         ActiveScheduledEventId := event.Id
-        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: IRL.")
-        if !StartScheduledDailyLogin()
+        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: IRL | Login action: " loginAction ".")
+        if !StartScheduledDailyLogin(event)
         {
             ActiveScheduledEventId := ""
             LogLauncherEvent("GAME | Scheduled event could not start; will retry.")
@@ -773,17 +796,25 @@ CheckDailyLoginSchedule(*)
     }
 }
 
-StartScheduledDailyLogin()
+StartScheduledDailyLogin(event)
 {
-    global Client, Profiles, SelectedProfile
-    if Client.Enabled || SelectedProfile < 1 || SelectedProfile > Profiles.Length
+    global Client, Profiles
+    if Client.Enabled || !Profiles.Length
         return false
     executable := GetSharedExecutable()
-    profile := Profiles[SelectedProfile]
-    if !ValidateLaunch(profile, executable)
-        return false
-    LogLauncherEvent("GAME | Scheduled event login starting. Character: " profile.Name ".")
-    StartProfileSession(profile, executable, 0, true)
+    queue := []
+    limit := event.HasOwnProp("LoginAction") && event.LoginAction = "LoginUpTo4" ? Min(4, Profiles.Length) : Profiles.Length
+    Loop limit
+    {
+        profile := Profiles[A_Index]
+        if !ValidateLaunch(profile, executable)
+            return false
+        queue.Push(profile.Clone())
+    }
+    profile := queue.RemoveAt(1)
+    loginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
+    LogLauncherEvent("GAME | Scheduled event login starting | Mode: " loginAction " | Characters: " (queue.Length + 1) ".")
+    StartProfileSession(profile, executable, queue, true, loginAction)
     return true
 }
 
