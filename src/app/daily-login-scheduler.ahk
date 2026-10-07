@@ -369,6 +369,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         NextScheduledEventId += 1
     }
     if ScheduledCountdownArmedEventId = event.Id
+        if ScheduledEventArmedIds.Has(event.Id)
         ScheduledEventArmedIds.Delete(event.Id)
     ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
@@ -740,7 +741,8 @@ ToggleSelectedScheduledEventLock(button, *)
     if running || armed
     {
         ; Stop completely disarms/resets this event.
-        ScheduledEventArmedIds.Delete(event.Id)
+        if ScheduledEventArmedIds.Has(event.Id)
+            ScheduledEventArmedIds.Delete(event.Id)
         if ScheduledCountdownArmedEventId = event.Id
             ScheduledCountdownArmedEventId := ""
         event.Locked := false
@@ -778,7 +780,8 @@ StartArmedScheduledCountdown(*)
     if !IsObject(event) || (event.HasOwnProp("Locked") && event.Locked)
     {
         if ScheduledCountdownArmedEventId != ""
-            ScheduledEventArmedIds.Delete(ScheduledCountdownArmedEventId)
+            if ScheduledEventArmedIds.Has(ScheduledCountdownArmedEventId)
+                ScheduledEventArmedIds.Delete(ScheduledCountdownArmedEventId)
         ScheduledCountdownArmedEventId := ""
         TrayTip("No event waiting to start", "Open Scheduled Events and choose Start first.", "Icon!")
         return
