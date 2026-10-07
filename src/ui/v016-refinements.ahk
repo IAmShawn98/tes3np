@@ -104,9 +104,13 @@ InitializeLauncherMorrowindFont()
             try LogLauncherEvent("UI | Vanilla journal font parsed successfully. Glyphs: " LauncherMagicCardsData.Glyphs.Length ".")
             atlas := MagicCardsCreateGlyphAtlas()
             if IsObject(atlas)
+            {
                 try LogLauncherEvent("UI | Vanilla journal texture decoded: " atlas.Width "x" atlas.Height ".")
+            }
             else
+            {
                 try LogLauncherEvent("UI | Vanilla journal texture decode failed; bitmap text will fall back.")
+            }
         }
         else
             try LogLauncherEvent("UI | Vanilla journal font parser failed; using fallback text.")
