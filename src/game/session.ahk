@@ -77,7 +77,7 @@ LaunchAllCharacters(*)
     StartProfileSession(profile, executable, queue)
 }
 
-StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false, scheduledLoginAction := "")
+StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false, scheduledLoginAction := "", keptPids := 0)
 {
     global Client
     source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : "Manual character"
@@ -88,7 +88,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
         LoadDelay: profile.LoadDelay, Queue: queue,
-        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: []}
+        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : []}
     SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
@@ -238,7 +238,7 @@ ClientTick()
                 queue := Client.Queue
                 profile := queue.RemoveAt(1)
                 LogLauncherEvent("GAME | Batch advancing to next character | Remaining after next: " queue.Length ".")
-                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin, Client.HasOwnProp("ScheduledLoginAction") ? Client.ScheduledLoginAction : "")
+                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin, Client.HasOwnProp("ScheduledLoginAction") ? Client.ScheduledLoginAction : "", Client.HasOwnProp("KeptPids") ? Client.KeptPids : 0)
             }
             else
             {
@@ -335,8 +335,7 @@ ClientTick()
                     scheduled := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
                     action := Client.ScheduledLoginAction
                     LogLauncherEvent("GAME | Scheduled multi-login advancing | Logged in: " keptPids.Length " | Remaining: " queue.Length ".")
-                    StartProfileSession(profile, executable, queue, scheduled, action)
-                    Client.KeptPids := keptPids
+                    StartProfileSession(profile, executable, queue, scheduled, action, keptPids)
                 }
                 else
                 {
