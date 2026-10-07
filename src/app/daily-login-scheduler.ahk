@@ -2,8 +2,6 @@
 ; Events recur once per day at their configured local clock time.
 
 global ScheduledEvents := []
-global ScheduledEventsListView := 0
-global ScheduledEventsWindow := 0
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 global ScheduledCountdownHotkey := "F8"
@@ -399,29 +397,6 @@ CloseScheduledEventsBook(*)
     finally EndInterfaceUpdate()
 }
 
-CloseScheduledEventsMenu()
-{
-    global ScheduledEventsWindow, ScheduledEventsListView
-    if IsObject(ScheduledEventsWindow)
-        try ScheduledEventsWindow.Destroy()
-    ScheduledEventsWindow := 0
-    ScheduledEventsListView := 0
-}
-
-RefreshScheduledEventsList()
-{
-    global ScheduledEvents, ScheduledEventsListView
-    if !IsObject(ScheduledEventsListView)
-        return
-    selected := ScheduledEventsListView.GetNext()
-    ScheduledEventsListView.Delete()
-    for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "IRL Time", event.HasOwnProp("Mode") && event.Mode = "Countdown" ? FormatDailyLoginCountdown(event.DurationSeconds) : FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
-    if selected && selected <= ScheduledEvents.Length
-        ScheduledEventsListView.Modify(selected, "Select Focus")
-}
-
-
 FormatScheduledEventTime(time)
 {
     hour := Integer(SubStr(time, 1, 2)), minute := SubStr(time, 4, 2)
@@ -530,58 +505,6 @@ CancelScheduledEventBookEditor(*)
     BeginInterfaceUpdate(CharacterPage, "Loading scheduled events...", true)
     try RefreshScheduledEventsBook()
     finally EndInterfaceUpdate()
-}
-
-OpenScheduledEventEditor(owner, eventIndex := 0)
-{
-    global ScheduledEvents
-    editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
-    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, Recurring: true, Completed: false}
-    editor := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", editing ? "tes3np — Edit Event" : "tes3np — Schedule Event")
-    editor.BackColor := "E2CEA2"
-    editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y20 w330 h22", "Event name")
-    editor.SetFont("s10 c382314", "Segoe UI")
-    nameEdit := editor.Add("Edit", "x20 y46 w330 h30", event.Name)
-    editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y92 w330 h22", "Event mode")
-    editor.SetFont("s10 c382314", "Segoe UI")
-    modeList := editor.Add("DropDownList", "x20 y118 w330 h100", ["Specific Time (IRL)", "Countdown"])
-    isCountdown := event.HasOwnProp("Mode") && event.Mode = "Countdown"
-    modeList.Choose(isCountdown ? 2 : 1)
-    recurringCheck := editor.Add("CheckBox", "x20 y150 w330 h24", "Recurring")
-    recurringCheck.Value := event.Recurring ? 1 : 0
-
-    hour24 := Integer(SubStr(event.Time, 1, 2)), minute := Integer(SubStr(event.Time, 4, 2))
-    displayHour := Mod(hour24, 12)
-    if displayHour = 0
-        displayHour := 12
-    duration := event.HasOwnProp("DurationSeconds") && event.DurationSeconds > 0 ? event.DurationSeconds : 3600
-    durationHours := Floor(duration / 3600)
-    durationMinutes := Floor(Mod(duration, 3600) / 60)
-    durationSeconds := Mod(duration, 60)
-
-    editor.SetFont("s10 Bold c382314", "Segoe UI")
-    hourLabel := editor.Add("Text", "x20 y184 w60 h22", isCountdown ? "Hours" : "Hour")
-    minuteLabel := editor.Add("Text", "x92 y184 w60 h22", isCountdown ? "Minutes" : "Minute")
-    thirdLabel := editor.Add("Text", "x164 y184 w90 h22", isCountdown ? "Seconds" : "Clock")
-    editor.SetFont("s10 c382314", "Segoe UI")
-    hourEdit := editor.Add("Edit", "x20 y210 w52 h28 Center Number", isCountdown ? durationHours : displayHour)
-    minuteEdit := editor.Add("Edit", "x92 y210 w52 h28 Center Number", isCountdown ? durationMinutes : minute)
-    clockMode := editor.Add("DropDownList", "x164 y210 w100 h120 Choose1", ["AM / PM", "24-hour"])
-    secondEdit := editor.Add("Edit", "x164 y210 w100 h28 Center Number", durationSeconds)
-    meridiem := editor.Add("DropDownList", "x274 y210 w76 h120", ["AM", "PM"])
-    meridiem.Choose(hour24 >= 12 ? 2 : 1)
-
-    UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
-    modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
-    clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
-    save := editor.Add("Button", "x20 y264 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
-    cancel := editor.Add("Button", "x192 y264 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem))
-    cancel.OnEvent("Click", (*) => editor.Destroy())
-    editor.OnEvent("Escape", (*) => editor.Destroy())
-    editor.Show("w370 h318")
 }
 
 UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, irlHour, irlMinute, durationHours, durationMinutes, durationSeconds, *)
@@ -720,43 +643,8 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         return
     }
     editor.Destroy()
-    RefreshScheduledEventsList()
     RefreshDailyLoginButton()
     RefreshScheduledEventsBook()
-}
-
-EditSelectedScheduledEvent()
-{
-    global ScheduledEventsListView, ScheduledEventsWindow
-    if !IsObject(ScheduledEventsListView)
-        return
-    row := ScheduledEventsListView.GetNext()
-    if !row
-    {
-        MsgBox("Select an event to edit.", "tes3np")
-        return
-    }
-    OpenScheduledEventEditor(ScheduledEventsWindow, row)
-}
-
-DeleteSelectedScheduledEvent()
-{
-    global ScheduledEvents, ScheduledEventsListView
-    if !IsObject(ScheduledEventsListView)
-        return
-    row := ScheduledEventsListView.GetNext()
-    if !row
-    {
-        MsgBox("Select an event to delete.", "tes3np")
-        return
-    }
-    event := ScheduledEvents[row]
-    if MsgBox("Delete the scheduled event '" event.Name "'?", "tes3np", "YesNo Icon?") != "Yes"
-        return
-    ScheduledEvents.RemoveAt(row)
-    SaveScheduledEvents()
-    RefreshScheduledEventsList()
-    RefreshDailyLoginButton()
 }
 
 RefreshDailyLoginButton()
@@ -771,7 +659,6 @@ RefreshDailyLoginButton()
 UpdateDailyLoginCountdown(*)
 {
     CheckDailyLoginSchedule()
-    RefreshScheduledEventsList()
     UpdateScheduledEventsBookCountdowns()
 }
 
@@ -940,7 +827,6 @@ CompleteScheduledEventForToday(event, reason := "completed", successful := false
         event.Completed := true
     SaveScheduledEvents()
     LogLauncherEvent("GAME | Scheduled event '" event.Name "' " reason " for today.")
-    RefreshScheduledEventsList()
     RefreshDailyLoginButton()
 }
 
@@ -1082,61 +968,6 @@ SaveScheduledCountdownHotkey(picker, keyControl, button, *)
     picker.Destroy()
 }
 
-RefreshScheduledEventLockButton(button)
-{
-    global ScheduledEventsListView, ScheduledEvents
-    row := IsObject(ScheduledEventsListView) ? ScheduledEventsListView.GetNext() : 0
-    if !row || row > ScheduledEvents.Length
-    {
-        button.Text := "Start Event"
-        return
-    }
-    event := ScheduledEvents[row]
-    modeName := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "Specific Time (IRL)"
-    button.Text := event.StartedAt != "" ? "Stop " modeName : "Start " modeName
-}
-
-ToggleSelectedScheduledEventLock(button, *)
-{
-    global ScheduledEventsListView, ScheduledEvents, ScheduledCountdownArmedEventId
-    row := IsObject(ScheduledEventsListView) ? ScheduledEventsListView.GetNext() : 0
-    if !row
-    {
-        MsgBox("Select an event first.", "tes3np")
-        return
-    }
-
-    event := ScheduledEvents[row]
-    running := event.StartedAt != ""
-
-    if running
-    {
-        ; Stop manually: reset and unlock so the hotkey may start it again.
-        event.Locked := false
-        event.Armed := true
-        event.StartedAt := ""
-        event.Due := false
-        event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : 0
-        ScheduledCountdownArmedEventId := event.Id
-    }
-    else
-    {
-        ; Start manually: begin now and lock out hotkey changes.
-        event.StartedAt := A_Now
-        event.Locked := true
-        event.Armed := false
-        event.LastRunDate := ""
-        event.Due := false
-        event.Completed := false
-        event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : GetScheduledEventRawRemaining(event.Time, "IRL")
-        if ScheduledCountdownArmedEventId = event.Id
-            ScheduledCountdownArmedEventId := ""
-    }
-
-    SaveScheduledEvents()
-    RefreshScheduledEventsList()
-    RefreshScheduledEventLockButton(button)
-}
 StartArmedScheduledCountdown(*)
 {
     global ScheduledEvents
@@ -1167,13 +998,6 @@ StartArmedScheduledCountdown(*)
         event.PreviousRemaining := GetScheduledEventRawRemaining(event.Time, "IRL")
 
     SaveScheduledEvents()
-    RefreshScheduledEventsList()
     RefreshScheduledEventsBook()
     TrayTip("Event started", "'" event.Name "' is now running and locked.", "Iconi")
-}
-
-; Compatibility entry point for older UI callers.
-OpenDailyLoginScheduleDialog(owner := 0, *)
-{
-    OpenScheduledEventsMenu(owner)
 }
