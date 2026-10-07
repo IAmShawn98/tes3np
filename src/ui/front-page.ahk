@@ -16,7 +16,7 @@ BuildFrontPage()
     ; and Characters. A slightly larger, darker regular face keeps the
     ; handwritten lettering readable against the parchment.
     LauncherGui.SetFont("s19 Norm c241408", LauncherMorrowindFont)
-    LauncherHeading := LauncherGui.Add("Text", "x330 y402 w300 h38 Center BackgroundTrans", "Game Launcher")
+    LauncherHeading := LauncherGui.Add("Text", "x330 y414 w300 h38 Center BackgroundTrans", "Game Launcher")
     LauncherGui.SetFont("s11", "Segoe UI")
     HoverButton := 0
     PressedButton := 0
