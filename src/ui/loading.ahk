@@ -59,16 +59,30 @@ EndInterfaceUpdate()
     }
     finally
     {
+        ; Remove the cover before declaring the interface interactive again.
+        ; Also clear any stale themed-button capture/focus state left behind by
+        ; controls that were hidden/destroyed during the page transition.
         SetTimer(ShowSlowInterfaceLoading, 0)
-        InterfaceUpdating := false
         if IsObject(InterfaceFrameCover)
         {
             if IsObject(InterfaceFrameCover.Panel)
                 SetInterfaceLoadingText("Waiting for Jiub")
             ReleaseInterfaceFrame()
         }
+        ResetButtonInputAfterInterfaceUpdate()
+        InterfaceUpdating := false
         Critical("Off")
     }
+}
+
+
+ResetButtonInputAfterInterfaceUpdate()
+{
+    global PressedButton, HoverButton, KeyboardFocusButton
+    PressedButton := 0
+    HoverButton := 0
+    KeyboardFocusButton := 0
+    DllCall("ReleaseCapture")
 }
 
 ; A transient owned window preserves the last visible frame during layout updates.
