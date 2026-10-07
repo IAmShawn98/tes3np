@@ -208,6 +208,19 @@ OpenScheduledEventsBook(*)
     ScheduledEventsBookRows := []
     BuildScheduledEventsBookRows()
     FinishButtonDisplay()
+    ; Transparent text added after the book is already visible may not paint until
+    ; Windows later exposes/resizes the window. Invalidate the completed page once
+    ; after all scheduler controls exist so the description/event text paints now.
+    SetTimer(PaintScheduledEventsBook, -1)
+}
+
+PaintScheduledEventsBook()
+{
+    global CharacterPage, ScheduledEventsBookMode
+    if !ScheduledEventsBookMode || !IsObject(CharacterPage)
+        return
+    try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", true)
+    try DllCall("UpdateWindow", "Ptr", CharacterPage.Hwnd)
 }
 
 BuildScheduledEventsBookRows()
