@@ -96,48 +96,48 @@ OpenLauncherSettingsV016(*)
     V016ReadabilityState := EnhancedReadability ? 1 : 0
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    settings.Add("Picture", "x" V016S(-20) " y" V016S(-30) " w" V016S(620) " h" V016S(780), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
+    settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
 
     settings.SetFont("s" V016Font(16) " Bold c241408", "Segoe UI")
-    settings.Add("Text", "x" V016S(34) " y" V016S(101) " w" V016S(526) " h" V016S(38) " Center BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x" V016S(32) " y" V016S(76) " w" V016S(448) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s" V016Font(11) " Bold c382314", "Segoe UI")
-    settings.Add("Text", "x" V016S(34) " y" V016S(151) " w" V016S(155) " h" V016S(26) " BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
     settings.SetFont("s" V016Font(12) " c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x" V016S(208) " y" V016S(145) " w" V016S(352) " Choose" choice, choices)
+    scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(10) " Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x" V016S(34) " y" V016S(178) " w" V016S(526) " h" V016S(42) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(11) " Bold c382314", "Segoe UI")
-    settings.Add("Text", "x" V016S(34) " y" V016S(226) " w" V016S(155) " h" V016S(26) " BackgroundTrans", "Interface text")
+    settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
     settings.SetFont("s" V016Font(12) " c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x" V016S(208) " y" V016S(220) " w" V016S(352) " Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(10) " Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x" V016S(34) " y" V016S(253) " w" V016S(526) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s" V016Font(13) " Bold c382314", "Segoe UI Symbol")
-    readability := settings.Add("Text", "x" V016S(34) " y" V016S(291) " w" V016S(526) " h" V016S(34) " +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
+    readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s" V016Font(10) " Bold c5A4027", "Segoe UI")
-    settings.Add("Text", "x" V016S(76) " y" V016S(322) " w" V016S(484) " h" V016S(44) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
+    settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, V016S(34), V016S(370), V016S(250), V016S(40), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(310), V016S(370), V016S(250), V016S(40), "Close", CloseLauncherSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(34), V016S(454), V016S(526), V016S(40), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(34), V016S(510), V016S(526), V016S(40), "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(32), V016S(338), V016S(214), V016S(38), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(266), V016S(338), V016S(214), V016S(38), "Close", CloseLauncherSettingsV016.Bind(settings))
+    AddStyledButton(settings, V016S(32), V016S(400), V016S(448), V016S(38), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(32), V016S(450), V016S(448), V016S(38), "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Size", (*) => 0)
-    settings.Show("w" V016S(594) " h" V016S(720))
+    settings.Show("w" V016S(512) " h" V016S(590))
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
