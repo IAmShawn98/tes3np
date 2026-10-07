@@ -62,66 +62,6 @@ ApplyWindowsAccessibilityPreferences()
         ReduceMotion := true
 }
 
-OpenLauncherSettings(*)
-{
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility, WindowsHighContrastDetected, WindowsAnimationsDisabled
-    global ScheduledEvents
-    settings := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Settings")
-    settings.BackColor := EnhancedReadability ? "F4E4BE" : "E2CEA2"
-    settings.SetFont("s11 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x20 y18 w330 h26", "Display & Accessibility")
-    settings.SetFont("s9 c382314", "Segoe UI")
-    settings.Add("Text", "x20 y48 w330 h44", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
-    settings.SetFont("s9 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y100 w120 h22", "Launcher size")
-    settings.SetFont("s10 c382314", "Segoe UI")
-    choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
-    choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x145 y96 w205 Choose" choice, choices)
-    settings.SetFont("s9 Bold c382314", "Segoe UI")
-    settings.Add("Text", "x20 y142 w120 h22", "Interface text")
-    settings.SetFont("s10 c382314", "Segoe UI")
-    textChoices := ["Normal", "Large", "Extra Large"]
-    textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x145 y138 w205 Choose" textChoice, textChoices)
-    settings.SetFont("s9 Bold c382314", "Segoe UI")
-    readability := settings.Add("CheckBox", "x20 y178 w330 h24", "Enhanced readability")
-    readability.Value := EnhancedReadability ? 1 : 0
-    settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x38 y202 w312 h38", "Uses stronger contrast and brighter button text while keeping the Morrowind artwork intact.")
-    settings.SetFont("s9 Bold c382314", "Segoe UI")
-    reduceMotionBox := settings.Add("CheckBox", "x20 y246 w330 h24", "Reduce motion")
-    reduceMotionBox.Value := ReduceMotion ? 1 : 0
-    settings.SetFont("s8 c5A4027", "Segoe UI")
-    settings.Add("Text", "x38 y270 w312 h38", "Reduces nonessential animated feedback and keeps interface changes as immediate and still as possible.")
-    settings.SetFont("s9 Bold c382314", "Segoe UI")
-    followWindows := settings.Add("CheckBox", "x20 y314 w330 h24", "Follow Windows accessibility settings")
-    followWindows.Value := FollowWindowsAccessibility ? 1 : 0
-    settings.SetFont("s8 c5A4027", "Segoe UI")
-    detected := WindowsHighContrastDetected ? "High contrast detected." : WindowsAnimationsDisabled ? "Reduced Windows animations detected." : "No additional Windows accessibility preferences detected."
-    settings.Add("Text", "x38 y338 w312 h38", detected)
-
-    settings.SetFont("s11 Bold c241408", "Segoe UI")
-    settings.Add("Text", "x20 y386 w330 h26", "Daily Character Login")
-    settings.SetFont("s9 c382314", "Segoe UI")
-    settings.Add("Text", "x20 y414 w330 h40", "Create and manage timed launcher events, including automatic Daily Login runs.")
-    settings.SetFont("s9 Bold c382314", "Segoe UI")
-    scheduleButtonText := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
-    schedule := settings.Add("Button", "x20 y458 w330 h34", scheduleButtonText)
-
-    apply := settings.Add("Button", "x20 y510 w158 h34 Default", "Preview & Apply")
-    cancel := settings.Add("Button", "x192 y510 w158 h34", "Cancel")
-    reset := settings.Add("Button", "x20 y554 w330 h34", "Reset Display & Accessibility")
-    troubleshoot := settings.Add("Button", "x20 y598 w330 h34", "Troubleshooting & Diagnostics")
-    schedule.OnEvent("Click", OpenDailyLoginScheduleSettings.Bind(settings))
-    apply.OnEvent("Click", PreviewLauncherSettings.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Applying display & accessibility..."))
-    cancel.OnEvent("Click", (*) => settings.Destroy())
-    reset.OnEvent("Click", ResetDisplayAccessibility.Bind(settings, scaleList, textList, readability, reduceMotionBox, followWindows))
-    troubleshoot.OnEvent("Click", OpenTroubleshooting)
-    settings.OnEvent("Escape", (*) => settings.Destroy())
-    settings.Show("w370 h652")
-}
-
 OpenDailyLoginScheduleSettings(parent, *)
 {
     parent.Hide()
