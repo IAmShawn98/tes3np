@@ -8,7 +8,6 @@ global DataFile := AppDataDirectory "\settings.ini"
 global SelectedProfile := 0
 global CharacterRows := []
 global CharacterListPage := 1
-global ProfileEditor := 0
 global MaxCharacters := 10
 global EditorControls := []
 global InterfaceUpdateDepth := 0
