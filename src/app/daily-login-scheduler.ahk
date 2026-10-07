@@ -333,11 +333,20 @@ CloseScheduledEventsBook(*)
     try
     {
         ScheduledEventsBookMode := false
+        ; Hide scheduler controls first, including their custom painted faces.
+        ; Destroying a transparent text control while the book is visible does not
+        ; reliably erase its pixels from the parchment background.
         for control in ScheduledEventsBookControls
+        {
+            SetBookControlVisible(control, false)
             try control.Destroy()
+        }
         for row in ScheduledEventsBookRows
             for control in row
+            {
+                SetBookControlVisible(control, false)
                 try control.Destroy()
+            }
         ScheduledEventsBookControls := []
         ScheduledEventsBookRows := []
 
@@ -351,6 +360,10 @@ CloseScheduledEventsBook(*)
         ScheduledEventsBookHiddenControls := []
         RefreshProfiles()
         ApplyV016CharacterLayout()
+        ; Clear pixels left by the scheduler's transparent text before the
+        ; loading cover is released, then paint the restored character page.
+        try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+        FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
 }
