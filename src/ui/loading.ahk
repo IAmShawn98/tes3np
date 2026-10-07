@@ -115,7 +115,7 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
     cover := 0
     try
     {
-        cover := Gui("-Caption -Border -DPIScale +ToolWindow +E0x08000000 +Owner" sourceWindow.Hwnd)
+        cover := Gui("-Caption -Border -DPIScale +ToolWindow +E0x08000000 +E0x20 +Owner" sourceWindow.Hwnd)
         face := cover.Add("Custom", "ClassStatic x0 y0 w" width " h" height " +0xE")
         DllCall("SendMessageW", "Ptr", face.Hwnd, "UInt", 0x172, "Ptr", 0, "Ptr", bitmap)
         cover.Show("NA x" x " y" y " w" width " h" height)
