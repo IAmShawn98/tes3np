@@ -149,6 +149,23 @@ FinishButtonDisplay()
     RepaintMenuButtons()
 }
 
+ResetThemedPointerState()
+{
+    global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
+    ; Controls can be destroyed/recreated under a loading cover. Never carry a
+    ; press, hover, capture, or keyboard-focus handle across that transition.
+    oldHover := HoverButton
+    oldPress := PressedButton
+    oldFocus := KeyboardFocusButton
+    PressedButton := 0
+    HoverButton := 0
+    KeyboardFocusButton := 0
+    DllCall("ReleaseCapture")
+    for handle in [oldHover, oldPress, oldFocus]
+        if handle && ButtonFaces.Has(handle) && DllCall("IsWindow", "Ptr", handle)
+            ShowButtonFace(handle)
+}
+
 UpdateButtonHover()
 {
     global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
