@@ -341,11 +341,21 @@ CloseScheduledEventsBook(*)
         ScheduledEventsBookControls := []
         ScheduledEventsBookRows := []
 
-        try CharacterPage.Destroy()
-        CharacterPage := 0
-        ; Rebuild immediately while the loading cover owns the transition.
-        OpenCharacterPage()
+        ; Do not destroy CharacterPage while its loading cover is active: the
+        ; cover is owned by that GUI, so destroying the owner also destroys the
+        ; loading panel and leaves the loading system holding dead controls.
+        ; Rebuild on the next tick after EndInterfaceUpdate releases the cover.
     }
+    finally EndInterfaceUpdate()
+    try CharacterPage.Destroy()
+    CharacterPage := 0
+    SetTimer(ReopenCharacterBookAfterScheduler, -1)
+}
+
+ReopenCharacterBookAfterScheduler()
+{
+    BeginInterfaceUpdate(0, "Loading characters...", true)
+    try OpenCharacterPage()
     finally EndInterfaceUpdate()
 }
 
