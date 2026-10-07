@@ -327,7 +327,7 @@ ToggleScheduledEventFromBook(index, *)
 
 CloseScheduledEventsBook(*)
 {
-    global CharacterPage, ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
+    global CharacterPage, ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows, CharacterHeading, LaunchSettingsHeading, ScheduledEventsBookHiddenControls
 
     BeginInterfaceUpdate(CharacterPage, "Loading characters...", true)
     try
@@ -341,24 +341,18 @@ CloseScheduledEventsBook(*)
         ScheduledEventsBookControls := []
         ScheduledEventsBookRows := []
 
-        ; Do not destroy CharacterPage while its loading cover is active: the
-        ; cover is owned by that GUI, so destroying the owner also destroys the
-        ; loading panel and leaves the loading system holding dead controls.
-        ; Rebuild on the next tick after EndInterfaceUpdate releases the cover.
+        ; Keep this same book window alive. Destroying/recreating it causes the
+        ; old hide/show flash. Instead rebuild the normal Characters controls in
+        ; place after the loading cover has captured the current frame.
+        CharacterHeading.Text := "Your Characters"
+        LaunchSettingsHeading.Text := "Launch Settings"
+        for control in ScheduledEventsBookHiddenControls
+            SetBookControlVisible(control, true)
+        ScheduledEventsBookHiddenControls := []
+        RefreshProfiles()
+        ApplyV016CharacterLayout()
     }
     finally EndInterfaceUpdate()
-    try CharacterPage.Destroy()
-    CharacterPage := 0
-    SetTimer(ReopenCharacterBookAfterScheduler, -1)
-}
-
-ReopenCharacterBookAfterScheduler()
-{
-    ; There is no CharacterPage yet, so BeginInterfaceUpdate(0, ...) cannot
-    ; calculate loading steps from a GUI handle. Build the fresh book first;
-    ; OpenCharacterPage already reports its own loading-step text when invoked
-    ; inside an active interface update elsewhere.
-    OpenCharacterPage()
 }
 
 PaintCharactersBook()
