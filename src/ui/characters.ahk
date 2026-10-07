@@ -21,7 +21,7 @@ OpenCharacterPage(*)
     ; interactive buttons in their existing button font for readability.
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
     CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
-    LaunchSettingsHeading := AddBookLabel(CharacterPage, 525, 45, 360, 30, "Launch Settings")
+    LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans", "Launch Settings")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
