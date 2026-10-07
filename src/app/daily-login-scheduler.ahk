@@ -5,7 +5,6 @@ global ScheduledEvents := []
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 global ScheduledCountdownHotkey := "F8"
-global ScheduledCountdownArmedEventId := ""
 global ScheduledEventsBookControls := []
 global ScheduledEventsBookRows := []
 global ScheduledEventsBookMode := false
@@ -55,15 +54,6 @@ LoadDailyLoginSchedule()
     }
     NextScheduledEventId := maxId + 1
     LoadScheduledCountdownHotkey()
-    global ScheduledCountdownArmedEventId
-    for event in ScheduledEvents
-    {
-        if event.HasOwnProp("Armed") && event.Armed && !(event.HasOwnProp("Locked") && event.Locked)
-        {
-            ScheduledCountdownArmedEventId := event.Id
-            break
-        }
-    }
     ; Preserve the previous launch timestamp before updating it. This provides
     ; a reliable missed-event window even after abnormal exits where cleanup
     ; never had a chance to save LastLauncherExit.
@@ -304,7 +294,7 @@ DeleteScheduledEventFromBook(index, *)
 
 ToggleScheduledEventFromBook(index, *)
 {
-    global ScheduledEvents, ScheduledCountdownArmedEventId
+    global ScheduledEvents
     if index < 1 || index > ScheduledEvents.Length
         return
     event := ScheduledEvents[index]
@@ -315,7 +305,6 @@ ToggleScheduledEventFromBook(index, *)
         event.StartedAt := ""
         event.Due := false
         event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : 0
-        ScheduledCountdownArmedEventId := event.Id
     }
     else
     {
@@ -326,8 +315,6 @@ ToggleScheduledEventFromBook(index, *)
         event.Due := false
         event.Completed := false
         event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : GetScheduledEventRawRemaining(event.Time, "IRL")
-        if ScheduledCountdownArmedEventId = event.Id
-            ScheduledCountdownArmedEventId := ""
     }
     SaveScheduledEvents()
     UpdateScheduledEventBookRow(index)
@@ -553,7 +540,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
 
 SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
 {
-    global ScheduledEvents, NextScheduledEventId, DataFile, ScheduledCountdownArmedEventId
+    global ScheduledEvents, NextScheduledEventId, DataFile
     name := Trim(nameEdit.Text)
     if name = ""
     {
@@ -634,7 +621,6 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         ScheduledEvents.Push(event)
         NextScheduledEventId += 1
     }
-    ScheduledCountdownArmedEventId := event.Id
     SaveScheduledEvents()
     savedCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
     if savedCount != ScheduledEvents.Length
