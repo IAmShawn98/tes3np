@@ -456,6 +456,9 @@ FormatScheduledEventTime(time)
 OpenScheduledEventBookEditor(eventIndex := 0)
 {
     global CharacterPage, ScheduledEvents, ScheduledEventsBookRows, LauncherMorrowindFont, LaunchSettingsHeading
+    BeginInterfaceUpdate(CharacterPage, "Loading event editor...", true)
+    try
+    {
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     LaunchSettingsHeading.Text := editing ? "Edit Scheduled Event" : "Schedule New Event"
     event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, Recurring: true, Completed: false}
@@ -519,6 +522,8 @@ OpenScheduledEventBookEditor(eventIndex := 0)
         hourEdit, minuteEdit, clockMode, secondEdit, meridiem, save, cancel]]
     FinishButtonDisplay()
     PaintScheduledEventsBook()
+    }
+    finally EndInterfaceUpdate()
 }
 
 ToggleScheduledBookRecurring(state, tick, *)
@@ -529,16 +534,25 @@ ToggleScheduledBookRecurring(state, tick, *)
 
 SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
 {
-    ; Reuse the existing validation/save routine with a harmless object that
-    ; provides Destroy(), then rebuild the right-page event list.
-    editorShim := {Destroy: (*) => 0}
-    SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem)
-    RefreshScheduledEventsBook()
+    global CharacterPage
+    BeginInterfaceUpdate(CharacterPage, "Saving scheduled event...", true)
+    try
+    {
+        ; Reuse the existing validation/save routine with a harmless object that
+        ; provides Destroy(), then rebuild the right-page event list.
+        editorShim := {Destroy: (*) => 0}
+        SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem)
+        RefreshScheduledEventsBook()
+    }
+    finally EndInterfaceUpdate()
 }
 
 CancelScheduledEventBookEditor(*)
 {
-    RefreshScheduledEventsBook()
+    global CharacterPage
+    BeginInterfaceUpdate(CharacterPage, "Loading scheduled events...", true)
+    try RefreshScheduledEventsBook()
+    finally EndInterfaceUpdate()
 }
 
 OpenScheduledEventEditor(owner, eventIndex := 0)
