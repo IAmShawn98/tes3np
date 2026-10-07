@@ -293,6 +293,89 @@ MagicCardsGlyphSourceRect(glyph, atlasWidth, atlasHeight)
     return {X: left, Y: top, W: Max(1, right - left), H: Max(1, bottom - top)}
 }
 
+
+MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, center := false)
+{
+    ; Render the vanilla bitmap glyphs into a 32-bit DIB that an AHK Picture
+    ; control can display. No Windows font rasterizer is involved.
+    global LauncherMagicCardsData
+    if !IsObject(LauncherMagicCardsData)
+        return false
+    atlas := MagicCardsCreateGlyphAtlas()
+    if !IsObject(atlas)
+        return false
+
+    stride := width * 4
+    out := Buffer(stride * height, 0)
+    runWidth := MagicCardsMeasureText(text, fontHeight / LauncherMagicCardsData.FontSize)
+    penX := center ? Max(0, Floor((width - runWidth) / 2)) : 0
+    run := MagicCardsGlyphRun(text, penX, 0, fontHeight)
+    if !IsObject(run)
+        return false
+
+    for item in run
+    {
+        glyph := LauncherMagicCardsData.Glyphs[item.Code + 1]
+        src := MagicCardsGlyphSourceRect(glyph, atlas.Width, atlas.Height)
+        dstW := Max(1, Round(src.W * (fontHeight / LauncherMagicCardsData.FontSize)))
+        dstH := Max(1, Round(src.H * (fontHeight / LauncherMagicCardsData.FontSize)))
+        Loop dstH
+        {
+            dy := A_Index - 1
+            py := item.Y + dy
+            if py < 0 || py >= height
+                continue
+            sy := src.Y + Min(src.H - 1, Floor(dy * src.H / dstH))
+            Loop dstW
+            {
+                dx := A_Index - 1
+                px := Round(item.X) + dx
+                if px < 0 || px >= width
+                    continue
+                sx := src.X + Min(src.W - 1, Floor(dx * src.W / dstW))
+                srcOff := (sy * atlas.Width + sx) * 4
+                alpha := NumGet(atlas.Pixels, srcOff + 3, "UChar")
+                if alpha = 0
+                    continue
+                dstOff := (py * width + px) * 4
+                NumPut("UChar", (color >> 16) & 0xFF, out, dstOff)
+                NumPut("UChar", (color >> 8) & 0xFF, out, dstOff + 1)
+                NumPut("UChar", color & 0xFF, out, dstOff + 2)
+                NumPut("UChar", alpha, out, dstOff + 3)
+            }
+        }
+    }
+    return MagicCardsBufferToHBitmap(out, width, height)
+}
+
+MagicCardsBufferToHBitmap(pixels, width, height)
+{
+    bmi := Buffer(40, 0)
+    NumPut("UInt", 40, bmi, 0)
+    NumPut("Int", width, bmi, 4)
+    NumPut("Int", -height, bmi, 8)
+    NumPut("UShort", 1, bmi, 12)
+    NumPut("UShort", 32, bmi, 14)
+    hdc := DllCall("GetDC", "Ptr", 0, "Ptr")
+    bits := 0
+    hbm := DllCall("Gdi32.dll\\CreateDIBSection", "Ptr", hdc, "Ptr", bmi, "UInt", 0, "Ptr*", &bits, "Ptr", 0, "UInt", 0, "Ptr")
+    DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
+    if !hbm || !bits
+        return false
+    DllCall("RtlMoveMemory", "Ptr", bits, "Ptr", pixels.Ptr, "UPtr", pixels.Size)
+    return hbm
+}
+
+AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center := false)
+{
+    hbm := MagicCardsRenderText(text, w, h, fontHeight, color, center)
+    if !hbm
+        return false
+    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
+    pic.OnEvent("Destroy", (*) => DllCall("Gdi32.dll\\DeleteObject", "Ptr", hbm))
+    return pic
+}
+
 ReleaseLauncherMorrowindFont()
 {
     global LauncherMorrowindFontLoaded, LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
