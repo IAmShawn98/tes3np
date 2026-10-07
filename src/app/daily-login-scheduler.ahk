@@ -22,13 +22,6 @@ LoadDailyLoginSchedule()
         id := Integer(IniRead(DataFile, section, "Id", A_Index))
         name := IniRead(DataFile, section, "Name", "Daily Login")
         timeBasis := "IRL"
-    mode := modeList.Value = 2 ? "Countdown" : "IRL"
-    durationSeconds := mode = "Countdown" ? (hour * 3600 + minute * 60) : 0
-    if mode = "Countdown" && durationSeconds <= 0
-    {
-        MsgBox("Countdown duration must be greater than zero.", "tes3np")
-        return
-    }
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
         recurring := IniRead(DataFile, section, "Recurring", "1") = "1"
@@ -301,6 +294,13 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         time := Format("{:02}:{:02}", hour24, minute)
     }
     timeBasis := "IRL"
+    mode := modeList.Value = 2 ? "Countdown" : "IRL"
+    durationSeconds := mode = "Countdown" ? (hour * 3600 + minute * 60) : 0
+    if mode = "Countdown" && durationSeconds <= 0
+    {
+        MsgBox("Countdown duration must be greater than zero.", "tes3np")
+        return
+    }
     recurring := recurringCheck.Value = 1
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
