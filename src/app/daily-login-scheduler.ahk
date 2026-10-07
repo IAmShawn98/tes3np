@@ -148,9 +148,8 @@ SetBookControlVisible(control, visible)
         if face.HasOwnProp("Label") && IsObject(face.Label)
             face.Label.Visible := visible
     }
-    ; Force the book to repaint immediately. BackgroundTrans text controls can
-    ; otherwise leave their old glyphs painted on the parchment after hiding.
-    try DllCall("RedrawWindow", "Ptr", control.Gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+    ; Do not synchronously redraw here. This helper runs once per control and
+    ; forcing a full parent repaint for every hide/show caused a repaint loop.
 }
 
 OpenScheduledEventsBook(*)
@@ -320,9 +319,7 @@ CloseScheduledEventsBook(*)
     for row in ScheduledEventsBookRows
         for control in row
             try control.Destroy()
-    ; Destroyed transparent text/buttons need an explicit full repaint or their
-    ; last pixels can remain over the restored Characters/Launch Settings page.
-    try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+    ; Repaint once after the page state has been completely restored.
     ScheduledEventsBookControls := []
     ScheduledEventsBookRows := []
     ScheduledEventsBookMode := false
@@ -337,7 +334,9 @@ CloseScheduledEventsBook(*)
     LaunchCharacterButton.Visible := false
     SessionStatus.Visible := false
     RefreshProfiles()
-    try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+    ; Queue one normal repaint after the transition instead of recursively
+    ; repainting while controls are being changed.
+    try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", true)
 }
 
 CloseScheduledEventsMenu()
