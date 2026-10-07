@@ -354,9 +354,11 @@ CloseScheduledEventsBook(*)
 
 ReopenCharacterBookAfterScheduler()
 {
-    BeginInterfaceUpdate(0, "Loading characters...", true)
-    try OpenCharacterPage()
-    finally EndInterfaceUpdate()
+    ; There is no CharacterPage yet, so BeginInterfaceUpdate(0, ...) cannot
+    ; calculate loading steps from a GUI handle. Build the fresh book first;
+    ; OpenCharacterPage already reports its own loading-step text when invoked
+    ; inside an active interface update elsewhere.
+    OpenCharacterPage()
 }
 
 PaintCharactersBook()
