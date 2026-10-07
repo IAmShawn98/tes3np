@@ -267,16 +267,18 @@ BuildScheduledEventsBookRows()
         statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
         ; Use a clear title/details hierarchy instead of packing everything into
         ; one small text control.
-        CharacterPage.SetFont("s13 Bold c241408", LauncherMorrowindFont)
-        nameLabel := CharacterPage.Add("Text", "x525 y" y " w355 h24 BackgroundTrans", event.Name)
-        CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
-        detailLabel := CharacterPage.Add("Text", "x525 y" (y + 25) " w355 h22 BackgroundTrans",
+        ; Event rows need stronger hierarchy/contrast than the surrounding
+        ; parchment copy: larger title and larger bold timer/status.
+        CharacterPage.SetFont("s15 Bold c120900", LauncherMorrowindFont)
+        nameLabel := CharacterPage.Add("Text", "x525 y" y " w355 h28 BackgroundTrans", event.Name)
+        CharacterPage.SetFont("s12 Bold c120900", LauncherMorrowindFont)
+        detailLabel := CharacterPage.Add("Text", "x525 y" (y + 30) " w355 h24 BackgroundTrans",
             modeText "   •   " statusText)
-        edit := AddStyledButton(CharacterPage, 525, y + 50, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
-        del := AddStyledButton(CharacterPage, 635, y + 50, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
-        start := AddStyledButton(CharacterPage, 745, y + 50, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
+        edit := AddStyledButton(CharacterPage, 525, y + 58, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
+        del := AddStyledButton(CharacterPage, 635, y + 58, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
+        start := AddStyledButton(CharacterPage, 745, y + 58, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
         ScheduledEventsBookRows.Push([nameLabel, detailLabel, edit, del, start])
-        y += 92
+        y += 102
     }
     PaintScheduledEventsBook()
 }
