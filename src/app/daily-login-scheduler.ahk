@@ -214,15 +214,6 @@ OpenScheduledEventsBook(*)
     finally EndInterfaceUpdate()
 }
 
-PaintScheduledEventsBook()
-{
-    global CharacterPage, ScheduledEventsBookMode
-    if !ScheduledEventsBookMode || !IsObject(CharacterPage)
-        return
-    try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", true)
-    try DllCall("UpdateWindow", "Ptr", CharacterPage.Hwnd)
-}
-
 BuildScheduledEventsBookRows()
 {
     global CharacterPage, ScheduledEvents, ScheduledEventsBookControls, ScheduledEventsBookRows, LaunchSettingsHeading
@@ -407,15 +398,6 @@ CloseScheduledEventsBook(*)
         FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
-}
-
-PaintCharactersBook()
-{
-    global CharacterPage, ScheduledEventsBookMode
-    if ScheduledEventsBookMode || !IsObject(CharacterPage)
-        return
-    try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", true)
-    try DllCall("UpdateWindow", "Ptr", CharacterPage.Hwnd)
 }
 
 CloseScheduledEventsMenu()
