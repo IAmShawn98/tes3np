@@ -752,7 +752,38 @@ UpdateDailyLoginCountdown(*)
 {
     CheckDailyLoginSchedule()
     RefreshScheduledEventsList()
-    RefreshScheduledEventsBook()
+    UpdateScheduledEventsBookCountdowns()
+}
+
+UpdateScheduledEventsBookCountdowns()
+{
+    global ScheduledEventsBookMode, ScheduledEventsBookRows, ScheduledEvents
+    if !ScheduledEventsBookMode
+        return
+
+    ; Update only the detail text in-place. Rebuilding every row once per second
+    ; causes the visible page to flash and eats clicks.
+    for index, event in ScheduledEvents
+    {
+        if index > ScheduledEventsBookRows.Length
+            break
+        row := ScheduledEventsBookRows[index]
+        if row.Length < 2
+            continue
+        detail := row[2]
+        try
+        {
+            modeText := event.StartedAt != ""
+                ? FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event))
+                : (event.HasOwnProp("Mode") && event.Mode = "Countdown"
+                    ? FormatDailyLoginCountdown(event.DurationSeconds)
+                    : FormatScheduledEventTime(event.Time))
+            statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
+            newText := modeText "   •   " statusText
+            if detail.Text != newText
+                detail.Text := newText
+        }
+    }
 }
 
 GetScheduledEventRawRemaining(time, timeBasis := "IRL")
