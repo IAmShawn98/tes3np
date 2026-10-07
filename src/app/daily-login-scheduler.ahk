@@ -469,9 +469,10 @@ CheckDailyLoginSchedule(*)
     {
         if event.HasOwnProp("Completed") && event.Completed
             continue
-        if event.LastRunDate = today
+        isCountdown := event.HasOwnProp("Mode") && event.Mode = "Countdown"
+        if !isCountdown && event.LastRunDate = today
             continue
-        if event.HasOwnProp("Mode") && event.Mode = "Countdown"
+        if isCountdown
         {
             if event.StartedAt = ""
                 continue
@@ -542,7 +543,15 @@ CompleteScheduledEventForToday(event, reason := "completed", successful := false
     global ScheduledEvents
     event.LastRunDate := FormatTime(, "yyyy-MM-dd")
     event.Due := false
-    if successful && !event.Recurring
+    if event.HasOwnProp("Mode") && event.Mode = "Countdown" && event.Recurring && event.StartedAt != ""
+    {
+        ; Keep recurring countdowns anchored to their original cadence. Advancing
+        ; from the exact prior boundary avoids adding scheduler/prompt delay every cycle.
+        event.StartedAt := DateAdd(event.StartedAt, event.DurationSeconds, "Seconds")
+        event.PreviousRemaining := event.DurationSeconds
+        event.LastRunDate := ""
+    }
+    else if successful && !event.Recurring
         event.Completed := true
     SaveScheduledEvents()
     LogLauncherEvent("GAME | Scheduled event '" event.Name "' " reason " for today.")
