@@ -204,7 +204,7 @@ OpenScheduledEventsBook(*)
         "Need a reminder for a boss spawn or timed in-game event? Add a timed event or countdown, then press 'Start' or use a hotkey in-game to begin it at the exact moment you need. The launcher will remind you when it's due!")
 
     add := AddStyledButton(CharacterPage, 70, 505, 370, 30, "Schedule New Event", (*) => OpenScheduledEventEditor(CharacterPage))
-    hotkey := AddStyledButton(CharacterPage, 70, 540, 370, 30, "Hotkey: " DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey), EditScheduledCountdownHotkey)
+    hotkey := AddStyledButton(CharacterPage, 70, 540, 370, 30, "Hotkey: " DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey), (*) => EditScheduledCountdownHotkey(hotkey))
     back := AddStyledButton(CharacterPage, 70, 575, 370, 30, "Back to Characters", CloseScheduledEventsBook)
 
     ScheduledEventsBookControls := [description, add, hotkey, back]
