@@ -508,8 +508,7 @@ OpenLauncherSettingsV016(*)
         settings.Add("Text", "x" V016S(32) " y" V016S(76) " w" V016S(448) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(124), V016S(145), V016S(24), "Launcher size", V016Font(18), 0xFF382314)
-        settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
     ; Native dropdowns cannot display the proprietary bitmap face directly.
     ; Keep their interactive chrome native, but use a neutral system font so
     ; they no longer inherit the old Georgia/MysticCards approximation.
@@ -518,26 +517,23 @@ OpenLauncherSettingsV016(*)
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(151), V016S(448), V016S(40), "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.", V016Font(15), 0xFF5A4027)
-        settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(197), V016S(145), V016S(24), "Interface text", V016Font(18), 0xFF382314)
-        settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
+    settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
     settings.SetFont("s" V016Font(10) " c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(224), V016S(448), V016S(30), "Choose how big or small the launcher interface is for you.", V016Font(15), 0xFF5A4027)
-        settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
+    settings.SetFont("s" V016Font(11) " c382314", "Segoe UI")
     readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
-    readabilityParts := AddMagicCardsInteractiveLabel(settings, V016S(32), V016S(260), V016S(448), V016S(32), readabilityPrefix, "Enhanced readability", V016Font(19), ToggleV016ReadabilityParts.Bind())
-    readability := readabilityParts.Hit
+    readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
+    readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(70), V016S(290), V016S(410), V016S(42), "Improves readability by providing stronger contrast and brighter button text.", V016Font(15), 0xFF5A4027)
-        settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
+    settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
