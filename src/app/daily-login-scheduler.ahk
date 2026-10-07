@@ -379,9 +379,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
         NextScheduledEventId += 1
     }
     if ScheduledCountdownArmedEventId = event.Id
-        if ScheduledEventArmedIds.Has(event.Id)
-        ScheduledEventArmedIds.Delete(event.Id)
-    ScheduledCountdownArmedEventId := ""
+        ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
     savedCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
     if savedCount != ScheduledEvents.Length
