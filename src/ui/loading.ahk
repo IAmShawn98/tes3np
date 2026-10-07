@@ -38,10 +38,26 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
 EndInterfaceUpdate()
 {
     global InterfaceUpdateGui, InterfaceUpdating, InterfaceUpdateDepth, InterfaceFrameCover, ButtonFaces
+    ; Be defensive about mismatched cleanup. A stray EndInterfaceUpdate must not
+    ; drive the depth negative or dereference a GUI that has already been closed.
+    if InterfaceUpdateDepth <= 0
+    {
+        InterfaceUpdateDepth := 0
+        InterfaceUpdating := false
+        return
+    }
     InterfaceUpdateDepth -= 1
     if InterfaceUpdateDepth > 0
         return
-    targetWindow := InterfaceUpdateGui.Hwnd
+    targetWindow := IsObject(InterfaceUpdateGui) ? InterfaceUpdateGui.Hwnd : 0
+    if !targetWindow || !DllCall("IsWindow", "Ptr", targetWindow)
+    {
+        SetTimer(ShowSlowInterfaceLoading, 0)
+        InterfaceUpdating := false
+        ReleaseInterfaceFrame()
+        Critical("Off")
+        return
+    }
     try
     {
         ; Re-enable painting only after the complete replacement layout exists.
@@ -51,10 +67,7 @@ EndInterfaceUpdate()
         DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
         for handle, face in ButtonFaces
             if face.Window = targetWindow && DllCall("IsWindow", "Ptr", handle)
-            {
-                SetInterfaceLoadingText(face.HasOwnProp("IsTick") ? "Drawing character checkbox..." : face.HasOwnProp("IsLabel") ? "Drawing text label..." : "Drawing button...")
                 PaintButtonNow(handle)
-            }
         ; Commit geometry and pointer state while the captured frame still
         ; covers the real window. This makes the first click after loading use
         ; the final controls even if the pointer never moved during the update.
