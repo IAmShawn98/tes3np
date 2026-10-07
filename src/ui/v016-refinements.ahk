@@ -523,43 +523,43 @@ OpenLauncherSettingsV016(*)
     settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
 
     settings.SetFont("s" V016Font(19) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(70) " y" V016S(76) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x" V016S(70) " y" V016S(121) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x" V016S(32) " y" V016S(169) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
     ; Native dropdowns cannot display the proprietary bitmap face directly.
     ; Keep their interactive chrome native, but use a neutral system font so
     ; they no longer inherit the old Georgia/MysticCards approximation.
     settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
+    scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(164) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    settings.Add("Text", "x" V016S(32) " y" V016S(196) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
+    settings.Add("Text", "x" V016S(32) " y" V016S(242) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
     settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(237) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    settings.Add("Text", "x" V016S(32) " y" V016S(269) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     readabilityPrefix := V016ReadabilityState ? "☑" : "■"
-    readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
+    readability := settings.Add("Text", "x" V016S(32) " y" V016S(305) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
+    settings.Add("Text", "x" V016S(70) " y" V016S(335) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, V016S(32), V016S(342), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(266), V016S(342), V016S(214), V016S(30), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(32), V016S(390), V016S(448), V016S(30), "Close", CloseLauncherSettingsV016.Bind(settings))
+    AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(32), V016S(435), V016S(448), V016S(30), "Close", CloseLauncherSettingsV016.Bind(settings))
     AddStyledButton(settings, V016S(32), V016S(486), V016S(448), V016S(30), "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
