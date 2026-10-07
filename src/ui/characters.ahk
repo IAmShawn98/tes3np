@@ -17,17 +17,18 @@ OpenCharacterPage(*)
     CharacterPage.BackColor := "FF00FF"
     CharacterPage.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
-    CharacterPage.SetFont("s16 Norm c382314", "Georgia")
-    if !AddMagicCardsText(CharacterPage, 70, 45, 380, 30, "Your Characters", 24, 0xFF382314, true)
-        CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
+    ; Use the same native Morrowind-style face as Launcher Settings. Keep
+    ; interactive buttons in their existing button font for readability.
+    CharacterPage.SetFont("s16 Norm c382314", LauncherMorrowindFont)
+    CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
     LaunchSettingsHeading := AddBookLabel(CharacterPage, 525, 45, 360, 30, "Launch Settings")
-    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    CharacterPage.SetFont("s10 Norm c382314", LauncherMorrowindFont)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
-    CharacterPage.SetFont("s9.5 Norm c241408", "Segoe UI")
+    CharacterPage.SetFont("s9.5 Norm c241408", LauncherMorrowindFont)
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w370 h108 BackgroundTrans", "")
     Loop 10
     {
-        CharacterPage.SetFont("s10 Norm c382314", "Segoe UI")
+        CharacterPage.SetFont("s10 Norm c382314", LauncherMorrowindFont)
         index := A_Index
         y := 190 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
@@ -42,15 +43,13 @@ OpenCharacterPage(*)
         remove := AddStyledButton(CharacterPage, 370, y, 70, 22, "Remove", RemoveVisibleProfile.Bind(index))
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
-    CharacterPage.SetFont("s10 Norm", "Segoe UI")
+    CharacterPage.SetFont("s10 Norm", LauncherMorrowindFont)
     CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 435, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
-    CharacterPage.SetFont("s10 Norm c241408", "Segoe UI")
-    executableLabel := AddMagicCardsText(CharacterPage, 525, 110, 360, 22, "TES3MP executable", 17, 0xFF241408)
-    if !IsObject(executableLabel)
-        executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "TES3MP executable")
-    CharacterPage.SetFont("s10 Norm c382314", "Segoe UI")
+    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
+    executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "TES3MP executable")
+    CharacterPage.SetFont("s10 Norm c382314", LauncherMorrowindFont)
     SetInterfaceLoadingText("Loading executable field...")
     ExecutableInput := AddThemedEdit(CharacterPage, "x525 y137 w270", GetSharedExecutable())
     ExecutableInput.OnEvent("Change", SaveSharedExecutable)
