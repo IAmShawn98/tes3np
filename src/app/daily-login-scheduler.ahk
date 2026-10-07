@@ -230,8 +230,10 @@ PaintScheduledEventsBook()
 
 BuildScheduledEventsBookRows()
 {
-    global CharacterPage, ScheduledEvents, ScheduledEventsBookControls, ScheduledEventsBookRows
+    global CharacterPage, ScheduledEvents, ScheduledEventsBookControls, ScheduledEventsBookRows, LaunchSettingsHeading
     global LauncherMorrowindFont
+
+    LaunchSettingsHeading.Text := "Scheduled Events"
 
     ; Rebuild only the right-page event rows.
     for row in ScheduledEventsBookRows
@@ -249,6 +251,7 @@ BuildScheduledEventsBookRows()
         CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
         empty := CharacterPage.Add("Text", "x525 y110 w360 h50 Center BackgroundTrans", "No scheduled events yet.")
         ScheduledEventsBookRows.Push([empty])
+        PaintScheduledEventsBook()
         return
     }
 
@@ -416,8 +419,9 @@ FormatScheduledEventTime(time)
 
 OpenScheduledEventBookEditor(eventIndex := 0)
 {
-    global CharacterPage, ScheduledEvents, ScheduledEventsBookRows, LauncherMorrowindFont
+    global CharacterPage, ScheduledEvents, ScheduledEventsBookRows, LauncherMorrowindFont, LaunchSettingsHeading
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
+    LaunchSettingsHeading.Text := editing ? "Edit Scheduled Event" : "Schedule New Event"
     event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, Recurring: true, Completed: false}
 
     ; Replace the right-page event list with the editor.
