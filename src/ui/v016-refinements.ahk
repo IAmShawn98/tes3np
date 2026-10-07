@@ -9,7 +9,9 @@ global V016DailyLoginControls := []
 
 InitializeV016UiRefinements()
 {
-    SetTimer(ApplyV016CharacterLayout, 250)
+    ; Character layout is applied explicitly when the Character Book is built or
+    ; refreshed. Do not wake the launcher four times per second just to discover
+    ; that the layout has already been applied.
     OnMessage(0x84, HandleV016SettingsHitTest)
 }
 
