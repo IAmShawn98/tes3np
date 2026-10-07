@@ -99,7 +99,16 @@ InitializeLauncherMorrowindFont()
         LauncherMagicCardsTex := fontPair.Tex
         LauncherMagicCardsData := LoadMagicCardsBitmapFont(fontPair.Fnt)
         try LogLauncherEvent("UI | Vanilla journal font found: " fontPair.Fnt)
-        if !IsObject(LauncherMagicCardsData)
+        if IsObject(LauncherMagicCardsData)
+        {
+            try LogLauncherEvent("UI | Vanilla journal font parsed successfully. Glyphs: " LauncherMagicCardsData.Glyphs.Length ".")
+            atlas := MagicCardsCreateGlyphAtlas()
+            if IsObject(atlas)
+                try LogLauncherEvent("UI | Vanilla journal texture decoded: " atlas.Width "x" atlas.Height ".")
+            else
+                try LogLauncherEvent("UI | Vanilla journal texture decode failed; bitmap text will fall back.")
+        }
+        else
             try LogLauncherEvent("UI | Vanilla journal font parser failed; using fallback text.")
     }
     else
@@ -377,9 +386,17 @@ MagicCardsBufferToHBitmap(pixels, width, height)
 
 AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center := false)
 {
+    static failureLogged := false
     hbm := MagicCardsRenderText(text, w, h, fontHeight, color, center)
     if !hbm
+    {
+        if !failureLogged
+        {
+            failureLogged := true
+            try LogLauncherEvent("UI | Vanilla journal bitmap render failed; controls are using fallback text.")
+        }
         return false
+    }
     pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
     pic.OnEvent("Destroy", (*) => DllCall("Gdi32.dll\\DeleteObject", "Ptr", hbm))
     return pic
