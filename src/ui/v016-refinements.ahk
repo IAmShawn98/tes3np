@@ -77,125 +77,18 @@ global LauncherMorrowindFontLoaded := false
 
 InitializeLauncherMorrowindFont()
 {
+    ; MysticCards is an OpenMW replacement UI font, not the original Morrowind
+    ; bitmap face. Keep the launcher on its established serif typography instead
+    ; of silently substituting a font that does not match the intended look.
     global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
-    fontDir := A_ScriptDir "\\assets\\fonts"
-    fontPath := fontDir "\\MysticCards.ttf"
-    LauncherMorrowindFontPath := fontPath
     LauncherMorrowindFont := "Georgia"
+    LauncherMorrowindFontPath := ""
     LauncherMorrowindFontLoaded := false
-
-    if !FileExist(fontPath)
-    {
-        LogLauncherEvent("FONT | Bundled MysticCards.ttf is missing. Using Georgia fallback.")
-        return
-    }
-
-    ; FR_PRIVATE makes the font available only to this launcher process.
-    try loaded := DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int")
-    catch as err
-    {
-        LogLauncherEvent("FONT | MysticCards registration failed: " err.Message ". Using Georgia fallback.")
-        return
-    }
-    if loaded <= 0
-    {
-        LogLauncherEvent("FONT | MysticCards registration returned 0. Using Georgia fallback.")
-        return
-    }
-
-    ; Read the actual family name from the TTF name table. This avoids relying on
-    ; the file name, license name, or GDI enumeration of already-installed fonts.
-    family := ReadTrueTypeFamilyName(fontPath)
-    if family = ""
-    {
-        LogLauncherEvent("FONT | MysticCards registered, but TTF family name was unreadable. Using Georgia fallback.")
-        return
-    }
-    LauncherMorrowindFont := family
-    LauncherMorrowindFontLoaded := true
-    LogLauncherEvent("FONT | MysticCards loaded. TTF family: '" family "'.")
-}
-
-ReadTrueTypeFamilyName(fontPath)
-{
-    try data := FileRead(fontPath, "RAW")
-    catch
-        return ""
-    if data.Size < 12
-        return ""
-    numTables := TTU16(data, 4)
-    Loop numTables
-    {
-        rec := 12 + (A_Index - 1) * 16
-        if rec + 16 > data.Size
-            break
-        tag := Chr(NumGet(data, rec, "UChar")) Chr(NumGet(data, rec + 1, "UChar")) Chr(NumGet(data, rec + 2, "UChar")) Chr(NumGet(data, rec + 3, "UChar"))
-        if tag != "name"
-            continue
-        nameOffset := TTU32(data, rec + 8)
-        if nameOffset + 6 > data.Size
-            return ""
-        count := TTU16(data, nameOffset + 2)
-        stringsOffset := TTU16(data, nameOffset + 4)
-        best := ""
-        Loop count
-        {
-            nr := nameOffset + 6 + (A_Index - 1) * 12
-            if nr + 12 > data.Size
-                break
-            platform := TTU16(data, nr), encoding := TTU16(data, nr + 2), language := TTU16(data, nr + 4)
-            nameId := TTU16(data, nr + 6), length := TTU16(data, nr + 8), offset := TTU16(data, nr + 10)
-            if nameId != 1
-                continue
-            pos := nameOffset + stringsOffset + offset
-            if pos + length > data.Size
-                continue
-            value := TTNameString(data, pos, length, platform, encoding)
-            if value = ""
-                continue
-            if platform = 3 && language = 0x0409
-                return value
-            if best = ""
-                best := value
-        }
-        return best
-    }
-    return ""
-}
-
-TTU16(buf, offset)
-{
-    return (NumGet(buf, offset, "UChar") << 8) | NumGet(buf, offset + 1, "UChar")
-}
-
-TTU32(buf, offset)
-{
-    return (TTU16(buf, offset) << 16) | TTU16(buf, offset + 2)
-}
-
-TTNameString(buf, offset, length, platform, encoding)
-{
-    if platform = 3
-    {
-        out := ""
-        Loop length // 2
-        {
-            code := TTU16(buf, offset + (A_Index - 1) * 2)
-            if code
-                out .= Chr(code)
-        }
-        return out
-    }
-    try return StrGet(buf.Ptr + offset, length, "CP1252")
-    catch
-        return ""
 }
 
 ReleaseLauncherMorrowindFont()
 {
-    global LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
-    if LauncherMorrowindFontLoaded && LauncherMorrowindFontPath != ""
-        try DllCall("Gdi32.dll\\RemoveFontResourceExW", "Str", LauncherMorrowindFontPath, "UInt", 0x10, "Ptr", 0)
+    global LauncherMorrowindFontLoaded
     LauncherMorrowindFontLoaded := false
 }
 
