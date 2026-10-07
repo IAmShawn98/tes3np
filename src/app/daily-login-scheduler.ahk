@@ -545,7 +545,7 @@ ShowMissedScheduledEvents(*)
     {
         if event.HasOwnProp("Completed") && event.Completed
             continue
-        cursor := SubStr(lastExit, 1, 8) event.Time.Replace(":", "") "00"
+        cursor := SubStr(lastExit, 1, 8) StrReplace(event.Time, ":", "") "00"
         if cursor <= lastExit
             cursor := DateAdd(cursor, 1, "Days")
         wasMissed := cursor <= A_Now
