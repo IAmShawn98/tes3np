@@ -1,7 +1,7 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
 BuildFrontPage()
 {
-    global LauncherGui, DragStrip, LauncherHeading
+    global LauncherGui, DragStrip, LauncherHeading, LauncherMorrowindFont
     global ButtonFaces, HoverButton, PressedButton
     ButtonFaces := Map()
     LauncherGui.Opt("+OwnDialogs")
@@ -12,8 +12,11 @@ BuildFrontPage()
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
     AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Battle powerful enemies in camps across Vvardenfell and Solstheim, and team up to conquer formidable bosses. Master tradeskills such as fishing and crafting, secure a personal vault, and buy a home of your own. The path to godhood is never a lonely one!")
-    LauncherGui.SetFont("s14 Bold", "Georgia")
-    LauncherHeading := LauncherGui.Add("Text", "x340 y408 w280 h30 Center BackgroundTrans c382314", "Game Launcher")
+    ; Match the native Morrowind-style typography used by Launcher Settings
+    ; and Characters. A slightly larger, darker regular face keeps the
+    ; handwritten lettering readable against the parchment.
+    LauncherGui.SetFont("s16 Norm c241408", LauncherMorrowindFont)
+    LauncherHeading := LauncherGui.Add("Text", "x340 y405 w280 h34 Center BackgroundTrans", "Game Launcher")
     LauncherGui.SetFont("s11", "Segoe UI")
     HoverButton := 0
     PressedButton := 0
