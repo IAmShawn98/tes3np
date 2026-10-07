@@ -557,10 +557,10 @@ OpenLauncherSettingsV016(*)
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
     reduceMotionBox := {Value: 0}
 
-    AddStyledButton(settings, V016S(32), V016S(338), V016S(214), V016S(38), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(266), V016S(338), V016S(214), V016S(38), "Close", CloseLauncherSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(32), V016S(400), V016S(448), V016S(38), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(32), V016S(450), V016S(448), V016S(38), "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(32), V016S(342), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(266), V016S(342), V016S(214), V016S(30), "Close", CloseLauncherSettingsV016.Bind(settings))
+    AddStyledButton(settings, V016S(32), V016S(404), V016S(448), V016S(30), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(32), V016S(454), V016S(448), V016S(30), "AppData Settings", OpenAppDataSettingsV016)
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
