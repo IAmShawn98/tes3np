@@ -274,9 +274,9 @@ BuildScheduledEventsBookRows()
         CharacterPage.SetFont("s12 Bold c120900", LauncherMorrowindFont)
         detailLabel := CharacterPage.Add("Text", "x525 y" (y + 30) " w355 h24 BackgroundTrans",
             modeText "   •   " statusText)
-        edit := AddStyledButton(CharacterPage, 525, y + 58, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
-        del := AddStyledButton(CharacterPage, 635, y + 58, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
-        start := AddStyledButton(CharacterPage, 745, y + 58, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
+        start := AddStyledButton(CharacterPage, 525, y + 58, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
+        edit := AddStyledButton(CharacterPage, 665, y + 58, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
+        del := AddStyledButton(CharacterPage, 775, y + 58, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
         ScheduledEventsBookRows.Push([nameLabel, detailLabel, edit, del, start])
         y += 102
     }
