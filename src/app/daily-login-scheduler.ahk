@@ -222,13 +222,7 @@ BuildScheduledEventsBookRows()
     LaunchSettingsHeading.Text := "Scheduled Events"
 
     ; Rebuild only the right-page event rows.
-    for row in ScheduledEventsBookRows
-        for control in row
-        {
-            SetBookControlVisible(control, false)
-            DestroyBookControl(control)
-        }
-    ScheduledEventsBookRows := []
+    ClearScheduledEventsBookRows()
     try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", false)
 
     y := 100
@@ -265,6 +259,12 @@ BuildScheduledEventsBookRows()
         ScheduledEventsBookRows.Push([nameLabel, detailLabel, edit, del, start])
         y += 102
     }
+}
+
+ClearScheduledEventsBookRows()
+{
+    global ScheduledEventsBookRows
+    ClearScheduledEventsBookRows()
 }
 
 RefreshScheduledEventsBook()
@@ -373,14 +373,8 @@ CloseScheduledEventsBook(*)
             SetBookControlVisible(control, false)
             DestroyBookControl(control)
         }
-        for row in ScheduledEventsBookRows
-            for control in row
-            {
-                SetBookControlVisible(control, false)
-                try control.Destroy()
-            }
+        ClearScheduledEventsBookRows()
         ScheduledEventsBookControls := []
-        ScheduledEventsBookRows := []
 
         ; Keep this same book window alive. Destroying/recreating it causes the
         ; old hide/show flash. Instead rebuild the normal Characters controls in
