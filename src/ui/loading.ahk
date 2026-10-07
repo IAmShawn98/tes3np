@@ -27,7 +27,7 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
     ; destruction/creation now happens off-screen instead of generating a stream
     ; of WM_PAINT messages underneath the loading cover.
     if IsObject(InterfaceUpdateGui) && DllCall("IsWindow", "Ptr", InterfaceUpdateGui.Hwnd)
-        SendMessage(0x000B, false, 0, , "ahk_id " InterfaceUpdateGui.Hwnd) ; WM_SETREDRAW
+        DllCall("SendMessageW", "Ptr", InterfaceUpdateGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0) ; WM_SETREDRAW
     if message != ""
         SetInterfaceLoadingText(message)
     if IsObject(InterfaceFrameCover) && !IsObject(InterfaceFrameCover.Panel)
@@ -47,7 +47,7 @@ EndInterfaceUpdate()
         ; Re-enable painting only after the complete replacement layout exists.
         ; RDW_ALLCHILDREN + INVALIDATE then commits one finished frame.
         if DllCall("IsWindow", "Ptr", targetWindow)
-            SendMessage(0x000B, true, 0, , "ahk_id " targetWindow) ; WM_SETREDRAW
+            DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW
         DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
         for handle, face in ButtonFaces
             if face.Window = targetWindow && DllCall("IsWindow", "Ptr", handle)
@@ -74,7 +74,7 @@ EndInterfaceUpdate()
     {
         ; Never leave a window redraw-suspended if an update action throws.
         if targetWindow && DllCall("IsWindow", "Ptr", targetWindow)
-            SendMessage(0x000B, true, 0, , "ahk_id " targetWindow)
+            DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
         SetTimer(ShowSlowInterfaceLoading, 0)
         InterfaceUpdating := false
         if IsObject(InterfaceFrameCover)
