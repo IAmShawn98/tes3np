@@ -405,7 +405,6 @@ ImportMacroScript(source)
         FileCopy(source, staging "\" filename)
         FileAppend("OK", staging "\.import-success")
         FinishMacroImport({Folder: staging, Archive: source})
-        RefreshMacroButtons()
     }
     catch
     {
