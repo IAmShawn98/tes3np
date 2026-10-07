@@ -123,7 +123,7 @@ ApplyLauncherControlScale()
         }
         if IsObject(LauncherHeading)
             ; Preserve the Morrowind-style heading after startup/scaling.
-            LauncherHeading.SetFont("s" Max(11, Round(18 * scale)) " Bold c241408", LauncherMorrowindFont)
+            LauncherHeading.SetFont("s" Max(12, Round(19 * scale)) " Norm c241408", LauncherMorrowindFont)
         if IsObject(LauncherVersionLabel)
             LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
     }
