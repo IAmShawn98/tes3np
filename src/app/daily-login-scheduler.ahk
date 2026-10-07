@@ -347,9 +347,20 @@ CloseScheduledEventsBook(*)
     LaunchCharacterButton.Visible := false
     SessionStatus.Visible := false
     RefreshProfiles()
-    ; Queue one normal repaint after the transition instead of recursively
-    ; repainting while controls are being changed.
+    ; The scheduler page uses transparent text over the parchment. After those
+    ; controls are destroyed, paint the fully restored Characters page on the
+    ; next UI tick; otherwise Windows can leave scheduler glyphs/button faces
+    ; cached over the restored controls until the window is resized.
+    SetTimer(PaintCharactersBook, -1)
+}
+
+PaintCharactersBook()
+{
+    global CharacterPage, ScheduledEventsBookMode
+    if ScheduledEventsBookMode || !IsObject(CharacterPage)
+        return
     try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", true)
+    try DllCall("UpdateWindow", "Ptr", CharacterPage.Hwnd)
 }
 
 CloseScheduledEventsMenu()
