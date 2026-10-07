@@ -404,13 +404,21 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
                     continue
                 sx := src.X + Min(src.W - 1, Floor(dx * src.W / dstW))
                 srcOff := (sy * atlas.Width + sx) * 4
+                ; The vanilla atlas stores the actual glyph intensity in RGB as
+                ; well as alpha. Using alpha alone turns the entire source cell
+                ; into a chunky silhouette. Use the source RGB intensity to keep
+                ; the original Magic Cards edge/detail mask.
+                srcR := NumGet(atlas.Pixels, srcOff, "UChar")
+                srcG := NumGet(atlas.Pixels, srcOff + 1, "UChar")
+                srcB := NumGet(atlas.Pixels, srcOff + 2, "UChar")
                 alpha := NumGet(atlas.Pixels, srcOff + 3, "UChar")
-                if alpha = 0
+                coverage := Round(((srcR + srcG + srcB) / 3) * alpha / 255)
+                if coverage < 24
                     continue
                 dstOff := (py * width + px) * 4
-                ; AHK Picture controls do not alpha-blend HBITMAP pixels against
-                ; the parchment underneath. Keep every visible glyph pixel opaque
-                ; so the vanilla font retains its intended dark ink contrast.
+                ; Keep accepted glyph pixels opaque for strong parchment contrast,
+                ; but only after the atlas intensity mask above has rejected the
+                ; transparent/faint cell background.
                 NumPut("UChar", color & 0xFF, out, dstOff)
                 NumPut("UChar", (color >> 8) & 0xFF, out, dstOff + 1)
                 NumPut("UChar", (color >> 16) & 0xFF, out, dstOff + 2)
