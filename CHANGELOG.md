@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.19-alpha — 2026-10-07
+
+### Fixed
+
+- Fixed launcher controls such as **Launcher Settings** being positioned incorrectly after startup on scaled displays.
+- Fixed the main launcher scrollbar becoming misaligned on scaled displays.
+
 ## v0.1.18-alpha — 2026-10-07
 
 ### Added
@@ -22,6 +29,7 @@
 ### Fixed
 
 - Fixed manually closing TES3MP potentially causing an unwanted automatic relaunch.
+
 ## v0.1.17-alpha — 2026-10-05
 
 ### What's New
