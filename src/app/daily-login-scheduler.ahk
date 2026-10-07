@@ -25,6 +25,7 @@ LoadDailyLoginSchedule()
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
         recurring := IniRead(DataFile, section, "Recurring", "1") = "1"
+        locked := IniRead(DataFile, section, "Locked", "1") = "1"
         completed := IniRead(DataFile, section, "Completed", "0") = "1"
         mode := IniRead(DataFile, section, "Mode", "IRL")
         durationSeconds := Integer(IniRead(DataFile, section, "DurationSeconds", "0"))
@@ -32,7 +33,7 @@ LoadDailyLoginSchedule()
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, Recurring: recurring, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, Recurring: recurring, Locked: locked, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -107,6 +108,7 @@ SaveScheduledEvents()
         IniWrite(event.HasOwnProp("DurationSeconds") ? event.DurationSeconds : 0, DataFile, section, "DurationSeconds")
         IniWrite(event.HasOwnProp("StartedAt") ? event.StartedAt : "", DataFile, section, "StartedAt")
         IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
+        IniWrite(event.HasOwnProp("Locked") && event.Locked ? "1" : "0", DataFile, section, "Locked")
         IniWrite(event.HasOwnProp("Completed") && event.Completed ? "1" : "0", DataFile, section, "Completed")
         IniWrite(event.LastRunDate, DataFile, section, "LastRunDate")
     }
@@ -356,17 +358,17 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring
+        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring, event.Locked := true
         event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")
     }
     else
     {
-        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
+        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Locked: true, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
         ScheduledEvents.Push(event)
         NextScheduledEventId += 1
     }
-    if mode = "Countdown"
-        ScheduledCountdownArmedEventId := event.Id
+    if ScheduledCountdownArmedEventId = event.Id
+        ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
     savedCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
     if savedCount != ScheduledEvents.Length
@@ -745,30 +747,6 @@ ToggleSelectedScheduledEventLock(button, *)
     RefreshScheduledEventLockButton(button)
 }
 
-ArmSelectedScheduledCountdown(*)
-{
-    global ScheduledEventsListView, ScheduledEvents, ScheduledCountdownArmedEventId, ScheduledCountdownHotkey
-    row := IsObject(ScheduledEventsListView) ? ScheduledEventsListView.GetNext() : 0
-    if !row
-    {
-        MsgBox("Select a countdown event to arm.", "tes3np")
-        return
-    }
-    event := ScheduledEvents[row]
-    if !event.HasOwnProp("Mode") || event.Mode != "Countdown"
-    {
-        MsgBox("The selected event is not a countdown.", "tes3np")
-        return
-    }
-    event.StartedAt := ""
-    event.Due := false
-    event.Completed := false
-    ScheduledCountdownArmedEventId := event.Id
-    SaveScheduledEvents()
-    RefreshScheduledEventsList()
-    MsgBox("'" event.Name "' is armed. Press " LTrim(ScheduledCountdownHotkey, "~") " in-game exactly when you want the countdown to start.", "Countdown Armed")
-}
-
 StartArmedScheduledCountdown(*)
 {
     global ScheduledCountdownArmedEventId
@@ -781,7 +759,7 @@ StartArmedScheduledCountdown(*)
         return
     }
     event := FindScheduledEventById(ScheduledCountdownArmedEventId)
-    if !IsObject(event) || !event.HasOwnProp("Mode") || event.Mode != "Countdown" || event.StartedAt != "" || (event.HasOwnProp("Locked") && event.Locked)
+    if !IsObject(event) || !event.HasOwnProp("Mode") || event.Mode != "Countdown" || (event.HasOwnProp("Locked") && event.Locked)
     {
         ScheduledCountdownArmedEventId := ""
         TrayTip("No countdown armed", "Open Scheduled Events and arm a countdown first.", "Icon!")
