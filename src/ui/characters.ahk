@@ -159,6 +159,10 @@ RefreshProfiles()
         }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
+        ; Changing the native control text does not update the separately painted
+        ; Morrowind button face. Keep both layers synchronized after Import Data.
+        if ButtonFaces.Has(DataTransferButton.Hwnd)
+            ButtonFaces[DataTransferButton.Hwnd].Text := DataTransferButton.Text
         if IsObject(V016DailyLoginControls)
             for control in V016DailyLoginControls
                 control.Visible := Profiles.Length > 0
