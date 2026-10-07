@@ -49,6 +49,13 @@ EndInterfaceUpdate()
                 SetInterfaceLoadingText(face.HasOwnProp("IsTick") ? "Drawing character checkbox..." : face.HasOwnProp("IsLabel") ? "Drawing text label..." : "Drawing button...")
                 PaintButtonNow(handle)
             }
+        ; Commit geometry and pointer state while the captured frame still
+        ; covers the real window. This makes the first click after loading use
+        ; the final controls even if the pointer never moved during the update.
+        SyncDynamicButtonGeometry()
+        ResetThemedPointerState()
+        UpdateButtonHover()
+        DllCall("UpdateWindow", "Ptr", targetWindow)
         if IsObject(InterfaceFrameCover)
         {
             for layer in [InterfaceFrameCover.Gui, InterfaceFrameCover.Dim, InterfaceFrameCover.Card]
