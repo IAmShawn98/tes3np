@@ -199,7 +199,7 @@ LoadMagicCardsBitmapFont(fntPath)
     try
     {
         file := FileOpen(fntPath, "r")
-        if !IsObject(file) || file.Length < 296 + (256 * 40)
+        if !IsObject(file) || file.Length < 296 + (256 * 56)
             return false
         sizeBuf := Buffer(4)
         file.RawRead(sizeBuf, 4)
@@ -208,15 +208,19 @@ LoadMagicCardsBitmapFont(fntPath)
         glyphs := []
         Loop 256
         {
-            g := Buffer(40)
-            if file.RawRead(g, 40) != 40
+            g := Buffer(56)
+            if file.RawRead(g, 56) != 56
                 return false
             glyphs.Push({
                 TopLeftX: NumGet(g, 4, "Float"), TopLeftY: NumGet(g, 8, "Float"),
                 TopRightX: NumGet(g, 12, "Float"), TopRightY: NumGet(g, 16, "Float"),
                 BottomLeftX: NumGet(g, 20, "Float"), BottomLeftY: NumGet(g, 24, "Float"),
                 BottomRightX: NumGet(g, 28, "Float"), BottomRightY: NumGet(g, 32, "Float"),
-                Width: NumGet(g, 36, "Float")
+                Width: NumGet(g, 36, "Float"),
+                Height: NumGet(g, 40, "Float"),
+                KerningLeft: NumGet(g, 44, "Float"),
+                KerningRight: NumGet(g, 48, "Float"),
+                Ascent: NumGet(g, 52, "Float")
             })
         }
         return {FontSize: fontSize, Glyphs: glyphs}
@@ -236,7 +240,8 @@ MagicCardsMeasureText(text, scale := 1.0)
         code := Ord(A_LoopField)
         if code < 0 || code > 255
             code := 63
-        width += LauncherMagicCardsData.Glyphs[code + 1].Width * scale
+        glyph := LauncherMagicCardsData.Glyphs[code + 1]
+        width += (glyph.Width + glyph.KerningRight) * scale
     }
     return Round(width)
 }
@@ -258,9 +263,12 @@ MagicCardsGlyphRun(text, x, y, height)
         if code < 0 || code > 255
             code := 63
         glyph := LauncherMagicCardsData.Glyphs[code + 1]
-        advance := glyph.Width * scale
+        advance := (glyph.Width + glyph.KerningRight) * scale
         run.Push({
-            Code: code, X: penX, Y: y, Height: height, Advance: advance,
+            Code: code,
+            X: penX + (glyph.KerningLeft * scale),
+            Y: y + ((LauncherMagicCardsData.FontSize - glyph.Ascent) * scale),
+            Height: height, Advance: advance,
             TopLeftX: glyph.TopLeftX, TopLeftY: glyph.TopLeftY,
             TopRightX: glyph.TopRightX, TopRightY: glyph.TopRightY,
             BottomLeftX: glyph.BottomLeftX, BottomLeftY: glyph.BottomLeftY,
@@ -340,8 +348,9 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
     {
         glyph := LauncherMagicCardsData.Glyphs[item.Code + 1]
         src := MagicCardsGlyphSourceRect(glyph, atlas.Width, atlas.Height)
-        dstW := Max(1, Round(src.W * (fontHeight / LauncherMagicCardsData.FontSize)))
-        dstH := Max(1, Round(src.H * (fontHeight / LauncherMagicCardsData.FontSize)))
+        scale := fontHeight / LauncherMagicCardsData.FontSize
+        dstW := Max(1, Round(glyph.Width * scale))
+        dstH := Max(1, Round(glyph.Height * scale))
         Loop dstH
         {
             dy := A_Index - 1
