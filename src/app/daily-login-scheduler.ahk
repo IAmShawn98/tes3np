@@ -8,6 +8,9 @@ global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 global ScheduledCountdownHotkey := "F8"
 global ScheduledCountdownArmedEventId := ""
+global ScheduledEventsBookControls := []
+global ScheduledEventsBookRows := []
+global ScheduledEventsBookMode := false
 
 
 LoadDailyLoginSchedule()
@@ -127,43 +130,179 @@ SaveScheduledEvents()
 
 OpenScheduledEventsMenu(owner := 0, *)
 {
-    global LauncherGui, ScheduledEventsWindow, ScheduledEventsListView
-    if IsObject(ScheduledEventsWindow)
+    ; Scheduled Events now uses the existing character book instead of a popup.
+    OpenScheduledEventsBook()
+}
+
+OpenScheduledEventsBook(*)
+{
+    global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
+    global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls
+    global DataTransferButton, CharacterLimitNotice, ScheduledEventsBookControls, ScheduledEventsBookRows
+    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey
+
+    if !IsObject(CharacterPage)
+        return
+
+    HideProfileEditor()
+    ScheduledEventsBookMode := true
+
+    ; Hide the normal character-book content while preserving it for Back.
+    CharacterDescription.Visible := false
+    AddCharacterButton.Visible := false
+    WipeCharacterButton.Visible := false
+    DataTransferButton.Visible := false
+    CharacterLimitNotice.Visible := false
+    for row in CharacterRows
+        for _, control in row.OwnProps()
+            if IsObject(control)
+                control.Visible := false
+    if IsObject(V016DailyLoginControls)
+        for control in V016DailyLoginControls
+            control.Visible := false
+    for control in LaunchSettingsControls
+        control.Visible := false
+
+    ; Reuse the two book headings.
+    title := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Schedule Event")
+    LaunchSettingsHeading.Text := "Scheduled Events"
+
+    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    description := CharacterPage.Add("Text", "x70 y90 w370 h100 BackgroundTrans",
+        "Need a reminder for a boss spawn or timed in-game event? Add a timed event or countdown, then press 'Start' or use a hotkey in-game to begin it at the exact moment you need. The launcher will remind you when it's due!")
+
+    add := AddStyledButton(CharacterPage, 70, 505, 370, 30, "Schedule New Event", (*) => OpenScheduledEventEditor(CharacterPage))
+    hotkey := AddStyledButton(CharacterPage, 70, 540, 370, 30, "Hotkey: " DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey), EditScheduledCountdownHotkey)
+    back := AddStyledButton(CharacterPage, 70, 575, 370, 30, "Back to Characters", CloseScheduledEventsBook)
+
+    ScheduledEventsBookControls := [title, description, add, hotkey, back]
+    ScheduledEventsBookRows := []
+    BuildScheduledEventsBookRows()
+    FinishButtonDisplay()
+}
+
+BuildScheduledEventsBookRows()
+{
+    global CharacterPage, ScheduledEvents, ScheduledEventsBookControls, ScheduledEventsBookRows
+    global LauncherMorrowindFont
+
+    ; Rebuild only the right-page event rows.
+    for row in ScheduledEventsBookRows
+        for control in row
+            try control.Destroy()
+    ScheduledEventsBookRows := []
+
+    y := 100
+    if !ScheduledEvents.Length
     {
-        try {
-            WinActivate("ahk_id " ScheduledEventsWindow.Hwnd)
-            return
-        }
+        CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+        empty := CharacterPage.Add("Text", "x525 y110 w360 h50 Center BackgroundTrans", "No scheduled events yet.")
+        ScheduledEventsBookRows.Push([empty])
+        return
     }
-    ownerHwnd := IsObject(owner) ? owner.Hwnd : LauncherGui.Hwnd
-    menu := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Scheduled Events")
-    menu.BackColor := "E2CEA2"
-    menu.SetFont("s14 Bold c241408", "Segoe UI")
-    menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
-    menu.SetFont("s9 c382314", "Segoe UI")
-    menu.Add("Text", "x20 y52 w600 h54", "Need a reminder for a boss spawn or timed in-game event? Add a timed event or countdown, then press 'Start' or use a hotkey in-game to begin it at the exact moment you need. The launcher will remind you when it's due!")
-    lv := menu.Add("ListView", "x20 y114 w600 h232 Grid -Multi", ["Event", "Mode", "Time / Duration", "Repeat", "Status"])
-    lv.ModifyCol(1, 150), lv.ModifyCol(2, 90), lv.ModifyCol(3, 120), lv.ModifyCol(4, 90), lv.ModifyCol(5, 130)
-    add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
-    edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
-    del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
-    arm := menu.Add("Button", "x20 y412 w185 h32", "Start Event")
-    hotkey := menu.Add("Button", "x218 y412 w185 h32", "Hotkey: " LTrim(ScheduledCountdownHotkey, "~"))
-    close := menu.Add("Button", "x416 y412 w204 h32", "Close")
-    add.OnEvent("Click", (*) => OpenScheduledEventEditor(menu))
-    edit.OnEvent("Click", (*) => EditSelectedScheduledEvent())
-    del.OnEvent("Click", (*) => DeleteSelectedScheduledEvent())
-    arm.OnEvent("Click", (*) => ToggleSelectedScheduledEventLock(arm))
-    hotkey.OnEvent("Click", (*) => EditScheduledCountdownHotkey(hotkey))
-    close.OnEvent("Click", (*) => CloseScheduledEventsMenu())
-    lv.OnEvent("Click", (*) => RefreshScheduledEventLockButton(arm))
-    lv.OnEvent("DoubleClick", (*) => EditSelectedScheduledEvent())
-    menu.OnEvent("Close", (*) => CloseScheduledEventsMenu())
-    menu.OnEvent("Escape", (*) => CloseScheduledEventsMenu())
-    ScheduledEventsWindow := menu
-    ScheduledEventsListView := lv
-    RefreshScheduledEventsList()
-    menu.Show("w640 h464")
+
+    for index, event in ScheduledEvents
+    {
+        if index > 7
+            break
+        CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+        modeText := event.HasOwnProp("Mode") && event.Mode = "Countdown"
+            ? FormatDailyLoginCountdown(event.DurationSeconds)
+            : FormatScheduledEventTime(event.Time)
+        statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
+        label := CharacterPage.Add("Text", "x525 y" y " w205 h48 BackgroundTrans",
+            event.Name "`n" modeText "  •  " statusText)
+        edit := AddStyledButton(CharacterPage, 735, y + 4, 70, 26, "Edit", EditScheduledEventFromBook.Bind(index))
+        del := AddStyledButton(CharacterPage, 810, y + 4, 70, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
+        start := AddStyledButton(CharacterPage, 735, y + 32, 145, 24, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
+        ScheduledEventsBookRows.Push([label, edit, del, start])
+        y += 66
+    }
+}
+
+RefreshScheduledEventsBook()
+{
+    global ScheduledEventsBookMode
+    if ScheduledEventsBookMode
+        BuildScheduledEventsBookRows()
+}
+
+EditScheduledEventFromBook(index, *)
+{
+    global CharacterPage
+    OpenScheduledEventEditor(CharacterPage, index)
+}
+
+DeleteScheduledEventFromBook(index, *)
+{
+    global ScheduledEvents
+    if index < 1 || index > ScheduledEvents.Length
+        return
+    event := ScheduledEvents[index]
+    if MsgBox("Delete the scheduled event '" event.Name "'?", "tes3np", "YesNo Icon?") != "Yes"
+        return
+    ScheduledEvents.RemoveAt(index)
+    SaveScheduledEvents()
+    RefreshDailyLoginButton()
+    RefreshScheduledEventsBook()
+}
+
+ToggleScheduledEventFromBook(index, *)
+{
+    global ScheduledEvents, ScheduledCountdownArmedEventId
+    if index < 1 || index > ScheduledEvents.Length
+        return
+    event := ScheduledEvents[index]
+    if event.StartedAt != ""
+    {
+        event.Locked := false
+        event.Armed := true
+        event.StartedAt := ""
+        event.Due := false
+        event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : 0
+        ScheduledCountdownArmedEventId := event.Id
+    }
+    else
+    {
+        event.StartedAt := A_Now
+        event.Locked := true
+        event.Armed := false
+        event.LastRunDate := ""
+        event.Due := false
+        event.Completed := false
+        event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : GetScheduledEventRawRemaining(event.Time, "IRL")
+        if ScheduledCountdownArmedEventId = event.Id
+            ScheduledCountdownArmedEventId := ""
+    }
+    SaveScheduledEvents()
+    RefreshScheduledEventsBook()
+}
+
+CloseScheduledEventsBook(*)
+{
+    global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
+    global CharacterRows, CharacterDescription, LaunchSettingsHeading, LaunchSettingsControls
+    global AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, DataTransferButton
+    global CharacterLimitNotice, Profiles
+
+    for control in ScheduledEventsBookControls
+        try control.Destroy()
+    for row in ScheduledEventsBookRows
+        for control in row
+            try control.Destroy()
+    ScheduledEventsBookControls := []
+    ScheduledEventsBookRows := []
+    ScheduledEventsBookMode := false
+
+    LaunchSettingsHeading.Text := "Launch Settings"
+    for control in LaunchSettingsControls
+        control.Visible := true
+    CharacterDescription.Visible := true
+    for row in CharacterRows
+        for _, control in row.OwnProps()
+            if IsObject(control)
+                control.Visible := true
+    RefreshProfiles()
 }
 
 CloseScheduledEventsMenu()
@@ -389,6 +528,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     editor.Destroy()
     RefreshScheduledEventsList()
     RefreshDailyLoginButton()
+    RefreshScheduledEventsBook()
 }
 
 EditSelectedScheduledEvent()
