@@ -562,7 +562,10 @@ SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hou
         ; control during the transition.
         editorShim := {Destroy: (*) => 0}
         SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState)
-        ScheduledEventsBookRows := []
+        ; Destroy the editor controls before replacing their registry with the
+        ; rebuilt event rows. Simply clearing the array orphaned the controls,
+        ; leaving the editor painted over the Characters/Launch Settings page.
+        ClearScheduledEventsBookRows()
         RefreshScheduledEventsBook()
     }
     finally EndInterfaceUpdate()
