@@ -31,7 +31,7 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
     if message != ""
         SetInterfaceLoadingText(message)
     if IsObject(InterfaceFrameCover) && !IsObject(InterfaceFrameCover.Panel)
-        SetTimer(ShowSlowInterfaceLoading, -Max(1, 50 - (A_TickCount - startedAt)))
+        SetTimer(ShowSlowInterfaceLoading, -Max(1, 120 - (A_TickCount - startedAt)))
     Critical("Off")
 }
 
@@ -65,9 +65,6 @@ EndInterfaceUpdate()
         if DllCall("IsWindow", "Ptr", targetWindow)
             DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW
         DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
-        for handle, face in ButtonFaces
-            if face.Window = targetWindow && DllCall("IsWindow", "Ptr", handle)
-                PaintButtonNow(handle)
         ; Commit geometry and pointer state while the captured frame still
         ; covers the real window. This makes the first click after loading use
         ; the final controls even if the pointer never moved during the update.
@@ -303,8 +300,9 @@ ButtonLoadsContent(face)
     return ButtonNeedsRenderCover(face)
 }
 
-; Reveal only if work is still in progress after 50 ms. This schedules feedback,
-; never delays completion and never keeps the overlay up after work finishes.
+; Reveal a loading card only when real work is still running after 120 ms.
+; Fast transitions stay covered only by the captured frame and complete immediately;
+; there is no minimum display duration or artificial wait.
 
 ShowSlowInterfaceLoading()
 {
