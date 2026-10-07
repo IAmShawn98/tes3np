@@ -884,8 +884,9 @@ DisplayScheduledCountdownHotkey(key)
 
 EditScheduledCountdownHotkey(button, *)
 {
-    global ScheduledCountdownHotkey, DataFile
-    picker := Gui("+Owner" ScheduledEventsWindow.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Countdown Hotkey")
+    global ScheduledCountdownHotkey, DataFile, ScheduledEventsWindow, CharacterPage
+    owner := IsObject(ScheduledEventsWindow) ? ScheduledEventsWindow : CharacterPage
+    picker := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Countdown Hotkey")
     picker.BackColor := "E2CEA2"
     picker.SetFont("s10 Bold c382314", "Segoe UI")
     picker.Add("Text", "x20 y18 w330 h22", "Press the key you want to use")
