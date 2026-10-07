@@ -103,10 +103,13 @@ RefreshProfiles()
             ? "This is a list containing all of your registered Nerevarine Prophecies characters. From here you can add or delete up to 10 characters. Click on the checkbox before a characters name to favorite it. When you favorite a character, that sets you up for quick launching the game, and logging yourself in for schedualed events automatically. You can change your favorite character anytime."
             : "This will be a list of all your Nerevarine Prophecies characters. You will be able to add, edit and launch your characters from here."
         CharacterDescription.Text := descriptionText
+        ; Keep functional description text on the bundled Mystic Cards TTF. The
+        ; vanilla bitmap renderer is intentionally not used for long paragraphs.
         if IsObject(CharacterDescriptionMagic)
             CharacterDescriptionMagic.Visible := false
-        CharacterDescriptionMagic := AddMagicCardsText(CharacterPage, 70, 80, 370, Profiles.Length ? 108 : 90, descriptionText, 17, 0xFF241408)
-        CharacterDescription.Visible := !IsObject(CharacterDescriptionMagic)
+        CharacterDescriptionMagic := false
+        CharacterDescription.Text := descriptionText
+        CharacterDescription.Visible := true
         ; Keep the character action stack in one canonical layout. The v0.1.16
         ; refinement creates Daily Login after this window is built, so refreshes
         ; (including Import Data) must preserve that layout instead of restoring
