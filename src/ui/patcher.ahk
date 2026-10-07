@@ -373,6 +373,9 @@ CleanupPatcher()
     PatchFrame := 0
     if IsObject(PatchPage)
         PatchPage.Destroy()
+    ; Cleanup runs during launcher shutdown. Do not leave a destroyed GUI object
+    ; in shared state in case later cleanup/status code checks PatchPage.
+    PatchPage := 0
 }
 
 FullPatchPath(path)
