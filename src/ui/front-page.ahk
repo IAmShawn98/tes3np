@@ -167,19 +167,3 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
 }
 
 
-UpdateNPClockLabel(*)
-{
-    global NPClockLabel, NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
-    if !IsObject(NPClockLabel)
-        return
-    elapsed := DateDiff(A_Now, NPClockAnchorReal, "Seconds")
-    minuteOfDay := Mod(NPClockAnchorMinute + elapsed * NPClockTimescale / 60, 1440)
-    if minuteOfDay < 0
-        minuteOfDay += 1440
-    totalMinutes := Floor(minuteOfDay)
-    hour := Floor(totalMinutes / 60)
-    minute := Mod(totalMinutes, 60)
-    displayHour := Mod(hour - 1, 12) + 1
-    suffix := hour >= 12 ? "PM" : "AM"
-    NPClockLabel.Text := "Game Time: " displayHour ":" Format("{:02}", minute) " " suffix
-}
