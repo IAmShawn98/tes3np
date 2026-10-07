@@ -129,18 +129,18 @@ OpenScheduledEventsMenu(owner := 0, *)
     menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
     menu.SetFont("s9 c382314", "Segoe UI")
     menu.Add("Text", "x20 y52 w600 h36", "Want to capture timed in-game events? Easily arm timed events in-game via countdowns and IRL timers.")
-    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Mode", "Time / Duration", "Repeat", "Countdown"])
+    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Mode", "Time / Duration", "Repeat", "Status"])
     lv.ModifyCol(1, 150), lv.ModifyCol(2, 90), lv.ModifyCol(3, 120), lv.ModifyCol(4, 90), lv.ModifyCol(5, 130)
     add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
     edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
     del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
-    arm := menu.Add("Button", "x20 y412 w185 h32", "Arm Countdown")
+    arm := menu.Add("Button", "x20 y412 w185 h32", "Lock / Unlock")
     hotkey := menu.Add("Button", "x218 y412 w185 h32", "Hotkey: " LTrim(ScheduledCountdownHotkey, "~"))
     close := menu.Add("Button", "x416 y412 w204 h32", "Close")
     add.OnEvent("Click", (*) => OpenScheduledEventEditor(menu))
     edit.OnEvent("Click", (*) => EditSelectedScheduledEvent())
     del.OnEvent("Click", (*) => DeleteSelectedScheduledEvent())
-    arm.OnEvent("Click", (*) => ArmSelectedScheduledCountdown())
+    arm.OnEvent("Click", (*) => ToggleSelectedScheduledEventLock())
     hotkey.OnEvent("Click", (*) => EditScheduledCountdownHotkey(hotkey))
     close.OnEvent("Click", (*) => CloseScheduledEventsMenu())
     lv.OnEvent("DoubleClick", (*) => EditSelectedScheduledEvent())
@@ -169,7 +169,7 @@ RefreshScheduledEventsList()
     selected := ScheduledEventsListView.GetNext()
     ScheduledEventsListView.Delete()
     for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "IRL Time", event.HasOwnProp("Mode") && event.Mode = "Countdown" ? FormatDailyLoginCountdown(event.DurationSeconds) : FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : (event.HasOwnProp("Mode") && event.Mode = "Countdown" && !event.StartedAt ? "Waiting for hotkey" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event))))
+        ScheduledEventsListView.Add(, event.Name, event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "IRL Time", event.HasOwnProp("Mode") && event.Mode = "Countdown" ? FormatDailyLoginCountdown(event.DurationSeconds) : FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", ScheduledEventLockLabel(event))
     if selected && selected <= ScheduledEvents.Length
         ScheduledEventsListView.Modify(selected, "Select Focus")
 }
@@ -696,6 +696,41 @@ SaveScheduledCountdownHotkey(picker, keyControl, button, *)
     picker.Destroy()
 }
 
+ScheduledEventLockLabel(event)
+{
+    modeName := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "IRL time"
+    locked := event.HasOwnProp("Locked") && event.Locked
+    return modeName " " (locked ? "locked" : "unlocked")
+}
+
+ToggleSelectedScheduledEventLock(*)
+{
+    global ScheduledEventsListView, ScheduledEvents, ScheduledCountdownArmedEventId
+    row := IsObject(ScheduledEventsListView) ? ScheduledEventsListView.GetNext() : 0
+    if !row
+    {
+        MsgBox("Select an event first.", "tes3np")
+        return
+    }
+    event := ScheduledEvents[row]
+    event.Locked := !(event.HasOwnProp("Locked") && event.Locked)
+    if event.HasOwnProp("Mode") && event.Mode = "Countdown"
+    {
+        if event.Locked
+        {
+            event.StartedAt := ""
+            event.Due := false
+            event.Completed := false
+            ScheduledCountdownArmedEventId := event.Id
+        }
+        else if ScheduledCountdownArmedEventId = event.Id
+            ScheduledCountdownArmedEventId := ""
+    }
+    SaveScheduledEvents()
+    RefreshScheduledEventsList()
+    TrayTip(event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown " (event.Locked ? "locked" : "unlocked") : "IRL time " (event.Locked ? "locked" : "unlocked"), "'" event.Name "' " (event.Locked ? "locked." : "unlocked."), "Iconi")
+}
+
 ArmSelectedScheduledCountdown(*)
 {
     global ScheduledEventsListView, ScheduledEvents, ScheduledCountdownArmedEventId, ScheduledCountdownHotkey
@@ -732,13 +767,14 @@ StartArmedScheduledCountdown(*)
         return
     }
     event := FindScheduledEventById(ScheduledCountdownArmedEventId)
-    if !IsObject(event) || !event.HasOwnProp("Mode") || event.Mode != "Countdown" || event.StartedAt != ""
+    if !IsObject(event) || !event.HasOwnProp("Mode") || event.Mode != "Countdown" || event.StartedAt != "" || !event.HasOwnProp("Locked") || !event.Locked
     {
         ScheduledCountdownArmedEventId := ""
         TrayTip("No countdown armed", "Open Scheduled Events and arm a countdown first.", "Icon!")
         return
     }
     event.StartedAt := A_Now
+    event.Locked := false
     event.LastRunDate := ""
     event.Due := false
     event.PreviousRemaining := event.DurationSeconds
