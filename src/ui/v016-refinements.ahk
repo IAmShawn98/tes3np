@@ -249,6 +249,50 @@ MagicCardsGlyphRun(text, x, y, height)
     return run
 }
 
+
+MagicCardsCreateGlyphAtlas()
+{
+    ; Convert Morrowind's proprietary .tex atlas through the installed game's
+    ; own texture data. The decoder is intentionally local-only: Bethesda's
+    ; journal artwork is never bundled with tes3np.
+    global LauncherMagicCardsTex
+    if LauncherMagicCardsTex = "" || !FileExist(LauncherMagicCardsTex)
+        return false
+
+    file := FileOpen(LauncherMagicCardsTex, "r")
+    if !IsObject(file) || file.Length < 16
+        return false
+
+    ; Bethesda TEX header used by Morrowind fonts: width/height are stored in
+    ; the texture header and the font atlas is uncompressed RGBA32.
+    header := Buffer(16, 0)
+    file.RawRead(header, 16)
+    width := NumGet(header, 4, "UInt")
+    height := NumGet(header, 8, "UInt")
+    if width < 1 || height < 1 || width > 4096 || height > 4096
+        return false
+
+    remaining := file.Length - file.Pos
+    pixelBytes := width * height * 4
+    if remaining < pixelBytes
+        return false
+    file.Pos := file.Length - pixelBytes
+    pixels := Buffer(pixelBytes, 0)
+    if file.RawRead(pixels, pixelBytes) != pixelBytes
+        return false
+    return {Width: width, Height: height, Pixels: pixels}
+}
+
+MagicCardsGlyphSourceRect(glyph, atlasWidth, atlasHeight)
+{
+    ; UVs in the vanilla .fnt are normalized texture coordinates.
+    left := Round(Min(glyph.TopLeftX, glyph.BottomLeftX) * atlasWidth)
+    right := Round(Max(glyph.TopRightX, glyph.BottomRightX) * atlasWidth)
+    top := Round(Min(glyph.TopLeftY, glyph.TopRightY) * atlasHeight)
+    bottom := Round(Max(glyph.BottomLeftY, glyph.BottomRightY) * atlasHeight)
+    return {X: left, Y: top, W: Max(1, right - left), H: Max(1, bottom - top)}
+}
+
 ReleaseLauncherMorrowindFont()
 {
     global LauncherMorrowindFontLoaded, LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
