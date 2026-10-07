@@ -108,9 +108,9 @@ InitializeLauncherMorrowindFont()
         {
             ; MysticCards.ttf identifies its Windows family as Pelagiad. The file
             ; name is MysticCards, but SetFont must use the internal family name.
-            LauncherMorrowindFont := "Pelagiad"
+            LauncherMorrowindFont := "Mystic Cards"
             LauncherMorrowindFontLoaded := true
-            LogLauncherEvent("FONT | MysticCards loaded as Pelagiad from " fontPath ".")
+            LogLauncherEvent("FONT | MysticCards registered. Requesting internal family Mystic Cards from " fontPath ".")
             return
         }
         LogLauncherEvent("FONT | MysticCards registration returned 0. Using Georgia fallback.")
