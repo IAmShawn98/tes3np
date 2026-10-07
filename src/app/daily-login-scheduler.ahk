@@ -12,7 +12,6 @@ global ScheduledEventsBookControls := []
 global ScheduledEventsBookRows := []
 global ScheduledEventsBookMode := false
 global ScheduledEventsBookHiddenControls := []
-global ScheduledEventsBookCharacterHeadingText := ""
 
 
 LoadDailyLoginSchedule()
@@ -130,7 +129,7 @@ SaveScheduledEvents()
     }
 }
 
-OpenScheduledEventsMenu(owner := 0, *)
+OpenScheduledEventsMenu(*)
 {
     ; Scheduled Events now uses the existing character book instead of a popup.
     OpenScheduledEventsBook()
