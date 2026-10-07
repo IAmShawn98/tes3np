@@ -551,14 +551,18 @@ SaveScheduledLoginProfileSelection(picker, checks, state, *)
 
 SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, *)
 {
-    global CharacterPage
+    global CharacterPage, ScheduledEventsBookRows
     BeginInterfaceUpdate(CharacterPage, "Saving scheduled event...", true)
     try
     {
-        ; Reuse the existing validation/save routine with a harmless object that
-        ; provides Destroy(), then rebuild the right-page event list.
+        ; The one-second scheduler timer can run while the editor is open. Its
+        ; in-place row updater treats ScheduledEventsBookRows as event rows, so
+        ; clear the editor row registry before saving/rebuilding the list. This
+        ; prevents the timer/status text from being written into the event-name
+        ; control during the transition.
         editorShim := {Destroy: (*) => 0}
         SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState)
+        ScheduledEventsBookRows := []
         RefreshScheduledEventsBook()
     }
     finally EndInterfaceUpdate()
