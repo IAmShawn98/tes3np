@@ -31,7 +31,7 @@ OpenCharacterPage(*)
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
-        y := 190 + (index - 1) * 24
+        y := 205 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
