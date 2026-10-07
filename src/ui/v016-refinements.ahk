@@ -129,12 +129,72 @@ FindVanillaMagicCardsFont()
         if !FileExist(fnt)
             continue
 
-        ; The texture name is normally Magic_Cards_Regular_0_Lod_A.tex.
-        tex := dir "\\Magic_Cards_Regular_0_Lod_A.tex"
-        if !FileExist(tex)
-            tex := dir "\\magic_cards_regular_0_lod_a.tex"
+        ; The .fnt itself stores the exact texture basename used by Morrowind.
+        ; Read it instead of assuming a particular _0_Lod_A filename.
+        texName := ReadMagicCardsTextureName(fnt)
+        if texName = ""
+            continue
+        tex := dir "\\" texName
+        if !FileExist(tex) && !InStr(texName, ".")
+            tex .= ".tex"
         if FileExist(tex)
             return {Fnt: fnt, Tex: tex}
+    }
+    return false
+}
+
+
+ReadMagicCardsTextureName(fntPath)
+{
+    ; Morrowind bitmap font header:
+    ; float size, int 1, int 1, then a 284-byte NUL-terminated texture name.
+    try
+    {
+        file := FileOpen(fntPath, "r")
+        if !IsObject(file) || file.Length < 296
+            return ""
+        file.Pos := 12
+        nameBytes := Buffer(284, 0)
+        if file.RawRead(nameBytes, 284) < 1
+            return ""
+        name := StrGet(nameBytes, "CP0")
+        name := Trim(name, " `t`r`n`0")
+        if name = ""
+            return ""
+        SplitPath(name, &leaf)
+        return leaf
+    }
+    return ""
+}
+
+LoadMagicCardsBitmapFont(fntPath)
+{
+    ; Parse the complete 256-glyph metrics table. The renderer uses these exact
+    ; UV coordinates, widths, kerning and ascent values from vanilla Morrowind.
+    try
+    {
+        file := FileOpen(fntPath, "r")
+        if !IsObject(file) || file.Length < 296 + (256 * 40)
+            return false
+        sizeBuf := Buffer(4)
+        file.RawRead(sizeBuf, 4)
+        fontSize := NumGet(sizeBuf, 0, "Float")
+        file.Pos := 296
+        glyphs := []
+        Loop 256
+        {
+            g := Buffer(40)
+            if file.RawRead(g, 40) != 40
+                return false
+            glyphs.Push({
+                TopLeftX: NumGet(g, 4, "Float"), TopLeftY: NumGet(g, 8, "Float"),
+                TopRightX: NumGet(g, 12, "Float"), TopRightY: NumGet(g, 16, "Float"),
+                BottomLeftX: NumGet(g, 20, "Float"), BottomLeftY: NumGet(g, 24, "Float"),
+                BottomRightX: NumGet(g, 28, "Float"), BottomRightY: NumGet(g, 32, "Float"),
+                Width: NumGet(g, 36, "Float")
+            })
+        }
+        return {FontSize: fontSize, Glyphs: glyphs}
     }
     return false
 }
