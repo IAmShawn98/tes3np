@@ -772,15 +772,22 @@ ToggleSelectedScheduledEventLock(button, *)
 }
 StartArmedScheduledCountdown(*)
 {
-    global ScheduledCountdownArmedEventId
-    if ScheduledCountdownArmedEventId = ""
+    global ScheduledEvents
+
+    ; The hotkey may start one event whose button is currently in the Start state.
+    ; Resolve it from the persisted event state instead of relying on a cached ID.
+    event := 0
+    for candidate in ScheduledEvents
+    {
+        if candidate.StartedAt = "" && !(candidate.HasOwnProp("Locked") && candidate.Locked)
+        {
+            event := candidate
+            break
+        }
+    }
+    if !IsObject(event)
         return
 
-    event := FindScheduledEventById(ScheduledCountdownArmedEventId)
-    if !IsObject(event) || event.StartedAt != "" || (event.HasOwnProp("Locked") && event.Locked)
-        return
-
-    ; Hotkey starts a stopped event once. Running events are locked against hotkey changes.
     event.StartedAt := A_Now
     event.Armed := false
     event.Locked := true
@@ -792,7 +799,6 @@ StartArmedScheduledCountdown(*)
     else
         event.PreviousRemaining := GetScheduledEventRawRemaining(event.Time, "IRL")
 
-    ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
     RefreshScheduledEventsList()
     TrayTip("Event started", "'" event.Name "' is now running and locked.", "Iconi")
