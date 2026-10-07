@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.1.18-alpha — 2026-10-07
+
+### Added
+
+- Replaced Daily Login with **Scheduled Events**, allowing you to create and manage multiple one-time or recurring events using either **Specific Time (IRL)** or **Countdown** timing. Scheduled Events will not interrupt an active TES3MP session.
+- Added customizable hotkey support for starting Scheduled Events at the exact moment you need while in-game.
+- Added Scheduled Event reminders with the option to automatically log in using your selected character when an event is due.
+- Added missed-event notifications when returning to the launcher.
+
+### Changed
+
+- Streamlined the launcher flow by removing the old startup quick-launch screen and redundant **Launch All & Close** option.
+- Improved the **Manage Characters** page with clearer descriptions, better spacing, and a more polished layout.
+- Improved the **Launch Settings** area of Manage Characters.
+- Improved **Launcher Settings** layout, spacing, controls, and readability.
+- Updated launcher typography with a more consistent Morrowind-inspired appearance.
+- Improved the main **Game Launcher** layout and presentation.
+- Improved the **Update Available** notification so it appears on the main launcher only when a new tes3np update is available.
+
+### Fixed
+
+- Fixed manually closing TES3MP potentially causing an unwanted automatic relaunch.
 ## v0.1.17-alpha — 2026-10-05
 
 ### What's New
