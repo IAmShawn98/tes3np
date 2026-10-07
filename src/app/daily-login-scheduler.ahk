@@ -135,7 +135,7 @@ OpenScheduledEventsMenu(owner := 0, *)
     edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
     del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
     arm := menu.Add("Button", "x20 y412 w185 h32", "Arm Countdown")
-    hotkey := menu.Add("Button", "x218 y412 w185 h32", "Hotkey: " ScheduledCountdownHotkey)
+    hotkey := menu.Add("Button", "x218 y412 w185 h32", "Hotkey: " LTrim(ScheduledCountdownHotkey, "~"))
     close := menu.Add("Button", "x416 y412 w204 h32", "Close")
     add.OnEvent("Click", (*) => OpenScheduledEventEditor(menu))
     edit.OnEvent("Click", (*) => EditSelectedScheduledEvent())
@@ -189,7 +189,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
 {
     global ScheduledEvents
     editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
-    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Recurring: true, Completed: false}
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, Recurring: true, Completed: false}
     editor := Gui("+Owner" owner.Hwnd " -MinimizeBox -MaximizeBox", editing ? "tes3np — Edit Event" : "tes3np — Schedule Event")
     editor.BackColor := "E2CEA2"
     editor.SetFont("s10 Bold c382314", "Segoe UI")
@@ -200,31 +200,63 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     editor.Add("Text", "x20 y92 w330 h22", "Event mode")
     editor.SetFont("s10 c382314", "Segoe UI")
     modeList := editor.Add("DropDownList", "x20 y118 w330 h100", ["Specific IRL Time", "Hotkey Countdown"])
-    modeList.Choose(event.HasOwnProp("Mode") && event.Mode = "Countdown" ? 2 : 1)
+    isCountdown := event.HasOwnProp("Mode") && event.Mode = "Countdown"
+    modeList.Choose(isCountdown ? 2 : 1)
     recurringCheck := editor.Add("CheckBox", "x20 y150 w330 h24", "Recurring")
     recurringCheck.Value := event.Recurring ? 1 : 0
 
-    hour24 := Integer(SubStr(event.Time, 1, 2)), minute := SubStr(event.Time, 4, 2)
+    hour24 := Integer(SubStr(event.Time, 1, 2)), minute := Integer(SubStr(event.Time, 4, 2))
     displayHour := Mod(hour24, 12)
     if displayHour = 0
         displayHour := 12
+    duration := event.HasOwnProp("DurationSeconds") && event.DurationSeconds > 0 ? event.DurationSeconds : 3600
+    durationHours := Floor(duration / 3600)
+    durationMinutes := Floor(Mod(duration, 3600) / 60)
+    durationSeconds := Mod(duration, 60)
+
     editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y184 w60 h22", "Hour")
-    editor.Add("Text", "x92 y184 w60 h22", "Minute")
-    editor.Add("Text", "x164 y184 w90 h22", "Clock")
+    hourLabel := editor.Add("Text", "x20 y184 w60 h22", isCountdown ? "Hours" : "Hour")
+    minuteLabel := editor.Add("Text", "x92 y184 w60 h22", isCountdown ? "Minutes" : "Minute")
+    thirdLabel := editor.Add("Text", "x164 y184 w90 h22", isCountdown ? "Seconds" : "Clock")
     editor.SetFont("s10 c382314", "Segoe UI")
-    hourEdit := editor.Add("Edit", "x20 y210 w52 h28 Center Number", displayHour)
-    minuteEdit := editor.Add("Edit", "x92 y210 w52 h28 Center Number", minute)
+    hourEdit := editor.Add("Edit", "x20 y210 w52 h28 Center Number", isCountdown ? durationHours : displayHour)
+    minuteEdit := editor.Add("Edit", "x92 y210 w52 h28 Center Number", isCountdown ? durationMinutes : minute)
     clockMode := editor.Add("DropDownList", "x164 y210 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    secondEdit := editor.Add("Edit", "x164 y210 w100 h28 Center Number", durationSeconds)
     meridiem := editor.Add("DropDownList", "x274 y210 w76 h120", ["AM", "PM"])
     meridiem.Choose(hour24 >= 12 ? 2 : 1)
+
+    UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
+    modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
     save := editor.Add("Button", "x20 y264 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
     cancel := editor.Add("Button", "x192 y264 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem))
+    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem))
     cancel.OnEvent("Click", (*) => editor.Destroy())
     editor.OnEvent("Escape", (*) => editor.Destroy())
     editor.Show("w370 h318")
+}
+
+UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, irlHour, irlMinute, durationHours, durationMinutes, durationSeconds, *)
+{
+    isCountdown := modeList.Value = 2
+    hourLabel.Text := isCountdown ? "Hours" : "Hour"
+    minuteLabel.Text := isCountdown ? "Minutes" : "Minute"
+    thirdLabel.Text := isCountdown ? "Seconds" : "Clock"
+    clockMode.Visible := !isCountdown
+    meridiem.Visible := !isCountdown
+    secondEdit.Visible := isCountdown
+    if isCountdown
+    {
+        hourEdit.Text := durationHours
+        minuteEdit.Text := durationMinutes
+        secondEdit.Text := durationSeconds
+    }
+    else
+    {
+        hourEdit.Text := irlHour
+        minuteEdit.Text := Format("{:02}", irlMinute)
+    }
 }
 
 UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
@@ -249,72 +281,92 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
 {
-    global ScheduledEvents, NextScheduledEventId, DataFile
+    global ScheduledEvents, NextScheduledEventId, DataFile, ScheduledCountdownArmedEventId
     name := Trim(nameEdit.Text)
     if name = ""
     {
         MsgBox("Enter a name for this event.", "tes3np")
         return
     }
+    mode := modeList.Value = 2 ? "Countdown" : "IRL"
     hourText := Trim(hourEdit.Text), minuteText := Trim(minuteEdit.Text)
     if hourText = "" || minuteText = "" || !IsInteger(hourText) || !IsInteger(minuteText)
     {
-        MsgBox("Choose a valid hour and minute.", "tes3np")
+        MsgBox(mode = "Countdown" ? "Enter valid hours and minutes." : "Choose a valid hour and minute.", "tes3np")
         return
     }
     hour := Integer(hourText), minute := Integer(minuteText)
-    if minute > 59
+    time := "12:00", durationSeconds := 0
+    if mode = "Countdown"
     {
-        MsgBox("Minutes must be between 00 and 59.", "tes3np")
-        return
-    }
-    if clockMode.Value = 2
-    {
-        if hour > 23
+        secondText := Trim(secondEdit.Text)
+        if secondText = "" || !IsInteger(secondText)
         {
-            MsgBox("24-hour time uses hours 0 through 23.", "tes3np")
+            MsgBox("Enter valid seconds.", "tes3np")
             return
         }
-        time := Format("{:02}:{:02}", hour, minute)
+        seconds := Integer(secondText)
+        if hour < 0 || minute < 0 || seconds < 0 || minute > 59 || seconds > 59
+        {
+            MsgBox("Countdown minutes and seconds must be between 0 and 59.", "tes3np")
+            return
+        }
+        durationSeconds := hour * 3600 + minute * 60 + seconds
+        if durationSeconds <= 0
+        {
+            MsgBox("Countdown duration must be greater than zero.", "tes3np")
+            return
+        }
     }
     else
     {
-        if hour < 1 || hour > 12
+        if minute < 0 || minute > 59
         {
-            MsgBox("AM/PM time uses hours 1 through 12.", "tes3np")
+            MsgBox("Minutes must be between 00 and 59.", "tes3np")
             return
         }
-        hour24 := hour
-        if meridiem.Text = "AM" && hour = 12
-            hour24 := 0
-        else if meridiem.Text = "PM" && hour != 12
-            hour24 += 12
-        time := Format("{:02}:{:02}", hour24, minute)
-    }
-    timeBasis := "IRL"
-    mode := modeList.Value = 2 ? "Countdown" : "IRL"
-    durationSeconds := mode = "Countdown" ? (hour * 3600 + minute * 60) : 0
-    if mode = "Countdown" && durationSeconds <= 0
-    {
-        MsgBox("Countdown duration must be greater than zero.", "tes3np")
-        return
+        if clockMode.Value = 2
+        {
+            if hour < 0 || hour > 23
+            {
+                MsgBox("24-hour time uses hours 0 through 23.", "tes3np")
+                return
+            }
+            time := Format("{:02}:{:02}", hour, minute)
+        }
+        else
+        {
+            if hour < 1 || hour > 12
+            {
+                MsgBox("AM/PM time uses hours 1 through 12.", "tes3np")
+                return
+            }
+            hour24 := hour
+            if meridiem.Text = "AM" && hour = 12
+                hour24 := 0
+            else if meridiem.Text = "PM" && hour != 12
+                hour24 += 12
+            time := Format("{:02}:{:02}", hour24, minute)
+        }
     }
     recurring := recurringCheck.Value = 1
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := timeBasis, event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring
-        event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time, timeBasis)
+        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring
+        event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")
     }
     else
     {
-        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
+        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
+        ScheduledEvents.Push(event)
         NextScheduledEventId += 1
     }
+    if mode = "Countdown"
+        ScheduledCountdownArmedEventId := event.Id
     SaveScheduledEvents()
-    ; Verify persistence immediately instead of relying only on the in-memory row.
     savedCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
     if savedCount != ScheduledEvents.Length
     {
@@ -566,6 +618,8 @@ LoadScheduledCountdownHotkey()
 {
     global ScheduledCountdownHotkey, DataFile
     ScheduledCountdownHotkey := IniRead(DataFile, "ScheduledEvents", "CountdownHotkey", "F8")
+    if SubStr(ScheduledCountdownHotkey, 1, 1) != "~"
+        ScheduledCountdownHotkey := "~" ScheduledCountdownHotkey
     try Hotkey(ScheduledCountdownHotkey, StartArmedScheduledCountdown, "On")
     catch
     {
@@ -581,6 +635,8 @@ EditScheduledCountdownHotkey(button, *)
     if result.Result != "OK" || Trim(result.Value) = ""
         return
     newKey := Trim(result.Value)
+    if SubStr(newKey, 1, 1) != "~"
+        newKey := "~" newKey
     oldKey := ScheduledCountdownHotkey
     ; Disable the old binding first. AutoHotkey keeps disabled hotkeys in its
     ; hotkey table, so re-enabling a previously used key (such as F8) is safe.
@@ -594,8 +650,8 @@ EditScheduledCountdownHotkey(button, *)
         return
     }
     ScheduledCountdownHotkey := newKey
-    IniWrite(newKey, DataFile, "ScheduledEvents", "CountdownHotkey")
-    button.Text := "Hotkey: " newKey
+    IniWrite(LTrim(newKey, "~"), DataFile, "ScheduledEvents", "CountdownHotkey")
+    button.Text := "Hotkey: " LTrim(newKey, "~")
 }
 
 ArmSelectedScheduledCountdown(*)
@@ -619,17 +675,31 @@ ArmSelectedScheduledCountdown(*)
     ScheduledCountdownArmedEventId := event.Id
     SaveScheduledEvents()
     RefreshScheduledEventsList()
-    MsgBox("'" event.Name "' is armed. Press " ScheduledCountdownHotkey " in-game exactly when you want the countdown to start.", "Countdown Armed")
+    MsgBox("'" event.Name "' is armed. Press " LTrim(ScheduledCountdownHotkey, "~") " in-game exactly when you want the countdown to start.", "Countdown Armed")
 }
 
 StartArmedScheduledCountdown(*)
 {
-    global ScheduledCountdownArmedEventId
-    if ScheduledCountdownArmedEventId = ""
-        return
-    event := FindScheduledEventById(ScheduledCountdownArmedEventId)
+    global ScheduledCountdownArmedEventId, ScheduledEvents
+    event := ScheduledCountdownArmedEventId != "" ? FindScheduledEventById(ScheduledCountdownArmedEventId) : 0
     if !IsObject(event)
+    {
+        ; Fall back to the first waiting countdown so the hotkey still works
+        ; after reopening the launcher or if explicit arm state was lost.
+        for candidate in ScheduledEvents
+        {
+            if candidate.HasOwnProp("Mode") && candidate.Mode = "Countdown" && candidate.StartedAt = "" && !(candidate.HasOwnProp("Completed") && candidate.Completed)
+            {
+                event := candidate
+                break
+            }
+        }
+    }
+    if !IsObject(event)
+    {
+        TrayTip("No countdown armed", "Create or arm a countdown first.", "Icon!")
         return
+    }
     event.StartedAt := A_Now
     event.LastRunDate := ""
     event.Due := false
