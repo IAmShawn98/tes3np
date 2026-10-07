@@ -408,11 +408,13 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
                 if alpha = 0
                     continue
                 dstOff := (py * width + px) * 4
-                ; Windows 32-bit DIB pixels are BGRA.
+                ; AHK Picture controls do not alpha-blend HBITMAP pixels against
+                ; the parchment underneath. Keep every visible glyph pixel opaque
+                ; so the vanilla font retains its intended dark ink contrast.
                 NumPut("UChar", color & 0xFF, out, dstOff)
                 NumPut("UChar", (color >> 8) & 0xFF, out, dstOff + 1)
                 NumPut("UChar", (color >> 16) & 0xFF, out, dstOff + 2)
-                NumPut("UChar", alpha, out, dstOff + 3)
+                NumPut("UChar", 255, out, dstOff + 3)
             }
         }
     }
