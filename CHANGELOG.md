@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.20-alpha — 2026-10-07
+
+### Fixed
+
+- Fixed the main launcher layout scaling inconsistently across different display sizes and Windows scaling settings.
+
 ## v0.1.19-alpha — 2026-10-07
 
 ### Fixed
