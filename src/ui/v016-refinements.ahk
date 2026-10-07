@@ -547,7 +547,7 @@ OpenLauncherSettingsV016(*)
     settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-    readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
+    readabilityPrefix := V016ReadabilityState ? "☑" : "■"
     readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
@@ -588,7 +588,7 @@ CloseLauncherSettingsV016(settings, *)
 
 V016CheckLabel(state, label)
 {
-    return (state ? "☑" : "☐") "  " label
+    return (state ? "☑" : "■") "  " label
 }
 
 ToggleV016ReadabilityControl(control, *)
@@ -610,10 +610,10 @@ ToggleV016ReadabilityParts(*)
         hwnd := V016SettingsGuiHwnd
         if hwnd && DllCall("IsWindow", "Ptr", hwnd, "Int")
         {
-            symbol := V016ReadabilityState ? "☑" : "☐"
+            symbol := V016ReadabilityState ? "☑" : "■"
             controls := WinGetControls("ahk_id " hwnd)
             for ctl in controls
-                try if InStr(ControlGetText(ctl, "ahk_id " hwnd), "☐") || InStr(ControlGetText(ctl, "ahk_id " hwnd), "☑")
+                try if InStr(ControlGetText(ctl, "ahk_id " hwnd), "■") || InStr(ControlGetText(ctl, "ahk_id " hwnd), "☑")
                     ControlSetText(symbol, ctl, "ahk_id " hwnd)
         }
     }
