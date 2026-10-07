@@ -430,6 +430,9 @@ ReleaseLauncherMorrowindFont()
     LauncherMagicCardsData := false
 }
 
+; Keep this boundary explicit: the bitmap-font helpers above must be fully
+; closed before the Launcher Settings function begins.
+
 OpenLauncherSettingsV016(*)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility, LauncherMorrowindFont
