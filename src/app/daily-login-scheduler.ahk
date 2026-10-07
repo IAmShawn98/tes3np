@@ -199,7 +199,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     editor.SetFont("s10 Bold c382314", "Segoe UI")
     editor.Add("Text", "x20 y92 w330 h22", "Event mode")
     editor.SetFont("s10 c382314", "Segoe UI")
-    modeList := editor.Add("DropDownList", "x20 y118 w330 h100", ["Specific IRL Time", "Hotkey Countdown"])
+    modeList := editor.Add("DropDownList", "x20 y118 w330 h100", ["Specific Time (IRL)", "Hotkey Countdown"])
     isCountdown := event.HasOwnProp("Mode") && event.Mode = "Countdown"
     modeList.Choose(isCountdown ? 2 : 1)
     recurringCheck := editor.Add("CheckBox", "x20 y150 w330 h24", "Recurring")
