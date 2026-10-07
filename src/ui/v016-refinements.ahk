@@ -462,7 +462,11 @@ AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center
         }
         return false
     }
-    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
+    ; SS_BITMAP replaces the control's bitmap with hbm and avoids the
+    ; Picture loader treating the generated DIB like an image with its own
+    ; transparency/color processing.
+    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " +0xE BackgroundTrans")
+    SendMessage(0x172, 0, hbm, pic.Hwnd) ; STM_SETIMAGE / IMAGE_BITMAP
     return pic
 }
 
