@@ -222,15 +222,13 @@ HideProfileEditor()
 
 CloseCharacterPage(*)
 {
-    global CharacterPage
-    global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows, ScheduledEventsBookHiddenControls
-    ; Closing the book from the scheduler page must leave the scheduler view
-    ; completely inactive. Otherwise the next Manage Characters open can inherit
-    ; the scheduler state instead of opening the normal character page.
-    ScheduledEventsBookMode := false
-    ScheduledEventsBookControls := []
-    ScheduledEventsBookRows := []
-    ScheduledEventsBookHiddenControls := []
+    global CharacterPage, ScheduledEventsBookMode
+    ; If Close is pressed while the shared Character Book is showing the
+    ; scheduler, restore the actual Characters page before hiding the book.
+    ; Otherwise the next Manage Characters open simply re-shows the scheduler
+    ; controls because the same CharacterPage is being reused.
+    if ScheduledEventsBookMode
+        CloseScheduledEventsBook()
     HideProfileEditor()
     CharacterPage.Hide()
     ShowLauncherWindow()
