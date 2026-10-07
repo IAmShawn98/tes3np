@@ -35,7 +35,9 @@ ReadProfileDelay(section, key, fallback, legacyKey := "")
 {
     global DataFile
     legacyKey := legacyKey = "" ? key : legacyKey
-    value := IniRead(DataFile, section, key, IniRead(DataFile, "Timing", legacyKey, fallback))
+    value := IniRead(DataFile, section, key, "")
+    if value = ""
+        value := IniRead(DataFile, "Timing", legacyKey, fallback)
     return RegExMatch(value, "^\d+$") ? Max(1, Min(300, Integer(value))) : fallback
 }
 
