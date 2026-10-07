@@ -106,17 +106,55 @@ InitializeLauncherMorrowindFont()
         loaded := DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int")
         if loaded > 0
         {
-            ; MysticCards.ttf identifies its Windows family as Pelagiad. The file
-            ; name is MysticCards, but SetFont must use the internal family name.
-            LauncherMorrowindFont := "Mystic Cards"
-            LauncherMorrowindFontLoaded := true
-            LogLauncherEvent("FONT | MysticCards registered. Requesting internal family Mystic Cards from " fontPath ".")
+            ; Ask GDI which family the private font actually exposes instead of
+            ; guessing from the file name or license history.
+            discoveredFamily := DiscoverPrivateFontFamily()
+            if discoveredFamily != ""
+            {
+                LauncherMorrowindFont := discoveredFamily
+                LauncherMorrowindFontLoaded := true
+                LogLauncherEvent("FONT | MysticCards registered as family '" discoveredFamily "'.")
+                return
+            }
+            LogLauncherEvent("FONT | MysticCards registered, but its family name could not be resolved. Using Georgia fallback.")
             return
         }
         LogLauncherEvent("FONT | MysticCards registration returned 0. Using Georgia fallback.")
     }
     catch as err
         LogLauncherEvent("FONT | MysticCards registration failed: " err.Message ". Using Georgia fallback.")
+}
+
+DiscoverPrivateFontFamily()
+{
+    ; MysticCards/Pelagiad is intentionally distinctive. Enumerate private fonts
+    ; and prefer either known family spelling, returning the exact GDI name.
+    hdc := DllCall("GetDC", "Ptr", 0, "Ptr")
+    if !hdc
+        return ""
+    found := {Name: ""}
+    lf := Buffer(92, 0)
+    NumPut("UChar", 1, lf, 23) ; DEFAULT_CHARSET
+    callback := CallbackCreate(EnumPrivateFontFamily.Bind(found), "Fast", 4)
+    try DllCall("Gdi32.dll\\EnumFontFamiliesExW", "Ptr", hdc, "Ptr", lf.Ptr, "Ptr", callback, "Ptr", 0, "UInt", 0)
+    finally
+    {
+        CallbackFree(callback)
+        DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
+    }
+    return found.Name
+}
+
+EnumPrivateFontFamily(found, lpelfe, lpntme, fontType, lParam)
+{
+    family := StrGet(lpelfe + 28, 32, "UTF-16")
+    normalized := StrLower(StrReplace(family, " ", ""))
+    if InStr(normalized, "mystic") || InStr(normalized, "pelagiad")
+    {
+        found.Name := family
+        return 0
+    }
+    return 1
 }
 
 ReleaseLauncherMorrowindFont()
