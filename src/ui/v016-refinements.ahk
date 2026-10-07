@@ -94,67 +94,111 @@ InitializeLauncherMorrowindFont()
         catch as err
             LogLauncherEvent("FONT | MysticCards download failed: " err.Message)
     }
-
     if !FileExist(fontPath)
     {
         LogLauncherEvent("FONT | MysticCards unavailable. Using Georgia fallback.")
         return
     }
 
-    try
-    {
-        loaded := DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int")
-        if loaded > 0
-        {
-            ; Ask GDI which family the private font actually exposes instead of
-            ; guessing from the file name or license history.
-            discoveredFamily := DiscoverPrivateFontFamily()
-            if discoveredFamily != ""
-            {
-                LauncherMorrowindFont := discoveredFamily
-                LauncherMorrowindFontLoaded := true
-                LogLauncherEvent("FONT | MysticCards registered as family '" discoveredFamily "'.")
-                return
-            }
-            LogLauncherEvent("FONT | MysticCards registered, but its family name could not be resolved. Using Georgia fallback.")
-            return
-        }
-        LogLauncherEvent("FONT | MysticCards registration returned 0. Using Georgia fallback.")
-    }
+    ; FR_PRIVATE makes the font available only to this launcher process.
+    try loaded := DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int")
     catch as err
+    {
         LogLauncherEvent("FONT | MysticCards registration failed: " err.Message ". Using Georgia fallback.")
+        return
+    }
+    if loaded <= 0
+    {
+        LogLauncherEvent("FONT | MysticCards registration returned 0. Using Georgia fallback.")
+        return
+    }
+
+    ; Read the actual family name from the TTF name table. This avoids relying on
+    ; the file name, license name, or GDI enumeration of already-installed fonts.
+    family := ReadTrueTypeFamilyName(fontPath)
+    if family = ""
+    {
+        LogLauncherEvent("FONT | MysticCards registered, but TTF family name was unreadable. Using Georgia fallback.")
+        return
+    }
+    LauncherMorrowindFont := family
+    LauncherMorrowindFontLoaded := true
+    LogLauncherEvent("FONT | MysticCards loaded. TTF family: '" family "'.")
 }
 
-DiscoverPrivateFontFamily()
+ReadTrueTypeFamilyName(fontPath)
 {
-    ; MysticCards/Pelagiad is intentionally distinctive. Enumerate private fonts
-    ; and prefer either known family spelling, returning the exact GDI name.
-    hdc := DllCall("GetDC", "Ptr", 0, "Ptr")
-    if !hdc
+    try data := FileRead(fontPath, "RAW")
+    catch
         return ""
-    found := {Name: ""}
-    lf := Buffer(92, 0)
-    NumPut("UChar", 1, lf, 23) ; DEFAULT_CHARSET
-    callback := CallbackCreate(EnumPrivateFontFamily.Bind(found), "Fast", 4)
-    try DllCall("Gdi32.dll\\EnumFontFamiliesExW", "Ptr", hdc, "Ptr", lf.Ptr, "Ptr", callback, "Ptr", 0, "UInt", 0)
-    finally
+    if data.Size < 12
+        return ""
+    numTables := TTU16(data, 4)
+    Loop numTables
     {
-        CallbackFree(callback)
-        DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
+        rec := 12 + (A_Index - 1) * 16
+        if rec + 16 > data.Size
+            break
+        tag := Chr(NumGet(data, rec, "UChar")) Chr(NumGet(data, rec + 1, "UChar")) Chr(NumGet(data, rec + 2, "UChar")) Chr(NumGet(data, rec + 3, "UChar"))
+        if tag != "name"
+            continue
+        nameOffset := TTU32(data, rec + 8)
+        if nameOffset + 6 > data.Size
+            return ""
+        count := TTU16(data, nameOffset + 2)
+        stringsOffset := TTU16(data, nameOffset + 4)
+        best := ""
+        Loop count
+        {
+            nr := nameOffset + 6 + (A_Index - 1) * 12
+            if nr + 12 > data.Size
+                break
+            platform := TTU16(data, nr), encoding := TTU16(data, nr + 2), language := TTU16(data, nr + 4)
+            nameId := TTU16(data, nr + 6), length := TTU16(data, nr + 8), offset := TTU16(data, nr + 10)
+            if nameId != 1
+                continue
+            pos := nameOffset + stringsOffset + offset
+            if pos + length > data.Size
+                continue
+            value := TTNameString(data, pos, length, platform, encoding)
+            if value = ""
+                continue
+            if platform = 3 && language = 0x0409
+                return value
+            if best = ""
+                best := value
+        }
+        return best
     }
-    return found.Name
+    return ""
 }
 
-EnumPrivateFontFamily(found, lpelfe, lpntme, fontType, lParam)
+TTU16(buf, offset)
 {
-    family := StrGet(lpelfe + 28, 32, "UTF-16")
-    normalized := StrLower(StrReplace(family, " ", ""))
-    if InStr(normalized, "mystic") || InStr(normalized, "pelagiad")
+    return (NumGet(buf, offset, "UChar") << 8) | NumGet(buf, offset + 1, "UChar")
+}
+
+TTU32(buf, offset)
+{
+    return (TTU16(buf, offset) << 16) | TTU16(buf, offset + 2)
+}
+
+TTNameString(buf, offset, length, platform, encoding)
+{
+    if platform = 3
     {
-        found.Name := family
-        return 0
+        out := ""
+        Loop length // 2
+        {
+            code := TTU16(buf, offset + (A_Index - 1) * 2)
+            if code
+                out .= Chr(code)
+        }
+        return out
     }
-    return 1
+    try return StrGet(buf.Ptr + offset, length, "CP1252")
+    catch
+        return ""
 }
 
 ReleaseLauncherMorrowindFont()
