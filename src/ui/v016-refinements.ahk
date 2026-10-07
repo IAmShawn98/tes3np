@@ -59,14 +59,14 @@ ApplyV016CharacterLayout(*)
         hasCharacters := Profiles.Length > 0
         for control in V016DailyLoginControls
             control.Visible := hasCharacters
-        ; Keep the character actions contiguous: Add Character, Scheduled Events, then Wipe Character Data.
-        addY := Profiles.Length ? 455 : 185
+        ; Keep the character actions contiguous: Add Character, Scheduled Events, then Wipe Character List.
+        addY := Profiles.Length ? 490 : 185
         AddCharacterButton.Move(70, addY, 370, 30)
         ButtonFaces[AddCharacterButton.Hwnd].Y := addY
-        dailyButton.Move(70, 490, 370, 30)
-        ButtonFaces[dailyButton.Hwnd].Y := 490
-        WipeCharacterButton.Move(70, 525, 370, 30)
-        ButtonFaces[WipeCharacterButton.Hwnd].Y := 525
+        dailyButton.Move(70, 525, 370, 30)
+        ButtonFaces[dailyButton.Hwnd].Y := 525
+        WipeCharacterButton.Move(70, 560, 370, 30)
+        ButtonFaces[WipeCharacterButton.Hwnd].Y := 560
         V016CharacterLayoutApplied := true
     }
 }
