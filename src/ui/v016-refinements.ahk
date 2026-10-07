@@ -81,6 +81,9 @@ InitializeLauncherMorrowindFont()
     fontDir := A_ScriptDir "\\assets\\fonts"
     fontPath := fontDir "\\MysticCards.ttf"
     LauncherMorrowindFontPath := fontPath
+    LauncherMorrowindFont := "Georgia"
+    LauncherMorrowindFontLoaded := false
+
     if !FileExist(fontPath)
     {
         try
@@ -88,18 +91,32 @@ InitializeLauncherMorrowindFont()
             DirCreate(fontDir)
             Download("https://raw.githubusercontent.com/OpenMW/openmw/master/files/data/fonts/MysticCards.ttf", fontPath)
         }
+        catch as err
+            LogLauncherEvent("FONT | MysticCards download failed: " err.Message)
     }
-    if FileExist(fontPath)
+
+    if !FileExist(fontPath)
     {
-        try
-        {
-            if DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int") > 0
-            {
-                LauncherMorrowindFont := "MysticCards"
-                LauncherMorrowindFontLoaded := true
-            }
-        }
+        LogLauncherEvent("FONT | MysticCards unavailable. Using Georgia fallback.")
+        return
     }
+
+    try
+    {
+        loaded := DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int")
+        if loaded > 0
+        {
+            ; MysticCards.ttf identifies its Windows family as Pelagiad. The file
+            ; name is MysticCards, but SetFont must use the internal family name.
+            LauncherMorrowindFont := "Pelagiad"
+            LauncherMorrowindFontLoaded := true
+            LogLauncherEvent("FONT | MysticCards loaded as Pelagiad from " fontPath ".")
+            return
+        }
+        LogLauncherEvent("FONT | MysticCards registration returned 0. Using Georgia fallback.")
+    }
+    catch as err
+        LogLauncherEvent("FONT | MysticCards registration failed: " err.Message ". Using Georgia fallback.")
 }
 
 ReleaseLauncherMorrowindFont()
