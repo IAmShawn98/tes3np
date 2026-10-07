@@ -154,6 +154,9 @@ SetBookControlVisible(control, visible)
 
 OpenScheduledEventsBook(*)
 {
+    BeginInterfaceUpdate(CharacterPage, "Loading scheduled events...", true)
+    try
+    {
     global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
     global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, LaunchCharacterButton, SessionStatus
     global DataTransferButton, CharacterLimitNotice, ScheduledEventsBookControls, ScheduledEventsBookRows
@@ -211,7 +214,9 @@ OpenScheduledEventsBook(*)
     ; Transparent text added after the book is already visible may not paint until
     ; Windows later exposes/resizes the window. Invalidate the completed page once
     ; after all scheduler controls exist so the description/event text paints now.
-    SetTimer(PaintScheduledEventsBook, -1)
+    PaintScheduledEventsBook()
+    }
+    finally EndInterfaceUpdate()
 }
 
 PaintScheduledEventsBook()
@@ -324,28 +329,24 @@ CloseScheduledEventsBook(*)
 {
     global CharacterPage, ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
 
-    ; Destroy the temporary scheduler view, then rebuild the Character Book from
-    ; scratch. Reusing the same transparent AHK controls leaves stale pixels and
-    ; painted button faces behind on this textured background.
-    ScheduledEventsBookMode := false
-    for control in ScheduledEventsBookControls
-        try control.Destroy()
-    for row in ScheduledEventsBookRows
-        for control in row
+    BeginInterfaceUpdate(CharacterPage, "Loading characters...", true)
+    try
+    {
+        ScheduledEventsBookMode := false
+        for control in ScheduledEventsBookControls
             try control.Destroy()
-    ScheduledEventsBookControls := []
-    ScheduledEventsBookRows := []
+        for row in ScheduledEventsBookRows
+            for control in row
+                try control.Destroy()
+        ScheduledEventsBookControls := []
+        ScheduledEventsBookRows := []
 
-    try CharacterPage.Destroy()
-    CharacterPage := 0
-    SetTimer(ReopenCharacterBookAfterScheduler, -1)
-}
-
-ReopenCharacterBookAfterScheduler()
-{
-    ; ShowCharacterPage creates a clean book/control tree with the current
-    ; profiles, launch settings and scheduler state.
-    OpenCharacterPage()
+        try CharacterPage.Destroy()
+        CharacterPage := 0
+        ; Rebuild immediately while the loading cover owns the transition.
+        OpenCharacterPage()
+    }
+    finally EndInterfaceUpdate()
 }
 
 PaintCharactersBook()
