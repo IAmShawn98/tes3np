@@ -77,7 +77,7 @@ LaunchAllCharacters(*)
     StartProfileSession(profile, executable, queue)
 }
 
-StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false)
+StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false, scheduledLoginAction := "")
 {
     global Client
     source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : "Manual character"
@@ -88,7 +88,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
         LoadDelay: profile.LoadDelay, Queue: queue,
-        ScheduledDailyLogin: scheduledDailyLogin}
+        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: []}
     SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
@@ -238,7 +238,7 @@ ClientTick()
                 queue := Client.Queue
                 profile := queue.RemoveAt(1)
                 LogLauncherEvent("GAME | Batch advancing to next character | Remaining after next: " queue.Length ".")
-                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin)
+                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin, Client.HasOwnProp("ScheduledLoginAction") ? Client.ScheduledLoginAction : "")
             }
             else
             {
@@ -323,6 +323,30 @@ ClientTick()
         }
         if Client.Phase = "loading" && IsObject(Client.Queue)
         {
+            if Client.HasOwnProp("ScheduledLoginAction") && Client.ScheduledLoginAction = "LoginUpTo4"
+            {
+                keptPids := Client.HasOwnProp("KeptPids") ? Client.KeptPids : []
+                keptPids.Push(Client.PID)
+                if Client.Queue.Length
+                {
+                    queue := Client.Queue
+                    profile := queue.RemoveAt(1)
+                    executable := Client.Executable
+                    scheduled := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
+                    action := Client.ScheduledLoginAction
+                    LogLauncherEvent("GAME | Scheduled multi-login advancing | Logged in: " keptPids.Length " | Remaining: " queue.Length ".")
+                    StartProfileSession(profile, executable, queue, scheduled, action)
+                    Client.KeptPids := keptPids
+                }
+                else
+                {
+                    LogLauncherEvent("GAME | SUCCESS | Scheduled multi-login completed | Characters left logged in: " keptPids.Length ".")
+                    MarkScheduledDailyLoginComplete()
+                    StopClient()
+                    SetClientStatus("Up to 4 scheduled characters are logged in.")
+                }
+                return
+            }
             Client.Phase := "claim"
             Client.Deadline := A_TickCount + AppConfig.ClaimWaitMs
             SetClientStatus("Waiting 10 seconds for " Client.Profile.Name " before closing.")
