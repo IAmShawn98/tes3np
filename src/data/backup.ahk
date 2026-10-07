@@ -216,6 +216,9 @@ ImportLauncherData()
         ExecutableInput.Value := executable
         UpdateCharacterMenuLabel()
         RefreshProfiles()
+        ; RefreshProfiles can rebuild/relabel the Characters page before the
+        ; imported scheduler state is reflected in its painted button.
+        RefreshDailyLoginButton()
     }
     finally EndInterfaceUpdate()
     MsgBox("Launcher data imported." (pathReset ? " Select tes3mp.exe with Browse on this computer." : ""), "Import Data")
