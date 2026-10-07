@@ -210,11 +210,6 @@ OpenScheduledEventsBook(*)
     ScheduledEventsBookControls := [description, add, hotkey, back]
     ScheduledEventsBookRows := []
     BuildScheduledEventsBookRows()
-    FinishButtonDisplay()
-    ; Transparent text added after the book is already visible may not paint until
-    ; Windows later exposes/resizes the window. Invalidate the completed page once
-    ; after all scheduler controls exist so the description/event text paints now.
-    PaintScheduledEventsBook()
     }
     finally EndInterfaceUpdate()
 }
@@ -296,16 +291,21 @@ EditScheduledEventFromBook(index, *)
 
 DeleteScheduledEventFromBook(index, *)
 {
-    global ScheduledEvents
+    global ScheduledEvents, CharacterPage
     if index < 1 || index > ScheduledEvents.Length
         return
     event := ScheduledEvents[index]
     if MsgBox("Delete the scheduled event '" event.Name "'?", "tes3np", "YesNo Icon?") != "Yes"
         return
-    ScheduledEvents.RemoveAt(index)
-    SaveScheduledEvents()
-    RefreshDailyLoginButton()
-    RefreshScheduledEventsBook()
+    BeginInterfaceUpdate(CharacterPage, "Updating scheduled events...", true)
+    try
+    {
+        ScheduledEvents.RemoveAt(index)
+        SaveScheduledEvents()
+        RefreshDailyLoginButton()
+        RefreshScheduledEventsBook()
+    }
+    finally EndInterfaceUpdate()
 }
 
 ToggleScheduledEventFromBook(index, *)
