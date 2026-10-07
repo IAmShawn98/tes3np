@@ -702,32 +702,6 @@ CopyAppDataLog(filename, syncLauncher := false, *)
     MsgBox(filename " copied to the clipboard.", "tes3np — AppData")
 }
 
-ShowLauncherLogActions(*)
-{
-    choice := MsgBox("Yes: Open the launcher log`nNo: Copy the launcher log to the clipboard`nCancel: More options", "tes3np — Launcher Logs", "YesNoCancel Icon?")
-    if choice = "Yes"
-        return OpenLauncherLog()
-    if choice = "No"
-    {
-        global LauncherLogFile
-        SyncPatchLogToLauncherLog()
-        A_Clipboard := FileExist(LauncherLogFile) ? FileRead(LauncherLogFile, "UTF-8") : ""
-        MsgBox("Launcher log copied to the clipboard.", "tes3np")
-        return
-    }
-    if MsgBox("Delete the launcher log?", "tes3np — Launcher Logs", "YesNo Icon!") = "Yes"
-        ClearLauncherLog()
-}
-
-ShowDiagnosticActions(*)
-{
-    choice := MsgBox("Yes: Open the AppData folder`nNo: Copy diagnostic information`nCancel: Return", "tes3np — Diagnostic Information", "YesNoCancel Icon?")
-    if choice = "Yes"
-        OpenLauncherDataFolder()
-    else if choice = "No"
-        CopyLauncherDiagnostics()
-}
-
 ShowResetAppDataActions(*)
 {
     global AppDataDirectory
