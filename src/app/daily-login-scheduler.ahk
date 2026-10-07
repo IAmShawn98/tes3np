@@ -304,7 +304,7 @@ CloseScheduledEventsBook(*)
     global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
     global CharacterRows, CharacterDescription, LaunchSettingsHeading, LaunchSettingsControls
     global AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, DataTransferButton
-    global CharacterLimitNotice, Profiles, CharacterHeading, LaunchCharacterButton, SessionStatus
+    global CharacterLimitNotice, Profiles, CharacterHeading, LaunchCharacterButton, SessionStatus, ScheduledEventsBookHiddenControls
 
     for control in ScheduledEventsBookControls
         try control.Destroy()
@@ -317,11 +317,11 @@ CloseScheduledEventsBook(*)
 
     CharacterHeading.Text := "Your Characters"
     LaunchSettingsHeading.Text := "Launch Settings"
-    for control in LaunchSettingsControls
-        control.Visible := true
-    ; RefreshProfiles is the single source of truth for which character controls
-    ; should be visible. Do not pre-show every row here or stale/extra controls
-    ; flash over the restored page.
+    ; Restore the exact pre-scheduler visibility state, then let RefreshProfiles
+    ; update character-dependent controls. This also restores painted button faces.
+    for control in ScheduledEventsBookHiddenControls
+        SetBookControlVisible(control, true)
+    ScheduledEventsBookHiddenControls := []
     LaunchCharacterButton.Visible := false
     SessionStatus.Visible := false
     RefreshProfiles()
