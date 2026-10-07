@@ -960,11 +960,13 @@ StartArmedScheduledCountdown(*)
     ; The hotkey may start one event whose button is currently in the Start state.
     ; Resolve it from the persisted event state instead of relying on a cached ID.
     event := 0
-    for candidate in ScheduledEvents
+    eventIndex := 0
+    for index, candidate in ScheduledEvents
     {
         if candidate.StartedAt = "" && !(candidate.HasOwnProp("Locked") && candidate.Locked)
         {
             event := candidate
+            eventIndex := index
             break
         }
     }
@@ -983,6 +985,8 @@ StartArmedScheduledCountdown(*)
         event.PreviousRemaining := GetScheduledEventRawRemaining(event.Time, "IRL")
 
     SaveScheduledEvents()
-    RefreshScheduledEventsBook()
+    ; Starting from the hotkey changes only this event's timer/status and Start
+    ; button. Do not destroy and rebuild the entire scheduler page.
+    UpdateScheduledEventBookRow(eventIndex)
     TrayTip("Event started", "'" event.Name "' is now running and locked.", "Iconi")
 }
