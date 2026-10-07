@@ -11,6 +11,7 @@ global ScheduledCountdownArmedEventId := ""
 global ScheduledEventsBookControls := []
 global ScheduledEventsBookRows := []
 global ScheduledEventsBookMode := false
+global ScheduledEventsBookCharacterHeadingText := ""
 
 
 LoadDailyLoginSchedule()
@@ -139,7 +140,7 @@ OpenScheduledEventsBook(*)
     global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
     global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls
     global DataTransferButton, CharacterLimitNotice, ScheduledEventsBookControls, ScheduledEventsBookRows
-    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey
+    global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey, ScheduledEventsBookCharacterHeadingText
 
     if !IsObject(CharacterPage)
         return
@@ -148,6 +149,20 @@ OpenScheduledEventsBook(*)
     ScheduledEventsBookMode := true
 
     ; Hide the normal character-book content while preserving it for Back.
+    ; Reuse the existing left heading instead of drawing another heading over it.
+    ScheduledEventsBookCharacterHeadingText := "Your Characters"
+    try {
+        ; The first text control after the drag strip is the persistent left-page heading.
+        for control in CharacterPage
+        {
+            if control.Type = "Text" && control.Text = "Your Characters"
+            {
+                control.Text := "Schedule Event"
+                ScheduledEventsBookCharacterHeadingText := control
+                break
+            }
+        }
+    }
     CharacterDescription.Visible := false
     AddCharacterButton.Visible := false
     WipeCharacterButton.Visible := false
@@ -163,19 +178,18 @@ OpenScheduledEventsBook(*)
     for control in LaunchSettingsControls
         control.Visible := false
 
-    ; Reuse the two book headings.
-    title := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Schedule Event")
+    ; Reuse the existing right heading too.
     LaunchSettingsHeading.Text := "Scheduled Events"
 
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
-    description := CharacterPage.Add("Text", "x70 y90 w370 h100 BackgroundTrans",
+    description := CharacterPage.Add("Text", "x70 y90 w370 h120 BackgroundTrans",
         "Need a reminder for a boss spawn or timed in-game event? Add a timed event or countdown, then press 'Start' or use a hotkey in-game to begin it at the exact moment you need. The launcher will remind you when it's due!")
 
     add := AddStyledButton(CharacterPage, 70, 505, 370, 30, "Schedule New Event", (*) => OpenScheduledEventEditor(CharacterPage))
     hotkey := AddStyledButton(CharacterPage, 70, 540, 370, 30, "Hotkey: " DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey), EditScheduledCountdownHotkey)
     back := AddStyledButton(CharacterPage, 70, 575, 370, 30, "Back to Characters", CloseScheduledEventsBook)
 
-    ScheduledEventsBookControls := [title, description, add, hotkey, back]
+    ScheduledEventsBookControls := [description, add, hotkey, back]
     ScheduledEventsBookRows := []
     BuildScheduledEventsBookRows()
     FinishButtonDisplay()
@@ -283,7 +297,7 @@ CloseScheduledEventsBook(*)
     global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
     global CharacterRows, CharacterDescription, LaunchSettingsHeading, LaunchSettingsControls
     global AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, DataTransferButton
-    global CharacterLimitNotice, Profiles
+    global CharacterLimitNotice, Profiles, ScheduledEventsBookCharacterHeadingText
 
     for control in ScheduledEventsBookControls
         try control.Destroy()
@@ -294,6 +308,9 @@ CloseScheduledEventsBook(*)
     ScheduledEventsBookRows := []
     ScheduledEventsBookMode := false
 
+    if IsObject(ScheduledEventsBookCharacterHeadingText)
+        ScheduledEventsBookCharacterHeadingText.Text := "Your Characters"
+    ScheduledEventsBookCharacterHeadingText := ""
     LaunchSettingsHeading.Text := "Launch Settings"
     for control in LaunchSettingsControls
         control.Visible := true
