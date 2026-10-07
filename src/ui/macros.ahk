@@ -40,7 +40,8 @@ OpenMacros(*)
     ; Reconcile immediately on reopen, then poll only while the page is visible.
     RefreshMacroProcesses()
     MacroPage.Show("w700 h505")
-    SetTimer(RefreshMacroProcesses, 1000)
+    if MacroItems.Length
+        SetTimer(RefreshMacroProcesses, 1000)
 }
 
 CloseMacroPage(*)
