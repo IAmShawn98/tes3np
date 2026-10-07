@@ -442,7 +442,7 @@ GetScheduledEventSecondsRemaining(event)
     today := FormatTime(, "yyyy-MM-dd")
     if event.HasOwnProp("Mode") && event.Mode = "Countdown"
     {
-        if event.StartedAt = ""
+        if event.StartedAt = "" || !(event.HasOwnProp("Locked") && event.Locked)
             return event.DurationSeconds
         return Max(0, event.DurationSeconds - DateDiff(A_Now, event.StartedAt, "Seconds"))
     }
@@ -479,7 +479,7 @@ CheckDailyLoginSchedule(*)
             continue
         if isCountdown
         {
-            if event.StartedAt = ""
+            if event.StartedAt = "" || !(event.HasOwnProp("Locked") && event.Locked)
                 continue
             remaining := event.DurationSeconds - DateDiff(A_Now, event.StartedAt, "Seconds")
         }
@@ -774,7 +774,7 @@ StartArmedScheduledCountdown(*)
         return
     }
     event.StartedAt := A_Now
-    event.Locked := false
+    event.Locked := true
     event.LastRunDate := ""
     event.Due := false
     if event.HasOwnProp("Mode") && event.Mode = "Countdown"
