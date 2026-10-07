@@ -369,17 +369,16 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring, event.Locked := false, event.Armed := false
+        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring, event.Locked := false, event.Armed := true
         event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")
     }
     else
     {
-        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Locked: false, Armed: false, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
+        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Locked: false, Armed: true, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
         ScheduledEvents.Push(event)
         NextScheduledEventId += 1
     }
-    if ScheduledCountdownArmedEventId = event.Id
-        ScheduledCountdownArmedEventId := ""
+    ScheduledCountdownArmedEventId := event.Id
     SaveScheduledEvents()
     savedCount := Integer(IniRead(DataFile, "ScheduledEvents", "Count", "0"))
     if savedCount != ScheduledEvents.Length
@@ -745,57 +744,49 @@ ToggleSelectedScheduledEventLock(button, *)
 
     if running
     {
-        ; Stop resets the captured timer and disables the hotkey for this event.
+        ; Stop manually: reset and unlock so the hotkey may start it again.
         event.Locked := false
-        event.Armed := false
+        event.Armed := true
         event.StartedAt := ""
         event.Due := false
         event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : 0
-        if ScheduledCountdownArmedEventId = event.Id
-            ScheduledCountdownArmedEventId := ""
+        ScheduledCountdownArmedEventId := event.Id
     }
     else
     {
-        ; Start begins the event immediately and enables one hotkey adjustment.
-        event.Locked := false
-        event.Armed := true
+        ; Start manually: begin now and lock out hotkey changes.
         event.StartedAt := A_Now
+        event.Locked := true
+        event.Armed := false
         event.LastRunDate := ""
         event.Due := false
         event.Completed := false
         event.PreviousRemaining := event.HasOwnProp("Mode") && event.Mode = "Countdown" ? event.DurationSeconds : GetScheduledEventRawRemaining(event.Time, "IRL")
-        ScheduledCountdownArmedEventId := event.Id
-        TrayTip("Event started", "'" event.Name "' is now running. The hotkey can set the start once, then it locks.", "Iconi")
+        if ScheduledCountdownArmedEventId = event.Id
+            ScheduledCountdownArmedEventId := ""
     }
 
     SaveScheduledEvents()
     RefreshScheduledEventsList()
     RefreshScheduledEventLockButton(button)
 }
-
 StartArmedScheduledCountdown(*)
 {
     global ScheduledCountdownArmedEventId
     if ScheduledCountdownArmedEventId = ""
-    {
-        TrayTip("No event waiting to start", "Open Scheduled Events and choose Start first.", "Icon!")
         return
-    }
 
     event := FindScheduledEventById(ScheduledCountdownArmedEventId)
-    if !IsObject(event) || !(event.HasOwnProp("Armed") && event.Armed) || (event.HasOwnProp("Locked") && event.Locked)
-    {
-        ScheduledCountdownArmedEventId := ""
-        TrayTip("No event waiting to start", "Open Scheduled Events and choose Start first.", "Icon!")
+    if !IsObject(event) || event.StartedAt != "" || (event.HasOwnProp("Locked") && event.Locked)
         return
-    }
 
-    ; The hotkey captures the exact start once, then immediately locks itself out.
+    ; Hotkey starts a stopped event once. Running events are locked against hotkey changes.
     event.StartedAt := A_Now
     event.Armed := false
     event.Locked := true
     event.LastRunDate := ""
     event.Due := false
+    event.Completed := false
     if event.HasOwnProp("Mode") && event.Mode = "Countdown"
         event.PreviousRemaining := event.DurationSeconds
     else
@@ -804,7 +795,7 @@ StartArmedScheduledCountdown(*)
     ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
     RefreshScheduledEventsList()
-    TrayTip("Event started", "'" event.Name "' is now set and running.", "Iconi")
+    TrayTip("Event started", "'" event.Name "' is now running and locked.", "Iconi")
 }
 
 ; Compatibility entry point for older UI callers.
