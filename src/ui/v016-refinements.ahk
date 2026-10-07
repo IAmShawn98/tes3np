@@ -77,18 +77,31 @@ global LauncherMorrowindFontLoaded := false
 
 InitializeLauncherMorrowindFont()
 {
-    ; MysticCards is an OpenMW replacement UI font, not the original Morrowind
-    ; bitmap face. Keep the launcher on its established serif typography instead
-    ; of silently substituting a font that does not match the intended look.
     global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
+    fontPath := A_ScriptDir "\\assets\\fonts\\MysticCards.ttf"
     LauncherMorrowindFont := "Georgia"
-    LauncherMorrowindFontPath := ""
+    LauncherMorrowindFontPath := fontPath
     LauncherMorrowindFontLoaded := false
+    if !FileExist(fontPath)
+        return
+    try
+    {
+        if DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int") > 0
+        {
+            ; OpenMW's MysticCards is its TrueType replacement for Morrowind's
+            ; Magic Cards journal/UI face. Use it at regular weight to preserve
+            ; the thin handwritten look of the original journal.
+            LauncherMorrowindFont := "Mystic Cards"
+            LauncherMorrowindFontLoaded := true
+        }
+    }
 }
 
 ReleaseLauncherMorrowindFont()
 {
-    global LauncherMorrowindFontLoaded
+    global LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
+    if LauncherMorrowindFontLoaded && LauncherMorrowindFontPath != ""
+        try DllCall("Gdi32.dll\\RemoveFontResourceExW", "Str", LauncherMorrowindFontPath, "UInt", 0x10, "Ptr", 0)
     LauncherMorrowindFontLoaded := false
 }
 
