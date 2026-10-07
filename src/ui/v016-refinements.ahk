@@ -381,7 +381,7 @@ MagicCardsBufferToHBitmap(pixels, width, height)
     NumPut("UShort", 32, bmi, 14)
     hdc := DllCall("GetDC", "Ptr", 0, "Ptr")
     bits := 0
-    hbm := DllCall("Gdi32.dll\\CreateDIBSection", "Ptr", hdc, "Ptr", bmi, "UInt", 0, "Ptr*", &bits, "Ptr", 0, "UInt", 0, "Ptr")
+    hbm := DllCall("Gdi32.dll\CreateDIBSection", "Ptr", hdc, "Ptr", bmi, "UInt", 0, "Ptr*", &bits, "Ptr", 0, "UInt", 0, "Ptr")
     DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
     if !hbm || !bits
         return false
@@ -403,7 +403,7 @@ AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center
         return false
     }
     pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
-    pic.OnEvent("Destroy", (*) => DllCall("Gdi32.dll\\DeleteObject", "Ptr", hbm))
+    pic.OnEvent("Destroy", (*) => DllCall("Gdi32.dll\DeleteObject", "Ptr", hbm))
     return pic
 }
 
