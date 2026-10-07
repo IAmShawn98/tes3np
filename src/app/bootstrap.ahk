@@ -4,6 +4,7 @@ global LauncherControlLayout := Map()
 global LauncherVersionLabel := 0
 global LauncherSettingsButton := 0
 global LauncherUpdateButton := 0
+global LauncherUpdateAvailable := false
 
 StartLauncher()
 {
@@ -66,14 +67,15 @@ StartLauncher()
 
 SetLauncherUpdateAvailable(isAvailable)
 {
-    global LauncherSettingsButton, LauncherUpdateButton, LauncherControlLayout
+    global LauncherSettingsButton, LauncherUpdateButton, LauncherControlLayout, LauncherUpdateAvailable
+    LauncherUpdateAvailable := isAvailable
     if !IsObject(LauncherSettingsButton) || !IsObject(LauncherUpdateButton)
         return
     ; Launcher Settings stays in the lower-right. Update Available appears
     ; centered beneath the main launcher scroll.
     LauncherSettingsButton.Move(805, 675, 140, 32)
     LauncherUpdateButton.Move(410, 675, 140, 32)
-    LauncherUpdateButton.Visible := isAvailable
+    LauncherUpdateButton.Visible := LauncherUpdateAvailable
     if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
         LauncherControlLayout[LauncherSettingsButton.Hwnd].X := 805
         LauncherControlLayout[LauncherSettingsButton.Hwnd].Y := 675
