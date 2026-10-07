@@ -27,6 +27,7 @@ StartLauncher()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
+    InitializeLauncherMorrowindFont()
     ; Scheduled Daily Login can run before the Characters page has ever been
     ; opened, so its saved profiles must already exist in memory at startup.
     LoadProfiles()
@@ -204,6 +205,7 @@ SetWindowIcons()
 
 CleanupLauncher(*)
 {
+    ReleaseLauncherMorrowindFont()
     global LauncherGui, HoverTimer, IconHandles, CharacterPage
     SyncPatchLogToLauncherLog()
     LogLauncherEvent("Launcher shutting down.")
