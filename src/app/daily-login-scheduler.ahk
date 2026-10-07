@@ -236,8 +236,12 @@ BuildScheduledEventsBookRows()
     ; Rebuild only the right-page event rows.
     for row in ScheduledEventsBookRows
         for control in row
+        {
+            SetBookControlVisible(control, false)
             try control.Destroy()
+        }
     ScheduledEventsBookRows := []
+    try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
 
     y := 100
     if !ScheduledEvents.Length
@@ -424,6 +428,8 @@ OpenScheduledEventBookEditor(eventIndex := 0)
             try control.Destroy()
         }
     ScheduledEventsBookRows := []
+    ; Erase the old event-list pixels before placing editor controls.
+    try DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
 
     CharacterPage.SetFont("s11 Bold c241408", LauncherMorrowindFont)
     nameLabel := CharacterPage.Add("Text", "x525 y95 w330 h22 BackgroundTrans", "Event name")
@@ -436,8 +442,11 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     modeList := CharacterPage.Add("DropDownList", "x525 y190 w330 h100", ["Specific Time (IRL)", "Countdown"])
     isCountdown := event.HasOwnProp("Mode") && event.Mode = "Countdown"
     modeList.Choose(isCountdown ? 2 : 1)
-    recurringCheck := CharacterPage.Add("CheckBox", "x525 y225 w330 h24", "Recurring")
-    recurringCheck.Value := event.Recurring ? 1 : 0
+    recurringCheck := {Value: event.Recurring ? 1 : 0}
+    recurringTick := AddBookTick(CharacterPage, 525, 225, (*) => ToggleScheduledBookRecurring(recurringCheck, recurringTick))
+    SetBookTick(recurringTick, recurringCheck.Value)
+    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    recurringLabel := AddBookLabel(CharacterPage, 550, 222, 180, 24, "Recurring")
 
     hour24 := Integer(SubStr(event.Time, 1, 2)), minute := Integer(SubStr(event.Time, 4, 2))
     displayHour := Mod(hour24, 12)
@@ -466,10 +475,16 @@ OpenScheduledEventBookEditor(eventIndex := 0)
         SaveScheduledEventBookEditor.Bind(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem))
     cancel := AddStyledButton(CharacterPage, 700, 350, 155, 30, "Cancel", CancelScheduledEventBookEditor)
 
-    ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringCheck, hourLabel, minuteLabel, thirdLabel,
+    ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringTick, recurringLabel, hourLabel, minuteLabel, thirdLabel,
         hourEdit, minuteEdit, clockMode, secondEdit, meridiem, save, cancel]]
     FinishButtonDisplay()
     PaintScheduledEventsBook()
+}
+
+ToggleScheduledBookRecurring(state, tick, *)
+{
+    state.Value := state.Value ? 0 : 1
+    SetBookTick(tick, state.Value)
 }
 
 SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
