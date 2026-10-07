@@ -165,7 +165,6 @@ RefreshProfiles()
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
         LaunchCharacterButton.Text := SelectedProfile ? "Launch " Profiles[SelectedProfile].Name : "Launch character"
         LaunchCharacterButton.Enabled := SelectedProfile > 0
-        FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
 }
@@ -270,7 +269,6 @@ EditProfile(index, *)
             control.Visible := true
         EditorTrack.Visible := false
         EditorThumb.Visible := false
-        FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
 }
