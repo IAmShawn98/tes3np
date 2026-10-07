@@ -6,6 +6,8 @@ global ScheduledEventsListView := 0
 global ScheduledEventsWindow := 0
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
+global ScheduledCountdownHotkey := "F8"
+global ScheduledCountdownArmedEventId := ""
 
 
 LoadDailyLoginSchedule()
@@ -20,14 +22,24 @@ LoadDailyLoginSchedule()
         id := Integer(IniRead(DataFile, section, "Id", A_Index))
         name := IniRead(DataFile, section, "Name", "Daily Login")
         timeBasis := "IRL"
+    mode := modeList.Value = 2 ? "Countdown" : "IRL"
+    durationSeconds := mode = "Countdown" ? (hour * 3600 + minute * 60) : 0
+    if mode = "Countdown" && durationSeconds <= 0
+    {
+        MsgBox("Countdown duration must be greater than zero.", "tes3np")
+        return
+    }
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
         recurring := IniRead(DataFile, section, "Recurring", "1") = "1"
         completed := IniRead(DataFile, section, "Completed", "0") = "1"
+        mode := IniRead(DataFile, section, "Mode", "IRL")
+        durationSeconds := Integer(IniRead(DataFile, section, "DurationSeconds", "0"))
+        startedAt := IniRead(DataFile, section, "StartedAt", "")
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, Recurring: recurring, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -45,6 +57,7 @@ LoadDailyLoginSchedule()
         SaveScheduledEvents()
     }
     NextScheduledEventId := maxId + 1
+    LoadScheduledCountdownHotkey()
     ; Preserve the previous launch timestamp before updating it. This provides
     ; a reliable missed-event window even after abnormal exits where cleanup
     ; never had a chance to save LastLauncherExit.
@@ -97,6 +110,9 @@ SaveScheduledEvents()
         IniWrite(event.Name, DataFile, section, "Name")
         IniWrite(event.TimeBasis, DataFile, section, "TimeBasis")
         IniWrite(event.Time, DataFile, section, "Time")
+        IniWrite(event.HasOwnProp("Mode") ? event.Mode : "IRL", DataFile, section, "Mode")
+        IniWrite(event.HasOwnProp("DurationSeconds") ? event.DurationSeconds : 0, DataFile, section, "DurationSeconds")
+        IniWrite(event.HasOwnProp("StartedAt") ? event.StartedAt : "", DataFile, section, "StartedAt")
         IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
         IniWrite(event.HasOwnProp("Completed") && event.Completed ? "1" : "0", DataFile, section, "Completed")
         IniWrite(event.LastRunDate, DataFile, section, "LastRunDate")
@@ -119,16 +135,20 @@ OpenScheduledEventsMenu(owner := 0, *)
     menu.SetFont("s14 Bold c241408", "Segoe UI")
     menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
     menu.SetFont("s9 c382314", "Segoe UI")
-    menu.Add("Text", "x20 y52 w600 h36", "Create timed launcher events. Each event runs once per day at its scheduled time.")
-    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Time", "Repeat", "Countdown"])
-    lv.ModifyCol(1, 190), lv.ModifyCol(2, 120), lv.ModifyCol(3, 110), lv.ModifyCol(4, 160)
+    menu.Add("Text", "x20 y52 w600 h36", "Create an IRL event or a countdown. Arm a countdown here, then press its hotkey in-game exactly when you want it to start.")
+    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Mode", "Time / Duration", "Repeat", "Countdown"])
+    lv.ModifyCol(1, 150), lv.ModifyCol(2, 90), lv.ModifyCol(3, 120), lv.ModifyCol(4, 90), lv.ModifyCol(5, 130)
     add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
     edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
     del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
+    arm := menu.Add("Button", "x20 y412 w185 h32", "Arm Countdown")
+    hotkey := menu.Add("Button", "x218 y412 w185 h32", "Hotkey: " ScheduledCountdownHotkey)
     close := menu.Add("Button", "x416 y412 w204 h32", "Close")
     add.OnEvent("Click", (*) => OpenScheduledEventEditor(menu))
     edit.OnEvent("Click", (*) => EditSelectedScheduledEvent())
     del.OnEvent("Click", (*) => DeleteSelectedScheduledEvent())
+    arm.OnEvent("Click", (*) => ArmSelectedScheduledCountdown())
+    hotkey.OnEvent("Click", (*) => EditScheduledCountdownHotkey(hotkey))
     close.OnEvent("Click", (*) => CloseScheduledEventsMenu())
     lv.OnEvent("DoubleClick", (*) => EditSelectedScheduledEvent())
     menu.OnEvent("Close", (*) => CloseScheduledEventsMenu())
@@ -156,7 +176,7 @@ RefreshScheduledEventsList()
     selected := ScheduledEventsListView.GetNext()
     ScheduledEventsListView.Delete()
     for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
+        ScheduledEventsListView.Add(, event.Name, event.HasOwnProp("Mode") && event.Mode = "Countdown" ? "Countdown" : "IRL Time", event.HasOwnProp("Mode") && event.Mode = "Countdown" ? FormatDailyLoginCountdown(event.DurationSeconds) : FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : (event.HasOwnProp("Mode") && event.Mode = "Countdown" && !event.StartedAt ? "Waiting for hotkey" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event))))
     if selected && selected <= ScheduledEvents.Length
         ScheduledEventsListView.Modify(selected, "Select Focus")
 }
@@ -183,7 +203,12 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     editor.Add("Text", "x20 y20 w330 h22", "Event name")
     editor.SetFont("s10 c382314", "Segoe UI")
     nameEdit := editor.Add("Edit", "x20 y46 w330 h30", event.Name)
-    recurringCheck := editor.Add("CheckBox", "x20 y92 w330 h24", "Recurring")
+    editor.SetFont("s10 Bold c382314", "Segoe UI")
+    editor.Add("Text", "x20 y92 w330 h22", "Event mode")
+    editor.SetFont("s10 c382314", "Segoe UI")
+    modeList := editor.Add("DropDownList", "x20 y118 w330 h100", ["Specific IRL Time", "Hotkey Countdown"])
+    modeList.Choose(event.HasOwnProp("Mode") && event.Mode = "Countdown" ? 2 : 1)
+    recurringCheck := editor.Add("CheckBox", "x20 y150 w330 h24", "Recurring")
     recurringCheck.Value := event.Recurring ? 1 : 0
 
     hour24 := Integer(SubStr(event.Time, 1, 2)), minute := SubStr(event.Time, 4, 2)
@@ -191,19 +216,19 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     if displayHour = 0
         displayHour := 12
     editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y130 w60 h22", "Hour")
-    editor.Add("Text", "x92 y130 w60 h22", "Minute")
-    editor.Add("Text", "x164 y130 w90 h22", "Clock")
+    editor.Add("Text", "x20 y184 w60 h22", "Hour")
+    editor.Add("Text", "x92 y184 w60 h22", "Minute")
+    editor.Add("Text", "x164 y184 w90 h22", "Clock")
     editor.SetFont("s10 c382314", "Segoe UI")
-    hourEdit := editor.Add("Edit", "x20 y156 w52 h28 Center Number", displayHour)
-    minuteEdit := editor.Add("Edit", "x92 y156 w52 h28 Center Number", minute)
-    clockMode := editor.Add("DropDownList", "x164 y156 w100 h120 Choose1", ["AM / PM", "24-hour"])
-    meridiem := editor.Add("DropDownList", "x274 y156 w76 h120", ["AM", "PM"])
+    hourEdit := editor.Add("Edit", "x20 y318 w52 h28 Center Number", displayHour)
+    minuteEdit := editor.Add("Edit", "x92 y318 w52 h28 Center Number", minute)
+    clockMode := editor.Add("DropDownList", "x164 y318 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    meridiem := editor.Add("DropDownList", "x274 y318 w76 h120", ["AM", "PM"])
     meridiem.Choose(hour24 >= 12 ? 2 : 1)
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
-    save := editor.Add("Button", "x20 y210 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
-    cancel := editor.Add("Button", "x192 y210 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem))
+    save := editor.Add("Button", "x20 y318 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
+    cancel := editor.Add("Button", "x192 y318 w158 h34", "Cancel")
+    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem))
     cancel.OnEvent("Click", (*) => editor.Destroy())
     editor.OnEvent("Escape", (*) => editor.Destroy())
     editor.Show("w370 h264")
@@ -231,7 +256,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
 {
     global ScheduledEvents, NextScheduledEventId, DataFile
     name := Trim(nameEdit.Text)
@@ -280,12 +305,12 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, recurringCheck, hourEdit,
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := timeBasis, event.Time := time, event.Recurring := recurring
+        event.Name := name, event.TimeBasis := timeBasis, event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.Recurring := recurring
         event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := GetScheduledEventRawRemaining(time, timeBasis)
     }
     else
     {
-        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, Recurring: recurring, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: NextScheduledEventId, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", Recurring: recurring, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
         NextScheduledEventId += 1
     }
     SaveScheduledEvents()
@@ -360,6 +385,12 @@ GetScheduledEventRawRemaining(time, timeBasis := "IRL")
 GetScheduledEventSecondsRemaining(event)
 {
     today := FormatTime(, "yyyy-MM-dd")
+    if event.HasOwnProp("Mode") && event.Mode = "Countdown"
+    {
+        if event.StartedAt = ""
+            return event.DurationSeconds
+        return Max(0, event.DurationSeconds - DateDiff(A_Now, event.StartedAt, "Seconds"))
+    }
     remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
     if event.Due && event.LastRunDate != today
         return 0
@@ -388,7 +419,14 @@ CheckDailyLoginSchedule(*)
             continue
         if event.LastRunDate = today
             continue
-        remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
+        if event.HasOwnProp("Mode") && event.Mode = "Countdown"
+        {
+            if event.StartedAt = ""
+                continue
+            remaining := event.DurationSeconds - DateDiff(A_Now, event.StartedAt, "Seconds")
+        }
+        else
+            remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
         crossed := event.PreviousRemaining > 0 && remaining <= 0
         event.PreviousRemaining := remaining
         if crossed
@@ -522,6 +560,79 @@ ShowMissedScheduledEvents(*)
             message .= "• " name "`n"
         MsgBox(RTrim(message, "`n"), "Missed Scheduled Events", "Icon!")
     }
+}
+
+LoadScheduledCountdownHotkey()
+{
+    global ScheduledCountdownHotkey, DataFile
+    ScheduledCountdownHotkey := IniRead(DataFile, "ScheduledEvents", "CountdownHotkey", "F8")
+    try Hotkey(ScheduledCountdownHotkey, StartArmedScheduledCountdown, "On")
+    catch
+    {
+        ScheduledCountdownHotkey := "F8"
+        Hotkey(ScheduledCountdownHotkey, StartArmedScheduledCountdown, "On")
+    }
+}
+
+EditScheduledCountdownHotkey(button, *)
+{
+    global ScheduledCountdownHotkey, DataFile
+    result := InputBox("Enter the hotkey used to start an armed countdown while you are in-game. Examples: F8, F9, ^F8", "Countdown Hotkey",, ScheduledCountdownHotkey)
+    if result.Result != "OK" || Trim(result.Value) = ""
+        return
+    newKey := Trim(result.Value)
+    try Hotkey(newKey, StartArmedScheduledCountdown, "On")
+    catch
+    {
+        MsgBox("That hotkey is not valid.", "tes3np")
+        return
+    }
+    try Hotkey(ScheduledCountdownHotkey, "Off")
+    ScheduledCountdownHotkey := newKey
+    IniWrite(newKey, DataFile, "ScheduledEvents", "CountdownHotkey")
+    button.Text := "Hotkey: " newKey
+}
+
+ArmSelectedScheduledCountdown(*)
+{
+    global ScheduledEventsListView, ScheduledEvents, ScheduledCountdownArmedEventId, ScheduledCountdownHotkey
+    row := IsObject(ScheduledEventsListView) ? ScheduledEventsListView.GetNext() : 0
+    if !row
+    {
+        MsgBox("Select a countdown event to arm.", "tes3np")
+        return
+    }
+    event := ScheduledEvents[row]
+    if !event.HasOwnProp("Mode") || event.Mode != "Countdown"
+    {
+        MsgBox("The selected event is not a countdown.", "tes3np")
+        return
+    }
+    event.StartedAt := ""
+    event.Due := false
+    event.Completed := false
+    ScheduledCountdownArmedEventId := event.Id
+    SaveScheduledEvents()
+    RefreshScheduledEventsList()
+    MsgBox("'" event.Name "' is armed. Press " ScheduledCountdownHotkey " in-game exactly when you want the countdown to start.", "Countdown Armed")
+}
+
+StartArmedScheduledCountdown(*)
+{
+    global ScheduledCountdownArmedEventId
+    if ScheduledCountdownArmedEventId = ""
+        return
+    event := FindScheduledEventById(ScheduledCountdownArmedEventId)
+    if !IsObject(event)
+        return
+    event.StartedAt := A_Now
+    event.LastRunDate := ""
+    event.Due := false
+    event.PreviousRemaining := event.DurationSeconds
+    ScheduledCountdownArmedEventId := ""
+    SaveScheduledEvents()
+    RefreshScheduledEventsList()
+    TrayTip("Countdown started", "'" event.Name "' started.", "Iconi")
 }
 
 ; Compatibility entry point for older UI callers.
