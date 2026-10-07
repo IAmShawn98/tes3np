@@ -7,8 +7,8 @@ global ScheduledEventsWindow := 0
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 
-global NPClockAnchorReal := "20261006200800"
-global NPClockAnchorMinute := 1138
+global NPClockAnchorReal := "20261006201924"
+global NPClockAnchorMinute := 18
 global NPClockTimescale := 30
 
 LoadDailyLoginSchedule()
