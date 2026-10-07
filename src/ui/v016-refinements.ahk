@@ -432,7 +432,10 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
     if !AddMagicCardsText(settings, V016S(32), V016S(124), V016S(145), V016S(24), "Launcher size", V016Font(18), 0xFF382314)
         settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
-    settings.SetFont("s" V016Font(12) " c382314", LauncherMorrowindFont)
+    ; Native dropdowns cannot display the proprietary bitmap face directly.
+    ; Keep their interactive chrome native, but use a neutral system font so
+    ; they no longer inherit the old Georgia/MysticCards approximation.
+    settings.SetFont("s" V016Font(10) " c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
@@ -443,7 +446,7 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
     if !AddMagicCardsText(settings, V016S(32), V016S(197), V016S(145), V016S(24), "Interface text", V016Font(18), 0xFF382314)
         settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
-    settings.SetFont("s" V016Font(12) " c382314", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(10) " c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
