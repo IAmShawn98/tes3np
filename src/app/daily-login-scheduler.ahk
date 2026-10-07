@@ -746,14 +746,16 @@ UpdateScheduledEventsBookCountdowns()
     if !ScheduledEventsBookMode
         return
 
-    ; Update only the detail text in-place. Rebuilding every row once per second
-    ; causes the visible page to flash and eats clicks.
+    ; Update only real event-list rows. While the embedded editor is open,
+    ; ScheduledEventsBookRows contains editor controls instead; treating row[2]
+    ; as the timer/detail control overwrites the event-name edit with countdown
+    ; text once per second.
     for index, event in ScheduledEvents
     {
         if index > ScheduledEventsBookRows.Length
             break
         row := ScheduledEventsBookRows[index]
-        if row.Length < 2
+        if row.Length != 5
             continue
         detail := row[2]
         try
