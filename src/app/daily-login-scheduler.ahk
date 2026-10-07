@@ -48,6 +48,13 @@ LoadDailyLoginSchedule()
         SaveScheduledEvents()
     }
     NextScheduledEventId := maxId + 1
+    ; Preserve the previous launch timestamp before updating it. This provides
+    ; a reliable missed-event window even after abnormal exits where cleanup
+    ; never had a chance to save LastLauncherExit.
+    previousSeen := IniRead(DataFile, "ScheduledEvents", "LastLauncherSeen", "")
+    if RegExMatch(previousSeen, "^\d{14}$")
+        IniWrite(previousSeen, DataFile, "ScheduledEvents", "LastLauncherExit")
+    IniWrite(A_Now, DataFile, "ScheduledEvents", "LastLauncherSeen")
     SetTimer(UpdateDailyLoginCountdown, 1000)
 }
 
@@ -510,7 +517,14 @@ ShowMissedScheduledEvents(*)
     global ScheduledEvents, DataFile, NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
     lastExit := IniRead(DataFile, "ScheduledEvents", "LastLauncherExit", "")
     if !RegExMatch(lastExit, "^\d{14}$")
-        return
+    {
+        ; First run after this feature was added has no shutdown timestamp yet.
+        ; Use the most recent launcher start saved at schedule load so missed
+        ; events are not silently ignored.
+        lastExit := IniRead(DataFile, "ScheduledEvents", "LastLauncherSeen", "")
+        if !RegExMatch(lastExit, "^\d{14}$")
+            return
+    }
 
     missed := []
     for event in ScheduledEvents
