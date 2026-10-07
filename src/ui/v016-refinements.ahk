@@ -74,35 +74,77 @@ ApplyV016CharacterLayout(*)
 global LauncherMorrowindFont := "Georgia"
 global LauncherMorrowindFontPath := ""
 global LauncherMorrowindFontLoaded := false
+global LauncherMagicCardsFnt := ""
+global LauncherMagicCardsTex := ""
 
 InitializeLauncherMorrowindFont()
 {
     global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
-    fontPath := A_ScriptDir "\\assets\\fonts\\MysticCards.ttf"
+    global LauncherMagicCardsFnt, LauncherMagicCardsTex
+
+    ; Do not substitute MysticCards/Georgia and call it the Morrowind journal font.
+    ; Vanilla Morrowind's journal uses its own Magic_Cards_Regular bitmap glyphs.
     LauncherMorrowindFont := "Georgia"
-    LauncherMorrowindFontPath := fontPath
+    LauncherMorrowindFontPath := ""
     LauncherMorrowindFontLoaded := false
-    if !FileExist(fontPath)
-        return
+    LauncherMagicCardsFnt := ""
+    LauncherMagicCardsTex := ""
+
+    fontPair := FindVanillaMagicCardsFont()
+    if IsObject(fontPair)
+    {
+        LauncherMagicCardsFnt := fontPair.Fnt
+        LauncherMagicCardsTex := fontPair.Tex
+    }
+}
+
+FindVanillaMagicCardsFont()
+{
+    global Profiles
+    candidates := []
+
+    ; TES3MP installations normally sit beside the game's Data Files directory.
     try
     {
-        if DllCall("Gdi32.dll\\AddFontResourceExW", "Str", fontPath, "UInt", 0x10, "Ptr", 0, "Int") > 0
+        executable := GetSharedExecutable()
+        if executable != ""
         {
-            ; OpenMW's MysticCards is its TrueType replacement for Morrowind's
-            ; Magic Cards journal/UI face. Use it at regular weight to preserve
-            ; the thin handwritten look of the original journal.
-            LauncherMorrowindFont := "Mystic Cards"
-            LauncherMorrowindFontLoaded := true
+            SplitPath(executable, , &exeDir)
+            candidates.Push(exeDir "\\Data Files\\Fonts")
+            candidates.Push(exeDir "\\data\\Fonts")
+            candidates.Push(exeDir "\\Fonts")
         }
     }
+
+    ; Also check the standard Steam/GOG-style Morrowind locations without
+    ; requiring the launcher to redistribute Bethesda's font assets.
+    candidates.Push(A_ProgramFiles "\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
+    candidates.Push(A_ProgramFiles " (x86)\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
+
+    for dir in candidates
+    {
+        fnt := dir "\\Magic_Cards_Regular.fnt"
+        if !FileExist(fnt)
+            fnt := dir "\\magic_cards_regular.fnt"
+        if !FileExist(fnt)
+            continue
+
+        ; The texture name is normally Magic_Cards_Regular_0_Lod_A.tex.
+        tex := dir "\\Magic_Cards_Regular_0_Lod_A.tex"
+        if !FileExist(tex)
+            tex := dir "\\magic_cards_regular_0_lod_a.tex"
+        if FileExist(tex)
+            return {Fnt: fnt, Tex: tex}
+    }
+    return false
 }
 
 ReleaseLauncherMorrowindFont()
 {
-    global LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
-    if LauncherMorrowindFontLoaded && LauncherMorrowindFontPath != ""
-        try DllCall("Gdi32.dll\\RemoveFontResourceExW", "Str", LauncherMorrowindFontPath, "UInt", 0x10, "Ptr", 0)
+    global LauncherMorrowindFontLoaded, LauncherMagicCardsFnt, LauncherMagicCardsTex
     LauncherMorrowindFontLoaded := false
+    LauncherMagicCardsFnt := ""
+    LauncherMagicCardsTex := ""
 }
 
 OpenLauncherSettingsV016(*)
