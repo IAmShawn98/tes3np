@@ -368,6 +368,11 @@ ClientTick()
     }
     catch Error as err
     {
+        ; If Run() succeeded and a later launch/login step failed, do not leave
+        ; the TES3MP process orphaned after recovery monitoring stops.
+        failedPid := Client.HasOwnProp("PID") ? Client.PID : 0
+        if failedPid && ProcessExist(failedPid)
+            try ProcessClose(failedPid)
         Client.LaunchIssued := false
         LogLauncherEvent("GAME | ERROR | Client launch/login exception: " err.Message ".")
         RetryClient("Client launch or login failed")
