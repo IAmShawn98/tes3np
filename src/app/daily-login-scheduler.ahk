@@ -264,7 +264,13 @@ BuildScheduledEventsBookRows()
 ClearScheduledEventsBookRows()
 {
     global ScheduledEventsBookRows
-    ClearScheduledEventsBookRows()
+    for row in ScheduledEventsBookRows
+        for control in row
+        {
+            SetBookControlVisible(control, false)
+            DestroyBookControl(control)
+        }
+    ScheduledEventsBookRows := []
 }
 
 RefreshScheduledEventsBook()
