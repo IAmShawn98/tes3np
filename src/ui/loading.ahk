@@ -23,6 +23,11 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
     InterfaceUpdating := true
     SetInterfaceLoadingText("Waiting for Jiub...")
     InterfaceFrameCover := CaptureInterfaceFrame(InterfaceUpdateGui, showLoading)
+    ; Freeze the real window after capturing its current frame. All control
+    ; destruction/creation now happens off-screen instead of generating a stream
+    ; of WM_PAINT messages underneath the loading cover.
+    if IsObject(InterfaceUpdateGui) && DllCall("IsWindow", "Ptr", InterfaceUpdateGui.Hwnd)
+        SendMessage(0x000B, false, 0, , "ahk_id " InterfaceUpdateGui.Hwnd) ; WM_SETREDRAW
     if message != ""
         SetInterfaceLoadingText(message)
     if IsObject(InterfaceFrameCover) && !IsObject(InterfaceFrameCover.Panel)
@@ -39,10 +44,11 @@ EndInterfaceUpdate()
     targetWindow := InterfaceUpdateGui.Hwnd
     try
     {
-        ; Keep the delayed indicator eligible until the redraw is complete.
-        ; The separate cover holds the previous frame while this window paints.
-        ; Keep the real book visible and preserve its background beneath the cover.
-        DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+        ; Re-enable painting only after the complete replacement layout exists.
+        ; RDW_ALLCHILDREN + INVALIDATE then commits one finished frame.
+        if DllCall("IsWindow", "Ptr", targetWindow)
+            SendMessage(0x000B, true, 0, , "ahk_id " targetWindow) ; WM_SETREDRAW
+        DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
         for handle, face in ButtonFaces
             if face.Window = targetWindow && DllCall("IsWindow", "Ptr", handle)
             {
@@ -66,6 +72,9 @@ EndInterfaceUpdate()
     }
     finally
     {
+        ; Never leave a window redraw-suspended if an update action throws.
+        if targetWindow && DllCall("IsWindow", "Ptr", targetWindow)
+            SendMessage(0x000B, true, 0, , "ahk_id " targetWindow)
         SetTimer(ShowSlowInterfaceLoading, 0)
         InterfaceUpdating := false
         if IsObject(InterfaceFrameCover)
