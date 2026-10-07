@@ -467,6 +467,38 @@ AddMagicCardsInteractiveLabel(gui, x, y, w, h, prefix, text, fontHeight, callbac
     return {Symbol: symbol, Label: label, Hit: hit}
 }
 
+AddMagicCardsSelector(gui, backingList, x, y, w, h, choices, fontHeight)
+{
+    state := {Backing: backingList, Choices: choices, Gui: gui, X: x, Y: y, W: w, H: h, FontHeight: fontHeight, Label: false}
+    RefreshMagicCardsSelector(state)
+    hit := gui.Add("Text", "x" x " y" y " w" w " h" h " +0x100 BackgroundTrans", "")
+    hit.OnEvent("Click", ShowMagicCardsSelectorMenu.Bind(state))
+    state.Hit := hit
+    return state
+}
+
+RefreshMagicCardsSelector(state)
+{
+    if IsObject(state.Label)
+        try state.Label.Visible := false
+    text := state.Backing.Text "  ▼"
+    state.Label := AddMagicCardsText(state.Gui, state.X + V016S(8), state.Y + V016S(3), state.W - V016S(16), state.H - V016S(4), text, state.FontHeight, 0xFF382314)
+}
+
+ShowMagicCardsSelectorMenu(state, *)
+{
+    menu := Menu()
+    for index, choice in state.Choices
+        menu.Add(choice, ChooseMagicCardsSelector.Bind(state, index))
+    menu.Show()
+}
+
+ChooseMagicCardsSelector(state, index, *)
+{
+    state.Backing.Choose(index)
+    RefreshMagicCardsSelector(state)
+}
+
 ReleaseLauncherMorrowindFont()
 {
     global LauncherMorrowindFontLoaded, LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
@@ -520,7 +552,8 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(10) " c382314", "Segoe UI")
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
+    scaleList := settings.Add("DropDownList", "x-2000 y-2000 w1 Choose" choice, choices)
+    scaleSelector := AddMagicCardsSelector(settings, scaleList, V016S(184), V016S(119), V016S(296), V016S(30), choices, V016Font(17))
     if !AddMagicCardsText(settings, V016S(32), V016S(151), V016S(448), V016S(40), "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.", V016Font(15), 0xFF382314)
     {
         settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
@@ -535,17 +568,17 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(10) " c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x-2000 y-2000 w1 Choose" textChoice, textChoices)
+    textSelector := AddMagicCardsSelector(settings, textList, V016S(184), V016S(192), V016S(296), V016S(30), textChoices, V016Font(17))
     if !AddMagicCardsText(settings, V016S(32), V016S(224), V016S(448), V016S(30), "Choose how big or small the launcher interface is for you.", V016Font(15), 0xFF382314)
     {
         settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
         settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
     }
 
-    settings.SetFont("s" V016Font(11) " c382314", "Segoe UI")
     readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
-    readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
-    readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
+    readabilityParts := AddMagicCardsInteractiveLabel(settings, V016S(32), V016S(260), V016S(448), V016S(32), readabilityPrefix, "Enhanced readability", V016Font(19), ToggleV016ReadabilityParts.Bind())
+    readability := readabilityParts.Hit
     if !AddMagicCardsText(settings, V016S(70), V016S(290), V016S(410), V016S(42), "Improves readability by providing stronger contrast and brighter button text.", V016Font(15), 0xFF382314)
     {
         settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
@@ -647,7 +680,7 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
         return
     scaleList.Choose(1), textList.Choose(1)
     V016ReadabilityState := 0, V016FollowWindowsState := 1
-    readability.Text := V016CheckLabel(0, "Enhanced readability")
+    try readability.Text := ""
     readabilityValue.Value := 0, reduceMotionBox.Value := 0, followWindowsValue.Value := 1
     PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Resetting launcher settings...")
 }
