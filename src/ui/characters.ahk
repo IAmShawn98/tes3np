@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016DailyLoginControls
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016DailyLoginControls, V016CharacterLayoutApplied
     if IsObject(CharacterPage)
     {
         PrepareWindowDisplay(CharacterPage)
@@ -20,6 +20,10 @@ OpenCharacterPage(*)
     LaunchSettingsControls := []
     EditorControls := []
     V016DailyLoginControls := []
+    ; The previous CharacterPage was destroyed when leaving the scheduler, so
+    ; the v0.1.16 layout hook must run again for this fresh GUI. Otherwise its
+    ; one-time guard skips recreating the Schedule Event button.
+    V016CharacterLayoutApplied := false
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
     CharacterPage.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
