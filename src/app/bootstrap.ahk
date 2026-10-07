@@ -99,7 +99,7 @@ CaptureLauncherControlLayout()
 
 ApplyLauncherControlScale()
 {
-    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherVersionLabel
+    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherVersionLabel, LauncherMorrowindFont
     if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
         return
     scale := LauncherScale / 100
@@ -122,7 +122,8 @@ ApplyLauncherControlScale()
                 face.Control.SetFont("s" Max(7, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
         }
         if IsObject(LauncherHeading)
-            LauncherHeading.SetFont("s" Max(9, Round(14 * scale)) " Bold", "Georgia")
+            ; Preserve the Morrowind-style heading after startup/scaling.
+            LauncherHeading.SetFont("s" Max(10, Round(16 * scale)) " Norm c241408", LauncherMorrowindFont)
         if IsObject(LauncherVersionLabel)
             LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
     }
