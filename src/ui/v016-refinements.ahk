@@ -153,7 +153,7 @@ OpenLauncherSettingsV016(*)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
-    settings.SetFont("s" V016Font(13) " Bold c382314", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(13) " c382314", LauncherMorrowindFont)
     readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", V016CheckLabel(V016ReadabilityState, "Enhanced readability"))
     readability.OnEvent("Click", ToggleV016Readability.Bind(readability))
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
