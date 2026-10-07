@@ -17,16 +17,16 @@ OpenCharacterPage(*)
     CharacterPage.BackColor := "FF00FF"
     CharacterPage.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
-    CharacterPage.SetFont("s16 Bold c382314", "Georgia")
+    CharacterPage.SetFont("s16 Norm c382314", "Georgia")
     CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
     LaunchSettingsHeading := AddBookLabel(CharacterPage, 525, 45, 360, 30, "Launch Settings")
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
-    CharacterPage.SetFont("s9.5 Bold c241408", "Segoe UI")
+    CharacterPage.SetFont("s9.5 Norm c241408", "Segoe UI")
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w370 h108 BackgroundTrans", "")
     Loop 10
     {
-        CharacterPage.SetFont("s10 Bold c382314", "Segoe UI")
+        CharacterPage.SetFont("s10 Norm c382314", "Segoe UI")
         index := A_Index
         y := 190 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
@@ -45,7 +45,7 @@ OpenCharacterPage(*)
     CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 435, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
-    CharacterPage.SetFont("s10 Bold c241408", "Segoe UI")
+    CharacterPage.SetFont("s10 Norm c241408", "Segoe UI")
     executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "TES3MP executable")
     CharacterPage.SetFont("s10 Norm c382314", "Segoe UI")
     SetInterfaceLoadingText("Loading executable field...")
