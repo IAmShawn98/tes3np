@@ -38,6 +38,7 @@ AddInfoCard(x, y, width, height, heading, text)
     control := LauncherGui.Add("Custom", "ClassStatic x" x " y" y " w" width " h" height, text)
     ButtonFaces[control.Hwnd] := {Control: control, Label: control, Gui: LauncherGui,
         Window: LauncherGui.Hwnd, IsLabel: true, IsInfo: true, X: x, Y: y,
+        BaseWidth: width, BaseHeight: height,
         Heading: heading, State: "normal", Action: 0}
     AttachButtonPainter(control.Hwnd)
     return control

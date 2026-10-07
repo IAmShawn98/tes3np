@@ -285,8 +285,9 @@ PaintInfoCard(handle, target, width, height)
     bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
     oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
     graphics := 0, brush := 0
-    face.Control.GetPos(, , &logicalWidth)
-    scale := width / logicalWidth
+    ; Render from the card's original 96-DPI dimensions so the physical
+    ; paint scale includes both Windows DPI and tes3np's launcher scale.
+    scale := width / face.BaseWidth
     DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
     DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
     DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Background, "Int", Round(-face.X * scale), "Int", Round((-4 - face.Y) * scale), "Int", Round(960 * scale), "Int", Round(720 * scale))
