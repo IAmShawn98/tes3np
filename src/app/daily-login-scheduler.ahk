@@ -226,7 +226,7 @@ BuildScheduledEventsBookRows()
         for control in row
         {
             SetBookControlVisible(control, false)
-            try control.Destroy()
+            DestroyBookControl(control)
         }
     ScheduledEventsBookRows := []
     try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", false)
@@ -371,7 +371,7 @@ CloseScheduledEventsBook(*)
         for control in ScheduledEventsBookControls
         {
             SetBookControlVisible(control, false)
-            try control.Destroy()
+            DestroyBookControl(control)
         }
         for row in ScheduledEventsBookRows
             for control in row
@@ -448,7 +448,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
         for control in row
         {
             SetBookControlVisible(control, false)
-            try control.Destroy()
+            DestroyBookControl(control)
         }
     ScheduledEventsBookRows := []
     ; Erase the old event-list pixels before placing editor controls.
