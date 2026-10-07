@@ -199,11 +199,14 @@ HideProfileEditor()
 {
     global EditorControls, EditorScrolling, LaunchSettingsHeading, LaunchSettingsControls
     EditorScrolling := false
+    ; EditorControls/LaunchSettingsControls can still reference controls from a
+    ; CharacterPage that was deliberately destroyed during a book-page rebuild.
+    ; Ignore those stale handles; OpenCharacterPage will populate fresh controls.
     for control in EditorControls
-        control.Visible := false
-    LaunchSettingsHeading.Text := "Launch Settings"
+        try control.Visible := false
+    try LaunchSettingsHeading.Text := "Launch Settings"
     for control in LaunchSettingsControls
-        control.Visible := true
+        try control.Visible := true
 }
 
 CloseCharacterPage(*)
