@@ -37,6 +37,8 @@ OpenMacros(*)
         MacroPage.Opt("+OwnDialogs")
         LoadMacroPackages()
     }
+    ; Reconcile immediately on reopen, then poll only while the page is visible.
+    RefreshMacroProcesses()
     MacroPage.Show("w700 h505")
     SetTimer(RefreshMacroProcesses, 1000)
 }
@@ -44,6 +46,9 @@ OpenMacros(*)
 CloseMacroPage(*)
 {
     global MacroPage
+    ; Process status only needs polling while this page is visible. Running
+    ; macros continue independently; their state is reconciled when reopened.
+    SetTimer(RefreshMacroProcesses, 0)
     MacroPage.Hide()
     ShowLauncherWindow()
 }
