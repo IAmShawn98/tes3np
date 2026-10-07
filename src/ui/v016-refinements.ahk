@@ -402,8 +402,6 @@ AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center
         }
         return false
     }
-    ; AHK Picture controls do not expose a Destroy control event. The control
-    ; owns the HBITMAP for its lifetime, so do not attach an invalid handler.
     pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
     return pic
 }
@@ -429,9 +427,6 @@ ReleaseLauncherMorrowindFont()
     LauncherMagicCardsTex := ""
     LauncherMagicCardsData := false
 }
-
-; Keep this boundary explicit: the bitmap-font helpers above must be fully
-; closed before the Launcher Settings function begins.
 
 OpenLauncherSettingsV016(*)
 {
