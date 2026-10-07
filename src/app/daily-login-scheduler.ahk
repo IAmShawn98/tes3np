@@ -203,7 +203,7 @@ OpenScheduledEventsBook(*)
     description := CharacterPage.Add("Text", "x70 y90 w370 h105 BackgroundTrans",
         "Need a reminder for boss spawns, timed quests, or daily login points? Schedule countdowns, reminders, and automatic character logins. Start events manually or with an in-game hotkey. The scheduler will alert you while the launcher is open and show any missed events the next time you launch it.")
 
-    add := AddStyledButton(CharacterPage, 70, 180, 370, 30, "Schedule New Event", (*) => OpenScheduledEventEditor(CharacterPage))
+    add := AddStyledButton(CharacterPage, 70, 180, 370, 30, "Schedule New Event", (*) => OpenScheduledEventBookEditor(0))
     hotkey := AddStyledButton(CharacterPage, 70, 215, 370, 30, "Hotkey: " DisplayScheduledCountdownHotkey(ScheduledCountdownHotkey), (*) => EditScheduledCountdownHotkey(hotkey))
     back := AddStyledButton(CharacterPage, 70, 575, 370, 30, "Back to Characters", CloseScheduledEventsBook)
 
@@ -277,7 +277,7 @@ RefreshScheduledEventsBook()
 EditScheduledEventFromBook(index, *)
 {
     global CharacterPage
-    OpenScheduledEventEditor(CharacterPage, index)
+    OpenScheduledEventBookEditor(index)
 }
 
 DeleteScheduledEventFromBook(index, *)
@@ -408,6 +408,82 @@ FormatScheduledEventTime(time)
     if displayHour = 0
         displayHour := 12
     return displayHour ":" minute " " meridiem
+}
+
+OpenScheduledEventBookEditor(eventIndex := 0)
+{
+    global CharacterPage, ScheduledEvents, ScheduledEventsBookRows, LauncherMorrowindFont
+    editing := eventIndex > 0 && eventIndex <= ScheduledEvents.Length
+    event := editing ? ScheduledEvents[eventIndex] : {Name: "Daily Login", TimeBasis: "IRL", Time: "12:00", Mode: "IRL", DurationSeconds: 3600, Recurring: true, Completed: false}
+
+    ; Replace the right-page event list with the editor.
+    for row in ScheduledEventsBookRows
+        for control in row
+        {
+            SetBookControlVisible(control, false)
+            try control.Destroy()
+        }
+    ScheduledEventsBookRows := []
+
+    CharacterPage.SetFont("s11 Bold c241408", LauncherMorrowindFont)
+    nameLabel := CharacterPage.Add("Text", "x525 y95 w330 h22 BackgroundTrans", "Event name")
+    CharacterPage.SetFont("s10 Norm c241408", "Segoe UI")
+    nameEdit := AddThemedEdit(CharacterPage, "x525 y120 w330 h28", event.Name)
+
+    CharacterPage.SetFont("s11 Bold c241408", LauncherMorrowindFont)
+    modeLabel := CharacterPage.Add("Text", "x525 y165 w330 h22 BackgroundTrans", "Event mode")
+    CharacterPage.SetFont("s10 Norm c241408", "Segoe UI")
+    modeList := CharacterPage.Add("DropDownList", "x525 y190 w330 h100", ["Specific Time (IRL)", "Countdown"])
+    isCountdown := event.HasOwnProp("Mode") && event.Mode = "Countdown"
+    modeList.Choose(isCountdown ? 2 : 1)
+    recurringCheck := CharacterPage.Add("CheckBox", "x525 y225 w330 h24", "Recurring")
+    recurringCheck.Value := event.Recurring ? 1 : 0
+
+    hour24 := Integer(SubStr(event.Time, 1, 2)), minute := Integer(SubStr(event.Time, 4, 2))
+    displayHour := Mod(hour24, 12)
+    if displayHour = 0
+        displayHour := 12
+    duration := event.HasOwnProp("DurationSeconds") && event.DurationSeconds > 0 ? event.DurationSeconds : 3600
+    durationHours := Floor(duration / 3600), durationMinutes := Floor(Mod(duration, 3600) / 60), durationSeconds := Mod(duration, 60)
+
+    CharacterPage.SetFont("s11 Bold c241408", LauncherMorrowindFont)
+    hourLabel := CharacterPage.Add("Text", "x525 y270 w60 h22 BackgroundTrans", isCountdown ? "Hours" : "Hour")
+    minuteLabel := CharacterPage.Add("Text", "x600 y270 w65 h22 BackgroundTrans", isCountdown ? "Minutes" : "Minute")
+    thirdLabel := CharacterPage.Add("Text", "x675 y270 w90 h22 BackgroundTrans", isCountdown ? "Seconds" : "Clock")
+    CharacterPage.SetFont("s10 Norm c241408", "Segoe UI")
+    hourEdit := AddThemedEdit(CharacterPage, "x525 y295 w60 h28 Center Number", isCountdown ? durationHours : displayHour)
+    minuteEdit := AddThemedEdit(CharacterPage, "x600 y295 w60 h28 Center Number", isCountdown ? durationMinutes : minute)
+    clockMode := CharacterPage.Add("DropDownList", "x675 y295 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    secondEdit := AddThemedEdit(CharacterPage, "x675 y295 w100 h28 Center Number", durationSeconds)
+    meridiem := CharacterPage.Add("DropDownList", "x785 y295 w70 h120", ["AM", "PM"])
+    meridiem.Choose(hour24 >= 12 ? 2 : 1)
+
+    UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
+    modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
+    clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
+
+    save := AddStyledButton(CharacterPage, 525, 350, 155, 30, editing ? "Save Changes" : "Schedule Event",
+        SaveScheduledEventBookEditor.Bind(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem))
+    cancel := AddStyledButton(CharacterPage, 700, 350, 155, 30, "Cancel", CancelScheduledEventBookEditor)
+
+    ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringCheck, hourLabel, minuteLabel, thirdLabel,
+        hourEdit, minuteEdit, clockMode, secondEdit, meridiem, save, cancel]]
+    FinishButtonDisplay()
+    PaintScheduledEventsBook()
+}
+
+SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, *)
+{
+    ; Reuse the existing validation/save routine with a harmless object that
+    ; provides Destroy(), then rebuild the right-page event list.
+    editorShim := {Destroy: (*) => 0}
+    SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem)
+    RefreshScheduledEventsBook()
+}
+
+CancelScheduledEventBookEditor(*)
+{
+    RefreshScheduledEventsBook()
 }
 
 OpenScheduledEventEditor(owner, eventIndex := 0)
