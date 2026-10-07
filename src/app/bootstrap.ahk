@@ -71,10 +71,9 @@ SetLauncherUpdateAvailable(isAvailable)
     LauncherUpdateAvailable := isAvailable
     if !IsObject(LauncherSettingsButton) || !IsObject(LauncherUpdateButton)
         return
-    ; Launcher Settings stays in the lower-right. Update Available appears
-    ; centered beneath the main launcher scroll.
-    LauncherSettingsButton.Move(805, 675, 140, 32)
-    LauncherUpdateButton.Move(410, 675, 140, 32)
+    ; Positions are owned by LauncherControlLayout and scaled by
+    ; ApplyLauncherControlScale(). Do not move these controls back to
+    ; unscaled coordinates when update availability changes.
     LauncherUpdateButton.Visible := LauncherUpdateAvailable
     if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
         LauncherControlLayout[LauncherSettingsButton.Hwnd].X := 805

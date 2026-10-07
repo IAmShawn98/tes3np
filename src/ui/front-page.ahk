@@ -84,8 +84,14 @@ ScrollMenu(offset)
     global MenuOffset, ButtonFaces, ScrollThumb, MenuRows, MenuEntries
     maximum := Max(0, (MenuEntries.Length - MenuRows.Length) * 20)
     MenuOffset := Max(0, Min(maximum, offset))
-    ScrollThumb.Move(603, 435 + (maximum ? Round(MenuOffset / maximum * 103) : 0))
     global ScrollTrack
+    ScrollTrack.GetPos(&trackX, &trackY, &trackWidth, &trackHeight)
+    thumbWidth := Max(1, Round(trackWidth * 6 / 8))
+    thumbHeight := Max(1, Round(trackHeight * 72 / 175))
+    thumbX := trackX + Round(trackWidth / 8)
+    thumbTravel := Max(0, trackHeight - thumbHeight)
+    thumbY := trackY + (maximum ? Round(MenuOffset / maximum * thumbTravel) : 0)
+    ScrollThumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
     ScrollTrack.Visible := maximum > 0
     ScrollThumb.Visible := maximum > 0
     first := 1 + Min(Max(0, MenuEntries.Length - MenuRows.Length), Floor(MenuOffset / 20))
