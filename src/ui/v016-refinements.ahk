@@ -523,7 +523,7 @@ OpenLauncherSettingsV016(*)
     settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
 
     settings.SetFont("s" V016Font(19) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(76) " w" V016S(448) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x" V016S(70) " y" V016S(76) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
