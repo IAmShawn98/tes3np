@@ -39,7 +39,8 @@ StartLauncher()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 805, 675, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
-    LauncherUpdateButton := AddStyledButton(LauncherGui, 650, 675, 140, 32, "Update Available", CheckForUpdates)
+    ; Keep update notifications centered along the bottom edge, directly below the launcher scroll.
+    LauncherUpdateButton := AddStyledButton(LauncherGui, 410, 675, 140, 32, "Update Available", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
@@ -68,17 +69,17 @@ SetLauncherUpdateAvailable(isAvailable)
     global LauncherSettingsButton, LauncherUpdateButton, LauncherControlLayout
     if !IsObject(LauncherSettingsButton) || !IsObject(LauncherUpdateButton)
         return
-    ; The right-most slot always belongs to Launcher Settings. When an update is
-    ; available, Update Available appears immediately to its left.
+    ; Launcher Settings stays in the lower-right. Update Available appears
+    ; centered beneath the main launcher scroll.
     LauncherSettingsButton.Move(805, 675, 140, 32)
-    LauncherUpdateButton.Move(650, 675, 140, 32)
+    LauncherUpdateButton.Move(410, 675, 140, 32)
     LauncherUpdateButton.Visible := isAvailable
     if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
         LauncherControlLayout[LauncherSettingsButton.Hwnd].X := 805
         LauncherControlLayout[LauncherSettingsButton.Hwnd].Y := 675
     }
     if LauncherControlLayout.Has(LauncherUpdateButton.Hwnd) {
-        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 650
+        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 410
         LauncherControlLayout[LauncherUpdateButton.Hwnd].Y := 675
     }
 }
