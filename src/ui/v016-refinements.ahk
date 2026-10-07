@@ -282,26 +282,27 @@ MagicCardsCreateGlyphAtlas()
         return false
 
     file := FileOpen(LauncherMagicCardsTex, "r")
-    if !IsObject(file) || file.Length < 16
+    if !IsObject(file) || file.Length < 8
         return false
 
-    ; Bethesda TEX header used by Morrowind fonts: width/height are stored in
-    ; the texture header and the font atlas is uncompressed RGBA32.
-    header := Buffer(16, 0)
-    file.RawRead(header, 16)
-    width := NumGet(header, 4, "UInt")
-    height := NumGet(header, 8, "UInt")
+    ; Vanilla font TEX layout, matching OpenMW's Morrowind font loader:
+    ; int32 width, int32 height, immediately followed by width*height RGBA bytes.
+    header := Buffer(8, 0)
+    if file.RawRead(header, 8) != 8
+        return false
+    width := NumGet(header, 0, "Int")
+    height := NumGet(header, 4, "Int")
     if width < 1 || height < 1 || width > 4096 || height > 4096
         return false
 
-    remaining := file.Length - file.Pos
     pixelBytes := width * height * 4
-    if remaining < pixelBytes
-        return false
-    file.Pos := file.Length - pixelBytes
     pixels := Buffer(pixelBytes, 0)
-    if file.RawRead(pixels, pixelBytes) != pixelBytes
+    bytesRead := file.RawRead(pixels, pixelBytes)
+    if bytesRead <= 0
         return false
+    ; Morrowind/OpenMW tolerate a short atlas read; the zero-filled remainder
+    ; stays transparent rather than rejecting the entire font.
+
     return {Width: width, Height: height, Pixels: pixels}
 }
 
