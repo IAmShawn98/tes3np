@@ -722,24 +722,20 @@ ArmSelectedScheduledCountdown(*)
 
 StartArmedScheduledCountdown(*)
 {
-    global ScheduledCountdownArmedEventId, ScheduledEvents
-    event := ScheduledCountdownArmedEventId != "" ? FindScheduledEventById(ScheduledCountdownArmedEventId) : 0
-    if !IsObject(event)
+    global ScheduledCountdownArmedEventId
+    ; The hotkey is deliberately one-shot. Once pressed, the captured start
+    ; time is locked and another press cannot move it. The user must explicitly
+    ; return to Scheduled Events and arm a countdown again before the hotkey works.
+    if ScheduledCountdownArmedEventId = ""
     {
-        ; Fall back to the first waiting countdown so the hotkey still works
-        ; after reopening the launcher or if explicit arm state was lost.
-        for candidate in ScheduledEvents
-        {
-            if candidate.HasOwnProp("Mode") && candidate.Mode = "Countdown" && candidate.StartedAt = "" && !(candidate.HasOwnProp("Completed") && candidate.Completed)
-            {
-                event := candidate
-                break
-            }
-        }
+        TrayTip("No countdown armed", "Open Scheduled Events and arm a countdown first.", "Icon!")
+        return
     }
-    if !IsObject(event)
+    event := FindScheduledEventById(ScheduledCountdownArmedEventId)
+    if !IsObject(event) || !event.HasOwnProp("Mode") || event.Mode != "Countdown" || event.StartedAt != ""
     {
-        TrayTip("No countdown armed", "Create or arm a countdown first.", "Icon!")
+        ScheduledCountdownArmedEventId := ""
+        TrayTip("No countdown armed", "Open Scheduled Events and arm a countdown first.", "Icon!")
         return
     }
     event.StartedAt := A_Now
@@ -749,7 +745,7 @@ StartArmedScheduledCountdown(*)
     ScheduledCountdownArmedEventId := ""
     SaveScheduledEvents()
     RefreshScheduledEventsList()
-    TrayTip("Countdown started", "'" event.Name "' started.", "Iconi")
+    TrayTip("Countdown started", "'" event.Name "' start time is locked.", "Iconi")
 }
 
 ; Compatibility entry point for older UI callers.
