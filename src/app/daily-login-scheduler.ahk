@@ -259,21 +259,22 @@ BuildScheduledEventsBookRows()
     {
         if index > 7
             break
-        CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
         modeText := event.HasOwnProp("Mode") && event.Mode = "Countdown"
             ? FormatDailyLoginCountdown(event.DurationSeconds)
             : FormatScheduledEventTime(event.Time)
         statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
-        ; Give the event text the full row width and keep actions on their own
-        ; line below it. The old 205px label could disappear behind the custom
-        ; button faces, leaving only Edit/Delete/Start visible.
-        label := CharacterPage.Add("Text", "x525 y" y " w355 h42 BackgroundTrans",
-            event.Name "`n" modeText "  •  " statusText)
-        edit := AddStyledButton(CharacterPage, 525, y + 44, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
-        del := AddStyledButton(CharacterPage, 635, y + 44, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
-        start := AddStyledButton(CharacterPage, 745, y + 44, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
-        ScheduledEventsBookRows.Push([label, edit, del, start])
-        y += 82
+        ; Use a clear title/details hierarchy instead of packing everything into
+        ; one small text control.
+        CharacterPage.SetFont("s13 Bold c241408", LauncherMorrowindFont)
+        nameLabel := CharacterPage.Add("Text", "x525 y" y " w355 h24 BackgroundTrans", event.Name)
+        CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
+        detailLabel := CharacterPage.Add("Text", "x525 y" (y + 25) " w355 h22 BackgroundTrans",
+            modeText "   •   " statusText)
+        edit := AddStyledButton(CharacterPage, 525, y + 50, 105, 26, "Edit", EditScheduledEventFromBook.Bind(index))
+        del := AddStyledButton(CharacterPage, 635, y + 50, 105, 26, "Delete", DeleteScheduledEventFromBook.Bind(index))
+        start := AddStyledButton(CharacterPage, 745, y + 50, 135, 26, event.StartedAt != "" ? "Stop Event" : "Start Event", ToggleScheduledEventFromBook.Bind(index))
+        ScheduledEventsBookRows.Push([nameLabel, detailLabel, edit, del, start])
+        y += 92
     }
     PaintScheduledEventsBook()
 }
