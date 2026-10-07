@@ -86,17 +86,7 @@ InitializeLauncherMorrowindFont()
 
     if !FileExist(fontPath)
     {
-        try
-        {
-            DirCreate(fontDir)
-            Download("https://raw.githubusercontent.com/OpenMW/openmw/master/files/data/fonts/MysticCards.ttf", fontPath)
-        }
-        catch as err
-            LogLauncherEvent("FONT | MysticCards download failed: " err.Message)
-    }
-    if !FileExist(fontPath)
-    {
-        LogLauncherEvent("FONT | MysticCards unavailable. Using Georgia fallback.")
+        LogLauncherEvent("FONT | Bundled MysticCards.ttf is missing. Using Georgia fallback.")
         return
     }
 
