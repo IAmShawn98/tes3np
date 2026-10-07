@@ -100,7 +100,7 @@ RefreshProfiles()
             }
         }
         descriptionText := Profiles.Length
-            ? "Here is a list of all your Nerevarine Prophecies characters. Click the checkmark next to any character name to favorite it for the games quick launch feature. You can freely add, update, and delete your characters from the launcher. This will NOT delete your characters in-game!"
+            ? "This is a list containing all of your registered Nerevarine Prophecies characters. From here you can add or delete up to 10 characters. Click on the checkbox before a characters name to favorite it. When you favorite a character, that sets you up for quick launching the game, and logging yourself in for schedualed events automatically. You can change your favorite character anytime."
             : "This will be a list of all your Nerevarine Prophecies characters. You will be able to add, edit and launch your characters from here."
         CharacterDescription.Text := descriptionText
         if IsObject(CharacterDescriptionMagic)
