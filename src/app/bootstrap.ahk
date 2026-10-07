@@ -41,7 +41,8 @@ StartLauncher()
     LauncherSettingsButton := AddStyledButton(LauncherGui, 805, 675, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
     ; Keep update notifications centered along the bottom edge, directly below the launcher scroll.
     LauncherUpdateButton := AddStyledButton(LauncherGui, 410, 675, 140, 32, "Update Available", CheckForUpdates)
-    LauncherUpdateButton.Visible := false
+    ; TEMP: keep visible for update-button placement testing.
+    LauncherUpdateButton.Visible := true
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
