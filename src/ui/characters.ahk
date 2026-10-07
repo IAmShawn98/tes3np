@@ -487,7 +487,7 @@ SaveProfileEditor(index, fields, editor, *)
 
 RemoveVisibleProfile(position, *)
 {
-    global Profiles, SelectedProfile, CharacterListPage, ProfileEditor, CharacterPage
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage
     index := (CharacterListPage - 1) * 10 + position
     if index < 1 || index > Profiles.Length
         return
