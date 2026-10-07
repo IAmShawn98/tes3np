@@ -64,6 +64,37 @@ SetBookTick(tick, checked)
     DllCall("InvalidateRect", "Ptr", tick.Hwnd, "Ptr", 0, "Int", 0)
 }
 
+UnregisterThemedControl(control)
+{
+    global ButtonFaces, ButtonPaintCallback, HoverButton, PressedButton, KeyboardFocusButton
+    if !IsObject(control)
+        return
+    handle := 0
+    try handle := control.Hwnd
+    if !handle || !ButtonFaces.Has(handle)
+        return
+    if PressedButton = handle
+    {
+        PressedButton := 0
+        DllCall("ReleaseCapture")
+    }
+    if HoverButton = handle
+        HoverButton := 0
+    if KeyboardFocusButton = handle
+        KeyboardFocusButton := 0
+    if IsSet(ButtonPaintCallback) && DllCall("IsWindow", "Ptr", handle)
+        DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", ButtonPaintCallback, "UPtr", 1)
+    ButtonFaces.Delete(handle)
+}
+
+DestroyBookControl(control)
+{
+    ; Dynamic book controls may participate in custom painting. Unregister their
+    ; HWND before Destroy() so no queued paint/input message can see stale state.
+    UnregisterThemedControl(control)
+    try control.Destroy()
+}
+
 ShowButtonFace(handle)
 {
     global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
