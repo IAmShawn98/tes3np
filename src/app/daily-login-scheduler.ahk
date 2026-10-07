@@ -7,9 +7,6 @@ global ScheduledEventsWindow := 0
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 
-global NPClockAnchorReal := "20261006204223"
-global NPClockAnchorMinute := 679
-global NPClockTimescale := 30
 
 LoadDailyLoginSchedule()
 {
@@ -22,7 +19,7 @@ LoadDailyLoginSchedule()
         section := "ScheduledEvent" A_Index
         id := Integer(IniRead(DataFile, section, "Id", A_Index))
         name := IniRead(DataFile, section, "Name", "Daily Login")
-        timeBasis := IniRead(DataFile, section, "TimeBasis", "IRL")
+        timeBasis := "IRL"
         time := IniRead(DataFile, section, "Time", "12:00")
         lastRun := IniRead(DataFile, section, "LastRunDate", "")
         recurring := IniRead(DataFile, section, "Recurring", "1") = "1"
@@ -123,8 +120,8 @@ OpenScheduledEventsMenu(owner := 0, *)
     menu.Add("Text", "x20 y18 w600 h30", "Scheduled Events")
     menu.SetFont("s9 c382314", "Segoe UI")
     menu.Add("Text", "x20 y52 w600 h36", "Create timed launcher events. Each event runs once per day at its scheduled time.")
-    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Time Basis", "Time", "Repeat", "Countdown"])
-    lv.ModifyCol(1, 155), lv.ModifyCol(2, 105), lv.ModifyCol(3, 90), lv.ModifyCol(4, 80), lv.ModifyCol(5, 130)
+    lv := menu.Add("ListView", "x20 y96 w600 h250 Grid -Multi", ["Event", "Time", "Repeat", "Countdown"])
+    lv.ModifyCol(1, 190), lv.ModifyCol(2, 120), lv.ModifyCol(3, 110), lv.ModifyCol(4, 160)
     add := menu.Add("Button", "x20 y362 w185 h36 Default", "Schedule Event")
     edit := menu.Add("Button", "x218 y362 w185 h36", "Edit Selected")
     del := menu.Add("Button", "x416 y362 w204 h36", "Delete Selected")
@@ -159,7 +156,7 @@ RefreshScheduledEventsList()
     selected := ScheduledEventsListView.GetNext()
     ScheduledEventsListView.Delete()
     for event in ScheduledEvents
-        ScheduledEventsListView.Add(, event.Name, event.TimeBasis = "Game" ? "In-Game" : "IRL", FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
+        ScheduledEventsListView.Add(, event.Name, FormatScheduledEventTime(event.Time), event.Recurring ? "Recurring" : "One Time", event.HasOwnProp("Completed") && event.Completed ? "Completed" : FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event)))
     if selected && selected <= ScheduledEvents.Length
         ScheduledEventsListView.Modify(selected, "Select Focus")
 }
@@ -186,12 +183,7 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     editor.Add("Text", "x20 y20 w330 h22", "Event name")
     editor.SetFont("s10 c382314", "Segoe UI")
     nameEdit := editor.Add("Edit", "x20 y46 w330 h30", event.Name)
-    editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y92 w330 h22", "Time basis")
-    editor.SetFont("s10 c382314", "Segoe UI")
-    basisList := editor.Add("DropDownList", "x20 y118 w330 h120", ["IRL Time", "In-Game Time"])
-    basisList.Choose(event.TimeBasis = "Game" ? 2 : 1)
-    recurringCheck := editor.Add("CheckBox", "x20 y150 w330 h24", "Recurring")
+    recurringCheck := editor.Add("CheckBox", "x20 y92 w330 h24", "Recurring")
     recurringCheck.Value := event.Recurring ? 1 : 0
 
     hour24 := Integer(SubStr(event.Time, 1, 2)), minute := SubStr(event.Time, 4, 2)
@@ -199,22 +191,22 @@ OpenScheduledEventEditor(owner, eventIndex := 0)
     if displayHour = 0
         displayHour := 12
     editor.SetFont("s10 Bold c382314", "Segoe UI")
-    editor.Add("Text", "x20 y184 w60 h22", "Hour")
-    editor.Add("Text", "x92 y184 w60 h22", "Minute")
-    editor.Add("Text", "x164 y184 w90 h22", "Clock")
+    editor.Add("Text", "x20 y130 w60 h22", "Hour")
+    editor.Add("Text", "x92 y130 w60 h22", "Minute")
+    editor.Add("Text", "x164 y130 w90 h22", "Clock")
     editor.SetFont("s10 c382314", "Segoe UI")
-    hourEdit := editor.Add("Edit", "x20 y210 w52 h28 Center Number", displayHour)
-    minuteEdit := editor.Add("Edit", "x92 y210 w52 h28 Center Number", minute)
-    clockMode := editor.Add("DropDownList", "x164 y210 w100 h120 Choose1", ["AM / PM", "24-hour"])
-    meridiem := editor.Add("DropDownList", "x274 y210 w76 h120", ["AM", "PM"])
+    hourEdit := editor.Add("Edit", "x20 y156 w52 h28 Center Number", displayHour)
+    minuteEdit := editor.Add("Edit", "x92 y156 w52 h28 Center Number", minute)
+    clockMode := editor.Add("DropDownList", "x164 y156 w100 h120 Choose1", ["AM / PM", "24-hour"])
+    meridiem := editor.Add("DropDownList", "x274 y156 w76 h120", ["AM", "PM"])
     meridiem.Choose(hour24 >= 12 ? 2 : 1)
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
-    save := editor.Add("Button", "x20 y264 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
-    cancel := editor.Add("Button", "x192 y264 w158 h34", "Cancel")
-    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, basisList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem))
+    save := editor.Add("Button", "x20 y210 w158 h34 Default", editing ? "Save Changes" : "Schedule Event")
+    cancel := editor.Add("Button", "x192 y210 w158 h34", "Cancel")
+    save.OnEvent("Click", SaveScheduledEventEditor.Bind(editor, eventIndex, nameEdit, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem))
     cancel.OnEvent("Click", (*) => editor.Destroy())
     editor.OnEvent("Escape", (*) => editor.Destroy())
-    editor.Show("w370 h318")
+    editor.Show("w370 h264")
 }
 
 UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
@@ -239,7 +231,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, recurringCheck, hourEdit, minuteEdit, clockMode, meridiem, *)
 {
     global ScheduledEvents, NextScheduledEventId, DataFile
     name := Trim(nameEdit.Text)
@@ -283,7 +275,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, basisList, recurringCheck
             hour24 += 12
         time := Format("{:02}:{:02}", hour24, minute)
     }
-    timeBasis := basisList.Value = 2 ? "Game" : "IRL"
+    timeBasis := "IRL"
     recurring := recurringCheck.Value = 1
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
@@ -360,17 +352,6 @@ UpdateDailyLoginCountdown(*)
 
 GetScheduledEventRawRemaining(time, timeBasis := "IRL")
 {
-    if timeBasis = "Game"
-    {
-        global NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
-        elapsed := DateDiff(A_Now, NPClockAnchorReal, "Seconds")
-        currentMinute := Mod(NPClockAnchorMinute + (elapsed * NPClockTimescale / 60), 1440)
-        if currentMinute < 0
-            currentMinute += 1440
-        targetMinute := Integer(SubStr(time, 1, 2)) * 60 + Integer(SubStr(time, 4, 2))
-        gameMinutes := Mod(targetMinute - currentMinute + 1440, 1440)
-        return Ceil(gameMinutes * 60 / NPClockTimescale)
-    }
     now := A_Now
     target := SubStr(now, 1, 8) StrReplace(time, ":") "00"
     return DateDiff(target, now, "Seconds")
@@ -382,8 +363,6 @@ GetScheduledEventSecondsRemaining(event)
     remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
     if event.Due && event.LastRunDate != today
         return 0
-    if event.TimeBasis = "Game"
-        return Max(0, remaining)
     if remaining <= 0
         target := DateAdd(SubStr(A_Now, 1, 8) StrReplace(event.Time, ":") "00", 1, "Days")
     else
@@ -407,13 +386,10 @@ CheckDailyLoginSchedule(*)
     {
         if event.HasOwnProp("Completed") && event.Completed
             continue
-        if event.TimeBasis != "Game" && event.LastRunDate = today
+        if event.LastRunDate = today
             continue
         remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
-        if event.TimeBasis = "Game"
-            crossed := remaining > event.PreviousRemaining
-        else
-            crossed := event.PreviousRemaining > 0 && remaining <= 0
+        crossed := event.PreviousRemaining > 0 && remaining <= 0
         event.PreviousRemaining := remaining
         if crossed
             event.Due := true
@@ -437,7 +413,7 @@ CheckDailyLoginSchedule(*)
         }
 
         ActiveScheduledEventId := event.Id
-        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: " (event.TimeBasis = "Game" ? "In-Game" : "IRL") ".")
+        LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: IRL.")
         if !StartScheduledDailyLogin()
         {
             ActiveScheduledEventId := ""
@@ -514,7 +490,7 @@ SaveScheduledEventShutdownTime()
 
 ShowMissedScheduledEvents(*)
 {
-    global ScheduledEvents, DataFile, NPClockAnchorReal, NPClockAnchorMinute, NPClockTimescale
+    global ScheduledEvents, DataFile
     lastExit := IniRead(DataFile, "ScheduledEvents", "LastLauncherExit", "")
     if !RegExMatch(lastExit, "^\d{14}$")
     {
@@ -531,23 +507,10 @@ ShowMissedScheduledEvents(*)
     {
         if event.HasOwnProp("Completed") && event.Completed
             continue
-        targetMinute := Integer(SubStr(event.Time, 1, 2)) * 60 + Integer(SubStr(event.Time, 4, 2))
-        wasMissed := false
-        if event.TimeBasis = "Game"
-        {
-            beforeMinutes := NPClockAnchorMinute + DateDiff(lastExit, NPClockAnchorReal, "Seconds") * NPClockTimescale / 60
-            nowMinutes := NPClockAnchorMinute + DateDiff(A_Now, NPClockAnchorReal, "Seconds") * NPClockTimescale / 60
-            beforeOccurrence := Floor((beforeMinutes - targetMinute) / 1440)
-            nowOccurrence := Floor((nowMinutes - targetMinute) / 1440)
-            wasMissed := nowOccurrence > beforeOccurrence
-        }
-        else
-        {
-            cursor := SubStr(lastExit, 1, 8) event.Time.Replace(":", "") "00"
-            if cursor <= lastExit
-                cursor := DateAdd(cursor, 1, "Days")
-            wasMissed := cursor <= A_Now
-        }
+        cursor := SubStr(lastExit, 1, 8) event.Time.Replace(":", "") "00"
+        if cursor <= lastExit
+            cursor := DateAdd(cursor, 1, "Days")
+        wasMissed := cursor <= A_Now
         if wasMissed
             missed.Push(event.Name)
     }
