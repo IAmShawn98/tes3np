@@ -138,7 +138,7 @@ OpenScheduledEventsMenu(owner := 0, *)
 OpenScheduledEventsBook(*)
 {
     global CharacterPage, LaunchSettingsHeading, LaunchSettingsControls, CharacterRows
-    global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls
+    global CharacterDescription, AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, LaunchCharacterButton, SessionStatus
     global DataTransferButton, CharacterLimitNotice, ScheduledEventsBookControls, ScheduledEventsBookRows
     global ScheduledEventsBookMode, LauncherMorrowindFont, ButtonFaces, ScheduledCountdownHotkey, CharacterHeading
 
@@ -152,14 +152,20 @@ OpenScheduledEventsBook(*)
     ; Reuse the existing left heading instead of drawing another heading over it.
     CharacterHeading.Text := "Schedule Event"
     CharacterDescription.Visible := false
+    LaunchCharacterButton.Visible := false
+    SessionStatus.Visible := false
     AddCharacterButton.Visible := false
     WipeCharacterButton.Visible := false
     DataTransferButton.Visible := false
     CharacterLimitNotice.Visible := false
     for row in CharacterRows
-        for _, control in row.OwnProps()
-            if IsObject(control)
-                control.Visible := false
+    {
+        row.Tick.Visible := false
+        row.Name.Visible := false
+        row.Play.Visible := false
+        row.Edit.Visible := false
+        row.Remove.Visible := false
+    }
     if IsObject(V016DailyLoginControls)
         for control in V016DailyLoginControls
             control.Visible := false
@@ -285,7 +291,7 @@ CloseScheduledEventsBook(*)
     global ScheduledEventsBookMode, ScheduledEventsBookControls, ScheduledEventsBookRows
     global CharacterRows, CharacterDescription, LaunchSettingsHeading, LaunchSettingsControls
     global AddCharacterButton, WipeCharacterButton, V016DailyLoginControls, DataTransferButton
-    global CharacterLimitNotice, Profiles, CharacterHeading
+    global CharacterLimitNotice, Profiles, CharacterHeading, LaunchCharacterButton, SessionStatus
 
     for control in ScheduledEventsBookControls
         try control.Destroy()
@@ -300,11 +306,11 @@ CloseScheduledEventsBook(*)
     LaunchSettingsHeading.Text := "Launch Settings"
     for control in LaunchSettingsControls
         control.Visible := true
-    CharacterDescription.Visible := true
-    for row in CharacterRows
-        for _, control in row.OwnProps()
-            if IsObject(control)
-                control.Visible := true
+    ; RefreshProfiles is the single source of truth for which character controls
+    ; should be visible. Do not pre-show every row here or stale/extra controls
+    ; flash over the restored page.
+    LaunchCharacterButton.Visible := false
+    SessionStatus.Visible := false
     RefreshProfiles()
 }
 
