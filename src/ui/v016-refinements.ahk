@@ -404,27 +404,15 @@ MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, cente
                     continue
                 sx := src.X + Min(src.W - 1, Floor(dx * src.W / dstW))
                 srcOff := (sy * atlas.Width + sx) * 4
-                ; The vanilla atlas stores the actual glyph intensity in RGB as
-                ; well as alpha. Using alpha alone turns the entire source cell
-                ; into a chunky silhouette. Use the source RGB intensity to keep
-                ; the original Magic Cards edge/detail mask.
-                srcR := NumGet(atlas.Pixels, srcOff, "UChar")
-                srcG := NumGet(atlas.Pixels, srcOff + 1, "UChar")
-                srcB := NumGet(atlas.Pixels, srcOff + 2, "UChar")
                 alpha := NumGet(atlas.Pixels, srcOff + 3, "UChar")
-                ; In the vanilla TEX atlas RGB is the glyph artwork/color, while
-                ; alpha is its coverage. Do not multiply RGB brightness into the
-                ; mask: that was selectively erasing the lighter/brown glyphs.
-                if alpha < 24
+                if alpha = 0
                     continue
                 dstOff := (py * width + px) * 4
-                ; Keep accepted glyph pixels opaque for strong parchment contrast,
-                ; but only after the atlas intensity mask above has rejected the
-                ; transparent/faint cell background.
+                ; Windows 32-bit DIB pixels are BGRA.
                 NumPut("UChar", color & 0xFF, out, dstOff)
                 NumPut("UChar", (color >> 8) & 0xFF, out, dstOff + 1)
                 NumPut("UChar", (color >> 16) & 0xFF, out, dstOff + 2)
-                NumPut("UChar", 255, out, dstOff + 3)
+                NumPut("UChar", alpha, out, dstOff + 3)
             }
         }
     }
@@ -462,11 +450,7 @@ AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center
         }
         return false
     }
-    ; SS_BITMAP replaces the control's bitmap with hbm and avoids the
-    ; Picture loader treating the generated DIB like an image with its own
-    ; transparency/color processing.
-    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " +0xE BackgroundTrans")
-    SendMessage(0x172, 0, hbm, pic.Hwnd) ; STM_SETIMAGE / IMAGE_BITMAP
+    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
     return pic
 }
 
@@ -534,7 +518,7 @@ OpenLauncherSettingsV016(*)
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(151), V016S(448), V016S(40), "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.", V016Font(15), 0xFF382314)
+    if !AddMagicCardsText(settings, V016S(32), V016S(151), V016S(448), V016S(40), "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.", V016Font(15), 0xFF5A4027)
         settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
@@ -545,14 +529,14 @@ OpenLauncherSettingsV016(*)
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(224), V016S(448), V016S(30), "Choose how big or small the launcher interface is for you.", V016Font(15), 0xFF382314)
+    if !AddMagicCardsText(settings, V016S(32), V016S(224), V016S(448), V016S(30), "Choose how big or small the launcher interface is for you.", V016Font(15), 0xFF5A4027)
         settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
-    readabilityParts := AddMagicCardsInteractiveLabel(settings, V016S(32), V016S(260), V016S(448), V016S(32), readabilityPrefix, "Enhanced readability", V016Font(19), ToggleV016ReadabilityParts.Bind(), 0xFF382314)
+    readabilityParts := AddMagicCardsInteractiveLabel(settings, V016S(32), V016S(260), V016S(448), V016S(32), readabilityPrefix, "Enhanced readability", V016Font(19), ToggleV016ReadabilityParts.Bind())
     readability := readabilityParts.Hit
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(70), V016S(290), V016S(410), V016S(42), "Improves readability by providing stronger contrast and brighter button text.", V016Font(15), 0xFF382314)
+    if !AddMagicCardsText(settings, V016S(70), V016S(290), V016S(410), V016S(42), "Improves readability by providing stronger contrast and brighter button text.", V016Font(15), 0xFF5A4027)
         settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
