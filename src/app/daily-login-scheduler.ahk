@@ -336,7 +336,34 @@ ToggleScheduledEventFromBook(index, *)
             ScheduledCountdownArmedEventId := ""
     }
     SaveScheduledEvents()
-    RefreshScheduledEventsBook()
+    UpdateScheduledEventBookRow(index)
+}
+
+UpdateScheduledEventBookRow(index)
+{
+    global ScheduledEvents, ScheduledEventsBookRows
+    if index < 1 || index > ScheduledEvents.Length || index > ScheduledEventsBookRows.Length
+        return
+    row := ScheduledEventsBookRows[index]
+    if row.Length < 5
+        return
+    event := ScheduledEvents[index]
+    modeText := event.StartedAt != ""
+        ? FormatDailyLoginCountdown(GetScheduledEventSecondsRemaining(event))
+        : (event.HasOwnProp("Mode") && event.Mode = "Countdown"
+            ? FormatDailyLoginCountdown(event.DurationSeconds)
+            : FormatScheduledEventTime(event.Time))
+    statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
+    try row[2].Text := modeText "   •   " statusText
+    try
+    {
+        row[5].Text := event.StartedAt != "" ? "Stop Event" : "Start Event"
+        if ButtonFaces.Has(row[5].Hwnd)
+        {
+            ButtonFaces[row[5].Hwnd].Text := row[5].Text
+            PaintButtonNow(row[5].Hwnd)
+        }
+    }
 }
 
 CloseScheduledEventsBook(*)
