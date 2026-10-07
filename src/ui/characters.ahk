@@ -80,6 +80,10 @@ OpenCharacterPage(*)
     SetInterfaceLoadingText("Loading character editor... ")
     CreateProfileEditor()
     HideProfileEditor()
+    ; Build the one-time Character Book refinements explicitly now that all base
+    ; controls exist. This replaces the old 250 ms polling timer without losing
+    ; the Scheduled Events button on a freshly created book.
+    ApplyV016CharacterLayout()
     RefreshProfiles()
     PrepareWindowDisplay(CharacterPage)
     CharacterPage.Show("w960 h650")
