@@ -503,11 +503,10 @@ OpenLauncherSettingsV016(*)
 
     settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
 
-    settings.SetFont("s" V016Font(16) " c241408", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(76), V016S(448), V016S(34), "Launcher Settings", V016Font(24), 0xFF241408, true)
-        settings.Add("Text", "x" V016S(32) " y" V016S(76) " w" V016S(448) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
+    settings.SetFont("s" V016Font(16) " Norm c241408", "Segoe UI")
+    settings.Add("Text", "x" V016S(32) " y" V016S(76) " w" V016S(448) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
-    settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(11) " Norm c382314", "Segoe UI")
     settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
     ; Native dropdowns cannot display the proprietary bitmap face directly.
     ; Keep their interactive chrome native, but use a neutral system font so
@@ -516,23 +515,23 @@ OpenLauncherSettingsV016(*)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
-    settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
     settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
-    settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(11) " Norm c382314", "Segoe UI")
     settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
     settings.SetFont("s" V016Font(10) " c382314", "Segoe UI")
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
-    settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
     settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s" V016Font(11) " c382314", "Segoe UI")
     readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
     readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
-    settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
+    settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
     settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
