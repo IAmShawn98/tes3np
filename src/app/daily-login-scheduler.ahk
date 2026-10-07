@@ -345,7 +345,7 @@ ReopenCharacterBookAfterScheduler()
 {
     ; ShowCharacterPage creates a clean book/control tree with the current
     ; profiles, launch settings and scheduler state.
-    ShowCharacterPage()
+    OpenCharacterPage()
 }
 
 PaintCharactersBook()
