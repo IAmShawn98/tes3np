@@ -356,7 +356,7 @@ UpdateScheduledEventBookRow(index)
             ? FormatDailyLoginCountdown(event.DurationSeconds)
             : FormatScheduledEventTime(event.Time))
     statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
-    try row[2].Text := modeText "   •   " statusText
+    try row[2].Text := modeText " • " statusText
     try
     {
         row[5].Text := event.StartedAt != "" ? "Stop Event" : "Start Event"
@@ -808,7 +808,7 @@ UpdateScheduledEventsBookCountdowns()
                     ? FormatDailyLoginCountdown(event.DurationSeconds)
                     : FormatScheduledEventTime(event.Time))
             statusText := event.StartedAt != "" ? "Running" : (event.HasOwnProp("Completed") && event.Completed ? "Completed" : "Ready")
-            newText := modeText "   •   " statusText
+            newText := modeText " • " statusText
             if detail.Text != newText
                 detail.Text := newText
         }
