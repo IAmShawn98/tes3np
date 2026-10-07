@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016DailyLoginControls
     if IsObject(CharacterPage)
     {
         PrepareWindowDisplay(CharacterPage)
@@ -13,6 +13,13 @@ OpenCharacterPage(*)
     SetInterfaceLoadingText("Loading saved characters...")
     LoadProfiles()
     SetInterfaceLoadingText("Building character menu...")
+    ; A rebuilt book must start with fresh control collections. The previous
+    ; GUI's controls are destroyed with the window, but AHK arrays still retain
+    ; those object references unless explicitly cleared.
+    CharacterRows := []
+    LaunchSettingsControls := []
+    EditorControls := []
+    V016DailyLoginControls := []
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
     CharacterPage.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
