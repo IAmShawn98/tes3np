@@ -443,20 +443,15 @@ CheckDailyLoginSchedule(*)
 
 StartScheduledDailyLogin()
 {
-    global Client, Profiles
-    if Client.Enabled || Profiles.Length < 2
+    global Client, Profiles, SelectedProfile
+    if Client.Enabled || SelectedProfile < 1 || SelectedProfile > Profiles.Length
         return false
     executable := GetSharedExecutable()
-    queue := []
-    for profile in Profiles
-    {
-        if !ValidateLaunch(profile, executable)
-            return false
-        queue.Push(profile.Clone())
-    }
-    profile := queue.RemoveAt(1)
-    LogLauncherEvent("GAME | Scheduled daily login starting. Characters: " (queue.Length + 1) ".")
-    StartProfileSession(profile, executable, queue, true)
+    profile := Profiles[SelectedProfile]
+    if !ValidateLaunch(profile, executable)
+        return false
+    LogLauncherEvent("GAME | Scheduled event login starting. Character: " profile.Name ".")
+    StartProfileSession(profile, executable, 0, true)
     return true
 }
 
