@@ -170,7 +170,7 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
 
 ReleaseInterfaceFrame()
 {
-    global InterfaceFrameCover, ButtonFaces, ButtonPaintCallback
+    global InterfaceFrameCover
     if !IsObject(InterfaceFrameCover)
         return
     frame := InterfaceFrameCover
