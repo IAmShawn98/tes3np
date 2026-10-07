@@ -528,7 +528,7 @@ OpenLauncherSettingsV016(*)
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(151), V016S(448), V016S(40), "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.", V016Font(15), 0xFF5A4027)
+    if !AddMagicCardsText(settings, V016S(32), V016S(151), V016S(448), V016S(40), "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.", V016Font(15), 0xFF382314)
         settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(11) " c382314", LauncherMorrowindFont)
@@ -539,14 +539,14 @@ OpenLauncherSettingsV016(*)
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(32), V016S(224), V016S(448), V016S(30), "Choose how big or small the launcher interface is for you.", V016Font(15), 0xFF5A4027)
+    if !AddMagicCardsText(settings, V016S(32), V016S(224), V016S(448), V016S(30), "Choose how big or small the launcher interface is for you.", V016Font(15), 0xFF382314)
         settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
 
     readabilityPrefix := V016ReadabilityState ? "☑" : "☐"
-    readabilityParts := AddMagicCardsInteractiveLabel(settings, V016S(32), V016S(260), V016S(448), V016S(32), readabilityPrefix, "Enhanced readability", V016Font(19), ToggleV016ReadabilityParts.Bind())
+    readabilityParts := AddMagicCardsInteractiveLabel(settings, V016S(32), V016S(260), V016S(448), V016S(32), readabilityPrefix, "Enhanced readability", V016Font(19), ToggleV016ReadabilityParts.Bind(), 0xFF382314)
     readability := readabilityParts.Hit
     settings.SetFont("s" V016Font(10) " c5A4027", LauncherMorrowindFont)
-    if !AddMagicCardsText(settings, V016S(70), V016S(290), V016S(410), V016S(42), "Improves readability by providing stronger contrast and brighter button text.", V016Font(15), 0xFF5A4027)
+    if !AddMagicCardsText(settings, V016S(70), V016S(290), V016S(410), V016S(42), "Improves readability by providing stronger contrast and brighter button text.", V016Font(15), 0xFF382314)
         settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
