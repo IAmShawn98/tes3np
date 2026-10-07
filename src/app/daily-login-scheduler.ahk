@@ -581,13 +581,18 @@ EditScheduledCountdownHotkey(button, *)
     if result.Result != "OK" || Trim(result.Value) = ""
         return
     newKey := Trim(result.Value)
+    oldKey := ScheduledCountdownHotkey
+    ; Disable the old binding first. AutoHotkey keeps disabled hotkeys in its
+    ; hotkey table, so re-enabling a previously used key (such as F8) is safe.
+    try Hotkey(oldKey, "Off")
     try Hotkey(newKey, StartArmedScheduledCountdown, "On")
     catch
     {
+        ; Restore the previous binding if the replacement is invalid.
+        try Hotkey(oldKey, StartArmedScheduledCountdown, "On")
         MsgBox("That hotkey is not valid.", "tes3np")
         return
     }
-    try Hotkey(ScheduledCountdownHotkey, "Off")
     ScheduledCountdownHotkey := newKey
     IniWrite(newKey, DataFile, "ScheduledEvents", "CountdownHotkey")
     button.Text := "Hotkey: " newKey
