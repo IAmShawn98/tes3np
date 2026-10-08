@@ -117,24 +117,3 @@ color:#eee9e2!important;text-shadow:1px 1px 2px #000!important;
 [data-list-id="chat-messages"] {padding-top:15px!important;padding-bottom:12px!important}
 [class*="scrollerInner_"] {padding-top:10px!important}
 
-/* Single browser-native frame, fixed to the visible area below the 48px crop.
-   No WinForms decorations are layered over this frame. */
-html,body,#app-mount {background:#090807!important}
-#tes3np-frame {
- position:fixed!important;top:48px!important;left:0!important;right:0!important;bottom:0!important;
- z-index:2147483647!important;pointer-events:none!important;
- border:7px ridge #b99a60!important;box-sizing:border-box!important;
- box-shadow:inset 0 0 0 3px #392712,inset 0 0 0 5px #c3a36a!important;
-}
-#tes3np-frame::before {
- content:""!important;position:absolute!important;left:0!important;right:0!important;top:0!important;
- height:35px!important;background:repeating-linear-gradient(105deg,#806039 0px,#b69a67 3px,#4c351c 5px,#967449 9px)!important;
- border-bottom:3px ridge #d0b07b!important;
-}
-#tes3np-frame::after {
- content:"Chat"!important;position:absolute!important;top:0!important;left:50%!important;
- transform:translateX(-50%)!important;background:#17120d!important;color:#e0bd7d!important;
- font: bold 20px/32px Georgia,serif!important;text-align:center!important;width:106px!important;height:32px!important;
- text-shadow:1px 1px #000!important;
-}
-[data-list-id="chat-messages"] {padding:45px 12px 16px!important;box-sizing:border-box!important}
