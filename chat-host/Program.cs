@@ -126,9 +126,10 @@ internal static class Program
             this.owner = owner;
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
-            BackColor = System.Drawing.Color.FromArgb(32,26,21);
+            BackColor = System.Drawing.Color.Black;
+            TransparencyKey = System.Drawing.Color.Black;
             Controls.Add(web);
-            Controls.Add(version);
+            // The diagnostic version label is no longer part of the chat UI.
             Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
             LoadLayout();
@@ -143,6 +144,7 @@ internal static class Program
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
                     Log("WebView2 initialized");
                     web.CoreWebView2.Settings.AreDevToolsEnabled = false;
@@ -220,7 +222,7 @@ internal static class Program
             MoveWindow(hwnd, chatX, chatY, chatWidth, chatHeight, true);
             ShowWindow(hwnd, 5);
             docked = true;
-            Log("Docked 54,278 266x342");
+            Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }
     }
 }
