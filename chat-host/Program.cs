@@ -547,7 +547,7 @@ metrics();
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
                 if (closingChat || IsDisposed) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
-                if (json == lastFeed && !imagesNeedRedraw) return;
+                if (json == lastFeed && !imagesNeedRedraw && nativeMode) return;
                 bool redrawImages = imagesNeedRedraw;
                 imagesNeedRedraw = false;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -588,7 +588,7 @@ metrics();
                         changed = true;
                     }
                 }
-                if (!changed && !redrawImages) return;
+                if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
                 var browserMessages = history.Select(entry => new
