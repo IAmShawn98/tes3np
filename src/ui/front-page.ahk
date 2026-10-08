@@ -1,4 +1,7 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
+global GameDetectionActive := false
+global GameDetectionSeconds := 0
+global LauncherHelpText := 0
 BuildFrontPage()
 {
     global LauncherGui, DragStrip, LauncherHeading, LauncherMorrowindFont
@@ -29,7 +32,7 @@ BuildFrontPage()
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters))
     CharacterMenuButton := MenuRows[2]
     UpdateCharacterMenuLabel()
-    if !IsTES3MPSetupComplete()
+    if A_IsCompiled && !IsTES3MPSetupComplete()
         BeginGameDetectionDisplay()
 }
 
