@@ -363,7 +363,22 @@ metrics();
                     !/\/avatars\/|\/embed\/avatars\/|\/icons\/|\/emojis\//i.test(u) &&
                     (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(u) ||
                      /\/(?:attachments|ephemeral-attachments)\//i.test(u)));
-                return {id:el.id,user,body,color,images:[...new Set(urls)].slice(0,4)};
+                // Discord exposes the same attachment through CDN and media-proxy URLs.
+                // Deduplicate by attachment identity, not by the complete URL/query string.
+                const uniqueImages = new Map();
+                for (const url of urls) {
+                  try {
+                    const parsed = new URL(url);
+                    const match = parsed.pathname.match(/\/(?:attachments|ephemeral-attachments)\/([^?#]+)/i);
+                    const key = match ? 'attachment:' + match[1] : parsed.origin + parsed.pathname;
+                    const previous = uniqueImages.get(key);
+                    // Prefer the direct CDN link when both original and proxy are present.
+                    if (!previous || (parsed.hostname === 'cdn.discordapp.com' &&
+                        !previous.startsWith('https://cdn.discordapp.com/')))
+                      uniqueImages.set(key, url);
+                  } catch {}
+                }
+                return {id:el.id,user,body,color,images:[...uniqueImages.values()].slice(0,4)};
               }).filter(x => x.body || x.images.length));
             })();
             """;
