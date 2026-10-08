@@ -106,6 +106,8 @@ CreateLauncherChatToggle()
     OnMessage(0x000F, PaintLauncherChatToggle)
     ; STATIC sends STN_CLICKED as WM_COMMAND to its parent.
     OnMessage(0x0111, LauncherChatCommandClick)
+    ; The chat host reports its actual open/closed state after every change.
+    OnMessage(0x8332, LauncherChatStateChanged)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
     LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
@@ -182,10 +184,18 @@ LauncherChatCommandClick(wParam, lParam, msg, hwnd)
 }
 ToggleLauncherChat(*)
 {
-    global LauncherChatOpen
-    LauncherChatOpen := !LauncherChatOpen
+    ; Do not guess the new state: automatic mode can open/close chat itself.
     SendLauncherChatCommand(1)
-    DllCall("user32\InvalidateRect", "Ptr", LauncherChatToggle.Hwnd, "Ptr", 0, "Int", 1)
+}
+LauncherChatStateChanged(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui, LauncherChatToggle, LauncherChatOpen
+    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+        return
+    LauncherChatOpen := (wParam != 0)
+    if IsObject(LauncherChatToggle)
+        DllCall("user32\InvalidateRect", "Ptr", LauncherChatToggle.Hwnd, "Ptr", 0, "Int", 1)
+    return 0
 }
 LauncherChatRightClick(wParam, lParam, msg, hwnd)
 {
