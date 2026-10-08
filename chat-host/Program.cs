@@ -1760,41 +1760,33 @@ metrics();
                         if (!el.textContent.trim() && !el.querySelector('img,svg,iframe'))
                           el.style.display = 'none';
                       }
-                      // Hide the two optional links without touching their parent
-                      // containers or the actual username/password/login controls.
-                      for (const el of form.querySelectorAll('a,[role=link]')) {
-                        const text = (el.textContent || '').trim();
-                        if (/forgot your password|register/i.test(text)) {
+                      // Discord's recovery/account text is not always inside
+                      // the <form>. Search the entire login document and hide
+                      // only matching text elements, never the login controls.
+                      const unwanted = /^(forgot your password\\?|need an account\\?|register)$/i;
+                      const candidates = document.querySelectorAll(
+                        'a,button,[role=link],span,div,p');
+                      for (const el of candidates) {
+                        if (el === form || el.contains(form)) continue;
+                        if (el.querySelector('input,button,a,[role=link]')) continue;
+                        const value = (el.textContent || '').trim().replace(/\\s+/g, ' ');
+                        if (unwanted.test(value)) {
                           el.style.setProperty('display', 'none', 'important');
                         }
                       }
-                      // Discord sometimes renders these as clickable text rather
-                      // than anchors. Hide only the matching leaf element.
-                      for (const el of form.querySelectorAll('span,button')) {
-                        if (el.children.length) continue;
-                        const text = (el.textContent || '').trim();
-                        if (/^(forgot your password\\??|register)$/i.test(text)) {
-                          el.style.setProperty('display', 'none', 'important');
-                        }
-                      }
-                      // Hide the remaining plain-text recovery/account prompts.
-                      // Discord may wrap links in a parent text container, so
-                      // target the exact text nodes instead of the parent form.
-                      const unwanted = /^(forgot your password\\??|need an account\\??|register)$/i;
-                      const walker = document.createTreeWalker(form, NodeFilter.SHOW_TEXT);
-                      const textNodes = [];
-                      while (walker.nextNode()) textNodes.push(walker.currentNode);
-                      for (const node of textNodes) {
-                        const value = (node.textContent || '').trim();
+                      // The prompt can be a bare text node next to the Register
+                      // link. Remove that text without removing its container.
+                      const walker = document.createTreeWalker(
+                        document.body, NodeFilter.SHOW_TEXT);
+                      const nodes = [];
+                      while (walker.nextNode()) nodes.push(walker.currentNode);
+                      for (const node of nodes) {
+                        const value = (node.textContent || '').trim().replace(/\\s+/g, ' ');
                         if (!unwanted.test(value)) continue;
                         const parent = node.parentElement;
-                        if (!parent) continue;
-                        if (parent.childNodes.length === 1 &&
-                            !parent.querySelector('input,button')) {
-                          parent.style.setProperty('display', 'none', 'important');
-                        } else {
-                          node.textContent = '';
-                        }
+                        if (!parent || parent.closest('[data-tes3np-login-heading]')) continue;
+                        if (parent.closest('label') || parent.closest('[type=submit]')) continue;
+                        node.textContent = '';
                       }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
