@@ -315,6 +315,13 @@ internal static class Program
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 88));
             nativeMessages.SetBounds(0, 0, messageClip.Width + 18, messageClip.Height);
+            // Clip the native RichTextBox HWND itself: parent Panel clipping alone does not
+            // reliably hide the Win32 scrollbar child/non-client region.
+            if (nativeMessages.IsHandleCreated && messageClip.Width > 0 && messageClip.Height > 0)
+            {
+                var visibleRegion = CreateRectRgn(0, 0, messageClip.Width, messageClip.Height);
+                SetWindowRgn(nativeMessages.Handle, visibleRegion, true);
+            }
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -589,6 +596,13 @@ internal static class Program
             }
             messageClip.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 88));
             nativeMessages.SetBounds(0, 0, messageClip.Width + 18, messageClip.Height);
+            // Clip the native RichTextBox HWND itself: parent Panel clipping alone does not
+            // reliably hide the Win32 scrollbar child/non-client region.
+            if (nativeMessages.IsHandleCreated && messageClip.Width > 0 && messageClip.Height > 0)
+            {
+                var visibleRegion = CreateRectRgn(0, 0, messageClip.Width, messageClip.Height);
+                SetWindowRgn(nativeMessages.Handle, visibleRegion, true);
+            }
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
