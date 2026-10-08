@@ -275,6 +275,8 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif
 .body{white-space:pre-wrap}
 .preview{display:block;max-width:100%;height:auto;margin:6px 0 3px;object-fit:contain}
 .placeholder{font-size:14px;color:#c9b68c}
+.date-separator{display:flex;align-items:center;gap:9px;color:#cbb990;font:13px Georgia,serif;margin:13px 2px 11px;white-space:nowrap}
+.date-separator:before,.date-separator:after{content:"";height:1px;background:#655237;flex:1}
 </style></head><body><div id="feed"></div><script>
 const feed=document.getElementById('feed');
 let lastState='';
@@ -295,6 +297,8 @@ window.setMessages=function(messages,prepended=false){
   const anchorId=anchor?.dataset.id;
   const anchorY=anchor?.getBoundingClientRect().top;
   const pinnedAtOldest=userHasScrolled && feed.scrollTop<=3;
+  // Date headings are derived from Discord message IDs and rebuilt each pass.
+  for(const el of [...feed.querySelectorAll('.date-separator')])el.remove();
   const wanted=new Set(messages.map(m=>m.id));
   for(const [id,row] of existing)if(!wanted.has(id))row.remove();
   let next=null;
@@ -319,6 +323,19 @@ window.setMessages=function(messages,prepended=false){
     }
     if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
     next=row;
+  }
+  let previousDate='';
+  for(const m of messages){
+    const row=[...feed.children].find(el=>el.dataset.id===m.id);
+    if(!row)continue;
+    const date=new Date(m.timestamp).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+    if(date!==previousDate){
+      const divider=document.createElement('div');
+      divider.className='date-separator';
+      divider.textContent=date;
+      feed.insertBefore(divider,row);
+      previousDate=date;
+    }
   }
   if(userHasScrolled && anchorId && !pinnedAtOldest){
     const kept=[...feed.children].find(el=>el.dataset.id===anchorId);
@@ -419,6 +436,25 @@ metrics();
             })();
             """;
         readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color, string[] Images)> history = new();
+        // Discord snowflakes encode their original creation time in UTC.
+        static DateTimeOffset DiscordTimestamp(ulong id) =>
+            DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
+        readonly System.Collections.Generic.HashSet<ulong> loggedMessageIds = new();
+        ulong liveLogWatermark;
+        bool liveLogInitialized;
+        readonly string gameChatLogFile = Path.Combine(AppContext.BaseDirectory, "game-chat.log");
+        void LogLiveMessage(ulong id, string user, string body)
+        {
+            if (!loggedMessageIds.Add(id) || string.IsNullOrWhiteSpace(body)) return;
+            try
+            {
+                string time = DiscordTimestamp(id).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+                string safeBody = body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n");
+                File.AppendAllText(gameChatLogFile, $"[{time}] {user}: {safeBody}{Environment.NewLine}");
+            }
+            catch (Exception ex) { Log("Game chat log write failed: " + ex.Message); }
+        }
+
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
         readonly System.Collections.Generic.HashSet<string> pendingImages = new();
         readonly System.Collections.Generic.Dictionary<string, DateTime> failedImages = new();
@@ -755,11 +791,13 @@ metrics();
                 lastFeed = json;
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
+                ulong batchNewestId = 0;
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string id = msg.GetProperty("id").GetString() ?? "";
                     var match = System.Text.RegularExpressions.Regex.Match(id, @"^chat-messages-\d+-(\d+)$");
                     if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out ulong key)) continue;
+                    if (key > batchNewestId) batchNewestId = key;
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
                     string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
@@ -767,6 +805,9 @@ metrics();
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
+                    // Only record newly arriving messages, not old history being paginated.
+                    if (liveLogInitialized && key > liveLogWatermark)
+                        LogLiveMessage(key, user, body);
                     foreach (string imageUrl in images)
                         if (!imageCache.ContainsKey(imageUrl) && (!failedImages.TryGetValue(imageUrl, out var retryTime) || DateTime.UtcNow >= retryTime)) _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
@@ -777,12 +818,15 @@ metrics();
                         changed = true;
                     }
                 }
+                if (batchNewestId > liveLogWatermark) liveLogWatermark = batchNewestId;
+                liveLogInitialized = true;
                 if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
                 var browserMessages = history.Select(entry => new
                 {
                     id = entry.Key.ToString(),
+                    timestamp = DiscordTimestamp(entry.Key).ToString("O"),
                     user = entry.Value.User,
                     body = entry.Value.Body,
                     color = ParseHtmlColor(entry.Value.Color),
