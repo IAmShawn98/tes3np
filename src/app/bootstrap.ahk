@@ -97,18 +97,12 @@ StartLauncher()
 CreateLauncherChatToggle()
 {
     global LauncherGui, LauncherChatToggle, LauncherChatMenu
-    LauncherGui.SetFont("s13 Bold cFFFFFF", "Segoe UI")
-    LauncherChatToggle := LauncherGui.Add("Text", "x3 y274 w68 h168 Center Border +0x100 BackgroundA77C3A", "Game Chat")
-    ; Rotate the label 90 degrees using a native GDI font. Retain the font handle
-    ; for the lifetime of the control (Windows does not own WM_SETFONT fonts).
-    global LauncherChatFont
-    LauncherChatFont := DllCall("gdi32\CreateFontW",
-        "Int", -22, "Int", 0, "Int", 900, "Int", 900,
-        "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
-        "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
-        "UInt", 0, "Str", "Segoe UI", "Ptr")
-    if LauncherChatFont
-        DllCall("SendMessageW", "Ptr", LauncherChatToggle.Hwnd, "UInt", 0x30, "Ptr", LauncherChatFont, "Ptr", 1)
+    ; Native STATIC controls clip rotated GDI text. Use a centered, readable
+    ; multi-line launcher-owned tab rather than a rotated font.
+    LauncherGui.SetFont("s11 Bold cFFFFFF", "Segoe UI")
+    LauncherChatToggle := LauncherGui.Add("Text",
+        "x3 y274 w68 h168 Center Border +0x100 +0x200 BackgroundA77C3A",
+        "←`nGame`nChat")
     LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
