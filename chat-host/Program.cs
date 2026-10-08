@@ -262,7 +262,7 @@ internal static class Program
         const string MessagePage = """
 <!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif;overflow:hidden}
-#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:6px 1px}
+#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:6px 1px;overflow-anchor:none}
 #feed::-webkit-scrollbar{display:none}
 .msg{margin:0 0 9px;white-space:pre-wrap;overflow-wrap:anywhere}
 .user{color:#dbb243}
@@ -272,6 +272,9 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif
 </style></head><body><div id="feed"></div><script>
 const feed=document.getElementById('feed');
 let lastState='';
+let userHasScrolled=false;
+feed.addEventListener('wheel',()=>{userHasScrolled=true;},{passive:true});
+feed.addEventListener('pointerdown',()=>{userHasScrolled=true;});
 function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight});}
 feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
@@ -310,17 +313,18 @@ window.setMessages=function(messages,prepended=false){
     if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
     next=row;
   }
-  if(anchorId){
+  if(userHasScrolled && anchorId){
     const kept=[...feed.children].find(el=>el.dataset.id===anchorId);
     if(kept)feed.scrollTop+=kept.getBoundingClientRect().top-anchorY;
   }
   // Follow live chat only if the user was already at the bottom.
   // Prepending history must never force either end of the scrollbar.
-  if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
+  if(!userHasScrolled)feed.scrollTop=0;
+  else if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
   metrics();
 };
-window.scrollChat=function(delta){feed.scrollTop+=delta;metrics();};
-window.scrollFraction=function(f){feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
+window.scrollChat=function(delta){userHasScrolled=true;feed.scrollTop+=delta;metrics();};
+window.scrollFraction=function(f){userHasScrolled=true;feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
 metrics();
 </script></body></html>
 """;
