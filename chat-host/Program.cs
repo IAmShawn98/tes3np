@@ -1690,7 +1690,8 @@ metrics();
             web.Visible = true;
             web.BringToFront();
             chatViewport.Visible = false;
-            Text = "TES3NP - Discord Sign In";
+            // Keep the title stable: the launcher locates this window by its title.
+            Text = "tes3np Chat Host";
             Log("Discord login browser exposed");
         }
         void RestoreGameChatAfterSignIn()
