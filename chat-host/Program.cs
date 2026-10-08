@@ -1733,25 +1733,47 @@ metrics();
                         }
                         branch = parent;
                       }
+                      // Discord places its wordmark and welcome heading inside
+                      // the form in some layouts. Hide those specific decorations.
+                      for (const el of form.querySelectorAll('svg,img')) {
+                        if (el.closest('button,a,[role=button]')) continue;
+                        const block = el.closest('[class*="logo"],[class*="Logo"],[class*="header"],[class*="Header"]');
+                        if (block && block !== form && !block.querySelector('input')) block.style.display='none';
+                        else el.style.display='none';
+                      }
+                      for (const el of form.querySelectorAll('h1,h2,h3,div,span')) {
+                        if (el.children.length > 0) continue;
+                        const value = (el.textContent || '').trim();
+                        if (!/^(welcome back!?|we.re so excited to see you again!?)$/i.test(value)) continue;
+                        const block = el.closest('[class*="header"],[class*="Header"],[class*="title"],[class*="Title"]');
+                        if (block && block !== form && !block.querySelector('input')) block.style.display='none';
+                        else el.style.display='none';
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
-                        html,body { margin:0 !important; padding:0 !important; }
+                        html,body { margin:0 !important; padding:0 !important;
+                          overflow:hidden !important; height:100% !important; }
+                        #app-mount { overflow:hidden !important; height:100% !important; }
+                        [data-tes3np-login] > * { margin-top:0 !important; margin-bottom:0 !important; }
+                        [data-tes3np-login] div:empty { display:none !important; }
                         [data-tes3np-login] {
-                          position:fixed !important; top:32px !important;
+                          position:fixed !important; top:10px !important;
                           left:0 !important; right:0 !important;
                           width:100% !important; max-width:none !important;
-                          margin:0 !important; padding:8px 15px !important;
+                          margin:0 !important; padding:6px 12px !important;
+                          max-height:calc(100vh - 16px) !important;
+                          overflow-y:auto !important; overflow-x:hidden !important;
                           background:#090807 !important; border:0 !important;
                           box-shadow:none !important; z-index:1000 !important;
                           display:flex !important; flex-direction:column !important;
-                          gap:5px !important; box-sizing:border-box !important;
+                          gap:2px !important; box-sizing:border-box !important;
                           font-family:Georgia,'Times New Roman',serif !important;
                         }
                         [data-tes3np-login] * { box-sizing:border-box !important; }
                         [data-tes3np-login-heading] {
                           text-align:center !important; color:#d9b469 !important;
                           font:20px Georgia,serif !important;
-                          padding:0 0 8px !important; margin:0 0 5px !important;
+                          padding:8px 0 7px !important; margin:0 0 4px !important;
                           border-bottom:1px solid #70532c !important;
                         }
                         [data-tes3np-login] label {
