@@ -275,7 +275,7 @@ let lastState='';
 let userHasScrolled=false;
 feed.addEventListener('wheel',()=>{userHasScrolled=true;},{passive:true});
 feed.addEventListener('pointerdown',()=>{userHasScrolled=true;});
-function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight});}
+function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});}
 feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
 window.setMessages=function(messages,prepended=false){
@@ -319,7 +319,7 @@ window.setMessages=function(messages,prepended=false){
   }
   // Follow live chat only if the user was already at the bottom.
   // Prepending history must never force either end of the scrollbar.
-  if(!userHasScrolled)feed.scrollTop=0;
+  if(!userHasScrolled)feed.scrollTop=feed.scrollHeight;
   else if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
   metrics();
 };
@@ -345,8 +345,9 @@ metrics();
                         browserScrollTop = (int)Math.Round(root.GetProperty("top").GetDouble());
                         browserScrollHeight = (int)Math.Round(root.GetProperty("height").GetDouble());
                         browserClientHeight = (int)Math.Round(root.GetProperty("client").GetDouble());
+                        userScrolledChat = root.TryGetProperty("userScrolled", out var interacted) && interacted.GetBoolean();
                         goldScrollbar.Invalidate();
-                        if (browserScrollTop < 300) RequestOlderMessages();
+                        if (userScrolledChat && browserScrollTop < 300) RequestOlderMessages();
                     }
                     catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
                 };
@@ -636,8 +637,10 @@ metrics();
             finally { loadingHistory = false; }
         }
         DateTime lastHistoryGateLog = DateTime.MinValue;
+        bool userScrolledChat;
         void RequestOlderMessages()
         {
+            if (!userScrolledChat) return;
             bool nearTop = ChatFirstLine() <= 300;
             bool canRequest = nearTop && !loadingHistory && IsHandleCreated &&
                 nativeMode && !signInExpanded && web.CoreWebView2 != null;
