@@ -1701,7 +1701,7 @@ metrics();
             {
                 // Read the bundled emblem beside the chat-host executable.
                 // Embed as a data URL so Discord's CSP does not block local files.
-                string logoFile = Path.Combine(AppContext.BaseDirectory, "assets", "discord-integration.png");
+                string logoFile = Path.Combine(AppContext.BaseDirectory, "assets", "DiscordInt.png");
                 if (File.Exists(logoFile))
                 {
                     string logoUrl = "data:image/png;base64," + Convert.ToBase64String(File.ReadAllBytes(logoFile));
