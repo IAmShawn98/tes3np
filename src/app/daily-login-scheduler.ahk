@@ -5,6 +5,7 @@ global ScheduledEvents := []
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 global ScheduledCountdownHotkey := "F8"
+global ScheduledLaunchPrompt := 0
 global ScheduledEventsBookControls := []
 global ScheduledEventsBookRows := []
 global ScheduledEventsBookMode := false
@@ -36,10 +37,13 @@ LoadDailyLoginSchedule()
         if loginAction != "LoginCloseAll" && loginAction != "LoginUpTo4" && loginAction != "AlertOnly"
             loginAction := "LoginCloseAll"
         loginProfiles := IniRead(DataFile, section, "LoginProfiles", "")
+        promptMode := IniRead(DataFile, section, "PromptMode", "Ask")
+        if promptMode != "Countdown"
+            promptMode := "Ask"
         try time := ParseDailyLoginTime(time)
         catch
             continue
-        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, LoginAction: loginAction, LoginProfiles: loginProfiles, Recurring: recurring, Locked: locked, Armed: armed, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
+        ScheduledEvents.Push({Id: id, Name: name, TimeBasis: timeBasis, Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: startedAt, LoginAction: loginAction, LoginProfiles: loginProfiles, PromptMode: promptMode, Recurring: recurring, Locked: locked, Armed: armed, Completed: completed, LastRunDate: lastRun, Due: false, PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, timeBasis)})
         maxId := Max(maxId, id)
     }
 
@@ -115,6 +119,7 @@ SaveScheduledEvents()
         IniWrite(event.HasOwnProp("StartedAt") ? event.StartedAt : "", DataFile, section, "StartedAt")
         IniWrite(event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll", DataFile, section, "LoginAction")
         IniWrite(event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : "", DataFile, section, "LoginProfiles")
+        IniWrite(event.HasOwnProp("PromptMode") ? event.PromptMode : "Ask", DataFile, section, "PromptMode")
         IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
         IniWrite(event.HasOwnProp("Locked") && event.Locked ? "1" : "0", DataFile, section, "Locked")
         IniWrite(event.HasOwnProp("Armed") && event.Armed ? "1" : "0", DataFile, section, "Armed")
@@ -467,7 +472,13 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     savedLoginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
     loginActionList.Choose(savedLoginAction = "LoginUpTo4" ? 2 : savedLoginAction = "AlertOnly" ? 3 : 1)
     loginProfilesState := {Value: event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : ""}
-    loginActionList.OnEvent("Change", ChooseScheduledLoginProfiles.Bind(loginActionList, loginProfilesState))
+    loginActionList.OnEvent("Change", ChooseScheduledLoginProfiles.Bind(loginActionList, loginProfilesState, promptModeList))
+
+    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
+    promptLabel := CharacterPage.Add("Text", "x525 y395 w135 h22 BackgroundTrans", "Launch prompt")
+    promptModeList := CharacterPage.Add("DropDownList", "x660 y390 w195 h120 BackgroundE2CEA2 c382314",
+        ["Wait for Yes / No", "Auto-launch in 10 seconds"])
+    promptModeList.Choose(event.HasOwnProp("PromptMode") && event.PromptMode = "Countdown" ? 2 : 1)
 
     UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
     modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
@@ -478,7 +489,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     cancel := AddStyledButton(CharacterPage, 700, 420, 155, 30, "Cancel", CancelScheduledEventBookEditor)
 
     ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringTick, recurringLabel, hourLabel, minuteLabel, thirdLabel,
-        hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionLabel, loginActionList, save, cancel]]
+        hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionLabel, loginActionList, promptLabel, promptModeList, save, cancel]]
     }
     finally EndInterfaceUpdate()
 }
@@ -551,7 +562,7 @@ SaveScheduledLoginProfileSelection(picker, checks, state, *)
     picker.Destroy()
 }
 
-SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, *)
+SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, promptModeList, *)
 {
     global CharacterPage, ScheduledEventsBookRows
     BeginInterfaceUpdate(CharacterPage, "Saving scheduled event...", true)
@@ -563,7 +574,7 @@ SaveScheduledEventBookEditor(eventIndex, nameEdit, modeList, recurringCheck, hou
         ; prevents the timer/status text from being written into the event-name
         ; control during the transition.
         editorShim := {Destroy: (*) => 0}
-        SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState)
+        SaveScheduledEventEditor(editorShim, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, promptModeList)
         ; Destroy the editor controls before replacing their registry with the
         ; rebuilt event rows. Simply clearing the array orphaned the controls,
         ; leaving the editor painted over the Characters/Launch Settings page.
@@ -625,7 +636,7 @@ UpdateDailyLoginClockMode(hourEdit, meridiem, clockMode, *)
     hourEdit.Text := hour
 }
 
-SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, *)
+SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, promptModeList, *)
 {
     global ScheduledEvents, NextScheduledEventId, DataFile
     name := Trim(nameEdit.Text)
@@ -706,15 +717,16 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     ; chosen. Switching the dropdown should change behavior, not erase that
     ; option's saved configuration.
     loginProfiles := loginProfilesState.Value
+    promptMode := promptModeList.Value = 2 ? "Countdown" : "Ask"
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
-        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.LoginAction := loginAction, event.LoginProfiles := loginProfiles, event.Recurring := recurring, event.Locked := false, event.Armed := true
+        event.Name := name, event.TimeBasis := "IRL", event.Time := time, event.Mode := mode, event.DurationSeconds := durationSeconds, event.StartedAt := "", event.LoginAction := loginAction, event.LoginProfiles := loginProfiles, event.PromptMode := promptMode, event.Recurring := recurring, event.Locked := false, event.Armed := true
         event.LastRunDate := "", event.Completed := false, event.Due := false, event.PreviousRemaining := mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")
     }
     else
     {
-        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", LoginAction: loginAction, LoginProfiles: loginProfiles, Recurring: recurring, Locked: false, Armed: true, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
+        event := {Id: NextScheduledEventId, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: durationSeconds, StartedAt: "", LoginAction: loginAction, LoginProfiles: loginProfiles, PromptMode: promptMode, Recurring: recurring, Locked: false, Armed: true, Completed: false, LastRunDate: "", Due: false, PreviousRemaining: mode = "Countdown" ? durationSeconds : GetScheduledEventRawRemaining(time, "IRL")}
         ScheduledEvents.Push(event)
         NextScheduledEventId += 1
     }
@@ -872,9 +884,14 @@ CheckDailyLoginSchedule(*)
             continue
         }
 
+        if event.HasOwnProp("PromptMode") && event.PromptMode = "Countdown"
+        {
+            BeginScheduledLaunchPrompt(event)
+            return
+        }
         LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; awaiting user choice.")
         actionText := loginAction = "LoginUpTo4" ? "log in up to 4 characters" : "log in and close all characters"
-        choice := MsgBox("'" event.Name "' is ready.\n\nWould you like tes3np to " actionText " now?", "Scheduled Event", "YesNo Icon?")
+        choice := MsgBox("'" event.Name "' is ready.`n`nWould you like tes3np to " actionText " now?", "Scheduled Event", "YesNo Icon?")
         if choice != "Yes"
         {
             CompleteScheduledEventForToday(event, "cancelled by user")
@@ -890,6 +907,70 @@ CheckDailyLoginSchedule(*)
             return
         }
         return
+    }
+}
+
+BeginScheduledLaunchPrompt(event)
+{
+    global ScheduledLaunchPrompt
+    if IsObject(ScheduledLaunchPrompt)
+        return
+    gui := Gui("+AlwaysOnTop +ToolWindow", "Scheduled Event")
+    gui.SetFont("s11", "Segoe UI")
+    message := gui.Add("Text", "w345 h58 Center", "")
+    launch := gui.Add("Button", "xm w160 h30 Default", "Launch Now")
+    cancel := gui.Add("Button", "x+12 w160 h30", "Cancel")
+    ScheduledLaunchPrompt := {Gui: gui, Message: message, Event: event, Seconds: 10}
+    launch.OnEvent("Click", (*) => FinishScheduledLaunchPrompt(true))
+    cancel.OnEvent("Click", (*) => FinishScheduledLaunchPrompt(false))
+    gui.OnEvent("Close", (*) => FinishScheduledLaunchPrompt(false))
+    gui.OnEvent("Escape", (*) => FinishScheduledLaunchPrompt(false))
+    message.Text := "'" event.Name "' is starting.`nLaunching characters in 10 seconds..."
+    gui.Show("AutoSize Center")
+    SetTimer(TickScheduledLaunchPrompt, 1000)
+}
+
+TickScheduledLaunchPrompt()
+{
+    global ScheduledLaunchPrompt
+    if !IsObject(ScheduledLaunchPrompt)
+    {
+        SetTimer(TickScheduledLaunchPrompt, 0)
+        return
+    }
+    ScheduledLaunchPrompt.Seconds -= 1
+    if ScheduledLaunchPrompt.Seconds <= 0
+    {
+        FinishScheduledLaunchPrompt(true)
+        return
+    }
+    ScheduledLaunchPrompt.Message.Text := "'" ScheduledLaunchPrompt.Event.Name "' is starting.`nLaunching characters in " ScheduledLaunchPrompt.Seconds " seconds..."
+}
+
+FinishScheduledLaunchPrompt(shouldLaunch)
+{
+    global ScheduledLaunchPrompt, ActiveScheduledEventId
+    if !IsObject(ScheduledLaunchPrompt)
+        return
+    prompt := ScheduledLaunchPrompt
+    ScheduledLaunchPrompt := 0
+    SetTimer(TickScheduledLaunchPrompt, 0)
+    prompt.Gui.Destroy()
+    if !shouldLaunch
+    {
+        CompleteScheduledEventForToday(prompt.Event, "cancelled by user")
+        return
+    }
+    if ProcessExist("tes3mp.exe")
+    {
+        CompleteScheduledEventForToday(prompt.Event, "skipped because game was already running")
+        return
+    }
+    ActiveScheduledEventId := prompt.Event.Id
+    if !StartScheduledDailyLogin(prompt.Event)
+    {
+        ActiveScheduledEventId := ""
+        LogLauncherEvent("GAME | Scheduled event could not start; will retry.")
     }
 }
 
