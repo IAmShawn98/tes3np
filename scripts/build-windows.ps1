@@ -61,19 +61,6 @@ try {
     $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
 
-    $mainRoot = Join-Path $buildRoot 'main-source'
-    Step 'Fetching known-good main source for control build'
-    & git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
-    if ($LASTEXITCODE -ne 0) { throw 'Could not fetch main for control build.' }
-    Step 'Checking out known-good main source for control build'
-    & git -c advice.detachedHead=false worktree add --detach $mainRoot refs/remotes/origin/main
-    if ($LASTEXITCODE -ne 0) { throw 'Could not create main control worktree.' }
-    $mainSource = Join-Path $mainRoot 'tes3np.ahk'; $mainExe = Join-Path $buildRoot 'main-control.exe'
-    $mainArgs = '/in "' + $mainSource + '" /out "' + $mainExe + '" /icon "' + (Join-Path $mainRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $mainCode = Invoke-Compiler $compiler $mainArgs 'Known-good main launcher control compilation' 120000
-    if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
-    Step 'Known-good main launcher compiled successfully with current toolchain'
-
     # Build an isolated standalone source tree; leave developer source paths untouched.
     $stageRoot = Join-Path $buildRoot 'standalone-source'
     $null = New-Item $stageRoot -ItemType Directory
@@ -116,7 +103,6 @@ try {
 }
 finally {
     Step 'Cleaning temporary build directory'
-    try { git worktree remove (Join-Path $buildRoot 'main-source') --force 2>$null } catch {}
     if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
