@@ -1760,6 +1760,23 @@ metrics();
                         if (!el.textContent.trim() && !el.querySelector('img,svg,iframe'))
                           el.style.display = 'none';
                       }
+                      // Hide the two optional links without touching their parent
+                      // containers or the actual username/password/login controls.
+                      for (const el of form.querySelectorAll('a,[role=link]')) {
+                        const text = (el.textContent || '').trim();
+                        if (/forgot your password|register/i.test(text)) {
+                          el.style.setProperty('display', 'none', 'important');
+                        }
+                      }
+                      // Discord sometimes renders these as clickable text rather
+                      // than anchors. Hide only the matching leaf element.
+                      for (const el of form.querySelectorAll('span,button')) {
+                        if (el.children.length) continue;
+                        const text = (el.textContent || '').trim();
+                        if (/^(forgot your password\\??|register)$/i.test(text)) {
+                          el.style.setProperty('display', 'none', 'important');
+                        }
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
