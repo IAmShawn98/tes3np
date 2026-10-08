@@ -453,9 +453,10 @@ OfferFirstRunSetup(*)
     }
     ; Give the first-run countdown time to complete before prompting for patches.
     EndGameDetectionDisplay()
-    if !FileExist(A_ScriptDir "\tes3mp.exe")
+    tesFolder := FindTES3MPFolder()
+    if tesFolder = ""
     {
-        MsgBox("Place tes3np.exe in the folder containing tes3mp.exe and launch it again.", "Nerevarine Prophecies", "Icon!")
+        LogLauncherEvent("Automatic patch setup skipped: TES3MP installation not detected.")
         return
     }
     if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") != "Yes"
@@ -468,12 +469,12 @@ OfferFirstRunSetup(*)
         OpenPatcher()
         return
     }
-    if !CheckModifiedClientForPatch(A_ScriptDir, "Apply")
+    if !CheckModifiedClientForPatch(tesFolder, "Apply")
     {
         OpenPatcher()
         return
     }
-    if !StartPatchWorker("Apply", A_ScriptDir, morrowind, config, LauncherGui, true)
+    if !StartPatchWorker("Apply", tesFolder, morrowind, config, LauncherGui, true)
     {
         MsgBox("Automatic installation could not start. Check the detected folders in Repair Game Install and try again.", "Nerevarine Prophecies", "Icon!")
         OpenPatcher()
