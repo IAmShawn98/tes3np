@@ -1,5 +1,5 @@
 /* TES3NP chat appearance - edit and save; launcher reloads automatically. */
-:root,html,body,#app-mount { background:#1d1811!important;color:#ead7ae!important; }
+:root,html,body,#app-mount { background:rgba(0,0,0,.78)!important;color:#ead7ae!important; }
 [class*="guilds_"],[class*="sidebar_"],[class*="sidebarList_"],
 [class*="membersWrap_"],[class*="members_"],[class*="panels_"],
 [class*="form_"],[class*="channelTextArea_"],[class*="toolbar_"],
@@ -15,7 +15,7 @@
 [class*="chatContent_"],[class*="messagesWrapper_"],[class*="scroller_"] {
  width:100%!important;max-width:100%!important;min-width:0!important;
  margin:0!important;padding-left:0!important;padding-right:0!important;
- background:#1d1811!important;border:0!important
+ background:rgba(0,0,0,.78)!important;border:0!important
 }
 [data-list-id="chat-messages"] {padding:4px 0 8px!important}
 [class*="message_"] {min-height:0!important;padding:5px 8px!important;margin:0!important;background:transparent!important}
@@ -39,3 +39,23 @@
 [class*="chat_"] [class*="subtitleContainer_"],
 [class*="chat_"] [class*="container_"][role="toolbar"],
 [class*="chat_"] header {display:none!important}
+
+/* Keep the chat artwork visible beneath a smoky black overlay. */
+html,body,#app-mount,[class*="app_"],[class*="bg_"],
+[class*="layer_"],[class*="container_"],[class*="chat_"],
+[class*="chatContent_"],[class*="messagesWrapper_"],[class*="scroller_"] {
+ background-color:transparent!important;
+ background-image:none!important;
+}
+html,body,#app-mount {background:rgba(0,0,0,.78)!important}
+[class*="message_"],[class*="messageListItem_"] {background:transparent!important}
+/* The two visible controls are in the channel header, not the message feed. */
+[class*="chat_"] [class*="title_"] button,
+[class*="chat_"] [class*="title_"] svg,
+[class*="chat_"] [class*="toolbar_"] button,
+[class*="chat_"] [class*="toolbar_"] svg,
+[class*="chat_"] [class*="iconWrapper_"],
+button[aria-label*="Notification"],button[aria-label*="Thread"],
+button[aria-label*="Pinned"],button[aria-label*="Member"],
+[aria-label="Threads"],[aria-label="Notification Settings"],
+[aria-label="Show Member List"] {display:none!important}
