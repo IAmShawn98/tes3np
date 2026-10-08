@@ -27,19 +27,9 @@ StartEmbeddedInGameChat()
 
 ResizeEmbeddedInGameChat()
 {
-    global LauncherGui, LauncherScale
-    ; The companion is a Win32 child of the launcher, so the launcher controls
-    ; its logical viewport. Find by executable PID to avoid moving other windows.
-    global EmbeddedChatPid
-    if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
-        return
-    hwnd := WinExist("ahk_pid " EmbeddedChatPid)
-    if !hwnd
-        return
-    scale := LauncherScale / 100
-    try DllCall("MoveWindow", "Ptr", hwnd, "Int", Round(54 * scale),
-        "Int", Round(278 * scale), "Int", Round(266 * scale),
-        "Int", Round(342 * scale), "Int", 1)
+    ; ChatHost owns its rectangle via chat.ini, avoiding stale AHK coordinates
+    ; overriding live layout edits.
+    return
 }
 
 StopEmbeddedInGameChat()
