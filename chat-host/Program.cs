@@ -431,7 +431,7 @@ internal static class Program
             ForeColor = System.Drawing.Color.White,
             Font = new System.Drawing.Font("Segoe UI", 17, System.Drawing.FontStyle.Bold),
             Cursor = Cursors.Hand,
-            Text = "→",
+            Text = "",
             TabStop = false
         };
         readonly ContextMenuStrip chatModeMenu = new();
@@ -509,6 +509,38 @@ internal static class Program
             catch { }
             chatToggleButton.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(237, 199, 120);
             chatToggleButton.FlatAppearance.BorderSize = 2;
+            chatToggleButton.Paint += (_, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                int centerX = chatToggleButton.ClientSize.Width / 2;
+                using var arrowPen = new System.Drawing.Pen(System.Drawing.Color.White, 5)
+                {
+                    StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                    EndCap = System.Drawing.Drawing2D.LineCap.Round,
+                    LineJoin = System.Drawing.Drawing2D.LineJoin.Round
+                };
+                int direction = chatOpen ? -1 : 1;
+                int tipX = centerX + direction * 13;
+                int tailX = centerX - direction * 13;
+                g.DrawLine(arrowPen, tailX, 26, tipX, 26);
+                g.DrawLine(arrowPen, tipX - direction * 10, 16, tipX, 26);
+                g.DrawLine(arrowPen, tipX - direction * 10, 36, tipX, 26);
+                using var labelFont = new System.Drawing.Font("Segoe UI", 14,
+                    System.Drawing.FontStyle.Bold);
+                using var labelBrush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
+                var state = g.Save();
+                g.TranslateTransform(centerX, 110);
+                g.RotateTransform(-90);
+                using var alignment = new System.Drawing.StringFormat
+                {
+                    Alignment = System.Drawing.StringAlignment.Center,
+                    LineAlignment = System.Drawing.StringAlignment.Center
+                };
+                g.DrawString("Game Chat", labelFont, labelBrush,
+                    new System.Drawing.RectangleF(-67, -16, 134, 32), alignment);
+                g.Restore(state);
+            };
             chatToggleWindow.Controls.Add(chatToggleButton);
             foreach (string mode in new[] { "Automatic", "Always Shown", "Always Hidden" })
             {
@@ -981,7 +1013,7 @@ internal static class Program
         void SetChatOpen(bool show)
         {
             chatOpen = show;
-            chatToggleButton.Text = show ? "←" : "→";
+            chatToggleButton.Invalidate();
             if (!signInExpanded && IsHandleCreated)
             {
                 if (show) ShowWindow(Handle, 5);
