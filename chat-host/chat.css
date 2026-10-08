@@ -112,3 +112,7 @@ color:#eee9e2!important;text-shadow:1px 1px 2px #000!important;
 [class*="message_"] {padding:0 6px!important}
 [class*="markup_"],[class*="messageContent_"] {font-size:12px!important;line-height:1.23!important;font-weight:700!important}
 
+
+/* Keep first message clear of the title/viewport boundary. */
+[data-list-id="chat-messages"] {padding-top:15px!important;padding-bottom:12px!important}
+[class*="scrollerInner_"] {padding-top:10px!important}
