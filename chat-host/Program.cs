@@ -539,7 +539,7 @@ metrics();
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
-                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(2) ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(750) ||
                 DateTime.UtcNow < historyBackoffUntil) return;
             loadingHistory = true;
             lastHistoryRequest = DateTime.UtcNow;
@@ -564,7 +564,7 @@ metrics();
                 if (attempt >= 3 && oldest != ulong.MaxValue)
                 {
                     historyNoProgressCount = 0;
-                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(3);
+                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(1);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
                     web.CoreWebView2.Navigate(olderWindow);
@@ -758,7 +758,7 @@ metrics();
         }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         // History requests must not depend on changes to Discord messages or launcher UI.
-        readonly System.Windows.Forms.Timer historyWatch = new() { Interval = 1000 };
+        readonly System.Windows.Forms.Timer historyWatch = new() { Interval = 350 };
         bool closingChat;
         bool refreshingChat;
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
