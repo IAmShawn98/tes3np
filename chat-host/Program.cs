@@ -73,11 +73,6 @@ internal static class Program
                     {
                         await UpdateViewMode();
                     };
-                    web.CoreWebView2.LaunchingExternalUri += (_, e) =>
-                    {
-                        // Discord's desktop-app handoff must not steal navigation.
-                        e.Cancel = true;
-                    };
                     web.CoreWebView2.NewWindowRequested += (_, e) =>
                     {
                         e.Handled = true;
