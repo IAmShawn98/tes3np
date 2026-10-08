@@ -249,6 +249,9 @@ EndGameDetectionDisplay()
 RefreshGameDetectionText()
 {
     global LauncherGui
-    if IsObject(LauncherGui)
-        DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
+    ; Repaint only the countdown heading. Invalidating the entire layered
+    ; launcher every second causes visible flashing of the background and chat.
+    global LauncherHeading
+    if IsObject(LauncherHeading)
+        DllCall("RedrawWindow", "Ptr", LauncherHeading.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0105)
 }
