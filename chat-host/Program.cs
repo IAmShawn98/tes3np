@@ -566,7 +566,7 @@ internal static class Program
                 g.DrawLine(goldPen, 12, 60, w - 13, 60);
                 using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
                 var titleSize = g.MeasureString("Chat", headingFont);
-                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 32);
+                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 52);
                 g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
                 int sx = w - 35;
                 g.DrawRectangle(goldPen, sx, 74, 19, 19);
