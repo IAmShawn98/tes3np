@@ -548,18 +548,27 @@ metrics();
                       if (!scroller) return 'no-scroller';
                       const before = scroller.scrollTop;
                       const recovery = RECOVERY_FLAG;
-                      // Discord's virtual list may start well below the top.
-                      // First move near the beginning; a later task reaches zero
-                      // so Discord observes both scroll positions.
-                      scroller.scrollTop = Math.min(recovery ? 1100 : 350, Math.max(0, scroller.scrollHeight - scroller.clientHeight));
-                      scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      setTimeout(() => {
-                        if (!scroller.isConnected) return;
-                        scroller.scrollTop = 0;
+                      const first = list.querySelector('[id^="chat-messages-"]');
+                      const firstId = first?.id || 'none';
+                      const beforeCount = list.querySelectorAll('[id^="chat-messages-"]').length;
+                      if (recovery) {
+                        // Ask Discord's virtualized list to reveal its first actual
+                        // message instead of repeatedly bouncing an already-top scroller.
+                        if (first) first.scrollIntoView({block:'start',behavior:'instant'});
+                        scroller.scrollTo({top:0,behavior:'instant'});
+                      } else {
+                        scroller.scrollTop = Math.min(350, Math.max(0, scroller.scrollHeight - scroller.clientHeight));
                         scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      }, recovery ? 400 : 130);
+                        setTimeout(() => {
+                          if (!scroller.isConnected) return;
+                          scroller.scrollTo({top:0,behavior:'instant'});
+                          scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
+                        }, 130);
+                      }
                       return 'scroll=' + before + '->' + scroller.scrollTop +
-                        ' height=' + scroller.scrollHeight + ' client=' + scroller.clientHeight;
+                        ' height=' + scroller.scrollHeight + ' client=' + scroller.clientHeight +
+                        ' first=' + firstId + ' rows=' + beforeCount +
+                        ' connected=' + scroller.isConnected;
                     })();
                     """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
                 Log("History scroll (" + scriptMode + ", attempt=" + attempt + "): " + result);
