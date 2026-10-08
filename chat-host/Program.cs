@@ -114,15 +114,15 @@ internal static class Program
             bool atChannel = url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase);
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
-            string state = "";
+            bool messages = false, handoff = false;
             try
             {
-                state = await web.CoreWebView2.ExecuteScriptAsync(
-                    "(() => ({messages:!!document.querySelector('[data-list-id=chat-messages]'),handoff:document.body?.innerText?.includes('opened the link in your Discord app')||false}))()");
+                messages = await web.CoreWebView2.ExecuteScriptAsync(
+                    "!!document.querySelector('[data-list-id=chat-messages]')") == "true";
+                handoff = await web.CoreWebView2.ExecuteScriptAsync(
+                    "!!document.body?.innerText?.includes('opened the link in your Discord app')") == "true";
             }
             catch { }
-            bool messages = state.Contains("\\"messages\\":true");
-            bool handoff = state.Contains("\\"handoff\\":true");
             channelReady = atChannel && messages && !handoff;
             if (channelReady)
             {
