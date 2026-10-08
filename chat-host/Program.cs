@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-inset-native-frame-20261008";
+    const string ChatBuild = "chat-painted-only-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -191,24 +191,16 @@ internal static class Program
                 if (doc.RootElement.GetArrayLength() == 0) return;
                 lastFeed = json;
                 renderedMessages.Clear();
-                nativeMessages.SuspendLayout();
-                nativeMessages.Clear();
+                // Update the backing message list; painting is handled by frameSurface.
+
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
                     renderedMessages.Add((user, body));
-                    if (user.Length > 0)
-                    {
-                        nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(219, 178, 67);
-                        nativeMessages.AppendText(user + ": ");
-                    }
-                    nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
-                    nativeMessages.AppendText(body + Environment.NewLine);
+
                 }
-                nativeMessages.SelectionStart = nativeMessages.TextLength;
-                nativeMessages.ScrollToCaret();
-                nativeMessages.ResumeLayout();
+
                 frameSurface.Invalidate();
                 if (!nativeMode)
                 {
@@ -260,7 +252,7 @@ internal static class Program
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 92) / 2), 8, 92, 31);
 
             frameSurface.Invalidate();
-            if (nativeMessages.Visible) nativeMessages.BringToFront();
+            nativeMessages.Visible = false;
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
             chatViewport.Visible = false;
@@ -406,7 +398,7 @@ internal static class Program
             };
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
-            frameSurface.Controls.Add(nativeMessages);
+            // The old RichTextBox is deliberately NOT parented: it must never cover the painted frame.
             frameSurface.Controls.Add(railTop);
             frameSurface.Controls.Add(railLeft);
             frameSurface.Controls.Add(railRight);
@@ -440,7 +432,7 @@ internal static class Program
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
-            Log("Host launched; owner=" + owner);
+            Log("Host launched; build=" + ChatBuild + "; owner=" + owner);
             Width = 266; Height = 342;
             LoadLayout();
 
