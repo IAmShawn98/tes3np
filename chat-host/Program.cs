@@ -1749,6 +1749,17 @@ metrics();
                         if (block && block !== form && !block.querySelector('input')) block.style.display='none';
                         else el.style.display='none';
                       }
+                      // The gold scrollbar and frame belong to the message view,
+                      // not the Discord login page.
+                      document.getElementById('tes3np-chat-style')?.remove();
+                      document.getElementById('tes3np-frame')?.remove();
+                      // Discord can leave large empty spacer elements in its form.
+                      // Hide only elements without inputs, buttons, or links.
+                      for (const el of form.querySelectorAll('div')) {
+                        if (el.querySelector('input,button,a,[role=button],[role=link]')) continue;
+                        if (!el.textContent.trim() && !el.querySelector('img,svg,iframe'))
+                          el.style.display = 'none';
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -1763,6 +1774,7 @@ metrics();
                           margin:0 !important; padding:6px 12px !important;
                           max-height:calc(100vh - 16px) !important;
                           overflow-y:auto !important; overflow-x:hidden !important;
+                          scrollbar-width:none !important;
                           background:#090807 !important; border:0 !important;
                           box-shadow:none !important; z-index:1000 !important;
                           display:flex !important; flex-direction:column !important;
@@ -1770,6 +1782,13 @@ metrics();
                           font-family:Georgia,'Times New Roman',serif !important;
                         }
                         [data-tes3np-login] * { box-sizing:border-box !important; }
+                        [data-tes3np-login]::-webkit-scrollbar { display:none !important; }
+                        [data-tes3np-login] > div { min-height:0 !important; }
+                        [data-tes3np-login] > div:empty { display:none !important; }
+                        [data-tes3np-login] [class*="marginBottom"],
+                        [data-tes3np-login] [class*="marginTop"] {
+                          margin-top:0 !important; margin-bottom:0 !important;
+                        }
                         [data-tes3np-login-heading] {
                           text-align:center !important; color:#d9b469 !important;
                           font:20px Georgia,serif !important;
@@ -1792,7 +1811,8 @@ metrics();
                           border:1px solid #dfbb75 !important; border-radius:0 !important;
                           min-height:35px !important; font:17px Georgia,serif !important;
                         }
-                        [data-tes3np-login] a,[data-tes3np-login] [role=link] {
+                        [data-tes3np-login] a,[data-tes3np-login] [role=link],
+                        [data-tes3np-login] button[class*="link"] {
                           color:#a85a31 !important; text-decoration:underline !important;
                         }
                       `;
