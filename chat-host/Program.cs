@@ -1756,10 +1756,27 @@ metrics();
                           border:1px solid #dfbb75 !important; border-radius:0 !important;
                           font:17px Georgia,serif !important; min-height:38px !important;
                         }
-                        [data-tes3np-login] a { color:#d7b06b !important; }
+                        /* UESP-style reddish-brown links; preserve their native click handlers. */
+                        a, a:link, a:visited, a:hover, a:active,
+                        [role=link], [data-tes3np-login] a,
+                        [data-tes3np-login] button:not([type=submit]) {
+                          color:#87300f !important;
+                          text-decoration:underline !important;
+                          cursor:pointer !important;
+                        }
                       `;
                       // Hide Discord's decorative welcome header only when the
                       // actual form exists. Never remove authentication controls.
+                      // Hide only the decorative Discord wordmark/logo, not form controls.
+                      for (const el of document.querySelectorAll('svg[aria-label],img[alt]')) {
+                        const label = (el.getAttribute('aria-label') || el.getAttribute('alt') || '').trim();
+                        if (/^discord(?: logo| wordmark)?$/i.test(label)) el.style.display = 'none';
+                      }
+                      const logoCandidates = [...document.querySelectorAll('svg,img')]
+                        .filter(el => !form.contains(el) &&
+                          /discord/i.test((el.getAttribute('class') || '') + ' ' +
+                            (el.parentElement?.getAttribute('class') || '')));
+                      for (const el of logoCandidates) el.style.display = 'none';
                       const welcome = [...document.querySelectorAll('h1,h2,h3')]
                         .find(e => /welcome back/i.test(e.textContent || ''));
                       if (welcome) {
