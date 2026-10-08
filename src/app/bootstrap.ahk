@@ -57,7 +57,6 @@ StartLauncher()
     LauncherUpdateButton := AddStyledButton(LauncherGui, 410, 675, 140, 32, "Update Available", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CaptureLauncherControlLayout()
-    StartEmbeddedInGameChat()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
     InitializeV016UiRefinements()
@@ -74,6 +73,9 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
     FinishLauncherStartup()
+    ; Start the embedded HWND only after the layered launcher has been shown
+    ; and its first paint has completed. Previously it was parented while hidden.
+    SetTimer(StartEmbeddedInGameChat, -700)
     SetTimer(OfferFirstRunSetup, -1000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
