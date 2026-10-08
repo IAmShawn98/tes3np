@@ -216,13 +216,17 @@ internal static class Program
         ulong killAlertWatermark;
         bool killAlertsInitialized;
         readonly System.Collections.Generic.HashSet<ulong> alertedKills = new();
-        void CheckPickleKillAlert(ulong id, string body)
+        void CheckKillAlert(ulong id, string body)
         {
-            if (!killAlertsInitialized || id <= killAlertWatermark || !alertedKills.Add(id)) return;
+            if (!killAlertsInitialized || id <= killAlertWatermark || alertedKills.Contains(id)) return;
+            // Notify on player-versus-player and NPC kills, but not suicides.
             if (System.Text.RegularExpressions.Regex.IsMatch(body,
-                @"\bwas (?:honorably )?killed by Pickle(?:\s*\(\d+\))?\b",
+                @"\bwas (?:honorably )?killed by\s+\S",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase) && IsWindow(owner))
-                PostMessage(owner, 0x8333, IntPtr.Zero, IntPtr.Zero);
+            {
+                if (PostMessage(owner, 0x8333, IntPtr.Zero, IntPtr.Zero))
+                    alertedKills.Add(id);
+            }
         }
 
         readonly WebView2 web = new() { Dock = DockStyle.None };
@@ -895,7 +899,7 @@ metrics();
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
                     if (key > latestKillScanId) latestKillScanId = key;
-                    CheckPickleKillAlert(key, body);
+                    CheckKillAlert(key, body);
                     // Archive every message Discord makes available, including loaded history.
                     LogChatMessage(key, user, body);
                     foreach (string imageUrl in images)
