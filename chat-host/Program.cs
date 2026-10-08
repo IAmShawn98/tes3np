@@ -506,10 +506,28 @@ metrics();
         }
         DateTime lastHistoryRequest = DateTime.MinValue;
         bool loadingHistory;
+        ulong lastHistoryOldestId = ulong.MaxValue;
+        int historyStallCount;
+        DateTime historyBackoffUntil = DateTime.MinValue;
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
-                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(2)) return;
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(2) ||
+                DateTime.UtcNow < historyBackoffUntil) return;
+            ulong oldest = history.Count > 0 ? history.First().Key : ulong.MaxValue;
+            if (oldest < lastHistoryOldestId)
+            {
+                lastHistoryOldestId = oldest;
+                historyStallCount = 0;
+            }
+            else if (++historyStallCount >= 8)
+            {
+                // Back off when Discord is slow or the channel history ends.
+                historyStallCount = 0;
+                historyBackoffUntil = DateTime.UtcNow.AddSeconds(20);
+                Log("History loading paused for 20s (no older messages yet)");
+                return;
+            }
             loadingHistory = true;
             lastHistoryRequest = DateTime.UtcNow;
             try
@@ -1242,6 +1260,8 @@ metrics();
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
+                // Repeatedly page while the user stays at the top of the HTML chat.
+                if (nativeMode && browserScrollTop < 35) RequestOlderMessages();
                 PositionChatWindows();
                 if (chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
