@@ -276,27 +276,47 @@ function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,
 feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
 window.setMessages=function(messages,prepended=false){
-  const nearTop=feed.scrollTop<=300;
-  const anchor=[...feed.children].find(el=>el.offsetTop+el.offsetHeight>feed.scrollTop);
-  const anchorTop=anchor?anchor.offsetTop:0;
-  const priorHeight=feed.scrollHeight, priorTop=feed.scrollTop;
-  feed.replaceChildren();
-  for(const m of messages){
-    const row=document.createElement('div');row.className='msg';row.dataset.id=m.id;
-    if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user+': ';row.appendChild(name);}
-    const body=document.createElement('span');body.className='body';body.textContent=m.body;row.appendChild(body);
-    for(const url of m.images){
-      if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
-      const img=document.createElement('img');img.className='preview';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=url;
-      img.addEventListener('load',()=>{metrics();});
-      img.addEventListener('error',()=>{img.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder',textContent:'[Image unavailable]'}));metrics();});
-      row.appendChild(img);
+  // Reconcile by message ID. Never tear down existing rows on a new message:
+  // doing so resets image layout and can jump the scroll position.
+  const existing=new Map([...feed.children].map(el=>[el.dataset.id,el]));
+  const wasAtBottom=feed.children.length>0 &&
+    feed.scrollHeight>feed.clientHeight &&
+    feed.scrollHeight-feed.clientHeight-feed.scrollTop<=24;
+  const anchor=[...feed.children].find(el=>el.getBoundingClientRect().bottom>feed.getBoundingClientRect().top);
+  const anchorId=anchor?.dataset.id;
+  const anchorY=anchor?.getBoundingClientRect().top;
+  const wanted=new Set(messages.map(m=>m.id));
+  for(const [id,row] of existing)if(!wanted.has(id))row.remove();
+  let next=null;
+  for(let i=messages.length-1;i>=0;i--){
+    const m=messages[i];
+    let row=existing.get(m.id);
+    const signature=JSON.stringify([m.user,m.body,m.color,m.images]);
+    if(!row||row.dataset.signature!==signature){
+      const replacement=document.createElement('div');
+      replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
+      if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user+': ';replacement.appendChild(name);}
+      const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
+      for(const url of m.images){
+        if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
+        const img=document.createElement('img');img.className='preview';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=url;
+        img.addEventListener('load',metrics);
+        img.addEventListener('error',()=>{img.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder',textContent:'[Image unavailable]'}));metrics();});
+        replacement.appendChild(img);
+      }
+      if(row)row.replaceWith(replacement);
+      row=replacement;
     }
-    feed.appendChild(row);
+    if(row.nextElementSibling!==next)feed.insertBefore(row,next);
+    next=row;
   }
-  if(prepended && nearTop)feed.scrollTop=0;
-  else if(!anchor)feed.scrollTop=0;
-  else if(anchor){const replacement=[...feed.children].find(el=>el.dataset.id===anchor.dataset.id);feed.scrollTop=replacement?priorTop+replacement.offsetTop-anchorTop:priorTop+feed.scrollHeight-priorHeight;}
+  if(anchorId){
+    const kept=[...feed.children].find(el=>el.dataset.id===anchorId);
+    if(kept)feed.scrollTop+=kept.getBoundingClientRect().top-anchorY;
+  }
+  // Follow live chat only if the user was already at the bottom.
+  // Prepending history must never force either end of the scrollbar.
+  if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
   metrics();
 };
 window.scrollChat=function(delta){feed.scrollTop+=delta;metrics();};
