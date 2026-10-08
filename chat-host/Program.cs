@@ -14,6 +14,16 @@ internal static class Program
     struct SCROLLINFO { public uint cbSize, fMask; public int nMin, nMax; public uint nPage; public int nPos, nTrackPos; }
     [DllImport("user32.dll")] static extern bool GetScrollInfo(IntPtr hwnd, int bar, ref SCROLLINFO info);
     [DllImport("user32.dll")] static extern bool ShowScrollBar(IntPtr hwnd, int bar, bool show);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    static extern IntPtr SetWindowOwner64(IntPtr hwnd, int index, IntPtr value);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    static extern int SetWindowOwner32(IntPtr hwnd, int index, int value);
+    static void SetNativeWindowOwner(IntPtr hwnd, IntPtr ownerHwnd)
+    {
+        const int GWLP_HWNDPARENT = -8;
+        if (IntPtr.Size == 8) SetWindowOwner64(hwnd, GWLP_HWNDPARENT, ownerHwnd);
+        else SetWindowOwner32(hwnd, GWLP_HWNDPARENT, ownerHwnd.ToInt32());
+    }
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -24,6 +34,7 @@ internal static class Program
     [DllImport("user32.dll", EntryPoint = "SetWindowLongW")] static extern int SetWindowLongEx(IntPtr hwnd, int index, int value);
     [DllImport("user32.dll", SetLastError = true)] static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint colorKey, byte alpha, uint flags);
     const int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x80000;
+    const int WS_EX_TOOLWINDOW = 0x80, WS_EX_APPWINDOW = 0x40000;
     const uint LWA_ALPHA = 2;
     const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_POPUP = unchecked((int)0x80000000);
     const string Css = """
@@ -1035,7 +1046,15 @@ internal static class Program
             chatToggleWindow.SetBounds(bounds.Left + 3,
                 bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - buttonHeight) / 2),
                 buttonWidth, buttonHeight);
-            if (!chatToggleWindow.Visible) chatToggleWindow.Show();
+            if (!chatToggleWindow.Visible)
+            {
+                var toggleHwnd = chatToggleWindow.Handle;
+                SetNativeWindowOwner(toggleHwnd, owner);
+                int toggleExStyle = GetWindowLongEx(toggleHwnd, GWL_EXSTYLE);
+                SetWindowLongEx(toggleHwnd, GWL_EXSTYLE,
+                    (toggleExStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
+                chatToggleWindow.Show();
+            }
             if (chatOpen)
                 MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, chatHeight, true);
         }
@@ -1047,6 +1066,12 @@ internal static class Program
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
             ShowInTaskbar = false;
+            // Native owner relationship keeps the chat above the launcher and
+            // prevents it from becoming an independent Alt+Tab application.
+            SetNativeWindowOwner(hwnd, owner);
+            int chatExStyle = GetWindowLongEx(hwnd, GWL_EXSTYLE);
+            SetWindowLongEx(hwnd, GWL_EXSTYLE,
+                (chatExStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
             ApplyWindowOpacity();
             docked = true;
             PositionChatWindows();
