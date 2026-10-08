@@ -1672,7 +1672,9 @@ metrics();
             if (discordLoginVisible) return;
             Log("Discord login: revealing the existing browser in Game Chat");
             discordLoginVisible = true;
-            signInExpanded = true;
+            // Login is shown inside the normal docked chat panel, not in a
+            // separate sign-in window. Keep the toggle and positioning active.
+            signInExpanded = false;
             nativeMode = false;
             nativeMessages.Visible = false;
             messageBrowser.Visible = false;
