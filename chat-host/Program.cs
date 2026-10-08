@@ -393,7 +393,10 @@ internal static class Program
                     using var sideTexture = new System.Drawing.TextureBrush(vertical, System.Drawing.Drawing2D.WrapMode.Tile);
                     g.FillRectangle(sideTexture, 0, 0, 13, h);
                     g.FillRectangle(sideTexture, w - 13, 0, 13, h);
-                    g.FillRectangle(texture, 0, 13, w, 39);
+                    // The entire Chat heading (including the flat bronze area)
+                    // uses the same real Morrowind texture as the outer frame.
+                    // Tile rather than stretch so its grain and gold trim stay crisp.
+                    g.FillRectangle(texture, 9, 13, w - 18, 39);
                 }
                 // Preserve the actual Morrowind border artwork across the Chat header.
                 // The old full-frame random flecks obscured the texture with flat colors.
