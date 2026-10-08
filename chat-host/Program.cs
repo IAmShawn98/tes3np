@@ -277,7 +277,8 @@ feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
 window.setMessages=function(messages){
   const bottom=feed.scrollHeight-feed.clientHeight-feed.scrollTop<35;
-  const anchor=feed.firstElementChild;
+  const anchor=[...feed.children].find(el=>el.offsetTop+el.offsetHeight>feed.scrollTop);
+  const anchorTop=anchor?anchor.offsetTop:0;
   const priorHeight=feed.scrollHeight, priorTop=feed.scrollTop;
   feed.replaceChildren();
   for(const m of messages){
@@ -294,7 +295,7 @@ window.setMessages=function(messages){
     feed.appendChild(row);
   }
   if(bottom)feed.scrollTop=feed.scrollHeight;
-  else if(anchor){const replacement=[...feed.children].find(el=>el.dataset.id===anchor.dataset.id);feed.scrollTop=replacement?replacement.offsetTop-anchor.offsetTop+priorTop:priorTop+feed.scrollHeight-priorHeight;}
+  else if(anchor){const replacement=[...feed.children].find(el=>el.dataset.id===anchor.dataset.id);feed.scrollTop=replacement?priorTop+replacement.offsetTop-anchorTop:priorTop+feed.scrollHeight-priorHeight;}
   metrics();
 };
 window.scrollChat=function(delta){feed.scrollTop+=delta;metrics();};
@@ -519,21 +520,26 @@ metrics();
                     (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
                       if (!list) return 'no-message-list';
-                      const candidates = [list, ...Array.from((function*(e) {
-                        while (e && e !== document.body) { yield e; e = e.parentElement; }
-                      })(list))];
-                      const scroller = candidates.find(el =>
-                        el.scrollHeight > el.clientHeight + 10 &&
-                        /(auto|scroll)/.test(getComputedStyle(el).overflowY))
-                        || list.closest('[class*="scroller_"]')
-                        || list.parentElement;
+                      // Discord's message list is often virtualized inside a separate
+                      // scrollable ancestor. Locate the actual scroll container.
+                      let scroller = list;
+                      while (scroller && scroller !== document.body) {
+                        const css = getComputedStyle(scroller);
+                        if (scroller.scrollHeight > scroller.clientHeight + 20 &&
+                            /(auto|scroll)/.test(css.overflowY)) break;
+                        scroller = scroller.parentElement;
+                      }
+                      if (!scroller || scroller === document.body) {
+                        scroller = list.closest('[class*="scroller_"]') ||
+                          list.closest('[class*="scrollerBase_"]');
+                      }
                       if (!scroller) return 'no-scroller';
-                      scroller.scrollTop = 0;
-                      scroller.dispatchEvent(new WheelEvent('wheel', {
-                        deltaY: -850, bubbles: true, cancelable: true
-                      }));
+                      const before = scroller.scrollTop;
+                      // Scroll in the actual Discord browser to trigger its history loader.
+                      scroller.scrollTo({top:0,behavior:'instant'});
                       scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      return 'requested-history';
+                      return 'history-scroll top=' + before + '->' + scroller.scrollTop +
+                        ' height=' + scroller.scrollHeight + ' viewport=' + scroller.clientHeight;
                     })();
                     """);
                 Log("History request: " + result);
@@ -543,7 +549,7 @@ metrics();
         }
         void RequestOlderMessages()
         {
-            if (ChatFirstLine() > 25 || loadingHistory || !IsHandleCreated) return;
+            if (ChatFirstLine() > 35 || loadingHistory || !IsHandleCreated || !nativeMode) return;
             _ = LoadOlderMessages();
         }
         static string ParseHtmlColor(string color)
