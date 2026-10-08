@@ -5,7 +5,7 @@ using Microsoft.Web.WebView2.Core;
 internal static class Program
 {
     const string ChatBuild = "chat-inset-native-frame-20261008";
-    const string Channel = "https://discord.com/channels/509601787901116437/511706884584243210";
+    const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
