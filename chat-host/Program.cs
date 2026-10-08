@@ -395,10 +395,14 @@ internal static class Program
                     g.FillRectangle(sideTexture, w - 13, 0, 13, h);
                     g.FillRectangle(texture, 0, 13, w, 39);
                 }
+                // Preserve the actual Morrowind border artwork across the Chat header.
+                // The old full-frame random flecks obscured the texture with flat colors.
+                // Keep the weathering below the header without painting over its artwork.
                 var random = new Random(4108);
                 for (int n = 0; n < w * 9; n++)
                 {
                     int x = random.Next(w), y = random.Next(h);
+                    if (y < 53) continue;
                     g.FillRectangle(n % 3 == 0 ? bright : dark, x, y, random.Next(1, 4), 1);
                 }
                 using var goldPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(224, 190, 119), 2);
