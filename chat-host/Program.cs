@@ -169,7 +169,7 @@ internal static class Program
               const list = document.querySelector('[data-list-id="chat-messages"]');
               if (!list) return '[]';
               const rows = [...list.querySelectorAll('[id^="chat-messages-"]')]
-                .filter(el => el.id.match(/^chat-messages-\\d+-\\d+$/));
+                .filter(el => /^chat-messages-[0-9]+-[0-9]+$/.test(el.id));
               return JSON.stringify(rows.slice(-75).map(el => {
                 const user = el.querySelector('[class*="username_"]')?.textContent?.trim() || '';
                 const body = el.querySelector('[class*="messageContent_"]')?.innerText?.trim() ||
