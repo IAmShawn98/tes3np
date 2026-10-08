@@ -1699,6 +1699,15 @@ metrics();
             if (web.CoreWebView2 == null || closingChat) return;
             try
             {
+                // Read the bundled emblem beside the chat-host executable.
+                // Embed as a data URL so Discord's CSP does not block local files.
+                string logoFile = Path.Combine(AppContext.BaseDirectory, "assets", "discord-integration.png");
+                if (File.Exists(logoFile))
+                {
+                    string logoUrl = "data:image/png;base64," + Convert.ToBase64String(File.ReadAllBytes(logoFile));
+                    await web.CoreWebView2.ExecuteScriptAsync(
+                        "window.__tes3npIntegrationLogo = " + System.Text.Json.JsonSerializer.Serialize(logoUrl) + ";");
+                }
                 await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
                       if (location.pathname !== '/login') return;
@@ -2001,7 +2010,7 @@ metrics();
             const int buttonWidth = 68, buttonHeight = 168;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
-            int windowHeight = discordLoginVisible ? Math.Max(chatHeight, 630) : chatHeight;
+            int windowHeight = discordLoginVisible ? Math.Max(chatHeight, 780) : chatHeight;
             var work = Screen.FromHandle(owner).WorkingArea;
             windowHeight = Math.Min(windowHeight, work.Height);
             int y = bounds.Top + (bounds.Bottom - bounds.Top - windowHeight) / 2;
