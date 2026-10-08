@@ -148,7 +148,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
             "UInt", 0, "Str", "Segoe UI", "Ptr")
         oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         ; Positive 90-degree escapement runs text upward from the baseline.
-        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.87),
+        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.60),
             "Int", Round(h * 0.94), "Str", "Game Chat", "Int", 9)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", font)
