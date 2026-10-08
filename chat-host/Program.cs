@@ -527,12 +527,13 @@ internal static class Program
                     // Tile rather than stretch so its grain and gold trim stay crisp.
                     g.FillRectangle(texture, 9, 13, w - 18, 39);
                 }
-                // Paint the header artwork after weathering so it remains visible.
-                // This is the exact border texture asset already used by ChatHost.
-                if (headerTexture != null || borderTexture != null)
+                // Never scale the header texture across the full window.
+                // Repeat it at native pixel density to preserve the stone grain.
+                if (headerTexture != null)
                 {
-                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    g.DrawImage(headerTexture ?? borderTexture!, new System.Drawing.Rectangle(9, 13, w - 18, 39));
+                    using var headerBrush = new System.Drawing.TextureBrush(
+                        headerTexture, System.Drawing.Drawing2D.WrapMode.Tile);
+                    g.FillRectangle(headerBrush, 9, 13, w - 18, 39);
                 }
                 // Preserve the actual Morrowind border artwork across the Chat header.
                 // The old full-frame random flecks obscured the texture with flat colors.
@@ -550,9 +551,9 @@ internal static class Program
                 g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
                 g.FillRectangle(black, 13, 54, w - 26, h - 67);
                 g.DrawLine(goldPen, 12, 53, w - 13, 53);
-                using var headingFont = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold);
+                using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
                 var titleSize = g.MeasureString("Chat", headingFont);
-                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 37);
+                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 32);
                 g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
                 int sx = w - 35;
                 g.DrawRectangle(goldPen, sx, 74, 19, 19);
