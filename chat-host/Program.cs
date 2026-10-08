@@ -382,51 +382,39 @@ internal static class Program
                 var titleSize = g.MeasureString("Chat", headingFont);
                 g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 37);
                 g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
-                // The scrollbar is painted inside the inset, never a Windows scrollbar.
-                int sx = w - 34, top = 68, bottom = h - 24;
-                using var track = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(17, 14, 10));
-                using var thumb = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(177, 147, 93));
-                using var arrowFont = new System.Drawing.Font("Segoe UI Symbol", 9, System.Drawing.FontStyle.Bold);
-                g.FillRectangle(track, sx, top, 20, bottom - top);
-                g.DrawRectangle(goldPen, sx, top, 19, 19);
-                g.DrawRectangle(goldPen, sx, bottom - 20, 19, 19);
-                g.DrawRectangle(goldPen, sx, top + 24, 19, bottom - top - 49);
-                g.FillRectangle(thumb, sx + 3, Math.Max(top + 27, bottom - 94), 14, 54);
-                g.DrawString("▲", arrowFont, bright, sx + 3, top + 1);
-                g.DrawString("▼", arrowFont, bright, sx + 3, bottom - 19);
+                int sx = w - 35;
+                g.DrawRectangle(goldPen, sx, 74, 19, 19);
+                g.DrawRectangle(goldPen, sx, h - 55, 19, 19);
+                g.DrawRectangle(goldPen, sx, 99, 19, h - 160);
+                g.FillRectangle(bronze, sx + 3, Math.Max(102, h - 125), 14, 54);
+                g.DrawString("▲", new System.Drawing.Font("Arial", 10), bright, sx + 2, 75);
+                g.DrawString("▼", new System.Drawing.Font("Arial", 10), bright, sx + 2, h - 54);
                 using var messageFont = new System.Drawing.Font("Tahoma", 10, System.Drawing.FontStyle.Bold);
-                using var format = new System.Drawing.StringFormat(System.Drawing.StringFormatFlags.LineLimit);
-                float xText = 24, maxTextWidth = Math.Max(1, sx - xText - 8);
-                float availableHeight = Math.Max(1, bottom - 76);
+                float yText = 69;
                 var rows = renderedMessages.Count == 0
                     ? new System.Collections.Generic.List<(string User, string Body)> { ("", "Connecting to live chat...") }
                     : renderedMessages;
-                var lines = new System.Collections.Generic.List<(string Text, System.Drawing.Brush Brush, float Height)>();
-                foreach (var row in rows)
+                for (int i = Math.Max(0, rows.Count - 18); i < rows.Count; i++)
                 {
+                    var row = rows[i];
                     string line = (row.User.Length == 0 ? "" : row.User + ": ") + row.Body;
-                    float height = g.MeasureString(line, messageFont, (int)maxTextWidth).Height + 2;
-                    lines.Add((line, row.User.Length > 0 ? bright : System.Drawing.Brushes.WhiteSmoke, height));
+                    var bounds = new System.Drawing.RectangleF(24, yText, Math.Max(1, w - 70), h - 92 - yText);
+                    if (bounds.Height <= 0) break;
+                    using var format = new System.Drawing.StringFormat();
+                    var measured = g.MeasureString(line, messageFont, (int)bounds.Width);
+                    g.DrawString(line, messageFont, row.User.Length > 0 ? bright : System.Drawing.Brushes.WhiteSmoke, bounds, format);
+                    yText += measured.Height + 2;
                 }
-                float totalHeight = lines.Sum(line => line.Height);
-                float offset = Math.Max(0, totalHeight - availableHeight);
-                float cursor = 76 - offset;
-                var oldClip = g.Clip;
-                g.SetClip(new System.Drawing.RectangleF(xText, 76, maxTextWidth, availableHeight));
-                foreach (var line in lines)
-                {
-                    if (cursor + line.Height > 76 && cursor < bottom)
-                        g.DrawString(line.Text, messageFont, line.Brush,
-                            new System.Drawing.RectangleF(xText, cursor, maxTextWidth, line.Height), format);
-                    cursor += line.Height;
-                }
-                g.Clip = oldClip;
-
             };
             // The frame and text are painted on one surface; no child can obscure its edges.
-            // WebView2 remains active but is not part of the visible painted chat surface.
-            // Legacy RichTextBox intentionally not parented: its white scrollbar must not show.
-
+            frameSurface.Controls.Add(chatViewport);
+            frameSurface.Controls.Add(nativeMessages);
+            frameSurface.Controls.Add(railTop);
+            frameSurface.Controls.Add(railLeft);
+            frameSurface.Controls.Add(railRight);
+            frameSurface.Controls.Add(railBottom);
+            frameSurface.Controls.Add(titleBar);
+            frameSurface.Controls.Add(titleText);
             foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
             {
                 rail.BackColor = System.Drawing.Color.FromArgb(153, 118, 64);
