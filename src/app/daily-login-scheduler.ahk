@@ -35,6 +35,9 @@ LoadDailyLoginSchedule()
         loginAction := IniRead(DataFile, section, "LoginAction", "LoginCloseAll")
         if loginAction != "LoginCloseAll" && loginAction != "LoginUpTo4" && loginAction != "AlertOnly"
             loginAction := "LoginCloseAll"
+        ; Legacy countdown events must not retain the all-character login action.
+        if mode = "Countdown" && loginAction = "LoginCloseAll"
+            loginAction := "AlertOnly"
         loginProfiles := IniRead(DataFile, section, "LoginProfiles", "")
         promptMode := IniRead(DataFile, section, "PromptMode", "Countdown")
         ; Migrate the old Ask mode to an enabled launch alert.
@@ -473,6 +476,8 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     loginActionList.Choose(savedLoginAction = "LoginUpTo4" ? 2 : savedLoginAction = "AlertOnly" ? 3 : 1)
     loginProfilesState := {Value: event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : ""}
     loginActionList.OnEvent("Change", ChooseScheduledLoginProfiles.Bind(loginActionList, loginProfilesState))
+    modeList.OnEvent("Change", RestrictScheduledCloseAllMode.Bind(modeList, loginActionList))
+    RestrictScheduledCloseAllMode(modeList, loginActionList)
 
     CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
     promptLabel := CharacterPage.Add("Text", "x525 y395 w215 h22 BackgroundTrans", "Include Alert Before Launch")
@@ -498,6 +503,17 @@ ToggleScheduledBookRecurring(state, tick, *)
 {
     state.Value := state.Value ? 0 : 1
     SetBookTick(tick, state.Value)
+}
+
+RestrictScheduledCloseAllMode(modeList, loginActionList, *)
+{
+    ; Countdown events may alert or log in selected characters, but must not
+    ; run the all-character login/logout batch.
+    if modeList.Value = 2 && loginActionList.Value = 1
+    {
+        loginActionList.Choose(3)
+        return
+    }
 }
 
 ChooseScheduledLoginProfiles(loginActionList, state, *)
@@ -708,6 +724,11 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     }
     recurring := recurringCheck.Value = 1
     loginAction := loginActionList.Value = 2 ? "LoginUpTo4" : loginActionList.Value = 3 ? "AlertOnly" : "LoginCloseAll"
+    if mode = "Countdown" && loginAction = "LoginCloseAll"
+    {
+        MsgBox("Login & Close All requires an IRL time. Countdown events cannot use this action.", "tes3np", "Icon!")
+        return
+    }
     if loginAction = "LoginUpTo4" && loginProfilesState.Value = ""
     {
         MsgBox("Choose at least one character for Log In Up to 4 Chars.", "tes3np")
@@ -876,6 +897,12 @@ CheckDailyLoginSchedule(*)
         }
 
         loginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
+        if isCountdown && loginAction = "LoginCloseAll"
+        {
+            LogLauncherEvent("GAME | Blocked Login & Close All on a countdown event.")
+            CompleteScheduledEventForToday(event, "blocked: all-character login requires IRL time")
+            continue
+        }
         if loginAction = "AlertOnly"
         {
             LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; reminder-only alert shown.")
@@ -937,6 +964,8 @@ StartScheduledDailyLogin(event)
     executable := GetSharedExecutable()
     queue := []
     loginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
+    if loginAction = "LoginCloseAll" && (event.Mode != "IRL" || event.LastRunDate = FormatTime(, "yyyy-MM-dd"))
+        return false
     if loginAction = "LoginUpTo4"
     {
         selected := event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : ""
