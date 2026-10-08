@@ -86,7 +86,7 @@ internal static class Program
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
-        void FitWebView() => web.SetBounds(7, 34 - HeaderCrop, Math.Max(1, ClientSize.Width - 14), Math.Max(1, ClientSize.Height - 42 + HeaderCrop));
+        void FitWebView() => web.SetBounds(9, 43 - HeaderCrop, Math.Max(1, ClientSize.Width - 30), Math.Max(1, ClientSize.Height - 52 + HeaderCrop));
         bool docked;
         bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
@@ -147,19 +147,25 @@ internal static class Program
             Paint += (_, e) =>
             {
                 var g = e.Graphics;
-                g.Clear(System.Drawing.Color.FromArgb(12, 10, 8));
-                using var outer = new System.Drawing.Pen(System.Drawing.Color.FromArgb(176, 139, 76), 4);
-                using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(78, 56, 30), 2);
-                using var header = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(85, 61, 32));
-                using var titleBackground = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(16, 13, 9));
-                using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(214, 178, 104));
-                using var titleFont = new System.Drawing.Font("Georgia", 15, System.Drawing.FontStyle.Bold);
-                g.DrawRectangle(outer, 2, 2, ClientSize.Width - 5, ClientSize.Height - 5);
-                g.DrawRectangle(inner, 6, 6, ClientSize.Width - 13, ClientSize.Height - 13);
-                g.FillRectangle(header, 8, 8, ClientSize.Width - 16, 24);
+                int w = ClientSize.Width, h = ClientSize.Height;
+                g.Clear(System.Drawing.Color.FromArgb(9, 8, 7));
+                // Layered weathered-metal rim, dark recess, and engraved highlight.
+                using var rim = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(91, 65, 31));
+                using var metal = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(168, 131, 70));
+                using var highlight = new System.Drawing.Pen(System.Drawing.Color.FromArgb(219, 185, 113), 2);
+                using var shadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(37, 26, 15), 3);
+                using var titleFill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(16, 12, 9));
+                using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
+                using var titleFont = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
+                g.FillRectangle(rim, 0, 0, w, h);
+                g.FillRectangle(metal, 3, 3, w - 6, 36);
+                g.FillRectangle(titleFill, 7, 40, w - 14, h - 47);
+                g.DrawRectangle(shadow, 5, 5, w - 11, h - 11);
+                g.DrawRectangle(highlight, 2, 2, w - 5, h - 5);
+                g.DrawLine(shadow, 6, 39, w - 7, 39);
                 var size = g.MeasureString("Chat", titleFont);
-                g.FillRectangle(titleBackground, (ClientSize.Width - size.Width) / 2 - 14, 7, size.Width + 28, 25);
-                g.DrawString("Chat", titleFont, gold, (ClientSize.Width - size.Width) / 2, 5);
+                g.FillRectangle(titleFill, (w - size.Width) / 2 - 16, 4, size.Width + 32, 31);
+                g.DrawString("Chat", titleFont, gold, (w - size.Width) / 2, 7);
             };
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.Black;
