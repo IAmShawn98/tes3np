@@ -235,7 +235,7 @@ OfferFirstRunSetup(*)
     global SetupComplete
     ; The standalone launcher belongs next to tes3mp.exe. Existing source
     ; installations retain their previous startup behavior.
-    if A_IsCompiled && FileExist(A_ScriptDir "\\tes3mp.exe") && !SetupComplete
+    if A_IsCompiled && FileExist(A_ScriptDir "\tes3mp.exe") && !SetupComplete
     {
         if MsgBox("Set up Nerevarine Prophecies for this TES3MP installation now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
             OpenPatcher()
@@ -259,7 +259,8 @@ OfferDesktopShortcutOnFirstLaunch(*)
     {
         target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
         arguments := A_IsCompiled ? "" : '"' A_ScriptFullPath '"'
-        FileCreateShortcut(target, A_Desktop "\\Nerevarine Prophecies.lnk", A_ScriptDir, arguments, "Launch tes3np", A_ScriptDir "\\assets\\icons\\tes3np.ico")
+        iconPath := A_IsCompiled ? target : A_ScriptDir "\assets\icons\tes3np.ico"
+        FileCreateShortcut(target, A_Desktop "\Nerevarine Prophecies.lnk", A_ScriptDir, arguments, "Launch tes3np", iconPath)
     }
     catch as err
         MsgBox("Could not create the shortcut: " err.Message, "tes3np", "Icon!")
