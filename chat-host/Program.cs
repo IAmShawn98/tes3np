@@ -96,6 +96,19 @@ internal static class Program
 
 
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
+        [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+        [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
+        void EnforceChatClip()
+        {
+            if (!web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
+            // Native clipping remains effective when WebView2 recreates its
+            // composition surface after Discord finishes loading.
+            var region = CreateRectRgn(0, HeaderCrop, web.Width, web.Height);
+            if (SetWindowRgn(web.Handle, region, true) == 0)
+                Log("Unable to set WebView clip region");
+            titleBar.BringToFront();
+            titleText.BringToFront();
+        }
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
         void FitWebView()
@@ -106,6 +119,7 @@ internal static class Program
             titleBar.BringToFront();
             titleText.BringToFront();
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
+            EnforceChatClip();
         }
         bool docked;
         bool signInExpanded;
@@ -211,6 +225,7 @@ internal static class Program
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
                     Log("WebView2 initialized");
@@ -242,6 +257,7 @@ internal static class Program
                 if (!IsWindow(owner)) { Close(); return; }
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
+                if (docked) EnforceChatClip();
             };
             watch.Start();
         }
@@ -305,6 +321,7 @@ internal static class Program
             if (web.CoreWebView2 == null) return;
             var url = web.CoreWebView2.Source;
             Log("Navigation completed: " + url);
+            EnforceChatClip();
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             if (login && !signInExpanded)
