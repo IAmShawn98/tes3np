@@ -163,6 +163,7 @@ internal static class Program
             DetectUrls = false, TabStop = false, ShortcutsEnabled = false
         };
         string lastFeed = "";
+        readonly System.Collections.Generic.List<(string User, string Body)> renderedMessages = new();
         bool nativeMode;
         const string ExtractFeed = """
             (() => {
@@ -189,12 +190,14 @@ internal static class Program
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 if (doc.RootElement.GetArrayLength() == 0) return;
                 lastFeed = json;
+                renderedMessages.Clear();
                 nativeMessages.SuspendLayout();
                 nativeMessages.Clear();
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
+                    renderedMessages.Add((user, body));
                     if (user.Length > 0)
                     {
                         nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(219, 178, 67);
@@ -206,12 +209,12 @@ internal static class Program
                 nativeMessages.SelectionStart = nativeMessages.TextLength;
                 nativeMessages.ScrollToCaret();
                 nativeMessages.ResumeLayout();
+                frameSurface.Invalidate();
                 if (!nativeMode)
                 {
                     nativeMode = true;
                     frameSurface.Visible = true;
-                    nativeMessages.Visible = true;
-                    nativeMessages.BringToFront();
+                    frameSurface.Invalidate();
                     Log("Native message view activated");
                 }
             }
@@ -258,8 +261,9 @@ internal static class Program
 
             frameSurface.Invalidate();
             if (nativeMessages.Visible) nativeMessages.BringToFront();
-            railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
-            titleBar.BringToFront(); titleText.BringToFront();
+            railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
+            titleBar.Visible = false; titleText.Visible = false;
+            chatViewport.Visible = false;
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
@@ -352,20 +356,55 @@ internal static class Program
             frameSurface.Paint += (_, e) =>
             {
                 var g = e.Graphics;
-                int w = frameSurface.ClientSize.Width, h = frameSurface.ClientSize.Height;
-                if (w < 30 || h < 70) return;
-                using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(218, 184, 112), 3);
-                using var shade = new System.Drawing.Pen(System.Drawing.Color.FromArgb(46, 30, 15), 3);
-                using var plaque = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(17, 13, 9));
-                using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(224, 193, 125));
-                using var font = new System.Drawing.Font("Georgia", 17, System.Drawing.FontStyle.Bold);
-                g.DrawRectangle(gold, 2, 2, w - 5, h - 5);
-                g.DrawRectangle(shade, 8, 8, w - 17, h - 17);
-                g.DrawLine(shade, 12, 45, w - 12, 45);
-                var t = g.MeasureString("Chat", font);
-                g.FillRectangle(plaque, (w - t.Width) / 2 - 14, 5, t.Width + 28, 35);
-                g.DrawString("Chat", font, ink, (w - t.Width) / 2, 7);
+                int w = frameSurface.Width, h = frameSurface.Height;
+                if (w < 80 || h < 100) return;
+                g.Clear(System.Drawing.Color.FromArgb(13, 11, 9));
+                using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(151, 113, 58));
+                using var bright = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(211, 177, 110));
+                using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(57, 39, 21));
+                using var black = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(10, 9, 8));
+                g.FillRectangle(bronze, 0, 0, w, h);
+                var random = new Random(4108);
+                for (int n = 0; n < w * 9; n++)
+                {
+                    int x = random.Next(w), y = random.Next(h);
+                    g.FillRectangle(n % 3 == 0 ? bright : dark, x, y, random.Next(1, 4), 1);
+                }
+                using var goldPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(224, 190, 119), 2);
+                using var darkPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(45, 29, 14), 3);
+                g.DrawRectangle(goldPen, 2, 2, w - 5, h - 5);
+                g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
+                g.FillRectangle(black, 13, 54, w - 26, h - 67);
+                g.DrawLine(goldPen, 12, 53, w - 13, 53);
+                using var headingFont = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold);
+                var titleSize = g.MeasureString("Chat", headingFont);
+                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 37);
+                g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
+                int sx = w - 35;
+                g.DrawRectangle(goldPen, sx, 74, 19, 19);
+                g.DrawRectangle(goldPen, sx, h - 55, 19, 19);
+                g.DrawRectangle(goldPen, sx, 99, 19, h - 160);
+                g.FillRectangle(bronze, sx + 3, Math.Max(102, h - 125), 14, 54);
+                g.DrawString("▲", new System.Drawing.Font("Arial", 10), bright, sx + 2, 75);
+                g.DrawString("▼", new System.Drawing.Font("Arial", 10), bright, sx + 2, h - 54);
+                using var messageFont = new System.Drawing.Font("Tahoma", 10, System.Drawing.FontStyle.Bold);
+                float yText = 69;
+                var rows = renderedMessages.Count == 0
+                    ? new System.Collections.Generic.List<(string User, string Body)> { ("", "Connecting to live chat...") }
+                    : renderedMessages;
+                for (int i = Math.Max(0, rows.Count - 18); i < rows.Count; i++)
+                {
+                    var row = rows[i];
+                    string line = (row.User.Length == 0 ? "" : row.User + ": ") + row.Body;
+                    var bounds = new System.Drawing.RectangleF(24, yText, Math.Max(1, w - 70), h - 92 - yText);
+                    if (bounds.Height <= 0) break;
+                    using var format = new System.Drawing.StringFormat();
+                    var measured = g.MeasureString(line, messageFont, (int)bounds.Width);
+                    g.DrawString(line, messageFont, row.User.Length > 0 ? bright : System.Drawing.Brushes.WhiteSmoke, bounds, format);
+                    yText += measured.Height + 2;
+                }
             };
+            // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
             frameSurface.Controls.Add(nativeMessages);
             frameSurface.Controls.Add(railTop);
@@ -390,7 +429,7 @@ internal static class Program
                 };
             }
             nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 66), Math.Max(1, frameSurface.Height - 88));
-            nativeMessages.Visible = true;
+            nativeMessages.Visible = false;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             nativeMessages.BringToFront();
