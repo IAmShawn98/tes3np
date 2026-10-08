@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-four-rails-20261008";
+    const string ChatBuild = "chat-dom-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -158,7 +158,7 @@ internal static class Program
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
         void RaiseFrame()
         {
-            foreach (var rail in new[] {railTop,railLeft,railRight,railBottom,titleBar,titleText}) rail.BringToFront();
+            // Frame is rendered inside the browser DOM, so no native rails are needed.
             return;
             // WebView2 has its own native HWND. Managed BringToFront alone
             // does not reliably win when the browser surface is recreated.
@@ -182,7 +182,7 @@ internal static class Program
         const int HeaderCrop = 48;
         void FitWebView()
         {
-            chatViewport.SetBounds(15, 53, Math.Max(1, ClientSize.Width - 30), Math.Max(1, ClientSize.Height - 69));
+            chatViewport.SetBounds(0, 0, Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
             railTop.SetBounds(0, 0, ClientSize.Width, 7);
             railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
             railRight.SetBounds(Math.Max(0, ClientSize.Width - 15), 7, 15, Math.Max(1, ClientSize.Height - 7));
@@ -191,8 +191,7 @@ internal static class Program
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
             Invalidate();
-            foreach (var rail in new[] {railTop,railLeft,railRight,railBottom,titleBar,titleText})
-                rail.BringToFront();
+
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
         }
@@ -281,8 +280,7 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
-            foreach (var rail in new[] {railTop,railLeft,railRight,railBottom,titleBar,titleText})
-                Controls.Add(rail);
+            // No WinForms decorations: avoid WebView2 airspace conflicts.
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
