@@ -10,6 +10,39 @@ internal static class Program
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [StructLayout(LayoutKind.Sequential)]
+    struct SCROLLINFO { public uint cbSize, fMask; public int nMin, nMax; public uint nPage; public int nPos, nTrackPos; }
+    [DllImport("user32.dll")] static extern bool GetScrollInfo(IntPtr hwnd, int bar, ref SCROLLINFO info);
+    bool ChatScrollInfo(out SCROLLINFO info)
+    {
+        info = new SCROLLINFO { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<SCROLLINFO>(), fMask = 0x17 };
+        return nativeMessages.IsHandleCreated && GetScrollInfo(nativeMessages.Handle, 1, ref info);
+    }
+    int ChatThumbY(int height, out int thumbHeight)
+    {
+        int track = Math.Max(1, height - 54);
+        if (!ChatScrollInfo(out var info) || info.nMax <= info.nMin || info.nPage == 0)
+        { thumbHeight = track; return 27; }
+        int total = Math.Max(1, info.nMax - info.nMin + 1);
+        thumbHeight = Math.Clamp((int)((long)track * info.nPage / total), 20, track);
+        int maxPos = Math.Max(info.nMin, info.nMax - (int)info.nPage + 1);
+        return 27 + (int)((long)Math.Clamp(info.nPos - info.nMin, 0, maxPos - info.nMin)
+            * (track - thumbHeight) / Math.Max(1, maxPos - info.nMin));
+    }
+    void ScrollChatToThumb(int y, int dragOffset)
+    {
+        if (!ChatScrollInfo(out var info)) return;
+        int track = Math.Max(1, goldScrollbar.Height - 54);
+        ChatThumbY(goldScrollbar.Height, out int thumbHeight);
+        int maxPos = Math.Max(info.nMin, info.nMax - (int)info.nPage + 1);
+        int travel = Math.Max(1, track - thumbHeight);
+        int relative = Math.Clamp(y - dragOffset - 27, 0, travel);
+        int target = info.nMin + (int)((long)relative * (maxPos - info.nMin) / travel);
+        SendMessage(nativeMessages.Handle, 0x0115, new IntPtr((target << 16) | 5), IntPtr.Zero);
+        SendMessage(nativeMessages.Handle, 0x0115, new IntPtr((target << 16) | 4), IntPtr.Zero);
+        goldScrollbar.Invalidate();
+    }
+
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -492,7 +525,9 @@ internal static class Program
                         new System.Drawing.Rectangle(0, 46, image.Width, Math.Min(30, h - 27 - y)), System.Drawing.GraphicsUnit.Pixel);
                 g.DrawImage(image, new System.Drawing.Rectangle(0, h - 27, w, 27),
                     new System.Drawing.Rectangle(0, image.Height - 27, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
-                g.DrawImage(image, new System.Drawing.Rectangle(0, Math.Max(28, h - 75), w, 39),
+                ChatThumbY(h, out int thumbHeight);
+                int thumbY = ChatThumbY(h, out thumbHeight);
+                g.DrawImage(image, new System.Drawing.Rectangle(0, thumbY, w, thumbHeight),
                     new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
             };
             goldScrollbar.MouseWheel += (_, e) =>
@@ -501,21 +536,35 @@ internal static class Program
                     SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Delta > 0 ? 0 : 1), IntPtr.Zero);
             };
             nativeMessages.MouseWheel += (_, _) => goldScrollbar.Invalidate();
+            int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
                 if (!nativeMessages.IsHandleCreated) return;
-                // Move the real text viewport when using the arrow buttons.
                 if (e.Y < 27 || e.Y >= goldScrollbar.Height - 27)
-                    SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero,
-                        new IntPtr(e.Y < 27 ? -3 : 3));
+                {
+                    SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Y < 27 ? 0 : 1), IntPtr.Zero);
+                }
+                else
+                {
+                    int thumbY = ChatThumbY(goldScrollbar.Height, out int thumbHeight);
+                    dragOffset = e.Y >= thumbY && e.Y < thumbY + thumbHeight
+                        ? e.Y - thumbY : thumbHeight / 2;
+                    goldScrollbar.Capture = true;
+                    ScrollChatToThumb(e.Y, dragOffset);
+                }
                 goldScrollbar.Invalidate();
             };
             goldScrollbar.MouseMove += (_, e) =>
             {
-                if (e.Button != MouseButtons.Left || !nativeMessages.IsHandleCreated) return;
-                int usable = Math.Max(1, goldScrollbar.Height - 54);
-                int fraction = Math.Clamp(e.Y - 27, 0, usable);
-                SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(4 + (fraction * 65535 / usable << 16)), IntPtr.Zero);
+                if (dragOffset < 0 || e.Button != MouseButtons.Left) return;
+                ScrollChatToThumb(e.Y, dragOffset);
+            };
+            goldScrollbar.MouseUp += (_, _) =>
+            {
+                dragOffset = -1;
+                goldScrollbar.Capture = false;
+                if (nativeMessages.IsHandleCreated)
+                    SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(8), IntPtr.Zero);
                 goldScrollbar.Invalidate();
             };
             foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
@@ -595,6 +644,7 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
+                if (nativeMode && goldScrollbar.Visible) goldScrollbar.Invalidate();
             };
             watch.Start();
         }
