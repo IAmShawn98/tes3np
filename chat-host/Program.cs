@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-single-frame-20261008";
+    const string ChatBuild = "chat-host-painted-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -154,7 +154,7 @@ internal static class Program
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
         void RaiseFrame()
         {
-            if (!frame.IsHandleCreated || !frame.Visible || signInExpanded) return;
+            return; // Frame is painted by the host, outside the child browser HWND.
             // WebView2 has its own native HWND. Managed BringToFront alone
             // does not reliably win when the browser surface is recreated.
             frame.BringToFront();
@@ -181,10 +181,9 @@ internal static class Program
             titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 35);
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
-            frame.Bounds = new System.Drawing.Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
+            Invalidate();
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
-            RaiseFrame();
         }
         bool docked;
         bool signInExpanded;
@@ -257,11 +256,11 @@ internal static class Program
                 using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
                 using var titleFont = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
                 g.FillRectangle(rim, 0, 0, w, h);
-                g.FillRectangle(metal, 3, 3, w - 6, 36);
-                g.FillRectangle(titleFill, 7, 40, w - 14, h - 47);
+                g.FillRectangle(metal, 3, 3, w - 6, 49);
+                g.FillRectangle(titleFill, 15, 53, w - 30, h - 69);
                 g.DrawRectangle(shadow, 5, 5, w - 11, h - 11);
                 g.DrawRectangle(highlight, 2, 2, w - 5, h - 5);
-                g.DrawLine(shadow, 6, 39, w - 7, 39);
+                g.DrawLine(shadow, 6, 50, w - 7, 50);
                 var size = g.MeasureString("Chat", titleFont);
                 g.FillRectangle(titleFill, (w - size.Width) / 2 - 16, 4, size.Width + 32, 31);
                 g.DrawString("Chat", titleFont, gold, (w - size.Width) / 2, 7);
@@ -271,8 +270,7 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
-            Controls.Add(frame);
-            frame.BringToFront();
+            // Draw the frame on the host itself; the browser is confined to the inset viewport.
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
