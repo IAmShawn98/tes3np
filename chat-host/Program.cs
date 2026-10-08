@@ -1799,6 +1799,15 @@ metrics();
                         benefit.textContent = 'Login to Discord and enhance your experience with Nerevarine Prophecies! Once you login, you will receive out-of-game alerts for happy hour, boss spawning, and more!';
                         form.appendChild(benefit);
                       }
+                      // The Log In button may be outside Discord's <form>.
+                      // Move the explanation immediately after the button row.
+                      const submit = [...document.querySelectorAll('button')]
+                        .find(button => /^(log in|login)$/i.test((button.innerText || '').trim()));
+                      if (submit) {
+                        const row = submit.parentElement;
+                        if (row && !row.contains(benefit)) row.insertAdjacentElement('afterend', benefit);
+                        else if (row) submit.insertAdjacentElement('afterend', benefit);
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -1823,11 +1832,11 @@ metrics();
                         [data-tes3np-login] * { box-sizing:border-box !important; }
                         [data-tes3np-login-benefit] {
                           display:block !important;
-                          margin:22px 4px 0 !important;
-                          padding:12px 4px 0 !important;
+                          margin:12px 4px 0 !important;
+                          padding:10px 4px 0 !important;
                           border-top:1px solid #70532c !important;
                           color:#ddc99d !important;
-                          font:15px/1.45 Georgia,'Times New Roman',serif !important;
+                          font:14px/1.35 Georgia,'Times New Roman',serif !important;
                           text-align:center !important;
                           white-space:normal !important;
                         }
