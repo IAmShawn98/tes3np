@@ -1,0 +1,31 @@
+/* TES3NP chat appearance - edit and save; launcher reloads automatically. */
+:root,html,body,#app-mount { background:#1d1811!important;color:#ead7ae!important; }
+[class*="guilds_"],[class*="sidebar_"],[class*="sidebarList_"],
+[class*="membersWrap_"],[class*="members_"],[class*="panels_"],
+[class*="form_"],[class*="channelTextArea_"],[class*="toolbar_"],
+[class*="notice_"],[class*="titleWrapper_"],[class*="upperContainer_"],
+[class*="chatHeaderBar_"],[class*="jumpToPresentBar_"],[class*="newMessagesBar_"],
+[class*="typing_"],[class*="avatar_"],[class*="botTag_"],
+[class*="buttons_"],[class*="channelName_"],[class*="chatHeader_"],
+[class*="searchBar_"],[class*="topic_"],[class*="titleContainer_"],
+[class*="threadSidebar_"],[class*="sidebarRegion_"],[class*="pageHeader_"],
+[class*="welcomeMessage_"],[class*="messageToolbar_"],
+[class*="buttonContainer_"] {display:none!important}
+[class*="base_"],[class*="content_"],[class*="chat_"],
+[class*="chatContent_"],[class*="messagesWrapper_"],[class*="scroller_"] {
+ width:100%!important;max-width:100%!important;min-width:0!important;
+ margin:0!important;padding-left:0!important;padding-right:0!important;
+ background:#1d1811!important;border:0!important
+}
+[data-list-id="chat-messages"] {padding:4px 0 8px!important}
+[class*="message_"] {min-height:0!important;padding:5px 8px!important;margin:0!important;background:transparent!important}
+[class*="messageContent_"],[class*="markup_"] {
+ font:13px/1.4 Georgia,"Palatino Linotype",serif!important;
+ color:#ead7ae!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important
+}
+[class*="username_"] {font:bold 12px Georgia,serif!important;color:#d9b978!important}
+[class*="timestamp_"],[class*="divider_"],[class*="repliedMessage_"],
+[class*="messageAccessories_"],[class*="reaction_"] {display:none!important}
+::-webkit-scrollbar{width:6px!important}
+::-webkit-scrollbar-track{background:#241b12!important}
+::-webkit-scrollbar-thumb{background:#94744a!important;border-radius:3px!important}
