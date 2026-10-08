@@ -92,7 +92,7 @@ internal static class Program
             base.OnResize(e);
             if (Width < 30 || Height < 60) return;
             using var outline = new System.Drawing.Region(new System.Drawing.Rectangle(0, 0, Width, Height));
-            outline.Exclude(new System.Drawing.Rectangle(11, 45, Width - 22, Height - 57));
+            outline.Exclude(new System.Drawing.Rectangle(15, 53, Width - 30, Height - 69));
             Region = outline.Clone();
             Invalidate();
         }
@@ -107,16 +107,16 @@ internal static class Program
             using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(63, 43, 22), 2);
             using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(220, 187, 120));
             using var font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
-            g.FillRectangle(bronze, 0, 0, w, 45);
-            g.FillRectangle(bronze, 0, 45, 11, h - 45);
-            g.FillRectangle(bronze, w - 11, 45, 11, h - 45);
-            g.FillRectangle(bronze, 0, h - 12, w, 12);
+            g.FillRectangle(bronze, 0, 0, w, 53);
+            g.FillRectangle(bronze, 0, 53, 15, h - 53);
+            g.FillRectangle(bronze, w - 15, 53, 15, h - 53);
+            g.FillRectangle(bronze, 0, h - 16, w, 16);
             // Deterministic weathered bronze flecks approximate the in-game metalwork.
             var rng = new Random(5318);
             for (int n = 0; n < w * 2; n++)
             {
                 int x = rng.Next(w), y = rng.Next(h);
-                if (y >= 43 && x >= 11 && x < w - 11 && y < h - 12) continue;
+                if (y >= 53 && x >= 15 && x < w - 15 && y < h - 16) continue;
                 int v = rng.Next(0, 3);
                 using var fleck = new System.Drawing.SolidBrush(
                     v == 0 ? System.Drawing.Color.FromArgb(62, 45, 24) :
@@ -126,7 +126,7 @@ internal static class Program
             }
             g.DrawRectangle(gold, 2, 2, w - 5, h - 5);
             g.DrawRectangle(inner, 6, 6, w - 13, h - 13);
-            g.DrawLine(gold, 8, 42, w - 9, 42);
+            g.DrawLine(gold, 8, 50, w - 9, 50);
             var size = g.MeasureString("Chat", font);
             g.FillRectangle(dark, (w - size.Width) / 2 - 17, 5, size.Width + 34, 34);
             g.DrawString("Chat", font, ink, (w - size.Width) / 2, 8);
@@ -177,7 +177,7 @@ internal static class Program
         const int HeaderCrop = 48;
         void FitWebView()
         {
-            chatViewport.SetBounds(11, 45, Math.Max(1, ClientSize.Width - 22), Math.Max(1, ClientSize.Height - 57));
+            chatViewport.SetBounds(15, 53, Math.Max(1, ClientSize.Width - 30), Math.Max(1, ClientSize.Height - 69));
             titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 35);
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
