@@ -294,6 +294,7 @@ window.setMessages=function(messages,prepended=false){
   const anchor=[...feed.children].find(el=>el.getBoundingClientRect().bottom>feed.getBoundingClientRect().top);
   const anchorId=anchor?.dataset.id;
   const anchorY=anchor?.getBoundingClientRect().top;
+  const pinnedAtOldest=userHasScrolled && feed.scrollTop<=3;
   const wanted=new Set(messages.map(m=>m.id));
   for(const [id,row] of existing)if(!wanted.has(id))row.remove();
   let next=null;
@@ -319,13 +320,14 @@ window.setMessages=function(messages,prepended=false){
     if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
     next=row;
   }
-  if(userHasScrolled && anchorId){
+  if(userHasScrolled && anchorId && !pinnedAtOldest){
     const kept=[...feed.children].find(el=>el.dataset.id===anchorId);
     if(kept)feed.scrollTop+=kept.getBoundingClientRect().top-anchorY;
   }
   // Follow live chat only if the user was already at the bottom.
   // Prepending history must never force either end of the scrollbar.
   if(!userHasScrolled)feed.scrollTop=feed.scrollHeight;
+  else if(prepended && pinnedAtOldest)feed.scrollTop=0;
   else if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
   metrics();
 };
@@ -545,6 +547,7 @@ metrics();
         DateTime historyBackoffUntil = DateTime.MinValue;
         DateTime historyNavigationStarted = DateTime.MinValue;
         DateTime historyLastProgress = DateTime.MinValue;
+        DateTime historyLastReanchor = DateTime.MinValue;
         bool historyAwaitingNavigation;
         async Task LoadOlderMessages()
         {
@@ -568,21 +571,18 @@ metrics();
                 // ExecuteScriptAsync waits for the JavaScript evaluation to finish.
                 // Avoid the DevTools input dispatcher: it hangs in hidden WebView2.
                 // Schedule the second movement asynchronously inside the page.
-                if (historyAwaitingNavigation)
-                {
-                    historyAwaitingNavigation = false;
-                    historyNoProgressCount = 0;
-                }
-                int attempt = ++historyNoProgressCount;
+                int attempt = historyNoProgressCount + 1;
                 // Discord can stop paging after its virtual list drops older rows.
                 // Re-enter the channel at the oldest known message to let Discord
                 // initialize a fresh window around that message. The native
                 // renderer keeps the already-collected history across navigation.
                 if (attempt >= 3 && oldest != ulong.MaxValue &&
-                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromSeconds(3))
+                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromSeconds(6) &&
+                    DateTime.UtcNow - historyLastReanchor >= TimeSpan.FromSeconds(8))
                 {
                     historyNoProgressCount = 0;
                     historyNavigationStarted = DateTime.UtcNow;
+                    historyLastReanchor = DateTime.UtcNow;
                     historyAwaitingNavigation = true;
                     historyBackoffUntil = DateTime.UtcNow.AddSeconds(1);
                     string olderWindow = Channel + "/" + oldest;
@@ -638,19 +638,19 @@ metrics();
                         ' loading=' + loading;
                     })();
                     """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
+                if (result.Contains("no-message-list") || result.Contains("no-scroller"))
+                {
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(500);
+                    Log("History waiting for Discord message list: " + result);
+                    return;
+                }
+                historyAwaitingNavigation = false;
+                historyNoProgressCount = attempt;
                 if (result.Contains("loading=true"))
                 {
                     historyNoProgressCount = Math.Max(0, historyNoProgressCount - 1);
                     historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(700);
                     Log("History waiting for Discord pagination: " + result);
-                    return;
-                }
-                if (result.Contains("no-message-list") || result.Contains("no-scroller"))
-                {
-                    historyNoProgressCount = Math.Max(0, historyNoProgressCount - 1);
-                    historyStallCount = 0;
-                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(900);
-                    Log("History waiting for Discord message list: " + result);
                     return;
                 }
                 Log("History scroll (" + scriptMode + ", attempt=" + attempt + "): " + result);
