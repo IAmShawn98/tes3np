@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-layout-20261008-c";
+    const string ChatBuild = "chat-frame-zorder-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -132,6 +132,17 @@ internal static class Program
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
+        void RaiseFrame()
+        {
+            if (!frame.IsHandleCreated || !frame.Visible || signInExpanded) return;
+            // WebView2 has its own native HWND. Managed BringToFront alone
+            // does not reliably win when the browser surface is recreated.
+            frame.BringToFront();
+            const uint SWP_NOMOVE = 0x0002, SWP_NOSIZE = 0x0001,
+                       SWP_NOACTIVATE = 0x0010, SWP_SHOWWINDOW = 0x0040;
+            SetWindowPos(frame.Handle, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
         void EnforceChatClip()
         {
             if (!web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
@@ -142,6 +153,7 @@ internal static class Program
                 Log("Unable to set WebView clip region");
             titleBar.BringToFront();
             titleText.BringToFront();
+            RaiseFrame();
         }
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
@@ -155,6 +167,7 @@ internal static class Program
             if (frame.Visible) { frame.Bounds = new System.Drawing.Rectangle(0, 0, ClientSize.Width, ClientSize.Height); frame.BringToFront(); }
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
+            RaiseFrame();
         }
         bool docked;
         bool signInExpanded;
@@ -245,6 +258,7 @@ internal static class Program
             Controls.Add(titleText);
             Controls.Add(frame);
             frame.BringToFront();
+            frame.Handle.ToString(); // Force creation of native frame HWND before WebView2 initializes.
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
@@ -294,7 +308,7 @@ internal static class Program
                 if (!IsWindow(owner)) { Close(); return; }
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
-                if (docked) EnforceChatClip();
+                if (docked) { EnforceChatClip(); RaiseFrame(); }
             };
             watch.Start();
         }
