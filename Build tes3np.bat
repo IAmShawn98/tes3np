@@ -26,6 +26,14 @@ if not exist "%PACKAGE%\tes3np.exe" (
 copy /y "%PACKAGE%\tes3np.exe" "%~dp0tes3np.exe" >nul
 if errorlevel 1 goto :failed
 
+if not exist "%PACKAGE%\chat-host\tes3np.ChatHost.exe" (
+    echo WebView2 chat host was not packaged.
+    goto :failed
+)
+if not exist "%~dp0chat-host" mkdir "%~dp0chat-host"
+xcopy /e /i /y "%PACKAGE%\chat-host\*" "%~dp0chat-host\" >nul
+if errorlevel 1 goto :failed
+
 echo.
 echo ========================================
 echo             BUILD COMPLETE
