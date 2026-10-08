@@ -307,7 +307,7 @@ window.setMessages=function(messages,prepended=false){
       if(row)row.replaceWith(replacement);
       row=replacement;
     }
-    if(row.nextElementSibling!==next)feed.insertBefore(row,next);
+    if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
     next=row;
   }
   if(anchorId){
