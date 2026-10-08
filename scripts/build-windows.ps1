@@ -80,13 +80,14 @@ try {
         $text = [IO.File]::ReadAllText($_.FullName)
         foreach ($folder in @('assets','patches','scripts')) {
             $text = $text.Replace(('A_ScriptDir "\' + $folder + '\'), ('BundledResourceRoot "\' + $folder + '\'))
+            $text = $text.Replace(('A_ScriptDir "\' + $folder + '"'), ('BundledResourceRoot "\' + $folder + '"'))
         }
         [IO.File]::WriteAllText($_.FullName, $text)
     }
     # Verify all staged references after conversion, not before it.
     $stagedSources = Get-ChildItem (Join-Path $stageRoot 'src') -Filter '*.ahk' -Recurse | Where-Object { $_.Name -ne 'bundled-resources.generated.ahk' }
     foreach ($stagedFile in $stagedSources) {
-        if ([IO.File]::ReadAllText($stagedFile.FullName) -match 'A_ScriptDir\s+"\\(assets|patches|scripts)\\') { throw "Unconverted resource path in $($stagedFile.FullName)" }
+        if ([IO.File]::ReadAllText($stagedFile.FullName) -match 'A_ScriptDir\s+"\\(assets|patches|scripts)(\\|")') { throw "Unconverted resource path in $($stagedFile.FullName)" }
     }
     if (-not $entryText.Contains('PrepareBundledResources()' + "`n" + 'StartLauncher()')) { throw 'Could not insert resource initialization before launcher startup.' }
     $source = $stageEntry; $executable = Join-Path $package 'tes3np.exe'
