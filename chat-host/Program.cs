@@ -135,15 +135,7 @@ internal static class Program
     sealed class ChatHost : Form
     {
         readonly IntPtr owner;
-        readonly WebView2 web = new() { Dock = DockStyle.Fill };
-        readonly Form browserHost = new()
-        {
-            FormBorderStyle = FormBorderStyle.None,
-            ShowInTaskbar = false,
-            StartPosition = FormStartPosition.Manual,
-            Location = new System.Drawing.Point(-20000, -20000),
-            Size = new System.Drawing.Size(420, 600)
-        };
+        readonly WebView2 web = new() { Dock = DockStyle.None };
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
@@ -267,7 +259,8 @@ internal static class Program
             frameSurface.Invalidate();
             if (nativeMessages.Visible) nativeMessages.BringToFront();
 
-            // The browser lives in an offscreen host and never overlaps the native frame.
+            web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
+            EnforceChatClip();
         }
         bool docked;
         bool signInExpanded;
@@ -353,7 +346,7 @@ internal static class Program
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.Black;
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
-            browserHost.Controls.Add(web);
+            chatViewport.Controls.Add(web);
             frameSurface.Paint += (_, e) =>
             {
                 var g = e.Graphics;
@@ -388,7 +381,6 @@ internal static class Program
 
             Shown += async (_, _) =>
             {
-                browserHost.Show();
                 // Let WinForms finish showing the top-level host before parenting it.
                 BeginInvoke((Action)(() => DockToLauncher()));
                 try
@@ -397,6 +389,7 @@ internal static class Program
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
                     Log("WebView2 initialized");
@@ -428,10 +421,9 @@ internal static class Program
                 if (!IsWindow(owner)) { Close(); return; }
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
-
+                if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
             };
-            FormClosed += (_, _) => browserHost.Close();
             watch.Start();
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
@@ -494,14 +486,12 @@ internal static class Program
             if (web.CoreWebView2 == null) return;
             var url = web.CoreWebView2.Source;
             Log("Navigation completed: " + url);
+            EnforceChatClip();
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             if (login && !signInExpanded)
             {
                 signInExpanded = true;
-                browserHost.Hide();
-                web.Parent = chatViewport;
-                web.Dock = DockStyle.Fill;
                 nativeMode = false;
                 nativeMessages.Visible = false;
                 web.Visible = true;
@@ -517,10 +507,6 @@ internal static class Program
             if (!login && signInExpanded)
             {
                 signInExpanded = false;
-                web.Parent = browserHost;
-                web.Dock = DockStyle.Fill;
-                browserHost.Location = new System.Drawing.Point(-20000, -20000);
-                browserHost.Show();
                 DockToLauncher();
             }
             if (!login)
