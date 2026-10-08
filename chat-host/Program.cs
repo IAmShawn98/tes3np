@@ -544,6 +544,7 @@ metrics();
         int historyNoProgressCount;
         DateTime historyBackoffUntil = DateTime.MinValue;
         DateTime historyNavigationStarted = DateTime.MinValue;
+        DateTime historyLastProgress = DateTime.MinValue;
         bool historyAwaitingNavigation;
         async Task LoadOlderMessages()
         {
@@ -561,6 +562,7 @@ metrics();
                     lastHistoryOldestId = oldest;
                     historyStallCount = 0;
                     historyNoProgressCount = 0;
+                    historyLastProgress = DateTime.UtcNow;
                     Log("History advanced; oldest message: " + oldest);
                 }
                 // ExecuteScriptAsync waits for the JavaScript evaluation to finish.
@@ -576,7 +578,8 @@ metrics();
                 // Re-enter the channel at the oldest known message to let Discord
                 // initialize a fresh window around that message. The native
                 // renderer keeps the already-collected history across navigation.
-                if (attempt >= 3 && oldest != ulong.MaxValue)
+                if (attempt >= 3 && oldest != ulong.MaxValue &&
+                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromSeconds(3))
                 {
                     historyNoProgressCount = 0;
                     historyNavigationStarted = DateTime.UtcNow;
@@ -635,6 +638,13 @@ metrics();
                         ' loading=' + loading;
                     })();
                     """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
+                if (result.Contains("loading=true"))
+                {
+                    historyNoProgressCount = Math.Max(0, historyNoProgressCount - 1);
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(700);
+                    Log("History waiting for Discord pagination: " + result);
+                    return;
+                }
                 if (result.Contains("no-message-list") || result.Contains("no-scroller"))
                 {
                     historyNoProgressCount = Math.Max(0, historyNoProgressCount - 1);
