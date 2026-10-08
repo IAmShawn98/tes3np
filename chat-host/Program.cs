@@ -1777,6 +1777,25 @@ metrics();
                           el.style.setProperty('display', 'none', 'important');
                         }
                       }
+                      // Hide the remaining plain-text recovery/account prompts.
+                      // Discord may wrap links in a parent text container, so
+                      // target the exact text nodes instead of the parent form.
+                      const unwanted = /^(forgot your password\\??|need an account\\??|register)$/i;
+                      const walker = document.createTreeWalker(form, NodeFilter.SHOW_TEXT);
+                      const textNodes = [];
+                      while (walker.nextNode()) textNodes.push(walker.currentNode);
+                      for (const node of textNodes) {
+                        const value = (node.textContent || '').trim();
+                        if (!unwanted.test(value)) continue;
+                        const parent = node.parentElement;
+                        if (!parent) continue;
+                        if (parent.childNodes.length === 1 &&
+                            !parent.querySelector('input,button')) {
+                          parent.style.setProperty('display', 'none', 'important');
+                        } else {
+                          node.textContent = '';
+                        }
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
