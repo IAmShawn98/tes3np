@@ -79,6 +79,39 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         Application.Run(new ChatHost(new IntPtr(owner)));
     }
+    sealed class FrameOverlay : Control
+    {
+        public FrameOverlay()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = System.Drawing.Color.Transparent;
+        }
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (Width < 30 || Height < 60) return;
+            using var outline = new System.Drawing.Region(new System.Drawing.Rectangle(0, 0, Width, Height));
+            outline.Exclude(new System.Drawing.Rectangle(11, 45, Width - 22, Height - 57));
+            Region = outline.Clone();
+            Invalidate();
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(133, 97, 47));
+            using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(209, 175, 105), 3);
+            using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(17, 13, 9));
+            using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(222, 188, 117));
+            using var font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
+            g.FillRectangle(bronze, 0, 0, Width, 44);
+            g.FillRectangle(dark, 0, 44, Width, Height - 44);
+            g.DrawRectangle(gold, 2, 2, Width - 5, Height - 5);
+            var size = g.MeasureString("Chat", font);
+            g.FillRectangle(dark, (Width - size.Width) / 2 - 15, 5, size.Width + 30, 32);
+            g.DrawString("Chat", font, ink, (Width - size.Width) / 2, 8);
+        }
+    }
     sealed class ChatHost : Form
     {
         readonly IntPtr owner;
@@ -87,6 +120,7 @@ internal static class Program
         // from covering the custom frame and title.
         readonly Panel chatViewport = new() { BackColor = System.Drawing.Color.FromArgb(9, 8, 7), Margin = Padding.Empty };
         readonly Panel titleBar = new() { BackColor = System.Drawing.Color.FromArgb(115, 85, 43) };
+        readonly FrameOverlay frame = new();
         readonly Label titleText = new() {
             Text = "Chat", TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
             ForeColor = System.Drawing.Color.FromArgb(224, 194, 131),
@@ -118,6 +152,7 @@ internal static class Program
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
             titleBar.BringToFront();
             titleText.BringToFront();
+            if (frame.Visible) { frame.Bounds = new System.Drawing.Rectangle(0, 0, ClientSize.Width, ClientSize.Height); frame.BringToFront(); }
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
         }
@@ -208,6 +243,8 @@ internal static class Program
             Controls.Add(chatViewport);
             Controls.Add(titleBar);
             Controls.Add(titleText);
+            Controls.Add(frame);
+            frame.BringToFront();
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
