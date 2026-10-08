@@ -233,12 +233,15 @@ CleanupLauncher(*)
 OfferFirstRunSetup(*)
 {
     global SetupComplete
-    ; The standalone launcher belongs next to tes3mp.exe. Existing source
-    ; installations retain their previous startup behavior.
-    if A_IsCompiled && FileExist(A_ScriptDir "\tes3mp.exe") && !SetupComplete
+    ; Compiled launcher: desktop shortcut is offered only after a successful
+    ; patch installation, never merely because a previous setup flag exists.
+    if A_IsCompiled
     {
-        if MsgBox("Set up Nerevarine Prophecies for this TES3MP installation now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
-            OpenPatcher()
+        if !SetupComplete
+        {
+            if MsgBox("Set up Nerevarine Prophecies for this TES3MP installation now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
+                OpenPatcher()
+        }
         return
     }
     OfferDesktopShortcutOnFirstLaunch()
