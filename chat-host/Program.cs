@@ -217,7 +217,7 @@ internal static class Program
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
         readonly Button joinDiscord = new()
         {
-            Text = "Join Discord",
+            Text = "Join Us On Discord!",
             FlatStyle = FlatStyle.Flat,
             BackColor = System.Drawing.Color.FromArgb(67, 46, 24),
             ForeColor = System.Drawing.Color.FromArgb(255, 226, 163),
@@ -386,8 +386,8 @@ internal static class Program
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 119));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 152) / 2),
-                Math.Max(1, frameSurface.Height - 53), 152, 30);
+            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 208) / 2),
+                Math.Max(1, frameSurface.Height - 53), 208, 30);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 115));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -625,6 +625,24 @@ internal static class Program
             frameSurface.Controls.Add(titleBar);
             joinDiscord.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(185, 148, 79);
             joinDiscord.FlatAppearance.BorderSize = 1;
+            joinDiscord.Paint += (_, e) =>
+            {
+                // Small Discord-inspired controller mark to the left of the label.
+                var g = e.Graphics;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var iconBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(190, 176, 255));
+                using var eyeBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(67, 46, 24));
+                using var shape = new System.Drawing.Drawing2D.GraphicsPath();
+                shape.AddBezier(10, 11, 13, 7, 23, 7, 26, 11);
+                shape.AddBezier(26, 11, 29, 17, 29, 21, 25, 22);
+                shape.AddLine(25, 22, 22, 19);
+                shape.AddBezier(22, 19, 18, 21, 15, 21, 13, 19);
+                shape.AddLine(13, 19, 10, 22);
+                shape.AddBezier(10, 22, 7, 21, 7, 16, 10, 11);
+                g.FillPath(iconBrush, shape);
+                g.FillEllipse(eyeBrush, 14, 14, 3, 4);
+                g.FillEllipse(eyeBrush, 21, 14, 3, 4);
+            };
             joinDiscord.Click += (_, _) =>
             {
                 try
@@ -737,8 +755,8 @@ internal static class Program
             }
             messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 119));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 152) / 2),
-                Math.Max(1, frameSurface.Height - 53), 152, 30);
+            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 208) / 2),
+                Math.Max(1, frameSurface.Height - 53), 208, 30);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 115));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
