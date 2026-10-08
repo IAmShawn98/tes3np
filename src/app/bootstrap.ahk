@@ -108,6 +108,7 @@ CreateLauncherChatToggle()
     OnMessage(0x0111, LauncherChatCommandClick)
     ; The chat host reports its actual open/closed state after every change.
     OnMessage(0x8332, LauncherChatStateChanged)
+    OnMessage(0x8333, LauncherPickleKillAlert)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
     LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
@@ -186,6 +187,15 @@ ToggleLauncherChat(*)
 {
     ; Do not guess the new state: automatic mode can open/close chat itself.
     SendLauncherChatCommand(1)
+}
+LauncherPickleKillAlert(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui
+    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+        return
+    TrayTip("Pickle killed someone in Nerevarine Prophecies!", "TES3NP Kill Alert", 0x1)
+    LogLauncherEvent("Game Chat alert: Pickle killed a player.")
+    return 0
 }
 LauncherChatStateChanged(wParam, lParam, msg, hwnd)
 {
