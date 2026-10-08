@@ -1693,7 +1693,7 @@ metrics();
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
         }
-        // Restyle only Discord's existing login form. Credentials remain in Discord.
+        // Keep Discord's own inputs and authentication handlers intact.
         async Task StyleDiscordLogin()
         {
             if (web.CoreWebView2 == null || closingChat) return;
@@ -1701,60 +1701,57 @@ metrics();
             {
                 await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
-                      if (!location.pathname.startsWith('/login')) return;
-                      const pass = document.querySelector('input[type=password]');
-                      if (!pass) return;
-                      const form = pass.closest('form');
+                      if (location.pathname !== '/login') return;
+                      const password = document.querySelector('input[type=password]');
+                      const form = password?.closest('form');
                       if (!form) return;
-                      form.setAttribute('data-tes3np-login', 'true');
+                      form.setAttribute('data-tes3np-login', '');
                       let style = document.getElementById('tes3np-login-theme');
                       if (!style) {
                         style = document.createElement('style');
                         style.id = 'tes3np-login-theme';
                         document.head.appendChild(style);
                       }
-                      // Mark the original Discord layout containers, avoiding
-                      // form controls and MFA/captcha elements.
-                      let node = form.parentElement;
-                      for (let i = 0; node && i < 5 && node !== document.body; i++, node = node.parentElement)
-                        node.setAttribute('data-tes3np-login-wrap', String(i));
-                      const heading = document.querySelector('[data-tes3np-login-heading]');
-                      if (!heading) {
+                      if (!form.querySelector('[data-tes3np-login-heading]')) {
                         const title = document.createElement('div');
-                        title.setAttribute('data-tes3np-login-heading', 'true');
+                        title.setAttribute('data-tes3np-login-heading', '');
                         title.textContent = 'Sign in to Discord';
                         form.prepend(title);
                       }
-                      // The wordmark is outside the login form. Hide decorative
-                      // SVG/images there, but never hide anything inside the form.
-                      const outer = form.parentElement?.parentElement;
-                      if (outer) for (const el of outer.querySelectorAll('svg,img')) {
-                        if (!form.contains(el) && !el.closest('button,a,[role=button]'))
-                          el.style.display = 'none';
+                      // Hide the Discord logo and welcome panels by hiding
+                      // non-form siblings along the login container hierarchy.
+                      // Keep form siblings with controls (MFA, QR fallback, etc).
+                      let branch = form;
+                      for (let level = 0; level < 6; level++) {
+                        const parent = branch.parentElement;
+                        if (!parent || parent.id === 'app-mount' || parent === document.body) break;
+                        for (const sibling of parent.children) {
+                          if (sibling === branch || sibling.contains(form)) continue;
+                          if (sibling.querySelector('input,button,[role=button]')) continue;
+                          if (sibling.querySelector('svg,img,h1,h2,h3') &&
+                              !sibling.querySelector('form')) sibling.style.display='none';
+                        }
+                        branch = parent;
                       }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important; }
-                        [data-tes3np-login-wrap] {
-                          background:#090807 !important; box-shadow:none !important;
-                          border:0 !important; max-width:100% !important;
-                          min-height:0 !important; height:auto !important;
-                          margin:0 !important; padding:0 !important;
-                        }
                         [data-tes3np-login] {
+                          position:fixed !important; top:32px !important;
+                          left:0 !important; right:0 !important;
+                          width:100% !important; max-width:none !important;
+                          margin:0 !important; padding:8px 15px !important;
+                          background:#090807 !important; border:0 !important;
+                          box-shadow:none !important; z-index:1000 !important;
                           display:flex !important; flex-direction:column !important;
-                          gap:7px !important; margin:0 !important;
-                          padding:10px 12px !important; width:100% !important;
-                          max-width:100% !important; min-height:0 !important;
-                          background:#090807 !important; box-shadow:none !important;
+                          gap:5px !important; box-sizing:border-box !important;
                           font-family:Georgia,'Times New Roman',serif !important;
                         }
                         [data-tes3np-login] * { box-sizing:border-box !important; }
                         [data-tes3np-login-heading] {
-                          color:#d9b469 !important; text-align:center !important;
+                          text-align:center !important; color:#d9b469 !important;
                           font:20px Georgia,serif !important;
-                          padding:12px 0 9px !important;
-                          margin:0 0 6px !important;
+                          padding:0 0 8px !important; margin:0 0 5px !important;
                           border-bottom:1px solid #70532c !important;
                         }
                         [data-tes3np-login] label {
@@ -1764,28 +1761,19 @@ metrics();
                         [data-tes3np-login] input {
                           background:#100d09 !important; color:#f3e6c5 !important;
                           border:1px solid #997644 !important; border-radius:0 !important;
-                          height:35px !important; min-height:35px !important;
-                          width:100% !important; padding:5px 8px !important;
-                          font:16px Georgia,serif !important; box-shadow:none !important;
+                          min-height:34px !important; height:34px !important;
+                          padding:5px 8px !important; width:100% !important;
+                          font:16px Georgia,serif !important;
                         }
-                        [data-tes3np-login] input:focus { outline:1px solid #dfb66c !important; }
                         [data-tes3np-login] button[type=submit] {
                           background:#9b7439 !important; color:#fff0cb !important;
                           border:1px solid #dfbb75 !important; border-radius:0 !important;
-                          font:17px Georgia,serif !important; min-height:36px !important;
+                          min-height:35px !important; font:17px Georgia,serif !important;
                         }
-                        [data-tes3np-login] a, [data-tes3np-login] [role=link] {
+                        [data-tes3np-login] a,[data-tes3np-login] [role=link] {
                           color:#a85a31 !important; text-decoration:underline !important;
-                          cursor:pointer !important;
                         }
                       `;
-                      // Remove the decorative welcome text without hiding form actions.
-                      const welcome = [...document.querySelectorAll('h1,h2,h3')]
-                        .find(e => /welcome back/i.test(e.textContent || ''));
-                      if (welcome && !form.contains(welcome)) {
-                        const block = welcome.parentElement;
-                        if (block && !block.contains(form)) block.style.display = 'none';
-                      }
                     })()
                     """);
             }
@@ -1826,16 +1814,18 @@ metrics();
             signInExpanded = false;
             web.Parent = chatViewport;
             web.Dock = DockStyle.None;
-            frameSurface.Visible = true;
-            chatViewport.Visible = true;
-            messageClip.Visible = true;
-            goldScrollbar.Visible = true;
+            // Keep the native frame hidden until the message renderer has content.
+            frameSurface.Visible = nativeMode;
+            chatViewport.Visible = !nativeMode;
+            messageClip.Visible = nativeMode;
+            goldScrollbar.Visible = nativeMode;
             messageBrowser.Visible = nativeMode;
             nativeMessages.Visible = false;
             web.Visible = !nativeMode;
             Text = "tes3np Chat Host";
             FitWebView();
             DockToLauncher();
+            _ = RefreshNativeMessages();
         }
         async Task UpdateViewMode()
         {
