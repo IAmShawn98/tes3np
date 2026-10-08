@@ -837,13 +837,24 @@ CheckDailyLoginSchedule(*)
                 continue
             remaining := GetScheduledEventRawRemaining(event.Time, event.TimeBasis)
         }
+        ; Detect overdue events even if the timer missed the exact zero
+        ; crossing (for example, during a long blocked GUI operation).
         crossed := event.PreviousRemaining > 0 && remaining <= 0
+        if isCountdown && event.Recurring && remaining <= -event.DurationSeconds
+        {
+            ; More than a full cycle late: skip stale occurrences and retain
+            ; the original cadence rather than showing a very old prompt.
+            SkipMissedScheduledCountdownCycles(event)
+            continue
+        }
         event.PreviousRemaining := remaining
         if crossed
             event.Due := true
         if !event.Due
             continue
 
+        if isCountdown && remaining < 0
+            LogLauncherEvent("GAME | Scheduled event '" event.Name "' handled " Abs(remaining) " seconds after its deadline.")
         gamePid := ProcessExist("tes3mp.exe")
         if Client.Enabled || gamePid
         {
@@ -943,8 +954,13 @@ CompleteScheduledEventForToday(event, reason := "completed", successful := false
     {
         ; Keep recurring countdowns anchored to their original cadence. Advancing
         ; from the exact prior boundary avoids adding scheduler/prompt delay every cycle.
-        event.StartedAt := DateAdd(event.StartedAt, event.DurationSeconds, "Seconds")
-        event.PreviousRemaining := event.DurationSeconds
+        elapsed := Max(0, DateDiff(A_Now, event.StartedAt, "Seconds"))
+        cycles := Max(1, Floor(elapsed / event.DurationSeconds) + 1)
+        event.StartedAt := DateAdd(event.StartedAt, cycles * event.DurationSeconds, "Seconds")
+        ; StartedAt is now the next boundary's anchor. Preserve a full
+        ; duration on screen while ensuring the next due check stays correct.
+        event.StartedAt := DateAdd(event.StartedAt, -event.DurationSeconds, "Seconds")
+        event.PreviousRemaining := Max(1, event.DurationSeconds - DateDiff(A_Now, event.StartedAt, "Seconds"))
         event.LastRunDate := ""
     }
     else if successful && !event.Recurring
@@ -1127,4 +1143,16 @@ StartArmedScheduledCountdown(*)
     ; button. Do not destroy and rebuild the entire scheduler page.
     UpdateScheduledEventBookRow(eventIndex)
     TrayTip("Event started", "'" event.Name "' is now running and locked.", "Iconi")
+}
+
+SkipMissedScheduledCountdownCycles(event)
+{
+    ; Advance past all missed cycles without firing stale alerts.
+    elapsed := Max(0, DateDiff(A_Now, event.StartedAt, "Seconds"))
+    cycles := Floor(elapsed / event.DurationSeconds)
+    event.StartedAt := DateAdd(event.StartedAt, cycles * event.DurationSeconds, "Seconds")
+    event.PreviousRemaining := Max(1, event.DurationSeconds - DateDiff(A_Now, event.StartedAt, "Seconds"))
+    event.Due := false
+    SaveScheduledEvents()
+    LogLauncherEvent("GAME | Scheduled event '" event.Name "' skipped " cycles " elapsed countdown cycle(s) after timer delay.")
 }
