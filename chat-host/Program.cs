@@ -201,6 +201,7 @@ internal static class Program
             Math.Max(1,track-thumbHeight);
         _ = messageBrowser.CoreWebView2.ExecuteScriptAsync(
             "window.scrollFraction(" + fraction.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")");
+        if (fraction > 0.05) historyCatchupActive = false;
         if (fraction <= 0.01)
         {
             userScrolledChat = true;
@@ -278,7 +279,7 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif
 const feed=document.getElementById('feed');
 let lastState='';
 let userHasScrolled=false;
-feed.addEventListener('wheel',()=>{userHasScrolled=true;},{passive:true});
+feed.addEventListener('wheel',e=>{userHasScrolled=true;if(e.deltaY>0)chrome.webview.postMessage({type:'history-stop'});},{passive:true});
 feed.addEventListener('pointerdown',()=>{userHasScrolled=true;});
 function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});}
 feed.addEventListener('scroll',metrics);
@@ -346,6 +347,7 @@ metrics();
                     {
                         using var doc = System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
                         var root = doc.RootElement;
+                        if (root.GetProperty("type").GetString() == "history-stop") { historyCatchupActive = false; return; }
                         if (root.GetProperty("type").GetString() != "scroll") return;
                         browserScrollTop = (int)Math.Round(root.GetProperty("top").GetDouble());
                         browserScrollHeight = (int)Math.Round(root.GetProperty("height").GetDouble());
@@ -661,11 +663,13 @@ metrics();
         }
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
+        bool historyCatchupActive;
         void RequestOlderMessages(bool forceTop = false)
         {
             if (!userScrolledChat && !forceTop) return;
             bool nearTop = forceTop || ChatFirstLine() <= 300;
-            bool canRequest = nearTop && !loadingHistory && IsHandleCreated &&
+            if (userScrolledChat && nearTop) historyCatchupActive = true;
+            bool canRequest = (nearTop || historyCatchupActive) && !loadingHistory && IsHandleCreated &&
                 nativeMode && !signInExpanded && web.CoreWebView2 != null;
             if (!canRequest)
             {
@@ -1242,6 +1246,7 @@ metrics();
                 if (!messageBrowserReady || e.Delta == 0) return;
                 int notches = Math.Max(1, Math.Abs(e.Delta) / 120);
                 int lines = 3 * notches * (e.Delta > 0 ? -1 : 1);
+                if (e.Delta < 0) historyCatchupActive = false;
                 ScrollHtml(lines * 22);
                 goldScrollbar.Invalidate();
                 if (e.Delta > 0) RequestOlderMessages();
