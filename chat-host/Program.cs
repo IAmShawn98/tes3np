@@ -444,25 +444,80 @@ metrics();
         // Discord snowflakes encode their original creation time in UTC.
         static DateTimeOffset DiscordTimestamp(ulong id) =>
             DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
-        readonly System.Collections.Generic.HashSet<ulong> loggedMessageIds = new();
+        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body)> archivedChat = new();
         readonly string gameChatLogDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TES3NP", "Logs");
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
+        string GameChatIndexFile => Path.Combine(gameChatLogDirectory, "game-chat-index.json");
         bool chatLogLoaded;
         void EnsureChatLogLoaded()
         {
             if (chatLogLoaded) return;
             Directory.CreateDirectory(gameChatLogDirectory);
-            if (File.Exists(GameChatLogFile))
+            if (File.Exists(GameChatIndexFile))
             {
+                var records = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<ChatArchiveEntry>>(
+                    File.ReadAllText(GameChatIndexFile)) ?? new();
+                foreach (var entry in records)
+                    archivedChat[entry.Id] = (entry.User ?? "", entry.Body ?? "");
+            }
+            else if (File.Exists(GameChatLogFile))
+            {
+                // One-time migration of the previous plain-text log format.
                 foreach (string line in File.ReadLines(GameChatLogFile))
                 {
-                    var match = System.Text.RegularExpressions.Regex.Match(line, @"\[discord:(\d+)\]$");
-                    if (match.Success && ulong.TryParse(match.Groups[1].Value, out ulong existingId))
-                        loggedMessageIds.Add(existingId);
+                    var match = System.Text.RegularExpressions.Regex.Match(line,
+                        @"^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] (.*?) \[discord:(\d+)\]$");
+                    if (!match.Success || !ulong.TryParse(match.Groups[2].Value, out ulong id)) continue;
+                    string content = match.Groups[1].Value;
+                    int split = content.IndexOf(": ", StringComparison.Ordinal);
+                    archivedChat[id] = split >= 0
+                        ? (content.Substring(0, split), content.Substring(split + 2))
+                        : ("", content);
                 }
+                if (archivedChat.Count > 0) SaveChatArchive();
             }
             chatLogLoaded = true;
+        }
+        public sealed class ChatArchiveEntry
+        {
+            public ulong Id { get; set; }
+            public string User { get; set; } = "";
+            public string Body { get; set; } = "";
+        }
+        void SaveChatArchive()
+        {
+            var records = archivedChat.Select(e => new ChatArchiveEntry {
+                Id = e.Key, User = e.Value.User, Body = e.Value.Body
+            }).ToArray();
+            File.WriteAllText(GameChatIndexFile, System.Text.Json.JsonSerializer.Serialize(records));
+            var output = new System.Text.StringBuilder();
+            string previousDate = "";
+            foreach (var entry in archivedChat)
+            {
+                var sent = DiscordTimestamp(entry.Key).ToLocalTime();
+                string date = sent.ToString("dddd, MMMM d, yyyy");
+                if (date != previousDate)
+                {
+                    if (output.Length > 0) output.AppendLine();
+                    output.AppendLine("========== " + date + " ==========");
+                    previousDate = date;
+                }
+                string user = entry.Value.User.Trim();
+                string body = entry.Value.Body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n").Trim();
+                // Discord groups consecutive messages under one username. Some
+                // extracted bodies therefore already begin with "Player: ".
+                if (string.IsNullOrWhiteSpace(user))
+                {
+                    var prefix = System.Text.RegularExpressions.Regex.Match(body, @"^(.+? \(\d+\)): (.*)$");
+                    if (prefix.Success) { user = prefix.Groups[1].Value; body = prefix.Groups[2].Value; }
+                }
+                else if (body.StartsWith(user + ": ", StringComparison.Ordinal))
+                    body = body.Substring(user.Length + 2);
+                if (string.IsNullOrWhiteSpace(user)) user = "System";
+                output.AppendLine($"[{sent:hh:mm:ss tt}] {user}: {body}");
+            }
+            File.WriteAllText(GameChatLogFile, output.ToString());
         }
         void LogChatMessage(ulong id, string user, string body)
         {
@@ -470,12 +525,9 @@ metrics();
             try
             {
                 EnsureChatLogLoaded();
-                if (loggedMessageIds.Contains(id)) return;
-                string time = DiscordTimestamp(id).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-                string safeBody = body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n");
-                File.AppendAllText(GameChatLogFile,
-                    $"[{time}] {user}: {safeBody} [discord:{id}]{Environment.NewLine}");
-                loggedMessageIds.Add(id);
+                if (archivedChat.ContainsKey(id)) return;
+                archivedChat[id] = (user, body);
+                SaveChatArchive();
             }
             catch (Exception ex) { Log("Game chat log write failed: " + ex.Message); }
         }
