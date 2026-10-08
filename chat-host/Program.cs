@@ -267,16 +267,17 @@ internal static class Program
         int browserScrollTop, browserScrollHeight = 1, browserClientHeight = 1;
         const string MessagePage = """
 <!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif;overflow:hidden}
-#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:6px 1px;overflow-anchor:none}
+html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif;overflow:hidden}
+#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:10px 9px;overflow-anchor:none}
 #feed::-webkit-scrollbar{display:none}
-.msg{margin:0 0 9px;white-space:pre-wrap;overflow-wrap:anywhere}
-.user{color:#dbb243}
-.time{color:#a99a80;font-size:13px;margin-right:7px;white-space:nowrap}
-.body{white-space:pre-wrap}
-.preview{display:block;max-width:100%;height:auto;margin:6px 0 3px;object-fit:contain}
+.msg{margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid #29231b;overflow-wrap:anywhere}
+.msg-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:3px;line-height:1.3}
+.user{color:#dbb243;font-size:17px;font-weight:bold}
+.time{color:#b8a98e;font:13px Georgia,serif;white-space:nowrap}
+.body{display:block;white-space:pre-wrap;line-height:1.42}
+.preview{display:block;max-width:100%;height:auto;margin:7px 0 3px;object-fit:contain}
 .placeholder{font-size:14px;color:#c9b68c}
-.date-separator{display:flex;align-items:center;gap:9px;color:#cbb990;font:13px Georgia,serif;margin:13px 2px 11px;white-space:nowrap}
+.date-separator{display:flex;align-items:center;gap:9px;color:#d9c49c;font:14px Georgia,serif;margin:16px 0 13px;white-space:nowrap}
 .date-separator:before,.date-separator:after{content:"";height:1px;background:#655237;flex:1}
 </style></head><body><div id="feed"></div><script>
 const feed=document.getElementById('feed');
@@ -310,8 +311,10 @@ window.setMessages=function(messages,prepended=false){
     if(!row||row.dataset.signature!==signature){
       const replacement=document.createElement('div');
       replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
-      const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();replacement.appendChild(time);
-      if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user+': ';replacement.appendChild(name);}
+      const header=document.createElement('div');header.className='msg-header';
+      if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user;header.appendChild(name);}
+      const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();header.appendChild(time);
+      replacement.appendChild(header);
       const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
       for(const url of m.images){
         if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
