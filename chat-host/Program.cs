@@ -313,12 +313,12 @@ internal static class Program
         readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color, string[] Images)> history = new();
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
         readonly System.Collections.Generic.HashSet<string> pendingImages = new();
-        readonly System.Collections.Generic.HashSet<string> failedImages = new();
+        readonly System.Collections.Generic.Dictionary<string, DateTime> failedImages = new();
         static readonly System.Net.Http.HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
         bool imagesNeedRedraw;
         async Task FetchChatImage(string url)
         {
-            if (imageCache.ContainsKey(url) || failedImages.Contains(url) || !pendingImages.Add(url)) return;
+            if (imageCache.ContainsKey(url) || (failedImages.TryGetValue(url, out var retryAt) && DateTime.UtcNow < retryAt) || !pendingImages.Add(url)) return;
             try
             {
                 if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
@@ -326,8 +326,12 @@ internal static class Program
                     !(uri.Host.EndsWith(".discordapp.com", StringComparison.OrdinalIgnoreCase) ||
                       uri.Host.EndsWith(".discordapp.net", StringComparison.OrdinalIgnoreCase) ||
                       uri.Host.Equals("cdn.discordapp.com", StringComparison.OrdinalIgnoreCase))) return;
-                using var response = await imageHttp.GetAsync(uri, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
+                using var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri);
+                request.Headers.Referrer = new Uri("https://discord.com/");
+                using var response = await imageHttp.SendAsync(request, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+                if (!response.IsSuccessStatusCode)
+                    throw new System.Net.Http.HttpRequestException("HTTP " + (int)response.StatusCode +
+                        " from " + uri.Host);
                 if (response.Content.Headers.ContentLength > 8_000_000) return;
                 byte[] bytes = await response.Content.ReadAsByteArrayAsync();
                 if (bytes.Length > 8_000_000) return;
@@ -346,10 +350,16 @@ internal static class Program
                 imageCache[url] = preview;
                 imagesNeedRedraw = true;
             }
-            catch (Exception ex) { Log("Chat image unavailable: " + ex.Message); failedImages.Add(url); }
+            catch (Exception ex)
+            {
+                Log("Chat image unavailable (" + (Uri.TryCreate(url, UriKind.Absolute, out var failedUri)
+                    ? failedUri.Host : "invalid URL") + "): " + ex.Message);
+                failedImages[url] = DateTime.UtcNow.AddMinutes(2);
+            }
             finally
             {
-                if (!imageCache.ContainsKey(url)) failedImages.Add(url);
+                if (!imageCache.ContainsKey(url) && !failedImages.ContainsKey(url))
+                    failedImages[url] = DateTime.UtcNow.AddMinutes(2);
                 pendingImages.Remove(url);
                 imagesNeedRedraw = true;
             }
@@ -453,7 +463,7 @@ internal static class Program
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
                     foreach (string imageUrl in images)
-                        if (!imageCache.ContainsKey(imageUrl) && !failedImages.Contains(imageUrl)) _ = FetchChatImage(imageUrl);
+                        if (!imageCache.ContainsKey(imageUrl) && (!failedImages.TryGetValue(imageUrl, out var retryTime) || DateTime.UtcNow >= retryTime)) _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
                         existing.User != user || existing.Body != body || existing.Color != color ||
                         !existing.Images.SequenceEqual(images))
@@ -496,7 +506,7 @@ internal static class Program
                             try { AppendChatImage(preview); }
                             catch (Exception ex) { Log("Chat image render error: " + ex.Message); nativeMessages.AppendText("[Image] " + imageUrl); }
                         }
-                        else if (failedImages.Contains(imageUrl)) nativeMessages.AppendText("[Image unavailable]");
+                        else if (failedImages.ContainsKey(imageUrl)) nativeMessages.AppendText("[Image unavailable]");
                         else nativeMessages.AppendText("[Loading image…]");
                     }
                     if (renderedMessages.Count < history.Count)
