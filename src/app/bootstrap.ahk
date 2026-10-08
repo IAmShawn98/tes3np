@@ -60,7 +60,7 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
     FinishLauncherStartup()
-    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1000)
+    SetTimer(OfferFirstRunSetup, -1000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -228,6 +228,20 @@ CleanupLauncher(*)
     for icon in IconHandles
         DllCall("DestroyIcon", "Ptr", icon)
     IconHandles := []
+}
+
+OfferFirstRunSetup(*)
+{
+    global SetupComplete
+    ; The standalone launcher belongs next to tes3mp.exe. Existing source
+    ; installations retain their previous startup behavior.
+    if A_IsCompiled && FileExist(A_ScriptDir "\\tes3mp.exe") && !SetupComplete
+    {
+        if MsgBox("Set up Nerevarine Prophecies for this TES3MP installation now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
+            OpenPatcher()
+        return
+    }
+    OfferDesktopShortcutOnFirstLaunch()
 }
 
 OfferDesktopShortcutOnFirstLaunch(*)
