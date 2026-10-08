@@ -132,6 +132,12 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         DllCall("gdi32\DeleteObject", "Ptr", gold)
         frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x0078C7ED, "Ptr")
         DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
+        ; The original tab has a thicker pale-gold inset frame.
+        NumPut("Int", 2, rect, 0)
+        NumPut("Int", 2, rect, 4)
+        NumPut("Int", w - 2, rect, 8)
+        NumPut("Int", h - 2, rect, 12)
+        DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
         DllCall("gdi32\DeleteObject", "Ptr", frame)
         DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
         DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", 0x00FFFFFF)
@@ -142,7 +148,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
             "UInt", 0, "Str", "Segoe UI", "Ptr")
         oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         ; Positive 90-degree escapement runs text upward from the baseline.
-        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.83),
+        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.54),
             "Int", Round(h * 0.94), "Str", "Game Chat", "Int", 9)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", font)
@@ -151,7 +157,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
         cx := Round(w * 0.35), cy := Round(h * 0.50)
         global LauncherChatOpen
-        direction := LauncherChatOpen ? 1 : -1
+        direction := LauncherChatOpen ? -1 : 1
         DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * 9, "Int", cy, "Ptr", 0)
         DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * 9, "Int", cy)
         DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - 10)
