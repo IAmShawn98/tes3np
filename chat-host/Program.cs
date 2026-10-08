@@ -568,19 +568,35 @@ internal static class Program
                 if (h < 65 || scrollbarTexture == null) return;
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
                 var image = scrollbarTexture;
-                // Preserve the original arrows and thumb dimensions while tiling the track.
+                // Keep the Morrowind arrow caps, but draw one continuous recessed
+                // track and a clean, flat parchment thumb (no stretched sprite).
                 g.DrawImage(image, new System.Drawing.Rectangle(0, 0, w, 27),
                     new System.Drawing.Rectangle(0, 0, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
-                for (int y = 27; y < h - 27; y += 30)
-                    g.DrawImage(image, new System.Drawing.Rectangle(0, y, w, Math.Min(30, h - 27 - y)),
-                        new System.Drawing.Rectangle(0, 46, image.Width, Math.Min(30, h - 27 - y)), System.Drawing.GraphicsUnit.Pixel);
                 g.DrawImage(image, new System.Drawing.Rectangle(0, h - 27, w, 27),
                     new System.Drawing.Rectangle(0, image.Height - 27, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
+                int trackHeight = h - 54;
+                using (var trackDark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(12, 10, 7)))
+                    g.FillRectangle(trackDark, 2, 27, 16, trackHeight);
+                using (var goldEdge = new System.Drawing.Pen(System.Drawing.Color.FromArgb(128, 101, 54)))
+                    g.DrawRectangle(goldEdge, 2, 27, 15, trackHeight - 1);
+                using (var innerShadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(53, 42, 25)))
+                    g.DrawRectangle(innerShadow, 4, 29, 11, Math.Max(1, trackHeight - 5));
                 int thumbY = ChatThumbY(h, out int thumbHeight);
                 lastThumbY = thumbY;
                 lastThumbHeight = thumbHeight;
-                g.DrawImage(image, new System.Drawing.Rectangle(0, thumbY, w, thumbHeight),
-                    new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
+                // A narrow, square-edged thumb matching the reference image.
+                using (var thumbFill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(188, 166, 111)))
+                    g.FillRectangle(thumbFill, 5, thumbY, 10, thumbHeight);
+                using (var thumbHighlight = new System.Drawing.Pen(System.Drawing.Color.FromArgb(223, 203, 151)))
+                {
+                    g.DrawLine(thumbHighlight, 5, thumbY, 14, thumbY);
+                    g.DrawLine(thumbHighlight, 5, thumbY, 5, thumbY + thumbHeight - 1);
+                }
+                using (var thumbShadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(87, 69, 40)))
+                {
+                    g.DrawLine(thumbShadow, 14, thumbY + 1, 14, thumbY + thumbHeight - 1);
+                    g.DrawLine(thumbShadow, 6, thumbY + thumbHeight - 1, 14, thumbY + thumbHeight - 1);
+                }
             };
             // With WS_VSCROLL disabled the RichEdit control does not reliably
             // perform its default wheel scrolling. Scroll its text explicitly.
