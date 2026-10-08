@@ -32,7 +32,7 @@ BuildFrontPage()
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters))
     CharacterMenuButton := MenuRows[2]
     UpdateCharacterMenuLabel()
-    if A_IsCompiled && !IsTES3MPSetupComplete()
+    if !IsTES3MPSetupComplete()
         BeginGameDetectionDisplay()
 }
 
