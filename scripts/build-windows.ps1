@@ -72,6 +72,7 @@ try {
     $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
     $entryText = [IO.File]::ReadAllText($stageEntry)
     $entryText = $entryText.Replace("`nStartLauncher()`n", "`nPrepareBundledResources()`nStartLauncher()`n")
+    $entryText = $entryText.Replace("`nHandleUpdaterStartupMode()`n", "`nif A_Args.Length && A_Args[1] = `"--check-resources`"`n{`n    PrepareBundledResources()`n    ExitApp(0)`n}`nHandleUpdaterStartupMode()`n")
     $entryText = $entryText.Replace('#Include src\app\bootstrap.ahk', '#Include src\app\bootstrap.ahk' + "`n" + '#Include src\app\bundled-resources.generated.ahk')
     if (-not $entryText.Contains('#Include src\app\bundled-resources.generated.ahk')) { throw 'Generated resources include is missing.' }
     [IO.File]::WriteAllText($stageEntry, $entryText)
@@ -97,6 +98,22 @@ try {
     if (!$check.WaitForExit(30000)) { try { $check.Kill() } catch {}; throw 'Compiled launcher validation timed out after 30 seconds.' }
     Step "Compiled launcher --check exited with code $($check.ExitCode)"
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
+    # The --check smoke test exits before FileInstall runs. Exercise extraction
+    # separately and verify every file against the manifest before packaging.
+    Step 'Validating standalone embedded patch extraction'
+    $extract = Start-Process $executable -ArgumentList '--check-resources' -PassThru -Wait
+    if ($extract.ExitCode -ne 0) { throw "Embedded resource extraction failed with code $($extract.ExitCode)." }
+    $resourceRoot = Join-Path $env:APPDATA 'tes3np\resources'
+    $manifestPath = Join-Path $resourceRoot 'patches\manifest.json'
+    if (!(Test-Path -LiteralPath $manifestPath)) { throw "Missing extracted patch manifest: $manifestPath" }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    foreach ($item in $manifest.Files) {
+        $payloadPath = Join-Path (Join-Path $resourceRoot 'patches') $item.Path.Replace('/', '\')
+        if (!(Test-Path -LiteralPath $payloadPath -PathType Leaf)) { throw "Missing extracted patch file: $($item.Path)" }
+        $hash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash
+        if ($hash -ine $item.SHA256) { throw "Damaged extracted patch file: $($item.Path)" }
+    }
+    Step "Verified $($manifest.Files.Count) extracted patch payload files"
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
     Step 'Windows launcher build completed successfully'
