@@ -358,9 +358,9 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            messageClip.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 79));
+            messageClip.SetBounds(23, 56, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 70));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 79));
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 70));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
             railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
@@ -562,11 +562,11 @@ internal static class Program
                 using var darkPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(45, 29, 14), 3);
                 g.DrawRectangle(goldPen, 2, 2, w - 5, h - 5);
                 g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
-                g.FillRectangle(black, 13, 61, w - 26, h - 74);
-                g.DrawLine(goldPen, 12, 60, w - 13, 60);
+                g.FillRectangle(black, 13, 52, w - 26, h - 65);
+                g.DrawLine(goldPen, 12, 51, w - 13, 51);
                 using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
                 var titleSize = g.MeasureString("Chat", headingFont);
-                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 52);
+                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 43);
                 g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
                 int sx = w - 35;
                 g.DrawRectangle(goldPen, sx, 74, 19, 19);
@@ -687,9 +687,9 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            messageClip.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 79));
+            messageClip.SetBounds(23, 56, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 70));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 79));
+            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 70));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
