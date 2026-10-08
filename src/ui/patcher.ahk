@@ -337,8 +337,16 @@ CheckPatchWorker()
         FinishLauncherStartup()
         if state != "success"
         {
-            MsgBox(message, "Installation needs attention", "Icon!")
-            OpenPatcher()
+            if job.Action = "Verify" && state = "needs_setup"
+            {
+                if MsgBox("Some Nerevarine Prophecies game files or configuration entries are missing or different. Open Repair Game Install now? Verification did not change any files.", "Game installation needs repair", "YesNo Icon!") = "Yes"
+                    OpenPatcher()
+            }
+            else
+            {
+                MsgBox(message, "Installation needs attention", "Icon!")
+                OpenPatcher()
+            }
         }
     }
     else
