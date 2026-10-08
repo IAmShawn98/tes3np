@@ -354,7 +354,7 @@ metrics();
                         browserClientHeight = (int)Math.Round(root.GetProperty("client").GetDouble());
                         userScrolledChat = root.TryGetProperty("userScrolled", out var interacted) && interacted.GetBoolean();
                         goldScrollbar.Invalidate();
-                        if (userScrolledChat && browserScrollTop < 300) RequestOlderMessages();
+                        if (userScrolledChat && browserScrollTop < Math.Max(900, browserClientHeight * 3)) RequestOlderMessages();
                     }
                     catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
                 };
@@ -581,7 +581,7 @@ metrics();
                     historyNoProgressCount = 0;
                     historyNavigationStarted = DateTime.UtcNow;
                     historyAwaitingNavigation = true;
-                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(2);
+                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(1);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
                     web.CoreWebView2.Navigate(olderWindow);
@@ -667,7 +667,7 @@ metrics();
         void RequestOlderMessages(bool forceTop = false)
         {
             if (!userScrolledChat && !forceTop) return;
-            bool nearTop = forceTop || ChatFirstLine() <= 300;
+            bool nearTop = forceTop || ChatFirstLine() <= Math.Max(900, browserClientHeight * 3);
             if (userScrolledChat && nearTop) historyCatchupActive = true;
             bool canRequest = (nearTop || historyCatchupActive) && !loadingHistory && IsHandleCreated &&
                 nativeMode && !signInExpanded && web.CoreWebView2 != null;
