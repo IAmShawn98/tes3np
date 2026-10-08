@@ -997,6 +997,7 @@ metrics();
             if (discordLoginVisible)
             {
                 web.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
+                web.BringToFront();
                 return;
             }
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
@@ -1533,6 +1534,7 @@ metrics();
                         if (e.Uri.StartsWith("https://discord.com/", StringComparison.OrdinalIgnoreCase))
                             web.CoreWebView2.Navigate(e.Uri);
                     };
+                    if (freshDiscordProfile) ShowDiscordSignIn();
                     web.CoreWebView2.Navigate(freshDiscordProfile ? "https://discord.com/login" : Channel);
                     Log(freshDiscordProfile ? "Fresh Discord profile: opening sign-in" : "Navigating to channel");
                     _ = InitMessageBrowser(env);
@@ -1679,6 +1681,7 @@ metrics();
             // Remove the overlay and native clipping so its login is usable.
             web.Dock = DockStyle.None;
             web.Parent = this;
+            frameSurface.Visible = false;
             if (web.IsHandleCreated) SetWindowRgn(web.Handle, IntPtr.Zero, true);
             web.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             web.Visible = true;
@@ -1695,6 +1698,7 @@ metrics();
             signInExpanded = false;
             web.Parent = chatViewport;
             web.Dock = DockStyle.None;
+            frameSurface.Visible = true;
             chatViewport.Visible = true;
             messageClip.Visible = true;
             goldScrollbar.Visible = true;
