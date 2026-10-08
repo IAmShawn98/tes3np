@@ -139,6 +139,16 @@ internal static class Program
             g.DrawString("Chat", font, ink, (w - size.Width) / 2, 8);
         }
     }
+    sealed class BufferedScrollbar : Panel
+    {
+        public BufferedScrollbar()
+        {
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                     ControlStyles.OptimizedDoubleBuffer, true);
+        }
+    }
     sealed class ScrollbarFreeRichTextBox : RichTextBox
     {
         protected override CreateParams CreateParams
@@ -235,7 +245,7 @@ internal static class Program
         readonly System.Drawing.Bitmap? scrollbarTexture = LoadTexture("scrollbar-texture.b64");
         readonly System.Drawing.Bitmap? headerTexture = LoadTexture("header-texture.b64");
         readonly Panel messageClip = new() { BackColor = System.Drawing.Color.FromArgb(10, 9, 8), Margin = Padding.Empty };
-        readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
+        readonly BufferedScrollbar goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly ScrollbarFreeRichTextBox nativeMessages = new()
         {
             ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
@@ -536,6 +546,7 @@ internal static class Program
             frameSurface.Controls.Add(railBottom);
             frameSurface.Controls.Add(titleBar);
             frameSurface.Controls.Add(titleText);
+            int lastThumbY = -1, lastThumbHeight = -1;
             goldScrollbar.Paint += (_, e) =>
             {
                 var g = e.Graphics;
@@ -554,6 +565,8 @@ internal static class Program
                 g.DrawImage(image, new System.Drawing.Rectangle(0, h - 27, w, 27),
                     new System.Drawing.Rectangle(0, image.Height - 27, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
                 int thumbY = ChatThumbY(h, out int thumbHeight);
+                lastThumbY = thumbY;
+                lastThumbHeight = thumbHeight;
                 g.DrawImage(image, new System.Drawing.Rectangle(0, thumbY, w, thumbHeight),
                     new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
             };
@@ -672,7 +685,12 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
-                if (nativeMode && goldScrollbar.Visible) goldScrollbar.Invalidate();
+                if (nativeMode && goldScrollbar.Visible)
+                {
+                    int thumbY = ChatThumbY(goldScrollbar.Height, out int thumbHeight);
+                    if (thumbY != lastThumbY || thumbHeight != lastThumbHeight)
+                        goldScrollbar.Invalidate();
+                }
             };
             watch.Start();
         }
