@@ -97,18 +97,67 @@ StartLauncher()
 CreateLauncherChatToggle()
 {
     global LauncherGui, LauncherChatToggle, LauncherChatMenu
-    ; Native STATIC controls clip rotated GDI text. Use a centered, readable
-    ; multi-line launcher-owned tab rather than a rotated font.
+    ; Draw the original vertical label ourselves: a STATIC control clips rotated
+    ; text, whereas painting directly to its DC gives us the full 168px area.
     LauncherGui.SetFont("s11 Bold cFFFFFF", "Segoe UI")
     LauncherChatToggle := LauncherGui.Add("Text",
-        "x3 y274 w68 h168 Center Border +0x100 +0x200 BackgroundA77C3A",
-        "←`nGame`nChat")
+        "x3 y274 w68 h168 +0x100 Border BackgroundA77C3A", "")
+    OnMessage(0x000F, PaintLauncherChatToggle)
     LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
     LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
     LauncherChatMenu.Add("Always Hidden", (*) => SendLauncherChatCommand(4))
     OnMessage(0x0204, LauncherChatRightClick)
+}
+PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
+{
+    global LauncherChatToggle
+    if !IsObject(LauncherChatToggle) || hwnd != LauncherChatToggle.Hwnd
+        return
+    ; WM_PAINT is handled here rather than letting STATIC clip the rotated font.
+    ps := Buffer(A_PtrSize = 8 ? 72 : 64, 0)
+    dc := DllCall("user32\BeginPaint", "Ptr", hwnd, "Ptr", ps, "Ptr")
+    if !dc
+        return
+    try
+    {
+        rect := Buffer(16, 0)
+        DllCall("user32\GetClientRect", "Ptr", hwnd, "Ptr", rect)
+        w := NumGet(rect, 8, "Int"), h := NumGet(rect, 12, "Int")
+        gold := DllCall("gdi32\CreateSolidBrush", "UInt", 0x003A7CA7, "Ptr")
+        DllCall("user32\FillRect", "Ptr", dc, "Ptr", rect, "Ptr", gold)
+        DllCall("gdi32\DeleteObject", "Ptr", gold)
+        frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x0078C7ED, "Ptr")
+        DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
+        DllCall("gdi32\DeleteObject", "Ptr", frame)
+        DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
+        DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", 0x00FFFFFF)
+        font := DllCall("gdi32\CreateFontW",
+            "Int", -20, "Int", 0, "Int", 900, "Int", 900,
+            "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
+            "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
+            "UInt", 0, "Str", "Segoe UI", "Ptr")
+        oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+        ; Positive 90-degree escapement runs text upward from the baseline.
+        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.83),
+            "Int", Round(h * 0.79), "Str", "Game Chat", "Int", 9)
+        DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
+        DllCall("gdi32\DeleteObject", "Ptr", font)
+        ; Arrow pointing left, matching the original toggle.
+        pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", 4, "UInt", 0x00FFFFFF, "Ptr")
+        oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
+        cx := Round(w * 0.40), cy := Round(h * 0.50)
+        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + 11, "Int", cy, "Ptr", 0)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx - 10, "Int", cy)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - 10)
+        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - 10, "Int", cy, "Ptr", 0)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy + 10)
+        DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldPen, "Ptr")
+        DllCall("gdi32\DeleteObject", "Ptr", pen)
+    }
+    finally DllCall("user32\EndPaint", "Ptr", hwnd, "Ptr", ps)
+    return 0
 }
 ToggleLauncherChat(*)
 {
