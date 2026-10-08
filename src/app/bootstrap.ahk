@@ -5,6 +5,8 @@ global LauncherVersionLabel := 0
 global LauncherSettingsButton := 0
 global LauncherUpdateButton := 0
 global LauncherUpdateAvailable := false
+global LauncherChatToggle := 0
+global LauncherChatMenu := 0
 
 StartLauncher()
 {
@@ -63,6 +65,7 @@ StartLauncher()
     ; Keep update notifications centered along the bottom edge, directly below the launcher scroll.
     LauncherUpdateButton := AddStyledButton(LauncherGui, 410, 675, 140, 32, "Update Available", CheckForUpdates)
     LauncherUpdateButton.Visible := false
+    CreateLauncherChatToggle()
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
@@ -87,6 +90,62 @@ StartLauncher()
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
+}
+
+
+; The gold Game Chat tab belongs to the launcher, not the Discord/WebView2 host.
+CreateLauncherChatToggle()
+{
+    global LauncherGui, LauncherChatToggle, LauncherChatMenu
+    LauncherGui.SetFont("s13 Bold cFFFFFF", "Segoe UI")
+    LauncherChatToggle := LauncherGui.Add("Text", "x3 y274 w68 h168 Center Border +0x100 BackgroundA77C3A", "Game Chat")
+    ; Rotate the label 90 degrees using a native GDI font. Retain the font handle
+    ; for the lifetime of the control (Windows does not own WM_SETFONT fonts).
+    global LauncherChatFont
+    LauncherChatFont := DllCall("gdi32\\CreateFontW",
+        "Int", -22, "Int", 0, "Int", 900, "Int", 900,
+        "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
+        "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
+        "UInt", 0, "Str", "Segoe UI", "Ptr")
+    if LauncherChatFont
+        DllCall("SendMessageW", "Ptr", LauncherChatToggle.Hwnd, "UInt", 0x30, "Ptr", LauncherChatFont, "Ptr", 1)
+    LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
+    LauncherChatMenu := Menu()
+    LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
+    LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
+    LauncherChatMenu.Add("Always Hidden", (*) => SendLauncherChatCommand(4))
+    OnMessage(0x0204, LauncherChatRightClick)
+}
+ToggleLauncherChat(*)
+{
+    SendLauncherChatCommand(1)
+}
+LauncherChatRightClick(wParam, lParam, msg, hwnd)
+{
+    global LauncherChatToggle, LauncherChatMenu
+    if !IsObject(LauncherChatToggle)
+        return
+    MouseGetPos(,, &windowHwnd, &controlHwnd, 2)
+    if controlHwnd = LauncherChatToggle.Hwnd
+    {
+        LauncherChatMenu.Show()
+        return 0
+    }
+}
+SendLauncherChatCommand(command)
+{
+    ; Hidden chat windows must also be addressable when the panel is closed.
+    oldHidden := A_DetectHiddenWindows
+    DetectHiddenWindows(true)
+    try
+    {
+        chatHwnd := WinExist("tes3np Chat Host")
+        if chatHwnd
+            DllCall("PostMessageW", "Ptr", chatHwnd, "UInt", 0x8331, "Ptr", command, "Ptr", 0)
+        else
+            LogLauncherEvent("Chat toggle requested before chat host is ready.")
+    }
+    finally DetectHiddenWindows(oldHidden)
 }
 
 SetLauncherUpdateAvailable(isAvailable)
