@@ -102,7 +102,7 @@ CreateLauncherChatToggle()
     ; Rotate the label 90 degrees using a native GDI font. Retain the font handle
     ; for the lifetime of the control (Windows does not own WM_SETFONT fonts).
     global LauncherChatFont
-    LauncherChatFont := DllCall("gdi32\\CreateFontW",
+    LauncherChatFont := DllCall("gdi32\CreateFontW",
         "Int", -22, "Int", 0, "Int", 900, "Int", 900,
         "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
         "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
