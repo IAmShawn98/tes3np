@@ -531,6 +531,19 @@ metrics();
                 // Avoid the DevTools input dispatcher: it hangs in hidden WebView2.
                 // Schedule the second movement asynchronously inside the page.
                 int attempt = ++historyNoProgressCount;
+                // Discord can stop paging after its virtual list drops older rows.
+                // Re-enter the channel at the oldest known message to let Discord
+                // initialize a fresh window around that message. The native
+                // renderer keeps the already-collected history across navigation.
+                if (attempt >= 8 && oldest != ulong.MaxValue)
+                {
+                    historyNoProgressCount = 0;
+                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(5);
+                    string olderWindow = Channel + "/" + oldest;
+                    Log("History reanchor: navigating Discord to " + olderWindow);
+                    web.CoreWebView2.Navigate(olderWindow);
+                    return;
+                }
                 string scriptMode = attempt >= 4 ? "recovery" : "normal";
                 string result = await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
