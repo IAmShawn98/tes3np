@@ -38,8 +38,8 @@ StartLauncher()
     ; native child HWND; parent background painting must not overwrite it.
     styleGetter := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
     styleSetter := A_PtrSize = 8 ? "SetWindowLongPtrW" : "SetWindowLongW"
-    launcherStyle := DllCall("user32\\" styleGetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr")
-    DllCall("user32\\" styleSetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr", launcherStyle | 0x02000000, "Ptr")
+    launcherStyle := DllCall("user32\" styleGetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr")
+    DllCall("user32\" styleSetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr", launcherStyle | 0x02000000, "Ptr")
 
     SetWindowIcons()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
