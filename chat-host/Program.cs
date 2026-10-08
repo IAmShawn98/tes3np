@@ -291,6 +291,17 @@ internal static class Program
                 if (json == lastFeed) return;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 if (doc.RootElement.GetArrayLength() == 0) return;
+                string newestId = doc.RootElement[doc.RootElement.GetArrayLength() - 1]
+                    .GetProperty("id").GetString() ?? "";
+                bool newMessage = feedInitialized && newestId.Length > 0 &&
+                    newestId != latestMessageId;
+                latestMessageId = newestId;
+                feedInitialized = true;
+                if (newMessage && chatDisplayMode == "Automatic")
+                {
+                    lastChatActivity = DateTime.Now;
+                    SetChatOpen(true);
+                }
                 lastFeed = json;
                 renderedMessages.Clear();
                 nativeMessages.SuspendLayout();
@@ -402,6 +413,34 @@ internal static class Program
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
         }
+        // Companion window stays visible when the chat panel is tucked away.
+        readonly Form chatToggleWindow = new()
+        {
+            FormBorderStyle = FormBorderStyle.None,
+            ShowInTaskbar = false,
+            StartPosition = FormStartPosition.Manual,
+            BackColor = System.Drawing.Color.FromArgb(145, 104, 48),
+            TopMost = false,
+            Size = new System.Drawing.Size(38, 38)
+        };
+        readonly Button chatToggleButton = new()
+        {
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = System.Drawing.Color.FromArgb(167, 124, 58),
+            ForeColor = System.Drawing.Color.White,
+            Font = new System.Drawing.Font("Segoe UI", 17, System.Drawing.FontStyle.Bold),
+            Cursor = Cursors.Hand,
+            Text = "→",
+            TabStop = false
+        };
+        readonly ContextMenuStrip chatModeMenu = new();
+        readonly string chatModeFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-display-mode.txt");
+        string chatDisplayMode = "Automatic";
+        bool chatOpen, feedInitialized;
+        DateTime lastChatActivity = DateTime.MinValue;
+        string latestMessageId = "";
         bool docked;
         bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
@@ -429,7 +468,7 @@ internal static class Program
                 chatHeight = Math.Clamp(ReadInt(line, "Height", chatHeight), 140, 700);
                 chatOpacity = (byte)Math.Clamp(ReadInt(line, "Opacity", chatOpacity), 120, 255);
             }
-            if (docked) { MoveWindow(Handle, chatX, chatY, chatWidth, chatHeight, true); ApplyWindowOpacity(); }
+            if (docked) { PositionChatWindows(); ApplyWindowOpacity(); }
             Log("Layout reloaded");
         }
         void ApplyWindowOpacity()
@@ -458,6 +497,55 @@ internal static class Program
         public ChatHost(IntPtr owner)
         {
             this.owner = owner;
+            try
+            {
+                if (File.Exists(chatModeFile))
+                {
+                    string saved = File.ReadAllText(chatModeFile).Trim();
+                    if (saved is "Automatic" or "Always Shown" or "Always Hidden")
+                        chatDisplayMode = saved;
+                }
+            }
+            catch { }
+            chatToggleButton.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(237, 199, 120);
+            chatToggleButton.FlatAppearance.BorderSize = 2;
+            chatToggleWindow.Controls.Add(chatToggleButton);
+            foreach (string mode in new[] { "Automatic", "Always Shown", "Always Hidden" })
+            {
+                string selectedMode = mode;
+                chatModeMenu.Items.Add(mode, null, (_, _) =>
+                {
+                    chatDisplayMode = selectedMode;
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(chatModeFile)!);
+                        File.WriteAllText(chatModeFile, chatDisplayMode);
+                    }
+                    catch { }
+                    SetChatOpen(chatDisplayMode == "Always Shown");
+                });
+            }
+            chatModeMenu.Opening += (_, _) =>
+            {
+                foreach (ToolStripMenuItem item in chatModeMenu.Items)
+                    item.Checked = item.Text == chatDisplayMode;
+            };
+            chatToggleButton.MouseUp += (_, e) =>
+            {
+                if (e.Button == MouseButtons.Right)
+                    chatModeMenu.Show(chatToggleButton, e.Location);
+            };
+            chatToggleButton.Click += (_, _) =>
+            {
+                // A manual toggle overrides automatic popups until the next message.
+                SetChatOpen(!chatOpen);
+                if (chatDisplayMode == "Automatic" && chatOpen)
+                    lastChatActivity = DateTime.Now;
+            };
+            chatToggleWindow.FormClosing += (_, e) =>
+            {
+                if (!closingChat) { e.Cancel = true; chatToggleWindow.Hide(); }
+            };
             FormBorderStyle = FormBorderStyle.None;
             DoubleBuffered = true;
             Paint += (_, e) =>
@@ -771,7 +859,7 @@ internal static class Program
                     MessageBox.Show("WebView2 chat unavailable: " + ex.Message + "\nInstall Microsoft Edge WebView2 Runtime.", "tes3np Chat");
                 }
             };
-            FormClosing += (_, _) => { closingChat = true; watch.Stop(); };
+            FormClosing += (_, _) => { closingChat = true; watch.Stop(); chatToggleWindow.Dispose(); };
             watch.Tick += async (_, _) =>
             {
                 if (closingChat || refreshingChat || IsDisposed) return;
@@ -783,6 +871,11 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
+                PositionChatWindows();
+                if (chatDisplayMode == "Automatic" && chatOpen &&
+                    DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
+                    !Bounds.Contains(Cursor.Position))
+                    SetChatOpen(false);
                 if (nativeMode && goldScrollbar.Visible)
                 {
                     int thumbY = ChatThumbY(goldScrollbar.Height, out int thumbHeight);
@@ -885,17 +978,42 @@ internal static class Program
                 await RefreshNativeMessages();
             }
         }
+        void SetChatOpen(bool show)
+        {
+            chatOpen = show;
+            chatToggleButton.Text = show ? "←" : "→";
+            if (!signInExpanded && IsHandleCreated)
+            {
+                if (show) ShowWindow(Handle, 5);
+                else ShowWindow(Handle, 0);
+            }
+            PositionChatWindows();
+        }
+        void PositionChatWindows()
+        {
+            if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
+            int buttonSize = 38;
+            int y = bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - chatHeight) / 2);
+            int x = bounds.Left - buttonSize;
+            // Position the button at the launcher's left edge and the chat outside it.
+            chatToggleWindow.SetBounds(x, y + Math.Max(0, (chatHeight - buttonSize) / 2),
+                buttonSize, buttonSize);
+            if (!chatToggleWindow.Visible) chatToggleWindow.Show();
+            if (chatOpen)
+                MoveWindow(Handle, x - chatWidth, y, chatWidth, chatHeight, true);
+        }
         void DockToLauncher()
         {
             if (!IsWindow(owner) || signInExpanded) return;
             var hwnd = Handle;
+            SetParent(hwnd, IntPtr.Zero);
             int style = GetWindowLong(hwnd, GWL_STYLE);
-            SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
-            SetParent(hwnd, owner);
-            MoveWindow(hwnd, chatX, chatY, chatWidth, chatHeight, true);
-            ShowWindow(hwnd, 5);
+            SetWindowLong(hwnd, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
+            ShowInTaskbar = false;
             ApplyWindowOpacity();
             docked = true;
+            PositionChatWindows();
+            SetChatOpen(chatDisplayMode == "Always Shown");
             // Actual launcher movement repairs the missing frame pixels on layered AHK windows.
             // Reproduce that exact compositor event once, then restore its original position.
             if (GetWindowRect(owner, out var bounds))
