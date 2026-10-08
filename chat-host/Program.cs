@@ -508,6 +508,7 @@ metrics();
         bool loadingHistory;
         ulong lastHistoryOldestId = ulong.MaxValue;
         int historyStallCount;
+        int historyNoProgressCount;
         DateTime historyBackoffUntil = DateTime.MinValue;
         async Task LoadOlderMessages()
         {
@@ -523,11 +524,14 @@ metrics();
                 {
                     lastHistoryOldestId = oldest;
                     historyStallCount = 0;
+                    historyNoProgressCount = 0;
                     Log("History advanced; oldest message: " + oldest);
                 }
                 // ExecuteScriptAsync waits for the JavaScript evaluation to finish.
                 // Avoid the DevTools input dispatcher: it hangs in hidden WebView2.
                 // Schedule the second movement asynchronously inside the page.
+                int attempt = ++historyNoProgressCount;
+                string scriptMode = attempt >= 4 ? "recovery" : "normal";
                 string result = await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
@@ -543,21 +547,22 @@ metrics();
                         scroller = list.closest('[class*="scroller_"]');
                       if (!scroller) return 'no-scroller';
                       const before = scroller.scrollTop;
+                      const recovery = RECOVERY_FLAG;
                       // Discord's virtual list may start well below the top.
                       // First move near the beginning; a later task reaches zero
                       // so Discord observes both scroll positions.
-                      scroller.scrollTop = Math.min(350, Math.max(0, scroller.scrollHeight - scroller.clientHeight));
+                      scroller.scrollTop = Math.min(recovery ? 1100 : 350, Math.max(0, scroller.scrollHeight - scroller.clientHeight));
                       scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
                       setTimeout(() => {
                         if (!scroller.isConnected) return;
                         scroller.scrollTop = 0;
                         scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      }, 130);
+                      }, recovery ? 400 : 130);
                       return 'scroll=' + before + '->' + scroller.scrollTop +
                         ' height=' + scroller.scrollHeight + ' client=' + scroller.clientHeight;
                     })();
-                    """).WaitAsync(TimeSpan.FromSeconds(5));
-                Log("History scroll: " + result);
+                    """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
+                Log("History scroll (" + scriptMode + ", attempt=" + attempt + "): " + result);
                 if (history.Count > 0 && history.First().Key < oldest)
                 {
                     historyStallCount = 0;
