@@ -1804,7 +1804,7 @@ metrics();
                       if (!benefit) {
                         benefit = document.createElement('p');
                         benefit.setAttribute('data-tes3np-login-benefit', '');
-                        benefit.textContent = 'Login to Discord and enhance your experience with Nerevarine Prophecies! Once you login, you will receive out-of-game alerts for happy hour, boss spawning, and more!';
+                        benefit.textContent = 'Connect Discord for launcher chat and out-of-game alerts about happy hours, world bosses, mentions, and more!';
                       }
                       const title = form.querySelector('[data-tes3np-login-heading]');
                       if (title) title.insertAdjacentElement('afterend', benefit);
