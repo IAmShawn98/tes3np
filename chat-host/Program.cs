@@ -18,7 +18,7 @@ internal static class Program
         [class*="guilds_"], [class*="sidebar_"], [class*="sidebarList_"],
         [class*="membersWrap_"], [class*="members_"], [class*="panels_"],
         [class*="form_"], [class*="channelTextArea_"], [class*="toolbar_"],
-        [class*="notice_"],
+        [class*="notice_"], [class*="titleWrapper_"], [class*="upperContainer_"],
         [class*="chatHeaderBar_"], [class*="jumpToPresentBar_"],
         [class*="newMessagesBar_"], [class*="typing_"],
         [class*="avatar_"], [class*="botTag_"], [class*="buttons_"] { display:none !important; }
@@ -26,11 +26,11 @@ internal static class Program
         [class*="chatContent_"], [class*="messagesWrapper_"],
         [class*="scroller_"] { width:100% !important; min-width:0 !important; max-width:100% !important;
            margin:0 !important; padding-left:0 !important; }
-        [class*="message_"] { min-height:0 !important; padding:2px 4px !important;
+        [class*="message_"] { min-height:0 !important; padding:4px 7px !important;
            margin:0 !important; background:transparent !important; }
-        [class*="messageContent_"], [class*="markup_"] { font: 11px/1.27 Georgia, serif !important;
+        [class*="messageContent_"], [class*="markup_"] { font: 12px/1.35 Georgia, serif !important;
            color:#e5d0a4 !important; white-space:pre-wrap !important; overflow-wrap:anywhere !important; }
-        [class*="username_"] { font: bold 10px Georgia, serif !important; color:#d3ab68 !important; }
+        [class*="username_"] { font: bold 11px Georgia, serif !important; color:#d3ab68 !important; }
         [class*="timestamp_"], [class*="divider_"], [class*="repliedMessage_"],
         [class*="messageAccessories_"], [class*="reaction_"] { display:none !important; }
         ::-webkit-scrollbar { width:5px !important; }
@@ -57,7 +57,7 @@ internal static class Program
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.FromArgb(32,26,21);
             Controls.Add(web);
-            Width = 260; Height = 330;
+            Width = 290; Height = 380;
 
             Shown += async (_, _) =>
             {
@@ -137,7 +137,7 @@ internal static class Program
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
             SetParent(hwnd, owner);
-            MoveWindow(hwnd, 125, 315, 260, 330, true);
+            MoveWindow(hwnd, 90, 260, 290, 380, true);
             ShowWindow(hwnd, 5);
             docked = true;
         }
