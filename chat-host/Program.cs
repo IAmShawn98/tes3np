@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-host-painted-frame-20261008";
+    const string ChatBuild = "chat-four-rails-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -140,6 +140,10 @@ internal static class Program
         // from covering the custom frame and title.
         readonly Panel chatViewport = new() { BackColor = System.Drawing.Color.FromArgb(9, 8, 7), Margin = Padding.Empty };
         readonly Panel titleBar = new() { BackColor = System.Drawing.Color.FromArgb(115, 85, 43) };
+        readonly Panel railLeft = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
+        readonly Panel railRight = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
+        readonly Panel railBottom = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
+        readonly Panel railTop = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
         readonly FrameOverlay frame = new();
         readonly Label titleText = new() {
             Text = "Chat", TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
@@ -154,7 +158,8 @@ internal static class Program
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
         void RaiseFrame()
         {
-            return; // Frame is painted by the host, outside the child browser HWND.
+            foreach (var rail in new[] {railTop,railLeft,railRight,railBottom,titleBar,titleText}) rail.BringToFront();
+            return;
             // WebView2 has its own native HWND. Managed BringToFront alone
             // does not reliably win when the browser surface is recreated.
             frame.BringToFront();
@@ -178,10 +183,16 @@ internal static class Program
         void FitWebView()
         {
             chatViewport.SetBounds(15, 53, Math.Max(1, ClientSize.Width - 30), Math.Max(1, ClientSize.Height - 69));
-            titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 35);
+            railTop.SetBounds(0, 0, ClientSize.Width, 7);
+            railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
+            railRight.SetBounds(Math.Max(0, ClientSize.Width - 15), 7, 15, Math.Max(1, ClientSize.Height - 7));
+            railBottom.SetBounds(0, Math.Max(0, ClientSize.Height - 16), ClientSize.Width, 16);
+            titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 46);
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
             Invalidate();
+            foreach (var rail in new[] {railTop,railLeft,railRight,railBottom,titleBar,titleText})
+                rail.BringToFront();
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
         }
@@ -270,7 +281,8 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
-            // Draw the frame on the host itself; the browser is confined to the inset viewport.
+            foreach (var rail in new[] {railTop,railLeft,railRight,railBottom,titleBar,titleText})
+                Controls.Add(rail);
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
