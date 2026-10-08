@@ -181,7 +181,7 @@ internal static class Program
         readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly RichTextBox nativeMessages = new()
         {
-            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
+            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.Vertical,
             BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
             ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
             Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
@@ -237,6 +237,11 @@ internal static class Program
                 if (!nativeMode)
                 {
                     nativeMode = true;
+                    web.Visible = false;
+                    chatViewport.Visible = false;
+                    nativeMessages.Visible = true;
+                    nativeMessages.BringToFront();
+                    goldScrollbar.BringToFront();
                     frameSurface.Visible = true;
                     frameSurface.Invalidate();
                     Log("Native message view activated");
@@ -291,7 +296,7 @@ internal static class Program
             goldScrollbar.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
-            chatViewport.Visible = true;
+            chatViewport.Visible = !nativeMode;
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
