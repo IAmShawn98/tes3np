@@ -308,24 +308,30 @@ internal static class Program
             lastHistoryRequest = DateTime.UtcNow;
             try
             {
-                // Discord's virtualized list fetches preceding pages when its
-                // actual scroll container reaches the top.
-                await web.CoreWebView2.ExecuteScriptAsync("""
+                // Scroll the real Discord message scroller (including when its
+                // DOM is virtualized). React then requests earlier messages.
+                string result = await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
-                      if (!list) return;
-                      let el = list;
-                      while (el && el !== document.body) {
-                        if (el.scrollHeight > el.clientHeight + 20 &&
-                            getComputedStyle(el).overflowY !== 'hidden') {
-                          el.scrollTop = 0;
-                          el.dispatchEvent(new Event('scroll', {bubbles:true}));
-                          return;
-                        }
-                        el = el.parentElement;
-                      }
+                      if (!list) return 'no-message-list';
+                      const candidates = [list, ...Array.from((function*(e) {
+                        while (e && e !== document.body) { yield e; e = e.parentElement; }
+                      })(list))];
+                      const scroller = candidates.find(el =>
+                        el.scrollHeight > el.clientHeight + 10 &&
+                        /(auto|scroll)/.test(getComputedStyle(el).overflowY))
+                        || list.closest('[class*="scroller_"]')
+                        || list.parentElement;
+                      if (!scroller) return 'no-scroller';
+                      scroller.scrollTop = 0;
+                      scroller.dispatchEvent(new WheelEvent('wheel', {
+                        deltaY: -850, bubbles: true, cancelable: true
+                      }));
+                      scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
+                      return 'requested-history';
                     })();
                     """);
+                Log("History request: " + result);
             }
             catch (Exception ex) { Log("History load error: " + ex.Message); }
             finally { loadingHistory = false; }
@@ -367,7 +373,7 @@ internal static class Program
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string id = msg.GetProperty("id").GetString() ?? "";
-                    var match = System.Text.RegularExpressions.Regex.Match(id, @"^chat-messages-\\d+-(\\d+)$");
+                    var match = System.Text.RegularExpressions.Regex.Match(id, @"^chat-messages-\d+-(\d+)$");
                     if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out ulong key)) continue;
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
@@ -392,7 +398,7 @@ internal static class Program
                     {
                         var usernameColor = System.Drawing.Color.FromArgb(219, 178, 67);
                         var cssColor = msg.Color;
-                        var components = System.Text.RegularExpressions.Regex.Matches(cssColor, @"\\d+");
+                        var components = System.Text.RegularExpressions.Regex.Matches(cssColor, @"\d+");
                         if ((cssColor.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) ||
                              cssColor.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase)) &&
                             components.Count >= 3 &&
@@ -425,7 +431,7 @@ internal static class Program
                             {
                                 if (entry.Key >= previousFirst) break;
                                 priorCount += Math.Max(1, (entry.Value.User + ": " + entry.Value.Body)
-                                    .Split('\\n').Length);
+                                    .Split('\n').Length);
                             }
                             offset = priorCount;
                         }
