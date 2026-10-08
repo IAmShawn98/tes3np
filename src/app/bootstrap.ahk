@@ -284,14 +284,18 @@ OfferFirstRunSetup(*)
     OfferDesktopShortcutOnFirstLaunch()
 }
 
-OfferDesktopShortcutOnFirstLaunch(*)
+OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
 {
     global DataFile
-    if IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
+    if forceAfterInstall && IniRead(DataFile, "Launcher", "PostInstallShortcutOffered", "0") = "1"
+        return
+    if !forceAfterInstall && IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
         return
 
     answer := MsgBox("Create a tes3np desktop shortcut?", "tes3np", "YesNo Icon?")
     IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")
+    if forceAfterInstall
+        IniWrite("1", DataFile, "Launcher", "PostInstallShortcutOffered")
     if answer != "Yes"
         return
 
