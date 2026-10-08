@@ -475,10 +475,10 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     loginActionList.OnEvent("Change", ChooseScheduledLoginProfiles.Bind(loginActionList, loginProfilesState))
 
     CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
-    promptLabel := CharacterPage.Add("Text", "x525 y395 w135 h22 BackgroundTrans", "Launch prompt")
-    promptModeList := CharacterPage.Add("DropDownList", "x660 y390 w195 h120 BackgroundE2CEA2 c382314",
-        ["Wait for Yes / No", "Auto-launch in 10 seconds"])
-    promptModeList.Choose(event.HasOwnProp("PromptMode") && event.PromptMode = "Countdown" ? 2 : 1)
+    promptLabel := CharacterPage.Add("Text", "x525 y395 w215 h22 BackgroundTrans", "Include Alert Before Launch")
+    promptModeList := CharacterPage.Add("DropDownList", "x745 y390 w110 h120 BackgroundE2CEA2 c382314",
+        ["Yes", "No"])
+    promptModeList.Choose(event.HasOwnProp("PromptMode") && event.PromptMode = "Countdown" ? 1 : 2)
 
     UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
     modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
@@ -717,7 +717,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     ; chosen. Switching the dropdown should change behavior, not erase that
     ; option's saved configuration.
     loginProfiles := loginProfilesState.Value
-    promptMode := promptModeList.Value = 2 ? "Countdown" : "Ask"
+    promptMode := promptModeList.Value = 1 ? "Countdown" : "Ask"
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
