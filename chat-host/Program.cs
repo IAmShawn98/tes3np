@@ -362,6 +362,8 @@ internal static class Program
                 }
                 if (IsDisposed || closingChat) { preview.Dispose(); return; }
                 imageCache[url] = preview;
+                Log("Chat image decoded: " + original.Width + "x" + original.Height +
+                    " (" + (response.Content.Headers.ContentType?.MediaType ?? "unknown type") + ")");
                 imagesNeedRedraw = true;
             }
             catch (Exception ex)
@@ -388,7 +390,15 @@ internal static class Program
             string rtf = @"{\rtf1\ansi{\pict\pngblip\picw" + image.Width +
                 @"\pich" + image.Height + @"\picwgoal" + twipsW +
                 @"\pichgoal" + twipsH + " " + hex + "}}";
+            // AppendText does not guarantee the current selection is at the end.
+            // Inserting RTF at a stale selection can overwrite earlier chat content.
+            nativeMessages.SelectionStart = nativeMessages.TextLength;
+            nativeMessages.SelectionLength = 0;
             nativeMessages.SelectedRtf = rtf;
+            if (!nativeMessages.Rtf.Contains(@"\\pict", StringComparison.OrdinalIgnoreCase))
+                Log("Chat image RTF insertion failed: picture run missing after insertion");
+            else
+                Log("Chat image RTF inserted: " + image.Width + "x" + image.Height);
         }
         DateTime lastHistoryRequest = DateTime.MinValue;
         bool loadingHistory;
