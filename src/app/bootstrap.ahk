@@ -245,11 +245,19 @@ CleanupLauncher(*)
 
 OfferFirstRunSetup(*)
 {
-    global SetupComplete, LauncherGui
+    global SetupComplete, LauncherGui, DataFile
     if A_IsCompiled
     {
         if SetupComplete
+        {
+            ; Verify managed files and OpenMW load order in the background worker.
+            ; Verification is read-only and only prompts when repair is required.
+            config := PatchConfigurationPath()
+            morrowind := IniRead(DataFile, "Patch", "MorrowindFolder", "")
+            if morrowind != "" && FileExist(config)
+                StartPatchWorker("Verify", A_ScriptDir, morrowind, config, LauncherGui, true)
             return
+        }
         ; Detection has finished once we are ready to offer installation.
         EndGameDetectionDisplay()
         if !FileExist(A_ScriptDir "\tes3mp.exe")
