@@ -358,9 +358,9 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            messageClip.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 88));
+            messageClip.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 79));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 79));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
             railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
@@ -529,11 +529,11 @@ internal static class Program
                 using (var headerBase = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(143, 109, 60)))
                     g.FillRectangle(headerBase, 13, 13, w - 26, 39);
                 var headerNoise = new Random(4108);
-                using (var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(92, 67, 35)))
-                using (var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(194, 159, 96)))
+                using (var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(112, 83, 45)))
+                using (var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(184, 151, 92)))
                 using (var midMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(165, 129, 72)))
                 {
-                    for (int n = 0; n < w * 20; n++)
+                    for (int n = 0; n < w * 10; n++)
                     {
                         int x = headerNoise.Next(13, Math.Max(14, w - 13));
                         int y = headerNoise.Next(13, 52);
@@ -687,9 +687,9 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            messageClip.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 88));
+            messageClip.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 79));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
+            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 79));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
