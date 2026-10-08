@@ -277,7 +277,6 @@ feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
 window.setMessages=function(messages,prepended=false){
   const nearTop=feed.scrollTop<=300;
-  const bottom=feed.children.length>0 && feed.scrollHeight>feed.clientHeight && feed.scrollHeight-feed.clientHeight-feed.scrollTop<35 && !prepended;
   const anchor=[...feed.children].find(el=>el.offsetTop+el.offsetHeight>feed.scrollTop);
   const anchorTop=anchor?anchor.offsetTop:0;
   const priorHeight=feed.scrollHeight, priorTop=feed.scrollTop;
@@ -289,14 +288,13 @@ window.setMessages=function(messages,prepended=false){
     for(const url of m.images){
       if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
       const img=document.createElement('img');img.className='preview';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=url;
-      img.addEventListener('load',()=>{if(bottom && !(prepended && nearTop))feed.scrollTop=feed.scrollHeight;metrics();});
+      img.addEventListener('load',()=>{metrics();});
       img.addEventListener('error',()=>{img.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder',textContent:'[Image unavailable]'}));metrics();});
       row.appendChild(img);
     }
     feed.appendChild(row);
   }
   if(prepended && nearTop)feed.scrollTop=0;
-  else if(bottom)feed.scrollTop=feed.scrollHeight;
   else if(!anchor)feed.scrollTop=0;
   else if(anchor){const replacement=[...feed.children].find(el=>el.dataset.id===anchor.dataset.id);feed.scrollTop=replacement?priorTop+replacement.offsetTop-anchorTop:priorTop+feed.scrollHeight-priorHeight;}
   metrics();
