@@ -488,6 +488,11 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
+                if (docked && !signInExpanded)
+                {
+                    frameSurface.Invalidate(true);
+                    frameSurface.Update();
+                }
             };
             watch.Start();
         }
@@ -591,6 +596,8 @@ internal static class Program
             ShowWindow(hwnd, 5);
             ApplyWindowOpacity();
             docked = true;
+            frameSurface.Invalidate(true);
+            frameSurface.Update();
             Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }
     }
