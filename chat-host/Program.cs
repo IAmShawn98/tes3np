@@ -589,9 +589,25 @@ metrics();
             catch (Exception ex) { Log("History load error: " + ex.Message); }
             finally { loadingHistory = false; }
         }
+        DateTime lastHistoryGateLog = DateTime.MinValue;
         void RequestOlderMessages()
         {
-            if (ChatFirstLine() > 300 || loadingHistory || !IsHandleCreated || !nativeMode) return;
+            bool nearTop = ChatFirstLine() <= 300;
+            bool canRequest = nearTop && !loadingHistory && IsHandleCreated &&
+                nativeMode && !signInExpanded && web.CoreWebView2 != null;
+            if (!canRequest)
+            {
+                if (DateTime.UtcNow - lastHistoryGateLog > TimeSpan.FromSeconds(10))
+                {
+                    lastHistoryGateLog = DateTime.UtcNow;
+                    Log("History gate: top=" + browserScrollTop +
+                        " nearTop=" + nearTop + " loading=" + loadingHistory +
+                        " handle=" + IsHandleCreated + " native=" + nativeMode +
+                        " signIn=" + signInExpanded +
+                        " webReady=" + (web.CoreWebView2 != null));
+                }
+                return;
+            }
             _ = LoadOlderMessages();
         }
         static string ParseHtmlColor(string color)
@@ -1285,7 +1301,7 @@ metrics();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
                 // Repeatedly page while the user stays at the top of the HTML chat.
-                if (nativeMode && browserScrollTop < 300) RequestOlderMessages();
+                if (nativeMode) RequestOlderMessages();
                 PositionChatWindows();
                 if (chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
