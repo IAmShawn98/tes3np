@@ -37,9 +37,9 @@ ResizeEmbeddedInGameChat()
     if !hwnd
         return
     scale := LauncherScale / 100
-    try DllCall("MoveWindow", "Ptr", hwnd, "Int", Round(125 * scale),
-        "Int", Round(315 * scale), "Int", Round(260 * scale),
-        "Int", Round(330 * scale), "Int", 1)
+    try DllCall("MoveWindow", "Ptr", hwnd, "Int", Round(90 * scale),
+        "Int", Round(290 * scale), "Int", Round(260 * scale),
+        "Int", Round(380 * scale), "Int", 1)
 }
 
 StopEmbeddedInGameChat()
