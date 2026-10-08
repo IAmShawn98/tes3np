@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/safe-auto-updater
+      - Update/v0.1.21-alpha
 
 permissions:
   contents: read
