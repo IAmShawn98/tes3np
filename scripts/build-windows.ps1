@@ -74,7 +74,27 @@ try {
     if ($mainCode -ne 0 -or !(Test-Path $mainExe)) { throw 'Known-good main launcher control compilation failed.' }
     Step 'Known-good main launcher compiled successfully with current toolchain'
 
-    $source = Join-Path $projectRoot 'tes3np.ahk'; $executable = Join-Path $package 'tes3np.exe'
+    # Build an isolated standalone source tree; leave developer source paths untouched.
+    $stageRoot = Join-Path $buildRoot 'standalone-source'
+    $null = New-Item $stageRoot -ItemType Directory
+    foreach ($item in @('tes3np.ahk','src','assets','patches','scripts')) {
+        Copy-Item (Join-Path $projectRoot $item) $stageRoot -Recurse
+    }
+    & python (Join-Path $projectRoot 'scripts/generate-bundled-resources.py') $stageRoot
+    if ($LASTEXITCODE -ne 0) { throw 'Resource embedding generation failed.' }
+    $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
+    $entryText = [IO.File]::ReadAllText($stageEntry)
+    $entryText = $entryText.Replace('StartLauncher()', 'PrepareBundledResources()' + "`r`n" + 'StartLauncher()')
+    $entryText += "`r`n#Include src\app\bundled-resources.generated.ahk`r`n"
+    [IO.File]::WriteAllText($stageEntry, $entryText)
+    Get-ChildItem (Join-Path $stageRoot 'src') -Filter '*.ahk' -Recurse | Where-Object { $_.Name -ne 'bundled-resources.generated.ahk' } | ForEach-Object {
+        $text = [IO.File]::ReadAllText($_.FullName)
+        foreach ($folder in @('assets','patches','scripts')) {
+            $text = $text.Replace(('A_ScriptDir "\' + $folder + '\'), ('BundledResourceRoot "\' + $folder + '\'))
+        }
+        [IO.File]::WriteAllText($_.FullName, $text)
+    }
+    $source = $stageEntry; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
     if ($compileCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
@@ -83,13 +103,7 @@ try {
     if (!$check.WaitForExit(30000)) { try { $check.Kill() } catch {}; throw 'Compiled launcher validation timed out after 30 seconds.' }
     Step "Compiled launcher --check exited with code $($check.ExitCode)"
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
-    Step 'Copying package payload'
-    foreach ($folder in @('assets','patches')) { Copy-Item (Join-Path $projectRoot $folder) $package -Recurse }
-    $scripts = Join-Path $package 'scripts'; $null = New-Item $scripts -ItemType Directory
-    foreach ($worker in @('import-macro.ps1','patch-tes3mp.ps1','tes3np-updater.ps1')) { Copy-Item (Join-Path $PSScriptRoot $worker) $scripts }
-    $runtime = Join-Path $package 'runtime'; $null = New-Item $runtime -ItemType Directory; Copy-Item $base $runtime
-    $license = Get-ChildItem $tools -File | Where-Object { $_.Name -match '^(license|copying)(\..*)?$' } | Select-Object -First 1
-    if ($license) { Copy-Item $license.FullName $package }
+    Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
     Step 'Windows launcher build completed successfully'
 }
