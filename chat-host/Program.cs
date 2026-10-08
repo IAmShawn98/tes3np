@@ -297,7 +297,8 @@ internal static class Program
                   '[class*="imageWrapper_"] img, [class*="imageContainer_"] img, ' +
                   '[class*="attachment_"] img, [class*="embedMedia_"] img, ' +
                   '[class*="embedImage_"] img, [class*="messageContent_"] img, ' +
-                  '[class*="markup_"] img, a[href*="/attachments/"]'
+                  '[class*="markup_"] img, [class*="originalLink_"] img, ' +
+                  'a[href*="/attachments/"], a[href*="media.discordapp.net/"]'
                 )];
                 const urls = media.map(n => n.tagName === 'IMG'
                     ? (n.currentSrc || n.src) : n.href)
@@ -306,7 +307,7 @@ internal static class Program
                     (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(u) ||
                      /\/(?:attachments|ephemeral-attachments)\//i.test(u)));
                 return {id:el.id,user,body,color,images:[...new Set(urls)].slice(0,4)};
-              }).filter(x => x.body));
+              }).filter(x => x.body || x.images.length));
             })();
             """;
         readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color, string[] Images)> history = new();
