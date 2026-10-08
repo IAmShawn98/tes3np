@@ -286,6 +286,7 @@ internal static class Program
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 92) / 2), 8, 92, 31);
 
             frameSurface.Invalidate();
+            Log("Header visibility: frame=" + frameSurface.Visible + ", titleBar=" + titleBar.Visible + ", titleText=" + titleText.Visible + ", native=" + nativeMode);
             if (nativeMessages.Visible) nativeMessages.BringToFront();
             goldScrollbar.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
@@ -384,6 +385,17 @@ internal static class Program
                 var size = g.MeasureString("Chat", titleFont);
                 g.FillRectangle(titleFill, (w - size.Width) / 2 - 16, 4, size.Width + 32, 31);
                 g.DrawString("Chat", titleFont, gold, (w - size.Width) / 2, 7);
+            };
+            Log("Header diagnostics: texture=" + (headerTexture == null ? "MISSING" : headerTexture.Width + "x" + headerTexture.Height) +
+                ", border=" + (borderTexture == null ? "MISSING" : borderTexture.Width + "x" + borderTexture.Height) +
+                ", baseDir=" + AppContext.BaseDirectory);
+            titleBar.Paint += (_, e) =>
+            {
+                if (headerTexture != null)
+                {
+                    using var brush = new System.Drawing.TextureBrush(headerTexture, System.Drawing.Drawing2D.WrapMode.Tile);
+                    e.Graphics.FillRectangle(brush, titleBar.ClientRectangle);
+                }
             };
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.Black;
