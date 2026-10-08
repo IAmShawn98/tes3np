@@ -386,8 +386,8 @@ internal static class Program
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 119));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 292) / 2),
-                Math.Max(1, frameSurface.Height - 56), Math.Min(292, Math.Max(1, frameSurface.Width - 32)), 34);
+            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 272) / 2),
+                Math.Max(1, frameSurface.Height - 56), Math.Min(272, Math.Max(1, frameSurface.Width - 32)), 34);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 115));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -635,11 +635,17 @@ internal static class Program
                 var textSize = System.Windows.Forms.TextRenderer.MeasureText(label, joinDiscord.Font,
                     new System.Drawing.Size(int.MaxValue, int.MaxValue),
                     System.Windows.Forms.TextFormatFlags.NoPadding);
-                int iconSize = 29, gap = 10;
+                int iconSize = 30, gap = 3;
                 int totalWidth = iconSize + gap + textSize.Width;
                 int startX = Math.Max(3, (joinDiscord.ClientSize.Width - totalWidth) / 2);
                 int iconY = (joinDiscord.ClientSize.Height - iconSize) / 2;
-                g.DrawImage(discordIcon, new System.Drawing.Rectangle(startX, iconY, iconSize, iconSize));
+                // Crop the source image's large white margins so the Discord mark itself
+                // fills the icon slot instead of appearing tiny.
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.DrawImage(discordIcon,
+                    new System.Drawing.Rectangle(startX, iconY, iconSize, iconSize),
+                    new System.Drawing.Rectangle(4, 4, 16, 16),
+                    System.Drawing.GraphicsUnit.Pixel);
                 System.Windows.Forms.TextRenderer.DrawText(g, label, joinDiscord.Font,
                     new System.Drawing.Rectangle(startX + iconSize + gap, 0,
                         textSize.Width, joinDiscord.ClientSize.Height),
@@ -760,8 +766,8 @@ internal static class Program
             }
             messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 119));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 292) / 2),
-                Math.Max(1, frameSurface.Height - 56), Math.Min(292, Math.Max(1, frameSurface.Width - 32)), 34);
+            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 272) / 2),
+                Math.Max(1, frameSurface.Height - 56), Math.Min(272, Math.Max(1, frameSurface.Width - 32)), 34);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 115));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
