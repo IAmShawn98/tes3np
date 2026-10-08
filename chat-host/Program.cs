@@ -81,6 +81,43 @@ internal static class Program
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         bool docked;
         bool signInExpanded;
+        readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
+        readonly string layoutFile = Path.Combine(AppContext.BaseDirectory, "chat.ini");
+        DateTime cssStamp = DateTime.MinValue, layoutStamp = DateTime.MinValue;
+        int chatX = 54, chatY = 278, chatWidth = 266, chatHeight = 342;
+        string userCss = Css;
+        static int ReadInt(string line, string key, int fallback) =>
+            line.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(line[(key.Length + 1)..].Trim(), out var v) ? v : fallback;
+        void LoadLayout()
+        {
+            if (!File.Exists(layoutFile)) return;
+            var stamp = File.GetLastWriteTimeUtc(layoutFile);
+            if (stamp == layoutStamp) return;
+            layoutStamp = stamp;
+            foreach (var raw in File.ReadAllLines(layoutFile))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith(";") || line.StartsWith("[") || line.Length == 0) continue;
+                chatX = ReadInt(line, "X", chatX);
+                chatY = ReadInt(line, "Y", chatY);
+                chatWidth = Math.Clamp(ReadInt(line, "Width", chatWidth), 160, 700);
+                chatHeight = Math.Clamp(ReadInt(line, "Height", chatHeight), 140, 700);
+            }
+            if (docked) MoveWindow(Handle, chatX, chatY, chatWidth, chatHeight, true);
+            Log("Layout reloaded");
+        }
+        async Task LoadCss()
+        {
+            if (!File.Exists(cssFile)) return;
+            var stamp = File.GetLastWriteTimeUtc(cssFile);
+            if (stamp == cssStamp) return;
+            cssStamp = stamp;
+            userCss = File.ReadAllText(cssFile);
+            await ApplyCss();
+            Log("CSS reloaded");
+        }
+
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-host.log");
         void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
@@ -94,6 +131,7 @@ internal static class Program
             Controls.Add(version);
             Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
+            LoadLayout();
 
             Shown += async (_, _) =>
             {
@@ -105,13 +143,14 @@ internal static class Program
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    await LoadCss();
                     Log("WebView2 initialized");
                     web.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     // Install styling before Discord's SPA renders, and keep
                     // it in place as React replaces DOM nodes.
                     await web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
-                        "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(Css) +
+                        "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                         "; const install=()=>{if(!document.head)return;let s=document.getElementById('tes3np-chat-style');if(!s){s=document.createElement('style');s.id='tes3np-chat-style';document.head.appendChild(s)}s.textContent=css};install();document.addEventListener('DOMContentLoaded',install);new MutationObserver(()=>{if(!document.getElementById('tes3np-chat-style'))install()}).observe(document,{childList:true,subtree:true});})()");
                     web.CoreWebView2.NavigationCompleted += async (_, _) => await UpdateViewMode();
                     web.CoreWebView2.NewWindowRequested += (_, e) =>
@@ -129,9 +168,10 @@ internal static class Program
                     MessageBox.Show("WebView2 chat unavailable: " + ex.Message + "\nInstall Microsoft Edge WebView2 Runtime.", "tes3np Chat");
                 }
             };
-            watch.Tick += (_, _) =>
+            watch.Tick += async (_, _) =>
             {
                 if (!IsWindow(owner)) { Close(); return; }
+                try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
             };
             watch.Start();
@@ -139,7 +179,7 @@ internal static class Program
         async Task ApplyCss()
         {
             if (web.CoreWebView2 == null) return;
-            var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(Css) +
+            var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
@@ -177,7 +217,7 @@ internal static class Program
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
             SetParent(hwnd, owner);
-            MoveWindow(hwnd, 54, 278, 266, 342, true);
+            MoveWindow(hwnd, chatX, chatY, chatWidth, chatHeight, true);
             ShowWindow(hwnd, 5);
             docked = true;
             Log("Docked 54,278 266x342");
