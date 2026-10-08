@@ -293,11 +293,18 @@ internal static class Program
                 const color = usernameEl ? getComputedStyle(usernameEl).color : '';
                 const body = el.querySelector('[class*="messageContent_"]')?.innerText?.trim() ||
                              el.querySelector('[class*="markup_"]')?.innerText?.trim() || '';
-                const urls = [...el.querySelectorAll('a[href], img[src]')]
-                  .map(n => n.tagName === 'IMG' ? (n.currentSrc || n.src) : n.href)
+                const media = [...el.querySelectorAll(
+                  '[class*="imageWrapper_"] img, [class*="imageContainer_"] img, ' +
+                  '[class*="attachment_"] img, [class*="embedMedia_"] img, ' +
+                  '[class*="embedImage_"] img, [class*="messageContent_"] img, ' +
+                  '[class*="markup_"] img, a[href*="/attachments/"]'
+                )];
+                const urls = media.map(n => n.tagName === 'IMG'
+                    ? (n.currentSrc || n.src) : n.href)
                   .filter(u => /^https:\/\//i.test(u) &&
+                    !/\/avatars\/|\/embed\/avatars\/|\/icons\/|\/emojis\//i.test(u) &&
                     (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(u) ||
-                     /(?:cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i.test(u)));
+                     /\/(?:attachments|ephemeral-attachments)\//i.test(u)));
                 return {id:el.id,user,body,color,images:[...new Set(urls)].slice(0,4)};
               }).filter(x => x.body));
             })();
@@ -305,11 +312,12 @@ internal static class Program
         readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color, string[] Images)> history = new();
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
         readonly System.Collections.Generic.HashSet<string> pendingImages = new();
+        readonly System.Collections.Generic.HashSet<string> failedImages = new();
         static readonly System.Net.Http.HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
         bool imagesNeedRedraw;
         async Task FetchChatImage(string url)
         {
-            if (imageCache.ContainsKey(url) || !pendingImages.Add(url)) return;
+            if (imageCache.ContainsKey(url) || failedImages.Contains(url) || !pendingImages.Add(url)) return;
             try
             {
                 if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
@@ -337,8 +345,13 @@ internal static class Program
                 imageCache[url] = preview;
                 imagesNeedRedraw = true;
             }
-            catch (Exception ex) { Log("Chat image unavailable: " + ex.Message); }
-            finally { pendingImages.Remove(url); }
+            catch (Exception ex) { Log("Chat image unavailable: " + ex.Message); failedImages.Add(url); }
+            finally
+            {
+                if (!imageCache.ContainsKey(url)) failedImages.Add(url);
+                pendingImages.Remove(url);
+                imagesNeedRedraw = true;
+            }
         }
         void AppendChatImage(System.Drawing.Image image)
         {
@@ -404,6 +417,7 @@ internal static class Program
                 if (closingChat || IsDisposed) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
                 if (json == lastFeed && !imagesNeedRedraw) return;
+                bool redrawImages = imagesNeedRedraw;
                 imagesNeedRedraw = false;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 if (doc.RootElement.GetArrayLength() == 0) return;
@@ -438,7 +452,7 @@ internal static class Program
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
                     foreach (string imageUrl in images)
-                        if (!imageCache.ContainsKey(imageUrl)) _ = FetchChatImage(imageUrl);
+                        if (!imageCache.ContainsKey(imageUrl) && !failedImages.Contains(imageUrl)) _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
                         existing.User != user || existing.Body != body || existing.Color != color ||
                         !existing.Images.SequenceEqual(images))
@@ -447,7 +461,7 @@ internal static class Program
                         changed = true;
                     }
                 }
-                if (!changed && !imageCache.Keys.Any(k => history.Values.Any(v => v.Images.Contains(k)))) return;
+                if (!changed && !redrawImages) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 renderedMessages.Clear();
                 nativeMessages.SuspendLayout();
@@ -481,7 +495,8 @@ internal static class Program
                             try { AppendChatImage(preview); }
                             catch (Exception ex) { Log("Chat image render error: " + ex.Message); nativeMessages.AppendText("[Image] " + imageUrl); }
                         }
-                        else nativeMessages.AppendText("[Loading image…] " + imageUrl);
+                        else if (failedImages.Contains(imageUrl)) nativeMessages.AppendText("[Image unavailable]");
+                        else nativeMessages.AppendText("[Loading image…]");
                     }
                     if (renderedMessages.Count < history.Count)
                         nativeMessages.AppendText(Environment.NewLine);
