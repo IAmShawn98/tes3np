@@ -386,8 +386,8 @@ internal static class Program
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 119));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 208) / 2),
-                Math.Max(1, frameSurface.Height - 53), 208, 30);
+            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 292) / 2),
+                Math.Max(1, frameSurface.Height - 56), Math.Min(292, Math.Max(1, frameSurface.Width - 32)), 34);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 115));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -635,7 +635,7 @@ internal static class Program
                 var textSize = System.Windows.Forms.TextRenderer.MeasureText(label, joinDiscord.Font,
                     new System.Drawing.Size(int.MaxValue, int.MaxValue),
                     System.Windows.Forms.TextFormatFlags.NoPadding);
-                int iconSize = 22, gap = 7;
+                int iconSize = 29, gap = 10;
                 int totalWidth = iconSize + gap + textSize.Width;
                 int startX = Math.Max(3, (joinDiscord.ClientSize.Width - totalWidth) / 2);
                 int iconY = (joinDiscord.ClientSize.Height - iconSize) / 2;
@@ -760,8 +760,8 @@ internal static class Program
             }
             messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 119));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 208) / 2),
-                Math.Max(1, frameSurface.Height - 53), 208, 30);
+            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 292) / 2),
+                Math.Max(1, frameSurface.Height - 56), Math.Min(292, Math.Max(1, frameSurface.Width - 32)), 34);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 115));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
