@@ -875,7 +875,7 @@ metrics();
         }
         async Task RefreshNativeMessages()
         {
-            if (closingChat || IsDisposed || web.CoreWebView2 == null || signInExpanded) return;
+            if (closingChat || IsDisposed || web.CoreWebView2 == null || discordLoginVisible) return;
             try
             {
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
@@ -1652,17 +1652,31 @@ metrics();
             if (web.CoreWebView2 == null || closingChat) return;
             try
             {
-                // The message list, not the login URL or password field, is
-                // the reliable indication that Discord chat is available.
-                string feed = await web.CoreWebView2.ExecuteScriptAsync(
-                    "!!document.querySelector('[data-list-id=chat-messages]')");
-                if (feed == "true")
+                string url = web.CoreWebView2.Source ?? "";
+                bool onLogin = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
+                    || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
+                string state = await web.CoreWebView2.ExecuteScriptAsync(
+                    "(() => { if (document.readyState === 'loading') return 'loading'; " +
+                    "if (document.querySelector('[data-list-id=chat-messages]')) return 'chat'; " +
+                    "if (document.querySelector('input[type=password]')) return 'login'; " +
+                    "const t = document.body?.innerText || ''; " +
+                    "if (/Discord App Detected|Discord App Launched/i.test(t)) return 'app-prompt'; " +
+                    "return 'pending'; })()");
+                if (state == "\"chat\"")
                 {
                     if (discordLoginVisible) RestoreGameChatAfterSignIn();
+                    return;
                 }
-                else if (feed == "false")
+                if (onLogin || state == "\"login\"")
                 {
                     ShowDiscordSignIn();
+                    return;
+                }
+                if (state == "\"app-prompt\"")
+                {
+                    ShowDiscordSignIn();
+                    Log("Discord desktop-app prompt detected; navigating to browser sign-in");
+                    web.CoreWebView2.Navigate("https://discord.com/login");
                 }
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
@@ -1720,7 +1734,7 @@ metrics();
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             await CheckDiscordAuthentication();
-            if (signInExpanded) return;
+            if (discordLoginVisible) return;
             EnforceChatClip();
             await ApplyCss();
             await RefreshNativeMessages();
