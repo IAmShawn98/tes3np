@@ -119,6 +119,15 @@ try {
         if ($hash -ine $item.SHA256) { throw "Damaged extracted patch file: $($item.Path)" }
     }
     Step "Verified $($manifest.Files.Count) extracted patch payload files"
+    Step 'Publishing embedded WebView2 chat host'
+    $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+    if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
+    $hostProject = Join-Path $projectRoot 'chat-host\tes3np.ChatHost.csproj'
+    $hostOutput = Join-Path $package 'chat-host'
+    & dotnet publish $hostProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o $hostOutput
+    if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $hostOutput 'tes3np.ChatHost.exe'))) {
+        throw 'WebView2 chat host publishing failed.'
+    }
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
     Step 'Windows launcher build completed successfully'
