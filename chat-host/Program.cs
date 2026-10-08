@@ -505,7 +505,12 @@ internal static class Program
                 g.DrawImage(image, new System.Drawing.Rectangle(0, Math.Max(28, h - 75), w, 39),
                     new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
             };
-            goldScrollbar.MouseWheel += (_, e) => nativeMessages.Focus();
+            goldScrollbar.MouseWheel += (_, e) =>
+            {
+                if (nativeMessages.IsHandleCreated)
+                    SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Delta > 0 ? 0 : 1), IntPtr.Zero);
+            };
+            nativeMessages.MouseWheel += (_, _) => goldScrollbar.Invalidate();
             goldScrollbar.MouseDown += (_, e) =>
             {
                 if (!nativeMessages.IsHandleCreated) return;
@@ -513,6 +518,14 @@ internal static class Program
                 if (e.Y < 27 || e.Y >= goldScrollbar.Height - 27)
                     SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero,
                         new IntPtr(e.Y < 27 ? -3 : 3));
+                goldScrollbar.Invalidate();
+            };
+            goldScrollbar.MouseMove += (_, e) =>
+            {
+                if (e.Button != MouseButtons.Left || !nativeMessages.IsHandleCreated) return;
+                int usable = Math.Max(1, goldScrollbar.Height - 54);
+                int fraction = Math.Clamp(e.Y - 27, 0, usable);
+                SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(4 + (fraction * 65535 / usable << 16)), IntPtr.Zero);
                 goldScrollbar.Invalidate();
             };
             foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
