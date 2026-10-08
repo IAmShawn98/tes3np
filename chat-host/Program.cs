@@ -326,8 +326,22 @@ internal static class Program
                     !(uri.Host.EndsWith(".discordapp.com", StringComparison.OrdinalIgnoreCase) ||
                       uri.Host.EndsWith(".discordapp.net", StringComparison.OrdinalIgnoreCase) ||
                       uri.Host.Equals("cdn.discordapp.com", StringComparison.OrdinalIgnoreCase))) return;
+                // Discord's image proxy may serve WebP/AVIF, which System.Drawing/GDI+ cannot decode.
+                // Ask the proxy for PNG so the native RichEdit preview can load reliably.
+                if (uri.Host.Equals("media.discordapp.net", StringComparison.OrdinalIgnoreCase))
+                {
+                    var builder = new UriBuilder(uri);
+                    var queryParts = builder.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+                        .Where(part => !part.StartsWith("format=", StringComparison.OrdinalIgnoreCase) &&
+                                       !part.StartsWith("fm=", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    queryParts.Add("format=png");
+                    builder.Query = string.Join("&", queryParts);
+                    uri = builder.Uri;
+                }
                 using var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri);
                 request.Headers.Referrer = new Uri("https://discord.com/");
+                request.Headers.Accept.ParseAdd("image/png");
                 using var response = await imageHttp.SendAsync(request, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
                 if (!response.IsSuccessStatusCode)
                     throw new System.Net.Http.HttpRequestException("HTTP " + (int)response.StatusCode +
