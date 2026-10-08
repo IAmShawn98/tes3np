@@ -101,3 +101,13 @@ color:#eee9e2!important;text-shadow:1px 1px 2px #000!important;
 [class*="message_"] {padding:1px 7px!important}
 [data-list-id="chat-messages"] {padding:4px 2px!important}
 [class*="messageContent_"] {margin-top:0!important}
+
+/* Classic Morrowind-style inset scrollbar and arrow caps. */
+::-webkit-scrollbar {width:19px!important;background:#080705!important}
+::-webkit-scrollbar-track {background:#17120b!important;border:2px solid #967648!important;box-shadow:inset 1px 1px 0 #322412!important}
+::-webkit-scrollbar-thumb {background:linear-gradient(90deg,#58401e 0%,#c7a971 40%,#9b7840 85%,#4c351a 100%)!important;border:2px solid #d3b783!important;border-radius:0!important;min-height:24px!important}
+::-webkit-scrollbar-button:single-button {height:19px!important;display:block!important;background:#2a1e10!important;border:2px solid #b79a60!important;box-shadow:inset 1px 1px 0 #e0c78d!important}
+::-webkit-scrollbar-button:single-button:vertical:decrement {background-image:linear-gradient(135deg,transparent 45%,#e6cf96 46%,#e6cf96 55%,transparent 56%)!important}
+::-webkit-scrollbar-button:single-button:vertical:increment {background-image:linear-gradient(315deg,transparent 45%,#e6cf96 46%,#e6cf96 55%,transparent 56%)!important}
+[class*="message_"] {padding:0 6px!important}
+[class*="markup_"],[class*="messageContent_"] {font-size:12px!important;line-height:1.23!important;font-weight:700!important}
