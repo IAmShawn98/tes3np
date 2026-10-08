@@ -146,7 +146,10 @@ RefreshProfiles()
         ; Import Data changes from the wide empty-state button back to Export Data.
         ; Updating only X/Y left the painted face at its previous 370px width,
         ; which could draw a second/overflowing Export Data face off the book.
-        MoveStyledButton(DataTransferButton, transferX, transferY, Profiles.Length ? 110 : 370, 30)
+        ; This control is created at 110px wide. Never resize its custom-painted
+        ; button face after creation: doing so can stretch it beyond the book edge.
+        ; Move both layers while retaining the original dimensions.
+        MoveStyledButton(DataTransferButton, transferX, transferY, 110, 30)
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
         {
