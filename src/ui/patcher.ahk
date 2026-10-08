@@ -324,7 +324,11 @@ CheckPatchWorker()
         PatchStatus.Text := message
     ; A fresh standalone install offers its desktop entry only after patching.
     if state = "success" && job.Action = "Apply" && A_IsCompiled
+    {
+        ; Return to the normal launcher before offering the desktop shortcut.
+        ShowLauncherWindow()
         SetTimer(OfferDesktopShortcutOnFirstLaunch, -1000)
+    }
     if state = "error"
         LogPatchDiagnostic(message)
     if job.Startup
