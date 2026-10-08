@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-frame-zorder-20261008";
+    const string ChatBuild = "chat-webview-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -171,20 +171,16 @@ internal static class Program
             var region = CreateRectRgn(0, HeaderCrop, web.Width, web.Height);
             if (SetWindowRgn(web.Handle, region, true) == 0)
                 Log("Unable to set WebView clip region");
-            titleBar.BringToFront();
-            titleText.BringToFront();
-            RaiseFrame();
+            // Frame is now a browser overlay, not a competing native HWND.
         }
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
         void FitWebView()
         {
-            chatViewport.SetBounds(10, 46, Math.Max(1, ClientSize.Width - 20), Math.Max(1, ClientSize.Height - 58));
+            chatViewport.SetBounds(0, 0, Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
             titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 35);
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
-            titleBar.BringToFront();
-            titleText.BringToFront();
-            if (frame.Visible) { frame.Bounds = new System.Drawing.Rectangle(0, 0, ClientSize.Width, ClientSize.Height); frame.BringToFront(); }
+
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
             RaiseFrame();
@@ -274,11 +270,7 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
-            Controls.Add(titleBar);
-            Controls.Add(titleText);
-            Controls.Add(frame);
-            frame.BringToFront();
-            frame.Handle.ToString(); // Force creation of native frame HWND before WebView2 initializes.
+            // The frame now lives inside the WebView DOM so it cannot fall behind Discord.
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
