@@ -37,9 +37,10 @@ LoadDailyLoginSchedule()
         if loginAction != "LoginCloseAll" && loginAction != "LoginUpTo4" && loginAction != "AlertOnly"
             loginAction := "LoginCloseAll"
         loginProfiles := IniRead(DataFile, section, "LoginProfiles", "")
-        promptMode := IniRead(DataFile, section, "PromptMode", "Ask")
-        if promptMode != "Countdown"
-            promptMode := "Ask"
+        promptMode := IniRead(DataFile, section, "PromptMode", "Countdown")
+        ; Migrate the old Ask mode to an enabled launch alert.
+        if promptMode != "Silent"
+            promptMode := "Countdown"
         try time := ParseDailyLoginTime(time)
         catch
             continue
@@ -119,7 +120,7 @@ SaveScheduledEvents()
         IniWrite(event.HasOwnProp("StartedAt") ? event.StartedAt : "", DataFile, section, "StartedAt")
         IniWrite(event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll", DataFile, section, "LoginAction")
         IniWrite(event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : "", DataFile, section, "LoginProfiles")
-        IniWrite(event.HasOwnProp("PromptMode") ? event.PromptMode : "Ask", DataFile, section, "PromptMode")
+        IniWrite(event.HasOwnProp("PromptMode") ? event.PromptMode : "Countdown", DataFile, section, "PromptMode")
         IniWrite(event.Recurring ? "1" : "0", DataFile, section, "Recurring")
         IniWrite(event.HasOwnProp("Locked") && event.Locked ? "1" : "0", DataFile, section, "Locked")
         IniWrite(event.HasOwnProp("Armed") && event.Armed ? "1" : "0", DataFile, section, "Armed")
@@ -478,7 +479,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     promptLabel := CharacterPage.Add("Text", "x525 y395 w215 h22 BackgroundTrans", "Include Alert Before Launch")
     promptModeList := CharacterPage.Add("DropDownList", "x745 y390 w110 h120 BackgroundE2CEA2 c382314",
         ["Yes", "No"])
-    promptModeList.Choose(event.HasOwnProp("PromptMode") && event.PromptMode = "Countdown" ? 1 : 2)
+    promptModeList.Choose(!event.HasOwnProp("PromptMode") || event.PromptMode != "Silent" ? 1 : 2)
 
     UpdateScheduledEventModeFields(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds)
     modeList.OnEvent("Change", UpdateScheduledEventModeFields.Bind(modeList, hourLabel, minuteLabel, thirdLabel, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, displayHour, minute, durationHours, durationMinutes, durationSeconds))
@@ -717,7 +718,7 @@ SaveScheduledEventEditor(editor, eventIndex, nameEdit, modeList, recurringCheck,
     ; chosen. Switching the dropdown should change behavior, not erase that
     ; option's saved configuration.
     loginProfiles := loginProfilesState.Value
-    promptMode := promptModeList.Value = 1 ? "Countdown" : "Ask"
+    promptMode := promptModeList.Value = 1 ? "Countdown" : "Silent"
     if eventIndex > 0 && eventIndex <= ScheduledEvents.Length
     {
         event := ScheduledEvents[eventIndex]
@@ -884,19 +885,13 @@ CheckDailyLoginSchedule(*)
             continue
         }
 
-        if event.HasOwnProp("PromptMode") && event.PromptMode = "Countdown"
+        ; Yes shows the 10-second alert; No launches immediately with no prompt.
+        if !event.HasOwnProp("PromptMode") || event.PromptMode != "Silent"
         {
             BeginScheduledLaunchPrompt(event)
             return
         }
-        LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; awaiting user choice.")
-        actionText := loginAction = "LoginUpTo4" ? "log in up to 4 characters" : "log in and close all characters"
-        choice := MsgBox("'" event.Name "' is ready.`n`nWould you like tes3np to " actionText " now?", "Scheduled Event", "YesNo Icon?")
-        if choice != "Yes"
-        {
-            CompleteScheduledEventForToday(event, "cancelled by user")
-            continue
-        }
+        LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; launching without alert.")
 
         ActiveScheduledEventId := event.Id
         LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: IRL | Login action: " loginAction ".")
