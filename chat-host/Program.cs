@@ -177,6 +177,7 @@ internal static class Program
             return new System.Drawing.Bitmap(image);
         }
         readonly System.Drawing.Bitmap? scrollbarTexture = LoadTexture("scrollbar-texture.b64");
+        readonly System.Drawing.Bitmap? headerTexture = LoadTexture("header-texture.b64");
         readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly RichTextBox nativeMessages = new()
         {
@@ -368,10 +369,10 @@ internal static class Program
                 g.FillRectangle(rim, 0, 0, w, h);
                 // The visible Chat header can be painted by the host Form itself.
                 // Apply the existing Morrowind texture here, not only to frameSurface.
-                if (borderTexture != null)
+                if (headerTexture != null)
                 {
                     using var headerTexture = new System.Drawing.TextureBrush(
-                        borderTexture, System.Drawing.Drawing2D.WrapMode.Tile);
+                        this.headerTexture, System.Drawing.Drawing2D.WrapMode.Tile);
                     g.FillRectangle(headerTexture, 3, 3, w - 6, 49);
                 }
                 else
@@ -416,9 +417,9 @@ internal static class Program
                 }
                 // Paint the header artwork after weathering so it remains visible.
                 // This is the exact border texture asset already used by ChatHost.
-                if (borderTexture != null)
+                if (headerTexture != null || borderTexture != null)
                 {
-                    using var header = new System.Drawing.TextureBrush(borderTexture, System.Drawing.Drawing2D.WrapMode.Tile);
+                    using var header = new System.Drawing.TextureBrush(headerTexture ?? borderTexture, System.Drawing.Drawing2D.WrapMode.Tile);
                     g.FillRectangle(header, 9, 13, w - 18, 39);
                 }
                 // Preserve the actual Morrowind border artwork across the Chat header.
