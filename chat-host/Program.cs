@@ -1664,6 +1664,12 @@ metrics();
             catch { }
             SetChatOpen(mode == "Always Shown");
         }
+        // WM_APP + 0x332 tells the launcher the authoritative chat visibility.
+        void NotifyLauncherChatState()
+        {
+            if (IsWindow(owner))
+                PostMessage(owner, 0x8332, chatOpen ? new IntPtr(1) : IntPtr.Zero, IntPtr.Zero);
+        }
         void SetChatOpen(bool show)
         {
             chatOpen = show;
@@ -1673,6 +1679,7 @@ metrics();
                 else ShowWindow(Handle, 0);
             }
             PositionChatWindows();
+            NotifyLauncherChatState();
         }
         void PositionChatWindows()
         {
