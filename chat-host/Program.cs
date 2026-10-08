@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-layout-20261008-b";
+    const string ChatBuild = "chat-layout-20261008-c";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -13,6 +13,11 @@ internal static class Program
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hwnd, int index, int value);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] static extern int GetWindowLongEx(IntPtr hwnd, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW")] static extern int SetWindowLongEx(IntPtr hwnd, int index, int value);
+    [DllImport("user32.dll", SetLastError = true)] static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint colorKey, byte alpha, uint flags);
+    const int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x80000;
+    const uint LWA_ALPHA = 2;
     const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_POPUP = unchecked((int)0x80000000);
     const string Css = """
         /* TES3NP compact, read-only message feed */
@@ -84,7 +89,8 @@ internal static class Program
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
         readonly string layoutFile = Path.Combine(AppContext.BaseDirectory, "chat.ini");
         DateTime cssStamp = DateTime.MinValue, layoutStamp = DateTime.MinValue;
-        int chatX = 54, chatY = 278, chatWidth = 266, chatHeight = 342;
+        int chatX = 94, chatY = 420, chatWidth = 390, chatHeight = 498;
+        byte chatOpacity = 220;
         string userCss = Css;
         static int ReadInt(string line, string key, int fallback) =>
             line.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)
@@ -103,9 +109,18 @@ internal static class Program
                 chatY = ReadInt(line, "Y", chatY);
                 chatWidth = Math.Clamp(ReadInt(line, "Width", chatWidth), 160, 700);
                 chatHeight = Math.Clamp(ReadInt(line, "Height", chatHeight), 140, 700);
+                chatOpacity = (byte)Math.Clamp(ReadInt(line, "Opacity", chatOpacity), 120, 255);
             }
-            if (docked) MoveWindow(Handle, chatX, chatY, chatWidth, chatHeight, true);
+            if (docked) { MoveWindow(Handle, chatX, chatY, chatWidth, chatHeight, true); ApplyWindowOpacity(); }
             Log("Layout reloaded");
+        }
+        void ApplyWindowOpacity()
+        {
+            if (!IsHandleCreated) return;
+            var ex = GetWindowLongEx(Handle, GWL_EXSTYLE);
+            SetWindowLongEx(Handle, GWL_EXSTYLE, ex | WS_EX_LAYERED);
+            if (!SetLayeredWindowAttributes(Handle, 0, chatOpacity, LWA_ALPHA))
+                Log("Layered alpha failed: " + Marshal.GetLastWin32Error());
         }
         async Task LoadCss()
         {
@@ -127,7 +142,7 @@ internal static class Program
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.Black;
-            TransparencyKey = System.Drawing.Color.Black;
+            // Native child window alpha lets launcher artwork show through opaque Discord layers.
             Controls.Add(web);
             // The diagnostic version label is no longer part of the chat UI.
             Log("Host launched; owner=" + owner);
@@ -221,6 +236,7 @@ internal static class Program
             SetParent(hwnd, owner);
             MoveWindow(hwnd, chatX, chatY, chatWidth, chatHeight, true);
             ShowWindow(hwnd, 5);
+            ApplyWindowOpacity();
             docked = true;
             Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }
