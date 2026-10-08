@@ -551,6 +551,10 @@ metrics();
                       const first = list.querySelector('[id^="chat-messages-"]');
                       const firstId = first?.id || 'none';
                       const beforeCount = list.querySelectorAll('[id^="chat-messages-"]').length;
+                      const last = [...list.querySelectorAll('[id^="chat-messages-"]')].at(-1);
+                      const listRect = list.getBoundingClientRect();
+                      const scrollRect = scroller.getBoundingClientRect();
+                      const loading = !!document.querySelector('[class*="loadingMore"], [class*="loadingWrapper"], [class*="spinner"]');
                       if (recovery) {
                         // Ask Discord's virtualized list to reveal its first actual
                         // message instead of repeatedly bouncing an already-top scroller.
@@ -568,7 +572,11 @@ metrics();
                       return 'scroll=' + before + '->' + scroller.scrollTop +
                         ' height=' + scroller.scrollHeight + ' client=' + scroller.clientHeight +
                         ' first=' + firstId + ' rows=' + beforeCount +
-                        ' connected=' + scroller.isConnected;
+                        ' connected=' + scroller.isConnected +
+                        ' last=' + (last?.id || 'none') +
+                        ' listTop=' + Math.round(listRect.top) +
+                        ' scrollerTop=' + Math.round(scrollRect.top) +
+                        ' loading=' + loading;
                     })();
                     """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
                 Log("History scroll (" + scriptMode + ", attempt=" + attempt + "): " + result);
