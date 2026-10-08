@@ -201,6 +201,11 @@ internal static class Program
             Math.Max(1,track-thumbHeight);
         _ = messageBrowser.CoreWebView2.ExecuteScriptAsync(
             "window.scrollFraction(" + fraction.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")");
+        if (fraction <= 0.01)
+        {
+            userScrolledChat = true;
+            RequestOlderMessages(forceTop: true);
+        }
     }
     void HideNativeChatScrollbar() { /* No native scrollbar is created. */ }
 
@@ -539,7 +544,7 @@ metrics();
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
-                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(750) ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(450) ||
                 DateTime.UtcNow < historyBackoffUntil) return;
             loadingHistory = true;
             lastHistoryRequest = DateTime.UtcNow;
@@ -638,10 +643,10 @@ metrics();
         }
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
-        void RequestOlderMessages()
+        void RequestOlderMessages(bool forceTop = false)
         {
-            if (!userScrolledChat) return;
-            bool nearTop = ChatFirstLine() <= 300;
+            if (!userScrolledChat && !forceTop) return;
+            bool nearTop = forceTop || ChatFirstLine() <= 300;
             bool canRequest = nearTop && !loadingHistory && IsHandleCreated &&
                 nativeMode && !signInExpanded && web.CoreWebView2 != null;
             if (!canRequest)
@@ -758,7 +763,7 @@ metrics();
         }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         // History requests must not depend on changes to Discord messages or launcher UI.
-        readonly System.Windows.Forms.Timer historyWatch = new() { Interval = 350 };
+        readonly System.Windows.Forms.Timer historyWatch = new() { Interval = 200 };
         bool closingChat;
         bool refreshingChat;
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
