@@ -313,7 +313,7 @@ internal static class Program
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 43), Math.Max(1, ClientSize.Height - 88));
-            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 53), 65, 36, Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
             railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
@@ -513,7 +513,9 @@ internal static class Program
             goldScrollbar.Paint += (_, e) =>
             {
                 var g = e.Graphics;
-                int h = goldScrollbar.ClientSize.Height, w = goldScrollbar.ClientSize.Width;
+                int h = goldScrollbar.ClientSize.Height, w = 20;
+                g.FillRectangle(System.Drawing.Brushes.Black, 0, 0, goldScrollbar.Width, h);
+                g.TranslateTransform(goldScrollbar.Width - w, 0);
                 if (h < 65 || scrollbarTexture == null) return;
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
                 var image = scrollbarTexture;
@@ -539,7 +541,7 @@ internal static class Program
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
-                if (!nativeMessages.IsHandleCreated) return;
+                if (!nativeMessages.IsHandleCreated || e.X < goldScrollbar.Width - 20) return;
                 if (e.Y < 27 || e.Y >= goldScrollbar.Height - 27)
                 {
                     SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Y < 27 ? 0 : 1), IntPtr.Zero);
@@ -583,7 +585,7 @@ internal static class Program
                 };
             }
             nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 43), Math.Max(1, frameSurface.Height - 88));
-            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
+            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 53), 65, 36, Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
