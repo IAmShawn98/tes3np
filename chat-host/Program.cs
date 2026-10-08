@@ -529,16 +529,16 @@ internal static class Program
                 using (var headerBase = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(143, 109, 60)))
                     g.FillRectangle(headerBase, 13, 13, w - 26, 39);
                 var headerNoise = new Random(4108);
-                using (var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(121, 94, 54)))
-                using (var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(176, 145, 90)))
-                using (var midMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(157, 125, 75)))
+                using (var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(112, 83, 45)))
+                using (var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(184, 151, 92)))
+                using (var midMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(165, 129, 72)))
                 {
-                    for (int n = 0; n < w * 5; n++)
+                    for (int n = 0; n < w * 10; n++)
                     {
                         int x = headerNoise.Next(13, Math.Max(14, w - 13));
                         int y = headerNoise.Next(13, 52);
                         g.FillRectangle(n % 5 == 0 ? lightMottle : (n % 3 == 0 ? midMottle : darkMottle),
-                            x, y, headerNoise.Next(1, 3), 1);
+                            x, y, headerNoise.Next(1, 4), headerNoise.Next(1, 3));
                     }
                 }
                 using (var headerGold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(207, 169, 98)))
@@ -564,9 +564,9 @@ internal static class Program
                 g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
                 g.FillRectangle(black, 13, 54, w - 26, h - 67);
                 g.DrawLine(goldPen, 12, 53, w - 13, 53);
-                using var headingFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Regular);
+                using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
                 var titleSize = g.MeasureString("Chat", headingFont);
-                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 28);
+                g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 32);
                 g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
                 int sx = w - 35;
                 g.DrawRectangle(goldPen, sx, 74, 19, 19);
@@ -692,7 +692,7 @@ internal static class Program
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 79));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
-            nativeMessages.Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold);
+            nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             messageClip.BringToFront();
             goldScrollbar.BringToFront();
             railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
