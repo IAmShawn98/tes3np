@@ -366,7 +366,16 @@ internal static class Program
                 using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
                 using var titleFont = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
                 g.FillRectangle(rim, 0, 0, w, h);
-                g.FillRectangle(metal, 3, 3, w - 6, 49);
+                // The visible Chat header can be painted by the host Form itself.
+                // Apply the existing Morrowind texture here, not only to frameSurface.
+                if (borderTexture != null)
+                {
+                    using var headerTexture = new System.Drawing.TextureBrush(
+                        borderTexture, System.Drawing.Drawing2D.WrapMode.Tile);
+                    g.FillRectangle(headerTexture, 3, 3, w - 6, 49);
+                }
+                else
+                    g.FillRectangle(metal, 3, 3, w - 6, 49);
                 g.FillRectangle(titleFill, 15, 53, w - 30, h - 69);
                 g.DrawRectangle(shadow, 5, 5, w - 11, h - 11);
                 g.DrawRectangle(highlight, 2, 2, w - 5, h - 5);
