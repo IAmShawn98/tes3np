@@ -271,10 +271,12 @@ internal static class Program
               const rows = [...list.querySelectorAll('[id^="chat-messages-"]')]
                 .filter(el => /^chat-messages-[0-9]+-[0-9]+$/.test(el.id));
               return JSON.stringify(rows.slice(-75).map(el => {
-                const user = el.querySelector('[class*="username_"]')?.textContent?.trim() || '';
+                const usernameEl = el.querySelector('[class*="username_"]');
+                const user = usernameEl?.textContent?.trim() || '';
+                const color = usernameEl ? getComputedStyle(usernameEl).color : '';
                 const body = el.querySelector('[class*="messageContent_"]')?.innerText?.trim() ||
                              el.querySelector('[class*="markup_"]')?.innerText?.trim() || '';
-                return {id:el.id,user,body};
+                return {id:el.id,user,body,color};
               }).filter(x => x.body));
             })();
             """;
@@ -300,7 +302,20 @@ internal static class Program
                     renderedMessages.Add((user, body));
                     if (user.Length > 0)
                     {
-                        nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(219, 178, 67);
+                        var usernameColor = System.Drawing.Color.FromArgb(219, 178, 67);
+                        if (msg.TryGetProperty("color", out var colorValue))
+                        {
+                            var cssColor = colorValue.GetString() ?? "";
+                            var components = System.Text.RegularExpressions.Regex.Matches(cssColor, @"\d+");
+                            if ((cssColor.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) ||
+                                 cssColor.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase)) &&
+                                components.Count >= 3 &&
+                                byte.TryParse(components[0].Value, out var red) &&
+                                byte.TryParse(components[1].Value, out var green) &&
+                                byte.TryParse(components[2].Value, out var blue))
+                                usernameColor = System.Drawing.Color.FromArgb(red, green, blue);
+                        }
+                        nativeMessages.SelectionColor = usernameColor;
                         nativeMessages.AppendText(user + ": ");
                     }
                     nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
