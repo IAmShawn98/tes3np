@@ -193,12 +193,60 @@ internal static class Program
             };
             watch.Start();
         }
+        // Discord changes its hashed CSS classes frequently. Remove the actual
+        // channel heading (including the two action icons) by DOM structure.
+        const string HideChannelHeaderScript = """
+            (() => {
+              const hide = () => {
+                const messages = document.querySelector('[data-list-id="chat-messages"]');
+                if (!messages) return;
+                const root = messages.closest('[class*="chat_"]') ||
+                             messages.closest('main') || document.body;
+                const scroller = messages.closest('[class*="scroller_"]');
+                if (!scroller) return;
+                const ancestors = new Set();
+                let node = scroller;
+                while (node && node !== root) { ancestors.add(node); node = node.parentElement; }
+                // The Discord channel heading is a sibling preceding the message area.
+                // Hide that entire sibling instead of chasing icon CSS class names.
+                node = scroller;
+                while (node && node !== root) {
+                  for (const sibling of Array.from(node.parentElement?.children || [])) {
+                    if (sibling === node || sibling.contains(messages)) continue;
+                    const rect = sibling.getBoundingClientRect();
+                    const msgRect = messages.getBoundingClientRect();
+                    if (rect.height > 0 && rect.height < 120 &&
+                        rect.top <= msgRect.top && rect.bottom <= msgRect.top + 10) {
+                      sibling.style.setProperty('display', 'none', 'important');
+                    }
+                  }
+                  node = node.parentElement;
+                }
+              };
+              hide();
+              if (!window.__tes3npHeaderObserver) {
+                let queued = false;
+                window.__tes3npHeaderObserver = new MutationObserver(() => {
+                  if (queued) return;
+                  queued = true;
+                  requestAnimationFrame(() => { queued = false; hide(); });
+                });
+                window.__tes3npHeaderObserver.observe(document.body, {childList:true,subtree:true});
+              }
+            })();
+            """;
+        async Task HideChannelHeader()
+        {
+            if (web.CoreWebView2 == null) return;
+            try { await web.CoreWebView2.ExecuteScriptAsync(HideChannelHeaderScript); }
+            catch (Exception ex) { Log("Header removal error: " + ex.Message); }
+        }
         async Task ApplyCss()
         {
             if (web.CoreWebView2 == null) return;
             var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; })()";
-            try { await web.CoreWebView2.ExecuteScriptAsync(js); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
+            try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
         async Task UpdateViewMode()
         {
