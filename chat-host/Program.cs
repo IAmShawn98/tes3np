@@ -580,14 +580,14 @@ internal static class Program
                 g.FillRectangle(black, 13, 52, w - 26, h - 65);
                 g.DrawLine(goldPen, 12, 51, w - 13, 51);
                 using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
-                var titleSize = g.MeasureString("Chat", headingFont);
+                var titleSize = g.MeasureString("Live Game Chat", headingFont);
                 g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 43);
                 using var centeredTitle = new System.Drawing.StringFormat
                 {
                     Alignment = System.Drawing.StringAlignment.Center,
                     LineAlignment = System.Drawing.StringAlignment.Center
                 };
-                g.DrawString("Chat", headingFont, bright,
+                g.DrawString("Live Game Chat", headingFont, bright,
                     new System.Drawing.RectangleF((w - titleSize.Width) / 2 - 14, 8,
                         titleSize.Width + 28, 43), centeredTitle);
                 int sx = w - 35;
