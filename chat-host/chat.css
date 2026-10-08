@@ -29,3 +29,13 @@
 ::-webkit-scrollbar{width:6px!important}
 ::-webkit-scrollbar-track{background:#241b12!important}
 ::-webkit-scrollbar-thumb{background:#94744a!important;border-radius:3px!important}
+
+/* Hide remaining Discord channel-header action icons. */
+[class*="chat_"] [class*="title_"],
+[class*="chat_"] [class*="children_"],
+[class*="chat_"] [class*="iconWrapper_"],
+[class*="chat_"] [class*="toolbar_"],
+[class*="chat_"] [class*="headerBar_"],
+[class*="chat_"] [class*="subtitleContainer_"],
+[class*="chat_"] [class*="container_"][role="toolbar"],
+[class*="chat_"] header {display:none!important}
