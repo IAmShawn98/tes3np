@@ -1904,6 +1904,7 @@ metrics();
             chatViewport.Visible = false;
             // Keep the title stable: the launcher locates this window by its title.
             Text = "tes3np Chat Host";
+            PositionChatWindows();
             Log("Discord login browser exposed");
         }
         void RestoreGameChatAfterSignIn()
@@ -1925,6 +1926,7 @@ metrics();
             Text = "tes3np Chat Host";
             FitWebView();
             DockToLauncher();
+            PositionChatWindows();
             _ = RefreshNativeMessages();
         }
         async Task UpdateViewMode()
@@ -1991,11 +1993,17 @@ metrics();
         {
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             const int buttonWidth = 68, buttonHeight = 168;
-            int y = bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - chatHeight) / 2);
+            // Only the sign-in view needs extra height for its explanation.
+            // Keep the established Game Chat dimensions unchanged.
+            int windowHeight = discordLoginVisible ? Math.Max(chatHeight, 630) : chatHeight;
+            var work = Screen.FromHandle(owner).WorkingArea;
+            windowHeight = Math.Min(windowHeight, work.Height);
+            int y = bounds.Top + (bounds.Bottom - bounds.Top - windowHeight) / 2;
+            y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - windowHeight));
             // Tall gold toggle centered vertically along the launcher's left edge,
             // matching the marked area in the reference screenshot.
             if (chatOpen)
-                MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, chatHeight, true);
+                MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);
         }
         void DockToLauncher()
         {
