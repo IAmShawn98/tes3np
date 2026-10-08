@@ -4,11 +4,9 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-painted-only-20261008";
+    const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
-    [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
-    const uint RDW_INVALIDATE = 0x0001, RDW_ERASE = 0x0004, RDW_ALLCHILDREN = 0x0080, RDW_UPDATENOW = 0x0100, RDW_FRAME = 0x0400;
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -193,16 +191,24 @@ internal static class Program
                 if (doc.RootElement.GetArrayLength() == 0) return;
                 lastFeed = json;
                 renderedMessages.Clear();
-                // Update the backing message list; painting is handled by frameSurface.
-
+                nativeMessages.SuspendLayout();
+                nativeMessages.Clear();
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
                     renderedMessages.Add((user, body));
-
+                    if (user.Length > 0)
+                    {
+                        nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(219, 178, 67);
+                        nativeMessages.AppendText(user + ": ");
+                    }
+                    nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
+                    nativeMessages.AppendText(body + Environment.NewLine);
                 }
-
+                nativeMessages.SelectionStart = nativeMessages.TextLength;
+                nativeMessages.ScrollToCaret();
+                nativeMessages.ResumeLayout();
                 frameSurface.Invalidate();
                 if (!nativeMode)
                 {
@@ -254,7 +260,7 @@ internal static class Program
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 92) / 2), 8, 92, 31);
 
             frameSurface.Invalidate();
-            nativeMessages.Visible = false;
+            if (nativeMessages.Visible) nativeMessages.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
             chatViewport.Visible = false;
@@ -262,7 +268,6 @@ internal static class Program
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
         }
-        int repaintPasses;
         bool docked;
         bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
@@ -401,7 +406,7 @@ internal static class Program
             };
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
-            // The old RichTextBox is deliberately NOT parented: it must never cover the painted frame.
+            frameSurface.Controls.Add(nativeMessages);
             frameSurface.Controls.Add(railTop);
             frameSurface.Controls.Add(railLeft);
             frameSurface.Controls.Add(railRight);
@@ -435,7 +440,7 @@ internal static class Program
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
-            Log("Host launched; build=" + ChatBuild + "; owner=" + owner);
+            Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
             LoadLayout();
 
@@ -483,7 +488,6 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
-                if (docked && repaintPasses < 8) { repaintPasses++; ForceChatRepaint(); }
             };
             watch.Start();
         }
@@ -576,14 +580,6 @@ internal static class Program
                 await RefreshNativeMessages();
             }
         }
-        void ForceChatRepaint()
-        {
-            if (!IsHandleCreated || !docked) return;
-            frameSurface.Invalidate(true);
-            frameSurface.Update();
-            RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW | RDW_FRAME);
-            RedrawWindow(owner, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_UPDATENOW);
-        }
         void DockToLauncher()
         {
             if (!IsWindow(owner) || signInExpanded) return;
@@ -595,8 +591,6 @@ internal static class Program
             ShowWindow(hwnd, 5);
             ApplyWindowOpacity();
             docked = true;
-            ForceChatRepaint();
-            BeginInvoke((Action)(() => ForceChatRepaint()));
             Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }
     }
