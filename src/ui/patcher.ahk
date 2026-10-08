@@ -335,7 +335,10 @@ CheckPatchWorker()
     {
         FinishLauncherStartup()
         if state != "success"
-            TrayTip("Setup needs attention. Open Patch Tes3mp to install or repair the files.", "tes3np")
+        {
+            MsgBox(message, "Installation needs attention", "Icon!")
+            OpenPatcher()
+        }
     }
     else
         MsgBox(message, state = "needs_setup" ? "Setup needed" : "Patch Tes3mp", state = "error" ? "Icon!" : "Iconi")
@@ -453,6 +456,6 @@ ReportPatchError(step, field, err, startup := false)
     LogPatchDiagnostic(details)
     if IsSet(PatchStatus)
         PatchStatus.Text := details
-    if !startup
-        MsgBox(details, "Patch Tes3mp — Error", "Icon!")
+    ; Startup errors must never disappear silently behind the launcher.
+    MsgBox(details, "Repair Game Install — Error", "Icon!")
 }
