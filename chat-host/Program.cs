@@ -405,9 +405,15 @@ internal static class Program
 
                 using var bitmap = new System.Drawing.Bitmap(image);
                 System.Windows.Forms.Clipboard.SetImage(bitmap);
-                if (!nativeMessages.CanPaste(System.Windows.Forms.DataFormats.GetFormat(System.Windows.Forms.DataFormats.Bitmap)))
-                    throw new InvalidOperationException("RichTextBox cannot paste bitmap format");
-                nativeMessages.Paste(System.Windows.Forms.DataFormats.GetFormat(System.Windows.Forms.DataFormats.Bitmap));
+                // Let RichEdit choose the best clipboard format. Explicitly forcing CF_BITMAP
+                // can fail even when its OLE paste path supports the bitmap.
+                int beforeLength = nativeMessages.Rtf.Length;
+                nativeMessages.Paste();
+                bool hasPicture = nativeMessages.Rtf.Contains(@"\\pict", StringComparison.OrdinalIgnoreCase) ||
+                                  nativeMessages.Rtf.Contains(@"\\object", StringComparison.OrdinalIgnoreCase);
+                if (!hasPicture)
+                    throw new InvalidOperationException("RichEdit paste produced no picture/object (RTF length " +
+                        beforeLength + " -> " + nativeMessages.Rtf.Length + ")");
                 Log("Chat image pasted: " + image.Width + "x" + image.Height);
             }
             finally
@@ -553,7 +559,7 @@ internal static class Program
                         if (imageCache.TryGetValue(imageUrl, out var preview))
                         {
                             try { AppendChatImage(preview); }
-                            catch (Exception ex) { Log("Chat image render error: " + ex.Message); nativeMessages.AppendText("[Image] " + imageUrl); }
+                            catch (Exception ex) { Log("Chat image render error: " + ex.Message); nativeMessages.AppendText("[Image preview unavailable]"); }
                         }
                         else if (failedImages.ContainsKey(imageUrl)) nativeMessages.AppendText("[Image unavailable]");
                         else nativeMessages.AppendText("[Loading image…]");
