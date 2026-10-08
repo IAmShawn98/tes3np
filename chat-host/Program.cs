@@ -567,7 +567,14 @@ internal static class Program
                 using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
                 var titleSize = g.MeasureString("Chat", headingFont);
                 g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 43);
-                g.DrawString("Chat", headingFont, bright, (w - titleSize.Width) / 2, 9);
+                using var centeredTitle = new System.Drawing.StringFormat
+                {
+                    Alignment = System.Drawing.StringAlignment.Center,
+                    LineAlignment = System.Drawing.StringAlignment.Center
+                };
+                g.DrawString("Chat", headingFont, bright,
+                    new System.Drawing.RectangleF((w - titleSize.Width) / 2 - 14, 8,
+                        titleSize.Width + 28, 43), centeredTitle);
                 int sx = w - 35;
                 g.DrawRectangle(goldPen, sx, 74, 19, 19);
                 g.DrawRectangle(goldPen, sx, h - 55, 19, 19);
