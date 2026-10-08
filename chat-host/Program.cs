@@ -4,6 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
+    const string ChatBuild = "chat-layout-20261008-b";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -80,6 +81,9 @@ internal static class Program
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         bool docked;
         bool signInExpanded;
+        readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
+        readonly string logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-host.log");
+        void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
         public ChatHost(IntPtr owner)
         {
             this.owner = owner;
@@ -87,6 +91,8 @@ internal static class Program
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.FromArgb(32,26,21);
             Controls.Add(web);
+            Controls.Add(version);
+            Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
 
             Shown += async (_, _) =>
@@ -99,6 +105,7 @@ internal static class Program
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    Log("WebView2 initialized");
                     web.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                     // Install styling before Discord's SPA renders, and keep
@@ -114,9 +121,11 @@ internal static class Program
                             web.CoreWebView2.Navigate(e.Uri);
                     };
                     web.CoreWebView2.Navigate(Channel);
+                    Log("Navigating to channel");
                 }
                 catch (Exception ex)
                 {
+                    Log("ERROR " + ex);
                     MessageBox.Show("WebView2 chat unavailable: " + ex.Message + "\nInstall Microsoft Edge WebView2 Runtime.", "tes3np Chat");
                 }
             };
@@ -132,12 +141,13 @@ internal static class Program
             if (web.CoreWebView2 == null) return;
             var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(Css) +
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; })()";
-            try { await web.CoreWebView2.ExecuteScriptAsync(js); } catch { }
+            try { await web.CoreWebView2.ExecuteScriptAsync(js); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
         async Task UpdateViewMode()
         {
             if (web.CoreWebView2 == null) return;
             var url = web.CoreWebView2.Source;
+            Log("Navigation completed: " + url);
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             if (login && !signInExpanded)
@@ -170,6 +180,7 @@ internal static class Program
             MoveWindow(hwnd, 54, 278, 266, 342, true);
             ShowWindow(hwnd, 5);
             docked = true;
+            Log("Docked 54,278 266x342");
         }
     }
 }
