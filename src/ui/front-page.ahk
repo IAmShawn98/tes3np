@@ -55,6 +55,12 @@ UpdateCharacterMenuLabel()
     MenuEntries := []
     if !IsTES3MPSetupComplete()
     {
+        ; Returning from Repair must not leave the help text in the button area.
+        if !GameDetectionActive && IsObject(LauncherHelpText)
+        {
+            LauncherHelpText.Move(345, 529, 265, 98)
+            LauncherHelpText.Visible := true
+        }
         if GameDetectionActive
         {
             MenuEntries := []
@@ -230,7 +236,7 @@ EndGameDetectionDisplay()
     if IsObject(LauncherHelpText)
     {
         LauncherHelpText.Text := "If setup didn't appear, check that tes3np.exe is beside tes3mp.exe and that Morrowind GOTY and OpenMW are installed correctly. Use Repair Game Install to locate your files or fix the installation."
-        LauncherHelpText.Move(345, 535, 265, 98)
+        LauncherHelpText.Move(345, 529, 265, 98)
     }
     UpdateCharacterMenuLabel()
 }
