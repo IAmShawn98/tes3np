@@ -31,17 +31,7 @@ if not exist "%PACKAGE%\chat-host\tes3np.ChatHost.exe" (
     goto :failed
 )
 if not exist "%~dp0chat-host" mkdir "%~dp0chat-host"
-if exist "%~dp0chat-host\chat.css" copy /y "%~dp0chat-host\chat.css" "%TEMP%\tes3np-chat-preserved.css" >nul
-if exist "%~dp0chat-host\chat.ini" copy /y "%~dp0chat-host\chat.ini" "%TEMP%\tes3np-chat-preserved.ini" >nul
 xcopy /e /i /y "%PACKAGE%\chat-host\*" "%~dp0chat-host\" >nul
-if exist "%TEMP%\tes3np-chat-preserved.css" (
-    copy /y "%TEMP%\tes3np-chat-preserved.css" "%~dp0chat-host\chat.css" >nul
-    del /q "%TEMP%\tes3np-chat-preserved.css"
-)
-if exist "%TEMP%\tes3np-chat-preserved.ini" (
-    copy /y "%TEMP%\tes3np-chat-preserved.ini" "%~dp0chat-host\chat.ini" >nul
-    del /q "%TEMP%\tes3np-chat-preserved.ini"
-)
 if errorlevel 1 goto :failed
 
 echo.
