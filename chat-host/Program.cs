@@ -217,7 +217,7 @@ internal static class Program
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
         readonly Button joinDiscord = new()
         {
-            Text = "Join Us On Discord!",
+            Text = "",
             FlatStyle = FlatStyle.Flat,
             BackColor = System.Drawing.Color.FromArgb(67, 46, 24),
             ForeColor = System.Drawing.Color.FromArgb(255, 226, 163),
@@ -627,21 +627,26 @@ internal static class Program
             joinDiscord.FlatAppearance.BorderSize = 1;
             joinDiscord.Paint += (_, e) =>
             {
-                // Small Discord-inspired controller mark to the left of the label.
+                const string label = "Join Us On Discord";
                 var g = e.Graphics;
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var iconBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(190, 176, 255));
-                using var eyeBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(67, 46, 24));
-                using var shape = new System.Drawing.Drawing2D.GraphicsPath();
-                shape.AddBezier(10, 11, 13, 7, 23, 7, 26, 11);
-                shape.AddBezier(26, 11, 29, 17, 29, 21, 25, 22);
-                shape.AddLine(25, 22, 22, 19);
-                shape.AddBezier(22, 19, 18, 21, 15, 21, 13, 19);
-                shape.AddLine(13, 19, 10, 22);
-                shape.AddBezier(10, 22, 7, 21, 7, 16, 10, 11);
-                g.FillPath(iconBrush, shape);
-                g.FillEllipse(eyeBrush, 14, 14, 3, 4);
-                g.FillEllipse(eyeBrush, 21, 14, 3, 4);
+                using var iconStream = new MemoryStream(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAADF0lEQVR42tWVz2tcVRTHP+feN28y816Sh0kcrUoktPaXxAgpdKMIghv/AHdu3bkoFrQL5w8I05UbQehW6w9woai4EN1o/dEakaZY20Rqmgdtk8m8Nz/fu8fFZLQmJmYWCj1wN/eee77n5/fAvS6y16Oqyr6MiOhQqKoqqmqH0Le7ObOnh3Ech4mWg7KiTfm77uBuphImIpIO47lRVb/Vap1V1d9Vta6qm7uc+pZOTVULW39l1whU1YpIvrz8W216+pFTvQwuXV6nkfYwIii69UnIckd5xHJidpKCB85Rs1ZeGdjYAaCqIiL6xvnz4fMn5pcnpx6Kzp5b4pflTeNZg1PFiAx0yXLHZqPLsYORe/3lOcojdh14VETSgS0Asz1NQUo44ht/cWndXl1pmGisKMWilfFRXwoFK4WClWisKNYYuS8akcu/1s3ilboFitfiJNxuz9t+kWWZIpA0s34xS5ZnT1YIyx7WCmg/7jsbXT78fBUR2Gz0tiJD/xVgIMYI7Y7j6fkJnnuqguaKc4oYAVWMZ6g3epx7/zp2j4Y2uz04p5RGLMcOjtJMM76+dIdbG11u3GzxzY/rdDo5TxwZp+gb1A0J0O8SZSLymYp80lbOW++tsBq3WbyywZvvXCfPlPsnikRjPlm++yB7/zz60MscnoVwtEA363Lmpcd4+IESh2dCDs+M0u7mRGM+pWK/w/YNkNKvoxG4upLw7sc3mD0yzidfrtHpOgQISh7PnJzioy/WiG938KzsH8DzPEFhNPDIMscHn63y6Vcx7W5Or6eoKkXf8t3P67TaDudgLPQBCGUn9exMUUqStnrd+dkH8+OH1li6VjedboYgyFbFmq0MbfUH7vihyM0djQA6lUqY7El2gzH/4eLF2pNzc6fSVo/vf7pNkmZ3zzwgqCph4DH/+ARB2afZbNaCINhBFdsjcNVq1Xx74cKr1hgmJydeODqtoaqTv0hMANffAZLrZv1WUt/g7QMHbr5WrVYN4PZN1wsLC0GlMhskSXw3mfyZyzCsEMdxevr0i+nQm+5/WTj/2cq8p+QPhPSgiUDMSwEAAAAASUVORK5CYII="));
+                using var discordIcon = System.Drawing.Image.FromStream(iconStream);
+                var textSize = System.Windows.Forms.TextRenderer.MeasureText(label, joinDiscord.Font,
+                    new System.Drawing.Size(int.MaxValue, int.MaxValue),
+                    System.Windows.Forms.TextFormatFlags.NoPadding);
+                int iconSize = 22, gap = 7;
+                int totalWidth = iconSize + gap + textSize.Width;
+                int startX = Math.Max(3, (joinDiscord.ClientSize.Width - totalWidth) / 2);
+                int iconY = (joinDiscord.ClientSize.Height - iconSize) / 2;
+                g.DrawImage(discordIcon, new System.Drawing.Rectangle(startX, iconY, iconSize, iconSize));
+                System.Windows.Forms.TextRenderer.DrawText(g, label, joinDiscord.Font,
+                    new System.Drawing.Rectangle(startX + iconSize + gap, 0,
+                        textSize.Width, joinDiscord.ClientSize.Height),
+                    joinDiscord.ForeColor,
+                    System.Windows.Forms.TextFormatFlags.VerticalCenter |
+                    System.Windows.Forms.TextFormatFlags.Left |
+                    System.Windows.Forms.TextFormatFlags.NoPadding);
             };
             joinDiscord.Click += (_, _) =>
             {
