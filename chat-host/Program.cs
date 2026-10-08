@@ -372,9 +372,8 @@ internal static class Program
                 // Apply the existing Morrowind texture here, not only to frameSurface.
                 if (headerTexture != null)
                 {
-                    using var headerTexture = new System.Drawing.TextureBrush(
-                        this.headerTexture, System.Drawing.Drawing2D.WrapMode.Tile);
-                    g.FillRectangle(headerTexture, 3, 3, w - 6, 49);
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(this.headerTexture, new System.Drawing.Rectangle(3, 3, w - 6, 49));
                 }
                 else
                     g.FillRectangle(metal, 3, 3, w - 6, 49);
@@ -393,8 +392,8 @@ internal static class Program
             {
                 if (headerTexture != null)
                 {
-                    using var brush = new System.Drawing.TextureBrush(headerTexture, System.Drawing.Drawing2D.WrapMode.Tile);
-                    e.Graphics.FillRectangle(brush, titleBar.ClientRectangle);
+                    e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    e.Graphics.DrawImage(headerTexture, titleBar.ClientRectangle);
                 }
             };
             ShowInTaskbar = false;
@@ -431,8 +430,8 @@ internal static class Program
                 // This is the exact border texture asset already used by ChatHost.
                 if (headerTexture != null || borderTexture != null)
                 {
-                    using var header = new System.Drawing.TextureBrush(headerTexture ?? borderTexture, System.Drawing.Drawing2D.WrapMode.Tile);
-                    g.FillRectangle(header, 9, 13, w - 18, 39);
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(headerTexture ?? borderTexture!, new System.Drawing.Rectangle(9, 13, w - 18, 39));
                 }
                 // Preserve the actual Morrowind border artwork across the Chat header.
                 // The old full-frame random flecks obscured the texture with flat colors.
