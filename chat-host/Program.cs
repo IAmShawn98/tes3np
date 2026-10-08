@@ -181,48 +181,26 @@ internal static class Program
     }
     sealed class ChatHost : Form
     {
-    int ChatFirstLine() => nativeMessages.IsHandleCreated
-        ? SendMessage(nativeMessages.Handle, 0x00CE, IntPtr.Zero, IntPtr.Zero).ToInt32() : 0;
-    int ChatLineCount() => nativeMessages.IsHandleCreated
-        ? Math.Max(1, SendMessage(nativeMessages.Handle, 0x00BA, IntPtr.Zero, IntPtr.Zero).ToInt32()) : 1;
-    int ChatVisibleLines()
-    {
-        if (nativeMessages.Height < 1) return 1;
-        int first = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(new System.Drawing.Point(2, 2)));
-        int last = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(
-            new System.Drawing.Point(2, Math.Max(2, nativeMessages.Height - 4))));
-        return Math.Max(1, last - first + 1);
-    }
+    int ChatFirstLine() => browserScrollTop;
+    int ChatLineCount() => Math.Max(1, browserScrollHeight);
+    int ChatVisibleLines() => Math.Max(1, browserClientHeight);
     int ChatThumbY(int height, out int thumbHeight)
     {
         int track = Math.Max(1, height - 54);
-        int total = ChatLineCount();
-        int visible = ChatVisibleLines();
-        thumbHeight = Math.Clamp((int)((long)track * visible / Math.Max(1, total)), Math.Min(20, track), track);
-        int maxFirst = Math.Max(0, total - visible);
-        // RichEdit can stop before the estimated final first line when wrapping
-        // or partial lines are present. Detect the real bottom from the last
-        // character's on-screen position, rather than the estimate alone.
-        bool atBottom = nativeMessages.TextLength > 0 &&
-            nativeMessages.GetPositionFromCharIndex(nativeMessages.TextLength - 1).Y
-                + nativeMessages.Font.Height <= nativeMessages.ClientSize.Height + 2;
-        if (atBottom) return 27 + track - thumbHeight;
-        return 27 + (int)((long)Math.Clamp(ChatFirstLine(), 0, maxFirst)
-            * (track - thumbHeight) / Math.Max(1, maxFirst));
+        int total = ChatLineCount(), visible = ChatVisibleLines();
+        thumbHeight = Math.Clamp((int)((long)track * Math.Min(total, visible) / total), Math.Min(20, track), track);
+        return 27 + (int)((long)Math.Clamp(browserScrollTop, 0, Math.Max(0, total-visible))
+            * (track-thumbHeight) / Math.Max(1,total-visible));
     }
     void ScrollChatToThumb(int y, int dragOffset)
     {
-        if (!nativeMessages.IsHandleCreated) return;
-        int track = Math.Max(1, goldScrollbar.Height - 54);
+        if (!messageBrowserReady) return;
+        int track = Math.Max(1, goldScrollbar.Height-54);
         ChatThumbY(goldScrollbar.Height, out int thumbHeight);
-        int maxFirst = Math.Max(0, ChatLineCount() - ChatVisibleLines());
-        int travel = Math.Max(1, track - thumbHeight);
-        int relative = Math.Clamp(y - dragOffset - 27, 0, travel);
-        int target = (int)((long)relative * maxFirst / travel);
-        int delta = target - ChatFirstLine();
-        if (delta != 0)
-            SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(delta));
-        goldScrollbar.Invalidate();
+        double fraction = (double)Math.Clamp(y-dragOffset-27,0,Math.Max(1,track-thumbHeight)) /
+            Math.Max(1,track-thumbHeight);
+        _ = messageBrowser.CoreWebView2.ExecuteScriptAsync(
+            "window.scrollFraction(" + fraction.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")");
     }
     void HideNativeChatScrollbar() { /* No native scrollbar is created. */ }
 
@@ -278,6 +256,84 @@ internal static class Program
             Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
             DetectUrls = false, TabStop = false, ShortcutsEnabled = false
         };
+        readonly WebView2 messageBrowser = new() { Dock = DockStyle.Fill, Visible = false };
+        bool messageBrowserReady;
+        int browserScrollTop, browserScrollHeight = 1, browserClientHeight = 1;
+        const string MessagePage = """
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif;overflow:hidden}
+#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:6px 1px}
+#feed::-webkit-scrollbar{display:none}
+.msg{margin:0 0 9px;white-space:pre-wrap;overflow-wrap:anywhere}
+.user{color:#dbb243}
+.body{white-space:pre-wrap}
+.preview{display:block;max-width:100%;height:auto;margin:6px 0 3px;object-fit:contain}
+.placeholder{font-size:14px;color:#c9b68c}
+</style></head><body><div id="feed"></div><script>
+const feed=document.getElementById('feed');
+let lastState='';
+function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight});}
+feed.addEventListener('scroll',metrics);
+new ResizeObserver(metrics).observe(feed);
+window.setMessages=function(messages){
+  const bottom=feed.scrollHeight-feed.clientHeight-feed.scrollTop<35;
+  const anchor=feed.firstElementChild;
+  const priorHeight=feed.scrollHeight, priorTop=feed.scrollTop;
+  feed.replaceChildren();
+  for(const m of messages){
+    const row=document.createElement('div');row.className='msg';row.dataset.id=m.id;
+    if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user+': ';row.appendChild(name);}
+    const body=document.createElement('span');body.className='body';body.textContent=m.body;row.appendChild(body);
+    for(const url of m.images){
+      if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
+      const img=document.createElement('img');img.className='preview';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=url;
+      img.addEventListener('load',()=>{if(bottom)feed.scrollTop=feed.scrollHeight;metrics();});
+      img.addEventListener('error',()=>{img.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder',textContent:'[Image unavailable]'}));metrics();});
+      row.appendChild(img);
+    }
+    feed.appendChild(row);
+  }
+  if(bottom)feed.scrollTop=feed.scrollHeight;
+  else if(anchor){const replacement=[...feed.children].find(el=>el.dataset.id===anchor.dataset.id);feed.scrollTop=replacement?replacement.offsetTop-anchor.offsetTop+priorTop:priorTop+feed.scrollHeight-priorHeight;}
+  metrics();
+};
+window.scrollChat=function(delta){feed.scrollTop+=delta;metrics();};
+window.scrollFraction=function(f){feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
+metrics();
+</script></body></html>
+""";
+        async Task InitMessageBrowser(CoreWebView2Environment env)
+        {
+            try
+            {
+                await messageBrowser.EnsureCoreWebView2Async(env);
+                messageBrowser.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                messageBrowser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                messageBrowser.CoreWebView2.WebMessageReceived += (_, args) =>
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
+                        var root = doc.RootElement;
+                        if (root.GetProperty("type").GetString() != "scroll") return;
+                        browserScrollTop = root.GetProperty("top").GetInt32();
+                        browserScrollHeight = root.GetProperty("height").GetInt32();
+                        browserClientHeight = root.GetProperty("client").GetInt32();
+                        goldScrollbar.Invalidate();
+                        if (browserScrollTop < 25) RequestOlderMessages();
+                    }
+                    catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
+                };
+                messageBrowser.NavigationCompleted += (_, _) => { messageBrowserReady = true; Log("HTML message renderer ready"); };
+                messageBrowser.NavigateToString(MessagePage);
+            }
+            catch (Exception ex) { Log("HTML renderer initialization failed: " + ex.Message); }
+        }
+        void ScrollHtml(int pixels)
+        {
+            if (messageBrowserReady && messageBrowser.CoreWebView2 != null)
+                _ = messageBrowser.CoreWebView2.ExecuteScriptAsync("window.scrollChat(" + pixels + ")");
+        }
         string lastFeed = "";
         readonly System.Collections.Generic.List<(string User, string Body)> renderedMessages = new();
         bool nativeMode;
@@ -471,8 +527,17 @@ internal static class Program
         }
         void RequestOlderMessages()
         {
-            if (ChatFirstLine() > 2 || loadingHistory || !IsHandleCreated) return;
+            if (ChatFirstLine() > 25 || loadingHistory || !IsHandleCreated) return;
             _ = LoadOlderMessages();
+        }
+        static string ParseHtmlColor(string color)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(color, @"rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)");
+            if (m.Success && byte.TryParse(m.Groups[1].Value, out byte r) &&
+                byte.TryParse(m.Groups[2].Value, out byte g) &&
+                byte.TryParse(m.Groups[3].Value, out byte b))
+                return $"#{r:X2}{g:X2}{b:X2}";
+            return "#DBB243";
         }
         async Task RefreshNativeMessages()
         {
@@ -499,10 +564,6 @@ internal static class Program
                     SetChatOpen(true);
                 }
                 lastFeed = json;
-                bool wasAtBottom = !nativeMode || nativeMessages.TextLength == 0 ||
-                    nativeMessages.GetPositionFromCharIndex(nativeMessages.TextLength - 1).Y
-                        + nativeMessages.Font.Height <= nativeMessages.ClientSize.Height + 4;
-                int firstVisible = ChatFirstLine();
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
                 foreach (var msg in doc.RootElement.EnumerateArray())
@@ -529,77 +590,26 @@ internal static class Program
                 }
                 if (!changed && !redrawImages) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
-                renderedMessages.Clear();
-                nativeMessages.SuspendLayout();
-                nativeMessages.Clear();
-                foreach (var entry in history)
+                if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
+                var browserMessages = history.Select(entry => new
                 {
-                    var msg = entry.Value;
-                    renderedMessages.Add((msg.User, msg.Body));
-                    if (msg.User.Length > 0)
-                    {
-                        var usernameColor = System.Drawing.Color.FromArgb(219, 178, 67);
-                        var cssColor = msg.Color;
-                        var components = System.Text.RegularExpressions.Regex.Matches(cssColor, @"\d+");
-                        if ((cssColor.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) ||
-                             cssColor.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase)) &&
-                            components.Count >= 3 &&
-                            byte.TryParse(components[0].Value, out var red) &&
-                            byte.TryParse(components[1].Value, out var green) &&
-                            byte.TryParse(components[2].Value, out var blue))
-                            usernameColor = System.Drawing.Color.FromArgb(red, green, blue);
-                        nativeMessages.SelectionColor = usernameColor;
-                        nativeMessages.AppendText(msg.User + ": ");
-                    }
-                    nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
-                    nativeMessages.AppendText(msg.Body);
-                    foreach (string imageUrl in msg.Images)
-                    {
-                        nativeMessages.AppendText(Environment.NewLine);
-                        if (imageCache.TryGetValue(imageUrl, out var preview))
-                        {
-                            try { AppendChatImage(preview); }
-                            catch (Exception ex) { Log("Chat image render error: " + ex.Message); nativeMessages.AppendText("[Image preview unavailable]"); }
-                        }
-                        else if (failedImages.ContainsKey(imageUrl)) nativeMessages.AppendText("[Image unavailable]");
-                        else nativeMessages.AppendText("[Loading image…]");
-                    }
-                    if (renderedMessages.Count < history.Count)
-                        nativeMessages.AppendText(Environment.NewLine);
-                }
-                nativeMessages.ResumeLayout();
-                if (nativeMessages.IsHandleCreated)
-                {
-                    if (wasAtBottom && !prepended)
-                        SendMessage(nativeMessages.Handle, 0x00B5, new IntPtr(7), IntPtr.Zero);
-                    else
-                    {
-                        // Keep the previous viewport instead of jumping to new messages.
-                        // On prepends, offset by the number of newly inserted visual lines.
-                        int offset = 0;
-                        if (prepended)
-                        {
-                            int priorCount = 0;
-                            foreach (var entry in history)
-                            {
-                                if (entry.Key >= previousFirst) break;
-                                priorCount += Math.Max(1, (entry.Value.User + ": " + entry.Value.Body)
-                                    .Split('\n').Length);
-                            }
-                            offset = priorCount;
-                        }
-                        SendMessage(nativeMessages.Handle, 0x00B5, new IntPtr(6), IntPtr.Zero); // SB_TOP
-                        SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero,
-                            new IntPtr(Math.Max(0, firstVisible + offset)));
-                    }
-                }
+                    id = entry.Key.ToString(),
+                    user = entry.Value.User,
+                    body = entry.Value.Body,
+                    color = ParseHtmlColor(entry.Value.Color),
+                    images = entry.Value.Images
+                }).ToArray();
+                string payload = System.Text.Json.JsonSerializer.Serialize(browserMessages);
+                await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(" + payload + ")");
                 goldScrollbar.Invalidate();
                 if (!nativeMode)
                 {
                     nativeMode = true;
                     web.Visible = false;
                     chatViewport.Visible = false;
-                    nativeMessages.Visible = true;
+                    nativeMessages.Visible = false;
+                    messageBrowser.Visible = true;
+                    messageBrowser.BringToFront();
                     messageClip.BringToFront();
                     goldScrollbar.BringToFront();
                     frameSurface.Visible = true;
@@ -643,6 +653,7 @@ internal static class Program
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 78));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
+            messageBrowser.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 74));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -1012,6 +1023,7 @@ internal static class Program
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
             messageClip.Controls.Add(nativeMessages);
+            messageClip.Controls.Add(messageBrowser);
             frameSurface.Controls.Add(messageClip);
             frameSurface.Controls.Add(goldScrollbar);
             frameSurface.Controls.Add(railTop);
@@ -1064,10 +1076,10 @@ internal static class Program
             // perform its default wheel scrolling. Scroll its text explicitly.
             void ScrollWheelMessages(MouseEventArgs e)
             {
-                if (!nativeMessages.IsHandleCreated || e.Delta == 0) return;
+                if (!messageBrowserReady || e.Delta == 0) return;
                 int notches = Math.Max(1, Math.Abs(e.Delta) / 120);
                 int lines = 3 * notches * (e.Delta > 0 ? -1 : 1);
-                SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(lines)); // EM_LINESCROLL
+                ScrollHtml(lines * 22);
                 goldScrollbar.Invalidate();
                 if (e.Delta > 0) RequestOlderMessages();
             }
@@ -1077,10 +1089,10 @@ internal static class Program
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
-                if (!nativeMessages.IsHandleCreated || e.X < goldScrollbar.Width - 20) return;
+                if (!messageBrowserReady || e.X < goldScrollbar.Width - 20) return;
                 if (e.Y < 27 || e.Y >= goldScrollbar.Height - 27)
                 {
-                    SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Y < 27 ? 0 : 1), IntPtr.Zero);
+                    ScrollHtml(e.Y < 27 ? -66 : 66);
                 }
                 else
                 {
@@ -1102,8 +1114,7 @@ internal static class Program
             {
                 dragOffset = -1;
                 goldScrollbar.Capture = false;
-                if (nativeMessages.IsHandleCreated)
-                    SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(8), IntPtr.Zero);
+                // HTML scrolling ends when mouse capture is released.
                 goldScrollbar.Invalidate();
             };
             foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
@@ -1150,6 +1161,7 @@ internal static class Program
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    await InitMessageBrowser(env);
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
