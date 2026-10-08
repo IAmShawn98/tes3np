@@ -49,6 +49,8 @@ internal static class Program
         readonly WebView2 web = new() { Dock = DockStyle.Fill };
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         bool docked;
+        bool signInExpanded;
+        bool channelReady;
         public ChatHost(IntPtr owner)
         {
             this.owner = owner;
@@ -67,7 +69,21 @@ internal static class Program
                     await web.EnsureCoreWebView2Async(env);
                     web.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-                    web.CoreWebView2.NavigationCompleted += async (_, _) => { await ApplyCss(); UpdateLoginMode(); };
+                    web.CoreWebView2.NavigationCompleted += async (_, _) =>
+                    {
+                        await UpdateViewMode();
+                    };
+                    web.CoreWebView2.LaunchingExternalUri += (_, e) =>
+                    {
+                        // Discord's desktop-app handoff must not steal navigation.
+                        e.Cancel = true;
+                    };
+                    web.CoreWebView2.NewWindowRequested += (_, e) =>
+                    {
+                        e.Handled = true;
+                        if (e.Uri.StartsWith("https://discord.com/", StringComparison.OrdinalIgnoreCase))
+                            web.CoreWebView2.Navigate(e.Uri);
+                    };
                     web.CoreWebView2.Navigate(Channel);
                 }
                 catch (Exception ex)
@@ -78,7 +94,7 @@ internal static class Program
             watch.Tick += (_, _) =>
             {
                 if (!IsWindow(owner)) { Close(); return; }
-                if (!docked && web.CoreWebView2 != null && web.CoreWebView2.Source.StartsWith(Channel, StringComparison.OrdinalIgnoreCase)) DockToLauncher();
+                if (!docked && !signInExpanded && channelReady) DockToLauncher();
             };
             watch.Start();
         }
@@ -89,23 +105,46 @@ internal static class Program
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); } catch { }
         }
-        void UpdateLoginMode()
+        async Task UpdateViewMode()
         {
             if (web.CoreWebView2 == null) return;
-            bool login = web.CoreWebView2.Source.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
-                || web.CoreWebView2.Source.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
-            if (login && docked)
+            // Only compact the authenticated channel. Leave login and all
+            // authorization screens readable at full size.
+            var url = web.CoreWebView2.Source;
+            bool atChannel = url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase);
+            bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
+                || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
+            string state = "";
+            try
             {
-                docked = false;
-                SetParent(Handle, IntPtr.Zero);
-                int style = GetWindowLong(Handle, GWL_STYLE);
-                SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
-                MoveWindow(Handle, 180, 100, 900, 720, true);
-                ShowInTaskbar = true;
-                Text = "tes3np — Sign in to Discord";
+                state = await web.CoreWebView2.ExecuteScriptAsync(
+                    "(() => ({messages:!!document.querySelector('[data-list-id=chat-messages]'),handoff:document.body?.innerText?.includes('opened the link in your Discord app')||false}))()");
             }
-            else if (!login && !docked && web.CoreWebView2.Source.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
-                DockToLauncher();
+            catch { }
+            bool messages = state.Contains("\\"messages\\":true");
+            bool handoff = state.Contains("\\"handoff\\":true");
+            channelReady = atChannel && messages && !handoff;
+            if (channelReady)
+            {
+                signInExpanded = false;
+                await ApplyCss();
+                if (!docked) DockToLauncher();
+                return;
+            }
+            if (login || handoff || !messages)
+            {
+                if (!signInExpanded)
+                {
+                    signInExpanded = true;
+                    docked = false;
+                    SetParent(Handle, IntPtr.Zero);
+                    int style = GetWindowLong(Handle, GWL_STYLE);
+                    SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
+                    MoveWindow(Handle, 180, 100, 900, 720, true);
+                    ShowInTaskbar = true;
+                    Text = "tes3np — Discord Sign In";
+                }
+            }
         }
         void DockToLauncher()
         {
