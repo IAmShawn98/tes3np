@@ -445,17 +445,37 @@ metrics();
         static DateTimeOffset DiscordTimestamp(ulong id) =>
             DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
         readonly System.Collections.Generic.HashSet<ulong> loggedMessageIds = new();
-        ulong liveLogWatermark;
-        bool liveLogInitialized;
-        readonly string gameChatLogFile = Path.Combine(AppContext.BaseDirectory, "game-chat.log");
-        void LogLiveMessage(ulong id, string user, string body)
+        readonly string gameChatLogDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TES3NP", "Logs");
+        string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
+        bool chatLogLoaded;
+        void EnsureChatLogLoaded()
         {
-            if (!loggedMessageIds.Add(id) || string.IsNullOrWhiteSpace(body)) return;
+            if (chatLogLoaded) return;
+            Directory.CreateDirectory(gameChatLogDirectory);
+            if (File.Exists(GameChatLogFile))
+            {
+                foreach (string line in File.ReadLines(GameChatLogFile))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(line, @"\[discord:(\d+)\]$");
+                    if (match.Success && ulong.TryParse(match.Groups[1].Value, out ulong existingId))
+                        loggedMessageIds.Add(existingId);
+                }
+            }
+            chatLogLoaded = true;
+        }
+        void LogChatMessage(ulong id, string user, string body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return;
             try
             {
+                EnsureChatLogLoaded();
+                if (loggedMessageIds.Contains(id)) return;
                 string time = DiscordTimestamp(id).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
                 string safeBody = body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n");
-                File.AppendAllText(gameChatLogFile, $"[{time}] {user}: {safeBody}{Environment.NewLine}");
+                File.AppendAllText(GameChatLogFile,
+                    $"[{time}] {user}: {safeBody} [discord:{id}]{Environment.NewLine}");
+                loggedMessageIds.Add(id);
             }
             catch (Exception ex) { Log("Game chat log write failed: " + ex.Message); }
         }
@@ -796,13 +816,11 @@ metrics();
                 lastFeed = json;
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
-                ulong batchNewestId = 0;
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string id = msg.GetProperty("id").GetString() ?? "";
                     var match = System.Text.RegularExpressions.Regex.Match(id, @"^chat-messages-\d+-(\d+)$");
                     if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out ulong key)) continue;
-                    if (key > batchNewestId) batchNewestId = key;
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
                     string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
@@ -810,9 +828,8 @@ metrics();
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
-                    // Only record newly arriving messages, not old history being paginated.
-                    if (liveLogInitialized && key > liveLogWatermark)
-                        LogLiveMessage(key, user, body);
+                    // Archive every message Discord makes available, including loaded history.
+                    LogChatMessage(key, user, body);
                     foreach (string imageUrl in images)
                         if (!imageCache.ContainsKey(imageUrl) && (!failedImages.TryGetValue(imageUrl, out var retryTime) || DateTime.UtcNow >= retryTime)) _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
@@ -823,8 +840,6 @@ metrics();
                         changed = true;
                     }
                 }
-                if (batchNewestId > liveLogWatermark) liveLogWatermark = batchNewestId;
-                liveLogInitialized = true;
                 if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
