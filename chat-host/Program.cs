@@ -317,9 +317,9 @@ metrics();
                         using var doc = System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
                         var root = doc.RootElement;
                         if (root.GetProperty("type").GetString() != "scroll") return;
-                        browserScrollTop = root.GetProperty("top").GetInt32();
-                        browserScrollHeight = root.GetProperty("height").GetInt32();
-                        browserClientHeight = root.GetProperty("client").GetInt32();
+                        browserScrollTop = (int)Math.Round(root.GetProperty("top").GetDouble());
+                        browserScrollHeight = (int)Math.Round(root.GetProperty("height").GetDouble());
+                        browserClientHeight = (int)Math.Round(root.GetProperty("client").GetDouble());
                         goldScrollbar.Invalidate();
                         if (browserScrollTop < 300) RequestOlderMessages();
                     }
@@ -529,7 +529,7 @@ metrics();
                 // scroll container, not synthetic scroll events alone. Let its
                 // browser process an actual scroll away from and back to the top.
                 string result = await web.CoreWebView2.ExecuteScriptAsync("""
-                    (async () => {
+                    (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
                       if (!list) return 'no-message-list';
                       let scroller = list;
@@ -548,11 +548,11 @@ metrics();
                       // Move enough to re-arm Discord's scroll listener; await a
                       // frame so React sees the intermediate scroll position.
                       scroller.scrollTop = Math.min(450, Math.max(0,scroller.scrollHeight-scroller.clientHeight));
-                      await new Promise(resolve => setTimeout(resolve, 90));
+                      
                       scroller.scrollTop = 0;
                       scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      await new Promise(resolve => setTimeout(resolve, 180));
-                      return 'oldest-dom=' + before + ' now=' + (ids()[0] || '') +
+                      
+                      return 'oldest-dom=' + before +
                         ' top=' + scroller.scrollTop + ' height=' + scroller.scrollHeight;
                     })();
                     """);
