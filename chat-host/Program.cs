@@ -525,13 +525,13 @@ metrics();
                     historyStallCount = 0;
                     Log("History advanced; oldest message: " + oldest);
                 }
-                // Chromium's input dispatcher sends real wheel events through
-                // WebView2, unlike setting scrollTop or dispatching synthetic DOM events.
-                Log("History fetch: locating Discord scroll target");
-                string target = await web.CoreWebView2.ExecuteScriptAsync("""
+                // ExecuteScriptAsync waits for the JavaScript evaluation to finish.
+                // Avoid the DevTools input dispatcher: it hangs in hidden WebView2.
+                // Schedule the second movement asynchronously inside the page.
+                string result = await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
-                      if (!list) return null;
+                      if (!list) return 'no-message-list';
                       let scroller = list;
                       while (scroller && scroller !== document.body) {
                         const css = getComputedStyle(scroller);
@@ -541,40 +541,23 @@ metrics();
                       }
                       if (!scroller || scroller === document.body)
                         scroller = list.closest('[class*="scroller_"]');
-                      if (!scroller) return null;
-                      const rect = scroller.getBoundingClientRect();
-                      return {x:Math.round(rect.left+rect.width/2),
-                        y:Math.round(rect.top+Math.min(rect.height/2,120)),
-                        top:Math.round(scroller.scrollTop),
-                        height:scroller.scrollHeight};
+                      if (!scroller) return 'no-scroller';
+                      const before = scroller.scrollTop;
+                      // Discord's virtual list may start well below the top.
+                      // First move near the beginning; a later task reaches zero
+                      // so Discord observes both scroll positions.
+                      scroller.scrollTop = Math.min(350, Math.max(0, scroller.scrollHeight - scroller.clientHeight));
+                      scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
+                      setTimeout(() => {
+                        if (!scroller.isConnected) return;
+                        scroller.scrollTop = 0;
+                        scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
+                      }, 130);
+                      return 'scroll=' + before + '->' + scroller.scrollTop +
+                        ' height=' + scroller.scrollHeight + ' client=' + scroller.clientHeight;
                     })();
                     """).WaitAsync(TimeSpan.FromSeconds(5));
-                Log("History fetch: target=" + target);
-                if (target == "null")
-                {
-                    Log("History request: Discord message scroller not found");
-                    return;
-                }
-                using (var doc = System.Text.Json.JsonDocument.Parse(target))
-                {
-                    var root = doc.RootElement;
-                    int x = root.GetProperty("x").GetInt32();
-                    int y = root.GetProperty("y").GetInt32();
-                    int top = root.GetProperty("top").GetInt32();
-                    if (x < 0 || y < 0)
-                    {
-                        Log("History request: invalid wheel target " + target);
-                        return;
-                    }
-                    string parameters = System.Text.Json.JsonSerializer.Serialize(new {
-                        type = "mouseWheel", x, y, deltaX = 0, deltaY = -620,
-                        modifiers = 0, pointerType = "mouse"
-                    });
-                    await web.CoreWebView2.CallDevToolsProtocolMethodAsync(
-                        "Input.dispatchMouseEvent", parameters).WaitAsync(TimeSpan.FromSeconds(5));
-                    Log("History wheel: oldest=" + oldest + " top=" + top +
-                        " target=" + x + "," + y);
-                }
+                Log("History scroll: " + result);
                 if (history.Count > 0 && history.First().Key < oldest)
                 {
                     historyStallCount = 0;
