@@ -20,7 +20,7 @@ internal static class Program
     [DllImport("user32.dll", SetLastError = true)] static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint colorKey, byte alpha, uint flags);
     const int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x80000;
     const uint LWA_ALPHA = 2;
-    const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_POPUP = unchecked((int)0x80000000);
+    const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_CLIPCHILDREN = 0x02000000, WS_POPUP = unchecked((int)0x80000000);
     const string Css = """
         /* TES3NP compact, read-only message feed */
         :root, html, body, #app-mount {
@@ -596,10 +596,17 @@ internal static class Program
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
             SetParent(hwnd, owner);
+            // The launcher is a layered AHK window. Exclude the child HWND from
+            // its own paint area so the parent cannot overwrite the chat surface.
+            int parentStyle = GetWindowLong(owner, GWL_STYLE);
+            if ((parentStyle & WS_CLIPCHILDREN) == 0)
+                SetWindowLong(owner, GWL_STYLE, parentStyle | WS_CLIPCHILDREN);
             MoveWindow(hwnd, chatX, chatY, chatWidth, chatHeight, true);
             ShowWindow(hwnd, 5);
             ApplyWindowOpacity();
             docked = true;
+            // Mimic the parent move that users report makes the child visible.
+            SetWindowPos(owner, IntPtr.Zero, 0, 0, 0, 0, 0x0027);
             RedrawWindow(owner, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
             RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
             frameSurface.Invalidate(true);
