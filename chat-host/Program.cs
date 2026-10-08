@@ -272,6 +272,7 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:20px/1.18 Georgia,serif
 #feed::-webkit-scrollbar{display:none}
 .msg{margin:0 0 9px;white-space:pre-wrap;overflow-wrap:anywhere}
 .user{color:#dbb243}
+.time{color:#a99a80;font-size:13px;margin-right:7px;white-space:nowrap}
 .body{white-space:pre-wrap}
 .preview{display:block;max-width:100%;height:auto;margin:6px 0 3px;object-fit:contain}
 .placeholder{font-size:14px;color:#c9b68c}
@@ -305,10 +306,11 @@ window.setMessages=function(messages,prepended=false){
   for(let i=messages.length-1;i>=0;i--){
     const m=messages[i];
     let row=existing.get(m.id);
-    const signature=JSON.stringify([m.user,m.body,m.color,m.images]);
+    const signature=JSON.stringify([m.user,m.body,m.color,m.images,m.timestamp]);
     if(!row||row.dataset.signature!==signature){
       const replacement=document.createElement('div');
       replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
+      const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();replacement.appendChild(time);
       if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user+': ';replacement.appendChild(name);}
       const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
       for(const url of m.images){
