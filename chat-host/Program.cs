@@ -525,13 +525,12 @@ metrics();
                     historyStallCount = 0;
                     Log("History advanced; oldest message: " + oldest);
                 }
-                // Discord loads history based on the position of its virtualized
-                // scroll container, not synthetic scroll events alone. Let its
-                // browser process an actual scroll away from and back to the top.
-                string result = await web.CoreWebView2.ExecuteScriptAsync("""
+                // Chromium's input dispatcher sends real wheel events through
+                // WebView2, unlike setting scrollTop or dispatching synthetic DOM events.
+                string target = await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
-                      if (!list) return 'no-message-list';
+                      if (!list) return null;
                       let scroller = list;
                       while (scroller && scroller !== document.body) {
                         const css = getComputedStyle(scroller);
@@ -541,22 +540,39 @@ metrics();
                       }
                       if (!scroller || scroller === document.body)
                         scroller = list.closest('[class*="scroller_"]');
-                      if (!scroller) return 'no-scroller';
-                      const ids = () => [...list.querySelectorAll('[id^="chat-messages-"]')]
-                        .map(e => e.id).filter(id => /^chat-messages-[0-9]+-[0-9]+$/.test(id));
-                      const before = ids()[0] || '';
-                      // Move enough to re-arm Discord's scroll listener; await a
-                      // frame so React sees the intermediate scroll position.
-                      scroller.scrollTop = Math.min(450, Math.max(0,scroller.scrollHeight-scroller.clientHeight));
-                      
-                      scroller.scrollTop = 0;
-                      scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      
-                      return 'oldest-dom=' + before +
-                        ' top=' + scroller.scrollTop + ' height=' + scroller.scrollHeight;
+                      if (!scroller) return null;
+                      const rect = scroller.getBoundingClientRect();
+                      return {x:Math.round(rect.left+rect.width/2),
+                        y:Math.round(rect.top+Math.min(rect.height/2,120)),
+                        top:Math.round(scroller.scrollTop),
+                        height:scroller.scrollHeight};
                     })();
                     """);
-                Log("History request: " + result);
+                if (target == "null")
+                {
+                    Log("History request: Discord message scroller not found");
+                    return;
+                }
+                using (var doc = System.Text.Json.JsonDocument.Parse(target))
+                {
+                    var root = doc.RootElement;
+                    int x = root.GetProperty("x").GetInt32();
+                    int y = root.GetProperty("y").GetInt32();
+                    int top = root.GetProperty("top").GetInt32();
+                    if (x < 0 || y < 0)
+                    {
+                        Log("History request: invalid wheel target " + target);
+                        return;
+                    }
+                    string parameters = System.Text.Json.JsonSerializer.Serialize(new {
+                        type = "mouseWheel", x, y, deltaX = 0, deltaY = -620,
+                        modifiers = 0, pointerType = "mouse"
+                    });
+                    await web.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                        "Input.dispatchMouseEvent", parameters);
+                    Log("History wheel: oldest=" + oldest + " top=" + top +
+                        " target=" + x + "," + y);
+                }
                 if (history.Count > 0 && history.First().Key < oldest)
                 {
                     historyStallCount = 0;
