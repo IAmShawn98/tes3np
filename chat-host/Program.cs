@@ -192,7 +192,7 @@ internal static class Program
             titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 46);
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
-            Invalidate();
+            frameSurface.Invalidate();
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
@@ -282,6 +282,23 @@ internal static class Program
             BackColor = System.Drawing.Color.Black;
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
+            frameSurface.Paint += (_, e) =>
+            {
+                var g = e.Graphics;
+                int w = frameSurface.ClientSize.Width, h = frameSurface.ClientSize.Height;
+                if (w < 30 || h < 70) return;
+                using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(218, 184, 112), 3);
+                using var shade = new System.Drawing.Pen(System.Drawing.Color.FromArgb(46, 30, 15), 3);
+                using var plaque = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(17, 13, 9));
+                using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(224, 193, 125));
+                using var font = new System.Drawing.Font("Georgia", 17, System.Drawing.FontStyle.Bold);
+                g.DrawRectangle(gold, 2, 2, w - 5, h - 5);
+                g.DrawRectangle(shade, 8, 8, w - 17, h - 17);
+                g.DrawLine(shade, 12, 45, w - 12, 45);
+                var t = g.MeasureString("Chat", font);
+                g.FillRectangle(plaque, (w - t.Width) / 2 - 14, 5, t.Width + 28, 35);
+                g.DrawString("Chat", font, ink, (w - t.Width) / 2, 7);
+            };
             frameSurface.Controls.Add(chatViewport);
             Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
