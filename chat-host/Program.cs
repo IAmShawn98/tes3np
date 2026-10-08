@@ -426,6 +426,7 @@ metrics();
         string lastFeed = "";
         readonly System.Collections.Generic.List<(string User, string Body)> renderedMessages = new();
         bool nativeMode;
+        bool freshDiscordProfile;
         const string ExtractFeed = """
             (() => {
               const list = document.querySelector('[data-list-id="chat-messages"]');
@@ -1503,6 +1504,7 @@ metrics();
                 try
                 {
                     string data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-webview2");
+                    freshDiscordProfile = !Directory.Exists(data) || !Directory.EnumerateFileSystemEntries(data).Any();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
@@ -1518,14 +1520,15 @@ metrics();
                         "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                         "; const install=()=>{if(!document.head)return;let s=document.getElementById('tes3np-chat-style');if(!s){s=document.createElement('style');s.id='tes3np-chat-style';document.head.appendChild(s)}s.textContent=css;if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f)}};install();document.addEventListener('DOMContentLoaded',install);new MutationObserver(()=>{if(!document.getElementById('tes3np-chat-style')||(document.body&&!document.getElementById('tes3np-frame')))install()}).observe(document,{childList:true,subtree:true});})()");
                     web.CoreWebView2.NavigationCompleted += async (_, _) => await UpdateViewMode();
+                    web.CoreWebView2.SourceChanged += async (_, _) => await UpdateViewMode();
                     web.CoreWebView2.NewWindowRequested += (_, e) =>
                     {
                         e.Handled = true;
                         if (e.Uri.StartsWith("https://discord.com/", StringComparison.OrdinalIgnoreCase))
                             web.CoreWebView2.Navigate(e.Uri);
                     };
-                    web.CoreWebView2.Navigate(Channel);
-                    Log("Navigating to channel");
+                    web.CoreWebView2.Navigate(freshDiscordProfile ? "https://discord.com/login" : Channel);
+                    Log(freshDiscordProfile ? "Fresh Discord profile: opening sign-in" : "Navigating to channel");
                     _ = InitMessageBrowser(env);
                 }
                 catch (Exception ex)
@@ -1556,6 +1559,7 @@ metrics();
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
+                await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
                 PositionChatWindows();
                 if (chatDisplayMode == "Automatic" && chatOpen &&
@@ -1635,6 +1639,25 @@ metrics();
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f);} })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
+        async Task CheckDiscordAuthentication()
+        {
+            if (web.CoreWebView2 == null || closingChat) return;
+            try
+            {
+                string raw = await web.CoreWebView2.ExecuteScriptAsync(
+                    "(() => !!document.querySelector('input[type=password]') && !document.querySelector('[data-list-id=chat-messages]'))()");
+                if (raw == "true")
+                    ShowDiscordSignIn();
+                else if (signInExpanded &&
+                    web.CoreWebView2.Source.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase))
+                {
+                    string feed = await web.CoreWebView2.ExecuteScriptAsync(
+                        "!!document.querySelector('[data-list-id=chat-messages]')");
+                    if (feed == "true") RestoreGameChatAfterSignIn();
+                }
+            }
+            catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
+        }
         void ShowDiscordSignIn()
         {
             if (signInExpanded) return;
@@ -1647,6 +1670,7 @@ metrics();
             goldScrollbar.Visible = false;
             chatViewport.Visible = true;
             web.Parent = this;
+            SetWindowRgn(web.Handle, IntPtr.Zero, true);
             web.Dock = DockStyle.Fill;
             web.Visible = true;
             web.BringToFront();
@@ -1692,11 +1716,8 @@ metrics();
             }
             if (signInExpanded)
             {
-                // Discord may redirect through intermediate pages. Restore only
-                // when it reaches an authenticated channel, not on every redirect.
-                if (!url.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase))
-                    return;
-                RestoreGameChatAfterSignIn();
+                await CheckDiscordAuthentication();
+                if (signInExpanded) return;
             }
             EnforceChatClip();
             await ApplyCss();
