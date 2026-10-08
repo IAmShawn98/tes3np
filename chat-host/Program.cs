@@ -1836,7 +1836,7 @@ metrics();
                           padding:10px 4px 0 !important;
                           border-top:1px solid #70532c !important;
                           color:#ddc99d !important;
-                          font:14px/1.35 Georgia,'Times New Roman',serif !important;
+                          font:13px/1.4 Georgia,'Times New Roman',serif !important;
                           text-align:center !important;
                           white-space:normal !important;
                         }
