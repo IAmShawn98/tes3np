@@ -154,6 +154,70 @@ internal static class Program
         };
 
 
+        readonly RichTextBox nativeMessages = new()
+        {
+            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.Vertical,
+            BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
+            ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
+            Font = new System.Drawing.Font("Tahoma", 10, System.Drawing.FontStyle.Bold),
+            DetectUrls = false, TabStop = false, ShortcutsEnabled = false
+        };
+        string lastFeed = "";
+        bool nativeMode;
+        const string ExtractFeed = """
+            (() => {
+              const list = document.querySelector('[data-list-id="chat-messages"]');
+              if (!list) return '[]';
+              const rows = [...list.querySelectorAll('[id^="chat-messages-"]')]
+                .filter(el => el.id.match(/^chat-messages-\\d+-\\d+$/));
+              return JSON.stringify(rows.slice(-75).map(el => {
+                const user = el.querySelector('[class*="username_"]')?.textContent?.trim() || '';
+                const body = el.querySelector('[class*="messageContent_"]')?.innerText?.trim() ||
+                             el.querySelector('[class*="markup_"]')?.innerText?.trim() || '';
+                return {id:el.id,user,body};
+              }).filter(x => x.body));
+            })();
+            """;
+        async Task RefreshNativeMessages()
+        {
+            if (web.CoreWebView2 == null || signInExpanded) return;
+            try
+            {
+                string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
+                string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
+                if (json == lastFeed) return;
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.GetArrayLength() == 0) return;
+                lastFeed = json;
+                nativeMessages.SuspendLayout();
+                nativeMessages.Clear();
+                foreach (var msg in doc.RootElement.EnumerateArray())
+                {
+                    string user = msg.GetProperty("user").GetString() ?? "";
+                    string body = msg.GetProperty("body").GetString() ?? "";
+                    if (user.Length > 0)
+                    {
+                        nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(219, 178, 67);
+                        nativeMessages.AppendText(user + ": ");
+                    }
+                    nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
+                    nativeMessages.AppendText(body + Environment.NewLine);
+                }
+                nativeMessages.SelectionStart = nativeMessages.TextLength;
+                nativeMessages.ScrollToCaret();
+                nativeMessages.ResumeLayout();
+                if (!nativeMode)
+                {
+                    nativeMode = true;
+                    web.Visible = false;
+                    frameSurface.Visible = true;
+                    nativeMessages.Visible = true;
+                    nativeMessages.BringToFront();
+                    Log("Native message view activated");
+                }
+            }
+            catch (Exception ex) { Log("Native feed error: " + ex.Message); }
+        }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
@@ -184,6 +248,7 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
+            nativeMessages.SetBounds(18, 54, Math.Max(1, ClientSize.Width - 36), Math.Max(1, ClientSize.Height - 74));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 7);
             railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
@@ -300,6 +365,9 @@ internal static class Program
                 g.DrawString("Chat", font, ink, (w - t.Width) / 2, 7);
             };
             frameSurface.Controls.Add(chatViewport);
+            frameSurface.Controls.Add(nativeMessages);
+            nativeMessages.SetBounds(18, 54, Math.Max(1, frameSurface.Width - 36), Math.Max(1, frameSurface.Height - 74));
+            nativeMessages.Visible = false;
             Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
@@ -351,7 +419,8 @@ internal static class Program
                 if (!IsWindow(owner)) { Close(); return; }
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
-                if (docked) { EnforceChatClip(); RaiseFrame(); }
+                if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
+                await RefreshNativeMessages();
             };
             watch.Start();
         }
@@ -421,6 +490,9 @@ internal static class Program
             if (login && !signInExpanded)
             {
                 signInExpanded = true;
+                nativeMode = false;
+                nativeMessages.Visible = false;
+                web.Visible = true;
                 docked = false;
                 SetParent(Handle, IntPtr.Zero);
                 int style = GetWindowLong(Handle, GWL_STYLE);
@@ -436,7 +508,10 @@ internal static class Program
                 DockToLauncher();
             }
             if (!login)
+            {
                 await ApplyCss();
+                await RefreshNativeMessages();
+            }
         }
         void DockToLauncher()
         {
