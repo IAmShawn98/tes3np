@@ -280,10 +280,11 @@ internal static class Program
             """;
         async Task RefreshNativeMessages()
         {
-            if (web.CoreWebView2 == null || signInExpanded) return;
+            if (closingChat || IsDisposed || web.CoreWebView2 == null || signInExpanded) return;
             try
             {
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
+                if (closingChat || IsDisposed) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
                 if (json == lastFeed) return;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -326,6 +327,8 @@ internal static class Program
             catch (Exception ex) { Log("Native feed error: " + ex.Message); }
         }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
+        bool closingChat;
+        bool refreshingChat;
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
         void RaiseFrame()
@@ -694,9 +697,14 @@ internal static class Program
                     MessageBox.Show("WebView2 chat unavailable: " + ex.Message + "\nInstall Microsoft Edge WebView2 Runtime.", "tes3np Chat");
                 }
             };
+            FormClosing += (_, _) => { closingChat = true; watch.Stop(); };
             watch.Tick += async (_, _) =>
             {
+                if (closingChat || refreshingChat || IsDisposed) return;
                 if (!IsWindow(owner)) { Close(); return; }
+                refreshingChat = true;
+                try
+                {
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
@@ -707,6 +715,10 @@ internal static class Program
                     if (thumbY != lastThumbY || thumbHeight != lastThumbHeight)
                         goldScrollbar.Invalidate();
                 }
+                }
+                catch (ObjectDisposedException) { }
+                catch (Exception ex) { if (!closingChat) Log("Chat timer error: " + ex.Message); }
+                finally { refreshingChat = false; }
             };
             watch.Start();
         }
