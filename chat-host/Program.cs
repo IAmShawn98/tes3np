@@ -512,34 +512,26 @@ metrics();
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
-                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(1) ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(2) ||
                 DateTime.UtcNow < historyBackoffUntil) return;
-            ulong oldest = history.Count > 0 ? history.First().Key : ulong.MaxValue;
-            if (oldest < lastHistoryOldestId)
-            {
-                lastHistoryOldestId = oldest;
-                historyStallCount = 0;
-            }
-            else if (++historyStallCount >= 8)
-            {
-                // Back off when Discord is slow or the channel history ends.
-                historyStallCount = 0;
-                historyBackoffUntil = DateTime.UtcNow.AddSeconds(5);
-                Log("History loading paused for 5s (no older messages yet)");
-                return;
-            }
             loadingHistory = true;
             lastHistoryRequest = DateTime.UtcNow;
             try
             {
-                // Scroll the real Discord message scroller (including when its
-                // DOM is virtualized). React then requests earlier messages.
+                ulong oldest = history.Count > 0 ? history.First().Key : ulong.MaxValue;
+                if (oldest < lastHistoryOldestId)
+                {
+                    lastHistoryOldestId = oldest;
+                    historyStallCount = 0;
+                    Log("History advanced; oldest message: " + oldest);
+                }
+                // Discord loads history based on the position of its virtualized
+                // scroll container, not synthetic scroll events alone. Let its
+                // browser process an actual scroll away from and back to the top.
                 string result = await web.CoreWebView2.ExecuteScriptAsync("""
-                    (() => {
+                    (async () => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
                       if (!list) return 'no-message-list';
-                      // Discord's message list is often virtualized inside a separate
-                      // scrollable ancestor. Locate the actual scroll container.
                       let scroller = list;
                       while (scroller && scroller !== document.body) {
                         const css = getComputedStyle(scroller);
@@ -547,22 +539,36 @@ metrics();
                             /(auto|scroll)/.test(css.overflowY)) break;
                         scroller = scroller.parentElement;
                       }
-                      if (!scroller || scroller === document.body) {
-                        scroller = list.closest('[class*="scroller_"]') ||
-                          list.closest('[class*="scrollerBase_"]');
-                      }
+                      if (!scroller || scroller === document.body)
+                        scroller = list.closest('[class*="scroller_"]');
                       if (!scroller) return 'no-scroller';
-                      const before = scroller.scrollTop;
-                      // Scroll in the actual Discord browser to trigger its history loader.
-                      scroller.scrollTop = Math.min(scroller.scrollTop, 120);
-                      scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
+                      const ids = () => [...list.querySelectorAll('[id^="chat-messages-"]')]
+                        .map(e => e.id).filter(id => /^chat-messages-[0-9]+-[0-9]+$/.test(id));
+                      const before = ids()[0] || '';
+                      // Move enough to re-arm Discord's scroll listener; await a
+                      // frame so React sees the intermediate scroll position.
+                      scroller.scrollTop = Math.min(450, Math.max(0,scroller.scrollHeight-scroller.clientHeight));
+                      await new Promise(resolve => setTimeout(resolve, 90));
                       scroller.scrollTop = 0;
                       scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-                      return 'history-scroll top=' + before + '->' + scroller.scrollTop +
-                        ' height=' + scroller.scrollHeight + ' viewport=' + scroller.clientHeight;
+                      await new Promise(resolve => setTimeout(resolve, 180));
+                      return 'oldest-dom=' + before + ' now=' + (ids()[0] || '') +
+                        ' top=' + scroller.scrollTop + ' height=' + scroller.scrollHeight;
                     })();
                     """);
                 Log("History request: " + result);
+                if (history.Count > 0 && history.First().Key < oldest)
+                {
+                    historyStallCount = 0;
+                }
+                else if (++historyStallCount >= 10)
+                {
+                    // Slow Discord responses are not proof of end-of-history.
+                    // Keep retrying while the user remains near the top.
+                    historyStallCount = 0;
+                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(6);
+                    Log("History pending; retrying after 6s if still near top");
+                }
             }
             catch (Exception ex) { Log("History load error: " + ex.Message); }
             finally { loadingHistory = false; }
