@@ -15,7 +15,9 @@ PatchInProgress()
 FindTES3MPFolder()
 {
     global DataFile
-    for folder in [A_ScriptDir, A_ScriptDir "\.."]
+    ; Support launchers alongside TES3MP, in its parent folder, or with
+    ; TES3MP installed in a child folder.
+    for folder in [A_ScriptDir, A_ScriptDir "\..", A_ScriptDir "\tes3mp", A_ScriptDir "\TES3MP", A_ScriptDir "\tes3mp.Win64.release.0.8.1"]
         if FileExist(folder "\tes3mp.exe")
             return folder
     path := IniRead(DataFile, "Patch", "TesFolder", "")
