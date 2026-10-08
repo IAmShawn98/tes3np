@@ -5,7 +5,6 @@ global ScheduledEvents := []
 global ActiveScheduledEventId := ""
 global NextScheduledEventId := 1
 global ScheduledCountdownHotkey := "F8"
-global ScheduledLaunchPrompt := 0
 global ScheduledEventsBookControls := []
 global ScheduledEventsBookRows := []
 global ScheduledEventsBookMode := false
@@ -885,13 +884,18 @@ CheckDailyLoginSchedule(*)
             continue
         }
 
-        ; Yes shows the 10-second alert; No launches immediately with no prompt.
+        ; With alerts enabled, ask explicitly and wait for the user's decision.
+        ; With alerts disabled, launch the configured characters immediately.
         if !event.HasOwnProp("PromptMode") || event.PromptMode != "Silent"
         {
-            BeginScheduledLaunchPrompt(event)
-            return
+            choice := MsgBox('"' event.Name '" is starting!`n`nWould you like to login for the event?', "Scheduled Event", "YesNo Icon?")
+            if choice != "Yes"
+            {
+                DeclineScheduledEvent(event)
+                continue
+            }
         }
-        LogLauncherEvent("GAME | Scheduled event '" event.Name "' is due; launching without alert.")
+        LogLauncherEvent("GAME | Scheduled event '" event.Name "' accepted; starting character login.")
 
         ActiveScheduledEventId := event.Id
         LogLauncherEvent("GAME | Scheduled event due | Name: " event.Name " | Time basis: IRL | Login action: " loginAction ".")
@@ -905,67 +909,23 @@ CheckDailyLoginSchedule(*)
     }
 }
 
-BeginScheduledLaunchPrompt(event)
+DeclineScheduledEvent(event)
 {
-    global ScheduledLaunchPrompt
-    if IsObject(ScheduledLaunchPrompt)
-        return
-    gui := Gui("+AlwaysOnTop +ToolWindow", "Scheduled Event")
-    gui.SetFont("s11", "Segoe UI")
-    message := gui.Add("Text", "w345 h58 Center", "")
-    launch := gui.Add("Button", "xm w160 h30 Default", "Launch Now")
-    cancel := gui.Add("Button", "x+12 w160 h30", "Cancel")
-    ScheduledLaunchPrompt := {Gui: gui, Message: message, Event: event, Seconds: 10}
-    launch.OnEvent("Click", (*) => FinishScheduledLaunchPrompt(true))
-    cancel.OnEvent("Click", (*) => FinishScheduledLaunchPrompt(false))
-    gui.OnEvent("Close", (*) => FinishScheduledLaunchPrompt(false))
-    gui.OnEvent("Escape", (*) => FinishScheduledLaunchPrompt(false))
-    message.Text := "'" event.Name "' is starting.`nLaunching characters in 10 seconds..."
-    gui.Show("AutoSize Center")
-    SetTimer(TickScheduledLaunchPrompt, 1000)
-}
-
-TickScheduledLaunchPrompt()
-{
-    global ScheduledLaunchPrompt
-    if !IsObject(ScheduledLaunchPrompt)
+    ; A recurring countdown advances to its next cycle. One-shot events
+    ; remain in the list as completed until manually restarted or deleted.
+    if event.Recurring
+        CompleteScheduledEventForToday(event, "declined by user")
+    else
     {
-        SetTimer(TickScheduledLaunchPrompt, 0)
-        return
-    }
-    ScheduledLaunchPrompt.Seconds -= 1
-    if ScheduledLaunchPrompt.Seconds <= 0
-    {
-        FinishScheduledLaunchPrompt(true)
-        return
-    }
-    ScheduledLaunchPrompt.Message.Text := "'" ScheduledLaunchPrompt.Event.Name "' is starting.`nLaunching characters in " ScheduledLaunchPrompt.Seconds " seconds..."
-}
-
-FinishScheduledLaunchPrompt(shouldLaunch)
-{
-    global ScheduledLaunchPrompt, ActiveScheduledEventId
-    if !IsObject(ScheduledLaunchPrompt)
-        return
-    prompt := ScheduledLaunchPrompt
-    ScheduledLaunchPrompt := 0
-    SetTimer(TickScheduledLaunchPrompt, 0)
-    prompt.Gui.Destroy()
-    if !shouldLaunch
-    {
-        CompleteScheduledEventForToday(prompt.Event, "cancelled by user")
-        return
-    }
-    if ProcessExist("tes3mp.exe")
-    {
-        CompleteScheduledEventForToday(prompt.Event, "skipped because game was already running")
-        return
-    }
-    ActiveScheduledEventId := prompt.Event.Id
-    if !StartScheduledDailyLogin(prompt.Event)
-    {
-        ActiveScheduledEventId := ""
-        LogLauncherEvent("GAME | Scheduled event could not start; will retry.")
+        event.Completed := true
+        event.StartedAt := ""
+        event.Locked := false
+        event.Armed := false
+        event.Due := false
+        SaveScheduledEvents()
+        RefreshDailyLoginButton()
+        RefreshScheduledEventsBook()
+        LogLauncherEvent("GAME | Scheduled event '" event.Name "' declined; awaiting manual restart or deletion.")
     }
 }
 
