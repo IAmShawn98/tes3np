@@ -24,6 +24,12 @@ internal static class Program
         if (IntPtr.Size == 8) SetWindowOwner64(hwnd, GWLP_HWNDPARENT, ownerHwnd);
         else SetWindowOwner32(hwnd, GWLP_HWNDPARENT, ownerHwnd.ToInt32());
     }
+    delegate void WinEventCallback(IntPtr hook, uint eventType, IntPtr hwnd,
+        int objectId, int childId, uint eventThread, uint eventTime);
+    [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax,
+        IntPtr module, WinEventCallback callback, uint processId, uint threadId, uint flags);
+    [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr hook);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -452,6 +458,35 @@ internal static class Program
         bool chatOpen, feedInitialized;
         DateTime lastChatActivity = DateTime.MinValue;
         string latestMessageId = "";
+        WinEventCallback? launcherLocationCallback;
+        IntPtr launcherLocationHook;
+        bool repositionQueued;
+        void WatchLauncherMovement()
+        {
+            if (launcherLocationHook != IntPtr.Zero || !IsWindow(owner)) return;
+            uint threadId = GetWindowThreadProcessId(owner, out uint processId);
+            launcherLocationCallback = (hook, eventType, hwnd, objectId, childId, eventThread, eventTime) =>
+            {
+                if (hwnd != owner || objectId != 0 || childId != 0 ||
+                    closingChat || IsDisposed || !IsHandleCreated || repositionQueued) return;
+                repositionQueued = true;
+                try
+                {
+                    BeginInvoke((Action)(() =>
+                    {
+                        repositionQueued = false;
+                        if (!closingChat && !IsDisposed) PositionChatWindows();
+                    }));
+                }
+                catch (InvalidOperationException) { repositionQueued = false; }
+            };
+            // Observe the launcher's native movement, rather than waiting for the
+            // 500ms Discord polling timer. Hook only the launcher's UI thread.
+            launcherLocationHook = SetWinEventHook(0x800B, 0x800B, IntPtr.Zero,
+                launcherLocationCallback, processId, threadId, 0);
+            if (launcherLocationHook == IntPtr.Zero)
+                Log("Launcher movement hook unavailable; using polling fallback.");
+        }
         bool docked;
         bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
@@ -906,7 +941,17 @@ internal static class Program
                     MessageBox.Show("WebView2 chat unavailable: " + ex.Message + "\nInstall Microsoft Edge WebView2 Runtime.", "tes3np Chat");
                 }
             };
-            FormClosing += (_, _) => { closingChat = true; watch.Stop(); chatToggleWindow.Dispose(); };
+            FormClosing += (_, _) =>
+            {
+                closingChat = true;
+                watch.Stop();
+                if (launcherLocationHook != IntPtr.Zero)
+                {
+                    UnhookWinEvent(launcherLocationHook);
+                    launcherLocationHook = IntPtr.Zero;
+                }
+                chatToggleWindow.Dispose();
+            };
             watch.Tick += async (_, _) =>
             {
                 if (closingChat || refreshingChat || IsDisposed) return;
@@ -1074,6 +1119,7 @@ internal static class Program
                 (chatExStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
             ApplyWindowOpacity();
             docked = true;
+            WatchLauncherMovement();
             PositionChatWindows();
             SetChatOpen(chatDisplayMode == "Always Shown");
             // Actual launcher movement repairs the missing frame pixels on layered AHK windows.
