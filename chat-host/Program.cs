@@ -1789,6 +1789,16 @@ metrics();
                         if (!parent || parent.closest('label,[type=submit]')) continue;
                         parent.style.setProperty('display', 'none', 'important');
                       }
+                      // Add a short explanation beneath the native Discord
+                      // submit button. Keep it inside the form so it follows
+                      // the compact login layout and is recreated after reloads.
+                      let benefit = form.querySelector('[data-tes3np-login-benefit]');
+                      if (!benefit) {
+                        benefit = document.createElement('p');
+                        benefit.setAttribute('data-tes3np-login-benefit', '');
+                        benefit.textContent = 'Login to Discord and enhance your experience with Nerevarine Prophecies! Once you login, you will receive out-of-game alerts for happy hour, boss spawning, and more!';
+                        form.appendChild(benefit);
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -1811,6 +1821,16 @@ metrics();
                           font-family:Georgia,'Times New Roman',serif !important;
                         }
                         [data-tes3np-login] * { box-sizing:border-box !important; }
+                        [data-tes3np-login-benefit] {
+                          display:block !important;
+                          margin:22px 4px 0 !important;
+                          padding:12px 4px 0 !important;
+                          border-top:1px solid #70532c !important;
+                          color:#ddc99d !important;
+                          font:15px/1.45 Georgia,'Times New Roman',serif !important;
+                          text-align:center !important;
+                          white-space:normal !important;
+                        }
                         [data-tes3np-login]::-webkit-scrollbar { display:none !important; }
                         [data-tes3np-login] > div { min-height:0 !important; }
                         [data-tes3np-login] > div:empty { display:none !important; }
