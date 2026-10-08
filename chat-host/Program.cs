@@ -18,7 +18,7 @@ internal static class Program
         [class*="guilds_"], [class*="sidebar_"], [class*="sidebarList_"],
         [class*="membersWrap_"], [class*="members_"], [class*="panels_"],
         [class*="form_"], [class*="channelTextArea_"], [class*="toolbar_"],
-        [class*="title_"], [class*="header_"], [class*="notice_"],
+        [class*="notice_"],
         [class*="chatHeaderBar_"], [class*="jumpToPresentBar_"],
         [class*="newMessagesBar_"], [class*="typing_"],
         [class*="avatar_"], [class*="botTag_"], [class*="buttons_"] { display:none !important; }
@@ -58,9 +58,11 @@ internal static class Program
             BackColor = System.Drawing.Color.FromArgb(32,26,21);
             Controls.Add(web);
             Width = 260; Height = 330;
-            HandleCreated += (_, _) => DockToLauncher();
+
             Shown += async (_, _) =>
             {
+                // Let WinForms finish showing the top-level host before parenting it.
+                BeginInvoke((Action)(() => DockToLauncher()));
                 try
                 {
                     string data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-webview2");
@@ -132,9 +134,9 @@ internal static class Program
         {
             if (!IsWindow(owner) || signInExpanded) return;
             var hwnd = Handle;
-            SetParent(hwnd, owner);
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
+            SetParent(hwnd, owner);
             MoveWindow(hwnd, 125, 315, 260, 330, true);
             ShowWindow(hwnd, 5);
             docked = true;
