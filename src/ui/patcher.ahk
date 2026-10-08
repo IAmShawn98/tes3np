@@ -327,7 +327,8 @@ CheckPatchWorker()
     {
         ; Return to the normal launcher before offering the desktop shortcut.
         ShowLauncherWindow()
-        SetTimer(OfferDesktopShortcutOnFirstLaunch, -1000)
+        if job.Startup
+            SetTimer(OfferDesktopShortcutOnFirstLaunch.Bind(true), -1000)
     }
     if state = "error"
         LogPatchDiagnostic(message)
