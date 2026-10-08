@@ -1693,7 +1693,7 @@ metrics();
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
         }
-        // Style Discord's own login form; do not read or handle credentials.
+        // Restyle only Discord's existing login form. Credentials remain in Discord.
         async Task StyleDiscordLogin()
         {
             if (web.CoreWebView2 == null || closingChat) return;
@@ -1704,17 +1704,20 @@ metrics();
                       if (!location.pathname.startsWith('/login')) return;
                       const pass = document.querySelector('input[type=password]');
                       if (!pass) return;
-                      const form = pass.closest('form') || pass.parentElement?.parentElement?.parentElement;
+                      const form = pass.closest('form');
                       if (!form) return;
+                      form.setAttribute('data-tes3np-login', 'true');
                       let style = document.getElementById('tes3np-login-theme');
                       if (!style) {
                         style = document.createElement('style');
                         style.id = 'tes3np-login-theme';
                         document.head.appendChild(style);
                       }
-                      // Scope the minimal layout to the actual login form. Other
-                      // Discord flows (captcha, MFA, recovery) stay available.
-                      form.setAttribute('data-tes3np-login', 'true');
+                      // Mark the original Discord layout containers, avoiding
+                      // form controls and MFA/captcha elements.
+                      let node = form.parentElement;
+                      for (let i = 0; node && i < 5 && node !== document.body; i++, node = node.parentElement)
+                        node.setAttribute('data-tes3np-login-wrap', String(i));
                       const heading = document.querySelector('[data-tes3np-login-heading]');
                       if (!heading) {
                         const title = document.createElement('div');
@@ -1722,22 +1725,37 @@ metrics();
                         title.textContent = 'Sign in to Discord';
                         form.prepend(title);
                       }
+                      // The wordmark is outside the login form. Hide decorative
+                      // SVG/images there, but never hide anything inside the form.
+                      const outer = form.parentElement?.parentElement;
+                      if (outer) for (const el of outer.querySelectorAll('svg,img')) {
+                        if (!form.contains(el) && !el.closest('button,a,[role=button]'))
+                          el.style.display = 'none';
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
+                        html,body { margin:0 !important; padding:0 !important; }
+                        [data-tes3np-login-wrap] {
+                          background:#090807 !important; box-shadow:none !important;
+                          border:0 !important; max-width:100% !important;
+                          min-height:0 !important; height:auto !important;
+                          margin:0 !important; padding:0 !important;
+                        }
                         [data-tes3np-login] {
                           display:flex !important; flex-direction:column !important;
-                          gap:10px !important; padding:12px 14px !important;
-                          margin:0 !important; width:100% !important;
-                          max-width:100% !important; box-sizing:border-box !important;
-                          background:#090807 !important; border:0 !important;
-                          box-shadow:none !important;
+                          gap:7px !important; margin:0 !important;
+                          padding:10px 12px !important; width:100% !important;
+                          max-width:100% !important; min-height:0 !important;
+                          background:#090807 !important; box-shadow:none !important;
                           font-family:Georgia,'Times New Roman',serif !important;
                         }
                         [data-tes3np-login] * { box-sizing:border-box !important; }
                         [data-tes3np-login-heading] {
                           color:#d9b469 !important; text-align:center !important;
                           font:20px Georgia,serif !important;
-                          padding:4px 0 8px !important; border-bottom:1px solid #70532c !important;
+                          padding:12px 0 9px !important;
+                          margin:0 0 6px !important;
+                          border-bottom:1px solid #70532c !important;
                         }
                         [data-tes3np-login] label {
                           color:#ddc99d !important; font:15px Georgia,serif !important;
@@ -1746,42 +1764,27 @@ metrics();
                         [data-tes3np-login] input {
                           background:#100d09 !important; color:#f3e6c5 !important;
                           border:1px solid #997644 !important; border-radius:0 !important;
-                          min-height:36px !important; width:100% !important;
-                          font:16px Georgia,serif !important;
-                          padding:6px 9px !important; box-shadow:none !important;
+                          height:35px !important; min-height:35px !important;
+                          width:100% !important; padding:5px 8px !important;
+                          font:16px Georgia,serif !important; box-shadow:none !important;
                         }
                         [data-tes3np-login] input:focus { outline:1px solid #dfb66c !important; }
                         [data-tes3np-login] button[type=submit] {
                           background:#9b7439 !important; color:#fff0cb !important;
                           border:1px solid #dfbb75 !important; border-radius:0 !important;
-                          font:17px Georgia,serif !important; min-height:38px !important;
+                          font:17px Georgia,serif !important; min-height:36px !important;
                         }
-                        /* UESP-style reddish-brown links; preserve their native click handlers. */
-                        a, a:link, a:visited, a:hover, a:active,
-                        [role=link], [data-tes3np-login] a,
-                        [data-tes3np-login] button:not([type=submit]) {
-                          color:#87300f !important;
-                          text-decoration:underline !important;
+                        [data-tes3np-login] a, [data-tes3np-login] [role=link] {
+                          color:#a85a31 !important; text-decoration:underline !important;
                           cursor:pointer !important;
                         }
                       `;
-                      // Hide Discord's decorative welcome header only when the
-                      // actual form exists. Never remove authentication controls.
-                      // Hide only the decorative Discord wordmark/logo, not form controls.
-                      for (const el of document.querySelectorAll('svg[aria-label],img[alt]')) {
-                        const label = (el.getAttribute('aria-label') || el.getAttribute('alt') || '').trim();
-                        if (/^discord(?: logo| wordmark)?$/i.test(label)) el.style.display = 'none';
-                      }
-                      const logoCandidates = [...document.querySelectorAll('svg,img')]
-                        .filter(el => !form.contains(el) &&
-                          /discord/i.test((el.getAttribute('class') || '') + ' ' +
-                            (el.parentElement?.getAttribute('class') || '')));
-                      for (const el of logoCandidates) el.style.display = 'none';
+                      // Remove the decorative welcome text without hiding form actions.
                       const welcome = [...document.querySelectorAll('h1,h2,h3')]
                         .find(e => /welcome back/i.test(e.textContent || ''));
-                      if (welcome) {
-                        const group = welcome.parentElement;
-                        if (group && !group.contains(form)) group.style.display='none';
+                      if (welcome && !form.contains(welcome)) {
+                        const block = welcome.parentElement;
+                        if (block && !block.contains(form)) block.style.display = 'none';
                       }
                     })()
                     """);
@@ -1828,6 +1831,7 @@ metrics();
             messageClip.Visible = true;
             goldScrollbar.Visible = true;
             messageBrowser.Visible = nativeMode;
+            nativeMessages.Visible = false;
             web.Visible = !nativeMode;
             Text = "tes3np Chat Host";
             FitWebView();
