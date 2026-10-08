@@ -29,6 +29,8 @@ BuildFrontPage()
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters))
     CharacterMenuButton := MenuRows[2]
     UpdateCharacterMenuLabel()
+    if !IsTES3MPSetupComplete()
+        BeginGameDetectionDisplay()
 }
 
 AddInfoCard(x, y, width, height, heading, text)
@@ -46,14 +48,22 @@ AddInfoCard(x, y, width, height, heading, text)
 
 UpdateCharacterMenuLabel()
 {
-    global MenuEntries, MenuOffset, Profiles, SelectedProfile
+    global MenuEntries, MenuOffset, Profiles, SelectedProfile, GameDetectionActive, LauncherHelpText, LauncherHeading
     MenuEntries := []
     if !IsTES3MPSetupComplete()
     {
-        MenuEntries.Push(["Patch Tes3mp", OpenPatcher], ["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
+        if GameDetectionActive
+        {
+            MenuEntries := []
+            ScrollMenu(0)
+            return
+        }
+        MenuEntries.Push(["Repair Game Install", OpenPatcher], ["Quit Launcher", QuitLauncher])
         ScrollMenu(0)
         return
     }
+    if IsObject(LauncherHelpText)
+        LauncherHelpText.Visible := false
     if SelectedProfile > 0 && SelectedProfile <= Profiles.Length
     {
         MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])
@@ -177,3 +187,47 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
 }
 
 
+
+; First-run detection status occupies the same scroll panel as the normal menu.
+BeginGameDetectionDisplay()
+{
+    global LauncherGui, LauncherHeading, LauncherHelpText, GameDetectionActive, GameDetectionSeconds
+    GameDetectionActive := true
+    GameDetectionSeconds := 10
+    LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
+    LauncherGui.SetFont("s10 Norm c241408", "Segoe UI")
+    LauncherHelpText := LauncherGui.Add("Text", "x345 y460 w265 h112 Center BackgroundTrans",
+        "Please wait while we detect your downloaded copy of TES3MP...")
+    UpdateCharacterMenuLabel()
+    SetTimer(UpdateGameDetectionCountdown, 1000)
+}
+
+UpdateGameDetectionCountdown()
+{
+    global GameDetectionActive, GameDetectionSeconds, LauncherHeading
+    if !GameDetectionActive
+    {
+        SetTimer(UpdateGameDetectionCountdown, 0)
+        return
+    }
+    GameDetectionSeconds := Max(0, GameDetectionSeconds - 1)
+    LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
+    if GameDetectionSeconds = 0
+        EndGameDetectionDisplay()
+}
+
+EndGameDetectionDisplay()
+{
+    global GameDetectionActive, LauncherHeading, LauncherHelpText
+    if !GameDetectionActive
+        return
+    GameDetectionActive := false
+    SetTimer(UpdateGameDetectionCountdown, 0)
+    LauncherHeading.Text := "Game Launcher"
+    if IsObject(LauncherHelpText)
+    {
+        LauncherHelpText.Text := "If setup didn't appear, check that tes3np.exe is beside tes3mp.exe and that Morrowind GOTY and OpenMW are installed correctly. Use Repair Game Install to locate your files or fix the installation."
+        LauncherHelpText.Move(345, 555, 265, 98)
+    }
+    UpdateCharacterMenuLabel()
+}
