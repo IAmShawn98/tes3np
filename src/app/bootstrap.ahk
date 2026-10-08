@@ -232,16 +232,29 @@ CleanupLauncher(*)
 
 OfferFirstRunSetup(*)
 {
-    global SetupComplete
-    ; Compiled launcher: desktop shortcut is offered only after a successful
-    ; patch installation, never merely because a previous setup flag exists.
+    global SetupComplete, LauncherGui
     if A_IsCompiled
     {
-        if !SetupComplete
+        if SetupComplete
+            return
+        if !FileExist(A_ScriptDir "\tes3mp.exe")
         {
-            if MsgBox("Set up Nerevarine Prophecies for this TES3MP installation now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
-                OpenPatcher()
+            MsgBox("Place tes3np.exe in the folder containing tes3mp.exe and launch it again.", "Nerevarine Prophecies", "Icon!")
+            return
         }
+        if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") != "Yes"
+            return
+        config := PatchConfigurationPath()
+        morrowind := FindMorrowindFolder(config)
+        if morrowind = ""
+        {
+            MsgBox("The Morrowind GOTY installation could not be detected. Select its location to complete setup.", "Nerevarine Prophecies", "Icon!")
+            OpenPatcher()
+            return
+        }
+        ; Apply directly: no manual Patch Tes3mp page for the normal install.
+        if !StartPatchWorker("Apply", A_ScriptDir, morrowind, config, LauncherGui, true)
+            OpenPatcher()
         return
     }
     OfferDesktopShortcutOnFirstLaunch()
