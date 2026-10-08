@@ -1681,6 +1681,7 @@ metrics();
                 if (onLogin || state == "\"login\"")
                 {
                     ShowDiscordSignIn();
+                    if (onLogin) await StyleDiscordLogin();
                     return;
                 }
                 if (state == "\"app-prompt\"")
@@ -1691,6 +1692,41 @@ metrics();
                 }
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
+        }
+        // Cosmetic-only login styling; never read or store credentials.
+        async Task StyleDiscordLogin()
+        {
+            if (web.CoreWebView2 == null || closingChat) return;
+            try
+            {
+                await web.CoreWebView2.ExecuteScriptAsync("""
+                    (() => {
+                      if (!location.pathname.startsWith('/login') &&
+                          !location.pathname.startsWith('/register')) return;
+                      let style = document.getElementById('tes3np-login-theme');
+                      if (!style) {
+                        style = document.createElement('style');
+                        style.id = 'tes3np-login-theme';
+                        document.head.appendChild(style);
+                      }
+                      style.textContent = `
+                        html, body { background: #0d0b09 !important; color: #ead7ad !important; }
+                        body { font-family: Georgia, 'Times New Roman', serif !important; }
+                        input { background: #19140f !important; color: #f2e3bf !important;
+                          border: 1px solid #9e7b42 !important; border-radius: 2px !important;
+                          min-height: 34px !important; box-sizing: border-box !important; }
+                        input:focus { outline: 1px solid #dfb66c !important; }
+                        label { color: #e6d0a4 !important; }
+                        button[type=submit] { background: linear-gradient(#a98244,#725020) !important;
+                          border: 1px solid #e1bc78 !important; color: #fff0cb !important;
+                          border-radius: 2px !important; font-family: Georgia,serif !important; }
+                        a { color: #dfb66c !important; }
+                        form { max-width: 100% !important; }
+                      `;
+                    })()
+                    """);
+            }
+            catch (Exception ex) { Log("Discord login theme: " + ex.Message); }
         }
         void ShowDiscordSignIn()
         {
