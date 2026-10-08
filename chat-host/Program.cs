@@ -256,7 +256,7 @@ internal static class Program
             Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
             DetectUrls = false, TabStop = false, ShortcutsEnabled = false
         };
-        readonly WebView2 messageBrowser = new() { Dock = DockStyle.Fill, Visible = false };
+        readonly WebView2 messageBrowser = new() { Dock = DockStyle.Fill, Visible = true };
         bool messageBrowserReady;
         int browserScrollTop, browserScrollHeight = 1, browserClientHeight = 1;
         const string MessagePage = """
@@ -325,6 +325,7 @@ metrics();
                     catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
                 };
                 messageBrowser.NavigationCompleted += (_, _) => { messageBrowserReady = true; Log("HTML message renderer ready"); };
+                Log("HTML message renderer navigating");
                 messageBrowser.NavigateToString(MessagePage);
             }
             catch (Exception ex) { Log("HTML renderer initialization failed: " + ex.Message); }
@@ -1024,6 +1025,7 @@ metrics();
             frameSurface.Controls.Add(chatViewport);
             messageClip.Controls.Add(nativeMessages);
             messageClip.Controls.Add(messageBrowser);
+            nativeMessages.BringToFront();
             frameSurface.Controls.Add(messageClip);
             frameSurface.Controls.Add(goldScrollbar);
             frameSurface.Controls.Add(railTop);
@@ -1161,7 +1163,6 @@ metrics();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
-                    await InitMessageBrowser(env);
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
@@ -1182,6 +1183,7 @@ metrics();
                     };
                     web.CoreWebView2.Navigate(Channel);
                     Log("Navigating to channel");
+                    _ = InitMessageBrowser(env);
                 }
                 catch (Exception ex)
                 {
