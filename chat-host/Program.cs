@@ -211,6 +211,7 @@ internal static class Program
         }
         readonly System.Drawing.Bitmap? scrollbarTexture = LoadTexture("scrollbar-texture.b64");
         readonly System.Drawing.Bitmap? headerTexture = LoadTexture("header-texture.b64");
+        readonly Panel messageClip = new() { BackColor = System.Drawing.Color.FromArgb(10, 9, 8), Margin = Padding.Empty };
         readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly RichTextBox nativeMessages = new()
         {
@@ -273,7 +274,7 @@ internal static class Program
                     web.Visible = false;
                     chatViewport.Visible = false;
                     nativeMessages.Visible = true;
-                    nativeMessages.BringToFront();
+                    messageClip.BringToFront();
                     goldScrollbar.BringToFront();
                     frameSurface.Visible = true;
                     frameSurface.Invalidate();
@@ -312,8 +313,9 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 43), Math.Max(1, ClientSize.Height - 88));
-            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 53), 65, 36, Math.Max(1, ClientSize.Height - 88));
+            messageClip.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 88));
+            nativeMessages.SetBounds(0, 0, messageClip.Width + 18, messageClip.Height);
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
             railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
@@ -325,7 +327,7 @@ internal static class Program
             frameSurface.Invalidate();
             Log("Header visibility: frame=" + frameSurface.Visible + ", titleBar=" + titleBar.Visible + ", titleText=" + titleText.Visible + ", native=" + nativeMode);
             chatViewport.SendToBack();
-            if (nativeMessages.Visible) nativeMessages.BringToFront();
+            if (nativeMessages.Visible) messageClip.BringToFront();
             goldScrollbar.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
@@ -502,7 +504,8 @@ internal static class Program
             };
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
-            frameSurface.Controls.Add(nativeMessages);
+            messageClip.Controls.Add(nativeMessages);
+            frameSurface.Controls.Add(messageClip);
             frameSurface.Controls.Add(goldScrollbar);
             frameSurface.Controls.Add(railTop);
             frameSurface.Controls.Add(railLeft);
@@ -584,12 +587,13 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 43), Math.Max(1, frameSurface.Height - 88));
-            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 53), 65, 36, Math.Max(1, frameSurface.Height - 88));
+            messageClip.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 88));
+            nativeMessages.SetBounds(0, 0, messageClip.Width + 18, messageClip.Height);
+            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
-            nativeMessages.BringToFront();
+            messageClip.BringToFront();
             goldScrollbar.BringToFront();
             railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
             titleBar.BringToFront(); titleText.BringToFront();
