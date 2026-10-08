@@ -158,9 +158,6 @@ RefreshProfiles()
             MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
         }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
-        ; Restore the fixed book coordinates after imports and profile refreshes.
-        ; Both the native HWND and the custom painter must use the same bounds.
-        MoveStyledButton(DataTransferButton, 775, 575, 110, 30)
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
         ; Changing the native control text does not update the separately painted
         ; Morrowind button face. Keep both layers synchronized after Import Data.
