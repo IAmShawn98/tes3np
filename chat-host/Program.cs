@@ -1570,7 +1570,7 @@ metrics();
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
                 PositionChatWindows();
-                if (chatDisplayMode == "Automatic" && chatOpen &&
+                if (!discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
                     !Bounds.Contains(Cursor.Position))
                     SetChatOpen(false);
@@ -1665,6 +1665,17 @@ metrics();
                 if (state == "\"chat\"")
                 {
                     if (discordLoginVisible) RestoreGameChatAfterSignIn();
+                    return;
+                }
+                // After authentication Discord may land on its home page,
+                // not the server channel. Redirect once to the configured feed.
+                if (discordLoginVisible && !onLogin &&
+                    url.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase) &&
+                    !url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase) &&
+                    state != "\"loading\"" && state != "\"app-prompt\"")
+                {
+                    Log("Discord signed in; opening Game Chat channel");
+                    web.CoreWebView2.Navigate(Channel);
                     return;
                 }
                 if (onLogin || state == "\"login\"")
