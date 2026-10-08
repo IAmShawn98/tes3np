@@ -181,7 +181,7 @@ internal static class Program
         readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly RichTextBox nativeMessages = new()
         {
-            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.Vertical,
+            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
             BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
             ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
             Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
