@@ -181,7 +181,7 @@ internal static class Program
         readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly RichTextBox nativeMessages = new()
         {
-            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
+            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.Vertical,
             BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
             ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
             Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
@@ -279,7 +279,7 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 77), Math.Max(1, ClientSize.Height - 88));
+            nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 43), Math.Max(1, ClientSize.Height - 88));
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -533,7 +533,7 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 77), Math.Max(1, frameSurface.Height - 88));
+            nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 43), Math.Max(1, frameSurface.Height - 88));
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
