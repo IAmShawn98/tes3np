@@ -1799,6 +1799,16 @@ metrics();
                       }
                       const title = form.querySelector('[data-tes3np-login-heading]');
                       if (title) title.insertAdjacentElement('afterend', benefit);
+                      let logo = form.querySelector('[data-tes3np-integration-logo]');
+                      if (!logo) {
+                        logo = document.createElement('img');
+                        logo.setAttribute('data-tes3np-integration-logo', '');
+                        logo.alt = 'Nerevarine Prophecies and Discord';
+                      }
+                      if (window.__tes3npIntegrationLogo) {
+                        logo.src = window.__tes3npIntegrationLogo;
+                        if (title) title.insertAdjacentElement('afterend', logo);
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -1821,6 +1831,11 @@ metrics();
                           font-family:Georgia,'Times New Roman',serif !important;
                         }
                         [data-tes3np-login] * { box-sizing:border-box !important; }
+                        [data-tes3np-integration-logo] {
+                          display:block !important; width:175px !important;
+                          height:135px !important; object-fit:contain !important;
+                          margin:8px auto 4px !important; padding:0 !important;
+                        }
                         [data-tes3np-login-benefit] {
                           display:block !important;
                           margin:4px 4px 14px !important;
