@@ -200,13 +200,15 @@ BeginGameDetectionDisplay()
     GameDetectionActive := true
     GameDetectionSeconds := 10
     LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
+    RefreshGameDetectionText()
     LauncherGui.SetFont("s10 Norm c241408", "Segoe UI")
-    LauncherHelpText := LauncherGui.Add("Text", "x345 y460 w265 h112 Center BackgroundTrans",
+    LauncherHelpText := LauncherGui.Add("Text", "x345 y529 w265 h98 Center BackgroundTrans",
         "Please wait while we detect your downloaded copy of TES3MP...")
     ; Added after the initial layout capture: register logical coordinates so
     ; ShowLauncherWindow's rescale cannot shift this control into the buttons.
-    LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 460, Width: 265, Height: 112}
+    LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 529, Width: 265, Height: 98}
     UpdateCharacterMenuLabel()
+    RefreshGameDetectionText()
     SetTimer(UpdateGameDetectionCountdown, 1000)
 }
 
@@ -220,6 +222,7 @@ UpdateGameDetectionCountdown()
     }
     GameDetectionSeconds := Max(0, GameDetectionSeconds - 1)
     LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
+    RefreshGameDetectionText()
     if GameDetectionSeconds = 0
         EndGameDetectionDisplay()
 }
@@ -240,4 +243,12 @@ EndGameDetectionDisplay()
         LauncherHelpText.Move(Round(345 * scale), Round(529 * scale), Round(265 * scale), Round(98 * scale))
     }
     UpdateCharacterMenuLabel()
+}
+
+; Transparent STATIC controls need their parent repainted when their text changes.
+RefreshGameDetectionText()
+{
+    global LauncherGui
+    if IsObject(LauncherGui)
+        DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
 }
