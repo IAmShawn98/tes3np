@@ -145,7 +145,24 @@ RefreshProfiles()
         ; Preserve the original wide Import Data layout and compact Export Data
         ; layout. MoveStyledButton updates both the native control and its painted
         ; face; do not change position or dimensions independently.
+        ; Hide the existing painted face while the single transfer control moves.
+        ; Otherwise its old location can remain drawn as a second (ghost) button.
+        if ButtonFaces.Has(DataTransferButton.Hwnd)
+        {
+            transferFace := ButtonFaces[DataTransferButton.Hwnd]
+            try transferFace.Control.Visible := false
+            try transferFace.Label.Visible := false
+        }
         MoveStyledButton(DataTransferButton, transferX, transferY, Profiles.Length ? 110 : 370, 30)
+        if ButtonFaces.Has(DataTransferButton.Hwnd)
+        {
+            transferFace := ButtonFaces[DataTransferButton.Hwnd]
+            try transferFace.Control.Visible := true
+            try transferFace.Label.Visible := true
+        }
+        ; Invalidate the parchment underneath the old position so the previous
+        ; Import/Export artwork cannot survive as stale pixels.
+        try DllCall("RedrawWindow", "Ptr", DataTransferButton.Gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x385)
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
         {
