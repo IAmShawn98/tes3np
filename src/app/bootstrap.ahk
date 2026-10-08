@@ -49,7 +49,7 @@ StartLauncher()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
     ; A completion flag from another TES3MP directory must not suppress setup.
     ; Do not rely on the flag when the saved installation is unavailable.
-    if A_IsCompiled && SetupComplete
+    if SetupComplete
     {
         savedTesFolder := IniRead(DataFile, "Patch", "TesFolder", "")
         savedMorrowindFolder := IniRead(DataFile, "Patch", "MorrowindFolder", "")
@@ -88,7 +88,7 @@ StartLauncher()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
-    SetTimer(OfferFirstRunSetup, -1000)
+    SetTimer(OfferFirstRunSetup, SetupComplete ? -1000 : -10000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -442,50 +442,42 @@ CleanupLauncher(*)
 OfferFirstRunSetup(*)
 {
     global SetupComplete, LauncherGui, DataFile
-    if A_IsCompiled
+    if SetupComplete
     {
-        if SetupComplete
-        {
-            ; Verify managed files and OpenMW load order in the background worker.
-            ; Verification is read-only and only prompts when repair is required.
-            config := PatchConfigurationPath()
-            morrowind := IniRead(DataFile, "Patch", "MorrowindFolder", "")
-            if morrowind != "" && FileExist(config)
-                StartPatchWorker("Verify", A_ScriptDir, morrowind, config, LauncherGui, true)
-            return
-        }
-        ; Detection has finished once we are ready to offer installation.
-        EndGameDetectionDisplay()
-        if !FileExist(A_ScriptDir "\tes3mp.exe")
-        {
-            MsgBox("Place tes3np.exe in the folder containing tes3mp.exe and launch it again.", "Nerevarine Prophecies", "Icon!")
-            return
-        }
-        if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") != "Yes"
-            return
+        ; Verify the installed game at startup, including when running the AHK source.
         config := PatchConfigurationPath()
-        morrowind := FindMorrowindFolder(config)
-        if morrowind = ""
-        {
-            MsgBox("The Morrowind GOTY installation could not be detected. Select its location to complete setup.", "Nerevarine Prophecies", "Icon!")
-            OpenPatcher()
-            return
-        }
-        ; Run the same client compatibility check as manual installation.
-        ; If setup cannot start, open the guided repair page with detected paths.
-        if !CheckModifiedClientForPatch(A_ScriptDir, "Apply")
-        {
-            OpenPatcher()
-            return
-        }
-        if !StartPatchWorker("Apply", A_ScriptDir, morrowind, config, LauncherGui, true)
-        {
-            MsgBox("Automatic installation could not start. Check the detected folders in Repair Game Install and try again.", "Nerevarine Prophecies", "Icon!")
-            OpenPatcher()
-        }
+        morrowind := IniRead(DataFile, "Patch", "MorrowindFolder", "")
+        if morrowind != "" && FileExist(config)
+            StartPatchWorker("Verify", A_ScriptDir, morrowind, config, LauncherGui, true)
         return
     }
-    OfferDesktopShortcutOnFirstLaunch()
+    ; Give the first-run countdown time to complete before prompting for patches.
+    EndGameDetectionDisplay()
+    if !FileExist(A_ScriptDir "\tes3mp.exe")
+    {
+        MsgBox("Place tes3np.exe in the folder containing tes3mp.exe and launch it again.", "Nerevarine Prophecies", "Icon!")
+        return
+    }
+    if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") != "Yes"
+        return
+    config := PatchConfigurationPath()
+    morrowind := FindMorrowindFolder(config)
+    if morrowind = ""
+    {
+        MsgBox("The Morrowind GOTY installation could not be detected. Select its location to complete setup.", "Nerevarine Prophecies", "Icon!")
+        OpenPatcher()
+        return
+    }
+    if !CheckModifiedClientForPatch(A_ScriptDir, "Apply")
+    {
+        OpenPatcher()
+        return
+    }
+    if !StartPatchWorker("Apply", A_ScriptDir, morrowind, config, LauncherGui, true)
+    {
+        MsgBox("Automatic installation could not start. Check the detected folders in Repair Game Install and try again.", "Nerevarine Prophecies", "Icon!")
+        OpenPatcher()
+    }
 }
 
 OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
