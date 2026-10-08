@@ -321,7 +321,7 @@ metrics();
                         browserScrollHeight = root.GetProperty("height").GetInt32();
                         browserClientHeight = root.GetProperty("client").GetInt32();
                         goldScrollbar.Invalidate();
-                        if (browserScrollTop < 25) RequestOlderMessages();
+                        if (browserScrollTop < 300) RequestOlderMessages();
                     }
                     catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
                 };
@@ -512,7 +512,7 @@ metrics();
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
-                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(2) ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(1) ||
                 DateTime.UtcNow < historyBackoffUntil) return;
             ulong oldest = history.Count > 0 ? history.First().Key : ulong.MaxValue;
             if (oldest < lastHistoryOldestId)
@@ -524,8 +524,8 @@ metrics();
             {
                 // Back off when Discord is slow or the channel history ends.
                 historyStallCount = 0;
-                historyBackoffUntil = DateTime.UtcNow.AddSeconds(20);
-                Log("History loading paused for 20s (no older messages yet)");
+                historyBackoffUntil = DateTime.UtcNow.AddSeconds(5);
+                Log("History loading paused for 5s (no older messages yet)");
                 return;
             }
             loadingHistory = true;
@@ -554,7 +554,9 @@ metrics();
                       if (!scroller) return 'no-scroller';
                       const before = scroller.scrollTop;
                       // Scroll in the actual Discord browser to trigger its history loader.
-                      scroller.scrollTo({top:0,behavior:'instant'});
+                      scroller.scrollTop = Math.min(scroller.scrollTop, 120);
+                      scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
+                      scroller.scrollTop = 0;
                       scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
                       return 'history-scroll top=' + before + '->' + scroller.scrollTop +
                         ' height=' + scroller.scrollHeight + ' viewport=' + scroller.clientHeight;
@@ -567,7 +569,7 @@ metrics();
         }
         void RequestOlderMessages()
         {
-            if (ChatFirstLine() > 35 || loadingHistory || !IsHandleCreated || !nativeMode) return;
+            if (ChatFirstLine() > 300 || loadingHistory || !IsHandleCreated || !nativeMode) return;
             _ = LoadOlderMessages();
         }
         static string ParseHtmlColor(string color)
@@ -1261,7 +1263,7 @@ metrics();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
                 // Repeatedly page while the user stays at the top of the HTML chat.
-                if (nativeMode && browserScrollTop < 35) RequestOlderMessages();
+                if (nativeMode && browserScrollTop < 300) RequestOlderMessages();
                 PositionChatWindows();
                 if (chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
