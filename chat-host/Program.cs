@@ -13,34 +13,47 @@ internal static class Program
     [StructLayout(LayoutKind.Sequential)]
     struct SCROLLINFO { public uint cbSize, fMask; public int nMin, nMax; public uint nPage; public int nPos, nTrackPos; }
     [DllImport("user32.dll")] static extern bool GetScrollInfo(IntPtr hwnd, int bar, ref SCROLLINFO info);
-    bool ChatScrollInfo(out SCROLLINFO info)
+    [DllImport("user32.dll")] static extern bool ShowScrollBar(IntPtr hwnd, int bar, bool show);
+    int ChatFirstLine() => nativeMessages.IsHandleCreated
+        ? SendMessage(nativeMessages.Handle, 0x00CE, IntPtr.Zero, IntPtr.Zero).ToInt32() : 0;
+    int ChatLineCount() => nativeMessages.IsHandleCreated
+        ? Math.Max(1, SendMessage(nativeMessages.Handle, 0x00BA, IntPtr.Zero, IntPtr.Zero).ToInt32()) : 1;
+    int ChatVisibleLines()
     {
-        info = new SCROLLINFO { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<SCROLLINFO>(), fMask = 0x17 };
-        return nativeMessages.IsHandleCreated && GetScrollInfo(nativeMessages.Handle, 1, ref info);
+        if (nativeMessages.Height < 1) return 1;
+        int first = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(new System.Drawing.Point(2, 2)));
+        int last = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(
+            new System.Drawing.Point(2, Math.Max(2, nativeMessages.Height - 4))));
+        return Math.Max(1, last - first + 1);
     }
     int ChatThumbY(int height, out int thumbHeight)
     {
         int track = Math.Max(1, height - 54);
-        if (!ChatScrollInfo(out var info) || info.nMax <= info.nMin || info.nPage == 0)
-        { thumbHeight = track; return 27; }
-        int total = Math.Max(1, info.nMax - info.nMin + 1);
-        thumbHeight = Math.Clamp((int)((long)track * info.nPage / total), 20, track);
-        int maxPos = Math.Max(info.nMin, info.nMax - (int)info.nPage + 1);
-        return 27 + (int)((long)Math.Clamp(info.nPos - info.nMin, 0, maxPos - info.nMin)
-            * (track - thumbHeight) / Math.Max(1, maxPos - info.nMin));
+        int total = ChatLineCount();
+        int visible = ChatVisibleLines();
+        thumbHeight = Math.Clamp((int)((long)track * visible / Math.Max(1, total)), Math.Min(20, track), track);
+        int maxFirst = Math.Max(0, total - visible);
+        return 27 + (int)((long)Math.Clamp(ChatFirstLine(), 0, maxFirst)
+            * (track - thumbHeight) / Math.Max(1, maxFirst));
     }
     void ScrollChatToThumb(int y, int dragOffset)
     {
-        if (!ChatScrollInfo(out var info)) return;
+        if (!nativeMessages.IsHandleCreated) return;
         int track = Math.Max(1, goldScrollbar.Height - 54);
         ChatThumbY(goldScrollbar.Height, out int thumbHeight);
-        int maxPos = Math.Max(info.nMin, info.nMax - (int)info.nPage + 1);
+        int maxFirst = Math.Max(0, ChatLineCount() - ChatVisibleLines());
         int travel = Math.Max(1, track - thumbHeight);
         int relative = Math.Clamp(y - dragOffset - 27, 0, travel);
-        int target = info.nMin + (int)((long)relative * (maxPos - info.nMin) / travel);
-        SendMessage(nativeMessages.Handle, 0x0115, new IntPtr((target << 16) | 5), IntPtr.Zero);
-        SendMessage(nativeMessages.Handle, 0x0115, new IntPtr((target << 16) | 4), IntPtr.Zero);
+        int target = (int)((long)relative * maxFirst / travel);
+        int delta = target - ChatFirstLine();
+        if (delta != 0)
+            SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(delta));
         goldScrollbar.Invalidate();
+    }
+    void HideNativeChatScrollbar()
+    {
+        if (nativeMessages.IsHandleCreated)
+            ShowScrollBar(nativeMessages.Handle, 1, false);
     }
 
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -276,6 +289,7 @@ internal static class Program
                     nativeMessages.Visible = true;
                     messageClip.BringToFront();
                     goldScrollbar.BringToFront();
+                    HideNativeChatScrollbar();
                     frameSurface.Visible = true;
                     frameSurface.Invalidate();
                     Log("Native message view activated");
@@ -537,8 +551,7 @@ internal static class Program
                         new System.Drawing.Rectangle(0, 46, image.Width, Math.Min(30, h - 27 - y)), System.Drawing.GraphicsUnit.Pixel);
                 g.DrawImage(image, new System.Drawing.Rectangle(0, h - 27, w, 27),
                     new System.Drawing.Rectangle(0, image.Height - 27, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
-                ChatThumbY(h, out int thumbHeight);
-                int thumbY = ChatThumbY(h, out thumbHeight);
+                int thumbY = ChatThumbY(h, out int thumbHeight);
                 g.DrawImage(image, new System.Drawing.Rectangle(0, thumbY, w, thumbHeight),
                     new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
             };
@@ -547,7 +560,7 @@ internal static class Program
                 if (nativeMessages.IsHandleCreated)
                     SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Delta > 0 ? 0 : 1), IntPtr.Zero);
             };
-            nativeMessages.MouseWheel += (_, _) => goldScrollbar.Invalidate();
+            nativeMessages.MouseWheel += (_, _) => { HideNativeChatScrollbar(); goldScrollbar.Invalidate(); };
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
@@ -664,7 +677,7 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
-                if (nativeMode && goldScrollbar.Visible) goldScrollbar.Invalidate();
+                if (nativeMode && goldScrollbar.Visible) { HideNativeChatScrollbar(); goldScrollbar.Invalidate(); }
             };
             watch.Start();
         }
