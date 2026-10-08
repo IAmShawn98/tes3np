@@ -472,7 +472,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     savedLoginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
     loginActionList.Choose(savedLoginAction = "LoginUpTo4" ? 2 : savedLoginAction = "AlertOnly" ? 3 : 1)
     loginProfilesState := {Value: event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : ""}
-    loginActionList.OnEvent("Change", ChooseScheduledLoginProfiles.Bind(loginActionList, loginProfilesState, promptModeList))
+    loginActionList.OnEvent("Change", ChooseScheduledLoginProfiles.Bind(loginActionList, loginProfilesState))
 
     CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
     promptLabel := CharacterPage.Add("Text", "x525 y395 w135 h22 BackgroundTrans", "Launch prompt")
