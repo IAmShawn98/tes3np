@@ -60,6 +60,7 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
     FinishLauncherStartup()
+    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -227,4 +228,25 @@ CleanupLauncher(*)
     for icon in IconHandles
         DllCall("DestroyIcon", "Ptr", icon)
     IconHandles := []
+}
+
+OfferDesktopShortcutOnFirstLaunch(*)
+{
+    global DataFile
+    if IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
+        return
+
+    answer := MsgBox("Create a tes3np desktop shortcut?", "tes3np", "YesNo Icon?")
+    IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")
+    if answer != "Yes"
+        return
+
+    try
+    {
+        target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
+        arguments := A_IsCompiled ? "" : '"' A_ScriptFullPath '"'
+        FileCreateShortcut(target, A_Desktop "\\tes3np.lnk", A_ScriptDir, arguments, "Launch tes3np", A_ScriptDir "\\assets\\icons\\tes3np.ico")
+    }
+    catch as err
+        MsgBox("Could not create the shortcut: " err.Message, "tes3np", "Icon!")
 }
