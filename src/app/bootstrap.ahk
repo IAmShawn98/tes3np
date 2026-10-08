@@ -254,9 +254,18 @@ OfferFirstRunSetup(*)
             OpenPatcher()
             return
         }
-        ; Apply directly: no manual Patch Tes3mp page for the normal install.
-        if !StartPatchWorker("Apply", A_ScriptDir, morrowind, config, LauncherGui, true)
+        ; Run the same client compatibility check as manual installation.
+        ; If setup cannot start, open the guided repair page with detected paths.
+        if !CheckModifiedClientForPatch(A_ScriptDir, "Apply")
+        {
             OpenPatcher()
+            return
+        }
+        if !StartPatchWorker("Apply", A_ScriptDir, morrowind, config, LauncherGui, true)
+        {
+            MsgBox("Automatic installation could not start. Check the detected folders in Repair Game Install and try again.", "Nerevarine Prophecies", "Icon!")
+            OpenPatcher()
+        }
         return
     }
     OfferDesktopShortcutOnFirstLaunch()
