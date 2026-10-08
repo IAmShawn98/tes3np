@@ -1763,30 +1763,31 @@ metrics();
                       // Discord's recovery/account text is not always inside
                       // the <form>. Search the entire login document and hide
                       // only matching text elements, never the login controls.
-                      const unwanted = /^(forgot your password\\?|need an account\\?|register)$/i;
-                      const candidates = document.querySelectorAll(
-                        'a,button,[role=link],span,div,p');
-                      for (const el of candidates) {
+                      // Raw C# string: JS regex escapes must NOT be doubled.
+                      // Match the displayed phrases directly, including variants.
+                      const unwanted = text => {
+                        const t = (text || '').trim().toLowerCase();
+                        return t.startsWith('forgot your password') ||
+                          t.startsWith('need an account') ||
+                          t === 'register';
+                      };
+                      // Keep this idempotent: the login theme is reapplied while
+                      // Discord is loading and React may replace these elements.
+                      for (const el of document.querySelectorAll('a,[role=link],span,p,div')) {
                         if (el === form || el.contains(form)) continue;
                         if (el.querySelector('input,button,a,[role=link]')) continue;
-                        const value = (el.textContent || '').trim().replace(/\\s+/g, ' ');
-                        if (unwanted.test(value)) {
+                        if (unwanted(el.textContent)) {
                           el.style.setProperty('display', 'none', 'important');
                         }
                       }
-                      // The prompt can be a bare text node next to the Register
-                      // link. Remove that text without removing its container.
-                      const walker = document.createTreeWalker(
-                        document.body, NodeFilter.SHOW_TEXT);
+                      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
                       const nodes = [];
                       while (walker.nextNode()) nodes.push(walker.currentNode);
                       for (const node of nodes) {
-                        const value = (node.textContent || '').trim().replace(/\\s+/g, ' ');
-                        if (!unwanted.test(value)) continue;
+                        if (!unwanted(node.textContent)) continue;
                         const parent = node.parentElement;
-                        if (!parent || parent.closest('[data-tes3np-login-heading]')) continue;
-                        if (parent.closest('label') || parent.closest('[type=submit]')) continue;
-                        node.textContent = '';
+                        if (!parent || parent.closest('label,[type=submit]')) continue;
+                        parent.style.setProperty('display', 'none', 'important');
                       }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
