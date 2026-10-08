@@ -308,7 +308,7 @@ internal static class Program
                     // it in place as React replaces DOM nodes.
                     await web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                         "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
-                        "; const install=()=>{if(!document.head)return;let s=document.getElementById('tes3np-chat-style');if(!s){s=document.createElement('style');s.id='tes3np-chat-style';document.head.appendChild(s)}s.textContent=css};install();document.addEventListener('DOMContentLoaded',install);new MutationObserver(()=>{if(!document.getElementById('tes3np-chat-style'))install()}).observe(document,{childList:true,subtree:true});})()");
+                        "; const install=()=>{if(!document.head)return;let s=document.getElementById('tes3np-chat-style');if(!s){s=document.createElement('style');s.id='tes3np-chat-style';document.head.appendChild(s)}s.textContent=css;if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f)}};install();document.addEventListener('DOMContentLoaded',install);new MutationObserver(()=>{if(!document.getElementById('tes3np-chat-style')||(document.body&&!document.getElementById('tes3np-frame')))install()}).observe(document,{childList:true,subtree:true});})()");
                     web.CoreWebView2.NavigationCompleted += async (_, _) => await UpdateViewMode();
                     web.CoreWebView2.NewWindowRequested += (_, e) =>
                     {
@@ -386,7 +386,7 @@ internal static class Program
         {
             if (web.CoreWebView2 == null) return;
             var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
-                "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; })()";
+                "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f);} })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
         async Task UpdateViewMode()
