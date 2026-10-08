@@ -113,7 +113,7 @@ internal static class Program
             using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(210, 180, 116), 2);
             using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(63, 43, 22), 2);
             using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(220, 187, 120));
-            using var font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
+            using var font = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Regular);
             g.FillRectangle(bronze, 0, 0, w, 49);
             g.FillRectangle(bronze, 0, 53, 15, h - 53);
             g.FillRectangle(bronze, w - 15, 53, 15, h - 53);
@@ -453,41 +453,38 @@ internal static class Program
                 using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
                 using var titleFont = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
                 g.FillRectangle(rim, 0, 0, w, h);
-                // The visible Chat header can be painted by the host Form itself.
-                // Apply the existing Morrowind texture here, not only to frameSurface.
-                if (headerTexture != null)
+                // Recreate the reference's densely mottled bronze stone rather
+                // than overlaying speckles on the old horizontal wood texture.
+                using (var baseGold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(145, 112, 62)))
+                    g.FillRectangle(baseGold, 4, 4, w - 8, 43);
+                var grainRandom = new Random(31337);
+                using (var darkGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(93, 67, 34)))
+                using (var midGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(177, 143, 84)))
+                using (var lightGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(207, 177, 112)))
                 {
-                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    g.DrawImage(this.headerTexture, new System.Drawing.Rectangle(3, 3, w - 6, 49));
-                }
-                else
-                    g.FillRectangle(metal, 3, 3, w - 6, 49);
-                // Fine, irregular weathered-gold grain like the Morrowind journal
-                // header reference. Draw over the existing texture, not the frame.
-                // Stable coordinates prevent visual noise changing between repaints.
-                var oldClip = g.Clip;
-                using (var headerClip = new System.Drawing.Region(new System.Drawing.Rectangle(7, 6, Math.Max(1, w - 14), 38)))
-                {
-                    g.SetClip(headerClip, System.Drawing.Drawing2D.CombineMode.Intersect);
-                    var random = new Random(31337);
-                    using var darkGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(95, 48, 32, 14));
-                    using var lightGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(75, 230, 195, 122));
-                    for (int i = 0; i < Math.Max(350, w * 3); i++)
+                    for (int i = 0; i < w * 35; i++)
                     {
-                        int px = random.Next(7, Math.Max(8, w - 7));
-                        int py = random.Next(6, 44);
-                        int grain = random.Next(1, 4);
-                        g.FillRectangle(i % 3 == 0 ? lightGrain : darkGrain, px, py, grain, grain);
+                        int px = grainRandom.Next(5, Math.Max(6, w - 5));
+                        int py = grainRandom.Next(5, 46);
+                        int grain = grainRandom.Next(1, 4);
+                        g.FillRectangle(i % 5 == 0 ? lightGrain : (i % 3 == 0 ? midGrain : darkGrain),
+                            px, py, grain, grainRandom.Next(1, 3));
                     }
                 }
-                g.Clip = oldClip;
+                using (var edge = new System.Drawing.Pen(System.Drawing.Color.FromArgb(209, 172, 100)))
+                {
+                    g.DrawLine(edge, 5, 5, w - 6, 5);
+                    g.DrawLine(edge, 5, 42, w - 6, 42);
+                }
+                using (var inset = new System.Drawing.Pen(System.Drawing.Color.FromArgb(49, 35, 18)))
+                    g.DrawLine(inset, 6, 45, w - 7, 45);
                 g.FillRectangle(titleFill, 15, 53, w - 30, h - 69);
                 g.DrawRectangle(shadow, 5, 5, w - 11, h - 11);
                 g.DrawRectangle(highlight, 2, 2, w - 5, h - 5);
                 g.DrawLine(shadow, 6, 50, w - 7, 50);
                 var size = g.MeasureString("Chat", titleFont);
-                g.FillRectangle(titleFill, (w - size.Width) / 2 - 16, 4, size.Width + 32, 31);
-                g.DrawString("Chat", titleFont, gold, (w - size.Width) / 2, 7);
+                g.FillRectangle(titleFill, (w - size.Width) / 2 - 14, 3, size.Width + 28, 30);
+                g.DrawString("Chat", titleFont, gold, (w - size.Width) / 2, 8);
             };
             Log("Header diagnostics: texture=" + (headerTexture == null ? "MISSING" : headerTexture.Width + "x" + headerTexture.Height) +
                 ", border=" + (borderTexture == null ? "MISSING" : borderTexture.Width + "x" + borderTexture.Height) +
