@@ -102,7 +102,7 @@ CreateLauncherChatToggle()
     ; text, whereas painting directly to its DC gives us the full 168px area.
     LauncherGui.SetFont("s11 Bold cFFFFFF", "Segoe UI")
     LauncherChatToggle := LauncherGui.Add("Text",
-        "x3 y294 w50 h124 +0x100 BackgroundA77C3A", "")
+        "x3 y294 w45 h112 +0x100 BackgroundA77C3A", "")
     OnMessage(0x000F, PaintLauncherChatToggle)
     ; STATIC sends STN_CLICKED as WM_COMMAND to its parent.
     OnMessage(0x0111, LauncherChatCommandClick)
@@ -136,14 +136,14 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
         DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", 0x00FFFFFF)
         font := DllCall("gdi32\CreateFontW",
-            "Int", -17, "Int", 0, "Int", 900, "Int", 900,
+            "Int", -19, "Int", 0, "Int", 900, "Int", 900,
             "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
             "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
             "UInt", 0, "Str", "Segoe UI", "Ptr")
         oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         ; Positive 90-degree escapement runs text upward from the baseline.
         DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.83),
-            "Int", Round(h * 0.92), "Str", "Game Chat", "Int", 9)
+            "Int", Round(h * 0.94), "Str", "Game Chat", "Int", 9)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", font)
         ; Arrow pointing left, matching the original toggle.
@@ -151,7 +151,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
         cx := Round(w * 0.35), cy := Round(h * 0.50)
         global LauncherChatOpen
-        direction := LauncherChatOpen ? -1 : 1
+        direction := LauncherChatOpen ? 1 : -1
         DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * 9, "Int", cy, "Ptr", 0)
         DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * 9, "Int", cy)
         DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - 10)
