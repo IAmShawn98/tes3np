@@ -230,7 +230,7 @@ EndGameDetectionDisplay()
     if IsObject(LauncherHelpText)
     {
         LauncherHelpText.Text := "If setup didn't appear, check that tes3np.exe is beside tes3mp.exe and that Morrowind GOTY and OpenMW are installed correctly. Use Repair Game Install to locate your files or fix the installation."
-        LauncherHelpText.Move(345, 555, 265, 98)
+        LauncherHelpText.Move(345, 535, 265, 98)
     }
     UpdateCharacterMenuLabel()
 }
