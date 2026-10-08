@@ -485,7 +485,7 @@ OpenScheduledEventBookEditor(eventIndex := 0)
     clockMode.OnEvent("Change", UpdateDailyLoginClockMode.Bind(hourEdit, meridiem, clockMode))
 
     save := AddStyledButton(CharacterPage, 525, 420, 155, 30, editing ? "Save Changes" : "Schedule Event",
-        SaveScheduledEventBookEditor.Bind(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState))
+        SaveScheduledEventBookEditor.Bind(eventIndex, nameEdit, modeList, recurringCheck, hourEdit, minuteEdit, clockMode, secondEdit, meridiem, loginActionList, loginProfilesState, promptModeList))
     cancel := AddStyledButton(CharacterPage, 700, 420, 155, 30, "Cancel", CancelScheduledEventBookEditor)
 
     ScheduledEventsBookRows := [[nameLabel, nameEdit, modeLabel, modeList, recurringTick, recurringLabel, hourLabel, minuteLabel, thirdLabel,
