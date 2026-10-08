@@ -323,12 +323,14 @@ CheckPatchWorker()
     if IsSet(PatchStatus)
         PatchStatus.Text := message
     ; A fresh standalone install offers its desktop entry only after patching.
-    if state = "success" && job.Action = "Apply" && A_IsCompiled
+    if state = "success" && job.Action = "Apply"
     {
-        ; Return to the normal launcher before offering the desktop shortcut.
+        ; Return to the normal launcher after a successful install, then offer
+        ; the shortcut once, including when launched from the AHK source.
+        if IsSet(PatchPage) && IsObject(PatchPage)
+            PatchPage.Hide()
         ShowLauncherWindow()
-        if job.Startup
-            SetTimer(OfferDesktopShortcutOnFirstLaunch.Bind(true), -1000)
+        SetTimer(OfferDesktopShortcutOnFirstLaunch.Bind(true), -1000)
     }
     if state = "error"
         LogPatchDiagnostic(message)
