@@ -34,6 +34,13 @@ StartLauncher()
     LoadProfiles()
     LoadDailyLoginSchedule()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
+    ; Set WS_CLIPCHILDREN before the launcher is ever shown. ChatHost is a
+    ; native child HWND; parent background painting must not overwrite it.
+    styleGetter := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
+    styleSetter := A_PtrSize = 8 ? "SetWindowLongPtrW" : "SetWindowLongW"
+    launcherStyle := DllCall("user32\\" styleGetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr")
+    DllCall("user32\\" styleSetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr", launcherStyle | 0x02000000, "Ptr")
+
     SetWindowIcons()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
     ; A completion flag from another TES3MP directory must not suppress setup.
