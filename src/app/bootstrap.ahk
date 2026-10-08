@@ -193,8 +193,8 @@ LauncherPickleKillAlert(wParam, lParam, msg, hwnd)
     global LauncherGui
     if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
         return
-    TrayTip("Pickle killed someone in Nerevarine Prophecies!", "TES3NP Kill Alert", 0x1)
-    LogLauncherEvent("Game Chat alert: Pickle killed a player.")
+    TrayTip("A character was killed in Nerevarine Prophecies!", "TES3NP Kill Alert", 0x1)
+    LogLauncherEvent("Game Chat alert: character kill detected.")
     return 0
 }
 LauncherChatStateChanged(wParam, lParam, msg, hwnd)
