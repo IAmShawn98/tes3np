@@ -527,6 +527,7 @@ metrics();
                 }
                 // Chromium's input dispatcher sends real wheel events through
                 // WebView2, unlike setting scrollTop or dispatching synthetic DOM events.
+                Log("History fetch: locating Discord scroll target");
                 string target = await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
                       const list = document.querySelector('[data-list-id="chat-messages"]');
@@ -547,7 +548,8 @@ metrics();
                         top:Math.round(scroller.scrollTop),
                         height:scroller.scrollHeight};
                     })();
-                    """);
+                    """).WaitAsync(TimeSpan.FromSeconds(5));
+                Log("History fetch: target=" + target);
                 if (target == "null")
                 {
                     Log("History request: Discord message scroller not found");
@@ -569,7 +571,7 @@ metrics();
                         modifiers = 0, pointerType = "mouse"
                     });
                     await web.CoreWebView2.CallDevToolsProtocolMethodAsync(
-                        "Input.dispatchMouseEvent", parameters);
+                        "Input.dispatchMouseEvent", parameters).WaitAsync(TimeSpan.FromSeconds(5));
                     Log("History wheel: oldest=" + oldest + " top=" + top +
                         " target=" + x + "," + y);
                 }
@@ -586,6 +588,7 @@ metrics();
                     Log("History pending; retrying after 6s if still near top");
                 }
             }
+            catch (TimeoutException) { Log("History load timed out after 5s; retrying on next refresh"); }
             catch (Exception ex) { Log("History load error: " + ex.Message); }
             finally { loadingHistory = false; }
         }
