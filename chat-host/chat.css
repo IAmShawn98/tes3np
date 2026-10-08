@@ -69,3 +69,17 @@ button[aria-label*="Pinned"],button[aria-label*="Member"],
 #app-mount [class*="chat_"] [class*="clickable_"][role="button"] {
  display:none!important;
 }
+
+/* Morrowind in-game chat visual reference */
+:root,html,body,#app-mount {background:#080706!important;color:#f0e8db!important}
+[class*="messageContent_"],[class*="markup_"] {
+font-family:Verdana,Tahoma,Arial,sans-serif!important;
+font-size:14px!important;font-weight:700!important;line-height:1.32!important;
+color:#eee9e2!important;text-shadow:1px 1px 2px #000!important;
+}
+[class*="username_"] {font-family:Verdana,Tahoma,Arial,sans-serif!important;font-size:14px!important;font-weight:800!important;color:#d3aa32!important;text-shadow:1px 1px 2px #000!important}
+[class*="message_"] {padding:2px 9px!important}
+[data-list-id="chat-messages"] {padding:7px 3px!important}
+::-webkit-scrollbar {width:16px!important}
+::-webkit-scrollbar-track {background:#18130c!important;border:2px ridge #ad8a4b!important}
+::-webkit-scrollbar-thumb {background:linear-gradient(90deg,#6f522a,#b99a5b,#74562b)!important;border:2px ridge #d2b276!important;border-radius:0!important}
