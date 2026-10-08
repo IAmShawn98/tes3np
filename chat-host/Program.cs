@@ -7,6 +7,8 @@ internal static class Program
     const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -591,6 +593,14 @@ internal static class Program
             ShowWindow(hwnd, 5);
             ApplyWindowOpacity();
             docked = true;
+            // Actual launcher movement repairs the missing frame pixels on layered AHK windows.
+            // Reproduce that exact compositor event once, then restore its original position.
+            if (GetWindowRect(owner, out var bounds))
+            {
+                const uint SWP_NOSIZE_NOZORDER_NOACTIVATE = 0x0001 | 0x0004 | 0x0010;
+                SetWindowPos(owner, IntPtr.Zero, bounds.Left + 1, bounds.Top, 0, 0, SWP_NOSIZE_NOZORDER_NOACTIVATE);
+                SetWindowPos(owner, IntPtr.Zero, bounds.Left, bounds.Top, 0, 0, SWP_NOSIZE_NOZORDER_NOACTIVATE);
+            }
             Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }
     }
