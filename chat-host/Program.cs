@@ -358,7 +358,7 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            messageClip.SetBounds(23, 56, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 70));
+            messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 74));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 70));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
@@ -687,7 +687,7 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            messageClip.SetBounds(23, 56, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 70));
+            messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 74));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 70));
             nativeMessages.Visible = true;
