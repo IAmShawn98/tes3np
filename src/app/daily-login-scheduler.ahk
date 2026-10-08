@@ -964,7 +964,7 @@ StartScheduledDailyLogin(event)
     executable := GetSharedExecutable()
     queue := []
     loginAction := event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll"
-    if loginAction = "LoginCloseAll" && (event.Mode != "IRL" || event.LastRunDate = FormatTime(, "yyyy-MM-dd"))
+    if loginAction = "LoginCloseAll" && event.Mode != "IRL"
         return false
     if loginAction = "LoginUpTo4"
     {
