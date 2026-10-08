@@ -293,11 +293,65 @@ internal static class Program
                 const color = usernameEl ? getComputedStyle(usernameEl).color : '';
                 const body = el.querySelector('[class*="messageContent_"]')?.innerText?.trim() ||
                              el.querySelector('[class*="markup_"]')?.innerText?.trim() || '';
-                return {id:el.id,user,body,color};
+                const urls = [...el.querySelectorAll('a[href], img[src]')]
+                  .map(n => n.tagName === 'IMG' ? (n.currentSrc || n.src) : n.href)
+                  .filter(u => /^https:\/\//i.test(u) &&
+                    (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(u) ||
+                     /(?:cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i.test(u)));
+                return {id:el.id,user,body,color,images:[...new Set(urls)].slice(0,4)};
               }).filter(x => x.body));
             })();
             """;
-        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color)> history = new();
+        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color, string[] Images)> history = new();
+        readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
+        readonly System.Collections.Generic.HashSet<string> pendingImages = new();
+        static readonly System.Net.Http.HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
+        bool imagesNeedRedraw;
+        async Task FetchChatImage(string url)
+        {
+            if (imageCache.ContainsKey(url) || !pendingImages.Add(url)) return;
+            try
+            {
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                    uri.Scheme != Uri.UriSchemeHttps ||
+                    !(uri.Host.EndsWith(".discordapp.com", StringComparison.OrdinalIgnoreCase) ||
+                      uri.Host.EndsWith(".discordapp.net", StringComparison.OrdinalIgnoreCase) ||
+                      uri.Host.Equals("cdn.discordapp.com", StringComparison.OrdinalIgnoreCase))) return;
+                using var response = await imageHttp.GetAsync(uri, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                if (response.Content.Headers.ContentLength > 8_000_000) return;
+                byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+                if (bytes.Length > 8_000_000) return;
+                using var stream = new System.IO.MemoryStream(bytes);
+                using var original = System.Drawing.Image.FromStream(stream);
+                int width = Math.Min(250, original.Width);
+                int height = Math.Max(1, (int)Math.Round((double)original.Height * width / original.Width));
+                if (height > 400) { width = Math.Max(1, width * 400 / height); height = 400; }
+                var preview = new System.Drawing.Bitmap(width, height);
+                using (var graphics = System.Drawing.Graphics.FromImage(preview))
+                {
+                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    graphics.DrawImage(original, 0, 0, width, height);
+                }
+                if (IsDisposed || closingChat) { preview.Dispose(); return; }
+                imageCache[url] = preview;
+                imagesNeedRedraw = true;
+            }
+            catch (Exception ex) { Log("Chat image unavailable: " + ex.Message); }
+            finally { pendingImages.Remove(url); }
+        }
+        void AppendChatImage(System.Drawing.Image image)
+        {
+            // RichEdit accepts PNG images embedded as RTF picture runs.
+            using var stream = new System.IO.MemoryStream();
+            image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            string hex = Convert.ToHexString(stream.ToArray());
+            int twipsW = image.Width * 15, twipsH = image.Height * 15;
+            string rtf = @"{\rtf1\ansi{\pict\pngblip\picw" + image.Width +
+                @"\pich" + image.Height + @"\picwgoal" + twipsW +
+                @"\pichgoal" + twipsH + " " + hex + "}}";
+            nativeMessages.SelectedRtf = rtf;
+        }
         DateTime lastHistoryRequest = DateTime.MinValue;
         bool loadingHistory;
         async Task LoadOlderMessages()
@@ -349,7 +403,8 @@ internal static class Program
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
                 if (closingChat || IsDisposed) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
-                if (json == lastFeed) return;
+                if (json == lastFeed && !imagesNeedRedraw) return;
+                imagesNeedRedraw = false;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 if (doc.RootElement.GetArrayLength() == 0) return;
                 string newestId = doc.RootElement[doc.RootElement.GetArrayLength() - 1]
@@ -378,14 +433,21 @@ internal static class Program
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
                     string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
+                    string[] images = msg.TryGetProperty("images", out var imageValues) &&
+                        imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
+                        ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
+                        : Array.Empty<string>();
+                    foreach (string imageUrl in images)
+                        if (!imageCache.ContainsKey(imageUrl)) _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
-                        existing.User != user || existing.Body != body || existing.Color != color)
+                        existing.User != user || existing.Body != body || existing.Color != color ||
+                        !existing.Images.SequenceEqual(images))
                     {
-                        history[key] = (user, body, color);
+                        history[key] = (user, body, color, images);
                         changed = true;
                     }
                 }
-                if (!changed) return;
+                if (!changed && !imageCache.Keys.Any(k => history.Values.Any(v => v.Images.Contains(k)))) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 renderedMessages.Clear();
                 nativeMessages.SuspendLayout();
@@ -411,6 +473,16 @@ internal static class Program
                     }
                     nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
                     nativeMessages.AppendText(msg.Body);
+                    foreach (string imageUrl in msg.Images)
+                    {
+                        nativeMessages.AppendText(Environment.NewLine);
+                        if (imageCache.TryGetValue(imageUrl, out var preview))
+                        {
+                            try { AppendChatImage(preview); }
+                            catch (Exception ex) { Log("Chat image render error: " + ex.Message); nativeMessages.AppendText("[Image] " + imageUrl); }
+                        }
+                        else nativeMessages.AppendText("[Loading image…] " + imageUrl);
+                    }
                     if (renderedMessages.Count < history.Count)
                         nativeMessages.AppendText(Environment.NewLine);
                 }
