@@ -59,7 +59,7 @@ UpdateCharacterMenuLabel()
             LauncherHelpText.Visible := true
         if GameDetectionActive
         {
-            MenuEntries.Push(["Quit Launcher", QuitLauncher])
+            MenuEntries.Push(["Repair Game Install", OpenPatcher], ["Quit Launcher", QuitLauncher])
             ScrollMenu(0)
             return
         }
