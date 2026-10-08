@@ -541,11 +541,14 @@ metrics();
         int historyStallCount;
         int historyNoProgressCount;
         DateTime historyBackoffUntil = DateTime.MinValue;
+        DateTime historyNavigationStarted = DateTime.MinValue;
+        bool historyAwaitingNavigation;
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
                 DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(450) ||
-                DateTime.UtcNow < historyBackoffUntil) return;
+                DateTime.UtcNow < historyBackoffUntil ||
+                (historyAwaitingNavigation && DateTime.UtcNow - historyNavigationStarted < TimeSpan.FromSeconds(8))) return;
             loadingHistory = true;
             lastHistoryRequest = DateTime.UtcNow;
             try
@@ -561,6 +564,11 @@ metrics();
                 // ExecuteScriptAsync waits for the JavaScript evaluation to finish.
                 // Avoid the DevTools input dispatcher: it hangs in hidden WebView2.
                 // Schedule the second movement asynchronously inside the page.
+                if (historyAwaitingNavigation)
+                {
+                    historyAwaitingNavigation = false;
+                    historyNoProgressCount = 0;
+                }
                 int attempt = ++historyNoProgressCount;
                 // Discord can stop paging after its virtual list drops older rows.
                 // Re-enter the channel at the oldest known message to let Discord
@@ -569,7 +577,9 @@ metrics();
                 if (attempt >= 3 && oldest != ulong.MaxValue)
                 {
                     historyNoProgressCount = 0;
-                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(1);
+                    historyNavigationStarted = DateTime.UtcNow;
+                    historyAwaitingNavigation = true;
+                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(2);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
                     web.CoreWebView2.Navigate(olderWindow);
@@ -623,6 +633,14 @@ metrics();
                         ' loading=' + loading;
                     })();
                     """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
+                if (result.Contains("no-message-list") || result.Contains("no-scroller"))
+                {
+                    historyNoProgressCount = Math.Max(0, historyNoProgressCount - 1);
+                    historyStallCount = 0;
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(900);
+                    Log("History waiting for Discord message list: " + result);
+                    return;
+                }
                 Log("History scroll (" + scriptMode + ", attempt=" + attempt + "): " + result);
                 if (history.Count > 0 && history.First().Key < oldest)
                 {
