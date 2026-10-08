@@ -215,17 +215,6 @@ internal static class Program
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
-        readonly Button joinDiscord = new()
-        {
-            Text = "",
-            FlatStyle = FlatStyle.Flat,
-            BackColor = System.Drawing.Color.FromArgb(67, 46, 24),
-            ForeColor = System.Drawing.Color.FromArgb(255, 226, 163),
-            Font = new System.Drawing.Font("Georgia", 9, System.Drawing.FontStyle.Bold),
-            TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
-            Cursor = Cursors.Hand,
-            TabStop = false
-        };
         readonly Panel chatViewport = new() { BackColor = System.Drawing.Color.FromArgb(9, 8, 7), Margin = Padding.Empty };
         readonly Panel titleBar = new() { BackColor = System.Drawing.Color.FromArgb(115, 85, 43) };
         readonly Panel railLeft = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
@@ -384,11 +373,9 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 119));
+            messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 70));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 272) / 2),
-                Math.Max(1, frameSurface.Height - 56), Math.Min(272, Math.Max(1, frameSurface.Width - 32)), 34);
-            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 115));
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 66));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
             railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
@@ -402,7 +389,6 @@ internal static class Program
             chatViewport.SendToBack();
             if (nativeMessages.Visible) messageClip.BringToFront();
             goldScrollbar.BringToFront();
-            joinDiscord.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
             chatViewport.Visible = !nativeMode;
@@ -623,60 +609,6 @@ internal static class Program
             frameSurface.Controls.Add(railRight);
             frameSurface.Controls.Add(railBottom);
             frameSurface.Controls.Add(titleBar);
-            joinDiscord.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(185, 148, 79);
-            joinDiscord.FlatAppearance.BorderSize = 1;
-            joinDiscord.Paint += (_, e) =>
-            {
-                const string label = "Join Us On Discord";
-                var g = e.Graphics;
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var iconStream = new MemoryStream(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAADF0lEQVR42tWVz2tcVRTHP+feN28y816Sh0kcrUoktPaXxAgpdKMIghv/AHdu3bkoFrQL5w8I05UbQehW6w9woai4EN1o/dEakaZY20Rqmgdtk8m8Nz/fu8fFZLQmJmYWCj1wN/eee77n5/fAvS6y16Oqyr6MiOhQqKoqqmqH0Le7ObOnh3Ech4mWg7KiTfm77uBuphImIpIO47lRVb/Vap1V1d9Vta6qm7uc+pZOTVULW39l1whU1YpIvrz8W216+pFTvQwuXV6nkfYwIii69UnIckd5xHJidpKCB85Rs1ZeGdjYAaCqIiL6xvnz4fMn5pcnpx6Kzp5b4pflTeNZg1PFiAx0yXLHZqPLsYORe/3lOcojdh14VETSgS0Asz1NQUo44ht/cWndXl1pmGisKMWilfFRXwoFK4WClWisKNYYuS8akcu/1s3ilboFitfiJNxuz9t+kWWZIpA0s34xS5ZnT1YIyx7WCmg/7jsbXT78fBUR2Gz0tiJD/xVgIMYI7Y7j6fkJnnuqguaKc4oYAVWMZ6g3epx7/zp2j4Y2uz04p5RGLMcOjtJMM76+dIdbG11u3GzxzY/rdDo5TxwZp+gb1A0J0O8SZSLymYp80lbOW++tsBq3WbyywZvvXCfPlPsnikRjPlm++yB7/zz60MscnoVwtEA363Lmpcd4+IESh2dCDs+M0u7mRGM+pWK/w/YNkNKvoxG4upLw7sc3mD0yzidfrtHpOgQISh7PnJzioy/WiG938KzsH8DzPEFhNPDIMscHn63y6Vcx7W5Or6eoKkXf8t3P67TaDudgLPQBCGUn9exMUUqStnrd+dkH8+OH1li6VjedboYgyFbFmq0MbfUH7vihyM0djQA6lUqY7El2gzH/4eLF2pNzc6fSVo/vf7pNkmZ3zzwgqCph4DH/+ARB2afZbNaCINhBFdsjcNVq1Xx74cKr1hgmJydeODqtoaqTv0hMANffAZLrZv1WUt/g7QMHbr5WrVYN4PZN1wsLC0GlMhskSXw3mfyZyzCsEMdxevr0i+nQm+5/WTj/2cq8p+QPhPSgiUDMSwEAAAAASUVORK5CYII="));
-                // The supplied icon has a white exterior; use an alpha-masked
-                // bitmap with the exterior removed, not the white Discord face.
-                using var discordIcon = new System.Drawing.Bitmap(iconStream);
-                var iconRect = new System.Drawing.Rectangle(4, 4, 16, 16);
-                using var transparentIcon = new System.Drawing.Bitmap(iconRect.Width, iconRect.Height,
-                    System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-                for (int y = 0; y < iconRect.Height; y++)
-                for (int x = 0; x < iconRect.Width; x++)
-                {
-                    var pixel = discordIcon.GetPixel(iconRect.X + x, iconRect.Y + y);
-                    // Blue/purple pixels and the enclosed white face are opaque.
-                    // Outside white border pixels are made fully transparent.
-                    bool isBlue = pixel.B > pixel.R * 1.12 && pixel.B > pixel.G * 1.05;
-                    bool insideFace = y >= 5 && y <= 12 && x >= 3 && x <= 12;
-                    transparentIcon.SetPixel(x, y, isBlue || insideFace
-                        ? pixel : System.Drawing.Color.Transparent);
-                }
-                var textSize = System.Windows.Forms.TextRenderer.MeasureText(label, joinDiscord.Font,
-                    new System.Drawing.Size(int.MaxValue, int.MaxValue),
-                    System.Windows.Forms.TextFormatFlags.NoPadding);
-                int iconSize = 30, gap = 3;
-                int totalWidth = iconSize + gap + textSize.Width;
-                int startX = Math.Max(3, (joinDiscord.ClientSize.Width - totalWidth) / 2);
-                int iconY = (joinDiscord.ClientSize.Height - iconSize) / 2;
-                // Crop the source image's large white margins so the Discord mark itself
-                // fills the icon slot instead of appearing tiny.
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                g.DrawImage(transparentIcon, new System.Drawing.Rectangle(startX, iconY, iconSize, iconSize));
-                System.Windows.Forms.TextRenderer.DrawText(g, label, joinDiscord.Font,
-                    new System.Drawing.Rectangle(startX + iconSize + gap, 0,
-                        textSize.Width, joinDiscord.ClientSize.Height),
-                    joinDiscord.ForeColor,
-                    System.Windows.Forms.TextFormatFlags.VerticalCenter |
-                    System.Windows.Forms.TextFormatFlags.Left |
-                    System.Windows.Forms.TextFormatFlags.NoPadding);
-            };
-            joinDiscord.Click += (_, _) =>
-            {
-                try
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                        "https://discord.com/invite/FMTT9EB2Mc") { UseShellExecute = true });
-                }
-                catch (Exception ex) { Log("Discord invite failed: " + ex.Message); }
-            };
-            frameSurface.Controls.Add(joinDiscord);
             frameSurface.Controls.Add(titleText);
             int lastThumbY = -1, lastThumbHeight = -1;
             goldScrollbar.Paint += (_, e) =>
@@ -777,17 +709,14 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 119));
+            messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 70));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            joinDiscord.SetBounds(Math.Max(13, (frameSurface.Width - 272) / 2),
-                Math.Max(1, frameSurface.Height - 56), Math.Min(272, Math.Max(1, frameSurface.Width - 32)), 34);
-            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 115));
+            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 66));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             messageClip.BringToFront();
             goldScrollbar.BringToFront();
-            joinDiscord.BringToFront();
             railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
             titleBar.BringToFront(); titleText.BringToFront();
             Controls.Add(frameSurface);
