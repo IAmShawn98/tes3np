@@ -631,7 +631,38 @@ internal static class Program
                 var g = e.Graphics;
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 using var iconStream = new MemoryStream(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAADF0lEQVR42tWVz2tcVRTHP+feN28y816Sh0kcrUoktPaXxAgpdKMIghv/AHdu3bkoFrQL5w8I05UbQehW6w9woai4EN1o/dEakaZY20Rqmgdtk8m8Nz/fu8fFZLQmJmYWCj1wN/eee77n5/fAvS6y16Oqyr6MiOhQqKoqqmqH0Le7ObOnh3Ech4mWg7KiTfm77uBuphImIpIO47lRVb/Vap1V1d9Vta6qm7uc+pZOTVULW39l1whU1YpIvrz8W216+pFTvQwuXV6nkfYwIii69UnIckd5xHJidpKCB85Rs1ZeGdjYAaCqIiL6xvnz4fMn5pcnpx6Kzp5b4pflTeNZg1PFiAx0yXLHZqPLsYORe/3lOcojdh14VETSgS0Asz1NQUo44ht/cWndXl1pmGisKMWilfFRXwoFK4WClWisKNYYuS8akcu/1s3ilboFitfiJNxuz9t+kWWZIpA0s34xS5ZnT1YIyx7WCmg/7jsbXT78fBUR2Gz0tiJD/xVgIMYI7Y7j6fkJnnuqguaKc4oYAVWMZ6g3epx7/zp2j4Y2uz04p5RGLMcOjtJMM76+dIdbG11u3GzxzY/rdDo5TxwZp+gb1A0J0O8SZSLymYp80lbOW++tsBq3WbyywZvvXCfPlPsnikRjPlm++yB7/zz60MscnoVwtEA363Lmpcd4+IESh2dCDs+M0u7mRGM+pWK/w/YNkNKvoxG4upLw7sc3mD0yzidfrtHpOgQISh7PnJzioy/WiG938KzsH8DzPEFhNPDIMscHn63y6Vcx7W5Or6eoKkXf8t3P67TaDudgLPQBCGUn9exMUUqStnrd+dkH8+OH1li6VjedboYgyFbFmq0MbfUH7vihyM0djQA6lUqY7El2gzH/4eLF2pNzc6fSVo/vf7pNkmZ3zzwgqCph4DH/+ARB2afZbNaCINhBFdsjcNVq1Xx74cKr1hgmJydeODqtoaqTv0hMANffAZLrZv1WUt/g7QMHbr5WrVYN4PZN1wsLC0GlMhskSXw3mfyZyzCsEMdxevr0i+nQm+5/WTj/2cq8p+QPhPSgiUDMSwEAAAAASUVORK5CYII="));
-                using var discordIcon = System.Drawing.Image.FromStream(iconStream);
+                using var sourceIcon = System.Drawing.Image.FromStream(iconStream);
+                using var discordIcon = new System.Drawing.Bitmap(sourceIcon);
+                // Remove only the near-white exterior connected to the image edges.
+                // Keep the white Discord face inside the blue logo intact.
+                int iconWidth = discordIcon.Width, iconHeight = discordIcon.Height;
+                var visited = new bool[iconWidth, iconHeight];
+                var pending = new System.Collections.Generic.Stack<System.Drawing.Point>();
+                for (int x = 0; x < iconWidth; x++)
+                {
+                    pending.Push(new System.Drawing.Point(x, 0));
+                    pending.Push(new System.Drawing.Point(x, iconHeight - 1));
+                }
+                for (int y = 0; y < iconHeight; y++)
+                {
+                    pending.Push(new System.Drawing.Point(0, y));
+                    pending.Push(new System.Drawing.Point(iconWidth - 1, y));
+                }
+                while (pending.Count > 0)
+                {
+                    var point = pending.Pop();
+                    int x = point.X, y = point.Y;
+                    if (x < 0 || y < 0 || x >= iconWidth || y >= iconHeight || visited[x, y])
+                        continue;
+                    visited[x, y] = true;
+                    var pixel = discordIcon.GetPixel(x, y);
+                    if (pixel.R < 220 || pixel.G < 220 || pixel.B < 220) continue;
+                    discordIcon.SetPixel(x, y, System.Drawing.Color.Transparent);
+                    pending.Push(new System.Drawing.Point(x - 1, y));
+                    pending.Push(new System.Drawing.Point(x + 1, y));
+                    pending.Push(new System.Drawing.Point(x, y - 1));
+                    pending.Push(new System.Drawing.Point(x, y + 1));
+                }
                 var textSize = System.Windows.Forms.TextRenderer.MeasureText(label, joinDiscord.Font,
                     new System.Drawing.Size(int.MaxValue, int.MaxValue),
                     System.Windows.Forms.TextFormatFlags.NoPadding);
