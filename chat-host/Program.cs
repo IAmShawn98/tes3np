@@ -533,12 +533,20 @@ metrics();
         }
         static string ParseHtmlColor(string color)
         {
-            var m = System.Text.RegularExpressions.Regex.Match(color, @"rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)");
-            if (m.Success && byte.TryParse(m.Groups[1].Value, out byte r) &&
-                byte.TryParse(m.Groups[2].Value, out byte g) &&
-                byte.TryParse(m.Groups[3].Value, out byte b))
-                return $"#{r:X2}{g:X2}{b:X2}";
-            return "#DBB243";
+            // CSS computed color arrives as rgb(r, g, b) or rgba(r, g, b, a).
+            // Avoid regex here: a malformed pattern must not block the entire chat feed.
+            if (string.IsNullOrWhiteSpace(color)) return "#DBB243";
+            int open = color.IndexOf('('), close = color.IndexOf(')', open + 1);
+            if (open < 0 || close <= open) return "#DBB243";
+            string prefix = color.Substring(0, open).Trim();
+            if (!prefix.Equals("rgb", StringComparison.OrdinalIgnoreCase) &&
+                !prefix.Equals("rgba", StringComparison.OrdinalIgnoreCase)) return "#DBB243";
+            string[] parts = color.Substring(open + 1, close - open - 1).Split(',');
+            if (parts.Length < 3 ||
+                !byte.TryParse(parts[0].Trim(), out byte red) ||
+                !byte.TryParse(parts[1].Trim(), out byte green) ||
+                !byte.TryParse(parts[2].Trim(), out byte blue)) return "#DBB243";
+            return $"#{red:X2}{green:X2}{blue:X2}";
         }
         async Task RefreshNativeMessages()
         {
