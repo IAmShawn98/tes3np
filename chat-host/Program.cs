@@ -326,6 +326,12 @@ internal static class Program
                 nativeMessages.SelectionStart = nativeMessages.TextLength;
                 nativeMessages.ScrollToCaret();
                 nativeMessages.ResumeLayout();
+                // ScrollToCaret only ensures the last line is visible; it can leave
+                // a large unused area below it. Explicitly scroll RichEdit to the
+                // real bottom after text layout has completed.
+                if (nativeMessages.IsHandleCreated)
+                    SendMessage(nativeMessages.Handle, 0x00B5, new IntPtr(7), IntPtr.Zero); // EM_SCROLL, SB_BOTTOM
+                goldScrollbar.Invalidate();
                 if (!nativeMode)
                 {
                     nativeMode = true;
