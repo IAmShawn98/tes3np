@@ -421,7 +421,7 @@ internal static class Program
             StartPosition = FormStartPosition.Manual,
             BackColor = System.Drawing.Color.FromArgb(145, 104, 48),
             TopMost = false,
-            Size = new System.Drawing.Size(38, 38)
+            Size = new System.Drawing.Size(68, 168)
         };
         readonly Button chatToggleButton = new()
         {
@@ -992,15 +992,16 @@ internal static class Program
         void PositionChatWindows()
         {
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
-            int buttonSize = 38;
+            const int buttonWidth = 68, buttonHeight = 168;
             int y = bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - chatHeight) / 2);
-            int x = bounds.Left - buttonSize;
-            // Position the button at the launcher's left edge and the chat outside it.
-            chatToggleWindow.SetBounds(x, y + Math.Max(0, (chatHeight - buttonSize) / 2),
-                buttonSize, buttonSize);
+            // Tall gold toggle centered vertically along the launcher's left edge,
+            // matching the marked area in the reference screenshot.
+            chatToggleWindow.SetBounds(bounds.Left + 3,
+                bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - buttonHeight) / 2),
+                buttonWidth, buttonHeight);
             if (!chatToggleWindow.Visible) chatToggleWindow.Show();
             if (chatOpen)
-                MoveWindow(Handle, x - chatWidth, y, chatWidth, chatHeight, true);
+                MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, chatHeight, true);
         }
         void DockToLauncher()
         {
