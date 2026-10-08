@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-webview-frame-20261008";
+    const string ChatBuild = "chat-single-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -177,10 +177,11 @@ internal static class Program
         const int HeaderCrop = 48;
         void FitWebView()
         {
-            chatViewport.SetBounds(0, 0, Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
+            chatViewport.SetBounds(11, 45, Math.Max(1, ClientSize.Width - 22), Math.Max(1, ClientSize.Height - 57));
             titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 35);
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
+            frame.Bounds = new System.Drawing.Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
             RaiseFrame();
@@ -270,7 +271,8 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
-            // The frame now lives inside the WebView DOM so it cannot fall behind Discord.
+            Controls.Add(frame);
+            frame.BringToFront();
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
