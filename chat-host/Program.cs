@@ -287,7 +287,7 @@ internal static class Program
               if (!list) return '[]';
               const rows = [...list.querySelectorAll('[id^="chat-messages-"]')]
                 .filter(el => /^chat-messages-[0-9]+-[0-9]+$/.test(el.id));
-              return JSON.stringify(rows.slice(-75).map(el => {
+              return JSON.stringify(rows.map(el => {
                 const usernameEl = el.querySelector('[class*="username_"]');
                 const user = usernameEl?.textContent?.trim() || '';
                 const color = usernameEl ? getComputedStyle(usernameEl).color : '';
@@ -297,6 +297,44 @@ internal static class Program
               }).filter(x => x.body));
             })();
             """;
+        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color)> history = new();
+        DateTime lastHistoryRequest = DateTime.MinValue;
+        bool loadingHistory;
+        async Task LoadOlderMessages()
+        {
+            if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromSeconds(2)) return;
+            loadingHistory = true;
+            lastHistoryRequest = DateTime.UtcNow;
+            try
+            {
+                // Discord's virtualized list fetches preceding pages when its
+                // actual scroll container reaches the top.
+                await web.CoreWebView2.ExecuteScriptAsync("""
+                    (() => {
+                      const list = document.querySelector('[data-list-id="chat-messages"]');
+                      if (!list) return;
+                      let el = list;
+                      while (el && el !== document.body) {
+                        if (el.scrollHeight > el.clientHeight + 20 &&
+                            getComputedStyle(el).overflowY !== 'hidden') {
+                          el.scrollTop = 0;
+                          el.dispatchEvent(new Event('scroll', {bubbles:true}));
+                          return;
+                        }
+                        el = el.parentElement;
+                      }
+                    })();
+                    """);
+            }
+            catch (Exception ex) { Log("History load error: " + ex.Message); }
+            finally { loadingHistory = false; }
+        }
+        void RequestOlderMessages()
+        {
+            if (ChatFirstLine() > 2 || loadingHistory || !IsHandleCreated) return;
+            _ = LoadOlderMessages();
+        }
         async Task RefreshNativeMessages()
         {
             if (closingChat || IsDisposed || web.CoreWebView2 == null || signInExpanded) return;
@@ -320,45 +358,82 @@ internal static class Program
                     SetChatOpen(true);
                 }
                 lastFeed = json;
+                bool wasAtBottom = !nativeMode || nativeMessages.TextLength == 0 ||
+                    nativeMessages.GetPositionFromCharIndex(nativeMessages.TextLength - 1).Y
+                        + nativeMessages.Font.Height <= nativeMessages.ClientSize.Height + 4;
+                int firstVisible = ChatFirstLine();
+                ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
+                bool changed = false;
+                foreach (var msg in doc.RootElement.EnumerateArray())
+                {
+                    string id = msg.GetProperty("id").GetString() ?? "";
+                    var match = System.Text.RegularExpressions.Regex.Match(id, @"^chat-messages-\\d+-(\\d+)$");
+                    if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out ulong key)) continue;
+                    string user = msg.GetProperty("user").GetString() ?? "";
+                    string body = msg.GetProperty("body").GetString() ?? "";
+                    string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
+                    if (!history.TryGetValue(key, out var existing) ||
+                        existing.User != user || existing.Body != body || existing.Color != color)
+                    {
+                        history[key] = (user, body, color);
+                        changed = true;
+                    }
+                }
+                if (!changed) return;
+                bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 renderedMessages.Clear();
                 nativeMessages.SuspendLayout();
                 nativeMessages.Clear();
-                foreach (var msg in doc.RootElement.EnumerateArray())
+                foreach (var entry in history)
                 {
-                    string user = msg.GetProperty("user").GetString() ?? "";
-                    string body = msg.GetProperty("body").GetString() ?? "";
-                    renderedMessages.Add((user, body));
-                    if (user.Length > 0)
+                    var msg = entry.Value;
+                    renderedMessages.Add((msg.User, msg.Body));
+                    if (msg.User.Length > 0)
                     {
                         var usernameColor = System.Drawing.Color.FromArgb(219, 178, 67);
-                        if (msg.TryGetProperty("color", out var colorValue))
-                        {
-                            var cssColor = colorValue.GetString() ?? "";
-                            var components = System.Text.RegularExpressions.Regex.Matches(cssColor, @"\d+");
-                            if ((cssColor.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) ||
-                                 cssColor.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase)) &&
-                                components.Count >= 3 &&
-                                byte.TryParse(components[0].Value, out var red) &&
-                                byte.TryParse(components[1].Value, out var green) &&
-                                byte.TryParse(components[2].Value, out var blue))
-                                usernameColor = System.Drawing.Color.FromArgb(red, green, blue);
-                        }
+                        var cssColor = msg.Color;
+                        var components = System.Text.RegularExpressions.Regex.Matches(cssColor, @"\\d+");
+                        if ((cssColor.StartsWith("rgb(", StringComparison.OrdinalIgnoreCase) ||
+                             cssColor.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase)) &&
+                            components.Count >= 3 &&
+                            byte.TryParse(components[0].Value, out var red) &&
+                            byte.TryParse(components[1].Value, out var green) &&
+                            byte.TryParse(components[2].Value, out var blue))
+                            usernameColor = System.Drawing.Color.FromArgb(red, green, blue);
                         nativeMessages.SelectionColor = usernameColor;
-                        nativeMessages.AppendText(user + ": ");
+                        nativeMessages.AppendText(msg.User + ": ");
                     }
                     nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
-                    nativeMessages.AppendText(body);
-                    if (renderedMessages.Count < doc.RootElement.GetArrayLength())
+                    nativeMessages.AppendText(msg.Body);
+                    if (renderedMessages.Count < history.Count)
                         nativeMessages.AppendText(Environment.NewLine);
                 }
-                nativeMessages.SelectionStart = nativeMessages.TextLength;
-                nativeMessages.ScrollToCaret();
                 nativeMessages.ResumeLayout();
-                // ScrollToCaret only ensures the last line is visible; it can leave
-                // a large unused area below it. Explicitly scroll RichEdit to the
-                // real bottom after text layout has completed.
                 if (nativeMessages.IsHandleCreated)
-                    SendMessage(nativeMessages.Handle, 0x00B5, new IntPtr(7), IntPtr.Zero); // EM_SCROLL, SB_BOTTOM
+                {
+                    if (wasAtBottom && !prepended)
+                        SendMessage(nativeMessages.Handle, 0x00B5, new IntPtr(7), IntPtr.Zero);
+                    else
+                    {
+                        // Keep the previous viewport instead of jumping to new messages.
+                        // On prepends, offset by the number of newly inserted visual lines.
+                        int offset = 0;
+                        if (prepended)
+                        {
+                            int priorCount = 0;
+                            foreach (var entry in history)
+                            {
+                                if (entry.Key >= previousFirst) break;
+                                priorCount += Math.Max(1, (entry.Value.User + ": " + entry.Value.Body)
+                                    .Split('\\n').Length);
+                            }
+                            offset = priorCount;
+                        }
+                        SendMessage(nativeMessages.Handle, 0x00B5, new IntPtr(6), IntPtr.Zero); // SB_TOP
+                        SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero,
+                            new IntPtr(Math.Max(0, firstVisible + offset)));
+                    }
+                }
                 goldScrollbar.Invalidate();
                 if (!nativeMode)
                 {
@@ -835,6 +910,7 @@ internal static class Program
                 int lines = 3 * notches * (e.Delta > 0 ? -1 : 1);
                 SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(lines)); // EM_LINESCROLL
                 goldScrollbar.Invalidate();
+                if (e.Delta > 0) RequestOlderMessages();
             }
             goldScrollbar.MouseWheel += (_, e) => ScrollWheelMessages(e);
             nativeMessages.MouseWheel += (_, e) => ScrollWheelMessages(e);
@@ -856,6 +932,7 @@ internal static class Program
                     ScrollChatToThumb(e.Y, dragOffset);
                 }
                 goldScrollbar.Invalidate();
+                RequestOlderMessages();
             };
             goldScrollbar.MouseMove += (_, e) =>
             {
