@@ -237,6 +237,8 @@ OfferFirstRunSetup(*)
     {
         if SetupComplete
             return
+        ; Detection has finished once we are ready to offer installation.
+        EndGameDetectionDisplay()
         if !FileExist(A_ScriptDir "\tes3mp.exe")
         {
             MsgBox("Place tes3np.exe in the folder containing tes3mp.exe and launch it again.", "Nerevarine Prophecies", "Icon!")
