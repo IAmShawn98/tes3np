@@ -75,7 +75,7 @@ StartLauncher()
     FinishLauncherStartup()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
-    SetTimer(StartEmbeddedInGameChat, -700)
+    SetTimer(StartEmbeddedInGameChat, -75)
     SetTimer(OfferFirstRunSetup, -1000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
