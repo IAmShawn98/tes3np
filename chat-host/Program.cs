@@ -7,8 +7,6 @@ internal static class Program
     const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
-    [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
-    const uint RDW_INVALIDATE = 0x0001, RDW_ERASE = 0x0004, RDW_ALLCHILDREN = 0x0080, RDW_UPDATENOW = 0x0100;
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -20,7 +18,7 @@ internal static class Program
     [DllImport("user32.dll", SetLastError = true)] static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint colorKey, byte alpha, uint flags);
     const int GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x80000;
     const uint LWA_ALPHA = 2;
-    const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_CLIPCHILDREN = 0x02000000, WS_POPUP = unchecked((int)0x80000000);
+    const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_POPUP = unchecked((int)0x80000000);
     const string Css = """
         /* TES3NP compact, read-only message feed */
         :root, html, body, #app-mount {
@@ -490,13 +488,6 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
-                if (docked && !signInExpanded)
-                {
-                    RedrawWindow(owner, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    frameSurface.Invalidate(true);
-                    frameSurface.Update();
-                }
             };
             watch.Start();
         }
@@ -596,21 +587,10 @@ internal static class Program
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
             SetParent(hwnd, owner);
-            // The launcher is a layered AHK window. Exclude the child HWND from
-            // its own paint area so the parent cannot overwrite the chat surface.
-            int parentStyle = GetWindowLong(owner, GWL_STYLE);
-            if ((parentStyle & WS_CLIPCHILDREN) == 0)
-                SetWindowLong(owner, GWL_STYLE, parentStyle | WS_CLIPCHILDREN);
             MoveWindow(hwnd, chatX, chatY, chatWidth, chatHeight, true);
             ShowWindow(hwnd, 5);
             ApplyWindowOpacity();
             docked = true;
-            // Mimic the parent move that users report makes the child visible.
-            SetWindowPos(owner, IntPtr.Zero, 0, 0, 0, 0, 0x0027);
-            RedrawWindow(owner, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-            RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-            frameSurface.Invalidate(true);
-            frameSurface.Update();
             Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }
     }
