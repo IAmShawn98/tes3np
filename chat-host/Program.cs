@@ -9,6 +9,7 @@ internal static class Program
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -156,6 +157,20 @@ internal static class Program
         };
 
 
+        static System.Drawing.Bitmap? LoadTexture(string filename)
+        {
+            try
+            {
+                string encoded = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, filename)).Trim();
+                using var stream = new MemoryStream(Convert.FromBase64String(encoded));
+                using var bitmap = new System.Drawing.Bitmap(stream);
+                return new System.Drawing.Bitmap(bitmap);
+            }
+            catch { return null; }
+        }
+        readonly System.Drawing.Bitmap? borderTexture = LoadTexture("border-texture.b64");
+        readonly System.Drawing.Bitmap? scrollbarTexture = LoadTexture("scrollbar-texture.b64");
+        readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly RichTextBox nativeMessages = new()
         {
             ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
@@ -252,7 +267,8 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 66), Math.Max(1, ClientSize.Height - 88));
+            nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 77), Math.Max(1, ClientSize.Height - 88));
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
             railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
@@ -263,6 +279,7 @@ internal static class Program
 
             frameSurface.Invalidate();
             if (nativeMessages.Visible) nativeMessages.BringToFront();
+            goldScrollbar.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
             chatViewport.Visible = true;
@@ -366,6 +383,18 @@ internal static class Program
                 using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(57, 39, 21));
                 using var black = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(10, 9, 8));
                 g.FillRectangle(bronze, 0, 0, w, h);
+                if (borderTexture != null)
+                {
+                    using var texture = new System.Drawing.TextureBrush(borderTexture, System.Drawing.Drawing2D.WrapMode.Tile);
+                    g.FillRectangle(texture, 0, 0, w, 13);
+                    g.FillRectangle(texture, 0, h - 13, w, 13);
+                    using var vertical = (System.Drawing.Bitmap)borderTexture.Clone();
+                    vertical.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                    using var sideTexture = new System.Drawing.TextureBrush(vertical, System.Drawing.Drawing2D.WrapMode.Tile);
+                    g.FillRectangle(sideTexture, 0, 0, 13, h);
+                    g.FillRectangle(sideTexture, w - 13, 0, 13, h);
+                    g.FillRectangle(texture, 0, 13, w, 39);
+                }
                 var random = new Random(4108);
                 for (int n = 0; n < w * 9; n++)
                 {
@@ -409,12 +438,41 @@ internal static class Program
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
             frameSurface.Controls.Add(nativeMessages);
+            frameSurface.Controls.Add(goldScrollbar);
             frameSurface.Controls.Add(railTop);
             frameSurface.Controls.Add(railLeft);
             frameSurface.Controls.Add(railRight);
             frameSurface.Controls.Add(railBottom);
             frameSurface.Controls.Add(titleBar);
             frameSurface.Controls.Add(titleText);
+            goldScrollbar.Paint += (_, e) =>
+            {
+                var g = e.Graphics;
+                int h = goldScrollbar.ClientSize.Height, w = goldScrollbar.ClientSize.Width;
+                if (h < 65 || scrollbarTexture == null) return;
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                var image = scrollbarTexture;
+                // Preserve the original arrows and thumb dimensions while tiling the track.
+                g.DrawImage(image, new System.Drawing.Rectangle(0, 0, w, 27),
+                    new System.Drawing.Rectangle(0, 0, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
+                for (int y = 27; y < h - 27; y += 30)
+                    g.DrawImage(image, new System.Drawing.Rectangle(0, y, w, Math.Min(30, h - 27 - y)),
+                        new System.Drawing.Rectangle(0, 46, image.Width, Math.Min(30, h - 27 - y)), System.Drawing.GraphicsUnit.Pixel);
+                g.DrawImage(image, new System.Drawing.Rectangle(0, h - 27, w, 27),
+                    new System.Drawing.Rectangle(0, image.Height - 27, image.Width, 27), System.Drawing.GraphicsUnit.Pixel);
+                g.DrawImage(image, new System.Drawing.Rectangle(0, Math.Max(28, h - 75), w, 39),
+                    new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
+            };
+            goldScrollbar.MouseWheel += (_, e) => nativeMessages.Focus();
+            goldScrollbar.MouseDown += (_, e) =>
+            {
+                if (!nativeMessages.IsHandleCreated) return;
+                // Move the real text viewport when using the arrow buttons.
+                if (e.Y < 27 || e.Y >= goldScrollbar.Height - 27)
+                    SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero,
+                        new IntPtr(e.Y < 27 ? -3 : 3));
+                goldScrollbar.Invalidate();
+            };
             foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
             {
                 rail.BackColor = System.Drawing.Color.FromArgb(153, 118, 64);
@@ -430,11 +488,13 @@ internal static class Program
                     g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
                 };
             }
-            nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 66), Math.Max(1, frameSurface.Height - 88));
+            nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 77), Math.Max(1, frameSurface.Height - 88));
+            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             nativeMessages.BringToFront();
+            goldScrollbar.BringToFront();
             railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
             titleBar.BringToFront(); titleText.BringToFront();
             Controls.Add(frameSurface);
