@@ -444,48 +444,30 @@ OfferFirstRunSetup(*)
     global SetupComplete, LauncherGui, DataFile, LauncherHelpText
     if SetupComplete
     {
+        ; Returning players are verified silently; first-run prompts do not repeat.
         config := PatchConfigurationPath()
         morrowind := IniRead(DataFile, "Patch", "MorrowindFolder", "")
-        if morrowind != "" && FileExist(config)
-            StartPatchWorker("Verify", FindTES3MPFolder(), morrowind, config, LauncherGui, true)
+        tesFolder := FindTES3MPFolder()
+        if tesFolder != "" && morrowind != "" && FileExist(config)
+            StartPatchWorker("Verify", tesFolder, morrowind, config, LauncherGui, true)
         return
     }
-    ; Keep the detection screen (and Quit) until the automatic path has been tried.
+    ; First launch: the countdown and both buttons stay visible while detecting.
     tesFolder := FindTES3MPFolder()
     if tesFolder = ""
     {
-        LogLauncherEvent("Automatic patch setup skipped: TES3MP installation not detected.")
+        LogLauncherEvent("First-run patch prompt skipped: TES3MP installation not detected.")
         EndGameDetectionDisplay()
         return
     }
-    if IsObject(LauncherHelpText)
-        LauncherHelpText.Text := "TES3MP detected. Checking whether Nerevarine Prophecies patches are needed..."
-    if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") != "Yes"
-    {
-        EndGameDetectionDisplay()
-        return
-    }
-    config := PatchConfigurationPath()
-    morrowind := FindMorrowindFolder(config)
-    if morrowind = ""
-    {
-        EndGameDetectionDisplay()
-        MsgBox("The Morrowind GOTY installation could not be detected. Select its location to complete setup.", "Nerevarine Prophecies", "Icon!")
-        OpenPatcher()
-        return
-    }
-    if !CheckModifiedClientForPatch(tesFolder, "Apply")
+    ; Detection succeeded. Let the user decide before opening the normal patch UI.
+    if MsgBox("TES3MP was detected. Would you like to patch it for Nerevarine Prophecies now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
     {
         EndGameDetectionDisplay()
         OpenPatcher()
-        return
     }
-    EndGameDetectionDisplay()
-    if !StartPatchWorker("Apply", tesFolder, morrowind, config, LauncherGui, true)
-    {
-        MsgBox("Automatic installation could not start. Check the detected folders in Repair Game Install and try again.", "Nerevarine Prophecies", "Icon!")
-        OpenPatcher()
-    }
+    else
+        EndGameDetectionDisplay()
 }
 
 OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
