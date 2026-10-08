@@ -2,10 +2,45 @@
 ; runs as a child window of the launcher, not as an external Firefox instance.
 global EmbeddedChatPid := 0
 
+EnsureEmbeddedChatHostCurrent(host)
+{
+    ; Development check: source pulls must update the running ChatHost binary.
+    project := A_ScriptDir "\chat-host\tes3np.ChatHost.csproj"
+    source := A_ScriptDir "\chat-host\Program.cs"
+    if !FileExist(project) || !FileExist(source)
+        return
+    try
+    {
+        sourceTime := FileGetTime(source, "M")
+        hostTime := FileExist(host) ? FileGetTime(host, "M") : "0"
+        if (hostTime >= sourceTime)
+            return
+        LogLauncherEvent("CHAT | ChatHost source is newer than executable; checking .NET SDK.")
+        dotnet := ""
+        try dotnet := RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost", "Path")
+        catch
+            dotnet := ""
+        ; Resolve the SDK through PATH, not a hard-coded machine location.
+        check := RunWait(A_ComSpec ' /d /c "where dotnet >nul 2>nul"', , "Hide")
+        if (check != 0)
+        {
+            LogLauncherEvent("CHAT | ChatHost rebuild needed, but dotnet is unavailable. Existing executable retained.")
+            return
+        }
+        command := A_ComSpec ' /d /c dotnet publish "' project '" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o "' A_ScriptDir '\chat-host"'
+        LogLauncherEvent("CHAT | Rebuilding ChatHost after git pull.")
+        result := RunWait(command, A_ScriptDir, "Hide")
+        LogLauncherEvent("CHAT | ChatHost rebuild exit code: " result)
+    }
+    catch as err
+        try LogLauncherEvent("CHAT | ChatHost freshness check failed: " err.Message)
+}
+
 StartEmbeddedInGameChat()
 {
     global EmbeddedChatPid, LauncherGui
     host := A_ScriptDir "\chat-host\tes3np.ChatHost.exe"
+    EnsureEmbeddedChatHostCurrent(host)
     if !FileExist(host)
     {
         try LogLauncherEvent("CHAT | Embedded host not installed: " host)
