@@ -86,14 +86,14 @@ internal static class Program
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
-        void FitWebView() => web.SetBounds(0, -HeaderCrop, ClientSize.Width, ClientSize.Height + HeaderCrop);
+        void FitWebView() => web.SetBounds(7, 34 - HeaderCrop, Math.Max(1, ClientSize.Width - 14), Math.Max(1, ClientSize.Height - 42 + HeaderCrop));
         bool docked;
         bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
         readonly string layoutFile = Path.Combine(AppContext.BaseDirectory, "chat.ini");
         DateTime cssStamp = DateTime.MinValue, layoutStamp = DateTime.MinValue;
         int chatX = 94, chatY = 420, chatWidth = 390, chatHeight = 498;
-        byte chatOpacity = 220;
+        byte chatOpacity = 255;
         string userCss = Css;
         static int ReadInt(string line, string key, int fallback) =>
             line.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)
@@ -143,6 +143,24 @@ internal static class Program
         {
             this.owner = owner;
             FormBorderStyle = FormBorderStyle.None;
+            DoubleBuffered = true;
+            Paint += (_, e) =>
+            {
+                var g = e.Graphics;
+                g.Clear(System.Drawing.Color.FromArgb(12, 10, 8));
+                using var outer = new System.Drawing.Pen(System.Drawing.Color.FromArgb(176, 139, 76), 4);
+                using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(78, 56, 30), 2);
+                using var header = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(85, 61, 32));
+                using var titleBackground = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(16, 13, 9));
+                using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(214, 178, 104));
+                using var titleFont = new System.Drawing.Font("Georgia", 15, System.Drawing.FontStyle.Bold);
+                g.DrawRectangle(outer, 2, 2, ClientSize.Width - 5, ClientSize.Height - 5);
+                g.DrawRectangle(inner, 6, 6, ClientSize.Width - 13, ClientSize.Height - 13);
+                g.FillRectangle(header, 8, 8, ClientSize.Width - 16, 24);
+                var size = g.MeasureString("Chat", titleFont);
+                g.FillRectangle(titleBackground, (ClientSize.Width - size.Width) / 2 - 14, 7, size.Width + 28, 25);
+                g.DrawString("Chat", titleFont, gold, (ClientSize.Width - size.Width) / 2, 5);
+            };
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.Black;
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
