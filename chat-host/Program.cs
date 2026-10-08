@@ -67,7 +67,7 @@ internal static class Program
                     await web.EnsureCoreWebView2Async(env);
                     web.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-                    web.CoreWebView2.NavigationCompleted += async (_, _) => await ApplyCss();
+                    web.CoreWebView2.NavigationCompleted += async (_, _) => { await ApplyCss(); UpdateLoginMode(); };
                     web.CoreWebView2.Navigate(Channel);
                 }
                 catch (Exception ex)
@@ -78,7 +78,7 @@ internal static class Program
             watch.Tick += (_, _) =>
             {
                 if (!IsWindow(owner)) { Close(); return; }
-                if (!docked) DockToLauncher();
+                if (!docked && web.CoreWebView2 != null && web.CoreWebView2.Source.StartsWith(Channel, StringComparison.OrdinalIgnoreCase)) DockToLauncher();
             };
             watch.Start();
         }
@@ -88,6 +88,24 @@ internal static class Program
             var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(Css) +
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); } catch { }
+        }
+        void UpdateLoginMode()
+        {
+            if (web.CoreWebView2 == null) return;
+            bool login = web.CoreWebView2.Source.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
+                || web.CoreWebView2.Source.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
+            if (login && docked)
+            {
+                docked = false;
+                SetParent(Handle, IntPtr.Zero);
+                int style = GetWindowLong(Handle, GWL_STYLE);
+                SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
+                MoveWindow(Handle, 180, 100, 900, 720, true);
+                ShowInTaskbar = true;
+                Text = "tes3np — Sign in to Discord";
+            }
+            else if (!login && !docked && web.CoreWebView2.Source.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
+                DockToLauncher();
         }
         void DockToLauncher()
         {
