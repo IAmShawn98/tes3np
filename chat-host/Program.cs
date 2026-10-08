@@ -1635,39 +1635,72 @@ metrics();
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f);} })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
+        void ShowDiscordSignIn()
+        {
+            if (signInExpanded) return;
+            Log("Discord authentication required: opening full-size sign-in window");
+            signInExpanded = true;
+            nativeMode = false;
+            nativeMessages.Visible = false;
+            messageBrowser.Visible = false;
+            messageClip.Visible = false;
+            goldScrollbar.Visible = false;
+            chatViewport.Visible = true;
+            web.Parent = this;
+            web.Dock = DockStyle.Fill;
+            web.Visible = true;
+            web.BringToFront();
+            docked = false;
+            SetParent(Handle, IntPtr.Zero);
+            SetNativeWindowOwner(Handle, IntPtr.Zero);
+            int style = GetWindowLong(Handle, GWL_STYLE);
+            SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
+            int exStyle = GetWindowLongEx(Handle, GWL_EXSTYLE);
+            SetWindowLongEx(Handle, GWL_EXSTYLE, (exStyle | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW);
+            MoveWindow(Handle, 180, 100, 900, 720, true);
+            ShowInTaskbar = true;
+            Text = "TES3NP - Sign in to Discord";
+            Show();
+            Activate();
+        }
+        void RestoreGameChatAfterSignIn()
+        {
+            if (!signInExpanded) return;
+            Log("Discord authentication completed: restoring launcher chat");
+            web.Dock = DockStyle.None;
+            web.Parent = chatViewport;
+            signInExpanded = false;
+            messageClip.Visible = true;
+            goldScrollbar.Visible = true;
+            messageBrowser.Visible = nativeMode;
+            web.Visible = !nativeMode;
+            Text = "tes3np Chat Host";
+            FitWebView();
+            DockToLauncher();
+        }
         async Task UpdateViewMode()
         {
             if (web.CoreWebView2 == null) return;
             var url = web.CoreWebView2.Source;
             Log("Navigation completed: " + url);
-            EnforceChatClip();
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
-            if (login && !signInExpanded)
+            if (login)
             {
-                signInExpanded = true;
-                nativeMode = false;
-                nativeMessages.Visible = false;
-                web.Visible = true;
-                docked = false;
-                SetParent(Handle, IntPtr.Zero);
-                int style = GetWindowLong(Handle, GWL_STYLE);
-                SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
-                MoveWindow(Handle, 180, 100, 900, 720, true);
-                ShowInTaskbar = true;
-                Text = "tes3np Chat Host";
+                ShowDiscordSignIn();
                 return;
             }
-            if (!login && signInExpanded)
+            if (signInExpanded)
             {
-                signInExpanded = false;
-                DockToLauncher();
+                // Discord may redirect through intermediate pages. Restore only
+                // when it reaches an authenticated channel, not on every redirect.
+                if (!url.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase))
+                    return;
+                RestoreGameChatAfterSignIn();
             }
-            if (!login)
-            {
-                await ApplyCss();
-                await RefreshNativeMessages();
-            }
+            EnforceChatClip();
+            await ApplyCss();
+            await RefreshNativeMessages();
         }
         // Launcher-owned toggle commands (WM_APP + 0x331).
         protected override void WndProc(ref Message m)
