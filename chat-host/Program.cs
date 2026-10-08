@@ -731,6 +731,8 @@ metrics();
             catch (Exception ex) { Log("Native feed error: " + ex.Message); }
         }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
+        // History requests must not depend on changes to Discord messages or launcher UI.
+        readonly System.Windows.Forms.Timer historyWatch = new() { Interval = 1000 };
         bool closingChat;
         bool refreshingChat;
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
@@ -1305,6 +1307,7 @@ metrics();
             {
                 closingChat = true;
                 watch.Stop();
+                historyWatch.Stop();
                 if (launcherLocationHook != IntPtr.Zero)
                 {
                     UnhookWinEvent(launcherLocationHook);
@@ -1323,8 +1326,6 @@ metrics();
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
-                // Repeatedly page while the user stays at the top of the HTML chat.
-                if (nativeMode) RequestOlderMessages();
                 PositionChatWindows();
                 if (chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
@@ -1341,6 +1342,11 @@ metrics();
                 catch (Exception ex) { if (!closingChat) Log("Chat timer error: " + ex.Message); }
                 finally { refreshingChat = false; }
             };
+            historyWatch.Tick += (_, _) =>
+            {
+                if (!closingChat && !IsDisposed && nativeMode) RequestOlderMessages();
+            };
+            historyWatch.Start();
             watch.Start();
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
