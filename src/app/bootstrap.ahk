@@ -8,6 +8,7 @@ global LauncherUpdateAvailable := false
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
+global LauncherKillAlertGui := 0
 
 StartLauncher()
 {
@@ -190,12 +191,44 @@ ToggleLauncherChat(*)
 }
 LauncherPickleKillAlert(wParam, lParam, msg, hwnd)
 {
-    global LauncherGui
+    global LauncherGui, LauncherKillAlertGui
     if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
         return
-    TrayTip("A character was killed in Nerevarine Prophecies!", "TES3NP Kill Alert", 0x1)
-    LogLauncherEvent("Game Chat alert: character kill detected.")
+    alertFile := A_AppData "\TES3NP\Logs\last-kill-alert.txt"
+    eventText := "A character was killed in Nerevarine Prophecies!"
+    try {
+        if FileExist(alertFile)
+            eventText := Trim(FileRead(alertFile, "UTF-8"))
+    }
+    if !eventText
+        eventText := "A character was killed in Nerevarine Prophecies!"
+    ; A native launcher popup is reliable even when Windows suppresses tray toasts.
+    try {
+        if IsObject(LauncherKillAlertGui)
+            LauncherKillAlertGui.Destroy()
+        LauncherKillAlertGui := Gui("+AlwaysOnTop -Caption +ToolWindow", "TES3NP Kill Alert")
+        LauncherKillAlertGui.BackColor := "261E14"
+        LauncherKillAlertGui.SetFont("s11 Bold cE8C77C", "Segoe UI")
+        LauncherKillAlertGui.Add("Text", "x14 y12 w400 h26", "TES3NP Kill Alert")
+        LauncherKillAlertGui.SetFont("s10 Norm cFFFFFF", "Segoe UI")
+        LauncherKillAlertGui.Add("Text", "x14 y42 w400 h64", eventText)
+        LauncherKillAlertGui.Show("NoActivate w428 h115")
+        SetTimer(CloseLauncherKillAlert, -6500)
+    }
+    catch as err {
+        LogLauncherEvent("Kill alert popup error: " err.Message)
+    }
+    TrayTip(eventText, "TES3NP Kill Alert", 0x1)
+    LogLauncherEvent("Game Chat kill alert: " eventText)
     return 0
+}
+CloseLauncherKillAlert()
+{
+    global LauncherKillAlertGui
+    if IsObject(LauncherKillAlertGui) {
+        try LauncherKillAlertGui.Destroy()
+        LauncherKillAlertGui := 0
+    }
 }
 LauncherChatStateChanged(wParam, lParam, msg, hwnd)
 {
