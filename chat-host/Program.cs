@@ -138,6 +138,7 @@ internal static class Program
         readonly WebView2 web = new() { Dock = DockStyle.None };
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
+        readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
         readonly Panel chatViewport = new() { BackColor = System.Drawing.Color.FromArgb(9, 8, 7), Margin = Padding.Empty };
         readonly Panel titleBar = new() { BackColor = System.Drawing.Color.FromArgb(115, 85, 43) };
         readonly Panel railLeft = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
@@ -182,6 +183,7 @@ internal static class Program
         const int HeaderCrop = 48;
         void FitWebView()
         {
+            frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 7);
             railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
@@ -280,7 +282,8 @@ internal static class Program
             BackColor = System.Drawing.Color.Black;
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
-            Controls.Add(chatViewport);
+            frameSurface.Controls.Add(chatViewport);
+            Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
             FitWebView();
