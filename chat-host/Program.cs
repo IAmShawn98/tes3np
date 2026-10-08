@@ -234,7 +234,6 @@ internal static class Program
                 nativeMessages.SelectionStart = nativeMessages.TextLength;
                 nativeMessages.ScrollToCaret();
                 nativeMessages.ResumeLayout();
-                frameSurface.Invalidate();
                 if (!nativeMode)
                 {
                     nativeMode = true;
@@ -287,6 +286,7 @@ internal static class Program
 
             frameSurface.Invalidate();
             Log("Header visibility: frame=" + frameSurface.Visible + ", titleBar=" + titleBar.Visible + ", titleText=" + titleText.Visible + ", native=" + nativeMode);
+            chatViewport.SendToBack();
             if (nativeMessages.Visible) nativeMessages.BringToFront();
             goldScrollbar.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
@@ -460,22 +460,7 @@ internal static class Program
                 g.FillRectangle(bronze, sx + 3, Math.Max(102, h - 125), 14, 54);
                 g.DrawString("▲", new System.Drawing.Font("Arial", 10), bright, sx + 2, 75);
                 g.DrawString("▼", new System.Drawing.Font("Arial", 10), bright, sx + 2, h - 54);
-                using var messageFont = new System.Drawing.Font("Tahoma", 10, System.Drawing.FontStyle.Bold);
-                float yText = 69;
-                var rows = renderedMessages.Count == 0
-                    ? new System.Collections.Generic.List<(string User, string Body)> { ("", "Connecting to live chat...") }
-                    : renderedMessages;
-                for (int i = Math.Max(0, rows.Count - 18); i < rows.Count; i++)
-                {
-                    var row = rows[i];
-                    string line = (row.User.Length == 0 ? "" : row.User + ": ") + row.Body;
-                    var bounds = new System.Drawing.RectangleF(24, yText, Math.Max(1, w - 70), h - 92 - yText);
-                    if (bounds.Height <= 0) break;
-                    using var format = new System.Drawing.StringFormat();
-                    var measured = g.MeasureString(line, messageFont, (int)bounds.Width);
-                    g.DrawString(line, messageFont, row.User.Length > 0 ? bright : System.Drawing.Brushes.WhiteSmoke, bounds, format);
-                    yText += measured.Height + 2;
-                }
+                // Messages are rendered exclusively by the scrollable RichTextBox child.
             };
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
