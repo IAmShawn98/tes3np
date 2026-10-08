@@ -156,10 +156,10 @@ internal static class Program
 
         readonly RichTextBox nativeMessages = new()
         {
-            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.Vertical,
+            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
             BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
             ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
-            Font = new System.Drawing.Font("Tahoma", 10, System.Drawing.FontStyle.Bold),
+            Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
             DetectUrls = false, TabStop = false, ShortcutsEnabled = false
         };
         string lastFeed = "";
@@ -247,7 +247,7 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            nativeMessages.SetBounds(18, 54, Math.Max(1, ClientSize.Width - 36), Math.Max(1, ClientSize.Height - 74));
+            nativeMessages.SetBounds(18, 57, Math.Max(1, ClientSize.Width - 54), Math.Max(1, ClientSize.Height - 79));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 7);
             railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
@@ -258,6 +258,8 @@ internal static class Program
 
             frameSurface.Invalidate();
             if (nativeMessages.Visible) nativeMessages.BringToFront();
+            railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
+            titleBar.BringToFront(); titleText.BringToFront();
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
@@ -366,10 +368,18 @@ internal static class Program
             };
             frameSurface.Controls.Add(chatViewport);
             frameSurface.Controls.Add(nativeMessages);
-            nativeMessages.SetBounds(18, 54, Math.Max(1, frameSurface.Width - 36), Math.Max(1, frameSurface.Height - 74));
+            frameSurface.Controls.Add(railTop);
+            frameSurface.Controls.Add(railLeft);
+            frameSurface.Controls.Add(railRight);
+            frameSurface.Controls.Add(railBottom);
+            frameSurface.Controls.Add(titleBar);
+            frameSurface.Controls.Add(titleText);
+            nativeMessages.SetBounds(18, 57, Math.Max(1, frameSurface.Width - 54), Math.Max(1, frameSurface.Height - 79));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.BringToFront();
+            railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
+            titleBar.BringToFront(); titleText.BringToFront();
             Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
