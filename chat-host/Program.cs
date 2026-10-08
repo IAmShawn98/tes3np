@@ -247,14 +247,14 @@ internal static class Program
         void FitWebView()
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            nativeMessages.SetBounds(18, 57, Math.Max(1, ClientSize.Width - 54), Math.Max(1, ClientSize.Height - 79));
+            nativeMessages.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 66), Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
-            railTop.SetBounds(0, 0, ClientSize.Width, 7);
-            railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
-            railRight.SetBounds(Math.Max(0, ClientSize.Width - 15), 7, 15, Math.Max(1, ClientSize.Height - 7));
-            railBottom.SetBounds(0, Math.Max(0, ClientSize.Height - 16), ClientSize.Width, 16);
-            titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 46);
-            titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
+            railTop.SetBounds(0, 0, ClientSize.Width, 10);
+            railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
+            railRight.SetBounds(Math.Max(0, ClientSize.Width - 13), 10, 13, Math.Max(1, ClientSize.Height - 10));
+            railBottom.SetBounds(0, Math.Max(0, ClientSize.Height - 13), ClientSize.Width, 13);
+            titleBar.SetBounds(9, 9, Math.Max(1, ClientSize.Width - 18), 42);
+            titleText.SetBounds(Math.Max(0, (ClientSize.Width - 92) / 2), 8, 92, 31);
 
             frameSurface.Invalidate();
             if (nativeMessages.Visible) nativeMessages.BringToFront();
@@ -374,9 +374,25 @@ internal static class Program
             frameSurface.Controls.Add(railBottom);
             frameSurface.Controls.Add(titleBar);
             frameSurface.Controls.Add(titleText);
-            nativeMessages.SetBounds(18, 57, Math.Max(1, frameSurface.Width - 54), Math.Max(1, frameSurface.Height - 79));
+            foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
+            {
+                rail.BackColor = System.Drawing.Color.FromArgb(153, 118, 64);
+                rail.Paint += (_, e) =>
+                {
+                    var g = e.Graphics;
+                    var r = new Random(812 + rail.Width * 3 + rail.Height);
+                    using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(75, 53, 27));
+                    using var light = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(204, 173, 108));
+                    for (int n = 0; n < rail.Width * rail.Height / 5; n++)
+                        g.FillRectangle(n % 3 == 0 ? light : dark, r.Next(Math.Max(1, rail.Width)), r.Next(Math.Max(1, rail.Height)), 2, 1);
+                    using var edge = new System.Drawing.Pen(System.Drawing.Color.FromArgb(224, 193, 125));
+                    g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
+                };
+            }
+            nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 66), Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
+            nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             nativeMessages.BringToFront();
             railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
             titleBar.BringToFront(); titleText.BringToFront();
