@@ -99,17 +99,37 @@ internal static class Program
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(133, 97, 47));
-            using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(209, 175, 105), 3);
-            using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(17, 13, 9));
-            using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(222, 188, 117));
+            int w = Width, h = Height;
+            if (w < 30 || h < 60) return;
+            using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(114, 83, 43));
+            using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(14, 11, 8));
+            using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(210, 180, 116), 2);
+            using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(63, 43, 22), 2);
+            using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(220, 187, 120));
             using var font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
-            g.FillRectangle(bronze, 0, 0, Width, 44);
-            g.FillRectangle(dark, 0, 44, Width, Height - 44);
-            g.DrawRectangle(gold, 2, 2, Width - 5, Height - 5);
+            g.FillRectangle(bronze, 0, 0, w, 45);
+            g.FillRectangle(bronze, 0, 45, 11, h - 45);
+            g.FillRectangle(bronze, w - 11, 45, 11, h - 45);
+            g.FillRectangle(bronze, 0, h - 12, w, 12);
+            // Deterministic weathered bronze flecks approximate the in-game metalwork.
+            var rng = new Random(5318);
+            for (int n = 0; n < w * 2; n++)
+            {
+                int x = rng.Next(w), y = rng.Next(h);
+                if (y >= 43 && x >= 11 && x < w - 11 && y < h - 12) continue;
+                int v = rng.Next(0, 3);
+                using var fleck = new System.Drawing.SolidBrush(
+                    v == 0 ? System.Drawing.Color.FromArgb(62, 45, 24) :
+                    v == 1 ? System.Drawing.Color.FromArgb(161, 128, 75) :
+                             System.Drawing.Color.FromArgb(194, 159, 97));
+                g.FillRectangle(fleck, x, y, rng.Next(1, 4), rng.Next(1, 3));
+            }
+            g.DrawRectangle(gold, 2, 2, w - 5, h - 5);
+            g.DrawRectangle(inner, 6, 6, w - 13, h - 13);
+            g.DrawLine(gold, 8, 42, w - 9, 42);
             var size = g.MeasureString("Chat", font);
-            g.FillRectangle(dark, (Width - size.Width) / 2 - 15, 5, size.Width + 30, 32);
-            g.DrawString("Chat", font, ink, (Width - size.Width) / 2, 8);
+            g.FillRectangle(dark, (w - size.Width) / 2 - 17, 5, size.Width + 34, 34);
+            g.DrawString("Chat", font, ink, (w - size.Width) / 2, 8);
         }
     }
     sealed class ChatHost : Form
