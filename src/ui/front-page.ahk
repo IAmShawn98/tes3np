@@ -59,7 +59,7 @@ UpdateCharacterMenuLabel()
             LauncherHelpText.Visible := true
         if GameDetectionActive
         {
-            MenuEntries := []
+            MenuEntries.Push(["Quit Launcher", QuitLauncher])
             ScrollMenu(0)
             return
         }
@@ -224,7 +224,11 @@ UpdateGameDetectionCountdown()
     LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
     RefreshGameDetectionText()
     if GameDetectionSeconds = 0
-        EndGameDetectionDisplay()
+    {
+        SetTimer(UpdateGameDetectionCountdown, 0)
+        LauncherHeading.Text := "Checking Installation"
+        RefreshGameDetectionText()
+    }
 }
 
 EndGameDetectionDisplay()
@@ -249,9 +253,13 @@ EndGameDetectionDisplay()
 RefreshGameDetectionText()
 {
     global LauncherGui
-    ; Repaint only the countdown heading. Invalidating the entire layered
-    ; launcher every second causes visible flashing of the background and chat.
+    ; A transparent STATIC cannot erase its previous glyphs. Repaint the
+    ; heading rectangle on the parent, including the background and heading.
     global LauncherHeading
-    if IsObject(LauncherHeading)
-        DllCall("RedrawWindow", "Ptr", LauncherHeading.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0105)
+    if !IsObject(LauncherHeading)
+        return
+    LauncherHeading.GetPos(&x, &y, &w, &h)
+    rect := Buffer(16, 0)
+    NumPut("Int", x, "Int", y, "Int", x + w, "Int", y + h, rect)
+    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", rect.Ptr, "Ptr", 0, "UInt", 0x0185)
 }
