@@ -59,3 +59,13 @@ button[aria-label*="Notification"],button[aria-label*="Thread"],
 button[aria-label*="Pinned"],button[aria-label*="Member"],
 [aria-label="Threads"],[aria-label="Notification Settings"],
 [aria-label="Show Member List"] {display:none!important}
+
+/* Discord's current channel controls may be icon buttons outside the old toolbar classes. */
+#app-mount [class*="chat_"] [class*="header_"] button,
+#app-mount [class*="chat_"] [class*="title_"] button,
+#app-mount [class*="chat_"] [class*="toolbar_"] button,
+#app-mount [class*="chat_"] [class*="children_"] button,
+#app-mount [class*="chat_"] [class*="iconWrapper_"],
+#app-mount [class*="chat_"] [class*="clickable_"][role="button"] {
+ display:none!important;
+}
