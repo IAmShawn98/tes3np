@@ -552,9 +552,9 @@ metrics();
         async Task LoadOlderMessages()
         {
             if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
-                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(450) ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(300) ||
                 DateTime.UtcNow < historyBackoffUntil ||
-                (historyAwaitingNavigation && DateTime.UtcNow - historyNavigationStarted < TimeSpan.FromSeconds(8))) return;
+                (historyAwaitingNavigation && DateTime.UtcNow - historyNavigationStarted < TimeSpan.FromMilliseconds(900))) return;
             loadingHistory = true;
             lastHistoryRequest = DateTime.UtcNow;
             try
@@ -577,14 +577,14 @@ metrics();
                 // initialize a fresh window around that message. The native
                 // renderer keeps the already-collected history across navigation.
                 if (attempt >= 3 && oldest != ulong.MaxValue &&
-                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromSeconds(6) &&
-                    DateTime.UtcNow - historyLastReanchor >= TimeSpan.FromSeconds(8))
+                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromSeconds(3) &&
+                    DateTime.UtcNow - historyLastReanchor >= TimeSpan.FromSeconds(4))
                 {
                     historyNoProgressCount = 0;
                     historyNavigationStarted = DateTime.UtcNow;
                     historyLastReanchor = DateTime.UtcNow;
                     historyAwaitingNavigation = true;
-                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(1);
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(900);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
                     web.CoreWebView2.Navigate(olderWindow);
@@ -640,7 +640,7 @@ metrics();
                     """.Replace("RECOVERY_FLAG", attempt >= 4 ? "true" : "false")).WaitAsync(TimeSpan.FromSeconds(5));
                 if (result.Contains("no-message-list") || result.Contains("no-scroller"))
                 {
-                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(500);
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(300);
                     Log("History waiting for Discord message list: " + result);
                     return;
                 }
@@ -649,7 +649,7 @@ metrics();
                 if (result.Contains("loading=true"))
                 {
                     historyNoProgressCount = Math.Max(0, historyNoProgressCount - 1);
-                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(700);
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(400);
                     Log("History waiting for Discord pagination: " + result);
                     return;
                 }
@@ -793,7 +793,7 @@ metrics();
             }
             catch (Exception ex) { Log("Native feed error: " + ex.Message); }
         }
-        readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
+        readonly System.Windows.Forms.Timer watch = new() { Interval = 250 };
         // History requests must not depend on changes to Discord messages or launcher UI.
         readonly System.Windows.Forms.Timer historyWatch = new() { Interval = 200 };
         bool closingChat;
