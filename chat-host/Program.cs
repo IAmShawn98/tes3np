@@ -1804,7 +1804,7 @@ metrics();
                       if (!benefit) {
                         benefit = document.createElement('p');
                         benefit.setAttribute('data-tes3np-login-benefit', '');
-                        benefit.textContent = 'Connect Discord for launcher chat and out-of-game alerts about happy hours, world bosses, mentions, and more!';
+                        benefit.textContent = 'Connect Discord for launcher chat and out-of-game alerts for happy hours, world bosses, and player mentions.';
                       }
                       const title = form.querySelector('[data-tes3np-login-heading]');
                       if (title) title.insertAdjacentElement('afterend', benefit);
