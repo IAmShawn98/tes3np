@@ -1652,16 +1652,17 @@ metrics();
             if (web.CoreWebView2 == null || closingChat) return;
             try
             {
-                string raw = await web.CoreWebView2.ExecuteScriptAsync(
-                    "(() => !!document.querySelector('input[type=password]') && !document.querySelector('[data-list-id=chat-messages]'))()");
-                if (raw == "true")
-                    ShowDiscordSignIn();
-                else if (signInExpanded &&
-                    web.CoreWebView2.Source.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase))
+                // The message list, not the login URL or password field, is
+                // the reliable indication that Discord chat is available.
+                string feed = await web.CoreWebView2.ExecuteScriptAsync(
+                    "!!document.querySelector('[data-list-id=chat-messages]')");
+                if (feed == "true")
                 {
-                    string feed = await web.CoreWebView2.ExecuteScriptAsync(
-                        "!!document.querySelector('[data-list-id=chat-messages]')");
-                    if (feed == "true") RestoreGameChatAfterSignIn();
+                    if (discordLoginVisible) RestoreGameChatAfterSignIn();
+                }
+                else if (feed == "false")
+                {
+                    ShowDiscordSignIn();
                 }
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
@@ -1715,16 +1716,8 @@ metrics();
             Log("Navigation completed: " + url);
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
-            if (login)
-            {
-                ShowDiscordSignIn();
-                return;
-            }
-            if (signInExpanded)
-            {
-                await CheckDiscordAuthentication();
-                if (signInExpanded) return;
-            }
+            await CheckDiscordAuthentication();
+            if (signInExpanded) return;
             EnforceChatClip();
             await ApplyCss();
             await RefreshNativeMessages();
