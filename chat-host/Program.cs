@@ -183,6 +183,13 @@ internal static class Program
         int visible = ChatVisibleLines();
         thumbHeight = Math.Clamp((int)((long)track * visible / Math.Max(1, total)), Math.Min(20, track), track);
         int maxFirst = Math.Max(0, total - visible);
+        // RichEdit can stop before the estimated final first line when wrapping
+        // or partial lines are present. Detect the real bottom from the last
+        // character's on-screen position, rather than the estimate alone.
+        bool atBottom = nativeMessages.TextLength > 0 &&
+            nativeMessages.GetPositionFromCharIndex(nativeMessages.TextLength - 1).Y
+                + nativeMessages.Font.Height <= nativeMessages.ClientSize.Height + 2;
+        if (atBottom) return 27 + track - thumbHeight;
         return 27 + (int)((long)Math.Clamp(ChatFirstLine(), 0, maxFirst)
             * (track - thumbHeight) / Math.Max(1, maxFirst));
     }
@@ -296,7 +303,9 @@ internal static class Program
                         nativeMessages.AppendText(user + ": ");
                     }
                     nativeMessages.SelectionColor = System.Drawing.Color.FromArgb(241, 238, 232);
-                    nativeMessages.AppendText(body + Environment.NewLine);
+                    nativeMessages.AppendText(body);
+                    if (renderedMessages.Count < doc.RootElement.GetArrayLength())
+                        nativeMessages.AppendText(Environment.NewLine);
                 }
                 nativeMessages.SelectionStart = nativeMessages.TextLength;
                 nativeMessages.ScrollToCaret();
