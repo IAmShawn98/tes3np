@@ -14,27 +14,57 @@ internal static class Program
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     const int GWL_STYLE = -16, WS_CHILD = 0x40000000, WS_POPUP = unchecked((int)0x80000000);
     const string Css = """
-        :root, body, #app-mount { background: #201a15 !important; color: #e5d0a4 !important; }
+        /* TES3NP compact, read-only message feed */
+        :root, html, body, #app-mount {
+          background: #17130e !important; color: #ead6aa !important;
+          overflow: hidden !important;
+        }
         [class*="guilds_"], [class*="sidebar_"], [class*="sidebarList_"],
         [class*="membersWrap_"], [class*="members_"], [class*="panels_"],
         [class*="form_"], [class*="channelTextArea_"], [class*="toolbar_"],
         [class*="notice_"], [class*="titleWrapper_"], [class*="upperContainer_"],
         [class*="chatHeaderBar_"], [class*="jumpToPresentBar_"],
         [class*="newMessagesBar_"], [class*="typing_"],
-        [class*="avatar_"], [class*="botTag_"], [class*="buttons_"] { display:none !important; }
+        [class*="avatar_"], [class*="botTag_"], [class*="buttons_"],
+        [class*="channelName_"], [class*="chatHeader_"], [class*="searchBar_"],
+        [class*="topic_"], [class*="titleContainer_"], [class*="threadSidebar_"],
+        [class*="sidebarRegion_"], [class*="pageHeader_"],
+        [class*="scrollerSpacer_"], [class*="welcomeMessage_"] {
+          display: none !important;
+        }
         [class*="base_"], [class*="content_"], [class*="chat_"],
         [class*="chatContent_"], [class*="messagesWrapper_"],
-        [class*="scroller_"] { width:100% !important; min-width:0 !important; max-width:100% !important;
-           margin:0 !important; padding-left:0 !important; }
-        [class*="message_"] { min-height:0 !important; padding:4px 7px !important;
-           margin:0 !important; background:transparent !important; }
-        [class*="messageContent_"], [class*="markup_"] { font: 12px/1.35 Georgia, serif !important;
-           color:#e5d0a4 !important; white-space:pre-wrap !important; overflow-wrap:anywhere !important; }
-        [class*="username_"] { font: bold 11px Georgia, serif !important; color:#d3ab68 !important; }
+        [class*="scroller_"], [class*="scrollerContent_"] {
+          width: 100% !important; min-width: 0 !important; max-width: 100% !important;
+          margin: 0 !important; padding-left: 0 !important;
+          padding-right: 0 !important; border: 0 !important;
+        }
+        [data-list-id="chat-messages"] { padding: 4px 0 8px !important; }
+        [class*="message_"] {
+          min-height: 0 !important; padding: 5px 10px !important;
+          margin: 0 !important; background: transparent !important;
+          border: 0 !important; box-shadow: none !important;
+        }
+        [class*="messageContent_"], [class*="markup_"] {
+          font: 13px/1.4 Georgia, "Palatino Linotype", serif !important;
+          color: #ead6aa !important; white-space: pre-wrap !important;
+          overflow-wrap: anywhere !important; letter-spacing: .08px !important;
+        }
+        [class*="username_"] {
+          font: bold 12px/1.35 Georgia, serif !important;
+          color: #d8b26d !important; letter-spacing: .2px !important;
+        }
         [class*="timestamp_"], [class*="divider_"], [class*="repliedMessage_"],
-        [class*="messageAccessories_"], [class*="reaction_"] { display:none !important; }
-        ::-webkit-scrollbar { width:5px !important; }
-        ::-webkit-scrollbar-thumb { background:#85683d !important; }
+        [class*="messageAccessories_"], [class*="reaction_"],
+        [class*="buttonContainer_"], [class*="messageToolbar_"] {
+          display: none !important;
+        }
+        ::-webkit-scrollbar { width: 7px !important; }
+        ::-webkit-scrollbar-track { background: #211a13 !important; }
+        ::-webkit-scrollbar-thumb {
+          background: #876a43 !important; border: 1px solid #3c2b1b !important;
+          border-radius: 3px !important;
+        }
         """;
     [STAThread]
     static void Main(string[] args)
@@ -57,7 +87,7 @@ internal static class Program
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.FromArgb(32,26,21);
             Controls.Add(web);
-            Width = 290; Height = 380;
+            Width = 266; Height = 342;
 
             Shown += async (_, _) =>
             {
@@ -137,7 +167,7 @@ internal static class Program
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_CHILD) & ~WS_POPUP);
             SetParent(hwnd, owner);
-            MoveWindow(hwnd, 90, 260, 290, 380, true);
+            MoveWindow(hwnd, 54, 278, 266, 342, true);
             ShowWindow(hwnd, 5);
             docked = true;
         }
