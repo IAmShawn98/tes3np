@@ -213,6 +213,18 @@ internal static class Program
 
 
         readonly IntPtr owner;
+        ulong killAlertWatermark;
+        bool killAlertsInitialized;
+        readonly System.Collections.Generic.HashSet<ulong> alertedKills = new();
+        void CheckPickleKillAlert(ulong id, string body)
+        {
+            if (!killAlertsInitialized || id <= killAlertWatermark || !alertedKills.Add(id)) return;
+            if (System.Text.RegularExpressions.Regex.IsMatch(body,
+                @"\bwas (?:honorably )?killed by Pickle(?:\s*\(\d+\))?\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase) && IsWindow(owner))
+                PostMessage(owner, 0x8333, IntPtr.Zero, IntPtr.Zero);
+        }
+
         readonly WebView2 web = new() { Dock = DockStyle.None };
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
@@ -869,6 +881,7 @@ metrics();
                 lastFeed = json;
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
+                ulong latestKillScanId = killAlertWatermark;
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string id = msg.GetProperty("id").GetString() ?? "";
@@ -881,6 +894,8 @@ metrics();
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
+                    if (key > latestKillScanId) latestKillScanId = key;
+                    CheckPickleKillAlert(key, body);
                     // Archive every message Discord makes available, including loaded history.
                     LogChatMessage(key, user, body);
                     foreach (string imageUrl in images)
@@ -893,6 +908,8 @@ metrics();
                         changed = true;
                     }
                 }
+                if (latestKillScanId > killAlertWatermark) killAlertWatermark = latestKillScanId;
+                killAlertsInitialized = true;
                 if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
