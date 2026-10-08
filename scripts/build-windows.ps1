@@ -84,8 +84,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Resource embedding generation failed.' }
     $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
     $entryText = [IO.File]::ReadAllText($stageEntry)
-    $entryText = $entryText.Replace('StartLauncher()', 'PrepareBundledResources()' + "`r`n" + 'StartLauncher()')
-    $entryText += "`r`n#Include src\app\bundled-resources.generated.ahk`r`n"
+    $entryText = $entryText.Replace("`nStartLauncher()`n", "`nPrepareBundledResources()`nStartLauncher()`n")
+    $entryText = $entryText.Replace('#Include src\app\bootstrap.ahk', '#Include src\app\bootstrap.ahk' + "`n" + '#Include src\app\bundled-resources.generated.ahk')
     [IO.File]::WriteAllText($stageEntry, $entryText)
     Get-ChildItem (Join-Path $stageRoot 'src') -Filter '*.ahk' -Recurse | Where-Object { $_.Name -ne 'bundled-resources.generated.ahk' } | ForEach-Object {
         $text = [IO.File]::ReadAllText($_.FullName)
@@ -94,6 +94,7 @@ try {
         }
         [IO.File]::WriteAllText($_.FullName, $text)
     }
+    if (-not $entryText.Contains('PrepareBundledResources()' + "`n" + 'StartLauncher()')) { throw 'Could not insert resource initialization before launcher startup.' }
     $source = $stageEntry; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
