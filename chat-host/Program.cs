@@ -570,12 +570,19 @@ internal static class Program
                 g.DrawImage(image, new System.Drawing.Rectangle(0, thumbY, w, thumbHeight),
                     new System.Drawing.Rectangle(0, 151, image.Width, 39), System.Drawing.GraphicsUnit.Pixel);
             };
-            goldScrollbar.MouseWheel += (_, e) =>
+            // With WS_VSCROLL disabled the RichEdit control does not reliably
+            // perform its default wheel scrolling. Scroll its text explicitly.
+            void ScrollWheelMessages(MouseEventArgs e)
             {
-                if (nativeMessages.IsHandleCreated)
-                    SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Delta > 0 ? 0 : 1), IntPtr.Zero);
-            };
-            nativeMessages.MouseWheel += (_, _) => goldScrollbar.Invalidate();
+                if (!nativeMessages.IsHandleCreated || e.Delta == 0) return;
+                int notches = Math.Max(1, Math.Abs(e.Delta) / 120);
+                int lines = 3 * notches * (e.Delta > 0 ? -1 : 1);
+                SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(lines)); // EM_LINESCROLL
+                goldScrollbar.Invalidate();
+            }
+            goldScrollbar.MouseWheel += (_, e) => ScrollWheelMessages(e);
+            nativeMessages.MouseWheel += (_, e) => ScrollWheelMessages(e);
+            messageClip.MouseWheel += (_, e) => ScrollWheelMessages(e);
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
