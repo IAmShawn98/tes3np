@@ -263,7 +263,7 @@ internal static class Program
             if (nativeMessages.Visible) nativeMessages.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
-            chatViewport.Visible = false;
+            chatViewport.Visible = true;
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
@@ -429,7 +429,7 @@ internal static class Program
                 };
             }
             nativeMessages.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 66), Math.Max(1, frameSurface.Height - 88));
-            nativeMessages.Visible = false;
+            nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             nativeMessages.BringToFront();
