@@ -979,6 +979,7 @@ metrics();
         public ChatHost(IntPtr owner)
         {
             this.owner = owner;
+            Text = "tes3np Chat Host";
             try
             {
                 if (File.Exists(chatModeFile))
@@ -1027,7 +1028,7 @@ metrics();
                     new System.Drawing.RectangleF(-65, -12, 130, 24), alignment);
                 g.Restore(state);
             };
-            chatToggleWindow.Controls.Add(chatToggleButton);
+            // The toggle is now an actual launcher GUI control.
             foreach (string mode in new[] { "Automatic", "Always Shown", "Always Hidden" })
             {
                 string selectedMode = mode;
@@ -1503,7 +1504,7 @@ metrics();
                 SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
                 MoveWindow(Handle, 180, 100, 900, 720, true);
                 ShowInTaskbar = true;
-                Text = "tes3np — Discord Sign In";
+                Text = "tes3np Chat Host";
                 return;
             }
             if (!login && signInExpanded)
@@ -1517,10 +1518,39 @@ metrics();
                 await RefreshNativeMessages();
             }
         }
+        // Launcher-owned toggle commands (WM_APP + 0x331).
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x8331)
+            {
+                switch (m.WParam.ToInt64())
+                {
+                    case 1:
+                        SetChatOpen(!chatOpen);
+                        if (chatDisplayMode == "Automatic" && chatOpen) lastChatActivity = DateTime.Now;
+                        break;
+                    case 2: SetChatDisplayMode("Automatic"); break;
+                    case 3: SetChatDisplayMode("Always Shown"); break;
+                    case 4: SetChatDisplayMode("Always Hidden"); break;
+                }
+                return;
+            }
+            base.WndProc(ref m);
+        }
+        void SetChatDisplayMode(string mode)
+        {
+            chatDisplayMode = mode;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(chatModeFile)!);
+                File.WriteAllText(chatModeFile, mode);
+            }
+            catch { }
+            SetChatOpen(mode == "Always Shown");
+        }
         void SetChatOpen(bool show)
         {
             chatOpen = show;
-            chatToggleButton.Invalidate();
             if (!signInExpanded && IsHandleCreated)
             {
                 if (show) ShowWindow(Handle, 5);
@@ -1535,18 +1565,6 @@ metrics();
             int y = bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - chatHeight) / 2);
             // Tall gold toggle centered vertically along the launcher's left edge,
             // matching the marked area in the reference screenshot.
-            chatToggleWindow.SetBounds(bounds.Left + 3,
-                bounds.Top + Math.Max(0, (bounds.Bottom - bounds.Top - buttonHeight) / 2),
-                buttonWidth, buttonHeight);
-            if (!chatToggleWindow.Visible)
-            {
-                var toggleHwnd = chatToggleWindow.Handle;
-                SetNativeWindowOwner(toggleHwnd, owner);
-                int toggleExStyle = GetWindowLongEx(toggleHwnd, GWL_EXSTYLE);
-                SetWindowLongEx(toggleHwnd, GWL_EXSTYLE,
-                    (toggleExStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
-                chatToggleWindow.Show();
-            }
             if (chatOpen)
                 MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, chatHeight, true);
         }
