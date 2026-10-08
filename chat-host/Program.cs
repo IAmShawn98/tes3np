@@ -86,13 +86,25 @@ internal static class Program
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel chatViewport = new() { BackColor = System.Drawing.Color.FromArgb(9, 8, 7), Margin = Padding.Empty };
+        readonly Panel titleBar = new() { BackColor = System.Drawing.Color.FromArgb(115, 85, 43) };
+        readonly Label titleText = new() {
+            Text = "Chat", TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+            ForeColor = System.Drawing.Color.FromArgb(224, 194, 131),
+            BackColor = System.Drawing.Color.FromArgb(18, 14, 10),
+            Font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold)
+        };
+
 
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
         void FitWebView()
         {
-            chatViewport.SetBounds(9, 43, Math.Max(1, ClientSize.Width - 30), Math.Max(1, ClientSize.Height - 52));
+            chatViewport.SetBounds(10, 46, Math.Max(1, ClientSize.Width - 20), Math.Max(1, ClientSize.Height - 58));
+            titleBar.SetBounds(7, 7, Math.Max(1, ClientSize.Width - 14), 35);
+            titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
+            titleBar.BringToFront();
+            titleText.BringToFront();
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
         }
         bool docked;
@@ -180,6 +192,8 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
+            Controls.Add(titleBar);
+            Controls.Add(titleText);
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
