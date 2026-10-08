@@ -36,6 +36,19 @@ StartLauncher()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     SetWindowIcons()
     SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
+    ; A completion flag from another TES3MP directory must not suppress setup.
+    ; Do not rely on the flag when the saved installation is unavailable.
+    if A_IsCompiled && SetupComplete
+    {
+        savedTesFolder := IniRead(DataFile, "Patch", "TesFolder", "")
+        savedMorrowindFolder := IniRead(DataFile, "Patch", "MorrowindFolder", "")
+        savedConfig := IniRead(DataFile, "Patch", "ConfigFile", "")
+        if savedTesFolder = "" || StrLower(RTrim(savedTesFolder, "\/")) != StrLower(RTrim(A_ScriptDir, "\/"))
+            || !FileExist(A_ScriptDir "\tes3mp.exe")
+            || !FileExist(savedMorrowindFolder "\Data Files\Morrowind.esm")
+            || !FileExist(savedConfig)
+            SetupComplete := false
+    }
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
