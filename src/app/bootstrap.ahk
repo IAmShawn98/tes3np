@@ -245,7 +245,7 @@ OfferDesktopShortcutOnFirstLaunch(*)
     {
         target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
         arguments := A_IsCompiled ? "" : '"' A_ScriptFullPath '"'
-        FileCreateShortcut(target, A_Desktop "\\tes3np.lnk", A_ScriptDir, arguments, "Launch tes3np", A_ScriptDir "\\assets\\icons\\tes3np.ico")
+        FileCreateShortcut(target, A_Desktop "\\Nerevarine Prophecies.lnk", A_ScriptDir, arguments, "Launch tes3np", A_ScriptDir "\\assets\\icons\\tes3np.ico")
     }
     catch as err
         MsgBox("Could not create the shortcut: " err.Message, "tes3np", "Icon!")
