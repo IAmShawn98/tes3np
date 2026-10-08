@@ -1693,7 +1693,7 @@ metrics();
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
         }
-        // Cosmetic-only login styling; never read or store credentials.
+        // Style Discord's own login form; do not read or handle credentials.
         async Task StyleDiscordLogin()
         {
             if (web.CoreWebView2 == null || closingChat) return;
@@ -1701,28 +1701,71 @@ metrics();
             {
                 await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
-                      if (!location.pathname.startsWith('/login') &&
-                          !location.pathname.startsWith('/register')) return;
+                      if (!location.pathname.startsWith('/login')) return;
+                      const pass = document.querySelector('input[type=password]');
+                      if (!pass) return;
+                      const form = pass.closest('form') || pass.parentElement?.parentElement?.parentElement;
+                      if (!form) return;
                       let style = document.getElementById('tes3np-login-theme');
                       if (!style) {
                         style = document.createElement('style');
                         style.id = 'tes3np-login-theme';
                         document.head.appendChild(style);
                       }
+                      // Scope the minimal layout to the actual login form. Other
+                      // Discord flows (captcha, MFA, recovery) stay available.
+                      form.setAttribute('data-tes3np-login', 'true');
+                      const heading = document.querySelector('[data-tes3np-login-heading]');
+                      if (!heading) {
+                        const title = document.createElement('div');
+                        title.setAttribute('data-tes3np-login-heading', 'true');
+                        title.textContent = 'Sign in to Discord';
+                        form.prepend(title);
+                      }
                       style.textContent = `
-                        html, body { background: #0d0b09 !important; color: #ead7ad !important; }
-                        body { font-family: Georgia, 'Times New Roman', serif !important; }
-                        input { background: #19140f !important; color: #f2e3bf !important;
-                          border: 1px solid #9e7b42 !important; border-radius: 2px !important;
-                          min-height: 34px !important; box-sizing: border-box !important; }
-                        input:focus { outline: 1px solid #dfb66c !important; }
-                        label { color: #e6d0a4 !important; }
-                        button[type=submit] { background: linear-gradient(#a98244,#725020) !important;
-                          border: 1px solid #e1bc78 !important; color: #fff0cb !important;
-                          border-radius: 2px !important; font-family: Georgia,serif !important; }
-                        a { color: #dfb66c !important; }
-                        form { max-width: 100% !important; }
+                        html,body,#app-mount { background:#090807 !important; }
+                        [data-tes3np-login] {
+                          display:flex !important; flex-direction:column !important;
+                          gap:10px !important; padding:12px 14px !important;
+                          margin:0 !important; width:100% !important;
+                          max-width:100% !important; box-sizing:border-box !important;
+                          background:#090807 !important; border:0 !important;
+                          box-shadow:none !important;
+                          font-family:Georgia,'Times New Roman',serif !important;
+                        }
+                        [data-tes3np-login] * { box-sizing:border-box !important; }
+                        [data-tes3np-login-heading] {
+                          color:#d9b469 !important; text-align:center !important;
+                          font:20px Georgia,serif !important;
+                          padding:4px 0 8px !important; border-bottom:1px solid #70532c !important;
+                        }
+                        [data-tes3np-login] label {
+                          color:#ddc99d !important; font:15px Georgia,serif !important;
+                          text-transform:none !important;
+                        }
+                        [data-tes3np-login] input {
+                          background:#100d09 !important; color:#f3e6c5 !important;
+                          border:1px solid #997644 !important; border-radius:0 !important;
+                          min-height:36px !important; width:100% !important;
+                          font:16px Georgia,serif !important;
+                          padding:6px 9px !important; box-shadow:none !important;
+                        }
+                        [data-tes3np-login] input:focus { outline:1px solid #dfb66c !important; }
+                        [data-tes3np-login] button[type=submit] {
+                          background:#9b7439 !important; color:#fff0cb !important;
+                          border:1px solid #dfbb75 !important; border-radius:0 !important;
+                          font:17px Georgia,serif !important; min-height:38px !important;
+                        }
+                        [data-tes3np-login] a { color:#d7b06b !important; }
                       `;
+                      // Hide Discord's decorative welcome header only when the
+                      // actual form exists. Never remove authentication controls.
+                      const welcome = [...document.querySelectorAll('h1,h2,h3')]
+                        .find(e => /welcome back/i.test(e.textContent || ''));
+                      if (welcome) {
+                        const group = welcome.parentElement;
+                        if (group && !group.contains(form)) group.style.display='none';
+                      }
                     })()
                     """);
             }
