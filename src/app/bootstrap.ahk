@@ -142,7 +142,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
         DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", 0x00FFFFFF)
         font := DllCall("gdi32\CreateFontW",
-            "Int", -19, "Int", 0, "Int", 900, "Int", 900,
+            "Int", -21, "Int", 0, "Int", 900, "Int", 900,
             "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
             "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
             "UInt", 0, "Str", "Segoe UI", "Ptr")
