@@ -544,6 +544,7 @@ metrics();
         ulong lastHistoryOldestId = ulong.MaxValue;
         int historyStallCount;
         int historyNoProgressCount;
+        string historyLastVisibleFirst = "";
         DateTime historyBackoffUntil = DateTime.MinValue;
         DateTime historyNavigationStarted = DateTime.MinValue;
         DateTime historyLastProgress = DateTime.MinValue;
@@ -577,10 +578,11 @@ metrics();
                 // initialize a fresh window around that message. The native
                 // renderer keeps the already-collected history across navigation.
                 if (attempt >= 3 && oldest != ulong.MaxValue &&
-                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromSeconds(3) &&
-                    DateTime.UtcNow - historyLastReanchor >= TimeSpan.FromSeconds(4))
+                    DateTime.UtcNow - historyLastProgress >= TimeSpan.FromMilliseconds(1500) &&
+                    DateTime.UtcNow - historyLastReanchor >= TimeSpan.FromSeconds(3))
                 {
                     historyNoProgressCount = 0;
+                    historyLastVisibleFirst = "";
                     historyNavigationStarted = DateTime.UtcNow;
                     historyLastReanchor = DateTime.UtcNow;
                     historyAwaitingNavigation = true;
@@ -645,6 +647,19 @@ metrics();
                     return;
                 }
                 historyAwaitingNavigation = false;
+                // A changing first Discord row is evidence of virtual-list progress,
+                // even before the native extractor has merged the new messages.
+                // Don't waste recovery attempts while Discord is advancing.
+                var firstMatch = System.Text.RegularExpressions.Regex.Match(result, @"first=(chat-messages-[0-9]+-[0-9]+)");
+                string visibleFirst = firstMatch.Success ? firstMatch.Groups[1].Value : "";
+                if (visibleFirst.Length > 0 && visibleFirst != historyLastVisibleFirst)
+                {
+                    historyLastVisibleFirst = visibleFirst;
+                    historyNoProgressCount = 0;
+                    historyStallCount = 0;
+                    historyLastProgress = DateTime.UtcNow;
+                    attempt = 1;
+                }
                 historyNoProgressCount = attempt;
                 if (result.Contains("loading=true"))
                 {
@@ -663,8 +678,8 @@ metrics();
                     // Slow Discord responses are not proof of end-of-history.
                     // Keep retrying while the user remains near the top.
                     historyStallCount = 0;
-                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(6);
-                    Log("History pending; retrying after 6s if still near top");
+                    historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(900);
+                    Log("History pending; retrying after 900ms if still near top");
                 }
             }
             catch (TimeoutException) { Log("History load timed out after 5s; retrying on next refresh"); }
