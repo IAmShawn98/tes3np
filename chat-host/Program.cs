@@ -535,10 +535,10 @@ metrics();
                 // Re-enter the channel at the oldest known message to let Discord
                 // initialize a fresh window around that message. The native
                 // renderer keeps the already-collected history across navigation.
-                if (attempt >= 8 && oldest != ulong.MaxValue)
+                if (attempt >= 3 && oldest != ulong.MaxValue)
                 {
                     historyNoProgressCount = 0;
-                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(5);
+                    historyBackoffUntil = DateTime.UtcNow.AddSeconds(3);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
                     web.CoreWebView2.Navigate(olderWindow);
