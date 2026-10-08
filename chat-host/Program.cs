@@ -382,23 +382,48 @@ internal static class Program
         }
         void AppendChatImage(System.Drawing.Image image)
         {
-            // RichEdit accepts PNG images embedded as RTF picture runs.
-            using var stream = new System.IO.MemoryStream();
-            image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
-            string hex = Convert.ToHexString(stream.ToArray());
-            int twipsW = image.Width * 15, twipsH = image.Height * 15;
-            string rtf = @"{\rtf1\ansi{\pict\pngblip\picw" + image.Width +
-                @"\pich" + image.Height + @"\picwgoal" + twipsW +
-                @"\pichgoal" + twipsH + " " + hex + "}}";
-            // AppendText does not guarantee the current selection is at the end.
-            // Inserting RTF at a stale selection can overwrite earlier chat content.
             nativeMessages.SelectionStart = nativeMessages.TextLength;
             nativeMessages.SelectionLength = 0;
-            nativeMessages.SelectedRtf = rtf;
-            if (!nativeMessages.Rtf.Contains(@"\\pict", StringComparison.OrdinalIgnoreCase))
-                Log("Chat image RTF insertion failed: picture run missing after insertion");
-            else
-                Log("Chat image RTF inserted: " + image.Width + "x" + image.Height);
+
+            // Prefer native RichEdit OLE image insertion via Paste rather than PNG RTF.
+            // Some Windows RichEdit versions silently discard \\pict\\pngblip runs.
+            // Preserve the user's clipboard, including non-text formats.
+            System.Windows.Forms.IDataObject? previousClipboard = null;
+            bool clipboardCaptured = false;
+            try
+            {
+                try
+                {
+                    previousClipboard = System.Windows.Forms.Clipboard.GetDataObject();
+                    clipboardCaptured = true;
+                }
+                catch (Exception ex)
+                {
+                    Log("Chat image clipboard snapshot unavailable: " + ex.Message);
+                    throw;
+                }
+
+                using var bitmap = new System.Drawing.Bitmap(image);
+                System.Windows.Forms.Clipboard.SetImage(bitmap);
+                if (!nativeMessages.CanPaste(System.Windows.Forms.DataFormats.GetFormat(System.Windows.Forms.DataFormats.Bitmap)))
+                    throw new InvalidOperationException("RichTextBox cannot paste bitmap format");
+                nativeMessages.Paste(System.Windows.Forms.DataFormats.GetFormat(System.Windows.Forms.DataFormats.Bitmap));
+                Log("Chat image pasted: " + image.Width + "x" + image.Height);
+            }
+            finally
+            {
+                if (clipboardCaptured)
+                {
+                    try
+                    {
+                        if (previousClipboard != null)
+                            System.Windows.Forms.Clipboard.SetDataObject(previousClipboard, true);
+                        else
+                            System.Windows.Forms.Clipboard.Clear();
+                    }
+                    catch (Exception ex) { Log("Chat image clipboard restore error: " + ex.Message); }
+                }
+            }
         }
         DateTime lastHistoryRequest = DateTime.MinValue;
         bool loadingHistory;
