@@ -520,20 +520,21 @@ internal static class Program
                     EndCap = System.Drawing.Drawing2D.LineCap.Round,
                     LineJoin = System.Drawing.Drawing2D.LineJoin.Round
                 };
-                // Put the vertical title first, fully centered in the upper area,
-                // with the arrow centered horizontally beneath it.
+                // Side-by-side layout: bold arrow at left, vertical label at right.
+                // Both are centered as one group within the tall gold tab.
                 int direction = chatOpen ? -1 : 1;
-                int arrowY = chatToggleButton.ClientSize.Height - 27;
-                int tipX = centerX + direction * 12;
-                int tailX = centerX - direction * 12;
+                int arrowCenterX = 22;
+                int arrowY = chatToggleButton.ClientSize.Height / 2;
+                int tipX = arrowCenterX + direction * 13;
+                int tailX = arrowCenterX - direction * 13;
                 g.DrawLine(arrowPen, tailX, arrowY, tipX, arrowY);
-                g.DrawLine(arrowPen, tipX - direction * 9, arrowY - 9, tipX, arrowY);
-                g.DrawLine(arrowPen, tipX - direction * 9, arrowY + 9, tipX, arrowY);
-                using var labelFont = new System.Drawing.Font("Segoe UI", 13,
+                g.DrawLine(arrowPen, tipX - direction * 10, arrowY - 10, tipX, arrowY);
+                g.DrawLine(arrowPen, tipX - direction * 10, arrowY + 10, tipX, arrowY);
+                using var labelFont = new System.Drawing.Font("Segoe UI", 11,
                     System.Drawing.FontStyle.Bold);
                 using var labelBrush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
                 var state = g.Save();
-                g.TranslateTransform(centerX, (chatToggleButton.ClientSize.Height - 54) / 2);
+                g.TranslateTransform(52, chatToggleButton.ClientSize.Height / 2);
                 g.RotateTransform(-90);
                 using var alignment = new System.Drawing.StringFormat
                 {
@@ -541,7 +542,7 @@ internal static class Program
                     LineAlignment = System.Drawing.StringAlignment.Center
                 };
                 g.DrawString("Game Chat", labelFont, labelBrush,
-                    new System.Drawing.RectangleF(-56, -16, 112, 32), alignment);
+                    new System.Drawing.RectangleF(-65, -12, 130, 24), alignment);
                 g.Restore(state);
             };
             chatToggleWindow.Controls.Add(chatToggleButton);
