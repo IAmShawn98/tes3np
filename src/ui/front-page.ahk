@@ -55,12 +55,8 @@ UpdateCharacterMenuLabel()
     MenuEntries := []
     if !IsTES3MPSetupComplete()
     {
-        ; Returning from Repair must not leave the help text in the button area.
         if !GameDetectionActive && IsObject(LauncherHelpText)
-        {
-            LauncherHelpText.Move(345, 529, 265, 98)
             LauncherHelpText.Visible := true
-        }
         if GameDetectionActive
         {
             MenuEntries := []
@@ -200,13 +196,16 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
 ; First-run detection status occupies the same scroll panel as the normal menu.
 BeginGameDetectionDisplay()
 {
-    global LauncherGui, LauncherHeading, LauncherHelpText, GameDetectionActive, GameDetectionSeconds
+    global LauncherGui, LauncherHeading, LauncherHelpText, GameDetectionActive, GameDetectionSeconds, LauncherControlLayout
     GameDetectionActive := true
     GameDetectionSeconds := 10
     LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
     LauncherGui.SetFont("s10 Norm c241408", "Segoe UI")
     LauncherHelpText := LauncherGui.Add("Text", "x345 y460 w265 h112 Center BackgroundTrans",
         "Please wait while we detect your downloaded copy of TES3MP...")
+    ; Added after the initial layout capture: register logical coordinates so
+    ; ShowLauncherWindow's rescale cannot shift this control into the buttons.
+    LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 460, Width: 265, Height: 112}
     UpdateCharacterMenuLabel()
     SetTimer(UpdateGameDetectionCountdown, 1000)
 }
@@ -227,7 +226,7 @@ UpdateGameDetectionCountdown()
 
 EndGameDetectionDisplay()
 {
-    global GameDetectionActive, LauncherHeading, LauncherHelpText
+    global GameDetectionActive, LauncherHeading, LauncherHelpText, LauncherControlLayout, LauncherScale
     if !GameDetectionActive
         return
     GameDetectionActive := false
@@ -236,7 +235,9 @@ EndGameDetectionDisplay()
     if IsObject(LauncherHelpText)
     {
         LauncherHelpText.Text := "If setup didn't appear, check that tes3np.exe is beside tes3mp.exe and that Morrowind GOTY and OpenMW are installed correctly. Use Repair Game Install to locate your files or fix the installation."
-        LauncherHelpText.Move(345, 529, 265, 98)
+        LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 529, Width: 265, Height: 98}
+        scale := LauncherScale / 100
+        LauncherHelpText.Move(Round(345 * scale), Round(529 * scale), Round(265 * scale), Round(98 * scale))
     }
     UpdateCharacterMenuLabel()
 }
