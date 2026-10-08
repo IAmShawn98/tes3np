@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-dom-frame-20261008";
+    const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
@@ -107,7 +107,7 @@ internal static class Program
             using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(63, 43, 22), 2);
             using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(220, 187, 120));
             using var font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
-            g.FillRectangle(bronze, 0, 0, w, 53);
+            g.FillRectangle(bronze, 0, 0, w, 49);
             g.FillRectangle(bronze, 0, 53, 15, h - 53);
             g.FillRectangle(bronze, w - 15, 53, 15, h - 53);
             g.FillRectangle(bronze, 0, h - 16, w, 16);
@@ -182,7 +182,7 @@ internal static class Program
         const int HeaderCrop = 48;
         void FitWebView()
         {
-            chatViewport.SetBounds(0, 0, Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
+            chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 7);
             railLeft.SetBounds(0, 7, 15, Math.Max(1, ClientSize.Height - 7));
             railRight.SetBounds(Math.Max(0, ClientSize.Width - 15), 7, 15, Math.Max(1, ClientSize.Height - 7));
@@ -229,6 +229,7 @@ internal static class Program
         {
             if (!IsHandleCreated) return;
             var ex = GetWindowLongEx(Handle, GWL_EXSTYLE);
+            if (chatOpacity == 255) { SetWindowLongEx(Handle, GWL_EXSTYLE, ex & ~WS_EX_LAYERED); return; }
             SetWindowLongEx(Handle, GWL_EXSTYLE, ex | WS_EX_LAYERED);
             if (!SetLayeredWindowAttributes(Handle, 0, chatOpacity, LWA_ALPHA))
                 Log("Layered alpha failed: " + Marshal.GetLastWin32Error());
@@ -280,7 +281,7 @@ internal static class Program
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             chatViewport.Controls.Add(web);
             Controls.Add(chatViewport);
-            // No WinForms decorations: avoid WebView2 airspace conflicts.
+            // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
             FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
