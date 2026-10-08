@@ -462,6 +462,25 @@ internal static class Program
                 }
                 else
                     g.FillRectangle(metal, 3, 3, w - 6, 49);
+                // Fine, irregular weathered-gold grain like the Morrowind journal
+                // header reference. Draw over the existing texture, not the frame.
+                // Stable coordinates prevent visual noise changing between repaints.
+                var oldClip = g.Clip;
+                using (var headerClip = new System.Drawing.Region(new System.Drawing.Rectangle(7, 6, Math.Max(1, w - 14), 38)))
+                {
+                    g.SetClip(headerClip, System.Drawing.Drawing2D.CombineMode.Intersect);
+                    var random = new Random(31337);
+                    using var darkGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(95, 48, 32, 14));
+                    using var lightGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(75, 230, 195, 122));
+                    for (int i = 0; i < Math.Max(350, w * 3); i++)
+                    {
+                        int px = random.Next(7, Math.Max(8, w - 7));
+                        int py = random.Next(6, 44);
+                        int grain = random.Next(1, 4);
+                        g.FillRectangle(i % 3 == 0 ? lightGrain : darkGrain, px, py, grain, grain);
+                    }
+                }
+                g.Clip = oldClip;
                 g.FillRectangle(titleFill, 15, 53, w - 30, h - 69);
                 g.DrawRectangle(shadow, 5, 5, w - 11, h - 11);
                 g.DrawRectangle(highlight, 2, 2, w - 5, h - 5);
