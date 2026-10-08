@@ -7,6 +7,7 @@ global LauncherUpdateButton := 0
 global LauncherUpdateAvailable := false
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
+global LauncherChatOpen := false
 
 StartLauncher()
 {
@@ -103,7 +104,8 @@ CreateLauncherChatToggle()
     LauncherChatToggle := LauncherGui.Add("Text",
         "x3 y274 w68 h168 +0x100 Border BackgroundA77C3A", "")
     OnMessage(0x000F, PaintLauncherChatToggle)
-    LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
+    ; STATIC sends STN_CLICKED as WM_COMMAND to its parent.
+    OnMessage(0x0111, LauncherChatCommandClick)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
     LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
@@ -140,18 +142,20 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
             "UInt", 0, "Str", "Segoe UI", "Ptr")
         oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         ; Positive 90-degree escapement runs text upward from the baseline.
-        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.83),
-            "Int", Round(h * 0.79), "Str", "Game Chat", "Int", 9)
+        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.52),
+            "Int", Round(h * 0.80), "Str", "Game Chat", "Int", 9)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", font)
         ; Arrow pointing left, matching the original toggle.
         pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", 4, "UInt", 0x00FFFFFF, "Ptr")
         oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
-        cx := Round(w * 0.40), cy := Round(h * 0.50)
-        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + 11, "Int", cy, "Ptr", 0)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx - 10, "Int", cy)
+        cx := Round(w * 0.30), cy := Round(h * 0.50)
+        global LauncherChatOpen
+        direction := LauncherChatOpen ? -1 : 1
+        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * 10, "Int", cy, "Ptr", 0)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * 10, "Int", cy)
         DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - 10)
-        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - 10, "Int", cy, "Ptr", 0)
+        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + direction * 10, "Int", cy, "Ptr", 0)
         DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy + 10)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldPen, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", pen)
@@ -159,9 +163,23 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
     finally DllCall("user32\EndPaint", "Ptr", hwnd, "Ptr", ps)
     return 0
 }
+LauncherChatCommandClick(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui, LauncherChatToggle
+    if !IsObject(LauncherChatToggle) || hwnd != LauncherGui.Hwnd
+        return
+    if lParam = LauncherChatToggle.Hwnd && (wParam >> 16) = 0
+    {
+        ToggleLauncherChat()
+        return 0
+    }
+}
 ToggleLauncherChat(*)
 {
+    global LauncherChatOpen
+    LauncherChatOpen := !LauncherChatOpen
     SendLauncherChatCommand(1)
+    DllCall("user32\InvalidateRect", "Ptr", LauncherChatToggle.Hwnd, "Ptr", 0, "Int", 1)
 }
 LauncherChatRightClick(wParam, lParam, msg, hwnd)
 {
@@ -179,16 +197,21 @@ SendLauncherChatCommand(command)
 {
     ; Hidden chat windows must also be addressable when the panel is closed.
     oldHidden := A_DetectHiddenWindows
+    oldMatchMode := A_TitleMatchMode
     DetectHiddenWindows(true)
     try
     {
+        SetTitleMatchMode(2)
         chatHwnd := WinExist("tes3np Chat Host")
         if chatHwnd
             DllCall("PostMessageW", "Ptr", chatHwnd, "UInt", 0x8331, "Ptr", command, "Ptr", 0)
         else
-            LogLauncherEvent("Chat toggle requested before chat host is ready.")
+            LogLauncherEvent("Chat command " command " failed: tes3np Chat Host window not found.")
     }
-    finally DetectHiddenWindows(oldHidden)
+    finally {
+        DetectHiddenWindows(oldHidden)
+        SetTitleMatchMode(oldMatchMode)
+    }
 }
 
 SetLauncherUpdateAvailable(isAvailable)
