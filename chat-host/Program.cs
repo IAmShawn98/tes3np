@@ -82,8 +82,11 @@ internal static class Program
     sealed class ChatHost : Form
     {
         readonly IntPtr owner;
-        readonly WebView2 web = new() { Dock = DockStyle.Fill };
+        readonly WebView2 web = new() { Dock = DockStyle.None };
         readonly System.Windows.Forms.Timer watch = new() { Interval = 500 };
+        // Clip the Discord header outside the visible child window.
+        const int HeaderCrop = 48;
+        void FitWebView() => web.SetBounds(0, -HeaderCrop, ClientSize.Width, ClientSize.Height + HeaderCrop);
         bool docked;
         bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
@@ -144,6 +147,8 @@ internal static class Program
             BackColor = System.Drawing.Color.Black;
             // Native child window alpha lets launcher artwork show through opaque Discord layers.
             Controls.Add(web);
+            Resize += (_, _) => FitWebView();
+            FitWebView();
             // The diagnostic version label is no longer part of the chat UI.
             Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
