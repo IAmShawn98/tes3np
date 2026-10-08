@@ -427,6 +427,7 @@ metrics();
         readonly System.Collections.Generic.List<(string User, string Body)> renderedMessages = new();
         bool nativeMode;
         bool freshDiscordProfile;
+        bool discordLoginVisible;
         const string ExtractFeed = """
             (() => {
               const list = document.querySelector('[data-list-id="chat-messages"]');
@@ -981,7 +982,7 @@ metrics();
         }
         void EnforceChatClip()
         {
-            if (!web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
+            if (discordLoginVisible || !web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
             // Native clipping remains effective when WebView2 recreates its
             // composition surface after Discord finishes loading.
             var region = CreateRectRgn(0, HeaderCrop, web.Width, web.Height);
@@ -993,6 +994,11 @@ metrics();
         const int HeaderCrop = 48;
         void FitWebView()
         {
+            if (discordLoginVisible)
+            {
+                web.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
+                return;
+            }
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 78));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
@@ -1660,40 +1666,36 @@ metrics();
         }
         void ShowDiscordSignIn()
         {
-            if (signInExpanded) return;
-            Log("Discord authentication required: opening full-size sign-in window");
+            if (discordLoginVisible) return;
+            Log("Discord login: revealing the existing browser in Game Chat");
+            discordLoginVisible = true;
             signInExpanded = true;
             nativeMode = false;
             nativeMessages.Visible = false;
             messageBrowser.Visible = false;
             messageClip.Visible = false;
             goldScrollbar.Visible = false;
-            chatViewport.Visible = true;
+            // The Discord browser already exists underneath the black renderer.
+            // Remove the overlay and native clipping so its login is usable.
+            web.Dock = DockStyle.None;
             web.Parent = this;
-            SetWindowRgn(web.Handle, IntPtr.Zero, true);
-            web.Dock = DockStyle.Fill;
+            if (web.IsHandleCreated) SetWindowRgn(web.Handle, IntPtr.Zero, true);
+            web.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             web.Visible = true;
             web.BringToFront();
-            docked = false;
-            SetParent(Handle, IntPtr.Zero);
-            SetNativeWindowOwner(Handle, IntPtr.Zero);
-            int style = GetWindowLong(Handle, GWL_STYLE);
-            SetWindowLong(Handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
-            int exStyle = GetWindowLongEx(Handle, GWL_EXSTYLE);
-            SetWindowLongEx(Handle, GWL_EXSTYLE, (exStyle | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW);
-            MoveWindow(Handle, 180, 100, 900, 720, true);
-            ShowInTaskbar = true;
-            Text = "TES3NP - Sign in to Discord";
-            Show();
-            Activate();
+            chatViewport.Visible = false;
+            Text = "TES3NP - Discord Sign In";
+            Log("Discord login browser exposed");
         }
         void RestoreGameChatAfterSignIn()
         {
-            if (!signInExpanded) return;
-            Log("Discord authentication completed: restoring launcher chat");
-            web.Dock = DockStyle.None;
-            web.Parent = chatViewport;
+            if (!discordLoginVisible) return;
+            Log("Discord chat detected: restoring custom Game Chat");
+            discordLoginVisible = false;
             signInExpanded = false;
+            web.Parent = chatViewport;
+            web.Dock = DockStyle.None;
+            chatViewport.Visible = true;
             messageClip.Visible = true;
             goldScrollbar.Visible = true;
             messageBrowser.Visible = nativeMode;
