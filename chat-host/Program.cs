@@ -224,8 +224,21 @@ internal static class Program
                 @"\bwas (?:honorably )?killed by\s+\S",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase) && IsWindow(owner))
             {
-                if (PostMessage(owner, 0x8333, IntPtr.Zero, IntPtr.Zero))
-                    alertedKills.Add(id);
+                try
+                {
+                    string alertPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "TES3NP", "Logs", "last-kill-alert.txt");
+                    Directory.CreateDirectory(Path.GetDirectoryName(alertPath)!);
+                    File.WriteAllText(alertPath, body.Trim());
+                    if (PostMessage(owner, 0x8333, IntPtr.Zero, IntPtr.Zero))
+                    {
+                        alertedKills.Add(id);
+                        Log("Kill alert sent: " + body.Trim());
+                    }
+                    else Log("Kill alert PostMessage failed.");
+                }
+                catch (Exception ex) { Log("Kill alert failed: " + ex.Message); }
             }
         }
 
