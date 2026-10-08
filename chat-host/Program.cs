@@ -14,48 +14,6 @@ internal static class Program
     struct SCROLLINFO { public uint cbSize, fMask; public int nMin, nMax; public uint nPage; public int nPos, nTrackPos; }
     [DllImport("user32.dll")] static extern bool GetScrollInfo(IntPtr hwnd, int bar, ref SCROLLINFO info);
     [DllImport("user32.dll")] static extern bool ShowScrollBar(IntPtr hwnd, int bar, bool show);
-    int ChatFirstLine() => nativeMessages.IsHandleCreated
-        ? SendMessage(nativeMessages.Handle, 0x00CE, IntPtr.Zero, IntPtr.Zero).ToInt32() : 0;
-    int ChatLineCount() => nativeMessages.IsHandleCreated
-        ? Math.Max(1, SendMessage(nativeMessages.Handle, 0x00BA, IntPtr.Zero, IntPtr.Zero).ToInt32()) : 1;
-    int ChatVisibleLines()
-    {
-        if (nativeMessages.Height < 1) return 1;
-        int first = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(new System.Drawing.Point(2, 2)));
-        int last = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(
-            new System.Drawing.Point(2, Math.Max(2, nativeMessages.Height - 4))));
-        return Math.Max(1, last - first + 1);
-    }
-    int ChatThumbY(int height, out int thumbHeight)
-    {
-        int track = Math.Max(1, height - 54);
-        int total = ChatLineCount();
-        int visible = ChatVisibleLines();
-        thumbHeight = Math.Clamp((int)((long)track * visible / Math.Max(1, total)), Math.Min(20, track), track);
-        int maxFirst = Math.Max(0, total - visible);
-        return 27 + (int)((long)Math.Clamp(ChatFirstLine(), 0, maxFirst)
-            * (track - thumbHeight) / Math.Max(1, maxFirst));
-    }
-    void ScrollChatToThumb(int y, int dragOffset)
-    {
-        if (!nativeMessages.IsHandleCreated) return;
-        int track = Math.Max(1, goldScrollbar.Height - 54);
-        ChatThumbY(goldScrollbar.Height, out int thumbHeight);
-        int maxFirst = Math.Max(0, ChatLineCount() - ChatVisibleLines());
-        int travel = Math.Max(1, track - thumbHeight);
-        int relative = Math.Clamp(y - dragOffset - 27, 0, travel);
-        int target = (int)((long)relative * maxFirst / travel);
-        int delta = target - ChatFirstLine();
-        if (delta != 0)
-            SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(delta));
-        goldScrollbar.Invalidate();
-    }
-    void HideNativeChatScrollbar()
-    {
-        if (nativeMessages.IsHandleCreated)
-            ShowScrollBar(nativeMessages.Handle, 1, false);
-    }
-
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -181,8 +139,60 @@ internal static class Program
             g.DrawString("Chat", font, ink, (w - size.Width) / 2, 8);
         }
     }
+    sealed class ScrollbarFreeRichTextBox : RichTextBox
+    {
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                cp.Style &= ~0x00200000; // WS_VSCROLL
+                cp.Style &= ~0x00100000; // WS_HSCROLL
+                return cp;
+            }
+        }
+    }
     sealed class ChatHost : Form
     {
+    int ChatFirstLine() => nativeMessages.IsHandleCreated
+        ? SendMessage(nativeMessages.Handle, 0x00CE, IntPtr.Zero, IntPtr.Zero).ToInt32() : 0;
+    int ChatLineCount() => nativeMessages.IsHandleCreated
+        ? Math.Max(1, SendMessage(nativeMessages.Handle, 0x00BA, IntPtr.Zero, IntPtr.Zero).ToInt32()) : 1;
+    int ChatVisibleLines()
+    {
+        if (nativeMessages.Height < 1) return 1;
+        int first = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(new System.Drawing.Point(2, 2)));
+        int last = nativeMessages.GetLineFromCharIndex(nativeMessages.GetCharIndexFromPosition(
+            new System.Drawing.Point(2, Math.Max(2, nativeMessages.Height - 4))));
+        return Math.Max(1, last - first + 1);
+    }
+    int ChatThumbY(int height, out int thumbHeight)
+    {
+        int track = Math.Max(1, height - 54);
+        int total = ChatLineCount();
+        int visible = ChatVisibleLines();
+        thumbHeight = Math.Clamp((int)((long)track * visible / Math.Max(1, total)), Math.Min(20, track), track);
+        int maxFirst = Math.Max(0, total - visible);
+        return 27 + (int)((long)Math.Clamp(ChatFirstLine(), 0, maxFirst)
+            * (track - thumbHeight) / Math.Max(1, maxFirst));
+    }
+    void ScrollChatToThumb(int y, int dragOffset)
+    {
+        if (!nativeMessages.IsHandleCreated) return;
+        int track = Math.Max(1, goldScrollbar.Height - 54);
+        ChatThumbY(goldScrollbar.Height, out int thumbHeight);
+        int maxFirst = Math.Max(0, ChatLineCount() - ChatVisibleLines());
+        int travel = Math.Max(1, track - thumbHeight);
+        int relative = Math.Clamp(y - dragOffset - 27, 0, travel);
+        int target = (int)((long)relative * maxFirst / travel);
+        int delta = target - ChatFirstLine();
+        if (delta != 0)
+            SendMessage(nativeMessages.Handle, 0x00B6, IntPtr.Zero, new IntPtr(delta));
+        goldScrollbar.Invalidate();
+    }
+    void HideNativeChatScrollbar() { /* No native scrollbar is created. */ }
+
+
         readonly IntPtr owner;
         readonly WebView2 web = new() { Dock = DockStyle.None };
         // A separate clipped viewport prevents the WebView's negative Y offset
@@ -226,9 +236,9 @@ internal static class Program
         readonly System.Drawing.Bitmap? headerTexture = LoadTexture("header-texture.b64");
         readonly Panel messageClip = new() { BackColor = System.Drawing.Color.FromArgb(10, 9, 8), Margin = Padding.Empty };
         readonly Panel goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
-        readonly RichTextBox nativeMessages = new()
+        readonly ScrollbarFreeRichTextBox nativeMessages = new()
         {
-            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.Vertical,
+            ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
             BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
             ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
             Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
@@ -289,7 +299,6 @@ internal static class Program
                     nativeMessages.Visible = true;
                     messageClip.BringToFront();
                     goldScrollbar.BringToFront();
-                    HideNativeChatScrollbar();
                     frameSurface.Visible = true;
                     frameSurface.Invalidate();
                     Log("Native message view activated");
@@ -328,14 +337,7 @@ internal static class Program
         {
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
             messageClip.SetBounds(23, 65, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 88));
-            nativeMessages.SetBounds(0, 0, messageClip.Width + 18, messageClip.Height);
-            // Clip the native RichTextBox HWND itself: parent Panel clipping alone does not
-            // reliably hide the Win32 scrollbar child/non-client region.
-            if (nativeMessages.IsHandleCreated && messageClip.Width > 0 && messageClip.Height > 0)
-            {
-                var visibleRegion = CreateRectRgn(0, 0, messageClip.Width, messageClip.Height);
-                SetWindowRgn(nativeMessages.Handle, visibleRegion, true);
-            }
+            nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 65, 20, Math.Max(1, ClientSize.Height - 88));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
             railTop.SetBounds(0, 0, ClientSize.Width, 10);
@@ -560,7 +562,7 @@ internal static class Program
                 if (nativeMessages.IsHandleCreated)
                     SendMessage(nativeMessages.Handle, 0x0115, new IntPtr(e.Delta > 0 ? 0 : 1), IntPtr.Zero);
             };
-            nativeMessages.MouseWheel += (_, _) => { HideNativeChatScrollbar(); goldScrollbar.Invalidate(); };
+            nativeMessages.MouseWheel += (_, _) => goldScrollbar.Invalidate();
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
@@ -608,14 +610,7 @@ internal static class Program
                 };
             }
             messageClip.SetBounds(23, 65, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 88));
-            nativeMessages.SetBounds(0, 0, messageClip.Width + 18, messageClip.Height);
-            // Clip the native RichTextBox HWND itself: parent Panel clipping alone does not
-            // reliably hide the Win32 scrollbar child/non-client region.
-            if (nativeMessages.IsHandleCreated && messageClip.Width > 0 && messageClip.Height > 0)
-            {
-                var visibleRegion = CreateRectRgn(0, 0, messageClip.Width, messageClip.Height);
-                SetWindowRgn(nativeMessages.Handle, visibleRegion, true);
-            }
+            nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 65, 20, Math.Max(1, frameSurface.Height - 88));
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
@@ -677,7 +672,7 @@ internal static class Program
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await RefreshNativeMessages();
-                if (nativeMode && goldScrollbar.Visible) { HideNativeChatScrollbar(); goldScrollbar.Invalidate(); }
+                if (nativeMode && goldScrollbar.Visible) goldScrollbar.Invalidate();
             };
             watch.Start();
         }
