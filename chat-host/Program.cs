@@ -209,7 +209,6 @@ internal static class Program
                 if (!nativeMode)
                 {
                     nativeMode = true;
-                    web.Visible = false;
                     frameSurface.Visible = true;
                     nativeMessages.Visible = true;
                     nativeMessages.BringToFront();
@@ -258,6 +257,7 @@ internal static class Program
             titleText.SetBounds(Math.Max(0, (ClientSize.Width - 100) / 2), 7, 100, 35);
 
             frameSurface.Invalidate();
+            if (nativeMessages.Visible) nativeMessages.BringToFront();
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
@@ -367,7 +367,9 @@ internal static class Program
             frameSurface.Controls.Add(chatViewport);
             frameSurface.Controls.Add(nativeMessages);
             nativeMessages.SetBounds(18, 54, Math.Max(1, frameSurface.Width - 36), Math.Max(1, frameSurface.Height - 74));
-            nativeMessages.Visible = false;
+            nativeMessages.Visible = true;
+            nativeMessages.Text = "Connecting to live chat...";
+            nativeMessages.BringToFront();
             Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
