@@ -522,18 +522,31 @@ internal static class Program
                     using var sideTexture = new System.Drawing.TextureBrush(vertical, System.Drawing.Drawing2D.WrapMode.Tile);
                     g.FillRectangle(sideTexture, 0, 0, 13, h);
                     g.FillRectangle(sideTexture, w - 13, 0, 13, h);
-                    // The entire Chat heading (including the flat bronze area)
-                    // uses the same real Morrowind texture as the outer frame.
-                    // Tile rather than stretch so its grain and gold trim stay crisp.
-                    g.FillRectangle(texture, 9, 13, w - 18, 39);
                 }
-                // Never scale the header texture across the full window.
-                // Repeat it at native pixel density to preserve the stone grain.
-                if (headerTexture != null)
+                // Header: use a continuous weathered bronze surface, not the
+                // border/header bitmaps. Those contain horizontal trim lines
+                // which repeat as broken stripes when tiled vertically.
+                using (var headerBase = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(143, 109, 60)))
+                    g.FillRectangle(headerBase, 13, 13, w - 26, 39);
+                var headerNoise = new Random(4108);
+                using (var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(92, 67, 35)))
+                using (var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(194, 159, 96)))
+                using (var midMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(165, 129, 72)))
                 {
-                    using var headerBrush = new System.Drawing.TextureBrush(
-                        headerTexture, System.Drawing.Drawing2D.WrapMode.Tile);
-                    g.FillRectangle(headerBrush, 9, 13, w - 18, 39);
+                    for (int n = 0; n < w * 20; n++)
+                    {
+                        int x = headerNoise.Next(13, Math.Max(14, w - 13));
+                        int y = headerNoise.Next(13, 52);
+                        g.FillRectangle(n % 5 == 0 ? lightMottle : (n % 3 == 0 ? midMottle : darkMottle),
+                            x, y, headerNoise.Next(1, 4), headerNoise.Next(1, 3));
+                    }
+                }
+                using (var headerGold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(207, 169, 98)))
+                using (var headerShade = new System.Drawing.Pen(System.Drawing.Color.FromArgb(56, 39, 20)))
+                {
+                    g.DrawLine(headerGold, 13, 14, w - 14, 14);
+                    g.DrawLine(headerShade, 13, 48, w - 14, 48);
+                    g.DrawLine(headerGold, 13, 51, w - 14, 51);
                 }
                 // Preserve the actual Morrowind border artwork across the Chat header.
                 // The old full-frame random flecks obscured the texture with flat colors.
