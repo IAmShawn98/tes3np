@@ -37,6 +37,11 @@ StartJackTracker()
     JackFields["summary"] := JackPanel.Add("Text", "x16 y37 w918 h31 +0x100 BackgroundTrans", "")
     JackFields["summary"].OnEvent("Click", ToggleJackTracker)
     JackFields["summary"].Visible := false
+    ; One-line at-a-glance status remains visible when the event is collapsed.
+    JackPanel.SetFont("s9 Norm cD5C2A7", "Segoe UI")
+    JackFields["glance"] := JackPanel.Add("Text", "x320 y13 w510 h23 BackgroundTrans", "")
+    JackFields["glance"].OnEvent("Click", ToggleJackTracker)
+
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
@@ -174,6 +179,7 @@ LayoutJackTracker(width)
     JackLayoutWidth := width
     right := width - 16
     JackFields["toggle"].Move(right - 115, 9, 115, 28)
+    JackFields["glance"].Move(320, 12, Max(160, width - 320 - 145), 26)
     JackFields["summary"].Move(16, 43, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
@@ -287,6 +293,8 @@ RefreshJackTracker()
     }
     JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   Portal: " JackPortalState "   |   " countdown
     JackFields["summary"].Visible := JackExpanded
+    JackFields["glance"].Text := JackRaidState "   |   Portal: " JackPortalState "   |   " countdown
+    JackFields["glance"].Visible := !JackExpanded
     names := ""
     for name, status in JackPlayers
         names .= (names = "" ? "" : "    •    ") name " (" status ")"
