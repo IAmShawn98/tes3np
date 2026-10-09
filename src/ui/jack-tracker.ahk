@@ -28,20 +28,26 @@ StartJackTracker()
     JackPanel := Gui("-DPIScale -Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
     JackPanel.SetFont("s14 Bold cE9C78D", "Georgia")
-    heading := JackPanel.Add("Text", "x16 y4 w520 h27 +0x100 BackgroundTrans", "JACK — RAID BOSS")
+    heading := JackPanel.Add("Text", "x16 y17 w295 h31 +0x100 BackgroundTrans", "JACK — RAID BOSS")
     heading.OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
-    JackFields["toggle"] := JackPanel.Add("Text", "x844 y5 w98 h25 Right +0x100 BackgroundTrans", "Expand  ▾")
+    JackFields["toggle"] := JackPanel.Add("Text", "x844 y20 w98 h27 Right +0x100 BackgroundTrans", "Expand  ▾")
     JackFields["toggle"].OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
     JackFields["summary"] := JackPanel.Add("Text", "x16 y37 w918 h31 +0x100 BackgroundTrans", "")
     JackFields["summary"].OnEvent("Click", ToggleJackTracker)
     JackFields["summary"].Visible := false
-    ; One-line at-a-glance status remains visible when the event is collapsed.
-    JackPanel.SetFont("s9 Norm cD5C2A7", "Segoe UI")
-    JackFields["glance"] := JackPanel.Add("Text", "x320 y7 w510 h23 BackgroundTrans", "")
-    JackFields["glance"].OnEvent("Click", ToggleJackTracker)
-
+    ; Collapsed strip: a separate warm status pill, portal and next spawn.
+    ; Keeping each field separate avoids overflowing one long text control.
+    JackFields["badgeBg"] := JackPanel.Add("Text", "x310 y17 w165 h31 Background3C2317")
+    JackPanel.SetFont("s10 Norm cE9A25D", "Segoe UI")
+    JackFields["badge"] := JackPanel.Add("Text", "x319 y22 w150 h23 Center +0x100 BackgroundTrans", "")
+    JackFields["badge"].OnEvent("Click", ToggleJackTracker)
+    JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
+    JackFields["portalGlance"] := JackPanel.Add("Text", "x490 y22 w185 h25 +0x100 BackgroundTrans", "")
+    JackFields["portalGlance"].OnEvent("Click", ToggleJackTracker)
+    JackFields["spawnGlance"] := JackPanel.Add("Text", "x685 y22 w155 h25 +0x100 BackgroundTrans", "")
+    JackFields["spawnGlance"].OnEvent("Click", ToggleJackTracker)
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
@@ -61,8 +67,8 @@ StartJackTracker()
     JackFields["players"] := JackPanel.Add("Text", "x26 y253 w905 h33 BackgroundTrans", "")
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
-    JackPanel.Show("NoActivate w960 h43")
-    RegisterRaidEventPanel("jack", JackPanel, 43, 306)
+    JackPanel.Show("NoActivate w960 h65")
+    RegisterRaidEventPanel("jack", JackPanel, 65, 322)
     PositionRaidEventStack()
     ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
     ; WM_WINDOWPOSCHANGED handles moves from scaling and other code paths.
