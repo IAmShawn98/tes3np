@@ -188,10 +188,11 @@ LayoutJackTracker(width)
     ; Reserve a fixed title column so the complete event name is visible.
     ; Keep these controls close to the rendered title, not the oversized
     ; 40%-wide title control that previously left a large blank gap.
-    titleW := 355
+    ; Full title needs its own measured-width region; do not overlap it.
+    titleW := 430
     JackFields["heading"].Move(16, 20, titleW, 28)
     badgeW := 145
-    badgeX := 16 + titleW + 26
+    badgeX := 16 + titleW + 18
     portalX := badgeX + badgeW + 16
     JackFields["badge"].Move(badgeX, 17, badgeW, 31)
     JackFields["portalGlance"].Move(portalX, 22, Max(90, right - 125 - portalX), 25)
