@@ -112,8 +112,9 @@ CreateLauncherChatToggle()
     LauncherChatToggle := LauncherGui.Add("Text",
         "x3 y294 w45 h112 +0x100 BackgroundA77C3A", "")
     OnMessage(0x000F, PaintLauncherChatToggle)
-    ; STATIC sends STN_CLICKED as WM_COMMAND to its parent.
-    OnMessage(0x0111, LauncherChatCommandClick)
+    ; Route clicks through the control's native AHK event. WM_COMMAND
+    ; interception can be swallowed by the launcher themed-button handlers.
+    LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
     ; The chat host reports its actual open/closed state after every change.
     OnMessage(0x8332, LauncherChatStateChanged)
     OnMessage(0x8333, LauncherPickleKillAlert)
