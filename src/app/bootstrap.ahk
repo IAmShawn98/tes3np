@@ -90,7 +90,10 @@ StartLauncher()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
-    SetTimer(OfferFirstRunSetup, SetupComplete ? -1000 : -10000)
+    ; First-run setup is triggered by the countdown reaching zero.
+    ; Only completed installations use the delayed background verification.
+    if SetupComplete
+        SetTimer(OfferFirstRunSetup, -1000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
