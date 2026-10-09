@@ -53,9 +53,11 @@ PositionJackTracker()
         return
     try {
         WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
-        barWidth := Round(w * 824 / 960)
-        barHeight := JackExpanded ? 172 : 59
-        JackPanel.Show("NoActivate x" (x + Round((w - barWidth)/2)) " y" Max(0, y - barHeight - 5) " w" barWidth " h" barHeight)
+        ; Anchor the alert to the launcher itself, not the desktop. Keep
+        ; identical left/right edges in both expanded and collapsed states.
+        barWidth := w
+        barHeight := JackExpanded ? Round(172 * w / 960) : Round(59 * w / 960)
+        JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
     }
 }
 
