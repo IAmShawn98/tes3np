@@ -188,9 +188,11 @@ LayoutJackTracker(width)
     ; Reserve a fixed title column so the complete event name is visible.
     titleW := Round(width * 0.40)
     JackFields["heading"].Move(16, 20, titleW - 22, 28)
-    badgeX := Round(width * 0.425)
+    ; Place status and portal directly after the title, with a 10px
+    ; larger title-to-status gap than the status-to-portal gap.
     badgeW := Round(width * 0.15)
-    portalX := Round(width * 0.59)
+    badgeX := titleW + 26
+    portalX := badgeX + badgeW + 16
     JackFields["badge"].Move(badgeX, 17, badgeW, 31)
     JackFields["portalGlance"].Move(portalX, 22, Max(90, right - 125 - portalX), 25)
     JackFields["summary"].Move(16, 48, width - 32, 31)
