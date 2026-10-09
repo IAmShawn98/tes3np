@@ -14,12 +14,14 @@ global JackRaidEnded := false
 
 StartJackTracker()
 {
-    global JackPanel, JackLogSize, JackFields
+    global JackPanel, JackLogSize, JackFields, LauncherGui
     if Integer(FormatTime(, "M")) != 10
         return
     log := A_AppData "\TES3NP\Logs\game-chat.log"
     JackLogSize := FileExist(log) ? FileGetSize(log) : 0
-    JackPanel := Gui("-Caption +ToolWindow", "TES3NP Jack Raid")
+    ; Owner relationship keeps the panel with the launcher in Z-order,
+    ; including minimize/restore, without changing launcher dimensions.
+    JackPanel := Gui("-Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
     JackPanel.SetFont("s11 Bold cE9C78D", "Georgia")
     heading := JackPanel.Add("Text", "x14 y8 w685 h26 +0x100", "JACK — RAID BOSS")
@@ -34,6 +36,10 @@ StartJackTracker()
     JackFields["toggle"] := toggle
     JackPanel.Show("NoActivate w824 h59")
     PositionJackTracker()
+    ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
+    ; WM_WINDOWPOSCHANGED handles moves from scaling and other code paths.
+    OnMessage(0x0216, JackFollowLauncherMoving)
+    OnMessage(0x0047, JackFollowLauncherWindowPos)
     SetTimer(JackTrackerTick, 1000)
     RefreshJackTracker()
 }
@@ -46,15 +52,48 @@ ToggleJackTracker(*)
     RefreshJackTracker()
 }
 
-PositionJackTracker()
+JackFollowLauncherMoving(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui
+    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd || !lParam
+        return
+    ; RECT: left, top, right, bottom (four signed 32-bit integers).
+    x := NumGet(lParam, 0, "Int"), y := NumGet(lParam, 4, "Int")
+    w := NumGet(lParam, 8, "Int") - x
+    PositionJackTracker(x, y, w)
+}
+
+JackFollowLauncherWindowPos(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui
+    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd || !lParam
+        return
+    ; WINDOWPOS: hwnd, hwndInsertAfter, x, y, cx, cy, flags.
+    x := NumGet(lParam, A_PtrSize * 2, "Int")
+    y := NumGet(lParam, A_PtrSize * 2 + 4, "Int")
+    w := NumGet(lParam, A_PtrSize * 2 + 8, "Int")
+    flags := NumGet(lParam, A_PtrSize * 2 + 16, "UInt")
+    if flags & 0x0002 { ; SWP_NOMOVE: coordinates are not valid
+        PositionJackTracker()
+        return
+    }
+    PositionJackTracker(x, y, w)
+}
+
+PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
 {
     global JackPanel, LauncherGui, JackExpanded
     if !IsObject(JackPanel) || !IsObject(LauncherGui)
         return
     try {
         WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
-        ; Anchor the alert to the launcher itself, not the desktop. Keep
-        ; identical left/right edges in both expanded and collapsed states.
+        if forcedX != ""
+            x := forcedX
+        if forcedY != ""
+            y := forcedY
+        if forcedW != "" && forcedW > 0
+            w := forcedW
+        ; Keep the bar aligned with the launcher without resizing the launcher.
         barWidth := w
         barHeight := JackExpanded ? Round(172 * w / 960) : Round(59 * w / 960)
         JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
@@ -165,6 +204,8 @@ StopJackTracker()
 {
     global JackPanel
     SetTimer(JackTrackerTick, 0)
+    OnMessage(0x0216, JackFollowLauncherMoving, 0)
+    OnMessage(0x0047, JackFollowLauncherWindowPos, 0)
     if IsObject(JackPanel)
         JackPanel.Destroy()
     JackPanel := 0
