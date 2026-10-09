@@ -294,11 +294,13 @@ CheckPatchWorker()
         ; Only a successful Apply establishes setup; Restore clears it.
         if job.Action = "Apply"
             SetupComplete := state = "success"
+        else if job.Action = "Verify" && state = "success"
+            SetupComplete := true
         else if job.Action = "Restore" && state = "success"
             SetupComplete := false
         DirCreate(AppDataDirectory)
         IniWrite(SetupComplete ? "1" : "0", DataFile, "Patch", "Complete")
-        if state = "success" && job.Action = "Apply"
+        if state = "success" && (job.Action = "Apply" || job.Action = "Verify")
         {
             for entry in [["TesFolder", job.TesFolder], ["MorrowindFolder", job.MorrowindFolder], ["ConfigFile", job.ConfigFile], ["LastBackup", IniRead(result, "Result", "Backup", "")]]
                 IniWrite(entry[2], DataFile, "Patch", entry[1])
