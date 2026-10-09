@@ -483,6 +483,17 @@ OfferFirstRunSetup(*)
     }
     firstRunPromptShown := true
     SetTimer(OfferFirstRunSetup, 0)
+    ; A missing setup flag does not prove the files are unpatched. Verify the
+    ; existing installation first, without changing game files.
+    config := PatchConfigurationPath()
+    morrowind := FindMorrowindFolder(config)
+    if morrowind != "" && FileExist(config)
+    {
+        LogLauncherEvent("First-run TES3MP folder detected; verifying existing installation before offering patches.")
+        EndGameDetectionDisplay()
+        if StartPatchWorker("Verify", tesFolder, morrowind, config, LauncherGui, true)
+            return
+    }
     LogLauncherEvent("First-run TES3MP folder detected at " tesFolder "; offering patch installation.")
     if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
     {
