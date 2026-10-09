@@ -90,7 +90,7 @@ StartLauncher()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
-    SetTimer(OfferFirstRunSetup, SetupComplete ? -1000 : -3000)
+    SetTimer(OfferFirstRunSetup, SetupComplete ? -1000 : -10000)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -443,44 +443,32 @@ CleanupLauncher(*)
 
 OfferFirstRunSetup(*)
 {
-    global SetupComplete, LauncherGui, DataFile, LauncherHelpText
+    global SetupComplete, LauncherGui, DataFile, GameDetectionActive
     static firstRunPromptShown := false
     if SetupComplete
     {
-        ; Returning players are verified silently; first-run prompts do not repeat.
-        config := PatchConfigurationPath()
+        ; Verify returning players without showing the first-install dialog.
+        config := IniRead(DataFile, "Patch", "ConfigFile", PatchConfigurationPath())
         morrowind := IniRead(DataFile, "Patch", "MorrowindFolder", "")
         tesFolder := FindTES3MPFolder()
         if tesFolder != "" && morrowind != "" && FileExist(config)
             StartPatchWorker("Verify", tesFolder, morrowind, config, LauncherGui, true)
         return
     }
-    ; Prompt once as soon as the initial detection grace period completes.
     if firstRunPromptShown
         return
+    ; Let the ten-second countdown finish. Detection runs while it is visible.
     tesFolder := FindTES3MPFolder()
     if tesFolder = ""
     {
-        ; Continue detecting through the full countdown before falling back.
-        global GameDetectionSeconds
-        if GameDetectionSeconds > 0
-        {
-            SetTimer(OfferFirstRunSetup, -1000)
-            return
-        }
-        LogLauncherEvent("First-run patch prompt skipped: TES3MP installation not detected.")
+        LogLauncherEvent("First-run detection finished without locating TES3MP.")
         EndGameDetectionDisplay()
         return
     }
     firstRunPromptShown := true
-    ; Detection succeeded. Let the user decide before opening the normal patch UI.
-    if MsgBox("TES3MP was detected. Would you like to patch it for Nerevarine Prophecies now?", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
-    {
-        EndGameDetectionDisplay()
+    EndGameDetectionDisplay()
+    if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
         OpenPatcher()
-    }
-    else
-        EndGameDetectionDisplay()
 }
 
 OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
