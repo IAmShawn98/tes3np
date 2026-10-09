@@ -15,6 +15,7 @@ global JackRaidEnded := false
 global RaidEventStack := Map()
 global RaidEventOrder := []
 global JackLayoutWidth := 0
+global JackTrackerVisible := false
 
 StartJackTracker()
 {
@@ -58,11 +59,11 @@ StartJackTracker()
     JackFields["statusHeading"] := JackPanel.Add("Text", "x26 y79 w420 h25 BackgroundTrans", "RAID STATUS")
     JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y207 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
     JackPanel.SetFont("s13 Bold cF0D5A3", "Segoe UI")
-    JackFields["location"] := JackPanel.Add("Text", "x26 y111 w420 h30 BackgroundTrans", "")
-    JackFields["raid"] := JackPanel.Add("Text", "x490 y111 w440 h30 BackgroundTrans", "")
+    JackFields["location"] := JackPanel.Add("Text", "x490 y111 w440 h30 BackgroundTrans", "")
+    JackFields["raid"] := JackPanel.Add("Text", "x26 y111 w420 h30 BackgroundTrans", "")
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
-    JackFields["access"] := JackPanel.Add("Text", "x26 y153 w420 h24 BackgroundTrans", "")
-    JackFields["countdown"] := JackPanel.Add("Text", "x490 y153 w440 h24 BackgroundTrans", "")
+    JackFields["access"] := JackPanel.Add("Text", "x490 y153 w440 h24 BackgroundTrans", "")
+    JackFields["countdown"] := JackPanel.Add("Text", "x26 y153 w420 h24 BackgroundTrans", "")
     JackFields["players"] := JackPanel.Add("Text", "x26 y239 w905 h33 BackgroundTrans", "")
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
@@ -150,7 +151,7 @@ UnregisterRaidEventPanel(id)
 
 PositionRaidEventStack(forcedX := "", forcedY := "", forcedW := "")
 {
-    global LauncherGui, RaidEventStack, RaidEventOrder
+    global LauncherGui, RaidEventStack, RaidEventOrder, JackTrackerVisible
     if !IsObject(LauncherGui)
         return
     try {
@@ -165,6 +166,10 @@ PositionRaidEventStack(forcedX := "", forcedY := "", forcedW := "")
         ; Older registered events remain below newer ones.
         for id in RaidEventOrder {
             entry := RaidEventStack[id]
+            if id = "jack" && !JackTrackerVisible {
+                entry.gui.Hide()
+                continue
+            }
             height := entry.isExpanded ? entry.expanded : entry.collapsed
             y -= height
             entry.gui.Show("NoActivate x" x " y" y " w" w " h" height)
@@ -206,11 +211,11 @@ LayoutJackTracker(width)
     for key in ["portalHeading", "location", "access"] {
         ; Preserve each control's vertical coordinate and height.
         JackFields[key].GetPos(, &cy, , &ch)
-        JackFields[key].Move(leftX + 14, cy, half - 28, ch)
+        JackFields[key].Move(rightX + 14, cy, rightW - 28, ch)
     }
     for key in ["statusHeading", "raid", "countdown"] {
         JackFields[key].GetPos(, &cy, , &ch)
-        JackFields[key].Move(rightX + 14, cy, rightW - 28, ch)
+        JackFields[key].Move(leftX + 14, cy, half - 28, ch)
     }
     JackFields["players"].Move(26, 239, width - 52, 33)
 }
@@ -298,7 +303,7 @@ ProcessJackChatLine(line)
 RefreshJackTracker()
 {
     global JackPanel, JackFields, JackLastTimeTick, JackGameMinutes
-    global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded
+    global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
@@ -317,6 +322,7 @@ RefreshJackTracker()
         displayState := "Active"
     else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
         displayState := "Starting Soon"
+    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon"
     JackFields["badge"].Text := displayState
     ; Live color coding: green for active, amber for imminent, muted brown otherwise.
     if displayState = "Active" {
