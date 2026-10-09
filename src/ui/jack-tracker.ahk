@@ -34,7 +34,7 @@ StartJackTracker()
     toggle := JackPanel.Add("Text", "x736 y9 w74 h24 Right +0x100", "Expand  ▾")
     toggle.OnEvent("Click", ToggleJackTracker)
     JackFields["toggle"] := toggle
-    JackPanel.Show("NoActivate w824 h59")
+    JackPanel.Show("NoActivate w960 h59")
     PositionJackTracker()
     ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
     ; WM_WINDOWPOSCHANGED handles moves from scaling and other code paths.
@@ -95,7 +95,9 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
             w := forcedW
         ; Keep the bar aligned with the launcher without resizing the launcher.
         barWidth := w
-        barHeight := JackExpanded ? Round(172 * w / 960) : Round(59 * w / 960)
+        ; Keep the alert compact: its GUI content is laid out in fixed
+        ; logical pixels and should not grow vertically with launcher scale.
+        barHeight := JackExpanded ? 172 : 59
         JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
     }
 }
