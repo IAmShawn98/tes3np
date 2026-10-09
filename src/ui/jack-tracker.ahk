@@ -50,12 +50,12 @@ StartJackTracker()
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
-    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y68 w452 h118 Background292118")
-    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y68 w472 h118 Background292118")
+    JackFields["portalBg"] := JackPanel.Add("Text", "x476 y68 w472 h118 Background292118")
+    JackFields["statusBg"] := JackPanel.Add("Text", "x12 y68 w452 h118 Background292118")
     JackFields["playersBg"] := JackPanel.Add("Text", "x12 y196 w936 h84 Background292118")
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
-    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y79 w420 h25 BackgroundTrans", "PORTAL LOCATION")
-    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y79 w440 h25 BackgroundTrans", "RAID STATUS")
+    JackFields["portalHeading"] := JackPanel.Add("Text", "x490 y79 w440 h25 BackgroundTrans", "PORTAL LOCATION")
+    JackFields["statusHeading"] := JackPanel.Add("Text", "x26 y79 w420 h25 BackgroundTrans", "RAID STATUS")
     JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y207 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
     JackPanel.SetFont("s13 Bold cF0D5A3", "Segoe UI")
     JackFields["location"] := JackPanel.Add("Text", "x26 y111 w420 h30 BackgroundTrans", "")
@@ -200,8 +200,8 @@ LayoutJackTracker(width)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
     rightW := width - rightX - 12
-    JackFields["portalBg"].Move(leftX, 68, half, 118)
-    JackFields["statusBg"].Move(rightX, 68, rightW, 118)
+    JackFields["portalBg"].Move(rightX, 68, rightW, 118)
+    JackFields["statusBg"].Move(leftX, 68, half, 118)
     JackFields["playersBg"].Move(12, 196, width - 24, 84)
     for key in ["portalHeading", "location", "access"] {
         ; Preserve each control's vertical coordinate and height.
