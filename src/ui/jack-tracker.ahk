@@ -8,7 +8,7 @@ global JackLastTimeTick := 0
 global JackGameMinutes := 0
 global JackRaidState := "Awaiting evidence"
 global JackPortalState := "Unknown"
-global JackPortalLocation := "Balmora Portal"
+global JackPortalLocation := "Balmora"
 global JackPlayers := Map()
 global JackRaidEnded := false
 ; Event panels are registered bottom-to-top. Each can expand independently.
@@ -28,7 +28,7 @@ StartJackTracker()
     JackPanel := Gui("-DPIScale -Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
     JackPanel.SetFont("s14 Bold cE9C78D", "Georgia")
-    heading := JackPanel.Add("Text", "x16 y17 w295 h31 +0x100 BackgroundTrans", "JACK — RAID BOSS")
+    heading := JackPanel.Add("Text", "x16 y17 w385 h31 +0x100 BackgroundTrans", "JACK — RAID BOSS (Morroween Event)")
     heading.OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
     JackFields["toggle"] := JackPanel.Add("Text", "x844 y20 w98 h27 Right +0x100 BackgroundTrans", "Expand  ▾")
@@ -46,8 +46,6 @@ StartJackTracker()
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
     JackFields["portalGlance"] := JackPanel.Add("Text", "x490 y22 w185 h25 +0x100 BackgroundTrans", "")
     JackFields["portalGlance"].OnEvent("Click", ToggleJackTracker)
-    JackFields["spawnGlance"] := JackPanel.Add("Text", "x685 y22 w155 h25 +0x100 BackgroundTrans", "")
-    JackFields["spawnGlance"].OnEvent("Click", ToggleJackTracker)
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
@@ -186,13 +184,11 @@ LayoutJackTracker(width)
     right := width - 16
     JackFields["toggle"].Move(right - 115, 19, 115, 28)
     ; Four separate columns, with the action anchored at the far right.
-    badgeX := Round(width * 0.285)
-    portalX := Round(width * 0.49)
-    spawnX := Round(width * 0.68)
-    JackFields["badgeBg"].Move(badgeX, 17, Round(width * 0.175), 31)
-    JackFields["badge"].Move(badgeX + 5, 22, Round(width * 0.175) - 10, 23)
-    JackFields["portalGlance"].Move(portalX, 22, Max(90, spawnX - portalX - 8), 25)
-    JackFields["spawnGlance"].Move(spawnX, 22, Max(90, right - 125 - spawnX), 25)
+    badgeX := Round(width * 0.405)
+    portalX := Round(width * 0.58)
+    JackFields["badgeBg"].Move(badgeX, 17, Round(width * 0.155), 31)
+    JackFields["badge"].Move(badgeX + 5, 22, Round(width * 0.155) - 10, 23)
+    JackFields["portalGlance"].Move(portalX, 22, Max(90, right - 125 - portalX), 25)
     JackFields["summary"].Move(16, 48, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
@@ -299,6 +295,7 @@ RefreshJackTracker()
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
+    remaining := 999999
     if JackLastTimeTick {
         gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
         remaining := Mod(1260 - gameNow + 1440, 1440) * 2
@@ -306,10 +303,16 @@ RefreshJackTracker()
     }
     JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   " countdown
     JackFields["summary"].Visible := JackExpanded
-    JackFields["badge"].Text := JackRaidState
-    JackFields["portalGlance"].Text := JackPortalLocation
-    JackFields["spawnGlance"].Text := JackLastTimeTick ? StrReplace(countdown, "Next 9 PM: ", "Next spawn: ") : "Next spawn: Unknown"
-    for key in ["badgeBg", "badge", "portalGlance", "spawnGlance"]
+    ; A compact three-state indicator. Combat evidence overrides the clock;
+    ; the clock alone can only predict an approaching spawn, not a live fight.
+    displayState := "Inactive"
+    if JackRaidState = "Active"
+        displayState := "Active"
+    else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
+        displayState := "Starting Soon"
+    JackFields["badge"].Text := displayState
+    JackFields["portalGlance"].Text := JackPortalLocation = "Balmora" ? "Eerie Portal: Balmora" : "Balmora Portal: " JackPortalLocation
+    for key in ["badgeBg", "badge", "portalGlance"]
         JackFields[key].Visible := !JackExpanded
     names := ""
     for name, status in JackPlayers
