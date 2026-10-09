@@ -216,7 +216,7 @@ EndGameDetectionDisplay()
         ; Transparent Win32 text controls retain old glyphs unless the parent
         ; repaints the full status rectangle after changing the text.
         LauncherHelpText.Visible := false
-        LauncherHelpText.Text := 'Click "Patch Tes3mp" to continue.'
+        LauncherHelpText.Text := "Place tes3np into your tes3mp folder and click 'Patch tes3mp' to continue."
         LauncherHelpText.Visible := true
         LauncherHelpText.GetPos(&x, &y, &w, &h)
         rect := Buffer(16, 0)
