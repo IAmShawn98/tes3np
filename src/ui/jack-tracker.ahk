@@ -333,10 +333,13 @@ RefreshJackTracker()
     }
     ; Status and portal location are already displayed in the detail cards.
     JackFields["summary"].Visible := false
-    ; A compact three-state indicator. Combat evidence overrides the clock;
-    ; the clock alone can only predict an approaching spawn, not a live fight.
+    ; !time synchronizes an internal clock. The 9 PM–3 AM window is
+    ; scheduled activity, not proof Jack is alive or the portal is open.
+    inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 180)
     displayState := "Inactive"
-    if JackRaidState = "Active"
+    if JackRaidState = "Active" && inRaidWindow
+        displayState := "Active"
+    else if inRaidWindow && JackRaidState != "Likely defeated"
         displayState := "Active"
     else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
         displayState := "Starting Soon"
@@ -360,7 +363,7 @@ RefreshJackTracker()
     for name, status in JackPlayers
         names .= (names = "" ? "" : "    •    ") name " (" status ")"
     JackFields["location"].Text := JackPortalLocation
-    JackFields["raid"].Text := JackRaidState
+    JackFields["raid"].Text := inRaidWindow && JackRaidState = "Awaiting evidence" ? "Scheduled window (unconfirmed)" : JackRaidState
     JackFields["access"].Text := "Accessibility: " JackPortalState
     JackFields["countdown"].Text := countdown
     JackFields["playersHeading"].Text := "SUSPECTED PARTICIPANTS (" JackPlayers.Count ")"
