@@ -21,7 +21,7 @@ StartJackTracker()
     JackLogSize := FileExist(log) ? FileGetSize(log) : 0
     ; Owner relationship keeps the panel with the launcher in Z-order,
     ; including minimize/restore, without changing launcher dimensions.
-    JackPanel := Gui("-Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
+    JackPanel := Gui("-DPIScale -Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
     JackPanel.SetFont("s11 Bold cE9C78D", "Georgia")
     heading := JackPanel.Add("Text", "x14 y8 w685 h26 +0x100", "JACK — RAID BOSS")
@@ -71,13 +71,12 @@ JackFollowLauncherWindowPos(wParam, lParam, msg, hwnd)
     ; WINDOWPOS: hwnd, hwndInsertAfter, x, y, cx, cy, flags.
     x := NumGet(lParam, A_PtrSize * 2, "Int")
     y := NumGet(lParam, A_PtrSize * 2 + 4, "Int")
-    w := NumGet(lParam, A_PtrSize * 2 + 8, "Int")
     flags := NumGet(lParam, A_PtrSize * 2 + 16, "UInt")
     if flags & 0x0002 { ; SWP_NOMOVE: coordinates are not valid
         PositionJackTracker()
         return
     }
-    PositionJackTracker(x, y, w)
+    PositionJackTracker(x, y)
 }
 
 PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
@@ -91,8 +90,8 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
             x := forcedX
         if forcedY != ""
             y := forcedY
-        if forcedW != "" && forcedW > 0
-            w := forcedW
+        ; Always take the actual launcher width, not WINDOWPOS.cx (which
+        ; can be undefined for SWP_NOSIZE).
         ; Keep the bar aligned with the launcher without resizing the launcher.
         barWidth := w
         ; Keep the alert compact: its GUI content is laid out in fixed
