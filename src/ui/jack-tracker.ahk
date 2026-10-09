@@ -308,10 +308,8 @@ RefreshJackTracker()
         remaining := Mod(1260 - gameNow + 1440, 1440) * 2
         countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
     }
-    ; Expanded summary is a fixed event overview; portal details remain in the cards.
-    expandedState := JackRaidState = "Active" ? "Active" : (JackLastTimeTick && remaining <= 300 && JackRaidState != "Likely defeated" ? "Starting Soon" : "Awaiting Evidence")
-    JackFields["summary"].Text := expandedState "   |   Location: Balmora Eerie Portal"
-    JackFields["summary"].Visible := JackExpanded
+    ; Status and portal location are already displayed in the detail cards.
+    JackFields["summary"].Visible := false
     ; A compact three-state indicator. Combat evidence overrides the clock;
     ; the clock alone can only predict an approaching spawn, not a live fight.
     displayState := "Inactive"
