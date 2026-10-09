@@ -15,6 +15,8 @@ global JackPortalReported := 0
 global JackRaidReported := 0
 global JackClockReported := 0
 global JackRaidEnded := false
+global JackCombatTick := 0
+global JackVictoryHints := Map()
 global JackLastClockMinute := -1
 ; Event panels are registered bottom-to-top. Each can expand independently.
 global RaidEventStack := Map()
@@ -271,6 +273,7 @@ ProcessJackChatLine(line)
     global JackLastTimeTick, JackGameMinutes, JackRaidState, JackPortalState
     global JackPortalLocation, JackPlayers, JackRaidEnded, JackExpanded, JackCollapseAt
     global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
+    global JackCombatTick, JackVictoryHints
     if RegExMatch(line, "i)The current in-game time is\s+(\d{1,2}):(\d{2})\s*(AM|PM)", &m) {
         hour := Mod(Integer(m[1]), 12) + (StrUpper(m[3]) = "PM" ? 12 : 0)
         JackGameMinutes := hour * 60 + Integer(m[2])
@@ -295,6 +298,8 @@ ProcessJackChatLine(line)
         JackRaidReported := A_TickCount
         JackPortalReported := A_TickCount
         JackRaidState := "Active"
+        JackCombatTick := A_TickCount
+        JackVictoryHints.Clear()
         JackPortalState := "Open"
         JackPortalReported := A_TickCount
         JackExpanded := true
@@ -310,9 +315,29 @@ ProcessJackChatLine(line)
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
     }
+    ; A victory phrase alone is ambiguous. Require recent Jack combat, and
+    ; either an explicit Jack victory or two distinct contextual hints.
+    ; Examples from real chat: "there we go", "we wrecked his shiz", "OWNED".
+    if JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000 {
+        explicitWin := RegExMatch(body, "i)\\b(?:jack (?:kill|dead|defeated)|(?:killed|beat|defeated) jack|jack(?:'s| is)? down|mostly solo jack kill)\\b")
+        contextualWin := RegExMatch(body, "i)\\b(?:we won|we (?:wrecked|got|beat) (?:him|his)|there we go|owned|gg(?:s)?|got him)\\b")
+        if explicitWin || contextualWin {
+            JackVictoryHints[sender] := A_TickCount
+            if explicitWin || JackVictoryHints.Count >= 2 {
+                JackRaidState := "Likely defeated"
+                JackRaidReported := A_TickCount
+                JackPortalState := "Closed"
+                JackPortalReported := A_TickCount
+                JackExpanded := true
+                JackCollapseAt := A_TickCount + 14000
+            }
+        }
+    }
     ; Phase announcements are strong evidence of a live Jack encounter.
     if RegExMatch(body, "i)\bjack\s+phase\s*[1-9]\b") {
         JackRaidState := "Active"
+        JackCombatTick := A_TickCount
+        JackVictoryHints.Clear()
         JackPortalState := "Open"
         JackPlayers[sender] := "Fighting"
         JackPlayerReported[sender] := A_TickCount
@@ -348,6 +373,7 @@ RefreshJackTracker()
     global JackPanel, JackFields, JackLastTimeTick, JackGameMinutes
     global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible, JackLastClockMinute
     global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
+    global JackCombatTick, JackVictoryHints
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
@@ -362,6 +388,8 @@ RefreshJackTracker()
             JackPlayers.Clear()
             JackPlayerReported.Clear()
             JackRaidReported := 0
+            JackCombatTick := 0
+            JackVictoryHints.Clear()
             JackPortalReported := A_TickCount
             JackExpanded := false
         }
@@ -379,19 +407,19 @@ RefreshJackTracker()
         JackPortalReported := A_TickCount
     }
     displayState := "Inactive"
-    if JackRaidState = "Active" && inRaidWindow
+    if JackRaidState = "Active" && inRaidWindow && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000
         displayState := "Active"
     else if inRaidWindow && JackRaidState != "Likely defeated"
-        displayState := "Active"
+        displayState := "Scheduled"
     else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
         displayState := "Starting Soon"
-    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon"
+    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon" || displayState = "Scheduled"
     JackFields["badge"].Text := displayState
     ; Live color coding: green for active, amber for imminent, muted brown otherwise.
     if displayState = "Active" {
         JackFields["badge"].SetFont("cA8E6B1")
         JackFields["badge"].Opt("Background214B32")
-    } else if displayState = "Starting Soon" {
+    } else if displayState = "Starting Soon" || displayState = "Scheduled" {
         JackFields["badge"].SetFont("cF5CF85")
         JackFields["badge"].Opt("Background54371B")
     } else {
