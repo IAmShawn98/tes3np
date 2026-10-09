@@ -44,8 +44,8 @@ StartJackTracker()
     JackPanel.SetFont("s10 Norm cE9A25D", "Segoe UI")
     JackFields["badge"] := JackPanel.Add("Text", "x400 y17 w155 h31 Center +0x200 +0x100 Background3C2317", "")
     JackFields["badge"].OnEvent("Click", ToggleJackTracker)
-    JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
-    JackFields["portalGlance"] := JackPanel.Add("Text", "x490 y22 w185 h25 +0x100 BackgroundTrans", "")
+    JackPanel.SetFont("s10 Norm cE9C78D", "Segoe UI")
+    JackFields["portalGlance"] := JackPanel.Add("Text", "x490 y17 w205 h31 Center +0x200 +0x100 Background30261E", "")
     JackFields["portalGlance"].OnEvent("Click", ToggleJackTracker)
 
     ; Dark inset cards and gold headings give each type of information its own
@@ -195,7 +195,7 @@ LayoutJackTracker(width)
     badgeX := 16 + titleW + 18
     portalX := badgeX + badgeW + 16
     JackFields["badge"].Move(badgeX, 17, badgeW, 31)
-    JackFields["portalGlance"].Move(portalX, 22, Max(90, right - 125 - portalX), 25)
+    JackFields["portalGlance"].Move(portalX, 17, Max(90, Min(235, right - 125 - portalX)), 31)
     JackFields["summary"].Move(16, 48, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
@@ -318,6 +318,17 @@ RefreshJackTracker()
     else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
         displayState := "Starting Soon"
     JackFields["badge"].Text := displayState
+    ; Live color coding: green for active, amber for imminent, muted brown otherwise.
+    if displayState = "Active" {
+        JackFields["badge"].SetFont("cA8E6B1")
+        JackFields["badge"].Opt("Background214B32")
+    } else if displayState = "Starting Soon" {
+        JackFields["badge"].SetFont("cF5CF85")
+        JackFields["badge"].Opt("Background54371B")
+    } else {
+        JackFields["badge"].SetFont("cE9A25D")
+        JackFields["badge"].Opt("Background3C2317")
+    }
     JackFields["portalGlance"].Text := JackPortalLocation = "Balmora" ? "Eerie Portal: Balmora" : "Balmora Portal: " JackPortalLocation
     for key in ["badge", "portalGlance"]
         JackFields[key].Visible := !JackExpanded
