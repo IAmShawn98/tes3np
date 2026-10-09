@@ -90,10 +90,12 @@ StartLauncher()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
-    ; First-run setup is triggered by the countdown reaching zero.
-    ; Only completed installations use the delayed background verification.
+    ; Poll for the adjacent TES3MP executable without a visible countdown.
+    ; Existing installations keep their normal background verification.
     if SetupComplete
         SetTimer(OfferFirstRunSetup, -1000)
+    else
+        SetTimer(OfferFirstRunSetup, 500)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -460,21 +462,20 @@ OfferFirstRunSetup(*)
     }
     if firstRunPromptShown
         return
-    ; Let the ten-second countdown finish. Detection runs while it is visible.
-    tesFolder := FindTES3MPFolder()
-    if tesFolder = ""
-    {
-        firstRunPromptShown := true
-        LogLauncherEvent("First-run detection finished without locating TES3MP; showing recovery prompt.")
-        EndGameDetectionDisplay()
-        if MsgBox("TES3MP could not be found. Place tes3np.exe in the same folder as tes3mp.exe, or select your TES3MP installation using Repair Game Install. Open Repair Game Install now?", "Nerevarine Prophecies", "YesNo Icon!") = "Yes"
-            OpenPatcher()
+    ; Only a tes3np executable placed directly beside tes3mp.exe qualifies.
+    ; Saved installation paths must not trigger the first-run prompt.
+    if !FileExist(A_ScriptDir "\\tes3mp.exe")
         return
-    }
     firstRunPromptShown := true
-    EndGameDetectionDisplay()
+    SetTimer(OfferFirstRunSetup, 0)
+    LogLauncherEvent("First-run TES3MP folder detected; offering patch installation.")
     if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
+    {
+        EndGameDetectionDisplay()
         OpenPatcher()
+    }
+    else
+        EndGameDetectionDisplay()
 }
 
 OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
