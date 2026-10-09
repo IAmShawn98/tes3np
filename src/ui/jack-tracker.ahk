@@ -32,6 +32,7 @@ StartJackTracker()
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
     JackFields["summary"] := JackPanel.Add("Text", "x16 y37 w918 h31 +0x100 BackgroundTrans", "")
     JackFields["summary"].OnEvent("Click", ToggleJackTracker)
+    JackFields["summary"].Visible := false
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
@@ -51,7 +52,7 @@ StartJackTracker()
     JackFields["players"] := JackPanel.Add("Text", "x26 y253 w905 h33 BackgroundTrans", "")
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
-    JackPanel.Show("NoActivate w960 h59")
+    JackPanel.Show("NoActivate w960 h43")
     PositionJackTracker()
     ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
     ; WM_WINDOWPOSCHANGED handles moves from scaling and other code paths.
@@ -113,7 +114,7 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
         barWidth := w
         ; Keep the alert compact: its GUI content is laid out in fixed
         ; logical pixels and should not grow vertically with launcher scale.
-        barHeight := JackExpanded ? 306 : 59
+        barHeight := JackExpanded ? 306 : 43
         JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
     }
 }
@@ -206,6 +207,7 @@ RefreshJackTracker()
         countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
     }
     JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   Portal: " JackPortalState "   |   " countdown
+    JackFields["summary"].Visible := JackExpanded
     names := ""
     for name, status in JackPlayers
         names .= (names = "" ? "" : "    •    ") name " (" status ")"
