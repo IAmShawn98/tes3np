@@ -284,6 +284,7 @@ ProcessJackChatLine(line)
             return
         JackPlayers[Trim(death[1])] := "Fighting"
         JackRaidState := "Active"
+        JackPortalState := "Open"
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
         return
@@ -297,6 +298,7 @@ ProcessJackChatLine(line)
     ; Phase announcements are strong evidence of a live Jack encounter.
     if RegExMatch(body, "i)\bjack\s+phase\s*[1-9]\b") {
         JackRaidState := "Active"
+        JackPortalState := "Open"
         JackPlayers[sender] := "Fighting"
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
@@ -343,6 +345,8 @@ RefreshJackTracker()
     ; !time synchronizes an internal clock. The 9 PM–6 AM window is
     ; scheduled activity, not proof Jack is alive or the portal is open.
     inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 360)
+    if inRaidWindow && JackRaidState != "Likely defeated" && JackPortalState = "Unknown"
+        JackPortalState := "Open"
     displayState := "Inactive"
     if JackRaidState = "Active" && inRaidWindow
         displayState := "Active"
