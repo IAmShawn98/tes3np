@@ -279,8 +279,8 @@ ProcessJackChatLine(line)
         if !JackLastTimeTick
             return
         gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
-        ; Allow the fight to continue past midnight, up to 3 AM game time.
-        if !(gameNow >= 1260 || gameNow < 180)
+        ; Allow the fight to continue past midnight, up to 6 AM game time.
+        if !(gameNow >= 1260 || gameNow < 360)
             return
         JackPlayers[Trim(death[1])] := "Fighting"
         JackRaidState := "Active"
@@ -326,9 +326,9 @@ RefreshJackTracker()
     remaining := 999999
     if JackLastTimeTick {
         gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
-        ; Reset stale encounter evidence once the in-game clock reaches 3 AM.
+        ; Reset stale encounter evidence once the in-game clock reaches 6 AM.
         ; Track the clock crossing, not just the hour, to avoid repeat resets.
-        if JackLastClockMinute >= 0 && JackLastClockMinute < 180 && gameNow >= 180 && gameNow < 1260 {
+        if JackLastClockMinute >= 0 && JackLastClockMinute < 360 && gameNow >= 360 && gameNow < 1260 {
             JackRaidState := "Awaiting evidence"
             JackPortalState := "Unknown"
             JackPlayers.Clear()
@@ -340,9 +340,9 @@ RefreshJackTracker()
     }
     ; Status and portal location are already displayed in the detail cards.
     JackFields["summary"].Visible := false
-    ; !time synchronizes an internal clock. The 9 PM–3 AM window is
+    ; !time synchronizes an internal clock. The 9 PM–6 AM window is
     ; scheduled activity, not proof Jack is alive or the portal is open.
-    inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 180)
+    inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 360)
     displayState := "Inactive"
     if JackRaidState = "Active" && inRaidWindow
         displayState := "Active"
