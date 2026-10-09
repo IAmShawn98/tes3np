@@ -11,6 +11,9 @@ global JackPortalState := "Unknown"
 global JackPortalLocation := "Balmora Portal"
 global JackPlayers := Map()
 global JackRaidEnded := false
+; Event panels are registered bottom-to-top. Each can expand independently.
+global RaidEventStack := Map()
+global RaidEventOrder := []
 
 StartJackTracker()
 {
@@ -53,7 +56,8 @@ StartJackTracker()
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
     JackPanel.Show("NoActivate w960 h43")
-    PositionJackTracker()
+    RegisterRaidEventPanel("jack", JackPanel, 43, 306)
+    PositionRaidEventStack()
     ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
     ; WM_WINDOWPOSCHANGED handles moves from scaling and other code paths.
     OnMessage(0x0216, JackFollowLauncherMoving)
@@ -78,7 +82,7 @@ JackFollowLauncherMoving(wParam, lParam, msg, hwnd)
     ; RECT: left, top, right, bottom (four signed 32-bit integers).
     x := NumGet(lParam, 0, "Int"), y := NumGet(lParam, 4, "Int")
     w := NumGet(lParam, 8, "Int") - x
-    PositionJackTracker(x, y, w)
+    PositionRaidEventStack(x, y, w)
 }
 
 JackFollowLauncherWindowPos(wParam, lParam, msg, hwnd)
@@ -91,16 +95,52 @@ JackFollowLauncherWindowPos(wParam, lParam, msg, hwnd)
     y := NumGet(lParam, A_PtrSize * 2 + 4, "Int")
     flags := NumGet(lParam, A_PtrSize * 2 + 16, "UInt")
     if flags & 0x0002 { ; SWP_NOMOVE: coordinates are not valid
-        PositionJackTracker()
+        PositionRaidEventStack()
         return
     }
-    PositionJackTracker(x, y)
+    PositionRaidEventStack(x, y)
 }
 
-PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
+; Any future boss/event registers its own owned GUI here. The stack moves as
+; one, grows upward from the unchanged launcher, and supports independent state.
+RegisterRaidEventPanel(id, panel, collapsedHeight, expandedHeight)
 {
-    global JackPanel, LauncherGui, JackExpanded
-    if !IsObject(JackPanel) || !IsObject(LauncherGui)
+    global RaidEventStack, RaidEventOrder
+    if !RaidEventStack.Has(id)
+        RaidEventOrder.Push(id)
+    RaidEventStack[id] := {gui: panel, collapsed: collapsedHeight,
+        expanded: expandedHeight, isExpanded: false}
+    PositionRaidEventStack()
+}
+
+SetRaidEventExpanded(id, expanded)
+{
+    global RaidEventStack
+    if !RaidEventStack.Has(id)
+        return
+    RaidEventStack[id].isExpanded := expanded
+    PositionRaidEventStack()
+}
+
+UnregisterRaidEventPanel(id)
+{
+    global RaidEventStack, RaidEventOrder
+    if !RaidEventStack.Has(id)
+        return
+    RaidEventStack.Delete(id)
+    for i, key in RaidEventOrder {
+        if key = id {
+            RaidEventOrder.RemoveAt(i)
+            break
+        }
+    }
+    PositionRaidEventStack()
+}
+
+PositionRaidEventStack(forcedX := "", forcedY := "", forcedW := "")
+{
+    global LauncherGui, RaidEventStack, RaidEventOrder
+    if !IsObject(LauncherGui)
         return
     try {
         WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
@@ -108,15 +148,22 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
             x := forcedX
         if forcedY != ""
             y := forcedY
-        ; Always take the actual launcher width, not WINDOWPOS.cx (which
-        ; can be undefined for SWP_NOSIZE).
-        ; Keep the bar aligned with the launcher without resizing the launcher.
-        barWidth := w
-        ; Keep the alert compact: its GUI content is laid out in fixed
-        ; logical pixels and should not grow vertically with launcher scale.
-        barHeight := JackExpanded ? 306 : 43
-        JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
+        if forcedW != "" && forcedW > 0
+            w := forcedW
+        ; Anchor the lowest event directly to the launcher's top edge.
+        ; Older registered events remain below newer ones.
+        for id in RaidEventOrder {
+            entry := RaidEventStack[id]
+            height := entry.isExpanded ? entry.expanded : entry.collapsed
+            y -= height
+            entry.gui.Show("NoActivate x" x " y" y " w" w " h" height)
+        }
     }
+}
+
+PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
+{
+    PositionRaidEventStack(forcedX, forcedY, forcedW)
 }
 
 JackTrackerTick()
@@ -220,7 +267,7 @@ RefreshJackTracker()
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := JackExpanded
     JackFields["toggle"].Text := JackExpanded ? "Collapse  ▴" : "Expand  ▾"
-    PositionJackTracker()
+    SetRaidEventExpanded("jack", JackExpanded)
 }
 
 StopJackTracker()
@@ -229,6 +276,7 @@ StopJackTracker()
     SetTimer(JackTrackerTick, 0)
     OnMessage(0x0216, JackFollowLauncherMoving, 0)
     OnMessage(0x0047, JackFollowLauncherWindowPos, 0)
+    UnregisterRaidEventPanel("jack")
     if IsObject(JackPanel)
         JackPanel.Destroy()
     JackPanel := 0
