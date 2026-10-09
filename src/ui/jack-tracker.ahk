@@ -40,14 +40,9 @@ StartJackTracker()
     JackFields["summary"].Visible := false
     ; Collapsed strip: a separate warm status pill, portal and next spawn.
     ; Keeping each field separate avoids overflowing one long text control.
-    JackFields["badgeBg"] := JackPanel.Add("Text", "x310 y17 w165 h31 Background3C2317")
-    ; Rounded status capsule to match the compact event illustration.
-    try {
-        pillRegion := DllCall("gdi32\CreateRoundRectRgn", "Int", 0, "Int", 0, "Int", 165, "Int", 31, "Int", 22, "Int", 22, "Ptr")
-        DllCall("user32\SetWindowRgn", "Ptr", JackFields["badgeBg"].Hwnd, "Ptr", pillRegion, "Int", true)
-    }
+    ; Single centered status control: no overlapping translucent layers.
     JackPanel.SetFont("s10 Norm cE9A25D", "Segoe UI")
-    JackFields["badge"] := JackPanel.Add("Text", "x319 y22 w150 h23 Center +0x100 BackgroundTrans", "")
+    JackFields["badge"] := JackPanel.Add("Text", "x400 y17 w155 h31 Center +0x200 +0x100 Background3C2317", "")
     JackFields["badge"].OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
     JackFields["portalGlance"] := JackPanel.Add("Text", "x490 y22 w185 h25 +0x100 BackgroundTrans", "")
@@ -193,17 +188,11 @@ LayoutJackTracker(width)
     ; Reserve a fixed title column so the complete event name is visible.
     titleW := Round(width * 0.40)
     JackFields["heading"].Move(16, 20, titleW - 22, 28)
-    badgeX := Round(width * 0.41)
+    badgeX := Round(width * 0.425)
     badgeW := Round(width * 0.15)
     portalX := Round(width * 0.59)
-    JackFields["badgeBg"].Move(badgeX, 17, badgeW, 31)
-    JackFields["badge"].Move(badgeX + 5, 22, badgeW - 10, 23)
+    JackFields["badge"].Move(badgeX, 17, badgeW, 31)
     JackFields["portalGlance"].Move(portalX, 22, Max(90, right - 125 - portalX), 25)
-    ; The region must be recreated when the pill width changes.
-    try {
-        pillRegion := DllCall("gdi32\CreateRoundRectRgn", "Int", 0, "Int", 0, "Int", badgeW, "Int", 31, "Int", 22, "Int", 22, "Ptr")
-        DllCall("user32\SetWindowRgn", "Ptr", JackFields["badgeBg"].Hwnd, "Ptr", pillRegion, "Int", true)
-    }
     JackFields["summary"].Move(16, 48, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
@@ -327,7 +316,7 @@ RefreshJackTracker()
         displayState := "Starting Soon"
     JackFields["badge"].Text := displayState
     JackFields["portalGlance"].Text := JackPortalLocation = "Balmora" ? "Eerie Portal: Balmora" : "Balmora Portal: " JackPortalLocation
-    for key in ["badgeBg", "badge", "portalGlance"]
+    for key in ["badge", "portalGlance"]
         JackFields[key].Visible := !JackExpanded
     names := ""
     for name, status in JackPlayers
