@@ -228,6 +228,9 @@ UpdateGameDetectionCountdown()
         SetTimer(UpdateGameDetectionCountdown, 0)
         LauncherHeading.Text := "Checking Installation"
         RefreshGameDetectionText()
+        ; The prompt must follow the completed countdown, not race a separate
+        ; ten-second startup timer (which may fire while Jiub is still loading).
+        SetTimer(OfferFirstRunSetup, -150)
     }
 }
 
