@@ -14,12 +14,12 @@ global JackRaidEnded := false
 
 StartJackTracker()
 {
-    global JackPanel, JackLogSize
+    global JackPanel, JackLogSize, JackFields
     if Integer(FormatTime(, "M")) != 10
         return
     log := A_AppData "\TES3NP\Logs\game-chat.log"
     JackLogSize := FileExist(log) ? FileGetSize(log) : 0
-    JackPanel := Gui("-Caption +ToolWindow +AlwaysOnTop", "TES3NP Jack Raid")
+    JackPanel := Gui("-Caption +ToolWindow", "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
     JackPanel.SetFont("s11 Bold cE9C78D", "Georgia")
     heading := JackPanel.Add("Text", "x14 y8 w685 h26 +0x100", "JACK — RAID BOSS")
