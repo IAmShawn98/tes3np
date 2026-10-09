@@ -304,10 +304,10 @@ RefreshJackTracker()
         remaining := Mod(1260 - gameNow + 1440, 1440) * 2
         countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
     }
-    JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   Portal: " JackPortalState "   |   " countdown
+    JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   " countdown
     JackFields["summary"].Visible := JackExpanded
     JackFields["badge"].Text := JackRaidState
-    JackFields["portalGlance"].Text := "Portal: " JackPortalState
+    JackFields["portalGlance"].Text := JackPortalLocation
     JackFields["spawnGlance"].Text := JackLastTimeTick ? StrReplace(countdown, "Next 9 PM: ", "Next spawn: ") : "Next spawn: Unknown"
     for key in ["badgeBg", "badge", "portalGlance", "spawnGlance"]
         JackFields[key].Visible := !JackExpanded
