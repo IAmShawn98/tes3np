@@ -336,9 +336,28 @@ CheckPatchWorker()
 
 BeginStartupPatchCheck()
 {
-    ; Startup deliberately does not inspect or verify game files. Verification only happens
-    ; after the user explicitly chooses Verify or Install / Repair from Patch Tes3mp.
-    FinishLauncherStartup()
+    global SetupComplete
+    ; Only offer first-run setup when the launcher has not completed installation.
+    ; Never run the patch worker or hash verification automatically.
+    if SetupComplete
+        return
+    SetTimer(CompleteStartupDetection, -10000)
+}
+
+CompleteStartupDetection()
+{
+    global SetupComplete
+    if SetupComplete || PatchInProgress()
+        return
+    tesFolder := FindTES3MPFolder()
+    if tesFolder = ""
+    {
+        MsgBox("TES3MP was not found. Place the complete tes3np folder inside the TES3MP installation folder containing tes3mp.exe, then reopen the launcher. You can also use Patch Tes3mp to choose the installation folder manually.", "TES3MP installation not found", "Icon!")
+        return
+    }
+    answer := MsgBox("TES3MP was detected. Would you like to install the Nerevarine Prophecies patches now?", "Patch Nerevarine Prophecies", "YesNo Icon?")
+    if answer = "Yes"
+        OpenPatcher()
 }
 
 FinishLauncherStartup()
