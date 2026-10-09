@@ -329,18 +329,8 @@ CheckPatchWorker()
     }
     if IsSet(PatchStatus)
         PatchStatus.Text := message
-    ; A fresh standalone install offers its desktop entry only after patching.
-    if state = "success" && job.Action = "Apply"
-    {
-        ; Return to the normal launcher after a successful install, then offer
-        ; the shortcut once, including when launched from the AHK source.
-        if IsSet(PatchPage) && IsObject(PatchPage)
-            PatchPage.Hide()
-        ShowLauncherWindow()
-        SetTimer(OfferDesktopShortcutOnFirstLaunch.Bind(true), -1000)
-    }
-    if state = "error"
-        LogPatchDiagnostic(message)
+    ; Show the completion message first. Do not schedule the shortcut dialog
+    ; while the completion dialog is still open.
     if job.Startup
     {
         FinishLauncherStartup()
@@ -360,6 +350,14 @@ CheckPatchWorker()
     }
     else
         MsgBox(message, state = "needs_setup" ? "Setup needed" : "Patch Tes3mp", state = "error" ? "Icon!" : "Iconi")
+
+    if state = "success" && job.Action = "Apply"
+    {
+        if IsSet(PatchPage) && IsObject(PatchPage)
+            PatchPage.Hide()
+        ShowLauncherWindow()
+        OfferDesktopShortcutOnFirstLaunch(true)
+    }
 }
 
 BeginStartupPatchCheck()
