@@ -28,10 +28,10 @@ StartJackTracker()
     JackPanel := Gui("-DPIScale -Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
     JackPanel.SetFont("s14 Bold cE9C78D", "Georgia")
-    heading := JackPanel.Add("Text", "x16 y8 w520 h27 +0x100 BackgroundTrans", "JACK — RAID BOSS")
+    heading := JackPanel.Add("Text", "x16 y4 w520 h27 +0x100 BackgroundTrans", "JACK — RAID BOSS")
     heading.OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
-    JackFields["toggle"] := JackPanel.Add("Text", "x844 y11 w98 h25 Right +0x100 BackgroundTrans", "Expand  ▾")
+    JackFields["toggle"] := JackPanel.Add("Text", "x844 y5 w98 h25 Right +0x100 BackgroundTrans", "Expand  ▾")
     JackFields["toggle"].OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
     JackFields["summary"] := JackPanel.Add("Text", "x16 y37 w918 h31 +0x100 BackgroundTrans", "")
@@ -39,7 +39,7 @@ StartJackTracker()
     JackFields["summary"].Visible := false
     ; One-line at-a-glance status remains visible when the event is collapsed.
     JackPanel.SetFont("s9 Norm cD5C2A7", "Segoe UI")
-    JackFields["glance"] := JackPanel.Add("Text", "x320 y13 w510 h23 BackgroundTrans", "")
+    JackFields["glance"] := JackPanel.Add("Text", "x320 y7 w510 h23 BackgroundTrans", "")
     JackFields["glance"].OnEvent("Click", ToggleJackTracker)
 
 
@@ -178,8 +178,8 @@ LayoutJackTracker(width)
         return
     JackLayoutWidth := width
     right := width - 16
-    JackFields["toggle"].Move(right - 115, 9, 115, 28)
-    JackFields["glance"].Move(320, 12, Max(160, width - 320 - 145), 26)
+    JackFields["toggle"].Move(right - 115, 5, 115, 28)
+    JackFields["glance"].Move(320, 7, Max(160, width - 320 - 145), 26)
     JackFields["summary"].Move(16, 43, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
