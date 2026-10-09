@@ -292,12 +292,13 @@ ProcessJackChatLine(line)
         return
     sender := Trim(msg[1]), body := Trim(msg[2])
     if RegExMatch(body, "i)\b(.+?)\s*\(\d+\) was (?:honorably )?killed by Jack\.", &death) {
-        ; A player named Jack can also cause this death message. Require a
-        ; known server clock and a plausible raid window after the 9 PM spawn.
-        ; System/Yagrum relay messages are authoritative kill alerts. Do not
+        ; System/Yagrum relay messages are authoritative Jack boss evidence.
+        ; An honorable kill is not a boss death message. Do not
         ; silently discard them when !time has not yet been observed or when
         ; the estimated clock drifted. Ignore ordinary player-authored claims.
         if sender != "System" && sender != "Yagrum"
+            return
+        if InStr(body, "honorably killed by Jack")
             return
         if !JackLastTimeTick
             JackTrackerLog("Jack kill detected before clock sync: " body)
@@ -328,6 +329,7 @@ ProcessJackChatLine(line)
         JackPortalEvidence := true
         JackPortalReported := A_TickCount
         JackTrackerLog("Likely portal closure: explicit Jack defeat report")
+        InvalidateJackClock("Jack defeat reported")
         ; Do not reset on a single unverified player claim.
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
@@ -347,6 +349,7 @@ ProcessJackChatLine(line)
                 JackPortalState := "Likely Closed"
                 JackPortalEvidence := true
                 JackPortalReported := A_TickCount
+                InvalidateJackClock("Jack victory inferred")
                 JackExpanded := true
                 JackCollapseAt := A_TickCount + 14000
             }
@@ -408,9 +411,14 @@ RefreshJackTracker()
         if JackLastClockMinute >= 0 && JackLastClockMinute < 360 && gameNow >= 360 && gameNow < 1260 {
             ResetJackEncounter("Passed 6 AM")
         }
-        JackLastClockMinute := gameNow
-        remaining := Mod(1260 - gameNow + 1440, 1440) * 2
-        countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
+        if !JackLastTimeTick
+            gameNow := -1
+        else
+            JackLastClockMinute := gameNow
+        if JackLastTimeTick {
+            remaining := Mod(1260 - gameNow + 1440, 1440) * 2
+            countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
+        }
     }
     ; Status and portal location are already displayed in the detail cards.
     JackFields["summary"].Visible := false
@@ -440,7 +448,7 @@ RefreshJackTracker()
         displayState := "Scheduled"
     else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
         displayState := "Starting Soon"
-    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon" || displayState = "Scheduled" || (inRaidWindow && JackRaidState = "Likely defeated")
+    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon" || displayState = "Scheduled" || (JackRaidState = "Likely defeated" && JackRaidReported && A_TickCount - JackRaidReported < 12 * 60 * 1000)
     JackFields["badge"].Text := displayState
     ; Live color coding: green for active, amber for imminent, muted brown otherwise.
     if displayState = "Active" {
@@ -478,6 +486,7 @@ ResetJackEncounter(reason)
     global JackRaidState, JackPortalState, JackPlayers, JackPlayerReported
     global JackRaidReported, JackPortalReported, JackCombatTick, JackVictoryHints
     global JackExpanded, JackPortalEvidence
+    InvalidateJackClock("Encounter reset")
     JackRaidState := "Awaiting evidence"
     JackPortalState := "Closed"
     JackPortalEvidence := true
@@ -489,6 +498,17 @@ ResetJackEncounter(reason)
     JackVictoryHints.Clear()
     JackExpanded := false
     JackTrackerLog("Reset: " reason)
+}
+
+InvalidateJackClock(reason)
+{
+    global JackLastTimeTick, JackGameMinutes, JackLastClockMinute, JackLastPortalWindow, JackClockReported
+    JackLastTimeTick := 0
+    JackGameMinutes := 0
+    JackLastClockMinute := -1
+    JackLastPortalWindow := false
+    JackClockReported := 0
+    JackTrackerLog("Clock invalidated: " reason)
 }
 
 JackTrackerLog(message)
