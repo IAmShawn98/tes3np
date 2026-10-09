@@ -19,6 +19,7 @@ global JackCombatTick := 0
 global JackVictoryHints := Map()
 global JackClockDay := -1
 global JackPortalEvidence := false
+global JackLastPortalWindow := false
 global JackLastClockMinute := -1
 ; Event panels are registered bottom-to-top. Each can expand independently.
 global RaidEventStack := Map()
@@ -317,8 +318,10 @@ ProcessJackChatLine(line)
     if RegExMatch(body, "i)\b(jack is dead|jack(?:'s| is)? down|we killed jack|jack has been defeated)\b") && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000 {
         JackRaidState := "Likely defeated"
         JackRaidReported := A_TickCount
+        JackPortalState := "Likely Closed"
+        JackPortalEvidence := true
         JackPortalReported := A_TickCount
-        ; Victory does not establish whether the portal has closed.
+        JackTrackerLog("Likely portal closure: explicit Jack defeat report")
         ; Do not reset on a single unverified player claim.
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
@@ -335,7 +338,9 @@ ProcessJackChatLine(line)
                 JackRaidState := "Likely defeated"
                 JackTrackerLog("Likely defeated: " sender " | " body)
                 JackRaidReported := A_TickCount
-                ; Keep portal state independent of victory reports.
+                JackPortalState := "Likely Closed"
+                JackPortalEvidence := true
+                JackPortalReported := A_TickCount
                 JackExpanded := true
                 JackCollapseAt := A_TickCount + 14000
             }
@@ -385,7 +390,7 @@ RefreshJackTracker()
     global JackPanel, JackFields, JackLastTimeTick, JackGameMinutes
     global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible, JackLastClockMinute
     global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
-    global JackCombatTick, JackVictoryHints, JackPortalEvidence
+    global JackCombatTick, JackVictoryHints, JackPortalEvidence, JackLastPortalWindow
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
@@ -406,7 +411,22 @@ RefreshJackTracker()
     ; !time synchronizes an internal clock. The 9 PM–6 AM window is
     ; scheduled activity, not proof Jack is alive or the portal is open.
     inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 360)
-    ; The schedule alone is not evidence that a portal is open.
+    ; The portal opens at 9 PM and closes at 6 AM unless Jack dies first.
+    ; A cell-reset disappearance requires explicit player evidence.
+    if JackLastTimeTick {
+        if inRaidWindow && !JackLastPortalWindow {
+            JackPortalState := "Open"
+            JackPortalEvidence := true
+            JackPortalReported := A_TickCount
+            JackTrackerLog("Scheduled 9 PM portal opening")
+        } else if !inRaidWindow && JackLastPortalWindow {
+            JackPortalState := "Closed"
+            JackPortalEvidence := true
+            JackPortalReported := A_TickCount
+            JackTrackerLog("Scheduled 6 AM portal closure")
+        }
+        JackLastPortalWindow := inRaidWindow
+    }
     displayState := "Inactive"
     if JackRaidState = "Active" && inRaidWindow && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000
         displayState := "Active"
@@ -454,11 +474,11 @@ ResetJackEncounter(reason)
     global JackExpanded, JackPortalEvidence
     JackRaidState := "Awaiting evidence"
     JackPortalState := "Closed"
-    JackPortalEvidence := false
+    JackPortalEvidence := true
     JackPlayers.Clear()
     JackPlayerReported.Clear()
     JackRaidReported := 0
-    JackPortalReported := 0
+    JackPortalReported := A_TickCount
     JackCombatTick := 0
     JackVictoryHints.Clear()
     JackExpanded := false
