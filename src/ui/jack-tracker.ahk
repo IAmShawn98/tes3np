@@ -17,6 +17,8 @@ global JackClockReported := 0
 global JackRaidEnded := false
 global JackCombatTick := 0
 global JackVictoryHints := Map()
+global JackClockDay := -1
+global JackPortalEvidence := false
 global JackLastClockMinute := -1
 ; Event panels are registered bottom-to-top. Each can expand independently.
 global RaidEventStack := Map()
@@ -273,10 +275,14 @@ ProcessJackChatLine(line)
     global JackLastTimeTick, JackGameMinutes, JackRaidState, JackPortalState
     global JackPortalLocation, JackPlayers, JackRaidEnded, JackExpanded, JackCollapseAt
     global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
-    global JackCombatTick, JackVictoryHints
+    global JackCombatTick, JackVictoryHints, JackClockDay, JackPortalEvidence
     if RegExMatch(line, "i)The current in-game time is\s+(\d{1,2}):(\d{2})\s*(AM|PM)", &m) {
         hour := Mod(Integer(m[1]), 12) + (StrUpper(m[3]) = "PM" ? 12 : 0)
-        JackGameMinutes := hour * 60 + Integer(m[2])
+        newMinute := hour * 60 + Integer(m[2])
+        ; A fresh !time may jump past 6 AM without a timer tick at the boundary.
+        if JackLastTimeTick && JackLastClockMinute >= 0 && JackLastClockMinute < 360 && newMinute >= 360 && newMinute < 1260
+            ResetJackEncounter("Clock resynchronized beyond 6 AM")
+        JackGameMinutes := newMinute
         JackLastTimeTick := A_TickCount
         JackClockReported := A_TickCount
         return
@@ -298,19 +304,21 @@ ProcessJackChatLine(line)
         JackRaidReported := A_TickCount
         JackPortalReported := A_TickCount
         JackRaidState := "Active"
+        JackTrackerLog("Combat evidence: " body)
         JackCombatTick := A_TickCount
         JackVictoryHints.Clear()
         JackPortalState := "Open"
+        JackPortalEvidence := true
         JackPortalReported := A_TickCount
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
         return
     }
-    if RegExMatch(body, "i)\b(jack is dead|jack(?:'s| is)? down|we killed jack|jack has been defeated)\b") {
+    if RegExMatch(body, "i)\b(jack is dead|jack(?:'s| is)? down|we killed jack|jack has been defeated)\b") && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000 {
         JackRaidState := "Likely defeated"
         JackRaidReported := A_TickCount
         JackPortalReported := A_TickCount
-        JackPortalState := "Closed"
+        ; Victory does not establish whether the portal has closed.
         ; Do not reset on a single unverified player claim.
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
@@ -319,15 +327,15 @@ ProcessJackChatLine(line)
     ; either an explicit Jack victory or two distinct contextual hints.
     ; Examples from real chat: "there we go", "we wrecked his shiz", "OWNED".
     if JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000 {
-        explicitWin := RegExMatch(body, "i)\\b(?:jack (?:kill|dead|defeated)|(?:killed|beat|defeated) jack|jack(?:'s| is)? down|mostly solo jack kill)\\b")
-        contextualWin := RegExMatch(body, "i)\\b(?:we won|we (?:wrecked|got|beat) (?:him|his)|there we go|owned|gg(?:s)?|got him)\\b")
+        explicitWin := RegExMatch(body, "i)\b(?:jack (?:kill|dead|defeated)|(?:killed|beat|defeated) jack|jack(?:'s| is)? down|mostly solo jack kill)\b")
+        contextualWin := RegExMatch(body, "i)\b(?:we won|we (?:wrecked|got|beat) (?:him|his)|there we go|owned|gg(?:s)?|got him)\b")
         if explicitWin || contextualWin {
             JackVictoryHints[sender] := A_TickCount
             if explicitWin || JackVictoryHints.Count >= 2 {
                 JackRaidState := "Likely defeated"
+                JackTrackerLog("Likely defeated: " sender " | " body)
                 JackRaidReported := A_TickCount
-                JackPortalState := "Closed"
-                JackPortalReported := A_TickCount
+                ; Keep portal state independent of victory reports.
                 JackExpanded := true
                 JackCollapseAt := A_TickCount + 14000
             }
@@ -339,6 +347,7 @@ ProcessJackChatLine(line)
         JackCombatTick := A_TickCount
         JackVictoryHints.Clear()
         JackPortalState := "Open"
+        JackPortalEvidence := true
         JackPlayers[sender] := "Fighting"
         JackPlayerReported[sender] := A_TickCount
         JackRaidReported := A_TickCount
@@ -348,11 +357,14 @@ ProcessJackChatLine(line)
     }
     if RegExMatch(body, "i)\b(portal (?:is )?(?:gone|disappeared)|balmora (?:cell )?reset|cell reset)\b") {
         JackPortalState := "Disappeared"
+        JackPortalEvidence := true
         JackPortalReported := A_TickCount
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
     } else if RegExMatch(body, "i)\b(portal (?:is )?(?:open|still up)|portal's still up)\b") {
         JackPortalState := "Open"
+        JackPortalEvidence := true
+        JackPortalReported := A_TickCount
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
     }
@@ -373,7 +385,7 @@ RefreshJackTracker()
     global JackPanel, JackFields, JackLastTimeTick, JackGameMinutes
     global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible, JackLastClockMinute
     global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
-    global JackCombatTick, JackVictoryHints
+    global JackCombatTick, JackVictoryHints, JackPortalEvidence
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
@@ -383,15 +395,7 @@ RefreshJackTracker()
         ; Reset stale encounter evidence once the in-game clock reaches 6 AM.
         ; Track the clock crossing, not just the hour, to avoid repeat resets.
         if JackLastClockMinute >= 0 && JackLastClockMinute < 360 && gameNow >= 360 && gameNow < 1260 {
-            JackRaidState := "Awaiting evidence"
-            JackPortalState := "Closed"
-            JackPlayers.Clear()
-            JackPlayerReported.Clear()
-            JackRaidReported := 0
-            JackCombatTick := 0
-            JackVictoryHints.Clear()
-            JackPortalReported := A_TickCount
-            JackExpanded := false
+            ResetJackEncounter("Passed 6 AM")
         }
         JackLastClockMinute := gameNow
         remaining := Mod(1260 - gameNow + 1440, 1440) * 2
@@ -402,10 +406,7 @@ RefreshJackTracker()
     ; !time synchronizes an internal clock. The 9 PM–6 AM window is
     ; scheduled activity, not proof Jack is alive or the portal is open.
     inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 360)
-    if inRaidWindow && JackRaidState != "Likely defeated" && JackPortalState = "Closed" {
-        JackPortalState := "Open"
-        JackPortalReported := A_TickCount
-    }
+    ; The schedule alone is not evidence that a portal is open.
     displayState := "Inactive"
     if JackRaidState = "Active" && inRaidWindow && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000
         displayState := "Active"
@@ -413,7 +414,7 @@ RefreshJackTracker()
         displayState := "Scheduled"
     else if JackLastTimeTick && remaining <= 5 * 60 && JackRaidState != "Likely defeated"
         displayState := "Starting Soon"
-    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon" || displayState = "Scheduled"
+    JackTrackerVisible := displayState = "Active" || displayState = "Starting Soon" || displayState = "Scheduled" || (inRaidWindow && JackRaidState = "Likely defeated")
     JackFields["badge"].Text := displayState
     ; Live color coding: green for active, amber for imminent, muted brown otherwise.
     if displayState = "Active" {
@@ -434,9 +435,9 @@ RefreshJackTracker()
         names .= (names = "" ? "" : "    •    ") name " (" status ", " JackReportedAgo(JackPlayerReported.Has(name) ? JackPlayerReported[name] : 0) ")"
     JackFields["location"].Text := JackPortalLocation
     JackFields["raid"].Text := inRaidWindow && JackRaidState = "Awaiting evidence" ? "Scheduled window (unconfirmed)" : JackRaidState
-    JackFields["access"].Text := "Portal Status: " JackPortalState
+    JackFields["access"].Text := "Portal Status: " (JackPortalEvidence ? JackPortalState : "Unconfirmed")
     JackFields["portalReported"].Text := "Last reported: " JackReportedAgo(JackPortalReported)
-    JackFields["raidReported"].Text := "Last reported: " JackReportedAgo(JackRaidReported ? JackRaidReported : JackClockReported)
+    JackFields["raidReported"].Text := "Last reported: " JackReportedAgo(JackRaidReported)
     JackFields["countdown"].Text := countdown
     JackFields["playersHeading"].Text := "SUSPECTED PARTICIPANTS (" JackPlayers.Count ")"
     JackFields["players"].Text := names = "" ? "No participants detected yet." : names
@@ -444,6 +445,29 @@ RefreshJackTracker()
         JackFields[key].Visible := JackExpanded
     JackFields["toggle"].Text := JackExpanded ? "Collapse  ▴" : "Expand  ▾"
     SetRaidEventExpanded("jack", JackExpanded)
+}
+
+ResetJackEncounter(reason)
+{
+    global JackRaidState, JackPortalState, JackPlayers, JackPlayerReported
+    global JackRaidReported, JackPortalReported, JackCombatTick, JackVictoryHints
+    global JackExpanded, JackPortalEvidence
+    JackRaidState := "Awaiting evidence"
+    JackPortalState := "Closed"
+    JackPortalEvidence := false
+    JackPlayers.Clear()
+    JackPlayerReported.Clear()
+    JackRaidReported := 0
+    JackPortalReported := 0
+    JackCombatTick := 0
+    JackVictoryHints.Clear()
+    JackExpanded := false
+    JackTrackerLog("Reset: " reason)
+}
+
+JackTrackerLog(message)
+{
+    try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " message "`n", A_AppData "\\TES3NP\\Logs\\jack-tracker.log", "UTF-8")
 }
 
 JackReportedAgo(tick)
