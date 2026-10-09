@@ -208,11 +208,21 @@ BeginGameDetectionDisplay()
 
 EndGameDetectionDisplay()
 {
-    global GameDetectionActive, LauncherHeading, LauncherHelpText
+    global GameDetectionActive, LauncherHeading, LauncherHelpText, LauncherGui
     GameDetectionActive := false
     LauncherHeading.Text := "Game Launcher"
     if IsObject(LauncherHelpText)
+    {
+        ; Transparent Win32 text controls retain old glyphs unless the parent
+        ; repaints the full status rectangle after changing the text.
+        LauncherHelpText.Visible := false
         LauncherHelpText.Text := 'Click "Patch Tes3mp" to continue.'
+        LauncherHelpText.Visible := true
+        LauncherHelpText.GetPos(&x, &y, &w, &h)
+        rect := Buffer(16, 0)
+        NumPut("Int", x, "Int", y, "Int", x + w, "Int", y + h, rect)
+        DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", rect.Ptr, "Ptr", 0, "UInt", 0x0185)
+    }
     UpdateCharacterMenuLabel()
     RefreshGameDetectionText()
 }
