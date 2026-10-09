@@ -294,6 +294,13 @@ ProcessJackChatLine(line)
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
     }
+    ; Phase announcements are strong evidence of a live Jack encounter.
+    if RegExMatch(body, "i)\bjack\s+phase\s*[1-9]\b") {
+        JackRaidState := "Active"
+        JackPlayers[sender] := "Fighting"
+        JackExpanded := true
+        JackCollapseAt := A_TickCount + 14000
+    }
     if RegExMatch(body, "i)\b(portal (?:is )?(?:gone|closed|disappeared)|balmora reset)\b") {
         JackPortalState := "Likely closed"
         JackExpanded := true
