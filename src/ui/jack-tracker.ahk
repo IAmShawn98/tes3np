@@ -50,24 +50,24 @@ StartJackTracker()
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
-    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y98 w452 h118 Background292118")
-    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y98 w472 h118 Background292118")
-    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y226 w936 h84 Background292118")
+    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y68 w452 h118 Background292118")
+    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y68 w472 h118 Background292118")
+    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y196 w936 h84 Background292118")
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
-    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y109 w420 h25 BackgroundTrans", "PORTAL LOCATION")
-    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y109 w440 h25 BackgroundTrans", "RAID STATUS")
-    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y237 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
+    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y79 w420 h25 BackgroundTrans", "PORTAL LOCATION")
+    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y79 w440 h25 BackgroundTrans", "RAID STATUS")
+    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y207 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
     JackPanel.SetFont("s13 Bold cF0D5A3", "Segoe UI")
-    JackFields["location"] := JackPanel.Add("Text", "x26 y141 w420 h30 BackgroundTrans", "")
-    JackFields["raid"] := JackPanel.Add("Text", "x490 y141 w440 h30 BackgroundTrans", "")
+    JackFields["location"] := JackPanel.Add("Text", "x26 y111 w420 h30 BackgroundTrans", "")
+    JackFields["raid"] := JackPanel.Add("Text", "x490 y111 w440 h30 BackgroundTrans", "")
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
-    JackFields["access"] := JackPanel.Add("Text", "x26 y183 w420 h24 BackgroundTrans", "")
-    JackFields["countdown"] := JackPanel.Add("Text", "x490 y183 w440 h24 BackgroundTrans", "")
-    JackFields["players"] := JackPanel.Add("Text", "x26 y269 w905 h33 BackgroundTrans", "")
+    JackFields["access"] := JackPanel.Add("Text", "x26 y153 w420 h24 BackgroundTrans", "")
+    JackFields["countdown"] := JackPanel.Add("Text", "x490 y153 w440 h24 BackgroundTrans", "")
+    JackFields["players"] := JackPanel.Add("Text", "x26 y239 w905 h33 BackgroundTrans", "")
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
     JackPanel.Show("NoActivate w960 h65")
-    RegisterRaidEventPanel("jack", JackPanel, 65, 322)
+    RegisterRaidEventPanel("jack", JackPanel, 65, 292)
     PositionRaidEventStack()
     ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
     ; WM_WINDOWPOSCHANGED handles moves from scaling and other code paths.
@@ -200,9 +200,9 @@ LayoutJackTracker(width)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
     rightW := width - rightX - 12
-    JackFields["portalBg"].Move(leftX, 98, half, 118)
-    JackFields["statusBg"].Move(rightX, 98, rightW, 118)
-    JackFields["playersBg"].Move(12, 226, width - 24, 84)
+    JackFields["portalBg"].Move(leftX, 68, half, 118)
+    JackFields["statusBg"].Move(rightX, 68, rightW, 118)
+    JackFields["playersBg"].Move(12, 196, width - 24, 84)
     for key in ["portalHeading", "location", "access"] {
         ; Preserve each control's vertical coordinate and height.
         JackFields[key].GetPos(, &cy, , &ch)
@@ -212,7 +212,7 @@ LayoutJackTracker(width)
         JackFields[key].GetPos(, &cy, , &ch)
         JackFields[key].Move(rightX + 14, cy, rightW - 28, ch)
     }
-    JackFields["players"].Move(26, 269, width - 52, 33)
+    JackFields["players"].Move(26, 239, width - 52, 33)
 }
 
 PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
