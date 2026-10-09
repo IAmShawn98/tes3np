@@ -23,19 +23,34 @@ StartJackTracker()
     ; including minimize/restore, without changing launcher dimensions.
     JackPanel := Gui("-DPIScale -Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
-    JackPanel.SetFont("s11 Bold cE9C78D", "Georgia")
-    heading := JackPanel.Add("Text", "x14 y8 w685 h26 +0x100", "JACK — RAID BOSS")
+    JackPanel.SetFont("s14 Bold cE9C78D", "Georgia")
+    heading := JackPanel.Add("Text", "x16 y8 w520 h27 +0x100 BackgroundTrans", "JACK — RAID BOSS")
     heading.OnEvent("Click", ToggleJackTracker)
-    JackPanel.SetFont("s9 Norm cB7A38C", "Segoe UI")
-    JackFields["summary"] := JackPanel.Add("Text", "x14 y35 w790 h19 +0x100", "Balmora Portal  |  Portal: Unknown  |  Waiting for server time")
+    JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
+    JackFields["toggle"] := JackPanel.Add("Text", "x844 y11 w98 h25 Right +0x100 BackgroundTrans", "Expand  ▾")
+    JackFields["toggle"].OnEvent("Click", ToggleJackTracker)
+    JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
+    JackFields["summary"] := JackPanel.Add("Text", "x16 y36 w918 h20 +0x100 BackgroundTrans", "")
     JackFields["summary"].OnEvent("Click", ToggleJackTracker)
-    ; Leave a full line between summary and details so font ascent/descent
-    ; cannot overlap at Windows text scaling settings.
-    JackFields["detail"] := JackPanel.Add("Text", "x14 y75 w920 h94", "")
-    JackPanel.SetFont("s9 Bold cE9C78D", "Segoe UI")
-    toggle := JackPanel.Add("Text", "x736 y9 w74 h24 Right +0x100", "Expand  ▾")
-    toggle.OnEvent("Click", ToggleJackTracker)
-    JackFields["toggle"] := toggle
+
+    ; Dark inset cards and gold headings give each type of information its own
+    ; readable area. The background panels are added before their labels.
+    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y66 w452 h98 Background292118")
+    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y66 w472 h98 Background292118")
+    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y174 w936 h77 Background292118")
+    JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
+    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y76 w420 h23 BackgroundTrans", "PORTAL LOCATION")
+    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y76 w440 h23 BackgroundTrans", "RAID STATUS")
+    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y182 w450 h22 BackgroundTrans", "SUSPECTED PARTICIPANTS")
+    JackPanel.SetFont("s13 Bold cF0D5A3", "Segoe UI")
+    JackFields["location"] := JackPanel.Add("Text", "x26 y106 w420 h27 BackgroundTrans", "")
+    JackFields["raid"] := JackPanel.Add("Text", "x490 y106 w440 h27 BackgroundTrans", "")
+    JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
+    JackFields["access"] := JackPanel.Add("Text", "x26 y140 w420 h18 BackgroundTrans", "")
+    JackFields["countdown"] := JackPanel.Add("Text", "x490 y140 w440 h18 BackgroundTrans", "")
+    JackFields["players"] := JackPanel.Add("Text", "x26 y207 w905 h37 BackgroundTrans", "")
+    for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
+        JackFields[key].Visible := false
     JackPanel.Show("NoActivate w960 h59")
     PositionJackTracker()
     ; WM_MOVING supplies the live proposed launcher rectangle while dragging.
@@ -98,7 +113,7 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
         barWidth := w
         ; Keep the alert compact: its GUI content is laid out in fixed
         ; logical pixels and should not grow vertically with launcher scale.
-        barHeight := JackExpanded ? 180 : 59
+        barHeight := JackExpanded ? 260 : 59
         JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
     }
 }
@@ -190,15 +205,18 @@ RefreshJackTracker()
         remaining := Mod(1260 - gameNow + 1440, 1440) * 2
         countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
     }
-    JackFields["summary"].Text := JackRaidState "  |  " JackPortalLocation "  |  Portal: " JackPortalState "  |  " countdown
+    JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   Portal: " JackPortalState "   |   " countdown
     names := ""
     for name, status in JackPlayers
-        names .= (names = "" ? "" : ", ") name " (" status ")"
-    JackFields["detail"].Text := "Portal accessibility: " JackPortalState
-        . "`nEstimated participants (" JackPlayers.Count "): " (names = "" ? "None detected" : names)
-        . "`nRaid status: " JackRaidState
-        . "`nBased on recent Game Chat clues — estimates only."
-    JackFields["detail"].Visible := JackExpanded
+        names .= (names = "" ? "" : "    •    ") name " (" status ")"
+    JackFields["location"].Text := JackPortalLocation
+    JackFields["raid"].Text := JackRaidState
+    JackFields["access"].Text := "Accessibility: " JackPortalState
+    JackFields["countdown"].Text := countdown
+    JackFields["playersHeading"].Text := "SUSPECTED PARTICIPANTS (" JackPlayers.Count ")"
+    JackFields["players"].Text := names = "" ? "No participants detected yet." : names
+    for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
+        JackFields[key].Visible := JackExpanded
     JackFields["toggle"].Text := JackExpanded ? "Collapse  ▴" : "Expand  ▾"
     PositionJackTracker()
 }
