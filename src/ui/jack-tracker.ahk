@@ -51,20 +51,20 @@ StartJackTracker()
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
-    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y82 w452 h118 Background292118")
-    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y82 w472 h118 Background292118")
-    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y210 w936 h84 Background292118")
+    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y98 w452 h118 Background292118")
+    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y98 w472 h118 Background292118")
+    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y226 w936 h84 Background292118")
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
-    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y93 w420 h25 BackgroundTrans", "PORTAL LOCATION")
-    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y93 w440 h25 BackgroundTrans", "RAID STATUS")
-    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y221 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
+    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y109 w420 h25 BackgroundTrans", "PORTAL LOCATION")
+    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y109 w440 h25 BackgroundTrans", "RAID STATUS")
+    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y237 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
     JackPanel.SetFont("s13 Bold cF0D5A3", "Segoe UI")
-    JackFields["location"] := JackPanel.Add("Text", "x26 y125 w420 h30 BackgroundTrans", "")
-    JackFields["raid"] := JackPanel.Add("Text", "x490 y125 w440 h30 BackgroundTrans", "")
+    JackFields["location"] := JackPanel.Add("Text", "x26 y141 w420 h30 BackgroundTrans", "")
+    JackFields["raid"] := JackPanel.Add("Text", "x490 y141 w440 h30 BackgroundTrans", "")
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
-    JackFields["access"] := JackPanel.Add("Text", "x26 y167 w420 h24 BackgroundTrans", "")
-    JackFields["countdown"] := JackPanel.Add("Text", "x490 y167 w440 h24 BackgroundTrans", "")
-    JackFields["players"] := JackPanel.Add("Text", "x26 y253 w905 h33 BackgroundTrans", "")
+    JackFields["access"] := JackPanel.Add("Text", "x26 y183 w420 h24 BackgroundTrans", "")
+    JackFields["countdown"] := JackPanel.Add("Text", "x490 y183 w440 h24 BackgroundTrans", "")
+    JackFields["players"] := JackPanel.Add("Text", "x26 y269 w905 h33 BackgroundTrans", "")
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
     JackPanel.Show("NoActivate w960 h65")
@@ -184,15 +184,22 @@ LayoutJackTracker(width)
         return
     JackLayoutWidth := width
     right := width - 16
-    JackFields["toggle"].Move(right - 115, 5, 115, 28)
-    JackFields["glance"].Move(320, 7, Max(160, width - 320 - 145), 26)
-    JackFields["summary"].Move(16, 43, width - 32, 31)
+    JackFields["toggle"].Move(right - 115, 19, 115, 28)
+    ; Four separate columns, with the action anchored at the far right.
+    badgeX := Round(width * 0.285)
+    portalX := Round(width * 0.49)
+    spawnX := Round(width * 0.68)
+    JackFields["badgeBg"].Move(badgeX, 17, Round(width * 0.175), 31)
+    JackFields["badge"].Move(badgeX + 5, 22, Round(width * 0.175) - 10, 23)
+    JackFields["portalGlance"].Move(portalX, 22, Max(90, spawnX - portalX - 8), 25)
+    JackFields["spawnGlance"].Move(spawnX, 22, Max(90, right - 125 - spawnX), 25)
+    JackFields["summary"].Move(16, 48, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
     rightW := width - rightX - 12
-    JackFields["portalBg"].Move(leftX, 82, half, 118)
-    JackFields["statusBg"].Move(rightX, 82, rightW, 118)
-    JackFields["playersBg"].Move(12, 210, width - 24, 84)
+    JackFields["portalBg"].Move(leftX, 98, half, 118)
+    JackFields["statusBg"].Move(rightX, 98, rightW, 118)
+    JackFields["playersBg"].Move(12, 226, width - 24, 84)
     for key in ["portalHeading", "location", "access"] {
         ; Preserve each control's vertical coordinate and height.
         JackFields[key].GetPos(, &cy, , &ch)
@@ -202,7 +209,7 @@ LayoutJackTracker(width)
         JackFields[key].GetPos(, &cy, , &ch)
         JackFields[key].Move(rightX + 14, cy, rightW - 28, ch)
     }
-    JackFields["players"].Move(26, 253, width - 52, 33)
+    JackFields["players"].Move(26, 269, width - 52, 33)
 }
 
 PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
@@ -299,8 +306,11 @@ RefreshJackTracker()
     }
     JackFields["summary"].Text := JackRaidState "   |   " JackPortalLocation "   |   Portal: " JackPortalState "   |   " countdown
     JackFields["summary"].Visible := JackExpanded
-    JackFields["glance"].Text := JackRaidState "   |   Portal: " JackPortalState "   |   " countdown
-    JackFields["glance"].Visible := !JackExpanded
+    JackFields["badge"].Text := JackRaidState
+    JackFields["portalGlance"].Text := "Portal: " JackPortalState
+    JackFields["spawnGlance"].Text := JackLastTimeTick ? StrReplace(countdown, "Next 9 PM: ", "Next spawn: ") : "Next spawn: Unknown"
+    for key in ["badgeBg", "badge", "portalGlance", "spawnGlance"]
+        JackFields[key].Visible := !JackExpanded
     names := ""
     for name, status in JackPlayers
         names .= (names = "" ? "" : "    •    ") name " (" status ")"
