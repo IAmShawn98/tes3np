@@ -273,6 +273,14 @@ ProcessJackChatLine(line)
         return
     sender := Trim(msg[1]), body := Trim(msg[2])
     if RegExMatch(body, "i)\b(.+?)\s*\(\d+\) was (?:honorably )?killed by Jack\.", &death) {
+        ; A player named Jack can also cause this death message. Require a
+        ; known server clock and a plausible raid window after the 9 PM spawn.
+        if !JackLastTimeTick
+            return
+        gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
+        ; Allow the fight to continue past midnight, up to 3 AM game time.
+        if !(gameNow >= 1260 || gameNow < 180)
+            return
         JackPlayers[Trim(death[1])] := "Fighting"
         JackRaidState := "Active"
         JackExpanded := true
