@@ -478,7 +478,7 @@ OfferFirstRunSetup(*)
         SetTimer(OfferFirstRunSetup, 0)
         LogLauncherEvent("First-run TES3MP detection failed: no TES3MP executable was located.")
         EndGameDetectionDisplay()
-        MsgBox("TES3MP could not be detected in the launcher folder.`n`nPlace tes3np.exe in your TES3MP installation folder, then click Patch Tes3mp to continue.", "TES3MP folder not found", "Icon!")
+        MsgBox("Tes3mp could not be detected in the launcher folder.`n`nPlace tes3np.exe in your Tes3mp installation folder, then click Patch Tes3mp to continue.", "Tes3mp folder not found", "Icon!")
         return
     }
     firstRunPromptShown := true
