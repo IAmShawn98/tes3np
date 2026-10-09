@@ -10,6 +10,10 @@ global JackRaidState := "Awaiting evidence"
 global JackPortalState := "Closed"
 global JackPortalLocation := "Balmora"
 global JackPlayers := Map()
+global JackPlayerReported := Map()
+global JackPortalReported := 0
+global JackRaidReported := 0
+global JackClockReported := 0
 global JackRaidEnded := false
 global JackLastClockMinute := -1
 ; Event panels are registered bottom-to-top. Each can expand independently.
@@ -66,7 +70,9 @@ StartJackTracker()
     JackFields["access"] := JackPanel.Add("Text", "x490 y153 w440 h24 BackgroundTrans", "")
     JackFields["countdown"] := JackPanel.Add("Text", "x26 y153 w420 h24 BackgroundTrans", "")
     JackFields["players"] := JackPanel.Add("Text", "x26 y239 w905 h33 BackgroundTrans", "")
-    for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
+    JackFields["raidReported"] := JackPanel.Add("Text", "x26 y134 w420 h17 BackgroundTrans", "")
+    JackFields["portalReported"] := JackPanel.Add("Text", "x490 y134 w440 h17 BackgroundTrans", "")
+    for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players", "raidReported", "portalReported"]
         JackFields[key].Visible := false
     JackPanel.Show("NoActivate w960 h65")
     RegisterRaidEventPanel("jack", JackPanel, 65, 292)
@@ -209,12 +215,12 @@ LayoutJackTracker(width)
     JackFields["portalBg"].Move(rightX, 68, rightW, 118)
     JackFields["statusBg"].Move(leftX, 68, half, 118)
     JackFields["playersBg"].Move(12, 196, width - 24, 84)
-    for key in ["portalHeading", "location", "access"] {
+    for key in ["portalHeading", "location", "access", "portalReported"] {
         ; Preserve each control's vertical coordinate and height.
         JackFields[key].GetPos(, &cy, , &ch)
         JackFields[key].Move(rightX + 14, cy, rightW - 28, ch)
     }
-    for key in ["statusHeading", "raid", "countdown"] {
+    for key in ["statusHeading", "raid", "countdown", "raidReported"] {
         JackFields[key].GetPos(, &cy, , &ch)
         JackFields[key].Move(leftX + 14, cy, half - 28, ch)
     }
@@ -264,10 +270,12 @@ ProcessJackChatLine(line)
 {
     global JackLastTimeTick, JackGameMinutes, JackRaidState, JackPortalState
     global JackPortalLocation, JackPlayers, JackRaidEnded, JackExpanded, JackCollapseAt
+    global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
     if RegExMatch(line, "i)The current in-game time is\s+(\d{1,2}):(\d{2})\s*(AM|PM)", &m) {
         hour := Mod(Integer(m[1]), 12) + (StrUpper(m[3]) = "PM" ? 12 : 0)
         JackGameMinutes := hour * 60 + Integer(m[2])
         JackLastTimeTick := A_TickCount
+        JackClockReported := A_TickCount
         return
     }
     if !RegExMatch(line, "^\[\d\d:\d\d:\d\d [AP]M\] ([^:]+):\s*(.*)$", &msg)
@@ -283,14 +291,20 @@ ProcessJackChatLine(line)
         if !(gameNow >= 1260 || gameNow < 360)
             return
         JackPlayers[Trim(death[1])] := "Fighting"
+        JackPlayerReported[Trim(death[1])] := A_TickCount
+        JackRaidReported := A_TickCount
+        JackPortalReported := A_TickCount
         JackRaidState := "Active"
         JackPortalState := "Open"
+        JackPortalReported := A_TickCount
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
         return
     }
     if RegExMatch(body, "i)\b(jack is dead|jack(?:'s| is)? down|we killed jack|jack has been defeated)\b") {
         JackRaidState := "Likely defeated"
+        JackRaidReported := A_TickCount
+        JackPortalReported := A_TickCount
         JackPortalState := "Closed"
         ; Do not reset on a single unverified player claim.
         JackExpanded := true
@@ -301,11 +315,15 @@ ProcessJackChatLine(line)
         JackRaidState := "Active"
         JackPortalState := "Open"
         JackPlayers[sender] := "Fighting"
+        JackPlayerReported[sender] := A_TickCount
+        JackRaidReported := A_TickCount
+        JackPortalReported := A_TickCount
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
     }
     if RegExMatch(body, "i)\b(portal (?:is )?(?:gone|disappeared)|balmora (?:cell )?reset|cell reset)\b") {
         JackPortalState := "Disappeared"
+        JackPortalReported := A_TickCount
         JackExpanded := true
         JackCollapseAt := A_TickCount + 14000
     } else if RegExMatch(body, "i)\b(portal (?:is )?(?:open|still up)|portal's still up)\b") {
@@ -314,15 +332,22 @@ ProcessJackChatLine(line)
         JackCollapseAt := A_TickCount + 14000
     }
     if RegExMatch(body, "i)\b(?:i(?:'m| am) (?:coming|going) to jack|omw to jack)\b")
+    {
         JackPlayers[sender] := "Likely"
+        JackPlayerReported[sender] := A_TickCount
+    }
     if RegExMatch(body, "i)\b(?:not (?:going|coming) to jack|can't make (?:it|jack)|leaving jack)\b") && JackPlayers.Has(sender)
+    {
         JackPlayers.Delete(sender)
+        JackPlayerReported.Delete(sender)
+    }
 }
 
 RefreshJackTracker()
 {
     global JackPanel, JackFields, JackLastTimeTick, JackGameMinutes
     global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible, JackLastClockMinute
+    global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
@@ -335,6 +360,9 @@ RefreshJackTracker()
             JackRaidState := "Awaiting evidence"
             JackPortalState := "Closed"
             JackPlayers.Clear()
+            JackPlayerReported.Clear()
+            JackRaidReported := 0
+            JackPortalReported := A_TickCount
             JackExpanded := false
         }
         JackLastClockMinute := gameNow
@@ -346,8 +374,10 @@ RefreshJackTracker()
     ; !time synchronizes an internal clock. The 9 PM–6 AM window is
     ; scheduled activity, not proof Jack is alive or the portal is open.
     inRaidWindow := JackLastTimeTick && (gameNow >= 1260 || gameNow < 360)
-    if inRaidWindow && JackRaidState != "Likely defeated" && JackPortalState = "Closed"
+    if inRaidWindow && JackRaidState != "Likely defeated" && JackPortalState = "Closed" {
         JackPortalState := "Open"
+        JackPortalReported := A_TickCount
+    }
     displayState := "Inactive"
     if JackRaidState = "Active" && inRaidWindow
         displayState := "Active"
@@ -373,17 +403,31 @@ RefreshJackTracker()
         JackFields[key].Visible := !JackExpanded
     names := ""
     for name, status in JackPlayers
-        names .= (names = "" ? "" : "    •    ") name " (" status ")"
+        names .= (names = "" ? "" : "    •    ") name " (" status ", " JackReportedAgo(JackPlayerReported.Has(name) ? JackPlayerReported[name] : 0) ")"
     JackFields["location"].Text := JackPortalLocation
     JackFields["raid"].Text := inRaidWindow && JackRaidState = "Awaiting evidence" ? "Scheduled window (unconfirmed)" : JackRaidState
     JackFields["access"].Text := "Portal Status: " JackPortalState
+    JackFields["portalReported"].Text := "Last reported: " JackReportedAgo(JackPortalReported)
+    JackFields["raidReported"].Text := "Last reported: " JackReportedAgo(JackRaidReported ? JackRaidReported : JackClockReported)
     JackFields["countdown"].Text := countdown
     JackFields["playersHeading"].Text := "SUSPECTED PARTICIPANTS (" JackPlayers.Count ")"
     JackFields["players"].Text := names = "" ? "No participants detected yet." : names
-    for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
+    for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players", "raidReported", "portalReported"]
         JackFields[key].Visible := JackExpanded
     JackFields["toggle"].Text := JackExpanded ? "Collapse  ▴" : "Expand  ▾"
     SetRaidEventExpanded("jack", JackExpanded)
+}
+
+JackReportedAgo(tick)
+{
+    if !tick
+        return "No report yet"
+    seconds := Max(0, Floor((A_TickCount - tick) / 1000))
+    if seconds < 60
+        return seconds "s ago"
+    if seconds < 3600
+        return Floor(seconds / 60) "m ago"
+    return Floor(seconds / 3600) "h " Mod(Floor(seconds / 60), 60) "m ago"
 }
 
 StopJackTracker()
