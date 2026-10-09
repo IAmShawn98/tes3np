@@ -467,20 +467,23 @@ OfferFirstRunSetup(*)
     ; saved installation path. Never leave first-time users waiting indefinitely.
     if !firstRunDetectionStarted
         firstRunDetectionStarted := A_TickCount
-    if !FileExist(A_ScriptDir "\tes3mp.exe")
+    ; Use the same TES3MP folder discovery as the patcher. The launcher may
+    ; be installed in a sibling, parent, or nested TES3MP directory.
+    tesFolder := FindTES3MPFolder()
+    if tesFolder = ""
     {
         if A_TickCount - firstRunDetectionStarted < 5000
             return
         firstRunPromptShown := true
         SetTimer(OfferFirstRunSetup, 0)
-        LogLauncherEvent("First-run TES3MP detection failed: tes3mp.exe is not beside the launcher.")
+        LogLauncherEvent("First-run TES3MP detection failed: no TES3MP executable was located.")
         EndGameDetectionDisplay()
-        MsgBox("TES3MP could not be detected in the launcher folder.`n`nPlace tes3np.exe in the same folder as tes3mp.exe, then reopen tes3np. You can also click Patch Tes3mp to select or repair your installation.", "TES3MP folder not found", "Icon!")
+        MsgBox("TES3MP could not be detected in the launcher folder.`n`nPlace tes3np in your TES3MP installation folder, or click Patch Tes3mp to select or repair your installation.", "TES3MP folder not found", "Icon!")
         return
     }
     firstRunPromptShown := true
     SetTimer(OfferFirstRunSetup, 0)
-    LogLauncherEvent("First-run TES3MP folder detected; offering patch installation.")
+    LogLauncherEvent("First-run TES3MP folder detected at " tesFolder "; offering patch installation.")
     if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
     {
         EndGameDetectionDisplay()
