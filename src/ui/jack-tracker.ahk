@@ -276,7 +276,7 @@ ProcessJackChatLine(line)
     global JackLastTimeTick, JackGameMinutes, JackRaidState, JackPortalState
     global JackPortalLocation, JackPlayers, JackRaidEnded, JackExpanded, JackCollapseAt
     global JackPlayerReported, JackPortalReported, JackRaidReported, JackClockReported
-    global JackCombatTick, JackVictoryHints, JackClockDay, JackPortalEvidence
+    global JackCombatTick, JackVictoryHints, JackClockDay, JackPortalEvidence, JackLastClockMinute
     if RegExMatch(line, "i)The current in-game time is\s+(\d{1,2}):(\d{2})\s*(AM|PM)", &m) {
         hour := Mod(Integer(m[1]), 12) + (StrUpper(m[3]) = "PM" ? 12 : 0)
         newMinute := hour * 60 + Integer(m[2])
@@ -294,12 +294,18 @@ ProcessJackChatLine(line)
     if RegExMatch(body, "i)\b(.+?)\s*\(\d+\) was (?:honorably )?killed by Jack\.", &death) {
         ; A player named Jack can also cause this death message. Require a
         ; known server clock and a plausible raid window after the 9 PM spawn.
+        ; System/Yagrum relay messages are authoritative kill alerts. Do not
+        ; silently discard them when !time has not yet been observed or when
+        ; the estimated clock drifted. Ignore ordinary player-authored claims.
+        if sender != "System" && sender != "Yagrum"
+            return
         if !JackLastTimeTick
-            return
-        gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
-        ; Allow the fight to continue past midnight, up to 6 AM game time.
-        if !(gameNow >= 1260 || gameNow < 360)
-            return
+            JackTrackerLog("Jack kill detected before clock sync: " body)
+        else {
+            gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
+            if !(gameNow >= 1260 || gameNow < 360)
+                JackTrackerLog("Jack kill detected outside estimated raid window: " body)
+        }
         JackPlayers[Trim(death[1])] := "Fighting"
         JackPlayerReported[Trim(death[1])] := A_TickCount
         JackRaidReported := A_TickCount
@@ -428,7 +434,7 @@ RefreshJackTracker()
         JackLastPortalWindow := inRaidWindow
     }
     displayState := "Inactive"
-    if JackRaidState = "Active" && inRaidWindow && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000
+    if JackRaidState = "Active" && JackCombatTick && A_TickCount - JackCombatTick <= 12 * 60 * 1000
         displayState := "Active"
     else if inRaidWindow && JackRaidState != "Likely defeated"
         displayState := "Scheduled"
