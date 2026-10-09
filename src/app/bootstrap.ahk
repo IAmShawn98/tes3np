@@ -461,8 +461,11 @@ OfferFirstRunSetup(*)
     tesFolder := FindTES3MPFolder()
     if tesFolder = ""
     {
-        LogLauncherEvent("First-run detection finished without locating TES3MP.")
+        firstRunPromptShown := true
+        LogLauncherEvent("First-run detection finished without locating TES3MP; showing recovery prompt.")
         EndGameDetectionDisplay()
+        if MsgBox("TES3MP could not be found. Place tes3np.exe in the same folder as tes3mp.exe, or select your TES3MP installation using Repair Game Install. Open Repair Game Install now?", "Nerevarine Prophecies", "YesNo Icon!") = "Yes"
+            OpenPatcher()
         return
     }
     firstRunPromptShown := true
