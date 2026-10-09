@@ -1,6 +1,5 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
 global GameDetectionActive := false
-global GameDetectionSeconds := 0
 global LauncherHelpText := 0
 BuildFrontPage()
 {
@@ -59,7 +58,7 @@ UpdateCharacterMenuLabel()
             LauncherHelpText.Visible := true
         if GameDetectionActive
         {
-            MenuEntries.Push(["Repair Game Install", OpenPatcher], ["Quit Launcher", QuitLauncher])
+            MenuEntries.Push(["Patch Tes3mp", OpenPatcher], ["Quit Launcher", QuitLauncher])
             ScrollMenu(0)
             return
         }
@@ -196,60 +195,26 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
 ; First-run detection status occupies the same scroll panel as the normal menu.
 BeginGameDetectionDisplay()
 {
-    global LauncherGui, LauncherHeading, LauncherHelpText, GameDetectionActive, GameDetectionSeconds, LauncherControlLayout
+    global LauncherGui, LauncherHeading, LauncherHelpText, GameDetectionActive, LauncherControlLayout
     GameDetectionActive := true
-    GameDetectionSeconds := 10
-    LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
-    RefreshGameDetectionText()
+    LauncherHeading.Text := "Game Launcher"
     LauncherGui.SetFont("s10 Norm c241408", "Segoe UI")
     LauncherHelpText := LauncherGui.Add("Text", "x345 y529 w265 h98 Center BackgroundTrans",
-        "Please wait while we detect your downloaded copy of TES3MP...")
-    ; Added after the initial layout capture: register logical coordinates so
-    ; ShowLauncherWindow's rescale cannot shift this control into the buttons.
+        "Please wait while tes3np verifies your tes3mp folder data...")
     LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 529, Width: 265, Height: 98}
     UpdateCharacterMenuLabel()
     RefreshGameDetectionText()
-    SetTimer(UpdateGameDetectionCountdown, 1000)
-}
-
-UpdateGameDetectionCountdown()
-{
-    global GameDetectionActive, GameDetectionSeconds, LauncherHeading
-    if !GameDetectionActive
-    {
-        SetTimer(UpdateGameDetectionCountdown, 0)
-        return
-    }
-    GameDetectionSeconds := Max(0, GameDetectionSeconds - 1)
-    LauncherHeading.Text := "Please Wait (" GameDetectionSeconds ")"
-    RefreshGameDetectionText()
-    if GameDetectionSeconds = 0
-    {
-        SetTimer(UpdateGameDetectionCountdown, 0)
-        LauncherHeading.Text := "Checking Installation"
-        RefreshGameDetectionText()
-        ; The prompt must follow the completed countdown, not race a separate
-        ; ten-second startup timer (which may fire while Jiub is still loading).
-        SetTimer(OfferFirstRunSetup, -150)
-    }
 }
 
 EndGameDetectionDisplay()
 {
-    global GameDetectionActive, LauncherHeading, LauncherHelpText, LauncherControlLayout, LauncherScale
-    if !GameDetectionActive
-        return
+    global GameDetectionActive, LauncherHeading, LauncherHelpText
     GameDetectionActive := false
-    SetTimer(UpdateGameDetectionCountdown, 0)
     LauncherHeading.Text := "Game Launcher"
     if IsObject(LauncherHelpText)
-    {
-        LauncherHelpText.Text := "If setup didn't appear, check that tes3np.exe is beside tes3mp.exe and that Morrowind GOTY and OpenMW are installed correctly. Use Repair Game Install to locate your files or fix the installation."
-        LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 529, Width: 265, Height: 98}
-        scale := LauncherScale / 100
-        LauncherHelpText.Move(Round(345 * scale), Round(529 * scale), Round(265 * scale), Round(98 * scale))
-    }
+        LauncherHelpText.Text := 'Click "Patch Tes3mp" to continue.'
     UpdateCharacterMenuLabel()
+    RefreshGameDetectionText()
 }
 
 ; Transparent STATIC controls need their parent repainted when their text changes.
