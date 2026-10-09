@@ -11,6 +11,7 @@ global JackPortalState := "Unknown"
 global JackPortalLocation := "Balmora"
 global JackPlayers := Map()
 global JackRaidEnded := false
+global JackLastClockMinute := -1
 ; Event panels are registered bottom-to-top. Each can expand independently.
 global RaidEventStack := Map()
 global RaidEventOrder := []
@@ -311,13 +312,22 @@ ProcessJackChatLine(line)
 RefreshJackTracker()
 {
     global JackPanel, JackFields, JackLastTimeTick, JackGameMinutes
-    global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible
+    global JackRaidState, JackPortalState, JackPortalLocation, JackPlayers, JackExpanded, JackTrackerVisible, JackLastClockMinute
     if !IsObject(JackPanel)
         return
     countdown := "Waiting for server time"
     remaining := 999999
     if JackLastTimeTick {
         gameNow := Mod(JackGameMinutes + (A_TickCount - JackLastTimeTick) / 2000, 1440)
+        ; Reset stale encounter evidence once the in-game clock reaches 3 AM.
+        ; Track the clock crossing, not just the hour, to avoid repeat resets.
+        if JackLastClockMinute >= 0 && JackLastClockMinute < 180 && gameNow >= 180 && gameNow < 1260 {
+            JackRaidState := "Awaiting evidence"
+            JackPortalState := "Unknown"
+            JackPlayers.Clear()
+            JackExpanded := false
+        }
+        JackLastClockMinute := gameNow
         remaining := Mod(1260 - gameNow + 1440, 1440) * 2
         countdown := "Next 9 PM: ~" Ceil(remaining / 60) " min"
     }
