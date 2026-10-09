@@ -450,6 +450,7 @@ OfferFirstRunSetup(*)
 {
     global SetupComplete, LauncherGui, DataFile, GameDetectionActive
     static firstRunPromptShown := false
+    static firstRunDetectionStarted := 0
     if SetupComplete
     {
         ; Verify returning players without showing the first-install dialog.
@@ -462,10 +463,21 @@ OfferFirstRunSetup(*)
     }
     if firstRunPromptShown
         return
-    ; Only a tes3np executable placed directly beside tes3mp.exe qualifies.
-    ; Saved installation paths must not trigger the first-run prompt.
-    if !FileExist(A_ScriptDir "\\tes3mp.exe")
+    ; Detect the actual TES3MP executable next to the launcher, not a stale
+    ; saved installation path. Never leave first-time users waiting indefinitely.
+    if !firstRunDetectionStarted
+        firstRunDetectionStarted := A_TickCount
+    if !FileExist(A_ScriptDir "\tes3mp.exe")
+    {
+        if A_TickCount - firstRunDetectionStarted < 5000
+            return
+        firstRunPromptShown := true
+        SetTimer(OfferFirstRunSetup, 0)
+        LogLauncherEvent("First-run TES3MP detection failed: tes3mp.exe is not beside the launcher.")
+        EndGameDetectionDisplay()
+        MsgBox("TES3MP could not be detected in the launcher folder.`n`nPlace tes3np.exe in the same folder as tes3mp.exe, then reopen tes3np. You can also click Patch Tes3mp to select or repair your installation.", "TES3MP folder not found", "Icon!")
         return
+    }
     firstRunPromptShown := true
     SetTimer(OfferFirstRunSetup, 0)
     LogLauncherEvent("First-run TES3MP folder detected; offering patch installation.")
