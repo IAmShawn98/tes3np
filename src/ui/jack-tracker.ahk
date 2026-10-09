@@ -27,8 +27,8 @@ StartJackTracker()
     ; including minimize/restore, without changing launcher dimensions.
     JackPanel := Gui("-DPIScale -Caption +ToolWindow +Owner" LauncherGui.Hwnd, "TES3NP Jack Raid")
     JackPanel.BackColor := "18130F"
-    JackPanel.SetFont("s14 Bold cE9C78D", "Georgia")
-    heading := JackPanel.Add("Text", "x16 y17 w385 h31 +0x100 BackgroundTrans", "JACK — RAID BOSS (Morroween Event)")
+    JackPanel.SetFont("s12 Bold cE9C78D", "Georgia")
+    heading := JackPanel.Add("Text", "x16 y17 w400 h31 +0x100 BackgroundTrans", "JACK — RAID BOSS (Morroween Event)")
     heading.OnEvent("Click", ToggleJackTracker)
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
     JackFields["toggle"] := JackPanel.Add("Text", "x844 y20 w98 h27 Right +0x100 BackgroundTrans", "Expand  ▾")
@@ -40,6 +40,11 @@ StartJackTracker()
     ; Collapsed strip: a separate warm status pill, portal and next spawn.
     ; Keeping each field separate avoids overflowing one long text control.
     JackFields["badgeBg"] := JackPanel.Add("Text", "x310 y17 w165 h31 Background3C2317")
+    ; Rounded status capsule to match the compact event illustration.
+    try {
+        pillRegion := DllCall("gdi32\\CreateRoundRectRgn", "Int", 0, "Int", 0, "Int", 165, "Int", 31, "Int", 22, "Int", 22, "Ptr")
+        DllCall("user32\\SetWindowRgn", "Ptr", JackFields["badgeBg"].Hwnd, "Ptr", pillRegion, "Int", true)
+    }
     JackPanel.SetFont("s10 Norm cE9A25D", "Segoe UI")
     JackFields["badge"] := JackPanel.Add("Text", "x319 y22 w150 h23 Center +0x100 BackgroundTrans", "")
     JackFields["badge"].OnEvent("Click", ToggleJackTracker)
@@ -184,11 +189,17 @@ LayoutJackTracker(width)
     right := width - 16
     JackFields["toggle"].Move(right - 115, 19, 115, 28)
     ; Four separate columns, with the action anchored at the far right.
-    badgeX := Round(width * 0.405)
-    portalX := Round(width * 0.58)
-    JackFields["badgeBg"].Move(badgeX, 17, Round(width * 0.155), 31)
-    JackFields["badge"].Move(badgeX + 5, 22, Round(width * 0.155) - 10, 23)
+    badgeX := Round(width * 0.42)
+    badgeW := Round(width * 0.155)
+    portalX := Round(width * 0.60)
+    JackFields["badgeBg"].Move(badgeX, 17, badgeW, 31)
+    JackFields["badge"].Move(badgeX + 5, 22, badgeW - 10, 23)
     JackFields["portalGlance"].Move(portalX, 22, Max(90, right - 125 - portalX), 25)
+    ; The region must be recreated when the pill width changes.
+    try {
+        pillRegion := DllCall("gdi32\\CreateRoundRectRgn", "Int", 0, "Int", 0, "Int", badgeW, "Int", 31, "Int", 22, "Int", 22, "Ptr")
+        DllCall("user32\\SetWindowRgn", "Ptr", JackFields["badgeBg"].Hwnd, "Ptr", pillRegion, "Int", true)
+    }
     JackFields["summary"].Move(16, 48, width - 32, 31)
     half := Floor((width - 36) / 2)
     leftX := 12, rightX := leftX + half + 12
