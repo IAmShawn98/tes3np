@@ -35,20 +35,20 @@ StartJackTracker()
 
     ; Dark inset cards and gold headings give each type of information its own
     ; readable area. The background panels are added before their labels.
-    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y66 w452 h98 Background292118")
-    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y66 w472 h98 Background292118")
-    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y174 w936 h77 Background292118")
+    JackFields["portalBg"] := JackPanel.Add("Text", "x12 y70 w452 h118 Background292118")
+    JackFields["statusBg"] := JackPanel.Add("Text", "x476 y70 w472 h118 Background292118")
+    JackFields["playersBg"] := JackPanel.Add("Text", "x12 y198 w936 h84 Background292118")
     JackPanel.SetFont("s10 Bold cE9C78D", "Segoe UI")
-    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y76 w420 h23 BackgroundTrans", "PORTAL LOCATION")
-    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y76 w440 h23 BackgroundTrans", "RAID STATUS")
-    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y182 w450 h22 BackgroundTrans", "SUSPECTED PARTICIPANTS")
+    JackFields["portalHeading"] := JackPanel.Add("Text", "x26 y81 w420 h25 BackgroundTrans", "PORTAL LOCATION")
+    JackFields["statusHeading"] := JackPanel.Add("Text", "x490 y81 w440 h25 BackgroundTrans", "RAID STATUS")
+    JackFields["playersHeading"] := JackPanel.Add("Text", "x26 y209 w450 h25 BackgroundTrans", "SUSPECTED PARTICIPANTS")
     JackPanel.SetFont("s13 Bold cF0D5A3", "Segoe UI")
-    JackFields["location"] := JackPanel.Add("Text", "x26 y106 w420 h27 BackgroundTrans", "")
-    JackFields["raid"] := JackPanel.Add("Text", "x490 y106 w440 h27 BackgroundTrans", "")
+    JackFields["location"] := JackPanel.Add("Text", "x26 y113 w420 h30 BackgroundTrans", "")
+    JackFields["raid"] := JackPanel.Add("Text", "x490 y113 w440 h30 BackgroundTrans", "")
     JackPanel.SetFont("s10 Norm cD5C2A7", "Segoe UI")
-    JackFields["access"] := JackPanel.Add("Text", "x26 y140 w420 h18 BackgroundTrans", "")
-    JackFields["countdown"] := JackPanel.Add("Text", "x490 y140 w440 h18 BackgroundTrans", "")
-    JackFields["players"] := JackPanel.Add("Text", "x26 y207 w905 h37 BackgroundTrans", "")
+    JackFields["access"] := JackPanel.Add("Text", "x26 y155 w420 h24 BackgroundTrans", "")
+    JackFields["countdown"] := JackPanel.Add("Text", "x490 y155 w440 h24 BackgroundTrans", "")
+    JackFields["players"] := JackPanel.Add("Text", "x26 y241 w905 h33 BackgroundTrans", "")
     for key in ["portalBg", "statusBg", "playersBg", "portalHeading", "statusHeading", "playersHeading", "location", "raid", "access", "countdown", "players"]
         JackFields[key].Visible := false
     JackPanel.Show("NoActivate w960 h59")
@@ -113,7 +113,7 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
         barWidth := w
         ; Keep the alert compact: its GUI content is laid out in fixed
         ; logical pixels and should not grow vertically with launcher scale.
-        barHeight := JackExpanded ? 260 : 59
+        barHeight := JackExpanded ? 294 : 59
         JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
     }
 }
