@@ -29,7 +29,9 @@ StartJackTracker()
     JackPanel.SetFont("s9 Norm cB7A38C", "Segoe UI")
     JackFields["summary"] := JackPanel.Add("Text", "x14 y35 w790 h19 +0x100", "Balmora Portal  |  Portal: Unknown  |  Waiting for server time")
     JackFields["summary"].OnEvent("Click", ToggleJackTracker)
-    JackFields["detail"] := JackPanel.Add("Text", "x14 y61 w790 h105", "")
+    ; Leave a full line between summary and details so font ascent/descent
+    ; cannot overlap at Windows text scaling settings.
+    JackFields["detail"] := JackPanel.Add("Text", "x14 y75 w920 h94", "")
     JackPanel.SetFont("s9 Bold cE9C78D", "Segoe UI")
     toggle := JackPanel.Add("Text", "x736 y9 w74 h24 Right +0x100", "Expand  ▾")
     toggle.OnEvent("Click", ToggleJackTracker)
@@ -96,7 +98,7 @@ PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
         barWidth := w
         ; Keep the alert compact: its GUI content is laid out in fixed
         ; logical pixels and should not grow vertically with launcher scale.
-        barHeight := JackExpanded ? 172 : 59
+        barHeight := JackExpanded ? 180 : 59
         JackPanel.Show("NoActivate x" x " y" Max(0, y - barHeight) " w" barWidth " h" barHeight)
     }
 }
