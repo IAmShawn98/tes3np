@@ -14,6 +14,7 @@ global JackRaidEnded := false
 ; Event panels are registered bottom-to-top. Each can expand independently.
 global RaidEventStack := Map()
 global RaidEventOrder := []
+global JackLayoutWidth := 0
 
 StartJackTracker()
 {
@@ -157,8 +158,39 @@ PositionRaidEventStack(forcedX := "", forcedY := "", forcedW := "")
             height := entry.isExpanded ? entry.expanded : entry.collapsed
             y -= height
             entry.gui.Show("NoActivate x" x " y" y " w" w " h" height)
+            if id = "jack"
+                LayoutJackTracker(w)
         }
     }
+}
+
+; Layout is based on the real launcher width, not the original 960px
+; mockup. Keep the toggle flush right and fill both card columns.
+LayoutJackTracker(width)
+{
+    global JackFields, JackLayoutWidth
+    if width < 500 || width = JackLayoutWidth || !JackFields.Has("toggle")
+        return
+    JackLayoutWidth := width
+    right := width - 16
+    JackFields["toggle"].Move(right - 115, 9, 115, 28)
+    JackFields["summary"].Move(16, 43, width - 32, 31)
+    half := Floor((width - 36) / 2)
+    leftX := 12, rightX := leftX + half + 12
+    rightW := width - rightX - 12
+    JackFields["portalBg"].Move(leftX, 82, half, 118)
+    JackFields["statusBg"].Move(rightX, 82, rightW, 118)
+    JackFields["playersBg"].Move(12, 210, width - 24, 84)
+    for key in ["portalHeading", "location", "access"] {
+        ; Preserve each control's vertical coordinate and height.
+        JackFields[key].GetPos(, &cy, , &ch)
+        JackFields[key].Move(leftX + 14, cy, half - 28, ch)
+    }
+    for key in ["statusHeading", "raid", "countdown"] {
+        JackFields[key].GetPos(, &cy, , &ch)
+        JackFields[key].Move(rightX + 14, cy, rightW - 28, ch)
+    }
+    JackFields["players"].Move(26, 253, width - 52, 33)
 }
 
 PositionJackTracker(forcedX := "", forcedY := "", forcedW := "")
