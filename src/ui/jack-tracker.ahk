@@ -259,8 +259,12 @@ JackTrackerTick()
                 chunk := f.Read()
                 f.Close()
                 JackLogSize := size
-                for line in StrSplit(chunk, "`n", "`r")
-                    ProcessJackChatLine(line)
+                for line in StrSplit(chunk, "`n", "`r") {
+                    ; Chat Host can append previously fetched Discord history in a batch.
+                    ; Only process messages whose chat timestamp is actually recent.
+                    if JackChatLineIsFresh(line)
+                        ProcessJackChatLine(line)
+                }
             }
         }
     }
@@ -269,6 +273,20 @@ JackTrackerTick()
         JackCollapseAt := 0
     }
     RefreshJackTracker()
+}
+
+JackChatLineIsFresh(line)
+{
+    ; Ignore date headings, old history backfills and incomplete lines.
+    ; Discord Game Chat timestamps use the same local clock as A_Now.
+    if !RegExMatch(line, "^\[(\d{2}):(\d{2}):(\d{2}) (AM|PM)\] ", &stamp)
+        return false
+    hour := Mod(Integer(stamp[1]), 12) + (stamp[4] = "PM" ? 12 : 0)
+    msgSeconds := hour * 3600 + Integer(stamp[2]) * 60 + Integer(stamp[3])
+    nowSeconds := Integer(FormatTime(, "H")) * 3600 + Integer(FormatTime(, "m")) * 60 + Integer(FormatTime(, "s"))
+    age := Mod(nowSeconds - msgSeconds + 86400, 86400)
+    ; Allow minor delivery delays and midnight rollover, but never hours-old replay.
+    return age <= 180
 }
 
 ProcessJackChatLine(line)
