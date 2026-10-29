@@ -682,6 +682,11 @@ OpenAppDataSettingsV016(settings, *)
         return
     if V016SettingsDataActive
         return
+    ; Snapshot the current parchment and suspend redraw while controls change.
+    ; Quick cached transitions keep the old frame, without a loading card.
+    BeginInterfaceUpdate(settings, "Opening Launcher Data...", false)
+    try
+    {
     ; Create the second view once. A return visit simply toggles visibility.
     if V016SettingsDataControls.Length = 0
     {
@@ -714,6 +719,8 @@ OpenAppDataSettingsV016(settings, *)
         SetBookControlVisible(control, true)
     DllCall("InvalidateRect", "Ptr", settings.Hwnd, "Ptr", 0, "Int", false)
     FinishButtonDisplay()
+    }
+    finally EndInterfaceUpdate()
 }
 
 CloseLauncherDataV016(settings, *)
@@ -721,6 +728,9 @@ CloseLauncherDataV016(settings, *)
     global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
     if !V016SettingsDataActive || !DllCall("IsWindow", "Ptr", settings.Hwnd)
         return
+    BeginInterfaceUpdate(settings, "Returning to Launcher Settings...", false)
+    try
+    {
     for control in V016SettingsDataControls
         SetBookControlVisible(control, false)
     for index, control in V016SettingsMainControls
@@ -729,6 +739,8 @@ CloseLauncherDataV016(settings, *)
     V016SettingsDataActive := false
     DllCall("InvalidateRect", "Ptr", settings.Hwnd, "Ptr", 0, "Int", false)
     FinishButtonDisplay()
+    }
+    finally EndInterfaceUpdate()
 }
 
 CopyExpansionPackLogs(*)
