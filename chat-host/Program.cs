@@ -848,72 +848,235 @@ metrics();
         // Discord IDs contain the real UTC send time, so late-loaded messages
         // display only their remaining time rather than restarting a full hour.
         ulong lastHappyHourAlertId;
+        ulong dismissedHappyHourBannerId;
         Form? happyHourAlert;
+        Form? happyHourBanner;
+        Label? happyHourBannerCountdown;
         System.Windows.Forms.Timer? happyHourTicker;
+        DateTimeOffset happyHourEndsAt;
+        readonly string happyHourSeenFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "tes3np", "happy-hour-last-seen.txt");
+
+        ulong GetLastSeenHappyHour()
+        {
+            try {
+                return ulong.TryParse(File.ReadAllText(happyHourSeenFile).Trim(), out var id) ? id : 0UL;
+            } catch { return 0; }
+        }
+
+        void SaveLastSeenHappyHour(ulong id)
+        {
+            try {
+                Directory.CreateDirectory(Path.GetDirectoryName(happyHourSeenFile)!);
+                File.WriteAllText(happyHourSeenFile, id.ToString());
+            } catch (Exception ex) { Log("Happy Hour alert state not saved: " + ex.Message); }
+        }
+
+        static Label GoldText(string text, int x, int y, int w, int h, float size, bool bold = false)
+        {
+            var label = new Label {
+                Text = text,
+                Font = new System.Drawing.Font("Georgia", size,
+                    bold ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular),
+                ForeColor = System.Drawing.Color.FromArgb(215, 170, 77),
+                BackColor = System.Drawing.Color.Transparent,
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+            };
+            label.SetBounds(x, y, w, h);
+            return label;
+        }
+
+        static Button GoldButton(string text, int x, int y, int w, int h)
+        {
+            var button = new Button {
+                Text = text, FlatStyle = FlatStyle.Flat,
+                BackColor = System.Drawing.Color.FromArgb(112, 76, 39),
+                ForeColor = System.Drawing.Color.FromArgb(255, 234, 188),
+                Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold)
+            };
+            button.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(197, 164, 92);
+            button.SetBounds(x, y, w, h);
+            return button;
+        }
+
+        static Form GoldHappyHourWindow(int width, int height, string title)
+        {
+            return new Form {
+                Text = title, StartPosition = FormStartPosition.CenterScreen,
+                ClientSize = new System.Drawing.Size(width, height),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false,
+                BackColor = System.Drawing.Color.FromArgb(23, 16, 8),
+                ForeColor = System.Drawing.Color.FromArgb(197, 164, 92)
+            };
+        }
+
+        // Use actual Discord snowflake time: reconnects and history never
+        // restart a Happy Hour's 60-minute period.
+        static string HappyHourRemaining(DateTimeOffset ends)
+        {
+            var remain = ends - DateTimeOffset.UtcNow;
+            if (remain <= TimeSpan.Zero) return "00:00";
+            int seconds = (int)Math.Ceiling(remain.TotalSeconds);
+            return (seconds / 60).ToString("00") + ":" + (seconds % 60).ToString("00");
+        }
+
+        void CloseHappyHourPopup()
+        {
+            if (happyHourAlert is { IsDisposed: false }) happyHourAlert.Close();
+            happyHourAlert = null;
+            // Dismissing the large popup leaves the smaller launcher alert.
+            RefreshHappyHourBanner();
+        }
+
+        void RefreshHappyHourBanner()
+        {
+            if (happyHourEndsAt <= DateTimeOffset.UtcNow ||
+                dismissedHappyHourBannerId == lastHappyHourAlertId ||
+                !IsWindow(owner))
+            {
+                if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
+                happyHourBanner = null;
+                return;
+            }
+            if (happyHourAlert is { IsDisposed: false }) return;
+            if (happyHourBanner == null || happyHourBanner.IsDisposed)
+            {
+                var banner = GoldHappyHourWindow(620, 42, "tes3np Happy Hour");
+                banner.FormBorderStyle = FormBorderStyle.None;
+                banner.StartPosition = FormStartPosition.Manual;
+                banner.BackColor = System.Drawing.Color.FromArgb(197, 164, 92);
+                var inside = new Panel {
+                    BackColor = System.Drawing.Color.FromArgb(23, 16, 8)
+                };
+                inside.SetBounds(2, 2, 616, 38);
+                banner.Controls.Add(inside);
+                var dismiss = GoldButton("×", 5, 5, 29, 28);
+                dismiss.Click += (_, _) => {
+                    dismissedHappyHourBannerId = lastHappyHourAlertId;
+                    banner.Close();
+                };
+                inside.Controls.Add(dismiss);
+                inside.Controls.Add(GoldText("HAPPY HOUR", 38, 5, 175, 28, 13, true));
+                var left = GoldText("", 218, 5, 375, 28, 12, true);
+                inside.Controls.Add(left);
+                happyHourBannerCountdown = left;
+                happyHourBanner = banner;
+                banner.FormClosed += (_, _) => {
+                    if (ReferenceEquals(happyHourBanner, banner)) happyHourBanner = null;
+                };
+                // Keep the card associated with the launcher, without making
+                // it topmost over unrelated desktop applications.
+                banner.Show();
+                SetNativeWindowOwner(banner.Handle, owner);
+            }
+            if (happyHourBannerCountdown != null)
+                happyHourBannerCountdown.Text = "Mastery XP x2  |  " +
+                    HappyHourRemaining(happyHourEndsAt) + " left";
+            // Place the gold card directly above the actual launcher window.
+            var rect = new NativeRect();
+            if (GetWindowRect(owner, out rect) && happyHourBanner is { IsDisposed: false })
+            {
+                bool visible = IsWindowVisible(owner) && !IsIconic(owner);
+                if (visible) {
+                    happyHourBanner.SetBounds(rect.Left, rect.Top - 44,
+                        rect.Right - rect.Left, 42);
+                    if (!happyHourBanner.Visible) happyHourBanner.Show();
+                } else if (happyHourBanner.Visible) happyHourBanner.Hide();
+            }
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        struct NativeRect { public int Left, Top, Right, Bottom; }
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+        [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
 
         void ShowHappyHourAlert(ulong activationId)
         {
             var ends = DiscordTimestamp(activationId).AddHours(1);
             if (activationId <= lastHappyHourAlertId || ends <= DateTimeOffset.UtcNow) return;
             lastHappyHourAlertId = activationId;
+            happyHourEndsAt = ends;
+            // Each new activation resets the banner, including after a restart.
+            dismissedHappyHourBannerId = 0;
             happyHourTicker?.Stop();
             happyHourTicker?.Dispose();
             happyHourAlert?.Close();
-            happyHourAlert?.Dispose();
+            happyHourBanner?.Close();
+            happyHourAlert = null;
+            happyHourBanner = null;
 
-            var alert = new Form {
-                Text = "tes3np - Happy Hour",
-                StartPosition = FormStartPosition.CenterScreen,
-                ClientSize = new System.Drawing.Size(350, 145),
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false,
-                BackColor = System.Drawing.Color.FromArgb(23, 16, 8),
-                ForeColor = System.Drawing.Color.FromArgb(213, 172, 80)
-            };
-            var heading = new Label {
-                Text = "Happy Hour is active!",
-                Font = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold),
-                ForeColor = alert.ForeColor,
-                TextAlign = System.Drawing.ContentAlignment.MiddleCenter
-            };
-            heading.SetBounds(12, 12, 326, 44);
-            var countdown = new Label {
-                Font = new System.Drawing.Font("Segoe UI", 13, System.Drawing.FontStyle.Bold),
-                ForeColor = System.Drawing.Color.White,
-                TextAlign = System.Drawing.ContentAlignment.MiddleCenter
-            };
-            countdown.SetBounds(12, 57, 326, 33);
-            var close = new Button { Text = "Close" };
-            close.SetBounds(120, 103, 110, 29);
-            close.Click += (_, _) => alert.Close();
-            alert.Controls.Add(heading);
-            alert.Controls.Add(countdown);
-            alert.Controls.Add(close);
-            var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
-            void RefreshCountdown()
+            bool previouslySeen = activationId <= GetLastSeenHappyHour();
+            // Mark as seen before displaying so restarting during the dialog
+            // cannot spam the same announcement.
+            if (!previouslySeen) SaveLastSeenHappyHour(activationId);
+            if (!previouslySeen)
             {
-                var remaining = ends - DateTimeOffset.UtcNow;
-                if (remaining <= TimeSpan.Zero) {
-                    countdown.Text = "Happy Hour has ended.";
+                var alert = GoldHappyHourWindow(480, 266, "tes3np - Happy Hour");
+                var border = new Panel { BackColor = System.Drawing.Color.FromArgb(197, 164, 92) };
+                border.SetBounds(0, 0, 480, 3);
+                alert.Controls.Add(border);
+                alert.Controls.Add(GoldText("HAPPY HOUR", 18, 13, 444, 38, 19, true));
+                // Match the chat announcement's rainbow 'Happy Hour' label.
+                var rainbow = new FlowLayoutPanel {
+                    AutoSize = false, WrapContents = false,
+                    BackColor = System.Drawing.Color.Transparent
+                };
+                rainbow.SetBounds(95, 60, 300, 27);
+                string wording = "Happy Hour";
+                var colors = new[] { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
+                    "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
+                for (int i = 0; i < wording.Length; i++)
+                {
+                    var letter = new Label {
+                        AutoSize = true, Margin = Padding.Empty,
+                        Text = wording[i].ToString(),
+                        Font = new System.Drawing.Font("Segoe UI", 13, System.Drawing.FontStyle.Bold),
+                        ForeColor = System.Drawing.ColorTranslator.FromHtml(colors[i])
+                    };
+                    rainbow.Controls.Add(letter);
+                }
+                alert.Controls.Add(rainbow);
+                alert.Controls.Add(GoldText("has been activated!", 65, 87, 350, 30, 13, true));
+                var timerText = GoldText("", 40, 123, 400, 42, 19, true);
+                alert.Controls.Add(timerText);
+                alert.Controls.Add(GoldText("Mastery XP gain is currently doubled!",
+                    18, 173, 444, 31, 13));
+                var close = GoldButton("Close", 170, 218, 140, 33);
+                close.Click += (_, _) => CloseHappyHourPopup();
+                alert.Controls.Add(close);
+                alert.FormClosed += (_, _) => {
+                    if (ReferenceEquals(happyHourAlert, alert)) {
+                        happyHourAlert = null;
+                        RefreshHappyHourBanner();
+                    }
+                };
+                happyHourAlert = alert;
+                timerText.Text = "Time left: " + HappyHourRemaining(ends);
+                alert.Show();
+                SetNativeWindowOwner(alert.Handle, owner);
+            }
+            var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
+            ticker.Tick += (_, _) => {
+                if (happyHourEndsAt <= DateTimeOffset.UtcNow) {
                     ticker.Stop();
+                    if (happyHourAlert is { IsDisposed: false }) happyHourAlert.Close();
+                    if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
                     return;
                 }
-                countdown.Text = "Time remaining: " + ((int)remaining.TotalMinutes).ToString("00")
-                    + ":" + remaining.Seconds.ToString("00");
-            }
-            ticker.Tick += (_, _) => RefreshCountdown();
-            alert.FormClosed += (_, _) => {
-                ticker.Stop();
-                ticker.Dispose();
-                if (ReferenceEquals(happyHourAlert, alert)) happyHourAlert = null;
-                if (ReferenceEquals(happyHourTicker, ticker)) happyHourTicker = null;
+                if (happyHourAlert is { IsDisposed: false })
+                    foreach (Control c in happyHourAlert.Controls)
+                        if (c is Label label && label.Text.StartsWith("Time left:"))
+                            label.Text = "Time left: " + HappyHourRemaining(happyHourEndsAt);
+                RefreshHappyHourBanner();
             };
-            happyHourAlert = alert;
             happyHourTicker = ticker;
-            RefreshCountdown();
             ticker.Start();
-            alert.Show(this);
-            Log("HAPPY HOUR | Activated at " + DiscordTimestamp(activationId).ToString("O"));
+            RefreshHappyHourBanner();
+            Log("HAPPY HOUR | " + (previouslySeen ? "Previously seen" : "New activation") +
+                " | " + DiscordTimestamp(activationId).ToString("O"));
         }
 
         async Task RefreshNativeMessages()
