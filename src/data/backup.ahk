@@ -162,6 +162,11 @@ ImportLauncherData()
         IniWrite(selected, temporary, "Profiles", "Selected")
         IniWrite(executable, temporary, "Launch", "Executable")
         IniWrite(suppress, temporary, "Launcher", "HideLaunchAllExplanation")
+        ; Import replaces the live INI. Preserve this device's onboarding
+        ; preference so restoring characters does not re-offer a shortcut.
+        shortcutChoice := IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "")
+        if shortcutChoice = "Yes" || shortcutChoice = "No"
+            IniWrite(shortcutChoice, temporary, "Launcher", "DesktopShortcutChoice")
         for index, profile in restored
         {
             section := "Character" index
