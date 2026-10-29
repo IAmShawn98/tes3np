@@ -61,14 +61,15 @@ OpenCharacterPage(*)
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "TES3MP executable")
+    executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "Bundled markerless TES3MP client")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     SetInterfaceLoadingText("Loading executable field...")
     ExecutableInput := AddThemedEdit(CharacterPage, "x525 y137 w270", GetSharedExecutable())
-    ExecutableInput.OnEvent("Change", SaveSharedExecutable)
+    ExecutableInput.Enabled := false
     SetInterfaceLoadingText("Loading Browse button...")
     ExecutableInput.GetPos(, &executableY, , &executableHeight)
-    browse := AddStyledButton(CharacterPage, 805, executableY, 80, executableHeight, "Browse", BrowseSharedExecutable)
+    browse := AddStyledButton(CharacterPage, 805, executableY, 80, executableHeight, "Bundled", (*) => 0)
+    browse.Enabled := false
     LaunchSettingsControls := [executableLabel, ExecutableInput, browse]
     SessionStatus := CharacterPage.Add("Text", "x70 y555 w370 h50 Hidden", "")
     SetInterfaceLoadingText("Loading Launch button...")
