@@ -48,7 +48,8 @@ CheckForUpdates(*)
         }
         SetLauncherUpdateAvailable(true, latest)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
-        choice := MsgBox("tes3np v" latest " is available.`n`nInstalled: v" AppConfig.Version "`n`nDownload and verify the update now?", "tes3np — Update available", "YesNo Iconi")
+        ; Viewing the gold preview never downloads, stages, or installs files.
+        choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel)
         if choice = "Yes" {
             BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
             try {
@@ -73,6 +74,40 @@ CheckForUpdates(*)
     } finally {
         UpdateBusy := false
     }
+}
+
+ShowUpdatePreview(installedVersion, latestVersion, channel)
+{
+    global LauncherGui, UpdateReleasePage
+    ; This is an informational, owned dialog. No updater work occurs here.
+    response := {Download: false}
+    preview := Gui("+Owner" LauncherGui.Hwnd " +AlwaysOnTop -MaximizeBox -MinimizeBox -Resize", "tes3np — Update Preview")
+    preview.BackColor := "C5A45C"
+    preview.SetFont("s10 cC5A45C", "Segoe UI")
+    preview.Add("Text", "x2 y2 w516 h280 Background171008")
+    preview.SetFont("s15 Bold cC5A45C", "Georgia")
+    preview.Add("Text", "x22 y18 w470 h32 BackgroundTrans", "Update Preview")
+    preview.SetFont("s11 cFFFFFF", "Segoe UI")
+    preview.Add("Text", "x22 y65 w470 h24 BackgroundTrans", "Preview Latest v" latestVersion " Update!")
+    preview.SetFont("s10 cFFFFFF", "Segoe UI")
+    preview.Add("Text", "x22 y102 w470 h22 BackgroundTrans", "Installed: v" installedVersion)
+    preview.Add("Text", "x22 y128 w470 h22 BackgroundTrans", "Latest: v" latestVersion)
+    preview.Add("Text", "x22 y154 w470 h22 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+    preview.SetFont("s10 cC5A45C", "Segoe UI")
+    preview.Add("Text", "x22 y181 w470 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
+    preview.Add("Text", "x22 y216 w470 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
+    preview.SetFont("s10 c171008", "Segoe UI")
+    downloadButton := preview.Add("Button", "x22 y245 w185 h28 Default", "Review && Download")
+    laterButton := preview.Add("Button", "x218 y245 w115 h28", "Not Now")
+    releaseButton := preview.Add("Button", "x344 y245 w154 h28", "Release Notes")
+    downloadButton.OnEvent("Click", (*) => (response.Download := true, preview.Destroy()))
+    laterButton.OnEvent("Click", (*) => preview.Destroy())
+    releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
+    preview.OnEvent("Close", (*) => preview.Destroy())
+    preview.OnEvent("Escape", (*) => preview.Destroy())
+    preview.Show("w520 h284 Center")
+    WinWaitClose("ahk_id " preview.Hwnd)
+    return response.Download ? "Yes" : "No"
 }
 
 StartTransactionalUpdate(version, staged)
