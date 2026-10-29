@@ -94,7 +94,7 @@ CreateUpdateBackdrop()
     ; Query physical screen pixels: LauncherGui.GetPos returns DPI-scaled
     ; coordinates, which caused the overlay to cover only part of the launcher.
     bounds := Buffer(16, 0)
-    if !DllCall("user32\\GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds)
+    if !DllCall("user32\GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds)
         throw Error("Unable to locate launcher for update backdrop.")
     lx := NumGet(bounds, 0, "Int")
     ly := NumGet(bounds, 4, "Int")
