@@ -39,6 +39,16 @@ try {
     if (Test-Path (Join-Path $f[0] 'new-only.txt')) { throw 'Rejected payload installed a new file.' }
     Write-Host 'PASS: incomplete staged payload rejected without modifying installed files.'
 
+    # A nested install/staging pair must be rejected before backup or copy.
+    $f=New-Fixture
+    $nestedInstall=Join-Path $f[1] 'tes3np'
+    $code=Invoke-UpdaterExpectedFailure @($nestedInstall,$f[1],$f[2]) ''
+    if($code -eq 0){throw 'Updater accepted an install folder inside its staging folder.'}
+    if((Get-Content (Join-Path $nestedInstall 'tes3np.exe') -Raw).Trim() -ne 'NEW'){
+        throw 'Overlapping paths altered staged/live content.'
+    }
+    Write-Host 'PASS: overlapping staging and installation paths are rejected.'
+
     $f=New-Fixture; $code=Invoke-UpdaterExpectedFailure $f 'after-backup'
     if ($code -eq 0) { throw 'Injected backup failure unexpectedly succeeded.' }
     if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD') { throw 'Backup failure did not preserve old launcher.' }
