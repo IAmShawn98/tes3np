@@ -421,7 +421,7 @@ CheckPatchWorker()
     {
         if IsSet(PatchPage) && IsObject(PatchPage)
             PatchPage.Hide()
-        ShowLauncherWindow()
+        ShowLauncherWindow(true)
         OfferDesktopShortcutOnFirstLaunch(true)
     }
 }
