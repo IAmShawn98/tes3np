@@ -1,0 +1,22 @@
+diff --git a/apps/openmw/mwmp/GUIController.cpp b/apps/openmw/mwmp/GUIController.cpp
+--- a/apps/openmw/mwmp/GUIController.cpp
++++ b/apps/openmw/mwmp/GUIController.cpp
+@@ -1,5 +1,7 @@
+ void mwmp::GUIController::updatePlayersMarkers(MWGui::LocalMapBase *localMapBase)
+ {
++    // TES3NP experimental markerless client: omit player map marker updates.
++    return;
+     std::vector<MyGUI::Widget*>::iterator markerWidgetIterator = localMapBase->mPlayerMarkerWidgets.begin();
+     for (; markerWidgetIterator != localMapBase->mPlayerMarkerWidgets.end(); ++markerWidgetIterator)
+         MyGUI::Gui::getInstance().destroyWidget(*markerWidgetIterator);
+diff --git a/apps/openmw/mwmp/DedicatedPlayer.cpp b/apps/openmw/mwmp/DedicatedPlayer.cpp
+--- a/apps/openmw/mwmp/DedicatedPlayer.cpp
++++ b/apps/openmw/mwmp/DedicatedPlayer.cpp
+@@ -1,5 +1,7 @@
+ void DedicatedPlayer::updateMarker()
+ {
++    // TES3NP experimental markerless client: omit individual marker updates.
++    return;
+     if (!markerEnabled)
+     {
+         return;
