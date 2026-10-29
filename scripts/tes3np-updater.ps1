@@ -57,7 +57,27 @@ function Assert-CompletePayload([string]$Root){
     }
     Write-UpdaterLog 'Required staged update payload files verified before installation.'
 }
-function Copy-DirectoryContents([string]$Source,[string]$Destination){Write-UpdaterLog("Copying files. Source=$Source | Destination=$Destination");Get-ChildItem -LiteralPath $Source -Force|ForEach-Object{Copy-Item -LiteralPath $_.FullName -Destination $Destination -Recurse -Force};Write-UpdaterLog 'File copy completed.'}
+function Copy-DirectoryContents([string]$Source,[string]$Destination){
+    Write-UpdaterLog("Copying files. Source=$Source | Destination=$Destination")
+    Get-ChildItem -LiteralPath $Source -Force|ForEach-Object{
+        $entry=$_
+        if($entry.PSIsContainer -and $entry.Name -ieq 'chat-host'){
+            $chatTarget=Join-Path $Destination $entry.Name
+            if(-not(Test-Path -LiteralPath $chatTarget)){New-Item -ItemType Directory -Path $chatTarget -Force|Out-Null}
+            Get-ChildItem -LiteralPath $entry.FullName -Force|ForEach-Object{
+                $target=Join-Path $chatTarget $_.Name
+                if($_.Name -in @('chat.ini','chat.css') -and (Test-Path -LiteralPath $target)){
+                    Write-UpdaterLog("Preserving existing user-editable chat configuration: $($_.Name)")
+                }else{
+                    Copy-Item -LiteralPath $_.FullName -Destination $target -Recurse -Force
+                }
+            }
+        }else{
+            Copy-Item -LiteralPath $entry.FullName -Destination $Destination -Recurse -Force
+        }
+    }
+    Write-UpdaterLog 'File copy completed.'
+}
 function Stop-LaunchedProcessForRollback($Process){if(-not $Process -or $Process.HasExited){return};Write-UpdaterLog("Stopping updated launcher PID $($Process.Id) before rollback.");try{Stop-Process -Id $Process.Id -Force -ErrorAction Stop;Wait-Process -Id $Process.Id -Timeout 10 -ErrorAction SilentlyContinue}catch{Write-UpdaterLog("Could not stop updated launcher cleanly: $($_.Exception.Message)")};if(Get-Process -Id $Process.Id -ErrorAction SilentlyContinue){throw 'Updated launcher is still running; rollback cannot safely continue.'};Write-UpdaterLog 'Updated launcher stopped; rollback may proceed.'}
 function Restore-Rollback([string]$Backup,[string]$Destination,[string]$Payload){
     # Restore backed-up files without deleting unmanaged user files. Remove
