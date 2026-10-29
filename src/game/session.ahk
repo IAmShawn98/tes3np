@@ -92,7 +92,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
         LoadDelay: profile.LoadDelay, Queue: queue,
-        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : []}
+        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : [], ProcessHandle: 0}
     SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
@@ -105,6 +105,11 @@ StopClient(*)
     phase := Client.Phase
     Client.Enabled := false
     Client.Phase := "stopped"
+    if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
+    {
+        DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
+        Client.ProcessHandle := 0
+    }
     SetTimer(ClientTick, 0)
     SetTimer(UpdateGameStatusTooltip, 0)
     ToolTip(, , , 1)
@@ -224,6 +229,9 @@ ClientTick()
             SplitPath(Client.Executable, , &workingDirectory)
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
+            ; Keep a process handle so Windows retains the real exit code even
+            ; after the process disappears from ProcessExist().
+            Client.ProcessHandle := DllCall("OpenProcess", "UInt", 0x1000, "Int", 0, "UInt", pid, "Ptr")
             Client.Phase := "window"
             Client.Deadline := A_TickCount + AppConfig.GameWindowWaitMs
             LogLauncherEvent("GAME | TES3MP process started | PID: " pid ".")
@@ -263,7 +271,25 @@ ClientTick()
             ; Daily Login queue. If TES3MP disappears during any other phase,
             ; the user closed it (or it exited unexpectedly), so cancel the
             ; entire monitored session instead of logging another character in.
-            LogLauncherEvent("GAME | EXIT | Game process exited before login completed | Phase: " Client.Phase " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " Client.Executable ".")
+            codeText := "unavailable"
+            if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
+            {
+                resultCode := Buffer(4, 0)
+                if DllCall("GetExitCodeProcess", "Ptr", Client.ProcessHandle, "Ptr", resultCode)
+                {
+                    exitCode := NumGet(resultCode, 0, "UInt")
+                    codeText := Format("0x{:08X}", exitCode)
+                    if exitCode = 0
+                        codeText .= " (normal exit)"
+                    else if exitCode = 0xC0000005
+                        codeText .= " (access violation)"
+                    else if exitCode = 0xC0000409
+                        codeText .= " (stack buffer overrun / fail-fast)"
+                    else if exitCode = 0xC000001D
+                        codeText .= " (illegal instruction)"
+                }
+            }
+            LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " Client.Executable ".")
             LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
             scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
             if IsObject(Client.Queue)
