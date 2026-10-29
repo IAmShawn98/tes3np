@@ -64,7 +64,8 @@ CheckForUpdates(*)
             }
             LogLauncherEvent("UPDATE | Installation deferred for verified update v" latest ".")
         } else {
-            LogLauncherEvent("UPDATE | User deferred update v" latest ".")
+            DismissLauncherUpdate(latest)
+            LogLauncherEvent("UPDATE | User deferred update v" latest "; clickable version label restored.")
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
