@@ -245,7 +245,22 @@ InstallCustomClientOverrides(source, dependencies := "")
             DirDelete(incoming, true)
         DirCreate(incoming)
         if dependencies != ""
-            DirCopy(dependencies, incoming, true)
+        {
+            ; Copy the selected folder's contents, preserving relative paths
+            ; such as resources\\mygui\\openmw_hud.layout. Do not accidentally
+            ; nest the folder itself under incoming.
+            dependencies := RTrim(dependencies, "\/")
+            Loop Files dependencies "\*", "FR"
+            {
+                relative := SubStr(A_LoopFileFullPath, StrLen(dependencies) + 2)
+                destination := incoming "\" relative
+                SplitPath(destination, , &destinationFolder)
+                DirCreate(destinationFolder)
+                FileCopy(A_LoopFileFullPath, destination, true)
+            }
+        }
+        ; Explicitly selected EXE always wins even when the dependencies
+        ; folder also happens to contain its own tes3mp.exe.
         FileCopy(source, incoming "\tes3mp.exe", true)
         if DirExist(backup)
             DirDelete(backup, true)
