@@ -84,6 +84,10 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
     global Client
     source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : "Manual character"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profile.Name ".")
+    ; Batch transitions replace the old Client record without going through
+    ; StopClient, so release its retained process handle first.
+    if IsObject(Client) && Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
+        DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
     batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
     LogLauncherEvent("GAME | Launch requested | Character: " profile.Name batchText ".")
     global DataFile
