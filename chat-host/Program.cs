@@ -1964,7 +1964,10 @@ metrics();
             chatOpen = show;
             if (!signInExpanded && IsHandleCreated)
             {
-                if (show) ShowWindow(Handle, 5);
+                // SW_SHOW (5) activates this owned popup and steals foreground
+                // focus from parchment menus and native dialogs. Automatic
+                // message notifications must only reveal chat, never activate it.
+                if (show) ShowWindow(Handle, 4); // SW_SHOWNOACTIVATE
                 else ShowWindow(Handle, 0);
             }
             PositionChatWindows();
