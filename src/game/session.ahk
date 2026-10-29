@@ -214,7 +214,7 @@ ClientTick()
             if Client.LaunchIssued
                 return
             Client.LaunchIssued := true
-            SplitPath(Client.Executable, , &workingDirectory)
+            workingDirectory := FindTES3MPFolder()
             LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
             if !PrepareMarkerlessClientRuntime()
                 throw Error("TES3MP runtime folder was not found.")
@@ -418,12 +418,10 @@ StartNewAdventure(*)
     executable := GetSharedExecutable()
     if !FileExist(executable) || !PrepareMarkerlessClientRuntime()
         return
-    SplitPath(executable, , &workingDirectory)
+    workingDirectory := FindTES3MPFolder()
     LogLauncherEvent("GAME | New Adventure launch requested.")
     try
     {
-        if !PrepareMarkerlessClientRuntime()
-            return
         Run('"' executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
         LogLauncherEvent("GAME | SUCCESS | New Adventure TES3MP process started | PID: " pid ".")
     }
