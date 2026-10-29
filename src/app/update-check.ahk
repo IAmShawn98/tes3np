@@ -46,7 +46,8 @@ CheckForUpdates(*)
             ShowUpdateStatusPanel(CompareTes3npVersions(latest, AppConfig.Version) = 0 ? "current" : "ahead", AppConfig.Version, latest, manifest.channel)
             return
         }
-        SetLauncherUpdateAvailable(true, latest)
+        ; The startup check owns the footer notification. Opening a preview
+        ; from the version text must not re-show a dismissed banner.
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         ; Viewing the gold preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel)
