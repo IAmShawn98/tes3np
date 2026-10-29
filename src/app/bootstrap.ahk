@@ -6,6 +6,7 @@ global LauncherCachedLayoutCount := 0
 global LauncherVersionLabel := 0
 global LauncherSettingsButton := 0
 global LauncherUpdateButton := 0
+global LauncherExpansionToggle := 0
 global LauncherUpdateAvailable := false
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
@@ -68,6 +69,9 @@ StartLauncher()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 805, 675, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
+    ; Global EP switch in the upper-left frame, away from the main scroll.
+    LauncherExpansionToggle := AddStyledButton(LauncherGui, 10, 5, 145, 27, "Expansion Pack: Off", ToggleExpansionPack)
+    RefreshExpansionPackToggle()
     ; Place update notifications in the upper-center decorative header, not below the scroll.
     LauncherUpdateButton := AddStyledButton(LauncherGui, 425, 5, 110, 26, "Update Available", CheckForUpdates)
     LauncherUpdateButton.Visible := false
