@@ -213,7 +213,11 @@ ImportLauncherData()
         ScheduledEvents := restoredEvents
         NextScheduledEventId := maxEventId + 1
         ScheduledCountdownHotkey := restoredHotkey
-        ExecutableInput.Value := executable
+        ; The standalone character book can omit the legacy executable edit.
+        ; OpenCharacterPage initializes that placeholder to integer 0.
+        ; The imported executable path was already persisted to DataFile.
+        if IsObject(ExecutableInput)
+            ExecutableInput.Value := executable
         UpdateCharacterMenuLabel()
         RefreshProfiles()
         ; RefreshProfiles can rebuild/relabel the Characters page before the
