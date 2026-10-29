@@ -20,7 +20,7 @@ ValidateLaunch(profile, executable)
     if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
     {
         LogLauncherEvent("GAME | BLOCKED | TES3MP executable is missing or invalid.")
-        MsgBox("Bundled markerless client is missing. Reinstall the full TES3NP release.", "tes3np")
+        MsgBox("The bundled markerless client is not beside this launcher." Chr(10) Chr(10) "Expected: " executable Chr(10) Chr(10) "Run tes3np.exe from the complete dist\\tes3np-windows folder, or extract the entire TES3NP release ZIP. Keep the client folder beside tes3np.exe.", "Missing bundled client", "Icon!")
         return false
     }
     if profile.Password = ""
