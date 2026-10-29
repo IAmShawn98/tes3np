@@ -44,6 +44,17 @@ link alone does not clear that blocker.
 Announcement:
 `https://steamcommunity.com/groups/mwmulti/announcements/detail/3208261824668407228`.
 
+Maintainer communication (reported by project owner, October 29, 2026):
+the owner believes **jiub created the markerless executable**, is in
+direct communication with him, and reports that jiub supports the TES3NP
+project. Treat authorship as **reported, not independently confirmed**.
+Project support is valuable but does not by itself document corresponding
+GPL source or establish every third-party asset permission. Next action:
+request the May 2023 markerless code patch/source revision, toolchain,
+and build instructions from jiub; confirm the binary provenance and any
+redistribution conditions in writing. Do not interpret this report as
+legal clearance.
+
 Discord post attribution and purpose (user-provided screenshot, October 29,
 2026): in NP Discord `#posted-fixes`, **jiub** posted at **May 2, 2023,
 3:30 AM** under “Frequent Crashes/Crashes Near Multiple Players”.
