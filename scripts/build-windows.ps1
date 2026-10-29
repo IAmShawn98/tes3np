@@ -8,24 +8,18 @@ function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, 
     $stdout = Join-Path $env:TEMP 'tes3np-compiler-stdout.log'
     $stderr = Join-Path $env:TEMP 'tes3np-compiler-stderr.log'
     Remove-Item $stdout, $stderr -ErrorAction SilentlyContinue
-    $process = Start-Process $Compiler -ArgumentList $Arguments -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-    if (!$process.WaitForExit($TimeoutMs)) {
-        try { $process.Kill() } catch {}
-        throw "$Label timed out after $([math]::Round($TimeoutMs / 1000)) seconds."
-    }
-    # PowerShell 5.1 can report a blank ExitCode with Start-Process output
-    # redirection until the process object has been fully refreshed.
-    $process.WaitForExit()
-    $process.Refresh()
+
+    # PowerShell 5.1 Start-Process -PassThru without -Wait can expose an
+    # empty ExitCode even after calling WaitForExit() on its returned wrapper.
+    # -Wait ensures PowerShell receives and populates the final process status.
+    $process = Start-Process -FilePath $Compiler -ArgumentList $Arguments -PassThru -Wait -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     $compilerExitCode = $process.ExitCode
-    if ($null -eq $compilerExitCode) {
-        throw "$Label finished but Windows did not provide an exit code. See $stdout and $stderr."
-    }
     Step "$Label exited with code $compilerExitCode"
-    if ($compilerExitCode -ne 0) {
+    if ($null -eq $compilerExitCode -or $compilerExitCode -ne 0) {
         Step 'COMPILER DIAGNOSTICS (full logs retained in Windows TEMP)'
         if (Test-Path $stdout) { Get-Content $stdout | ForEach-Object { Write-Host $_ } }
         if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } }
+        if ($null -eq $compilerExitCode) { throw "$Label finished without a readable exit code." }
     }
     return [int]$compilerExitCode
 }
