@@ -898,13 +898,28 @@ OpenClientSelectionSettings(*)
 {
     global DataFile, AppDataDirectory, ExecutableInput
     mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
+    savedOverrides := FileExist(GetCustomOverrideFolder() "\tes3mp.exe")
     question := "Current client: " mode Chr(10) Chr(10)
-        . "Yes - Restore original bundled runtime" Chr(10)
-        . "No - Set custom executable and optional dependencies" Chr(10)
-        . "Cancel - Keep current client"
+        . "Yes - Use original bundled runtime" Chr(10)
+        . "No - Configure custom EXE and optional dependencies" Chr(10)
+        . "Cancel - More options / keep current client"
     answer := MsgBox(question, "Game Client Settings", "YesNoCancel Icon?")
     if answer = "Cancel"
+    {
+        if savedOverrides
+        {
+            reuse := MsgBox("Previously saved custom EXE and dependencies were found." Chr(10) Chr(10)
+                . "Yes - Reactivate saved custom overrides" Chr(10)
+                . "No - Keep current selection", "Saved Custom Client", "YesNo Icon?")
+            if reuse = "Yes"
+            {
+                IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
+                try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
+                LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
+            }
+        }
         return
+    }
     if answer = "Yes"
     {
         ; Do not delete overrides. Restoring the original is reversible.
