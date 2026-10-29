@@ -188,7 +188,7 @@ ReadDraftVersionNotes(installedVersion)
         if SubStr(line, 1, 4) = "### " {
             notes .= SubStr(line, 5) "`n"
         } else if SubStr(line, 1, 2) = "- " {
-            notes .= "• " StrReplace(StrReplace(SubStr(line, 3), "**", ""), "`", "") "`n"
+            notes .= "• " StrReplace(SubStr(line, 3), "**", "") "`n"
         }
     }
     return notes != "" ? {Text: RTrim(notes, "`n"), Source: "Development notes — unreleased, subject to change"} : 0
