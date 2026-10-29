@@ -568,11 +568,12 @@ OpenLauncherSettingsV016(*)
     AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(32), V016S(435), V016S(448), V016S(30), "Close", CloseLauncherSettingsV016.Bind(settings))
     AddStyledButton(settings, V016S(32), V016S(486), V016S(448), V016S(30), "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(32), V016S(528), V016S(448), V016S(28), "Game Client (Bundled / Custom)", OpenClientSelectionSettings)
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Size", (*) => 0)
-    settings.Show("w" V016S(512) " h" V016S(590))
+    settings.Show("w" V016S(512) " h" V016S(625))
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
@@ -723,4 +724,31 @@ ShowResetAppDataActions(*)
     try DirDelete(AppDataDirectory, true)
     DirCreate(AppDataDirectory)
     MsgBox("AppData has been reset. Restart tes3np before continuing.", "tes3np — AppData Settings")
+}
+
+OpenClientSelectionSettings(*)
+{
+    global DataFile, AppDataDirectory, ExecutableInput
+    answer := MsgBox("Use a custom TES3MP client?`n`nYes = Choose custom tes3mp.exe`nNo = Return to TES3NP bundled client`nCancel = Leave unchanged.`n`nCustom clients must include the full TES3MP runtime. Your desktop shortcut continues to open TES3NP.", "Game Client", "YesNoCancel Icon?")
+    if answer = "Cancel"
+        return
+    if answer = "No"
+    {
+        DirCreate(AppDataDirectory)
+        IniWrite("Bundled", DataFile, "Launch", "ClientMode")
+        try ExecutableInput.Value := GetSharedExecutable()
+        MsgBox("Bundled TES3MP client selected. This will apply to future launches.", "Game Client")
+        return
+    }
+    path := FileSelect(1, , "Select your custom tes3mp.exe", "TES3MP executable (tes3mp.exe)")
+    if path = ""
+        return
+    SplitPath(path, &filename)
+    if StrLower(filename) != "tes3mp.exe" || !ValidateSelectedClientRuntime(path)
+        return
+    DirCreate(AppDataDirectory)
+    IniWrite(path, DataFile, "Launch", "CustomExecutable")
+    IniWrite("Custom", DataFile, "Launch", "ClientMode")
+    try ExecutableInput.Value := GetSharedExecutable()
+    MsgBox("Custom TES3MP client selected for future game launches. TES3NP updates will not replace your custom files.", "Game Client")
 }
