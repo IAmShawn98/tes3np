@@ -32,6 +32,15 @@ does not establish the exact corresponding source tree, modification diff, and
 reproducible build instructions for that *modified* executable. A link to
 unmodified upstream TES3MP is not enough by itself to document the changes.
 
+Source research lead (unverified): a public fork at
+`https://github.com/Skooma-Breath/surf_tes3mp` contains
+`apps/openmw/mwmp/GUIController.cpp` with a comment saying
+`return; // markerless for now`. That proves a markerless-oriented change
+exists in a public source tree; it **does not establish** that the bundled
+executable was built from that fork or any specific revision. Do not cite
+the fork as the binary's corresponding source without provenance or
+rebuilding and validating the exact changes.
+
 Before public redistribution, obtain from the person or project that made the
 markerless binary:
 
