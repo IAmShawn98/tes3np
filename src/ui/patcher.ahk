@@ -606,10 +606,40 @@ ToggleExpansionPack(*)
     enable := !ExpansionPackIsEnabled()
     cfg := PatchConfigurationPath()
     morrowind := FindMorrowindFolder(cfg)
-    if !FileExist(cfg) || (enable && morrowind = "")
+    ; Offer direct pickers instead of sending new players to the obsolete
+    ; multi-field external TES3MP installer.
+    if !FileExist(cfg)
     {
-        MsgBox("Could not find the active OpenMW configuration or Morrowind GOTY installation. Configure those paths through the optional expansion installer first.", "Expansion Pack", "Icon!")
-        return
+        selectedConfig := FileSelect(1, , "Choose your active OpenMW configuration", "OpenMW configuration (*.cfg)")
+        if selectedConfig = ""
+            return
+        SplitPath(selectedConfig, &configName)
+        if StrLower(configName) != "openmw.cfg"
+        {
+            MsgBox("Choose the active openmw.cfg file.", "Expansion Pack", "Icon!")
+            return
+        }
+        cfg := selectedConfig
+        IniWrite(cfg, DataFile, "Patch", "ConfigFile")
+        morrowind := FindMorrowindFolder(cfg)
+    }
+    if enable && morrowind = ""
+    {
+        selectedFolder := FileSelect("D", , "Choose Morrowind GOTY installation folder")
+        if selectedFolder = ""
+            return
+        selectedFolder := RTrim(selectedFolder, "\/")
+        SplitPath(selectedFolder, &selectedName, &selectedParent)
+        if StrLower(selectedName) = "data files"
+            selectedFolder := selectedParent
+        for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+            if !FileExist(selectedFolder "\Data Files\" master)
+            {
+                MsgBox("The selected folder is missing " master ". Please select a complete Morrowind GOTY installation.", "Expansion Pack", "Icon!")
+                return
+            }
+        morrowind := selectedFolder
+        IniWrite(morrowind, DataFile, "Patch", "MorrowindFolder")
     }
     action := enable ? "Enable" : "Disable"
     if MsgBox(action " NP Expansion Pack for all future game clients?" Chr(10) Chr(10) "TES3NP will back up your configuration and preserve other mods.", "Expansion Pack", "YesNo Icon?") != "Yes"
