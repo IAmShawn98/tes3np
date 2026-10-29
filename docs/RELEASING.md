@@ -82,6 +82,19 @@ original Discord post attribution, version/date, and source/build
 information from the poster or NP maintainers before clearing the
 modified-client GPL source gate.
 
+Public code inspection, October 29, 2026: the
+`Skooma-Breath/surf_tes3mp` fork has **two distinct early-return edits**
+labeled `return; // markerless for now`:
+`apps/openmw/mwmp/GUIController.cpp` in
+`GUIController::updatePlayersMarkers`, and
+`apps/openmw/mwmp/DedicatedPlayer.cpp` in
+`DedicatedPlayer::updateMarker`. These disable two player-marker update
+paths and are technically consistent with jiub's stated minimap-crash
+workaround. They are a plausible *example implementation*, **not verified**
+as jiub's source or as the source corresponding to our executable. We
+have not established the fork's author, change date, base revision,
+compiler flags or binary hash equivalence.
+
 Source research lead (unverified): a public fork at
 `https://github.com/Skooma-Breath/surf_tes3mp` contains
 `apps/openmw/mwmp/GUIController.cpp` with a comment saying
