@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.1.21-alpha — unreleased
+
+### Added
+
+- Bundled standalone TES3MP 0.8.1 Windows runtime and self-contained Game Chat host, removing the requirement for a separately installed TES3MP client.
+- Optional custom TES3MP executable and dependency overrides without replacing the bundled client.
+- Global optional NP Expansion Pack enable/disable control.
+- Source, package integrity, updater transaction, and rollback validation checks.
+
+### Fixed
+
+- Fixed the character backup import error caused by an absent legacy executable input control.
+- Fixed recurring desktop-shortcut prompts by preserving the decision when importing backups or when shortcut creation fails.
+- Fixed the updater parser to accept the nested package metadata produced by the public release generator.
+- Removed four chat-host compiler warnings; a dependency-related WindowsBase warning remains.
+- Strengthened update staging validation and preservation of unrelated files and user-customized chat settings.
+
+### Validation pending
+
+- Final Windows regression run against this exact revision.
+- Upgrade verification from the actual published v0.1.20-alpha ZIP.
+- Clean Windows 10/11 testing and completion of redistribution/source evidence.
+
 ## v0.1.20-alpha — 2026-10-07
 
 ### Fixed
