@@ -375,7 +375,7 @@ CheckPatchWorker()
     message := IniRead(result, "Result", "Message", "Step: Run patch worker | Reason: The worker exited without a result. Exit code: " exitCode ". Check that Windows PowerShell can run scripts/patch-tes3mp.ps1. Keep this attempt's backup files if copying had started.")
     try
     {
-        ; Verification must not erase an existing successful installation. 
+        ; Verification must not erase an existing successful installation.
         ; Only a successful Apply establishes setup; Restore clears it.
         if job.Action = "Apply"
             SetupComplete := state = "success"
