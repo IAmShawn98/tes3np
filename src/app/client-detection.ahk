@@ -170,3 +170,101 @@ ValidateSelectedClientRuntime(executable)
     }
     return true
 }
+
+GetCustomOverrideFolder()
+{
+    global AppDataDirectory
+    return AppDataDirectory "\custom-client\overrides"
+}
+
+GetMergedCustomClientExecutable()
+{
+    global AppDataDirectory
+    bundled := A_ScriptDir "\client"
+    overrides := GetCustomOverrideFolder()
+    if !DirExist(overrides) || !FileExist(overrides "\tes3mp.exe")
+        return ""
+    signature := ""
+    for root in [bundled, overrides]
+    {
+        signature .= root "|"
+        Loop Files root "\*", "FR"
+            signature .= StrLower(SubStr(A_LoopFileFullPath, StrLen(root) + 2)) "|" A_LoopFileSize "|" A_LoopFileTimeModified ";"
+    }
+    key := 2166136261
+    Loop Parse signature
+        key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
+    folder := AppDataDirectory "\client-cache\merged-" Format("{:08X}", key)
+    output := folder "\tes3mp.exe"
+    if FileExist(folder "\.ready") && FileExist(output)
+        return output
+    try
+    {
+        DirCreate(AppDataDirectory "\client-cache")
+        if DirExist(folder)
+            DirDelete(folder, true)
+        DirCopy(bundled, folder, true)
+        Loop Files overrides "\*", "FR"
+        {
+            relative := SubStr(A_LoopFileFullPath, StrLen(overrides) + 2)
+            target := folder "\" relative
+            SplitPath(target, , &parent)
+            DirCreate(parent)
+            FileCopy(A_LoopFileFullPath, target, true)
+        }
+        if !ValidateSelectedClientRuntime(output)
+            throw Error("Incomplete merged runtime.")
+        FileAppend(signature, folder "\.ready", "UTF-8")
+        LogLauncherEvent("GAME | Merged custom override runtime prepared.")
+        return output
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("GAME | Merged runtime failed: " err.Message)
+        MsgBox("Could not prepare custom client: " err.Message, "Game Client", "Icon!")
+        return ""
+    }
+}
+
+InstallCustomClientOverrides(source, dependencies := "")
+{
+    global AppDataDirectory
+    SplitPath(source, &filename)
+    if StrLower(filename) != "tes3mp.exe" || !FileExist(source)
+        return false
+    managed := AppDataDirectory "\custom-client"
+    incoming := managed "\incoming"
+    overrides := managed "\overrides"
+    backup := managed "\previous"
+    try
+    {
+        if dependencies != "" && (!DirExist(dependencies) || InStr(StrLower(dependencies), StrLower(managed)))
+            throw Error("Invalid dependencies folder.")
+        DirCreate(managed)
+        if DirExist(incoming)
+            DirDelete(incoming, true)
+        DirCreate(incoming)
+        if dependencies != ""
+            DirCopy(dependencies, incoming, true)
+        FileCopy(source, incoming "\tes3mp.exe", true)
+        if DirExist(backup)
+            DirDelete(backup, true)
+        if DirExist(overrides)
+            DirMove(overrides, backup)
+        try DirMove(incoming, overrides)
+        catch Error as err
+        {
+            if DirExist(backup) && !DirExist(overrides)
+                DirMove(backup, overrides)
+            throw err
+        }
+        LogLauncherEvent("GAME | Custom executable and dependencies stored as overrides.")
+        return true
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("GAME | Custom override installation failed: " err.Message)
+        MsgBox("Unable to save custom files: " err.Message, "Game Client", "Icon!")
+        return false
+    }
+}
