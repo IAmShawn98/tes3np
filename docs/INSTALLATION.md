@@ -1,57 +1,44 @@
-# Installing tes3np
+# Installing TES3NP (Windows)
 
-You only need to do this setup once. The launcher installs the supplied server patches for you.
+TES3NP is a standalone launcher for Nerevarine Prophecies. **You do not need a separate TES3MP download**: the Windows package contains the TES3MP 0.8.1 runtime. You **do** need a legally installed copy of Morrowind GOTY (including Tribunal and Bloodmoon).
 
-## 1. Prepare your game
+## Install the Windows build
 
-Install Morrowind Game of the Year Edition, including Tribunal and Bloodmoon. Download and extract TES3MP **0.8.1 for Windows 64-bit**. If using the source ZIP, install AutoHotkey **v2**. The Windows executable package includes the runtime.
+1. Obtain the packaged Windows ZIP from the project's approved release or test build.
+2. Extract the entire ZIP to a writable folder such as `Documents\\TES3NP`. **Do not run it inside the ZIP** and do not move `tes3np.exe` away from the accompanying `client`, `chat-host`, `assets`, and other folders.
+3. Launch `tes3np.exe` normally. Administrative privileges are not required for the launcher itself.
+4. For a returning account, choose **Manage Characters**. To create a new game account, choose **Start New Adventure**.
 
-## 2. Download the launcher
+TES3NP stores launcher preferences and managed custom-client overrides under `%APPDATA%\\tes3np`. Installing a newer build into a different folder must not require deleting this user data.
 
-For the executable package, download **tes3np-windows** from the completed **Build Windows launcher** run under **Actions**. Extract the artifact ZIP and the `tes3np-windows.zip` inside it. Move the resulting `tes3np` folder into your TES3MP folder. Open **tes3np.exe**; keep all its accompanying folders together.
+## Optional Expansion Pack
 
-The instructions below also explain the source ZIP alternative.
+The launcher works without the NP Expansion Pack. The top-left button reads **Expansion Pack: Disabled** or **Expansion Pack: Enabled**. Click it to change the global load order for **future** game sessions. Close TES3MP/OpenMW first. TES3NP checks the supplied Expansion Pack files, preserves unrelated mod entries, and backs up the OpenMW configuration before changing it. When the active `openmw.cfg` or Morrowind installation is not found, configure the correct locations in the optional installer rather than guessing a path.
 
-On the tes3np GitHub page, click **Code → Download ZIP**. Right-click the downloaded ZIP and choose **Extract All**. Open the extracted folder; you should see `tes3np.ahk` alongside folders such as `src`, `assets`, `scripts`, and `patches`.
+**Important:** The optional Expansion Pack modifies the selected Morrowind data directory and OpenMW configuration. The custom game client setting does not: it assembles an isolated merged runtime in AppData.
 
-Move that entire folder into the TES3MP folder containing `tes3mp.exe`. Do not run it from inside the ZIP or move just the `.ahk` file.
+## Optional custom TES3MP executable
 
-## 3. Run setup
+Open **Launcher Settings → Game Client Settings → Set Up Custom EXE**. Choose a file named `tes3mp.exe`, then either select a folder containing its additional dependencies/resources or choose **Use Bundled Dependencies Only**. TES3NP keeps the supplied files in managed overrides, and never changes the original bundled `client` directory. You can restore the original client and reactivate saved custom files later.
 
-Double-click **tes3np.exe** (or **tes3np.ahk** for the source ZIP). If the launcher shows **Patch Tes3mp**, open it.
+## Chat and prerequisites
 
-Check the suggested locations. Use **Browse** if one is wrong:
+The Windows package includes a self-contained chat-host executable; end users do not need the .NET SDK. Embedded Game Chat requires Microsoft's **WebView2 Runtime**. If WebView2 is unavailable, the game launcher should remain usable without chat. The **source build**, by contrast, needs the documented developer tools, including .NET 8 SDK, AutoHotkey v2, and a Windows build environment.
 
-| Location | What to choose |
+## Troubleshooting
+
+| Symptom | Action |
 | --- | --- |
-| TES3MP folder | The folder containing `tes3mp.exe`. |
-| Morrowind folder | The folder containing Morrowind's existing `Data Files` folder. |
-| OpenMW configuration | Your active `openmw.cfg` file. The usual location is `Documents\My Games\OpenMW\openmw.cfg`. |
+| Morrowind is on another drive or installed through GOG/Steam | Select the actual Morrowind folder containing `Data Files\\Morrowind.esm`; do not select `Data Files` itself. |
+| A custom TES3MP executable crashes | Reconfigure its optional dependency folder and use **Launcher Settings → Launcher Data → Copy Launcher Logs**. |
+| Expansion Pack cannot be enabled | Close all game clients and review the specific error. Verify `openmw.cfg` and Morrowind data locations. |
+| Chat does not load | Check whether WebView2 Runtime is installed; gameplay does not depend on Discord chat. |
+| Character login timing is wrong | Edit the character's username/password/loading delays. |
+| Windows denies file writes | Extract TES3NP into a writable user folder and ensure you have permission to change the Morrowind installation for optional content. |
+| Settings appear missing after an update | Check `%APPDATA%\\tes3np`; don't reset launcher data before backing it up. |
 
-Close the game and the OpenMW Launcher before installing. Read the Expansion Pack license, then click **Install / Repair**. The loading panel shows progress. Leave the launcher open until setup finishes.
+For recovery information, see [Patching and recovery](PATCHING.md).
 
-Setup installs the supplied crash-fix executable and NP Expansion Pack, then enables the pack. It also makes backups of files it changes. You do not need to copy these patches yourself.
+## Release note
 
-If your installation already matches, the launcher opens the normal menu without replacing files.
-
-## 4. Log in and play
-
-- **New player:** Choose **Start New Adventure** and follow the game's login or registration prompts. This option does not automatically reconnect.
-- **Returning player:** Choose **Returning Fetcher**, add your character name and password, and save. Choose **Play** beside the character. The launcher enters your details after the configured waits.
-
-Keep the game window selected during automatic login and avoid typing while the launcher enters your details. Status messages explain what it is waiting for. After login, check the server's chat message to confirm the Expansion Pack is accepted.
-
-Tick your preferred character to use it for quick launch next time.
-
-## If something goes wrong
-
-| Problem | What to do |
-| --- | --- |
-| Windows asks how to open `.ahk` files | Install AutoHotkey v2, then open `tes3np.ahk` again. |
-| Setup cannot find your game | Use Browse and choose the folders listed above. Steam games may be installed on another drive. |
-| Setup says official game files are missing | Make sure Morrowind, Tribunal, and Bloodmoon are installed. For an existing OpenMW setup, enable all three in the OpenMW Launcher first. |
-| Login happens too soon or too late | Open Manage Characters, click Edit beside the character, and adjust its waiting times. |
-| Closing the game makes it reopen | Turn off that character's automatic reconnect option under Edit. |
-| Setup still fails | Copy the error message or take a screenshot and report it through the repository's Issues page. Never include your password or exported character file. |
-
-For backup and repair details, see [Patching and recovery](PATCHING.md). For saved characters, exports, and macros, see the [user guide](USER-GUIDE.md).
+Do not redistribute a public build until the corresponding source/build instructions for the modified GPL-licensed TES3MP executable and all applicable third-party notices are available.
