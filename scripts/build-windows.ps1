@@ -129,16 +129,67 @@ try {
         if ($hash -ine $item.SHA256) { throw "Damaged extracted patch file: $($item.Path)" }
     }
     Step "Verified $($manifest.Files.Count) extracted patch payload files"
-    # Ship markerless as a sidecar; do not extract it every time TES3NP launches.
+    # Download TES3MP only at BUILD time, never on user startup.
+    # Pin to the official non-VR 0.8.1 release; do not scrape unknown mirrors.
+    Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
+    $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
+    $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
+    Invoke-WebRequest -Uri $officialTES3MP -OutFile $tes3mpArchive -Headers $headers
+    $archiveHash = (Get-FileHash -LiteralPath $tes3mpArchive -Algorithm SHA256).Hash
+    Step "TES3MP 0.8.1 archive SHA256: $archiveHash"
+    $runtimeExtract = Join-Path $tools 'tes3mp-extracted'
+    Expand-Archive -LiteralPath $tes3mpArchive -DestinationPath $runtimeExtract
+    $runtimeExecutable = Get-ChildItem -LiteralPath $runtimeExtract -Recurse -File -Filter 'tes3mp.exe' | Select-Object -First 1
+    if (!$runtimeExecutable) { throw 'Official TES3MP archive has no tes3mp.exe.' }
+    $runtimeRoot = $runtimeExecutable.Directory.FullName
+    foreach ($name in @('tes3mp-client-default.cfg','defaults.bin','openmw.cfg')) {
+        if (!(Test-Path -LiteralPath (Join-Path $runtimeRoot $name) -PathType Leaf)) {
+            throw "Official TES3MP archive is missing $name beside its client."
+        }
+    }
     $clientFolder = Join-Path $package 'client'
     $null = New-Item -ItemType Directory -Path $clientFolder -Force
+    foreach ($entry in (Get-ChildItem -LiteralPath $runtimeRoot -Force)) {
+        if ($entry.Name -ieq 'tes3mp.exe') { continue }
+        Copy-Item -LiteralPath $entry.FullName -Destination (Join-Path $clientFolder $entry.Name) -Recurse -Force
+    }
+
+    # Replace ONLY the packaged copy of the official executable. The original
+    # release archive and any user-installed TES3MP remain untouched.
     $markerlessSource = Join-Path $projectRoot 'patches\markerless\tes3mp.exe'
     if (!(Test-Path -LiteralPath $markerlessSource)) { throw 'Bundled markerless client missing.' }
-    Copy-Item -LiteralPath $markerlessSource -Destination (Join-Path $clientFolder 'tes3mp.exe')
+    Copy-Item -LiteralPath $markerlessSource -Destination (Join-Path $clientFolder 'tes3mp.exe') -Force
     $markerlessManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
     $expectedMarkerless = ($markerlessManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
-    if (!$expectedMarkerless -or (Get-FileHash (Join-Path $clientFolder 'tes3mp.exe') -Algorithm SHA256).Hash -ine $expectedMarkerless) { throw 'Bundled client SHA256 mismatch.' }
-    Step 'Verified bundled markerless TES3MP executable'
+    if (!$expectedMarkerless -or (Get-FileHash -LiteralPath (Join-Path $clientFolder 'tes3mp.exe') -Algorithm SHA256).Hash -ine $expectedMarkerless) {
+        throw 'Packaged markerless client SHA256 mismatch.'
+    }
+    foreach ($name in @('tes3mp.exe','tes3mp-client-default.cfg','defaults.bin','openmw.cfg')) {
+        if (!(Test-Path -LiteralPath (Join-Path $clientFolder $name) -PathType Leaf)) {
+            throw "Incomplete packaged TES3MP runtime: $name"
+        }
+    }
+
+    # Include upstream GPLv3 and bundled font notices for redistribution.
+    $licenseFolder = Join-Path $package 'licenses\TES3MP'
+    $null = New-Item -ItemType Directory -Path $licenseFolder -Force
+    $upstreamLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/LICENSE'
+    $upstreamFontLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/files/mygui/DejaVuFontLicense.txt'
+    Invoke-WebRequest -Uri $upstreamLicense -OutFile (Join-Path $licenseFolder 'LICENSE') -Headers $headers
+    Invoke-WebRequest -Uri $upstreamFontLicense -OutFile (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Headers $headers
+    @"
+TES3MP runtime 0.8.1 (GPLv3 with additional permitted terms)
+Upstream project and source: https://github.com/TES3MP/TES3MP/tree/tes3mp-0.8.1
+Release runtime: $officialTES3MP
+Original release archive SHA256: $archiveHash
+TES3NP ships a separately modified markerless tes3mp.exe rather than the upstream binary.
+Markerless executable SHA256: $expectedMarkerless
+Corresponding source and build instructions for the modified executable must
+be made available by the distributor to comply with GPLv3. Do not publish
+a release until that source and applicable third-party notices are supplied.
+Bethesda Morrowind game data is not bundled and must be supplied by users.
+"@ | Set-Content -LiteralPath (Join-Path $licenseFolder 'REDISTRIBUTION-NOTICE.txt') -Encoding UTF8
+    Step 'Verified complete bundled TES3MP runtime and included license notices'
     Step 'Publishing embedded WebView2 chat host'
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
