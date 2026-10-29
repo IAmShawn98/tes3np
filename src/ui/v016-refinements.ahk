@@ -972,7 +972,8 @@ ConfigureCustomClientV016(menu, *)
 
 ChooseCustomDependencyFolderV016(menu, options, source, *)
 {
-    folder := DirSelect(, 3, "Select additional dependencies and resources")
+    ; Use the modern Explorer-style picker, but select a folder rather than a file.
+    folder := FileSelect("D", , "Select additional dependencies and resources")
     if folder != ""
         SaveCustomClientV016(menu, options, source, folder)
 }
