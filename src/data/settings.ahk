@@ -82,12 +82,14 @@ SaveDefaultProfile()
 GetSharedExecutable()
 {
     global DataFile
-    if IniRead(DataFile, "Launch", "ClientMode", "Bundled") = "Custom"
+    mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
+    if mode = "CustomExe"
     {
-        custom := Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
-        if custom != ""
-            return custom
+        source := Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
+        return source = "" ? "" : GetManagedCustomClientExecutable(source)
     }
+    if mode = "CustomRuntime" || mode = "Custom"
+        return Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
     return A_ScriptDir "\client\tes3mp.exe"
 }
 
