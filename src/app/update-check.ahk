@@ -210,8 +210,30 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel.Add("Text", "x28 y176 w584 h24 BackgroundTrans", "Release Notes")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    notesBox := panel.Add("Edit", "x28 y207 w584 h167 ReadOnly -Wrap +VScroll Background171008 cEDE1C9", notes.Text)
-    notesBox.Opt("-Tabstop")
+    ; Parchment-style notes viewport, using the same brown track and gold
+    ; thumb palette as the main menu instead of a Windows edit scrollbar.
+    panel.Add("Text", "x28 y207 w584 h167 Background171008")
+    notesLines := StrSplit(StrReplace(notes.Text, "`r", ""), "`n")
+    page := {Offset: 1, Lines: notesLines, Visible: 7}
+    noteRows := []
+    panel.SetFont("s10 cEDE1C9", "Segoe UI")
+    Loop page.Visible
+        noteRows.Push(panel.Add("Text", "x36 y" (213 + (A_Index - 1) * 22) " w542 h22 Background171008", ""))
+    track := panel.Add("Text", "x591 y213 w10 h153 Background704C27")
+    thumb := panel.Add("Text", "x593 y213 w6 h55 BackgroundC69951")
+    refresh(*) {
+        maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
+        page.Offset := Min(maxOffset, Max(1, page.Offset))
+        for index, row in noteRows
+            row.Text := index + page.Offset - 1 <= page.Lines.Length ? page.Lines[index + page.Offset - 1] : ""
+        thumbHeight := Max(24, Round(153 * Min(1, page.Visible / Max(1, page.Lines.Length))))
+        thumb.Move(593, 213 + Round((153 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 6, thumbHeight)
+        track.Visible := page.Lines.Length > page.Visible
+        thumb.Visible := page.Lines.Length > page.Visible
+    }
+    scrollUp := AddStyledButton(panel, 566, 379, 21, 22, "↑", (*) => (page.Offset -= 1, refresh()))
+    scrollDown := AddStyledButton(panel, 591, 379, 21, 22, "↓", (*) => (page.Offset += 1, refresh()))
+    refresh()
     panel.SetFont("s9 cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y380 w584 h22 BackgroundTrans", notes.Source)
     releaseButton := AddStyledButton(panel, 28, 412, 193, 32, "View on GitHub", (*) => Run(UpdateReleasePage))
