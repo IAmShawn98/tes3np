@@ -86,22 +86,31 @@ SHA256File(path)
 ; The original vanilla executable is never overwritten.
 PrepareMarkerlessClientRuntime()
 {
-    global DataFile
+    global DataFile, AppDataDirectory
     tesFolder := FindTES3MPFolder()
     if tesFolder = ""
     {
-        MsgBox("TES3NP needs the supporting files from an existing TES3MP 0.8.1 installation. Select the folder containing its original tes3mp.exe. TES3NP will not change that file.", "Locate TES3MP", "Iconi")
-        tesFolder := DirSelect(, 1, "Select your TES3MP 0.8.1 folder")
-        if tesFolder = "" || !FileExist(tesFolder "\tes3mp.exe")
-        {
-            MsgBox("A complete TES3MP installation is required to run the bundled markerless client.", "TES3MP not found", "Icon!")
+        message := "TES3NP could not automatically locate TES3MP 0.8.1." Chr(10) Chr(10)
+            . "TES3MP is normally extracted from a ZIP into a folder of your choice, often Downloads, Desktop, Documents or Games." Chr(10) Chr(10)
+            . "Would you like to select your existing tes3mp.exe now?" Chr(10)
+            . "TES3NP will not overwrite the original executable."
+        if MsgBox(message, "Locate TES3MP", "YesNo Icon?") != "Yes"
             return false
+        Loop
+        {
+            exe := FileSelect(1, , "Choose the original TES3MP 0.8.1 tes3mp.exe", "Executable (*.exe)")
+            if exe = ""
+                return false
+            SplitPath(exe, &name, &tesFolder)
+            if StrLower(name) = "tes3mp.exe" && FileExist(tesFolder "\openmw.cfg")
+                break
+            MsgBox("Select tes3mp.exe from a complete TES3MP installation containing openmw.cfg.", "Invalid TES3MP folder", "Icon!")
         }
         DirCreate(AppDataDirectory)
         IniWrite(tesFolder, DataFile, "Patch", "TesFolder")
+        LogLauncherEvent("TES3MP installation selected by user: " tesFolder)
     }
-    ; The managed EXE uses an installed runtime, without copying or
-    ; overwriting the user's original executable.
+    ; Preserve the user's original executable and expose TES3MP libraries.
     EnvSet("PATH", tesFolder ";" EnvGet("PATH"))
     return true
 }
