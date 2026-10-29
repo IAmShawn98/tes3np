@@ -664,19 +664,20 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
 OpenAppDataSettingsV016(*)
 {
     global LauncherGui
-    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — AppData")
+    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Files & Diagnostics")
     window.BackColor := "E2CEA2"
     window.SetFont("s11 Bold c241408", "Segoe UI")
-    window.Add("Text", "x20 y18 w520 h26", "AppData")
+    window.Add("Text", "x20 y18 w520 h26", "Settings, saved characters & diagnostics")
     window.SetFont("s9 c382314", "Segoe UI")
-    window.Add("Text", "x20 y48 w520 h92", "AppData stores the launcher's settings and all of your local characters you added to the launcher. Make sure before tampering with these files you export your character data under the 'Manage Characters' page. This way if something goes wrong you can fully restore all your set characters and preferences.")
-    openFolder := window.Add("Button", "x20 y150 w520 h34", "Open AppData Folder")
-    copyLauncher := window.Add("Button", "x20 y194 w255 h34", "Copy Launcher Log")
-    copyRender := window.Add("Button", "x285 y194 w255 h34", "Copy Render Errors Log")
-    copyPatch := window.Add("Button", "x20 y238 w255 h34", "Copy Patch Log")
-    copyPatchErrors := window.Add("Button", "x285 y238 w255 h34", "Copy Patch Errors Log")
-    reset := window.Add("Button", "x20 y292 w520 h34", "Reset AppData")
-    close := window.Add("Button", "x20 y336 w520 h34 Default", "Close")
+    window.Add("Text", "x20 y48 w520 h76", "Your characters and preferences are stored in AppData. Export your characters from Manage Characters before resetting anything. If the game closes unexpectedly, copy the launcher log and share the lines around the failure.")
+    openFolder := window.Add("Button", "x20 y132 w520 h34", "Open TES3NP Data Folder")
+    copyLauncher := window.Add("Button", "x20 y178 w520 h34", "Copy Game & Launcher Diagnostic Log")
+    window.Add("Text", "x20 y221 w520 h24", "Advanced troubleshooting (only when requested by support):")
+    copyRender := window.Add("Button", "x20 y249 w255 h30", "Copy UI / Render Errors")
+    copyPatch := window.Add("Button", "x285 y249 w255 h30", "Copy Expansion Pack Log")
+    copyPatchErrors := window.Add("Button", "x20 y287 w520 h30", "Copy Expansion Pack Errors")
+    reset := window.Add("Button", "x20 y333 w520 h32", "Reset AppData (deletes saved settings)")
+    close := window.Add("Button", "x20 y373 w520 h32 Default", "Close")
     openFolder.OnEvent("Click", OpenLauncherDataFolder)
     copyLauncher.OnEvent("Click", CopyAppDataLog.Bind("launcher.log", true))
     copyRender.OnEvent("Click", CopyAppDataLog.Bind("render-errors.log"))
@@ -685,7 +686,7 @@ OpenAppDataSettingsV016(*)
     reset.OnEvent("Click", ShowResetAppDataActions)
     close.OnEvent("Click", (*) => window.Destroy())
     window.OnEvent("Escape", (*) => window.Destroy())
-    window.Show("w560 h390")
+    window.Show("w560 h425")
 }
 
 CopyAppDataLog(filename, syncLauncher := false, *)
@@ -696,16 +697,25 @@ CopyAppDataLog(filename, syncLauncher := false, *)
     path := AppDataDirectory "\" filename
     if !FileExist(path)
     {
-        MsgBox(filename " does not exist yet.", "tes3np — AppData")
+        MsgBox("No " filename " has been created yet. This usually means there are no recorded events of that type.", "tes3np — Diagnostics")
         return
     }
-    try A_Clipboard := FileRead(path, "UTF-8")
-    catch as err
+    try
     {
-        MsgBox("Could not read " filename ".\n\n" err.Message, "tes3np — AppData")
+        content := FileRead(path, "UTF-8")
+        if Trim(content) = ""
+        {
+            MsgBox("The diagnostic log is empty.", "tes3np — Diagnostics")
+            return
+        }
+        A_Clipboard := content
+    }
+    catch Error as err
+    {
+        MsgBox("Could not read " filename ".`n`n" err.Message, "tes3np — Diagnostics", "Icon!")
         return
     }
-    MsgBox(filename " copied to the clipboard.", "tes3np — AppData")
+    MsgBox("Diagnostic log copied to your clipboard.`n`nYou can paste it into a bug report. Review the contents first in case paths or character names are private.", "tes3np — Diagnostics")
 }
 
 ShowResetAppDataActions(*)
