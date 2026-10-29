@@ -31,8 +31,6 @@ BuildFrontPage()
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters))
     CharacterMenuButton := MenuRows[2]
     UpdateCharacterMenuLabel()
-    if !IsTES3MPSetupComplete()
-        BeginGameDetectionDisplay()
 }
 
 AddInfoCard(x, y, width, height, heading, text)
@@ -52,20 +50,7 @@ UpdateCharacterMenuLabel()
 {
     global MenuEntries, MenuOffset, Profiles, SelectedProfile, GameDetectionActive, LauncherHelpText, LauncherHeading
     MenuEntries := []
-    if !IsTES3MPSetupComplete()
-    {
-        if !GameDetectionActive && IsObject(LauncherHelpText)
-            LauncherHelpText.Visible := true
-        if GameDetectionActive
-        {
-            MenuEntries.Push(["Patch Tes3mp", OpenPatcher], ["Quit Launcher", QuitLauncher])
-            ScrollMenu(0)
-            return
-        }
-        MenuEntries.Push(["Repair Game Install", OpenPatcher], ["Quit Launcher", QuitLauncher])
-        ScrollMenu(0)
-        return
-    }
+    ; The Expansion Pack is optional and must never hide the launch menu.
     if IsObject(LauncherHelpText)
         LauncherHelpText.Visible := false
     if SelectedProfile > 0 && SelectedProfile <= Profiles.Length
@@ -216,7 +201,7 @@ EndGameDetectionDisplay()
         ; Transparent Win32 text controls retain old glyphs unless the parent
         ; repaints the full status rectangle after changing the text.
         LauncherHelpText.Visible := false
-        LauncherHelpText.Text := "Place tes3np into your tes3mp folder and click 'Patch tes3mp' to continue."
+        LauncherHelpText.Text := ""
         LauncherHelpText.Visible := true
         LauncherHelpText.GetPos(&x, &y, &w, &h)
         rect := Buffer(16, 0)
