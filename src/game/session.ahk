@@ -19,10 +19,12 @@ ValidateLaunch(profile, executable)
     SplitPath(executable, &filename)
     if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
     {
-        LogLauncherEvent("GAME | BLOCKED | TES3MP executable is missing or invalid.")
-        MsgBox("The bundled markerless client is not beside this launcher." Chr(10) Chr(10) "Expected: " executable Chr(10) Chr(10) "Run tes3np.exe from the complete dist\\tes3np-windows folder, or extract the entire TES3NP release ZIP. Keep the client folder beside tes3np.exe.", "Missing bundled client", "Icon!")
+        LogLauncherEvent("GAME | BLOCKED | Selected TES3MP executable is missing or invalid.")
+        MsgBox("TES3MP executable not found:" Chr(10) executable Chr(10) Chr(10) "Open Launcher Settings to select a working client, or return to the bundled one.", "Missing TES3MP client", "Icon!")
         return false
     }
+    if !ValidateSelectedClientRuntime(executable)
+        return false
     if profile.Password = ""
     {
         LogLauncherEvent("GAME | BLOCKED | Character credentials require attention.")
@@ -215,9 +217,9 @@ ClientTick()
                 return
             Client.LaunchIssued := true
             LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
-            if !PrepareMarkerlessClientRuntime()
-                throw Error("TES3MP runtime folder was not found.")
-            SplitPath(GetSharedExecutable(), , &workingDirectory)
+            if !ValidateSelectedClientRuntime(Client.Executable)
+                throw Error("Selected TES3MP runtime is incomplete.")
+            SplitPath(Client.Executable, , &workingDirectory)
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
             Client.Phase := "window"
@@ -416,9 +418,9 @@ StartNewAdventure(*)
         return
     }
     executable := GetSharedExecutable()
-    if !FileExist(executable) || !PrepareMarkerlessClientRuntime()
+    if !ValidateSelectedClientRuntime(executable)
         return
-    SplitPath(GetSharedExecutable(), , &workingDirectory)
+    SplitPath(executable, , &workingDirectory)
     LogLauncherEvent("GAME | New Adventure launch requested.")
     try
     {
