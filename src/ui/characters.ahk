@@ -3,11 +3,12 @@
 OpenCharacterPage(*)
 {
     global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016DailyLoginControls, V016CharacterLayoutApplied
-    if IsObject(CharacterPage)
+    if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
-        PrepareWindowDisplay(CharacterPage)
+        ; Cached book is already fully painted and layered with its correct
+        ; magenta transparency. Reapplying alpha=0 on every visit caused a
+        ; visible blank-to-opaque flash before RevealWindowDisplay().
         CharacterPage.Show()
-        RevealWindowDisplay(CharacterPage, true)
         return
     }
     SetInterfaceLoadingText("Loading saved characters...")
