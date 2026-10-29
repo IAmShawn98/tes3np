@@ -860,8 +860,10 @@ try {
     try
     {
         DirCreate(AppDataDirectory)
-        FileDelete(resultPath)
-        FileDelete(scriptPath)
+        if FileExist(resultPath)
+            FileDelete(resultPath)
+        if FileExist(scriptPath)
+            FileDelete(scriptPath)
         FileAppend(script, scriptPath, "UTF-8")
         ; No shell interpolation: quote the time and paths as separate arguments.
         command := '"' A_WinDir '\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '" "' timestamp '" "' resultPath '"'
