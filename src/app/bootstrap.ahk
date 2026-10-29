@@ -90,13 +90,7 @@ StartLauncher()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
-    SetTimer(StartJackTracker, -200)
-    ; Poll for the adjacent TES3MP executable without a visible countdown.
-    ; Existing installations keep their normal background verification.
-    if SetupComplete
-        SetTimer(OfferFirstRunSetup, -1000)
-    else
-        SetTimer(OfferFirstRunSetup, 500)
+    ; Expansion Pack setup is optional; never run patch verification at startup.
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -433,7 +427,6 @@ CleanupLauncher(*)
     SaveScheduledEventShutdownTime()
     StopClient()
     StopEmbeddedInGameChat()
-    StopJackTracker()
     CleanupMacros()
     CleanupPatcher()
     SetTimer(HoverTimer, 0)
