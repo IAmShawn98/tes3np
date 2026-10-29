@@ -13,7 +13,7 @@ CheckForUpdateAvailability(*)
     try {
         manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
         available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
-        SetLauncherUpdateAvailable(available)
+        SetLauncherUpdateAvailable(available, manifest.version)
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
     } catch Error as err {
         SetLauncherUpdateAvailable(false)
@@ -46,7 +46,7 @@ CheckForUpdates(*)
             MsgBox("You're already running the latest public version of tes3np.`n`nInstalled: v" AppConfig.Version, "tes3np — Up to date", "Iconi")
             return
         }
-        SetLauncherUpdateAvailable(true)
+        SetLauncherUpdateAvailable(true, latest)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         choice := MsgBox("tes3np v" latest " is available.`n`nInstalled: v" AppConfig.Version "`n`nDownload and verify the update now?", "tes3np — Update available", "YesNo Iconi")
         if choice = "Yes" {
