@@ -110,7 +110,45 @@ PrepareMarkerlessClientRuntime()
         IniWrite(tesFolder, DataFile, "Patch", "TesFolder")
         LogLauncherEvent("TES3MP installation selected by user: " tesFolder)
     }
-    ; Preserve the user's original executable and expose TES3MP libraries.
+    ; TES3MP looks up client defaults relative to its executable, not just
+    ; its working directory. Stage only required runtime files next to our
+    ; separate markerless EXE. Never modify the original installation.
+    clientFolder := A_ScriptDir "\client"
+    if !DirExist(clientFolder)
+    {
+        MsgBox("The bundled TES3MP client folder is missing: " clientFolder, "Missing bundled client", "Icon!")
+        return false
+    }
+    requiredConfig := "tes3mp-client-default.cfg"
+    if !FileExist(tesFolder "\" requiredConfig)
+    {
+        MsgBox("This installation is missing " requiredConfig ". Choose a complete TES3MP 0.8.1 release.", "Incomplete TES3MP installation", "Icon!")
+        return false
+    }
+    try
+    {
+        for name in [requiredConfig, "openmw.cfg", "tes3mp-client.cfg"]
+        {
+            source := tesFolder "\" name
+            target := clientFolder "\" name
+            if FileExist(source) && !FileExist(target)
+                FileCopy(source, target, 0)
+        }
+        ; OpenMW's runtime assets may be resolved relative to the executable.
+        for name in ["resources", "data"]
+        {
+            source := tesFolder "\" name
+            target := clientFolder "\" name
+            if DirExist(source) && !DirExist(target)
+                DirCopy(source, target, 0)
+        }
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("TES3MP runtime preparation failed: " err.Message)
+        MsgBox("Could not prepare TES3MP runtime files next to the bundled client: " err.Message, "TES3MP runtime setup", "Icon!")
+        return false
+    }
     EnvSet("PATH", tesFolder ";" EnvGet("PATH"))
     return true
 }
