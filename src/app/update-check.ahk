@@ -50,7 +50,7 @@ CheckForUpdates(*)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         ; Viewing the gold preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel)
-        if choice = "Yes" {
+        if choice = "Yes" && MsgBox("Download and verify tes3np v" latest " now?`n`nYour installed launcher will not be changed. You will be asked separately before installation.", "tes3np — Confirm download", "YesNo Iconi") = "Yes" {
             BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
             try {
                 staged := DownloadAndStageUpdate(manifest)
@@ -65,8 +65,6 @@ CheckForUpdates(*)
             LogLauncherEvent("UPDATE | Installation deferred for verified update v" latest ".")
         } else {
             LogLauncherEvent("UPDATE | User deferred update v" latest ".")
-            if MsgBox("Open the official release page instead?", "tes3np — Update available", "YesNo Iconi") = "Yes"
-                Run(UpdateReleasePage)
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
@@ -97,7 +95,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     preview.Add("Text", "x22 y181 w470 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
     preview.Add("Text", "x22 y216 w470 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
     preview.SetFont("s10 c171008", "Segoe UI")
-    downloadButton := preview.Add("Button", "x22 y245 w185 h28 Default", "Review && Download")
+    downloadButton := preview.Add("Button", "x22 y245 w185 h28 Default", "Continue to Download")
     laterButton := preview.Add("Button", "x218 y245 w115 h28", "Not Now")
     releaseButton := preview.Add("Button", "x344 y245 w154 h28", "Release Notes")
     downloadButton.OnEvent("Click", (*) => (response.Download := true, preview.Destroy()))
