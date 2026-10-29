@@ -845,6 +845,77 @@ metrics();
                 !byte.TryParse(parts[2].Trim(), out byte blue)) return "#DBB243";
             return $"#{red:X2}{green:X2}{blue:X2}";
         }
+        // Discord IDs contain the real UTC send time, so late-loaded messages
+        // display only their remaining time rather than restarting a full hour.
+        ulong lastHappyHourAlertId;
+        Form? happyHourAlert;
+        System.Windows.Forms.Timer? happyHourTicker;
+
+        void ShowHappyHourAlert(ulong activationId)
+        {
+            var ends = DiscordTimestamp(activationId).AddHours(1);
+            if (activationId <= lastHappyHourAlertId || ends <= DateTimeOffset.UtcNow) return;
+            lastHappyHourAlertId = activationId;
+            happyHourTicker?.Stop();
+            happyHourTicker?.Dispose();
+            happyHourAlert?.Close();
+            happyHourAlert?.Dispose();
+
+            var alert = new Form {
+                Text = "tes3np - Happy Hour",
+                StartPosition = FormStartPosition.CenterScreen,
+                ClientSize = new System.Drawing.Size(350, 145),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false,
+                BackColor = System.Drawing.Color.FromArgb(23, 16, 8),
+                ForeColor = System.Drawing.Color.FromArgb(213, 172, 80)
+            };
+            var heading = new Label {
+                Text = "Happy Hour is active!",
+                Font = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold),
+                ForeColor = alert.ForeColor,
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+            };
+            heading.SetBounds(12, 12, 326, 44);
+            var countdown = new Label {
+                Font = new System.Drawing.Font("Segoe UI", 13, System.Drawing.FontStyle.Bold),
+                ForeColor = System.Drawing.Color.White,
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+            };
+            countdown.SetBounds(12, 57, 326, 33);
+            var close = new Button { Text = "Close" };
+            close.SetBounds(120, 103, 110, 29);
+            close.Click += (_, _) => alert.Close();
+            alert.Controls.Add(heading);
+            alert.Controls.Add(countdown);
+            alert.Controls.Add(close);
+            var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
+            void RefreshCountdown()
+            {
+                var remaining = ends - DateTimeOffset.UtcNow;
+                if (remaining <= TimeSpan.Zero) {
+                    countdown.Text = "Happy Hour has ended.";
+                    ticker.Stop();
+                    return;
+                }
+                countdown.Text = "Time remaining: " + ((int)remaining.TotalMinutes).ToString("00")
+                    + ":" + remaining.Seconds.ToString("00");
+            }
+            ticker.Tick += (_, _) => RefreshCountdown();
+            alert.FormClosed += (_, _) => {
+                ticker.Stop();
+                ticker.Dispose();
+                if (ReferenceEquals(happyHourAlert, alert)) happyHourAlert = null;
+                if (ReferenceEquals(happyHourTicker, ticker)) happyHourTicker = null;
+            };
+            happyHourAlert = alert;
+            happyHourTicker = ticker;
+            RefreshCountdown();
+            ticker.Start();
+            alert.Show(this);
+            Log("HAPPY HOUR | Activated at " + DiscordTimestamp(activationId).ToString("O"));
+        }
+
         async Task RefreshNativeMessages()
         {
             if (closingChat || IsDisposed || web.CoreWebView2 == null || discordLoginVisible) return;
@@ -870,6 +941,19 @@ metrics();
                     SetChatOpen(true);
                 }
                 lastFeed = json;
+                // Scan the complete current feed for the newest activation.
+                // Ignore stale historical messages and deduplicate by snowflake ID.
+                ulong latestHappyHourId = 0;
+                foreach (var entry in doc.RootElement.EnumerateArray())
+                {
+                    string body = entry.GetProperty("body").GetString() ?? "";
+                    if (!body.Contains("Happy Hour has been activated!", StringComparison.OrdinalIgnoreCase)) continue;
+                    string messageId = entry.GetProperty("id").GetString() ?? "";
+                    var idMatch = System.Text.RegularExpressions.Regex.Match(messageId, @"^chat-messages-\\d+-(\\d+)$");
+                    if (idMatch.Success && ulong.TryParse(idMatch.Groups[1].Value, out ulong parsedId))
+                        latestHappyHourId = Math.Max(latestHappyHourId, parsedId);
+                }
+                if (latestHappyHourId > 0) ShowHappyHourAlert(latestHappyHourId);
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
                 foreach (var msg in doc.RootElement.EnumerateArray())
