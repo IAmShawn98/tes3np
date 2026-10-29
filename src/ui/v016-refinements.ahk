@@ -49,7 +49,6 @@ ApplyV016CharacterLayout(*)
     try
     {
         LaunchCharacterButton.Visible := false
-        ExecutableInput.GetPos(, &executableY, , &executableHeight)
         global LaunchSettingsControls
         global ScheduledEvents
         label := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
