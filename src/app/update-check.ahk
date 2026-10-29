@@ -75,12 +75,24 @@ CheckForUpdates(*)
     }
 }
 
+; A gold-bordered dark button matches the loading-card palette without native white controls.
+; The inset is opaque near-black; against the gold frame it reads as a
+; translucent dark surface without applying transparency to the whole window.
+AddGoldUpdateButton(gui, x, y, width, height, caption)
+{
+    gui.Add("Text", "x" x " y" y " w" width " h" height " BackgroundC5A45C")
+    gui.SetFont("s10 Bold cC5A45C", "Segoe UI")
+    clickable := gui.Add("Text", "x" (x + 2) " y" (y + 2) " w" (width - 4) " h" (height - 4)
+        " +0x100 Center +0x200 Background171008", caption)
+    return clickable
+}
+
 ShowUpdatePreview(installedVersion, latestVersion, channel)
 {
     global LauncherGui, UpdateReleasePage
     ; This is an informational, owned dialog. No updater work occurs here.
     response := {Download: false}
-    preview := Gui("+Owner" LauncherGui.Hwnd " +AlwaysOnTop -MaximizeBox -MinimizeBox -Resize", "tes3np — Update Preview")
+    preview := Gui("-Caption -Border +Owner" LauncherGui.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Preview")
     preview.BackColor := "C5A45C"
     preview.SetFont("s10 cC5A45C", "Segoe UI")
     preview.Add("Text", "x2 y2 w516 h280 Background171008")
@@ -95,10 +107,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     preview.SetFont("s10 cC5A45C", "Segoe UI")
     preview.Add("Text", "x22 y181 w470 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
     preview.Add("Text", "x22 y216 w470 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
-    preview.SetFont("s10 c171008", "Segoe UI")
-    downloadButton := preview.Add("Button", "x22 y245 w185 h28 Default", "Continue to Download")
-    laterButton := preview.Add("Button", "x218 y245 w115 h28", "Not Now")
-    releaseButton := preview.Add("Button", "x344 y245 w154 h28", "Release Notes")
+    downloadButton := AddGoldUpdateButton(preview, 22, 245, 185, 28, "Continue to Download")
+    laterButton := AddGoldUpdateButton(preview, 218, 245, 115, 28, "Not Now")
+    releaseButton := AddGoldUpdateButton(preview, 344, 245, 154, 28, "Release Notes")
     downloadButton.OnEvent("Click", (*) => (response.Download := true, preview.Destroy()))
     laterButton.OnEvent("Click", (*) => preview.Destroy())
     releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
@@ -113,7 +124,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
 {
     global LauncherGui, UpdateReleasePage
     state := {Retry: false}
-    panel := Gui("+Owner" LauncherGui.Hwnd " +AlwaysOnTop -MaximizeBox -MinimizeBox -Resize", "tes3np — Version Status")
+    panel := Gui("-Caption -Border +Owner" LauncherGui.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
     panel.Add("Text", "x2 y2 w516 h278 Background171008")
     panel.SetFont("s15 Bold cC5A45C", "Georgia")
@@ -133,10 +144,9 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         ? "Automatic updates are unavailable. View the official releases instead."
         : "Update status could not be verified. No update was installed."
     panel.Add("Text", "x22 y165 w470 h54 BackgroundTrans", message)
-    panel.SetFont("s10 c171008", "Segoe UI")
-    notes := panel.Add("Button", "x22 y240 w155 h28", "View Release Notes")
-    retry := panel.Add("Button", "x187 y240 w145 h28", "Check Again")
-    close := panel.Add("Button", "x342 y240 w156 h28 Default", "Close")
+    notes := AddGoldUpdateButton(panel, 22, 240, 155, 28, "View Release Notes")
+    retry := AddGoldUpdateButton(panel, 187, 240, 145, 28, "Check Again")
+    close := AddGoldUpdateButton(panel, 342, 240, 156, 28, "Close")
     notes.OnEvent("Click", (*) => Run(UpdateReleasePage))
     retry.OnEvent("Click", (*) => (state.Retry := true, panel.Destroy()))
     close.OnEvent("Click", (*) => panel.Destroy())
