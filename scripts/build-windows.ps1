@@ -13,13 +13,21 @@ function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, 
         try { $process.Kill() } catch {}
         throw "$Label timed out after $([math]::Round($TimeoutMs / 1000)) seconds."
     }
-    Step "$Label exited with code $($process.ExitCode)"
-    if ($process.ExitCode -ne 0) {
+    # PowerShell 5.1 can report a blank ExitCode with Start-Process output
+    # redirection until the process object has been fully refreshed.
+    $process.WaitForExit()
+    $process.Refresh()
+    $compilerExitCode = $process.ExitCode
+    if ($null -eq $compilerExitCode) {
+        throw "$Label finished but Windows did not provide an exit code. See $stdout and $stderr."
+    }
+    Step "$Label exited with code $compilerExitCode"
+    if ($compilerExitCode -ne 0) {
         Step 'COMPILER DIAGNOSTICS (full logs retained in Windows TEMP)'
         if (Test-Path $stdout) { Get-Content $stdout | ForEach-Object { Write-Host $_ } }
         if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } }
     }
-    return $process.ExitCode
+    return [int]$compilerExitCode
 }
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
