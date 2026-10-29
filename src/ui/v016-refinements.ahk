@@ -896,10 +896,14 @@ ShowResetAppDataActions(*)
 
 OpenClientSelectionSettings(*)
 {
-    global LauncherGui, LauncherMorrowindFont, DataFile
+    global LauncherGui, LauncherMorrowindFont, DataFile, V016SettingsGuiHwnd
     mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
     saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
-    menu := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Game Client Settings")
+    ; LauncherGui is disabled while the parchment Settings screen is open.
+    ; Own this dialog to Settings instead, otherwise closing it can focus the
+    ; disabled launcher and make both windows appear to have vanished.
+    ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
+    menu := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Game Client Settings")
     menu.BackColor := "E2CEA2"
     menu.SetFont("s14 Bold c241408", LauncherMorrowindFont)
     menu.Add("Text", "x24 y20 w480 h35", "Game Client Settings")
@@ -918,8 +922,9 @@ OpenClientSelectionSettings(*)
     customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))
     reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))
     restore.OnEvent("Click", (*) => RestoreBundledClientV016(menu))
-    close.OnEvent("Click", (*) => menu.Destroy())
-    menu.OnEvent("Escape", (*) => menu.Destroy())
+    close.OnEvent("Click", CloseGameClientSettingsV016.Bind(menu))
+    menu.OnEvent("Escape", CloseGameClientSettingsV016.Bind(menu))
+    menu.OnEvent("Close", CloseGameClientSettingsV016.Bind(menu))
     menu.Show("w528 h416")
 }
 
@@ -1004,4 +1009,20 @@ UpdateGameClientFeedbackV016(menu, active, message)
     menu.ClientFeedback.Reactivate.Enabled := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
     menu.Show()
     WinActivate("ahk_id " menu.Hwnd)
+}
+
+CloseGameClientSettingsV016(menu, *)
+{
+    global V016SettingsGuiHwnd, LauncherGui
+    try menu.Destroy()
+    if V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
+    {
+        WinShow("ahk_id " V016SettingsGuiHwnd)
+        WinActivate("ahk_id " V016SettingsGuiHwnd)
+    }
+    else if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
+    {
+        WinShow("ahk_id " LauncherGui.Hwnd)
+        WinActivate("ahk_id " LauncherGui.Hwnd)
+    }
 }
