@@ -223,7 +223,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         "You are currently running the latest version of the tes3np launcher! If something new releases, you will be notified.")
     panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y143 w584 h24 BackgroundTrans",
-        "Build: v" installedVersion " (" (InStr(installedVersion, "alpha") ? "Alpha" : InStr(installedVersion, "beta") ? "Beta" : "Live / Stable") ")")
+        "Build: v" installedVersion)
     panel.Add("Text", "x28 y176 w584 h24 BackgroundTrans", "Release Notes")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
