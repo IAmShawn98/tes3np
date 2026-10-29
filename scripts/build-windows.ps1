@@ -214,6 +214,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
+    Step 'Validating final downloadable Windows ZIP'
+    & python (Join-Path $PSScriptRoot 'check-windows-package.py') $zip
+    if ($LASTEXITCODE -ne 0) { throw 'Final Windows ZIP integrity validation failed.' }
     Step 'Windows launcher build completed successfully'
 }
 finally {
