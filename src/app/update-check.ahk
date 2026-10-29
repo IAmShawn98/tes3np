@@ -180,6 +180,18 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     return response.Download ? "Yes" : "No"
 }
 
+ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion)
+{
+    global DataFile
+    enabled := IniRead(DataFile, "Updates", "NotifyAlpha", "1") != "1"
+    IniWrite(enabled ? "1" : "0", DataFile, "Updates", "NotifyAlpha")
+    tick.Text := enabled ? "✓" : ""
+    if !enabled
+        SetLauncherUpdateAvailable(false)
+    else if latestVersion != "" && CompareTes3npVersions(latestVersion, installedVersion) > 0
+        SetLauncherUpdateAvailable(true, latestVersion)
+}
+
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
 {
     global LauncherGui, UpdateReleasePage, DataFile
@@ -214,18 +226,8 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         , selected ? "✓" : "")
     description := panel.Add("Text", "x68 y221 w535 h25 BackgroundTrans",
         "Notify me when the latest alpha build is available to download.")
-    toggle(*) {
-        selectedNow := IniRead(DataFile, "Updates", "NotifyAlpha", "1") = "1"
-        enabled := !selectedNow
-        IniWrite(enabled ? "1" : "0", DataFile, "Updates", "NotifyAlpha")
-        tick.Text := enabled ? "✓" : ""
-        if !enabled
-            SetLauncherUpdateAvailable(false)
-        else if latestVersion != "" && CompareTes3npVersions(latestVersion, installedVersion) > 0
-            SetLauncherUpdateAvailable(true, latestVersion)
-    }
-    tick.OnEvent("Click", toggle)
-    description.OnEvent("Click", toggle)
+    tick.OnEvent("Click", (*) => ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion))
+    description.OnEvent("Click", (*) => ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion))
     panel.SetFont("s9 cC5A45C", "Segoe UI")
     panel.Add("Text", "x32 y265 w572 h32 BackgroundTrans",
         "You can still check for updates anytime by clicking the version text.")
