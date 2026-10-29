@@ -905,20 +905,22 @@ OpenClientSelectionSettings(*)
     menu.Add("Text", "x24 y20 w480 h35", "Game Client Settings")
     menu.SetFont("s10 c382314", "Segoe UI")
     display := mode = "Bundled" ? "Original TES3NP runtime" : mode = "CustomOverrides" ? "Custom overrides active" : "Legacy custom client (" mode ")"
-    menu.Add("Text", "x24 y65 w480 h25", "Active client: " display)
+    activeLabel := menu.Add("Text", "x24 y65 w480 h25", "Active client: " display)
     menu.Add("Text", "x24 y95 w480 h48", "Choose how TES3NP launches the game. Custom files are kept separate from the protected original runtime.")
     menu.SetFont("s11 Bold", "Segoe UI")
     customize := menu.Add("Button", "x24 y153 w480 h43", "Set Up Custom EXE")
     reactivate := menu.Add("Button", "x24 y205 w480 h43", "Use Saved Custom Client")
     reactivate.Enabled := saved
     restore := menu.Add("Button", "x24 y257 w480 h43", "Use Original TES3NP Client")
-    close := menu.Add("Button", "x24 y322 w480 h38", "Close")
+    statusLabel := menu.Add("Text", "x24 y307 w480 h40 +Wrap", "Select an option to change your game client.")
+    close := menu.Add("Button", "x24 y354 w480 h38", "Close")
+    menu.ClientFeedback := {Active: activeLabel, Status: statusLabel, Reactivate: reactivate}
     customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))
     reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))
     restore.OnEvent("Click", (*) => RestoreBundledClientV016(menu))
     close.OnEvent("Click", (*) => menu.Destroy())
     menu.OnEvent("Escape", (*) => menu.Destroy())
-    menu.Show("w528 h384")
+    menu.Show("w528 h416")
 }
 
 RestoreBundledClientV016(menu, *)
@@ -927,7 +929,7 @@ RestoreBundledClientV016(menu, *)
     IniWrite("Bundled", DataFile, "Launch", "ClientMode")
     try ExecutableInput.Value := A_ScriptDir "\client\tes3mp.exe"
     LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
-    menu.Destroy()
+    UpdateGameClientFeedbackV016(menu, "Original TES3NP runtime", "Original client restored. Your custom files remain saved for later.")
 }
 
 ActivateSavedCustomClientV016(menu, *)
@@ -938,7 +940,7 @@ ActivateSavedCustomClientV016(menu, *)
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
     try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
     LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
-    menu.Destroy()
+    UpdateGameClientFeedbackV016(menu, "Custom overrides active", "Saved custom EXE and dependencies are active again.")
 }
 
 ConfigureCustomClientV016(menu, *)
@@ -988,5 +990,18 @@ SaveCustomClientV016(menu, options, source, folder, *)
     try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
     LogLauncherEvent("GAME | Custom client configured | Additional dependencies: " (folder = "" ? "none" : "selected") ".")
     options.Destroy()
-    menu.Destroy()
+    UpdateGameClientFeedbackV016(menu, "Custom overrides active", folder = ""
+        ? "Custom EXE saved. Bundled dependencies will be used."
+        : "Custom EXE and dependency files saved successfully. Ready to launch.")
+}
+
+UpdateGameClientFeedbackV016(menu, active, message)
+{
+    if !IsObject(menu) || !DllCall("IsWindow", "Ptr", menu.Hwnd)
+        return
+    menu.ClientFeedback.Active.Text := "Active client: " active
+    menu.ClientFeedback.Status.Text := message
+    menu.ClientFeedback.Reactivate.Enabled := FileExist(GetCustomOverrideFolder() "\\tes3mp.exe") ? true : false
+    menu.Show()
+    WinActivate("ahk_id " menu.Hwnd)
 }
