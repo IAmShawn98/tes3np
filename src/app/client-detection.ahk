@@ -171,6 +171,24 @@ ValidateSelectedClientRuntime(executable)
     return true
 }
 
+; Restore an existing custom client if Windows closed during an override swap.
+RecoverCustomClientOverrides()
+{
+    global AppDataDirectory
+    managed := AppDataDirectory "\custom-client"
+    active := managed "\overrides"
+    previous := managed "\previous"
+    if DirExist(active) || !DirExist(previous)
+        return
+    try
+    {
+        DirMove(previous, active)
+        LogLauncherEvent("GAME | Recovered saved overrides from interrupted custom-client installation.")
+    }
+    catch Error as err
+        LogLauncherEvent("GAME | Interrupted custom-client recovery failed: " err.Message)
+}
+
 GetCustomOverrideFolder()
 {
     global AppDataDirectory
@@ -181,6 +199,7 @@ GetMergedCustomClientExecutable()
 {
     global AppDataDirectory
     bundled := A_ScriptDir "\client"
+    RecoverCustomClientOverrides()
     overrides := GetCustomOverrideFolder()
     if !DirExist(overrides) || !FileExist(overrides "\tes3mp.exe")
         return ""
