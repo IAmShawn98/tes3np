@@ -163,6 +163,37 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     return response.Download ? "Yes" : "No"
 }
 
+ReadDraftVersionNotes(installedVersion)
+{
+    ; Only use this for an unreleased development version, never for a
+    ; published version whose GitHub release notes are authoritative.
+    changelog := A_ScriptDir "\CHANGELOG.md"
+    if !FileExist(changelog)
+        return 0
+    content := StrReplace(FileRead(changelog, "UTF-8"), "`r", "")
+    entries := StrSplit(content, "`n")
+    collecting := false
+    notes := ""
+    for entry in entries {
+        if SubStr(entry, 1, 3) = "## " {
+            if collecting
+                break
+            if InStr(entry, "v" installedVersion) && InStr(StrLower(entry), "unreleased")
+                collecting := true
+            continue
+        }
+        if !collecting
+            continue
+        line := Trim(entry)
+        if SubStr(line, 1, 4) = "### " {
+            notes .= SubStr(line, 5) "`n"
+        } else if SubStr(line, 1, 2) = "- " {
+            notes .= "• " StrReplace(StrReplace(SubStr(line, 3), "**", ""), "`", "") "`n"
+        }
+    }
+    return notes != "" ? {Text: RTrim(notes, "`n"), Source: "Development notes — unreleased, subject to change"} : 0
+}
+
 ReadVersionReleaseNotes(installedVersion)
 {
     ; Published release notes are loaded by exact version tag. This never
@@ -180,6 +211,11 @@ ReadVersionReleaseNotes(installedVersion)
             throw Error("Release notes could not be retrieved.")
         notesText := FileRead(output, "UTF-8")
         sourceText := FileExist(output ".source") ? FileRead(output ".source", "UTF-8") : "GitHub Releases"
+        if InStr(sourceText, "Notes not published") {
+            draft := ReadDraftVersionNotes(installedVersion)
+            if IsObject(draft)
+                return draft
+        }
         return {Text: notesText, Source: sourceText}
     } catch Error {
         return {Text: "Could not load release notes for v" installedVersion ". Please check GitHub Releases.", Source: "GitHub unavailable"}
