@@ -566,9 +566,18 @@ OpenLauncherSettingsV016(*)
 
     AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))
     AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)
     AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30), "Close Settings", CloseLauncherSettingsV016.Bind(settings))
+
+    ; Keep both parchment views in the same GUI. The common backdrop is never
+    ; destroyed, and all data controls are created only once per settings window.
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    V016SettingsMainControls := []
+    for control in settings
+        V016SettingsMainControls.Push(control)
+    V016SettingsDataControls := []
+    V016SettingsDataActive := false
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
@@ -586,6 +595,10 @@ CloseLauncherSettingsV016(settings, *)
     try hwnd := settings.Hwnd
     if hwnd && V016SettingsGuiHwnd = hwnd
         V016SettingsGuiHwnd := 0
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    V016SettingsDataActive := false
+    V016SettingsMainControls := []
+    V016SettingsDataControls := []
     try settings.Destroy()
     if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd, "Int")
     {
@@ -661,30 +674,61 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
     PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Resetting launcher settings...")
 }
 
-OpenAppDataSettingsV016(*)
+OpenAppDataSettingsV016(settings, *)
 {
-    global LauncherGui
-    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Data")
-    window.BackColor := "E2CEA2"
-    window.SetFont("s11 Bold c241408", "Segoe UI")
-    window.Add("Text", "x20 y18 w520 h26", "Launcher Data & Diagnostics")
-    window.SetFont("s9 c382314", "Segoe UI")
-    window.Add("Text", "x20 y48 w520 h76", "Your characters and preferences are stored in AppData. Export your characters from Manage Characters before resetting anything. If the game closes unexpectedly, copy the launcher log and share the lines around the failure.")
-    openFolder := window.Add("Button", "x20 y132 w520 h34", "Open Launcher AppData Folder")
-    copyLauncher := window.Add("Button", "x20 y178 w520 h34", "Copy Launcher Logs")
-    window.Add("Text", "x20 y221 w520 h24", "Advanced Diagnostic Logs")
-    reset := window.Add("Button", "x20 y249 w520 h30", "Reset Launcher AppData")
-    copyPatch := window.Add("Button", "x20 y290 w255 h32", "Copy Expansion Pack Logs")
-    copyRender := window.Add("Button", "x285 y290 w255 h32", "Copy Render Errors")
-    close := window.Add("Button", "x20 y340 w520 h34 Default", "Go Back")
-    openFolder.OnEvent("Click", OpenLauncherDataFolder)
-    copyLauncher.OnEvent("Click", CopyAppDataLog.Bind("launcher.log", true))
-    copyRender.OnEvent("Click", CopyAppDataLog.Bind("render-errors.log"))
-    copyPatch.OnEvent("Click", CopyExpansionPackLogs)
-    reset.OnEvent("Click", ShowResetAppDataActions)
-    close.OnEvent("Click", (*) => window.Destroy())
-    window.OnEvent("Escape", (*) => window.Destroy())
-    window.Show("w560 h395")
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    global LauncherMorrowindFont
+    if !IsObject(settings) || !DllCall("IsWindow", "Ptr", settings.Hwnd)
+        return
+    if V016SettingsDataActive
+        return
+    ; Create the second view once. A return visit simply toggles visibility.
+    if V016SettingsDataControls.Length = 0
+    {
+        before := Map()
+        for control in settings
+            before[control.Hwnd] := true
+        settings.SetFont("s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(32) " y" V016S(126) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data & Diagnostics")
+        settings.SetFont("s" V016Font(10) " Norm c382314", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(42) " y" V016S(168) " w" V016S(428) " h" V016S(91) " BackgroundTrans",
+            "Your characters and preferences are stored in AppData. Export your characters from Manage Characters before resetting anything. If the game closes unexpectedly, copy the launcher log and share the lines around the failure.")
+        AddStyledButton(settings, V016S(32), V016S(268), V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
+        AddStyledButton(settings, V016S(32), V016S(309), V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log", true))
+        settings.SetFont("s" V016Font(11) " Norm c241408", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(32) " y" V016S(353) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
+        AddStyledButton(settings, V016S(32), V016S(385), V016S(448), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
+        AddStyledButton(settings, V016S(32), V016S(426), V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
+        AddStyledButton(settings, V016S(266), V016S(426), V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
+        AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
+        for control in settings
+            if !before.Has(control.Hwnd)
+                V016SettingsDataControls.Push(control)
+    }
+    ; Hide only the main view; keep the shared parchment picture visible.
+    V016SettingsDataActive := true
+    for index, control in V016SettingsMainControls
+        if index > 1
+            SetBookControlVisible(control, false)
+    for control in V016SettingsDataControls
+        SetBookControlVisible(control, true)
+    DllCall("InvalidateRect", "Ptr", settings.Hwnd, "Ptr", 0, "Int", false)
+    FinishButtonDisplay()
+}
+
+CloseLauncherDataV016(settings, *)
+{
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    if !V016SettingsDataActive || !DllCall("IsWindow", "Ptr", settings.Hwnd)
+        return
+    for control in V016SettingsDataControls
+        SetBookControlVisible(control, false)
+    for index, control in V016SettingsMainControls
+        if index > 1
+            SetBookControlVisible(control, true)
+    V016SettingsDataActive := false
+    DllCall("InvalidateRect", "Ptr", settings.Hwnd, "Ptr", 0, "Int", false)
+    FinishButtonDisplay()
 }
 
 CopyExpansionPackLogs(*)
