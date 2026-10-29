@@ -949,7 +949,7 @@ metrics();
                     string body = entry.GetProperty("body").GetString() ?? "";
                     if (!body.Contains("Happy Hour has been activated!", StringComparison.OrdinalIgnoreCase)) continue;
                     string messageId = entry.GetProperty("id").GetString() ?? "";
-                    var idMatch = System.Text.RegularExpressions.Regex.Match(messageId, @"^chat-messages-\\d+-(\\d+)$");
+                    var idMatch = System.Text.RegularExpressions.Regex.Match(messageId, @"^chat-messages-\d+-(\d+)$");
                     if (idMatch.Success && ulong.TryParse(idMatch.Groups[1].Value, out ulong parsedId))
                         latestHappyHourId = Math.Max(latestHappyHourId, parsedId);
                 }
