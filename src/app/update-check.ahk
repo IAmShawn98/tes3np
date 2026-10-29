@@ -284,12 +284,13 @@ UpdateNotesDragMove(drag, page, refresh)
     refresh()
 }
 
-StartUpdateNotesDrag(drag, page, refresh, *)
+StartUpdateNotesDrag(thumb, drag, page, refresh, wParam, lParam, msg, hwnd)
 {
-    if page.Lines.Length <= page.Visible
+    if hwnd != thumb.Hwnd || page.Lines.Length <= page.Visible
         return
     drag.Active := true
-    MouseGetPos(, &drag.StartY)
+    MouseGetPos(, &startY)
+    drag.StartY := startY
     drag.StartOffset := page.Offset
     drag.Timer := UpdateNotesDragMove.Bind(drag, page, refresh)
     SetTimer(drag.Timer, 16)
@@ -337,7 +338,8 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
-    thumb.OnEvent("Click", StartUpdateNotesDrag.Bind(drag, page, refresh))
+    dragStartCallback := StartUpdateNotesDrag.Bind(thumb, drag, page, refresh)
+    OnMessage(0x0201, dragStartCallback, 1)
     scrollUp := AddStyledButton(panel, 583, 211, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
     scrollDown := AddStyledButton(panel, 583, 348, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
     refresh()
@@ -356,6 +358,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
     OnMessage(0x020A, wheelCallback, 0)
+    OnMessage(0x0201, dragStartCallback, 0)
     drag.Active := false
     if IsObject(drag.Timer)
         SetTimer(drag.Timer, 0)
