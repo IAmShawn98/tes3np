@@ -694,13 +694,15 @@ OpenAppDataSettingsV016(settings, *)
             before[control.Hwnd] := true
         settings.SetFont("s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
         settings.Add("Text", "x" V016S(32) " y" V016S(126) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data & Diagnostics")
-        settings.SetFont("s" V016Font(10) " Norm c382314", LauncherMorrowindFont)
-        settings.Add("Text", "x" V016S(42) " y" V016S(168) " w" V016S(428) " h" V016S(91) " BackgroundTrans",
-            "Your characters and preferences are stored in AppData. Export your characters from Manage Characters before resetting anything. If the game closes unexpectedly, copy the launcher log and share the lines around the failure.")
+        ; The original 10pt Morrowind font was difficult to read at default
+        ; scale. Use larger lettering and concise copy within the same panel.
+        settings.SetFont("s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(42) " y" V016S(166) " w" V016S(428) " h" V016S(96) " BackgroundTrans",
+            "Characters and preferences are saved in AppData. Export characters before resetting. If the game crashes, copy Launcher Logs to share the error.")
         AddStyledButton(settings, V016S(32), V016S(268), V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
         AddStyledButton(settings, V016S(32), V016S(309), V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log", true))
-        settings.SetFont("s" V016Font(11) " Norm c241408", LauncherMorrowindFont)
-        settings.Add("Text", "x" V016S(32) " y" V016S(353) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
+        settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(32) " y" V016S(351) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
         AddStyledButton(settings, V016S(32), V016S(385), V016S(448), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
         AddStyledButton(settings, V016S(32), V016S(426), V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
         AddStyledButton(settings, V016S(266), V016S(426), V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
