@@ -167,7 +167,8 @@ ReadVersionReleaseNotes(installedVersion)
 {
     ; Published release notes are loaded by exact version tag. This never
     ; substitutes the latest release's notes for an older installation.
-    script := A_ScriptDir "\scripts\fetch-release-notes.ps1"
+    global BundledResourceRoot
+    script := (A_IsCompiled ? BundledResourceRoot : A_ScriptDir) "\scripts\fetch-release-notes.ps1"
     if !FileExist(script)
         return {Text: "The GitHub release notes helper is missing.", Source: "Notes unavailable"}
     output := A_Temp "\tes3np-notes-" A_TickCount ".txt"
