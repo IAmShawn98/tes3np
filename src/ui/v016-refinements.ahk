@@ -565,15 +565,15 @@ OpenLauncherSettingsV016(*)
     reduceMotionBox := {Value: 0}
 
     AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(32), V016S(435), V016S(448), V016S(30), "Close", CloseLauncherSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(32), V016S(486), V016S(448), V016S(30), "AppData Settings", OpenAppDataSettingsV016)
-    AddStyledButton(settings, V016S(32), V016S(528), V016S(448), V016S(28), "Game Client (Bundled / Custom)", OpenClientSelectionSettings)
+    AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)
+    AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30), "Close Settings", CloseLauncherSettingsV016.Bind(settings))
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Size", (*) => 0)
-    settings.Show("w" V016S(512) " h" V016S(625))
+    settings.Show("w" V016S(512) " h" V016S(590))
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
     FinishButtonDisplay()
@@ -664,29 +664,68 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
 OpenAppDataSettingsV016(*)
 {
     global LauncherGui
-    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Files & Diagnostics")
+    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Launcher Data")
     window.BackColor := "E2CEA2"
     window.SetFont("s11 Bold c241408", "Segoe UI")
-    window.Add("Text", "x20 y18 w520 h26", "Settings, saved characters & diagnostics")
+    window.Add("Text", "x20 y18 w520 h26", "Launcher Data & Diagnostics")
     window.SetFont("s9 c382314", "Segoe UI")
     window.Add("Text", "x20 y48 w520 h76", "Your characters and preferences are stored in AppData. Export your characters from Manage Characters before resetting anything. If the game closes unexpectedly, copy the launcher log and share the lines around the failure.")
-    openFolder := window.Add("Button", "x20 y132 w520 h34", "Open TES3NP Data Folder")
-    copyLauncher := window.Add("Button", "x20 y178 w520 h34", "Copy Game & Launcher Diagnostic Log")
-    window.Add("Text", "x20 y221 w520 h24", "Advanced troubleshooting (only when requested by support):")
-    copyRender := window.Add("Button", "x20 y249 w255 h30", "Copy UI / Render Errors")
-    copyPatch := window.Add("Button", "x285 y249 w255 h30", "Copy Expansion Pack Log")
-    copyPatchErrors := window.Add("Button", "x20 y287 w520 h30", "Copy Expansion Pack Errors")
-    reset := window.Add("Button", "x20 y333 w520 h32", "Reset AppData (deletes saved settings)")
-    close := window.Add("Button", "x20 y373 w520 h32 Default", "Close")
+    openFolder := window.Add("Button", "x20 y132 w520 h34", "Open Launcher AppData Folder")
+    copyLauncher := window.Add("Button", "x20 y178 w520 h34", "Copy Launcher Logs")
+    window.Add("Text", "x20 y221 w520 h24", "Advanced Diagnostic Logs")
+    copyRender := window.Add("Button", "x20 y249 w520 h30", "Copy UI / Render Errors")
+    copyPatch := window.Add("Button", "x20 y290 w255 h32", "Copy Expansion Pack Logs")
+    reset := window.Add("Button", "x285 y290 w255 h32", "Reset Launcher AppData")
+    close := window.Add("Button", "x20 y340 w520 h34 Default", "Go Back")
     openFolder.OnEvent("Click", OpenLauncherDataFolder)
     copyLauncher.OnEvent("Click", CopyAppDataLog.Bind("launcher.log", true))
     copyRender.OnEvent("Click", CopyAppDataLog.Bind("render-errors.log"))
-    copyPatch.OnEvent("Click", CopyAppDataLog.Bind("patch-all.log"))
-    copyPatchErrors.OnEvent("Click", CopyAppDataLog.Bind("patch-errors.log"))
+    copyPatch.OnEvent("Click", CopyExpansionPackLogs)
     reset.OnEvent("Click", ShowResetAppDataActions)
     close.OnEvent("Click", (*) => window.Destroy())
     window.OnEvent("Escape", (*) => window.Destroy())
-    window.Show("w560 h425")
+    window.Show("w560 h395")
+}
+
+CopyExpansionPackLogs(*)
+{
+    global AppDataDirectory
+    ; Both logs are retained separately on disk. The clipboard gets a
+    ; clearly labeled combined report, including any missing-file notices.
+    try SyncPatchLogToLauncherLog()
+    report := ""
+    found := false
+    for filename in ["patch-all.log", "patch-errors.log"]
+    {
+        path := AppDataDirectory "\" filename
+        report .= "===== " filename " =====`r`n"
+        if FileExist(path)
+        {
+            try
+            {
+                content := FileRead(path, "UTF-8")
+                if Trim(content) != ""
+                {
+                    report .= content "`r`n`r`n"
+                    found := true
+                    continue
+                }
+            }
+            catch Error as err
+            {
+                report .= "Could not read file: " err.Message "`r`n`r`n"
+                continue
+            }
+        }
+        report .= "(No entries available)`r`n`r`n"
+    }
+    if !found
+    {
+        MsgBox("No Expansion Pack log entries are available yet.", "tes3np — Diagnostics")
+        return
+    }
+    A_Clipboard := report
+    MsgBox("Expansion Pack logs copied to your clipboard. Review personal paths before sharing.", "tes3np — Diagnostics")
 }
 
 CopyAppDataLog(filename, syncLauncher := false, *)
