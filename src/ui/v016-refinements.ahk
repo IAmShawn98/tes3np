@@ -717,8 +717,7 @@ OpenAppDataSettingsV016(settings, *)
             SetBookControlVisible(control, false)
     for control in V016SettingsDataControls
         SetBookControlVisible(control, true)
-    DllCall("InvalidateRect", "Ptr", settings.Hwnd, "Ptr", 0, "Int", false)
-    FinishButtonDisplay()
+    ; EndInterfaceUpdate performs the single final redraw under the frame cover.
     }
     finally EndInterfaceUpdate()
 }
@@ -737,8 +736,7 @@ CloseLauncherDataV016(settings, *)
         if index > 1
             SetBookControlVisible(control, true)
     V016SettingsDataActive := false
-    DllCall("InvalidateRect", "Ptr", settings.Hwnd, "Ptr", 0, "Int", false)
-    FinishButtonDisplay()
+    ; EndInterfaceUpdate performs the single final redraw under the frame cover.
     }
     finally EndInterfaceUpdate()
 }
