@@ -20,7 +20,7 @@ FindTES3MPFolder()
     candidates := [IniRead(DataFile, "Patch", "TesFolder", ""),
         IniRead(DataFile, "Launch", "Executable", ""),
         A_ScriptDir, A_ScriptDir "\..", A_ScriptDir "\..\..",
-        A_MyDocuments, A_MyDocuments "\TES3MP",
+        A_MyDocuments, A_Desktop, A_MyDocuments "\TES3MP",
         A_MyDocuments "\My Games\TES3MP",
         EnvGet("USERPROFILE") "\Downloads",
         EnvGet("USERPROFILE") "\Desktop",
