@@ -14,6 +14,9 @@ CheckForUpdateAvailability(*)
         manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
         available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
         SetLauncherUpdateAvailable(available, manifest.version)
+        ; Wait until the main window and first-run startup prompts have settled.
+        if available && !HasSeenUpdateAutoPreview(manifest.version)
+            SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
     } catch Error as err {
         SetLauncherUpdateAvailable(false)
@@ -21,9 +24,25 @@ CheckForUpdateAvailability(*)
     }
 }
 
-CheckForUpdates(*)
+HasSeenUpdateAutoPreview(version)
 {
-    global AppConfig, UpdateReleasePage, UpdateManifestUrl, UpdateBusy, LauncherGui
+    global DataFile
+    return IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "") = version
+}
+
+AutoPreviewNewUpdate(version, *)
+{
+    global LauncherGui, UpdateBusy, LauncherUpdateDismissedVersion
+    if UpdateBusy || LauncherUpdateDismissedVersion = version || HasSeenUpdateAutoPreview(version)
+        return
+    if !IsObject(LauncherGui) || !DllCall("user32\\IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+        return
+    CheckForUpdates("startup")
+}
+
+CheckForUpdates(source := "", *)
+{
+    global AppConfig, UpdateReleasePage, UpdateManifestUrl, UpdateBusy, LauncherGui, DataFile
     if UpdateBusy {
         LogLauncherEvent("UPDATE | Check ignored because another update operation is active.")
         return
@@ -49,6 +68,11 @@ CheckForUpdates(*)
         ; The startup check owns the footer notification. Opening a preview
         ; from the version text must not re-show a dismissed banner.
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
+        ; The first preview of this published version is remembered across restarts,
+        ; regardless of whether it opened automatically or the user opened it.
+        ; Store before showing the modal so Cancel/Not Now does not repeat next launch.
+        if !HasSeenUpdateAutoPreview(latest)
+            IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")
         ; Viewing the gold preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel)
         if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
