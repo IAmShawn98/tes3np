@@ -82,7 +82,7 @@ SaveDefaultProfile()
 GetSharedExecutable()
 {
     ; Bundled markerless client is the only supported automatic launch target.
-    return A_ScriptDir "\\client\\tes3mp.exe"
+    return A_ScriptDir "\client\tes3mp.exe"
 }
 
 SaveSharedExecutable(*)
