@@ -7,13 +7,13 @@ global UpdateBusy := false
 
 CheckForUpdateAvailability(*)
 {
-    global AppConfig, UpdateManifestUrl, DataFile
+    global AppConfig, UpdateManifestUrl
     ; Startup availability checks are intentionally silent. A network or metadata
     ; failure must never interrupt normal launcher use; the button simply stays hidden.
     try {
         manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
         available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
-        SetLauncherUpdateAvailable(available && IniRead(DataFile, "Updates", "NotifyAlpha", "1") = "1", manifest.version)
+        SetLauncherUpdateAvailable(available, manifest.version)
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
     } catch Error as err {
         SetLauncherUpdateAvailable(false)
@@ -180,18 +180,6 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     return response.Download ? "Yes" : "No"
 }
 
-ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion)
-{
-    global DataFile
-    enabled := IniRead(DataFile, "Updates", "NotifyAlpha", "1") != "1"
-    IniWrite(enabled ? "1" : "0", DataFile, "Updates", "NotifyAlpha")
-    tick.Text := enabled ? "✓" : ""
-    if !enabled
-        SetLauncherUpdateAvailable(false)
-    else if latestVersion != "" && CompareTes3npVersions(latestVersion, installedVersion) > 0
-        SetLauncherUpdateAvailable(true, latestVersion)
-}
-
 ReadVersionReleaseNotes(installedVersion)
 {
     ; Prefer locally bundled changelog for unreleased development versions.
@@ -228,7 +216,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
     panel.Add("Text", "x2 y2 w636 h452 Background171008")
-    panel.SetFont("s15 Bold cC5A45C", "Georgia")
+    panel.SetFont("s12 Bold cC5A45C", "Georgia")
     panel.Add("Text", "x28 y20 w586 h42 BackgroundTrans", "You're All Caught Up, Fetcher! (v" installedVersion ")")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     panel.Add("Text", "x28 y77 w584 h54 BackgroundTrans",
