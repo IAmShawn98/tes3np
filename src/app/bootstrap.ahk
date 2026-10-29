@@ -68,8 +68,8 @@ StartLauncher()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 805, 675, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
-    ; Keep update notifications centered along the bottom edge, directly below the launcher scroll.
-    LauncherUpdateButton := AddStyledButton(LauncherGui, 410, 675, 140, 32, "Update Available", CheckForUpdates)
+    ; Place update notifications in the upper-center decorative header, not below the scroll.
+    LauncherUpdateButton := AddStyledButton(LauncherGui, 425, 5, 110, 26, "Update Available", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CreateLauncherChatToggle()
     CaptureLauncherControlLayout()
@@ -295,8 +295,8 @@ SetLauncherUpdateAvailable(isAvailable)
         LauncherControlLayout[LauncherSettingsButton.Hwnd].Y := 675
     }
     if LauncherControlLayout.Has(LauncherUpdateButton.Hwnd) {
-        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 410
-        LauncherControlLayout[LauncherUpdateButton.Hwnd].Y := 675
+        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 425
+        LauncherControlLayout[LauncherUpdateButton.Hwnd].Y := 5
     }
 }
 
