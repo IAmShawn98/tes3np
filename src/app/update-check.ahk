@@ -191,6 +191,32 @@ ReadVersionReleaseNotes(installedVersion)
     return {Text: "Release notes are not bundled for this version. Open the official release page to read the published notes.", Source: "Release notes unavailable locally"}
 }
 
+UpdateNotesMouseWheel(dialog, page, refresh, wParam, lParam, msg, hwnd)
+{
+    if !DllCall("user32\IsWindow", "Ptr", dialog.Hwnd, "Int")
+        return
+    ; WM_MOUSEWHEEL carries screen coordinates in lParam, including negatives.
+    mx := (lParam & 0xFFFF) << 48 >> 48
+    my := ((lParam >> 16) & 0xFFFF) << 48 >> 48
+    rect := Buffer(16, 0)
+    if !DllCall("user32\GetClientRect", "Ptr", dialog.Hwnd, "Ptr", rect)
+        return
+    pt := Buffer(8, 0)
+    NumPut("Int", mx, pt, 0)
+    NumPut("Int", my, pt, 4)
+    if !DllCall("user32\ScreenToClient", "Ptr", dialog.Hwnd, "Ptr", pt)
+        return
+    scale := A_ScreenDPI / 96
+    x := NumGet(pt, 0, "Int") / scale
+    y := NumGet(pt, 4, "Int") / scale
+    if x < 28 || x > 612 || y < 207 || y > 374
+        return
+    delta := (wParam >> 16) << 48 >> 48
+    page.Offset += delta > 0 ? -3 : 3
+    refresh()
+    return 0
+}
+
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
 {
     global LauncherGui, UpdateReleasePage
@@ -210,30 +236,34 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel.Add("Text", "x28 y176 w584 h24 BackgroundTrans", "Release Notes")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    ; Parchment-style notes viewport, using the same brown track and gold
-    ; thumb palette as the main menu instead of a Windows edit scrollbar.
-    panel.Add("Text", "x28 y207 w584 h167 Background171008")
+    ; Gold-framed notes with the same vertical gold-on-brown scrollbar used
+    ; by the launcher parchment. Arrows live at the ends of the track.
+    panel.Add("Text", "x28 y207 w584 h167 BackgroundC5A45C")
+    panel.Add("Text", "x30 y209 w580 h163 Background171008")
     notesLines := StrSplit(StrReplace(notes.Text, "`r", ""), "`n")
     page := {Offset: 1, Lines: notesLines, Visible: 7}
     noteRows := []
-    panel.SetFont("s10 cEDE1C9", "Segoe UI")
     Loop page.Visible
-        noteRows.Push(panel.Add("Text", "x36 y" (213 + (A_Index - 1) * 22) " w542 h22 Background171008", ""))
-    track := panel.Add("Text", "x591 y213 w10 h153 Background704C27")
-    thumb := panel.Add("Text", "x593 y213 w6 h55 BackgroundC69951")
+        noteRows.Push(panel.Add("Text", "x38 y" (215 + (A_Index - 1) * 22) " w536 h22 Background171008", ""))
+    track := panel.Add("Text", "x585 y237 w16 h107 Background704C27")
+    thumb := panel.Add("Text", "x589 y237 w8 h30 BackgroundC69951")
     refresh(*) {
         maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
         page.Offset := Min(maxOffset, Max(1, page.Offset))
         for index, row in noteRows
             row.Text := index + page.Offset - 1 <= page.Lines.Length ? page.Lines[index + page.Offset - 1] : ""
-        thumbHeight := Max(24, Round(153 * Min(1, page.Visible / Max(1, page.Lines.Length))))
-        thumb.Move(593, 213 + Round((153 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 6, thumbHeight)
+        thumbHeight := Max(22, Round(107 * Min(1, page.Visible / Max(1, page.Lines.Length))))
+        thumb.Move(589, 237 + Round((107 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
-    scrollUp := AddStyledButton(panel, 566, 379, 21, 22, "↑", (*) => (page.Offset -= 1, refresh()))
-    scrollDown := AddStyledButton(panel, 591, 379, 21, 22, "↓", (*) => (page.Offset += 1, refresh()))
+    scrollUp := AddStyledButton(panel, 583, 211, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
+    scrollDown := AddStyledButton(panel, 583, 348, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
     refresh()
+    ; Register an additional wheel callback only for this dialog's lifetime.
+    ; It consumes wheel input solely inside the release-notes viewport.
+    wheelCallback := UpdateNotesMouseWheel.Bind(panel, page, refresh)
+    OnMessage(0x020A, wheelCallback)
     panel.SetFont("s9 cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y380 w584 h22 BackgroundTrans", notes.Source)
     releaseButton := AddStyledButton(panel, 28, 412, 193, 32, "View on GitHub", (*) => Run(UpdateReleasePage))
@@ -244,6 +274,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ShowCenteredUpdateCard(panel, backdrop, 640, 456)
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
+    OnMessage(0x020A, wheelCallback, 0)
     backdrop.Destroy()
     if state.Retry
         SetTimer(CheckForUpdates, -100)
