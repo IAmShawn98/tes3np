@@ -81,28 +81,8 @@ SaveDefaultProfile()
 
 GetSharedExecutable()
 {
-    global DataFile, SelectedProfile
-    executable := IniRead(DataFile, "Launch", "Executable", "")
-    if executable != ""
-        return executable
-    ; Migrate the previously selected character's path before removing old fields.
-    if SelectedProfile
-        executable := IniRead(DataFile, "Character" SelectedProfile, "Executable", "")
-    if executable = ""
-    {
-        Loop 10
-        {
-            executable := IniRead(DataFile, "Character" A_Index, "Executable", "")
-            if executable != ""
-                break
-        }
-    }
-    if executable != ""
-    {
-        DirCreate(AppDataDirectory)
-        IniWrite(executable, DataFile, "Launch", "Executable")
-    }
-    return executable
+    ; Bundled markerless client is the only supported automatic launch target.
+    return A_ScriptDir "\\client\\tes3mp.exe"
 }
 
 SaveSharedExecutable(*)
