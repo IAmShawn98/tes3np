@@ -51,7 +51,7 @@ CloseMacroPage(*)
     ; macros continue independently; their state is reconciled when reopened.
     SetTimer(RefreshMacroProcesses, 0)
     MacroPage.Hide()
-    ShowLauncherWindow()
+    ShowLauncherWindow(true)
 }
 
 LoadMacroPackages()
