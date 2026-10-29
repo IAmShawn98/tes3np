@@ -1,7 +1,7 @@
 diff --git a/apps/openmw/mwmp/GUIController.cpp b/apps/openmw/mwmp/GUIController.cpp
 --- a/apps/openmw/mwmp/GUIController.cpp
 +++ b/apps/openmw/mwmp/GUIController.cpp
-@@ -1,5 +1,7 @@
+@@ -328,5 +328,7 @@
  void mwmp::GUIController::updatePlayersMarkers(MWGui::LocalMapBase *localMapBase)
  {
 +    // TES3NP experimental markerless client: omit player map marker updates.
@@ -12,7 +12,7 @@ diff --git a/apps/openmw/mwmp/GUIController.cpp b/apps/openmw/mwmp/GUIController
 diff --git a/apps/openmw/mwmp/DedicatedPlayer.cpp b/apps/openmw/mwmp/DedicatedPlayer.cpp
 --- a/apps/openmw/mwmp/DedicatedPlayer.cpp
 +++ b/apps/openmw/mwmp/DedicatedPlayer.cpp
-@@ -1,5 +1,7 @@
+@@ -545,5 +545,7 @@
  void DedicatedPlayer::updateMarker()
  {
 +    // TES3NP experimental markerless client: omit individual marker updates.
