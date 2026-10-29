@@ -801,6 +801,19 @@ CopyAppDataLog(filename, syncLauncher := false, *)
             MsgBox("The diagnostic log is empty.", "tes3np — Diagnostics")
             return
         }
+        if filename = "launcher.log"
+        {
+            ; Put the most recent game exit at the top, but retain the full
+            ; original chronological log below for developer investigation.
+            recentExit := ""
+            for line in StrSplit(content, "`n", "`r")
+                if InStr(line, "GAME | EXIT |")
+                    recentExit := line
+            if recentExit != ""
+                content := "===== MOST RECENT TES3MP EXIT =====`r`n" recentExit
+                    . "`r`nExit code describes how Windows recorded the process ending; it may not reveal the root cause.`r`n`r`n"
+                    . "===== COMPLETE LAUNCHER LOG =====`r`n" content
+        }
         A_Clipboard := content
     }
     catch Error as err
