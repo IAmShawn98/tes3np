@@ -214,10 +214,10 @@ ClientTick()
             if Client.LaunchIssued
                 return
             Client.LaunchIssued := true
-            workingDirectory := FindTES3MPFolder()
             LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
             if !PrepareMarkerlessClientRuntime()
                 throw Error("TES3MP runtime folder was not found.")
+            workingDirectory := FindTES3MPFolder()
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
             Client.Phase := "window"
