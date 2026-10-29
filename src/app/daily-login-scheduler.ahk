@@ -394,8 +394,8 @@ CloseScheduledEventsBook(*)
         ApplyV016CharacterLayout()
         ; Clear pixels left by the scheduler's transparent text before the
         ; loading cover is released, then paint the restored character page.
-        try DllCall("InvalidateRect", "Ptr", CharacterPage.Hwnd, "Ptr", 0, "Int", false)
-        FinishButtonDisplay()
+        ; EndInterfaceUpdate commits the restored character-book frame once,
+        ; after its controls and button faces have finished changing.
     }
     finally EndInterfaceUpdate()
 }
