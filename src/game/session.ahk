@@ -86,6 +86,8 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profile.Name ".")
     batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
     LogLauncherEvent("GAME | Launch requested | Character: " profile.Name batchText ".")
+    global DataFile
+    LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " executable ".")
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
@@ -203,7 +205,7 @@ RetryClient(reason)
 
 ClientTick()
 {
-    global Client
+    global Client, DataFile
     if !Client.Enabled
         return
     try
@@ -261,6 +263,7 @@ ClientTick()
             ; Daily Login queue. If TES3MP disappears during any other phase,
             ; the user closed it (or it exited unexpectedly), so cancel the
             ; entire monitored session instead of logging another character in.
+            LogLauncherEvent("GAME | EXIT | Game process exited before login completed | Phase: " Client.Phase " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " Client.Executable ".")
             LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
             scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
             if IsObject(Client.Queue)
