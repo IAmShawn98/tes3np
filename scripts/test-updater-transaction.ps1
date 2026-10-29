@@ -6,7 +6,7 @@ function New-Fixture {
     $install=Join-Path $root 'live'; $stage=Join-Path $root 'stage\tes3np'; $state=Join-Path $root 'state.ini'
     New-Item $install,$stage -ItemType Directory -Force | Out-Null
     Set-Content (Join-Path $install 'tes3np.exe') 'OLD'; Set-Content (Join-Path $install 'owned.txt') 'OLD OWNED'; Set-Content (Join-Path $install 'user-note.txt') 'KEEP ME'
-    Set-Content (Join-Path $stage 'tes3np.exe') 'NEW'; Set-Content (Join-Path $stage 'owned.txt') 'NEW OWNED'
+    Set-Content (Join-Path $stage 'tes3np.exe') 'NEW'; Set-Content (Join-Path $stage 'owned.txt') 'NEW OWNED'; Set-Content (Join-Path $stage 'new-only.txt') 'REMOVE ON ROLLBACK'
     return @($install,(Join-Path $root 'stage'),$state)
 }
 function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
@@ -36,6 +36,8 @@ try {
     if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD') { throw 'Install failure did not restore old launcher.' }
     if ((Get-Content (Join-Path $f[0] 'user-note.txt') -Raw).Trim() -ne 'KEEP ME') { throw 'Rollback damaged unrelated file.' }
     if ((Get-Content $f[2] -Raw) -notmatch 'State=ROLLED_BACK') { throw 'Rollback state not recorded after install failure.' }
+    if (Test-Path (Join-Path $f[0] 'new-only.txt')) { throw 'New file from failed update was not removed.' }
+    if ((Get-Content (Join-Path $f[0] 'owned.txt') -Raw).Trim() -ne 'OLD OWNED') { throw 'Updated owned file was not rolled back.' }
     Write-Host 'PASS: failure after installation restores known-good launcher.'
     Write-Host 'All updater transaction tests passed.'
     & cmd /c exit 0
