@@ -1001,7 +1001,7 @@ UpdateGameClientFeedbackV016(menu, active, message)
         return
     menu.ClientFeedback.Active.Text := "Active client: " active
     menu.ClientFeedback.Status.Text := message
-    menu.ClientFeedback.Reactivate.Enabled := FileExist(GetCustomOverrideFolder() "\\tes3mp.exe") ? true : false
+    menu.ClientFeedback.Reactivate.Enabled := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
     menu.Show()
     WinActivate("ahk_id " menu.Hwnd)
 }
