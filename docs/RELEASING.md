@@ -32,6 +32,18 @@ does not establish the exact corresponding source tree, modification diff, and
 reproducible build instructions for that *modified* executable. A link to
 unmodified upstream TES3MP is not enough by itself to document the changes.
 
+Confirmed upstream download provenance (user supplied, October 29, 2026):
+the official Morrowind Multiplayer Steam group announcement of May 1,
+2022 links the **regular TES3MP 0.8.1 Windows client/server ZIP** to
+`https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip`.
+This is the normal, non-VR upstream distribution and is consistent with
+the official TES3MP runtime downloaded by the TES3NP build. It does
+**not** identify the author or corresponding source of the separately
+supplied `patches/markerless/tes3mp.exe` modification; the upstream
+link alone does not clear that blocker.
+Announcement:
+`https://steamcommunity.com/groups/mwmulti/announcements/detail/3208261824668407228`.
+
 Source research lead (unverified): a public fork at
 `https://github.com/Skooma-Breath/surf_tes3mp` contains
 `apps/openmw/mwmp/GUIController.cpp` with a comment saying
