@@ -91,7 +91,15 @@ CreateUpdateBackdrop()
 {
     global LauncherGui
     ; Dim only the launcher, not the entire desktop; keep the focused panel above it.
-    LauncherGui.GetPos(&lx, &ly, &lw, &lh)
+    ; Query physical screen pixels: LauncherGui.GetPos returns DPI-scaled
+    ; coordinates, which caused the overlay to cover only part of the launcher.
+    bounds := Buffer(16, 0)
+    if !DllCall("user32\\GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds)
+        throw Error("Unable to locate launcher for update backdrop.")
+    lx := NumGet(bounds, 0, "Int")
+    ly := NumGet(bounds, 4, "Int")
+    lw := NumGet(bounds, 8, "Int") - lx
+    lh := NumGet(bounds, 12, "Int") - ly
     dim := Gui("-Caption -Border -DPIScale +ToolWindow +Owner" LauncherGui.Hwnd, "tes3np Update Backdrop")
     dim.BackColor := "000000"
     dim.Show("NA x" lx " y" ly " w" lw " h" lh)
