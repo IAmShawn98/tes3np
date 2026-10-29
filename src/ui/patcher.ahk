@@ -15,17 +15,24 @@ PatchInProgress()
 FindTES3MPFolder()
 {
     global DataFile
-    ; Support launchers alongside TES3MP, in its parent folder, or with
-    ; TES3MP installed in a child folder.
-    for folder in [A_ScriptDir, A_ScriptDir "\..", A_ScriptDir "\tes3mp", A_ScriptDir "\TES3MP", A_ScriptDir "\tes3mp.Win64.release.0.8.1"]
-        if FileExist(folder "\tes3mp.exe")
-            return folder
-    path := IniRead(DataFile, "Patch", "TesFolder", "")
-    if FileExist(path "\tes3mp.exe")
-        return path
-    executable := GetSharedExecutable()
-    SplitPath(executable, , &folder)
-    return FileExist(executable) ? folder : ""
+    ; Never treat TES3NP's managed sidecar as the source runtime.
+    candidates := [IniRead(DataFile, "Patch", "TesFolder", ""),
+        IniRead(DataFile, "Launch", "Executable", ""),
+        A_ScriptDir, A_ScriptDir "\..",
+        A_ScriptDir "\tes3mp", A_ScriptDir "\TES3MP",
+        A_ScriptDir "\tes3mp.Win64.release.0.8.1",
+        A_MyDocuments "\TES3MP", A_MyDocuments "\tes3mp.Win64.release.0.8.1"]
+    for path in candidates
+    {
+        if path = ""
+            continue
+        if FileExist(path) && !DirExist(path)
+            SplitPath(path, , &path)
+        if FileExist(path "\tes3mp.exe")
+            && StrLower(RTrim(path, "\/")) != StrLower(RTrim(A_ScriptDir "\client", "\/"))
+            return path
+    }
+    return ""
 }
 
 FindMorrowindFolder(config)
