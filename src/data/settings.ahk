@@ -24,7 +24,8 @@ LoadProfiles()
                 UsernameDelay: ReadProfileDelay(section, "Username", AppConfig.UsernameDelay),
                 PasswordDelay: ReadProfileDelay(section, "PasswordDelay", AppConfig.PasswordDelay, "Password"),
                 LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay),
-                AutoReconnect: IniRead(DataFile, section, "AutoReconnect", "1") = "1"})
+                AutoReconnect: IniRead(DataFile, section, "AutoReconnect", "1") = "1",
+                UseExpansionPack: IniRead(DataFile, section, "UseExpansionPack", "0") = "1"})
     }
     saved := IniRead(DataFile, "Profiles", "Selected", "0")
     SelectedProfile := RegExMatch(saved, "^\d+$") && Integer(saved) <= Profiles.Length ? Integer(saved) : 0
@@ -61,6 +62,7 @@ SaveProfiles()
         IniWrite(profile.PasswordDelay, DataFile, section, "PasswordDelay")
         IniWrite(profile.LoadDelay, DataFile, section, "Load")
         IniWrite(profile.AutoReconnect ? "1" : "0", DataFile, section, "AutoReconnect")
+        IniWrite(profile.HasOwnProp("UseExpansionPack") && profile.UseExpansionPack ? "1" : "0", DataFile, section, "UseExpansionPack")
     }
     index := Profiles.Length + 1
     while IniRead(DataFile, "Character" index, "Name", "") != ""
@@ -158,5 +160,6 @@ NewCharacterProfile()
 {
     return {Name: "", Password: "", UsernameDelay: AppConfig.UsernameDelay,
         PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay,
-        AutoReconnect: true}
+        AutoReconnect: true,
+        UseExpansionPack: IniRead(DataFile, "ExpansionPack", "DefaultForNewCharacters", "0") = "1"}
 }
