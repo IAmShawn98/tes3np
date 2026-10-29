@@ -41,7 +41,7 @@ WebView2RuntimeAvailable()
     ; WebView2 Evergreen stores its version per-user or per-machine.
     ; Do not require developer tools or trigger an installer on startup.
     clientKey := "SOFTWARE\Microsoft\EdgeUpdate\Clients\{F1E7A3F5-28A5-4FBC-9A6A-6F7F8D17E7F0}"
-    for root in ["HKCU\", "HKLM\", "HKLM\SOFTWARE\WOW6432Node\"]
+    for root in ["HKCU\", "HKLM\"]
     {
         try
         {
