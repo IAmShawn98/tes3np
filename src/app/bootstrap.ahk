@@ -356,16 +356,35 @@ ShowLauncherWindow(*)
     ; existing launcher immediately behind a loading cover, do the expensive
     ; resize/repaint work, then reveal the completed page.
     LauncherGui.Show("w960 h716")
-    BeginInterfaceUpdate(LauncherGui, "Waiting for Jiub...", true)
+    ; Capture the last frame immediately to hide repaint jank, but only show
+    ; the Jiub card if the transition actually takes more than 120 ms.
+    startedAt := A_TickCount
+    BeginInterfaceUpdate(LauncherGui, "Waiting for Jiub...", false)
+    coverMs := A_TickCount - startedAt
+    scaleMs := 0, windowMs := 0, controlsMs := 0, centerMs := 0
     try
     {
+        stepAt := A_TickCount
         if LauncherScaleMode = "Auto"
             LauncherScale := GetAutomaticLauncherScale()
+        scaleMs := A_TickCount - stepAt
+        stepAt := A_TickCount
         ApplyLauncherScaleToWindow()
+        windowMs := A_TickCount - stepAt
+        stepAt := A_TickCount
         ApplyLauncherControlScale()
+        controlsMs := A_TickCount - stepAt
+        stepAt := A_TickCount
         CenterLauncherWithoutResizing()
+        centerMs := A_TickCount - stepAt
     }
-    finally EndInterfaceUpdate()
+    finally
+    {
+        EndInterfaceUpdate()
+        totalMs := A_TickCount - startedAt
+        if totalMs >= 250
+            LogLauncherEvent("UI | Launcher transition " totalMs "ms | Cover " coverMs "ms | Scale " scaleMs "ms | Window " windowMs "ms | Controls " controlsMs "ms | Center " centerMs "ms | Final paint " (totalMs - coverMs - scaleMs - windowMs - controlsMs - centerMs) "ms.")
+    }
 }
 
 ShowStartupChoice()
