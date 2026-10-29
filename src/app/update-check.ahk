@@ -37,13 +37,13 @@ CheckForUpdates(*)
         if !manifest.updateEnabled {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | Automatic installation disabled by release metadata.")
-            MsgBox("Automatic updating is temporarily unavailable. You can still use tes3np normally or view the official release page.", "tes3np — Update check", "Iconi")
+            ShowUpdateStatusPanel("disabled", AppConfig.Version, latest, manifest.channel)
             return
         }
         if CompareTes3npVersions(latest, AppConfig.Version) <= 0 {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
-            MsgBox("You're already running the latest public version of tes3np.`n`nInstalled: v" AppConfig.Version, "tes3np — Up to date", "Iconi")
+            ShowUpdateStatusPanel("current", AppConfig.Version, latest, manifest.channel)
             return
         }
         SetLauncherUpdateAvailable(true, latest)
@@ -69,7 +69,7 @@ CheckForUpdates(*)
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
-        MsgBox("tes3np couldn't safely prepare or start the update.`n`nNo update was installed. The current launcher remains unchanged unless the transactional installer had already started; in that case it will automatically roll back if the new launcher cannot confirm a successful start.`n`n" err.Message, "tes3np — Update", "Icon!")
+        ShowUpdateStatusPanel("error", AppConfig.Version)
     } finally {
         UpdateBusy := false
     }
@@ -107,6 +107,44 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     preview.Show("w520 h284 Center")
     WinWaitClose("ahk_id " preview.Hwnd)
     return response.Download ? "Yes" : "No"
+}
+
+ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
+{
+    global LauncherGui, UpdateReleasePage
+    state := {Retry: false}
+    panel := Gui("+Owner" LauncherGui.Hwnd " +AlwaysOnTop -MaximizeBox -MinimizeBox -Resize", "tes3np — Version Status")
+    panel.BackColor := "C5A45C"
+    panel.Add("Text", "x2 y2 w516 h278 Background171008")
+    panel.SetFont("s15 Bold cC5A45C", "Georgia")
+    heading := mode = "current" ? "tes3np is Up to Date"
+        : mode = "disabled" ? "Automatic Update Unavailable" : "Unable to Check for Updates"
+    panel.Add("Text", "x22 y18 w472 h32 BackgroundTrans", heading)
+    panel.SetFont("s10 cFFFFFF", "Segoe UI")
+    panel.Add("Text", "x22 y70 w470 h23 BackgroundTrans", "Installed: v" installedVersion)
+    panel.Add("Text", "x22 y99 w470 h23 BackgroundTrans", "Latest public: " (latestVersion != "" ? "v" latestVersion : "Not verified"))
+    panel.Add("Text", "x22 y128 w470 h23 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+    panel.SetFont("s10 cC5A45C", "Segoe UI")
+    message := mode = "current"
+        ? "Status: Up to date. No download or installation is needed."
+        : mode = "disabled"
+        ? "Automatic updates are unavailable. View the official releases instead."
+        : "Update status could not be verified. No update was installed."
+    panel.Add("Text", "x22 y165 w470 h54 BackgroundTrans", message)
+    panel.SetFont("s10 c171008", "Segoe UI")
+    notes := panel.Add("Button", "x22 y240 w155 h28", "View Release Notes")
+    retry := panel.Add("Button", "x187 y240 w145 h28", "Check Again")
+    close := panel.Add("Button", "x342 y240 w156 h28 Default", "Close")
+    notes.OnEvent("Click", (*) => Run(UpdateReleasePage))
+    retry.OnEvent("Click", (*) => (state.Retry := true, panel.Destroy()))
+    close.OnEvent("Click", (*) => panel.Destroy())
+    panel.OnEvent("Close", (*) => panel.Destroy())
+    panel.OnEvent("Escape", (*) => panel.Destroy())
+    panel.Show("w520 h282 Center")
+    hwnd := panel.Hwnd
+    WinWaitClose("ahk_id " hwnd)
+    if state.Retry
+        SetTimer(CheckForUpdates, -100)
 }
 
 StartTransactionalUpdate(version, staged)
