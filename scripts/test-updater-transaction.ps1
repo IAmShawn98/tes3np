@@ -7,6 +7,11 @@ function New-Fixture {
     New-Item $install,$stage -ItemType Directory -Force | Out-Null
     Set-Content (Join-Path $install 'tes3np.exe') 'OLD'; Set-Content (Join-Path $install 'owned.txt') 'OLD OWNED'; Set-Content (Join-Path $install 'user-note.txt') 'KEEP ME'
     Set-Content (Join-Path $stage 'tes3np.exe') 'NEW'; Set-Content (Join-Path $stage 'owned.txt') 'NEW OWNED'; Set-Content (Join-Path $stage 'new-only.txt') 'REMOVE ON ROLLBACK'
+    foreach($relative in @('client\tes3mp.exe','client\tes3mp-client-default.cfg','client\defaults.bin','client\openmw.cfg','chat-host\tes3np.ChatHost.exe','chat-host\chat.ini','chat-host\chat.css','licenses\TES3MP\LICENSE','licenses\TES3MP\REDISTRIBUTION-NOTICE.txt')){
+        $target=Join-Path $stage $relative
+        New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
+        Set-Content -LiteralPath $target -Value 'TEST PAYLOAD'
+    }
     return @($install,(Join-Path $root 'stage'),$state)
 }
 function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
@@ -24,6 +29,15 @@ try {
     if ((Get-Content (Join-Path $f[0] 'user-note.txt') -Raw).Trim() -ne 'KEEP ME') { throw 'Unrelated install file was destroyed.' }
     if ((Get-Content $f[2] -Raw) -notmatch 'State=LAUNCHED') { throw 'Successful state not recorded.' }
     Write-Host 'PASS: successful transaction preserves unrelated files.'
+
+    $f=New-Fixture
+    Remove-Item -LiteralPath (Join-Path $root 'stage\tes3np\client\defaults.bin') -Force
+    $code=Invoke-UpdaterExpectedFailure $f ''
+    if ($code -eq 0) { throw 'Incomplete staged payload was incorrectly accepted.' }
+    if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD') { throw 'Rejected payload modified live launcher.' }
+    if ((Get-Content (Join-Path $f[0] 'user-note.txt') -Raw).Trim() -ne 'KEEP ME') { throw 'Rejected payload damaged unrelated file.' }
+    if (Test-Path (Join-Path $f[0] 'new-only.txt')) { throw 'Rejected payload installed a new file.' }
+    Write-Host 'PASS: incomplete staged payload rejected without modifying installed files.'
 
     $f=New-Fixture; $code=Invoke-UpdaterExpectedFailure $f 'after-backup'
     if ($code -eq 0) { throw 'Injected backup failure unexpectedly succeeded.' }
