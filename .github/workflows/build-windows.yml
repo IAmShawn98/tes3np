@@ -41,6 +41,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/build-windows.ps1
+      - name: Verify final packaged Windows ZIP
+        run: python scripts/check-windows-package.py dist/tes3np-windows.zip
       - name: Generate and verify update metadata
         shell: pwsh
         run: ./scripts/generate-update-metadata.ps1
