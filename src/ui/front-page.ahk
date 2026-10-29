@@ -9,7 +9,9 @@ BuildFrontPage()
     LauncherGui.Opt("+OwnDialogs")
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
-    DragStrip := LauncherGui.Add("Text", "x0 y0 w960 h48 BackgroundTrans +0x100")
+    ; Reserve the upper-left corner for the Expansion Pack toggle. The old
+    ; full-width drag strip intercepted mouse clicks in that button area.
+    DragStrip := LauncherGui.Add("Text", "x165 y0 w795 h48 BackgroundTrans +0x100")
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
