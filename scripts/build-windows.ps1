@@ -5,12 +5,20 @@ function Step([string]$Message) { Write-Host "BUILD CHECKPOINT | $Message" }
 
 function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, [int]$TimeoutMs) {
     Step "Starting $Label"
-    $process = Start-Process $Compiler -ArgumentList $Arguments -PassThru
+    $stdout = Join-Path $env:TEMP 'tes3np-compiler-stdout.log'
+    $stderr = Join-Path $env:TEMP 'tes3np-compiler-stderr.log'
+    Remove-Item $stdout, $stderr -ErrorAction SilentlyContinue
+    $process = Start-Process $Compiler -ArgumentList $Arguments -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     if (!$process.WaitForExit($TimeoutMs)) {
         try { $process.Kill() } catch {}
         throw "$Label timed out after $([math]::Round($TimeoutMs / 1000)) seconds."
     }
     Step "$Label exited with code $($process.ExitCode)"
+    if ($process.ExitCode -ne 0) {
+        Step 'COMPILER DIAGNOSTICS (full logs retained in Windows TEMP)'
+        if (Test-Path $stdout) { Get-Content $stdout | ForEach-Object { Write-Host $_ } }
+        if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } }
+    }
     return $process.ExitCode
 }
 
