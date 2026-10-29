@@ -8,6 +8,7 @@ global LauncherSettingsButton := 0
 global LauncherUpdateButton := 0
 global LauncherExpansionToggle := 0
 global LauncherUpdateAvailable := false
+global LauncherUpdateDismissedVersion := ""
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
@@ -69,13 +70,14 @@ StartLauncher()
     }
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
-    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
     ; Global EP switch in the upper-left frame, away from the main scroll.
     LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
     RefreshExpansionPackToggle()
-    ; Place update notifications in the upper-center decorative header, not below the scroll.
-    LauncherUpdateButton := AddStyledButton(LauncherGui, 330, 5, 300, 26, "Preview Latest Update!", CheckForUpdates)
+    ; Update notification replaces the version label in the lower-left frame.
+    LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CreateLauncherChatToggle()
     CaptureLauncherControlLayout()
@@ -291,27 +293,26 @@ SendLauncherChatCommand(command)
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
-    global LauncherSettingsButton, LauncherUpdateButton, LauncherControlLayout, LauncherUpdateAvailable
+    global LauncherUpdateButton, LauncherVersionLabel, LauncherUpdateAvailable, LauncherUpdateDismissedVersion
     LauncherUpdateAvailable := isAvailable
-    if !IsObject(LauncherSettingsButton) || !IsObject(LauncherUpdateButton)
+    if !IsObject(LauncherUpdateButton) || !IsObject(LauncherVersionLabel)
         return
-    ; Positions are owned by LauncherControlLayout and scaled by
-    ; ApplyLauncherControlScale(). Do not move these controls back to
-    ; unscaled coordinates when update availability changes.
     if LauncherUpdateAvailable && latestVersion != "" {
         LauncherUpdateButton.Text := "Preview Latest v" latestVersion " Update!"
         DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
     }
-    LauncherUpdateButton.Visible := LauncherUpdateAvailable
-    if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
-        LauncherControlLayout[LauncherSettingsButton.Hwnd].X := 820
-        LauncherControlLayout[LauncherSettingsButton.Hwnd].Y := 684
-    }
-    if LauncherControlLayout.Has(LauncherUpdateButton.Hwnd) {
-        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 330
-        LauncherControlLayout[LauncherUpdateButton.Hwnd].Y := 5
-    }
+    showUpdate := LauncherUpdateAvailable && latestVersion != LauncherUpdateDismissedVersion
+    LauncherUpdateButton.Visible := showUpdate
+    LauncherVersionLabel.Visible := !showUpdate
 }
+
+DismissLauncherUpdate(latestVersion)
+{
+    global LauncherUpdateDismissedVersion
+    LauncherUpdateDismissedVersion := latestVersion
+    SetLauncherUpdateAvailable(true, latestVersion)
+}
+
 
 CaptureLauncherControlLayout()
 {
