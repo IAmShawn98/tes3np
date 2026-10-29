@@ -61,6 +61,28 @@ The lone `WindowsBase` MSB3277 build warning originates from WebView2's
 WPF reference in a Windows Forms .NET 8 project. The currently compiled chat
 host works in existing tests; this warning is not the gating issue.
 
+## Release evidence gate
+
+Before proposing a public release, run
+`python scripts/check-release-gates.py`. This intentionally **fails**
+until three reviewed evidence files exist:
+
+- `docs/MODIFIED-TES3MP-SOURCE-PROVENANCE.md`: exact modified binary
+  SHA-256, corresponding source revision/patch, reproducible build commands,
+  author/source access and license notices; mark
+  `Status: VERIFIED_SOURCE_AND_BUILD` only after verification.
+- `docs/ASSET-DISTRIBUTION-APPROVAL.md`: review ownership, redistribution
+  rights and all third-party notices; mark
+  `Status: ASSET_RIGHTS_REVIEWED` only when confirmed.
+- `docs/CLEAN-WINDOWS-TEST-RESULTS.md`: actual fresh Windows machine/VM
+  results with OS versions, packaged ZIP hash, prerequisites, user-level
+  permissions and regression outcomes; mark
+  `Status: CLEAN_MACHINE_TESTED` only when completed.
+
+The check looks for documentation and review markers, not independent legal
+proof. Passing it still requires the repository owner's explicit release
+approval. Do not invent or pre-fill approvals.
+
 ## Release checklist
 
 1. Update `AppConfig.Version` in `src/state.ahk` and add the matching version to `CHANGELOG.md`.
