@@ -47,7 +47,10 @@ try{
  $temp=$ConfigFile+'.tes3np-pending'
  try{
   [IO.File]::WriteAllText($temp,$new,[Text.UTF8Encoding]::new($false))
-  [IO.File]::Replace($temp,$ConfigFile,$null)
+  # File.Replace requires a valid backup path on Windows; null triggers
+  # "The path is not of a legal form." Use our already-created, unique
+  # backup file as the replacement backup, retaining rollback protection.
+  [IO.File]::Replace($temp,$ConfigFile,$backup)
  }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Force}}
  if($ResultFile){[IO.File]::WriteAllText($ResultFile,('Expansion Pack '+$Action+' complete.'),[Text.Encoding]::UTF8)}
  exit 0
