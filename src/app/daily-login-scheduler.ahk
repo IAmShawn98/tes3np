@@ -199,6 +199,7 @@ OpenScheduledEventsBook(*)
 
     ; Reuse the existing right heading too.
     LaunchSettingsHeading.Text := "Scheduled Events"
+    LaunchSettingsHeading.Visible := true
 
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
     description := CharacterPage.Add("Text", "x70 y90 w370 h105 BackgroundTrans",
@@ -386,7 +387,7 @@ CloseScheduledEventsBook(*)
         ; old hide/show flash. Instead rebuild the normal Characters controls in
         ; place after the loading cover has captured the current frame.
         CharacterHeading.Text := "Your Characters"
-        LaunchSettingsHeading.Text := "Launch Settings"
+        LaunchSettingsHeading.Visible := false
         for control in ScheduledEventsBookHiddenControls
             SetBookControlVisible(control, true)
         ScheduledEventsBookHiddenControls := []
