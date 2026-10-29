@@ -86,74 +86,21 @@ SHA256File(path)
 ; The original vanilla executable is never overwritten.
 PrepareMarkerlessClientRuntime()
 {
-    global DataFile, AppDataDirectory
-    tesFolder := FindTES3MPFolder()
-    if tesFolder = ""
-    {
-        message := "TES3NP could not automatically locate TES3MP 0.8.1." Chr(10) Chr(10)
-            . "TES3MP is normally extracted from a ZIP into a folder of your choice, often Downloads, Desktop, Documents or Games." Chr(10) Chr(10)
-            . "Would you like to select your existing tes3mp.exe now?" Chr(10)
-            . "TES3NP will not overwrite the original executable."
-        if MsgBox(message, "Locate TES3MP", "YesNo Icon?") != "Yes"
-            return false
-        Loop
-        {
-            exe := FileSelect(1, , "Choose the original TES3MP 0.8.1 tes3mp.exe", "Executable (*.exe)")
-            if exe = ""
-                return false
-            SplitPath(exe, &name, &tesFolder)
-            if StrLower(name) = "tes3mp.exe" && FileExist(tesFolder "\openmw.cfg")
-                break
-            MsgBox("Select tes3mp.exe from a complete TES3MP installation containing openmw.cfg.", "Invalid TES3MP folder", "Icon!")
-        }
-        DirCreate(AppDataDirectory)
-        IniWrite(tesFolder, DataFile, "Patch", "TesFolder")
-        LogLauncherEvent("TES3MP installation selected by user: " tesFolder)
-    }
-    ; TES3MP looks up client defaults relative to its executable, not just
-    ; its working directory. Stage only required runtime files next to our
-    ; separate markerless EXE. Never modify the original installation.
+    ; The release contains the complete TES3MP 0.8.1 client runtime.
+    ; No lookup, downloads or writes to an external TES3MP installation.
     clientFolder := A_ScriptDir "\client"
-    if !DirExist(clientFolder)
+    required := ["tes3mp.exe", "tes3mp-client-default.cfg", "defaults.bin", "openmw.cfg"]
+    for name in required
     {
-        MsgBox("The bundled TES3MP client folder is missing: " clientFolder, "Missing bundled client", "Icon!")
-        return false
-    }
-    requiredConfig := "tes3mp-client-default.cfg"
-    if !FileExist(tesFolder "\" requiredConfig)
-    {
-        MsgBox("This installation is missing " requiredConfig ". Choose a complete TES3MP 0.8.1 release.", "Incomplete TES3MP installation", "Icon!")
-        return false
-    }
-    try
-    {
-        for name in [requiredConfig, "openmw.cfg", "tes3mp-client.cfg", "defaults.bin", "gamecontrollerdb.txt"]
+        path := clientFolder "\" name
+        if !FileExist(path)
         {
-            source := tesFolder "\" name
-            target := clientFolder "\" name
-            if FileExist(source) && !FileExist(target)
-                FileCopy(source, target, 0)
-        }
-        ; OpenMW's runtime assets may be resolved relative to the executable.
-        for name in ["resources", "data"]
-        {
-            source := tesFolder "\" name
-            target := clientFolder "\" name
-            if DirExist(source) && !DirExist(target)
-                DirCopy(source, target, 0)
+            LogLauncherEvent("Bundled TES3MP runtime missing: " path)
+            MsgBox("This TES3NP installation is incomplete. Missing:" Chr(10) path Chr(10) Chr(10)
+                . "Extract the complete TES3NP release ZIP and run the tes3np.exe inside it.",
+                "Missing bundled TES3MP runtime", "Icon!")
+            return false
         }
     }
-    catch Error as err
-    {
-        LogLauncherEvent("TES3MP runtime preparation failed: " err.Message)
-        MsgBox("Could not prepare TES3MP runtime files next to the bundled client: " err.Message, "TES3MP runtime setup", "Icon!")
-        return false
-    }
-    if !FileExist(clientFolder "\defaults.bin")
-    {
-        MsgBox("The TES3MP installation is missing defaults.bin, which is required to start the game. Choose a complete TES3MP 0.8.1 installation.", "Incomplete TES3MP runtime", "Icon!")
-        return false
-    }
-    EnvSet("PATH", tesFolder ";" EnvGet("PATH"))
     return true
 }
