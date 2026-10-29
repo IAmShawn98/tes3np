@@ -82,6 +82,16 @@ original Discord post attribution, version/date, and source/build
 information from the poster or NP maintainers before clearing the
 modified-client GPL source gate.
 
+Verified source comparison against the official `TES3MP/TES3MP`
+`0.8.1` tag (October 29, 2026): upstream
+`GUIController::updatePlayersMarkers` normally iterates and redraws map
+marker widgets; upstream `DedicatedPlayer::updateMarker` normally
+updates the player's marker collection. The `Skooma-Breath/surf_tes3mp`
+fork prepends an unconditional `return;` to each, leaving the old code
+unreachable. This matches the *function* described by the May 2023
+Discord fix, but **does not establish binary correspondence**, complete
+patch equivalence, authorship, or build provenance.
+
 Public code inspection, October 29, 2026: the
 `Skooma-Breath/surf_tes3mp` fork has **two distinct early-return edits**
 labeled `return; // markerless for now`:
