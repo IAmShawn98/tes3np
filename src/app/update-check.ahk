@@ -125,7 +125,7 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     global LauncherGui
     response := {Accepted: false}
     backdrop := CreateUpdateBackdrop()
-    window := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Confirmation")
+    window := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Update Confirmation")
     window.BackColor := "C5A45C"
     window.Add("Text", "x2 y2 w636 h254 Background171008")
     window.SetFont("s15 Bold cC5A45C", "Georgia")
@@ -151,7 +151,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     ; This is an informational, owned dialog. No updater work occurs here.
     response := {Download: false}
     backdrop := CreateUpdateBackdrop()
-    preview := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Preview")
+    preview := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Update Preview")
     preview.BackColor := "C5A45C"
     preview.SetFont("s10 cC5A45C", "Segoe UI")
     preview.Add("Text", "x2 y2 w636 h340 Background171008")
@@ -192,54 +192,66 @@ ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion)
         SetLauncherUpdateAvailable(true, latestVersion)
 }
 
+ReadVersionReleaseNotes(installedVersion)
+{
+    ; Prefer locally bundled changelog for unreleased development versions.
+    changelog := A_ScriptDir "\CHANGELOG.md"
+    if FileExist(changelog) {
+        content := FileRead(changelog, "UTF-8")
+        lines := StrSplit(StrReplace(content, "`r", ""), "`n")
+        collecting := false
+        notes := ""
+        for line in lines {
+            if RegExMatch(line, "^##\\s+v?" installedVersion "(?:\\s|$)") {
+                collecting := true
+                continue
+            }
+            if collecting && RegExMatch(line, "^##\\s+")
+                break
+            if collecting && RegExMatch(line, "^\\s*[-*]\\s+(.+)", &match) {
+                notes .= "• " RegExReplace(match[1], "[`*_]", "") "`n"
+                if StrLen(notes) > 3500
+                    break
+            }
+        }
+        if notes != ""
+            return {Text: RTrim(notes, "`n"), Source: "Bundled changelog (development build)"}
+    }
+    return {Text: "Release notes are not bundled for this version. Open the official release page to read the published notes.", Source: "Release notes unavailable locally"}
+}
+
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
 {
-    global LauncherGui, UpdateReleasePage, DataFile
+    global LauncherGui, UpdateReleasePage
     state := {Retry: false}
     backdrop := CreateUpdateBackdrop()
-    panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Version Status")
+    panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
-    panel.Add("Text", "x2 y2 w636 h392 Background171008")
+    panel.Add("Text", "x2 y2 w636 h452 Background171008")
     panel.SetFont("s15 Bold cC5A45C", "Georgia")
-    caughtUp := mode = "current" || mode = "ahead"
-    heading := caughtUp ? "You're All Caught Up, Fetcher! (v" installedVersion ")"
-        : mode = "disabled" ? "Automatic Update Unavailable" : "Unable to Check for Updates"
-    panel.Add("Text", "x30 y22 w588 h38 BackgroundTrans", heading)
+    panel.Add("Text", "x28 y20 w586 h42 BackgroundTrans", "You're All Caught Up, Fetcher! (v" installedVersion ")")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    if caughtUp {
-        panel.Add("Text", "x32 y90 w572 h58 BackgroundTrans",
-            "You are currently running the latest and greatest version of the tes3np launcher."
-            . " If something new comes out, you will be notified.")
-    } else {
-        message := mode = "disabled"
-            ? "Automatic updates are unavailable. You can still view the official releases."
-            : "The latest version could not be verified. Your installation was not changed."
-        panel.Add("Text", "x32 y90 w572 h58 BackgroundTrans", message)
-    }
-    panel.SetFont("s12 Bold cC5A45C", "Georgia")
-    panel.Add("Text", "x32 y173 w572 h30 BackgroundTrans", "How do you take your releases?")
+    panel.Add("Text", "x28 y77 w584 h54 BackgroundTrans",
+        "You are currently running the latest version of the tes3np launcher! If something new releases, you will be notified.")
+    panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
+    panel.Add("Text", "x28 y143 w584 h24 BackgroundTrans",
+        "Build: " (InStr(installedVersion, "alpha") ? "Alpha" : InStr(installedVersion, "beta") ? "Beta" : "Live / Stable"))
+    panel.Add("Text", "x28 y176 w584 h24 BackgroundTrans", "Release Notes")
+    notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    ; Only alpha has a public feed. Beta and stable preferences will appear once
-    ; their respective feeds and release catalogs exist.
-    selected := IniRead(DataFile, "Updates", "NotifyAlpha", "1") = "1"
-    tick := panel.Add("Text", "x34 y221 w25 h23 +0x100 Center +0x200 Background352919 cC5A45C"
-        , selected ? "✓" : "")
-    description := panel.Add("Text", "x68 y221 w535 h25 BackgroundTrans",
-        "Notify me when the latest alpha build is available to download.")
-    tick.OnEvent("Click", (*) => ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion))
-    description.OnEvent("Click", (*) => ToggleAlphaUpdateNotification(tick, latestVersion, installedVersion))
+    notesBox := panel.Add("Edit", "x28 y207 w584 h167 ReadOnly -Wrap +VScroll Background171008 cEDE1C9", notes.Text)
+    notesBox.Opt("-Tabstop")
     panel.SetFont("s9 cC5A45C", "Segoe UI")
-    panel.Add("Text", "x32 y265 w572 h32 BackgroundTrans",
-        "You can still check for updates anytime by clicking the version text.")
-    notes := AddGoldUpdateButton(panel, 32, 348, 195, 34, "View Release Notes")
-    retry := AddGoldUpdateButton(panel, 242, 348, 160, 34, "Check Again")
-    close := AddGoldUpdateButton(panel, 417, 348, 191, 34, "Close")
-    notes.OnEvent("Click", (*) => Run(UpdateReleasePage))
+    panel.Add("Text", "x28 y380 w584 h22 BackgroundTrans", notes.Source)
+    releaseButton := AddGoldUpdateButton(panel, 28, 412, 193, 32, "View on GitHub")
+    retry := AddGoldUpdateButton(panel, 234, 412, 166, 32, "Check Again")
+    close := AddGoldUpdateButton(panel, 413, 412, 199, 32, "Close")
+    releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
     retry.OnEvent("Click", (*) => (state.Retry := true, panel.Destroy()))
     close.OnEvent("Click", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
-    ShowCenteredUpdateCard(panel, backdrop, 640, 396)
+    ShowCenteredUpdateCard(panel, backdrop, 640, 456)
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
     backdrop.Destroy()
