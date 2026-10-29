@@ -11,7 +11,7 @@ function Close-ProgressWindow{if($ProgressForm){try{$ProgressForm.Close();$Progr
 function Set-State([string]$State){$dir=Split-Path -Parent $StateFile;if($dir -and -not(Test-Path -LiteralPath $dir)){New-Item -ItemType Directory -Path $dir -Force|Out-Null};@('[Update]',"State=$State","Version=$Version","UpdatedUtc=$([DateTime]::UtcNow.ToString('o'))")|Set-Content -LiteralPath $StateFile -Encoding UTF8;Write-UpdaterLog("STATE | $State")}
 function Get-State{if(-not(Test-Path -LiteralPath $StateFile)){return ''};$line=Get-Content -LiteralPath $StateFile|Where-Object{$_ -like 'State=*'}|Select-Object -First 1;if($line){return $line.Substring(6)};return ''}
 function Wait-Parent{if($ParentPid -le 0){Write-UpdaterLog 'No parent PID supplied; continuing.';return};Update-Progress 'Waiting for the launcher to close...' 10;Write-UpdaterLog("Waiting for launcher PID $ParentPid to exit.");try{Wait-Process -Id $ParentPid -Timeout 30 -ErrorAction Stop;Write-UpdaterLog 'Original launcher exited.'}catch{if(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue){throw 'Launcher did not exit in time.'};Write-UpdaterLog 'Original launcher was already closed.'}}
-function Assert-SafePaths{$install=[IO.Path]::GetFullPath($InstallDir).TrimEnd('\');$stage=[IO.Path]::GetFullPath($StageDir).TrimEnd('\');Write-UpdaterLog("Validating paths. Install=$install | Stage=$stage");if(-not(Test-Path -LiteralPath $install -PathType Container)){throw 'Install directory does not exist.'};if(-not(Test-Path -LiteralPath $stage -PathType Container)){throw 'Staged update directory does not exist.'};if($install -eq $stage -or $stage.StartsWith($install+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Staging directory must be outside the live installation.'};if(-not(Get-ChildItem -LiteralPath $stage -Filter tes3np.exe -Recurse -File|Select-Object -First 1)){throw 'Staged launcher is missing.'};Write-UpdaterLog 'Safe path validation passed.'}
+function Assert-SafePaths{$install=[IO.Path]::GetFullPath($InstallDir).TrimEnd('\');$stage=[IO.Path]::GetFullPath($StageDir).TrimEnd('\');Write-UpdaterLog("Validating paths. Install=$install | Stage=$stage");if(-not(Test-Path -LiteralPath $install -PathType Container)){throw 'Install directory does not exist.'};if(-not(Test-Path -LiteralPath $stage -PathType Container)){throw 'Staged update directory does not exist.'};if($install -eq $stage -or $stage.StartsWith($install+'\',[StringComparison]::OrdinalIgnoreCase) -or $install.StartsWith($stage+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Staging and installation directories must not contain one another.'};if(-not(Get-ChildItem -LiteralPath $stage -Filter tes3np.exe -Recurse -File|Select-Object -First 1)){throw 'Staged launcher is missing.'};Write-UpdaterLog 'Safe path validation passed.'}
 function Get-PayloadRoot{
     # Accept only the documented ZIP layouts, never an arbitrary nested EXE.
     $direct=Join-Path $StageDir 'tes3np.exe'
@@ -42,10 +42,17 @@ function Assert-CompletePayload([string]$Root){
         if(-not(Test-Path -LiteralPath $file -PathType Leaf)){throw "Incomplete staged update; missing $relative"}
         if((Get-Item -LiteralPath $file).Length -le 0){throw "Incomplete staged update; empty $relative"}
     }
-    # Do not recursively traverse reparse-point directories during installation.
-    foreach($entry in (Get-ChildItem -LiteralPath $Root -Recurse -Force)){
-        if(($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){
-            throw "Staged update contains a reparse point: $($entry.FullName)"
+    # Inspect each directory before descending: do not follow junctions or
+    # symbolic links, even when they point outside the staging directory.
+    $pending=New-Object 'System.Collections.Generic.Stack[string]'
+    $pending.Push($Root)
+    while($pending.Count -gt 0){
+        $current=$pending.Pop()
+        foreach($entry in (Get-ChildItem -LiteralPath $current -Force)){
+            if(($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){
+                throw "Staged update contains a reparse point: $($entry.FullName)"
+            }
+            if($entry.PSIsContainer){$pending.Push($entry.FullName)}
         }
     }
     Write-UpdaterLog 'Required staged update payload files verified before installation.'
