@@ -55,7 +55,7 @@ FindTES3MPFolder()
                 {
                     libraryPath := StrReplace(match[1], "\\", "\")
                     candidates.Push(libraryPath "\steamapps\common")
-                    position := match.Pos + match.Len
+                    position := match.Pos(0) + match.Len(0)
                 }
             }
         }
