@@ -115,8 +115,29 @@ FindMorrowindFolder(config)
         candidates.Push(steam "\steamapps\common\Morrowind")
     }
     candidates.Push(EnvGet("ProgramFiles(x86)") "\Steam\steamapps\common\Morrowind", "C:\GOG Games\Morrowind")
+    ; A secondary Steam library can live on another drive. Read Steam's
+    ; registered library paths rather than guessing drive letters.
+    for steamRoot in [EnvGet("ProgramFiles(x86)") "\Steam", EnvGet("ProgramFiles") "\Steam"]
+    {
+        libraryFile := steamRoot "\steamapps\libraryfolders.vdf"
+        if !FileExist(libraryFile)
+            continue
+        try
+        {
+            libraryText := FileRead(libraryFile, "UTF-8")
+            position := 1
+            while RegExMatch(libraryText, 'i)"path"\s*"([^"]+)"', &match, position)
+            {
+                libraryPath := StrReplace(match[1], "\\", "\")
+                candidates.Push(libraryPath "\steamapps\common\Morrowind")
+                position := match.Pos(0) + match.Len(0)
+            }
+        }
+    }
     for folder in candidates
         if folder != "" && FileExist(folder "\Data Files\Morrowind.esm")
+            && FileExist(folder "\Data Files\Tribunal.esm")
+            && FileExist(folder "\Data Files\Bloodmoon.esm")
             return folder
     return ""
 }
