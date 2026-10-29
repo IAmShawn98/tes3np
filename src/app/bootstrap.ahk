@@ -28,7 +28,7 @@ StartLauncher()
     A_TrayMenu.Add("Open Launcher", ShowLauncherWindow)
     A_TrayMenu.Default := "Open Launcher"
     A_TrayMenu.Add("Stop game recovery", StopClient)
-    A_TrayMenu.Add("Patch Tes3mp", OpenPatcher)
+    A_TrayMenu.Add("Optional Expansion Pack", OpenPatcher)
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
