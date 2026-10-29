@@ -70,7 +70,7 @@ StartLauncher()
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w180 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
     ; Global EP switch in the upper-left frame, away from the main scroll.
-    LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 145, 27, "Expansion Pack: Off", ToggleExpansionPack)
+    LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
     RefreshExpansionPackToggle()
     ; Place update notifications in the upper-center decorative header, not below the scroll.
     LauncherUpdateButton := AddStyledButton(LauncherGui, 425, 5, 110, 26, "Update Available", CheckForUpdates)
