@@ -249,7 +249,7 @@ CloseCharacterPage(*)
         CloseScheduledEventsBook()
     HideProfileEditor()
     CharacterPage.Hide()
-    ShowLauncherWindow()
+    ShowLauncherWindow(true)
 }
 
 EditProfile(index, *)
