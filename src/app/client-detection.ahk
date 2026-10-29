@@ -81,3 +81,17 @@ SHA256File(path)
     }
     return ""
 }
+
+; Use the locally installed TES3MP runtime with TES3NP's bundled client.
+; The original vanilla executable is never overwritten.
+PrepareMarkerlessClientRuntime()
+{
+    tesFolder := FindTES3MPFolder()
+    if tesFolder = "" || !FileExist(tesFolder "\tes3mp.exe")
+    {
+        MsgBox("TES3NP requires an existing TES3MP 0.8.1 installation for runtime files. Install TES3MP first.", "TES3MP not found", "Icon!")
+        return false
+    }
+    EnvSet("PATH", tesFolder ";" EnvGet("PATH"))
+    return true
+}
