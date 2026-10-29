@@ -419,6 +419,7 @@ ClientTick()
             {
                 keptPids := Client.HasOwnProp("KeptPids") ? Client.KeptPids : []
                 keptPids.Push(Client.PID)
+                RememberTES3NPGameClient(Client.PID)
                 if Client.Queue.Length
                 {
                     queue := Client.Queue
@@ -481,8 +482,9 @@ ClientTick()
         else
         {
             Client.Phase := "playing"
-            SetClientStatus("Login inputs completed.")
+            RememberTES3NPGameClient(Client.PID)
             LogLauncherEvent("GAME | SUCCESS | Login state completed.")
+            StopClient()
         }
     }
     catch Error as err
