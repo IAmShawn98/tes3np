@@ -178,7 +178,7 @@ ClosePatcher(*)
     if PatchInProgress()
         return
     PatchPage.Hide()
-    ShowLauncherWindow()
+    ShowLauncherWindow(true)
 }
 
 BrowsePatchFolder(control, title, *)
