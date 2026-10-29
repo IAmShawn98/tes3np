@@ -36,11 +36,30 @@ EnsureEmbeddedChatHostCurrent(host)
         try LogLauncherEvent("CHAT | ChatHost freshness check failed: " err.Message)
 }
 
+WebView2RuntimeAvailable()
+{
+    ; WebView2 Evergreen stores its version per-user or per-machine.
+    ; Do not require developer tools or trigger an installer on startup.
+    clientKey := "SOFTWARE\Microsoft\EdgeUpdate\Clients\{F1E7A3F5-28A5-4FBC-9A6A-6F7F8D17E7F0}"
+    for root in ["HKCU\", "HKLM\", "HKLM\SOFTWARE\WOW6432Node\"]
+    {
+        try
+        {
+            value := RegRead(root clientKey, "pv", "")
+            if value != "" && value != "0.0.0.0"
+                return true
+        }
+    }
+    return false
+}
+
 StartEmbeddedInGameChat()
 {
     global EmbeddedChatPid, LauncherGui
     host := A_ScriptDir "\chat-host\tes3np.ChatHost.exe"
     EnsureEmbeddedChatHostCurrent(host)
+    if !WebView2RuntimeAvailable()
+        LogLauncherEvent("CHAT | WebView2 runtime not detected in standard registry locations. Attempting chat host launch; gameplay is unaffected.")
     if !FileExist(host)
     {
         try LogLauncherEvent("CHAT | Embedded host not installed: " host)
