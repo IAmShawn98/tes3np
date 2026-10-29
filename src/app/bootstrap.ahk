@@ -93,6 +93,8 @@ StartLauncher()
     ; Expansion Pack setup is optional; never run patch verification at startup.
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
+    ; Offer the shortcut once after the first window is visible; never block startup.
+    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
@@ -503,26 +505,28 @@ OfferFirstRunSetup(*)
 
 OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
 {
-    global DataFile
-    if forceAfterInstall && IniRead(DataFile, "Launcher", "PostInstallShortcutOffered", "0") = "1"
+    global DataFile, AppDataDirectory
+    ; Only offer a shortcut for a complete compiled distribution. In particular,
+    ; never create one to a source-tree launcher without its packaged client.
+    if !A_IsCompiled || !FileExist(A_ScriptDir "\client\tes3mp.exe")
         return
-    if !forceAfterInstall && IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
-        return
-
-    answer := MsgBox("Create a tes3np desktop shortcut?", "tes3np", "YesNo Icon?")
-    IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")
-    if forceAfterInstall
-        IniWrite("1", DataFile, "Launcher", "PostInstallShortcutOffered")
-    if answer != "Yes"
+    if IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
         return
 
-    try
+    answer := MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?", "tes3np", "YesNo Icon?")
+    if answer = "Yes"
     {
-        target := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
-        arguments := A_IsCompiled ? "" : '"' A_ScriptFullPath '"'
-        iconPath := A_IsCompiled ? target : A_ScriptDir "\assets\icons\tes3np.ico"
-        FileCreateShortcut(target, A_Desktop "\Nerevarine Prophecies.lnk", A_ScriptDir, arguments, "Launch tes3np", iconPath)
+        try
+        {
+            FileCreateShortcut(A_ScriptFullPath, A_Desktop "\Nerevarine Prophecies.lnk",
+                A_ScriptDir, "", "Launch Nerevarine Prophecies", A_ScriptFullPath)
+        }
+        catch Error as err
+        {
+            MsgBox("Could not create the desktop shortcut: " err.Message, "tes3np", "Icon!")
+            return
+        }
     }
-    catch as err
-        MsgBox("Could not create the shortcut: " err.Message, "tes3np", "Icon!")
+    DirCreate(AppDataDirectory)
+    IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")
 }
