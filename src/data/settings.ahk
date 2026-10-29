@@ -81,7 +81,13 @@ SaveDefaultProfile()
 
 GetSharedExecutable()
 {
-    ; Bundled markerless client is the only supported automatic launch target.
+    global DataFile
+    if IniRead(DataFile, "Launch", "ClientMode", "Bundled") = "Custom"
+    {
+        custom := Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
+        if custom != ""
+            return custom
+    }
     return A_ScriptDir "\client\tes3mp.exe"
 }
 
