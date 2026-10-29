@@ -225,25 +225,42 @@ ReadVersionReleaseNotes(installedVersion)
     }
 }
 
+WrapReleaseNoteLines(content, maximum := 56)
+{
+    wrapped := []
+    for entry in StrSplit(StrReplace(content, "`r", ""), "`n") {
+        line := Trim(entry)
+        if line = "" {
+            wrapped.Push("")
+            continue
+        }
+        while StrLen(line) > maximum {
+            splitAt := maximum
+            while splitAt > 20 && SubStr(line, splitAt, 1) != " "
+                splitAt -= 1
+            if splitAt <= 20
+                splitAt := maximum
+            wrapped.Push(RTrim(SubStr(line, 1, splitAt)))
+            line := LTrim(SubStr(line, splitAt + 1))
+        }
+        wrapped.Push(line)
+    }
+    return wrapped
+}
+
 UpdateNotesMouseWheel(dialog, page, refresh, wParam, lParam, msg, hwnd)
 {
+    ; The Windows wheel coordinates are physical screen pixels. Compare with
+    ; the actual dialog window rectangle to avoid mixed-DPI hit-test errors.
     if !DllCall("user32\IsWindow", "Ptr", dialog.Hwnd, "Int")
         return
-    ; WM_MOUSEWHEEL carries screen coordinates in lParam, including negatives.
     mx := (lParam & 0xFFFF) << 48 >> 48
     my := ((lParam >> 16) & 0xFFFF) << 48 >> 48
-    rect := Buffer(16, 0)
-    if !DllCall("user32\GetClientRect", "Ptr", dialog.Hwnd, "Ptr", rect)
+    bounds := Buffer(16, 0)
+    if !DllCall("user32\GetWindowRect", "Ptr", dialog.Hwnd, "Ptr", bounds)
         return
-    pt := Buffer(8, 0)
-    NumPut("Int", mx, pt, 0)
-    NumPut("Int", my, pt, 4)
-    if !DllCall("user32\ScreenToClient", "Ptr", dialog.Hwnd, "Ptr", pt)
-        return
-    scale := A_ScreenDPI / 96
-    x := NumGet(pt, 0, "Int") / scale
-    y := NumGet(pt, 4, "Int") / scale
-    if x < 28 || x > 612 || y < 207 || y > 374
+    if mx < NumGet(bounds, 0, "Int") || mx >= NumGet(bounds, 8, "Int")
+        || my < NumGet(bounds, 4, "Int") || my >= NumGet(bounds, 12, "Int")
         return
     delta := (wParam >> 16) << 48 >> 48
     page.Offset += delta > 0 ? -3 : 3
@@ -274,11 +291,11 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ; by the launcher parchment. Arrows live at the ends of the track.
     panel.Add("Text", "x28 y207 w584 h167 BackgroundC5A45C")
     panel.Add("Text", "x30 y209 w580 h163 Background171008")
-    notesLines := StrSplit(StrReplace(notes.Text, "`r", ""), "`n")
-    page := {Offset: 1, Lines: notesLines, Visible: 7}
+    notesLines := WrapReleaseNoteLines(notes.Text)
+    page := {Offset: 1, Lines: notesLines, Visible: 6}
     noteRows := []
     Loop page.Visible
-        noteRows.Push(panel.Add("Text", "x38 y" (215 + (A_Index - 1) * 22) " w536 h22 Background171008", ""))
+        noteRows.Push(panel.Add("Text", "x38 y" (218 + (A_Index - 1) * 24) " w536 h24 Background171008", ""))
     track := panel.Add("Text", "x585 y237 w16 h107 Background704C27")
     thumb := panel.Add("Text", "x589 y237 w8 h30 BackgroundC69951")
     refresh(*) {
@@ -297,7 +314,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ; Register an additional wheel callback only for this dialog's lifetime.
     ; It consumes wheel input solely inside the release-notes viewport.
     wheelCallback := UpdateNotesMouseWheel.Bind(panel, page, refresh)
-    OnMessage(0x020A, wheelCallback)
+    OnMessage(0x020A, wheelCallback, 1)
     panel.SetFont("s9 cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y380 w584 h22 BackgroundTrans", notes.Source)
     releaseButton := AddStyledButton(panel, 28, 412, 193, 32, "View on GitHub", (*) => Run(UpdateReleasePage))
