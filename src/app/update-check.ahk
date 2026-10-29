@@ -217,13 +217,13 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel.BackColor := "C5A45C"
     panel.Add("Text", "x2 y2 w636 h452 Background171008")
     panel.SetFont("s12 Bold cC5A45C", "Georgia")
-    panel.Add("Text", "x28 y20 w586 h42 BackgroundTrans", "You're All Caught Up, Fetcher! (v" installedVersion ")")
+    panel.Add("Text", "x28 y20 w586 h42 BackgroundTrans", "You're All Caught Up, Fetcher!")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     panel.Add("Text", "x28 y77 w584 h54 BackgroundTrans",
         "You are currently running the latest version of the tes3np launcher! If something new releases, you will be notified.")
     panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y143 w584 h24 BackgroundTrans",
-        "Build: " (InStr(installedVersion, "alpha") ? "Alpha" : InStr(installedVersion, "beta") ? "Beta" : "Live / Stable"))
+        "Build: v" installedVersion " (" (InStr(installedVersion, "alpha") ? "Alpha" : InStr(installedVersion, "beta") ? "Beta" : "Live / Stable") ")")
     panel.Add("Text", "x28 y176 w584 h24 BackgroundTrans", "Release Notes")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
