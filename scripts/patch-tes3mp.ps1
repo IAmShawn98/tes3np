@@ -24,6 +24,8 @@ if ([IO.File]::Exists($settingsFile)) {
     $skipMarkerless = [IO.File]::ReadAllLines($settingsFile) | Where-Object { $_.Trim() -ieq 'CustomClientChoice=skip' } | Select-Object -First 1
     $skipMarkerless = [bool]$skipMarkerless
 }
+# TES3NP now ships markerless separately. Never patch the user's TES3MP executable.
+$skipMarkerless = $true
 
 function Replace-ExistingFile([string]$Source, [string]$Destination) {
     $replacementBackup = $Destination + '.tes3np-replace-' + [guid]::NewGuid().ToString('N')
@@ -153,7 +155,7 @@ try {
             Log-Event ('Restored managed file ' + ($i + 1) + '.'); $i++
         }
         $saved.Restored = $true; Write-AtomicText $backupJournal ($saved | ConvertTo-Json -Depth 6)
-        Progress 'Restore complete' 100; Result 'success' 'Previous files restored. Patch again before using NP launch features.' $saved.PreviousBackup; Log-Event 'Restore completed.'; exit 0
+        Progress 'Restore complete' 100; Result 'success' 'Previous files restored. The optional Expansion Pack may be installed at any time.' $saved.PreviousBackup; Log-Event 'Restore completed.'; exit 0
     }
 
     $field = 'Morrowind folder'; Progress 'Checking Morrowind game files' 5
