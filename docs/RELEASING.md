@@ -44,6 +44,21 @@ link alone does not clear that blocker.
 Announcement:
 `https://steamcommunity.com/groups/mwmulti/announcements/detail/3208261824668407228`.
 
+Discord post attribution and purpose (user-provided screenshot, October 29,
+2026): in NP Discord `#posted-fixes`, **jiub** posted at **May 2, 2023,
+3:30 AM** under “Frequent Crashes/Crashes Near Multiple Players”.
+The post states that player map markers on the minimap may cause crashes
+and links a build of **TES3MP 0.8.1 that completely disables player map
+markers**, reportedly improving stability. The screenshot's original link is
+`https://www.dropbox.com/s/9x7stbzq2vi6oco/tes3mp.exe?dl=0`,
+different from the newer `/scl/fi/` URL supplied by the tester.
+The screenshot identifies **jiub as the poster, not necessarily the
+programmer/compiler**. The screenshot is evidence of the stated intended
+change, not proof of the bundled binary's exact bytes or source provenance.
+Before marking this gate complete, obtain the modification's source patch
+and build instructions from its author or NP maintainers and verify the
+distributed executable against that provenance.
+
 Markerless binary distribution provenance (reported by tester on October 29, 2026):
 the `tes3mp.exe` used by the launcher was downloaded from the
 Nerevarine Prophecies Discord channel `#posted-fixes`, at
