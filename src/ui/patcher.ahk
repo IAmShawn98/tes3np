@@ -662,3 +662,67 @@ ToggleExpansionPack(*)
         MsgBox(err.Message, "Expansion Pack", "Icon!")
     }
 }
+
+
+; First-run discovery is informational and never installs optional patches.
+; A missing Morrowind installation cannot be fixed by downloading TES3MP:
+; TES3NP already bundles its own client.
+CheckFirstRunMorrowind(*)
+{
+    global DataFile, LauncherGui
+    if IniRead(DataFile, "Install", "MorrowindPromptDismissed", "0") = "1"
+        return
+    found := FindMorrowindFolder(PatchConfigurationPath())
+    if found != ""
+    {
+        IniWrite(found, DataFile, "Patch", "MorrowindFolder")
+        IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+        LogLauncherEvent("SETUP | Morrowind GOTY located: " found)
+        return
+    }
+    prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Locate Morrowind")
+    prompt.BackColor := "E2CEA2"
+    prompt.SetFont("s13 Bold c241408", "Segoe UI")
+    prompt.Add("Text", "x20 y18 w440 h32", "Locate Morrowind GOTY")
+    prompt.SetFont("s10 Norm c382314", "Segoe UI")
+    prompt.Add("Text", "x20 y58 w440 h72", "TES3NP already includes TES3MP. To use your Morrowind game files, select the folder containing Data Files, including Tribunal and Bloodmoon. You can do this later.")
+    choose := prompt.Add("Button", "x20 y145 w440 h39", "Choose Morrowind Folder")
+    later := prompt.Add("Button", "x20 y194 w440 h34", "Not Now")
+    choose.OnEvent("Click", (*) => SelectFirstRunMorrowind(prompt))
+    later.OnEvent("Click", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.Show("w480 h250")
+}
+
+SelectFirstRunMorrowind(prompt, *)
+{
+    global DataFile
+    folder := FileSelect("D", , "Select Morrowind GOTY installation folder")
+    if folder = ""
+        return
+    folder := RTrim(folder, "\/")
+    SplitPath(folder, &folderName, &parent)
+    if StrLower(folderName) = "data files"
+        folder := parent
+    for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+    {
+        if !FileExist(folder "\Data Files\" master)
+        {
+            MsgBox("Could not find Data Files\" master ". Select the Morrowind GOTY folder (not an individual file).", "Morrowind folder", "Icon!")
+            return
+        }
+    }
+    IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
+    IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+    LogLauncherEvent("SETUP | User selected Morrowind GOTY: " folder)
+    prompt.Destroy()
+    MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
+}
+
+DismissFirstRunMorrowind(prompt, *)
+{
+    global DataFile
+    IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+    prompt.Destroy()
+}
