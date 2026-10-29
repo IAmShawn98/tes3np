@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_SUFFIXES = {".ahk", ".ps1", ".py", ".md", ".yml", ".json"}
-SKIP_DIRS = {".git", ".venv", ".vscode", ".idea", "__pycache__", "dist", "build"}
+SKIP_DIRS = {".git", ".venv", ".vscode", ".idea", "__pycache__", "dist", "build", "bin", "obj"}
 REQUIRED_ASSETS = (
     "backgrounds/launcher.png", "backgrounds/character-book.png",
     "controls/scroll-panel.png", "controls/button.png",
@@ -30,6 +30,8 @@ def project_files() -> list[Path]:
         if path.suffix.lower() in {".log", ".tmp", ".bak", ".zip", ".pyc"}:
             continue
         if path.name.lower().endswith(".ini") or path.name.startswith(".env"):
+            continue
+        if relative.parts[0] == "client":
             continue
         if any(part in {"patch-jobs", "macros"} for part in relative.parts[:-1]):
             continue
