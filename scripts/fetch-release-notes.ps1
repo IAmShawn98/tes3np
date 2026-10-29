@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory)][ValidatePattern('^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$')][string]$Version,
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')][string]$Version,
     [Parameter(Mandatory)][string]$OutputPath
 )
 $ErrorActionPreference = 'Stop'
@@ -14,16 +14,28 @@ try {
     $notes.url = [string]$release.html_url
     $body = [string]$release.body
     $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($line in ($body -split "`r?`n")) {
+    foreach ($line in ($body -split '\r?\n')) {
         $line = $line.Trim()
         if (!$line) { continue }
-        if ($line -match '^#{1,6}\\s+(.+)$') { $lines.Add($Matches[1]); continue }
-        if ($line -match '^[-*+]\\s+(.+)$') { $lines.Add([char]0x2022 + ' ' + $Matches[1]); continue }
-        if ($line -match '^\\d+\\.\\s+(.+)$') { $lines.Add([char]0x2022 + ' ' + $Matches[1]); continue }
-        if ($line -match '^(-{3,}|\\*{3,})$') { continue }
+        if ($line -match '^#{1,6}\s+(.+)$') { $lines.Add($Matches[1]); continue }
+        if ($line -match '^[-*+]\s+(.+)$') { $lines.Add([char]0x2022 + ' ' + $Matches[1]); continue }
+        if ($line -match '^\d+\.\s+(.+)$') { $lines.Add([char]0x2022 + ' ' + $Matches[1]); continue }
+        if ($line -match '^(-{3,}|\*{3,})$') { continue }
         $lines.Add($line)
     }
-    $notes.text = (($lines -join "`n") -replace '[`*_]', '').Trim()
+    $clean = (($lines -join "`n") -replace '[`*_]', '').Trim()
+    $wrapped = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in ($clean -split "`n")) {
+        $remaining = $entry
+        while ($remaining.Length -gt 78) {
+            $breakAt = $remaining.LastIndexOf(' ', 77)
+            if ($breakAt -lt 12) { $breakAt = 78 }
+            $wrapped.Add($remaining.Substring(0, $breakAt).TrimEnd())
+            $remaining = $remaining.Substring($breakAt).TrimStart()
+        }
+        $wrapped.Add($remaining)
+    }
+    $notes.text = $wrapped -join "`n"
     if (!$notes.text) { $notes.text = 'This release does not have published notes.' }
 } catch {
     $notes.source = 'Notes not published or GitHub unavailable'
