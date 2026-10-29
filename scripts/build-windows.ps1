@@ -30,6 +30,16 @@ $tools = Join-Path $buildRoot 'tools'
 $package = Join-Path $projectRoot 'dist\tes3np-windows'
 $zip = Join-Path $projectRoot 'dist\tes3np-windows.zip'
 try {
+    # Validate before removing dist or downloading build tools. A broken
+    # PowerShell helper must never replace the last good local build.
+    Step 'Validating PowerShell helper syntax before packaging'
+    & (Join-Path $PSScriptRoot 'check-powershell.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'PowerShell syntax validation failed. Previous build artifacts were not removed.' }
+    Step 'Validating source tree and patch manifest before packaging'
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (!$python) { throw 'Python is required to generate embedded resources and validate the source tree.' }
+    & python (Join-Path $PSScriptRoot 'project.py') check
+    if ($LASTEXITCODE -ne 0) { throw 'Source validation failed. Previous build artifacts were not removed.' }
     Step 'Starting Windows launcher build'
     if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
     if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
