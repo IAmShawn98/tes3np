@@ -104,3 +104,24 @@ PrepareMarkerlessClientRuntime()
     }
     return true
 }
+
+; Validate the selected runtime rather than assuming the bundled client.
+ValidateSelectedClientRuntime(executable)
+{
+    if !FileExist(executable)
+    {
+        MsgBox("Selected TES3MP executable was not found:`n" executable, "Missing TES3MP", "Icon!")
+        return false
+    }
+    SplitPath(executable, , &folder)
+    for name in ["tes3mp-client-default.cfg", "defaults.bin", "openmw.cfg"]
+    {
+        if !FileExist(folder "\" name)
+        {
+            MsgBox("Selected TES3MP runtime is incomplete.`nMissing: " folder "\" name
+                . "`n`nSelect a complete TES3MP installation through Launcher Settings.", "TES3MP files missing", "Icon!")
+            return false
+        }
+    }
+    return true
+}
