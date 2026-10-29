@@ -602,14 +602,18 @@ ToggleExpansionPack(*)
         FileDelete(output)
     command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
         . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '" -PayloadFolder "' resourceRoot '\patches"'
-        . ' -BackupFolder "' backup '"'
+        . ' -BackupFolder "' backup '" -ResultFile "' output '"'
     try
     {
-        RunWait(A_ComSpec ' /D /C ""' command ' > "' output '" 2>&1"', , "Hide", &exitCode)
+        ; Invoke PowerShell directly. cmd.exe nested quoting previously lost
+        ; stderr and gave users an empty "was not changed" error.
+        RunWait(command, , "Hide", &exitCode)
         details := FileExist(output) ? Trim(FileRead(output, "UTF-8")) : ""
-        if exitCode
+        if exitCode || !FileExist(output) || !InStr(details, " complete.")
         {
-            LogLauncherEvent("EXPANSION | Toggle failed | " details)
+            if details = ""
+                details := "Worker exited with code " exitCode " without diagnostic output."
+            LogLauncherEvent("EXPANSION | Toggle failed | Exit code: " exitCode " | " details)
             MsgBox("Expansion Pack was not changed." Chr(10) Chr(10) SubStr(details, 1, 1200), "Expansion Pack", "Icon!")
             return
         }
