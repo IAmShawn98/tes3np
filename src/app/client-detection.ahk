@@ -86,12 +86,22 @@ SHA256File(path)
 ; The original vanilla executable is never overwritten.
 PrepareMarkerlessClientRuntime()
 {
+    global DataFile
     tesFolder := FindTES3MPFolder()
-    if tesFolder = "" || !FileExist(tesFolder "\tes3mp.exe")
+    if tesFolder = ""
     {
-        MsgBox("TES3NP requires an existing TES3MP 0.8.1 installation for runtime files. Install TES3MP first.", "TES3MP not found", "Icon!")
-        return false
+        MsgBox("TES3NP needs the supporting files from an existing TES3MP 0.8.1 installation. Select the folder containing its original tes3mp.exe. TES3NP will not change that file.", "Locate TES3MP", "Iconi")
+        tesFolder := DirSelect(, 1, "Select your TES3MP 0.8.1 folder")
+        if tesFolder = "" || !FileExist(tesFolder "\tes3mp.exe")
+        {
+            MsgBox("A complete TES3MP installation is required to run the bundled markerless client.", "TES3MP not found", "Icon!")
+            return false
+        }
+        DirCreate(AppDataDirectory)
+        IniWrite(tesFolder, DataFile, "Patch", "TesFolder")
     }
+    ; The managed EXE uses an installed runtime, without copying or
+    ; overwriting the user's original executable.
     EnvSet("PATH", tesFolder ";" EnvGet("PATH"))
     return true
 }
