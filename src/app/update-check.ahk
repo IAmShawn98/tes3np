@@ -308,11 +308,10 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel.Add("Text", "x28 y20 w586 h42 BackgroundTrans", "You're All Caught Up, Fetcher!")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     panel.Add("Text", "x28 y77 w584 h54 BackgroundTrans",
-        "You are currently running the latest version of the tes3np launcher! If something new releases, you will be notified.")
+        "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified.")
     panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y143 w584 h24 BackgroundTrans",
-        "Build: v" installedVersion)
-    panel.Add("Text", "x28 y176 w584 h24 BackgroundTrans", "Release Notes")
+        "Build: v" installedVersion " Release Notes -")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     ; Gold-framed notes with the same vertical gold-on-brown scrollbar used
@@ -347,11 +346,8 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ; It consumes wheel input solely inside the release-notes viewport.
     wheelCallback := UpdateNotesMouseWheel.Bind(panel, page, refresh)
     OnMessage(0x020A, wheelCallback, 1)
-    panel.SetFont("s9 cC5A45C", "Segoe UI")
-    panel.Add("Text", "x28 y380 w584 h22 BackgroundTrans", notes.Source)
-    releaseButton := AddStyledButton(panel, 28, 412, 193, 32, "View on GitHub", (*) => Run(UpdateReleasePage))
-    retry := AddStyledButton(panel, 234, 412, 166, 32, "Check Again", (*) => (state.Retry := true, panel.Destroy()))
-    close := AddStyledButton(panel, 413, 412, 199, 32, "Close", (*) => panel.Destroy())
+    retry := AddStyledButton(panel, 100, 412, 213, 32, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
+    close := AddStyledButton(panel, 327, 412, 213, 32, "Close", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
     ShowCenteredUpdateCard(panel, backdrop, 640, 456)
