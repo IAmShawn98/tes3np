@@ -50,14 +50,14 @@ CheckForUpdates(*)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         ; Viewing the gold preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel)
-        if choice = "Yes" && MsgBox("Download and verify tes3np v" latest " now?`n`nYour installed launcher will not be changed. You will be asked separately before installation.", "tes3np — Confirm download", "YesNo Iconi") = "Yes" {
+        if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
             BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
             try {
                 staged := DownloadAndStageUpdate(manifest)
                 SetInterfaceLoadingText("Update ready to install...")
             } finally EndInterfaceUpdate()
             LogLauncherEvent("UPDATE | READY | Verified update staged for v" latest ".")
-            if MsgBox("tes3np v" latest " was downloaded and verified successfully.`n`nInstall it now? The launcher will close and automatically roll back if the updated launcher cannot confirm a successful start.", "tes3np — Update verified", "YesNo Iconi") = "Yes" {
+            if ShowGoldUpdateConfirmation("Install Verified Update?", "v" latest " is verified and ready.`nInstalling will restart tes3np. Rollback is available if startup fails.", "Install Update") {
                 StartTransactionalUpdate(manifest.version, staged)
                 LogLauncherEvent("UPDATE | Transactional installer started for v" latest ".")
                 ExitApp(0)
@@ -85,6 +85,29 @@ AddGoldUpdateButton(gui, x, y, width, height, caption)
     clickable := gui.Add("Text", "x" (x + 2) " y" (y + 2) " w" (width - 4) " h" (height - 4)
         " +0x100 Center +0x200 Background171008", caption)
     return clickable
+}
+
+ShowGoldUpdateConfirmation(title, message, confirmLabel)
+{
+    global LauncherGui
+    response := {Accepted: false}
+    window := Gui("-Caption -Border +Owner" LauncherGui.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Confirmation")
+    window.BackColor := "C5A45C"
+    window.Add("Text", "x2 y2 w516 h194 Background171008")
+    window.SetFont("s15 Bold cC5A45C", "Georgia")
+    window.Add("Text", "x22 y18 w470 h32 BackgroundTrans", title)
+    window.SetFont("s10 cFFFFFF", "Segoe UI")
+    window.Add("Text", "x22 y66 w470 h67 BackgroundTrans", message)
+    confirm := AddGoldUpdateButton(window, 145, 153, 175, 29, confirmLabel)
+    cancel := AddGoldUpdateButton(window, 333, 153, 165, 29, "Not Now")
+    confirm.OnEvent("Click", (*) => (response.Accepted := true, window.Destroy()))
+    cancel.OnEvent("Click", (*) => window.Destroy())
+    window.OnEvent("Escape", (*) => window.Destroy())
+    window.OnEvent("Close", (*) => window.Destroy())
+    window.Show("w520 h198 Center")
+    hwnd := window.Hwnd
+    WinWaitClose("ahk_id " hwnd)
+    return response.Accepted
 }
 
 ShowUpdatePreview(installedVersion, latestVersion, channel)
