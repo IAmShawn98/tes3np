@@ -1,15 +1,57 @@
 # Releases and GitHub setup
 
-Create a repository named `tes3np` and push this folder's contents as its root.
-`.github` belongs beside `tes3np.ahk`, not inside a nested project directory.
-The ignore rules retain the required markerless executable and exclude local data.
+TES3NP has **two established repositories**:
 
-A source-only package omits the large payload. Copy `patches/` from a complete
-package before committing the complete project or making a full release. Never
-commit character exports or your live `%APPDATA%\tes3np` folder.
+- Private development: `IAmShawn98/tes3np`, including the current
+  `Update/v0.1.21-alpha` development branch. Changes, CI checks and
+  candidate packages belong here.
+- Public distribution: `IAmShawn98/tes3np-releases`, containing the
+  previously published alpha builds, release notes and the update feed.
+  Never write here, tag a release, or publish binaries without explicit
+  owner approval.
 
-Configure branch protection in GitHub settings and require the `Static and
-PowerShell checks` workflow. Decide who can merge and publish.
+The public release repository currently documents a prior
+`v0.1.20-alpha` Windows download. **v0.1.21-alpha is an upgrade from
+earlier public alphas, not the first TES3NP release.** The public updater
+expects asset names `tes3np-windows.zip`,
+`tes3np-windows.zip.sha256`, and `tes3np-update.json`; the manual
+download uses a versioned Windows ZIP. Preserve compatibility with
+existing installations and update discovery before publication.
+
+Never commit character exports or live `%APPDATA%\\tes3np` data.
+Require branch protection and the validation workflows before publishing.
+
+## Upgrade compatibility gate: v0.1.20-alpha → v0.1.21-alpha
+
+Use an **isolated test installation and disposable Windows user profile**
+with a copy of non-sensitive test profiles. Do not overwrite actual
+player credentials. Capture the existing installation layout, the
+update feed asset names, and a SHA-256 of each installed package.
+
+1. Install the actual public v0.1.20-alpha package in a writable folder.
+   Record whether the old install is nested in a TES3MP directory.
+2. Preserve a non-sensitive test character, its settings and launch
+   delays, one scheduled event, and a custom-client configuration.
+3. Attempt upgrade using the candidate package through the update
+   transaction (or an offline staged test). Validate the existing
+   install layout against the staging safety checks; do not force an
+   unrecognized ZIP nesting.
+4. Confirm character data, login delays, schedules, custom overrides,
+   chat preferences and desktop shortcut decision survive.
+5. Exercise both successful update and deliberate simulated
+   `after-backup` / `after-install` failure; verify rollback restores
+   working files and unrelated files remain untouched.
+6. Verify update metadata version comparison, expected asset filenames,
+   ZIP checksum, and restart behavior without pointing live users to
+   a development package.
+7. Test fresh-install behavior separately from upgrading an existing
+   v0.1.20-alpha profile. Neither test replaces a clean Windows 10/11
+   machine verification.
+
+**Do not mark this gate passed** based only on the current isolated
+updater transaction tests. Those tests passed previously, but direct
+migration from the published v0.1.20-alpha artifact has not yet been
+verified.
 
 ## Versioning
 
