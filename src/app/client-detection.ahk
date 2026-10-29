@@ -204,7 +204,10 @@ GetMergedCustomClientExecutable()
             {
                 checksum := SHA256File(file)
                 if checksum = ""
-                    throw Error("Could not hash custom override: " relative)
+                {
+                    LogLauncherEvent("GAME | SHA256 unavailable for custom override: " relative ". Using file metadata to preserve launch ability.")
+                    checksum := FileGetSize(file) "|" FileGetTime(file, "M")
+                }
                 signature .= relative "|" checksum ";"
             }
         }
