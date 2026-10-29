@@ -36,6 +36,21 @@ try {
     if ((Get-Content $f[2] -Raw) -notmatch 'State=LAUNCHED') { throw 'Successful state not recorded.' }
     Write-Host 'PASS: successful transaction preserves unrelated files.'
 
+    # Simulate an existing v0.1.20-alpha directory upgrading to the new
+    # self-contained v0.1.21 layout. Never modify a real player profile.
+    $f=New-Fixture
+    $legacy=Join-Path $f[0] 'tes3np'
+    New-Item -ItemType Directory -Path $legacy -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $legacy 'old-version-note.txt') -Value 'PRESERVE LEGACY FILE'
+    $ini=Join-Path $f[0] 'launcher-data.ini'
+    Set-Content -LiteralPath $ini -Value '[Characters] ORIGINAL TEST PROFILES'
+    & $updater -InstallDir $f[0] -StageDir $f[1] -StateFile $f[2] -Version '0.1.21-alpha' -TestMode
+    if ($LASTEXITCODE -ne 0) { throw 'Legacy upgrade layout fixture failed.' }
+    if ((Get-Content -LiteralPath (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'NEW') { throw 'Legacy upgrade did not install new launcher.' }
+    if ((Get-Content -LiteralPath $ini -Raw).Trim() -ne '[Characters] ORIGINAL TEST PROFILES') { throw 'Legacy upgrade overwrote user data.' }
+    if ((Get-Content -LiteralPath (Join-Path $legacy 'old-version-note.txt') -Raw).Trim() -ne 'PRESERVE LEGACY FILE') { throw 'Legacy upgrade destroyed an unrelated directory.' }
+    Write-Host 'PASS: legacy alpha layout upgrades without deleting unrelated files or test character data.'
+
     $f=New-Fixture
     Remove-Item -LiteralPath (Join-Path $root 'stage\tes3np\client\defaults.bin') -Force
     $code=Invoke-UpdaterExpectedFailure $f ''
