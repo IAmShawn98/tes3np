@@ -16,7 +16,9 @@ global LauncherKillAlertGui := 0
 
 StartLauncher()
 {
-    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle
+    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle, LauncherUpdateDismissedVersion
+    ; A dismissal only lasts for this launcher session. Recheck next launch.
+    LauncherUpdateDismissedVersion := ""
     InitializePatchLogMirror()
     LogLauncherEvent("Launcher startup beginning.")
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
