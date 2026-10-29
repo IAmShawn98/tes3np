@@ -76,14 +76,14 @@ OpenPatcher(*)
     global LauncherGui
     if !IsObject(PatchPage)
     {
-        PatchPage := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox", "tes3np — Patch Tes3mp")
+        PatchPage := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox", "tes3np — Optional Expansion Pack")
         PatchPage.BackColor := "E2CEA2"
         PatchPage.SetFont("s16 Bold c382314", "Georgia")
-        PatchPage.Add("Text", "x20 y15 w720 h30", "Patch Tes3mp")
+        PatchPage.Add("Text", "x20 y15 w720 h30", "Optional Expansion Pack")
         PatchPage.SetFont("s10 Norm c382314", "Segoe UI")
         PatchPage.Add("Text", "x20 y55 w720 h70", "Optional NP Expansion Pack v0.1. The markerless client is already bundled with TES3NP. Install this expansion only if you choose to. Existing game files are backed up before replacement.")
         config := PatchConfigurationPath()
-        PatchPage.Add("Text", "x20 y130 w720 h22", "TES3MP folder (detected when tes3np is placed inside it)")
+        PatchPage.Add("Text", "x20 y130 w720 h22", "Existing TES3MP folder (detected or selected)"))
         PatchTesInput := PatchPage.Add("Edit", "x20 y155 w620 h25", FindTES3MPFolder())
         browseTes := PatchPage.Add("Button", "x650 y155 w90 h25", "Browse")
         browseTes.OnEvent("Click", BrowsePatchFolder.Bind(PatchTesInput, "Choose the TES3MP folder"))
@@ -108,7 +108,7 @@ OpenPatcher(*)
         PatchPage.OnEvent("Close", ClosePatcher)
         PatchPage.OnEvent("Escape", ClosePatcher)
         PatchPage.Opt("+OwnDialogs")
-        PatchStatus := PatchPage.Add("Text", "x20 y370 w720 h75", "Choose the detected folders, read the license, then Install / Repair. The launcher connects directly to NP after setup.")
+        PatchStatus := PatchPage.Add("Text", "x20 y370 w720 h75", "This installation is optional. The bundled markerless client is available without installing the Expansion Pack.")
     }
     PatchPage.Show("w760 h465")
 }
@@ -318,7 +318,7 @@ CheckPatchWorker()
             }
         }
         UpdateCharacterMenuLabel()
-        UpdatePatchProgress(state = "success" ? "Waiting for Jiub" : "Setup requires attention", state = "success" ? 100 : 0)
+        UpdatePatchProgress(state = "success" ? "Waiting for Jiub" : "Expansion Pack needs attention", state = "success" ? 100 : 0)
     }
     catch Error as err
     {
