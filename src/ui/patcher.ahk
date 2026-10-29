@@ -543,3 +543,83 @@ ReportPatchError(step, field, err, startup := false)
     ; Startup errors must never disappear silently behind the launcher.
     MsgBox(details, "Repair Game Install — Error", "Icon!")
 }
+
+
+ExpansionPackIsEnabled()
+{
+    config := PatchConfigurationPath()
+    if !FileExist(config)
+        return false
+    try
+    {
+        for line in StrSplit(FileRead(config, "UTF-8"), Chr(10), Chr(13))
+            if RegExMatch(Trim(line), 'i)^content\s*=\s*"?NP Expansion Pack\.esp"?$')
+                return true
+    }
+    return false
+}
+
+RefreshExpansionPackToggle()
+{
+    global LauncherExpansionToggle
+    if IsObject(LauncherExpansionToggle)
+        try LauncherExpansionToggle.Text := "Expansion Pack: " (ExpansionPackIsEnabled() ? "On" : "Off")
+}
+
+ToggleExpansionPack(*)
+{
+    global AppDataDirectory, LauncherGui, DataFile
+    if PatchInProgress()
+        return
+    if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+    {
+        MsgBox("Close all TES3MP/OpenMW clients before switching the Expansion Pack. Running games will not be interrupted.", "Expansion Pack")
+        return
+    }
+    enable := !ExpansionPackIsEnabled()
+    cfg := PatchConfigurationPath()
+    morrowind := FindMorrowindFolder(cfg)
+    if !FileExist(cfg) || (enable && morrowind = "")
+    {
+        MsgBox("Could not find the active OpenMW configuration or Morrowind GOTY installation. Configure those paths through the optional expansion installer first.", "Expansion Pack", "Icon!")
+        return
+    }
+    action := enable ? "Enable" : "Disable"
+    if MsgBox(action " NP Expansion Pack for all future game clients?" Chr(10) Chr(10) "TES3NP will back up your configuration and preserve other mods.", "Expansion Pack", "YesNo Icon?") != "Yes"
+        return
+    script := A_ScriptDir "\scripts\toggle-expansion-pack.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    if !FileExist(script)
+    {
+        MsgBox("Expansion Pack toggle helper missing. Rebuild TES3NP.", "Expansion Pack", "Icon!")
+        return
+    }
+    backup := AppDataDirectory "\expansion-backups"
+    DirCreate(backup)
+    output := AppDataDirectory "\expansion-toggle-result.txt"
+    if FileExist(output)
+        FileDelete(output)
+    command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
+        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '" -PayloadFolder "' A_ScriptDir '\patches"'
+        . ' -BackupFolder "' backup '"'
+    try
+    {
+        RunWait(A_ComSpec ' /D /C ""' command ' > "' output '" 2>&1"', , "Hide", &exitCode)
+        details := FileExist(output) ? Trim(FileRead(output, "UTF-8")) : ""
+        if exitCode
+        {
+            LogLauncherEvent("EXPANSION | Toggle failed | " details)
+            MsgBox("Expansion Pack was not changed." Chr(10) Chr(10) SubStr(details, 1, 1200), "Expansion Pack", "Icon!")
+            return
+        }
+        IniWrite(enable ? "1" : "0", DataFile, "ExpansionPack", "GlobalEnabled")
+        LogLauncherEvent("EXPANSION | " action " completed.")
+        RefreshExpansionPackToggle()
+        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " for future launches.", "Expansion Pack")
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Toggle exception: " err.Message)
+        MsgBox(err.Message, "Expansion Pack", "Icon!")
+    }
+}
