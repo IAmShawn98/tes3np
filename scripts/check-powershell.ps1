@@ -14,3 +14,4 @@ Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' | ForEach-Object {
 }
 if ($failed) { exit 1 }
 Write-Host 'All PowerShell helpers parsed. No scripts were executed.'
+exit 0
