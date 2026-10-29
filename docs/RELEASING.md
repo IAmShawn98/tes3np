@@ -149,6 +149,16 @@ The lone `WindowsBase` MSB3277 build warning originates from WebView2's
 WPF reference in a Windows Forms .NET 8 project. The currently compiled chat
 host works in existing tests; this warning is not the gating issue.
 
+## Experimental independent markerless source prototype
+
+A minimal, **unbuilt and untested** patch for official TES3MP `0.8.1`
+now exists at `research/markerless/tes3mp-0.8.1-markerless-experimental.patch`
+with isolated checkout instructions in `research/markerless/README.md`.
+It bypasses the two player-marker update functions identified during
+research. This is a potential independently compiled alternative, **not**
+proof of jiub's exact corresponding source and not a release-ready binary.
+The current bundled markerless executable must not be silently replaced.
+
 ## Release evidence gate
 
 Before proposing a public release, run
