@@ -91,7 +91,6 @@ StartLauncher()
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
     ; Expansion Pack setup is optional; never run patch verification at startup.
-    SetTimer(AutoDetectTES3MPOnStartup, -1200)
     SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
@@ -443,19 +442,6 @@ CleanupLauncher(*)
     IconHandles := []
 }
 
-AutoDetectTES3MPOnStartup()
-{
-    global DataFile, AppDataDirectory
-    folder := FindTES3MPFolder()
-    if folder = ""
-    {
-        LogLauncherEvent("TES3MP auto-detection found no supported installation. The user can select one when launching.")
-        return
-    }
-    DirCreate(AppDataDirectory)
-    IniWrite(folder, DataFile, "Patch", "TesFolder")
-    LogLauncherEvent("TES3MP runtime detected automatically: " folder)
-}
 
 OfferFirstRunSetup(*)
 {
