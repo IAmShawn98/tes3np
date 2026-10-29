@@ -631,13 +631,14 @@ metrics();
                 System.Windows.Forms.Clipboard.SetImage(bitmap);
                 // Let RichEdit choose the best clipboard format. Explicitly forcing CF_BITMAP
                 // can fail even when its OLE paste path supports the bitmap.
-                int beforeLength = nativeMessages.Rtf.Length;
+                int beforeLength = (nativeMessages.Rtf ?? string.Empty).Length;
                 nativeMessages.Paste();
-                bool hasPicture = nativeMessages.Rtf.Contains(@"\\pict", StringComparison.OrdinalIgnoreCase) ||
-                                  nativeMessages.Rtf.Contains(@"\\object", StringComparison.OrdinalIgnoreCase);
+                string resultingRtf = nativeMessages.Rtf ?? string.Empty;
+                bool hasPicture = resultingRtf.Contains(@"\\pict", StringComparison.OrdinalIgnoreCase) ||
+                                  resultingRtf.Contains(@"\\object", StringComparison.OrdinalIgnoreCase);
                 if (!hasPicture)
                     throw new InvalidOperationException("RichEdit paste produced no picture/object (RTF length " +
-                        beforeLength + " -> " + nativeMessages.Rtf.Length + ")");
+                        beforeLength + " -> " + resultingRtf.Length + ")");
                 Log("Chat image pasted: " + image.Width + "x" + image.Height);
             }
             finally
@@ -936,15 +937,7 @@ metrics();
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
         void RaiseFrame()
         {
-            // Frame is rendered inside the browser DOM, so no native rails are needed.
-            return;
-            // WebView2 has its own native HWND. Managed BringToFront alone
-            // does not reliably win when the browser surface is recreated.
-            frame.BringToFront();
-            const uint SWP_NOMOVE = 0x0002, SWP_NOSIZE = 0x0001,
-                       SWP_NOACTIVATE = 0x0010, SWP_SHOWWINDOW = 0x0040;
-            SetWindowPos(frame.Handle, IntPtr.Zero, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            // Frame is rendered inside the browser DOM; native rails are not used.
         }
         void EnforceChatClip()
         {
@@ -1976,7 +1969,6 @@ metrics();
         void PositionChatWindows()
         {
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
-            const int buttonWidth = 68, buttonHeight = 168;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
             int windowHeight = discordLoginVisible ? Math.Max(chatHeight, 780) : chatHeight;
