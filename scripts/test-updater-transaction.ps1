@@ -49,6 +49,18 @@ try {
     }
     Write-Host 'PASS: overlapping staging and installation paths are rejected.'
 
+    # Ensure the updater cannot accept a payload root buried in arbitrary subfolders.
+    $f=New-Fixture
+    $buried=Join-Path $f[1] 'unexpected'
+    New-Item -ItemType Directory -Path $buried -Force | Out-Null
+    Move-Item -LiteralPath (Join-Path $f[1] 'tes3np') -Destination (Join-Path $buried 'tes3np')
+    $code=Invoke-UpdaterExpectedFailure $f ''
+    if($code -eq 0){throw 'Updater accepted an unexpected nested payload root.'}
+    if((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD'){
+        throw 'Unexpected payload root changed existing launcher.'
+    }
+    Write-Host 'PASS: unexpected payload nesting rejected before touching installation.'
+
     $f=New-Fixture; $code=Invoke-UpdaterExpectedFailure $f 'after-backup'
     if ($code -eq 0) { throw 'Injected backup failure unexpectedly succeeded.' }
     if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD') { throw 'Backup failure did not preserve old launcher.' }
