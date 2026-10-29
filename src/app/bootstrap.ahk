@@ -75,7 +75,7 @@ StartLauncher()
     LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
     RefreshExpansionPackToggle()
     ; Place update notifications in the upper-center decorative header, not below the scroll.
-    LauncherUpdateButton := AddStyledButton(LauncherGui, 425, 5, 110, 26, "Update Available", CheckForUpdates)
+    LauncherUpdateButton := AddStyledButton(LauncherGui, 330, 5, 300, 26, "Preview Latest Update!", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CreateLauncherChatToggle()
     CaptureLauncherControlLayout()
@@ -289,7 +289,7 @@ SendLauncherChatCommand(command)
     }
 }
 
-SetLauncherUpdateAvailable(isAvailable)
+SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
     global LauncherSettingsButton, LauncherUpdateButton, LauncherControlLayout, LauncherUpdateAvailable
     LauncherUpdateAvailable := isAvailable
@@ -298,13 +298,17 @@ SetLauncherUpdateAvailable(isAvailable)
     ; Positions are owned by LauncherControlLayout and scaled by
     ; ApplyLauncherControlScale(). Do not move these controls back to
     ; unscaled coordinates when update availability changes.
+    if LauncherUpdateAvailable && latestVersion != "" {
+        LauncherUpdateButton.Text := "Preview Latest v" latestVersion " Update!"
+        DllCall("user32\\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
+    }
     LauncherUpdateButton.Visible := LauncherUpdateAvailable
     if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
         LauncherControlLayout[LauncherSettingsButton.Hwnd].X := 820
         LauncherControlLayout[LauncherSettingsButton.Hwnd].Y := 684
     }
     if LauncherControlLayout.Has(LauncherUpdateButton.Hwnd) {
-        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 425
+        LauncherControlLayout[LauncherUpdateButton.Hwnd].X := 330
         LauncherControlLayout[LauncherUpdateButton.Hwnd].Y := 5
     }
 }
