@@ -22,6 +22,21 @@ Require-Source '\[0-9a-f\]\{64\}' 'SHA-256 format validation'
 Require-Source '!manifest\.updateEnabled' 'emergency update disable handling'
 Require-Source 'No update was installed' 'fail-closed user messaging'
 
+# The public release generator writes fileName/size/sha256 under "package".
+# Guard the contract against regressions that silently hide update availability.
+Require-Source 'packageMatch' 'nested release package metadata support'
+Require-Source 'RequireManifestString\(packageText, "fileName"\)' 'nested package file name'
+Require-Source 'RequireManifestInteger\(packageText, "size"\)' 'nested package size'
+Require-Source 'RequireManifestString\(packageText, "sha256"\)' 'nested package checksum'
+$generator = Get-Content -LiteralPath 'scripts/generate-update-metadata.ps1' -Raw
+foreach ($field in @('fileName', 'size', 'sha256')) {
+    if ($generator -notmatch [regex]::Escape($field)) { throw "Release generator missing $field" }
+}
+if ($generator -notmatch 'package\s*=\s*\[ordered\]@\{') {
+    throw 'Release metadata generator no longer uses the expected nested package object.'
+}
+Write-Host 'PASS: release generator and launcher package metadata contract.'
+
 # Version comparison fixtures mirror the launcher algorithm and protect against
 # the common lexical 0.1.10 < 0.1.9 mistake.
 function Compare-Version([string]$left, [string]$right) {
