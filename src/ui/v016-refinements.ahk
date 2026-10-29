@@ -810,9 +810,15 @@ CopyAppDataLog(filename, syncLauncher := false, *)
                 if InStr(line, "GAME | EXIT |")
                     recentExit := line
             if recentExit != ""
+            {
+                ; Query only the Windows crash event around this specific exit,
+                ; never unrelated recent Application Error entries.
+                eventDetails := FindTes3mpWindowsCrash(recentExit)
                 content := "===== MOST RECENT TES3MP EXIT =====`r`n" recentExit
-                    . "`r`nExit code describes how Windows recorded the process ending; it may not reveal the root cause.`r`n`r`n"
-                    . "===== COMPLETE LAUNCHER LOG =====`r`n" content
+                    . "`r`n`r`n===== WINDOWS TES3MP CRASH DETAILS =====`r`n" eventDetails
+                    . "`r`n`r`n===== COMPLETE LAUNCHER LOG =====`r`n" content
+            }
+
         }
         A_Clipboard := content
     }
@@ -822,6 +828,50 @@ CopyAppDataLog(filename, syncLauncher := false, *)
         return
     }
     MsgBox("Diagnostic log copied to your clipboard.`n`nYou can paste it into a bug report. Review the contents first in case paths or character names are private.", "tes3np — Diagnostics")
+}
+
+FindTes3mpWindowsCrash(exitLine)
+{
+    global AppDataDirectory
+    ; Windows writes Event ID 1000 asynchronously. This query is performed
+    ; only on Copy Launcher Logs, not on the UI watchdog's timing-critical path.
+    if StrLen(exitLine) < 19
+        return "Crash event unavailable: missing exit timestamp."
+    timestamp := SubStr(exitLine, 1, 19)
+    scriptPath := AppDataDirectory "\tes3mp-crash-query.ps1"
+    resultPath := AppDataDirectory "\tes3mp-crash-query.txt"
+    script := "
+    (
+param([string]$Stamp, [string]$OutputFile)
+try {
+    $target = [datetime]::ParseExact($Stamp, 'yyyy-MM-dd HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
+    $events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000; StartTime=$target.AddMinutes(-1); EndTime=$target.AddMinutes(2)} -ErrorAction Stop
+    $match = $events | Where-Object { $_.Message -match '(?i)(^|[^a-z0-9_-])tes3mp[.]exe([^a-z0-9_-]|$)' } | Sort-Object TimeCreated -Descending | Select-Object -First 1
+    if ($match) {
+        $lines = @('Windows Application Error (Event ID 1000)', 'Recorded: ' + $match.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), 'Source: ' + $match.ProviderName, $match.Message)
+        [IO.File]::WriteAllText($OutputFile, ($lines -join [Environment]::NewLine), [Text.Encoding]::UTF8)
+    } else {
+        [IO.File]::WriteAllText($OutputFile, 'No matching Windows Application Error (Event ID 1000) was found for this TES3MP exit. A normal exit or an exception handled by the process may not create one.', [Text.Encoding]::UTF8)
+    }
+} catch {
+    [IO.File]::WriteAllText($OutputFile, 'Windows crash details unavailable: ' + $_.Exception.Message, [Text.Encoding]::UTF8)
+}
+    )"
+    try
+    {
+        DirCreate(AppDataDirectory)
+        FileDelete(resultPath)
+        FileDelete(scriptPath)
+        FileAppend(script, scriptPath, "UTF-8")
+        ; No shell interpolation: quote the time and paths as separate arguments.
+        command := '"' A_WinDir '\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '" "' timestamp '" "' resultPath '"'
+        RunWait(command, , "Hide")
+        if FileExist(resultPath)
+            return Trim(FileRead(resultPath, "UTF-8"))
+        return "Windows crash diagnostics could not be retrieved."
+    }
+    catch Error as err
+        return "Windows crash diagnostics unavailable: " err.Message
 }
 
 ShowResetAppDataActions(*)
