@@ -12,6 +12,10 @@ function New-Fixture {
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         Set-Content -LiteralPath $target -Value 'TEST PAYLOAD'
     }
+    $existingChat=Join-Path $install 'chat-host'
+    New-Item -ItemType Directory -Path $existingChat -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $existingChat 'chat.ini') -Value 'CUSTOM USER CHAT SIZE'
+    Set-Content -LiteralPath (Join-Path $existingChat 'chat.css') -Value 'CUSTOM USER CHAT STYLE'
     return @($install,(Join-Path $root 'stage'),$state)
 }
 function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
@@ -27,6 +31,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Successful transaction fixture failed.' }
     if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'NEW') { throw 'New launcher not installed.' }
     if ((Get-Content (Join-Path $f[0] 'user-note.txt') -Raw).Trim() -ne 'KEEP ME') { throw 'Unrelated install file was destroyed.' }
+    if ((Get-Content (Join-Path $f[0] 'chat-host\chat.ini') -Raw).Trim() -ne 'CUSTOM USER CHAT SIZE') { throw 'Update overwrote saved chat layout.' }
+    if ((Get-Content (Join-Path $f[0] 'chat-host\chat.css') -Raw).Trim() -ne 'CUSTOM USER CHAT STYLE') { throw 'Update overwrote saved chat theme.' }
     if ((Get-Content $f[2] -Raw) -notmatch 'State=LAUNCHED') { throw 'Successful state not recorded.' }
     Write-Host 'PASS: successful transaction preserves unrelated files.'
 
