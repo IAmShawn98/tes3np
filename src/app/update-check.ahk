@@ -268,6 +268,33 @@ UpdateNotesMouseWheel(dialog, page, refresh, wParam, lParam, msg, hwnd)
     return 0
 }
 
+UpdateNotesDragMove(drag, page, refresh)
+{
+    if !drag.Active
+        return
+    if !GetKeyState("LButton", "P") {
+        drag.Active := false
+        SetTimer(drag.Timer, 0)
+        return
+    }
+    MouseGetPos(, &mouseY)
+    maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
+    travel := Max(1, 107 - drag.ThumbHeight)
+    page.Offset := 1 + Round((mouseY - drag.StartY) * (maxOffset - 1) / travel) + drag.StartOffset - 1
+    refresh()
+}
+
+StartUpdateNotesDrag(drag, page, refresh, *)
+{
+    if page.Lines.Length <= page.Visible
+        return
+    drag.Active := true
+    MouseGetPos(, &drag.StartY)
+    drag.StartOffset := page.Offset
+    drag.Timer := UpdateNotesDragMove.Bind(drag, page, refresh)
+    SetTimer(drag.Timer, 16)
+}
+
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
 {
     global LauncherGui, UpdateReleasePage
@@ -298,16 +325,19 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         noteRows.Push(panel.Add("Text", "x38 y" (218 + (A_Index - 1) * 24) " w536 h24 Background171008", ""))
     track := panel.Add("Text", "x585 y237 w16 h107 Background704C27")
     thumb := panel.Add("Text", "x589 y237 w8 h30 BackgroundC69951")
+    drag := {Active: false, StartY: 0, StartOffset: 1, ThumbHeight: 30, Timer: 0}
     refresh(*) {
         maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
         page.Offset := Min(maxOffset, Max(1, page.Offset))
         for index, row in noteRows
             row.Text := index + page.Offset - 1 <= page.Lines.Length ? page.Lines[index + page.Offset - 1] : ""
         thumbHeight := Max(22, Round(107 * Min(1, page.Visible / Max(1, page.Lines.Length))))
+        drag.ThumbHeight := thumbHeight
         thumb.Move(589, 237 + Round((107 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
+    thumb.OnEvent("Click", StartUpdateNotesDrag.Bind(drag, page, refresh))
     scrollUp := AddStyledButton(panel, 583, 211, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
     scrollDown := AddStyledButton(panel, 583, 348, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
     refresh()
@@ -326,6 +356,9 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
     OnMessage(0x020A, wheelCallback, 0)
+    drag.Active := false
+    if IsObject(drag.Timer)
+        SetTimer(drag.Timer, 0)
     backdrop.Destroy()
     if state.Retry
         SetTimer(CheckForUpdates, -100)
