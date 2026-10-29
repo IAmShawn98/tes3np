@@ -74,7 +74,7 @@ OpenPatcher(*)
         PatchPage.SetFont("s16 Bold c382314", "Georgia")
         PatchPage.Add("Text", "x20 y15 w720 h30", "Patch Tes3mp")
         PatchPage.SetFont("s10 Norm c382314", "Segoe UI")
-        PatchPage.Add("Text", "x20 y55 w720 h70", "Install the supplied markerless client and NP Expansion Pack v0.1. Close the game and OpenMW Launcher first. Existing files are backed up before replacement. Use TES3MP 0.8.1 for 64-bit Windows and Morrowind GOTY.")
+        PatchPage.Add("Text", "x20 y55 w720 h70", "Optional NP Expansion Pack v0.1. The markerless client is already bundled with TES3NP. Install this expansion only if you choose to. Existing game files are backed up before replacement.")
         config := PatchConfigurationPath()
         PatchPage.Add("Text", "x20 y130 w720 h22", "TES3MP folder (detected when tes3np is placed inside it)")
         PatchTesInput := PatchPage.Add("Edit", "x20 y155 w620 h25", FindTES3MPFolder())
@@ -136,11 +136,9 @@ StartPatchAction(action, *)
     if PatchInProgress()
         return
     tesFolder := Trim(PatchTesInput.Value)
-    if action != "Restore" && !CheckModifiedClientForPatch(tesFolder, action)
-        return
     if action = "Restore" && MsgBox("Restore files replaced by the most recent patch? Files changed afterward will be protected and may prevent restore.", "Restore Backup", 0x124) != "Yes"
         return
-    if action = "Apply" && MsgBox("Install the markerless client, copy the NP Expansion Pack into Morrowind, and enable NP Expansion Pack.esp last in the selected load order? Replaced files will be backed up.", "Patch Tes3mp", 0x124) != "Yes"
+    if action = "Apply" && MsgBox("Install the OPTIONAL NP Expansion Pack into Morrowind and enable NP Expansion Pack.esp last? The original TES3MP executable will not be changed.", "Optional Expansion Pack", 0x124) != "Yes"
         return
     StartPatchWorker(action, tesFolder, Trim(PatchMorrowindInput.Value), Trim(PatchConfigInput.Value), PatchPage)
 }
