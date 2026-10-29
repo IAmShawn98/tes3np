@@ -729,26 +729,55 @@ ShowResetAppDataActions(*)
 OpenClientSelectionSettings(*)
 {
     global DataFile, AppDataDirectory, ExecutableInput
-    answer := MsgBox("Use a custom TES3MP client?`n`nYes = Choose custom tes3mp.exe`nNo = Return to TES3NP bundled client`nCancel = Leave unchanged.`n`nCustom clients must include the full TES3MP runtime. Your desktop shortcut continues to open TES3NP.", "Game Client", "YesNoCancel Icon?")
-    if answer = "Cancel"
+    ; Keep the selection explicit: bundling is default, with two independent
+    ; ways to supply custom binaries and dependencies.
+    bundled := MsgBox("Choose your TES3MP client mode.`n`nYes — Bundled TES3NP client (recommended)`nNo — Choose a custom client option`nCancel — Keep current selection", "Game Client", "YesNoCancel Icon?")
+    if bundled = "Cancel"
         return
-    if answer = "No"
+    if bundled = "Yes"
     {
         DirCreate(AppDataDirectory)
         IniWrite("Bundled", DataFile, "Launch", "ClientMode")
         try ExecutableInput.Value := GetSharedExecutable()
-        MsgBox("Bundled TES3MP client selected. This will apply to future launches.", "Game Client")
+        MsgBox("Bundled TES3MP client selected.", "Game Client")
         return
     }
-    path := FileSelect(1, , "Select your custom tes3mp.exe", "TES3MP executable (tes3mp.exe)")
-    if path = ""
+    custom := MsgBox("Choose custom client type:`n`nYes — Custom EXE only (uses TES3NP runtime dependencies)`nNo — Complete custom runtime folder (uses your own dependencies and resources)`nCancel — Keep current selection", "Custom TES3MP client", "YesNoCancel Icon?")
+    if custom = "Cancel"
         return
-    SplitPath(path, &filename)
-    if StrLower(filename) != "tes3mp.exe" || !ValidateSelectedClientRuntime(path)
-        return
+    if custom = "Yes"
+    {
+        path := FileSelect(1, , "Select your modified tes3mp.exe", "Executable (*.exe)")
+        if path = ""
+            return
+        SplitPath(path, &filename)
+        if StrLower(filename) != "tes3mp.exe" || !FileExist(path)
+        {
+            MsgBox("Please choose a file named tes3mp.exe.", "Custom EXE", "Icon!")
+            return
+        }
+        if !PrepareMarkerlessClientRuntime()
+            return
+        mode := "CustomExe"
+    }
+    else
+    {
+        folder := DirSelect(, 3, "Select the complete custom TES3MP runtime folder")
+        if folder = ""
+            return
+        path := RTrim(folder, "\/") "\tes3mp.exe"
+        if !ValidateSelectedClientRuntime(path)
+            return
+        mode := "CustomRuntime"
+    }
     DirCreate(AppDataDirectory)
+    ; Write the path before the mode, so an interrupted write cannot switch
+    ; modes before its selected binary is recorded.
     IniWrite(path, DataFile, "Launch", "CustomExecutable")
-    IniWrite("Custom", DataFile, "Launch", "ClientMode")
-    try ExecutableInput.Value := GetSharedExecutable()
-    MsgBox("Custom TES3MP client selected for future game launches. TES3NP updates will not replace your custom files.", "Game Client")
+    IniWrite(mode, DataFile, "Launch", "ClientMode")
+    ; Don't stage custom EXE files just to update the label.
+    try ExecutableInput.Value := mode = "CustomExe" ? path " (TES3NP runtime)" : path
+    MsgBox(mode = "CustomExe"
+        ? "Custom EXE selected. TES3NP will prepare an isolated copy of the bundled runtime when you launch a game. Your original binary will not be modified."
+        : "Custom runtime selected. TES3NP will use your chosen executable, resources, and dependencies in place without modifying them.", "Game Client")
 }
