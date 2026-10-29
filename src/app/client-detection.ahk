@@ -127,7 +127,7 @@ PrepareMarkerlessClientRuntime()
     }
     try
     {
-        for name in [requiredConfig, "openmw.cfg", "tes3mp-client.cfg"]
+        for name in [requiredConfig, "openmw.cfg", "tes3mp-client.cfg", "defaults.bin", "gamecontrollerdb.txt"]
         {
             source := tesFolder "\" name
             target := clientFolder "\" name
@@ -147,6 +147,11 @@ PrepareMarkerlessClientRuntime()
     {
         LogLauncherEvent("TES3MP runtime preparation failed: " err.Message)
         MsgBox("Could not prepare TES3MP runtime files next to the bundled client: " err.Message, "TES3MP runtime setup", "Icon!")
+        return false
+    }
+    if !FileExist(clientFolder "\defaults.bin")
+    {
+        MsgBox("The TES3MP installation is missing defaults.bin, which is required to start the game. Choose a complete TES3MP 0.8.1 installation.", "Incomplete TES3MP runtime", "Icon!")
         return false
     }
     EnvSet("PATH", tesFolder ";" EnvGet("PATH"))
