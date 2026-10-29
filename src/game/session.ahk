@@ -1,5 +1,53 @@
 ﻿; Single-client login, sequential launches and crash recovery.
 
+; Track successfully launched clients without retaining credentials or HWNDs.
+global TES3NPActiveGamePids := []
+
+CountTES3NPGameClients()
+{
+    global TES3NPActiveGamePids, Client
+    live := []
+    for pid in TES3NPActiveGamePids
+        if pid && ProcessExist(pid)
+            live.Push(pid)
+    TES3NPActiveGamePids := live
+    ; A game still undergoing automated login also occupies a slot.
+    if IsObject(Client) && Client.Enabled && Client.PID && ProcessExist(Client.PID)
+    {
+        found := false
+        for pid in live
+            if pid = Client.PID
+                found := true
+        if !found
+            return live.Length + 1
+    }
+    return live.Length
+}
+
+RememberTES3NPGameClient(pid)
+{
+    global TES3NPActiveGamePids
+    if !pid
+        return
+    CountTES3NPGameClients()
+    for existing in TES3NPActiveGamePids
+        if existing = pid
+            return
+    TES3NPActiveGamePids.Push(pid)
+}
+
+CanStartAnotherTES3NPGame()
+{
+    count := CountTES3NPGameClients()
+    if count >= 4
+    {
+        LogLauncherEvent("GAME | BLOCKED | Four TES3MP clients are already running.")
+        MsgBox("TES3NP allows up to four simultaneous TES3MP clients. Close one game client before launching another.", "Game client limit")
+        return false
+    }
+    return true
+}
+
 LaunchProfile(*)
 {
     global SelectedProfile
@@ -41,10 +89,10 @@ LaunchProfileIndex(index)
     if Client.Enabled
     {
         LogLauncherEvent("GAME | BLOCKED | Launch requested while another monitored session is active.")
-        MsgBox("A game session is already running. Stop recovery from the tray before launching another.", "tes3np")
+        MsgBox("TES3NP is still completing a character login. Try the next character when that login finishes.", "tes3np")
         return
     }
-    if index < 1 || index > Profiles.Length
+    if index < 1 || index > Profiles.Length || !CanStartAnotherTES3NPGame()
         return
     executable := GetSharedExecutable()
     if ValidateLaunch(Profiles[index], executable)
@@ -63,6 +111,13 @@ LaunchAllCharacters(*)
     }
     if Profiles.Length < 2
         return
+    if !CanStartAnotherTES3NPGame()
+        return
+    if Profiles.Length > 4 - CountTES3NPGameClients()
+    {
+        MsgBox("This would exceed the four-client server limit. Choose fewer characters or close running clients.", "Game client limit")
+        return
+    }
     executable := GetSharedExecutable()
     queue := []
     for profile in Profiles
@@ -392,8 +447,12 @@ ClientTick()
         if Client.Phase = "loading"
         {
             Client.Phase := "playing"
-            SetClientStatus("Login inputs completed.")
-            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name ".")
+            RememberTES3NPGameClient(Client.PID)
+            SetClientStatus("Login inputs completed. You can return to TES3NP and launch another character (up to four clients).")
+            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
+            ; Completed manual logins no longer hold the one-at-a-time login
+            ; watchdog. Keep the game running and allow another launch.
+            StopClient()
             return
         }
         WinActivate("ahk_id " hwnd)
@@ -450,6 +509,8 @@ StartNewAdventure(*)
         MsgBox("A game session is already being monitored. Use the tray menu to stop recovery before starting another.", "tes3np")
         return
     }
+    if !CanStartAnotherTES3NPGame()
+        return
     executable := GetSharedExecutable()
     if !ValidateSelectedClientRuntime(executable)
         return
@@ -458,6 +519,7 @@ StartNewAdventure(*)
     try
     {
         Run('"' executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
+        RememberTES3NPGameClient(pid)
         LogLauncherEvent("GAME | SUCCESS | New Adventure TES3MP process started | PID: " pid ".")
     }
     catch Error as err
