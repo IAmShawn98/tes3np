@@ -1,46 +1,34 @@
-# tes3np — Nerevarine Prophecies Launcher
+# TES3NP — Nerevarine Prophecies launcher
 
-Launch Morrowind on the Nerevarine Prophecies multiplayer server, save your characters, and install the server patches from one place.
+TES3NP is a Windows x64 launcher for the Nerevarine Prophecies TES3MP server. It supports saved characters, automated login, scheduled events, optional custom TES3MP clients, Game Chat, and the optional NP Expansion Pack.
 
-## What you need
+**Status: development alpha — not approved for public redistribution.** The packaged modified TES3MP executable still requires corresponding source/build provenance and a completed third-party licensing audit before a public release.
 
-- A Windows PC.
-- Morrowind **Game of the Year Edition**, installed with Tribunal and Bloodmoon.
-- **TES3MP 0.8.1 for Windows 64-bit**, downloaded and extracted.
-- For the source ZIP only: **AutoHotkey v2**, installed. The Windows executable package includes it.
+## Requirements
 
-Morrowind and TES3MP are not included in this download.
+- Windows 10 or Windows 11 (64-bit).
+- A legitimate installation of **Morrowind Game of the Year Edition** with Tribunal and Bloodmoon.
+- WebView2 Runtime for embedded Discord Game Chat. The rest of the launcher should work without WebView2.
 
-## Install the Windows launcher
+The **complete Windows ZIP includes TES3MP 0.8.1** and its client dependencies. You do **not** need to download a separate TES3MP client, AutoHotkey, Python, or the .NET SDK to run a finished ZIP. Morrowind game files are **not** included.
 
-Download the **tes3np-windows** package from the completed **Build Windows launcher** run under this repository’s **Actions** tab. Extract the downloaded artifact ZIP, then extract `tes3np-windows.zip`. Move the `tes3np` folder into your TES3MP folder and double-click **tes3np.exe**. Its custom icon is embedded, and no separate AutoHotkey installation is needed. Keep the accompanying folders together.
+## Installing a packaged build
 
-Choose **Patch Tes3mp** if shown, finish setup, then choose **Start New Adventure** or **Returning Fetcher**.
+1. Obtain an approved complete Windows ZIP or private test artifact.
+2. Extract `tes3np-windows.zip` into a writable folder such as `Documents\TES3NP`. Keep `tes3np.exe`, `client`, `chat-host`, and the other packaged folders together.
+3. Run `tes3np.exe` normally. If Morrowind GOTY is not found, use the folder picker.
+4. Choose **Manage Characters** to add or edit characters. Optional custom clients and the Expansion Pack are configured separately.
 
-## Install from source in 4 steps
+The Expansion Pack is **optional** and controlled globally by the launcher button. Close game clients before toggling it. The launcher maintains settings, profiles, logs, and custom-client overrides under `%APPDATA%\tes3np`; do not delete this directory during upgrades.
 
-1. **Download:** Click the green **Code** button on this GitHub page, then **Download ZIP**.
-2. **Extract:** Right-click the ZIP and choose **Extract All**. Move the extracted launcher folder into your TES3MP folder—the folder containing `tes3mp.exe`. Keep everything inside the launcher folder together.
-3. **Set up:** Open the launcher folder and double-click **tes3np.ahk**. If **Patch Tes3mp** appears, click it, check the suggested locations, read the Expansion Pack license, and click **Install / Repair**. Wait for setup to finish.
-4. **Play:** Choose **Start New Adventure** to log in yourself, or **Returning Fetcher** to add an existing character and save its login details.
+**Export Data warning:** Exported character backup files contain readable passwords. Keep them private and never attach them to public issues.
 
-Already patched? The launcher checks your installation and opens the normal menu when everything is ready.
+## Building from source
 
-Need help choosing folders? See the [step-by-step installation guide](docs/INSTALLATION.md).
+See [development instructions](docs/DEVELOPMENT.md) and [release procedure](docs/RELEASING.md). The Windows source build requires Python, the Windows PowerShell environment, a .NET SDK, and downloads of AutoHotkey/Ahk2Exe and the official TES3MP runtime. Run `Build tes3np.bat` after acquiring the complete source and verified payloads.
 
-## Your next launch
+## Documentation
 
-Tick a character in **Manage Characters** to make it your favorite. Next time you open tes3np, you can launch that character directly or open the launcher.
+[Install and troubleshoot](docs/INSTALLATION.md) · [User guide](docs/USER-GUIDE.md) · [Alpha verification](docs/ALPHA-COMPATIBILITY-CHECKLIST.md) · [Release gates](docs/RELEASING.md) · [Report an issue](../../issues)
 
-- **Play** launches any saved character.
-- **Edit** changes a character's login details, waiting times, and automatic reconnect option.
-- **Our Wiki** opens the Nerevarine Prophecies wiki.
-- **Macros** lets you import and run macros you trust.
-
-Removing a character from the launcher does not delete it in the game. Use **Export Data** before moving to another PC; the exported file contains passwords, so keep it private.
-
-## Help
-
-[Installation help](docs/INSTALLATION.md) · [User guide](docs/USER-GUIDE.md) · [Report a problem](../../issues)
-
-Technical details: [Development](docs/DEVELOPMENT.md) · [Architecture](docs/ARCHITECTURE.md) · [Patching](docs/PATCHING.md) · [Releases](docs/RELEASING.md)
+TES3MP's upstream project identifies its license as GPLv3 with additional permitted terms. Do not publicly distribute a modified TES3MP binary without the required corresponding source and applicable notices.
