@@ -101,6 +101,9 @@ StartLauncher()
     SetTimer(CheckForUpdateAvailability, -250)
     ; Offer the shortcut once after the first window is visible; never block startup.
     SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
+    ; Once per installation, find the actual Morrowind data directory without
+    ; requiring or patching a separately installed TES3MP runtime.
+    SetTimer(CheckFirstRunMorrowind, -2300)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
