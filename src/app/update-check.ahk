@@ -87,26 +87,40 @@ AddGoldUpdateButton(gui, x, y, width, height, caption)
     return clickable
 }
 
+CreateUpdateBackdrop()
+{
+    global LauncherGui
+    ; Dim only the launcher, not the entire desktop; keep the focused panel above it.
+    LauncherGui.GetPos(&lx, &ly, &lw, &lh)
+    dim := Gui("-Caption -Border -DPIScale +ToolWindow +Owner" LauncherGui.Hwnd, "tes3np Update Backdrop")
+    dim.BackColor := "000000"
+    dim.Show("NA x" lx " y" ly " w" lw " h" lh)
+    WinSetTransparent(165, "ahk_id " dim.Hwnd)
+    return dim
+}
+
 ShowGoldUpdateConfirmation(title, message, confirmLabel)
 {
     global LauncherGui
     response := {Accepted: false}
-    window := Gui("-Caption -Border +Owner" LauncherGui.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Confirmation")
+    backdrop := CreateUpdateBackdrop()
+    window := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Confirmation")
     window.BackColor := "C5A45C"
-    window.Add("Text", "x2 y2 w516 h194 Background171008")
+    window.Add("Text", "x2 y2 w636 h254 Background171008")
     window.SetFont("s15 Bold cC5A45C", "Georgia")
-    window.Add("Text", "x22 y18 w470 h32 BackgroundTrans", title)
+    window.Add("Text", "x32 y26 w588 h32 BackgroundTrans", title)
     window.SetFont("s10 cFFFFFF", "Segoe UI")
-    window.Add("Text", "x22 y66 w470 h67 BackgroundTrans", message)
-    confirm := AddGoldUpdateButton(window, 145, 153, 175, 29, confirmLabel)
-    cancel := AddGoldUpdateButton(window, 333, 153, 165, 29, "Not Now")
+    window.Add("Text", "x32 y86 w588 h67 BackgroundTrans", message)
+    confirm := AddGoldUpdateButton(window, 221, 203, 185, 34, confirmLabel)
+    cancel := AddGoldUpdateButton(window, 422, 203, 185, 34, "Not Now")
     confirm.OnEvent("Click", (*) => (response.Accepted := true, window.Destroy()))
     cancel.OnEvent("Click", (*) => window.Destroy())
     window.OnEvent("Escape", (*) => window.Destroy())
     window.OnEvent("Close", (*) => window.Destroy())
-    window.Show("w520 h198 Center")
+    window.Show("w640 h258 Center")
     hwnd := window.Hwnd
     WinWaitClose("ahk_id " hwnd)
+    backdrop.Destroy()
     return response.Accepted
 }
 
@@ -115,31 +129,33 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     global LauncherGui, UpdateReleasePage
     ; This is an informational, owned dialog. No updater work occurs here.
     response := {Download: false}
-    preview := Gui("-Caption -Border +Owner" LauncherGui.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Preview")
+    backdrop := CreateUpdateBackdrop()
+    preview := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Update Preview")
     preview.BackColor := "C5A45C"
     preview.SetFont("s10 cC5A45C", "Segoe UI")
-    preview.Add("Text", "x2 y2 w516 h280 Background171008")
+    preview.Add("Text", "x2 y2 w636 h340 Background171008")
     preview.SetFont("s15 Bold cC5A45C", "Georgia")
-    preview.Add("Text", "x22 y18 w470 h32 BackgroundTrans", "Update Preview")
+    preview.Add("Text", "x32 y26 w588 h32 BackgroundTrans", "Update Preview")
     preview.SetFont("s11 cFFFFFF", "Segoe UI")
-    preview.Add("Text", "x22 y65 w470 h24 BackgroundTrans", "Preview Latest v" latestVersion " Update!")
+    preview.Add("Text", "x32 y86 w588 h24 BackgroundTrans", "Preview Latest v" latestVersion " Update!")
     preview.SetFont("s10 cFFFFFF", "Segoe UI")
-    preview.Add("Text", "x22 y102 w470 h22 BackgroundTrans", "Installed: v" installedVersion)
-    preview.Add("Text", "x22 y128 w470 h22 BackgroundTrans", "Latest: v" latestVersion)
-    preview.Add("Text", "x22 y154 w470 h22 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+    preview.Add("Text", "x32 y137 w588 h22 BackgroundTrans", "Installed: v" installedVersion)
+    preview.Add("Text", "x32 y168 w588 h22 BackgroundTrans", "Latest: v" latestVersion)
+    preview.Add("Text", "x32 y202 w588 h22 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
     preview.SetFont("s10 cC5A45C", "Segoe UI")
-    preview.Add("Text", "x22 y181 w470 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
-    preview.Add("Text", "x22 y216 w470 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
-    downloadButton := AddGoldUpdateButton(preview, 22, 245, 185, 28, "Continue to Download")
-    laterButton := AddGoldUpdateButton(preview, 218, 245, 115, 28, "Not Now")
-    releaseButton := AddGoldUpdateButton(preview, 344, 245, 154, 28, "Release Notes")
+    preview.Add("Text", "x32 y261 w588 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
+    preview.Add("Text", "x32 y280 w588 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
+    downloadButton := AddGoldUpdateButton(preview, 32, 303, 230, 34, "Continue to Download")
+    laterButton := AddGoldUpdateButton(preview, 276, 303, 140, 34, "Not Now")
+    releaseButton := AddGoldUpdateButton(preview, 430, 303, 178, 34, "Release Notes")
     downloadButton.OnEvent("Click", (*) => (response.Download := true, preview.Destroy()))
     laterButton.OnEvent("Click", (*) => preview.Destroy())
     releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
     preview.OnEvent("Close", (*) => preview.Destroy())
     preview.OnEvent("Escape", (*) => preview.Destroy())
-    preview.Show("w520 h284 Center")
+    preview.Show("w640 h344 Center")
     WinWaitClose("ahk_id " preview.Hwnd)
+    backdrop.Destroy()
     return response.Download ? "Yes" : "No"
 }
 
@@ -147,18 +163,19 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
 {
     global LauncherGui, UpdateReleasePage
     state := {Retry: false}
-    panel := Gui("-Caption -Border +Owner" LauncherGui.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Version Status")
+    backdrop := CreateUpdateBackdrop()
+    panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
-    panel.Add("Text", "x2 y2 w516 h278 Background171008")
+    panel.Add("Text", "x2 y2 w636 h338 Background171008")
     panel.SetFont("s15 Bold cC5A45C", "Georgia")
     heading := mode = "current" ? "tes3np is Up to Date"
         : mode = "ahead" ? "Installed Version is Newer"
         : mode = "disabled" ? "Automatic Update Unavailable" : "Unable to Check for Updates"
-    panel.Add("Text", "x22 y18 w472 h32 BackgroundTrans", heading)
+    panel.Add("Text", "x32 y26 w588 h32 BackgroundTrans", heading)
     panel.SetFont("s10 cFFFFFF", "Segoe UI")
-    panel.Add("Text", "x22 y70 w470 h23 BackgroundTrans", "Installed: v" installedVersion)
-    panel.Add("Text", "x22 y99 w470 h23 BackgroundTrans", "Latest public: " (latestVersion != "" ? "v" latestVersion : "Not verified"))
-    panel.Add("Text", "x22 y128 w470 h23 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+    panel.Add("Text", "x32 y96 w588 h23 BackgroundTrans", "Installed: v" installedVersion)
+    panel.Add("Text", "x32 y132 w588 h23 BackgroundTrans", "Latest public: " (latestVersion != "" ? "v" latestVersion : "Not verified"))
+    panel.Add("Text", "x32 y168 w588 h23 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
     panel.SetFont("s10 cC5A45C", "Segoe UI")
     message := mode = "current"
         ? "Status: Up to date. No download or installation is needed."
@@ -166,18 +183,19 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         : mode = "disabled"
         ? "Automatic updates are unavailable. View the official releases instead."
         : "Update status could not be verified. No update was installed."
-    panel.Add("Text", "x22 y165 w470 h54 BackgroundTrans", message)
-    notes := AddGoldUpdateButton(panel, 22, 240, 155, 28, "View Release Notes")
-    retry := AddGoldUpdateButton(panel, 187, 240, 145, 28, "Check Again")
-    close := AddGoldUpdateButton(panel, 342, 240, 156, 28, "Close")
+    panel.Add("Text", "x32 y220 w588 h54 BackgroundTrans", message)
+    notes := AddGoldUpdateButton(panel, 32, 301, 195, 34, "View Release Notes")
+    retry := AddGoldUpdateButton(panel, 242, 301, 160, 34, "Check Again")
+    close := AddGoldUpdateButton(panel, 417, 301, 191, 34, "Close")
     notes.OnEvent("Click", (*) => Run(UpdateReleasePage))
     retry.OnEvent("Click", (*) => (state.Retry := true, panel.Destroy()))
     close.OnEvent("Click", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
-    panel.Show("w520 h282 Center")
+    panel.Show("w640 h342 Center")
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
+    backdrop.Destroy()
     if state.Retry
         SetTimer(CheckForUpdates, -100)
 }
