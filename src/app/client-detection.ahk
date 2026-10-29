@@ -105,6 +105,51 @@ PrepareMarkerlessClientRuntime()
     return true
 }
 
+; Stage a bare custom executable alongside a COPY of bundled dependencies.
+; Never overwrite TES3NP's bundled client or the user's original binary.
+GetManagedCustomClientExecutable(source)
+{
+    global AppDataDirectory
+    SplitPath(source, &filename)
+    if StrLower(filename) != "tes3mp.exe" || !FileExist(source)
+        return source
+    bundled := A_ScriptDir "\client"
+    if !FileExist(bundled "\defaults.bin")
+        return source
+    ; Stable cache key includes the source path, file size and modified time,
+    ; and bundled runtime version. Changed binaries get a fresh directory.
+    token := source "|" FileGetSize(source) "|" FileGetTime(source, "M")
+        . "|" FileGetSize(bundled "\defaults.bin") "|" FileGetTime(bundled "\defaults.bin", "M")
+        . "|" FileGetSize(bundled "\tes3mp.exe") "|" FileGetTime(bundled "\tes3mp.exe", "M")
+    key := 2166136261
+    Loop Parse token
+        key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
+    folder := AppDataDirectory "\client-cache\" Format("{:08X}", key)
+    output := folder "\tes3mp.exe"
+    if FileExist(folder "\.ready") && FileExist(output)
+        return output
+    ; A new cache folder is assembled completely before its ready marker is
+    ; written. Interrupted preparation will be retried on the next launch.
+    try
+    {
+        if DirExist(folder)
+            DirDelete(folder, true)
+        DirCreate(AppDataDirectory "\client-cache")
+        DirCopy(bundled, folder, true)
+        FileCopy(source, output, true)
+        FileAppend(source "`n", folder "\.ready", "UTF-8")
+        LogLauncherEvent("GAME | Custom executable prepared with bundled runtime.")
+        return output
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("GAME | Custom executable staging failed: " err.Message)
+        MsgBox("Could not prepare custom TES3MP executable:`n" err.Message
+            . "`n`nYour original file and bundled client were not changed.", "Custom client error", "Icon!")
+        return ""
+    }
+}
+
 ; Validate the selected runtime rather than assuming the bundled client.
 ValidateSelectedClientRuntime(executable)
 {
