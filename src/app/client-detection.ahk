@@ -196,10 +196,17 @@ GetMergedCustomClientExecutable()
         for file in files
         {
             relative := StrLower(SubStr(file, StrLen(root) + 2))
-            checksum := SHA256File(file)
-            if checksum = ""
-                throw Error("Could not hash runtime file: " relative)
-            signature .= relative "|" checksum ";"
+            ; Bundled files are shipped as a build artifact. Avoid launching
+            ; certutil for every bundled asset on each GetSharedExecutable call.
+            if root = bundled
+                signature .= relative "|" FileGetSize(file) "|" FileGetTime(file, "M") ";"
+            else
+            {
+                checksum := SHA256File(file)
+                if checksum = ""
+                    throw Error("Could not hash custom override: " relative)
+                signature .= relative "|" checksum ";"
+            }
         }
     }
     key := 2166136261
