@@ -19,6 +19,7 @@ OpenCharacterPage(*)
     ; those object references unless explicitly cleared.
     CharacterRows := []
     LaunchSettingsControls := []
+    ExecutableInput := 0
     EditorControls := []
     V016DailyLoginControls := []
     ; The previous CharacterPage was destroyed when leaving the scheduler, so
@@ -33,7 +34,8 @@ OpenCharacterPage(*)
     ; interactive buttons in their existing button font for readability.
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
     CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
-    LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans", "Launch Settings")
+    ; Retain a hidden heading only for the character editor and scheduler views.
+    LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
@@ -62,16 +64,6 @@ OpenCharacterPage(*)
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "Bundled markerless TES3MP client")
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    SetInterfaceLoadingText("Loading executable field...")
-    ExecutableInput := AddThemedEdit(CharacterPage, "x525 y137 w270", GetSharedExecutable())
-    ExecutableInput.Enabled := false
-    SetInterfaceLoadingText("Loading Browse button...")
-    ExecutableInput.GetPos(, &executableY, , &executableHeight)
-    browse := AddStyledButton(CharacterPage, 805, executableY, 80, executableHeight, "Bundled", (*) => 0)
-    browse.Enabled := false
-    LaunchSettingsControls := [executableLabel, ExecutableInput, browse]
     SessionStatus := CharacterPage.Add("Text", "x70 y555 w370 h50 Hidden", "")
     SetInterfaceLoadingText("Loading Launch button...")
     LaunchCharacterButton := AddStyledButton(CharacterPage, 70, 510, 370, 30, "Launch character", LaunchProfile)
@@ -234,7 +226,7 @@ HideProfileEditor()
     ; Ignore those stale handles; OpenCharacterPage will populate fresh controls.
     for control in EditorControls
         try control.Visible := false
-    try LaunchSettingsHeading.Text := "Launch Settings"
+    try LaunchSettingsHeading.Visible := false
     for control in LaunchSettingsControls
         try control.Visible := true
 }
@@ -266,6 +258,7 @@ EditProfile(index, *)
     {
         profile := index ? Profiles[index] : NewCharacterProfile()
         LaunchSettingsHeading.Text := index ? "Editing " profile.Name : "Add New Character"
+        LaunchSettingsHeading.Visible := true
         for control in LaunchSettingsControls
             control.Visible := false
         editor := CharacterPage
