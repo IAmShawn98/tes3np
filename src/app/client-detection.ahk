@@ -246,18 +246,26 @@ InstallCustomClientOverrides(source, dependencies := "")
         DirCreate(incoming)
         if dependencies != ""
         {
-            ; Copy the selected folder's contents, preserving relative paths
-            ; such as resources\\mygui\\openmw_hud.layout. Do not accidentally
-            ; nest the folder itself under incoming.
+            ; Both resources\mygui and mygui folder selections must yield
+            ; resources\mygui\*.layout in the assembled client runtime.
             dependencies := RTrim(dependencies, "\/")
+            SplitPath(dependencies, &selectedName)
+            prefix := StrLower(selectedName) = "mygui" ? "resources\mygui\" :
+                StrLower(selectedName) = "resources" ? "resources\" : ""
+            copied := 0
             Loop Files dependencies "\*", "FR"
             {
-                relative := SubStr(A_LoopFileFullPath, StrLen(dependencies) + 2)
+                relative := prefix SubStr(A_LoopFileFullPath, StrLen(dependencies) + 2)
                 destination := incoming "\" relative
                 SplitPath(destination, , &destinationFolder)
                 DirCreate(destinationFolder)
                 FileCopy(A_LoopFileFullPath, destination, true)
+                copied += 1
+                LogLauncherEvent("GAME | Custom dependency staged | " relative)
             }
+            if copied = 0
+                throw Error("Selected dependencies folder contains no files.")
+            LogLauncherEvent("GAME | Dependencies selected | Files: " copied " | Prefix: " prefix ".")
         }
         ; Explicitly selected EXE always wins even when the dependencies
         ; folder also happens to contain its own tes3mp.exe.
