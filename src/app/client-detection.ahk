@@ -188,8 +188,19 @@ GetMergedCustomClientExecutable()
     for root in [bundled, overrides]
     {
         signature .= root "|"
+        ; Use file content checksums rather than timestamps: archives and
+        ; copied mods can retain their original sizes and modified times.
+        files := []
         Loop Files root "\*", "FR"
-            signature .= StrLower(SubStr(A_LoopFileFullPath, StrLen(root) + 2)) "|" A_LoopFileSize "|" A_LoopFileTimeModified ";"
+            files.Push(A_LoopFileFullPath)
+        for file in files
+        {
+            relative := StrLower(SubStr(file, StrLen(root) + 2))
+            checksum := SHA256File(file)
+            if checksum = ""
+                throw Error("Could not hash runtime file: " relative)
+            signature .= relative "|" checksum ";"
+        }
     }
     key := 2166136261
     Loop Parse signature
