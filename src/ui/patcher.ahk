@@ -74,9 +74,11 @@ FindTES3MPFolder()
         paths := [base, base "\TES3MP", base "\tes3mp.Win64.release.0.8.1",
             base "\tes3mp.Win64.release.0.8.1\tes3mp.Win64.release.0.8.1"]
         try
+        {
             Loop Files, base "\*", "D"
                 if InStr(StrLower(A_LoopFileName), "tes3mp")
                     paths.Push(A_LoopFileFullPath)
+        }
         for path in paths
         {
             normalized := StrLower(RTrim(path, "\/"))
