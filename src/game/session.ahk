@@ -20,7 +20,7 @@ ValidateLaunch(profile, executable)
     if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
     {
         LogLauncherEvent("GAME | BLOCKED | TES3MP executable is missing or invalid.")
-        MsgBox("Select an existing tes3mp.exe on the characters page.", "tes3np")
+        MsgBox("Bundled markerless client is missing. Reinstall the full TES3NP release.", "tes3np")
         return false
     }
     if profile.Password = ""
@@ -216,6 +216,8 @@ ClientTick()
             Client.LaunchIssued := true
             SplitPath(Client.Executable, , &workingDirectory)
             LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
+            if !PrepareMarkerlessClientRuntime()
+                throw Error("TES3MP runtime folder was not found.")
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
             Client.Phase := "window"
@@ -413,25 +415,15 @@ StartNewAdventure(*)
         MsgBox("A game session is already being monitored. Use the tray menu to stop recovery before starting another.", "tes3np")
         return
     }
-    executable := IniRead(DataFile, "Launch", "Executable", "")
-    SplitPath(executable, &filename)
-    if !FileExist(executable) || StrLower(filename) != "tes3mp.exe"
-        executable := FileSelect(1, , "Select tes3mp.exe to start your adventure", "Applications (*.exe)")
-    if executable = ""
+    executable := GetSharedExecutable()
+    if !FileExist(executable) || !PrepareMarkerlessClientRuntime()
         return
-    SplitPath(executable, &filename)
-    if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
-    {
-        LogLauncherEvent("GAME | BLOCKED | New Adventure executable selection is invalid.")
-        MsgBox("Select an existing tes3mp.exe.", "tes3np")
-        return
-    }
-    DirCreate(AppDataDirectory)
-    IniWrite(executable, DataFile, "Launch", "Executable")
     SplitPath(executable, , &workingDirectory)
     LogLauncherEvent("GAME | New Adventure launch requested.")
     try
     {
+        if !PrepareMarkerlessClientRuntime()
+            return
         Run('"' executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
         LogLauncherEvent("GAME | SUCCESS | New Adventure TES3MP process started | PID: " pid ".")
     }
