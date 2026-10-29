@@ -43,7 +43,7 @@ CheckForUpdates(*)
         if CompareTes3npVersions(latest, AppConfig.Version) <= 0 {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
-            ShowUpdateStatusPanel("current", AppConfig.Version, latest, manifest.channel)
+            ShowUpdateStatusPanel(CompareTes3npVersions(latest, AppConfig.Version) = 0 ? "current" : "ahead", AppConfig.Version, latest, manifest.channel)
             return
         }
         SetLauncherUpdateAvailable(true, latest)
@@ -118,6 +118,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel.Add("Text", "x2 y2 w516 h278 Background171008")
     panel.SetFont("s15 Bold cC5A45C", "Georgia")
     heading := mode = "current" ? "tes3np is Up to Date"
+        : mode = "ahead" ? "Installed Version is Newer"
         : mode = "disabled" ? "Automatic Update Unavailable" : "Unable to Check for Updates"
     panel.Add("Text", "x22 y18 w472 h32 BackgroundTrans", heading)
     panel.SetFont("s10 cFFFFFF", "Segoe UI")
@@ -127,6 +128,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     panel.SetFont("s10 cC5A45C", "Segoe UI")
     message := mode = "current"
         ? "Status: Up to date. No download or installation is needed."
+        : mode = "ahead" ? "Your installed version is ahead of the current public channel."
         : mode = "disabled"
         ? "Automatic updates are unavailable. View the official releases instead."
         : "Update status could not be verified. No update was installed."
