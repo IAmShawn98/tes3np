@@ -75,18 +75,6 @@ CheckForUpdates(*)
     }
 }
 
-; A gold-bordered dark button matches the loading-card palette without native white controls.
-; The inset is opaque near-black; against the gold frame it reads as a
-; translucent dark surface without applying transparency to the whole window.
-AddGoldUpdateButton(gui, x, y, width, height, caption)
-{
-    gui.Add("Text", "x" x " y" y " w" width " h" height " BackgroundC5A45C")
-    gui.SetFont("s10 Bold cC5A45C", "Segoe UI")
-    clickable := gui.Add("Text", "x" (x + 2) " y" (y + 2) " w" (width - 4) " h" (height - 4)
-        " +0x100 Center +0x200 Background171008", caption)
-    return clickable
-}
-
 CreateUpdateBackdrop()
 {
     global LauncherGui
@@ -132,10 +120,8 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     window.Add("Text", "x32 y26 w588 h32 BackgroundTrans", title)
     window.SetFont("s10 cFFFFFF", "Segoe UI")
     window.Add("Text", "x32 y86 w588 h67 BackgroundTrans", message)
-    confirm := AddGoldUpdateButton(window, 221, 203, 185, 34, confirmLabel)
-    cancel := AddGoldUpdateButton(window, 422, 203, 185, 34, "Not Now")
-    confirm.OnEvent("Click", (*) => (response.Accepted := true, window.Destroy()))
-    cancel.OnEvent("Click", (*) => window.Destroy())
+    confirm := AddStyledButton(window, 221, 203, 185, 34, confirmLabel, (*) => (response.Accepted := true, window.Destroy()))
+    cancel := AddStyledButton(window, 422, 203, 185, 34, "Not Now", (*) => window.Destroy())
     window.OnEvent("Escape", (*) => window.Destroy())
     window.OnEvent("Close", (*) => window.Destroy())
     ShowCenteredUpdateCard(window, backdrop, 640, 258)
@@ -166,12 +152,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     preview.SetFont("s10 cC5A45C", "Segoe UI")
     preview.Add("Text", "x32 y261 w588 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
     preview.Add("Text", "x32 y280 w588 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
-    downloadButton := AddGoldUpdateButton(preview, 32, 303, 230, 34, "Continue to Download")
-    laterButton := AddGoldUpdateButton(preview, 276, 303, 140, 34, "Not Now")
-    releaseButton := AddGoldUpdateButton(preview, 430, 303, 178, 34, "Release Notes")
-    downloadButton.OnEvent("Click", (*) => (response.Download := true, preview.Destroy()))
-    laterButton.OnEvent("Click", (*) => preview.Destroy())
-    releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
+    downloadButton := AddStyledButton(preview, 32, 303, 230, 34, "Continue to Download", (*) => (response.Download := true, preview.Destroy()))
+    laterButton := AddStyledButton(preview, 276, 303, 140, 34, "Not Now", (*) => preview.Destroy())
+    releaseButton := AddStyledButton(preview, 430, 303, 178, 34, "Release Notes", (*) => Run(UpdateReleasePage))
     preview.OnEvent("Close", (*) => preview.Destroy())
     preview.OnEvent("Escape", (*) => preview.Destroy())
     ShowCenteredUpdateCard(preview, backdrop, 640, 344)
@@ -231,12 +214,9 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     notesBox.Opt("-Tabstop")
     panel.SetFont("s9 cC5A45C", "Segoe UI")
     panel.Add("Text", "x28 y380 w584 h22 BackgroundTrans", notes.Source)
-    releaseButton := AddGoldUpdateButton(panel, 28, 412, 193, 32, "View on GitHub")
-    retry := AddGoldUpdateButton(panel, 234, 412, 166, 32, "Check Again")
-    close := AddGoldUpdateButton(panel, 413, 412, 199, 32, "Close")
-    releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
-    retry.OnEvent("Click", (*) => (state.Retry := true, panel.Destroy()))
-    close.OnEvent("Click", (*) => panel.Destroy())
+    releaseButton := AddStyledButton(panel, 28, 412, 193, 32, "View on GitHub", (*) => Run(UpdateReleasePage))
+    retry := AddStyledButton(panel, 234, 412, 166, 32, "Check Again", (*) => (state.Retry := true, panel.Destroy()))
+    close := AddStyledButton(panel, 413, 412, 199, 32, "Close", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
     ShowCenteredUpdateCard(panel, backdrop, 640, 456)
