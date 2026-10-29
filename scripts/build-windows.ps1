@@ -119,6 +119,16 @@ try {
         if ($hash -ine $item.SHA256) { throw "Damaged extracted patch file: $($item.Path)" }
     }
     Step "Verified $($manifest.Files.Count) extracted patch payload files"
+    # Ship markerless as a sidecar; do not extract it every time TES3NP launches.
+    $clientFolder = Join-Path $package 'client'
+    $null = New-Item -ItemType Directory -Path $clientFolder -Force
+    $markerlessSource = Join-Path $projectRoot 'patches\markerless\tes3mp.exe'
+    if (!(Test-Path -LiteralPath $markerlessSource)) { throw 'Bundled markerless client missing.' }
+    Copy-Item -LiteralPath $markerlessSource -Destination (Join-Path $clientFolder 'tes3mp.exe')
+    $markerlessManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
+    $expectedMarkerless = ($markerlessManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
+    if (!$expectedMarkerless -or (Get-FileHash (Join-Path $clientFolder 'tes3mp.exe') -Algorithm SHA256).Hash -ine $expectedMarkerless) { throw 'Bundled client SHA256 mismatch.' }
+    Step 'Verified bundled markerless TES3MP executable'
     Step 'Publishing embedded WebView2 chat host'
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
