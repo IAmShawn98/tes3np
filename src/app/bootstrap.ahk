@@ -300,7 +300,7 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
     ; unscaled coordinates when update availability changes.
     if LauncherUpdateAvailable && latestVersion != "" {
         LauncherUpdateButton.Text := "Preview Latest v" latestVersion " Update!"
-        DllCall("user32\\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
+        DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
     }
     LauncherUpdateButton.Visible := LauncherUpdateAvailable
     if LauncherControlLayout.Has(LauncherSettingsButton.Hwnd) {
