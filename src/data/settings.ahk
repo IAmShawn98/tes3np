@@ -83,6 +83,8 @@ GetSharedExecutable()
 {
     global DataFile
     mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
+    if mode = "CustomOverrides"
+        return GetMergedCustomClientExecutable()
     if mode = "CustomExe"
     {
         source := Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
