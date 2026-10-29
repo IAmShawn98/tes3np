@@ -2,6 +2,29 @@
 
 Status: **not yet release-approved**. Run these checks against a packaged Windows artifact, not just the source-tree development launcher. Preserve test logs and record OS version, edition, CPU architecture, install path, and whether WebView2 exists. Never publish character passwords.
 
+## Verified on an existing Windows development machine
+
+The following were reported as passed by the project tester on October 29,
+2026; they are **not** substitutes for clean-machine testing:
+- Complete local Windows build: PowerShell parser, source linter, AHK compile,
+  launcher `--check`, 143 embedded payload hashes, and final ZIP integrity.
+- Disposable updater transaction tests: six passed, including incomplete
+  package rejection and rollback after simulated failures.
+- Extracted standalone ZIP: character import (after the integer-control fix),
+  character editing and launching, saved schedules, data export, Game Chat,
+  and Expansion Pack enable/disable.
+- C# warnings reduced from five to one `WindowsBase` dependency conflict.
+- The shortcut-prompt persistence fix has **not** been re-verified after commit
+  `12b942d`; keep it open.
+
+## Work remaining for a tester
+
+Test on a separate Windows user profile or VM with an isolated `%APPDATA%`
+directory. **Do not delete a real user's launcher data or Morrowind directory.**
+The most valuable remaining checks are Windows 10/11 without SDKs installed,
+first-run discovery, WebView2 absence, update confirmation on a packaged build,
+permissions errors, and shortcut prompt persistence after backup import.
+
 ## Clean installation
 - [ ] Fresh Windows 11 x64 standard user, no AutoHotkey/.NET SDK/TES3MP installed: extract packaged ZIP to a normal user-writable directory; launcher opens.
 - [ ] Windows 10 x64 standard user: same test, including a machine without WebView2. Missing chat must not prevent game launching.
