@@ -1,4 +1,4 @@
-param([ValidateSet('Enable','Disable')][string]$Action,[string]$MorrowindFolder,[string]$ConfigFile,[string]$PayloadFolder,[string]$BackupFolder)
+param([ValidateSet('Enable','Disable')][string]$Action,[string]$MorrowindFolder,[string]$ConfigFile,[string]$PayloadFolder,[string]$BackupFolder,[string]$ResultFile='')
 $ErrorActionPreference='Stop'
 if(Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue){throw 'Close all game clients before changing the Expansion Pack.'}
 if([IO.Path]::GetFileName($ConfigFile) -ine 'openmw.cfg' -or !(Test-Path -LiteralPath $ConfigFile -PathType Leaf)){throw 'The active user openmw.cfg is missing.'}
@@ -49,9 +49,10 @@ try{
   [IO.File]::WriteAllText($temp,$new,[Text.UTF8Encoding]::new($false))
   [IO.File]::Replace($temp,$ConfigFile,$null)
  }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Force}}
- Write-Output ('Expansion Pack '+$Action+' complete.')
+ if($ResultFile){[IO.File]::WriteAllText($ResultFile,('Expansion Pack '+$Action+' complete.'),[Text.Encoding]::UTF8)}
  exit 0
 }catch{
  foreach($f in $copied){if(Test-Path -LiteralPath $f){Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue}}
- throw
+ if($ResultFile){[IO.File]::WriteAllText($ResultFile,$_.Exception.Message,[Text.Encoding]::UTF8)}
+ exit 1
 }
