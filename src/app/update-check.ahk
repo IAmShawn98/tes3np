@@ -275,16 +275,18 @@ UpdateNotesDragMove(drag, page, refresh)
     if !GetKeyState("LButton", "P") {
         drag.Active := false
         SetTimer(drag.Timer, 0)
+        DllCall("user32\ReleaseCapture")
         return
     }
     MouseGetPos(, &mouseY)
     maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
-    travel := Max(1, 107 - drag.ThumbHeight)
+    ; Mouse coordinates are physical pixels; use the actual on-screen track size.
+    travel := Max(1, drag.TrackPixels - drag.ThumbPixels)
     page.Offset := 1 + Round((mouseY - drag.StartY) * (maxOffset - 1) / travel) + drag.StartOffset - 1
     refresh()
 }
 
-StartUpdateNotesDrag(thumb, drag, page, refresh, wParam, lParam, msg, hwnd)
+StartUpdateNotesDrag(thumb, track, drag, page, refresh, wParam, lParam, msg, hwnd)
 {
     if hwnd != thumb.Hwnd || page.Lines.Length <= page.Visible
         return
@@ -292,6 +294,13 @@ StartUpdateNotesDrag(thumb, drag, page, refresh, wParam, lParam, msg, hwnd)
     MouseGetPos(, &startY)
     drag.StartY := startY
     drag.StartOffset := page.Offset
+    trackRect := Buffer(16, 0)
+    thumbRect := Buffer(16, 0)
+    DllCall("user32\GetWindowRect", "Ptr", track.Hwnd, "Ptr", trackRect)
+    DllCall("user32\GetWindowRect", "Ptr", thumb.Hwnd, "Ptr", thumbRect)
+    drag.TrackPixels := NumGet(trackRect, 12, "Int") - NumGet(trackRect, 4, "Int")
+    drag.ThumbPixels := NumGet(thumbRect, 12, "Int") - NumGet(thumbRect, 4, "Int")
+    DllCall("user32\SetCapture", "Ptr", thumb.Hwnd)
     drag.Timer := UpdateNotesDragMove.Bind(drag, page, refresh)
     SetTimer(drag.Timer, 16)
 }
@@ -303,28 +312,28 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     backdrop := CreateUpdateBackdrop()
     panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
-    panel.Add("Text", "x2 y2 w636 h392 Background171008")
+    panel.Add("Text", "x2 y2 w636 h410 Background171008")
     panel.SetFont("s12 Bold cC5A45C", "Georgia")
     panel.Add("Text", "x28 y18 w586 h38 BackgroundTrans", "You're All Caught Up, Fetcher!")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    panel.Add("Text", "x28 y61 w584 h49 BackgroundTrans",
+    panel.Add("Text", "x28 y61 w584 h64 BackgroundTrans",
         "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified.")
     panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
-    panel.Add("Text", "x28 y117 w584 h24 BackgroundTrans",
+    panel.Add("Text", "x28 y128 w584 h24 BackgroundTrans",
         "Build: v" installedVersion " Release Notes -")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     ; Gold-framed notes with the same vertical gold-on-brown scrollbar used
     ; by the launcher parchment. Arrows live at the ends of the track.
-    panel.Add("Text", "x28 y151 w584 h185 BackgroundC5A45C")
-    panel.Add("Text", "x30 y153 w580 h181 Background171008")
+    panel.Add("Text", "x28 y163 w584 h185 BackgroundC5A45C")
+    panel.Add("Text", "x30 y165 w580 h181 Background171008")
     notesLines := WrapReleaseNoteLines(notes.Text)
     page := {Offset: 1, Lines: notesLines, Visible: 6}
     noteRows := []
     Loop page.Visible
-        noteRows.Push(panel.Add("Text", "x38 y" (166 + (A_Index - 1) * 24) " w536 h24 Background171008", ""))
-    track := panel.Add("Text", "x585 y181 w16 h125 Background704C27")
-    thumb := panel.Add("Text", "x589 y181 w8 h30 BackgroundC69951")
+        noteRows.Push(panel.Add("Text", "x38 y" (178 + (A_Index - 1) * 24) " w536 h24 Background171008", ""))
+    track := panel.Add("Text", "x585 y193 w16 h125 Background704C27")
+    thumb := panel.Add("Text", "x589 y193 w8 h30 +0x100 BackgroundC69951")
     drag := {Active: false, StartY: 0, StartOffset: 1, ThumbHeight: 30, Timer: 0}
     refresh(*) {
         maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
@@ -333,24 +342,24 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
             row.Text := index + page.Offset - 1 <= page.Lines.Length ? page.Lines[index + page.Offset - 1] : ""
         thumbHeight := Max(22, Round(125 * Min(1, page.Visible / Max(1, page.Lines.Length))))
         drag.ThumbHeight := thumbHeight
-        thumb.Move(589, 181 + Round((125 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
+        thumb.Move(589, 193 + Round((125 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
-    dragStartCallback := StartUpdateNotesDrag.Bind(thumb, drag, page, refresh)
+    dragStartCallback := StartUpdateNotesDrag.Bind(thumb, track, drag, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
-    scrollUp := AddStyledButton(panel, 583, 155, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
-    scrollDown := AddStyledButton(panel, 583, 310, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
+    scrollUp := AddStyledButton(panel, 583, 167, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
+    scrollDown := AddStyledButton(panel, 583, 322, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
     refresh()
     ; Register an additional wheel callback only for this dialog's lifetime.
     ; It consumes wheel input solely inside the release-notes viewport.
     wheelCallback := UpdateNotesMouseWheel.Bind(panel, page, refresh)
     OnMessage(0x020A, wheelCallback, 1)
-    retry := AddStyledButton(panel, 100, 350, 213, 32, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
-    close := AddStyledButton(panel, 327, 350, 213, 32, "Close", (*) => panel.Destroy())
+    retry := AddStyledButton(panel, 100, 365, 213, 32, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
+    close := AddStyledButton(panel, 327, 365, 213, 32, "Close", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
-    ShowCenteredUpdateCard(panel, backdrop, 640, 396)
+    ShowCenteredUpdateCard(panel, backdrop, 640, 414)
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
     OnMessage(0x020A, wheelCallback, 0)
@@ -358,6 +367,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     drag.Active := false
     if IsObject(drag.Timer)
         SetTimer(drag.Timer, 0)
+    DllCall("user32\ReleaseCapture")
     backdrop.Destroy()
     if state.Retry
         SetTimer(CheckForUpdates, -100)
