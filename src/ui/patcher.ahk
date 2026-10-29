@@ -568,7 +568,7 @@ RefreshExpansionPackToggle()
 
 ToggleExpansionPack(*)
 {
-    global AppDataDirectory, LauncherGui, DataFile
+    global AppDataDirectory, LauncherGui, DataFile, BundledResourceRoot
     if PatchInProgress()
         return
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
@@ -587,7 +587,8 @@ ToggleExpansionPack(*)
     action := enable ? "Enable" : "Disable"
     if MsgBox(action " NP Expansion Pack for all future game clients?" Chr(10) Chr(10) "TES3NP will back up your configuration and preserve other mods.", "Expansion Pack", "YesNo Icon?") != "Yes"
         return
-    script := A_ScriptDir "\scripts\toggle-expansion-pack.ps1"
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    script := resourceRoot "\scripts\toggle-expansion-pack.ps1"
     powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
     if !FileExist(script)
     {
@@ -600,7 +601,7 @@ ToggleExpansionPack(*)
     if FileExist(output)
         FileDelete(output)
     command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
-        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '" -PayloadFolder "' A_ScriptDir '\patches"'
+        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '" -PayloadFolder "' resourceRoot '\patches"'
         . ' -BackupFolder "' backup '"'
     try
     {
