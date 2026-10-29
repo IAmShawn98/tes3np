@@ -165,30 +165,27 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
 
 ReadVersionReleaseNotes(installedVersion)
 {
-    ; Prefer locally bundled changelog for unreleased development versions.
-    changelog := A_ScriptDir "\CHANGELOG.md"
-    if FileExist(changelog) {
-        content := FileRead(changelog, "UTF-8")
-        lines := StrSplit(StrReplace(content, "`r", ""), "`n")
-        collecting := false
-        notes := ""
-        for line in lines {
-            if RegExMatch(line, "^##\\s+v?" installedVersion "(?:\\s|$)") {
-                collecting := true
-                continue
-            }
-            if collecting && RegExMatch(line, "^##\\s+")
-                break
-            if collecting && RegExMatch(line, "^\\s*[-*]\\s+(.+)", &match) {
-                notes .= "• " RegExReplace(match[1], "[`*_]", "") "`n"
-                if StrLen(notes) > 3500
-                    break
-            }
-        }
-        if notes != ""
-            return {Text: RTrim(notes, "`n"), Source: "Bundled changelog (development build)"}
+    ; Published release notes are loaded by exact version tag. This never
+    ; substitutes the latest release's notes for an older installation.
+    script := A_ScriptDir "\scripts\fetch-release-notes.ps1"
+    if !FileExist(script)
+        return {Text: "The GitHub release notes helper is missing.", Source: "Notes unavailable"}
+    output := A_Temp "\tes3np-notes-" A_TickCount ".txt"
+    command := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script
+        . '" -Version "' installedVersion '" -OutputPath "' output '"'
+    try {
+        exitCode := RunWait(command, A_ScriptDir, "Hide")
+        if exitCode != 0 || !FileExist(output)
+            throw Error("Release notes could not be retrieved.")
+        notesText := FileRead(output, "UTF-8")
+        sourceText := FileExist(output ".source") ? FileRead(output ".source", "UTF-8") : "GitHub Releases"
+        return {Text: notesText, Source: sourceText}
+    } catch Error {
+        return {Text: "Could not load release notes for v" installedVersion ". Please check GitHub Releases.", Source: "GitHub unavailable"}
+    } finally {
+        try FileDelete(output)
+        try FileDelete(output ".source")
     }
-    return {Text: "Release notes are not bundled for this version. Open the official release page to read the published notes.", Source: "Release notes unavailable locally"}
 }
 
 UpdateNotesMouseWheel(dialog, page, refresh, wParam, lParam, msg, hwnd)
