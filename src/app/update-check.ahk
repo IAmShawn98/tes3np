@@ -234,9 +234,18 @@ ParseAndValidateUpdateManifest(text)
     manifest.releaseId := RequireManifestString(text, "releaseId")
     manifest.platform := RequireManifestString(text, "platform")
     manifest.architecture := RequireManifestString(text, "architecture")
-    manifest.fileName := RequireManifestString(text, "fileName")
-    manifest.size := RequireManifestInteger(text, "size")
-    manifest.sha256 := RequireManifestString(text, "sha256")
+    ; The public metadata generator nests the package fields under "package".
+    ; Keep support for the older flat manifest layout for prior alpha builds.
+    if RegExMatch(text, 's)"package"\s*:\s*\{([^}]*)\}', &packageMatch) {
+        packageText := packageMatch[1]
+        manifest.fileName := RequireManifestString(packageText, "fileName")
+        manifest.size := RequireManifestInteger(packageText, "size")
+        manifest.sha256 := RequireManifestString(packageText, "sha256")
+    } else {
+        manifest.fileName := RequireManifestString(text, "fileName")
+        manifest.size := RequireManifestInteger(text, "size")
+        manifest.sha256 := RequireManifestString(text, "sha256")
+    }
     manifest.updateEnabled := RequireManifestBoolean(text, "updateEnabled")
     if manifest.manifestVersion != 1
         throw Error("Unsupported update manifest version.")
