@@ -385,9 +385,11 @@ GuardPatchExit(*)
 
 CanUseNPLauncher()
 {
-    if PatchInProgress() || !IsTES3MPSetupComplete()
+    ; Expansion Pack installation is optional. Only block launch while files
+    ; are actively being modified; game executable validation happens separately.
+    if PatchInProgress()
     {
-        MsgBox("Complete Patch Tes3mp setup before launching characters or macros.", "tes3np")
+        MsgBox("Finish the current Expansion Pack operation before launching.", "tes3np")
         return false
     }
     return true
