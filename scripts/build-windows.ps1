@@ -212,6 +212,7 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     # Keep editable CSS and layout files beside the published chat host.
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.css') (Join-Path $hostOutput 'chat.css') -Force
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force
+    Copy-Item (Join-Path $projectRoot 'CHANGELOG.md') (Join-Path $package 'CHANGELOG.md') -Force
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
     Step 'Validating final downloadable Windows ZIP'
