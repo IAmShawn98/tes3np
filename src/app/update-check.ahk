@@ -7,13 +7,13 @@ global UpdateBusy := false
 
 CheckForUpdateAvailability(*)
 {
-    global AppConfig, UpdateManifestUrl
+    global AppConfig, UpdateManifestUrl, DataFile
     ; Startup availability checks are intentionally silent. A network or metadata
     ; failure must never interrupt normal launcher use; the button simply stays hidden.
     try {
         manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
         available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
-        SetLauncherUpdateAvailable(available, manifest.version)
+        SetLauncherUpdateAvailable(available && IniRead(DataFile, "Updates", "NotifyAlpha", "1") = "1", manifest.version)
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
     } catch Error as err {
         SetLauncherUpdateAvailable(false)
@@ -107,6 +107,19 @@ CreateUpdateBackdrop()
     return dim
 }
 
+ShowCenteredUpdateCard(dialog, backdrop, width, height)
+{
+    rect := Buffer(16, 0)
+    if !DllCall("user32\GetWindowRect", "Ptr", backdrop.Hwnd, "Ptr", rect)
+        throw Error("Unable to center update dialog.")
+    left := NumGet(rect, 0, "Int")
+    top := NumGet(rect, 4, "Int")
+    dw := NumGet(rect, 8, "Int") - left
+    dh := NumGet(rect, 12, "Int") - top
+    dialog.Show("w" width " h" height " x" (left + Round((dw - width) / 2))
+        " y" (top + Round((dh - height) / 2)))
+}
+
 ShowGoldUpdateConfirmation(title, message, confirmLabel)
 {
     global LauncherGui
@@ -125,7 +138,7 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     cancel.OnEvent("Click", (*) => window.Destroy())
     window.OnEvent("Escape", (*) => window.Destroy())
     window.OnEvent("Close", (*) => window.Destroy())
-    window.Show("w640 h258 Center")
+    ShowCenteredUpdateCard(window, backdrop, 640, 258)
     hwnd := window.Hwnd
     WinWaitClose("ahk_id " hwnd)
     backdrop.Destroy()
@@ -161,7 +174,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     releaseButton.OnEvent("Click", (*) => Run(UpdateReleasePage))
     preview.OnEvent("Close", (*) => preview.Destroy())
     preview.OnEvent("Escape", (*) => preview.Destroy())
-    preview.Show("w640 h344 Center")
+    ShowCenteredUpdateCard(preview, backdrop, 640, 344)
     WinWaitClose("ahk_id " preview.Hwnd)
     backdrop.Destroy()
     return response.Download ? "Yes" : "No"
@@ -169,38 +182,62 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
 
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
 {
-    global LauncherGui, UpdateReleasePage
+    global LauncherGui, UpdateReleasePage, DataFile
     state := {Retry: false}
     backdrop := CreateUpdateBackdrop()
     panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " +AlwaysOnTop -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
-    panel.Add("Text", "x2 y2 w636 h338 Background171008")
+    panel.Add("Text", "x2 y2 w636 h392 Background171008")
     panel.SetFont("s15 Bold cC5A45C", "Georgia")
-    heading := mode = "current" ? "tes3np is Up to Date"
-        : mode = "ahead" ? "Installed Version is Newer"
+    caughtUp := mode = "current" || mode = "ahead"
+    heading := caughtUp ? "You're All Caught Up, Fetcher! (v" installedVersion ")"
         : mode = "disabled" ? "Automatic Update Unavailable" : "Unable to Check for Updates"
-    panel.Add("Text", "x32 y26 w588 h32 BackgroundTrans", heading)
-    panel.SetFont("s10 cFFFFFF", "Segoe UI")
-    panel.Add("Text", "x32 y96 w588 h23 BackgroundTrans", "Installed: v" installedVersion)
-    panel.Add("Text", "x32 y132 w588 h23 BackgroundTrans", "Latest public: " (latestVersion != "" ? "v" latestVersion : "Not verified"))
-    panel.Add("Text", "x32 y168 w588 h23 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
-    panel.SetFont("s10 cC5A45C", "Segoe UI")
-    message := mode = "current"
-        ? "Status: Up to date. No download or installation is needed."
-        : mode = "ahead" ? "Your installed version is ahead of the current public channel."
-        : mode = "disabled"
-        ? "Automatic updates are unavailable. View the official releases instead."
-        : "Update status could not be verified. No update was installed."
-    panel.Add("Text", "x32 y220 w588 h54 BackgroundTrans", message)
-    notes := AddGoldUpdateButton(panel, 32, 301, 195, 34, "View Release Notes")
-    retry := AddGoldUpdateButton(panel, 242, 301, 160, 34, "Check Again")
-    close := AddGoldUpdateButton(panel, 417, 301, 191, 34, "Close")
+    panel.Add("Text", "x30 y22 w588 h38 BackgroundTrans", heading)
+    panel.SetFont("s10 cEDE1C9", "Segoe UI")
+    if caughtUp {
+        panel.Add("Text", "x32 y90 w572 h58 BackgroundTrans",
+            "You are currently running the latest and greatest version of the tes3np launcher."
+            . " If something new comes out, you will be notified.")
+    } else {
+        message := mode = "disabled"
+            ? "Automatic updates are unavailable. You can still view the official releases."
+            : "The latest version could not be verified. Your installation was not changed."
+        panel.Add("Text", "x32 y90 w572 h58 BackgroundTrans", message)
+    }
+    panel.SetFont("s12 Bold cC5A45C", "Georgia")
+    panel.Add("Text", "x32 y173 w572 h30 BackgroundTrans", "How do you take your releases?")
+    panel.SetFont("s10 cEDE1C9", "Segoe UI")
+    ; Only alpha has a public feed. Beta and stable preferences will appear once
+    ; their respective feeds and release catalogs exist.
+    selected := IniRead(DataFile, "Updates", "NotifyAlpha", "1") = "1"
+    tick := panel.Add("Text", "x34 y221 w25 h23 +0x100 Center +0x200 Background352919 cC5A45C"
+        , selected ? "✓" : "")
+    description := panel.Add("Text", "x68 y221 w535 h25 BackgroundTrans",
+        "Notify me when the latest alpha build is available to download.")
+    toggle(*) {
+        selectedNow := IniRead(DataFile, "Updates", "NotifyAlpha", "1") = "1"
+        enabled := !selectedNow
+        IniWrite(enabled ? "1" : "0", DataFile, "Updates", "NotifyAlpha")
+        tick.Text := enabled ? "✓" : ""
+        if !enabled
+            SetLauncherUpdateAvailable(false)
+        else if latestVersion != "" && CompareTes3npVersions(latestVersion, installedVersion) > 0
+            SetLauncherUpdateAvailable(true, latestVersion)
+    }
+    tick.OnEvent("Click", toggle)
+    description.OnEvent("Click", toggle)
+    panel.SetFont("s9 cC5A45C", "Segoe UI")
+    panel.Add("Text", "x32 y265 w572 h32 BackgroundTrans",
+        "You can still check for updates anytime by clicking the version text.")
+    notes := AddGoldUpdateButton(panel, 32, 348, 195, 34, "View Release Notes")
+    retry := AddGoldUpdateButton(panel, 242, 348, 160, 34, "Check Again")
+    close := AddGoldUpdateButton(panel, 417, 348, 191, 34, "Close")
     notes.OnEvent("Click", (*) => Run(UpdateReleasePage))
     retry.OnEvent("Click", (*) => (state.Retry := true, panel.Destroy()))
     close.OnEvent("Click", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
-    panel.Show("w640 h342 Center")
+    ShowCenteredUpdateCard(panel, backdrop, 640, 396)
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
     backdrop.Destroy()
