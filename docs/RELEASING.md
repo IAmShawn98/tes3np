@@ -44,6 +44,18 @@ link alone does not clear that blocker.
 Announcement:
 `https://steamcommunity.com/groups/mwmulti/announcements/detail/3208261824668407228`.
 
+Markerless binary distribution provenance (reported by tester on October 29, 2026):
+the `tes3mp.exe` used by the launcher was downloaded from the
+Nerevarine Prophecies Discord channel `#posted-fixes`, at
+`https://www.dropbox.com/scl/fi/3kef7phv9q0rkzlm066oy/tes3mp.exe?rlkey=ahaa4wrcnidmvd52v0qh3h87y&e=1&dl=0`.
+This identifies a **distribution channel/link**, not the modification
+author, original source revision, or corresponding build procedure.
+We could not directly verify the Dropbox file content or compare its
+hash to the vendored executable in this investigation. Request the
+original Discord post attribution, version/date, and source/build
+information from the poster or NP maintainers before clearing the
+modified-client GPL source gate.
+
 Source research lead (unverified): a public fork at
 `https://github.com/Skooma-Breath/surf_tes3mp` contains
 `apps/openmw/mwmp/GUIController.cpp` with a comment saying
