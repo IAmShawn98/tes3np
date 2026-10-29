@@ -278,7 +278,9 @@ UpdateNotesDragMove(drag, page, refresh)
         DllCall("user32\ReleaseCapture")
         return
     }
-    MouseGetPos(, &mouseY)
+    cursor := Buffer(8, 0)
+    DllCall("user32\GetCursorPos", "Ptr", cursor)
+    mouseY := NumGet(cursor, 4, "Int")
     maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
     ; Mouse coordinates are physical pixels; use the actual on-screen track size.
     travel := Max(1, drag.TrackPixels - drag.ThumbPixels)
@@ -286,23 +288,41 @@ UpdateNotesDragMove(drag, page, refresh)
     refresh()
 }
 
-StartUpdateNotesDrag(thumb, track, drag, page, refresh, wParam, lParam, msg, hwnd)
+StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, msg, hwnd)
 {
-    if hwnd != thumb.Hwnd || page.Lines.Length <= page.Visible
+    if page.Lines.Length <= page.Visible
         return
-    drag.Active := true
-    MouseGetPos(, &startY)
-    drag.StartY := startY
-    drag.StartOffset := page.Offset
+    ; Static text controls do not reliably receive WM_LBUTTONDOWN themselves.
+    ; Detect a press over the thumb by screen position, regardless of whether
+    ; Windows delivers it to the thumb, its track, or the dialog.
+    if DllCall("user32\GetAncestor", "Ptr", hwnd, "UInt", 2, "Ptr") != panel.Hwnd
+        && hwnd != panel.Hwnd
+        return
+    cursor := Buffer(8, 0)
+    if !DllCall("user32\GetCursorPos", "Ptr", cursor)
+        return
+    mouseX := NumGet(cursor, 0, "Int")
+    mouseY := NumGet(cursor, 4, "Int")
     trackRect := Buffer(16, 0)
     thumbRect := Buffer(16, 0)
-    DllCall("user32\GetWindowRect", "Ptr", track.Hwnd, "Ptr", trackRect)
-    DllCall("user32\GetWindowRect", "Ptr", thumb.Hwnd, "Ptr", thumbRect)
+    if !DllCall("user32\GetWindowRect", "Ptr", track.Hwnd, "Ptr", trackRect)
+        || !DllCall("user32\GetWindowRect", "Ptr", thumb.Hwnd, "Ptr", thumbRect)
+        return
+    ; Make the slender gold handle easier to grab without changing its design.
+    if mouseX < NumGet(trackRect, 0, "Int") - 5
+        || mouseX > NumGet(trackRect, 8, "Int") + 5
+        || mouseY < NumGet(thumbRect, 4, "Int") - 3
+        || mouseY > NumGet(thumbRect, 12, "Int") + 3
+        return
+    drag.Active := true
+    drag.StartY := mouseY
+    drag.StartOffset := page.Offset
     drag.TrackPixels := NumGet(trackRect, 12, "Int") - NumGet(trackRect, 4, "Int")
     drag.ThumbPixels := NumGet(thumbRect, 12, "Int") - NumGet(thumbRect, 4, "Int")
-    DllCall("user32\SetCapture", "Ptr", thumb.Hwnd)
+    DllCall("user32\SetCapture", "Ptr", panel.Hwnd)
     drag.Timer := UpdateNotesDragMove.Bind(drag, page, refresh)
     SetTimer(drag.Timer, 16)
+    return 0
 }
 
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
@@ -346,7 +366,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
-    dragStartCallback := StartUpdateNotesDrag.Bind(thumb, track, drag, page, refresh)
+    dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
     scrollUp := AddStyledButton(panel, 583, 167, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
     scrollDown := AddStyledButton(panel, 583, 322, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
