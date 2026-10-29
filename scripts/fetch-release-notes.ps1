@@ -31,4 +31,5 @@ try {
 }
 $parent = Split-Path -Parent $OutputPath
 if ($parent -and !(Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-$notes | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $OutputPath -Encoding UTF8
+[IO.File]::WriteAllText($OutputPath, $notes.text, (New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllText($OutputPath + '.source', $notes.source, (New-Object Text.UTF8Encoding($false)))
