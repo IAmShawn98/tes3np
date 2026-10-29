@@ -563,7 +563,13 @@ RefreshExpansionPackToggle()
 {
     global LauncherExpansionToggle
     if IsObject(LauncherExpansionToggle)
-        try LauncherExpansionToggle.Text := "Expansion Pack: " (ExpansionPackIsEnabled() ? "On" : "Off")
+    {
+        try
+        {
+            LauncherExpansionToggle.Text := "Expansion Pack: " (ExpansionPackIsEnabled() ? "Enabled" : "Disabled")
+            DllCall("InvalidateRect", "Ptr", LauncherExpansionToggle.Hwnd, "Ptr", 0, "Int", 1)
+        }
+    }
 }
 
 ToggleExpansionPack(*)
@@ -609,18 +615,25 @@ ToggleExpansionPack(*)
         ; stderr and gave users an empty "was not changed" error.
         RunWait(command, , "Hide", &exitCode)
         details := FileExist(output) ? Trim(FileRead(output, "UTF-8")) : ""
-        if exitCode || !FileExist(output) || !InStr(details, " complete.")
+        ; The worker result message alone is not proof of failure or success.
+        ; The user's screenshots showed 'Disable complete' incorrectly flagged
+        ; as an error. Inspect the actual on-disk OpenMW load order instead.
+        actualEnabled := ExpansionPackIsEnabled()
+        if actualEnabled != enable
         {
             if details = ""
-                details := "Worker exited with code " exitCode " without diagnostic output."
+                details := "The OpenMW configuration still has the previous Expansion Pack state. Worker exit code: " exitCode "."
             LogLauncherEvent("EXPANSION | Toggle failed | Exit code: " exitCode " | " details)
             MsgBox("Expansion Pack was not changed." Chr(10) Chr(10) SubStr(details, 1, 1200), "Expansion Pack", "Icon!")
+            RefreshExpansionPackToggle()
             return
         }
+        if exitCode
+            LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state. Details: " details)
         IniWrite(enable ? "1" : "0", DataFile, "ExpansionPack", "GlobalEnabled")
-        LogLauncherEvent("EXPANSION | " action " completed.")
+        LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
         RefreshExpansionPackToggle()
-        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " for future launches.", "Expansion Pack")
+        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully for future launches.", "Expansion Pack", "Iconi")
     }
     catch Error as err
     {
