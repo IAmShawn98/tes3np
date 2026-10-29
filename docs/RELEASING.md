@@ -82,6 +82,21 @@ original Discord post attribution, version/date, and source/build
 information from the poster or NP maintainers before clearing the
 modified-client GPL source gate.
 
+Further fork history investigation (October 29, 2026): the head commit
+`9d121f13b113e797df965d5425bd06ec515c0578` is dated
+**March 7, 2026**, with changes to Windows CI build scripting and
+RakNet discovery, not the two markerless functions. Its preceding
+commit `ea209fd6` is also dated March 7, 2026 and changes player
+cell-handling behavior. Thus the fork contains other technical changes
+and is not evidence of a May 2023 jiub build merely because of its
+`markerless for now` comments. We attempted comparing the fork's
+`surf_tes3mp` branch directly to an `0.8.1` tag using GitHub's
+compare endpoint, but it returned 404 because that ref is not exposed
+in the fork. A complete, verified fork-to-upstream diff remains undone.
+Official TES3MP 0.8.1 contains Windows MSVC2019 build pipeline details
+in its `.gitlab-ci.yml`, providing a baseline for a possible
+independently built replacement, but no replacement has been compiled.
+
 Verified source comparison against the official `TES3MP/TES3MP`
 `0.8.1` tag (October 29, 2026): upstream
 `GUIController::updatePlayersMarkers` normally iterates and redraws map
