@@ -581,6 +581,10 @@ OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
         return
 
     answer := MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?", "tes3np", "YesNo Icon?")
+    ; Record the choice before attempting filesystem operations. Otherwise an
+    ; unwritable desktop re-prompts at every startup despite the user's answer.
+    DirCreate(AppDataDirectory)
+    IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")
     if answer = "Yes"
     {
         try
@@ -589,11 +593,7 @@ OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
                 A_ScriptDir, "", "Launch Nerevarine Prophecies", A_ScriptFullPath)
         }
         catch Error as err
-        {
-            MsgBox("Could not create the desktop shortcut: " err.Message, "tes3np", "Icon!")
-            return
-        }
+            MsgBox("Could not create the desktop shortcut: " err.Message
+                "`nThe launcher will respect your choice and will not ask again.", "tes3np", "Icon!")
     }
-    DirCreate(AppDataDirectory)
-    IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")
 }
