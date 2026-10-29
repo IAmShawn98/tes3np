@@ -1,6 +1,8 @@
 ﻿; Application startup, quick-launch choice, tray wiring and shutdown.
 
 global LauncherControlLayout := Map()
+global LauncherCachedScale := 0
+global LauncherCachedLayoutCount := 0
 global LauncherVersionLabel := 0
 global LauncherSettingsButton := 0
 global LauncherUpdateButton := 0
@@ -348,13 +350,48 @@ ApplyLauncherControlScale()
     ResizeEmbeddedInGameChat()
 }
 
-ShowLauncherWindow(*)
+ShowLauncherWindow(reuseCached := false, *)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode
+    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
     ; Returning from a child window should never expose a blank/transparent
     ; launcher while its scale and themed controls are being restored. Show the
     ; existing launcher immediately behind a loading cover, do the expensive
     ; resize/repaint work, then reveal the completed page.
+    ; The Characters book keeps its controls alive. Returning from it can
+    ; reuse the existing launcher geometry when the layout remains valid.
+    if reuseCached && LauncherCachedScale > 0 && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
+        && LauncherControlLayout.Count = LauncherCachedLayoutCount
+    {
+        desiredScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
+        if desiredScale = LauncherCachedScale
+        {
+            healthy := true
+            for hwnd, item in LauncherControlLayout
+            {
+                if !DllCall("IsWindow", "Ptr", hwnd)
+                {
+                    healthy := false
+                    break
+                }
+                item.Control.GetPos(&x, &y, &w, &h)
+                ratio := desiredScale / 100
+                if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
+                    || Abs(w - Round(item.Width * ratio)) > 2 || Abs(h - Round(item.Height * ratio)) > 2
+                {
+                    healthy := false
+                    break
+                }
+            }
+            if healthy
+            {
+                LauncherGui.Show()
+                RepaintMenuButtons()
+                ResizeEmbeddedInGameChat()
+                return
+            }
+            LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding under the existing frame cover.")
+        }
+    }
     LauncherGui.Show("w960 h716")
     ; Capture the last frame immediately to hide repaint jank, but only show
     ; the Jiub card if the transition actually takes more than 120 ms.
@@ -381,6 +418,8 @@ ShowLauncherWindow(*)
     finally
     {
         EndInterfaceUpdate()
+        LauncherCachedScale := LauncherScale
+        LauncherCachedLayoutCount := LauncherControlLayout.Count
         totalMs := A_TickCount - startedAt
         if totalMs >= 250
             LogLauncherEvent("UI | Launcher transition " totalMs "ms | Cover " coverMs "ms | Scale " scaleMs "ms | Window " windowMs "ms | Controls " controlsMs "ms | Center " centerMs "ms | Final paint " (totalMs - coverMs - scaleMs - windowMs - controlsMs - centerMs) "ms.")
