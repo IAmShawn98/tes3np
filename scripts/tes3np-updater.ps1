@@ -12,7 +12,44 @@ function Set-State([string]$State){$dir=Split-Path -Parent $StateFile;if($dir -a
 function Get-State{if(-not(Test-Path -LiteralPath $StateFile)){return ''};$line=Get-Content -LiteralPath $StateFile|Where-Object{$_ -like 'State=*'}|Select-Object -First 1;if($line){return $line.Substring(6)};return ''}
 function Wait-Parent{if($ParentPid -le 0){Write-UpdaterLog 'No parent PID supplied; continuing.';return};Update-Progress 'Waiting for the launcher to close...' 10;Write-UpdaterLog("Waiting for launcher PID $ParentPid to exit.");try{Wait-Process -Id $ParentPid -Timeout 30 -ErrorAction Stop;Write-UpdaterLog 'Original launcher exited.'}catch{if(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue){throw 'Launcher did not exit in time.'};Write-UpdaterLog 'Original launcher was already closed.'}}
 function Assert-SafePaths{$install=[IO.Path]::GetFullPath($InstallDir).TrimEnd('\');$stage=[IO.Path]::GetFullPath($StageDir).TrimEnd('\');Write-UpdaterLog("Validating paths. Install=$install | Stage=$stage");if(-not(Test-Path -LiteralPath $install -PathType Container)){throw 'Install directory does not exist.'};if(-not(Test-Path -LiteralPath $stage -PathType Container)){throw 'Staged update directory does not exist.'};if($install -eq $stage -or $stage.StartsWith($install+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Staging directory must be outside the live installation.'};if(-not(Get-ChildItem -LiteralPath $stage -Filter tes3np.exe -Recurse -File|Select-Object -First 1)){throw 'Staged launcher is missing.'};Write-UpdaterLog 'Safe path validation passed.'}
-function Get-PayloadRoot{(Get-ChildItem -LiteralPath $StageDir -Filter tes3np.exe -Recurse -File|Select-Object -First 1).Directory.FullName}
+function Get-PayloadRoot{
+    # Accept only the documented ZIP layouts, never an arbitrary nested EXE.
+    $direct=Join-Path $StageDir 'tes3np.exe'
+    $nested=Join-Path (Join-Path $StageDir 'tes3np') 'tes3np.exe'
+    if(Test-Path -LiteralPath $direct -PathType Leaf){
+        if(Test-Path -LiteralPath $nested -PathType Leaf){throw 'Ambiguous staged update: two launcher roots.'}
+        return [IO.Path]::GetFullPath($StageDir)
+    }
+    if(Test-Path -LiteralPath $nested -PathType Leaf){return [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($nested))}
+    throw 'Staged update does not have a launcher at the expected package root.'
+}
+function Assert-CompletePayload([string]$Root){
+    # Validate before backing up or writing anything to the live install.
+    $required=@(
+        'tes3np.exe',
+        'client\tes3mp.exe',
+        'client\tes3mp-client-default.cfg',
+        'client\defaults.bin',
+        'client\openmw.cfg',
+        'chat-host\tes3np.ChatHost.exe',
+        'chat-host\chat.ini',
+        'chat-host\chat.css',
+        'licenses\TES3MP\LICENSE',
+        'licenses\TES3MP\REDISTRIBUTION-NOTICE.txt'
+    )
+    foreach($relative in $required){
+        $file=Join-Path $Root $relative
+        if(-not(Test-Path -LiteralPath $file -PathType Leaf)){throw "Incomplete staged update; missing $relative"}
+        if((Get-Item -LiteralPath $file).Length -le 0){throw "Incomplete staged update; empty $relative"}
+    }
+    # Do not recursively traverse reparse-point directories during installation.
+    foreach($entry in (Get-ChildItem -LiteralPath $Root -Recurse -Force)){
+        if(($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){
+            throw "Staged update contains a reparse point: $($entry.FullName)"
+        }
+    }
+    Write-UpdaterLog 'Required staged update payload files verified before installation.'
+}
 function Copy-DirectoryContents([string]$Source,[string]$Destination){Write-UpdaterLog("Copying files. Source=$Source | Destination=$Destination");Get-ChildItem -LiteralPath $Source -Force|ForEach-Object{Copy-Item -LiteralPath $_.FullName -Destination $Destination -Recurse -Force};Write-UpdaterLog 'File copy completed.'}
 function Stop-LaunchedProcessForRollback($Process){if(-not $Process -or $Process.HasExited){return};Write-UpdaterLog("Stopping updated launcher PID $($Process.Id) before rollback.");try{Stop-Process -Id $Process.Id -Force -ErrorAction Stop;Wait-Process -Id $Process.Id -Timeout 10 -ErrorAction SilentlyContinue}catch{Write-UpdaterLog("Could not stop updated launcher cleanly: $($_.Exception.Message)")};if(Get-Process -Id $Process.Id -ErrorAction SilentlyContinue){throw 'Updated launcher is still running; rollback cannot safely continue.'};Write-UpdaterLog 'Updated launcher stopped; rollback may proceed.'}
 function Restore-Rollback([string]$Backup,[string]$Destination,[string]$Payload){
@@ -40,9 +77,9 @@ $installStarted=$false
 $payload=$null
 Write-UpdaterLog("START | Transactional updater started for v$Version. ParentPid=$ParentPid")
 try{
- Show-ProgressWindow;Update-Progress 'Preparing update...' 5;Assert-SafePaths;Wait-Parent;Set-State 'PREPARING';if(Test-Path -LiteralPath $rollback){Write-UpdaterLog 'Removing previous rollback directory.';Remove-Item -LiteralPath $rollback -Recurse -Force};New-Item -ItemType Directory -Path $rollback|Out-Null;Write-UpdaterLog("Rollback directory created: $rollback")
+ Show-ProgressWindow;Update-Progress 'Preparing update...' 5;Assert-SafePaths;$payload=Get-PayloadRoot;Assert-CompletePayload $payload;Wait-Parent;Set-State 'PREPARING';if(Test-Path -LiteralPath $rollback){Write-UpdaterLog 'Removing previous rollback directory.';Remove-Item -LiteralPath $rollback -Recurse -Force};New-Item -ItemType Directory -Path $rollback|Out-Null;Write-UpdaterLog("Rollback directory created: $rollback")
  Update-Progress 'Backing up your current version...' 25;Set-State 'BACKING_UP';Copy-DirectoryContents $InstallDir $rollback;$backupCompleted=$true;Set-State 'BACKED_UP';Write-UpdaterLog 'Current installation backup completed.';if($FailAt -eq 'after-backup'){throw 'Injected failure after backup.'}
- $payload=Get-PayloadRoot;Write-UpdaterLog("Payload root resolved: $payload");Update-Progress 'Installing the update...' 55;Set-State 'INSTALLING';$installStarted=$true;Copy-DirectoryContents $payload $InstallDir;Set-State 'AWAITING_CONFIRMATION';Write-UpdaterLog 'New files installed; awaiting launcher confirmation.';if($FailAt -eq 'after-install'){throw 'Injected failure after install.'}
+ Write-UpdaterLog("Payload root resolved: $payload");Update-Progress 'Installing the update...' 55;Set-State 'INSTALLING';$installStarted=$true;Copy-DirectoryContents $payload $InstallDir;Set-State 'AWAITING_CONFIRMATION';Write-UpdaterLog 'New files installed; awaiting launcher confirmation.';if($FailAt -eq 'after-install'){throw 'Injected failure after install.'}
  if($TestMode){Set-State 'LAUNCHED';Write-UpdaterLog 'Test mode complete.';exit 0}
  $newExe=Join-Path $InstallDir 'tes3np.exe';if(-not(Test-Path -LiteralPath $newExe)){throw 'Updated launcher is missing after installation.'}
  Update-Progress 'Starting the updated launcher...' 80;Write-UpdaterLog("Launching updated executable: $newExe --update-confirm $Version <state-file>")
