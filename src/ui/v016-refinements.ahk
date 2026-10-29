@@ -896,68 +896,96 @@ ShowResetAppDataActions(*)
 
 OpenClientSelectionSettings(*)
 {
-    global DataFile, AppDataDirectory, ExecutableInput
+    global LauncherGui, LauncherMorrowindFont, DataFile
     mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
-    savedOverrides := FileExist(GetCustomOverrideFolder() "\tes3mp.exe")
-    question := "Current client: " mode Chr(10) Chr(10)
-        . "Yes - Use original bundled runtime" Chr(10)
-        . "No - Configure custom EXE and optional dependencies" Chr(10)
-        . "Cancel - More options / keep current client"
-    answer := MsgBox(question, "Game Client Settings", "YesNoCancel Icon?")
-    if answer = "Cancel"
-    {
-        if savedOverrides
-        {
-            reuse := MsgBox("Previously saved custom EXE and dependencies were found." Chr(10) Chr(10)
-                . "Yes - Reactivate saved custom overrides" Chr(10)
-                . "No - Keep current selection", "Saved Custom Client", "YesNo Icon?")
-            if reuse = "Yes"
-            {
-                IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
-                try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
-                LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
-            }
-        }
+    saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
+    menu := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Game Client Settings")
+    menu.BackColor := "E2CEA2"
+    menu.SetFont("s14 Bold c241408", LauncherMorrowindFont)
+    menu.Add("Text", "x24 y20 w480 h35", "Game Client Settings")
+    menu.SetFont("s10 c382314", "Segoe UI")
+    display := mode = "Bundled" ? "Original TES3NP runtime" : mode = "CustomOverrides" ? "Custom overrides active" : "Legacy custom client (" mode ")"
+    menu.Add("Text", "x24 y65 w480 h25", "Active client: " display)
+    menu.Add("Text", "x24 y95 w480 h48", "Choose how TES3NP launches the game. Custom files are kept separate from the protected original runtime.")
+    menu.SetFont("s11 Bold", "Segoe UI")
+    customize := menu.Add("Button", "x24 y153 w480 h43", "Set Up Custom EXE")
+    reactivate := menu.Add("Button", "x24 y205 w480 h43", "Use Saved Custom Client")
+    reactivate.Enabled := saved
+    restore := menu.Add("Button", "x24 y257 w480 h43", "Use Original TES3NP Client")
+    close := menu.Add("Button", "x24 y322 w480 h38", "Close")
+    customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))
+    reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))
+    restore.OnEvent("Click", (*) => RestoreBundledClientV016(menu))
+    close.OnEvent("Click", (*) => menu.Destroy())
+    menu.OnEvent("Escape", (*) => menu.Destroy())
+    menu.Show("w528 h384")
+}
+
+RestoreBundledClientV016(menu, *)
+{
+    global DataFile, ExecutableInput
+    IniWrite("Bundled", DataFile, "Launch", "ClientMode")
+    try ExecutableInput.Value := A_ScriptDir "\client\tes3mp.exe"
+    LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
+    menu.Destroy()
+}
+
+ActivateSavedCustomClientV016(menu, *)
+{
+    global DataFile, ExecutableInput
+    if !FileExist(GetCustomOverrideFolder() "\tes3mp.exe")
         return
-    }
-    if answer = "Yes"
-    {
-        ; Do not delete overrides. Restoring the original is reversible.
-        IniWrite("Bundled", DataFile, "Launch", "ClientMode")
-        try ExecutableInput.Value := A_ScriptDir "\client\tes3mp.exe"
-        LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
-        MsgBox("The original bundled runtime is active again. Custom override files are preserved separately.", "Game Client")
-        return
-    }
-    source := FileSelect(1, , "Choose custom tes3mp.exe", "Executable (*.exe)")
+    IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
+    try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
+    LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
+    menu.Destroy()
+}
+
+ConfigureCustomClientV016(menu, *)
+{
+    global DataFile, AppDataDirectory, ExecutableInput
+    source := FileSelect(1, , "Choose your modified tes3mp.exe", "Executable (*.exe)")
     if source = ""
         return
-    SplitPath(source, &filename)
-    if StrLower(filename) != "tes3mp.exe" || !FileExist(source)
+    SplitPath(source, &name)
+    if StrLower(name) != "tes3mp.exe" || !FileExist(source)
     {
-        MsgBox("Please choose a file named tes3mp.exe.", "Game Client", "Icon!")
+        MsgBox("Select a file named tes3mp.exe.", "Game Client", "Icon!")
         return
     }
-    choice := MsgBox("Include additional custom DLLs, configuration files, or resources?" Chr(10)
-        . "Yes - Choose a dependencies folder" Chr(10)
-        . "No - Use the custom EXE with bundled dependencies" Chr(10)
-        . "Cancel - Keep current settings", "Optional Dependencies", "YesNoCancel Icon?")
-    if choice = "Cancel"
-        return
-    folder := ""
-    if choice = "Yes"
-    {
-        folder := DirSelect(, 3, "Choose optional dependencies folder")
-        if folder = ""
-            return
-    }
-    if !PrepareMarkerlessClientRuntime()
-        return
-    if !InstallCustomClientOverrides(source, folder)
+    ; Clear action names make the optional step unambiguous.
+    options := Gui("+Owner" menu.Hwnd " -MinimizeBox -MaximizeBox", "Optional Client Dependencies")
+    options.BackColor := "E2CEA2"
+    options.SetFont("s12 Bold c241408", "Segoe UI")
+    options.Add("Text", "x20 y20 w470 h30", "Does your custom EXE need additional files?")
+    options.SetFont("s10 c382314", "Segoe UI")
+    options.Add("Text", "x20 y60 w470 h48", "Choose a folder containing matching DLLs, layouts, or other resources, or use TES3NP's bundled dependencies.")
+    add := options.Add("Button", "x20 y122 w470 h40", "Choose Dependencies Folder")
+    skip := options.Add("Button", "x20 y174 w470 h40", "Use Bundled Dependencies Only")
+    cancel := options.Add("Button", "x20 y236 w470 h34", "Cancel Setup")
+    add.OnEvent("Click", (*) => ChooseCustomDependencyFolderV016(menu, options, source))
+    skip.OnEvent("Click", (*) => SaveCustomClientV016(menu, options, source, ""))
+    cancel.OnEvent("Click", (*) => options.Destroy())
+    options.OnEvent("Escape", (*) => options.Destroy())
+    options.Show("w510 h292")
+}
+
+ChooseCustomDependencyFolderV016(menu, options, source, *)
+{
+    folder := DirSelect(, 3, "Select additional dependencies and resources")
+    if folder != ""
+        SaveCustomClientV016(menu, options, source, folder)
+}
+
+SaveCustomClientV016(menu, options, source, folder, *)
+{
+    global DataFile, AppDataDirectory, ExecutableInput
+    if !PrepareMarkerlessClientRuntime() || !InstallCustomClientOverrides(source, folder)
         return
     DirCreate(AppDataDirectory)
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
     try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
-    MsgBox("Custom EXE and optional dependencies are now authoritative in a separate managed folder. TES3NP will merge them into a disposable copy of the bundled runtime at launch." Chr(10) Chr(10)
-        . "The original runtime remains untouched; Restore Original switches back immediately.", "Game Client")
+    LogLauncherEvent("GAME | Custom client configured | Additional dependencies: " (folder = "" ? "none" : "selected") ".")
+    options.Destroy()
+    menu.Destroy()
 }
