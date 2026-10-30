@@ -1090,7 +1090,7 @@ metrics();
                 rainbow.Paint += (_, e) => {
                     // Historical HH previews use the same heading. The real
                     // Discord timestamp (not the heading) conveys expiry via 0m 00s.
-                    const string heading = "HAPPY HOUR ACTIVE";
+                    string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
                     string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                         "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
                     using var font = new System.Drawing.Font("Georgia", 13,
