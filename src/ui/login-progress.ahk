@@ -4,6 +4,9 @@ global LoginProgressHeading := 0
 global LoginProgressRows := []
 global LoginProgressFooter := 0
 global LoginProgressSeparator := 0
+global LoginProgressTopSeparator := 0
+global LoginProgressIcon := 0
+global LoginProgressSummaryDots := []
 global LoginProgressWidth := 0
 global LoginProgressHeight := 0
 global LoginProgressMode := ""
@@ -84,6 +87,7 @@ DismissGameLoginProgress()
 DisposeGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter, LoginProgressSeparator
+    global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
     DismissGameLoginProgress()
     if IsObject(LoginProgressGui)
         try LoginProgressGui.Destroy()
@@ -92,12 +96,16 @@ DisposeGameLoginProgress()
     LoginProgressHeading := 0
     LoginProgressFooter := 0
     LoginProgressSeparator := 0
+    LoginProgressTopSeparator := 0
+    LoginProgressIcon := 0
+    LoginProgressSummaryDots := []
 }
 
 CreateGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressHeading, LoginProgressRows
     global LoginProgressFooter, LoginProgressSeparator, LoginProgressWidth, LoginProgressHeight
+    global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
     if IsObject(LoginProgressGui)
         return
     scale := A_ScreenDPI / 96
@@ -109,7 +117,10 @@ CreateGameLoginProgress()
     window.BackColor := "28241F"
     window.SetFont("s15 Bold cF2E4D0", "Georgia")
     LoginProgressHeading := window.Add("Text", "x" p(20) " y" p(21) " w" p(380) " h" p(38) " Center BackgroundTrans +0x4000", "")
-    window.Add("Text", "x" p(27) " y" p(68) " w" p(366) " h" p(2) " Background806B51", "")
+    LoginProgressTopSeparator := window.Add("Text", "x" p(27) " y" p(68) " w" p(366) " h" p(2) " Background806B51", "")
+    ; The larger TES3NP favicon is a preview-only control. Hidden in real logins.
+    LoginProgressIcon := window.Add("Picture", "x" p(174) " y" p(71) " w" p(72) " h" p(72)
+        " Icon1 Hidden", A_ScriptDir "\assets\icons\tes3np.ico")
     steps := ["Loading Name Screen...", "Typing Name...", "Loading Password Screen...",
         "Typing Password...", "Loading Character..."]
     LoginProgressRows := []
@@ -126,6 +137,20 @@ CreateGameLoginProgress()
     LoginProgressSeparator := window.Add("Text", "x" p(27) " y" p(329) " w" p(366) " h" p(2) " Background806B51", "")
     window.SetFont("s10 Bold cD3B687", "Segoe UI")
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" p(343) " w" p(372) " h" p(25) " Center BackgroundTrans +0x4000", "")
+    ; Four independent preview-only status dots below the existing gold status.
+    ; Each green circle overlays a centered dark checkmark.
+    LoginProgressSummaryDots := []
+    Loop 4
+    {
+        x := p(135 + (A_Index - 1) * 42)
+        window.SetFont("s18 cFFFFFF", "Segoe UI Symbol")
+        circle := window.Add("Text", "x" x " y" p(410) " w" p(28) " h" p(27)
+            " Center BackgroundTrans +0x4000 Hidden", "●")
+        window.SetFont("s12 Bold c173C2A", "Segoe UI Symbol")
+        check := window.Add("Text", "x" x " y" p(410) " w" p(28) " h" p(27)
+            " Center BackgroundTrans +0x4000 Hidden", "✓")
+        LoginProgressSummaryDots.Push({Circle: circle, Check: check, Color: ""})
+    }
     window.Show("Hide w" LoginProgressWidth " h" LoginProgressHeight)
     LoginProgressGui := window
 }
@@ -135,6 +160,7 @@ RenderGameLoginProgress()
     global LoginProgressGui, LoginProgressHeading, LoginProgressRows, LoginProgressFooter
     global LoginProgressName, LoginProgressMode, LoginProgressStage, Client
     global LoginProgressSeparator, LoginProgressHeight, LoginProgressPreviewStarted
+    global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
     header := "Logging In " LoginProgressName "..."
     dirty := false
     if LoginProgressHeading.Text != header
@@ -146,28 +172,48 @@ RenderGameLoginProgress()
     isComplete := LoginProgressMode = "complete" || (preview && LoginProgressStage = 6)
     if preview
     {
-        ; The dev preview has four steps; the real login keeps all five.
-        previewHeight := Round(330 * A_ScreenDPI / 96)
+        ; Only the dev preview expands for the favicon and the lower tracker.
+        previewHeight := Round(451 * A_ScreenDPI / 96)
         if LoginProgressHeight != previewHeight
         {
             LoginProgressHeight := previewHeight
             p := (value) => Round(value * A_ScreenDPI / 96)
-            LoginProgressSeparator.Move(p(27), p(278), p(366), p(2))
-            LoginProgressFooter.Move(p(24), p(291), p(372), p(25))
+            LoginProgressTopSeparator.Move(p(27), p(151), p(366), p(2))
+            for index, row in LoginProgressRows
+            {
+                y := p(167 + (index - 1) * 46)
+                row.Label.Move(p(30), y, p(360), p(22))
+                row.Dot.Move(p(195), y + p(23), p(30), p(21))
+            }
+            LoginProgressSeparator.Move(p(27), p(361), p(366), p(2))
+            LoginProgressFooter.Move(p(24), p(373), p(372), p(25))
             dirty := true
         }
     }
     else
     {
+        ; The live five-step login card keeps its original size and layout.
         normalHeight := Round(386 * A_ScreenDPI / 96)
         if LoginProgressHeight != normalHeight
         {
             LoginProgressHeight := normalHeight
             p := (value) => Round(value * A_ScreenDPI / 96)
+            LoginProgressTopSeparator.Move(p(27), p(68), p(366), p(2))
+            for index, row in LoginProgressRows
+            {
+                y := p(86 + (index - 1) * 46)
+                row.Label.Move(p(30), y, p(360), p(22))
+                row.Dot.Move(p(195), y + p(23), p(30), p(21))
+            }
             LoginProgressSeparator.Move(p(27), p(329), p(366), p(2))
             LoginProgressFooter.Move(p(24), p(343), p(372), p(25))
             dirty := true
         }
+    }
+    if LoginProgressIcon.Visible != preview
+    {
+        LoginProgressIcon.Visible := preview
+        dirty := true
     }
     for index, row in LoginProgressRows
     {
@@ -214,6 +260,39 @@ RenderGameLoginProgress()
         {
             row.Label.SetFont("c" labelColor)
             row.LabelColor := labelColor
+            dirty := true
+        }
+    }
+    ; The four bottom dots mirror the step state, independently from the
+    ; label-level dots. White = pending, blue = active, green/check = finished.
+    for index, marker in LoginProgressSummaryDots
+    {
+        if marker.Circle.Visible != preview
+        {
+            marker.Circle.Visible := preview
+            dirty := true
+        }
+        if !preview
+        {
+            if marker.Check.Visible
+            {
+                marker.Check.Visible := false
+                dirty := true
+            }
+            continue
+        }
+        finished := isComplete || index < LoginProgressStage
+        active := !finished && index = LoginProgressStage
+        color := finished ? "6EE29B" : active ? "62AFFF" : "FFFFFF"
+        if marker.Color != color
+        {
+            marker.Circle.SetFont("c" color)
+            marker.Color := color
+            dirty := true
+        }
+        if marker.Check.Visible != finished
+        {
+            marker.Check.Visible := finished
             dirty := true
         }
     }
