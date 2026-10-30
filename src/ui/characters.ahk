@@ -70,10 +70,6 @@ OpenCharacterPage(*)
     SetInterfaceLoadingText("Loading Launch button...")
     LaunchCharacterButton := AddStyledButton(CharacterPage, 70, 510, 370, 30, "Launch character", LaunchProfile)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
-    ; Right page preview hides with the editor or scheduler; it doesn't change
-    ; any of the approved character-row / Add / Wipe / Import positions.
-    LaunchSettingsControls.Push(AddStyledButton(CharacterPage, 525, 530, 355, 30,
-        "Preview Login Window (Dev)", PreviewGameLoginProgress))
     AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
     CharacterPage.OnEvent("Close", CloseCharacterPage)
@@ -221,7 +217,6 @@ HideProfileEditor()
 CloseCharacterPage(*)
 {
     global CharacterPage, ScheduledEventsBookMode
-    CancelGameLoginProgressPreview()
     ; If Close is pressed while the shared Character Book is showing the
     ; scheduler, restore the actual Characters page before hiding the book.
     ; Otherwise the next Manage Characters open simply re-shows the scheduler
@@ -236,7 +231,6 @@ CloseCharacterPage(*)
 EditProfile(index, *)
 {
     global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, LaunchSettingsHeading, LaunchSettingsControls
-    CancelGameLoginProgressPreview()
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
