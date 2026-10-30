@@ -865,7 +865,11 @@ metrics();
             // Update/status dialogs are owned by the main launcher. Win32
             // identifies the current active popup even when it is not modal.
             IntPtr active = GetLastActivePopup(owner);
-            return active != IntPtr.Zero && active != owner && IsWindowVisible(active);
+            if (active == IntPtr.Zero || active == owner || active == Handle ||
+                (happyHourBanner != null && active == happyHourBanner.Handle) ||
+                (happyHourAlert != null && active == happyHourAlert.Handle))
+                return false;
+            return IsWindowVisible(active);
         }
 
         void DrainPendingHappyHour()
@@ -877,6 +881,7 @@ metrics();
             // Never deliver an alert which expired while another dialog was open.
             if (!demo && DiscordTimestamp(id).AddHours(1) <= DateTimeOffset.UtcNow)
             {
+                lastHappyHourAlertId = Math.Max(lastHappyHourAlertId, id);
                 Log("HAPPY HOUR | Queued announcement expired before display; dropped.");
                 return;
             }
