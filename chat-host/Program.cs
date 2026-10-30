@@ -821,7 +821,7 @@ metrics();
         {
             if (initialBackfillComplete || !nativeMode || signInExpanded ||
                 loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
-                history.Count == 0 || userScrolledChat) return;
+                history.Count == 0) return;
             if (initialBackfillStarted == DateTime.MinValue) {
                 initialBackfillStarted = DateTime.UtcNow;
                 Log("HAPPY HOUR | Searching Discord history backward for latest real activation");
@@ -855,8 +855,10 @@ metrics();
                 // Reanchoring an old Discord message changes the hidden
                 // source browser's channel position. Restore the live channel
                 // afterward, without losing the collected native history.
-                if (initialBackfillReanchored && !closingChat) {
-                    Log("CHAT | Returning Discord source to newest channel messages");
+                if (initialBackfillAttempts > 0 && !closingChat) {
+                    // This browser is the hidden Discord source, not the native
+                    // visible chat. Restore live message monitoring after scan.
+                    Log("CHAT | Returning hidden Discord source to newest messages");
                     web.CoreWebView2.Navigate(Channel);
                 }
                 // In the visible chat, show the latest messages (roughly ten
@@ -873,7 +875,10 @@ metrics();
 
         void RequestOlderMessages(bool forceTop = false)
         {
-            if (!userScrolledChat && !forceTop) return;
+            // The live Discord source has one scroll position. During the
+            // targeted HH search, reserve it for unattended pagination;
+            // keep user scrolling entirely within the native chat renderer.
+            if (!initialBackfillComplete || (!userScrolledChat && !forceTop)) return;
             bool nearTop = forceTop || ChatFirstLine() <= Math.Max(900, browserClientHeight * 3);
             if (userScrolledChat && nearTop) historyCatchupActive = true;
             bool canRequest = (nearTop || historyCatchupActive) && !loadingHistory && IsHandleCreated &&
@@ -1393,11 +1398,23 @@ metrics();
                 }
                 string newestId = doc.RootElement[doc.RootElement.GetArrayLength() - 1]
                     .GetProperty("id").GetString() ?? "";
-                bool newMessage = feedInitialized && newestId.Length > 0 &&
-                    newestId != latestMessageId;
-                latestMessageId = newestId;
+                // Discord's virtual history replaces the last visible row
+                // as we page backward or reanchor. That is NOT a new message:
+                // only a snowflake newer than the newest previously observed
+                // live message is eligible for an automatic notification.
+                var newestMatch = System.Text.RegularExpressions.Regex.Match(
+                    newestId, @"^chat-messages-\d+-(\d+)$");
+                ulong newestSnowflake = newestMatch.Success &&
+                    ulong.TryParse(newestMatch.Groups[1].Value, out ulong parsedNewest)
+                        ? parsedNewest : 0;
+                bool newMessage = feedInitialized && newestSnowflake > latestMessageId;
+                if (newestSnowflake > latestMessageId)
+                    latestMessageId = newestSnowflake;
                 feedInitialized = true;
-                if (newMessage && chatDisplayMode == "Automatic")
+                // Unattended history navigation must never force the chat
+                // open or reset the user's auto-hide timer.
+                if (newMessage && initialBackfillComplete &&
+                    chatDisplayMode == "Automatic")
                 {
                     lastChatActivity = DateTime.Now;
                     SetChatOpen(true);
@@ -1566,7 +1583,7 @@ metrics();
         string chatDisplayMode = "Automatic";
         bool chatOpen, feedInitialized;
         DateTime lastChatActivity = DateTime.MinValue;
-        string latestMessageId = "";
+        ulong latestMessageId;
         WinEventCallback? launcherLocationCallback;
         IntPtr launcherLocationHook;
         bool repositionQueued;
@@ -2101,9 +2118,13 @@ metrics();
             };
             historyWatch.Tick += (_, _) =>
             {
+                // The scan runs in the hidden source regardless of the
+                // visible chat's open/closed state or manual scroll position.
                 if (!closingChat && !IsDisposed && nativeMode) {
-                    BackfillUntilHappyHour();
-                    RequestOlderMessages();
+                    if (!initialBackfillComplete)
+                        BackfillUntilHappyHour();
+                    else
+                        RequestOlderMessages();
                 }
             };
             historyWatch.Start();
