@@ -1,25 +1,43 @@
-; Skooma Vision: strictly presentational Happy Hour theme.
-; ChatHost owns verification/expiry and posts 0x8334 ONLY while its real
-; Happy Hour banner is shown. Never infer Happy Hour from timers or log text.
+; Jiub-only Happy Hour portrait. NO top-level overlays, animations, particle
+; windows, graphics timers or owner-follow calculations. The transparent PNG
+; contains ONLY rainbow lenses and a big grin over the original game portrait.
+; Original launcher art and UI controls stay untouched.
+;
+; The verified ChatHost Happy Hour banner remains the sole real activation
+; source. A 20-second tray preview affects ONLY this cosmetic picture.
 global SkoomaVisionEnabled := true
 global SkoomaVisionBannerActive := false
 global SkoomaVisionPreviewActive := false
-global SkoomaVisionGui := 0
-global SkoomaVisionPieces := []
-global SkoomaVisionVisible := false
-global SkoomaVisionPhase := 0
-global SkoomaVisionLastWidth := 0
-global SkoomaVisionLastHeight := 0
+global SkoomaVisionPicture := 0
 
 InitializeSkoomaVision()
 {
     global DataFile, SkoomaVisionEnabled
     SkoomaVisionEnabled := IniRead(DataFile, "Launcher", "SkoomaVisionEnabled", "1") != "0"
-    A_TrayMenu.Add("Skooma Vision during Happy Hour", ToggleSkoomaVision)
-    A_TrayMenu.Add("Preview Skooma Vision (20 sec)", PreviewSkoomaVision)
+    A_TrayMenu.Add("Jiub's Happy Hour look", ToggleSkoomaVision)
+    A_TrayMenu.Add("Preview Jiub Happy Hour (20 sec)", PreviewSkoomaVision)
     if SkoomaVisionEnabled
-        A_TrayMenu.Check("Skooma Vision during Happy Hour")
+        A_TrayMenu.Check("Jiub's Happy Hour look")
     OnMessage(0x8334, LauncherSkoomaVisionStateChanged)
+}
+
+; Called once as part of constructing the ORIGINAL launcher GUI, BEFORE the
+; existing CaptureLauncherControlLayout() call. Therefore its image position
+; and dimensions scale with every other launcher control automatically, and
+; the image moves synchronously with the launcher (same HWND).
+CreateSkoomaVision()
+{
+    global LauncherGui, SkoomaVisionPicture
+    asset := A_ScriptDir "\assets\happy-hour\jiub-happy-hour.png"
+    if !FileExist(asset)
+    {
+        try LogLauncherEvent("HAPPY HOUR | Jiub portrait accessory missing: " asset)
+        return
+    }
+    ; Alpha transparent outside Jiub's glasses/mouth, compact hitbox far
+    ; from all buttons, dialogue controls and the global drag strip.
+    SkoomaVisionPicture := LauncherGui.Add("Picture",
+        "x439 y140 w111 h78 Hidden BackgroundTrans", asset)
 }
 
 LauncherSkoomaVisionStateChanged(wParam, lParam, msg, hwnd)
@@ -40,19 +58,17 @@ ToggleSkoomaVision(*)
     IniWrite(SkoomaVisionEnabled ? "1" : "0", DataFile,
         "Launcher", "SkoomaVisionEnabled")
     if SkoomaVisionEnabled
-        A_TrayMenu.Check("Skooma Vision during Happy Hour")
+        A_TrayMenu.Check("Jiub's Happy Hour look")
     else
-        A_TrayMenu.Uncheck("Skooma Vision during Happy Hour")
+        A_TrayMenu.Uncheck("Jiub's Happy Hour look")
     RefreshSkoomaVision()
 }
 
 PreviewSkoomaVision(*)
 {
     global SkoomaVisionPreviewActive
-    ; Visual-only preview, even when the permanent effect is toggled off.
-    ; The 20-second trial never alters saved settings, banner or detection.
+    ; Does not forge a real banner, Discord message or timer.
     SkoomaVisionPreviewActive := true
-    LogLauncherEvent("UI | Skooma Vision manual preview requested.")
     RefreshSkoomaVision()
     SetTimer(EndSkoomaVisionPreview, -20000)
 }
@@ -66,220 +82,39 @@ EndSkoomaVisionPreview(*)
 
 RefreshSkoomaVision()
 {
-    global SkoomaVisionEnabled, SkoomaVisionBannerActive, SkoomaVisionPreviewActive
-    if (!SkoomaVisionEnabled || !SkoomaVisionBannerActive) && !SkoomaVisionPreviewActive
-    {
-        SetTimer(SkoomaVisionTick, 0)
-        HideSkoomaVision()
+    global SkoomaVisionEnabled, SkoomaVisionBannerActive
+    global SkoomaVisionPreviewActive, SkoomaVisionPicture, EmbeddedChatPid
+    if !IsObject(SkoomaVisionPicture)
         return
-    }
-    try
-    {
-        if !IsObject(SkoomaVisionGui)
-            CreateSkoomaVision()
-        SkoomaVisionTick()
-        ; Quiet and low-frequency: no high-speed flashes or input hooks.
-        SetTimer(SkoomaVisionTick, 750)
-    }
-    catch Error as err
-    {
-        SetTimer(SkoomaVisionTick, 0)
-        HideSkoomaVision()
-        try LogLauncherEvent("UI | Skooma Vision visual layer disabled: " err.Message)
-    }
+    ; A verified Happy Hour shows the portrait; the opt-in tray preview may
+    ; show it even if the automatic mode is disabled.
+    visible := (SkoomaVisionEnabled && SkoomaVisionBannerActive)
+        || SkoomaVisionPreviewActive
+    SkoomaVisionPicture.Visible := visible
+    ; No frame updates. This lightweight timer only protects against a
+    ; ChatHost crash leaving a stale Happy Hour flag active.
+    SetTimer(CheckSkoomaVisionHost, SkoomaVisionBannerActive ? 1500 : 0)
 }
 
-AddSkoomaPiece(gui, x, y, size, symbol, color := "CC8BFF", animated := true)
+CheckSkoomaVisionHost(*)
 {
-    global SkoomaVisionPieces
-    gui.SetFont("s" size " c" color " Norm", "Segoe UI Symbol")
-    control := gui.Add("Text", "x" x " y" y " w70 h55 BackgroundTrans Center", symbol)
-    SkoomaVisionPieces.Push({Control: control, X: x, Y: y,
-        Size: size, Color: color, Animated: animated})
-}
-
-CreateSkoomaVision()
-{
-    global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionVisible
-    global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui
-    ; Owned nonactivating click-through window: all game/client/menu controls
-    ; and the existing Game Chat stay completely interactive.
-    layer := Gui("+Owner" LauncherGui.Hwnd
-        " -Caption +ToolWindow -DPIScale +E0x08000020",
-        "tes3np Skooma Vision")
-    layer.BackColor := "010203"
-    SkoomaVisionPieces := []
-    ; Keep the central launcher menu, chat toggle, and both info-card text
-    ; surfaces clear. Party accessories decorate the screenshot borders.
-    AddSkoomaPiece(layer, 283, 1, 17, "✦", "B990EF")
-    AddSkoomaPiece(layer, 345, 1, 13, "✧", "72D7BC")
-    AddSkoomaPiece(layer, 688, 1, 17, "✦", "EFCA80")
-    AddSkoomaPiece(layer, 740, 1, 13, "✧", "C89CE8")
-    ; Decorative festival accessories/party hats. They belong to the
-    ; transparent layer, never to the original screenshot or game files.
-    AddSkoomaPiece(layer, 30, 64, 25, "🎉", "E9A2F3", false)
-    AddSkoomaPiece(layer, 882, 64, 25, "🎉", "8BE2BB", false)
-    AddSkoomaPiece(layer, 18, 352, 24, "🎊", "F4CE86", false)
-    AddSkoomaPiece(layer, 906, 347, 24, "🎊", "B99EF9", false)
-    AddSkoomaPiece(layer, 22, 601, 21, "✶", "B48EEF")
-    AddSkoomaPiece(layer, 892, 600, 21, "✶", "80D8B5")
-    AddSkoomaPiece(layer, 245, 670, 15, "✦", "F0B982")
-    AddSkoomaPiece(layer, 715, 674, 15, "✦", "BE92DE")
-    AddSkoomaPiece(layer, 51, 222, 14, "✧", "7ED5C3")
-    AddSkoomaPiece(layer, 876, 223, 14, "✧", "F1BF87")
-    AddSkoomaPiece(layer, 46, 480, 14, "✦", "C09BFA")
-    AddSkoomaPiece(layer, 882, 470, 14, "✦", "83DBBC")
-    ; Ghostly, slow-moving cloud accents hug the outside of screenshot panels.
-    AddSkoomaPiece(layer, 10, 118, 18, "☁", "654883")
-    AddSkoomaPiece(layer, 897, 125, 18, "☁", "497E75")
-    AddSkoomaPiece(layer, 7, 555, 17, "☁", "5A477D")
-    AddSkoomaPiece(layer, 905, 552, 17, "☁", "476F70")
-    ; A subdued indicator on the empty upper title strip. The official
-    ; Happy Hour banner above the launcher remains unchanged.
-    layer.SetFont("s10 Bold cA1E5CD", "Georgia")
-    label := layer.Add("Text",
-        "x380 y12 w218 h24 BackgroundTrans Center", "✦ SKOOMA VISION ✦")
-    SkoomaVisionPieces.Push({Control: label, X: 380, Y: 12,
-        Size: 10, Color: "A1E5CD", Animated: false, Width: 218, Height: 24})
-    SkoomaVisionGui := layer
-    SkoomaVisionVisible := false
-    SkoomaVisionLastWidth := 0
-    SkoomaVisionLastHeight := 0
-    ; Color-key transparency retains per-pixel content from the launcher,
-    ; without any separate fullscreen image or mouse intercept.
-    layer.Show("Hide w960 h716")
-    ; AHK's ahk_id string matcher ignores hidden windows by default.
-    ; The old call threw TargetError here, which the visual-only caller
-    ; caught and logged silently. A pure HWND always resolves hidden GUIs.
-    WinSetTransColor("010203", layer.Hwnd)
-    LogLauncherEvent("UI | Skooma Vision transparent overlay created.")
-}
-
-SkoomaVisionMotionAllowed()
-{
-    ; Follow Windows' "Show animations in Windows" accessibility setting.
-    reduced := Buffer(4, 0)
-    if DllCall("SystemParametersInfoW", "UInt", 0x1042, "UInt", 0,
-        "Ptr", reduced, "UInt", 0, "Int")
-        return NumGet(reduced, 0, "Int") != 0
-    return false
-}
-
-SkoomaVisionTick(*)
-{
-    ; A render failure may not interrupt buttons, game login, or ChatHost.
-    try SkoomaVisionDraw()
-    catch Error as err
-    {
-        SetTimer(SkoomaVisionTick, 0)
-        HideSkoomaVision()
-        try LogLauncherEvent("UI | Skooma Vision tick disabled: " err.Message)
-    }
-}
-
-SkoomaVisionDraw(*)
-{
-    global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionVisible
-    global SkoomaVisionBannerActive, SkoomaVisionPreviewActive, SkoomaVisionEnabled, SkoomaVisionPhase
-    global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui, EmbeddedChatPid
-    global CharacterPage, V016SettingsGuiHwnd
-    ; If ChatHost disappears unexpectedly, do not leave a phantom visual
-    ; mode behind. The next verified banner will post a fresh activation.
+    global EmbeddedChatPid, SkoomaVisionBannerActive
     if SkoomaVisionBannerActive && EmbeddedChatPid && !ProcessExist(EmbeddedChatPid)
     {
         SkoomaVisionBannerActive := false
         RefreshSkoomaVision()
-        return
     }
-    if (!SkoomaVisionEnabled || !SkoomaVisionBannerActive) && !SkoomaVisionPreviewActive ||
-        !IsObject(LauncherGui) || !IsObject(SkoomaVisionGui)
-        return
-    ; Keep the book, Launcher Settings and their modal controls completely
-    ; clear. Resume quietly when the user returns to the main launcher.
-    if IsObject(CharacterPage) && DllCall("IsWindowVisible", "Ptr", CharacterPage.Hwnd)
-        || (V016SettingsGuiHwnd && DllCall("IsWindowVisible", "Ptr", V016SettingsGuiHwnd))
-    {
-        HideSkoomaVision()
-        return
-    }
-    owner := "ahk_id " LauncherGui.Hwnd
-    if !DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd) ||
-        WinGetMinMax(owner) = -1
-    {
-        HideSkoomaVision()
-        return
-    }
-    WinGetPos(&x, &y, &w, &h, owner)
-    if w <= 0 || h <= 0
-        return
-    scaleX := w / 960, scaleY := h / 716
-    if w != SkoomaVisionLastWidth || h != SkoomaVisionLastHeight
-    {
-        for piece in SkoomaVisionPieces
-        {
-            pw := piece.HasOwnProp("Width") ? piece.Width : 70
-            ph := piece.HasOwnProp("Height") ? piece.Height : 55
-            piece.Control.Move(Round(piece.X * scaleX),
-                Round(piece.Y * scaleY), Round(pw * scaleX),
-                Round(ph * scaleY))
-            piece.Control.SetFont("s" Max(6, Round(piece.Size * Min(scaleX, scaleY))),
-                piece.HasOwnProp("Width") ? "Georgia" : "Segoe UI Symbol")
-        }
-        SkoomaVisionLastWidth := w
-        SkoomaVisionLastHeight := h
-    }
-    if !SkoomaVisionVisible
-    {
-        SkoomaVisionGui.Show("NA x" x " y" y " w" w " h" h)
-        if !DllCall("IsWindowVisible", "Ptr", SkoomaVisionGui.Hwnd, "Int")
-            throw Error("Windows did not show the Skooma Vision overlay.")
-        SkoomaVisionVisible := true
-        LogLauncherEvent("UI | Skooma Vision overlay visible at "
-            x "," y " (" w " x " h ").")
-    }
-    else
-        DllCall("SetWindowPos", "Ptr", SkoomaVisionGui.Hwnd, "Ptr", 0,
-            "Int", x, "Int", y, "Int", w, "Int", h, "UInt", 0x0014)
-    if !SkoomaVisionMotionAllowed()
-        return
-    SkoomaVisionPhase := Mod(SkoomaVisionPhase + 1, 8)
-    ; Gentle eight-step color drift; no rapid hue flashing or zoom effects.
-    colors := ["B990EF", "AA99E7", "8FB5E8", "76CBCA",
-        "7ED8AD", "ADD68E", "DEC18A", "DBA9D4"]
-    for i, piece in SkoomaVisionPieces
-    {
-        if !piece.Animated
-            continue
-        color := colors[Mod(SkoomaVisionPhase + i - 1, colors.Length) + 1]
-        piece.Control.SetFont("c" color)
-        ; Two-pixel breathing drift instead of flashing or moving the page.
-        drift := SkoomaVisionPhase < 4 ? 2 : 0
-        pw := piece.HasOwnProp("Width") ? piece.Width : 70
-        ph := piece.HasOwnProp("Height") ? piece.Height : 55
-        piece.Control.Move(Round((piece.X + drift) * scaleX),
-            Round((piece.Y + drift) * scaleY), Round(pw * scaleX),
-            Round(ph * scaleY))
-    }
-}
-
-HideSkoomaVision()
-{
-    global SkoomaVisionGui, SkoomaVisionVisible
-    if IsObject(SkoomaVisionGui) && SkoomaVisionVisible
-        try SkoomaVisionGui.Hide()
-    SkoomaVisionVisible := false
 }
 
 DisposeSkoomaVision()
 {
-    global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionBannerActive, SkoomaVisionPreviewActive
-    SetTimer(SkoomaVisionTick, 0)
+    global SkoomaVisionPicture, SkoomaVisionBannerActive
+    global SkoomaVisionPreviewActive
     SetTimer(EndSkoomaVisionPreview, 0)
-    HideSkoomaVision()
-    if IsObject(SkoomaVisionGui)
-        try SkoomaVisionGui.Destroy()
-    SkoomaVisionGui := 0
-    SkoomaVisionPieces := []
+    SetTimer(CheckSkoomaVisionHost, 0)
+    if IsObject(SkoomaVisionPicture)
+        try SkoomaVisionPicture.Visible := false
+    SkoomaVisionPicture := 0
     SkoomaVisionBannerActive := false
     SkoomaVisionPreviewActive := false
     OnMessage(0x8334, LauncherSkoomaVisionStateChanged, 0)
