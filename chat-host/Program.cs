@@ -862,6 +862,26 @@ metrics();
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "tes3np", "happy-hour-last-seen.txt");
 
+        // The no-announcement UI fallback has no Discord message ID. Remember it
+        // separately so it does not interfere with real Happy Hour alerts.
+        readonly string happyHourDemoSeenFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "tes3np", "happy-hour-demo-seen.txt");
+
+        bool HasSeenHappyHourDemo()
+        {
+            try { return File.Exists(happyHourDemoSeenFile); }
+            catch { return false; }
+        }
+
+        void MarkHappyHourDemoSeen()
+        {
+            try {
+                Directory.CreateDirectory(Path.GetDirectoryName(happyHourDemoSeenFile)!);
+                File.WriteAllText(happyHourDemoSeenFile, "1");
+            } catch (Exception ex) { Log("Happy Hour UI test state not saved: " + ex.Message); }
+        }
+
         ulong GetLastSeenHappyHour()
         {
             try {
@@ -1014,11 +1034,15 @@ metrics();
             happyHourAlert = null;
             happyHourBanner = null;
 
-            // A simulated expired preview never changes persisted notification state.
-            bool previouslySeen = !demo && !expired && activationId <= GetLastSeenHappyHour();
-            // Mark as seen before displaying so restarting during the dialog
-            // cannot spam the same announcement.
-            if (!previouslySeen && !expired && !demo) SaveLastSeenHappyHour(activationId);
+            // Remember this announcement across launches, including expired
+            // announcements shown in development preview mode. The UI-only
+            // fallback is tracked independently because its message ID is zero.
+            bool previouslySeen = demo ? HasSeenHappyHourDemo()
+                : activationId <= GetLastSeenHappyHour();
+            if (!previouslySeen) {
+                if (demo) MarkHappyHourDemoSeen();
+                else SaveLastSeenHappyHour(activationId);
+            }
             if (!previouslySeen)
             {
                 var alert = GoldHappyHourWindow(480, 266, "tes3np - Happy Hour");
