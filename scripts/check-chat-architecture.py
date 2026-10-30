@@ -78,10 +78,28 @@ expect(
     and "Form? happyHourAlert" not in source,
 )
 expect(
-    "Happy Hour display must require an authenticated Discord channel",
-    "if (!discordChannelReady || activationId == 0) return;" in source
-    and "if (!discordChannelReady) return;" in source
-    and "SuspendHappyHourUntilDiscordReturns" in source,
+    "Banner presentation is independent of Discord authentication",
+    "if (activationId == 0 || closingChat || IsDisposed) return;" in source
+    and "void RefreshHappyHourBanner()\n        {\n            if (happyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
+    and "void DetectLatestHappyHour()\n        {\n            if (closingChat || IsDisposed) return;" in source,
+)
+expect(
+    "Only authenticated Discord can fetch or page new messages",
+    "if (!discordChannelReady || initialBackfillComplete" in source
+    and "discordLoginVisible || !discordChannelReady) return;" in source
+    and "void SuspendHappyHourUntilDiscordReturns(string reason)" in source,
+)
+expect(
+    "Offline startup consults real archived messages, not login or marker state",
+    "// Load it immediately, whether this browser is signed in or not.\n                DetectLatestHappyHour();" in source
+    and "ulong latest = LatestArchivedHappyHourId();" in source
+    and "LegacyHappyHourSeenFile" not in source,
+)
+expect(
+    "Logging out must preserve a valid banner and its expiry timer",
+    "Verified Happy Hour banner remains independent." in source
+    and "Keep the existing genuine activation, its absolute expiry," in source
+    and "happyHourEndsAt <= DateTimeOffset.UtcNow ||" in source,
 )
 expect(
     "Only real Discord snowflake IDs may determine expiry",
@@ -114,6 +132,20 @@ expect(
     and "WriteChatArchiveAtomically(GameChatLogFile," in source
     and "File.Move(temporary, path, true);" in source,
 )
+expect(
+    "Fresh authentication initializes the native renderer before hiding it",
+    "await InitMessageBrowser(env);" in source
+    and "rendererNavigation.Task.WaitAsync(TimeSpan.FromSeconds(8))" in source
+    and "messageBrowserReady = true;" in source,
+)
+expect(
+    "First login reloads Discord channel once without launcher restart",
+    "channelReloadAfterSignInPending = true;" in source
+    and "channelReloadAfterSignInPending = false;" in source
+    and "web.CoreWebView2.Reload();" in source
+    and "bool keepChatVisible = chatOpen" in source,
+)
+
 expect(
     "Happy Hour banner must track launcher movement without a timer delay",
     "void PositionHappyHourBanner()" in source
@@ -152,5 +184,6 @@ if errors:
         print(" - " + error)
     sys.exit(1)
 
-print("Chat Host contracts verified: Roaming AppData, authenticated real-only "
-      "Happy Hour banner, native movement, and atomic chat archive writes.")
+print("Chat Host contracts verified: Roaming AppData, verified offline Happy "
+      "Hour cache, authenticated live fetching, first-login chat, native "
+      "movement and atomic history writes.")
