@@ -57,7 +57,7 @@ ApplyV016CharacterLayout(*)
     ; Add Character takes the former Schedule Event position. Keep the Wipe
     ; button directly beneath it, using the same styled-button mover as
     ; RefreshProfiles so the painted and native button layers stay together.
-    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 250, 370, 30)
+    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 180, 370, 30)
     MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
     V016CharacterLayoutApplied := true
 }
