@@ -1066,13 +1066,14 @@ metrics();
                 var rainbow = new Panel {
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
                 };
-                rainbow.SetBounds(6, 0, 188, 32);
+                rainbow.SetBounds(6, 0, 225, 32);
                 titleInset.Controls.Add(rainbow);
                 rainbow.Paint += (_, e) => {
-                    const string heading = "HAPPY HOUR";
+                    string heading = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow
+                        ? "HAPPY HOUR ACTIVE" : "HAPPY HOUR";
                     string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                         "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
-                    using var font = new System.Drawing.Font("Georgia", 14,
+                    using var font = new System.Drawing.Font("Georgia", 11,
                         System.Drawing.FontStyle.Bold);
                     var flags = System.Windows.Forms.TextFormatFlags.NoPadding |
                         System.Windows.Forms.TextFormatFlags.VerticalCenter |
@@ -1085,21 +1086,22 @@ metrics();
                         int width = Math.Max(1, (int)Math.Round(widths[i] * scale));
                         System.Windows.Forms.TextRenderer.DrawText(e.Graphics,
                             heading[i].ToString(), font, new System.Drawing.Rectangle(x, 0, width + 1, 32),
-                            System.Drawing.ColorTranslator.FromHtml(colors[i]), flags);
+                            System.Drawing.ColorTranslator.FromHtml(colors[i % colors.Length]), flags);
                         x += width;
                     }
                 };
-                // Keep the rainbow title fixed; append the popup's exact green
-                // activation wording and a separately colored live countdown.
-                var separator = GoldText("-", 196, 1, 16, 30, 11, true);
+                // Retain the existing banner location and compact black plate.
+                // Green bonus wording and the live countdown fit beside the
+                // extended rainbow heading in the launcher's 620px minimum width.
+                var separator = GoldText("-", 231, 1, 14, 30, 10, true);
                 separator.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(separator);
-                var activated = GoldText("Happy hour has been activated!", 212, 1, 234, 30, 10, true);
+                var activated = GoldText("Mastery Points Are Doubled!", 246, 1, 211, 30, 10, true);
                 activated.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 activated.ForeColor = System.Drawing.Color.FromArgb(55, 216, 70);
                 activated.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(activated);
-                var left = GoldText("", 446, 1, 120, 30, 10, true);
+                var left = GoldText("", 457, 1, 109, 30, 9, true);
                 left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(left);
@@ -1129,7 +1131,7 @@ metrics();
                     ? HappyHourTimerColor(happyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
                 if (happyHourBannerCountdown.Parent is Panel plate)
-                    plate.Width = active ? 566 : 210;
+                    plate.Width = active ? 566 : 240;
             }
             // Place the gold card directly above the actual launcher window.
             RECT rect;
