@@ -26,6 +26,58 @@ later declarations; state must be initialized before startup.
 State remains shared rather than class-based to preserve the accepted native GUI
 behavior. Each feature has one initialization point and one responsible module.
 
+## Embedded Game Chat and Happy Hour contract
+
+The AutoHotkey launcher remains authoritative for the application lifecycle,
+window ownership, user settings, and diagnostics. `src/ui/embedded-chat.ahk`
+starts/stops the separate Windows Forms/WebView2 companion
+(`chat-host/Program.cs`). The Chat Host owns its own docked window and chat
+content; it communicates chat visibility through the existing window messages
+`0x8331` (launcher commands) and `0x8332` (Chat Host state). Do not add a
+second Chat Host process, popup ownership controller, or competing chat timer.
+
+**One persistent data root:** `src/state.ahk` declares
+`AppDataDirectory := A_AppData "\\tes3np"`. Chat Host uses the corresponding
+`ChatDataRoot` (`%APPDATA%\\tes3np`), with:
+
+- `chat-host.log`: Chat Host diagnostics at the root, alongside `launcher.log`.
+- `Logs/game-chat-index.json` and `Logs/game-chat.log`: Discord messages and
+  real snowflake IDs, including verified image attachments.
+- `chat-webview2/`: embedded Discord browser profile.
+- `chat-display-mode.txt` and `happy-hour-last-seen.txt`: user interface
+  preference and deduplication state, **not** evidence of a current event.
+
+`chat.ini`, `chat.css`, and packaged chat artwork stay beside the executable:
+they are distribution/configuration assets, not personal logs. An old development
+build mistakenly wrote the Happy Hour notification marker under
+`%LOCALAPPDATA%\\tes3np`. The Chat Host may **move** that one legacy marker
+into Roaming only if a chat archive already existed when it started. Clearing
+Roaming data intentionally must not reimport stale Local AppData state. New
+persistent state must never be written to Local AppData.
+
+**Happy Hour lifecycle:** wait for the authenticated Discord Game Chat
+channel to render before reading the archive or showing the banner. Search
+previously indexed genuine messages first, then paginate the hidden Discord
+source if none qualify. The latest announcement's Discord snowflake determines
+both the event time and 60-minute expiry. Image-only rainbow announcements must
+be associated with the actual posting account/message ID; an image or the
+last-seen marker alone cannot create a synthetic event. Development preview
+may show an **authentic expired** announcement with zero time; production must
+hide expired events. Logout, sign-in, and unavailable chat hide the banner and
+pause detection. User chat visibility/scrolling never controls pagination.
+The `happy-hour-last-seen.txt` marker only suppresses duplicate large alerts.
+
+Archive exports are written to temporary files and atomically replaced to
+avoid corrupting the only saved index during long history scans. Do not rewrite
+the entire archive once per message.
+
+**Validation:** `scripts/check-chat-architecture.py` guards these contracts
+and the normal CI checks now compile `chat-host/tes3np.ChatHost.csproj`.
+Static checks do not establish successful Discord authentication, WebView2
+rendering, Happy Hour recognition, or Windows window positioning. Verify those
+behaviors in an actual launcher build. Turn off
+`PreviewExpiredHappyHourForTesting` before approving a public release.
+
 ## Session contract
 
 `ClientTick` owns recovery. Phases are `launch`, `window`, `username`, `password`,
