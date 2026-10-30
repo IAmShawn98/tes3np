@@ -26,6 +26,9 @@ jobs:
             [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true)))
           }
 
+      - name: Verify release evidence and disable development-only previews
+        run: python scripts/check-release-gates.py
+
       - name: Validate complete source and payload
         run: python scripts/project.py check
 
