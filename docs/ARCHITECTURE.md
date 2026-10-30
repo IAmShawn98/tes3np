@@ -76,6 +76,27 @@ scan ends at the active one-hour boundary. Chat visibility and manual scrolling
 never control pagination. The launcher-owned banner is the **only** Happy Hour
 notification; no separate large popup appears.
 
+**Skooma Vision prototype (optional, visual only):** The ChatHost posts
+`WM_APP + 0x334` (0x8334) to the existing launcher HWND when—and only
+when—the **same verified Happy Hour banner** is actually shown or closed.
+Do not add a second detector, independent activation timestamp, fake event,
+or extra Happy Hour notification. `src/ui/skooma-vision.ahk` listens for
+that message and shows a separate owned, nonactivating, click-through
+transparent decorative layer: slow jewel-tone color drift, sparks,
+confetti and party accessories at the main launcher artwork's borders.
+No image is rewritten, no launcher controls are moved and Game Chat
+continues to own its normal windows. The theme hides while the launcher is
+minimized, while the Character Book/Launcher Settings is open, on expiry
+or dismissal, on missing ChatHost, or on shutdown. The system Windows
+client-area animation setting disables movement/color animation but
+preserves static decorations. The tray option `Skooma Vision during Happy
+Hour` persists a per-user off switch in `[Launcher]` of the existing
+Roaming settings INI. The separate 20-second tray preview affects only the
+decorative layer; it never creates a real or simulated Happy Hour banner.
+The real banner's original detection, positioning, login and ChatHost
+authentication paths are unchanged. Windows runtime visual alignment and
+real activation/expiry need confirmation before release.
+
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
 the entire archive once per message.
