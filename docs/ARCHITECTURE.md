@@ -61,25 +61,32 @@ AppData; the banner-only implementation no longer reads, migrates, or writes
 that obsolete file. Clearing Roaming data must remain a genuine reset. No new
 persistent Chat Host state is written to Local AppData.
 
-**Happy Hour lifecycle:** wait for the authenticated Discord Game Chat
-channel to render before reading the archive or showing the banner. Search
-previously indexed genuine messages first, then paginate the hidden Discord
-source if none qualify. The latest announcement's Discord snowflake determines
-both the event time and 60-minute expiry. Image-only rainbow announcements must
-be associated with the actual posting account/message ID; an image or a
-saved marker cannot create a synthetic event. The banner appears **only** while
-the latest genuine Discord activation is within its sixty-minute window; an
-expired saved announcement is never displayed. Once that window expires, the
-existing countdown timer closes the banner. The unattended history scan ends
-at the active one-hour boundary rather than paging through old announcements
-for testing. Logout, sign-in, and unavailable chat hide the banner and pause
-detection. User chat visibility/scrolling never controls pagination. The
-launcher-owned banner is the **only** Happy Hour notification; no separate
-large popup appears.
+**Happy Hour lifecycle:** on Chat Host startup read the local Roaming chat
+archive even if Discord is signed out. A genuine bot-authored text announcement
+or pixel-verified image with its original Discord snowflake can display the
+banner offline, but only during the real sixty-minute active period. An empty
+archive, old expired message or obsolete last-seen marker cannot trigger it.
+Authentication gates **fetching new Discord messages and history paging**, not
+presenting an already verified active announcement. When Discord becomes
+available, search the indexed messages first and page the hidden channel if
+necessary. The original snowflake determines the expiry; the existing countdown
+timer closes the banner at its end. Logout pauses network collection without
+hiding a still-valid cached banner or resetting its countdown. The unattended
+scan ends at the active one-hour boundary. Chat visibility and manual scrolling
+never control pagination. The launcher-owned banner is the **only** Happy Hour
+notification; no separate large popup appears.
 
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
 the entire archive once per message.
+
+**First Discord sign-in:** the native HTML chat renderer must initialize and
+finish its local navigation before the login view hides its WinForms parent.
+When Discord redirects to Game Chat, restore the original docked panel and
+reload that authenticated channel **once** to complete the SPA handoff, without
+restarting the launcher or spawning another Chat Host. Keep an already-open
+Automatic chat panel visible through this transition. This sequence changes
+neither the persisted browser profile nor the Happy Hour archive.
 
 **Validation:** `scripts/check-chat-architecture.py` guards these contracts
 and the normal CI checks now compile `chat-host/tes3np.ChatHost.csproj`.
