@@ -50,6 +50,45 @@ Keep personal settings and logs outside the source tree. Preserve existing INI k
 
 To distribute a script build, ZIP the `tes3np` folder with the entry script, source, assets, scripts, bundled patches and documentation. Do not include user settings, logs, temporary files or compiler output. A compiled release still needs its external assets beside the executable; compiled distribution is not currently supplied.
 
+## Embedded Chat Host changes
+
+Treat `chat-host/Program.cs` as a separate WinForms process owned by the
+AutoHotkey launcher, not as an independent application with its own data
+conventions. Read `docs/ARCHITECTURE.md` and `src/ui/embedded-chat.ahk`
+before editing it.
+
+Persist personal Chat Host state only through `ChatDataRoot`, which matches
+the launcher's `%APPDATA%\\tes3np`. The message index and export remain in
+its `Logs` subfolder; the WebView2 profile stays in `chat-webview2`.
+Changing the installation folder must not reset user state. The only
+Local AppData reference is a **read/move-only legacy migration** for the
+old Happy Hour notification marker when an archive was already present at
+Chat Host startup. Clearing Roaming data intentionally must produce a fresh
+profile, even if the obsolete Local AppData marker still exists.
+
+Game Chat must authenticate and show the configured Discord channel before
+Happy Hour detection or banner display. The detector checks indexed real
+messages first; if none qualify, it pages older Discord messages and saves
+newly loaded batches atomically. A genuine announcement may be text or a
+bot-posted image. Its original Discord message ID is the time authority.
+No preview fallback, last-seen ID, or unrelated image can supply a new
+activation time. Expired previews are development-only.
+
+Before committing a Chat Host change:
+
+1. Read the existing state/auth/archive and launcher ownership contracts.
+2. Run `python scripts/check-chat-architecture.py`.
+3. On Windows, compile with
+   `dotnet build chat-host/tes3np.ChatHost.csproj -c Release -r win-x64 --no-self-contained`.
+4. Run `Build tes3np.bat` and exercise signed-out, signed-in, empty archive,
+   existing archive, logout/relogin, expired event, and current event paths.
+5. Verify the completed chat UI and window ownership; source checks and
+   successful compilation alone cannot prove runtime behavior.
+
+Both the lightweight CI workflow and the Windows packaging workflow run the
+architectural regression guard. The lightweight CI also compiles Chat Host,
+so C# syntax errors are caught without waiting for the complete launcher build.
+
 ## Validation before release
 
 Test on Windows with AutoHotkey v2:
