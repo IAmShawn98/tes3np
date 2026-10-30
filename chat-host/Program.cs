@@ -1084,6 +1084,31 @@ metrics();
                 " | " + DiscordTimestamp(activationId).ToString("O"));
         }
 
+        // Check the persistent Discord chat archive as well as freshly loaded rows.
+        // This allows an expired announcement to be previewed even if it is no
+        // longer inside Discord's limited current viewport.
+        static bool IsHappyHourAnnouncement(string body) =>
+            System.Text.RegularExpressions.Regex.IsMatch(body,
+                @"happy\s+hour\s+has\s+been\s+activated\s*!?",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        void DetectLatestHappyHour()
+        {
+            try
+            {
+                EnsureChatLogLoaded();
+                ulong latest = 0;
+                foreach (var entry in archivedChat)
+                    if (entry.Key > latest && IsHappyHourAnnouncement(entry.Value.Body))
+                        latest = entry.Key;
+                if (latest > 0) ShowHappyHourAlert(latest);
+                else if (PreviewExpiredHappyHourForTesting && lastHappyHourAlertId == 0)
+                    Log("HAPPY HOUR | No activation announcement found in local chat archive yet.");
+            }
+            catch (Exception ex) { Log("HAPPY HOUR | Scan failed: " + ex.Message); }
+        }
+
         async Task RefreshNativeMessages()
         {
             if (closingChat || IsDisposed || web.CoreWebView2 == null || discordLoginVisible) return;
@@ -1092,11 +1117,17 @@ metrics();
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
                 if (closingChat || IsDisposed) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
-                if (json == lastFeed && !imagesNeedRedraw && nativeMode) return;
+                if (json == lastFeed && !imagesNeedRedraw && nativeMode) {
+                    DetectLatestHappyHour();
+                    return;
+                }
                 bool redrawImages = imagesNeedRedraw;
                 imagesNeedRedraw = false;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
-                if (doc.RootElement.GetArrayLength() == 0) return;
+                if (doc.RootElement.GetArrayLength() == 0) {
+                    DetectLatestHappyHour();
+                    return;
+                }
                 string newestId = doc.RootElement[doc.RootElement.GetArrayLength() - 1]
                     .GetProperty("id").GetString() ?? "";
                 bool newMessage = feedInitialized && newestId.Length > 0 &&
@@ -1148,6 +1179,7 @@ metrics();
                         changed = true;
                     }
                 }
+                DetectLatestHappyHour();
                 if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
