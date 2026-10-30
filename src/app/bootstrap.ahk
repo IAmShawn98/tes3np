@@ -83,6 +83,9 @@ StartLauncher()
     LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CreateLauncherChatToggle()
+    ; Register Jiub's transparent Happy Hour expression as a NORMAL child
+    ; control before capturing layout, so dragging/scaling stays synchronous.
+    CreateSkoomaVision()
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
