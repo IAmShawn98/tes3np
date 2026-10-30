@@ -231,7 +231,7 @@ CloseCharacterPage(*)
 
 EditProfile(index, *)
 {
-    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, LaunchSettingsHeading, LaunchSettingsControls
+    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, EditorSpeciesDropDown, LaunchSettingsHeading, LaunchSettingsControls
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -260,6 +260,13 @@ EditProfile(index, *)
             row.Key := ""
         EditorOffset := 0
         SetBookTick(EditorReconnectTick, profile.AutoReconnect)
+        ; Legacy characters remain editable without an invented race.
+        species := profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : ""
+        speciesIndex := 1
+        for optionIndex, option in CharacterSpeciesOptions()
+            if option = species
+                speciesIndex := optionIndex + 1
+        EditorSpeciesDropDown.Choose(speciesIndex)
         ScrollEditorRows(0)
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
@@ -277,13 +284,14 @@ EditProfile(index, *)
 
 CreateProfileEditor()
 {
-    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorReconnectTick
+    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorReconnectTick, EditorSpeciesDropDown
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
     {
         position := A_Index
-        y := 110 + (position - 1) * 54
+        ; Compact the five existing rows without moving Save or X.
+        y := 100 + (position - 1) * 50
         SetInterfaceLoadingText("Loading setting label " position "...")
         label := AddBookLabel(CharacterPage, 525, y, 355, 22, "")
         SetInterfaceLoadingText("Loading setting field " position "...")
@@ -293,12 +301,21 @@ CreateProfileEditor()
         EditorControls.Push(label)
         EditorControls.Push(input)
     }
+    SetInterfaceLoadingText("Loading species selector...")
+    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Species")
+    speciesOptions := ["Select species..."]
+    for item in CharacterSpeciesOptions()
+        speciesOptions.Push(item)
+    EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
+        "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
+    EditorControls.Push(speciesLabel, EditorSpeciesDropDown)
     SetInterfaceLoadingText("Loading settings scrollbar...")
     EditorTrack := CharacterPage.Add("Text", "x890 y210 w7 h213 Hidden Background704C27 +0x100")
     EditorThumb := CharacterPage.Add("Text", "x890 y210 w7 h110 Hidden BackgroundC69951 +0x100")
     SetInterfaceLoadingText("Loading auto reconnect setting...")
-    EditorReconnectTick := AddBookTick(CharacterPage, 525, 400, ToggleEditorReconnect)
-    reconnectLabel := AddBookLabel(CharacterPage, 550, 397, 330, 24, "Auto reconnect on close or crash")
+    EditorReconnectTick := AddBookTick(CharacterPage, 525, 418, ToggleEditorReconnect)
+    reconnectLabel := AddBookLabel(CharacterPage, 550, 415, 330, 24, "Auto reconnect on close or crash")
     EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
     EditorSaveButton := AddStyledButton(CharacterPage, 635, 465, 140, 30, "Save changes", (*) => 0)
@@ -446,7 +463,7 @@ BrowseSharedExecutable(*)
 
 SaveProfileEditor(index, fields, editor, *)
 {
-    global Profiles, SelectedProfile, MaxCharacters, EditorReconnectTick, ButtonFaces
+    global Profiles, SelectedProfile, MaxCharacters, EditorReconnectTick, EditorSpeciesDropDown, ButtonFaces
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -458,15 +475,24 @@ SaveProfileEditor(index, fields, editor, *)
         MsgBox("Enter a player name and password.", "tes3np")
         return
     }
+    species := NormalizeCharacterSpecies(EditorSpeciesDropDown.Text)
+    if !index && species = ""
+    {
+        MsgBox("Choose a species for the new character.", "tes3np")
+        return
+    }
     for key in ["UsernameDelay", "PasswordDelay", "LoadDelay"]
         if !RegExMatch(fields[key].Value, "^\d+$") || Integer(fields[key].Value) < 1 || Integer(fields[key].Value) > 300
         {
             MsgBox("Each login delay must be between 1 and 300 seconds.", "tes3np")
             return
         }
-    profile := {Name: name, Password: fields["Password"].Value,
+    profile := {Name: name, Password: fields["Password"].Value, Species: species,
         UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
-        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked}
+        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked,
+        ; Editing a character must not erase its expansion-pack preference.
+        UseExpansionPack: index ? (Profiles[index].HasOwnProp("UseExpansionPack") && Profiles[index].UseExpansionPack)
+            : NewCharacterProfile().UseExpansionPack}
     BeginInterfaceUpdate(0, "Saving character...", true)
     try
     {
