@@ -1089,7 +1089,17 @@ metrics();
                         x += width;
                     }
                 };
-                var left = GoldText("", 199, 1, 145, 30, 12, true);
+                // Keep the rainbow title fixed; append the popup's exact green
+                // activation wording and a separately colored live countdown.
+                var separator = GoldText("-", 196, 1, 16, 30, 11, true);
+                separator.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
+                titleInset.Controls.Add(separator);
+                var activated = GoldText("Happy hour has been activated!", 212, 1, 234, 30, 10, true);
+                activated.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+                activated.ForeColor = System.Drawing.Color.FromArgb(55, 216, 70);
+                activated.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
+                titleInset.Controls.Add(activated);
+                var left = GoldText("", 446, 1, 120, 30, 10, true);
                 left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(left);
@@ -1108,13 +1118,18 @@ metrics();
                 // Test/expired banners display only HAPPY HOUR; never a red
                 // "0m 00s" label or diagnostic message in the title strip.
                 bool active = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow;
-                string remaining = active ? HappyHourRemaining(happyHourEndsAt) : "";
+                string remaining = active ? "(" + HappyHourRemaining(happyHourEndsAt) + " left)" : "";
                 happyHourBannerCountdown.Text = remaining;
+                // Hide the activation message for expired/demo previews, as
+                // those must not suggest a current XP bonus.
+                foreach (Control control in happyHourBannerCountdown.Parent!.Controls)
+                    if (control is Label label && !ReferenceEquals(label, happyHourBannerCountdown))
+                        label.Visible = active;
                 happyHourBannerCountdown.ForeColor = active
                     ? HappyHourTimerColor(happyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
                 if (happyHourBannerCountdown.Parent is Panel plate)
-                    plate.Width = active ? 355 : 210;
+                    plate.Width = active ? 566 : 210;
             }
             // Place the gold card directly above the actual launcher window.
             RECT rect;
