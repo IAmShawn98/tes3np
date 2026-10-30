@@ -458,6 +458,7 @@ metrics();
         // announcement is a picture, not searchable message text.
         readonly System.Collections.Generic.Dictionary<ulong, string[]> archivedImageUrls = new();
         readonly System.Collections.Generic.HashSet<ulong> verifiedHappyHourImageIds = new();
+        readonly System.Collections.Generic.HashSet<ulong> loggedHappyHourImageCandidates = new();
         readonly string gameChatLogDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TES3NP", "Logs");
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
@@ -1621,19 +1622,38 @@ metrics();
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
-                    // Collect from Discord itself, even on a fresh installation.
-                    // Persist the whole extracted batch once, not the entire
-                    // accumulated archive once per individual message.
-                    if (!string.IsNullOrWhiteSpace(archivalBody) &&
+                    // Save image-only posts, not just those with a nonempty
+                    // text body. Yagrum's colored HH announcement is a bitmap.
+                    if ((archivalBody.Length > 0 || images.Length > 0) &&
                         (!archivedChat.TryGetValue(key, out var cached) ||
                          (isHappyHour && !IsHappyHourAnnouncement(cached.Body)))) {
-                        // Repair previously indexed rows that missed styled
-                        // announcement text as well as recording new messages.
                         archivedChat[key] = (user, archivalBody);
                         newlyArchived++;
                     }
+                    if (images.Length > 0 && !archivedImageUrls.ContainsKey(key)) {
+                        archivedImageUrls[key] = images;
+                        newlyArchived++;
+                    }
+                    // Existing image downloads are shared with the native chat
+                    // preview. Classify those exact pixels; if a file is still
+                    // downloading, imagesNeedRedraw causes another pass later.
+                    if (images.Length > 0 && images.Any(IsVerifiedHappyHourImageUrl) &&
+                        verifiedHappyHourImageIds.Add(key)) {
+                        newlyArchived++;
+                        Log("HAPPY HOUR | Verified real rainbow-image announcement " +
+                            "messageId=" + key + "; sent=" +
+                            DiscordTimestamp(key).ToString("O"));
+                    }
+                    if (images.Length > 0 &&
+                        user.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
+                        loggedHappyHourImageCandidates.Add(key))
+                        Log("HAPPY HOUR | Examining image posted by Yagrum " +
+                            "messageId=" + key + "; images=" + images.Length);
                     foreach (string imageUrl in images)
-                        if (!imageCache.ContainsKey(imageUrl) && (!failedImages.TryGetValue(imageUrl, out var retryTime) || DateTime.UtcNow >= retryTime)) _ = FetchChatImage(imageUrl);
+                        if (!imageCache.ContainsKey(imageUrl) &&
+                            (!failedImages.TryGetValue(imageUrl, out var retryTime) ||
+                             DateTime.UtcNow >= retryTime))
+                            _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
                         existing.User != user || existing.Body != body || existing.Color != color ||
                         !existing.Images.SequenceEqual(images))
@@ -1645,7 +1665,7 @@ metrics();
                 if (newlyArchived > 0) {
                     try {
                         SaveChatArchive();
-                        Log("CHAT | Saved " + newlyArchived + " newly loaded Discord messages; " +
+                        Log("CHAT | Saved " + newlyArchived + " chat archive updates; " +
                             archivedChat.Count + " total, oldest=" +
                             DiscordTimestamp(archivedChat.First().Key).ToString("O"));
                     } catch (Exception ex) {
