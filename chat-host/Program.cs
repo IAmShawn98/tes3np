@@ -853,9 +853,7 @@ metrics();
         ulong lastHappyHourAlertId;
         ulong dismissedHappyHourBannerId = ulong.MaxValue;
         bool happyHourDemo;
-        ulong pendingHappyHourId;
-        bool pendingHappyHourDemo;
-        bool hasPendingHappyHour;
+
         [DllImport("user32.dll")] static extern IntPtr GetLastActivePopup(IntPtr hwnd);
         [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr hwnd);
 
@@ -870,22 +868,6 @@ metrics();
                 (happyHourAlert != null && active == happyHourAlert.Handle))
                 return false;
             return IsWindowVisible(active);
-        }
-
-        void DrainPendingHappyHour()
-        {
-            if (!hasPendingHappyHour || OtherLauncherDialogOpen()) return;
-            ulong id = pendingHappyHourId;
-            bool demo = pendingHappyHourDemo;
-            hasPendingHappyHour = false;
-            // Never deliver an alert which expired while another dialog was open.
-            if (!demo && DiscordTimestamp(id).AddHours(1) <= DateTimeOffset.UtcNow)
-            {
-                lastHappyHourAlertId = Math.Max(lastHappyHourAlertId, id);
-                Log("HAPPY HOUR | Queued announcement expired before display; dropped.");
-                return;
-            }
-            ShowHappyHourAlert(id, demo);
         }
 
         Form? happyHourAlert;
@@ -1009,7 +991,7 @@ metrics();
                 happyHourBanner = null;
                 return;
             }
-            if (happyHourAlert is { IsDisposed: false }) return;
+            if (happyHourAlert is { IsDisposed: false } || OtherLauncherDialogOpen()) return;
             if (happyHourBanner == null || happyHourBanner.IsDisposed)
             {
                 var banner = GoldHappyHourWindow(620, 42, "tes3np Happy Hour");
@@ -1069,18 +1051,9 @@ metrics();
             if ((!demo && activationId <= lastHappyHourAlertId) ||
                 (!demo && !PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
             bool expired = ends <= DateTimeOffset.UtcNow;
-            if (OtherLauncherDialogOpen())
-            {
-                if (!hasPendingHappyHour || activationId >= pendingHappyHourId)
-                {
-                    pendingHappyHourId = activationId;
-                    pendingHappyHourDemo = demo;
-                    hasPendingHappyHour = true;
-                }
-                return;
-            }
-            // The latest queued event takes precedence over older announcements.
-            hasPendingHappyHour = false;
+            // A competing launcher dialog takes precedence: skip the large
+            // popup and show only the compact banner when it can be displayed.
+            bool bannerOnly = OtherLauncherDialogOpen();
             lastHappyHourAlertId = activationId;
             happyHourDemo = demo;
             happyHourEndsAt = ends;
@@ -1102,7 +1075,7 @@ metrics();
                 if (demo) MarkHappyHourDemoSeen();
                 else SaveLastSeenHappyHour(activationId);
             }
-            if (!previouslySeen)
+            if (!previouslySeen && !bannerOnly)
             {
                 var alert = GoldHappyHourWindow(480, 264, "tes3np - Happy Hour");
                 alert.FormBorderStyle = FormBorderStyle.None;
@@ -1916,7 +1889,6 @@ metrics();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
-                DrainPendingHappyHour();
                 PositionChatWindows();
                 if (!discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
