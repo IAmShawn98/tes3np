@@ -1391,6 +1391,47 @@ metrics();
             catch (Exception ex) { Log("HAPPY HOUR | Scan failed: " + ex.Message); }
         }
 
+        void BeginHappyHourDiscovery()
+        {
+            try
+            {
+                // FIRST inspect persistent logs, before paging Discord. The
+                // indexed archive preserves exact message snowflakes; the
+                // last-seen marker is only written after a genuine detection.
+                EnsureChatLogLoaded();
+                ulong archivedId = LatestArchivedHappyHourId();
+                ulong previouslyVerifiedId = GetLastSeenHappyHour();
+                ulong candidate = Math.Max(archivedId, previouslyVerifiedId);
+                bool valid = candidate > 0 &&
+                    (PreviewExpiredHappyHourForTesting ||
+                     DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow);
+                if (valid)
+                {
+                    initialBackfillComplete = true;
+                    Log("HAPPY HOUR | Startup cache shortcut: " +
+                        (archivedId >= previouslyVerifiedId ? "chat archive" : "previous verified activation") +
+                        "; messageId=" + candidate +
+                        "; sent=" + DiscordTimestamp(candidate).ToString("O") +
+                        "; archivedRows=" + archivedChat.Count +
+                        "; skipping historical Discord pagination");
+                    if (archivedId == candidate)
+                        DetectLatestHappyHour();
+                    else
+                        ShowHappyHourAlert(candidate);
+                }
+                else
+                {
+                    Log("HAPPY HOUR | Startup cache has no qualifying real announcement; " +
+                        "archivedRows=" + archivedChat.Count +
+                        "; will page Discord when the source chat is ready");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("HAPPY HOUR | Startup log check failed; will page Discord: " + ex.Message);
+            }
+        }
+
         async Task RefreshNativeMessages()
         {
             if (closingChat || IsDisposed || web.CoreWebView2 == null || discordLoginVisible) return;
@@ -2170,11 +2211,9 @@ metrics();
             };
             historyWatch.Start();
             watch.Start();
-            // Development preview displays expired REAL announcements only.
-            // Do not manufacture a banner when no actual Discord announcement
-            // has been collected; the history backfill can discover one later.
-            if (PreviewExpiredHappyHourForTesting)
-                DetectLatestHappyHour();
+            // Cache-first discovery works in both QA and production. No
+            // synthetic banner is ever created for an empty archive.
+            BeginHappyHourDiscovery();
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
         // channel heading (including the two action icons) by DOM structure.
