@@ -44,8 +44,12 @@ Game Chat diagnostics are in `%APPDATA%\\tes3np\\chat-host.log`. Its
 message archive lives under `%APPDATA%\\tes3np\\Logs\\`, and its Discord
 browser profile is in `%APPDATA%\\tes3np\\chat-webview2\\`.
 Happy Hour announcements appear directly in the small banner attached to
-the launcher, with no extra activation popup. The banner requires a working
-Discord sign-in and an actual detected announcement. The obsolete
+the launcher, with no extra activation popup. If an authenticated Discord
+session previously saved a **genuine, still-active** announcement to the local
+chat archive, its banner remains available even while you're signed out.
+Signing in is required only to fetch new announcements or live chat. With no
+matching local announcement, nothing is displayed until Game Chat can retrieve
+one. An expired announcement also keeps the banner hidden. The obsolete
 `happy-hour-last-seen.txt` marker from earlier test builds is no longer used.
 
 **Resetting chat:** Back up the Roaming data directory first. Closing the
