@@ -29,14 +29,13 @@ expect(
     and 'SpecialFolder.ApplicationData), "tes3np"' in source,
 )
 expect(
-    "Local AppData may only be read as a legacy Happy Hour marker",
-    source.count("SpecialFolder.LocalApplicationData") == 1
-    and "LegacyHappyHourSeenFile = Path.Combine(" in source
-    and "File.Move(LegacyHappyHourSeenFile, happyHourSeenFile)" in source,
+    "Chat Host must not read or write obsolete Local AppData Happy Hour markers",
+    "SpecialFolder.LocalApplicationData" not in source
+    and "LegacyHappyHourSeenFile" not in source
+    and "happyHourSeenFile" not in source,
 )
 for name, expected in {
     "gameChatLogDirectory": 'Path.Combine(ChatDataRoot, "Logs")',
-    "happyHourSeenFile": 'Path.Combine(\n            ChatDataRoot, "happy-hour-last-seen.txt")',
     "chatModeFile": 'Path.Combine(ChatDataRoot, "chat-display-mode.txt")',
     "logPath": 'Path.Combine(ChatDataRoot, "chat-host.log")',
 }.items():
@@ -46,9 +45,10 @@ expect(
     'Path.Combine(ChatDataRoot, "chat-webview2")' in source,
 )
 expect(
-    "Fresh profile must not reimport a stale Local AppData marker",
-    "hadSavedChatArchiveAtStartup =" in source
-    and "hadSavedChatArchiveAtStartup &&" in source,
+    "No dead marker migration or popup-only state remains",
+    "hadSavedChatArchiveAtStartup" not in source
+    and "GetLastSeenHappyHour" not in source
+    and "SaveLastSeenHappyHour" not in source,
 )
 expect(
     "Last-seen marker must never create a detected event",
@@ -66,10 +66,14 @@ expect(
     and "foreach (var entry in archivedChat.Reverse()) {\n                if (entry.Key <= latest) break;" in source,
 )
 expect(
-    "No generated Happy Hour announcements or obsolete demo storage",
-    "ShowHappyHourAlert(0" not in source
-    and "happyHourDemoSeenFile" not in source
-    and "bool happyHourDemo" not in source,
+    "Only the authentic Discord-backed Happy Hour banner remains",
+    "ShowHappyHourBannerForMessage(ulong activationId)" in source
+    and "ShowHappyHourBannerForMessage(latest);" in source
+    and "ShowHappyHourAlert(" not in source
+    and "happyHourAlert" not in source
+    and "GoldText(" not in source
+    and "CloseHappyHourPopup(" not in source
+    and "happyHourDemoSeenFile" not in source,
 )
 expect(
     "Happy Hour display must require an authenticated Discord channel",
