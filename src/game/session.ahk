@@ -153,7 +153,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
         LoadDelay: profile.LoadDelay, Queue: queue,
         ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : [], ProcessHandle: 0,
         LoginCompletionPending: false}
-    BeginGameLoginProgress(profile.Name)
+    BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "")
     SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
