@@ -1552,7 +1552,7 @@ metrics();
                     // Discord textContent contains the full styled announcement.
                     string archivalBody = isHappyHour && !IsHappyHourAnnouncement(body)
                         ? matchText : body;
-                    string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "";
+                    string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
                     string[] images = msg.TryGetProperty("images", out var imageValues) &&
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
