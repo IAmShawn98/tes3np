@@ -487,12 +487,11 @@ SaveProfileEditor(index, fields, editor, *)
             MsgBox("Each login delay must be between 1 and 300 seconds.", "tes3np")
             return
         }
+    ; Preserve the expansion-pack choice when editing an existing character.
+    expansionPack := index ? (Profiles[index].HasOwnProp("UseExpansionPack") && Profiles[index].UseExpansionPack) : NewCharacterProfile().UseExpansionPack
     profile := {Name: name, Password: fields["Password"].Value, Species: species,
         UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
-        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked,
-        ; Editing a character must not erase its expansion-pack preference.
-        UseExpansionPack: index ? (Profiles[index].HasOwnProp("UseExpansionPack") && Profiles[index].UseExpansionPack)
-            : NewCharacterProfile().UseExpansionPack}
+        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked, UseExpansionPack: expansionPack}
     BeginInterfaceUpdate(0, "Saving character...", true)
     try
     {
