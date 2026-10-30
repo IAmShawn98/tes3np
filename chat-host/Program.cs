@@ -1031,19 +1031,18 @@ metrics();
                     // Match Game Chat's weathered bronze, without repeating a
                     // tiny image strip dozens of times across the header.
                     g.Clear(System.Drawing.Color.FromArgb(143, 109, 60));
-                    // Use the chat frame's three-tone weathered bronze grain,
-                    // at a slightly lighter density for this shorter banner.
-                    // All title, countdown, and dropdown bounds remain unchanged.
-                    var grainRandom = new Random(31337);
-                    using var darkGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(93, 67, 34));
-                    using var midGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(177, 143, 84));
-                    using var lightGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(207, 177, 112));
-                    for (int i = 0; i < w * 23; i++) {
-                        int px = grainRandom.Next(5, Math.Max(6, w - 5));
-                        int py = grainRandom.Next(5, Math.Max(6, h - 5));
-                        int grain = grainRandom.Next(1, 4);
-                        g.FillRectangle(i % 5 == 0 ? lightGrain : (i % 3 == 0 ? midGrain : darkGrain),
-                            px, py, grain, grainRandom.Next(1, 3));
+                    // Match the actual Live Game Chat HEADER mottling (frameSurface.Paint),
+                    // not the denser decorative frame grain. Coordinates are adapted
+                    // to the 46-pixel banner while leaving its controls untouched.
+                    var headerNoise = new Random(4108);
+                    using var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(112, 83, 45));
+                    using var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(184, 151, 92));
+                    using var midMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(165, 129, 72));
+                    for (int n = 0; n < w * 10; n++) {
+                        int px = headerNoise.Next(5, Math.Max(6, w - 5));
+                        int py = headerNoise.Next(5, Math.Max(6, h - 5));
+                        g.FillRectangle(n % 5 == 0 ? lightMottle : (n % 3 == 0 ? midMottle : darkMottle),
+                            px, py, headerNoise.Next(1, 4), headerNoise.Next(1, 3));
                     }
                     if (borderTexture != null) {
                         using var trim = new System.Drawing.TextureBrush(borderTexture,
