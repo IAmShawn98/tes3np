@@ -1080,22 +1080,20 @@ metrics();
                 var titleInset = new Panel {
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
                 };
-                titleInset.SetBounds(44, 7, 210, 32);
+                titleInset.SetBounds(44, 7, Math.Min(805, Math.Max(210, banner.ClientSize.Width - 54)), 32);
                 banner.Controls.Add(titleInset);
                 var rainbow = new Panel {
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
                 };
-                rainbow.SetBounds(6, 0, 225, 32);
+                rainbow.SetBounds(6, 0, 318, 32);
                 titleInset.Controls.Add(rainbow);
                 rainbow.Paint += (_, e) => {
-                    // The heading reflects the real announcement state, including
-                    // development previews of expired historical announcements.
-                    string heading = happyHourDemo ? "HAPPY HOUR TEST"
-                        : happyHourEndsAt > DateTimeOffset.UtcNow
-                            ? "HAPPY HOUR ACTIVE" : "HAPPY HOUR EXPIRED";
+                    // Historical HH previews use the same heading. The real
+                    // Discord timestamp (not the heading) conveys expiry via 0m 00s.
+                    const string heading = "HAPPY HOUR ACTIVE";
                     string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                         "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
-                    using var font = new System.Drawing.Font("Georgia", 11,
+                    using var font = new System.Drawing.Font("Georgia", 13,
                         System.Drawing.FontStyle.Bold);
                     var flags = System.Windows.Forms.TextFormatFlags.NoPadding |
                         System.Windows.Forms.TextFormatFlags.VerticalCenter |
@@ -1112,22 +1110,25 @@ metrics();
                         x += width;
                     }
                 };
-                // Leave room for the complete green wording and timer rather
-                // than allowing the countdown to overlap clipped label text.
-                var separator = GoldText("-", 231, 1, 14, 30, 10, true);
+                // Give the three text regions their own measured breathing room:
+                // rainbow title, full green bonus sentence, then countdown.
+                var separator = GoldText("-", 325, 1, 18, 30, 12, true);
                 separator.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(separator);
-                var activated = GoldText("", 246, 1, 249, 30, 10, true);
+                var activated = GoldText("", 343, 1, 296, 30, 12, true);
                 activated.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 activated.ForeColor = System.Drawing.Color.FromArgb(55, 216, 70);
                 activated.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(activated);
-                var left = GoldText("", 495, 1, 140, 30, 9, true);
+                var left = GoldText("", 639, 1, 158, 30, 11, true);
                 left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(left);
                 happyHourBannerCountdown = left;
-                banner.Resize += (_, _) => banner.Invalidate();
+                banner.Resize += (_, _) => {
+                    titleInset.Width = Math.Min(805, Math.Max(210, banner.ClientSize.Width - 54));
+                    banner.Invalidate();
+                };
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
                     if (ReferenceEquals(happyHourBanner, banner)) happyHourBanner = null;
@@ -1148,20 +1149,13 @@ metrics();
                         label.Visible = !happyHourDemo;
                     else if (control is Label label && !ReferenceEquals(label, happyHourBannerCountdown))
                         label.Text = happyHourDemo ? "No announcement found"
-                            : active ? "Mastery Points Are Doubled!"
-                            : "Mastery Points Were Doubled!";
+                            : "Mastery Points Are Doubled!";
                 }
                 happyHourBannerCountdown.ForeColor = active
                     ? HappyHourTimerColor(happyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
-                if (happyHourBannerCountdown.Parent is Panel plate)
-                    plate.Width = Math.Min(plate.Parent?.ClientSize.Width - plate.Left - 8 ?? 640,
-                        happyHourDemo ? 495 : 640);
-                // The heading switches between ACTIVE / EXPIRED / TEST,
-                // without moving its rainbow panel on screen.
-                foreach (Control control in happyHourBannerCountdown.Parent!.Controls)
-                    if (control is Panel panel) panel.Invalidate();
-                happyHourBannerCountdown.Parent?.Invalidate();
+                // The inset width is calculated from the actual launcher width
+                // by the resize handler, not truncated to a 640px title plate.
             }
             // Place the gold card directly above the actual launcher window.
             RECT rect;
