@@ -48,7 +48,9 @@ Reuse precreated controls when editing. Redraw changed controls locally for scro
 
 Keep personal settings and logs outside the source tree. Preserve existing INI keys and defaults when adding preferences. Do not store credentials in code, screenshots, examples or committed settings files. There is no automatic migration to Local AppData in this version.
 
-To distribute a script build, ZIP the `tes3np` folder with the entry script, source, assets, scripts, bundled patches and documentation. Do not include user settings, logs, temporary files or compiler output. A compiled release still needs its external assets beside the executable; compiled distribution is not currently supplied.
+The Windows build script (`scripts/build-windows.ps1`, invoked by `Build tes3np.bat`) generates the compiled launcher and self-contained Chat Host in a complete `dist/tes3np-windows.zip` package. The Windows build first checks source, Chat Host persistence/authentication contracts, PowerShell syntax and C# compilation **before** deleting previous build artifacts or downloading runtime tools. Do not include user settings, logs, temporary files or developer credentials in a package. Public distribution remains blocked until the documented release evidence and explicit maintainer approval are complete.
+
+The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation or remove legacy test files in Local AppData; those files are inert unless migrated under the documented conditions.
 
 ## Embedded Chat Host changes
 
