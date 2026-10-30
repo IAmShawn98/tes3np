@@ -22,9 +22,8 @@ OpenCharacterPage(*)
     ExecutableInput := 0
     EditorControls := []
     V016DailyLoginControls := []
-    ; The previous CharacterPage was destroyed when leaving the scheduler, so
-    ; the v0.1.16 layout hook must run again for this fresh GUI. Otherwise its
-    ; one-time guard skips recreating the Schedule Event button.
+    ; A rebuilt character book needs its canonical button layout reapplied.
+    ; The scheduler remains available in source but has no entry button.
     V016CharacterLayoutApplied := false
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
@@ -76,9 +75,8 @@ OpenCharacterPage(*)
     SetInterfaceLoadingText("Loading character editor... ")
     CreateProfileEditor()
     HideProfileEditor()
-    ; Build the one-time Character Book refinements explicitly now that all base
-    ; controls exist. This replaces the old 250 ms polling timer without losing
-    ; the Scheduled Events button on a freshly created book.
+    ; Apply the canonical Character Book positions once after controls exist;
+    ; this preserves the two-button stack without the deferred scheduler UI.
     ApplyV016CharacterLayout()
     RefreshProfiles()
     PrepareWindowDisplay(CharacterPage)
@@ -121,21 +119,16 @@ RefreshProfiles()
         CharacterDescriptionMagic := false
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
-        ; Keep the character action stack in one canonical layout. The v0.1.16
-        ; refinement creates Daily Login after this window is built, so refreshes
-        ; (including Import Data) must preserve that layout instead of restoring
-        ; the older button positions.
-        ; Match the canonical v0.1.16 character-book action layout after every
-        ; refresh/import. Import previously restored an older Y-position set,
-        ; making the three left-page buttons jump upward until the page reopened.
-        actionY := Profiles.Length ? 505 : 185
+        ; Keep the approved character action stack after every refresh/import.
+        ; With the scheduler button deferred, Add Character now occupies its
+        ; old y=540 position, immediately above Wipe Character List (y=575).
+        actionY := Profiles.Length ? 540 : 185
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Match the description's actual three-line content so its transparent
         ; hit area does not extend over the repositioned character rows.
         CharacterDescription.Move(70, 80, 390, Profiles.Length ? 84 : 90)
-        ; Individual characters already have Play buttons in their rows. Keep the
-        ; legacy full-width Launch Character button hidden; showing it here after
-        ; an import overlaps Daily Login and the action stack.
+        ; Each character already has its own Play button. Keep the obsolete
+        ; full-width Launch Character button hidden so it cannot overlap actions.
         LaunchCharacterButton.Visible := false
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : 225
@@ -162,24 +155,13 @@ RefreshProfiles()
         try DllCall("RedrawWindow", "Ptr", DataTransferButton.Gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x385)
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
-        {
-            ; Daily Login sits directly below Add Character.
-            if IsObject(V016DailyLoginControls) && V016DailyLoginControls.Length
-            {
-                dailyButton := V016DailyLoginControls[1]
-                MoveStyledButton(dailyButton, 70, 540, 370, 30)
-            }
             MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
-        }
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
         ; Changing the native control text does not update the separately painted
         ; Morrowind button face. Keep both layers synchronized after Import Data.
         if ButtonFaces.Has(DataTransferButton.Hwnd)
             ButtonFaces[DataTransferButton.Hwnd].Text := DataTransferButton.Text
-        if IsObject(V016DailyLoginControls)
-            for control in V016DailyLoginControls
-                control.Visible := Profiles.Length > 0
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
         LaunchCharacterButton.Text := SelectedProfile ? "Launch " Profiles[SelectedProfile].Name : "Launch character"
         LaunchCharacterButton.Enabled := SelectedProfile > 0
