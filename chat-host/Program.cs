@@ -454,6 +454,10 @@ metrics();
         static DateTimeOffset DiscordTimestamp(ulong id) =>
             DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
         readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body)> archivedChat = new();
+        // Image-only Discord posts must be indexed too: the rainbow Happy Hour
+        // announcement is a picture, not searchable message text.
+        readonly System.Collections.Generic.Dictionary<ulong, string[]> archivedImageUrls = new();
+        readonly System.Collections.Generic.HashSet<ulong> verifiedHappyHourImageIds = new();
         readonly string gameChatLogDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TES3NP", "Logs");
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
@@ -470,8 +474,16 @@ metrics();
                     var records = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<ChatArchiveEntry>>(
                         File.ReadAllText(GameChatIndexFile)) ?? new();
                     foreach (var entry in records)
-                        if (entry.Id > 0)
-                            archivedChat[entry.Id] = (entry.User ?? "", entry.Body ?? "");
+                    {
+                        if (entry.Id == 0) continue;
+                        archivedChat[entry.Id] = (entry.User ?? "", entry.Body ?? "");
+                        if (entry.Images is { Length: > 0 })
+                            archivedImageUrls[entry.Id] = entry.Images;
+                        // This flag is persisted only after real image pixels
+                        // pass the announcement's visual signature.
+                        if (entry.VerifiedHappyHourImage && entry.Images is { Length: > 0 })
+                            verifiedHappyHourImageIds.Add(entry.Id);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -515,11 +527,15 @@ metrics();
             public ulong Id { get; set; }
             public string User { get; set; } = "";
             public string Body { get; set; } = "";
+            public string[] Images { get; set; } = Array.Empty<string>();
+            public bool VerifiedHappyHourImage { get; set; }
         }
         void SaveChatArchive()
         {
             var records = archivedChat.Select(e => new ChatArchiveEntry {
-                Id = e.Key, User = e.Value.User, Body = e.Value.Body
+                Id = e.Key, User = e.Value.User, Body = e.Value.Body,
+                Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
+                VerifiedHappyHourImage = verifiedHappyHourImageIds.Contains(e.Key)
             }).ToArray();
             File.WriteAllText(GameChatIndexFile, System.Text.Json.JsonSerializer.Serialize(records));
             var output = new System.Text.StringBuilder();
@@ -536,6 +552,8 @@ metrics();
                 }
                 string user = entry.Value.User.Trim();
                 string body = entry.Value.Body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n").Trim();
+                if (body.Length == 0 && archivedImageUrls.TryGetValue(entry.Key, out var images) && images.Length > 0)
+                    body = "[image attachment]";
                 // Discord groups consecutive messages under one username. Some
                 // extracted bodies therefore already begin with "Player: ".
                 if (string.IsNullOrWhiteSpace(user))
@@ -1393,9 +1411,11 @@ metrics();
         ulong LatestArchivedHappyHourId()
         {
             // SortedDictionary keys are Discord snowflakes, ordered by time.
-            // The newest matching *real* Discord message wins, whether its
-            // one-hour activation window is still open or already expired.
+            // Verified image posts carry their original Discord message ID,
+            // just like text announcements. Never manufacture an activation.
             ulong latest = 0;
+            foreach (ulong imageId in verifiedHappyHourImageIds)
+                if (imageId > latest) latest = imageId;
             foreach (var entry in archivedChat.Reverse()) {
                 if (IsHappyHourAnnouncement(entry.Value.Body)) {
                     latest = entry.Key;
