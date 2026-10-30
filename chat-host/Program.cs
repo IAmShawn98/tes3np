@@ -941,9 +941,19 @@ metrics();
         static string HappyHourRemaining(DateTimeOffset ends)
         {
             var remain = ends - DateTimeOffset.UtcNow;
-            if (remain <= TimeSpan.Zero) return "00:00";
+            if (remain <= TimeSpan.Zero) return "0m 00s";
             int seconds = (int)Math.Ceiling(remain.TotalSeconds);
-            return (seconds / 60).ToString("00") + ":" + (seconds % 60).ToString("00");
+            return (seconds / 60).ToString() + "m " + (seconds % 60).ToString("00") + "s";
+        }
+
+        static System.Drawing.Color HappyHourTimerColor(DateTimeOffset ends)
+        {
+            var remaining = ends - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.FromMinutes(10))
+                return System.Drawing.Color.FromArgb(230, 60, 55);
+            if (remaining <= TimeSpan.FromMinutes(30))
+                return System.Drawing.Color.FromArgb(255, 156, 49);
+            return System.Drawing.Color.FromArgb(215, 170, 77);
         }
 
         void CloseHappyHourPopup()
@@ -999,6 +1009,8 @@ metrics();
                 happyHourBannerCountdown.Text = (happyHourDemo ? "UI TEST (no announcement)  |  " : happyHourEndsAt <= DateTimeOffset.UtcNow
                     ? "Expired (test preview)  |  " : "Mastery XP x2  |  ") +
                     HappyHourRemaining(happyHourEndsAt) + " left";
+            if (happyHourBannerCountdown != null)
+                happyHourBannerCountdown.ForeColor = HappyHourTimerColor(happyHourEndsAt);
             // Place the gold card directly above the actual launcher window.
             RECT rect;
             if (GetWindowRect(owner, out rect) && happyHourBanner is { IsDisposed: false })
@@ -1045,38 +1057,54 @@ metrics();
             }
             if (!previouslySeen)
             {
-                var alert = GoldHappyHourWindow(480, 266, "tes3np - Happy Hour");
-                var border = new Panel { BackColor = System.Drawing.Color.FromArgb(197, 164, 92) };
-                border.SetBounds(0, 0, 480, 3);
-                alert.Controls.Add(border);
-                alert.Controls.Add(GoldText(demo ? "HAPPY HOUR (UI TEST)" : expired ? "HAPPY HOUR (TEST PREVIEW)" : "HAPPY HOUR", 18, 13, 444, 38, 19, true));
-                // Match the chat announcement's rainbow 'Happy Hour' label.
-                var rainbow = new FlowLayoutPanel {
-                    AutoSize = false, WrapContents = false,
-                    BackColor = System.Drawing.Color.Transparent
-                };
-                rainbow.SetBounds(95, 60, 300, 27);
-                string wording = "Happy Hour";
-                var colors = new[] { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
+                var alert = GoldHappyHourWindow(480, 264, "tes3np - Happy Hour");
+                alert.FormBorderStyle = FormBorderStyle.None;
+                alert.BackColor = System.Drawing.Color.FromArgb(197, 164, 92);
+                var content = new Panel { BackColor = System.Drawing.Color.FromArgb(23, 16, 8) };
+                content.SetBounds(3, 3, 474, 258);
+                alert.Controls.Add(content);
+                // Use a single centered rainbow heading, with sufficient width
+                // for every letter including the space (no FlowLayout wrapping).
+                var heading = new Panel { BackColor = System.Drawing.Color.Transparent };
+                heading.SetBounds(50, 22, 380, 46);
+                content.Controls.Add(heading);
+                string wording = "HAPPY HOUR";
+                string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                     "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
-                for (int i = 0; i < wording.Length; i++)
+                using (var font = new System.Drawing.Font("Georgia", 24,
+                    System.Drawing.FontStyle.Bold))
                 {
-                    var letter = new Label {
-                        AutoSize = true, Margin = Padding.Empty,
-                        Text = wording[i].ToString(),
-                        Font = new System.Drawing.Font("Segoe UI", 13, System.Drawing.FontStyle.Bold),
-                        ForeColor = System.Drawing.ColorTranslator.FromHtml(colors[i])
-                    };
-                    rainbow.Controls.Add(letter);
+                    var widths = wording.Select(c => System.Windows.Forms.TextRenderer.MeasureText(
+                        c.ToString(), font, new System.Drawing.Size(200, 60),
+                        System.Windows.Forms.TextFormatFlags.NoPadding).Width).ToArray();
+                    int headingWidth = widths.Sum();
+                    int left = Math.Max(0, (heading.Width - headingWidth) / 2);
+                    for (int i = 0; i < wording.Length; i++)
+                    {
+                        var letter = new Label {
+                            Text = wording[i].ToString(), AutoSize = false,
+                            Font = new System.Drawing.Font("Georgia", 24,
+                                System.Drawing.FontStyle.Bold),
+                            TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                            BackColor = System.Drawing.Color.Transparent,
+                            ForeColor = System.Drawing.ColorTranslator.FromHtml(colors[i])
+                        };
+                        letter.SetBounds(left, 0, widths[i] + 1, 44);
+                        heading.Controls.Add(letter);
+                        left += widths[i];
+                    }
                 }
-                alert.Controls.Add(rainbow);
-                alert.Controls.Add(GoldText("has been activated!", 65, 87, 350, 30, 13, true));
-                var timerText = GoldText("", 40, 123, 400, 42, 19, true);
-                alert.Controls.Add(timerText);
-                alert.Controls.Add(GoldText(demo ? "No announcement found — layout test only." : expired ? "Expired Happy Hour — Mastery XP bonus has ended." :
-                    "Mastery XP gain is currently doubled!",
-                    18, 173, 444, 31, 13));
-                var close = GoldButton("Close", 170, 218, 140, 33);
+                var activation = GoldText("Happy hour has been activated!",
+                    30, 73, 414, 34, 14, true);
+                activation.ForeColor = System.Drawing.Color.FromArgb(55, 216, 70);
+                content.Controls.Add(activation);
+                var timerText = GoldText("", 30, 112, 414, 42, 21, true);
+                timerText.ForeColor = HappyHourTimerColor(ends);
+                content.Controls.Add(timerText);
+                content.Controls.Add(GoldText("Mastery XP gain is currently doubled!",
+                    20, 167, 434, 34, 13));
+                var close = GoldButton("Close", 167, 213, 140, 32);
+                content.Controls.Add(close);
                 close.Click += (_, _) => CloseHappyHourPopup();
                 alert.Controls.Add(close);
                 alert.FormClosed += (_, _) => {
@@ -1086,7 +1114,7 @@ metrics();
                     }
                 };
                 happyHourAlert = alert;
-                timerText.Text = "Time left: " + HappyHourRemaining(ends);
+                timerText.Text = HappyHourRemaining(ends);
                 alert.Show();
                 SetNativeWindowOwner(alert.Handle, owner);
             }
@@ -1100,8 +1128,11 @@ metrics();
                 }
                 if (happyHourAlert is { IsDisposed: false })
                     foreach (Control c in happyHourAlert.Controls)
-                        if (c is Label label && label.Text.StartsWith("Time left:"))
-                            label.Text = "Time left: " + HappyHourRemaining(happyHourEndsAt);
+                        foreach (Control inner in c.Controls)
+                            if (inner is Label label && label.Font.Size >= 20 && label.Width >= 400) {
+                                label.Text = HappyHourRemaining(happyHourEndsAt);
+                                label.ForeColor = HappyHourTimerColor(happyHourEndsAt);
+                            }
                 RefreshHappyHourBanner();
             };
             happyHourTicker = ticker;
