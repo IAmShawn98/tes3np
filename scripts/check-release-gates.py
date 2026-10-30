@@ -11,12 +11,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
-    # A working development preview intentionally shows expired archived
-    # announcements. It must never leak into a public production build.
+    # The retired testing mode must never return in a public build.
+    # Current events are authenticated by their original Discord timestamp,
+    # and expiration must be enforced at detection, display, and timer ticks.
     chat_source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
-    if "const bool PreviewExpiredHappyHourForTesting = true;" in chat_source:
-        print("BLOCKED: development-only expired Happy Hour preview is enabled.")
-        print("Disable it and re-test authenticated current-event behavior before release.")
+    if "PreviewExpiredHappyHourForTesting" in chat_source:
+        print("BLOCKED: obsolete Happy Hour preview mode was reintroduced.")
+        return 1
+    if not all(fragment in chat_source for fragment in (
+        "DiscordTimestamp(activationId).AddHours(1)",
+        "ends <= DateTimeOffset.UtcNow) return;",
+        "happyHourEndsAt <= DateTimeOffset.UtcNow ||",
+    )):
+        print("BLOCKED: Happy Hour active-only display guard is missing.")
         return 1
 
     files = [
