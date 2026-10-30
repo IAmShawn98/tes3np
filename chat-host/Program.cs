@@ -975,7 +975,7 @@ metrics();
                 happyHourBannerCountdown.Text = "Mastery XP x2  |  " +
                     HappyHourRemaining(happyHourEndsAt) + " left";
             // Place the gold card directly above the actual launcher window.
-            var rect = new NativeRect();
+            RECT rect;
             if (GetWindowRect(owner, out rect) && happyHourBanner is { IsDisposed: false })
             {
                 bool visible = IsWindowVisible(owner) && !IsIconic(owner);
@@ -987,9 +987,6 @@ metrics();
             }
         }
 
-        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-        struct NativeRect { public int Left, Top, Right, Bottom; }
-        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
         [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
 
