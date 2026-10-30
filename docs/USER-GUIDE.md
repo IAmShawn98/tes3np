@@ -40,3 +40,17 @@ Settings are stored in `%APPDATA%\tes3np\settings.ini`, separate from the extrac
 
 Loading-overlay failures are recorded in `%APPDATA%\tes3np\render-errors.log`. Patching activity is recorded in `patch-all.log` and patch failures in `patch-errors.log` in the same folder. Logs omit personal paths and credentials. Patch backups are stored separately under `patch-jobs`.
 
+Game Chat diagnostics are in `%APPDATA%\\tes3np\\chat-host.log`. Its
+message archive lives under `%APPDATA%\\tes3np\\Logs\\`, and its Discord
+browser profile is in `%APPDATA%\\tes3np\\chat-webview2\\`.
+`happy-hour-last-seen.txt` is notification state under the same Roaming
+directory, not proof that a Happy Hour is active. Happy Hour banners require
+a working Discord sign-in and an actual detected announcement.
+
+**Resetting chat:** Back up the Roaming data directory first. Closing the
+launcher and clearing the intended chat data resets the archive and stored
+Discord session. The old Local AppData notification marker from pre-fix
+development builds is not sufficient to restore an event or a fresh profile.
+Do not delete all TES3NP Roaming data unless you also intend to remove saved
+character settings and other launcher preferences.
+
