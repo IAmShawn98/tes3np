@@ -51,7 +51,7 @@ expect(
     and "SaveLastSeenHappyHour" not in source,
 )
 expect(
-    "Last-seen marker must never create a detected event",
+    "Only indexed real Discord messages may create an event",
     "ulong candidate = LatestArchivedHappyHourId();" in source
     and "Math.Max(archivedId, previouslyVerifiedId)" not in source,
 )
@@ -73,7 +73,9 @@ expect(
     and "happyHourAlert" not in source
     and "GoldText(" not in source
     and "CloseHappyHourPopup(" not in source
-    and "happyHourDemoSeenFile" not in source,
+    and "happyHourDemoSeenFile" not in source
+    and "GoldHappyHourWindow(480" not in source
+    and "Form? happyHourAlert" not in source,
 )
 expect(
     "Happy Hour display must require an authenticated Discord channel",
@@ -129,5 +131,5 @@ if errors:
         print(" - " + error)
     sys.exit(1)
 
-print("Chat Host contracts verified: canonical Roaming AppData, auth gate, "
-      "real-only Happy Hour detection, and atomic chat archive writes.")
+print("Chat Host contracts verified: Roaming AppData, authenticated real-only "
+      "Happy Hour banner, native movement, and atomic chat archive writes.")
