@@ -76,28 +76,29 @@ scan ends at the active one-hour boundary. Chat visibility and manual scrolling
 never control pagination. The launcher-owned banner is the **only** Happy Hour
 notification; no separate large popup appears.
 
-**Skooma Vision prototype (optional, visual only):** The ChatHost posts
+**Jiub Happy Hour portrait (optional, visual only):** The ChatHost posts
 `WM_APP + 0x334` (0x8334) to the existing launcher HWND when—and only
-when—the **same verified Happy Hour banner** is actually shown or closed.
-Do not add a second detector, independent activation timestamp, fake event,
-or extra Happy Hour notification. `src/ui/skooma-vision.ahk` listens for
-that message and shows a separate owned, nonactivating, click-through
-transparent decorative layer (apply the color key using the raw HWND
-because an `ahk_id` selector cannot see a hidden window without enabling
-hidden-window detection): slow jewel-tone color drift, sparks,
-confetti and party accessories at the main launcher artwork's borders.
-No image is rewritten, no launcher controls are moved and Game Chat
-continues to own its normal windows. The theme hides while the launcher is
-minimized, while the Character Book/Launcher Settings is open, on expiry
-or dismissal, on missing ChatHost, or on shutdown. The system Windows
-client-area animation setting disables movement/color animation but
-preserves static decorations. The tray option `Skooma Vision during Happy
-Hour` persists a per-user off switch in `[Launcher]` of the existing
-Roaming settings INI. The separate 20-second tray preview affects only the
-decorative layer; it never creates a real or simulated Happy Hour banner.
-The real banner's original detection, positioning, login and ChatHost
-authentication paths are unchanged. Windows runtime visual alignment and
-real activation/expiry need confirmation before release.
+when—the verified Happy Hour banner is actually shown or closed.
+`src/ui/skooma-vision.ahk` retains its existing entry points but no
+longer creates any independent GUI, floating overlay, animations,
+particles, typography or timer-based position tracking. Instead,
+`CreateSkoomaVision()` adds a tiny, initially hidden transparent PNG
+Picture control at x439 y140 w111 h78, directly over Jiub's original
+portrait. `src/app/bootstrap.ahk` creates it BEFORE
+`CaptureLauncherControlLayout()`; the launcher automatically scales
+and moves it in lockstep with all other child controls, without a
+separate HWND to chase the owner during dragging. The transparent PNG
+`assets/happy-hour/jiub-happy-hour.png` only alters his original
+black sunglasses to rainbow lenses and makes the mouth smile; all
+original in-game face pixels outside those narrow regions remain.
+No balloons, hats, confetti, clouds, kaleidoscopic effects or
+celebration graphics remain. The existing Happy Hour detection and
+banner are unchanged. The tray option `Jiub's Happy Hour look`
+continues to persist the existing `SkoomaVisionEnabled` setting,
+and `Preview Jiub Happy Hour (20 sec)` is a strictly cosmetic,
+time-limited preview with no simulated Happy Hour signal. Expiry
+and dismissal hide the picture. Windows visual alignment, scaling
+and real-event expiry still require runtime testing.
 
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
