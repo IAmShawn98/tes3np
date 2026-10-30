@@ -847,6 +847,9 @@ metrics();
         }
         // Discord IDs contain the real UTC send time, so late-loaded messages
         // display only their remaining time rather than restarting a full hour.
+        // TEMPORARY QA MODE: preview the latest real announcement even after expiry.
+        // Turn this off before publishing a release.
+        const bool PreviewExpiredHappyHourForTesting = true;
         ulong lastHappyHourAlertId;
         ulong dismissedHappyHourBannerId;
         Form? happyHourAlert;
@@ -932,7 +935,7 @@ metrics();
 
         void RefreshHappyHourBanner()
         {
-            if (happyHourEndsAt <= DateTimeOffset.UtcNow ||
+            if ((!PreviewExpiredHappyHourForTesting && happyHourEndsAt <= DateTimeOffset.UtcNow) ||
                 dismissedHappyHourBannerId == lastHappyHourAlertId ||
                 !IsWindow(owner))
             {
@@ -972,7 +975,8 @@ metrics();
                 SetNativeWindowOwner(banner.Handle, owner);
             }
             if (happyHourBannerCountdown != null)
-                happyHourBannerCountdown.Text = "Mastery XP x2  |  " +
+                happyHourBannerCountdown.Text = (happyHourEndsAt <= DateTimeOffset.UtcNow
+                    ? "Expired (test preview)  |  " : "Mastery XP x2  |  ") +
                     HappyHourRemaining(happyHourEndsAt) + " left";
             // Place the gold card directly above the actual launcher window.
             RECT rect;
@@ -993,7 +997,9 @@ metrics();
         void ShowHappyHourAlert(ulong activationId)
         {
             var ends = DiscordTimestamp(activationId).AddHours(1);
-            if (activationId <= lastHappyHourAlertId || ends <= DateTimeOffset.UtcNow) return;
+            if (activationId <= lastHappyHourAlertId ||
+                (!PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
+            bool expired = ends <= DateTimeOffset.UtcNow;
             lastHappyHourAlertId = activationId;
             happyHourEndsAt = ends;
             // Each new activation resets the banner, including after a restart.
@@ -1005,17 +1011,18 @@ metrics();
             happyHourAlert = null;
             happyHourBanner = null;
 
-            bool previouslySeen = activationId <= GetLastSeenHappyHour();
+            // A simulated expired preview never changes persisted notification state.
+            bool previouslySeen = !expired && activationId <= GetLastSeenHappyHour();
             // Mark as seen before displaying so restarting during the dialog
             // cannot spam the same announcement.
-            if (!previouslySeen) SaveLastSeenHappyHour(activationId);
+            if (!previouslySeen && !expired) SaveLastSeenHappyHour(activationId);
             if (!previouslySeen)
             {
                 var alert = GoldHappyHourWindow(480, 266, "tes3np - Happy Hour");
                 var border = new Panel { BackColor = System.Drawing.Color.FromArgb(197, 164, 92) };
                 border.SetBounds(0, 0, 480, 3);
                 alert.Controls.Add(border);
-                alert.Controls.Add(GoldText("HAPPY HOUR", 18, 13, 444, 38, 19, true));
+                alert.Controls.Add(GoldText(expired ? "HAPPY HOUR (TEST PREVIEW)" : "HAPPY HOUR", 18, 13, 444, 38, 19, true));
                 // Match the chat announcement's rainbow 'Happy Hour' label.
                 var rainbow = new FlowLayoutPanel {
                     AutoSize = false, WrapContents = false,
@@ -1039,7 +1046,8 @@ metrics();
                 alert.Controls.Add(GoldText("has been activated!", 65, 87, 350, 30, 13, true));
                 var timerText = GoldText("", 40, 123, 400, 42, 19, true);
                 alert.Controls.Add(timerText);
-                alert.Controls.Add(GoldText("Mastery XP gain is currently doubled!",
+                alert.Controls.Add(GoldText(expired ? "Expired Happy Hour — Mastery XP bonus has ended." :
+                    "Mastery XP gain is currently doubled!",
                     18, 173, 444, 31, 13));
                 var close = GoldButton("Close", 170, 218, 140, 33);
                 close.Click += (_, _) => CloseHappyHourPopup();
@@ -1057,7 +1065,7 @@ metrics();
             }
             var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
             ticker.Tick += (_, _) => {
-                if (happyHourEndsAt <= DateTimeOffset.UtcNow) {
+                if (!PreviewExpiredHappyHourForTesting && happyHourEndsAt <= DateTimeOffset.UtcNow) {
                     ticker.Stop();
                     if (happyHourAlert is { IsDisposed: false }) happyHourAlert.Close();
                     if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
