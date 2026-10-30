@@ -25,7 +25,9 @@ function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, 
 }
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
-$buildRoot = Join-Path $env:TEMP 'tes3np-build'
+# Every build gets a separate scratch tree. A stale Windows file lock from a
+# previous run must never block a new build or collide with active tools.
+$buildRoot = Join-Path $env:TEMP ('tes3np-build-' + [guid]::NewGuid().ToString('N'))
 $tools = Join-Path $buildRoot 'tools'
 $package = Join-Path $projectRoot 'dist\tes3np-windows'
 $zip = Join-Path $projectRoot 'dist\tes3np-windows.zip'
@@ -232,7 +234,29 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
 }
 finally {
     Step 'Cleaning temporary build directory'
-    if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force -ErrorAction SilentlyContinue }
+    # Antivirus/indexers or a just-exited compiler can temporarily lock extracted
+    # tools. Scratch cleanup is best effort once the ZIP has been validated:
+    # never turn a successful build into a failure due to a locked temp file.
+    # Failures in the actual build/verification try block still propagate.
+    if (Test-Path -LiteralPath $buildRoot) {
+        $cleanupDone = $false
+        $cleanupError = 'Directory is still present.'
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+                Remove-Item -LiteralPath $buildRoot -Recurse -Force -ErrorAction Stop
+                if (-not (Test-Path -LiteralPath $buildRoot)) {
+                    $cleanupDone = $true
+                    break
+                }
+            } catch {
+                $cleanupError = $_.Exception.Message
+            }
+            if ($attempt -lt 3) { Start-Sleep -Milliseconds 500 }
+        }
+        if (-not $cleanupDone) {
+            Write-Warning "Temporary files could not be fully cleaned: $buildRoot ($cleanupError). The validated package remains intact."
+        }
+    }
 }
 
 # External commands used during the diagnostic/control build can leave LASTEXITCODE
