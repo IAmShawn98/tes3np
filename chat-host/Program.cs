@@ -2506,6 +2506,30 @@ metrics();
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f);} })()";
             try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
         }
+        void SuspendHappyHourUntilDiscordReturns(string reason)
+        {
+            if (!discordChannelReady) return;
+            discordChannelReady = false;
+            Log("HAPPY HOUR | Discord channel unavailable (" + reason +
+                "); hiding banner and pausing detection");
+            happyHourTicker?.Stop();
+            happyHourTicker?.Dispose();
+            happyHourTicker = null;
+            if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
+            happyHourBanner = null;
+            if (happyHourAlert is { IsDisposed: false }) happyHourAlert.Close();
+            happyHourAlert = null;
+            // The persistent marker only prevents repeating the large popup;
+            // after a new login a verified archived message may show the
+            // compact banner again, without claiming it is a new event.
+            lastHappyHourAlertId = 0;
+            initialBackfillComplete = false;
+            initialBackfillStarted = DateTime.MinValue;
+            initialBackfillAttempts = 0;
+            initialBackfillReanchored = false;
+            waitingForLiveFeedAfterHistory = false;
+        }
+
         async Task CheckDiscordAuthentication()
         {
             if (web.CoreWebView2 == null || closingChat) return;
@@ -2514,6 +2538,14 @@ metrics();
                 string url = web.CoreWebView2.Source ?? "";
                 bool onLogin = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                     || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
+                // A login URL is definitive, even while the login page's
+                // JavaScript/DOM is still mounting.
+                if (onLogin) {
+                    SuspendHappyHourUntilDiscordReturns("sign-in URL");
+                    ShowDiscordSignIn();
+                    await StyleDiscordLogin();
+                    return;
+                }
                 string state = await web.CoreWebView2.ExecuteScriptAsync(
                     "(() => { if (document.readyState === 'loading') return 'loading'; " +
                     "if (document.querySelector('[data-list-id=chat-messages]')) return 'chat'; " +
@@ -2521,33 +2553,45 @@ metrics();
                     "const t = document.body?.innerText || ''; " +
                     "if (/Discord App Detected|Discord App Launched/i.test(t)) return 'app-prompt'; " +
                     "return 'pending'; })()");
-                if (state == "\"chat\"")
+                if (closingChat || IsDisposed || web.CoreWebView2 == null ||
+                    !string.Equals(url, web.CoreWebView2.Source,
+                        StringComparison.OrdinalIgnoreCase)) return;
+                if (state == "\"chat\"" &&
+                    url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (!discordChannelReady) {
+                        discordChannelReady = true;
+                        Log("HAPPY HOUR | Authenticated Discord Game Chat ready; " +
+                            "checking real archived announcements first");
+                        BeginHappyHourDiscovery();
+                    }
                     if (discordLoginVisible) RestoreGameChatAfterSignIn();
                     return;
                 }
-                // After authentication Discord may land on its home page,
-                // not the server channel. Redirect once to the configured feed.
-                if (discordLoginVisible && !onLogin &&
-                    url.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase) &&
-                    !url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase) &&
-                    state != "\"loading\"" && state != "\"app-prompt\"")
-                {
-                    Log("Discord signed in; opening Game Chat channel");
-                    web.CoreWebView2.Navigate(Channel);
-                    return;
-                }
-                if (onLogin || state == "\"login\"")
-                {
+                if (state == "\"login\"") {
+                    SuspendHappyHourUntilDiscordReturns("Discord login form");
                     ShowDiscordSignIn();
-                    if (onLogin) await StyleDiscordLogin();
                     return;
                 }
-                if (state == "\"app-prompt\"")
-                {
+                if (state == "\"app-prompt\"") {
+                    SuspendHappyHourUntilDiscordReturns("Discord desktop-app prompt");
                     ShowDiscordSignIn();
                     Log("Discord desktop-app prompt detected; navigating to browser sign-in");
                     web.CoreWebView2.Navigate("https://discord.com/login");
+                    return;
+                }
+                if (discordChannelReady &&
+                    !url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
+                    SuspendHappyHourUntilDiscordReturns("navigated away from Game Chat");
+                // After authentication Discord may land on its home page,
+                // not the server channel. Redirect once to the configured feed.
+                if (discordLoginVisible &&
+                    url.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase) &&
+                    !url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase) &&
+                    state != "\"loading\"")
+                {
+                    Log("Discord signed in; opening Game Chat channel");
+                    web.CoreWebView2.Navigate(Channel);
                 }
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
