@@ -161,7 +161,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
 
 StopClient(*)
 {
-    global Client
+    global Client, LoginProgressMode, LoginProgressCloseAt
     wasEnabled := Client.Enabled
     phase := Client.Phase
     Client.Enabled := false
@@ -172,8 +172,15 @@ StopClient(*)
         Client.ProcessHandle := 0
     }
     SetTimer(ClientTick, 0)
-    SetTimer(UpdateGameLoginProgress, 0)
-    DismissGameLoginProgress()
+    ; Saved LoadDelay may be only one second. Keep the already-completed
+    ; three-second visual alive when the successful manual watchdog ends.
+    keepProgress := Client.HasOwnProp("KeepLoginProgress") && Client.KeepLoginProgress
+        && LoginProgressMode = "complete" && A_TickCount < LoginProgressCloseAt
+    if !keepProgress
+    {
+        SetTimer(UpdateGameLoginProgress, 0)
+        DismissGameLoginProgress()
+    }
     ToolTip(, , , 1)
     SetClientStatus("Recovery stopped. You can close the game normally.")
     if wasEnabled
@@ -367,13 +374,12 @@ ClientTick()
         {
             if Client.HasOwnProp("ScheduledLoginAction") && Client.ScheduledLoginAction = "LoginUpTo4"
             {
-                ; The configured load delay has elapsed. Leave this game running
-                ; while the requested five-second completion card is shown.
+                ; Preserve the three-second scheduled post-load handoff buffer,
+                ; independent of the completed login progress window.
                 if !Client.LoginCompletionPending
                 {
                     Client.LoginCompletionPending := true
                     Client.Deadline := A_TickCount + 3000
-                    CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
                     return
                 }
                 keptPids := Client.HasOwnProp("KeptPids") ? Client.KeptPids : []
@@ -401,7 +407,6 @@ ClientTick()
             Client.Phase := "claim"
             Client.Deadline := A_TickCount + AppConfig.ClaimWaitMs
             SetClientStatus("Waiting 10 seconds for " Client.Profile.Name " before closing.")
-            CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
             LogLauncherEvent("GAME | Login inputs completed | Batch character loaded; waiting for claim period.")
             return
         }
@@ -413,9 +418,8 @@ ClientTick()
             LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
             ; Completed manual logins no longer hold the one-at-a-time login
             ; watchdog. Keep the game running and allow another launch.
-            finishedName := Client.Profile.Name, finishedPid := Client.PID, finishedHwnd := Client.HWND
+            Client.KeepLoginProgress := true
             StopClient()
-            CompleteGameLoginProgress(finishedName, finishedPid, finishedHwnd)
             return
         }
         WinActivate("ahk_id " hwnd)
@@ -440,7 +444,8 @@ ClientTick()
             LogLauncherEvent("GAME | Login stage | Entering password. Password value not logged.")
             SendText(Client.Profile.Password)
             Send("{Enter}")
-            SetGameLoginProgressStage(5)
+            ; Finish only the visual. The saved LoadDelay and recovery continue.
+            CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
             Client.Phase := "loading"
             Client.Deadline := A_TickCount + Client.LoadDelay * 1000
             SetClientStatus("Loading character — " Client.LoadDelay " seconds.")
