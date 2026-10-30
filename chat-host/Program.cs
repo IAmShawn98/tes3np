@@ -808,41 +808,50 @@ metrics();
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
         bool historyCatchupActive;
-        // On first channel load, page through up to five hours of Discord
-        // history for reliable Happy Hour discovery. The independent rendered
-        // chat remains pinned to the newest messages unless the user scrolls.
-        readonly DateTimeOffset initialHistoryCutoff = DateTimeOffset.UtcNow.AddHours(-5);
-        // Development-only fallback: if five hours contain no real activation,
-        // search farther back for the latest authentic expired announcement.
-        readonly DateTimeOffset historicalHappyHourCutoff = DateTimeOffset.UtcNow.AddHours(-48);
+        // Scan Discord backwards from its newest message until the most recent
+        // genuine Happy Hour is confirmed. A previously saved hit is only a
+        // candidate until live pagination has reached its timestamp.
+        // Production only needs to search the past hour for an active event.
+        readonly DateTimeOffset activeHappyHourCutoff = DateTimeOffset.UtcNow.AddHours(-1);
         DateTime initialBackfillStarted = DateTime.MinValue;
         int initialBackfillAttempts;
         bool initialBackfillComplete;
         bool initialBackfillReanchored;
-        void BackfillRecentFiveHours()
+        void BackfillUntilHappyHour()
         {
             if (initialBackfillComplete || !nativeMode || signInExpanded ||
                 loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
                 history.Count == 0 || userScrolledChat) return;
-            if (initialBackfillStarted == DateTime.MinValue)
+            if (initialBackfillStarted == DateTime.MinValue) {
                 initialBackfillStarted = DateTime.UtcNow;
-            bool coveredFiveHours = DiscordTimestamp(history.First().Key) <= initialHistoryCutoff;
-            bool foundRealHappyHour = LatestArchivedHappyHourId() != 0;
-            bool needHistoricalPreview = PreviewExpiredHappyHourForTesting && !foundRealHappyHour;
-            bool reachedCutoff = coveredFiveHours &&
-                (!needHistoricalPreview ||
-                    DiscordTimestamp(history.First().Key) <= historicalHappyHourCutoff);
-            // Do not mistake an empty five-hour window for proof that no HH
-            // exists. Keep paging in QA mode until a real announcement is
-            // detected, or the 48-hour search/attempt/time limits are reached.
+                Log("HAPPY HOUR | Searching Discord history backward for latest real activation");
+            }
+            ulong candidateId = LatestArchivedHappyHourId();
+            DateTimeOffset oldestLoaded = DiscordTimestamp(history.First().Key);
+            // The archive may already contain an older event from a previous
+            // session. Don't stop until the current live history has paged back
+            // through that event: newer activations could still be unseen.
+            bool verifiedLatest = candidateId > 0 &&
+                oldestLoaded <= DiscordTimestamp(candidateId);
+            // In production, expired events are irrelevant. One hour of
+            // coverage rules out a currently active event without scanning
+            // days of Discord messages.
+            bool pastActiveWindow = !PreviewExpiredHappyHourForTesting &&
+                oldestLoaded <= activeHappyHourCutoff;
+            bool complete = verifiedLatest || pastActiveWindow;
+            // Discord may throttle or stop exposing history. Log partial
+            // coverage rather than claiming detection succeeded.
             bool timedOut = initialBackfillAttempts >= 500 ||
                 DateTime.UtcNow - initialBackfillStarted > TimeSpan.FromMinutes(6);
-            if (reachedCutoff || timedOut) {
+            if (complete || timedOut) {
                 initialBackfillComplete = true;
-                Log("CHAT | History scan " + (reachedCutoff ? "complete" : "partial (paging limit)") +
-                    "; real HH found=" + foundRealHappyHour +
+                Log("HAPPY HOUR | History scan " +
+                    (verifiedLatest ? "confirmed latest activation" :
+                     pastActiveWindow ? "covered active hour" : "partial (paging limit)") +
+                    "; detectedId=" + candidateId +
+                    "; pages=" + initialBackfillAttempts +
                     "; " + history.Count + " messages; oldest=" +
-                    DiscordTimestamp(history.First().Key).ToString("O"));
+                    oldestLoaded.ToString("O"));
                 // Reanchoring an old Discord message changes the hidden
                 // source browser's channel position. Restore the live channel
                 // afterward, without losing the collected native history.
@@ -2068,7 +2077,7 @@ metrics();
             historyWatch.Tick += (_, _) =>
             {
                 if (!closingChat && !IsDisposed && nativeMode) {
-                    BackfillRecentFiveHours();
+                    BackfillUntilHappyHour();
                     RequestOlderMessages();
                 }
             };
