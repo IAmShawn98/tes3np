@@ -3,6 +3,7 @@
 ; Happy Hour banner is shown. Never infer Happy Hour from timers or log text.
 global SkoomaVisionEnabled := true
 global SkoomaVisionBannerActive := false
+global SkoomaVisionPreviewActive := false
 global SkoomaVisionGui := 0
 global SkoomaVisionPieces := []
 global SkoomaVisionVisible := false
@@ -15,6 +16,7 @@ InitializeSkoomaVision()
     global DataFile, SkoomaVisionEnabled
     SkoomaVisionEnabled := IniRead(DataFile, "Launcher", "SkoomaVisionEnabled", "1") != "0"
     A_TrayMenu.Add("Skooma Vision during Happy Hour", ToggleSkoomaVision)
+    A_TrayMenu.Add("Preview Skooma Vision (20 sec)", PreviewSkoomaVision)
     if SkoomaVisionEnabled
         A_TrayMenu.Check("Skooma Vision during Happy Hour")
     OnMessage(0x8334, LauncherSkoomaVisionStateChanged)
@@ -44,10 +46,29 @@ ToggleSkoomaVision(*)
     RefreshSkoomaVision()
 }
 
+PreviewSkoomaVision(*)
+{
+    global SkoomaVisionPreviewActive, SkoomaVisionEnabled
+    ; Visual-only preview. It does not fabricate a Discord snowflake, change
+    ; the active banner, or post a fake ChatHost message.
+    if !SkoomaVisionEnabled
+        return
+    SkoomaVisionPreviewActive := true
+    RefreshSkoomaVision()
+    SetTimer(EndSkoomaVisionPreview, -20000)
+}
+
+EndSkoomaVisionPreview(*)
+{
+    global SkoomaVisionPreviewActive
+    SkoomaVisionPreviewActive := false
+    RefreshSkoomaVision()
+}
+
 RefreshSkoomaVision()
 {
-    global SkoomaVisionEnabled, SkoomaVisionBannerActive
-    if !SkoomaVisionEnabled || !SkoomaVisionBannerActive
+    global SkoomaVisionEnabled, SkoomaVisionBannerActive, SkoomaVisionPreviewActive
+    if !SkoomaVisionEnabled || (!SkoomaVisionBannerActive && !SkoomaVisionPreviewActive)
     {
         SetTimer(SkoomaVisionTick, 0)
         HideSkoomaVision()
@@ -139,9 +160,17 @@ SkoomaVisionMotionAllowed()
 SkoomaVisionTick(*)
 {
     global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionVisible
-    global SkoomaVisionBannerActive, SkoomaVisionEnabled, SkoomaVisionPhase
-    global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui
-    if !SkoomaVisionEnabled || !SkoomaVisionBannerActive ||
+    global SkoomaVisionBannerActive, SkoomaVisionPreviewActive, SkoomaVisionEnabled, SkoomaVisionPhase
+    global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui, EmbeddedChatPid
+    ; If ChatHost disappears unexpectedly, do not leave a phantom visual
+    ; mode behind. The next verified banner will post a fresh activation.
+    if SkoomaVisionBannerActive && EmbeddedChatPid && !ProcessExist(EmbeddedChatPid)
+    {
+        SkoomaVisionBannerActive := false
+        RefreshSkoomaVision()
+        return
+    }
+    if !SkoomaVisionEnabled || (!SkoomaVisionBannerActive && !SkoomaVisionPreviewActive) ||
         !IsObject(LauncherGui) || !IsObject(SkoomaVisionGui)
         return
     owner := "ahk_id " LauncherGui.Hwnd
@@ -203,13 +232,15 @@ HideSkoomaVision()
 
 DisposeSkoomaVision()
 {
-    global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionBannerActive
+    global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionBannerActive, SkoomaVisionPreviewActive
     SetTimer(SkoomaVisionTick, 0)
+    SetTimer(EndSkoomaVisionPreview, 0)
     HideSkoomaVision()
     if IsObject(SkoomaVisionGui)
         try SkoomaVisionGui.Destroy()
     SkoomaVisionGui := 0
     SkoomaVisionPieces := []
     SkoomaVisionBannerActive := false
+    SkoomaVisionPreviewActive := false
     OnMessage(0x8334, LauncherSkoomaVisionStateChanged, 0)
 }
