@@ -36,19 +36,19 @@ OpenCharacterPage(*)
     ; Retain a hidden heading only for the character editor and scheduler views.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 250, 370, 30, "Add character", (*) => EditProfile(0))
-    ; The longer instructions use a slightly smaller native journal font.
-    ; Reserve their full height above the ten-character list.
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 180, 370, 30, "Add character", (*) => EditProfile(0))
+    ; The approved copy fits in a compact description block. Do not leave
+    ; a full extra paragraph of empty control space above the first row.
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h155 BackgroundTrans", "")
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h95 BackgroundTrans", "")
     CharacterDescriptionMagic := false
     Loop 10
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
-        ; Begin below the full instructions, keeping all ten rows above
-        ; the limit notice and the Add/Wipe action stack.
-        y := 250 + (index - 1) * 24
+        ; Start just below the instructions; retain all ten 24px-spaced
+        ; rows and their aligned painted buttons and hit targets.
+        y := 180 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -62,7 +62,7 @@ OpenCharacterPage(*)
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 499, 370, 25, "* You have reached the server character limit.")
+    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 429, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
@@ -121,15 +121,16 @@ RefreshProfiles()
         ; Keep the approved character action stack after every refresh/import.
         ; With the scheduler button deferred, Add Character now occupies its
         ; old y=540 position, immediately above Wipe Character List (y=575).
-        actionY := Profiles.Length ? 540 : 250
+        actionY := Profiles.Length ? 540 : 180
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        ; Keep the description's transparent area strictly above the rows.
-        CharacterDescription.Move(70, 80, 390, 155)
+        ; Shrink the transparent hit area as well as the visible gap so it
+        ; cannot cover a character checkbox after a refresh or import.
+        CharacterDescription.Move(70, 80, 390, 95)
         ; Each character already has its own Play button. Keep the obsolete
         ; full-width Launch Character button hidden so it cannot overlap actions.
         LaunchCharacterButton.Visible := false
         transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : 290
+        transferY := Profiles.Length ? 575 : 220
         ; Preserve the original wide Import Data layout and compact Export Data
         ; layout. MoveStyledButton updates both the native control and its painted
         ; face; do not change position or dimensions independently.
