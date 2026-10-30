@@ -400,6 +400,9 @@ metrics();
         bool nativeMode;
         bool freshDiscordProfile;
         bool discordLoginVisible;
+        // The archive can shortcut historical paging, but cannot by itself
+        // authorize showing Happy Hour before Discord's channel is available.
+        bool discordChannelReady;
         const string ExtractFeed = """
             (() => {
               const list = document.querySelector('[data-list-id="chat-messages"]');
@@ -948,7 +951,7 @@ metrics();
         int restoredFeedStableTicks;
         void BackfillUntilHappyHour()
         {
-            if (initialBackfillComplete || !nativeMode || signInExpanded ||
+            if (!discordChannelReady || initialBackfillComplete || !nativeMode || signInExpanded ||
                 loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
                 history.Count == 0) return;
             if (initialBackfillStarted == DateTime.MinValue) {
@@ -1276,7 +1279,8 @@ metrics();
 
         void RefreshHappyHourBanner()
         {
-            if ((!PreviewExpiredHappyHourForTesting && happyHourEndsAt <= DateTimeOffset.UtcNow) ||
+            if (!discordChannelReady ||
+                (!PreviewExpiredHappyHourForTesting && happyHourEndsAt <= DateTimeOffset.UtcNow) ||
                 dismissedHappyHourBannerId == lastHappyHourAlertId ||
                 !IsWindow(owner))
             {
@@ -1401,6 +1405,7 @@ metrics();
 
         void ShowHappyHourAlert(ulong activationId, bool demo = false)
         {
+            if (!discordChannelReady) return;
             var ends = demo ? DateTimeOffset.UtcNow.AddMinutes(-1)
                 : DiscordTimestamp(activationId).AddHours(1);
             if ((!demo && activationId <= lastHappyHourAlertId) ||
@@ -1565,6 +1570,7 @@ metrics();
 
         void DetectLatestHappyHour()
         {
+            if (!discordChannelReady) return;
             try
             {
                 EnsureChatLogLoaded();
@@ -1583,31 +1589,28 @@ metrics();
 
         void BeginHappyHourDiscovery()
         {
+            if (!discordChannelReady) return;
             try
             {
-                // FIRST inspect persistent logs, before paging Discord. The
-                // indexed archive preserves exact message snowflakes; the
-                // last-seen marker is only written after a genuine detection.
+                // Only an actual saved Discord message (text or verified image)
+                // is evidence of an activation. The separate LocalAppData
+                // last-seen ID is strictly a notification deduplication marker;
+                // it must NEVER manufacture a banner after the chat archive is
+                // removed. Read the archive only once Discord is connected.
                 EnsureChatLogLoaded();
-                ulong archivedId = LatestArchivedHappyHourId();
-                ulong previouslyVerifiedId = GetLastSeenHappyHour();
-                ulong candidate = Math.Max(archivedId, previouslyVerifiedId);
+                ulong candidate = LatestArchivedHappyHourId();
                 bool valid = candidate > 0 &&
                     (PreviewExpiredHappyHourForTesting ||
                      DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow);
                 if (valid)
                 {
                     initialBackfillComplete = true;
-                    Log("HAPPY HOUR | Startup cache shortcut: " +
-                        (archivedId >= previouslyVerifiedId ? "chat archive" : "previous verified activation") +
-                        "; messageId=" + candidate +
+                    Log("HAPPY HOUR | Connected channel archive shortcut: " +
+                        "messageId=" + candidate +
                         "; sent=" + DiscordTimestamp(candidate).ToString("O") +
                         "; archivedRows=" + archivedChat.Count +
                         "; skipping historical Discord pagination");
-                    if (archivedId == candidate)
-                        DetectLatestHappyHour();
-                    else
-                        ShowHappyHourAlert(candidate);
+                    DetectLatestHappyHour();
                 }
                 else
                 {
@@ -1624,11 +1627,12 @@ metrics();
 
         async Task RefreshNativeMessages()
         {
-            if (closingChat || IsDisposed || web.CoreWebView2 == null || discordLoginVisible) return;
+            if (closingChat || IsDisposed || web.CoreWebView2 == null ||
+                discordLoginVisible || !discordChannelReady) return;
             try
             {
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
-                if (closingChat || IsDisposed) return;
+                if (closingChat || IsDisposed || !discordChannelReady) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
                 if (waitingForLiveFeedAfterHistory &&
                     string.Equals(web.CoreWebView2.Source?.TrimEnd('/'), Channel,
@@ -2442,9 +2446,10 @@ metrics();
             };
             historyWatch.Start();
             watch.Start();
-            // Cache-first discovery works in both QA and production. No
-            // synthetic banner is ever created for an empty archive.
-            BeginHappyHourDiscovery();
+            // Cache-first discovery is deferred until the embedded Discord
+            // channel is actually authenticated and its chat DOM is ready.
+            // An old %LOCALAPPDATA% last-seen marker cannot display a banner
+            // while the user is logged out or during a fresh profile setup.
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
         // channel heading (including the two action icons) by DOM structure.
