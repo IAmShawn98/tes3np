@@ -36,10 +36,12 @@ CreateSkoomaVision()
         try LogLauncherEvent("HAPPY HOUR | Jiub portrait accessory missing: " asset)
         return
     }
-    ; Single transparent child picture: hat from y86, eyewear and grin down
-    ; to y209. Zero extra HWND windows; moves and scales with the launcher.
+    ; This asset contains only Jiub's cut-out head, never the original
+    ; medallion/moon/background. Preserve that moon underneath unchanged.
+    ; The new compact artwork is center-aligned to the existing portrait.
+    ; Same HWND: no moving independent window or animation lag.
     SkoomaVisionPicture := LauncherGui.Add("Picture",
-        "x439 y84 w111 h134 Hidden BackgroundTrans", asset)
+        "x435 y71 w120 h145 Hidden BackgroundTrans", asset)
 }
 
 LauncherSkoomaVisionStateChanged(wParam, lParam, msg, hwnd)
