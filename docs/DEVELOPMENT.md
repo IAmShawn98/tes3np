@@ -107,51 +107,40 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Skooma Vision Happy Hour prototype checks
+## Jiub Happy Hour portrait checks
 
-Skooma Vision is a **visual** enhancement to the existing genuine
-Discord-backed banner—not a change to Happy Hour detection. Keep the
-approved ChatHost architecture check and the Windows ChatHost compile.
-The packaging script writes `dist\\tes3np-windows\\tes3np.exe`. After a
-**successful** `Build tes3np.bat` run, the batch file also extracts the
-validated ZIP and copies the new launcher, TES3MP client and ChatHost into
-the checkout root; the freshly published root `tes3np.exe` is therefore
-safe to launch. If the build fails, launch neither an older root executable
-nor an incomplete `dist` copy. Check the freshly generated
-`dist\\tes3np-windows.zip` and validated packaging before launching.
+The old separate Skooma Vision decoration window has been replaced by one
+small, static PNG image control within the existing launcher GUI. The same
+verified ChatHost Happy Hour banner controls its activation. No other
+Happy Hour detection or gameplay/login code changed.
 
-1. Use the tray option **Preview Skooma Vision (20 sec)** to test the
-   effect without creating a simulated Discord announcement. The preview
-   works even when the automatic Skooma Vision setting is turned off.
-   The transparent overlay is initialized while hidden: use its raw HWND
-   for `WinSetTransColor`, never `"ahk_id " hwnd` without hidden-window
-   detection. Check `%APPDATA%\\tes3np\\launcher.log` for visual-layer
-   creation or error messages. Check
-   that particles, confetti and party accents stay on the launcher
-   border/artwork, do not obscure menu labels, and do not intercept any
-   click, key, scrolling, chat toggle or profile action.
-2. Test a genuine Discord Happy Hour announcement and a valid cached
-   Happy Hour after signed-out startup. The same real banner activation
-   should enable the decorative theme; expiry or banner dismissal must
-   disable it. An empty archive, expired announcement or unverified
-   image must never trigger either visual mode or a banner.
-3. Minimize and restore the launcher, show and close Manage Characters
-   and Launcher Settings, and move/resize the launcher. The visual
-   layer must follow the owner and never get stranded above another
-   application or obscure a dialog. No extra Happy Hour notification
-   may appear.
-4. Disable and re-enable **Skooma Vision during Happy Hour** in the
-   tray. Verify this preference persists across launcher restarts but
-   has no effect on real Happy Hour detection, banner or countdown.
-   With Windows animations disabled, the visual remains static.
-5. Test current multi-login, Game Chat first sign-in, cached archive
-   signed-out cases and the old banner positioning. An overlay failure
-   must not affect any of these functions.
-6. Confirm screenshot-specific accessories align with the selected
-   artwork in actual Windows runtime. The initial overlay only
-   decorates safe border zones. Do not claim exact hats on Jiub,
-   animals or individual portrait subjects before a verified artwork
-   alignment pass.
+1. Use the system tray option **Preview Jiub Happy Hour (20 sec)**.
+   Only Jiub's original face should change: rainbow glasses and a big
+   toothy grin. No balloons, hat, particles, confetti, clouds or
+   Skooma Vision title should appear. The original Morrowind background,
+   typography, menus, buttons and chat must remain intact.
+2. Move the launcher immediately while previewing. Jiub's accessories
+   are a native child control, inserted before
+   `CaptureLauncherControlLayout()`, and must travel synchronously with
+   the picture without visible lag or a detached window.
+3. Test the automatic launcher size settings, desktop DPI, hide/show,
+   minimize/restore, open/close Character Book and Launcher Settings,
+   and repeated 20-second previews. The picture must remain aligned
+   to Jiub's original portrait, fully hidden outside active preview or
+   Happy Hour, and must not intercept clicking anywhere.
+4. Use a genuinely active and cached Happy Hour announcement. The
+   existing banner and Jiub appearance should appear at the same time,
+   and both should disappear on expiration or banner dismissal. An
+   expired or unverified Discord message must not trigger it.
+5. Turn **Jiub's Happy Hour look** off and on. The original Roaming INI
+   preference still controls automatic activation; manual preview
+   remains available without modifying that preference.
+6. Confirm the shipped PNG
+   `assets/happy-hour/jiub-happy-hour.png` is included in
+   `dist/tes3np-windows.zip` via bundled resources. Verify
+   the current Windows source/build checks, ChatHost and client, and
+   check the restored source tree after packaging.
+
 
 ## Validation before release
 
