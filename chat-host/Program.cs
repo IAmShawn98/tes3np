@@ -478,9 +478,15 @@ metrics();
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
         string GameChatIndexFile => Path.Combine(gameChatLogDirectory, "game-chat-index.json");
         bool chatLogLoaded;
+        bool hadSavedChatArchiveAtStartup;
         void EnsureChatLogLoaded()
         {
             if (chatLogLoaded) return;
+            // Capture BEFORE any new Discord pages are written. Otherwise a
+            // fresh install that just rebuilt its archive could accidentally
+            // reimport a stale marker from a previously deleted profile.
+            hadSavedChatArchiveAtStartup =
+                File.Exists(GameChatIndexFile) || File.Exists(GameChatLogFile);
             Directory.CreateDirectory(gameChatLogDirectory);
             if (File.Exists(GameChatIndexFile))
             {
@@ -545,6 +551,17 @@ metrics();
             public string[] Images { get; set; } = Array.Empty<string>();
             public bool VerifiedHappyHourImage { get; set; }
         }
+        // Windows may terminate the chat host while Discord history is being
+        // indexed. Replace each archive file atomically rather than truncate
+        // the only recoverable copy in place.
+        static void WriteChatArchiveAtomically(string path, string contents)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            string temporary = path + ".tmp";
+            File.WriteAllText(temporary, contents);
+            File.Move(temporary, path, true);
+        }
+
         void SaveChatArchive()
         {
             var records = archivedChat.Select(e => new ChatArchiveEntry {
@@ -552,7 +569,8 @@ metrics();
                 Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
                 VerifiedHappyHourImage = verifiedHappyHourImageIds.Contains(e.Key)
             }).ToArray();
-            File.WriteAllText(GameChatIndexFile, System.Text.Json.JsonSerializer.Serialize(records));
+            WriteChatArchiveAtomically(GameChatIndexFile,
+                System.Text.Json.JsonSerializer.Serialize(records));
             var output = new System.Text.StringBuilder();
             string previousDate = "";
             foreach (var entry in archivedChat)
@@ -583,21 +601,8 @@ metrics();
                 // can rebuild an index after an interrupted/corrupt JSON save.
                 output.AppendLine($"[{sent:hh:mm:ss tt}] {user}: {body} [discord:{entry.Key}]");
             }
-            File.WriteAllText(GameChatLogFile, output.ToString());
+            WriteChatArchiveAtomically(GameChatLogFile, output.ToString());
         }
-        void LogChatMessage(ulong id, string user, string body)
-        {
-            if (string.IsNullOrWhiteSpace(body)) return;
-            try
-            {
-                EnsureChatLogLoaded();
-                if (archivedChat.ContainsKey(id)) return;
-                archivedChat[id] = (user, body);
-                SaveChatArchive();
-            }
-            catch (Exception ex) { Log("Game chat log write failed: " + ex.Message); }
-        }
-
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
         readonly System.Collections.Generic.Dictionary<string, bool> happyHourImageClassification = new();
         // Discord can virtualize an image-only message out of the DOM while
@@ -1105,7 +1110,7 @@ metrics();
             try
             {
                 if (!File.Exists(happyHourSeenFile) &&
-                    (File.Exists(GameChatIndexFile) || File.Exists(GameChatLogFile)) &&
+                    hadSavedChatArchiveAtStartup &&
                     File.Exists(LegacyHappyHourSeenFile) &&
                     ulong.TryParse(File.ReadAllText(LegacyHappyHourSeenFile).Trim(),
                         out ulong migratedId) && migratedId > 0)
