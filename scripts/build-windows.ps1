@@ -40,6 +40,15 @@ try {
     if (!$python) { throw 'Python is required to generate embedded resources and validate the source tree.' }
     & python (Join-Path $PSScriptRoot 'project.py') check
     if ($LASTEXITCODE -ne 0) { throw 'Source validation failed. Previous build artifacts were not removed.' }
+    Step 'Checking embedded Chat Host architecture before packaging'
+    & python (Join-Path $PSScriptRoot 'check-chat-architecture.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Chat Host architecture validation failed. Previous build artifacts were not removed.' }
+    Step 'Preflight compiling Chat Host before downloading tools'
+    $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+    if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
+    $hostProject = Join-Path $projectRoot 'chat-host\tes3np.ChatHost.csproj'
+    & dotnet build $hostProject -c Release -r win-x64 --no-self-contained
+    if ($LASTEXITCODE -ne 0) { throw 'Chat Host preflight compilation failed. Previous build artifacts were not removed.' }
     Step 'Starting Windows launcher build'
     if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
     if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
@@ -201,9 +210,6 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
 "@ | Set-Content -LiteralPath (Join-Path $licenseFolder 'REDISTRIBUTION-NOTICE.txt') -Encoding UTF8
     Step 'Verified complete bundled TES3MP runtime and included license notices'
     Step 'Publishing embedded WebView2 chat host'
-    $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
-    if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
-    $hostProject = Join-Path $projectRoot 'chat-host\tes3np.ChatHost.csproj'
     $hostOutput = Join-Path $package 'chat-host'
     & dotnet publish $hostProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o $hostOutput
     if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $hostOutput 'tes3np.ChatHost.exe'))) {
