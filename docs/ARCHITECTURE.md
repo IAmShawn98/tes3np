@@ -112,7 +112,13 @@ to the tracked PID qualifies as the game. Credentials use configured delays, not
 OCR. Never add a second watchdog.
 
 `AppConfig` centralizes endpoints, default delays and controller intervals.
-Existing characters retain saved delays. `NewCharacterProfile` supplies new-profile
+Existing characters retain saved delays. The sorted 10-race species selector
+requires an explicit choice for new characters; existing profiles with no
+species remain editable and use the original login icon. Species is saved in
+each character's INI section and portable export/import. A selected species
+maps to `assets/icons/species/<slug>.ico` (lowercase with hyphens) when that
+portrait exists; otherwise the original TES3NP icon remains. Bundled builds
+already include nested assets automatically. `NewCharacterProfile` supplies new-profile
 defaults. `%APPDATA%\tes3np` remains the data root.
 
 ## Patch worker contract
