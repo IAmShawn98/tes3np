@@ -103,8 +103,8 @@ been retired and the CI architecture guard rejects its reintroduction.
 native window. It does not send inputs or add a recovery watchdog. The step dots
 track timed screen waits and actual SendText calls; completion means the configured
 load delay elapsed, not server-confirmed authentication. On success the card
-persists for five seconds while the game remains running; batch claim time is
-still ten seconds. Cancelled sessions dispose of the visible card. Only a visible SDL window belonging
+persists for three seconds while the game remains running; batch claim time is
+still ten seconds. The Manage Characters dev preview uses the same card with a simulated clock and no game process or credentials. Cancelled sessions dispose of the visible card. Only a visible SDL window belonging
 to the tracked PID qualifies as the game. Credentials use configured delays, not
 OCR. Never add a second watchdog.
 
