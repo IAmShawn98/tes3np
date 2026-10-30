@@ -1030,8 +1030,16 @@ metrics();
                     var g = e.Graphics;
                     int w = banner.ClientSize.Width, h = banner.ClientSize.Height;
                     g.Clear(System.Drawing.Color.FromArgb(143, 109, 60));
+                    // The chat header bitmap contains horizontal trim lines.
+                    // Tiling its full height repeats those lines through the bar.
+                    // Sample only its central weathered-metal band instead.
                     if (headerTexture != null) {
-                        using var surface = new System.Drawing.TextureBrush(headerTexture,
+                        int bandHeight = Math.Min(12, Math.Max(1, headerTexture.Height / 3));
+                        int bandTop = Math.Max(0, (headerTexture.Height - bandHeight) / 2);
+                        using var band = headerTexture.Clone(
+                            new System.Drawing.Rectangle(0, bandTop, headerTexture.Width, bandHeight),
+                            headerTexture.PixelFormat);
+                        using var surface = new System.Drawing.TextureBrush(band,
                             System.Drawing.Drawing2D.WrapMode.Tile);
                         g.FillRectangle(surface, 0, 0, w, h);
                     }
@@ -1111,9 +1119,11 @@ metrics();
                 SetNativeWindowOwner(banner.Handle, owner);
             }
             if (happyHourBannerCountdown != null)
-                happyHourBannerCountdown.Text = (happyHourDemo ? "UI TEST (no announcement)  |  " : happyHourEndsAt <= DateTimeOffset.UtcNow
-                    ? "Expired (test preview)  |  " : "Mastery XP x2  |  ") +
-                    HappyHourRemaining(happyHourEndsAt) + " left";
+                happyHourBannerCountdown.Text = happyHourDemo
+                    ? HappyHourRemaining(happyHourEndsAt)
+                    : (happyHourEndsAt <= DateTimeOffset.UtcNow
+                        ? "Expired  |  " : "Mastery XP x2  |  ") +
+                      HappyHourRemaining(happyHourEndsAt) + " left";
             if (happyHourBannerCountdown != null)
                 happyHourBannerCountdown.ForeColor = HappyHourTimerColor(happyHourEndsAt);
             // Place the gold card directly above the actual launcher window.
