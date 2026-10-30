@@ -67,11 +67,15 @@ previously indexed genuine messages first, then paginate the hidden Discord
 source if none qualify. The latest announcement's Discord snowflake determines
 both the event time and 60-minute expiry. Image-only rainbow announcements must
 be associated with the actual posting account/message ID; an image or a
-saved marker cannot create a synthetic event. Development preview may show an
-**authentic expired** announcement with zero time; production must hide expired
-events. Logout, sign-in, and unavailable chat hide the banner and pause detection.
-User chat visibility/scrolling never controls pagination. The small launcher-owned
-banner is the **only** Happy Hour notification; no separate large popup appears.
+saved marker cannot create a synthetic event. The banner appears **only** while
+the latest genuine Discord activation is within its sixty-minute window; an
+expired saved announcement is never displayed. Once that window expires, the
+existing countdown timer closes the banner. The unattended history scan ends
+at the active one-hour boundary rather than paging through old announcements
+for testing. Logout, sign-in, and unavailable chat hide the banner and pause
+detection. User chat visibility/scrolling never controls pagination. The
+launcher-owned banner is the **only** Happy Hour notification; no separate
+large popup appears.
 
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
@@ -81,8 +85,8 @@ the entire archive once per message.
 and the normal CI checks now compile `chat-host/tes3np.ChatHost.csproj`.
 Static checks do not establish successful Discord authentication, WebView2
 rendering, Happy Hour recognition, or Windows window positioning. Verify those
-behaviors in an actual launcher build. Turn off
-`PreviewExpiredHappyHourForTesting` before approving a public release.
+behaviors in an actual launcher build. Expired-announcement preview mode has
+been retired and the CI architecture guard rejects its reintroduction.
 
 ## Session contract
 
