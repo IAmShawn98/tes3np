@@ -938,11 +938,10 @@ metrics();
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
         bool historyCatchupActive;
-        // Scan Discord backwards from its newest message until the most recent
-        // genuine Happy Hour is confirmed. A previously saved hit is only a
-        // candidate until live pagination has reached its timestamp.
-        // Production only needs to search the past hour for an active event.
-        readonly DateTimeOffset activeHappyHourCutoff = DateTimeOffset.UtcNow.AddHours(-1);
+        // Scan Discord backward from the newest message until the most recent
+        // genuine Happy Hour is confirmed. Older saved messages are not proof
+        // of an active event, and searching beyond the last hour is unnecessary
+        // when no currently active announcement has been found.
         DateTime initialBackfillStarted = DateTime.MinValue;
         int initialBackfillAttempts;
         bool initialBackfillComplete;
@@ -968,11 +967,11 @@ metrics();
             // through that event: newer activations could still be unseen.
             bool verifiedLatest = candidateId > 0 &&
                 oldestLoaded <= DiscordTimestamp(candidateId);
-            // In production, expired events are irrelevant. One hour of
-            // coverage rules out a currently active event without scanning
-            // days of Discord messages.
-            bool pastActiveWindow = !PreviewExpiredHappyHourForTesting &&
-                oldestLoaded <= activeHappyHourCutoff;
+            // A full hour of source history is sufficient to determine
+            // whether an activation can still be active. Never page days
+            // backward just to display an expired announcement.
+            bool pastActiveWindow =
+                oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1);
             bool complete = verifiedLatest || pastActiveWindow;
             // Discord may throttle or stop exposing history. Log partial
             // coverage rather than claiming detection succeeded.
@@ -1053,11 +1052,8 @@ metrics();
                 !byte.TryParse(parts[2].Trim(), out byte blue)) return "#DBB243";
             return $"#{red:X2}{green:X2}{blue:X2}";
         }
-        // Discord IDs contain the real UTC send time, so late-loaded messages
-        // display only their remaining time rather than restarting a full hour.
-        // TEMPORARY QA MODE: preview the latest real announcement even after expiry.
-        // Turn this off before publishing a release.
-        const bool PreviewExpiredHappyHourForTesting = true;
+        // A Happy Hour exists only within one hour of its authentic Discord
+        // activation message. Expired announcements are never displayed.
         ulong lastHappyHourMessageId;
         ulong dismissedHappyHourBannerId = ulong.MaxValue;
 
@@ -1232,7 +1228,7 @@ metrics();
         void RefreshHappyHourBanner()
         {
             if (!discordChannelReady ||
-                (!PreviewExpiredHappyHourForTesting && happyHourEndsAt <= DateTimeOffset.UtcNow) ||
+                happyHourEndsAt <= DateTimeOffset.UtcNow ||
                 dismissedHappyHourBannerId == lastHappyHourMessageId ||
                 !IsWindow(owner))
             {
@@ -1328,8 +1324,8 @@ metrics();
             }
             if (happyHourBannerRainbow != null) {
                 bool active = happyHourEndsAt > DateTimeOffset.UtcNow;
-                // Always derive time from the original Discord snowflake,
-                // including an exact zero for expired development previews.
+                // Always derive remaining time from the original Discord
+                // snowflake; expiration removes the banner completely.
                 happyHourBannerClockText = HappyHourBannerTime(happyHourEndsAt);
                 happyHourBannerClockColor = active
                     ? HappyHourTimerColor(happyHourEndsAt)
@@ -1357,12 +1353,10 @@ metrics();
             if (!discordChannelReady || activationId == 0) return;
             var ends = DiscordTimestamp(activationId).AddHours(1);
             if (activationId <= lastHappyHourMessageId ||
-                (!PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
+                ends <= DateTimeOffset.UtcNow) return;
 
             lastHappyHourMessageId = activationId;
             happyHourEndsAt = ends;
-            if (PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)
-                Log("HAPPY HOUR | Expired historical announcement; remaining time is 0m 00s (not active).");
 
             // Each new real activation updates the compact banner. Keep its
             // independent dismissal control, owned-window movement and timer.
@@ -1375,7 +1369,7 @@ metrics();
 
             var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
             ticker.Tick += (_, _) => {
-                if (!PreviewExpiredHappyHourForTesting && happyHourEndsAt <= DateTimeOffset.UtcNow) {
+                if (happyHourEndsAt <= DateTimeOffset.UtcNow) {
                     ticker.Stop();
                     if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
                     return;
@@ -1389,9 +1383,8 @@ metrics();
                 activationId + " | " + DiscordTimestamp(activationId).ToString("O"));
         }
 
-        // Check the persistent Discord chat archive as well as freshly loaded rows.
-        // This allows an expired announcement to be previewed even if it is no
-        // longer inside Discord's limited current viewport.
+        // Check the saved Discord archive and freshly loaded rows, but only
+        // allow a banner for an announcement still inside its active hour.
         static bool IsHappyHourAnnouncement(string body)
         {
             if (string.IsNullOrWhiteSpace(body)) return false;
@@ -1444,14 +1437,14 @@ metrics();
             {
                 EnsureChatLogLoaded();
                 ulong latest = LatestArchivedHappyHourId();
-                if (latest > lastHappyHourMessageId) {
-                    Log("HAPPY HOUR | Matched genuine Discord message " + latest +
-                        " at " + DiscordTimestamp(latest).ToString("O") +
-                        "; expired=" + (DiscordTimestamp(latest).AddHours(1) <= DateTimeOffset.UtcNow));
+                if (latest > lastHappyHourMessageId &&
+                    DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow) {
+                    Log("HAPPY HOUR | Matched active Discord announcement " + latest +
+                        " at " + DiscordTimestamp(latest).ToString("O"));
                     ShowHappyHourBannerForMessage(latest);
                 }
-                // No synthetic event: a missing archive hit simply keeps the
-                // bounded historical loader searching in development mode.
+                // An expired saved message never creates a banner. If needed,
+                // the bounded history scan still checks for newer messages.
             }
             catch (Exception ex) { Log("HAPPY HOUR | Scan failed: " + ex.Message); }
         }
@@ -1461,16 +1454,14 @@ metrics();
             if (!discordChannelReady) return;
             try
             {
-                // Only an actual saved Discord message (text or verified image)
-                // is evidence of an activation. The separate LocalAppData
-                // last-seen ID is strictly a notification deduplication marker;
-                // it must NEVER manufacture a banner after the chat archive is
-                // removed. Read the archive only once Discord is connected.
+                // An authentic archived Discord message (text or verified
+                // image) is the only activation evidence. The saved archive
+                // can shortcut paging only if its event is still active.
+                // Always wait for an authenticated Discord channel first.
                 EnsureChatLogLoaded();
                 ulong candidate = LatestArchivedHappyHourId();
                 bool valid = candidate > 0 &&
-                    (PreviewExpiredHappyHourForTesting ||
-                     DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow);
+                    DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow;
                 if (valid)
                 {
                     initialBackfillComplete = true;
@@ -2325,9 +2316,8 @@ metrics();
             historyWatch.Start();
             watch.Start();
             // Cache-first discovery is deferred until the embedded Discord
-            // channel is actually authenticated and its chat DOM is ready.
-            // An old %LOCALAPPDATA% last-seen marker cannot display a banner
-            // while the user is logged out or during a fresh profile setup.
+            // channel is authenticated and its chat DOM is ready. Expired
+            // archived announcements cannot trigger a production banner.
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
         // channel heading (including the two action icons) by DOM structure.
