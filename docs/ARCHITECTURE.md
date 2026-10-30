@@ -82,7 +82,9 @@ when—the **same verified Happy Hour banner** is actually shown or closed.
 Do not add a second detector, independent activation timestamp, fake event,
 or extra Happy Hour notification. `src/ui/skooma-vision.ahk` listens for
 that message and shows a separate owned, nonactivating, click-through
-transparent decorative layer: slow jewel-tone color drift, sparks,
+transparent decorative layer (apply the color key using the raw HWND
+because an `ahk_id` selector cannot see a hidden window without enabling
+hidden-window detection): slow jewel-tone color drift, sparks,
 confetti and party accessories at the main launcher artwork's borders.
 No image is rewritten, no launcher controls are moved and Game Chat
 continues to own its normal windows. The theme hides while the launcher is
