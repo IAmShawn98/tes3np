@@ -817,6 +817,11 @@ metrics();
         int initialBackfillAttempts;
         bool initialBackfillComplete;
         bool initialBackfillReanchored;
+        // Restoring Discord's hidden source from historical paging can load
+        // previously unseen (but old) rows. Do not turn them into chat alerts.
+        bool waitingForLiveFeedAfterHistory;
+        string lastRestoredFeed = "";
+        int restoredFeedStableTicks;
         void BackfillUntilHappyHour()
         {
             if (initialBackfillComplete || !nativeMode || signInExpanded ||
@@ -859,6 +864,9 @@ metrics();
                     // This browser is the hidden Discord source, not the native
                     // visible chat. Restore live message monitoring after scan.
                     Log("CHAT | Returning hidden Discord source to newest messages");
+                    waitingForLiveFeedAfterHistory = true;
+                    lastRestoredFeed = "";
+                    restoredFeedStableTicks = 0;
                     web.CoreWebView2.Navigate(Channel);
                 }
                 // In the visible chat, show the latest messages (roughly ten
@@ -1385,6 +1393,19 @@ metrics();
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
                 if (closingChat || IsDisposed) return;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
+                if (waitingForLiveFeedAfterHistory &&
+                    string.Equals(web.CoreWebView2.Source?.TrimEnd('/'), Channel,
+                        StringComparison.OrdinalIgnoreCase) && json != "[]") {
+                    // Wait until the latest channel view produces a stable
+                    // message snapshot before re-enabling live notifications.
+                    // This also covers a slow Discord React mount after navigation.
+                    if (json == lastRestoredFeed) restoredFeedStableTicks++;
+                    else { lastRestoredFeed = json; restoredFeedStableTicks = 0; }
+                    if (restoredFeedStableTicks >= 2) {
+                        waitingForLiveFeedAfterHistory = false;
+                        Log("CHAT | Hidden source ready for live notifications after history search");
+                    }
+                }
                 if (json == lastFeed && !imagesNeedRedraw && nativeMode) {
                     DetectLatestHappyHour();
                     return;
@@ -1414,6 +1435,7 @@ metrics();
                 // Unattended history navigation must never force the chat
                 // open or reset the user's auto-hide timer.
                 if (newMessage && initialBackfillComplete &&
+                    !waitingForLiveFeedAfterHistory &&
                     chatDisplayMode == "Automatic")
                 {
                     lastChatActivity = DateTime.Now;
