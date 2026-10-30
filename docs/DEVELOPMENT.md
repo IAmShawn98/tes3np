@@ -35,7 +35,7 @@ All includes are explicit in the entry script. Asset paths use `A_ScriptDir`, so
 
 - Main-page text and layout: `front-page.ahk`.
 - Character fields and editor positions: `characters.ahk`.
-- Add a saved preference: update profile defaults/load/save in `settings.ahk`, the editor in `characters.ahk`, and its consumer in `session.ahk`.
+- Add a saved preference: update profile defaults/load/save in `settings.ahk`, the editor in `characters.ahk`, its consumer in `session.ahk`, and portable export/import in `backup.ahk`.
 - Login and reconnect behavior: keep it in the single `ClientTick` state machine. Do not add an overlapping recovery timer.
 - Replace artwork: retain the referenced dimensions, transparency and paths, or update every reference and the startup asset list.
 
@@ -108,9 +108,9 @@ so C# syntax errors are caught without waiting for the complete launcher build.
 Test on Windows with AutoHotkey v2:
 
 1. Fresh startup and startup with a saved default; tray access after quick launch.
-2. Add, edit, save, cancel, remove confirmation and the 10-character limit.
+2. Add, edit, save, cancel, remove confirmation and the 10-character limit. Test all ten species in alphabetical order, required selection for new characters, older characters with no species, existing auto-reconnect/expansion-pack settings, edit/save/reload, and portable backup round-trip.
 3. Tick persistence and per-row Play without changing the default.
-4. Login timings, terminal-only startup, process loss and reconnect on/off. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, queued batch/scheduled logins and a one-second saved LoadDelay.
+4. Login timings, terminal-only startup, process loss and reconnect on/off. Confirm the original login icon is used until species-specific portrait assets exist, and consecutive character logins will select the correct portrait once icons are added. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, queued batch/scheduled logins and a one-second saved LoadDelay.
 5. Confirm Manage Characters no longer has a developer preview button; test the approved UI using a real login. Test Launch All & Close, its 10-second wait, cancellation of its explanation and saved suppression choice.
 6. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
 7. Saved settings survive replacement of the application folder.
