@@ -99,7 +99,12 @@ been retired and the CI architecture guard rejects its reintroduction.
 
 `ClientTick` owns recovery. Phases are `launch`, `window`, `username`, `password`,
 `loading`, `playing`, `claim`, `closing`, `retry` and `stopped`.
-`UpdateGameStatusTooltip` only presents state. Only a visible SDL window belonging
+`UpdateGameLoginProgress` only presents state in a nonactivating, click-through
+native window. It does not send inputs or add a recovery watchdog. The step dots
+track timed screen waits and actual SendText calls; completion means the configured
+load delay elapsed, not server-confirmed authentication. On success the card
+persists for five seconds while the game remains running; batch claim time is
+still ten seconds. Cancelled sessions dispose of the visible card. Only a visible SDL window belonging
 to the tracked PID qualifies as the game. Credentials use configured delays, not
 OCR. Never add a second watchdog.
 
