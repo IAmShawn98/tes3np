@@ -83,16 +83,17 @@ when—the verified Happy Hour banner is actually shown or closed.
 longer creates any independent GUI, floating overlay, animations,
 particles, typography or timer-based position tracking. Instead,
 `CreateSkoomaVision()` adds a tiny, initially hidden transparent PNG
-Picture control at x439 y84 w111 h134, directly over Jiub's original
-portrait including the top of his medallion. `src/app/bootstrap.ahk` creates it BEFORE
-`CaptureLauncherControlLayout()`; the launcher automatically scales
-and moves it in lockstep with all other child controls, without a
-separate HWND to chase the owner during dragging. The transparent PNG
-`assets/happy-hour/jiub-happy-hour.png` preserves the silhouette of his original
-black pixel sunglasses while tinting their existing bright reflections
-rainbow colors, keeps his approved goofy smile, and adds a Colovian
-fur hat extracted from the user's in-game item reference. All original
-face pixels elsewhere are preserved.
+Picture control at x435 y71 w120 h145, directly over Jiub's
+original portrait. `src/app/bootstrap.ahk` creates it BEFORE
+`CaptureLauncherControlLayout()`; the launcher automatically scales and
+moves it in lockstep with all other child controls, without a separate
+HWND to chase the owner during dragging. `assets/happy-hour/jiub-happy-hour.png`
+is a real, separately replaceable **transparent portrait cut-out**, made
+from the user-approved pixelated Jiub reference. Only Jiub's head,
+naturally seated Colovian hat, grin and black rainbow-reflecting glasses
+appear in its pixels; the existing bronze medallion/moon, background,
+frame, UI artwork and text stay untouched underneath. The icon can
+be hidden or swapped without regenerating launcher artwork.
 No balloons, hats, confetti, clouds, kaleidoscopic effects or
 celebration graphics remain. The existing Happy Hour detection and
 banner are unchanged. The tray option `Jiub's Happy Hour look`
