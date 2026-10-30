@@ -1061,7 +1061,6 @@ metrics();
         const bool PreviewExpiredHappyHourForTesting = true;
         ulong lastHappyHourAlertId;
         ulong dismissedHappyHourBannerId = ulong.MaxValue;
-        bool happyHourDemo;
 
         [DllImport("user32.dll")] static extern IntPtr GetLastActivePopup(IntPtr hwnd);
         [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr hwnd);
@@ -1091,42 +1090,52 @@ metrics();
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
         readonly string happyHourSeenFile = Path.Combine(
+            ChatDataRoot, "happy-hour-last-seen.txt");
+
+        // Older development builds wrote this marker under Local AppData.
+        // Migrate it only for an existing chat archive. If Roaming AppData
+        // was deliberately cleared, do not resurrect the stale marker.
+        // No new state is ever written to Local AppData.
+        static readonly string LegacyHappyHourSeenFile = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "tes3np", "happy-hour-last-seen.txt");
 
-        // The no-announcement UI fallback has no Discord message ID. Remember it
-        // separately so it does not interfere with real Happy Hour alerts.
-        readonly string happyHourDemoSeenFile = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "tes3np", "happy-hour-demo-seen.txt");
-
-        bool HasSeenHappyHourDemo()
-        {
-            try { return File.Exists(happyHourDemoSeenFile); }
-            catch { return false; }
-        }
-
-        void MarkHappyHourDemoSeen()
-        {
-            try {
-                Directory.CreateDirectory(Path.GetDirectoryName(happyHourDemoSeenFile)!);
-                File.WriteAllText(happyHourDemoSeenFile, "1");
-            } catch (Exception ex) { Log("Happy Hour UI test state not saved: " + ex.Message); }
-        }
-
         ulong GetLastSeenHappyHour()
         {
-            try {
-                return ulong.TryParse(File.ReadAllText(happyHourSeenFile).Trim(), out var id) ? id : 0UL;
-            } catch { return 0; }
+            try
+            {
+                if (!File.Exists(happyHourSeenFile) &&
+                    (File.Exists(GameChatIndexFile) || File.Exists(GameChatLogFile)) &&
+                    File.Exists(LegacyHappyHourSeenFile) &&
+                    ulong.TryParse(File.ReadAllText(LegacyHappyHourSeenFile).Trim(),
+                        out ulong migratedId) && migratedId > 0)
+                {
+                    Directory.CreateDirectory(ChatDataRoot);
+                    File.Move(LegacyHappyHourSeenFile, happyHourSeenFile);
+                    Log("HAPPY HOUR | Migrated notification marker into Roaming AppData");
+                }
+                return File.Exists(happyHourSeenFile) &&
+                    ulong.TryParse(File.ReadAllText(happyHourSeenFile).Trim(), out ulong id)
+                        ? id : 0UL;
+            }
+            catch (Exception ex)
+            {
+                Log("HAPPY HOUR | Notification marker read/migration failed: " + ex.Message);
+                return 0;
+            }
         }
 
         void SaveLastSeenHappyHour(ulong id)
         {
-            try {
-                Directory.CreateDirectory(Path.GetDirectoryName(happyHourSeenFile)!);
-                File.WriteAllText(happyHourSeenFile, id.ToString());
-            } catch (Exception ex) { Log("Happy Hour alert state not saved: " + ex.Message); }
+            if (id == 0 || id <= GetLastSeenHappyHour()) return;
+            try
+            {
+                Directory.CreateDirectory(ChatDataRoot);
+                string temporary = happyHourSeenFile + ".tmp";
+                File.WriteAllText(temporary, id.ToString());
+                File.Move(temporary, happyHourSeenFile, true);
+            }
+            catch (Exception ex) { Log("HAPPY HOUR | Notification marker not saved: " + ex.Message); }
         }
 
         static Label GoldText(string text, int x, int y, int w, int h, float size, bool bold = false)
@@ -1224,17 +1233,15 @@ metrics();
         void LayoutHappyHourBannerContents()
         {
             if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
-            string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
+            string heading = "HAPPY HOUR ACTIVE";
             using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
             using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
             int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
                 happyHourBannerRainbow.Font));
-            if (!happyHourDemo) {
-                width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
-                width += HappyHourRunWidth("Mastery Points Are Doubled!", greenFont);
-                width += HappyHourRunWidth(" ", greenFont);
-                width += HappyHourRunWidth(happyHourBannerClockText, timerFont);
-            }
+            width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
+            width += HappyHourRunWidth("Mastery Points Are Doubled!", greenFont);
+            width += HappyHourRunWidth(" ", greenFont);
+            width += HappyHourRunWidth(happyHourBannerClockText, timerFont);
             width += 8;
             happyHourBannerRainbow.SetBounds(0, 0, width, 32);
             happyHourBannerTitleInset.SetBounds(44, 7, width, 32);
@@ -1243,8 +1250,8 @@ metrics();
                 happyHourBannerLayoutLogged = true;
                 Log("HAPPY HOUR | Single-line banner measured width=" +
                     happyHourBannerRequiredWidth + "; text='" + heading +
-                    (happyHourDemo ? "" : " - Mastery Points Are Doubled! " +
-                    happyHourBannerClockText) + "'");
+                    " - Mastery Points Are Doubled! " +
+                    happyHourBannerClockText + "'");
             }
             happyHourBannerRainbow.Invalidate();
         }
@@ -1252,7 +1259,7 @@ metrics();
         void PaintHappyHourBannerLine(System.Drawing.Graphics graphics,
             System.Drawing.Font headingFont)
         {
-            string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
+            string heading = "HAPPY HOUR ACTIVE";
             string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                 "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
             int x = 8;
@@ -1269,7 +1276,6 @@ metrics();
             for (int i = 0; i < heading.Length; i++)
                 DrawSegment(heading[i].ToString(), headingFont,
                     System.Drawing.ColorTranslator.FromHtml(colors[i % colors.Length]));
-            if (happyHourDemo) return;
             // Literal spaces surrounding a visible hyphen, as requested:
             // HAPPY HOUR ACTIVE - Mastery Points Are Doubled! (60m 0s)
             DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
@@ -1379,11 +1385,10 @@ metrics();
                     happyHourEndsAt.ToString("O"));
             }
             if (happyHourBannerRainbow != null) {
-                bool active = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow;
+                bool active = happyHourEndsAt > DateTimeOffset.UtcNow;
                 // Always derive time from the original Discord snowflake,
                 // including an exact zero for expired development previews.
-                happyHourBannerClockText = happyHourDemo ? "" :
-                    HappyHourBannerTime(happyHourEndsAt);
+                happyHourBannerClockText = HappyHourBannerTime(happyHourEndsAt);
                 happyHourBannerClockColor = active
                     ? HappyHourTimerColor(happyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
@@ -1407,19 +1412,17 @@ metrics();
         [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
 
-        void ShowHappyHourAlert(ulong activationId, bool demo = false)
+        void ShowHappyHourAlert(ulong activationId)
         {
-            if (!discordChannelReady) return;
-            var ends = demo ? DateTimeOffset.UtcNow.AddMinutes(-1)
-                : DiscordTimestamp(activationId).AddHours(1);
-            if ((!demo && activationId <= lastHappyHourAlertId) ||
-                (!demo && !PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
+            if (!discordChannelReady || activationId == 0) return;
+            var ends = DiscordTimestamp(activationId).AddHours(1);
+            if (activationId <= lastHappyHourAlertId ||
+                (!PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
             bool expired = ends <= DateTimeOffset.UtcNow;
             // A competing launcher dialog takes precedence: skip the large
             // popup and show only the compact banner when it can be displayed.
             bool bannerOnly = OtherLauncherDialogOpen();
             lastHappyHourAlertId = activationId;
-            happyHourDemo = demo;
             happyHourEndsAt = ends;
             if (PreviewExpiredHappyHourForTesting && expired)
                 Log("HAPPY HOUR | Expired historical announcement; remaining time is 0m 00s (not active).");
@@ -1432,15 +1435,10 @@ metrics();
             happyHourAlert = null;
             happyHourBanner = null;
 
-            // Remember this announcement across launches, including expired
-            // announcements shown in development preview mode. The UI-only
-            // fallback is tracked independently because its message ID is zero.
-            bool previouslySeen = demo ? HasSeenHappyHourDemo()
-                : activationId <= GetLastSeenHappyHour();
-            if (!previouslySeen) {
-                if (demo) MarkHappyHourDemoSeen();
-                else SaveLastSeenHappyHour(activationId);
-            }
+            // The marker suppresses duplicate large notifications only; it
+            // cannot create an event or replace evidence from Discord.
+            bool previouslySeen = activationId <= GetLastSeenHappyHour();
+            if (!previouslySeen) SaveLastSeenHappyHour(activationId);
             // Historical preview is for banner verification only. Do not
             // interrupt startup with an expired event's large activation popup.
             if (!previouslySeen && !bannerOnly && !expired)
@@ -1525,7 +1523,7 @@ metrics();
             happyHourTicker = ticker;
             ticker.Start();
             RefreshHappyHourBanner();
-            Log("HAPPY HOUR | " + (demo ? "UI-only fallback" : previouslySeen ? "Previously seen" : "New activation") +
+            Log("HAPPY HOUR | " + (previouslySeen ? "Previously seen" : "New activation") +
                 " | " + DiscordTimestamp(activationId).ToString("O"));
         }
 
