@@ -162,6 +162,7 @@ SkoomaVisionTick(*)
     global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionVisible
     global SkoomaVisionBannerActive, SkoomaVisionPreviewActive, SkoomaVisionEnabled, SkoomaVisionPhase
     global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui, EmbeddedChatPid
+    global CharacterPage, V016SettingsGuiHwnd
     ; If ChatHost disappears unexpectedly, do not leave a phantom visual
     ; mode behind. The next verified banner will post a fresh activation.
     if SkoomaVisionBannerActive && EmbeddedChatPid && !ProcessExist(EmbeddedChatPid)
@@ -173,6 +174,14 @@ SkoomaVisionTick(*)
     if !SkoomaVisionEnabled || (!SkoomaVisionBannerActive && !SkoomaVisionPreviewActive) ||
         !IsObject(LauncherGui) || !IsObject(SkoomaVisionGui)
         return
+    ; Keep the book, Launcher Settings and their modal controls completely
+    ; clear. Resume quietly when the user returns to the main launcher.
+    if IsObject(CharacterPage) && DllCall("IsWindowVisible", "Ptr", CharacterPage.Hwnd)
+        || (V016SettingsGuiHwnd && DllCall("IsWindowVisible", "Ptr", V016SettingsGuiHwnd))
+    {
+        HideSkoomaVision()
+        return
+    }
     owner := "ahk_id " LauncherGui.Hwnd
     if !DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd) ||
         WinGetMinMax(owner) = -1
