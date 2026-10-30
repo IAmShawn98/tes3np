@@ -1006,7 +1006,7 @@ metrics();
             happyHourDemo = demo;
             happyHourEndsAt = ends;
             // Each new activation resets the banner, including after a restart.
-            dismissedHappyHourBannerId = 0;
+            dismissedHappyHourBannerId = ulong.MaxValue;
             happyHourTicker?.Stop();
             happyHourTicker?.Dispose();
             happyHourAlert?.Close();
