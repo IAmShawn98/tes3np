@@ -56,6 +56,16 @@ expect(
     and "Math.Max(archivedId, previouslyVerifiedId)" not in source,
 )
 expect(
+    "Activation text must belong to the Discord bot, not quoted player chat",
+    'sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase)' in source
+    and 'entry.Value.User.Contains("Yagrum", StringComparison.OrdinalIgnoreCase)' in source,
+)
+expect(
+    "A newer verified image must not be superseded by older text",
+    "foreach (ulong imageId in verifiedHappyHourImageIds)" in source
+    and "foreach (var entry in archivedChat.Reverse()) {\n                if (entry.Key <= latest) break;" in source,
+)
+expect(
     "No generated Happy Hour announcements or obsolete demo storage",
     "ShowHappyHourAlert(0" not in source
     and "happyHourDemoSeenFile" not in source
