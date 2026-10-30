@@ -75,7 +75,9 @@ newly loaded batches atomically. A genuine announcement may be text or a
 bot-posted image. Its original Discord message ID is the time authority.
 No preview fallback, last-seen ID, or unrelated image can supply a new
 activation time. The banner is the sole Happy Hour notification; there is no
-interrupting activation dialog. Expired previews are development-only.
+interrupting activation dialog. The expired-announcement testing mode has
+been removed. The banner appears only while a genuine Discord activation
+is less than sixty minutes old, and disappears when its timer expires.
 
 Before committing a Chat Host change:
 
