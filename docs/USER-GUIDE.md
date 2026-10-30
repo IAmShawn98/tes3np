@@ -52,5 +52,9 @@ launcher and clearing the intended chat data resets the archive and stored
 Discord session. The old Local AppData notification marker from pre-fix
 development builds is not sufficient to restore an event or a fresh profile.
 Do not delete all TES3NP Roaming data unless you also intend to remove saved
-character settings and other launcher preferences.
+character settings and other launcher preferences. The built-in **Reset Launcher
+AppData** command requires confirmation, stops Chat Host and launcher recovery,
+and closes tes3np after removing data. Restart it afterward to create a clean
+profile. If Windows cannot delete the folder, the launcher reports the failure
+instead of claiming the reset succeeded.
 
