@@ -4,6 +4,8 @@ global Client := {PID: 0, HWND: 0, Phase: "stopped", Deadline: 0, Enabled: false
 global CharacterPage := 0
 global AppDataDirectory := A_AppData "\tes3np"
 global DataFile := AppDataDirectory "\settings.ini"
+; Full user-data reset closes ChatHost and exits without repopulating settings.
+global LauncherDataResetting := false
 
 global SelectedProfile := 0
 global CharacterRows := []
