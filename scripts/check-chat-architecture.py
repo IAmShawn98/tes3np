@@ -168,6 +168,13 @@ expect(
     and reset_ui.index("StopEmbeddedInGameChat()") < reset_ui.index("DirDelete(AppDataDirectory, true)"),
 )
 expect(
+    "Full AppData reset must confirm ChatHost has exited before deleting user data",
+    "chatPid := EmbeddedChatPid" in reset_ui
+    and "stillRunning := ProcessWaitClose(chatPid, 5)" in reset_ui
+    and "if stillRunning" in reset_ui
+    and reset_ui.index("ProcessWaitClose(chatPid, 5)") < reset_ui.index("DirDelete(AppDataDirectory, true)"),
+)
+expect(
     "Reset shutdown must not recreate Roaming logs or scheduler settings",
     "LauncherDataResetting := true" in reset_ui
     and "if !LauncherDataResetting" in bootstrap
