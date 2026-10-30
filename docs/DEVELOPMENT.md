@@ -108,8 +108,8 @@ Test on Windows with AutoHotkey v2:
 1. Fresh startup and startup with a saved default; tray access after quick launch.
 2. Add, edit, save, cancel, remove confirmation and the 10-character limit.
 3. Tick persistence and per-row Play without changing the default.
-4. Login timings, terminal-only startup, process loss and reconnect on/off. Check the progress card's white waiting, blue typing and green finished dots, three-second success dismissal, game focus, minimized/inactive hiding, and queued batch/scheduled logins.
-5. Use Manage Characters → Preview Login Window (Dev) to see all phases without launching TES3MP: centered label above dot, blue typing, green completion and three-second dismissal. Then test Launch All & Close, its 10-second wait, cancellation of its explanation and saved suppression choice.
+4. Login timings, terminal-only startup, process loss and reconnect on/off. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, queued batch/scheduled logins and a one-second saved LoadDelay.
+5. Confirm Manage Characters no longer has a developer preview button; test the approved UI using a real login. Test Launch All & Close, its 10-second wait, cancellation of its explanation and saved suppression choice.
 6. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
 7. Saved settings survive replacement of the application folder.
 
