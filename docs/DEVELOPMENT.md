@@ -105,6 +105,40 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
+## Skooma Vision Happy Hour prototype checks
+
+Skooma Vision is a **visual** enhancement to the existing genuine
+Discord-backed banner—not a change to Happy Hour detection. Keep the
+approved ChatHost architecture check and the Windows ChatHost compile.
+
+1. Use the tray option **Preview Skooma Vision (20 sec)** to test the
+   effect without creating a simulated Discord announcement. Check
+   that particles, confetti and party accents stay on the launcher
+   border/artwork, do not obscure menu labels, and do not intercept any
+   click, key, scrolling, chat toggle or profile action.
+2. Test a genuine Discord Happy Hour announcement and a valid cached
+   Happy Hour after signed-out startup. The same real banner activation
+   should enable the decorative theme; expiry or banner dismissal must
+   disable it. An empty archive, expired announcement or unverified
+   image must never trigger either visual mode or a banner.
+3. Minimize and restore the launcher, show and close Manage Characters
+   and Launcher Settings, and move/resize the launcher. The visual
+   layer must follow the owner and never get stranded above another
+   application or obscure a dialog. No extra Happy Hour notification
+   may appear.
+4. Disable and re-enable **Skooma Vision during Happy Hour** in the
+   tray. Verify this preference persists across launcher restarts but
+   has no effect on real Happy Hour detection, banner or countdown.
+   With Windows animations disabled, the visual remains static.
+5. Test current multi-login, Game Chat first sign-in, cached archive
+   signed-out cases and the old banner positioning. An overlay failure
+   must not affect any of these functions.
+6. Confirm screenshot-specific accessories align with the selected
+   artwork in actual Windows runtime. The initial overlay only
+   decorates safe border zones. Do not claim exact hats on Jiub,
+   animals or individual portrait subjects before a verified artwork
+   alignment pass.
+
 ## Validation before release
 
 Test on Windows with AutoHotkey v2:
