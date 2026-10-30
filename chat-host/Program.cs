@@ -1031,13 +1031,14 @@ metrics();
                     // Match Game Chat's weathered bronze, without repeating a
                     // tiny image strip dozens of times across the header.
                     g.Clear(System.Drawing.Color.FromArgb(143, 109, 60));
-                    // Reuse the Live Game Chat frame's dense, three-tone
-                    // weathered grain. Keep all banner controls and bounds intact.
+                    // Use the chat frame's three-tone weathered bronze grain,
+                    // at a slightly lighter density for this shorter banner.
+                    // All title, countdown, and dropdown bounds remain unchanged.
                     var grainRandom = new Random(31337);
                     using var darkGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(93, 67, 34));
                     using var midGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(177, 143, 84));
                     using var lightGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(207, 177, 112));
-                    for (int i = 0; i < w * 35; i++) {
+                    for (int i = 0; i < w * 23; i++) {
                         int px = grainRandom.Next(5, Math.Max(6, w - 5));
                         int py = grainRandom.Next(5, Math.Max(6, h - 5));
                         int grain = grainRandom.Next(1, 4);
