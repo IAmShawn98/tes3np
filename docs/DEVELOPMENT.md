@@ -51,6 +51,8 @@ Keep personal settings and logs outside the source tree. Preserve existing INI k
 
 The Windows build script (`scripts/build-windows.ps1`, invoked by `Build tes3np.bat`) generates the compiled launcher and self-contained Chat Host in a complete `dist/tes3np-windows.zip` package. The Windows build first checks source, Chat Host persistence/authentication contracts, PowerShell syntax and C# compilation **before** deleting previous build artifacts or downloading runtime tools. Do not include user settings, logs, temporary files or developer credentials in a package. Public distribution remains blocked until the documented release evidence and explicit maintainer approval are complete.
 
+Each Windows build stages downloaded tools in its own temporary directory. A temporary-file sharing violation during cleanup is retried and reported as a warning; once compilation, resources and ZIP integrity have passed, that cleanup issue must not prevent `Build tes3np.bat` from unpacking and publishing the new root executable. Actual compilation, validation or packaging failures still stop the build and must not launch an older executable. The operator should close the running launcher before rebuilding.
+
 The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation. Legacy Happy Hour marker files in Local AppData are now inert and are not imported by Chat Host.
 
 ## Embedded Chat Host changes
