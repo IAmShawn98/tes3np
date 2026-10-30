@@ -48,11 +48,9 @@ ToggleSkoomaVision(*)
 
 PreviewSkoomaVision(*)
 {
-    global SkoomaVisionPreviewActive, SkoomaVisionEnabled
-    ; Visual-only preview. It does not fabricate a Discord snowflake, change
-    ; the active banner, or post a fake ChatHost message.
-    if !SkoomaVisionEnabled
-        return
+    global SkoomaVisionPreviewActive
+    ; Visual-only preview, even when the permanent effect is toggled off.
+    ; The 20-second trial never alters saved settings, banner or detection.
     SkoomaVisionPreviewActive := true
     LogLauncherEvent("UI | Skooma Vision manual preview requested.")
     RefreshSkoomaVision()
@@ -69,7 +67,7 @@ EndSkoomaVisionPreview(*)
 RefreshSkoomaVision()
 {
     global SkoomaVisionEnabled, SkoomaVisionBannerActive, SkoomaVisionPreviewActive
-    if !SkoomaVisionEnabled || (!SkoomaVisionBannerActive && !SkoomaVisionPreviewActive)
+    if (!SkoomaVisionEnabled || !SkoomaVisionBannerActive) && !SkoomaVisionPreviewActive
     {
         SetTimer(SkoomaVisionTick, 0)
         HideSkoomaVision()
@@ -193,7 +191,7 @@ SkoomaVisionDraw(*)
         RefreshSkoomaVision()
         return
     }
-    if !SkoomaVisionEnabled || (!SkoomaVisionBannerActive && !SkoomaVisionPreviewActive) ||
+    if (!SkoomaVisionEnabled || !SkoomaVisionBannerActive) && !SkoomaVisionPreviewActive ||
         !IsObject(LauncherGui) || !IsObject(SkoomaVisionGui)
         return
     ; Keep the book, Launcher Settings and their modal controls completely
