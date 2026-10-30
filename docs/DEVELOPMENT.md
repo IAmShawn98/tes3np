@@ -125,9 +125,12 @@ Happy Hour detection or gameplay/login code changed.
    are a native child control, inserted before
    `CaptureLauncherControlLayout()`, and must travel synchronously with
    the picture without visible lag or a detached window.
-3. Test that the new x439 y84 w111 h134 child control aligns
-   the hat above the forehead, the rainbow reflection with each of the
-   original black lenses, and the grin without covering title text.
+3. Test that the new x435 y71 w120 h145 child control aligns the
+   standalone transparent Jiub head/hat over the original medallion.
+   The icon MUST contain no moon/ring/background pixels. With the
+   preview off, the original stock Jiub and moon must be unchanged.
+   Check the complete fur hat, rainbow reflections, grin, original
+   frame and title visibility.
    Test the automatic launcher size settings, desktop DPI, hide/show,
    minimize/restore, open/close Character Book and Launcher Settings,
    and repeated 20-second previews. The picture must remain aligned
