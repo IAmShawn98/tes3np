@@ -118,8 +118,20 @@ species remain editable and use the original login icon. Species is saved in
 each character's INI section and portable export/import. A selected species
 maps to `assets/icons/species/<slug>.ico` (lowercase with hyphens) when that
 portrait exists; otherwise the original TES3NP icon remains. Bundled builds
-already include nested assets automatically. `NewCharacterProfile` supplies new-profile
-defaults. `%APPDATA%\tes3np` remains the data root.
+already include nested assets automatically. The separate `Original Character`
+entry at the bottom of the editor dropdown opens an image picker, accepts only
+512 x 512 PNG/JPG/JPEG/BMP images up to 10 MB, and then prompts for the
+character's actual species in a small owned dialog. The race is shown directly
+below the editor dropdown and remains saved as the ordinary `Species` INI key.
+Each character can independently select an OC portrait. Only when the character
+is saved is the image copied to `%APPDATA%\tes3np\portraits` with a generated
+basename stored as `PortraitFile`; arbitrary source paths are never saved.
+Cancelled or rejected selections preserve previous settings. At login the
+existing presentation-only card uses the saved image when present, falling back
+to the species ICO if it is missing. Input timing and game recovery are unchanged.
+Custom images are local data and are not bundled in the portable v1 INI export;
+restoring the backup keeps the real species and its stock icon. `NewCharacterProfile`
+supplies new-profile defaults. `%APPDATA%\tes3np` remains the data root.
 
 ## Patch worker contract
 
