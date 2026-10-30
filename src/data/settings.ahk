@@ -1,5 +1,22 @@
 ﻿; Profile persistence, shared executable settings and Windows password protection.
 
+; Morrowind playable species in alphabetical order. Empty means an existing
+; character has not chosen its species and keeps the original icon.
+CharacterSpeciesOptions()
+{
+    return ["Argonian", "Breton", "Dark Elf", "High Elf", "Imperial",
+        "Khajiit", "Nord", "Orc", "Redguard", "Wood Elf"]
+}
+
+NormalizeCharacterSpecies(value)
+{
+    value := Trim(value)
+    for species in CharacterSpeciesOptions()
+        if StrLower(species) = StrLower(value)
+            return species
+    return ""
+}
+
 LoadProfiles()
 {
     global Profiles, DataFile, SelectedProfile, MaxCharacters
@@ -21,6 +38,7 @@ LoadProfiles()
         }
         if name != ""
             Profiles.Push({Name: name, Password: password,
+                Species: NormalizeCharacterSpecies(IniRead(DataFile, section, "Species", "")),
                 UsernameDelay: ReadProfileDelay(section, "Username", AppConfig.UsernameDelay),
                 PasswordDelay: ReadProfileDelay(section, "PasswordDelay", AppConfig.PasswordDelay, "Password"),
                 LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay),
@@ -53,6 +71,7 @@ SaveProfiles()
         section := "Character" index
         SetInterfaceLoadingText("Saving character name " index "...")
         IniWrite(profile.Name, DataFile, section, "Name")
+        IniWrite(profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : "", DataFile, section, "Species")
         SetInterfaceLoadingText("Saving protected password " index "...")
         IniWrite(ProtectPassword(profile.Password), DataFile, section, "Password")
         ; Executable is shared; remove obsolete per-character copies.
@@ -158,7 +177,7 @@ HasSavedCharacters()
 
 NewCharacterProfile()
 {
-    return {Name: "", Password: "", UsernameDelay: AppConfig.UsernameDelay,
+    return {Name: "", Password: "", Species: "", UsernameDelay: AppConfig.UsernameDelay,
         PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay,
         AutoReconnect: true,
         UseExpansionPack: IniRead(DataFile, "ExpansionPack", "DefaultForNewCharacters", "0") = "1"}
