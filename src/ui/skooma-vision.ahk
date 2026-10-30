@@ -105,46 +105,46 @@ CreateSkoomaVision()
     global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui
     ; Owned nonactivating click-through window: all game/client/menu controls
     ; and the existing Game Chat stay completely interactive.
-    gui := Gui("+Owner" LauncherGui.Hwnd
+    layer := Gui("+Owner" LauncherGui.Hwnd
         " -Caption +ToolWindow -DPIScale +E0x08000020",
         "tes3np Skooma Vision")
-    gui.BackColor := "010203"
+    layer.BackColor := "010203"
     SkoomaVisionPieces := []
     ; Keep the central launcher menu, chat toggle, and both info-card text
     ; surfaces clear. Party accessories decorate the screenshot borders.
-    AddSkoomaPiece(gui, 283, 1, 17, "✦", "B990EF")
-    AddSkoomaPiece(gui, 345, 1, 13, "✧", "72D7BC")
-    AddSkoomaPiece(gui, 688, 1, 17, "✦", "EFCA80")
-    AddSkoomaPiece(gui, 740, 1, 13, "✧", "C89CE8")
+    AddSkoomaPiece(layer, 283, 1, 17, "✦", "B990EF")
+    AddSkoomaPiece(layer, 345, 1, 13, "✧", "72D7BC")
+    AddSkoomaPiece(layer, 688, 1, 17, "✦", "EFCA80")
+    AddSkoomaPiece(layer, 740, 1, 13, "✧", "C89CE8")
     ; Decorative festival accessories/party hats. They belong to the
     ; transparent layer, never to the original screenshot or game files.
-    AddSkoomaPiece(gui, 30, 64, 25, "🎉", "E9A2F3", false)
-    AddSkoomaPiece(gui, 882, 64, 25, "🎉", "8BE2BB", false)
-    AddSkoomaPiece(gui, 18, 352, 24, "🎊", "F4CE86", false)
-    AddSkoomaPiece(gui, 906, 347, 24, "🎊", "B99EF9", false)
-    AddSkoomaPiece(gui, 22, 601, 21, "✶", "B48EEF")
-    AddSkoomaPiece(gui, 892, 600, 21, "✶", "80D8B5")
-    AddSkoomaPiece(gui, 245, 670, 15, "✦", "F0B982")
-    AddSkoomaPiece(gui, 715, 674, 15, "✦", "BE92DE")
-    AddSkoomaPiece(gui, 51, 222, 14, "✧", "7ED5C3")
-    AddSkoomaPiece(gui, 876, 223, 14, "✧", "F1BF87")
-    AddSkoomaPiece(gui, 46, 480, 14, "✦", "C09BFA")
-    AddSkoomaPiece(gui, 882, 470, 14, "✦", "83DBBC")
+    AddSkoomaPiece(layer, 30, 64, 25, "🎉", "E9A2F3", false)
+    AddSkoomaPiece(layer, 882, 64, 25, "🎉", "8BE2BB", false)
+    AddSkoomaPiece(layer, 18, 352, 24, "🎊", "F4CE86", false)
+    AddSkoomaPiece(layer, 906, 347, 24, "🎊", "B99EF9", false)
+    AddSkoomaPiece(layer, 22, 601, 21, "✶", "B48EEF")
+    AddSkoomaPiece(layer, 892, 600, 21, "✶", "80D8B5")
+    AddSkoomaPiece(layer, 245, 670, 15, "✦", "F0B982")
+    AddSkoomaPiece(layer, 715, 674, 15, "✦", "BE92DE")
+    AddSkoomaPiece(layer, 51, 222, 14, "✧", "7ED5C3")
+    AddSkoomaPiece(layer, 876, 223, 14, "✧", "F1BF87")
+    AddSkoomaPiece(layer, 46, 480, 14, "✦", "C09BFA")
+    AddSkoomaPiece(layer, 882, 470, 14, "✦", "83DBBC")
     ; A subdued indicator on the empty upper title strip. The official
     ; Happy Hour banner above the launcher remains unchanged.
-    gui.SetFont("s10 Bold cA1E5CD", "Georgia")
-    label := gui.Add("Text",
+    layer.SetFont("s10 Bold cA1E5CD", "Georgia")
+    label := layer.Add("Text",
         "x380 y12 w218 h24 BackgroundTrans Center", "✦ SKOOMA VISION ✦")
     SkoomaVisionPieces.Push({Control: label, X: 380, Y: 12,
         Size: 10, Color: "A1E5CD", Animated: false, Width: 218, Height: 24})
-    SkoomaVisionGui := gui
+    SkoomaVisionGui := layer
     SkoomaVisionVisible := false
     SkoomaVisionLastWidth := 0
     SkoomaVisionLastHeight := 0
     ; Color-key transparency retains per-pixel content from the launcher,
     ; without any separate fullscreen image or mouse intercept.
-    gui.Show("Hide w960 h716")
-    WinSetTransColor("010203", "ahk_id " gui.Hwnd)
+    layer.Show("Hide w960 h716")
+    WinSetTransColor("010203", "ahk_id " layer.Hwnd)
 }
 
 SkoomaVisionMotionAllowed()
