@@ -1413,8 +1413,8 @@ metrics();
                 if (GetWindowRect(owner, out var initialOwnerBounds))
                     banner.SetBounds(initialOwnerBounds.Left, initialOwnerBounds.Top - 48,
                         Math.Max(initialOwnerBounds.Right - initialOwnerBounds.Left, 620), 46);
-                SetNativeWindowOwner(banner.Handle, owner);
                 banner.Show();
+                SetNativeWindowOwner(banner.Handle, owner);
                 Log("HAPPY HOUR | Banner window created for real message " +
                     lastHappyHourAlertId + "; expires=" +
                     happyHourEndsAt.ToString("O"));
@@ -2959,10 +2959,10 @@ metrics();
         }
         void PositionChatWindows()
         {
-            // Reuse the existing chat position polling as a fallback only if
-            // the native owner-movement hook could not be installed.
-            if (launcherLocationHook == IntPtr.Zero)
-                PositionHappyHourBanner();
+            // The existing chat polling is a safety net for missed native
+            // movement events, regardless of whether the hook installed.
+            // The native helper is a no-op if the banner is already aligned.
+            PositionHappyHourBanner();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
