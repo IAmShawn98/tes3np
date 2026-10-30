@@ -118,8 +118,10 @@ CreateGameLoginProgress()
     window.SetFont("s15 Bold cF2E4D0", "Georgia")
     LoginProgressHeading := window.Add("Text", "x" p(20) " y" p(21) " w" p(380) " h" p(38) " Center BackgroundTrans +0x4000", "")
     LoginProgressTopSeparator := window.Add("Text", "x" p(27) " y" p(68) " w" p(366) " h" p(2) " Background806B51", "")
-    ; The larger TES3NP favicon is a preview-only control. Hidden in real logins.
-    LoginProgressIcon := window.Add("Picture", "x" p(174) " y" p(71) " w" p(72) " h" p(72)
+    ; Center the visible favicon artwork between the title and upper rule.
+    ; The ICO has internal transparent margins, so optical center sits above
+    ; the raw control-box midpoint. It remains hidden in real logins.
+    LoginProgressIcon := window.Add("Picture", "x" p(174) " y" p(60) " w" p(72) " h" p(72)
         " Icon1 Hidden", A_ScriptDir "\assets\icons\tes3np.ico")
     steps := ["Loading Name Screen...", "Typing Name...", "Loading Password Screen...",
         "Typing Password...", "Loading Character..."]
@@ -138,7 +140,8 @@ CreateGameLoginProgress()
     window.SetFont("s10 Bold cD3B687", "Segoe UI")
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" p(343) " w" p(372) " h" p(25) " Center BackgroundTrans +0x4000", "")
     ; Four independent preview-only status dots below the existing gold status.
-    ; Each green circle overlays a centered dark checkmark.
+    ; The active blue circle overlays a bold !, and a finished green circle
+    ; overlays a heavy, vertically centered checkmark. Pending dots stay empty.
     LoginProgressSummaryDots := []
     Loop 4
     {
@@ -146,10 +149,12 @@ CreateGameLoginProgress()
         window.SetFont("s18 cFFFFFF", "Segoe UI Symbol")
         circle := window.Add("Text", "x" x " y" p(410) " w" p(28) " h" p(27)
             " Center BackgroundTrans +0x4000 Hidden", "●")
-        window.SetFont("s12 Bold c173C2A", "Segoe UI Symbol")
-        check := window.Add("Text", "x" x " y" p(410) " w" p(28) " h" p(27)
-            " Center BackgroundTrans +0x4000 Hidden", "✓")
-        LoginProgressSummaryDots.Push({Circle: circle, Check: check, Color: ""})
+        ; SS_CENTERIMAGE (+0x200) centers glyphs vertically rather than
+        ; leaving the checkmark above its circle's middle.
+        window.SetFont("s15 Bold c173C2A", "Segoe UI Symbol")
+        check := window.Add("Text", "x" x " y" p(412) " w" p(28) " h" p(27)
+            " Center BackgroundTrans +0x200 Hidden", "✔")
+        LoginProgressSummaryDots.Push({Circle: circle, Check: check, Color: "", Symbol: ""})
     }
     window.Show("Hide w" LoginProgressWidth " h" LoginProgressHeight)
     LoginProgressGui := window
@@ -290,9 +295,21 @@ RenderGameLoginProgress()
             marker.Color := color
             dirty := true
         }
-        if marker.Check.Visible != finished
+        symbol := finished ? "✔" : active ? "!" : ""
+        if marker.Symbol != symbol
         {
-            marker.Check.Visible := finished
+            marker.Check.Text := symbol
+            if symbol = "✔"
+                marker.Check.SetFont("s15 Bold c173C2A", "Segoe UI Symbol")
+            else if symbol = "!"
+                marker.Check.SetFont("s17 Bold c173C2A", "Segoe UI")
+            marker.Symbol := symbol
+            dirty := true
+        }
+        showSymbol := symbol != ""
+        if marker.Check.Visible != showSymbol
+        {
+            marker.Check.Visible := showSymbol
             dirty := true
         }
     }
