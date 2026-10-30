@@ -25,13 +25,17 @@ for path in sorted(resources):
     digest.update(path.relative_to(root).as_posix().encode("utf-8"))
     digest.update(hashlib.sha256(path.read_bytes()).digest())
 version = digest.hexdigest()
+# Content-addressed extraction prevents a new launcher overwriting files
+# currently in use by an older running executable.
+resource_id = "v-" + version[:20]
+(root / "bundled-resource-id.txt").write_text(resource_id + "\n", encoding="ascii")
 
 lines = [
     "; Generated at build time. Do not edit.",
     "PrepareBundledResources()",
     "{",
     "    global BundledResourceRoot",
-    '    BundledResourceRoot := A_AppData "\\tes3np\\resources"',
+    f'    BundledResourceRoot := A_AppData "\\tes3np\\resources\\{resource_id}"',
     "    if !A_IsCompiled",
     "    {",
     "        BundledResourceRoot := A_ScriptDir",
@@ -47,7 +51,24 @@ for path in sorted(resources):
         raise SystemExit(f"Unsupported resource name: {relative}")
     parent = str(Path(relative).parent).replace("/", "\\")
     lines.append(f'    DirCreate(BundledResourceRoot "\\{parent}")')
-    lines.append(f'    FileInstall("{relative}", BundledResourceRoot "\\{relative}", 1)')
+    # Source of FileInstall must be literal for Ahk2Exe. Bounded retries
+    # tolerate transient scanner/indexer locks without hiding real failures.
+    lines.extend([
+        "    Loop 3",
+        "    {",
+        "        try",
+        "        {",
+        f'            FileInstall("{relative}", BundledResourceRoot "\\{relative}", 1)',
+        "            break",
+        "        }",
+        "        catch as err",
+        "        {",
+        "            if A_Index = 3",
+        f'                throw Error("Cannot extract bundled asset: {relative}. " err.Message)',
+        "            Sleep(350)",
+        "        }",
+        "    }",
+    ])
 lines.extend(['    try FileDelete(versionFile)', f'    FileAppend("{version}", versionFile, "UTF-8")', "}", ""])
 output.write_text("\n".join(lines), encoding="utf-8")
 print(f"Generated {len(resources)} embedded resources")
