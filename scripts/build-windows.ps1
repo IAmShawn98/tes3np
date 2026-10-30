@@ -100,6 +100,10 @@ try {
     }
     & python (Join-Path $projectRoot 'scripts/generate-bundled-resources.py') $stageRoot
     if ($LASTEXITCODE -ne 0) { throw 'Resource embedding generation failed.' }
+    $resourceIdentityPath = Join-Path $stageRoot 'bundled-resource-id.txt'
+    if (!(Test-Path -LiteralPath $resourceIdentityPath -PathType Leaf)) { throw 'Missing bundled resource identity.' }
+    $resourceIdentity = (Get-Content -LiteralPath $resourceIdentityPath -Raw -Encoding ASCII).Trim()
+    if ($resourceIdentity -notmatch '^v-[a-f0-9]{20}$') { throw 'Invalid bundled resource identity.' }
     $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
     $entryText = [IO.File]::ReadAllText($stageEntry)
     $entryText = $entryText.Replace("`nStartLauncher()`n", "`nPrepareBundledResources()`nStartLauncher()`n")
@@ -139,7 +143,31 @@ try {
     Step 'Validating standalone embedded patch extraction'
     $extract = Start-Process $executable -ArgumentList '--check-resources' -PassThru -Wait
     if ($extract.ExitCode -ne 0) { throw "Embedded resource extraction failed with code $($extract.ExitCode)." }
-    $resourceRoot = Join-Path $env:APPDATA 'tes3np\resources'
+    # Verify this executable's unique version; do not overwrite/delete the
+    # resource folder that an older, still-running launcher may be using.
+    $resourceRoot = Join-Path (Join-Path $env:APPDATA 'tes3np\resources') $resourceIdentity
+    $marker = Join-Path $resourceRoot 'resource-version.txt'
+    if (!(Test-Path -LiteralPath $marker -PathType Leaf)) { throw "Compiled launcher did not complete resource extraction." }
+    $markerText = (Get-Content -LiteralPath $marker -Raw -Encoding UTF8).Trim()
+    if (!$markerText.StartsWith($resourceIdentity.Substring(2), [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Compiled resource version marker mismatch.'
+    }
+    foreach ($asset in @('assets\backgrounds\character-book.png', 'assets\icons\tes3np.ico')) {
+        if (!(Test-Path -LiteralPath (Join-Path $resourceRoot $asset) -PathType Leaf)) {
+            throw "Missing extracted UI asset: $asset"
+        }
+    }
+    # Include every species icon installed in this checkout in the extraction
+    # smoke test, without requiring people to have optional custom artwork.
+    $speciesFolder = Join-Path $projectRoot 'assets\icons\species'
+    if (Test-Path -LiteralPath $speciesFolder -PathType Container) {
+        foreach ($icon in (Get-ChildItem -LiteralPath $speciesFolder -File -Filter '*.ico')) {
+            $path = Join-Path $resourceRoot ('assets\icons\species\' + $icon.Name)
+            if (!(Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Missing extracted species portrait: $($icon.Name)"
+            }
+        }
+    }
     $manifestPath = Join-Path $resourceRoot 'patches\manifest.json'
     if (!(Test-Path -LiteralPath $manifestPath)) { throw "Missing extracted patch manifest: $manifestPath" }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
