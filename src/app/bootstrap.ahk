@@ -507,6 +507,7 @@ CleanupLauncher(*)
         SaveScheduledEventShutdownTime()
     }
     StopClient()
+    DisposeGameLoginProgress()
     StopEmbeddedInGameChat()
     CleanupMacros()
     CleanupPatcher()
