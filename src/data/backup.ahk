@@ -41,6 +41,7 @@ ExportLauncherData()
         {
             section := "Character" index
             IniWrite(profile.Name, temporary, section, "Name")
+            IniWrite(profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : "", temporary, section, "Species")
             IniWrite(EncodeBackupPassword(profile.Password), temporary, section, "Password")
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
             IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
@@ -104,9 +105,13 @@ ImportLauncherData()
             section := "Character" A_Index
             name := IniRead(path, section, "Name", "")
             password := DecodeBackupPassword(IniRead(path, section, "Password", ""))
+            rawSpecies := IniRead(path, section, "Species", "")
+            species := NormalizeCharacterSpecies(rawSpecies)
+            if rawSpecies != "" && species = ""
+                throw Error("Invalid character species")
             if Trim(name) = "" || StrLen(name) > 256 || RegExMatch(name, "[\r\n]") || StrLen(password) > 4096 || RegExMatch(password, "[\r\n]")
                 throw Error("Invalid character")
-            restored.Push({Name: name, Password: password,
+            restored.Push({Name: name, Password: password, Species: species,
                 UsernameDelay: ReadBackupInteger(path, section, "Username", 1, 300),
                 PasswordDelay: ReadBackupInteger(path, section, "PasswordDelay", 1, 300),
                 LoadDelay: ReadBackupInteger(path, section, "Load", 1, 300),
@@ -171,6 +176,7 @@ ImportLauncherData()
         {
             section := "Character" index
             IniWrite(profile.Name, temporary, section, "Name")
+            IniWrite(profile.Species, temporary, section, "Species")
             IniWrite(ProtectPassword(profile.Password), temporary, section, "Password")
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
             IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
