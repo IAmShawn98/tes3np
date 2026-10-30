@@ -406,9 +406,15 @@ metrics();
               if (!list) return '[]';
               const rows = [...list.querySelectorAll('[id^="chat-messages-"]')]
                 .filter(el => /^chat-messages-[0-9]+-[0-9]+$/.test(el.id));
+              let lastVisibleAuthor = '';
               return JSON.stringify(rows.map(el => {
                 const usernameEl = el.querySelector('[class*="username_"]');
                 const user = usernameEl?.textContent?.trim() || '';
+                if (user) lastVisibleAuthor = user;
+                // Discord groups consecutive posts under one username.
+                // Preserve the native chat layout's original user field,
+                // but retain the source author when authenticating bot images.
+                const sourceAuthor = user || lastVisibleAuthor;
                 const color = usernameEl ? getComputedStyle(usernameEl).color : '';
                 const contentNode = el.querySelector('[class*="messageContent_"]') ||
                                     el.querySelector('[class*="markup_"]');
@@ -445,7 +451,7 @@ metrics();
                       uniqueImages.set(key, url);
                   } catch {}
                 }
-                return {id:el.id,user,body,matchText,color,images:[...uniqueImages.values()].slice(0,4)};
+                return {id:el.id,user,sourceAuthor,body,matchText,color,images:[...uniqueImages.values()].slice(0,4)};
               }).filter(x => x.body || x.images.length));
             })();
             """;
@@ -1607,6 +1613,8 @@ metrics();
                     var match = System.Text.RegularExpressions.Regex.Match(id, @"^chat-messages-\d+-(\d+)$");
                     if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out ulong key)) continue;
                     string user = msg.GetProperty("user").GetString() ?? "";
+                    string sourceAuthor = msg.TryGetProperty("sourceAuthor", out var actualAuthor)
+                        ? actualAuthor.GetString() ?? user : user;
                     string body = msg.GetProperty("body").GetString() ?? "";
                     string matchText = msg.TryGetProperty("matchText", out var detectionText) &&
                         detectionText.ValueKind == System.Text.Json.JsonValueKind.String
@@ -1637,7 +1645,12 @@ metrics();
                     // Existing image downloads are shared with the native chat
                     // preview. Classify those exact pixels; if a file is still
                     // downloading, imagesNeedRedraw causes another pass later.
-                    if (images.Length > 0 && images.Any(IsVerifiedHappyHourImageUrl) &&
+                    // Only Yagrum's actual bot posts count as activations;
+                    // a player reposting the same rainbow graphic must not
+                    // create a false 60-minute event.
+                    if (images.Length > 0 &&
+                        sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
+                        images.Any(IsVerifiedHappyHourImageUrl) &&
                         verifiedHappyHourImageIds.Add(key)) {
                         newlyArchived++;
                         Log("HAPPY HOUR | Verified real rainbow-image announcement " +
@@ -1645,7 +1658,7 @@ metrics();
                             DiscordTimestamp(key).ToString("O"));
                     }
                     if (images.Length > 0 &&
-                        user.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
+                        sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
                         loggedHappyHourImageCandidates.Add(key))
                         Log("HAPPY HOUR | Examining image posted by Yagrum " +
                             "messageId=" + key + "; images=" + images.Length);
