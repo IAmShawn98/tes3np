@@ -45,8 +45,9 @@ OpenCharacterPage(*)
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
-        ; Leave breathing room below the character description so its final line cannot overlap the list.
-        y := 240 + (index - 1) * 24
+        ; The shorter description needs only three lines. Start the list closer
+        ; to it, while leaving room for all ten rows and the limit notice.
+        y := 175 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -129,7 +130,9 @@ RefreshProfiles()
         ; making the three left-page buttons jump upward until the page reopened.
         actionY := Profiles.Length ? 505 : 185
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        CharacterDescription.Move(70, 80, 390, Profiles.Length ? 165 : 90)
+        ; Match the description's actual three-line content so its transparent
+        ; hit area does not extend over the repositioned character rows.
+        CharacterDescription.Move(70, 80, 390, Profiles.Length ? 84 : 90)
         ; Individual characters already have Play buttons in their rows. Keep the
         ; legacy full-width Launch Character button hidden; showing it here after
         ; an import overlaps Daily Login and the action stack.
