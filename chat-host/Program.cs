@@ -1369,21 +1369,12 @@ metrics();
                     SetChatOpen(true);
                 }
                 lastFeed = json;
-                // Scan the complete current feed for the newest activation.
-                // Ignore stale historical messages and deduplicate by snowflake ID.
-                ulong latestHappyHourId = 0;
-                foreach (var entry in doc.RootElement.EnumerateArray())
-                {
-                    string body = entry.GetProperty("body").GetString() ?? "";
-                    if (!body.Contains("Happy Hour has been activated!", StringComparison.OrdinalIgnoreCase)) continue;
-                    string messageId = entry.GetProperty("id").GetString() ?? "";
-                    var idMatch = System.Text.RegularExpressions.Regex.Match(messageId, @"^chat-messages-\d+-(\d+)$");
-                    if (idMatch.Success && ulong.TryParse(idMatch.Groups[1].Value, out ulong parsedId))
-                        latestHappyHourId = Math.Max(latestHappyHourId, parsedId);
-                }
-                if (latestHappyHourId > 0) ShowHappyHourAlert(latestHappyHourId);
+                // Merge the entire virtualized Discord window before detecting
+                // Happy Hour. This also works when the local archive is empty.
+                EnsureChatLogLoaded();
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
+                int newlyArchived = 0;
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string id = msg.GetProperty("id").GetString() ?? "";
@@ -1396,8 +1387,13 @@ metrics();
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>();
-                    // Archive every message Discord makes available, including loaded history.
-                    LogChatMessage(key, user, body);
+                    // Collect from Discord itself, even on a fresh installation.
+                    // Persist the whole extracted batch once, not the entire
+                    // accumulated archive once per individual message.
+                    if (!string.IsNullOrWhiteSpace(body) && !archivedChat.ContainsKey(key)) {
+                        archivedChat[key] = (user, body);
+                        newlyArchived++;
+                    }
                     foreach (string imageUrl in images)
                         if (!imageCache.ContainsKey(imageUrl) && (!failedImages.TryGetValue(imageUrl, out var retryTime) || DateTime.UtcNow >= retryTime)) _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
@@ -1408,6 +1404,18 @@ metrics();
                         changed = true;
                     }
                 }
+                if (newlyArchived > 0) {
+                    try {
+                        SaveChatArchive();
+                        Log("CHAT | Saved " + newlyArchived + " newly loaded Discord messages; " +
+                            archivedChat.Count + " total, oldest=" +
+                            DiscordTimestamp(archivedChat.First().Key).ToString("O"));
+                    } catch (Exception ex) {
+                        Log("CHAT | Could not persist newly loaded history: " + ex.Message);
+                    }
+                }
+                // Match only genuine archived Discord messages; the snowflake
+                // timestamp supplies the real one-hour remaining time.
                 DetectLatestHappyHour();
                 if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
