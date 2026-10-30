@@ -51,28 +51,27 @@ Happy Hour one-second timer updates countdown text rather than window position.
 - `Logs/game-chat-index.json` and `Logs/game-chat.log`: Discord messages and
   real snowflake IDs, including verified image attachments.
 - `chat-webview2/`: embedded Discord browser profile.
-- `chat-display-mode.txt` and `happy-hour-last-seen.txt`: user interface
-  preference and deduplication state, **not** evidence of a current event.
+- `chat-display-mode.txt`: saved chat visibility preference. A Happy Hour
+  detection uses only actual Discord messages in the archive, not marker files.
 
 `chat.ini`, `chat.css`, and packaged chat artwork stay beside the executable:
-they are distribution/configuration assets, not personal logs. An old development
-build mistakenly wrote the Happy Hour notification marker under
-`%LOCALAPPDATA%\\tes3np`. The Chat Host may **move** that one legacy marker
-into Roaming only if a chat archive already existed when it started. Clearing
-Roaming data intentionally must not reimport stale Local AppData state. New
-persistent state must never be written to Local AppData.
+they are distribution/configuration assets, not personal logs. Earlier development
+builds wrote a `happy-hour-last-seen.txt` marker in Local AppData or Roaming
+AppData; the banner-only implementation no longer reads, migrates, or writes
+that obsolete file. Clearing Roaming data must remain a genuine reset. No new
+persistent Chat Host state is written to Local AppData.
 
 **Happy Hour lifecycle:** wait for the authenticated Discord Game Chat
 channel to render before reading the archive or showing the banner. Search
 previously indexed genuine messages first, then paginate the hidden Discord
 source if none qualify. The latest announcement's Discord snowflake determines
 both the event time and 60-minute expiry. Image-only rainbow announcements must
-be associated with the actual posting account/message ID; an image or the
-last-seen marker alone cannot create a synthetic event. Development preview
-may show an **authentic expired** announcement with zero time; production must
-hide expired events. Logout, sign-in, and unavailable chat hide the banner and
-pause detection. User chat visibility/scrolling never controls pagination.
-The `happy-hour-last-seen.txt` marker only suppresses duplicate large alerts.
+be associated with the actual posting account/message ID; an image or a
+saved marker cannot create a synthetic event. Development preview may show an
+**authentic expired** announcement with zero time; production must hide expired
+events. Logout, sign-in, and unavailable chat hide the banner and pause detection.
+User chat visibility/scrolling never controls pagination. The small launcher-owned
+banner is the **only** Happy Hour notification; no separate large popup appears.
 
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
