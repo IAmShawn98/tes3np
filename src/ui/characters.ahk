@@ -471,9 +471,9 @@ PromptOriginalCharacterSpecies(current := "")
     confirm := dialog.Add("Button", "x148 y110 w90 h29 Default", "Confirm")
     cancel := dialog.Add("Button", "x250 y110 w90 h29", "Cancel")
     confirm.OnEvent("Click", ConfirmOriginalCharacterSpecies.Bind(dialog, selected, outcome))
-    cancel.OnEvent("Click", (*) => dialog.Hide())
-    dialog.OnEvent("Close", (*) => dialog.Hide())
-    dialog.OnEvent("Escape", (*) => dialog.Hide())
+    cancel.OnEvent("Click", CloseOriginalCharacterSpeciesDialog.Bind(dialog))
+    dialog.OnEvent("Close", CloseOriginalCharacterSpeciesDialog.Bind(dialog))
+    dialog.OnEvent("Escape", CloseOriginalCharacterSpeciesDialog.Bind(dialog))
     CharacterPage.Opt("+Disabled")
     try
     {
@@ -482,10 +482,24 @@ PromptOriginalCharacterSpecies(current := "")
     }
     finally
     {
+        ; Always restore the owner after the child popup has gone away.
+        ; Reuse the cached book (no rebuild, reload or resize).
         CharacterPage.Opt("-Disabled")
         dialog.Destroy()
+        if DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
+            CharacterPage.Show("Restore")
     }
     return outcome.Species
+}
+
+CloseOriginalCharacterSpeciesDialog(dialog, *)
+{
+    global CharacterPage
+    ; An owned modal must re-enable its owner BEFORE being hidden.
+    ; Otherwise Windows activates the launcher behind the Character Book,
+    ; making Manage Characters seem to minimize on confirmation.
+    CharacterPage.Opt("-Disabled")
+    dialog.Hide()
 }
 
 ConfirmOriginalCharacterSpecies(dialog, selected, outcome, *)
@@ -497,7 +511,7 @@ ConfirmOriginalCharacterSpecies(dialog, selected, outcome, *)
         return
     }
     outcome.Species := species
-    dialog.Hide()
+    CloseOriginalCharacterSpeciesDialog(dialog)
 }
 
 ; Copy the accepted image only when Save/Add is confirmed. Original paths are
