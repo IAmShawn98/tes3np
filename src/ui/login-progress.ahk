@@ -5,6 +5,7 @@ global LoginProgressRows := []
 global LoginProgressFooter := 0
 global LoginProgressIcon := 0
 global LoginProgressCharacterName := 0
+global LoginProgressSpecies := ""
 global LoginProgressSummaryDots := []
 global LoginProgressStageStarted := 0
 global LoginProgressFinished := false
@@ -21,11 +22,17 @@ global LoginProgressShown := false
 global LoginProgressLastX := -1
 global LoginProgressLastY := -1
 
-BeginGameLoginProgress(name)
+BeginGameLoginProgress(name, species := "")
 {
+    global LoginProgressGui, LoginProgressSpecies
     global LoginProgressMode, LoginProgressStage, LoginProgressName
     global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, LoginProgressDisabled
     global LoginProgressStageStarted, LoginProgressFinished
+    ; Recreate the visual only between logins so its portrait follows the
+    ; selected character. This never restarts ClientTick or the game.
+    if IsObject(LoginProgressGui)
+        DisposeGameLoginProgress()
+    LoginProgressSpecies := NormalizeCharacterSpecies(species)
     LoginProgressMode := "login"
     LoginProgressStage := 1
     LoginProgressStageStarted := A_TickCount
@@ -108,11 +115,30 @@ DisposeGameLoginProgress()
     LoginProgressSummaryDots := []
 }
 
+GetCharacterLoginIconPath(species)
+{
+    ; Reserved for future species-head artwork, named e.g. dark-elf.ico.
+    ; The existing build embeds new assets recursively when they are added.
+    ; Missing or unclassified species use the original TES3NP favicon.
+    species := NormalizeCharacterSpecies(species)
+    slugs := Map("Argonian", "argonian", "Breton", "breton",
+        "Dark Elf", "dark-elf", "High Elf", "high-elf", "Imperial", "imperial",
+        "Khajiit", "khajiit", "Nord", "nord", "Orc", "orc",
+        "Redguard", "redguard", "Wood Elf", "wood-elf")
+    if species != "" && slugs.Has(species)
+    {
+        specific := A_ScriptDir "\assets\icons\species\" slugs[species] ".ico"
+        if FileExist(specific)
+            return specific
+    }
+    return A_ScriptDir "\assets\icons\tes3np.ico"
+}
+
 CreateGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressHeading, LoginProgressRows
     global LoginProgressFooter, LoginProgressWidth, LoginProgressHeight
-    global LoginProgressIcon, LoginProgressCharacterName, LoginProgressSummaryDots
+    global LoginProgressIcon, LoginProgressCharacterName, LoginProgressSummaryDots, LoginProgressSpecies
     if IsObject(LoginProgressGui)
         return
     scale := A_ScreenDPI / 96
@@ -132,7 +158,7 @@ CreateGameLoginProgress()
     LoginProgressHeading := window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
         " h" p(38) " Center BackgroundTrans +0x4000", "Logging in...")
     LoginProgressIcon := window.Add("Picture", "x" p(174) " y" p(60) " w" p(72)
-        " h" p(72) " Icon1", A_ScriptDir "\assets\icons\tes3np.ico")
+        " h" p(72) " Icon1", GetCharacterLoginIconPath(LoginProgressSpecies))
     window.SetFont("s13 Bold cF2E4D0", "Georgia")
     LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" p(143)
         " w" p(372) " h" p(30) " Center BackgroundTrans", "")
