@@ -921,8 +921,6 @@ metrics();
         Label? happyHourBannerCountdown;
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
-        // Separate visual-only clock for expired HH previews. Never used for detection.
-        DateTimeOffset happyHourPreviewEndsAt;
         readonly string happyHourSeenFile = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "tes3np", "happy-hour-last-seen.txt");
@@ -1090,10 +1088,11 @@ metrics();
                 rainbow.SetBounds(6, 0, 225, 32);
                 titleInset.Controls.Add(rainbow);
                 rainbow.Paint += (_, e) => {
-                    // QA previews render the same full banner as genuine active events.
-                    string heading = PreviewExpiredHappyHourForTesting ||
-                        (!happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow)
-                        ? "HAPPY HOUR ACTIVE" : "HAPPY HOUR";
+                    // The heading reflects the real announcement state, including
+                    // development previews of expired historical announcements.
+                    string heading = happyHourDemo ? "HAPPY HOUR TEST"
+                        : happyHourEndsAt > DateTimeOffset.UtcNow
+                            ? "HAPPY HOUR ACTIVE" : "HAPPY HOUR EXPIRED";
                     string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                         "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
                     using var font = new System.Drawing.Font("Georgia", 11,
@@ -1113,18 +1112,17 @@ metrics();
                         x += width;
                     }
                 };
-                // Retain the existing banner location and compact black plate.
-                // Green bonus wording and the live countdown fit beside the
-                // extended rainbow heading in the launcher's 620px minimum width.
+                // Leave room for the complete green wording and timer rather
+                // than allowing the countdown to overlap clipped label text.
                 var separator = GoldText("-", 231, 1, 14, 30, 10, true);
                 separator.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(separator);
-                var activated = GoldText("Mastery Points Are Doubled!", 246, 1, 211, 30, 10, true);
+                var activated = GoldText("", 246, 1, 249, 30, 10, true);
                 activated.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 activated.ForeColor = System.Drawing.Color.FromArgb(55, 216, 70);
                 activated.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(activated);
-                var left = GoldText("", 457, 1, 109, 30, 9, true);
+                var left = GoldText("", 495, 1, 140, 30, 9, true);
                 left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(left);
@@ -1141,22 +1139,29 @@ metrics();
             }
             if (happyHourBannerCountdown != null) {
                 bool active = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow;
-                bool preview = !active && PreviewExpiredHappyHourForTesting;
-                bool showFull = active || preview;
-                // An expired announcement is still expired. The QA-only clock
-                // demonstrates the full layout and live seconds without changing
-                // its real Discord timestamp or affecting production detection.
-                DateTimeOffset displayEnds = preview ? happyHourPreviewEndsAt : happyHourEndsAt;
-                happyHourBannerCountdown.Text = showFull
-                    ? "(" + HappyHourRemaining(displayEnds) + " left)" : "";
-                foreach (Control control in happyHourBannerCountdown.Parent!.Controls)
-                    if (control is Label label && !ReferenceEquals(label, happyHourBannerCountdown))
-                        label.Visible = showFull;
-                happyHourBannerCountdown.ForeColor = showFull
-                    ? HappyHourTimerColor(displayEnds)
+                // The real Discord snowflake remains authoritative even in
+                // development preview mode. Never invent remaining time.
+                happyHourBannerCountdown.Text = happyHourDemo ? "" :
+                    "(" + HappyHourRemaining(happyHourEndsAt) + " left)";
+                foreach (Control control in happyHourBannerCountdown.Parent!.Controls) {
+                    if (control is Label label && label.Text == "-")
+                        label.Visible = !happyHourDemo;
+                    else if (control is Label label && !ReferenceEquals(label, happyHourBannerCountdown))
+                        label.Text = happyHourDemo ? "No announcement found"
+                            : active ? "Mastery Points Are Doubled!"
+                            : "Mastery Points Were Doubled!";
+                }
+                happyHourBannerCountdown.ForeColor = active
+                    ? HappyHourTimerColor(happyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
                 if (happyHourBannerCountdown.Parent is Panel plate)
-                    plate.Width = showFull ? 566 : 240;
+                    plate.Width = Math.Min(plate.Parent?.ClientSize.Width - plate.Left - 8 ?? 640,
+                        happyHourDemo ? 495 : 640);
+                // The heading switches between ACTIVE / EXPIRED / TEST,
+                // without moving its rainbow panel on screen.
+                foreach (Control control in happyHourBannerCountdown.Parent!.Controls)
+                    if (control is Panel panel) panel.Invalidate();
+                happyHourBannerCountdown.Parent?.Invalidate();
             }
             // Place the gold card directly above the actual launcher window.
             RECT rect;
@@ -1187,10 +1192,8 @@ metrics();
             lastHappyHourAlertId = activationId;
             happyHourDemo = demo;
             happyHourEndsAt = ends;
-            happyHourPreviewEndsAt = PreviewExpiredHappyHourForTesting && expired
-                ? DateTimeOffset.UtcNow.AddHours(1) : ends;
             if (PreviewExpiredHappyHourForTesting && expired)
-                Log("HAPPY HOUR | Development preview of expired activation; countdown is simulated, not a live bonus.");
+                Log("HAPPY HOUR | Expired historical announcement; remaining time is 0m 00s (not active).");
             // Each new activation resets the banner, including after a restart.
             dismissedHappyHourBannerId = ulong.MaxValue;
             happyHourTicker?.Stop();
