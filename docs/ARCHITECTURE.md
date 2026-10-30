@@ -35,6 +35,13 @@ starts/stops the separate Windows Forms/WebView2 companion
 content; it communicates chat visibility through the existing window messages
 `0x8331` (launcher commands) and `0x8332` (Chat Host state). Do not add a
 second Chat Host process, popup ownership controller, or competing chat timer.
+Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
+launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events. The Happy Hour banner
+is an **owned top-level popup** (not a clipped child window): ownership controls
+z-order/minimization, but does not automatically move the popup with its owner.
+Use the same event hook and native, nonactivating `SetWindowPos` to move it
+immediately. The existing chat positioning poll is only a fallback, and the
+Happy Hour one-second timer updates countdown text rather than window position.
 
 **One persistent data root:** `src/state.ahk` declares
 `AppDataDirectory := A_AppData "\\tes3np"`. Chat Host uses the corresponding
