@@ -1292,6 +1292,32 @@ metrics();
             DrawSegment(happyHourBannerClockText, timerFont, happyHourBannerClockColor);
         }
 
+        // The launcher and this banner are separate *owned* top-level HWNDs:
+        // ownership controls z-order/minimize, but Windows does not move an
+        // owned popup with its owner. Follow the existing launcher movement
+        // WinEvent hook with one native, non-activating position update.
+        // This does not touch the countdown, Discord, or chat visibility.
+        void PositionHappyHourBanner()
+        {
+            var banner = happyHourBanner;
+            if (banner == null || banner.IsDisposed || !banner.IsHandleCreated ||
+                !IsWindow(owner) || !GetWindowRect(owner, out var bounds) ||
+                !IsWindowVisible(owner) || IsIconic(owner)) return;
+
+            int x = bounds.Left, y = bounds.Top - 48;
+            int width = Math.Max(bounds.Right - bounds.Left, happyHourBannerRequiredWidth);
+            const int height = 46;
+            // Avoid redundant native moves, especially during 500ms polling.
+            if (GetWindowRect(banner.Handle, out var current) &&
+                current.Left == x && current.Top == y &&
+                current.Right - current.Left == width &&
+                current.Bottom - current.Top == height) return;
+
+            const uint SWP_NOZORDER_NOACTIVATE = 0x0004 | 0x0010;
+            SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height,
+                SWP_NOZORDER_NOACTIVATE);
+        }
+
         void RefreshHappyHourBanner()
         {
             if (!discordChannelReady ||
@@ -1381,10 +1407,14 @@ metrics();
                         happyHourBannerLayoutLogged = false;
                     }
                 };
-                // Keep the card associated with the launcher, without making
-                // it topmost over unrelated desktop applications.
-                banner.Show();
+                // Position BEFORE the first show to avoid a detached flash.
+                // Own the popup before showing it: it stays tied to the
+                // launcher's z-order and minimize state, never globally topmost.
+                if (GetWindowRect(owner, out var initialOwnerBounds))
+                    banner.SetBounds(initialOwnerBounds.Left, initialOwnerBounds.Top - 48,
+                        Math.Max(initialOwnerBounds.Right - initialOwnerBounds.Left, 620), 46);
                 SetNativeWindowOwner(banner.Handle, owner);
+                banner.Show();
                 Log("HAPPY HOUR | Banner window created for real message " +
                     lastHappyHourAlertId + "; expires=" +
                     happyHourEndsAt.ToString("O"));
@@ -1399,16 +1429,12 @@ metrics();
                     : System.Drawing.Color.FromArgb(215, 170, 77);
                 LayoutHappyHourBannerContents();
             }
-            // Place the gold card directly above the actual launcher window.
-            RECT rect;
-            if (GetWindowRect(owner, out rect) && happyHourBanner is { IsDisposed: false })
-            {
-                bool visible = IsWindowVisible(owner) && !IsIconic(owner);
-                if (visible) {
-                    // Keep the banner aligned with the launcher, extending
-                    // only if the measured text exceeds the launcher's width.
-                    happyHourBanner.SetBounds(rect.Left, rect.Top - 48,
-                        Math.Max(rect.Right - rect.Left, happyHourBannerRequiredWidth), 46);
+            // Native movement is synchronized by the launcher's WinEvent hook.
+            // This call is a layout/fallback check, never the primary timer
+            // that drags the banner after the launcher has already moved.
+            if (happyHourBanner is { IsDisposed: false }) {
+                if (IsWindowVisible(owner) && !IsIconic(owner)) {
+                    PositionHappyHourBanner();
                     if (!happyHourBanner.Visible) happyHourBanner.Show();
                 } else if (happyHourBanner.Visible) happyHourBanner.Hide();
             }
@@ -1926,7 +1952,13 @@ metrics();
             launcherLocationCallback = (hook, eventType, hwnd, objectId, childId, eventThread, eventTime) =>
             {
                 if (hwnd != owner || objectId != 0 || childId != 0 ||
-                    closingChat || IsDisposed || !IsHandleCreated || repositionQueued) return;
+                    closingChat || IsDisposed || !IsHandleCreated) return;
+                // Keep the Happy Hour banner aligned on EVERY owner movement
+                // event, even if a chat reposition is already queued.
+                // Native SetWindowPos runs immediately; BeginInvoke below is
+                // retained only for the more expensive Game Chat layout.
+                PositionHappyHourBanner();
+                if (repositionQueued) return;
                 repositionQueued = true;
                 try
                 {
@@ -2927,6 +2959,10 @@ metrics();
         }
         void PositionChatWindows()
         {
+            // Reuse the existing chat position polling as a fallback only if
+            // the native owner-movement hook could not be installed.
+            if (launcherLocationHook == IntPtr.Zero)
+                PositionHappyHourBanner();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
