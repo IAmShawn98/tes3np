@@ -88,6 +88,27 @@ expect(
     "DiscordTimestamp(activationId).AddHours(1)" in source,
 )
 expect(
+    "Happy Hour test mode must be removed",
+    "PreviewExpiredHappyHourForTesting" not in source
+    and "activeHappyHourCutoff" not in source,
+)
+expect(
+    "An expired Discord announcement must never show a banner",
+    "happyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
+    and "ends <= DateTimeOffset.UtcNow) return;" in source
+    and "if (happyHourEndsAt <= DateTimeOffset.UtcNow) {" in source,
+)
+expect(
+    "Detection and cache fast path must require an active event",
+    "DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow" in source
+    and "DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow" in source,
+)
+expect(
+    "Historical scan must stop at the active one-hour boundary",
+    "oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1)" in source,
+)
+
+expect(
     "Archive must be written with replace-on-complete semantics",
     "WriteChatArchiveAtomically(GameChatIndexFile," in source
     and "WriteChatArchiveAtomically(GameChatLogFile," in source
