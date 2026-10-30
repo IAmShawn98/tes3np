@@ -4,12 +4,13 @@ These checks enforce cross-process architectural contracts, not C# syntax.
 The Windows CI job also builds the Chat Host to catch compiler errors.
 """
 from pathlib import Path
-import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
+reset_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
 errors = []
 
 
@@ -75,6 +76,22 @@ expect(
     "WriteChatArchiveAtomically(GameChatIndexFile," in source
     and "WriteChatArchiveAtomically(GameChatLogFile," in source
     and "File.Move(temporary, path, true);" in source,
+)
+
+expect(
+    "Full AppData reset must stop ChatHost before deletion",
+    reset_ui.index("StopEmbeddedInGameChat()") >= 0
+    and reset_ui.index("StopEmbeddedInGameChat()") < reset_ui.index("DirDelete(AppDataDirectory, true)"),
+)
+expect(
+    "Reset shutdown must not recreate Roaming logs or scheduler settings",
+    "LauncherDataResetting := true" in reset_ui
+    and "if !LauncherDataResetting" in bootstrap
+    and "ExitApp()" in reset_ui,
+)
+expect(
+    "Reset mode must be part of centralized launcher state",
+    "global LauncherDataResetting := false" in app_state,
 )
 
 if errors:
