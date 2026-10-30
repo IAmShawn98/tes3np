@@ -1206,12 +1206,21 @@ metrics();
             var measureFlags = System.Windows.Forms.TextFormatFlags.NoPadding |
                 System.Windows.Forms.TextFormatFlags.NoPrefix |
                 System.Windows.Forms.TextFormatFlags.SingleLine;
-            static int NaturalWidth(string text, System.Drawing.Font font,
+            static int NaturalWidth(Label label,
                 System.Windows.Forms.TextFormatFlags flags)
             {
-                if (string.IsNullOrEmpty(text)) return 0;
-                return System.Windows.Forms.TextRenderer.MeasureText(
-                    text, font, new System.Drawing.Size(2000, 32), flags).Width + 8;
+                if (string.IsNullOrEmpty(label.Text)) return 0;
+                // The previous measurement was too narrow for Label's own
+                // word-wrapping layout: it hid "Doubled!" and "left)" on a
+                // high-DPI display. Compare the LABEL's preferred width with
+                // GDI's single-line width, then reserve two full ems of slack.
+                // Both the preferred size and the rendered text now fit.
+                int preferred = label.GetPreferredSize(System.Drawing.Size.Empty).Width;
+                int singleLine = System.Windows.Forms.TextRenderer.MeasureText(
+                    label.Text, label.Font, new System.Drawing.Size(4096, 64),
+                    flags).Width;
+                int padding = Math.Max(24, label.Font.Height * 2);
+                return Math.Max(preferred, singleLine) + padding;
             }
 
             string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
@@ -1225,19 +1234,19 @@ metrics();
 
             if (separator.Visible) {
                 x += 9;
-                int width = NaturalWidth(separator.Text, separator.Font, measureFlags);
+                int width = NaturalWidth(separator, measureFlags);
                 separator.SetBounds(x, 1, width, 30);
                 x += width;
             }
             if (bonus.Visible && bonus.Text.Length > 0) {
                 x += 8;
-                int width = NaturalWidth(bonus.Text, bonus.Font, measureFlags);
+                int width = NaturalWidth(bonus, measureFlags);
                 bonus.SetBounds(x, 1, width, 30);
                 x += width;
             }
             if (countdown.Visible && countdown.Text.Length > 0) {
                 x += 12;
-                int width = NaturalWidth(countdown.Text, countdown.Font, measureFlags);
+                int width = NaturalWidth(countdown, measureFlags);
                 countdown.SetBounds(x, 1, width, 30);
                 x += width;
             }
