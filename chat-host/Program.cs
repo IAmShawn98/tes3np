@@ -1024,44 +1024,81 @@ metrics();
                 var banner = GoldHappyHourWindow(620, 46, "tes3np Happy Hour");
                 banner.FormBorderStyle = FormBorderStyle.None;
                 banner.StartPosition = FormStartPosition.Manual;
-                banner.BackColor = System.Drawing.Color.FromArgb(118, 87, 44);
-                // Reuse the same actual textures as the Live Game Chat frame.
-                // The dark inset is surrounded by weathered gold, like its title.
+                banner.BackColor = System.Drawing.Color.FromArgb(143, 109, 60);
+                // Tile rather than stretch the original Game Chat material.
                 banner.Paint += (_, e) => {
                     var g = e.Graphics;
                     int w = banner.ClientSize.Width, h = banner.ClientSize.Height;
-                    if (headerTexture != null)
-                        g.DrawImage(headerTexture, new System.Drawing.Rectangle(0, 0, w, h));
+                    g.Clear(System.Drawing.Color.FromArgb(143, 109, 60));
+                    if (headerTexture != null) {
+                        using var surface = new System.Drawing.TextureBrush(headerTexture,
+                            System.Drawing.Drawing2D.WrapMode.Tile);
+                        g.FillRectangle(surface, 0, 0, w, h);
+                    }
                     if (borderTexture != null) {
                         using var trim = new System.Drawing.TextureBrush(borderTexture,
                             System.Drawing.Drawing2D.WrapMode.Tile);
                         g.FillRectangle(trim, 0, 0, w, 6);
                         g.FillRectangle(trim, 0, h - 6, w, 6);
-                        using var rotated = (System.Drawing.Bitmap)borderTexture.Clone();
-                        rotated.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-                        using var sides = new System.Drawing.TextureBrush(rotated,
+                        using var vertical = (System.Drawing.Bitmap)borderTexture.Clone();
+                        vertical.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                        using var sides = new System.Drawing.TextureBrush(vertical,
                             System.Drawing.Drawing2D.WrapMode.Tile);
                         g.FillRectangle(sides, 0, 0, 6, h);
                         g.FillRectangle(sides, w - 6, 0, 6, h);
                     }
                 };
-                // Keep the texture visible across the whole bar. Only the text
-                // and close control occupy the left side; no wide black inset.
-                var dismiss = GoldButton("×", 9, 9, 27, 27);
+                var dismiss = GoldButton("×", 10, 10, 26, 26);
                 dismiss.Click += (_, _) => {
                     dismissedHappyHourBannerId = lastHappyHourAlertId;
                     banner.Close();
                 };
                 banner.Controls.Add(dismiss);
-                var label = GoldText("HAPPY HOUR", 44, 7, 170, 32, 13, true);
-                label.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-                banner.Controls.Add(label);
-                var left = GoldText("", 216, 7, 390, 32, 12, true);
+                // Same dark title inset as Live Game Chat, sized to the text,
+                // rather than stretching a black bar over the whole window.
+                var titleInset = new Panel {
+                    BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
+                };
+                titleInset.SetBounds(44, 7, 640, 32);
+                banner.Controls.Add(titleInset);
+                var rainbow = new Panel {
+                    BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
+                };
+                rainbow.SetBounds(9, 0, 185, 32);
+                titleInset.Controls.Add(rainbow);
+                var rainbowLetters = "HAPPY HOUR";
+                var rainbowColors = new[] { "#FF0000", "#FF7F00", "#FFFF00",
+                    "#7FFF00", "#00FF7F", "#00FFFF", "#007FFF",
+                    "#7F00FF", "#FF00FF", "#00FF00" };
+                using (var headingFont = new System.Drawing.Font("Georgia", 14,
+                    System.Drawing.FontStyle.Bold)) {
+                    int x = 0;
+                    for (int i = 0; i < rainbowLetters.Length; i++) {
+                        int width = System.Windows.Forms.TextRenderer.MeasureText(
+                            rainbowLetters[i].ToString(), headingFont,
+                            new System.Drawing.Size(100, 32),
+                            System.Windows.Forms.TextFormatFlags.NoPadding).Width;
+                        var letter = new Label {
+                            Text = rainbowLetters[i].ToString(),
+                            Font = new System.Drawing.Font("Georgia", 14,
+                                System.Drawing.FontStyle.Bold),
+                            ForeColor = System.Drawing.ColorTranslator.FromHtml(rainbowColors[i]),
+                            BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
+                            TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+                        };
+                        letter.SetBounds(x, 1, width + 1, 30);
+                        rainbow.Controls.Add(letter);
+                        x += width;
+                    }
+                }
+                var left = GoldText("", 196, 1, 424, 30, 12, true);
                 left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-                banner.Controls.Add(left);
+                left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
+                titleInset.Controls.Add(left);
                 happyHourBannerCountdown = left;
                 banner.Resize += (_, _) => {
-                    left.SetBounds(216, 7, Math.Max(120, banner.ClientSize.Width - 227), 32);
+                    titleInset.Width = Math.Min(640, Math.Max(290, banner.ClientSize.Width - 58));
+                    left.Width = Math.Max(60, titleInset.Width - 204);
                     banner.Invalidate();
                 };
                 happyHourBanner = banner;
