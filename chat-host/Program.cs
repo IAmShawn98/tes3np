@@ -1317,21 +1317,41 @@ metrics();
         // Check the persistent Discord chat archive as well as freshly loaded rows.
         // This allows an expired announcement to be previewed even if it is no
         // longer inside Discord's limited current viewport.
-        static bool IsHappyHourAnnouncement(string body) =>
-            System.Text.RegularExpressions.Regex.IsMatch(body,
+        static bool IsHappyHourAnnouncement(string body)
+        {
+            // Discord's rainbow announcement contains styled inline spans.
+            // Normalize invisible Unicode formatting and nonbreaking spaces
+            // before comparing the actual words shown in Game Chat.
+            string normalized = System.Text.RegularExpressions.Regex.Replace(
+                body.Replace('\u00a0', ' '), @"[\u200B-\u200D\u2060\uFEFF]", "");
+            return System.Text.RegularExpressions.Regex.IsMatch(normalized,
                 @"happy\s+hour\s+has\s+been\s+activated\s*!?",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase |
                 System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        }
 
         ulong LatestArchivedHappyHourId()
         {
             // SortedDictionary keys are Discord snowflakes, ordered by time.
             // The newest matching *real* Discord message wins, whether its
             // one-hour activation window is still open or already expired.
-            foreach (var entry in archivedChat.Reverse())
-                if (IsHappyHourAnnouncement(entry.Value.Body))
-                    return entry.Key;
-            return 0;
+            ulong latest = 0;
+            foreach (var entry in archivedChat.Reverse()) {
+                if (IsHappyHourAnnouncement(entry.Value.Body)) {
+                    latest = entry.Key;
+                    break;
+                }
+            }
+            // The native chat can already display a message before its batch
+            // is written to disk. Always inspect that same in-memory history.
+            foreach (var entry in history.Reverse()) {
+                if (entry.Key <= latest) break;
+                if (IsHappyHourAnnouncement(entry.Value.Body)) {
+                    latest = entry.Key;
+                    break;
+                }
+            }
+            return latest;
         }
 
         void DetectLatestHappyHour()
@@ -1340,7 +1360,12 @@ metrics();
             {
                 EnsureChatLogLoaded();
                 ulong latest = LatestArchivedHappyHourId();
-                if (latest > 0) ShowHappyHourAlert(latest);
+                if (latest > lastHappyHourAlertId) {
+                    Log("HAPPY HOUR | Matched genuine Discord message " + latest +
+                        " at " + DiscordTimestamp(latest).ToString("O") +
+                        "; expired=" + (DiscordTimestamp(latest).AddHours(1) <= DateTimeOffset.UtcNow));
+                    ShowHappyHourAlert(latest);
+                }
                 // No synthetic event: a missing archive hit simply keeps the
                 // bounded historical loader searching in development mode.
             }
