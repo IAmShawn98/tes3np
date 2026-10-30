@@ -20,6 +20,7 @@
 | `patches/` | Supplied markerless client and EP with SHA-256 file manifest |
 | `scripts/import-macro.ps1` | Bounded ZIP validation and extraction |
 | `src/ui/loading.ahk` | Frame covers and loading feedback for actual interface work |
+| `src/ui/login-progress.ahk` | Nonactivating game login step card; presentation timer and cleanup |
 | `src/data/settings.ahk` | INI persistence, executable settings and DPAPI password protection |
 | `src/data/backup.ahk` | Portable export, validated import and local re-encryption |
 | `src/game/session.ahk` | Login state machine, watchdog and sequential character launches |
@@ -107,7 +108,7 @@ Test on Windows with AutoHotkey v2:
 1. Fresh startup and startup with a saved default; tray access after quick launch.
 2. Add, edit, save, cancel, remove confirmation and the 10-character limit.
 3. Tick persistence and per-row Play without changing the default.
-4. Login timings, terminal-only startup, process loss and reconnect on/off.
+4. Login timings, terminal-only startup, process loss and reconnect on/off. Check the progress card's white waiting, blue typing and green finished dots, five-second success dismissal, game focus, minimized/inactive hiding, and queued batch/scheduled logins.
 5. Launch All & Close, its 10-second wait, cancellation of its explanation and saved suppression choice.
 6. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
 7. Saved settings survive replacement of the application folder.
