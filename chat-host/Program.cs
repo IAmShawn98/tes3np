@@ -400,9 +400,14 @@ metrics();
         bool nativeMode;
         bool freshDiscordProfile;
         bool discordLoginVisible;
-        // The archive can shortcut historical paging, but cannot by itself
-        // authorize showing Happy Hour before Discord's channel is available.
+        // Authentication gates live Discord fetching/paging ONLY. A genuine
+        // unexpired message already in the local chat archive is sufficient
+        // to display Happy Hour, even if Discord is signed out.
         bool discordChannelReady;
+        // Discord's initial sign-in often hands off to a partly mounted
+        // channel SPA. Reload that channel exactly once after login so native
+        // Game Chat receives a fully initialized post-auth feed.
+        bool channelReloadAfterSignInPending;
         const string ExtractFeed = """
             (() => {
               const list = document.querySelector('[data-list-id="chat-messages"]');
@@ -1227,8 +1232,7 @@ metrics();
 
         void RefreshHappyHourBanner()
         {
-            if (!discordChannelReady ||
-                happyHourEndsAt <= DateTimeOffset.UtcNow ||
+            if (happyHourEndsAt <= DateTimeOffset.UtcNow ||
                 dismissedHappyHourBannerId == lastHappyHourMessageId ||
                 !IsWindow(owner))
             {
@@ -1350,7 +1354,7 @@ metrics();
         // There is intentionally no separate large WinForms notification.
         void ShowHappyHourBannerForMessage(ulong activationId)
         {
-            if (!discordChannelReady || activationId == 0) return;
+            if (activationId == 0 || closingChat || IsDisposed) return;
             var ends = DiscordTimestamp(activationId).AddHours(1);
             if (activationId <= lastHappyHourMessageId ||
                 ends <= DateTimeOffset.UtcNow) return;
@@ -1432,7 +1436,7 @@ metrics();
 
         void DetectLatestHappyHour()
         {
-            if (!discordChannelReady) return;
+            if (closingChat || IsDisposed) return;
             try
             {
                 EnsureChatLogLoaded();
@@ -1451,13 +1455,12 @@ metrics();
 
         void BeginHappyHourDiscovery()
         {
-            if (!discordChannelReady) return;
+            if (closingChat || IsDisposed) return;
             try
             {
-                // An authentic archived Discord message (text or verified
-                // image) is the only activation evidence. The saved archive
-                // can shortcut paging only if its event is still active.
-                // Always wait for an authenticated Discord channel first.
+                // Genuine archived Discord messages (text or pixel-verified
+                // bot images) are sufficient evidence without login. Only
+                // live discovery and historical paging require authentication.
                 EnsureChatLogLoaded();
                 ulong candidate = LatestArchivedHappyHourId();
                 bool valid = candidate > 0 &&
@@ -1465,7 +1468,7 @@ metrics();
                 if (valid)
                 {
                     initialBackfillComplete = true;
-                    Log("HAPPY HOUR | Connected channel archive shortcut: " +
+                    Log("HAPPY HOUR | Verified cached activation: " +
                         "messageId=" + candidate +
                         "; sent=" + DiscordTimestamp(candidate).ToString("O") +
                         "; archivedRows=" + archivedChat.Count +
@@ -1474,9 +1477,9 @@ metrics();
                 }
                 else
                 {
-                    Log("HAPPY HOUR | Startup cache has no qualifying real announcement; " +
+                    Log("HAPPY HOUR | No currently active announcement in saved chat archive; " +
                         "archivedRows=" + archivedChat.Count +
-                        "; will page Discord when the source chat is ready");
+                        "; live search will begin if the Discord channel becomes available");
                 }
             }
             catch (Exception ex)
@@ -2225,6 +2228,9 @@ metrics();
             {
                 // Let WinForms finish showing the top-level host before parenting it.
                 BeginInvoke((Action)(() => DockToLauncher()));
+                // The saved Discord archive is our only offline evidence.
+                // Load it immediately, whether this browser is signed in or not.
+                DetectLatestHappyHour();
                 try
                 {
                     string data = Path.Combine(ChatDataRoot, "chat-webview2");
@@ -2251,10 +2257,15 @@ metrics();
                         if (e.Uri.StartsWith("https://discord.com/", StringComparison.OrdinalIgnoreCase))
                             web.CoreWebView2.Navigate(e.Uri);
                     };
+                    // Initialize the local HTML renderer while its WinForms
+                    // parent is still visible. Hiding it for Discord sign-in
+                    // before initialization could leave the native chat blank
+                    // until the entire launcher was restarted.
+                    await InitMessageBrowser(env);
+                    if (closingChat || IsDisposed) return;
                     if (freshDiscordProfile) ShowDiscordSignIn();
                     web.CoreWebView2.Navigate(freshDiscordProfile ? "https://discord.com/login" : Channel);
                     Log(freshDiscordProfile ? "Fresh Discord profile: opening sign-in" : "Navigating to channel");
-                    _ = InitMessageBrowser(env);
                 }
                 catch (Exception ex)
                 {
@@ -2378,16 +2389,12 @@ metrics();
         {
             if (!discordChannelReady) return;
             discordChannelReady = false;
-            Log("HAPPY HOUR | Discord channel unavailable (" + reason +
-                "); hiding banner and pausing detection");
-            happyHourTicker?.Stop();
-            happyHourTicker?.Dispose();
-            happyHourTicker = null;
-            if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
-            happyHourBanner = null;
-            // A new authenticated session may restore the same verified
-            // archived banner without manufacturing a new Discord event.
-            lastHappyHourMessageId = 0;
+            Log("CHAT | Discord channel unavailable (" + reason +
+                "); pausing live feed and history paging. Verified Happy Hour banner remains independent.");
+            // Recheck the live channel on the next authenticated session.
+            // Neither an expired nor a missing archive can show a banner.
+            // Keep the existing genuine activation, its absolute expiry,
+            // dismissal state and timer unchanged across sign-out.
             initialBackfillComplete = false;
             initialBackfillStarted = DateTime.MinValue;
             initialBackfillAttempts = 0;
@@ -2424,13 +2431,27 @@ metrics();
                 if (state == "\"chat\"" &&
                     url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (discordLoginVisible)
+                    {
+                        RestoreGameChatAfterSignIn();
+                        if (channelReloadAfterSignInPending)
+                        {
+                            // Initial OAuth/login route can expose a partial
+                            // Discord channel DOM. One authenticated reload
+                            // completes the SPA handoff without relaunching
+                            // TES3NP or discarding its WebView2 session.
+                            channelReloadAfterSignInPending = false;
+                            Log("CHAT | First sign-in complete; reloading channel once to finish feed initialization");
+                            web.CoreWebView2.Reload();
+                            return;
+                        }
+                    }
                     if (!discordChannelReady) {
                         discordChannelReady = true;
-                        Log("HAPPY HOUR | Authenticated Discord Game Chat ready; " +
-                            "checking real archived announcements first");
+                        Log("CHAT | Authenticated Discord Game Chat ready; " +
+                            "starting live history discovery");
                         BeginHappyHourDiscovery();
                     }
-                    if (discordLoginVisible) RestoreGameChatAfterSignIn();
                     return;
                 }
                 if (state == "\"login\"") {
@@ -2665,6 +2686,7 @@ metrics();
         void ShowDiscordSignIn()
         {
             if (discordLoginVisible) return;
+            channelReloadAfterSignInPending = true;
             Log("Discord login: revealing the existing browser in Game Chat");
             discordLoginVisible = true;
             // Login is shown inside the normal docked chat panel, not in a
