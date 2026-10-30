@@ -955,6 +955,7 @@ metrics();
 
         Form? happyHourAlert;
         Form? happyHourBanner;
+        DateTime lastHappyHourBannerGateLog = DateTime.MinValue;
         Label? happyHourBannerCountdown;
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
@@ -1074,7 +1075,20 @@ metrics();
                 happyHourBanner = null;
                 return;
             }
-            if (happyHourAlert is { IsDisposed: false } || OtherLauncherDialogOpen()) return;
+            bool largeAlertOpen = happyHourAlert is { IsDisposed: false };
+            bool launcherDialogOpen = OtherLauncherDialogOpen();
+            if (largeAlertOpen || launcherDialogOpen) {
+                // A successfully detected announcement can still be deferred
+                // by an owned launcher dialog. Distinguish that UI gate from
+                // a failure to parse Discord messages.
+                if (DateTime.UtcNow - lastHappyHourBannerGateLog > TimeSpan.FromSeconds(10)) {
+                    lastHappyHourBannerGateLog = DateTime.UtcNow;
+                    Log("HAPPY HOUR | Banner waiting: largeAlert=" + largeAlertOpen +
+                        "; launcherDialog=" + launcherDialogOpen +
+                        "; messageId=" + lastHappyHourAlertId);
+                }
+                return;
+            }
             if (happyHourBanner == null || happyHourBanner.IsDisposed)
             {
                 var banner = GoldHappyHourWindow(620, 46, "tes3np Happy Hour");
@@ -1174,6 +1188,9 @@ metrics();
                 // it topmost over unrelated desktop applications.
                 banner.Show();
                 SetNativeWindowOwner(banner.Handle, owner);
+                Log("HAPPY HOUR | Banner window created for real message " +
+                    lastHappyHourAlertId + "; expires=" +
+                    happyHourEndsAt.ToString("O"));
             }
             if (happyHourBannerCountdown != null) {
                 bool active = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow;
