@@ -372,7 +372,7 @@ ChooseOriginalCharacterPortrait(control, *)
     ; File picker cancellation or rejection leaves the previous selection
     ; and any previously saved picture untouched.
     oldChoice := EditorPreviousSpeciesChoice
-    source := FileSelect(1, , "Choose a 512 x 512 character portrait",
+    source := FileSelect(1, , "Choose an original character portrait",
         "Images (*.png; *.jpg; *.jpeg; *.bmp)")
     if source = ""
     {
@@ -381,8 +381,8 @@ ChooseOriginalCharacterPortrait(control, *)
     }
     if !IsValidOriginalCharacterImage(source)
     {
-        MsgBox("Image rejected. Original Character portraits must be exactly "
-            "512 x 512 pixels, in PNG, JPG, JPEG, or BMP format, and no larger than 10 MB.",
+        MsgBox("This image could not be used. Choose a readable PNG, JPG, JPEG, "
+            "or BMP image under 10 MB. Very large image dimensions are not supported.",
             "Portrait rejected", "Icon!")
         control.Choose(oldChoice)
         return
@@ -402,30 +402,34 @@ ChooseOriginalCharacterPortrait(control, *)
 
 IsValidOriginalCharacterImage(source)
 {
+    ; Accept common image sizes, not only 512x512. Decode with the same
+    ; already-initialized GDI+ engine used for the launcher artwork.
     if !RegExMatch(source, "i)\.(png|jpg|jpeg|bmp)$")
         return false
-    bitmap := 0
+    image := 0
     try
     {
-        if FileGetSize(source) > 10485760
+        if FileGetSize(source) > 10485760 || FileGetSize(source) < 1
             return false
-        imageKind := -1
-        bitmap := LoadPicture(source, "", &imageKind)
-        if !bitmap || imageKind != 0
+        if DllCall("gdiplus\GdipLoadImageFromFile", "WStr", source,
+            "Ptr*", &image, "Int") != 0 || !image
             return false
-        bitmapData := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
-        if DllCall("GetObjectW", "Ptr", bitmap, "Int", bitmapData.Size,
-            "Ptr", bitmapData, "Int") < 16
+        width := 0, height := 0
+        if DllCall("gdiplus\GdipGetImageWidth", "Ptr", image,
+            "UInt*", &width, "Int") != 0
+            || DllCall("gdiplus\GdipGetImageHeight", "Ptr", image,
+            "UInt*", &height, "Int") != 0
             return false
-        return NumGet(bitmapData, 4, "Int") = 512
-            && NumGet(bitmapData, 8, "Int") = 512
+        ; Reject malicious/huge image dimensions before allocating a bitmap.
+        return width > 0 && height > 0 && width <= 16384 && height <= 16384
+            && width * height <= 67108864
     }
     catch
         return false
     finally
     {
-        if bitmap
-            DllCall("DeleteObject", "Ptr", bitmap)
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
     }
 }
 
@@ -484,20 +488,83 @@ ConfirmOriginalCharacterSpecies(dialog, selected, outcome, *)
 ; not stored in settings; a private, generated filename survives app updates.
 InstallOriginalCharacterPortrait(source)
 {
+    ; Save every new OC portrait as a centered, high-quality 512x512 PNG.
+    ; Cropping/resizing is silent; only unreadable files raise an error.
     if !IsValidOriginalCharacterImage(source)
-        throw Error("The selected image is no longer a valid 512 x 512 portrait.")
-    SplitPath(source, , , &extension)
+        throw Error("The selected image is not readable or exceeds the image limits.")
     uuid := Buffer(16, 0)
     if DllCall("ole32\CoCreateGuid", "Ptr", uuid, "Int") != 0
         throw Error("Could not allocate a portrait filename.")
     filename := ""
     Loop 16
         filename .= Format("{:02x}", NumGet(uuid, A_Index - 1, "UChar"))
-    filename .= "." StrLower(extension)
+    filename .= ".png"
     target := GetCustomPortraitPath(filename)
     DirCreate(AppDataDirectory "\portraits")
-    FileCopy(source, target)
-    return filename
+    temporary := target ".tmp"
+
+    image := 0, resized := 0, graphics := 0
+    try
+    {
+        if DllCall("gdiplus\GdipLoadImageFromFile", "WStr", source,
+            "Ptr*", &image, "Int") != 0 || !image
+            throw Error("Could not open the selected image.")
+
+        width := 0, height := 0
+        if DllCall("gdiplus\GdipGetImageWidth", "Ptr", image,
+            "UInt*", &width, "Int") != 0
+            || DllCall("gdiplus\GdipGetImageHeight", "Ptr", image,
+            "UInt*", &height, "Int") != 0
+            throw Error("Could not read the image dimensions.")
+        if width < 1 || height < 1 || width > 16384 || height > 16384
+            || width * height > 67108864
+            throw Error("The image dimensions are not supported.")
+
+        ; 32bpp ARGB preserves transparent backgrounds, unlike a GDI bitmap.
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 512,
+            "Int", 512, "Int", 0, "Int", 0x26200A, "Ptr", 0,
+            "Ptr*", &resized, "Int") != 0 || !resized
+            throw Error("Could not allocate the portrait image.")
+        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", resized,
+            "Ptr*", &graphics, "Int") != 0 || !graphics
+            throw Error("Could not prepare the portrait image.")
+        DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
+        DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
+        DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0)
+        side := Min(width, height)
+        left := Floor((width - side) / 2)
+        top := Floor((height - side) / 2)
+        if DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics,
+            "Ptr", image, "Int", 0, "Int", 0, "Int", 512, "Int", 512,
+            "Int", left, "Int", top, "Int", side, "Int", side,
+            "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Int") != 0
+            throw Error("Could not resize the portrait.")
+
+        ; Free the graphics context before encoding; GDI+ owns the bitmap.
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        pngEncoder := Buffer(16, 0)
+        if DllCall("ole32\CLSIDFromString",
+            "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}",
+            "Ptr", pngEncoder, "Int") != 0
+            throw Error("PNG encoding is unavailable.")
+        if DllCall("gdiplus\GdipSaveImageToFile", "Ptr", resized,
+            "WStr", temporary, "Ptr", pngEncoder, "Ptr", 0, "Int") != 0
+            throw Error("Could not save the resized portrait.")
+        FileMove(temporary, target)
+        return filename
+    }
+    finally
+    {
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if resized
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", resized)
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+        if FileExist(temporary)
+            try FileDelete(temporary)
+    }
 }
 
 CloseProfileEditor(*)
