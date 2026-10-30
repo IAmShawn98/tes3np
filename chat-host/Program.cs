@@ -1558,7 +1558,11 @@ metrics();
             foreach (ulong imageId in verifiedHappyHourImageIds)
                 if (imageId > latest) latest = imageId;
             foreach (var entry in archivedChat.Reverse()) {
-                if (IsHappyHourAnnouncement(entry.Value.Body)) {
+                if (entry.Key <= latest) break;
+                // A player repeating these words is not a bot activation.
+                // The image detector also requires an actual Yagrum post.
+                if (entry.Value.User.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
+                    IsHappyHourAnnouncement(entry.Value.Body)) {
                     latest = entry.Key;
                     break;
                 }
@@ -1567,7 +1571,8 @@ metrics();
             // is written to disk. Always inspect that same in-memory history.
             foreach (var entry in history.Reverse()) {
                 if (entry.Key <= latest) break;
-                if (IsHappyHourAnnouncement(entry.Value.Body)) {
+                if (entry.Value.User.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
+                    IsHappyHourAnnouncement(entry.Value.Body)) {
                     latest = entry.Key;
                     break;
                 }
@@ -1708,8 +1713,8 @@ metrics();
                     string matchText = msg.TryGetProperty("matchText", out var detectionText) &&
                         detectionText.ValueKind == System.Text.Json.JsonValueKind.String
                         ? detectionText.GetString() ?? "" : "";
-                    bool isHappyHour = IsHappyHourAnnouncement(body) ||
-                        IsHappyHourAnnouncement(matchText);
+                    bool isHappyHour = sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
+                        (IsHappyHourAnnouncement(body) || IsHappyHourAnnouncement(matchText));
                     // Preserve the rendered chat wording unless only the
                     // Discord textContent contains the full styled announcement.
                     string archivalBody = isHappyHour && !IsHappyHourAnnouncement(body)
@@ -1723,8 +1728,12 @@ metrics();
                     // text body. Yagrum's colored HH announcement is a bitmap.
                     if ((archivalBody.Length > 0 || images.Length > 0) &&
                         (!archivedChat.TryGetValue(key, out var cached) ||
-                         (isHappyHour && !IsHappyHourAnnouncement(cached.Body)))) {
-                        archivedChat[key] = (user, archivalBody);
+                         (isHappyHour && (!IsHappyHourAnnouncement(cached.Body) ||
+                            !cached.User.Contains("Yagrum", StringComparison.OrdinalIgnoreCase))))) {
+                        // Store the verified Discord author for bot text alerts
+                        // even when Discord grouped this message under an
+                        // earlier author's heading. Display history is unchanged.
+                        archivedChat[key] = (isHappyHour ? sourceAuthor : user, archivalBody);
                         newlyArchived++;
                     }
                     if (images.Length > 0 && !archivedImageUrls.ContainsKey(key)) {
