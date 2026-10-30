@@ -1077,9 +1077,8 @@ metrics();
         DateTime lastHappyHourBannerGateLog = DateTime.MinValue;
         Panel? happyHourBannerTitleInset;
         Panel? happyHourBannerRainbow;
-        Label? happyHourBannerSeparator;
-        Label? happyHourBannerBonus;
-        Label? happyHourBannerCountdown;
+        string happyHourBannerClockText = "";
+        System.Drawing.Color happyHourBannerClockColor = System.Drawing.Color.FromArgb(215, 170, 77);
         int happyHourBannerRequiredWidth = 620;
         bool happyHourBannerLayoutLogged;
         System.Windows.Forms.Timer? happyHourTicker;
@@ -1193,78 +1192,86 @@ metrics();
         // Measure the ACTUAL rendered fonts so the rainbow title, green XP
         // text and countdown never occupy overlapping or clipped rectangles.
         // The entire title plate grows to fit, without changing text sizes.
+        // Paint the whole message on ONE surface. Separate WinForms labels
+        // added layout padding, swallowed the '-' glyph and clipped words.
+        // Measuring with the SAME GDI renderer used for drawing gives
+        // natural single-space separation and no label wrapping.
+        static System.Windows.Forms.TextFormatFlags HappyHourLineFlags =>
+            System.Windows.Forms.TextFormatFlags.NoPadding |
+            System.Windows.Forms.TextFormatFlags.NoPrefix |
+            System.Windows.Forms.TextFormatFlags.SingleLine |
+            System.Windows.Forms.TextFormatFlags.VerticalCenter;
+
+        static int HappyHourRunWidth(string value, System.Drawing.Font font) =>
+            System.Windows.Forms.TextRenderer.MeasureText(value, font,
+                new System.Drawing.Size(4096, 32), HappyHourLineFlags).Width;
+
+        // The banner uses compact unpadded seconds, while the original large
+        // alert retains its established clock formatting.
+        static string HappyHourBannerTime(DateTimeOffset end)
+        {
+            int seconds = (int)Math.Max(0, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalSeconds));
+            return "(" + (seconds / 60) + "m " + (seconds % 60) + "s)";
+        }
+
         void LayoutHappyHourBannerContents()
         {
-            if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null ||
-                happyHourBannerSeparator == null || happyHourBannerBonus == null ||
-                happyHourBannerCountdown == null) return;
-
-            var inset = happyHourBannerTitleInset;
-            var rainbow = happyHourBannerRainbow;
-            var separator = happyHourBannerSeparator;
-            var bonus = happyHourBannerBonus;
-            var countdown = happyHourBannerCountdown;
-            var measureFlags = System.Windows.Forms.TextFormatFlags.NoPadding |
-                System.Windows.Forms.TextFormatFlags.NoPrefix |
-                System.Windows.Forms.TextFormatFlags.SingleLine;
-            static int NaturalWidth(Label label,
-                System.Windows.Forms.TextFormatFlags flags)
-            {
-                if (string.IsNullOrEmpty(label.Text)) return 0;
-                // The label's own preferred width prevents wrapping on
-                // Windows at larger display scales. The earlier two-em
-                // reserve made huge empty gaps BETWEEN all three labels.
-                // Keep the preferred width and a small final safety margin.
-                int preferred = label.GetPreferredSize(System.Drawing.Size.Empty).Width;
-                int singleLine = System.Windows.Forms.TextRenderer.MeasureText(
-                    label.Text, label.Font, new System.Drawing.Size(4096, 64),
-                    flags).Width;
-                return Math.Max(preferred, singleLine) + 8;
-            }
-
+            if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
             string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
-            int rainbowWidth = heading.Sum(letter => System.Windows.Forms.TextRenderer.MeasureText(
-                letter.ToString(), rainbow.Font, new System.Drawing.Size(100, 32),
-                measureFlags).Width) + 5;
-
-            int x = 8;
-            rainbow.SetBounds(x, 0, rainbowWidth, 32);
-            x += rainbowWidth;
-
-            if (separator.Visible) {
-                // A dash needs only its glyph width, not the same generous
-                // width as the sentence labels. Keep it centered between
-                // the rainbow heading and the green bonus.
-                x += 4;
-                const int separatorWidth = 13;
-                separator.SetBounds(x, 1, separatorWidth, 30);
-                x += separatorWidth;
+            using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
+            using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
+            int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
+                happyHourBannerRainbow.Font));
+            if (!happyHourDemo) {
+                width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
+                width += HappyHourRunWidth("Mastery Points Are Doubled!", greenFont);
+                width += HappyHourRunWidth(" ", greenFont);
+                width += HappyHourRunWidth(happyHourBannerClockText, timerFont);
             }
-            if (bonus.Visible && bonus.Text.Length > 0) {
-                x += 5;
-                int width = NaturalWidth(bonus, measureFlags);
-                bonus.SetBounds(x, 1, width, 30);
-                x += width;
-            }
-            if (countdown.Visible && countdown.Text.Length > 0) {
-                x += 7;
-                int width = NaturalWidth(countdown, measureFlags);
-                countdown.SetBounds(x, 1, width, 30);
-                x += width;
-            }
-            inset.SetBounds(44, 7, x + 6, 32);
-            happyHourBannerRequiredWidth = inset.Right + 10;
+            width += 8;
+            happyHourBannerRainbow.SetBounds(0, 0, width, 32);
+            happyHourBannerTitleInset.SetBounds(44, 7, width, 32);
+            happyHourBannerRequiredWidth = happyHourBannerTitleInset.Right + 10;
             if (!happyHourBannerLayoutLogged) {
                 happyHourBannerLayoutLogged = true;
-                Log("HAPPY HOUR | Measured banner layout: total=" +
-                    happyHourBannerRequiredWidth +
-                    "px; heading=" + rainbow.Width +
-                    "px; green=" + bonus.Width +
-                    "px; countdown=" + countdown.Width +
-                    "px; greenText='" + bonus.Text +
-                    "'; countdownText='" + countdown.Text + "'");
+                Log("HAPPY HOUR | Single-line banner measured width=" +
+                    happyHourBannerRequiredWidth + "; text='" + heading +
+                    (happyHourDemo ? "" : " - Mastery Points Are Doubled! " +
+                    happyHourBannerClockText) + "'");
             }
-            rainbow.Invalidate();
+            happyHourBannerRainbow.Invalidate();
+        }
+
+        void PaintHappyHourBannerLine(System.Drawing.Graphics graphics,
+            System.Drawing.Font headingFont)
+        {
+            string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
+            string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
+                "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
+            int x = 8;
+            void DrawSegment(string value, System.Drawing.Font font,
+                System.Drawing.Color color)
+            {
+                if (value.Length == 0) return;
+                int width = HappyHourRunWidth(value, font);
+                System.Windows.Forms.TextRenderer.DrawText(graphics, value, font,
+                    new System.Drawing.Rectangle(x, 0, width + 2, 32),
+                    color, HappyHourLineFlags);
+                x += width;
+            }
+            for (int i = 0; i < heading.Length; i++)
+                DrawSegment(heading[i].ToString(), headingFont,
+                    System.Drawing.ColorTranslator.FromHtml(colors[i % colors.Length]));
+            if (happyHourDemo) return;
+            // Literal spaces surrounding a visible hyphen, as requested:
+            // HAPPY HOUR ACTIVE - Mastery Points Are Doubled! (60m 0s)
+            DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
+            using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
+            using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
+            DrawSegment("Mastery Points Are Doubled!", greenFont,
+                System.Drawing.Color.FromArgb(55, 216, 70));
+            DrawSegment(" ", greenFont, System.Drawing.Color.FromArgb(215, 170, 77));
+            DrawSegment(happyHourBannerClockText, timerFont, happyHourBannerClockColor);
         }
 
         void RefreshHappyHourBanner()
@@ -1339,58 +1346,18 @@ metrics();
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
                     Font = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Bold)
                 };
-                rainbow.SetBounds(8, 0, 1, 32);
+                rainbow.SetBounds(0, 0, 1, 32);
                 titleInset.Controls.Add(rainbow);
-                rainbow.Paint += (_, e) => {
-                    // Historical HH previews use the same heading. The real
-                    // Discord timestamp (not the heading) conveys expiry via 0m 00s.
-                    string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
-                    string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
-                        "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
-                    var flags = System.Windows.Forms.TextFormatFlags.NoPadding |
-                        System.Windows.Forms.TextFormatFlags.VerticalCenter |
-                        System.Windows.Forms.TextFormatFlags.SingleLine |
-                        System.Windows.Forms.TextFormatFlags.NoPrefix;
-                    int[] widths = heading.Select(c => System.Windows.Forms.TextRenderer.MeasureText(
-                        c.ToString(), rainbow.Font, new System.Drawing.Size(100, 32), flags).Width).ToArray();
-                    int x = 0;
-                    for (int i = 0; i < heading.Length; i++) {
-                        int width = widths[i];
-                        System.Windows.Forms.TextRenderer.DrawText(e.Graphics,
-                            heading[i].ToString(), rainbow.Font,
-                            new System.Drawing.Rectangle(x, 0, width + 2, 32),
-                            System.Drawing.ColorTranslator.FromHtml(colors[i % colors.Length]), flags);
-                        x += width;
-                    }
-                };
-                // Labels start at minimal widths; their full sizes and
-                // positions come from the measured layout on every update.
-                var separator = GoldText("-", 0, 1, 1, 30, 12, true);
-                separator.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
-                titleInset.Controls.Add(separator);
-                var activated = GoldText("", 0, 1, 1, 30, 12, true);
-                activated.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-                activated.ForeColor = System.Drawing.Color.FromArgb(55, 216, 70);
-                activated.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
-                titleInset.Controls.Add(activated);
-                var left = GoldText("", 0, 1, 1, 30, 11, true);
-                left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-                left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
-                titleInset.Controls.Add(left);
+                rainbow.Paint += (_, e) => PaintHappyHourBannerLine(e.Graphics, rainbow.Font);
                 happyHourBannerTitleInset = titleInset;
                 happyHourBannerRainbow = rainbow;
-                happyHourBannerSeparator = separator;
-                happyHourBannerBonus = activated;
-                happyHourBannerCountdown = left;
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
                     if (ReferenceEquals(happyHourBanner, banner)) {
                         happyHourBanner = null;
                         happyHourBannerTitleInset = null;
                         happyHourBannerRainbow = null;
-                        happyHourBannerSeparator = null;
-                        happyHourBannerBonus = null;
-                        happyHourBannerCountdown = null;
+                        happyHourBannerClockText = "";
                         happyHourBannerRequiredWidth = 620;
                         happyHourBannerLayoutLogged = false;
                     }
@@ -1403,19 +1370,13 @@ metrics();
                     lastHappyHourAlertId + "; expires=" +
                     happyHourEndsAt.ToString("O"));
             }
-            if (happyHourBannerCountdown != null) {
+            if (happyHourBannerRainbow != null) {
                 bool active = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow;
-                // The real Discord snowflake remains authoritative even in
-                // development preview mode. Never invent remaining time.
-                happyHourBannerCountdown.Text = happyHourDemo ? "" :
-                    "(" + HappyHourRemaining(happyHourEndsAt) + " left)";
-                if (happyHourBannerSeparator != null)
-                    happyHourBannerSeparator.Visible = !happyHourDemo;
-                if (happyHourBannerBonus != null) {
-                    happyHourBannerBonus.Visible = !happyHourDemo;
-                    happyHourBannerBonus.Text = happyHourDemo ? "" : "Mastery Points Are Doubled!";
-                }
-                happyHourBannerCountdown.ForeColor = active
+                // Always derive time from the original Discord snowflake,
+                // including an exact zero for expired development previews.
+                happyHourBannerClockText = happyHourDemo ? "" :
+                    HappyHourBannerTime(happyHourEndsAt);
+                happyHourBannerClockColor = active
                     ? HappyHourTimerColor(happyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
                 LayoutHappyHourBannerContents();
