@@ -584,10 +584,54 @@ metrics();
         }
 
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
+        readonly System.Collections.Generic.Dictionary<string, bool> happyHourImageClassification = new();
         readonly System.Collections.Generic.HashSet<string> pendingImages = new();
         readonly System.Collections.Generic.Dictionary<string, DateTime> failedImages = new();
         static readonly System.Net.Http.HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
         bool imagesNeedRedraw;
+
+        // The real Yagrum activation is a small rainbow-on-black image:
+        // red/yellow at the left, cyan/violet in the middle and sustained
+        // green lettering on the right. Compare decoded pixels, not body text
+        // or attachment filenames. The original Discord snowflake still
+        // supplies the ONLY event timestamp.
+        static bool LooksLikeHappyHourImage(System.Drawing.Image source)
+        {
+            if (source is not System.Drawing.Bitmap bitmap) return false;
+            int w = bitmap.Width, h = bitmap.Height;
+            if (w < 120 || h < 8 || w < h * 5) return false;
+            int red = 0, yellow = 0, cyan = 0, violet = 0, green = 0;
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                if (pixel.A < 70) continue;
+                int r = pixel.R, g = pixel.G, b = pixel.B;
+                double position = (double)x / w;
+                if (position < .19 && r > 110 && r > g * 1.45 && r > b * 1.4) red++;
+                if (position > .05 && position < .30 && r > 140 && g > 100 && b < 100 &&
+                    r > b * 1.6 && g > b * 1.4) yellow++;
+                if (position > .07 && position < .38 && b > 120 && g > 105 && r < 120) cyan++;
+                if (position > .20 && position < .58 && r > 75 && b > 95 &&
+                    g < Math.Max(r, b) * .8) violet++;
+                if (position > .50 && g > 110 && g > r * 1.5 && g > b * 1.3) green++;
+            }
+            return red >= 10 && yellow >= 8 && cyan >= 6 &&
+                   violet >= 10 && green >= 30;
+        }
+
+        bool IsVerifiedHappyHourImageUrl(string url)
+        {
+            if (happyHourImageClassification.TryGetValue(url, out bool verified))
+                return verified;
+            if (!imageCache.TryGetValue(url, out var image)) return false;
+            verified = LooksLikeHappyHourImage(image);
+            happyHourImageClassification[url] = verified;
+            if (verified)
+                Log("HAPPY HOUR | Matched rainbow announcement image pixels from Discord attachment");
+            return verified;
+        }
+
         async Task FetchChatImage(string url)
         {
             if (imageCache.ContainsKey(url) || (failedImages.TryGetValue(url, out var retryAt) && DateTime.UtcNow < retryAt) || !pendingImages.Add(url)) return;
