@@ -130,6 +130,11 @@ CreateSkoomaVision()
     AddSkoomaPiece(layer, 876, 223, 14, "✧", "F1BF87")
     AddSkoomaPiece(layer, 46, 480, 14, "✦", "C09BFA")
     AddSkoomaPiece(layer, 882, 470, 14, "✦", "83DBBC")
+    ; Ghostly, slow-moving cloud accents hug the outside of screenshot panels.
+    AddSkoomaPiece(layer, 10, 118, 18, "☁", "654883")
+    AddSkoomaPiece(layer, 897, 125, 18, "☁", "497E75")
+    AddSkoomaPiece(layer, 7, 555, 17, "☁", "5A477D")
+    AddSkoomaPiece(layer, 905, 552, 17, "☁", "476F70")
     ; A subdued indicator on the empty upper title strip. The official
     ; Happy Hour banner above the launcher remains unchanged.
     layer.SetFont("s10 Bold cA1E5CD", "Georgia")
@@ -228,6 +233,13 @@ SkoomaVisionTick(*)
             continue
         color := colors[Mod(SkoomaVisionPhase + i - 1, colors.Length) + 1]
         piece.Control.SetFont("c" color)
+        ; Two-pixel breathing drift instead of flashing or moving the page.
+        drift := SkoomaVisionPhase < 4 ? 2 : 0
+        pw := piece.HasOwnProp("Width") ? piece.Width : 70
+        ph := piece.HasOwnProp("Height") ? piece.Height : 55
+        piece.Control.Move(Round((piece.X + drift) * scaleX),
+            Round((piece.Y + drift) * scaleY), Round(pw * scaleX),
+            Round(ph * scaleY))
     }
 }
 
