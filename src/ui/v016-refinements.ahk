@@ -879,7 +879,7 @@ try {
 
 ShowResetAppDataActions(*)
 {
-    global AppDataDirectory, LauncherDataResetting
+    global AppDataDirectory, LauncherDataResetting, EmbeddedChatPid
     choice := MsgBox("Yes: Open the AppData folder`nNo: Reset AppData`nCancel: Return", "tes3np — Reset AppData", "YesNoCancel Icon?")
     if choice = "Yes"
         return OpenLauncherDataFolder()
@@ -899,7 +899,28 @@ ShowResetAppDataActions(*)
     ; ChatHost continuously indexes Discord history. Stop this owned process
     ; and game recovery BEFORE deleting the shared Roaming AppData root.
     StopClient()
+    chatPid := EmbeddedChatPid
     StopEmbeddedInGameChat()
+    ; ProcessClose requests termination but may return before Windows has
+    ; released WebView2 files. Never delete a profile while its writer lives.
+    if chatPid
+    {
+        try stillRunning := ProcessWaitClose(chatPid, 5)
+        catch as err
+        {
+            MsgBox("Could not confirm that Game Chat closed: " err.Message
+                "`n`nNo launcher data was deleted. Restart TES3NP before retrying.",
+                "tes3np — Reset AppData", "Icon!")
+            return
+        }
+        if stillRunning
+        {
+            MsgBox("Game Chat is still closing. No launcher data was deleted."
+                "`n`nRestart TES3NP before retrying the reset.",
+                "tes3np — Reset AppData", "Icon!")
+            return
+        }
+    }
     LauncherDataResetting := true
     try
     {
