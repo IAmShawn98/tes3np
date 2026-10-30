@@ -151,8 +151,10 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
         Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
         UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
         LoadDelay: profile.LoadDelay, Queue: queue,
-        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : [], ProcessHandle: 0}
-    SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
+        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : [], ProcessHandle: 0,
+        LoginCompletionPending: false}
+    BeginGameLoginProgress(profile.Name)
+    SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
 }
@@ -170,7 +172,8 @@ StopClient(*)
         Client.ProcessHandle := 0
     }
     SetTimer(ClientTick, 0)
-    SetTimer(UpdateGameStatusTooltip, 0)
+    SetTimer(UpdateGameLoginProgress, 0)
+    DismissGameLoginProgress()
     ToolTip(, , , 1)
     SetClientStatus("Recovery stopped. You can close the game normally.")
     if wasEnabled
@@ -183,61 +186,7 @@ SetClientStatus(text)
     Client.Status := text
     if IsSet(SessionStatus)
         SessionStatus.Text := text
-    UpdateGameStatusTooltip()
-}
-
-UpdateGameStatusTooltip(*)
-{
-    global Client
-    static lastText := "", lastX := -1, lastY := -1
-    try
-    {
-        if !Client.Enabled || Client.Phase = "playing" || !Client.HWND || !Client.HasOwnProp("Status")
-            throw Error("No active game status")
-        target := "ahk_id " Client.HWND
-        if !WinActive(target) || WinGetPID(target) != Client.PID || !InStr(WinGetClass(target), "SDL")
-            throw Error("Game is not the active window")
-        if WinGetMinMax(target) = -1
-            throw Error("Game is minimized")
-        point := Buffer(8, 0)
-        loginEntry := Client.Phase = "username" || Client.Phase = "password"
-        clientRect := Buffer(16, 0)
-        if !DllCall("GetClientRect", "Ptr", Client.HWND, "Ptr", clientRect)
-            throw Error("Game dimensions unavailable")
-        width := NumGet(clientRect, 8, "Int"), height := NumGet(clientRect, 12, "Int")
-        localX := loginEntry ? Round(width / 2) : 16
-        localY := loginEntry ? Max(16, Round(height / 2 - 75)) : 16
-        NumPut("Int", localX, "Int", localY, point)
-        if !DllCall("ClientToScreen", "Ptr", Client.HWND, "Ptr", point)
-            throw Error("Game window is unavailable")
-        x := NumGet(point, 0, "Int"), y := NumGet(point, 4, "Int")
-        text := "tes3np — " Client.Status
-        if text != lastText || x != lastX || y != lastY
-        {
-            CoordMode("ToolTip", "Screen")
-            ToolTip(text, x, y, 1)
-            if loginEntry
-            {
-                tooltipWindow := WinExist("ahk_class tooltips_class32 ahk_pid " ProcessExist())
-                if tooltipWindow
-                {
-                    WinGetPos(, , &tooltipWidth, &tooltipHeight, "ahk_id " tooltipWindow)
-                    origin := Buffer(8, 0)
-                    DllCall("ClientToScreen", "Ptr", Client.HWND, "Ptr", origin)
-                    left := NumGet(origin, 0, "Int")
-                    tooltipX := Max(left, Min(x - Round(tooltipWidth / 2), left + width - tooltipWidth))
-                    DllCall("SetWindowPos", "Ptr", tooltipWindow, "Ptr", 0,
-                        "Int", tooltipX, "Int", y, "Int", 0, "Int", 0, "UInt", 0x15)
-                }
-            }
-            lastText := text, lastX := x, lastY := y
-        }
-    }
-    catch
-    {
-        ToolTip(, , , 1)
-        lastText := "", lastX := -1, lastY := -1
-    }
+    UpdateGameLoginProgress()
 }
 
 FindGameWindow(pid)
@@ -375,6 +324,7 @@ ClientTick()
                 else
                 {
                     Client.Phase := "username"
+                    SetGameLoginProgressStage(1)
                     Client.Deadline := A_TickCount + Client.UsernameDelay * 1000
                     SetClientStatus("Waiting for username screen — " Client.UsernameDelay " seconds.")
                     LogLauncherEvent("GAME | Login stage | Waiting for username screen.")
@@ -417,6 +367,15 @@ ClientTick()
         {
             if Client.HasOwnProp("ScheduledLoginAction") && Client.ScheduledLoginAction = "LoginUpTo4"
             {
+                ; The configured load delay has elapsed. Leave this game running
+                ; while the requested five-second completion card is shown.
+                if !Client.LoginCompletionPending
+                {
+                    Client.LoginCompletionPending := true
+                    Client.Deadline := A_TickCount + 5000
+                    CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
+                    return
+                }
                 keptPids := Client.HasOwnProp("KeptPids") ? Client.KeptPids : []
                 keptPids.Push(Client.PID)
                 RememberTES3NPGameClient(Client.PID)
@@ -442,6 +401,7 @@ ClientTick()
             Client.Phase := "claim"
             Client.Deadline := A_TickCount + AppConfig.ClaimWaitMs
             SetClientStatus("Waiting 10 seconds for " Client.Profile.Name " before closing.")
+            CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
             LogLauncherEvent("GAME | Login inputs completed | Batch character loaded; waiting for claim period.")
             return
         }
@@ -453,7 +413,9 @@ ClientTick()
             LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
             ; Completed manual logins no longer hold the one-at-a-time login
             ; watchdog. Keep the game running and allow another launch.
+            finishedName := Client.Profile.Name, finishedPid := Client.PID, finishedHwnd := Client.HWND
             StopClient()
+            CompleteGameLoginProgress(finishedName, finishedPid, finishedHwnd)
             return
         }
         WinActivate("ahk_id " hwnd)
@@ -461,20 +423,24 @@ ClientTick()
             throw Error("Could not focus game window")
         if Client.Phase = "username"
         {
+            SetGameLoginProgressStage(2)
             SetClientStatus("Entering username...")
             LogLauncherEvent("GAME | Login stage | Entering username.")
             SendText(Client.Profile.Name)
             Send("{Enter}")
+            SetGameLoginProgressStage(3)
             Client.Phase := "password"
             Client.Deadline := A_TickCount + Client.PasswordDelay * 1000
             SetClientStatus("Waiting for password screen — " Client.PasswordDelay " seconds.")
         }
         else if Client.Phase = "password"
         {
+            SetGameLoginProgressStage(4)
             SetClientStatus("Entering password...")
             LogLauncherEvent("GAME | Login stage | Entering password. Password value not logged.")
             SendText(Client.Profile.Password)
             Send("{Enter}")
+            SetGameLoginProgressStage(5)
             Client.Phase := "loading"
             Client.Deadline := A_TickCount + Client.LoadDelay * 1000
             SetClientStatus("Loading character — " Client.LoadDelay " seconds.")
