@@ -3,11 +3,8 @@ global LoginProgressGui := 0
 global LoginProgressHeading := 0
 global LoginProgressRows := []
 global LoginProgressFooter := 0
-global LoginProgressSeparator := 0
-global LoginProgressTopSeparator := 0
 global LoginProgressIcon := 0
 global LoginProgressCharacterName := 0
-global LoginProgressBorder := []
 global LoginProgressSummaryDots := []
 global LoginProgressStageStarted := 0
 global LoginProgressFinished := false
@@ -97,9 +94,8 @@ DismissGameLoginProgress()
 
 DisposeGameLoginProgress()
 {
-    global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter, LoginProgressSeparator
-    global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
-    global LoginProgressCharacterName, LoginProgressBorder
+    global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter
+    global LoginProgressIcon, LoginProgressCharacterName, LoginProgressSummaryDots
     DismissGameLoginProgress()
     if IsObject(LoginProgressGui)
         try LoginProgressGui.Destroy()
@@ -107,11 +103,8 @@ DisposeGameLoginProgress()
     LoginProgressRows := []
     LoginProgressHeading := 0
     LoginProgressFooter := 0
-    LoginProgressSeparator := 0
-    LoginProgressTopSeparator := 0
     LoginProgressIcon := 0
     LoginProgressCharacterName := 0
-    LoginProgressBorder := []
     LoginProgressSummaryDots := []
 }
 
@@ -266,8 +259,10 @@ RenderGameLoginProgress()
             dirty := true
         }
     }
-    status := complete ? "Login Complete!" :
-        ["Loading name screen...", "Typing name...",
+    if complete
+        status := "Login Complete!"
+    else
+        status := ["Loading name screen...", "Typing name...",
             "Loading password screen...", "Typing password..."][stage]
     if LoginProgressFooter.Text != status
     {
