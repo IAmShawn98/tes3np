@@ -1211,17 +1211,15 @@ metrics();
                 System.Windows.Forms.TextFormatFlags flags)
             {
                 if (string.IsNullOrEmpty(label.Text)) return 0;
-                // The previous measurement was too narrow for Label's own
-                // word-wrapping layout: it hid "Doubled!" and "left)" on a
-                // high-DPI display. Compare the LABEL's preferred width with
-                // GDI's single-line width, then reserve two full ems of slack.
-                // Both the preferred size and the rendered text now fit.
+                // The label's own preferred width prevents wrapping on
+                // Windows at larger display scales. The earlier two-em
+                // reserve made huge empty gaps BETWEEN all three labels.
+                // Keep the preferred width and a small final safety margin.
                 int preferred = label.GetPreferredSize(System.Drawing.Size.Empty).Width;
                 int singleLine = System.Windows.Forms.TextRenderer.MeasureText(
                     label.Text, label.Font, new System.Drawing.Size(4096, 64),
                     flags).Width;
-                int padding = Math.Max(24, label.Font.Height * 2);
-                return Math.Max(preferred, singleLine) + padding;
+                return Math.Max(preferred, singleLine) + 8;
             }
 
             string heading = happyHourDemo ? "HAPPY HOUR" : "HAPPY HOUR ACTIVE";
@@ -1234,24 +1232,27 @@ metrics();
             x += rainbowWidth;
 
             if (separator.Visible) {
-                x += 9;
-                int width = NaturalWidth(separator, measureFlags);
-                separator.SetBounds(x, 1, width, 30);
-                x += width;
+                // A dash needs only its glyph width, not the same generous
+                // width as the sentence labels. Keep it centered between
+                // the rainbow heading and the green bonus.
+                x += 4;
+                const int separatorWidth = 13;
+                separator.SetBounds(x, 1, separatorWidth, 30);
+                x += separatorWidth;
             }
             if (bonus.Visible && bonus.Text.Length > 0) {
-                x += 8;
+                x += 5;
                 int width = NaturalWidth(bonus, measureFlags);
                 bonus.SetBounds(x, 1, width, 30);
                 x += width;
             }
             if (countdown.Visible && countdown.Text.Length > 0) {
-                x += 12;
+                x += 7;
                 int width = NaturalWidth(countdown, measureFlags);
                 countdown.SetBounds(x, 1, width, 30);
                 x += width;
             }
-            inset.SetBounds(44, 7, x + 12, 32);
+            inset.SetBounds(44, 7, x + 6, 32);
             happyHourBannerRequiredWidth = inset.Right + 10;
             if (!happyHourBannerLayoutLogged) {
                 happyHourBannerLayoutLogged = true;
