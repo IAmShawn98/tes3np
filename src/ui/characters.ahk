@@ -232,6 +232,7 @@ CloseCharacterPage(*)
 EditProfile(index, *)
 {
     global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, EditorSpeciesDropDown, LaunchSettingsHeading, LaunchSettingsControls
+    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -266,7 +267,13 @@ EditProfile(index, *)
         for optionIndex, option in CharacterSpeciesOptions()
             if option = species
                 speciesIndex := optionIndex + 1
+        EditorOriginalPortraitFile := profile.HasOwnProp("PortraitFile") ? NormalizeCustomPortraitFile(profile.PortraitFile) : ""
+        EditorOriginalPortraitSource := ""
+        EditorOriginalSpecies := species
+        if EditorOriginalPortraitFile != ""
+            speciesIndex := CharacterSpeciesOptions().Length + 2
         EditorSpeciesDropDown.Choose(speciesIndex)
+        EditorPreviousSpeciesChoice := speciesIndex
         ScrollEditorRows(0)
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
@@ -274,6 +281,7 @@ EditProfile(index, *)
         ButtonFaces[EditorSaveButton.Hwnd].Action := SaveProfileEditor.Bind(index, EditorFields, editor)
         for control in EditorControls
             control.Visible := true
+        UpdateOriginalSpeciesHint()
         EditorTrack.Visible := false
         EditorThumb.Visible := false
     }
@@ -284,7 +292,7 @@ EditProfile(index, *)
 
 CreateProfileEditor()
 {
-    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorReconnectTick, EditorSpeciesDropDown
+    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorReconnectTick, EditorSpeciesDropDown, EditorOCSpeciesHint
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
@@ -307,9 +315,15 @@ CreateProfileEditor()
     speciesOptions := ["Select species..."]
     for item in CharacterSpeciesOptions()
         speciesOptions.Push(item)
+    speciesOptions.Push("Original Character")
     EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
         "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
-    EditorControls.Push(speciesLabel, EditorSpeciesDropDown)
+    EditorSpeciesDropDown.OnEvent("Change", ChooseOriginalCharacterPortrait)
+    CharacterPage.SetFont("s9 c382314", "Segoe UI")
+    EditorOCSpeciesHint := CharacterPage.Add("Text",
+        "x525 y399 w355 h16 Hidden BackgroundTrans c382314", "")
+    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
     SetInterfaceLoadingText("Loading settings scrollbar...")
     EditorTrack := CharacterPage.Add("Text", "x890 y210 w7 h213 Hidden Background704C27 +0x100")
     EditorThumb := CharacterPage.Add("Text", "x890 y210 w7 h110 Hidden BackgroundC69951 +0x100")
@@ -324,6 +338,163 @@ CreateProfileEditor()
     EditorControls.Push(EditorSaveButton)
     dismiss := AddStyledButton(CharacterPage, 685, 507, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
+}
+
+; Keep the existing race list intact. "Original Character" is the only
+; presentation-only entry; the real species is chosen in a separate dialog.
+UpdateOriginalSpeciesHint()
+{
+    global EditorSpeciesDropDown, EditorOCSpeciesHint, EditorOriginalSpecies
+    isOriginal := EditorSpeciesDropDown.Text = "Original Character"
+    EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
+        ? "Species: " EditorOriginalSpecies : ""
+    EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
+}
+
+ChooseOriginalCharacterPortrait(control, *)
+{
+    global EditorPreviousSpeciesChoice, EditorOriginalPortraitSource
+    global EditorOriginalPortraitFile, EditorOriginalSpecies
+
+    if control.Text != "Original Character"
+    {
+        EditorPreviousSpeciesChoice := control.Value
+        EditorOriginalPortraitSource := ""
+        EditorOriginalPortraitFile := ""
+        EditorOriginalSpecies := ""
+        UpdateOriginalSpeciesHint()
+        return
+    }
+
+    ; File picker cancellation or rejection leaves the previous selection
+    ; and any previously saved picture untouched.
+    oldChoice := EditorPreviousSpeciesChoice
+    source := FileSelect(1, , "Choose a 512 x 512 character portrait",
+        "Images (*.png; *.jpg; *.jpeg; *.bmp)")
+    if source = ""
+    {
+        control.Choose(oldChoice)
+        return
+    }
+    if !IsValidOriginalCharacterImage(source)
+    {
+        MsgBox("Image rejected. Original Character portraits must be exactly "
+            "512 x 512 pixels, in PNG, JPG, JPEG, or BMP format, and no larger than 10 MB.",
+            "Portrait rejected", "Icon!")
+        control.Choose(oldChoice)
+        return
+    }
+    species := PromptOriginalCharacterSpecies(EditorOriginalSpecies)
+    if species = ""
+    {
+        control.Choose(oldChoice)
+        return
+    }
+    EditorOriginalPortraitSource := source
+    EditorOriginalPortraitFile := ""
+    EditorOriginalSpecies := species
+    EditorPreviousSpeciesChoice := control.Value
+    UpdateOriginalSpeciesHint()
+}
+
+IsValidOriginalCharacterImage(source)
+{
+    if !RegExMatch(source, "i)\.(png|jpg|jpeg|bmp)$")
+        return false
+    bitmap := 0
+    try
+    {
+        if FileGetSize(source) > 10485760
+            return false
+        imageKind := -1
+        bitmap := LoadPicture(source, "", &imageKind)
+        if !bitmap || imageKind != 0
+            return false
+        bitmapData := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+        if DllCall("GetObjectW", "Ptr", bitmap, "Int", bitmapData.Size,
+            "Ptr", bitmapData, "Int") < 16
+            return false
+        return NumGet(bitmapData, 4, "Int") = 512
+            && NumGet(bitmapData, 8, "Int") = 512
+    }
+    catch
+        return false
+    finally
+    {
+        if bitmap
+            DllCall("DeleteObject", "Ptr", bitmap)
+    }
+}
+
+; Open a native owned dialog after a valid image has been chosen. This species
+; is saved normally and shown beneath the Original Character dropdown entry.
+PromptOriginalCharacterSpecies(current := "")
+{
+    global CharacterPage
+    outcome := {Species: ""}
+    dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox",
+        "Original Character species")
+    dialog.BackColor := "E2CEA2"
+    dialog.SetFont("s10 c382314", "Segoe UI")
+    dialog.Add("Text", "x20 y17 w320 h40",
+        "Which Morrowind species is your original character?")
+    options := ["Select species..."]
+    for race in CharacterSpeciesOptions()
+        options.Push(race)
+    selected := dialog.Add("DropDownList", "x20 y65 w320 Choose1", options)
+    for i, race in CharacterSpeciesOptions()
+        if race = current
+            selected.Choose(i + 1)
+    confirm := dialog.Add("Button", "x148 y110 w90 h29 Default", "Confirm")
+    cancel := dialog.Add("Button", "x250 y110 w90 h29", "Cancel")
+    confirm.OnEvent("Click", ConfirmOriginalCharacterSpecies.Bind(dialog, selected, outcome))
+    cancel.OnEvent("Click", (*) => dialog.Hide())
+    dialog.OnEvent("Close", (*) => dialog.Hide())
+    dialog.OnEvent("Escape", (*) => dialog.Hide())
+    CharacterPage.Opt("+Disabled")
+    try
+    {
+        dialog.Show("w360 h155")
+        WinWaitClose("ahk_id " dialog.Hwnd)
+    }
+    finally
+    {
+        CharacterPage.Opt("-Disabled")
+        dialog.Destroy()
+    }
+    return outcome.Species
+}
+
+ConfirmOriginalCharacterSpecies(dialog, selected, outcome, *)
+{
+    species := NormalizeCharacterSpecies(selected.Text)
+    if species = ""
+    {
+        MsgBox("Choose your original character's actual species.", "Species required", "Icon!")
+        return
+    }
+    outcome.Species := species
+    dialog.Hide()
+}
+
+; Copy the accepted image only when Save/Add is confirmed. Original paths are
+; not stored in settings; a private, generated filename survives app updates.
+InstallOriginalCharacterPortrait(source)
+{
+    if !IsValidOriginalCharacterImage(source)
+        throw Error("The selected image is no longer a valid 512 x 512 portrait.")
+    SplitPath(source, , , &extension)
+    uuid := Buffer(16, 0)
+    if DllCall("ole32\CoCreateGuid", "Ptr", uuid, "Int") != 0
+        throw Error("Could not allocate a portrait filename.")
+    filename := ""
+    Loop 16
+        filename .= Format("{:02x}", NumGet(uuid, A_Index - 1, "UChar"))
+    filename .= "." StrLower(extension)
+    target := GetCustomPortraitPath(filename)
+    DirCreate(AppDataDirectory "\portraits")
+    FileCopy(source, target)
+    return filename
 }
 
 CloseProfileEditor(*)
@@ -464,6 +635,7 @@ BrowseSharedExecutable(*)
 SaveProfileEditor(index, fields, editor, *)
 {
     global Profiles, SelectedProfile, MaxCharacters, EditorReconnectTick, EditorSpeciesDropDown, ButtonFaces
+    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -475,10 +647,17 @@ SaveProfileEditor(index, fields, editor, *)
         MsgBox("Enter a player name and password.", "tes3np")
         return
     }
-    species := NormalizeCharacterSpecies(EditorSpeciesDropDown.Text)
+    isOriginal := EditorSpeciesDropDown.Text = "Original Character"
+    species := isOriginal ? NormalizeCharacterSpecies(EditorOriginalSpecies)
+        : NormalizeCharacterSpecies(EditorSpeciesDropDown.Text)
     if !index && species = ""
     {
         MsgBox("Choose a species for the new character.", "tes3np")
+        return
+    }
+    if isOriginal && species = ""
+    {
+        MsgBox("Choose the actual species for this original character.", "tes3np")
         return
     }
     for key in ["UsernameDelay", "PasswordDelay", "LoadDelay"]
@@ -487,9 +666,32 @@ SaveProfileEditor(index, fields, editor, *)
             MsgBox("Each login delay must be between 1 and 300 seconds.", "tes3np")
             return
         }
+    portraitFile := ""
+    if isOriginal
+    {
+        if EditorOriginalPortraitSource != ""
+        {
+            try portraitFile := InstallOriginalCharacterPortrait(EditorOriginalPortraitSource)
+            catch Error as err
+            {
+                MsgBox("Portrait could not be saved. " err.Message, "tes3np", "Icon!")
+                return
+            }
+        }
+        else
+        {
+            portraitFile := NormalizeCustomPortraitFile(EditorOriginalPortraitFile)
+            if portraitFile = "" || !FileExist(GetCustomPortraitPath(portraitFile))
+            {
+                MsgBox("This character's custom portrait is missing. Select Original Character "
+                    "again to choose a valid 512 x 512 image.", "tes3np", "Icon!")
+                return
+            }
+        }
+    }
     ; Preserve the expansion-pack choice when editing an existing character.
     expansionPack := index ? (Profiles[index].HasOwnProp("UseExpansionPack") && Profiles[index].UseExpansionPack) : NewCharacterProfile().UseExpansionPack
-    profile := {Name: name, Password: fields["Password"].Value, Species: species,
+    profile := {Name: name, Password: fields["Password"].Value, Species: species, PortraitFile: portraitFile,
         UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
         AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked, UseExpansionPack: expansionPack}
     BeginInterfaceUpdate(0, "Saving character...", true)
