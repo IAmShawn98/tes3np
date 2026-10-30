@@ -119,13 +119,19 @@ each character's INI section and portable export/import. A selected species
 maps to `assets/icons/species/<slug>.ico` (lowercase with hyphens) when that
 portrait exists; otherwise the original TES3NP icon remains. Bundled builds
 already include nested assets automatically. The separate `Original Character`
-entry at the bottom of the editor dropdown opens an image picker, accepts only
-512 x 512 PNG/JPG/JPEG/BMP images up to 10 MB, and then prompts for the
-character's actual species in a small owned dialog. The race is shown directly
-below the editor dropdown and remains saved as the ordinary `Species` INI key.
-Each character can independently select an OC portrait. Only when the character
-is saved is the image copied to `%APPDATA%\tes3np\portraits` with a generated
-basename stored as `PortraitFile`; arbitrary source paths are never saved.
+entry at the bottom of the editor dropdown opens an image picker for
+PNG/JPG/JPEG/BMP files up to 10 MB, with a bounded decoded-pixel limit.
+It does not require the user to resize manually: on Save, the chosen image is
+silently center-cropped to a square, resized with GDI+ high-quality bicubic
+interpolation and saved as a transparent-capable 512 x 512 PNG under
+`%APPDATA%\tes3np\portraits`. Unsupported/corrupt or excessively large
+images are rejected; valid images receive no resizing notification.
+After a valid image is selected, an owned species dropdown asks for the
+character's actual Morrowind species, which is shown under the editor's
+Original Character selection and saved as the ordinary `Species` INI key.
+Each character can independently select an OC portrait. The file gets a
+generated basename stored as `PortraitFile` only when Save completes; arbitrary
+source paths are never saved.
 Cancelled or rejected selections preserve previous settings. At login the
 existing presentation-only card uses the saved image when present, falling back
 to the species ICO if it is missing. Input timing and game recovery are unchanged.
