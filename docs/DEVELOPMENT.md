@@ -55,6 +55,8 @@ Each compiled resource bundle extracts into its own `%APPDATA%\tes3np\resources\
 
 Each Windows build stages downloaded tools in its own temporary directory. A temporary-file sharing violation during cleanup is retried and reported as a warning; once compilation, resources and ZIP integrity have passed, that cleanup issue must not prevent `Build tes3np.bat` from unpacking and publishing the new root executable. Actual compilation, validation or packaging failures still stop the build and must not launch an older executable. The operator should close the running launcher before rebuilding.
 
+**Build SHA256 verification:** Three distinct integrity checks in `scripts/build-windows.ps1` (all extracted patch-manifest payloads, the official TES3MP archive, and the packaged markerless executable) use a streaming .NET SHA-256 helper rather than PowerShell's optional `Get-FileHash` cmdlet. Keep the expected-hash comparisons and fail-closed behavior. This addresses a Windows PowerShell 7.6.9 report where compilation succeeded but packaging stopped because `Get-FileHash` was not recognized. Windows confirmation of the next full package build remains pending.
+
 The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation. Legacy Happy Hour marker files in Local AppData are now inert and are not imported by Chat Host.
 
 ## Embedded Chat Host changes
@@ -110,9 +112,12 @@ so C# syntax errors are caught without waiting for the complete launcher build.
 Skooma Vision is a **visual** enhancement to the existing genuine
 Discord-backed banner—not a change to Happy Hour detection. Keep the
 approved ChatHost architecture check and the Windows ChatHost compile.
-The Windows build output is `dist\\tes3np-windows\\tes3np.exe`, not the
-checkout-root `tes3np.exe`: always launch the current package executable
-rather than a stale checkout-root binary. Check the freshly generated
+The packaging script writes `dist\\tes3np-windows\\tes3np.exe`. After a
+**successful** `Build tes3np.bat` run, the batch file also extracts the
+validated ZIP and copies the new launcher, TES3MP client and ChatHost into
+the checkout root; the freshly published root `tes3np.exe` is therefore
+safe to launch. If the build fails, launch neither an older root executable
+nor an incomplete `dist` copy. Check the freshly generated
 `dist\\tes3np-windows.zip` and validated packaging before launching.
 
 1. Use the tray option **Preview Skooma Vision (20 sec)** to test the
