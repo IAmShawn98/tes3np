@@ -13,7 +13,9 @@ TransferLauncherData(*)
 ExportLauncherData()
 {
     global Profiles, SelectedProfile, DataFile, CharacterPage, ScheduledEvents, ScheduledCountdownHotkey
-    if MsgBox("This portable backup includes your characters, settings, and readable passwords so it can work on another computer. Keep it private. Continue?", "Export Data", 0x124) != "Yes"
+    ; The v1 portable INI has no binary attachment container. Custom pictures
+    ; remain local; imported characters retain their real race and stock icon.
+    if MsgBox("This portable backup includes your characters, settings, and readable passwords. Original Character portrait images are stored locally and are NOT included in the INI backup. Keep it private. Continue?", "Export Data", 0x124) != "Yes"
         return
     path := FileSelect("S16", "tes3np-backup.ini", "Export launcher data", "Launcher backup (*.ini)")
     if path = ""
@@ -71,7 +73,7 @@ ExportLauncherData()
             IniWrite(event.HasOwnProp("LastRunDate") ? event.LastRunDate : "", temporary, section, "LastRunDate")
         }
         FileMove(temporary, path, true)
-        MsgBox("Launcher data exported. This file contains readable passwords; store it privately.", "Export Data")
+        MsgBox("Launcher data exported. This file contains readable passwords; store it privately. Custom portrait images must be copied separately if needed.", "Export Data")
     }
     catch
         MsgBox("The backup could not be written. Choose a writable location and try again.", "Export Data")
