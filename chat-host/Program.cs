@@ -994,25 +994,50 @@ metrics();
             if (happyHourAlert is { IsDisposed: false } || OtherLauncherDialogOpen()) return;
             if (happyHourBanner == null || happyHourBanner.IsDisposed)
             {
-                var banner = GoldHappyHourWindow(620, 42, "tes3np Happy Hour");
+                var banner = GoldHappyHourWindow(620, 46, "tes3np Happy Hour");
                 banner.FormBorderStyle = FormBorderStyle.None;
                 banner.StartPosition = FormStartPosition.Manual;
-                banner.BackColor = System.Drawing.Color.FromArgb(197, 164, 92);
-                var inside = new Panel {
-                    BackColor = System.Drawing.Color.FromArgb(23, 16, 8)
+                banner.BackColor = System.Drawing.Color.FromArgb(118, 87, 44);
+                // Reuse the same actual textures as the Live Game Chat frame.
+                // The dark inset is surrounded by weathered gold, like its title.
+                banner.Paint += (_, e) => {
+                    var g = e.Graphics;
+                    int w = banner.ClientSize.Width, h = banner.ClientSize.Height;
+                    if (headerTexture != null)
+                        g.DrawImage(headerTexture, new System.Drawing.Rectangle(0, 0, w, h));
+                    if (borderTexture != null) {
+                        using var trim = new System.Drawing.TextureBrush(borderTexture,
+                            System.Drawing.Drawing2D.WrapMode.Tile);
+                        g.FillRectangle(trim, 0, 0, w, 6);
+                        g.FillRectangle(trim, 0, h - 6, w, 6);
+                        using var rotated = (System.Drawing.Bitmap)borderTexture.Clone();
+                        rotated.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+                        using var sides = new System.Drawing.TextureBrush(rotated,
+                            System.Drawing.Drawing2D.WrapMode.Tile);
+                        g.FillRectangle(sides, 0, 0, 6, h);
+                        g.FillRectangle(sides, w - 6, 0, 6, h);
+                    }
                 };
-                inside.SetBounds(2, 2, 616, 38);
+                var inside = new Panel {
+                    BackColor = System.Drawing.Color.FromArgb(19, 14, 10)
+                };
+                inside.SetBounds(75, 7, 470, 32);
                 banner.Controls.Add(inside);
-                var dismiss = GoldButton("×", 5, 5, 29, 28);
+                var dismiss = GoldButton("×", 9, 9, 27, 27);
                 dismiss.Click += (_, _) => {
                     dismissedHappyHourBannerId = lastHappyHourAlertId;
                     banner.Close();
                 };
-                inside.Controls.Add(dismiss);
-                inside.Controls.Add(GoldText("HAPPY HOUR", 38, 5, 175, 28, 13, true));
-                var left = GoldText("", 218, 5, 375, 28, 12, true);
+                banner.Controls.Add(dismiss);
+                var label = GoldText("HAPPY HOUR", 8, 2, 155, 28, 13, true);
+                inside.Controls.Add(label);
+                var left = GoldText("", 165, 2, 295, 28, 12, true);
                 inside.Controls.Add(left);
                 happyHourBannerCountdown = left;
+                banner.Resize += (_, _) => {
+                    inside.SetBounds(75, 7, Math.Max(200, banner.ClientSize.Width - 150), 32);
+                    left.SetBounds(165, 2, Math.Max(30, inside.Width - 175), 28);
+                };
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
                     if (ReferenceEquals(happyHourBanner, banner)) happyHourBanner = null;
@@ -1034,8 +1059,8 @@ metrics();
             {
                 bool visible = IsWindowVisible(owner) && !IsIconic(owner);
                 if (visible) {
-                    happyHourBanner.SetBounds(rect.Left, rect.Top - 44,
-                        rect.Right - rect.Left, 42);
+                    happyHourBanner.SetBounds(rect.Left, rect.Top - 48,
+                        rect.Right - rect.Left, 46);
                     if (!happyHourBanner.Visible) happyHourBanner.Show();
                 } else if (happyHourBanner.Visible) happyHourBanner.Hide();
             }
