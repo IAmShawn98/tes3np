@@ -879,20 +879,42 @@ try {
 
 ShowResetAppDataActions(*)
 {
-    global AppDataDirectory
+    global AppDataDirectory, LauncherDataResetting
     choice := MsgBox("Yes: Open the AppData folder`nNo: Reset AppData`nCancel: Return", "tes3np — Reset AppData", "YesNoCancel Icon?")
     if choice = "Yes"
         return OpenLauncherDataFolder()
     if choice != "No"
         return
-    warning := "This will delete all information inside tes3np AppData, including your saved characters and launcher settings.`n`nYou should export your character data before doing this.`n`nAre you sure you want to continue?"
+    warning := "This will delete all information inside tes3np AppData, including your saved characters and launcher settings.`n`nYou should export your character data before doing this.`n`ntes3np will close after the reset.`n`nAre you sure you want to continue?"
     if MsgBox(warning, "tes3np — Reset AppData", "YesNo Icon!") != "Yes"
         return
-    if MsgBox("This cannot be undone. Permanently reset tes3np AppData now?", "tes3np — Final Confirmation", "YesNo Icon!") != "Yes"
+    if MsgBox("This cannot be undone. Permanently reset tes3np AppData and close now?", "tes3np — Final Confirmation", "YesNo Icon!") != "Yes"
         return
-    try DirDelete(AppDataDirectory, true)
-    DirCreate(AppDataDirectory)
-    MsgBox("AppData has been reset. Restart tes3np before continuing.", "tes3np — AppData Settings")
+    ; A live patch worker owns changes and cannot be interrupted safely.
+    if PatchInProgress()
+    {
+        MsgBox("Finish the current patch operation before resetting launcher data.", "tes3np — Reset AppData", "Icon!")
+        return
+    }
+    ; ChatHost continuously indexes Discord history. Stop this owned process
+    ; and game recovery BEFORE deleting the shared Roaming AppData root.
+    StopClient()
+    StopEmbeddedInGameChat()
+    LauncherDataResetting := true
+    try
+    {
+        if DirExist(AppDataDirectory)
+            DirDelete(AppDataDirectory, true)
+    }
+    catch as err
+    {
+        LauncherDataResetting := false
+        MsgBox("AppData reset failed: " err.Message "`n`nRestart tes3np before retrying.", "tes3np — Reset AppData", "Icon!")
+        return
+    }
+    ; Do not recreate AppData here, and do not leave background timers running:
+    ; CleanupLauncher's reset path skips its normal settings/log writes.
+    ExitApp()
 }
 
 OpenClientSelectionSettings(*)
