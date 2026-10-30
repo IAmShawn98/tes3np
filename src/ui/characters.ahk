@@ -321,7 +321,10 @@ CreateProfileEditor()
     EditorSpeciesDropDown.OnEvent("Change", ChooseOriginalCharacterPortrait)
     CharacterPage.SetFont("s9 c382314", "Segoe UI")
     EditorOCSpeciesHint := CharacterPage.Add("Text",
-        "x525 y399 w355 h16 Hidden BackgroundTrans c382314", "")
+        "x525 y399 w355 h16 Hidden BackgroundTrans c382314 +0x100", "")
+    ; A selected DDL item cannot trigger Change twice: allow editing an OC
+    ; by clicking the persistent species line without changing the layout.
+    EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
     SetInterfaceLoadingText("Loading settings scrollbar...")
@@ -347,7 +350,7 @@ UpdateOriginalSpeciesHint()
     global EditorSpeciesDropDown, EditorOCSpeciesHint, EditorOriginalSpecies
     isOriginal := EditorSpeciesDropDown.Text = "Original Character"
     EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
-        ? "Species: " EditorOriginalSpecies : ""
+        ? "Species: " EditorOriginalSpecies "  |  Change portrait" : ""
     EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
 }
 
