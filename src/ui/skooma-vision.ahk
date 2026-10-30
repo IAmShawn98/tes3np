@@ -1,6 +1,8 @@
 ; Jiub-only Happy Hour portrait. NO top-level overlays, animations, particle
 ; windows, graphics timers or owner-follow calculations. The transparent PNG
-; contains ONLY rainbow lenses and a big grin over the original game portrait.
+; keeps the original black meme sunglasses silhouette, rainbow-tints their
+; existing reflections, preserves the approved grin, and adds the Colovian
+; fur hat drawn from the user-provided Morrowind in-game item reference.
 ; Original launcher art and UI controls stay untouched.
 ;
 ; The verified ChatHost Happy Hour banner remains the sole real activation
@@ -34,10 +36,10 @@ CreateSkoomaVision()
         try LogLauncherEvent("HAPPY HOUR | Jiub portrait accessory missing: " asset)
         return
     }
-    ; Alpha transparent outside Jiub's glasses/mouth, compact hitbox far
-    ; from all buttons, dialogue controls and the global drag strip.
+    ; Single transparent child picture: hat from y86, eyewear and grin down
+    ; to y209. Zero extra HWND windows; moves and scales with the launcher.
     SkoomaVisionPicture := LauncherGui.Add("Picture",
-        "x439 y140 w111 h78 Hidden BackgroundTrans", asset)
+        "x439 y84 w111 h134 Hidden BackgroundTrans", asset)
 }
 
 LauncherSkoomaVisionStateChanged(wParam, lParam, msg, hwnd)
