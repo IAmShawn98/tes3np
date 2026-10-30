@@ -17,6 +17,20 @@ NormalizeCharacterSpecies(value)
     return ""
 }
 
+; Custom portraits are private per-character images outside the install tree.
+; Persist only a generated basename (never an arbitrary user-selected path).
+NormalizeCustomPortraitFile(value)
+{
+    value := Trim(value)
+    return RegExMatch(value, "i)^[0-9a-f]{32}\.(png|jpg|jpeg|bmp)$") ? StrLower(value) : ""
+}
+
+GetCustomPortraitPath(filename)
+{
+    filename := NormalizeCustomPortraitFile(filename)
+    return filename = "" ? "" : AppDataDirectory "\portraits\" filename
+}
+
 LoadProfiles()
 {
     global Profiles, DataFile, SelectedProfile, MaxCharacters
@@ -39,6 +53,7 @@ LoadProfiles()
         if name != ""
             Profiles.Push({Name: name, Password: password,
                 Species: NormalizeCharacterSpecies(IniRead(DataFile, section, "Species", "")),
+                PortraitFile: NormalizeCustomPortraitFile(IniRead(DataFile, section, "PortraitFile", "")),
                 UsernameDelay: ReadProfileDelay(section, "Username", AppConfig.UsernameDelay),
                 PasswordDelay: ReadProfileDelay(section, "PasswordDelay", AppConfig.PasswordDelay, "Password"),
                 LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay),
@@ -72,6 +87,7 @@ SaveProfiles()
         SetInterfaceLoadingText("Saving character name " index "...")
         IniWrite(profile.Name, DataFile, section, "Name")
         IniWrite(profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : "", DataFile, section, "Species")
+        IniWrite(profile.HasOwnProp("PortraitFile") ? NormalizeCustomPortraitFile(profile.PortraitFile) : "", DataFile, section, "PortraitFile")
         SetInterfaceLoadingText("Saving protected password " index "...")
         IniWrite(ProtectPassword(profile.Password), DataFile, section, "Password")
         ; Executable is shared; remove obsolete per-character copies.
@@ -177,7 +193,7 @@ HasSavedCharacters()
 
 NewCharacterProfile()
 {
-    return {Name: "", Password: "", Species: "", UsernameDelay: AppConfig.UsernameDelay,
+    return {Name: "", Password: "", Species: "", PortraitFile: "", UsernameDelay: AppConfig.UsernameDelay,
         PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay,
         AutoReconnect: true,
         UseExpansionPack: IniRead(DataFile, "ExpansionPack", "DefaultForNewCharacters", "0") = "1"}
