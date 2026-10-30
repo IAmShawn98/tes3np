@@ -232,7 +232,7 @@ CloseCharacterPage(*)
 EditProfile(index, *)
 {
     global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, EditorSpeciesDropDown, LaunchSettingsHeading, LaunchSettingsControls
-    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice
+    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -270,7 +270,8 @@ EditProfile(index, *)
         EditorOriginalPortraitFile := profile.HasOwnProp("PortraitFile") ? NormalizeCustomPortraitFile(profile.PortraitFile) : ""
         EditorOriginalPortraitSource := ""
         EditorOriginalSpecies := species
-        if EditorOriginalPortraitFile != ""
+        EditorOriginalMode := EditorOriginalPortraitFile != ""
+        if EditorOriginalMode
             speciesIndex := CharacterSpeciesOptions().Length + 2
         EditorSpeciesDropDown.Choose(speciesIndex)
         EditorPreviousSpeciesChoice := speciesIndex
@@ -320,8 +321,10 @@ CreateProfileEditor()
         "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
     EditorSpeciesDropDown.OnEvent("Change", ChooseOriginalCharacterPortrait)
     CharacterPage.SetFont("s9 c382314", "Segoe UI")
+    ; The old hint overlapped the DDL's collapsed native control (y376..~402),
+    ; so its text could remain invisible until the book was reconstructed.
     EditorOCSpeciesHint := CharacterPage.Add("Text",
-        "x525 y399 w355 h16 Hidden BackgroundTrans c382314 +0x100", "")
+        "x525 y407 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
     ; by clicking the persistent species line without changing the layout.
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
@@ -331,8 +334,8 @@ CreateProfileEditor()
     EditorTrack := CharacterPage.Add("Text", "x890 y210 w7 h213 Hidden Background704C27 +0x100")
     EditorThumb := CharacterPage.Add("Text", "x890 y210 w7 h110 Hidden BackgroundC69951 +0x100")
     SetInterfaceLoadingText("Loading auto reconnect setting...")
-    EditorReconnectTick := AddBookTick(CharacterPage, 525, 418, ToggleEditorReconnect)
-    reconnectLabel := AddBookLabel(CharacterPage, 550, 415, 330, 24, "Auto reconnect on close or crash")
+    EditorReconnectTick := AddBookTick(CharacterPage, 525, 434, ToggleEditorReconnect)
+    reconnectLabel := AddBookLabel(CharacterPage, 550, 431, 330, 24, "Auto reconnect on close or crash")
     EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
     EditorSaveButton := AddStyledButton(CharacterPage, 635, 465, 140, 30, "Save changes", (*) => 0)
@@ -347,17 +350,24 @@ CreateProfileEditor()
 ; presentation-only entry; the real species is chosen in a separate dialog.
 UpdateOriginalSpeciesHint()
 {
-    global EditorSpeciesDropDown, EditorOCSpeciesHint, EditorOriginalSpecies
-    isOriginal := EditorSpeciesDropDown.Text = "Original Character"
+    global EditorSpeciesDropDown, EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode
+    isOriginal := EditorOriginalMode
     EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
         ? "Species: " EditorOriginalSpecies "  |  Change portrait" : ""
     EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
+    ; The race must be visible as soon as the dialog closes, even when the
+    ; cached Character Book is reused without reopening Manage Characters.
+    if IsObject(EditorOCSpeciesHint)
+    {
+        DllCall("RedrawWindow", "Ptr", EditorOCSpeciesHint.Hwnd, "Ptr", 0,
+            "Ptr", 0, "UInt", 0x105)
+    }
 }
 
 ChooseOriginalCharacterPortrait(control, *)
 {
     global EditorPreviousSpeciesChoice, EditorOriginalPortraitSource
-    global EditorOriginalPortraitFile, EditorOriginalSpecies
+    global EditorOriginalPortraitFile, EditorOriginalSpecies, EditorOriginalMode
 
     if control.Text != "Original Character"
     {
@@ -365,6 +375,7 @@ ChooseOriginalCharacterPortrait(control, *)
         EditorOriginalPortraitSource := ""
         EditorOriginalPortraitFile := ""
         EditorOriginalSpecies := ""
+        EditorOriginalMode := false
         UpdateOriginalSpeciesHint()
         return
     }
@@ -396,7 +407,12 @@ ChooseOriginalCharacterPortrait(control, *)
     EditorOriginalPortraitSource := source
     EditorOriginalPortraitFile := ""
     EditorOriginalSpecies := species
-    EditorPreviousSpeciesChoice := control.Value
+    EditorOriginalMode := true
+    ; Make the OC state authoritative immediately after the race prompt.
+    ; Do not wait for a new book/editor construction to select the OC entry.
+    originalIndex := CharacterSpeciesOptions().Length + 2
+    control.Choose(originalIndex)
+    EditorPreviousSpeciesChoice := originalIndex
     UpdateOriginalSpeciesHint()
 }
 
@@ -705,7 +721,7 @@ BrowseSharedExecutable(*)
 SaveProfileEditor(index, fields, editor, *)
 {
     global Profiles, SelectedProfile, MaxCharacters, EditorReconnectTick, EditorSpeciesDropDown, ButtonFaces
-    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource
+    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -717,7 +733,9 @@ SaveProfileEditor(index, fields, editor, *)
         MsgBox("Enter a player name and password.", "tes3np")
         return
     }
-    isOriginal := EditorSpeciesDropDown.Text = "Original Character"
+    ; A modal file/species chooser may briefly affect native DDL text.
+    ; The accepted OC state is independent of that display-only value.
+    isOriginal := EditorOriginalMode
     species := isOriginal ? NormalizeCharacterSpecies(EditorOriginalSpecies)
         : NormalizeCharacterSpecies(EditorSpeciesDropDown.Text)
     if !index && species = ""
@@ -753,8 +771,8 @@ SaveProfileEditor(index, fields, editor, *)
             portraitFile := NormalizeCustomPortraitFile(EditorOriginalPortraitFile)
             if portraitFile = "" || !FileExist(GetCustomPortraitPath(portraitFile))
             {
-                MsgBox("This character's custom portrait is missing. Select Original Character "
-                    "again to choose a valid 512 x 512 image.", "tes3np", "Icon!")
+                MsgBox("This character's custom portrait is missing. Click Change portrait "
+                    "to select a new image.", "tes3np", "Icon!")
                 return
             }
         }
