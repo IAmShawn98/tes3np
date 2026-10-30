@@ -1150,8 +1150,7 @@ metrics();
                     if (bannerLabel.Text == "-")
                         bannerLabel.Visible = !happyHourDemo;
                     else
-                        bannerLabel.Text = happyHourDemo ? "No announcement found"
-                            : "Mastery Points Are Doubled!";
+                        bannerLabel.Text = "Mastery Points Are Doubled!";
                 }
                 happyHourBannerCountdown.ForeColor = active
                     ? HappyHourTimerColor(happyHourEndsAt)
@@ -2047,21 +2046,11 @@ metrics();
             };
             historyWatch.Start();
             watch.Start();
-            // TEMP QA: the layout can be tested even if Discord and the saved
-            // archive do not contain any announcement. Never treat it as real.
+            // Development preview displays expired REAL announcements only.
+            // Do not manufacture a banner when no actual Discord announcement
+            // has been collected; the history backfill can discover one later.
             if (PreviewExpiredHappyHourForTesting)
-            {
-                var happyHourPreviewDelay = new System.Windows.Forms.Timer { Interval = 8500 };
-                happyHourPreviewDelay.Tick += (_, _) => {
-                    happyHourPreviewDelay.Stop();
-                    happyHourPreviewDelay.Dispose();
-                    if (closingChat || IsDisposed || lastHappyHourAlertId != 0) return;
-                    DetectLatestHappyHour();
-                    if (lastHappyHourAlertId == 0)
-                        ShowHappyHourAlert(0, demo: true);
-                };
-                happyHourPreviewDelay.Start();
-            }
+                DetectLatestHappyHour();
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
         // channel heading (including the two action icons) by DOM structure.
