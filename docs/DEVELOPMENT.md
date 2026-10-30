@@ -68,16 +68,21 @@ the earlier duplicate-popup feature also removed its migration and storage
 logic. Clearing Roaming data intentionally must produce a fresh profile,
 even if an obsolete marker remains on disk elsewhere.
 
-Game Chat must authenticate and show the configured Discord channel before
-Happy Hour detection or banner display. The detector checks indexed real
-messages first; if none qualify, it pages older Discord messages and saves
-newly loaded batches atomically. A genuine announcement may be text or a
-bot-posted image. Its original Discord message ID is the time authority.
-No preview fallback, last-seen ID, or unrelated image can supply a new
-activation time. The banner is the sole Happy Hour notification; there is no
-interrupting activation dialog. The expired-announcement testing mode has
-been removed. The banner appears only while a genuine Discord activation
-is less than sixty minutes old, and disappears when its timer expires.
+Game Chat needs authentication to **retrieve or paginate live Discord
+messages**, not to display a genuine recent announcement in the existing
+Roaming chat archive. Load the archive at Chat Host startup even while signed
+out. Its genuine bot text and pixel-verified image announcements have original
+Discord message IDs; only those IDs determine the active one-hour window.
+An empty archive, obsolete marker or expired announcement must not display
+anything. Logout stops live fetching but must not dismiss a valid cached banner
+or restart its countdown. The banner is the sole Happy Hour notification.
+
+For first sign-in, finish initializing and navigating the native HTML message
+renderer before hiding its WinForms parent for the Discord login screen.
+After authentication restore the existing docked Game Chat, preserve an
+already-open chat panel, and reload the authenticated Discord channel once
+to complete the SPA handoff. Do not require an application restart or add
+a parallel WebView2 profile, Chat Host, or authentication timer.
 
 Before committing a Chat Host change:
 
@@ -85,8 +90,9 @@ Before committing a Chat Host change:
 2. Run `python scripts/check-chat-architecture.py`.
 3. On Windows, compile with
    `dotnet build chat-host/tes3np.ChatHost.csproj -c Release -r win-x64 --no-self-contained`.
-4. Run `Build tes3np.bat` and exercise signed-out, signed-in, empty archive,
-   existing archive, logout/relogin, expired event, and current event paths.
+4. Run `Build tes3np.bat` and exercise fresh sign-in **without restarting**,
+   signed-out active archive, signed-out empty archive, logout/relogin while a
+   banner is active, expired event, and current event paths.
 5. Verify the completed chat UI and window ownership; source checks and
    successful compilation alone cannot prove runtime behavior.
 
