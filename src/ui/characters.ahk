@@ -271,8 +271,8 @@ EditProfile(index, *)
         EditorOriginalPortraitSource := ""
         EditorOriginalSpecies := species
         EditorOriginalMode := EditorOriginalPortraitFile != ""
-        if EditorOriginalMode
-            speciesIndex := CharacterSpeciesOptions().Length + 2
+        ; An OC portrait stays selected in its own state, while the visible
+        ; dropdown always shows the character's real species at a glance.
         EditorSpeciesDropDown.Choose(speciesIndex)
         EditorPreviousSpeciesChoice := speciesIndex
         ScrollEditorRows(0)
@@ -319,7 +319,7 @@ CreateProfileEditor()
     speciesOptions.Push("Original Character")
     EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
         "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
-    EditorSpeciesDropDown.OnEvent("Change", ChooseOriginalCharacterPortrait)
+    EditorSpeciesDropDown.OnEvent("Change", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
     CharacterPage.SetFont("s9 c382314", "Segoe UI")
     ; The old hint overlapped the DDL's collapsed native control (y376..~402),
     ; so its text could remain invisible until the book was reconstructed.
@@ -327,7 +327,7 @@ CreateProfileEditor()
         "x525 y407 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
     ; by clicking the persistent species line without changing the layout.
-    EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
+    EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
     SetInterfaceLoadingText("Loading settings scrollbar...")
@@ -364,12 +364,12 @@ UpdateOriginalSpeciesHint()
     }
 }
 
-ChooseOriginalCharacterPortrait(control, *)
+ChooseOriginalCharacterPortrait(control, replaceOC := false)
 {
     global EditorPreviousSpeciesChoice, EditorOriginalPortraitSource
     global EditorOriginalPortraitFile, EditorOriginalSpecies, EditorOriginalMode
 
-    if control.Text != "Original Character"
+    if !replaceOC && control.Text != "Original Character"
     {
         EditorPreviousSpeciesChoice := control.Value
         EditorOriginalPortraitSource := ""
@@ -408,11 +408,17 @@ ChooseOriginalCharacterPortrait(control, *)
     EditorOriginalPortraitFile := ""
     EditorOriginalSpecies := species
     EditorOriginalMode := true
-    ; Make the OC state authoritative immediately after the race prompt.
-    ; Do not wait for a new book/editor construction to select the OC entry.
-    originalIndex := CharacterSpeciesOptions().Length + 2
-    control.Choose(originalIndex)
-    EditorPreviousSpeciesChoice := originalIndex
+    ; "Original Character" starts the picker, but the final dropdown must
+    ; display the chosen race. The independent OC flag determines which
+    ; image is saved/displayed, so choosing Dark Elf does not remove the OC.
+    for raceIndex, race in CharacterSpeciesOptions()
+        if race = species
+        {
+            selectedIndex := raceIndex + 1
+            control.Choose(selectedIndex)
+            EditorPreviousSpeciesChoice := selectedIndex
+            break
+        }
     UpdateOriginalSpeciesHint()
 }
 
