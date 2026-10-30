@@ -11,6 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
+    # A working development preview intentionally shows expired archived
+    # announcements. It must never leak into a public production build.
+    chat_source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
+    if "const bool PreviewExpiredHappyHourForTesting = true;" in chat_source:
+        print("BLOCKED: development-only expired Happy Hour preview is enabled.")
+        print("Disable it and re-test authenticated current-event behavior before release.")
+        return 1
+
     files = [
         ROOT / "docs" / "MODIFIED-TES3MP-SOURCE-PROVENANCE.md",
         ROOT / "docs" / "ASSET-DISTRIBUTION-APPROVAL.md",
