@@ -50,7 +50,7 @@ Keep personal settings and logs outside the source tree. Preserve existing INI k
 
 The Windows build script (`scripts/build-windows.ps1`, invoked by `Build tes3np.bat`) generates the compiled launcher and self-contained Chat Host in a complete `dist/tes3np-windows.zip` package. The Windows build first checks source, Chat Host persistence/authentication contracts, PowerShell syntax and C# compilation **before** deleting previous build artifacts or downloading runtime tools. Do not include user settings, logs, temporary files or developer credentials in a package. Public distribution remains blocked until the documented release evidence and explicit maintainer approval are complete.
 
-The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation or remove legacy test files in Local AppData; those files are inert unless migrated under the documented conditions.
+The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation. Legacy Happy Hour marker files in Local AppData are now inert and are not imported by Chat Host.
 
 ## Embedded Chat Host changes
 
@@ -62,11 +62,11 @@ before editing it.
 Persist personal Chat Host state only through `ChatDataRoot`, which matches
 the launcher's `%APPDATA%\\tes3np`. The message index and export remain in
 its `Logs` subfolder; the WebView2 profile stays in `chat-webview2`.
-Changing the installation folder must not reset user state. The only
-Local AppData reference is a **read/move-only legacy migration** for the
-old Happy Hour notification marker when an archive was already present at
-Chat Host startup. Clearing Roaming data intentionally must produce a fresh
-profile, even if the obsolete Local AppData marker still exists.
+Changing the installation folder must not reset user state. Chat Host no longer
+uses Local AppData, including the old Happy Hour last-seen marker. Removing
+the earlier duplicate-popup feature also removed its migration and storage
+logic. Clearing Roaming data intentionally must produce a fresh profile,
+even if an obsolete marker remains on disk elsewhere.
 
 Game Chat must authenticate and show the configured Discord channel before
 Happy Hour detection or banner display. The detector checks indexed real
@@ -74,7 +74,8 @@ messages first; if none qualify, it pages older Discord messages and saves
 newly loaded batches atomically. A genuine announcement may be text or a
 bot-posted image. Its original Discord message ID is the time authority.
 No preview fallback, last-seen ID, or unrelated image can supply a new
-activation time. Expired previews are development-only.
+activation time. The banner is the sole Happy Hour notification; there is no
+interrupting activation dialog. Expired previews are development-only.
 
 Before committing a Chat Host change:
 
