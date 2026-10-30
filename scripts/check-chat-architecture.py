@@ -87,6 +87,21 @@ expect(
     and "WriteChatArchiveAtomically(GameChatLogFile," in source
     and "File.Move(temporary, path, true);" in source,
 )
+expect(
+    "Happy Hour banner must track launcher movement without a timer delay",
+    "void PositionHappyHourBanner()" in source
+    and "SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height," in source
+    and "PositionHappyHourBanner();\n                if (repositionQueued) return;" in source
+    and "SetWinEventHook(0x800B, 0x800B" in source,
+)
+expect(
+    "Banner must stay owned by launcher and retain movement polling fallback",
+    "SetNativeWindowOwner(banner.Handle, owner);" in source
+    and "void PositionChatWindows()\n        {\n            // The existing chat polling is a safety net" in source
+    and "bounds.Top - 48" in source,
+)
+
+
 
 expect(
     "Full AppData reset must stop ChatHost before deletion",
