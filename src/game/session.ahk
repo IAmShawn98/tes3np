@@ -372,7 +372,7 @@ ClientTick()
                 if !Client.LoginCompletionPending
                 {
                     Client.LoginCompletionPending := true
-                    Client.Deadline := A_TickCount + 5000
+                    Client.Deadline := A_TickCount + 3000
                     CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
                     return
                 }
