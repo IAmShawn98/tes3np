@@ -410,8 +410,13 @@ metrics();
                 const usernameEl = el.querySelector('[class*="username_"]');
                 const user = usernameEl?.textContent?.trim() || '';
                 const color = usernameEl ? getComputedStyle(usernameEl).color : '';
-                const body = el.querySelector('[class*="messageContent_"]')?.innerText?.trim() ||
-                             el.querySelector('[class*="markup_"]')?.innerText?.trim() || '';
+                const contentNode = el.querySelector('[class*="messageContent_"]') ||
+                                    el.querySelector('[class*="markup_"]');
+                const body = contentNode?.innerText?.trim() ||
+                             contentNode?.textContent?.trim() || '';
+                // Styled, rainbow Discord announcements may have per-letter
+                // spans. Keep the raw textContent for independent detection.
+                const matchText = contentNode?.textContent?.trim() || body;
                 const media = [...el.querySelectorAll(
                   '[class*="imageWrapper_"] img, [class*="imageContainer_"] img, ' +
                   '[class*="attachment_"] img, [class*="embedMedia_"] img, ' +
@@ -440,7 +445,7 @@ metrics();
                       uniqueImages.set(key, url);
                   } catch {}
                 }
-                return {id:el.id,user,body,color,images:[...uniqueImages.values()].slice(0,4)};
+                return {id:el.id,user,body,matchText,color,images:[...uniqueImages.values()].slice(0,4)};
               }).filter(x => x.body || x.images.length));
             })();
             """;
@@ -1332,15 +1337,16 @@ metrics();
         // longer inside Discord's limited current viewport.
         static bool IsHappyHourAnnouncement(string body)
         {
-            // Discord's rainbow announcement contains styled inline spans.
-            // Normalize invisible Unicode formatting and nonbreaking spaces
-            // before comparing the actual words shown in Game Chat.
+            if (string.IsNullOrWhiteSpace(body)) return false;
+            // Discord's colored per-letter spans and invisible separators can
+            // insert punctuation or whitespace INSIDE words, not just between
+            // them. Match the complete activation phrase after normalizing the
+            // rendered letters; never generate a message or timestamp.
             string normalized = System.Text.RegularExpressions.Regex.Replace(
-                body.Replace('\u00a0', ' '), @"[\u200B-\u200D\u2060\uFEFF]", "");
-            return System.Text.RegularExpressions.Regex.IsMatch(normalized,
-                @"happy\s+hour\s+has\s+been\s+activated\s*!?",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase |
-                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                body.Normalize(System.Text.NormalizationForm.FormKC),
+                @"[^\p{L}\p{Nd}]", "");
+            return normalized.Contains("happyhourhasbeenactivated",
+                StringComparison.OrdinalIgnoreCase);
         }
 
         ulong LatestArchivedHappyHourId()
@@ -1455,7 +1461,16 @@ metrics();
                     if (!match.Success || !ulong.TryParse(match.Groups[1].Value, out ulong key)) continue;
                     string user = msg.GetProperty("user").GetString() ?? "";
                     string body = msg.GetProperty("body").GetString() ?? "";
-                    string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
+                    string matchText = msg.TryGetProperty("matchText", out var detectionText) &&
+                        detectionText.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? detectionText.GetString() ?? "" : "";
+                    bool isHappyHour = IsHappyHourAnnouncement(body) ||
+                        IsHappyHourAnnouncement(matchText);
+                    // Preserve the rendered chat wording unless only the
+                    // Discord textContent contains the full styled announcement.
+                    string archivalBody = isHappyHour && !IsHappyHourAnnouncement(body)
+                        ? matchText : body;
+                    string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "";
                     string[] images = msg.TryGetProperty("images", out var imageValues) &&
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
@@ -1463,8 +1478,12 @@ metrics();
                     // Collect from Discord itself, even on a fresh installation.
                     // Persist the whole extracted batch once, not the entire
                     // accumulated archive once per individual message.
-                    if (!string.IsNullOrWhiteSpace(body) && !archivedChat.ContainsKey(key)) {
-                        archivedChat[key] = (user, body);
+                    if (!string.IsNullOrWhiteSpace(archivalBody) &&
+                        (!archivedChat.TryGetValue(key, out var cached) ||
+                         (isHappyHour && !IsHappyHourAnnouncement(cached.Body)))) {
+                        // Repair previously indexed rows that missed styled
+                        // announcement text as well as recording new messages.
+                        archivedChat[key] = (user, archivalBody);
                         newlyArchived++;
                     }
                     foreach (string imageUrl in images)
