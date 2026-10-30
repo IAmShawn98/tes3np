@@ -164,6 +164,18 @@ SkoomaVisionMotionAllowed()
 
 SkoomaVisionTick(*)
 {
+    ; A render failure may not interrupt buttons, game login, or ChatHost.
+    try SkoomaVisionDraw()
+    catch Error as err
+    {
+        SetTimer(SkoomaVisionTick, 0)
+        HideSkoomaVision()
+        try LogLauncherEvent("UI | Skooma Vision tick disabled: " err.Message)
+    }
+}
+
+SkoomaVisionDraw(*)
+{
     global SkoomaVisionGui, SkoomaVisionPieces, SkoomaVisionVisible
     global SkoomaVisionBannerActive, SkoomaVisionPreviewActive, SkoomaVisionEnabled, SkoomaVisionPhase
     global SkoomaVisionLastWidth, SkoomaVisionLastHeight, LauncherGui, EmbeddedChatPid
