@@ -3,6 +3,26 @@ $ProgressPreference = 'SilentlyContinue'
 
 function Step([string]$Message) { Write-Host "BUILD CHECKPOINT | $Message" }
 
+# The SHA256 cmdlet is not present in every host configuration (including
+# a reported PowerShell 7.6.9 build session). .NET hashing is available in
+# both Windows PowerShell 5.1 and PowerShell 7, and verifies the same bytes.
+# Keep all manifest comparisons fail-closed rather than skipping verification.
+function GetTes3npSha256([string]$FilePath) {
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::OpenRead($FilePath)
+        try {
+            return [System.BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '')
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+    finally {
+        $algorithm.Dispose()
+    }
+}
+
 function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, [int]$TimeoutMs) {
     Step "Starting $Label"
     $stdout = Join-Path $env:TEMP 'tes3np-compiler-stdout.log'
@@ -174,7 +194,7 @@ try {
     foreach ($item in $manifest.Files) {
         $payloadPath = Join-Path (Join-Path $resourceRoot 'patches') $item.Path.Replace('/', '\')
         if (!(Test-Path -LiteralPath $payloadPath -PathType Leaf)) { throw "Missing extracted patch file: $($item.Path)" }
-        $hash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash
+        $hash = GetTes3npSha256 $payloadPath
         if ($hash -ine $item.SHA256) { throw "Damaged extracted patch file: $($item.Path)" }
     }
     Step "Verified $($manifest.Files.Count) extracted patch payload files"
@@ -184,7 +204,7 @@ try {
     $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
     $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
     Invoke-WebRequest -Uri $officialTES3MP -OutFile $tes3mpArchive -Headers $headers
-    $archiveHash = (Get-FileHash -LiteralPath $tes3mpArchive -Algorithm SHA256).Hash
+    $archiveHash = GetTes3npSha256 $tes3mpArchive
     Step "TES3MP 0.8.1 archive SHA256: $archiveHash"
     $runtimeExtract = Join-Path $tools 'tes3mp-extracted'
     Expand-Archive -LiteralPath $tes3mpArchive -DestinationPath $runtimeExtract
@@ -210,7 +230,7 @@ try {
     Copy-Item -LiteralPath $markerlessSource -Destination (Join-Path $clientFolder 'tes3mp.exe') -Force
     $markerlessManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
     $expectedMarkerless = ($markerlessManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
-    if (!$expectedMarkerless -or (Get-FileHash -LiteralPath (Join-Path $clientFolder 'tes3mp.exe') -Algorithm SHA256).Hash -ine $expectedMarkerless) {
+    if (!$expectedMarkerless -or (GetTes3npSha256 (Join-Path $clientFolder 'tes3mp.exe')) -ine $expectedMarkerless) {
         throw 'Packaged markerless client SHA256 mismatch.'
     }
     foreach ($name in @('tes3mp.exe','tes3mp-client-default.cfg','defaults.bin','openmw.cfg')) {
