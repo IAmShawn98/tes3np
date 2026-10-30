@@ -43,33 +43,23 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 
 ApplyV016CharacterLayout(*)
 {
-    global CharacterPage, LaunchCharacterButton, ExecutableInput, V016CharacterLayoutApplied
+    global CharacterPage, LaunchCharacterButton, V016CharacterLayoutApplied
+    global V016DailyLoginControls, Profiles, AddCharacterButton, WipeCharacterButton
     if V016CharacterLayoutApplied || !IsObject(CharacterPage)
         return
-    try
-    {
-        LaunchCharacterButton.Visible := false
-        global LaunchSettingsControls
-        global ScheduledEvents
-        label := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
-        dailyButton := AddStyledButton(CharacterPage, 70, 510, 370, 25, label, OpenScheduledEventsMenu)
-        ; Scheduled Events belongs to the character action stack, not Launch Settings.
-        ; Keep it independent so opening the add/edit form does not hide it.
-        global V016DailyLoginControls
-        V016DailyLoginControls := [dailyButton]
-        hasCharacters := Profiles.Length > 0
-        for control in V016DailyLoginControls
-            control.Visible := hasCharacters
-        ; Keep the character actions contiguous: Add Character, Scheduled Events, then Wipe Character List.
-        addY := Profiles.Length ? 505 : 185
-        AddCharacterButton.Move(70, addY, 370, 30)
-        ButtonFaces[AddCharacterButton.Hwnd].Y := addY
-        dailyButton.Move(70, 540, 370, 30)
-        ButtonFaces[dailyButton.Hwnd].Y := 540
-        WipeCharacterButton.Move(70, 575, 370, 30)
-        ButtonFaces[WipeCharacterButton.Hwnd].Y := 575
-        V016CharacterLayoutApplied := true
-    }
+
+    ; Scheduled Events is deferred for a later update. Keep its saved data and
+    ; implementation intact, but do not construct a button (or a painted face).
+    ; Other scheduler code already handles an empty control list.
+    V016DailyLoginControls := []
+    LaunchCharacterButton.Visible := false
+
+    ; Add Character takes the former Schedule Event position. Keep the Wipe
+    ; button directly beneath it, using the same styled-button mover as
+    ; RefreshProfiles so the painted and native button layers stay together.
+    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 185, 370, 30)
+    MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
+    V016CharacterLayoutApplied := true
 }
 
 global LauncherMorrowindFont := "Georgia"
