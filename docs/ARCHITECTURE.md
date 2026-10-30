@@ -127,8 +127,13 @@ interpolation and saved as a transparent-capable 512 x 512 PNG under
 `%APPDATA%\tes3np\portraits`. Unsupported/corrupt or excessively large
 images are rejected; valid images receive no resizing notification.
 After a valid image is selected, an owned species dropdown asks for the
-character's actual Morrowind species, which is shown under the editor's
-Original Character selection and saved as the ordinary `Species` INI key.
+character's actual Morrowind species, which is shown immediately under
+the editor's Original Character selection and saved as the ordinary `Species`
+INI key. The selection and the portrait are independent: a species entered in
+the OC dialog is descriptive metadata and must never overwrite the chosen
+picture with the standard species icon. The editor keeps explicit OC mode
+rather than relying on the transient native dropdown text. The species label
+is drawn below (not underneath) the dropdown, without reopening the book.
 Each character can independently select an OC portrait. The file gets a
 generated basename stored as `PortraitFile` only when Save completes; arbitrary
 source paths are never saved.
