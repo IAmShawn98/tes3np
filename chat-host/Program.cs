@@ -851,7 +851,8 @@ metrics();
         // Turn this off before publishing a release.
         const bool PreviewExpiredHappyHourForTesting = true;
         ulong lastHappyHourAlertId;
-        ulong dismissedHappyHourBannerId;
+        ulong dismissedHappyHourBannerId = ulong.MaxValue;
+        bool happyHourDemo;
         Form? happyHourAlert;
         Form? happyHourBanner;
         Label? happyHourBannerCountdown;
@@ -975,7 +976,7 @@ metrics();
                 SetNativeWindowOwner(banner.Handle, owner);
             }
             if (happyHourBannerCountdown != null)
-                happyHourBannerCountdown.Text = (happyHourEndsAt <= DateTimeOffset.UtcNow
+                happyHourBannerCountdown.Text = (happyHourDemo ? "UI TEST (no announcement)  |  " : happyHourEndsAt <= DateTimeOffset.UtcNow
                     ? "Expired (test preview)  |  " : "Mastery XP x2  |  ") +
                     HappyHourRemaining(happyHourEndsAt) + " left";
             // Place the gold card directly above the actual launcher window.
@@ -994,13 +995,15 @@ metrics();
         [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
 
-        void ShowHappyHourAlert(ulong activationId)
+        void ShowHappyHourAlert(ulong activationId, bool demo = false)
         {
-            var ends = DiscordTimestamp(activationId).AddHours(1);
-            if (activationId <= lastHappyHourAlertId ||
-                (!PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
+            var ends = demo ? DateTimeOffset.UtcNow.AddMinutes(-1)
+                : DiscordTimestamp(activationId).AddHours(1);
+            if ((!demo && activationId <= lastHappyHourAlertId) ||
+                (!demo && !PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
             bool expired = ends <= DateTimeOffset.UtcNow;
             lastHappyHourAlertId = activationId;
+            happyHourDemo = demo;
             happyHourEndsAt = ends;
             // Each new activation resets the banner, including after a restart.
             dismissedHappyHourBannerId = 0;
@@ -1012,17 +1015,17 @@ metrics();
             happyHourBanner = null;
 
             // A simulated expired preview never changes persisted notification state.
-            bool previouslySeen = !expired && activationId <= GetLastSeenHappyHour();
+            bool previouslySeen = !demo && !expired && activationId <= GetLastSeenHappyHour();
             // Mark as seen before displaying so restarting during the dialog
             // cannot spam the same announcement.
-            if (!previouslySeen && !expired) SaveLastSeenHappyHour(activationId);
+            if (!previouslySeen && !expired && !demo) SaveLastSeenHappyHour(activationId);
             if (!previouslySeen)
             {
                 var alert = GoldHappyHourWindow(480, 266, "tes3np - Happy Hour");
                 var border = new Panel { BackColor = System.Drawing.Color.FromArgb(197, 164, 92) };
                 border.SetBounds(0, 0, 480, 3);
                 alert.Controls.Add(border);
-                alert.Controls.Add(GoldText(expired ? "HAPPY HOUR (TEST PREVIEW)" : "HAPPY HOUR", 18, 13, 444, 38, 19, true));
+                alert.Controls.Add(GoldText(demo ? "HAPPY HOUR (UI TEST)" : expired ? "HAPPY HOUR (TEST PREVIEW)" : "HAPPY HOUR", 18, 13, 444, 38, 19, true));
                 // Match the chat announcement's rainbow 'Happy Hour' label.
                 var rainbow = new FlowLayoutPanel {
                     AutoSize = false, WrapContents = false,
@@ -1046,7 +1049,7 @@ metrics();
                 alert.Controls.Add(GoldText("has been activated!", 65, 87, 350, 30, 13, true));
                 var timerText = GoldText("", 40, 123, 400, 42, 19, true);
                 alert.Controls.Add(timerText);
-                alert.Controls.Add(GoldText(expired ? "Expired Happy Hour — Mastery XP bonus has ended." :
+                alert.Controls.Add(GoldText(demo ? "No announcement found — layout test only." : expired ? "Expired Happy Hour — Mastery XP bonus has ended." :
                     "Mastery XP gain is currently doubled!",
                     18, 173, 444, 31, 13));
                 var close = GoldButton("Close", 170, 218, 140, 33);
@@ -1080,7 +1083,7 @@ metrics();
             happyHourTicker = ticker;
             ticker.Start();
             RefreshHappyHourBanner();
-            Log("HAPPY HOUR | " + (previouslySeen ? "Previously seen" : "New activation") +
+            Log("HAPPY HOUR | " + (demo ? "UI-only fallback" : previouslySeen ? "Previously seen" : "New activation") +
                 " | " + DiscordTimestamp(activationId).ToString("O"));
         }
 
@@ -1834,6 +1837,21 @@ metrics();
             };
             historyWatch.Start();
             watch.Start();
+            // TEMP QA: the layout can be tested even if Discord and the saved
+            // archive do not contain any announcement. Never treat it as real.
+            if (PreviewExpiredHappyHourForTesting)
+            {
+                var happyHourPreviewDelay = new System.Windows.Forms.Timer { Interval = 8500 };
+                happyHourPreviewDelay.Tick += (_, _) => {
+                    happyHourPreviewDelay.Stop();
+                    happyHourPreviewDelay.Dispose();
+                    if (closingChat || IsDisposed || lastHappyHourAlertId != 0) return;
+                    DetectLatestHappyHour();
+                    if (lastHappyHourAlertId == 0)
+                        ShowHappyHourAlert(0, demo: true);
+                };
+                happyHourPreviewDelay.Start();
+            }
         }
         // Discord changes its hashed CSS classes frequently. Remove the actual
         // channel heading (including the two action icons) by DOM structure.
