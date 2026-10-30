@@ -54,6 +54,7 @@ PreviewSkoomaVision(*)
     if !SkoomaVisionEnabled
         return
     SkoomaVisionPreviewActive := true
+    LogLauncherEvent("UI | Skooma Vision manual preview requested.")
     RefreshSkoomaVision()
     SetTimer(EndSkoomaVisionPreview, -20000)
 }
@@ -149,7 +150,11 @@ CreateSkoomaVision()
     ; Color-key transparency retains per-pixel content from the launcher,
     ; without any separate fullscreen image or mouse intercept.
     layer.Show("Hide w960 h716")
-    WinSetTransColor("010203", "ahk_id " layer.Hwnd)
+    ; AHK's ahk_id string matcher ignores hidden windows by default.
+    ; The old call threw TargetError here, which the visual-only caller
+    ; caught and logged silently. A pure HWND always resolves hidden GUIs.
+    WinSetTransColor("010203", layer.Hwnd)
+    LogLauncherEvent("UI | Skooma Vision transparent overlay created.")
 }
 
 SkoomaVisionMotionAllowed()
@@ -228,7 +233,11 @@ SkoomaVisionDraw(*)
     if !SkoomaVisionVisible
     {
         SkoomaVisionGui.Show("NA x" x " y" y " w" w " h" h)
+        if !DllCall("IsWindowVisible", "Ptr", SkoomaVisionGui.Hwnd, "Int")
+            throw Error("Windows did not show the Skooma Vision overlay.")
         SkoomaVisionVisible := true
+        LogLauncherEvent("UI | Skooma Vision overlay visible at "
+            x "," y " (" w " x " h ").")
     }
     else
         DllCall("SetWindowPos", "Ptr", SkoomaVisionGui.Hwnd, "Ptr", 0,
