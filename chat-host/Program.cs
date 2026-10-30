@@ -812,6 +812,9 @@ metrics();
         // history for reliable Happy Hour discovery. The independent rendered
         // chat remains pinned to the newest messages unless the user scrolls.
         readonly DateTimeOffset initialHistoryCutoff = DateTimeOffset.UtcNow.AddHours(-5);
+        // Development-only fallback: if five hours contain no real activation,
+        // search farther back for the latest authentic expired announcement.
+        readonly DateTimeOffset historicalHappyHourCutoff = DateTimeOffset.UtcNow.AddHours(-48);
         DateTime initialBackfillStarted = DateTime.MinValue;
         int initialBackfillAttempts;
         bool initialBackfillComplete;
@@ -823,15 +826,22 @@ metrics();
                 history.Count == 0 || userScrolledChat) return;
             if (initialBackfillStarted == DateTime.MinValue)
                 initialBackfillStarted = DateTime.UtcNow;
-            bool reachedCutoff = DiscordTimestamp(history.First().Key) <= initialHistoryCutoff;
-            // Bound unattended paging if Discord throttles or never exposes
-            // the requested history. A partial scan must be logged as partial.
+            bool coveredFiveHours = DiscordTimestamp(history.First().Key) <= initialHistoryCutoff;
+            bool foundRealHappyHour = LatestArchivedHappyHourId() != 0;
+            bool needHistoricalPreview = PreviewExpiredHappyHourForTesting && !foundRealHappyHour;
+            bool reachedCutoff = coveredFiveHours &&
+                (!needHistoricalPreview ||
+                    DiscordTimestamp(history.First().Key) <= historicalHappyHourCutoff);
+            // Do not mistake an empty five-hour window for proof that no HH
+            // exists. Keep paging in QA mode until a real announcement is
+            // detected, or the 48-hour search/attempt/time limits are reached.
             bool timedOut = initialBackfillAttempts >= 500 ||
                 DateTime.UtcNow - initialBackfillStarted > TimeSpan.FromMinutes(6);
             if (reachedCutoff || timedOut) {
                 initialBackfillComplete = true;
-                Log("CHAT | Five-hour backfill " + (reachedCutoff ? "complete" : "partial (paging limit)") +
-                    ": " + history.Count + " messages; oldest=" +
+                Log("CHAT | History scan " + (reachedCutoff ? "complete" : "partial (paging limit)") +
+                    "; real HH found=" + foundRealHappyHour +
+                    "; " + history.Count + " messages; oldest=" +
                     DiscordTimestamp(history.First().Key).ToString("O"));
                 // Reanchoring an old Discord message changes the hidden
                 // source browser's channel position. Restore the live channel
@@ -1207,7 +1217,9 @@ metrics();
                 if (demo) MarkHappyHourDemoSeen();
                 else SaveLastSeenHappyHour(activationId);
             }
-            if (!previouslySeen && !bannerOnly)
+            // Historical preview is for banner verification only. Do not
+            // interrupt startup with an expired event's large activation popup.
+            if (!previouslySeen && !bannerOnly && !expired)
             {
                 var alert = GoldHappyHourWindow(480, 264, "tes3np - Happy Hour");
                 alert.FormBorderStyle = FormBorderStyle.None;
@@ -1302,18 +1314,26 @@ metrics();
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase |
                 System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
+        ulong LatestArchivedHappyHourId()
+        {
+            // SortedDictionary keys are Discord snowflakes, ordered by time.
+            // The newest matching *real* Discord message wins, whether its
+            // one-hour activation window is still open or already expired.
+            foreach (var entry in archivedChat.Reverse())
+                if (IsHappyHourAnnouncement(entry.Value.Body))
+                    return entry.Key;
+            return 0;
+        }
+
         void DetectLatestHappyHour()
         {
             try
             {
                 EnsureChatLogLoaded();
-                ulong latest = 0;
-                foreach (var entry in archivedChat)
-                    if (entry.Key > latest && IsHappyHourAnnouncement(entry.Value.Body))
-                        latest = entry.Key;
+                ulong latest = LatestArchivedHappyHourId();
                 if (latest > 0) ShowHappyHourAlert(latest);
-                else if (PreviewExpiredHappyHourForTesting && lastHappyHourAlertId == 0)
-                    Log("HAPPY HOUR | No activation announcement found in local chat archive yet.");
+                // No synthetic event: a missing archive hit simply keeps the
+                // bounded historical loader searching in development mode.
             }
             catch (Exception ex) { Log("HAPPY HOUR | Scan failed: " + ex.Message); }
         }
