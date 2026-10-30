@@ -1106,7 +1106,6 @@ metrics();
                 var close = GoldButton("Close", 167, 213, 140, 32);
                 content.Controls.Add(close);
                 close.Click += (_, _) => CloseHappyHourPopup();
-                alert.Controls.Add(close);
                 alert.FormClosed += (_, _) => {
                     if (ReferenceEquals(happyHourAlert, alert)) {
                         happyHourAlert = null;
