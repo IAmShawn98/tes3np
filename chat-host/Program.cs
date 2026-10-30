@@ -593,6 +593,9 @@ metrics();
 
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
         readonly System.Collections.Generic.Dictionary<string, bool> happyHourImageClassification = new();
+        // Discord can virtualize an image-only message out of the DOM while
+        // its image is downloading. Retain the original bot message IDs.
+        readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<ulong>> happyHourImageMessageIds = new();
         readonly System.Collections.Generic.HashSet<string> pendingImages = new();
         readonly System.Collections.Generic.Dictionary<string, DateTime> failedImages = new();
         static readonly System.Net.Http.HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
@@ -638,6 +641,27 @@ metrics();
             if (verified)
                 Log("HAPPY HOUR | Matched rainbow announcement image pixels from Discord attachment");
             return verified;
+        }
+
+        void RecognizePendingHappyHourImage(string url)
+        {
+            if (!happyHourImageMessageIds.TryGetValue(url, out var messageIds) ||
+                !IsVerifiedHappyHourImageUrl(url)) return;
+            bool newlyVerified = false;
+            foreach (ulong messageId in messageIds)
+            {
+                if (!verifiedHappyHourImageIds.Add(messageId)) continue;
+                newlyVerified = true;
+                Log("HAPPY HOUR | Verified real rainbow-image announcement " +
+                    "messageId=" + messageId + "; sent=" +
+                    DiscordTimestamp(messageId).ToString("O"));
+            }
+            if (!newlyVerified) return;
+            // Save even if Discord has already replaced this virtualized
+            // message in its source viewport. The next restart can shortcut.
+            try { SaveChatArchive(); }
+            catch (Exception ex) { Log("HAPPY HOUR | Failed to save verified image ID: " + ex.Message); }
+            DetectLatestHappyHour();
         }
 
         async Task FetchChatImage(string url)
@@ -686,6 +710,7 @@ metrics();
                 }
                 if (IsDisposed || closingChat) { preview.Dispose(); return; }
                 imageCache[url] = preview;
+                RecognizePendingHappyHourImage(url);
                 Log("Chat image decoded: " + original.Width + "x" + original.Height +
                     " (" + (response.Content.Headers.ContentType?.MediaType ?? "unknown type") + ")");
                 imagesNeedRedraw = true;
@@ -1643,20 +1668,23 @@ metrics();
                         archivedImageUrls[key] = images;
                         newlyArchived++;
                     }
-                    // Existing image downloads are shared with the native chat
-                    // preview. Classify those exact pixels; if a file is still
-                    // downloading, imagesNeedRedraw causes another pass later.
-                    // Only Yagrum's actual bot posts count as activations;
-                    // a player reposting the same rainbow graphic must not
-                    // create a false 60-minute event.
+                    // Register Yagrum's genuine bot message BEFORE requesting
+                    // its image. A late image download must still recognize
+                    // this original snowflake after Discord pages farther back.
                     if (images.Length > 0 &&
-                        sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
-                        images.Any(IsVerifiedHappyHourImageUrl) &&
-                        verifiedHappyHourImageIds.Add(key)) {
-                        newlyArchived++;
-                        Log("HAPPY HOUR | Verified real rainbow-image announcement " +
-                            "messageId=" + key + "; sent=" +
-                            DiscordTimestamp(key).ToString("O"));
+                        sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase))
+                    {
+                        foreach (string imageUrl in images)
+                        {
+                            if (!happyHourImageMessageIds.TryGetValue(imageUrl, out var ids))
+                            {
+                                ids = new System.Collections.Generic.HashSet<ulong>();
+                                happyHourImageMessageIds[imageUrl] = ids;
+                            }
+                            ids.Add(key);
+                            if (imageCache.ContainsKey(imageUrl))
+                                RecognizePendingHappyHourImage(imageUrl);
+                        }
                     }
                     if (images.Length > 0 &&
                         sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase))
