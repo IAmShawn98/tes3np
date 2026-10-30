@@ -101,10 +101,13 @@ been retired and the CI architecture guard rejects its reintroduction.
 `loading`, `playing`, `claim`, `closing`, `retry` and `stopped`.
 `UpdateGameLoginProgress` only presents state in a nonactivating, click-through
 native window. It does not send inputs or add a recovery watchdog. The step dots
-track timed screen waits and actual SendText calls; completion means the configured
-load delay elapsed, not server-confirmed authentication. On success the card
-persists for three seconds while the game remains running; batch claim time is
-still ten seconds. The Manage Characters dev preview uses the same card with a simulated clock and no game process or credentials. Cancelled sessions dispose of the visible card. Only a visible SDL window belonging
+track timed screen waits and actual SendText calls. The approved four-step
+gold-bordered production display finishes when the password input is sent and
+closes three seconds later. This marks **input completion**, not server-confirmed
+authentication. The saved in-game load delay, crash recovery, ten-second batch
+claim wait, and scheduled multi-login handoff timing remain unchanged.
+The simulated developer preview has been removed. Cancelled sessions dispose
+of the card. Only a visible SDL window belonging
 to the tracked PID qualifies as the game. Credentials use configured delays, not
 OCR. Never add a second watchdog.
 
