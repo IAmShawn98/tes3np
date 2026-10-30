@@ -6,7 +6,9 @@ on:
     branches:
       - main
       - feature/safe-auto-updater
-      - Update/v0.1.21-alpha
+# Alpha development keeps automatic source/PowerShell/C# checks via checks.yml.
+# Full Windows packaging is intentionally manual on alpha to conserve Actions
+# minutes and artifact storage; main and updater feature retain their triggers.
 
 permissions:
   contents: read
@@ -59,3 +61,6 @@ jobs:
             dist/tes3np-windows.zip.sha256
             dist/tes3np-update.json
           if-no-files-found: error
+          # Development packages are reproducible. Do not accumulate 60+ MB
+          # artifacts for months when just the latest manual build is needed.
+          retention-days: 3
