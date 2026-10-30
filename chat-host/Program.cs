@@ -384,9 +384,33 @@ metrics();
                     }
                     catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
                 };
-                messageBrowser.NavigationCompleted += (_, _) => { messageBrowserReady = true; Log("HTML message renderer ready"); };
+                // A fresh Discord login temporarily hides frameSurface.
+                // Finish navigating the separate native renderer BEFORE we
+                // hide its parent, rather than leave it awaiting a visible
+                // HWND until the next launcher restart.
+                var rendererNavigation = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                messageBrowser.NavigationCompleted += (_, e) => {
+                    if (e.IsSuccess) {
+                        messageBrowserReady = true;
+                        Log("HTML message renderer ready");
+                    }
+                    else Log("HTML message renderer navigation failed: " + e.WebErrorStatus);
+                    rendererNavigation.TrySetResult(e.IsSuccess);
+                };
                 Log("HTML message renderer navigating");
                 messageBrowser.NavigateToString(MessagePage);
+                try
+                {
+                    if (!await rendererNavigation.Task.WaitAsync(TimeSpan.FromSeconds(8)))
+                        Log("CHAT | Native renderer navigation failed; continuing Discord login");
+                }
+                catch (TimeoutException)
+                {
+                    // Do not trap the user on a loading screen: the renderer
+                    // completion callback can still mark itself ready later.
+                    Log("CHAT | Native renderer still loading; continuing Discord login");
+                }
             }
             catch (Exception ex) { Log("HTML renderer initialization failed: " + ex.Message); }
         }
@@ -2716,6 +2740,10 @@ metrics();
         {
             if (!discordLoginVisible) return;
             Log("Discord chat detected: restoring custom Game Chat");
+            // DockToLauncher() reapplies the saved display mode and normally
+            // hides Automatic chat; preserve the panel the user opened to
+            // complete this sign-in instead of making it disappear.
+            bool keepChatVisible = chatOpen && chatDisplayMode != "Always Hidden";
             discordLoginVisible = false;
             signInExpanded = false;
             web.Parent = chatViewport;
@@ -2731,8 +2759,14 @@ metrics();
             Text = "tes3np Chat Host";
             FitWebView();
             DockToLauncher();
+            if (keepChatVisible) {
+                lastChatActivity = DateTime.Now;
+                SetChatOpen(true);
+            }
             PositionChatWindows();
-            _ = RefreshNativeMessages();
+            // The post-auth channel reload is performed by
+            // CheckDiscordAuthentication exactly once. Its normal polling
+            // path will populate the now-initialized native renderer.
         }
         async Task UpdateViewMode()
         {
