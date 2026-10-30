@@ -462,6 +462,11 @@ metrics();
         // Discord snowflakes encode their original creation time in UTC.
         static DateTimeOffset DiscordTimestamp(ulong id) =>
             DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
+        // Shared TES3NP data root, matching src/state.ahk::AppDataDirectory.
+        // The chat companion runs in a separate process but must not invent
+        // an independent persistent-data directory.
+        static readonly string ChatDataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np");
         readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body)> archivedChat = new();
         // Image-only Discord posts must be indexed too: the rainbow Happy Hour
         // announcement is a picture, not searchable message text.
@@ -469,8 +474,7 @@ metrics();
         readonly System.Collections.Generic.HashSet<ulong> verifiedHappyHourImageIds = new();
         readonly System.Collections.Generic.HashSet<ulong> loggedHappyHourImageCandidates = new();
         readonly System.Collections.Generic.HashSet<ulong> loggedHappyHourImageMisses = new();
-        readonly string gameChatLogDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TES3NP", "Logs");
+        readonly string gameChatLogDirectory = Path.Combine(ChatDataRoot, "Logs");
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
         string GameChatIndexFile => Path.Combine(gameChatLogDirectory, "game-chat-index.json");
         bool chatLogLoaded;
@@ -1895,8 +1899,7 @@ metrics();
             TabStop = false
         };
         readonly ContextMenuStrip chatModeMenu = new();
-        readonly string chatModeFile = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-display-mode.txt");
+        readonly string chatModeFile = Path.Combine(ChatDataRoot, "chat-display-mode.txt");
         string chatDisplayMode = "Automatic";
         bool chatOpen, feedInitialized;
         DateTime lastChatActivity = DateTime.MinValue;
@@ -1981,7 +1984,7 @@ metrics();
         }
 
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
-        readonly string logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-host.log");
+        readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
         void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
         public ChatHost(IntPtr owner)
         {
@@ -2358,7 +2361,7 @@ metrics();
                 BeginInvoke((Action)(() => DockToLauncher()));
                 try
                 {
-                    string data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np", "chat-webview2");
+                    string data = Path.Combine(ChatDataRoot, "chat-webview2");
                     freshDiscordProfile = !Directory.Exists(data) || !Directory.EnumerateFileSystemEntries(data).Any();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
