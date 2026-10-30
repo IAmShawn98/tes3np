@@ -1329,6 +1329,9 @@ metrics();
                 happyHourBannerRainbow = rainbow;
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
+                    // The visual theme follows this exact genuine banner lifecycle.
+                    // Closing/dismissing the banner switches it off immediately.
+                    NotifyLauncherSkoomaVision(false);
                     if (ReferenceEquals(happyHourBanner, banner)) {
                         happyHourBanner = null;
                         happyHourBannerTitleInset = null;
@@ -1346,6 +1349,9 @@ metrics();
                         Math.Max(initialOwnerBounds.Right - initialOwnerBounds.Left, 620), 46);
                 banner.Show();
                 SetNativeWindowOwner(banner.Handle, owner);
+                // Signal only after the existing verified banner is visible.
+                // Detection, timestamps and the banner itself are unchanged.
+                NotifyLauncherSkoomaVision(true);
                 Log("HAPPY HOUR | Banner window created for real message " +
                     lastHappyHourMessageId + "; expires=" +
                     happyHourEndsAt.ToString("O"));
@@ -2810,6 +2816,14 @@ metrics();
             }
             catch { }
             SetChatOpen(mode == "Always Shown");
+        }
+        // WM_APP + 0x334: purely visual Skooma Vision state. This is emitted
+        // only by the existing authenticated/cached Happy Hour banner path.
+        // The launcher never determines whether a Happy Hour is real.
+        void NotifyLauncherSkoomaVision(bool active)
+        {
+            if (IsWindow(owner))
+                PostMessage(owner, 0x8334, active ? new IntPtr(1) : IntPtr.Zero, IntPtr.Zero);
         }
         // WM_APP + 0x332 tells the launcher the authoritative chat visibility.
         void NotifyLauncherChatState()
