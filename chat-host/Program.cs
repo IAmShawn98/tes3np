@@ -1031,14 +1031,19 @@ metrics();
                     // Match Game Chat's weathered bronze, without repeating a
                     // tiny image strip dozens of times across the header.
                     g.Clear(System.Drawing.Color.FromArgb(143, 109, 60));
-                    var noise = new Random(4108);
-                    using var shade = new System.Drawing.SolidBrush(
-                        System.Drawing.Color.FromArgb(111, 82, 43));
-                    using var glint = new System.Drawing.SolidBrush(
-                        System.Drawing.Color.FromArgb(174, 137, 77));
-                    for (int i = 0; i < w * 2; i++)
-                        g.FillRectangle(i % 3 == 0 ? glint : shade,
-                            noise.Next(Math.Max(1, w)), noise.Next(Math.Max(1, h)), 2, 1);
+                    // Reuse the Live Game Chat frame's dense, three-tone
+                    // weathered grain. Keep all banner controls and bounds intact.
+                    var grainRandom = new Random(31337);
+                    using var darkGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(93, 67, 34));
+                    using var midGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(177, 143, 84));
+                    using var lightGrain = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(207, 177, 112));
+                    for (int i = 0; i < w * 35; i++) {
+                        int px = grainRandom.Next(5, Math.Max(6, w - 5));
+                        int py = grainRandom.Next(5, Math.Max(6, h - 5));
+                        int grain = grainRandom.Next(1, 4);
+                        g.FillRectangle(i % 5 == 0 ? lightGrain : (i % 3 == 0 ? midGrain : darkGrain),
+                            px, py, grain, grainRandom.Next(1, 3));
+                    }
                     if (borderTexture != null) {
                         using var trim = new System.Drawing.TextureBrush(borderTexture,
                             System.Drawing.Drawing2D.WrapMode.Tile);
