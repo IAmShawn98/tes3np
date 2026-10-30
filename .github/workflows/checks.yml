@@ -29,3 +29,10 @@ jobs:
       - name: Parse workers with Windows PowerShell 5.1
         shell: powershell
         run: ./scripts/check-powershell.ps1
+      - name: Guard Chat Host persistence and Happy Hour contracts
+        run: python scripts/check-chat-architecture.py
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile Windows Chat Host
+        run: dotnet build chat-host/tes3np.ChatHost.csproj -c Release -r win-x64 --no-self-contained
