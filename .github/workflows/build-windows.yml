@@ -30,6 +30,8 @@ jobs:
       - name: Parse PowerShell helpers
         shell: powershell
         run: ./scripts/check-powershell.ps1
+      - name: Guard Chat Host persistence and Happy Hour contracts
+        run: python scripts/check-chat-architecture.py
       - name: Test launcher updater validation
         shell: pwsh
         run: ./scripts/test-update-client.ps1
