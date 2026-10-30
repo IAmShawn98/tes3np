@@ -497,10 +497,15 @@ SetWindowIcons()
 CleanupLauncher(*)
 {
     ReleaseLauncherMorrowindFont()
-    global LauncherGui, HoverTimer, IconHandles, CharacterPage
-    SyncPatchLogToLauncherLog()
-    LogLauncherEvent("Launcher shutting down.")
-    SaveScheduledEventShutdownTime()
+    global LauncherGui, HoverTimer, IconHandles, CharacterPage, LauncherDataResetting
+    ; A confirmed full reset must not recreate logs or settings during OnExit.
+    ; Normal shutdown keeps the established diagnostic/scheduler writes.
+    if !LauncherDataResetting
+    {
+        SyncPatchLogToLauncherLog()
+        LogLauncherEvent("Launcher shutting down.")
+        SaveScheduledEventShutdownTime()
+    }
     StopClient()
     StopEmbeddedInGameChat()
     CleanupMacros()
