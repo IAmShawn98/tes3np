@@ -853,6 +853,36 @@ metrics();
         ulong lastHappyHourAlertId;
         ulong dismissedHappyHourBannerId = ulong.MaxValue;
         bool happyHourDemo;
+        ulong pendingHappyHourId;
+        bool pendingHappyHourDemo;
+        bool hasPendingHappyHour;
+        [DllImport("user32.dll")] static extern IntPtr GetLastActivePopup(IntPtr hwnd);
+        [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr hwnd);
+
+        bool OtherLauncherDialogOpen()
+        {
+            if (!IsWindow(owner) || !IsWindowEnabled(owner)) return true;
+            // Update/status dialogs are owned by the main launcher. Win32
+            // identifies the current active popup even when it is not modal.
+            IntPtr active = GetLastActivePopup(owner);
+            return active != IntPtr.Zero && active != owner && IsWindowVisible(active);
+        }
+
+        void DrainPendingHappyHour()
+        {
+            if (!hasPendingHappyHour || OtherLauncherDialogOpen()) return;
+            ulong id = pendingHappyHourId;
+            bool demo = pendingHappyHourDemo;
+            hasPendingHappyHour = false;
+            // Never deliver an alert which expired while another dialog was open.
+            if (!demo && DiscordTimestamp(id).AddHours(1) <= DateTimeOffset.UtcNow)
+            {
+                Log("HAPPY HOUR | Queued announcement expired before display; dropped.");
+                return;
+            }
+            ShowHappyHourAlert(id, demo);
+        }
+
         Form? happyHourAlert;
         Form? happyHourBanner;
         Label? happyHourBannerCountdown;
@@ -1034,6 +1064,18 @@ metrics();
             if ((!demo && activationId <= lastHappyHourAlertId) ||
                 (!demo && !PreviewExpiredHappyHourForTesting && ends <= DateTimeOffset.UtcNow)) return;
             bool expired = ends <= DateTimeOffset.UtcNow;
+            if (OtherLauncherDialogOpen())
+            {
+                if (!hasPendingHappyHour || activationId >= pendingHappyHourId)
+                {
+                    pendingHappyHourId = activationId;
+                    pendingHappyHourDemo = demo;
+                    hasPendingHappyHour = true;
+                }
+                return;
+            }
+            // The latest queued event takes precedence over older announcements.
+            hasPendingHappyHour = false;
             lastHappyHourAlertId = activationId;
             happyHourDemo = demo;
             happyHourEndsAt = ends;
@@ -1869,6 +1911,7 @@ metrics();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
+                DrainPendingHappyHour();
                 PositionChatWindows();
                 if (!discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
