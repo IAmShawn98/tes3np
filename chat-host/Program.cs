@@ -1145,10 +1145,12 @@ metrics();
                 happyHourBannerCountdown.Text = happyHourDemo ? "" :
                     "(" + HappyHourRemaining(happyHourEndsAt) + " left)";
                 foreach (Control control in happyHourBannerCountdown.Parent!.Controls) {
-                    if (control is Label label && label.Text == "-")
-                        label.Visible = !happyHourDemo;
-                    else if (control is Label label && !ReferenceEquals(label, happyHourBannerCountdown))
-                        label.Text = happyHourDemo ? "No announcement found"
+                    if (control is not Label bannerLabel ||
+                        ReferenceEquals(bannerLabel, happyHourBannerCountdown)) continue;
+                    if (bannerLabel.Text == "-")
+                        bannerLabel.Visible = !happyHourDemo;
+                    else
+                        bannerLabel.Text = happyHourDemo ? "No announcement found"
                             : "Mastery Points Are Doubled!";
                 }
                 happyHourBannerCountdown.ForeColor = active
