@@ -43,9 +43,10 @@ Loading-overlay failures are recorded in `%APPDATA%\tes3np\render-errors.log`. P
 Game Chat diagnostics are in `%APPDATA%\\tes3np\\chat-host.log`. Its
 message archive lives under `%APPDATA%\\tes3np\\Logs\\`, and its Discord
 browser profile is in `%APPDATA%\\tes3np\\chat-webview2\\`.
-`happy-hour-last-seen.txt` is notification state under the same Roaming
-directory, not proof that a Happy Hour is active. Happy Hour banners require
-a working Discord sign-in and an actual detected announcement.
+Happy Hour announcements appear directly in the small banner attached to
+the launcher, with no extra activation popup. The banner requires a working
+Discord sign-in and an actual detected announcement. The obsolete
+`happy-hour-last-seen.txt` marker from earlier test builds is no longer used.
 
 **Resetting chat:** Back up the Roaming data directory first. Closing the
 launcher and clearing the intended chat data resets the archive and stored
