@@ -36,17 +36,19 @@ OpenCharacterPage(*)
     ; Retain a hidden heading only for the character editor and scheduler views.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h165 BackgroundTrans", "")
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 250, 370, 30, "Add character", (*) => EditProfile(0))
+    ; The longer instructions use a slightly smaller native journal font.
+    ; Reserve their full height above the ten-character list.
+    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h155 BackgroundTrans", "")
     CharacterDescriptionMagic := false
     Loop 10
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
-        ; The shorter description needs only three lines. Start the list closer
-        ; to it, while leaving room for all ten rows and the limit notice.
-        y := 175 + (index - 1) * 24
+        ; Begin below the full instructions, keeping all ten rows above
+        ; the limit notice and the Add/Wipe action stack.
+        y := 250 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -60,7 +62,7 @@ OpenCharacterPage(*)
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 435, 370, 25, "* You have reached the server character limit.")
+    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 499, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
@@ -108,10 +110,7 @@ RefreshProfiles()
                 SetBookTick(controls.Tick, SelectedProfile = index)
             }
         }
-        descriptionText := Profiles.Length
-            ? "This is a list containing all of your registered Nerevarine Prophecies characters. From here you can add or delete up to 10 characters."
-            : "This will be a list of all your Nerevarine Prophecies characters. From here, you will be able to launch your characters automatically with optional crash recovery and much more."
-        CharacterDescription.Text := descriptionText
+        descriptionText := "Click on the tick box before one of your characters to favorite it, allowing you to use it for quick launching and being optionally notified if someone mentions you in-game while you're logged out. You can have up to 10 characters at a time and log in up to 4 at once."
         ; Keep functional description text on the bundled Mystic Cards TTF. The
         ; vanilla bitmap renderer is intentionally not used for long paragraphs.
         if IsObject(CharacterDescriptionMagic)
@@ -122,16 +121,15 @@ RefreshProfiles()
         ; Keep the approved character action stack after every refresh/import.
         ; With the scheduler button deferred, Add Character now occupies its
         ; old y=540 position, immediately above Wipe Character List (y=575).
-        actionY := Profiles.Length ? 540 : 185
+        actionY := Profiles.Length ? 540 : 250
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        ; Match the description's actual three-line content so its transparent
-        ; hit area does not extend over the repositioned character rows.
-        CharacterDescription.Move(70, 80, 390, Profiles.Length ? 84 : 90)
+        ; Keep the description's transparent area strictly above the rows.
+        CharacterDescription.Move(70, 80, 390, 155)
         ; Each character already has its own Play button. Keep the obsolete
         ; full-width Launch Character button hidden so it cannot overlap actions.
         LaunchCharacterButton.Visible := false
         transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : 225
+        transferY := Profiles.Length ? 575 : 290
         ; Preserve the original wide Import Data layout and compact Export Data
         ; layout. MoveStyledButton updates both the native control and its painted
         ; face; do not change position or dimensions independently.
