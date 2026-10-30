@@ -806,6 +806,33 @@ metrics();
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
         bool historyCatchupActive;
+        // Automatically collect the last hour while keeping the visible
+        // feed pinned to the newest messages until the user scrolls.
+        readonly DateTimeOffset initialHistoryCutoff = DateTimeOffset.UtcNow.AddHours(-1);
+        DateTime initialBackfillStarted = DateTime.MinValue;
+        int initialBackfillAttempts;
+        bool initialBackfillComplete;
+        void BackfillRecentHour()
+        {
+            if (initialBackfillComplete || !nativeMode || signInExpanded ||
+                loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
+                history.Count == 0 || userScrolledChat) return;
+            if (initialBackfillStarted == DateTime.MinValue)
+                initialBackfillStarted = DateTime.UtcNow;
+            if (DiscordTimestamp(history.First().Key) <= initialHistoryCutoff ||
+                initialBackfillAttempts >= 100 ||
+                DateTime.UtcNow - initialBackfillStarted > TimeSpan.FromSeconds(90)) {
+                initialBackfillComplete = true;
+                Log("CHAT | Recent-hour backfill finished: " + history.Count +
+                    " messages; oldest=" + DiscordTimestamp(history.First().Key).ToString("O"));
+                return;
+            }
+            if (DateTime.UtcNow < historyBackoffUntil ||
+                DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(600)) return;
+            initialBackfillAttempts++;
+            _ = LoadOlderMessages();
+        }
+
         void RequestOlderMessages(bool forceTop = false)
         {
             if (!userScrolledChat && !forceTop) return;
@@ -1932,7 +1959,10 @@ metrics();
             };
             historyWatch.Tick += (_, _) =>
             {
-                if (!closingChat && !IsDisposed && nativeMode) RequestOlderMessages();
+                if (!closingChat && !IsDisposed && nativeMode) {
+                    BackfillRecentHour();
+                    RequestOlderMessages();
+                }
             };
             historyWatch.Start();
             watch.Start();
