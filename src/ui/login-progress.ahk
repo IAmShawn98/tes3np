@@ -6,6 +6,8 @@ global LoginProgressFooter := 0
 global LoginProgressSeparator := 0
 global LoginProgressTopSeparator := 0
 global LoginProgressIcon := 0
+global LoginProgressCharacterName := 0
+global LoginProgressBorder := []
 global LoginProgressSummaryDots := []
 global LoginProgressWidth := 0
 global LoginProgressHeight := 0
@@ -88,6 +90,7 @@ DisposeGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter, LoginProgressSeparator
     global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
+    global LoginProgressCharacterName, LoginProgressBorder
     DismissGameLoginProgress()
     if IsObject(LoginProgressGui)
         try LoginProgressGui.Destroy()
@@ -98,6 +101,8 @@ DisposeGameLoginProgress()
     LoginProgressSeparator := 0
     LoginProgressTopSeparator := 0
     LoginProgressIcon := 0
+    LoginProgressCharacterName := 0
+    LoginProgressBorder := []
     LoginProgressSummaryDots := []
 }
 
@@ -106,6 +111,7 @@ CreateGameLoginProgress()
     global LoginProgressGui, LoginProgressHeading, LoginProgressRows
     global LoginProgressFooter, LoginProgressSeparator, LoginProgressWidth, LoginProgressHeight
     global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
+    global LoginProgressCharacterName, LoginProgressBorder
     if IsObject(LoginProgressGui)
         return
     scale := A_ScreenDPI / 96
@@ -115,6 +121,15 @@ CreateGameLoginProgress()
     ; WS_EX_NOACTIVATE | WS_EX_TRANSPARENT: keep TES3MP input and clicks working.
     window := Gui("-Caption +AlwaysOnTop +ToolWindow -DPIScale +E0x08000020", "tes3np Login Progress")
     window.BackColor := "28241F"
+    ; Gold trim is built before other controls so it stays behind all text.
+    ; Hidden for actual TES3MP logins until this preview design is approved.
+    LoginProgressBorder := []
+    for line in [
+        [0, 0, 420, 2], [0, 479, 420, 2],
+        [0, 0, 2, 481], [418, 0, 2, 481]
+    ]
+        LoginProgressBorder.Push(window.Add("Text", "x" p(line[1]) " y" p(line[2])
+            " w" p(line[3]) " h" p(line[4]) " BackgroundC6A15C Hidden", ""))
     window.SetFont("s15 Bold cF2E4D0", "Georgia")
     LoginProgressHeading := window.Add("Text", "x" p(20) " y" p(21) " w" p(380) " h" p(38) " Center BackgroundTrans +0x4000", "")
     LoginProgressTopSeparator := window.Add("Text", "x" p(27) " y" p(68) " w" p(366) " h" p(2) " Background806B51", "")
@@ -123,6 +138,9 @@ CreateGameLoginProgress()
     ; the raw control-box midpoint. It remains hidden in real logins.
     LoginProgressIcon := window.Add("Picture", "x" p(174) " y" p(60) " w" p(72) " h" p(72)
         " Icon1 Hidden", A_ScriptDir "\assets\icons\tes3np.ico")
+    window.SetFont("s13 Bold cF2E4D0", "Georgia")
+    LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" p(143) " w" p(372)
+        " h" p(30) " Center BackgroundTrans Hidden", "")
     steps := ["Loading Name Screen...", "Typing Name...", "Loading Password Screen...",
         "Typing Password...", "Loading Character..."]
     LoginProgressRows := []
@@ -134,7 +152,13 @@ CreateGameLoginProgress()
         label := window.Add("Text", "x" p(30) " y" y " w" p(360) " h" p(22) " Center BackgroundTrans", labelText)
         window.SetFont("s13 cFFFFFF", "Segoe UI Symbol")
         dot := window.Add("Text", "x" p(195) " y" (y + p(23)) " w" p(30) " h" p(21) " Center BackgroundTrans", "●")
-        LoginProgressRows.Push({Dot: dot, Label: label, BaseText: labelText, DotColor: "", LabelColor: ""})
+        ; Preview-only symbol overlays each stage dot, identical to the
+        ; active/finished lower tracker treatment.
+        window.SetFont("s12 Bold c173C2A", "Segoe UI Symbol")
+        symbol := window.Add("Text", "x" p(195) " y" (y + p(23)) " w" p(30) " h" p(21)
+            " Center BackgroundTrans +0x200 Hidden", "✔")
+        LoginProgressRows.Push({Dot: dot, Label: label, Symbol: symbol, SymbolText: "",
+            BaseText: labelText, DotColor: "", LabelColor: ""})
     }
     LoginProgressSeparator := window.Add("Text", "x" p(27) " y" p(329) " w" p(366) " h" p(2) " Background806B51", "")
     window.SetFont("s10 Bold cD3B687", "Segoe UI")
@@ -166,32 +190,40 @@ RenderGameLoginProgress()
     global LoginProgressName, LoginProgressMode, LoginProgressStage, Client
     global LoginProgressSeparator, LoginProgressHeight, LoginProgressPreviewStarted
     global LoginProgressTopSeparator, LoginProgressIcon, LoginProgressSummaryDots
-    header := "Logging In " LoginProgressName "..."
+    global LoginProgressCharacterName, LoginProgressBorder
+    preview := LoginProgressMode = "preview"
+    header := preview ? "Logging in..." : "Logging In " LoginProgressName "..."
     dirty := false
     if LoginProgressHeading.Text != header
     {
         LoginProgressHeading.Text := header
         dirty := true
     }
-    preview := LoginProgressMode = "preview"
     isComplete := LoginProgressMode = "complete" || (preview && LoginProgressStage = 6)
     if preview
     {
         ; Only the dev preview expands for the favicon and the lower tracker.
-        previewHeight := Round(451 * A_ScreenDPI / 96)
+        previewHeight := Round(481 * A_ScreenDPI / 96)
         if LoginProgressHeight != previewHeight
         {
             LoginProgressHeight := previewHeight
             p := (value) => Round(value * A_ScreenDPI / 96)
-            LoginProgressTopSeparator.Move(p(27), p(151), p(366), p(2))
+            LoginProgressTopSeparator.Move(p(27), p(181), p(366), p(2))
             for index, row in LoginProgressRows
             {
-                y := p(167 + (index - 1) * 46)
+                y := p(197 + (index - 1) * 46)
                 row.Label.Move(p(30), y, p(360), p(22))
                 row.Dot.Move(p(195), y + p(23), p(30), p(21))
+                row.Symbol.Move(p(195), y + p(23), p(30), p(21))
             }
-            LoginProgressSeparator.Move(p(27), p(361), p(366), p(2))
-            LoginProgressFooter.Move(p(24), p(373), p(372), p(25))
+            LoginProgressSeparator.Move(p(27), p(391), p(366), p(2))
+            LoginProgressFooter.Move(p(24), p(403), p(372), p(25))
+            for index, marker in LoginProgressSummaryDots
+            {
+                x := p(135 + (index - 1) * 42)
+                marker.Circle.Move(x, p(440), p(28), p(27))
+                marker.Check.Move(x, p(442), p(28), p(27))
+            }
             dirty := true
         }
     }
@@ -209,6 +241,7 @@ RenderGameLoginProgress()
                 y := p(86 + (index - 1) * 46)
                 row.Label.Move(p(30), y, p(360), p(22))
                 row.Dot.Move(p(195), y + p(23), p(30), p(21))
+                row.Symbol.Move(p(195), y + p(23), p(30), p(21))
             }
             LoginProgressSeparator.Move(p(27), p(329), p(366), p(2))
             LoginProgressFooter.Move(p(24), p(343), p(372), p(25))
@@ -220,6 +253,24 @@ RenderGameLoginProgress()
         LoginProgressIcon.Visible := preview
         dirty := true
     }
+    if LoginProgressCharacterName.Visible != preview
+    {
+        LoginProgressCharacterName.Visible := preview
+        dirty := true
+    }
+    if preview && LoginProgressCharacterName.Text != LoginProgressName
+    {
+        LoginProgressCharacterName.Text := LoginProgressName
+        dirty := true
+    }
+    for edge in LoginProgressBorder
+    {
+        if edge.Visible != preview
+        {
+            edge.Visible := preview
+            dirty := true
+        }
+    }
     for index, row in LoginProgressRows
     {
         shouldShow := !preview || index <= 4
@@ -230,6 +281,25 @@ RenderGameLoginProgress()
             dirty := true
         }
         done := isComplete || index < LoginProgressStage
+        ; Every active preview stage uses the blue !, not only typing.
+        stageActive := preview && shouldShow && !done && index = LoginProgressStage
+        symbol := done && preview ? "✔" : stageActive ? "!" : ""
+        if row.SymbolText != symbol
+        {
+            row.Symbol.Text := symbol
+            if symbol = "✔"
+                row.Symbol.SetFont("s12 Bold c173C2A", "Segoe UI Symbol")
+            else if symbol = "!"
+                row.Symbol.SetFont("s14 Bold c173C2A", "Segoe UI")
+            row.SymbolText := symbol
+            dirty := true
+        }
+        showSymbol := preview && symbol != "" && shouldShow
+        if row.Symbol.Visible != showSymbol
+        {
+            row.Symbol.Visible := showSymbol
+            dirty := true
+        }
         if preview && shouldShow
         {
             if done
@@ -252,8 +322,8 @@ RenderGameLoginProgress()
             row.Label.Text := labelText
             dirty := true
         }
-        typing := (LoginProgressMode = "login" || LoginProgressMode = "preview") && index = LoginProgressStage && (index = 2 || index = 4)
-        dotColor := done ? "6EE29B" : typing ? "62AFFF" : "FFFFFF"
+        typing := !preview && LoginProgressMode = "login" && index = LoginProgressStage && (index = 2 || index = 4)
+        dotColor := done ? "6EE29B" : stageActive || typing ? "62AFFF" : "FFFFFF"
         labelColor := done ? "95D5AC" : index = LoginProgressStage ? "F2E4D0" : "C8BFB4"
         if row.DotColor != dotColor
         {
