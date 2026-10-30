@@ -110,9 +110,18 @@ so C# syntax errors are caught without waiting for the complete launcher build.
 Skooma Vision is a **visual** enhancement to the existing genuine
 Discord-backed banner—not a change to Happy Hour detection. Keep the
 approved ChatHost architecture check and the Windows ChatHost compile.
+The Windows build output is `dist\\tes3np-windows\\tes3np.exe`, not the
+checkout-root `tes3np.exe`: always launch the current package executable
+rather than a stale checkout-root binary. Check the freshly generated
+`dist\\tes3np-windows.zip` and validated packaging before launching.
 
 1. Use the tray option **Preview Skooma Vision (20 sec)** to test the
-   effect without creating a simulated Discord announcement. Check
+   effect without creating a simulated Discord announcement. The preview
+   works even when the automatic Skooma Vision setting is turned off.
+   The transparent overlay is initialized while hidden: use its raw HWND
+   for `WinSetTransColor`, never `"ahk_id " hwnd` without hidden-window
+   detection. Check `%APPDATA%\\tes3np\\launcher.log` for visual-layer
+   creation or error messages. Check
    that particles, confetti and party accents stay on the launcher
    border/artwork, do not obscure menu labels, and do not intercept any
    click, key, scrolling, chat toggle or profile action.
