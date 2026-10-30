@@ -465,28 +465,50 @@ metrics();
             Directory.CreateDirectory(gameChatLogDirectory);
             if (File.Exists(GameChatIndexFile))
             {
-                var records = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<ChatArchiveEntry>>(
-                    File.ReadAllText(GameChatIndexFile)) ?? new();
-                foreach (var entry in records)
-                    archivedChat[entry.Id] = (entry.User ?? "", entry.Body ?? "");
+                try
+                {
+                    var records = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<ChatArchiveEntry>>(
+                        File.ReadAllText(GameChatIndexFile)) ?? new();
+                    foreach (var entry in records)
+                        if (entry.Id > 0)
+                            archivedChat[entry.Id] = (entry.User ?? "", entry.Body ?? "");
+                }
+                catch (Exception ex)
+                {
+                    // A damaged JSON index must not disable fresh Discord
+                    // history collection or prevent trying the readable log.
+                    Log("CHAT | Saved message index unreadable: " + ex.Message);
+                }
             }
-            else if (File.Exists(GameChatLogFile))
+            bool recoveredFromText = false;
+            if (File.Exists(GameChatLogFile))
             {
-                // One-time migration of the previous plain-text log format.
+                // Recover only log entries containing original Discord IDs.
+                // Human-readable timestamps without IDs cannot provide exact
+                // activation times and must never be guessed.
                 foreach (string line in File.ReadLines(GameChatLogFile))
                 {
-                    var match = System.Text.RegularExpressions.Regex.Match(line,
-                        @"^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] (.*?) \[discord:(\d+)\]$");
-                    if (!match.Success || !ulong.TryParse(match.Groups[2].Value, out ulong id)) continue;
-                    string content = match.Groups[1].Value;
+                    var idMatch = System.Text.RegularExpressions.Regex.Match(
+                        line, @"\[discord:(\d+)\]\s*$");
+                    if (!idMatch.Success ||
+                        !ulong.TryParse(idMatch.Groups[1].Value, out ulong id) ||
+                        id == 0 || archivedChat.ContainsKey(id)) continue;
+                    string content = line.Substring(0, idMatch.Index).TrimEnd();
+                    int stampEnd = content.IndexOf(']');
+                    if (stampEnd >= 0) content = content.Substring(stampEnd + 1).TrimStart();
                     int split = content.IndexOf(": ", StringComparison.Ordinal);
                     archivedChat[id] = split >= 0
                         ? (content.Substring(0, split), content.Substring(split + 2))
                         : ("", content);
+                    recoveredFromText = true;
                 }
-                if (archivedChat.Count > 0) SaveChatArchive();
             }
             chatLogLoaded = true;
+            if (recoveredFromText)
+            {
+                try { SaveChatArchive(); }
+                catch (Exception ex) { Log("CHAT | Recovered log indexing failed: " + ex.Message); }
+            }
         }
         public sealed class ChatArchiveEntry
         {
@@ -524,7 +546,9 @@ metrics();
                 else if (body.StartsWith(user + ": ", StringComparison.Ordinal))
                     body = body.Substring(user.Length + 2);
                 if (string.IsNullOrWhiteSpace(user)) user = "System";
-                output.AppendLine($"[{sent:hh:mm:ss tt}] {user}: {body}");
+                // Keep the source message ID in the readable export so it
+                // can rebuild an index after an interrupted/corrupt JSON save.
+                output.AppendLine($"[{sent:hh:mm:ss tt}] {user}: {body} [discord:{entry.Key}]");
             }
             File.WriteAllText(GameChatLogFile, output.ToString());
         }
