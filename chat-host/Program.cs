@@ -1025,35 +1025,25 @@ metrics();
                 banner.FormBorderStyle = FormBorderStyle.None;
                 banner.StartPosition = FormStartPosition.Manual;
                 banner.BackColor = System.Drawing.Color.FromArgb(143, 109, 60);
-                // Tile rather than stretch the original Game Chat material.
                 banner.Paint += (_, e) => {
                     var g = e.Graphics;
                     int w = banner.ClientSize.Width, h = banner.ClientSize.Height;
+                    // Match Game Chat's weathered bronze, without repeating a
+                    // tiny image strip dozens of times across the header.
                     g.Clear(System.Drawing.Color.FromArgb(143, 109, 60));
-                    // The chat header bitmap contains horizontal trim lines.
-                    // Tiling its full height repeats those lines through the bar.
-                    // Sample only its central weathered-metal band instead.
-                    if (headerTexture != null) {
-                        int bandHeight = Math.Min(12, Math.Max(1, headerTexture.Height / 3));
-                        int bandTop = Math.Max(0, (headerTexture.Height - bandHeight) / 2);
-                        using var band = headerTexture.Clone(
-                            new System.Drawing.Rectangle(0, bandTop, headerTexture.Width, bandHeight),
-                            headerTexture.PixelFormat);
-                        using var surface = new System.Drawing.TextureBrush(band,
-                            System.Drawing.Drawing2D.WrapMode.Tile);
-                        g.FillRectangle(surface, 0, 0, w, h);
-                    }
+                    var noise = new Random(4108);
+                    using var shade = new System.Drawing.SolidBrush(
+                        System.Drawing.Color.FromArgb(111, 82, 43));
+                    using var glint = new System.Drawing.SolidBrush(
+                        System.Drawing.Color.FromArgb(174, 137, 77));
+                    for (int i = 0; i < w * 2; i++)
+                        g.FillRectangle(i % 3 == 0 ? glint : shade,
+                            noise.Next(Math.Max(1, w)), noise.Next(Math.Max(1, h)), 2, 1);
                     if (borderTexture != null) {
                         using var trim = new System.Drawing.TextureBrush(borderTexture,
                             System.Drawing.Drawing2D.WrapMode.Tile);
-                        g.FillRectangle(trim, 0, 0, w, 6);
-                        g.FillRectangle(trim, 0, h - 6, w, 6);
-                        using var vertical = (System.Drawing.Bitmap)borderTexture.Clone();
-                        vertical.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
-                        using var sides = new System.Drawing.TextureBrush(vertical,
-                            System.Drawing.Drawing2D.WrapMode.Tile);
-                        g.FillRectangle(sides, 0, 0, 6, h);
-                        g.FillRectangle(sides, w - 6, 0, 6, h);
+                        g.FillRectangle(trim, 0, 0, w, 5);
+                        g.FillRectangle(trim, 0, h - 5, w, 5);
                     }
                 };
                 var dismiss = GoldButton("×", 10, 10, 26, 26);
@@ -1062,53 +1052,44 @@ metrics();
                     banner.Close();
                 };
                 banner.Controls.Add(dismiss);
-                // Same dark title inset as Live Game Chat, sized to the text,
-                // rather than stretching a black bar over the whole window.
+                // The black title plate hugs the actual content, not the window.
                 var titleInset = new Panel {
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
                 };
-                titleInset.SetBounds(44, 7, 640, 32);
+                titleInset.SetBounds(44, 7, 210, 32);
                 banner.Controls.Add(titleInset);
                 var rainbow = new Panel {
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
                 };
-                rainbow.SetBounds(9, 0, 185, 32);
+                rainbow.SetBounds(6, 0, 188, 32);
                 titleInset.Controls.Add(rainbow);
-                var rainbowLetters = "HAPPY HOUR";
-                var rainbowColors = new[] { "#FF0000", "#FF7F00", "#FFFF00",
-                    "#7FFF00", "#00FF7F", "#00FFFF", "#007FFF",
-                    "#7F00FF", "#FF00FF", "#00FF00" };
-                using (var headingFont = new System.Drawing.Font("Georgia", 14,
-                    System.Drawing.FontStyle.Bold)) {
+                rainbow.Paint += (_, e) => {
+                    const string heading = "HAPPY HOUR";
+                    string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
+                        "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
+                    using var font = new System.Drawing.Font("Georgia", 14,
+                        System.Drawing.FontStyle.Bold);
+                    var flags = System.Windows.Forms.TextFormatFlags.NoPadding |
+                        System.Windows.Forms.TextFormatFlags.VerticalCenter |
+                        System.Windows.Forms.TextFormatFlags.NoPrefix;
+                    int[] widths = heading.Select(c => System.Windows.Forms.TextRenderer.MeasureText(
+                        c.ToString(), font, new System.Drawing.Size(100, 32), flags).Width).ToArray();
+                    float scale = Math.Min(1f, (rainbow.Width - 4f) / Math.Max(1, widths.Sum()));
                     int x = 0;
-                    for (int i = 0; i < rainbowLetters.Length; i++) {
-                        int width = System.Windows.Forms.TextRenderer.MeasureText(
-                            rainbowLetters[i].ToString(), headingFont,
-                            new System.Drawing.Size(100, 32),
-                            System.Windows.Forms.TextFormatFlags.NoPadding).Width;
-                        var letter = new Label {
-                            Text = rainbowLetters[i].ToString(),
-                            Font = new System.Drawing.Font("Georgia", 14,
-                                System.Drawing.FontStyle.Bold),
-                            ForeColor = System.Drawing.ColorTranslator.FromHtml(rainbowColors[i]),
-                            BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
-                            TextAlign = System.Drawing.ContentAlignment.MiddleCenter
-                        };
-                        letter.SetBounds(x, 1, width + 1, 30);
-                        rainbow.Controls.Add(letter);
+                    for (int i = 0; i < heading.Length; i++) {
+                        int width = Math.Max(1, (int)Math.Round(widths[i] * scale));
+                        System.Windows.Forms.TextRenderer.DrawText(e.Graphics,
+                            heading[i].ToString(), font, new System.Drawing.Rectangle(x, 0, width + 1, 32),
+                            System.Drawing.ColorTranslator.FromHtml(colors[i]), flags);
                         x += width;
                     }
-                }
-                var left = GoldText("", 196, 1, 424, 30, 12, true);
+                };
+                var left = GoldText("", 199, 1, 145, 30, 12, true);
                 left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 left.BackColor = System.Drawing.Color.FromArgb(10, 9, 8);
                 titleInset.Controls.Add(left);
                 happyHourBannerCountdown = left;
-                banner.Resize += (_, _) => {
-                    titleInset.Width = Math.Min(640, Math.Max(290, banner.ClientSize.Width - 58));
-                    left.Width = Math.Max(60, titleInset.Width - 204);
-                    banner.Invalidate();
-                };
+                banner.Resize += (_, _) => banner.Invalidate();
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
                     if (ReferenceEquals(happyHourBanner, banner)) happyHourBanner = null;
@@ -1118,14 +1099,18 @@ metrics();
                 banner.Show();
                 SetNativeWindowOwner(banner.Handle, owner);
             }
-            if (happyHourBannerCountdown != null)
-                happyHourBannerCountdown.Text = happyHourDemo
-                    ? HappyHourRemaining(happyHourEndsAt)
-                    : (happyHourEndsAt <= DateTimeOffset.UtcNow
-                        ? "Expired  |  " : "Mastery XP x2  |  ") +
-                      HappyHourRemaining(happyHourEndsAt) + " left";
-            if (happyHourBannerCountdown != null)
-                happyHourBannerCountdown.ForeColor = HappyHourTimerColor(happyHourEndsAt);
+            if (happyHourBannerCountdown != null) {
+                // Test/expired banners display only HAPPY HOUR; never a red
+                // "0m 00s" label or diagnostic message in the title strip.
+                bool active = !happyHourDemo && happyHourEndsAt > DateTimeOffset.UtcNow;
+                string remaining = active ? HappyHourRemaining(happyHourEndsAt) : "";
+                happyHourBannerCountdown.Text = remaining;
+                happyHourBannerCountdown.ForeColor = active
+                    ? HappyHourTimerColor(happyHourEndsAt)
+                    : System.Drawing.Color.FromArgb(215, 170, 77);
+                if (happyHourBannerCountdown.Parent is Panel plate)
+                    plate.Width = active ? 355 : 210;
+            }
             // Place the gold card directly above the actual launcher window.
             RECT rect;
             if (GetWindowRect(owner, out rect) && happyHourBanner is { IsDisposed: false })
