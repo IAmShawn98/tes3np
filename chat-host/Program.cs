@@ -1081,6 +1081,7 @@ metrics();
         Label? happyHourBannerBonus;
         Label? happyHourBannerCountdown;
         int happyHourBannerRequiredWidth = 620;
+        bool happyHourBannerLayoutLogged;
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
         readonly string happyHourSeenFile = Path.Combine(
@@ -1252,6 +1253,16 @@ metrics();
             }
             inset.SetBounds(44, 7, x + 12, 32);
             happyHourBannerRequiredWidth = inset.Right + 10;
+            if (!happyHourBannerLayoutLogged) {
+                happyHourBannerLayoutLogged = true;
+                Log("HAPPY HOUR | Measured banner layout: total=" +
+                    happyHourBannerRequiredWidth +
+                    "px; heading=" + rainbow.Width +
+                    "px; green=" + bonus.Width +
+                    "px; countdown=" + countdown.Width +
+                    "px; greenText='" + bonus.Text +
+                    "'; countdownText='" + countdown.Text + "'");
+            }
             rainbow.Invalidate();
         }
 
@@ -1380,6 +1391,7 @@ metrics();
                         happyHourBannerBonus = null;
                         happyHourBannerCountdown = null;
                         happyHourBannerRequiredWidth = 620;
+                        happyHourBannerLayoutLogged = false;
                     }
                 };
                 // Keep the card associated with the launcher, without making
