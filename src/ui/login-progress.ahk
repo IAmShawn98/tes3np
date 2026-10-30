@@ -3,6 +3,7 @@ global LoginProgressGui := 0
 global LoginProgressHeading := 0
 global LoginProgressRows := []
 global LoginProgressFooter := 0
+global LoginProgressSeparator := 0
 global LoginProgressWidth := 0
 global LoginProgressHeight := 0
 global LoginProgressMode := ""
@@ -82,7 +83,7 @@ DismissGameLoginProgress()
 
 DisposeGameLoginProgress()
 {
-    global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter
+    global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter, LoginProgressSeparator
     DismissGameLoginProgress()
     if IsObject(LoginProgressGui)
         try LoginProgressGui.Destroy()
@@ -90,12 +91,13 @@ DisposeGameLoginProgress()
     LoginProgressRows := []
     LoginProgressHeading := 0
     LoginProgressFooter := 0
+    LoginProgressSeparator := 0
 }
 
 CreateGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressHeading, LoginProgressRows
-    global LoginProgressFooter, LoginProgressWidth, LoginProgressHeight
+    global LoginProgressFooter, LoginProgressSeparator, LoginProgressWidth, LoginProgressHeight
     if IsObject(LoginProgressGui)
         return
     scale := A_ScreenDPI / 96
@@ -119,9 +121,9 @@ CreateGameLoginProgress()
         label := window.Add("Text", "x" p(30) " y" y " w" p(360) " h" p(22) " Center BackgroundTrans", labelText)
         window.SetFont("s13 cFFFFFF", "Segoe UI Symbol")
         dot := window.Add("Text", "x" p(195) " y" (y + p(23)) " w" p(30) " h" p(21) " Center BackgroundTrans", "●")
-        LoginProgressRows.Push({Dot: dot, Label: label, DotColor: "", LabelColor: ""})
+        LoginProgressRows.Push({Dot: dot, Label: label, BaseText: labelText, DotColor: "", LabelColor: ""})
     }
-    window.Add("Text", "x" p(27) " y" p(329) " w" p(366) " h" p(2) " Background806B51", "")
+    LoginProgressSeparator := window.Add("Text", "x" p(27) " y" p(329) " w" p(366) " h" p(2) " Background806B51", "")
     window.SetFont("s10 Bold cD3B687", "Segoe UI")
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" p(343) " w" p(372) " h" p(25) " Center BackgroundTrans +0x4000", "")
     window.Show("Hide w" LoginProgressWidth " h" LoginProgressHeight)
@@ -132,6 +134,7 @@ RenderGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressHeading, LoginProgressRows, LoginProgressFooter
     global LoginProgressName, LoginProgressMode, LoginProgressStage, Client
+    global LoginProgressSeparator, LoginProgressHeight, LoginProgressPreviewStarted
     header := "Logging In " LoginProgressName "..."
     dirty := false
     if LoginProgressHeading.Text != header
@@ -139,10 +142,65 @@ RenderGameLoginProgress()
         LoginProgressHeading.Text := header
         dirty := true
     }
-    isComplete := LoginProgressMode = "complete" || (LoginProgressMode = "preview" && LoginProgressStage = 6)
+    preview := LoginProgressMode = "preview"
+    isComplete := LoginProgressMode = "complete" || (preview && LoginProgressStage = 6)
+    if preview
+    {
+        ; The dev preview has four steps; the real login keeps all five.
+        previewHeight := Round(330 * A_ScreenDPI / 96)
+        if LoginProgressHeight != previewHeight
+        {
+            LoginProgressHeight := previewHeight
+            p := (value) => Round(value * A_ScreenDPI / 96)
+            LoginProgressSeparator.Move(p(27), p(278), p(366), p(2))
+            LoginProgressFooter.Move(p(24), p(291), p(372), p(25))
+            dirty := true
+        }
+    }
+    else
+    {
+        normalHeight := Round(386 * A_ScreenDPI / 96)
+        if LoginProgressHeight != normalHeight
+        {
+            LoginProgressHeight := normalHeight
+            p := (value) => Round(value * A_ScreenDPI / 96)
+            LoginProgressSeparator.Move(p(27), p(329), p(366), p(2))
+            LoginProgressFooter.Move(p(24), p(343), p(372), p(25))
+            dirty := true
+        }
+    }
     for index, row in LoginProgressRows
     {
+        shouldShow := !preview || index <= 4
+        if row.Label.Visible != shouldShow
+        {
+            row.Label.Visible := shouldShow
+            row.Dot.Visible := shouldShow
+            dirty := true
+        }
         done := isComplete || index < LoginProgressStage
+        if preview && shouldShow
+        {
+            if done
+                ending := "!"
+            else if index = LoginProgressStage
+            {
+                ; Cycle one, two and three dots until the stage turns green.
+                startAt := index = 1 ? 0 : index = 2 ? 1500 : index = 3 ? 2500 : 4000
+                phaseElapsed := Max(0, A_TickCount - LoginProgressPreviewStarted - startAt)
+                ending := SubStr("...", 1, 1 + Mod(Floor(phaseElapsed / 350), 3))
+            }
+            else
+                ending := "..."
+            labelText := RTrim(row.BaseText, ".") ending
+        }
+        else
+            labelText := row.BaseText
+        if row.Label.Text != labelText
+        {
+            row.Label.Text := labelText
+            dirty := true
+        }
         typing := (LoginProgressMode = "login" || LoginProgressMode = "preview") && index = LoginProgressStage && (index = 2 || index = 4)
         dotColor := done ? "6EE29B" : typing ? "62AFFF" : "FFFFFF"
         labelColor := done ? "95D5AC" : index = LoginProgressStage ? "F2E4D0" : "C8BFB4"
@@ -161,9 +219,9 @@ RenderGameLoginProgress()
     }
     if isComplete
         status := "Login Complete!"
-    else if LoginProgressMode = "preview"
+    else if preview
         status := ["Loading name screen...", "Typing name...", "Loading password screen...",
-            "Typing password...", "Loading character..."][LoginProgressStage]
+            "Typing password..."][LoginProgressStage]
     else
         status := Client.HasOwnProp("Status") ? Client.Status : "Preparing game..."
     if LoginProgressFooter.Text != status
@@ -189,16 +247,16 @@ UpdateGameLoginProgress(*)
     if LoginProgressMode = "preview"
     {
         elapsed := A_TickCount - LoginProgressPreviewStarted
-        if elapsed >= 9500
+        if elapsed >= 8000
         {
             DismissGameLoginProgress()
             if !Client.Enabled
                 SetTimer(UpdateGameLoginProgress, 0)
             return
         }
+        ; Finish immediately after password typing and show success for 3s.
         LoginProgressStage := elapsed < 1500 ? 1 : elapsed < 2500 ? 2
-            : elapsed < 4000 ? 3 : elapsed < 5000 ? 4
-            : elapsed < 6500 ? 5 : 6
+            : elapsed < 4000 ? 3 : elapsed < 5000 ? 4 : 6
     }
     if LoginProgressMode = "complete" && A_TickCount >= LoginProgressCloseAt
     {
