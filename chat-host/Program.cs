@@ -465,6 +465,7 @@ metrics();
         readonly System.Collections.Generic.Dictionary<ulong, string[]> archivedImageUrls = new();
         readonly System.Collections.Generic.HashSet<ulong> verifiedHappyHourImageIds = new();
         readonly System.Collections.Generic.HashSet<ulong> loggedHappyHourImageCandidates = new();
+        readonly System.Collections.Generic.HashSet<ulong> loggedHappyHourImageMisses = new();
         readonly string gameChatLogDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TES3NP", "Logs");
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
@@ -1658,10 +1659,22 @@ metrics();
                             DiscordTimestamp(key).ToString("O"));
                     }
                     if (images.Length > 0 &&
-                        sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase) &&
-                        loggedHappyHourImageCandidates.Add(key))
-                        Log("HAPPY HOUR | Examining image posted by Yagrum " +
-                            "messageId=" + key + "; images=" + images.Length);
+                        sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (loggedHappyHourImageCandidates.Add(key))
+                            Log("HAPPY HOUR | Examining image posted by Yagrum " +
+                                "messageId=" + key + "; imageHosts=" +
+                                string.Join(",", images.Select(url =>
+                                    Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                                        ? uri.Host : "invalid")));
+                        if (!verifiedHappyHourImageIds.Contains(key) &&
+                            images.Any(url => imageCache.ContainsKey(url)) &&
+                            loggedHappyHourImageMisses.Add(key))
+                            Log("HAPPY HOUR | Yagrum image did not match rainbow signature " +
+                                "messageId=" + key + "; decodedSizes=" +
+                                string.Join(",", images.Where(url => imageCache.ContainsKey(url))
+                                    .Select(url => imageCache[url].Width + "x" + imageCache[url].Height)));
+                    }
                     foreach (string imageUrl in images)
                         if (!imageCache.ContainsKey(imageUrl) &&
                             (!failedImages.TryGetValue(imageUrl, out var retryTime) ||
