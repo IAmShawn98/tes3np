@@ -1045,25 +1045,24 @@ metrics();
                         g.FillRectangle(sides, w - 6, 0, 6, h);
                     }
                 };
-                var inside = new Panel {
-                    BackColor = System.Drawing.Color.FromArgb(19, 14, 10)
-                };
-                inside.SetBounds(75, 7, 470, 32);
-                banner.Controls.Add(inside);
+                // Keep the texture visible across the whole bar. Only the text
+                // and close control occupy the left side; no wide black inset.
                 var dismiss = GoldButton("×", 9, 9, 27, 27);
                 dismiss.Click += (_, _) => {
                     dismissedHappyHourBannerId = lastHappyHourAlertId;
                     banner.Close();
                 };
                 banner.Controls.Add(dismiss);
-                var label = GoldText("HAPPY HOUR", 8, 2, 155, 28, 13, true);
-                inside.Controls.Add(label);
-                var left = GoldText("", 165, 2, 295, 28, 12, true);
-                inside.Controls.Add(left);
+                var label = GoldText("HAPPY HOUR", 44, 7, 170, 32, 13, true);
+                label.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+                banner.Controls.Add(label);
+                var left = GoldText("", 216, 7, 390, 32, 12, true);
+                left.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+                banner.Controls.Add(left);
                 happyHourBannerCountdown = left;
                 banner.Resize += (_, _) => {
-                    inside.SetBounds(75, 7, Math.Max(200, banner.ClientSize.Width - 150), 32);
-                    left.SetBounds(165, 2, Math.Max(30, inside.Width - 175), 28);
+                    left.SetBounds(216, 7, Math.Max(120, banner.ClientSize.Width - 227), 32);
+                    banner.Invalidate();
                 };
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
