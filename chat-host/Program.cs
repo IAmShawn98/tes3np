@@ -356,6 +356,7 @@ window.setMessages=function(messages,prepended=false){
 };
 window.scrollChat=function(delta){userHasScrolled=true;feed.scrollTop+=delta;metrics();};
 window.scrollFraction=function(f){userHasScrolled=true;feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
+window.scrollToLatest=function(){if(!userHasScrolled){feed.scrollTop=feed.scrollHeight;metrics();}};
 metrics();
 </script></body></html>
 """;
@@ -706,6 +707,7 @@ metrics();
                     historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(900);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
+                    initialBackfillReanchored = true;
                     web.CoreWebView2.Navigate(olderWindow);
                     return;
                 }
@@ -806,25 +808,42 @@ metrics();
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
         bool historyCatchupActive;
-        // Automatically collect the last hour while keeping the visible
-        // feed pinned to the newest messages until the user scrolls.
-        readonly DateTimeOffset initialHistoryCutoff = DateTimeOffset.UtcNow.AddHours(-1);
+        // On first channel load, page through up to five hours of Discord
+        // history for reliable Happy Hour discovery. The independent rendered
+        // chat remains pinned to the newest messages unless the user scrolls.
+        readonly DateTimeOffset initialHistoryCutoff = DateTimeOffset.UtcNow.AddHours(-5);
         DateTime initialBackfillStarted = DateTime.MinValue;
         int initialBackfillAttempts;
         bool initialBackfillComplete;
-        void BackfillRecentHour()
+        bool initialBackfillReanchored;
+        void BackfillRecentFiveHours()
         {
             if (initialBackfillComplete || !nativeMode || signInExpanded ||
                 loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
                 history.Count == 0 || userScrolledChat) return;
             if (initialBackfillStarted == DateTime.MinValue)
                 initialBackfillStarted = DateTime.UtcNow;
-            if (DiscordTimestamp(history.First().Key) <= initialHistoryCutoff ||
-                initialBackfillAttempts >= 100 ||
-                DateTime.UtcNow - initialBackfillStarted > TimeSpan.FromSeconds(90)) {
+            bool reachedCutoff = DiscordTimestamp(history.First().Key) <= initialHistoryCutoff;
+            // Bound unattended paging if Discord throttles or never exposes
+            // the requested history. A partial scan must be logged as partial.
+            bool timedOut = initialBackfillAttempts >= 500 ||
+                DateTime.UtcNow - initialBackfillStarted > TimeSpan.FromMinutes(6);
+            if (reachedCutoff || timedOut) {
                 initialBackfillComplete = true;
-                Log("CHAT | Recent-hour backfill finished: " + history.Count +
-                    " messages; oldest=" + DiscordTimestamp(history.First().Key).ToString("O"));
+                Log("CHAT | Five-hour backfill " + (reachedCutoff ? "complete" : "partial (paging limit)") +
+                    ": " + history.Count + " messages; oldest=" +
+                    DiscordTimestamp(history.First().Key).ToString("O"));
+                // Reanchoring an old Discord message changes the hidden
+                // source browser's channel position. Restore the live channel
+                // afterward, without losing the collected native history.
+                if (initialBackfillReanchored && !closingChat) {
+                    Log("CHAT | Returning Discord source to newest channel messages");
+                    web.CoreWebView2.Navigate(Channel);
+                }
+                // In the visible chat, show the latest messages (roughly ten
+                // on a typical viewport), not the oldest page we scanned.
+                if (messageBrowserReady && messageBrowser.CoreWebView2 != null)
+                    _ = messageBrowser.CoreWebView2.ExecuteScriptAsync("window.scrollToLatest()");
                 return;
             }
             if (DateTime.UtcNow < historyBackoffUntil ||
@@ -2013,7 +2032,7 @@ metrics();
             historyWatch.Tick += (_, _) =>
             {
                 if (!closingChat && !IsDisposed && nativeMode) {
-                    BackfillRecentHour();
+                    BackfillRecentFiveHours();
                     RequestOlderMessages();
                 }
             };
