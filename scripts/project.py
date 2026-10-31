@@ -136,7 +136,7 @@ def check(allow_missing_payload: bool = False) -> None:
         except ValueError as error:
             errors.append(f"{relative}: {error}")
     # Favorite-selection source contract: ensure the first saved character is
-    # checked, an attempted switch is confirmed before any persisted mutation,
+    # checked, the switch explanation appears once (regardless of answer),
     # and legacy loads/imports cannot strand a nonempty list without a favorite.
     character_ui = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
     settings_ui = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
@@ -146,10 +146,26 @@ def check(allow_missing_payload: bool = False) -> None:
             "if Profiles.Length = 1 || SelectedProfile < 1" in character_ui
             and "SelectedProfile := 1" in character_ui
         ),
-        "favorite switch asks before saving": (
-            'if MsgBox(prompt, "Favorite character", 0x124) != "Yes"' in character_ui
-            and character_ui.index('if MsgBox(prompt, "Favorite character", 0x124) != "Yes"')
+        "favorite switch explains once and remembers either answer": (
+            'IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") != "1"' in character_ui
+            and 'result := MsgBox(prompt, "Favorite character", 0x124)' in character_ui
+            and 'IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")' in character_ui
+            and 'if result != "Yes"\n            return' in character_ui
+            and character_ui.index('result := MsgBox(prompt, "Favorite character", 0x124)')
+            < character_ui.index('IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")')
             < character_ui.index("    SelectedProfile := index\n    SaveDefaultProfile()")
+        ),
+        "favorite message replaces previous copy without layout changes": (
+            'descriptionText := "This is a list of all your characters.' in character_ui
+            and 'does not impact them in-game!"' in character_ui
+            and 'CharacterDescription.Move(70, 80, 390, 95)' in character_ui
+            and 'y := 180 + (index - 1) * 24' in character_ui
+            and "Click on the tick box before one of your characters" not in character_ui
+        ),
+        "favorite notice included in portable backup": (
+            'IniWrite(IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0"), temporary, "Launcher", "HideFavoriteSwitchExplanation")' in backup_ui
+            and 'IniWrite(favoriteNotice, temporary, "Launcher", "HideFavoriteSwitchExplanation")' in backup_ui
+            and 'if IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") = "1"' in backup_ui
         ),
         "clicking selected favorite preserves it": (
             "index > Profiles.Length || SelectedProfile = index" in character_ui

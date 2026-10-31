@@ -39,6 +39,7 @@ ExportLauncherData()
         IniWrite(SelectedProfile, temporary, "Profiles", "Selected")
         IniWrite(GetSharedExecutable(), temporary, "Launch", "Executable")
         IniWrite(IniRead(DataFile, "Launcher", "HideLaunchAllExplanation", "0"), temporary, "Launcher", "HideLaunchAllExplanation")
+        IniWrite(IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0"), temporary, "Launcher", "HideFavoriteSwitchExplanation")
         for index, profile in Profiles
         {
             section := "Character" index
@@ -129,6 +130,13 @@ ImportLauncherData()
         if pathReset
             executable := ""
         suppress := ReadBackupInteger(path, "Launcher", "HideLaunchAllExplanation", 0, 1)
+        ; Old v1 backups omit this optional notice flag. Do not reset a notice
+        ; already acknowledged on this computer when importing such a backup.
+        favoriteNotice := IniRead(path, "Launcher", "HideFavoriteSwitchExplanation", "0")
+        if favoriteNotice != "0" && favoriteNotice != "1"
+            throw Error("Invalid favorite-switch notice setting")
+        if IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") = "1"
+            favoriteNotice := "1"
         restoredEvents := []
         eventCountText := IniRead(path, "ScheduledEvents", "Count", "0")
         eventCount := RegExMatch(eventCountText, "^\d+$") ? Integer(eventCountText) : 0
@@ -173,6 +181,7 @@ ImportLauncherData()
         IniWrite(selected, temporary, "Profiles", "Selected")
         IniWrite(executable, temporary, "Launch", "Executable")
         IniWrite(suppress, temporary, "Launcher", "HideLaunchAllExplanation")
+        IniWrite(favoriteNotice, temporary, "Launcher", "HideFavoriteSwitchExplanation")
         ; Import replaces the live INI. Preserve this device's onboarding
         ; preference so restoring characters does not re-offer a shortcut.
         shortcutChoice := IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "")

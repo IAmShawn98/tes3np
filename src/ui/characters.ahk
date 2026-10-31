@@ -110,7 +110,7 @@ RefreshProfiles()
                 SetBookTick(controls.Tick, SelectedProfile = index)
             }
         }
-        descriptionText := "Click on the tick box before one of your characters to favorite it, allowing you to use it for quick launching and being optionally notified if someone mentions you in-game while you're logged out. You can have up to 10 characters at a time and log in up to 4 at once."
+        descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         ; Keep functional description text on the bundled Mystic Cards TTF. The
         ; vanilla bitmap renderer is intentionally not used for long paragraphs.
         if IsObject(CharacterDescriptionMagic)
@@ -194,17 +194,20 @@ EditVisibleProfile(position, *)
 
 ChooseProfile(position, control, *)
 {
-    global Profiles, SelectedProfile, CharacterListPage, CharacterPage
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage, DataFile
     index := (CharacterListPage - 1) * 10 + position
     if index < 1 || index > Profiles.Length || SelectedProfile = index
         return
-    ; A character list always has one favorite. Switching to another one
-    ; requires explicit approval; No leaves both the tick and saved default alone.
-    if SelectedProfile > 0
+    ; Explain favorite switching only once per launcher profile. Remember the
+    ; acknowledgment after either answer, but never change the favorite on No.
+    if SelectedProfile > 0 && IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") != "1"
     {
         CharacterPage.Opt("+OwnDialogs")
         prompt := "Clicking this checkbox will mark this as your main / favorite character. Doing so will set you up for auto launching on the launchers main page. You can change this anytime by simply clicking the checkbox on another character instead. Are you sure you want to favorite this character? (Yes/No)"
-        if MsgBox(prompt, "Favorite character", 0x124) != "Yes"
+        result := MsgBox(prompt, "Favorite character", 0x124)
+        DirCreate(AppDataDirectory)
+        IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")
+        if result != "Yes"
             return
     }
     SelectedProfile := index
