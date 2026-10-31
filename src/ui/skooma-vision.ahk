@@ -41,7 +41,7 @@ CreateSkoomaVision()
     ; The new compact artwork is center-aligned to the existing portrait.
     ; Same HWND: no moving independent window or animation lag.
     SkoomaVisionPicture := LauncherGui.Add("Picture",
-        "x435 y82 w120 h140 Hidden BackgroundTrans", asset)
+        "x438 y84 w120 h135 Hidden BackgroundTrans", asset)
 }
 
 LauncherSkoomaVisionStateChanged(wParam, lParam, msg, hwnd)
