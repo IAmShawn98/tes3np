@@ -81,7 +81,7 @@ expect(
 expect(
     "Banner presentation is independent of Discord authentication",
     "if (activationId == 0 || closingChat || IsDisposed) return;" in source
-    and "void RefreshHappyHourBanner()\n        {\n            if (DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
+    and "void RefreshHappyHourBanner()\n        {\n            if ((!ShowExpiredHappyHourForAlphaTest &&" in source
     and "void DetectLatestHappyHour()\n        {\n            if (closingChat || IsDisposed) return;" in source,
 )
 expect(
@@ -100,7 +100,7 @@ expect(
     "Logging out must preserve a valid banner and its expiry timer",
     "Verified Happy Hour banner remains independent." in source
     and "Keep the existing genuine activation, its absolute expiry," in source
-    and "DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||" in source,
+    and "ShowExpiredHappyHourForAlphaTest &&" in source,
 )
 expect(
     "Only real Discord snowflake IDs may determine expiry",
@@ -112,19 +112,20 @@ expect(
     and "activeHappyHourCutoff" not in source,
 )
 expect(
-    "An expired Discord announcement must never show a banner",
-    "DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
-    and "ends <= DateTimeOffset.UtcNow) return;" in source
-    and "if (happyHourEndsAt <= DateTimeOffset.UtcNow) {" in source,
+    "Temporary alpha detection displays only genuine latest expired events",
+    "const bool ShowExpiredHappyHourForAlphaTest = true;" in source
+    and "if (latest > lastHappyHourMessageId &&" in source
+    and "(ShowExpiredHappyHourForAlphaTest ||" in source
+    and "(!ShowExpiredHappyHourForAlphaTest && ends <= DateTimeOffset.UtcNow)" in source
+    and "HappyHourBannerTime(happyHourEndsAt)" in source
+    and "Math.Max(0, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalSeconds))" in source,
 )
 expect(
-    "Detection and cache fast path must require an active event",
-    "DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow" in source
-    and "DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow" in source,
-)
-expect(
-    "Historical scan must stop at the active one-hour boundary",
-    "oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1)" in source,
+    "Alpha historical search has a finite lookback and the production hour remains",
+    "DateTimeOffset.UtcNow.AddDays(-7)" in source
+    and "DateTimeOffset.UtcNow.AddHours(-1)" in source
+    and "initialBackfillAttempts >= 500" in source
+    and "TimeSpan.FromMinutes(6)" in source,
 )
 
 expect(
@@ -167,7 +168,7 @@ expect(
     and "PostMessage(owner, 0x8334, active ? new IntPtr(1) : IntPtr.Zero" in source
     and "NotifyLauncherHappyHourFace(true);" in source
     and "NotifyLauncherHappyHourFace(false);" in source
-    and "HappyHourBannerVisible := bannerVisible" in jiub_ui,
+    and "HappyHourBannerVisible := visible" in jiub_ui,
 )
 expect(
     "Jiub Happy Hour face must follow banner close, hide and restore",
@@ -183,7 +184,7 @@ expect(
     and 'LauncherGui.Add("Picture"' in jiub_ui
     and ':= Gui(' not in jiub_ui
     and 'CreateHappyHourJiub()\n    CaptureLauncherControlLayout()' in bootstrap
-    and 'HappyHourJiubPicture.Visible := visible' in jiub_ui,
+    and 'HappyHourJiubPicture.Visible := HappyHourBannerVisible' in jiub_ui,
 )
 
 
@@ -196,25 +197,23 @@ expect(
     and 'happyHourBannerTitleInset.SetBounds(12, 7, width, 32)' in source,
 )
 expect(
-    "Only explicit developer flag may replay genuine archived Happy Hour",
-    'args[1].Equals("--happy-hour-dev", StringComparison.OrdinalIgnoreCase)' in source
-    and 'if (happyHourDevMode) StartHappyHourDevReplay();' in source
-    and 'if (!happyHourDevMode || closingChat || IsDisposed) return;' in source
-    and 'ulong latest = LatestArchivedHappyHourId();' in source
-    and 'if (latest == 0)' in source
-    and 'Archived event - No live bonus' in source
-    and 'DisplayHappyHourEndsAt =>' in source
-    and 'if (happyHourDevReplayActive) StopHappyHourDevReplay();' in source
-    and 'HappyHourDevModeEnabled() ? " --happy-hour-dev" : ""'
-        in (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig"),
+    "Remove extra developer replay, special banner text and tray options",
+    "--happy-hour-dev" not in source
+    and "happyHourDevMode" not in source
+    and "happyHourDevTicker" not in source
+    and "HAPPY HOUR DEV PREVIEW" not in source
+    and "Archived event - No live bonus" not in source
+    and "HappyHourDevModeEnabled" not in jiub_ui
+    and "A_TrayMenu.Add" not in jiub_ui
+    and "--happy-hour-dev" not in
+        (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig"),
 )
 expect(
-    "Jiub positioning, legacy setting migration and native control remain intact",
+    "Jiub coordinates and native control remain intact",
     '"x438 y84 w120 h135 Hidden BackgroundTrans"' in jiub_ui
-    and 'IniRead(DataFile, "Launcher", "SkoomaVisionEnabled", "1")' in jiub_ui
-    and 'IniWrite(HappyHourJiubEnabled ? "1" : "0"' in jiub_ui
     and '#Include src\\ui\\happy-hour.ahk'
-        in (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig"),
+        in (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
+    and 'HappyHourJiubPicture.Visible := HappyHourBannerVisible' in jiub_ui,
 )
 
 expect(
