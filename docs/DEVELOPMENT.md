@@ -125,8 +125,8 @@ Happy Hour detection or gameplay/login code changed.
    are a native child control, inserted before
    `CaptureLauncherControlLayout()`, and must travel synchronously with
    the picture without visible lag or a detached window.
-3. Test that the new x435 y71 w120 h145 child control aligns the
-   standalone transparent Jiub face over the original medallion.
+3. Test that the new x435 y78 w120 h145 child control aligns the
+   standalone transparent Jiub face over the original medallion (lowered by 7 layout pixels to conceal the stock chin).
    The asset is derived from the user's 512x512 icon, masking out its
    moon/ring/background and scaling to 120x145. With the preview
    off, original stock Jiub and moon must be unchanged.
