@@ -9,6 +9,9 @@ BuildFrontPage()
     LauncherGui.Opt("+OwnDialogs")
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
+    ; Static Happy Hour dust is behind buttons/text and shares this HWND.
+    ; The existing banner signal toggles visibility alongside Jiub's face.
+    CreateHappyHourDust()
     ; Reserve the upper-left corner for the Expansion Pack toggle. The old
     ; full-width drag strip intercepted mouse clicks in that button area.
     DragStrip := LauncherGui.Add("Text", "x205 y0 w755 h48 BackgroundTrans +0x100")
