@@ -134,6 +134,14 @@ expect(
     'const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";' in source
     and "await browser.EnsureCoreWebView2Async(chatWebEnvironment);" in source
     and "const string LocateVoiceRowScript" in source
+    and "const string IsolateTavernChannelScript" in source
+    and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
+    and "IsolateTavernChannelScript);" in source
+    and "window.__tes3npTavernIsolationInstalled = true;" in source
+    and "new MutationObserver(schedule)" in source
+    and "sibling.setAttribute(hiddenAttribute, '');" in source
+    and "window.addEventListener('wheel', stopScroll," in source
+    and "window.addEventListener('touchmove', stopScroll," in source
     and "'[data-list-item-id*=" in source
     and "voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y)," in source
     and "PositionVoiceStrip();" in source

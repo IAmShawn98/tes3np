@@ -1907,6 +1907,117 @@ metrics();
         // Discord's class hashes change. Locate the original voice row by its
         // immutable channel ID, with a visible text fallback. Never move the
         // React node or simulate a click: preserve its real event handlers.
+        // Voice-only WebView2: hide unrelated sidebar entries through CSS,
+        // never remove React-owned nodes or clone the clickable Tavern row.
+        // The original authenticated Game Chat WebView is not touched.
+        const string IsolateTavernChannelScript = """
+            (() => {
+              if (window.__tes3npTavernIsolationInstalled) return;
+              window.__tes3npTavernIsolationInstalled = true;
+              const tavernId = '509601787901116441';
+              const hiddenAttribute = 'data-tes3np-tavern-other';
+              let scheduled = false;
+
+              const findTavern = () => {
+                const direct = document.querySelector(
+                  '[data-list-item-id*="' + tavernId + '"]'
+                ) || document.querySelector('a[href$="/' + tavernId + '"]');
+                if (!direct) return null;
+                // Retain the actual interactive Discord tree item and its
+                // children; hiding its icon/label would make it useless.
+                return direct.closest('[role="treeitem"]') ||
+                  direct.closest('[data-list-item-id]') || direct;
+              };
+
+              const isolate = () => {
+                if (!document.head || !document.body) return;
+                if (!document.getElementById('tes3np-tavern-isolation')) {
+                  const css = document.createElement('style');
+                  css.id = 'tes3np-tavern-isolation';
+                  css.textContent = [
+                    '[' + hiddenAttribute + '] { display: none !important; }',
+                    'html, body { overflow: hidden !important; overscroll-behavior: none !important; }'
+                  ].join('\n');
+                  document.head.appendChild(css);
+                }
+
+                const row = findTavern();
+                if (!row) return; // Login/Discord loading: no fake voice row.
+
+                // Find the nearest channel-list scroll container. Limit all
+                // changes to this list, not Discord's call/audio infrastructure.
+                let scroller = null;
+                for (let node = row.parentElement, hops = 0;
+                     node && node !== document.body && hops < 18;
+                     node = node.parentElement, hops++) {
+                  const cls = typeof node.className === 'string' ? node.className : '';
+                  const overflow = getComputedStyle(node).overflowY;
+                  if ((/scroller/i.test(cls) ||
+                       /^(auto|scroll)$/.test(overflow)) &&
+                      node.querySelectorAll('[data-list-item-id]').length > 1) {
+                    scroller = node;
+                    break;
+                  }
+                }
+                if (!scroller)
+                  scroller = row.closest('[role="tree"]');
+                if (!scroller || scroller === document.body) return;
+
+                // Each sibling branch in the channel list is visually
+                // removed and consumes zero layout space. The one branch
+                // containing The Tavern stays intact for genuine clicks.
+                for (let keep = row;
+                     keep && keep !== scroller && keep.parentElement;
+                     keep = keep.parentElement) {
+                  keep.removeAttribute(hiddenAttribute);
+                  for (const sibling of keep.parentElement.children) {
+                    if (sibling !== keep &&
+                        !sibling.hasAttribute(hiddenAttribute))
+                      sibling.setAttribute(hiddenAttribute, '');
+                  }
+                }
+                scroller.style.overflowY = 'hidden';
+                if (scroller.scrollTop !== 0) scroller.scrollTop = 0;
+              };
+
+              const schedule = () => {
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(() => { scheduled = false; isolate(); });
+              };
+              // Discord can rebuild its sidebar during SPA navigation.
+              // Observing child insertions re-applies the safe visual filter
+              // without fighting React or creating a polling timer.
+              new MutationObserver(schedule)
+                .observe(document, { childList: true, subtree: true });
+              document.addEventListener('DOMContentLoaded', schedule);
+              schedule();
+
+              // A channel row may have focus, but wheel/touch scrolling must
+              // never make another channel drift under the narrow native clip.
+              const stopScroll = event => {
+                event.preventDefault();
+                event.stopPropagation();
+              };
+              window.addEventListener('wheel', stopScroll,
+                { capture: true, passive: false });
+              window.addEventListener('touchmove', stopScroll,
+                { capture: true, passive: false });
+              const scrollKeys = new Set([
+                'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '
+              ]);
+              window.addEventListener('keydown', event => {
+                if (event.altKey || event.ctrlKey || event.metaKey ||
+                    !scrollKeys.has(event.key)) return;
+                const target = event.target;
+                if (target instanceof Element && target.closest(
+                  'input, textarea, select, button, a, [role="button"], [contenteditable="true"]'
+                )) return;
+                stopScroll(event);
+              }, true);
+            })();
+            """;
+
         const string LocateVoiceRowScript = """
             (() => {
               const id = '509601787901116441';
@@ -2021,6 +2132,11 @@ metrics();
                 await browser.EnsureCoreWebView2Async(chatWebEnvironment);
                 if (closingChat || strip.IsDisposed) return;
                 browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                // Isolate before Discord renders. The browser retains all
+                // React nodes for live voice and its original click handlers.
+                await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                    IsolateTavernChannelScript);
+                if (closingChat || strip.IsDisposed) return;
                 // Let WebView2 request permission normally, without force-allow.
                 browser.CoreWebView2.PermissionRequested += (_, e) =>
                 {
