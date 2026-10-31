@@ -76,37 +76,42 @@ scan ends at the active one-hour boundary. Chat visibility and manual scrolling
 never control pagination. The launcher-owned banner is the **only** Happy Hour
 notification; no separate large popup appears.
 
-**Jiub Happy Hour portrait (optional, visual only):** The ChatHost posts
-`WM_APP + 0x334` (0x8334) to the existing launcher HWND when—and only
-when—the verified Happy Hour banner is actually shown, hidden,
-restored, or closed. The same ChatHost logic also signals the native
-portrait when the owner is minimized/restored; it never invents a second
-Happy Hour detector.
-`src/ui/skooma-vision.ahk` retains its existing entry points but no
-longer creates any independent GUI, floating overlay, animations,
-particles, typography or timer-based position tracking. Instead,
-`CreateSkoomaVision()` adds a tiny, initially hidden transparent PNG
-Picture control at x438 y84 w120 h135 (the user's current
-approved positioning), directly over Jiub's
-original portrait. `src/app/bootstrap.ahk` creates it BEFORE
-`CaptureLauncherControlLayout()`; the launcher automatically scales and
-moves it in lockstep with all other child controls, without a separate
-HWND to chase the owner during dragging. `assets/happy-hour/jiub-happy-hour.png`
-is a real, separately replaceable **transparent portrait cut-out**, made
-from the user-approved hatless Jiub Happy Hour icon. Only the face,
-black glasses with rainbow reflections, and exaggerated smile
-appear in its pixels. The uploaded medallion and crescent were intentionally
-excluded from the overlay; the existing bronze medallion/moon, background,
-frame, UI artwork and text stay untouched underneath. The icon can
-be hidden or swapped without regenerating launcher artwork.
-No balloons, hats, confetti, clouds, kaleidoscopic effects or
-celebration graphics remain. The existing Happy Hour detection and
-banner are unchanged. The tray option `Jiub's Happy Hour look`
-continues to persist the existing `SkoomaVisionEnabled` setting,
-and `Preview Jiub Happy Hour (20 sec)` is a strictly cosmetic,
-time-limited preview with no simulated Happy Hour signal. Expiry
-and dismissal hide the picture. Windows visual alignment, scaling
-and real-event expiry still require runtime testing.
+**Happy Hour banner and Jiub face:** The single genuine Discord-backed
+banner has **no dismiss button**. It is shown for up to one hour, using the
+verified original Discord snowflake for expiry. There are no persistent
+dismissal markers. Minimize/restore may hide/show the owned banner with
+the launcher; expiry or shutdown closes it. Chat Host posts
+`WM_APP + 0x334` (0x8334) whenever the banner is shown or hidden, so
+Jiub's picture follows that one banner and cannot be independently
+triggered by an unverified announcement.
+
+`src/ui/happy-hour.ahk` owns an optional Jiub-only PNG child control
+(`assets/happy-hour/jiub-happy-hour.png`) at the user's adjusted
+`x438 y84 w120 h135`. It is created before
+`CaptureLauncherControlLayout()`, so moving and scaling the launcher
+cannot leave a floating picture behind. The transparent image replaces
+only Jiub's face; the original bronze crescent/medallion and background
+are not rebuilt. Tray choices `Happy Hour: Jiub face` and
+`Preview Happy Hour face (20 sec)` remain. The new
+`[Launcher] HappyHourJiubEnabled` preference inherits the old
+`SkoomaVisionEnabled` value once, preserving user opt-out without
+carrying the obsolete theme name into active code. Face-only preview
+never pretends a real Happy Hour is active.
+
+**Opt-in developer replay:** Launch the compiled launcher with
+`--happy-hour-dev` to have Chat Host read the **latest previously
+verified, genuine Yagrum Happy Hour announcement** from the same
+Roaming chat archive, including an expired one. If the archive has no
+verified announcement, it logs that fact and does not invent an event.
+A replay runs for **60 seconds** and uses the existing banner and same
+Jiub IPC; the banner prominently reads `HAPPY HOUR DEV PREVIEW` and
+`Archived event - No live bonus`. The artificial test countdown is
+separate from production message ID/expiry, does not persist, and does
+not grant in-game Mastery Points. A genuinely active announcement
+takes priority. Without the explicit command-line flag, historical
+expired messages cannot display Happy Hour. This dev mode must not
+be enabled by default in production. Validate the archived replay
+and real-hour expiry on Windows before release.
 
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
