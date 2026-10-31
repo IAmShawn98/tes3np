@@ -130,11 +130,14 @@ expect(
 )
 
 expect(
-    "Voice preview shares authenticated Chat Host and leaves voice join to Discord UI",
+    "Launcher main-page voice button reuses Chat Host and keeps Game Chat menus unchanged",
     'const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";' in source
     and "chatWebEnvironment = env;" in source
     and "await voiceWeb.EnsureCoreWebView2Async(chatWebEnvironment);" in source
-    and 'chatModeMenu.Items.Add("Preview Voice Channel (unstyled)"' in source
+    and 'chatModeMenu.Items.Add("Preview Voice Channel (unstyled)"' not in source
+    and "case 5: _ = OpenVoicePreviewAsync(); break;" in source
+    and 'LauncherVoicePreviewButton := AddStyledButton(LauncherGui, 650, 684, 160, 32, "Voice Preview", OpenLauncherVoicePreview)' in bootstrap
+    and "SendLauncherChatCommand(5)" in bootstrap
     and "voiceWeb.CoreWebView2.Navigate(VoicePreviewChannel);" in source
     and "SetNativeWindowOwner(preview.Handle, owner);" in source
     and "voicePreviewWindow.Close();" in source

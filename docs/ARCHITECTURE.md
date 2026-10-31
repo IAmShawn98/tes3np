@@ -38,8 +38,10 @@ second Chat Host process, popup ownership controller, or competing chat timer.
 Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
 launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events.
 
-**Raw voice-channel preview (experimental):** Right-click the gold Game Chat
-tab and choose `Preview Voice Channel (unstyled)`. The existing Chat Host opens
+**Raw voice-channel preview (experimental):** Click the `Voice Preview` button
+in the launcher main page lower frame, immediately left of Launcher Settings.
+The AutoHotkey button sends existing Chat Host command `0x8331` with value `5`
+without using the Game Chat tab, menu or visible panel. The existing Chat Host opens
 a single resizable WebView2 preview of guild `509601787901116437`, channel
 `509601787901116441`, with the same authenticated WebView2 environment and
 profile. This does not change the Game Chat source, renderer, polling, or the

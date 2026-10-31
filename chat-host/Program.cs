@@ -1876,8 +1876,8 @@ metrics();
             Log("CSS reloaded");
         }
 
-        // An unstyled inspection of Discord voice. This does not modify the
-        // authenticated Game Chat source or native message renderer.
+        // On-page Voice Preview button opens an unstyled Discord voice view.
+        // This does not modify the authenticated Game Chat source or renderer.
         async Task OpenVoicePreviewAsync()
         {
             if (closingChat || IsDisposed) return;
@@ -2002,7 +2002,7 @@ metrics();
                     new System.Drawing.RectangleF(-65, -12, 130, 24), alignment);
                 g.Restore(state);
             };
-            // The toggle is now an actual launcher GUI control.
+            // This menu only changes Game Chat visibility modes.
             foreach (string mode in new[] { "Automatic", "Always Shown", "Always Hidden" })
             {
                 string selectedMode = mode;
@@ -2018,10 +2018,6 @@ metrics();
                     SetChatOpen(chatDisplayMode == "Always Shown");
                 });
             }
-            // Right-click the existing Game Chat tab for an isolated raw preview.
-            chatModeMenu.Items.Add(new ToolStripSeparator());
-            chatModeMenu.Items.Add("Preview Voice Channel (unstyled)", null,
-                (_, _) => _ = OpenVoicePreviewAsync());
             chatModeMenu.Opening += (_, _) =>
             {
                 foreach (ToolStripItem menuItem in chatModeMenu.Items)
@@ -2874,6 +2870,8 @@ metrics();
                     case 2: SetChatDisplayMode("Automatic"); break;
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
+                    // Main-page Voice Preview button; unrelated to Game Chat menus.
+                    case 5: _ = OpenVoicePreviewAsync(); break;
                 }
                 return;
             }

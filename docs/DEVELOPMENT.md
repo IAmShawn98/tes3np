@@ -109,10 +109,11 @@ so C# syntax errors are caught without waiting for the complete launcher build.
 
 ## Discord voice preview experiment
 
-From the existing Game Chat gold tab, right-click and choose
-`Preview Voice Channel (unstyled)` to display the user-requested channel
+Click `Voice Preview` along the launcher main page bottom frame (beside
+`Launcher Settings`) to display the user-requested channel
 `509601787901116441` from server `509601787901116437`. This is a
-resizable, unstyled Discord page in the same Chat Host process and the same
+resizable, unstyled Discord page launched directly from the main screen. It
+uses the same Chat Host process and the same
 WebView2 session/profile as Game Chat. It **does not automatically join voice**,
 grant microphone access, scrape channel members or change the chat layout.
 
