@@ -211,6 +211,23 @@ expect(
 )
 
 expect(
+    "Static Happy Hour RGB dust is a launcher-only child below interactive controls",
+    'CreateHappyHourDust()' in
+        (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
+    and (ROOT / "src" / "ui" / "front-page.ahk").read_text(
+        encoding="utf-8-sig").index('CreateHappyHourDust()')
+        < (ROOT / "src" / "ui" / "front-page.ahk").read_text(
+            encoding="utf-8-sig").index('DragStrip := LauncherGui.Add(')
+    and 'for offset in [[0, 0], [1, 0], [0, 1], [1, 1]]' in jiub_ui
+    and 'Hidden Disabled BackgroundTrans +E0x20' in jiub_ui
+    and 'for dust in HappyHourDustPictures' in jiub_ui
+    and 'dust.Visible := HappyHourBannerVisible' in jiub_ui
+    and 'asset := A_ScriptDir "\\assets\\happy-hour\\pixie-dust.png"' in jiub_ui
+    and (ROOT / "assets" / "happy-hour" / "pixie-dust.png").is_file()
+    and 'CreateHappyHourJiub()\n    CaptureLauncherControlLayout()' in bootstrap,
+)
+
+expect(
     "Happy Hour banner has no dismiss button or dismissal state",
     'GoldButton("×"' not in source
     and 'dismissedHappyHourBannerId' not in source
