@@ -6,8 +6,6 @@ internal static class Program
 {
     const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
-    // Exact channel requested for the experimental, manual-join voice preview.
-    const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
@@ -216,14 +214,6 @@ internal static class Program
 
         readonly IntPtr owner;
         readonly WebView2 web = new() { Dock = DockStyle.None };
-        CoreWebView2Environment? chatWebEnvironment;
-        Form? voiceStripWindow;
-        WebView2? voiceStripWeb;
-        Label? voiceStripStatus;
-        bool voiceRowLocated, voiceRowScanInFlight;
-        DateTime lastVoiceRowScan = DateTime.MinValue;
-        DateTime lastVoiceRowDiagnostic = DateTime.MinValue;
-        const int VoiceBrowserWidth = 980, VoiceBrowserHeight = 1050;
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
@@ -1813,7 +1803,6 @@ metrics();
                 // Native SetWindowPos runs immediately; BeginInvoke below is
                 // retained only for the more expensive Game Chat layout.
                 PositionHappyHourBanner();
-                PositionVoiceStrip();
                 if (repositionQueued) return;
                 repositionQueued = true;
                 try
@@ -1883,346 +1872,6 @@ metrics();
             Log("CSS reloaded");
         }
 
-        // Keep the real Discord channel row alive and interactive inside a
-        // small, launcher-owned clip window. The whole Discord page remains
-        // mounted at full size under the clip: no copied labels or fake clicks.
-        void PositionVoiceStrip()
-        {
-            var strip = voiceStripWindow;
-            if (strip == null || strip.IsDisposed ||
-                !IsWindow(owner) || !GetWindowRect(owner, out var bounds)) return;
-            double scale = Math.Max(0.6, (bounds.Right - bounds.Left) / 960.0);
-            int width = Math.Max(120, (int)Math.Round(136 * scale));
-            int height = Math.Max(22, (int)Math.Round(24 * scale));
-            var work = Screen.FromHandle(owner).WorkingArea;
-            int x = Math.Clamp(bounds.Right, work.Left,
-                Math.Max(work.Left, work.Right - width));
-            int y = Math.Clamp(bounds.Top + (int)Math.Round(4 * scale),
-                work.Top, Math.Max(work.Top, work.Bottom - height));
-            // Native no-activate positioning is also safe in the launcher
-            // location WinEvent callback; existing watch timer is fallback.
-            const uint flags = 0x0004 | 0x0010; // SWP_NOZORDER | SWP_NOACTIVATE
-            SetWindowPos(strip.Handle, IntPtr.Zero, x, y, width, height, flags);
-        }
-
-        // This script runs ONLY in the separate Tavern WebView2, never Game Chat.
-        // Render the real React-owned voice row over an otherwise invisible DOM.
-        // Do not remove DOM nodes or hide entire React app branches with display:none:
-        // that can unmount/virtualize the channel and cause permanent loading.
-        const string IsolateTavernChannelScript = """
-            (() => {
-              if (window.__tes3npTavernIsland) return;
-              window.__tes3npTavernIsland = true;
-              const id = '509601787901116441';
-              const name = 'The Tavern';
-              const marker = 'data-tes3np-tavern-row';
-              const pathMarker = 'data-tes3np-tavern-path';
-              let currentRow = null;
-              let scheduled = false;
-              let lastMethod = 'pending';
-              let idMatches = 0;
-              let nameMatches = 0;
-
-              const style = () => {
-                if (!document.head ||
-                    document.getElementById('tes3np-tavern-island-css')) return;
-                const element = document.createElement('style');
-                element.id = 'tes3np-tavern-island-css';
-                element.textContent = [
-                  'html,body,#app-mount {overflow:hidden !important;',
-                  'overscroll-behavior:none !important;}',
-                  // The visible row selector MUST outrank #app-mount *.
-                  '#app-mount * {visibility:hidden !important;',
-                  'pointer-events:none !important;}',
-                  '#app-mount [' + marker + '], #app-mount [' + marker + '] * {',
-                  'visibility:visible !important;pointer-events:auto !important;}',
-                  '#app-mount [' + marker + '] {position:fixed !important;',
-                  'top:0 !important;left:0 !important;z-index:2147483647 !important;',
-                  'width:136px !important;height:24px !important;',
-                  'min-height:24px !important;max-height:24px !important;',
-                  'margin:0 !important;transform:none !important;}',
-                  '#app-mount [' + pathMarker + '] {',
-                  'overflow:visible !important;clip-path:none !important;',
-                  'transform:none !important;contain:none !important;}'
-                ].join('\n');
-                document.head.appendChild(element);
-              };
-
-              const findRow = () => {
-                idMatches = 0;
-                nameMatches = 0;
-                const routeIsTavern = location.pathname.replace(/\/$/, '')
-                  .endsWith('/' + id);
-                const eligible = el => {
-                  if (!(el instanceof Element)) return false;
-                  const text = (el.textContent || '').trim();
-                  if (!text.includes(name) || text.length > 240) return false;
-                  const b = el.getBoundingClientRect();
-                  return b.width >= 90 && b.height >= 16 &&
-                    b.height <= 90 && b.left < 420 && b.right > 0;
-                };
-                const nearestRow = el => {
-                  let node = el;
-                  for (let i = 0; node && i < 9; node = node.parentElement, i++) {
-                    if (eligible(node) && (
-                      node.matches('a, [role="treeitem"], [data-list-item-id], [role="button"]') ||
-                      /(?:^|\s)link_/i.test(typeof node.className === 'string'
-                        ? node.className : '') ||
-                      /channel/i.test(typeof node.className === 'string'
-                        ? node.className : '')
-                    )) return node;
-                  }
-                  return null;
-                };
-
-                const linked = document.querySelectorAll(
-                  '[data-list-item-id*="' + id + '"],' +
-                  '[data-channel-id="' + id + '"],' +
-                  'a[href$="/' + id + '"]'
-                );
-                idMatches = linked.length;
-                for (const candidate of linked) {
-                  const row = nearestRow(candidate);
-                  if (row) {lastMethod = 'channel-id'; return row;}
-                }
-                // Discord's channel list markup can omit the ID on the
-                // interactive node. The URL still identifies the requested
-                // channel; require an exact name in the LEFT sidebar.
-                if (!routeIsTavern) {
-                  lastMethod = 'waiting-for-channel-route';
-                  return null;
-                }
-                for (const leaf of document.querySelectorAll(
-                  'span,[class*="name_"],[role="treeitem"],a'
-                )) {
-                  if ((leaf.textContent || '').trim() !== name) continue;
-                  const b = leaf.getBoundingClientRect();
-                  if (b.left < -20 || b.left > 420) continue;
-                  nameMatches++;
-                  const row = nearestRow(leaf);
-                  if (row) {lastMethod = 'name-in-sidebar'; return row;}
-                }
-                lastMethod = 'channel-row-not-in-dom';
-                return null;
-              };
-
-              const isolate = () => {
-                style();
-                if (!document.body) return;
-                const row = findRow();
-                if (currentRow !== row) {
-                  if (currentRow && currentRow.isConnected)
-                    currentRow.removeAttribute(marker);
-                  currentRow = row;
-                }
-                if (!row) return;
-                row.setAttribute(marker, '');
-                // A fixed descendant may otherwise be clipped by Discord's
-                // scrolling sidebar or positioned relative to a transformed
-                // ancestor. Remove these restrictions only along its path.
-                for (let node = row.parentElement;
-                     node && node !== document.body;
-                     node = node.parentElement) {
-                  if (!node.hasAttribute(pathMarker))
-                    node.setAttribute(pathMarker, '');
-                }
-              };
-
-              const schedule = () => {
-                if (scheduled) return;
-                scheduled = true;
-                requestAnimationFrame(() => {
-                  scheduled = false;
-                  isolate();
-                });
-              };
-              new MutationObserver(schedule)
-                .observe(document, {childList:true, subtree:true});
-              document.addEventListener('DOMContentLoaded', schedule);
-              schedule();
-
-              // Block scroll in the isolated voice viewport, not the normal
-              // Game Chat browser. Native pointer/click events still reach
-              // Discord's actual channel row.
-              const stopScroll = e => {e.preventDefault(); e.stopPropagation();};
-              window.addEventListener('wheel', stopScroll,
-                {capture:true, passive:false});
-              window.addEventListener('touchmove', stopScroll,
-                {capture:true, passive:false});
-              window.addEventListener('keydown', e => {
-                if (e.altKey || e.ctrlKey || e.metaKey) return;
-                if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' ']
-                    .includes(e.key)) stopScroll(e);
-              }, true);
-
-              window.__tes3npTavernState = () => ({
-                row: !!currentRow && currentRow.isConnected,
-                method: lastMethod,
-                idMatches,
-                nameMatches
-              });
-            })();
-            """;
-
-        // Report a verified Discord row, or an explicit safe diagnostic object.
-        // Never silently substitute whatever channel happens to occupy the crop.
-        const string LocateVoiceRowScript = """
-            (() => {
-              const state = window.__tes3npTavernState?.() || {};
-              const row = document.querySelector('[data-tes3np-tavern-row]');
-              if (!row || !row.isConnected || !(row.textContent || '').includes('The Tavern'))
-                return {ready:false, reason:state.method || 'waiting-for-discord',
-                  ids:state.idMatches || 0, names:state.nameMatches || 0};
-              const box = row.getBoundingClientRect();
-              if (box.width < 80 || box.height < 16 ||
-                  box.left < -100 || box.top < -100)
-                return {ready:false, reason:'invalid-row-geometry',
-                  x:Math.round(box.left), y:Math.round(box.top)};
-              return {ready:true, x:Math.round(box.left), y:Math.round(box.top),
-                method:state.method || 'matched'};
-            })()
-            """;
-
-        async Task RefreshVoiceRowViewportAsync()
-        {
-            if (closingChat || IsDisposed || voiceStripWindow is not { IsDisposed: false } ||
-                voiceStripWeb?.CoreWebView2 == null || voiceRowScanInFlight) return;
-            var interval = voiceRowLocated ? TimeSpan.FromSeconds(3) : TimeSpan.FromSeconds(1);
-            if (DateTime.UtcNow - lastVoiceRowScan < interval) return;
-            lastVoiceRowScan = DateTime.UtcNow;
-            voiceRowScanInFlight = true;
-            try
-            {
-                var result = await voiceStripWeb.CoreWebView2.ExecuteScriptAsync(LocateVoiceRowScript);
-                if (closingChat || voiceStripWindow is not { IsDisposed: false } ||
-                    voiceStripWeb.IsDisposed) return;
-                using var doc = System.Text.Json.JsonDocument.Parse(result);
-                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object ||
-                    !doc.RootElement.TryGetProperty("ready", out var ready) ||
-                    ready.ValueKind != System.Text.Json.JsonValueKind.True)
-                {
-                    if (DateTime.UtcNow - lastVoiceRowDiagnostic > TimeSpan.FromSeconds(15))
-                    {
-                        // Diagnostic contains only selector counts/status, no
-                        // session data, messages or Discord credentials.
-                        Log("VOICE | Tavern lookup pending: " +
-                            (result.Length > 220 ? result[..220] : result));
-                        lastVoiceRowDiagnostic = DateTime.UtcNow;
-                    }
-                    // Never display a stray Discord channel while the correct
-                    // Tavern row is absent or React is still rebuilding it.
-                    voiceRowLocated = false;
-                    if (voiceStripStatus is { IsDisposed: false })
-                    {
-                        voiceStripStatus.Text = "The Tavern · loading";
-                        voiceStripStatus.Visible = true;
-                        voiceStripStatus.BringToFront();
-                    }
-                    return;
-                }
-                int x = doc.RootElement.GetProperty("x").GetInt32();
-                int y = doc.RootElement.GetProperty("y").GetInt32();
-                // The Tavern DOM island is anchored at the browser origin.
-                // Retain the coordinates as a safeguard for transformed layouts
-                // without allowing another channel to appear under the crop.
-                voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y),
-                    VoiceBrowserWidth, VoiceBrowserHeight);
-                if (!voiceRowLocated)
-                    Log("VOICE | Live Tavern row isolated at (" + x + "," + y + ")");
-                voiceRowLocated = true;
-                if (voiceStripStatus is { IsDisposed: false })
-                    voiceStripStatus.Visible = false;
-            }
-            catch (Exception ex)
-            {
-                if (!closingChat) Log("VOICE | Row placement: " + ex.Message);
-            }
-            finally { voiceRowScanInFlight = false; }
-        }
-
-        async Task StartVoiceStripAsync()
-        {
-            if (closingChat || IsDisposed || chatWebEnvironment == null ||
-                voiceStripWindow is { IsDisposed: false }) return;
-            var strip = new Form
-            {
-                Text = "tes3np Tavern Voice",
-                FormBorderStyle = FormBorderStyle.None,
-                StartPosition = FormStartPosition.Manual,
-                ShowInTaskbar = false,
-                BackColor = System.Drawing.Color.FromArgb(44, 44, 48),
-                ClientSize = new System.Drawing.Size(136, 24)
-            };
-            var viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = false,
-                BackColor = System.Drawing.Color.FromArgb(44, 44, 48) };
-            var browser = new WebView2 { Dock = DockStyle.None };
-            browser.SetBounds(0, 0, VoiceBrowserWidth, VoiceBrowserHeight);
-            var status = new Label
-            {
-                Dock = DockStyle.Fill, Text = "The Tavern · loading",
-                TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
-                ForeColor = System.Drawing.Color.White,
-                BackColor = System.Drawing.Color.FromArgb(44, 44, 48),
-                Font = new System.Drawing.Font("Segoe UI", 9)
-            };
-            viewport.Controls.Add(browser);
-            viewport.Controls.Add(status);
-            strip.Controls.Add(viewport);
-            voiceStripWindow = strip;
-            voiceStripWeb = browser;
-            voiceStripStatus = status;
-            voiceRowLocated = false;
-            lastVoiceRowScan = DateTime.MinValue;
-            strip.FormClosed += (_, _) =>
-            {
-                if (ReferenceEquals(voiceStripWindow, strip))
-                {
-                    voiceStripWindow = null;
-                    voiceStripWeb = null;
-                    voiceStripStatus = null;
-                    voiceRowLocated = false;
-                }
-            };
-            // Existing launcher owns the strip. Place before first show.
-            SetNativeWindowOwner(strip.Handle, owner);
-            PositionVoiceStrip();
-            strip.Show();
-            PositionVoiceStrip();
-            try
-            {
-                await browser.EnsureCoreWebView2Async(chatWebEnvironment);
-                if (closingChat || strip.IsDisposed) return;
-                browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
-                // The voice-only browser installs a fixed Tavern DOM island
-                // before rendering. Its original React click handlers survive.
-                await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
-                    IsolateTavernChannelScript);
-                if (closingChat || strip.IsDisposed) return;
-                // Let WebView2 request permission normally, without force-allow.
-                browser.CoreWebView2.PermissionRequested += (_, e) =>
-                {
-                    if (e.PermissionKind == CoreWebView2PermissionKind.Microphone ||
-                        e.PermissionKind == CoreWebView2PermissionKind.Camera)
-                        Log("VOICE | Permission requested: " + e.PermissionKind);
-                };
-                browser.CoreWebView2.NavigationCompleted += (_, e) =>
-                {
-                    Log("VOICE | Discord view loaded=" + e.IsSuccess +
-                        "; result=" + e.WebErrorStatus);
-                    lastVoiceRowScan = DateTime.MinValue;
-                    _ = RefreshVoiceRowViewportAsync();
-                };
-                browser.CoreWebView2.Navigate(VoicePreviewChannel);
-                Log("VOICE | Started inline Tavern row; channel=" + VoicePreviewChannel);
-            }
-            catch (Exception ex)
-            {
-                Log("VOICE | Inline row failed: " + ex.Message);
-                if (!strip.IsDisposed)
-                    status.Text = "The Tavern unavailable";
-            }
-        }
-
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
         void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
@@ -2278,7 +1927,7 @@ metrics();
                     new System.Drawing.RectangleF(-65, -12, 130, 24), alignment);
                 g.Restore(state);
             };
-            // This menu only changes Game Chat visibility modes.
+            // The toggle is now an actual launcher GUI control.
             foreach (string mode in new[] { "Automatic", "Always Shown", "Always Hidden" })
             {
                 string selectedMode = mode;
@@ -2296,9 +1945,8 @@ metrics();
             }
             chatModeMenu.Opening += (_, _) =>
             {
-                foreach (ToolStripItem menuItem in chatModeMenu.Items)
-                    if (menuItem is ToolStripMenuItem item)
-                        item.Checked = item.Text == chatDisplayMode;
+                foreach (ToolStripMenuItem item in chatModeMenu.Items)
+                    item.Checked = item.Text == chatDisplayMode;
             };
             chatToggleButton.MouseUp += (_, e) =>
             {
@@ -2610,7 +2258,6 @@ metrics();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
-                    chatWebEnvironment = env;
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
@@ -2639,9 +2286,6 @@ metrics();
                     if (freshDiscordProfile) ShowDiscordSignIn();
                     web.CoreWebView2.Navigate(freshDiscordProfile ? "https://discord.com/login" : Channel);
                     Log(freshDiscordProfile ? "Fresh Discord profile: opening sign-in" : "Navigating to channel");
-                    // Start after the original native chat and login views have
-                    // initialized, preserving the established first-sign-in path.
-                    _ = StartVoiceStripAsync();
                 }
                 catch (Exception ex)
                 {
@@ -2652,8 +2296,6 @@ metrics();
             FormClosing += (_, _) =>
             {
                 closingChat = true;
-                if (voiceStripWindow is { IsDisposed: false })
-                    voiceStripWindow.Close();
                 watch.Stop();
                 historyWatch.Stop();
                 if (launcherLocationHook != IntPtr.Zero)
@@ -2675,7 +2317,6 @@ metrics();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
-                _ = RefreshVoiceRowViewportAsync();
                 PositionChatWindows();
                 if (!discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
@@ -3119,16 +2760,6 @@ metrics();
                 SetChatOpen(true);
             }
             PositionChatWindows();
-            // A fresh sign-in may have left the secondary voice viewport on
-            // Discord's login route. Refresh it after the shared session becomes
-            // authenticated, without creating a new WebView2 profile.
-            if (voiceStripWeb?.CoreWebView2 != null)
-            {
-                voiceRowLocated = false;
-                if (voiceStripStatus is { IsDisposed: false })
-                    voiceStripStatus.Visible = true;
-                voiceStripWeb.CoreWebView2.Navigate(VoicePreviewChannel);
-            }
             // The post-auth channel reload is performed by
             // CheckDiscordAuthentication exactly once. Its normal polling
             // path will populate the now-initialized native renderer.
@@ -3160,8 +2791,6 @@ metrics();
                     case 2: SetChatDisplayMode("Automatic"); break;
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
-                    // Main-page Voice Preview button; unrelated to Game Chat menus.
-                    // Tavern strip is started automatically with Chat Host.
                 }
                 return;
             }
@@ -3210,7 +2839,6 @@ metrics();
             // movement events, regardless of whether the hook installed.
             // The native helper is a no-op if the banner is already aligned.
             PositionHappyHourBanner();
-            PositionVoiceStrip();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
