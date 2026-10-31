@@ -194,10 +194,20 @@ def check(allow_missing_payload: bool = False) -> None:
             'MacroPage := CharacterPage' in macro
             and 'BuildMacroBookPanel()' in characters
             and 'MacroPage := Gui(' not in macro,
-        "exact empty macro label and fixed right page":
+        "book-painted macro rows replace visible native table":
             '"Installed Macros"' in macro
             and '"you havent installed any macros."' in macro
-            and '"x525 y144 w355 h226' in macro,
+            and 'AddStyledButton(CharacterPage, 525, y, 207, 29' in macro
+            and 'AddBookLabel(CharacterPage, 741, y + 2' in macro
+            and 'MacroList.Visible := false' in macro
+            and 'MacroListPage := Min(Max(1, Ceil(MacroItems.Length / 5))' in macro,
+        "compact controls follow item count":
+            'MoveStyledButton(MacroImportButton, 525, actionY, 164, 30)' in macro
+            and 'MoveStyledButton(MacroStatus, 525, actionY + 76' in macro,
+        "selected row highlight uses existing painter":
+            'MacroSelected := selected' in macro
+            and 'selectedMacro := face.HasOwnProp("MacroSelected")' in
+                (ROOT / "src/ui/renderer.ahk").read_text(encoding="utf-8-sig"),
         "editor restores macros without overlaying the character fields":
             'HideMacroBookPanel()' in characters
             and 'ShowMacroBookPanel()' in characters,

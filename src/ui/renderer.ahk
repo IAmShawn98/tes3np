@@ -127,10 +127,23 @@ PaintButton(wParam, lParam, *)
             else
                 DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height)
             overlay := EnhancedReadability ? (face.State = "down" ? 0xE0100803 : face.State = "hover" ? 0xB06A4518 : 0xC0180C04) : (face.State = "down" ? 0xA02B190A : face.State = "hover" ? 0x802B190A : 0x602B190A)
+            selectedMacro := face.HasOwnProp("MacroSelected") && face.MacroSelected
+            if selectedMacro
+                overlay := 0xA0583719
             brush := 0
             DllCall("gdiplus\GdipCreateSolidFill", "UInt", overlay, "Ptr*", &brush)
             DllCall("gdiplus\GdipFillRectangleI", "Ptr", graphics, "Ptr", brush, "Int", face.Book ? 1 : Round(5 * scale), "Int", (face.Book ? 1 : Round(12 * scale)) + shift, "Int", face.Book ? width - 2 : Round(210 * scale), "Int", face.Book ? height - 4 : Round(24 * scale))
             DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+            if selectedMacro
+            {
+                selectionPen := 0
+                DllCall("gdiplus\GdipCreatePen1", "UInt", 0xFFE6C17B,
+                    "Float", 1.4, "Int", 2, "Ptr*", &selectionPen)
+                DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics,
+                    "Ptr", selectionPen, "Int", 1, "Int", 1 + shift,
+                    "Int", width - 3, "Int", height - 4)
+                DllCall("gdiplus\GdipDeletePen", "Ptr", selectionPen)
+            }
             if EnhancedReadability && face.State = "hover"
             {
                 pen := 0
