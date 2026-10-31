@@ -38,18 +38,21 @@ second Chat Host process, popup ownership controller, or competing chat timer.
 Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
 launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events.
 
-**Raw voice-channel preview (experimental):** Click the `Voice Preview` button
-in the launcher main page lower frame, immediately left of Launcher Settings.
-The AutoHotkey button sends existing Chat Host command `0x8331` with value `5`
-without using the Game Chat tab, menu or visible panel. The existing Chat Host opens
-a single resizable WebView2 preview of guild `509601787901116437`, channel
-`509601787901116441`, with the same authenticated WebView2 environment and
-profile. This does not change the Game Chat source, renderer, polling, or the
-Happy Hour detector. It adds no second Chat Host process, separate browser data
-folder, automatic voice join, new popup-positioning timer, or injected styling.
-WebView2 handles microphone permission through its normal user prompt. The
-preview is owned by the launcher and closed with Chat Host; successful Discord
-voice operation must still be tested on Windows. The Happy Hour banner
+**The Tavern voice strip (experimental):** The temporary Voice Preview
+button and full Discord popup are removed. On launcher startup, the existing
+Chat Host creates one small, native owned window immediately outside the upper
+right frame, aligned to the user's marked position. Its WebView2 uses the
+existing authenticated `chat-webview2` profile, navigates to voice channel
+`509601787901116441` in guild `509601787901116437`, and clips the original
+Discord voice-channel row by looking up its stable ID. All the rest of Discord's
+page remains loaded behind the clip; the real voice row, not a copy or an
+automated join command, receives clicks. Its placement follows the existing
+launcher-location WinEvent hook with the existing Chat Host watch as fallback;
+there is no separate background service, process or timer. Until Discord
+renders the row it shows a loading label. No microphone permission is granted
+automatically. Authenticated joining and audio operation require Windows tests.
+
+The Happy Hour banner
 is an **owned top-level popup** (not a clipped child window): ownership controls
 z-order/minimization, but does not automatically move the popup with its owner.
 Use the same event hook and native, nonactivating `SetWindowPos` to move it

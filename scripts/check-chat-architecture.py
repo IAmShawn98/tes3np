@@ -130,21 +130,24 @@ expect(
 )
 
 expect(
-    "Launcher main-page voice button reuses Chat Host and keeps Game Chat menus unchanged",
+    "Tavern voice strip uses the original clickable Discord row beside launcher",
     'const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";' in source
-    and "chatWebEnvironment = env;" in source
-    and "await voiceWeb.EnsureCoreWebView2Async(chatWebEnvironment);" in source
-    and 'chatModeMenu.Items.Add("Preview Voice Channel (unstyled)"' not in source
-    and "case 5: _ = OpenVoicePreviewAsync(); break;" in source
-    and 'LauncherVoicePreviewButton := AddStyledButton(LauncherGui, 650, 684, 160, 32, "Voice Preview", OpenLauncherVoicePreview)' in bootstrap
-    and "SendLauncherChatCommand(5)" in bootstrap
-    and "voiceWeb.CoreWebView2.Navigate(VoicePreviewChannel);" in source
-    and "SetNativeWindowOwner(preview.Handle, owner);" in source
-    and "voicePreviewWindow.Close();" in source
-    and "voiceWeb.CoreWebView2.PermissionRequested +=" in source
+    and "await browser.EnsureCoreWebView2Async(chatWebEnvironment);" in source
+    and "const string LocateVoiceRowScript" in source
+    and "'[data-list-item-id*=" in source
+    and "voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y)," in source
+    and "PositionVoiceStrip();" in source
+    and "SetNativeWindowOwner(strip.Handle, owner);" in source
+    and "_ = StartVoiceStripAsync();" in source
+    and "_ = RefreshVoiceRowViewportAsync();" in source
+    and "voiceStripWindow.Close();" in source
     and "CoreWebView2PermissionState.Allow" not in source
-    and "voiceWeb.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync" not in source,
+    and "Voice Preview" not in bootstrap
+    and "OpenLauncherVoicePreview" not in bootstrap
+    and "SendLauncherChatCommand(5)" not in bootstrap
+    and "case 5: _ = OpenVoicePreviewAsync();" not in source,
 )
+
 expect(
     "Archive must be written with replace-on-complete semantics",
     "WriteChatArchiveAtomically(GameChatIndexFile," in source

@@ -107,24 +107,28 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Discord voice preview experiment
+## Discord Tavern voice strip (experimental)
 
-Click `Voice Preview` along the launcher main page bottom frame (beside
-`Launcher Settings`) to display the user-requested channel
-`509601787901116441` from server `509601787901116437`. This is a
-resizable, unstyled Discord page launched directly from the main screen. It
-uses the same Chat Host process and the same
-WebView2 session/profile as Game Chat. It **does not automatically join voice**,
-grant microphone access, scrape channel members or change the chat layout.
+The previous `Voice Preview` button and full-page popup have been removed.
+The existing Chat Host automatically starts a tiny, native-owned voice strip
+along the main launcher's outside upper-right edge (red-box placement).
+It keeps an authenticated WebView2 page open using the existing profile and
+clips only the **original** Discord `The Tavern` row from voice channel
+`509601787901116441`. This is not a bitmap, link shortcut, cloned DOM
+node, or automatic click. It must preserve the real row's pointer handling.
+No voice permission is auto-approved and the large blue video/screen-sharing
+area is not displayed at this stage.
 
-Windows validation: open the preview after Discord has loaded; confirm that the
-correct channel loads (or record any browser incompatibility/login screen).
-Test clicking Discord's own Join control manually and consenting to microphone
-access if desired. Check audio input/output, permissions and disconnect if the
-voice client works. Close and reopen the preview, then confirm Game Chat, saved
-authentication, Happy Hour and launcher controls remain normal. If Discord
-voice fails in WebView2, record the exact visible error before making changes.
-Do not infer voice compatibility from navigation success alone.
+Windows checks: (1) confirm The Tavern strip appears automatically without
+clicking Game Chat, at the marked top-right position; (2) click the live row
+and record whether Discord joins or opens a voice confirmation; (3) move,
+minimize, restore, and rescale the launcher and confirm the strip follows;
+(4) verify Game Chat sign-in, history, Happy Hour, and main controls remain
+unchanged; (5) check a signed-out profile displays a truthful loading state,
+not a fabricated connected status; (6) check exit closes the strip and WebView2
+cleanly. If the row does not render, inspect
+`%APPDATA%\tes3np\chat-host.log` for `VOICE |` messages. Do not
+claim actual voice/audio success before observing it on Windows.
 
 ## Happy Hour and Jiub production behavior
 
