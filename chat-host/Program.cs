@@ -2434,9 +2434,6 @@ metrics();
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
                     chatWebEnvironment = env;
-                    // Start the inline voice channel independently of Game Chat's
-                    // docked visibility. It shares this exact browser profile.
-                    _ = StartVoiceStripAsync();
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
@@ -2465,6 +2462,9 @@ metrics();
                     if (freshDiscordProfile) ShowDiscordSignIn();
                     web.CoreWebView2.Navigate(freshDiscordProfile ? "https://discord.com/login" : Channel);
                     Log(freshDiscordProfile ? "Fresh Discord profile: opening sign-in" : "Navigating to channel");
+                    // Start after the original native chat and login views have
+                    // initialized, preserving the established first-sign-in path.
+                    _ = StartVoiceStripAsync();
                 }
                 catch (Exception ex)
                 {
@@ -2942,6 +2942,16 @@ metrics();
                 SetChatOpen(true);
             }
             PositionChatWindows();
+            // A fresh sign-in may have left the secondary voice viewport on
+            // Discord's login route. Refresh it after the shared session becomes
+            // authenticated, without creating a new WebView2 profile.
+            if (voiceStripWeb?.CoreWebView2 != null)
+            {
+                voiceRowLocated = false;
+                if (voiceStripStatus is { IsDisposed: false })
+                    voiceStripStatus.Visible = true;
+                voiceStripWeb.CoreWebView2.Navigate(VoicePreviewChannel);
+            }
             // The post-auth channel reload is performed by
             // CheckDiscordAuthentication exactly once. Its normal polling
             // path will populate the now-initialized native renderer.
