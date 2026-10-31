@@ -222,6 +222,7 @@ internal static class Program
         Label? voiceStripStatus;
         bool voiceRowLocated, voiceRowScanInFlight;
         DateTime lastVoiceRowScan = DateTime.MinValue;
+        DateTime lastVoiceRowDiagnostic = DateTime.MinValue;
         const int VoiceBrowserWidth = 980, VoiceBrowserHeight = 1050;
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
@@ -1904,97 +1905,129 @@ metrics();
             SetWindowPos(strip.Handle, IntPtr.Zero, x, y, width, height, flags);
         }
 
-        // Voice-only DOM island. Keep Discord's real clickable React node,
-        // but make everything outside The Tavern non-rendering/non-interactive
-        // inside this one secondary WebView2. No DOM nodes are removed or
-        // reparented: Discord still owns its event delegation and voice state.
+        // This script runs ONLY in the separate Tavern WebView2, never Game Chat.
+        // Render the real React-owned voice row over an otherwise invisible DOM.
+        // Do not remove DOM nodes or hide entire React app branches with display:none:
+        // that can unmount/virtualize the channel and cause permanent loading.
         const string IsolateTavernChannelScript = """
             (() => {
               if (window.__tes3npTavernIsland) return;
               window.__tes3npTavernIsland = true;
               const id = '509601787901116441';
               const name = 'The Tavern';
-              const rowMarker = 'data-tes3np-tavern-row';
+              const marker = 'data-tes3np-tavern-row';
               const pathMarker = 'data-tes3np-tavern-path';
-              const hiddenMarker = 'data-tes3np-tavern-other';
-              let lastRow = null;
+              let currentRow = null;
               let scheduled = false;
+              let lastMethod = 'pending';
+              let idMatches = 0;
+              let nameMatches = 0;
 
-              const installCss = () => {
-                if (!document.head || document.getElementById('tes3np-tavern-island-css'))
-                  return;
-                const style = document.createElement('style');
-                style.id = 'tes3np-tavern-island-css';
-                style.textContent = [
-                  'html, body, #app-mount { overflow: hidden !important; margin: 0 !important; }',
-                  '#app-mount * { visibility: hidden !important; pointer-events: none !important; }',
-                  '[' + hiddenMarker + '] { display: none !important; }',
-                  '[' + pathMarker + '] { overflow: visible !important; transform: none !important;',
-                  '  filter: none !important; contain: none !important; clip-path: none !important; }',
-                  '[' + rowMarker + '], [' + rowMarker + '] * {',
-                  '  visibility: visible !important; pointer-events: auto !important; }',
-                  '[' + rowMarker + '] { position: fixed !important; top: 0 !important;',
-                  '  left: 0 !important; margin: 0 !important; padding: 0 !important;',
-                  '  width: 136px !important; max-width: 136px !important;',
-                  '  height: 24px !important; min-height: 24px !important;',
-                  '  z-index: 2147483647 !important; transform: none !important; }'
+              const style = () => {
+                if (!document.head ||
+                    document.getElementById('tes3np-tavern-island-css')) return;
+                const element = document.createElement('style');
+                element.id = 'tes3np-tavern-island-css';
+                element.textContent = [
+                  'html,body,#app-mount {overflow:hidden !important;',
+                  'overscroll-behavior:none !important;}',
+                  // The visible row selector MUST outrank #app-mount *.
+                  '#app-mount * {visibility:hidden !important;',
+                  'pointer-events:none !important;}',
+                  '#app-mount [' + marker + '], #app-mount [' + marker + '] * {',
+                  'visibility:visible !important;pointer-events:auto !important;}',
+                  '#app-mount [' + marker + '] {position:fixed !important;',
+                  'top:0 !important;left:0 !important;z-index:2147483647 !important;',
+                  'width:136px !important;height:24px !important;',
+                  'min-height:24px !important;max-height:24px !important;',
+                  'margin:0 !important;transform:none !important;}',
+                  '#app-mount [' + pathMarker + '] {',
+                  'overflow:visible !important;clip-path:none !important;',
+                  'transform:none !important;contain:none !important;}'
                 ].join('\n');
-                document.head.appendChild(style);
+                document.head.appendChild(element);
               };
 
               const findRow = () => {
-                // Match the actual voice ID first: text alone could select a
-                // heading or an unrelated chat item that happens to share a name.
-                const candidates = document.querySelectorAll(
-                  '[data-list-item-id*="' + id + '"], a[href$="/' + id + '"]'
+                idMatches = 0;
+                nameMatches = 0;
+                const routeIsTavern = location.pathname.replace(/\/$/, '')
+                  .endsWith('/' + id);
+                const eligible = el => {
+                  if (!(el instanceof Element)) return false;
+                  const text = (el.textContent || '').trim();
+                  if (!text.includes(name) || text.length > 240) return false;
+                  const b = el.getBoundingClientRect();
+                  return b.width >= 90 && b.height >= 16 &&
+                    b.height <= 90 && b.left < 420 && b.right > 0;
+                };
+                const nearestRow = el => {
+                  let node = el;
+                  for (let i = 0; node && i < 9; node = node.parentElement, i++) {
+                    if (eligible(node) && (
+                      node.matches('a, [role="treeitem"], [data-list-item-id], [role="button"]') ||
+                      /(?:^|\s)link_/i.test(typeof node.className === 'string'
+                        ? node.className : '') ||
+                      /channel/i.test(typeof node.className === 'string'
+                        ? node.className : '')
+                    )) return node;
+                  }
+                  return null;
+                };
+
+                const linked = document.querySelectorAll(
+                  '[data-list-item-id*="' + id + '"],' +
+                  '[data-channel-id="' + id + '"],' +
+                  'a[href$="/' + id + '"]'
                 );
-                for (const match of candidates) {
-                  const row = match.closest('[data-list-item-id]') ||
-                    match.closest('[role="treeitem"]') || match;
-                  const text = (row.textContent || '').trim();
-                  if (text.includes(name) && text.length < 220) return row;
+                idMatches = linked.length;
+                for (const candidate of linked) {
+                  const row = nearestRow(candidate);
+                  if (row) {lastMethod = 'channel-id'; return row;}
                 }
-                return null; // Fail closed: never show a neighboring channel.
+                // Discord's channel list markup can omit the ID on the
+                // interactive node. The URL still identifies the requested
+                // channel; require an exact name in the LEFT sidebar.
+                if (!routeIsTavern) {
+                  lastMethod = 'waiting-for-channel-route';
+                  return null;
+                }
+                for (const leaf of document.querySelectorAll(
+                  'span,[class*="name_"],[role="treeitem"],a'
+                )) {
+                  if ((leaf.textContent || '').trim() !== name) continue;
+                  const b = leaf.getBoundingClientRect();
+                  if (b.left < -20 || b.left > 420) continue;
+                  nameMatches++;
+                  const row = nearestRow(leaf);
+                  if (row) {lastMethod = 'name-in-sidebar'; return row;}
+                }
+                lastMethod = 'channel-row-not-in-dom';
+                return null;
               };
 
               const isolate = () => {
-                installCss();
+                style();
                 if (!document.body) return;
                 const row = findRow();
-                if (!row) {
-                  if (lastRow && lastRow.isConnected)
-                    lastRow.removeAttribute(rowMarker);
-                  lastRow = null;
-                  return;
+                if (currentRow !== row) {
+                  if (currentRow && currentRow.isConnected)
+                    currentRow.removeAttribute(marker);
+                  currentRow = row;
                 }
-                if (lastRow && lastRow !== row && lastRow.isConnected)
-                  lastRow.removeAttribute(rowMarker);
-                lastRow = row;
-                row.setAttribute(rowMarker, '');
-
-                // Remove only other branches from layout, not from React's DOM.
-                // Stop before hiding the Discord app infrastructure itself.
-                let current = row;
-                let hops = 0;
-                while (current.parentElement && current.parentElement !== document.body
-                       && hops++ < 24) {
-                  current.removeAttribute(hiddenMarker);
-                  current.setAttribute(pathMarker, '');
-                  const parent = current.parentElement;
-                  parent.setAttribute(pathMarker, '');
-                  for (const sibling of parent.children) {
-                    if (sibling !== current && sibling.hasAttribute &&
-                        !sibling.hasAttribute(hiddenMarker))
-                      sibling.setAttribute(hiddenMarker, '');
-                  }
-                  current = parent;
-                }
-                // No scrolling remains in the isolated row's layout.
-                for (let parent = row.parentElement; parent && parent !== document.body;
-                     parent = parent.parentElement) {
-                  if (parent.scrollTop) parent.scrollTop = 0;
+                if (!row) return;
+                row.setAttribute(marker, '');
+                // A fixed descendant may otherwise be clipped by Discord's
+                // scrolling sidebar or positioned relative to a transformed
+                // ancestor. Remove these restrictions only along its path.
+                for (let node = row.parentElement;
+                     node && node !== document.body;
+                     node = node.parentElement) {
+                  if (!node.hasAttribute(pathMarker))
+                    node.setAttribute(pathMarker, '');
                 }
               };
+
               const schedule = () => {
                 if (scheduled) return;
                 scheduled = true;
@@ -2004,42 +2037,49 @@ metrics();
                 });
               };
               new MutationObserver(schedule)
-                .observe(document, {childList: true, subtree: true});
+                .observe(document, {childList:true, subtree:true});
               document.addEventListener('DOMContentLoaded', schedule);
               schedule();
 
-              const stopScroll = event => {
-                event.preventDefault();
-                event.stopPropagation();
-              };
+              // Block scroll in the isolated voice viewport, not the normal
+              // Game Chat browser. Native pointer/click events still reach
+              // Discord's actual channel row.
+              const stopScroll = e => {e.preventDefault(); e.stopPropagation();};
               window.addEventListener('wheel', stopScroll,
-                {capture: true, passive: false});
+                {capture:true, passive:false});
               window.addEventListener('touchmove', stopScroll,
-                {capture: true, passive: false});
-              window.addEventListener('keydown', event => {
-                if (event.altKey || event.ctrlKey || event.metaKey) return;
+                {capture:true, passive:false});
+              window.addEventListener('keydown', e => {
+                if (e.altKey || e.ctrlKey || e.metaKey) return;
                 if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' ']
-                    .includes(event.key)) stopScroll(event);
+                    .includes(e.key)) stopScroll(e);
               }, true);
+
+              window.__tes3npTavernState = () => ({
+                row: !!currentRow && currentRow.isConnected,
+                method: lastMethod,
+                idMatches,
+                nameMatches
+              });
             })();
             """;
 
-        // Only use the verified original Tavern island. Do not find an
-        // arbitrary row by text or by a stale scroll position.
+        // Report a verified Discord row, or an explicit safe diagnostic object.
+        // Never silently substitute whatever channel happens to occupy the crop.
         const string LocateVoiceRowScript = """
             (() => {
+              const state = window.__tes3npTavernState?.() || {};
               const row = document.querySelector('[data-tes3np-tavern-row]');
-              if (!row || !row.isConnected ||
-                  !(row.textContent || '').includes('The Tavern') ||
-                  !(row.querySelector('[data-list-item-id*="509601787901116441"]') ||
-                    row.matches('[data-list-item-id*="509601787901116441"]') ||
-                    row.querySelector('a[href$="/509601787901116441"]') ||
-                    row.matches('a[href$="/509601787901116441"]')))
-                  return null;
+              if (!row || !row.isConnected || !(row.textContent || '').includes('The Tavern'))
+                return {ready:false, reason:state.method || 'waiting-for-discord',
+                  ids:state.idMatches || 0, names:state.nameMatches || 0};
               const box = row.getBoundingClientRect();
               if (box.width < 80 || box.height < 16 ||
-                  box.left < -200 || box.top < -200) return null;
-              return { x: Math.round(box.left), y: Math.round(box.top) };
+                  box.left < -100 || box.top < -100)
+                return {ready:false, reason:'invalid-row-geometry',
+                  x:Math.round(box.left), y:Math.round(box.top)};
+              return {ready:true, x:Math.round(box.left), y:Math.round(box.top),
+                method:state.method || 'matched'};
             })()
             """;
 
@@ -2057,8 +2097,18 @@ metrics();
                 if (closingChat || voiceStripWindow is not { IsDisposed: false } ||
                     voiceStripWeb.IsDisposed) return;
                 using var doc = System.Text.Json.JsonDocument.Parse(result);
-                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                    !doc.RootElement.TryGetProperty("ready", out var ready) ||
+                    ready.ValueKind != System.Text.Json.JsonValueKind.True)
                 {
+                    if (DateTime.UtcNow - lastVoiceRowDiagnostic > TimeSpan.FromSeconds(15))
+                    {
+                        // Diagnostic contains only selector counts/status, no
+                        // session data, messages or Discord credentials.
+                        Log("VOICE | Tavern lookup pending: " +
+                            (result.Length > 220 ? result[..220] : result));
+                        lastVoiceRowDiagnostic = DateTime.UtcNow;
+                    }
                     // Never display a stray Discord channel while the correct
                     // Tavern row is absent or React is still rebuilding it.
                     voiceRowLocated = false;

@@ -130,30 +130,31 @@ expect(
 )
 
 expect(
-    "Tavern DOM island is voice-only, ID-validated and remains clickable",
+    "Tavern voice-only DOM isolation retains original React row with safe fallback",
     'const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";' in source
     and "await browser.EnsureCoreWebView2Async(chatWebEnvironment);" in source
     and "const string IsolateTavernChannelScript" in source
     and "const string LocateVoiceRowScript" in source
-    and "const rowMarker = 'data-tes3np-tavern-row';" in source
-    and "const hiddenMarker = 'data-tes3np-tavern-other';" in source
-    and "sibling.setAttribute(hiddenMarker, '');" in source
-    and "position: fixed !important; top: 0 !important;" in source
+    and "const marker = 'data-tes3np-tavern-row';" in source
+    and "'#app-mount [' + marker + '], #app-mount [' + marker + '] * {'" in source
+    and "location.pathname.replace(/\\/$/, '')" in source
+    and "lastMethod = 'name-in-sidebar';" in source
+    and "lastMethod = 'channel-id';" in source
     and "new MutationObserver(schedule)" in source
-    and "const row = document.querySelector('[data-tes3np-tavern-row]');" in source
-    and '!(row.textContent || \'\').includes(\'The Tavern\')' in source
-    and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
-    and "IsolateTavernChannelScript);" in source
+    and "window.addEventListener('wheel', stopScroll," in source
+    and "window.addEventListener('touchmove', stopScroll," in source
+    and "return {ready:false, reason:state.method" in source
+    and 'Log("VOICE | Tavern lookup pending: " +' in source
     and "voiceStripStatus.BringToFront();" in source
     and "voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y)," in source
+    and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
+    and "IsolateTavernChannelScript);" in source
     and "_ = StartVoiceStripAsync();" in source
-    and "_ = RefreshVoiceRowViewportAsync();" in source
     and "SetNativeWindowOwner(strip.Handle, owner);" in source
     and "voiceStripWindow.Close();" in source
     and "CoreWebView2PermissionState.Allow" not in source
     and "Voice Preview" not in bootstrap
-    and "OpenLauncherVoicePreview" not in bootstrap
-    and "SendLauncherChatCommand(5)" not in bootstrap,
+    and "OpenLauncherVoicePreview" not in bootstrap,
 )
 
 expect(

@@ -38,22 +38,21 @@ second Chat Host process, popup ownership controller, or competing chat timer.
 Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
 launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events.
 
-**The Tavern voice strip (experimental):** The previous generic Discord
-sidebar crop was insufficient: other channel rows could scroll underneath it.
-The existing Chat Host starts a second WebView2 *within the same authenticated
-profile* and renders a voice-only DOM island outside the launcher's upper-right
-edge. Injection occurs before Discord loads, matching channel
-`509601787901116441` by its actual DOM identity **and** `The Tavern` text.
-Its original React-owned row is fixed to the upper-left browser origin,
-with unrelated sibling branches hidden by CSS display:none. No Discord nodes
-are deleted, moved to another parent, copied, or given simulated clicks; the
-live row keeps Discord's event handlers. The rest of the interface is visually
-suppressed and wheel/touch/key scrolling cannot show adjacent channels.
-If the required row is missing, a native loading state covers the WebView
-instead of showing another Discord channel. Its placement uses the existing
-launcher movement hook; there is no new Chat Host process, timer, browser
-profile or automatic microphone permission. The original Game Chat window,
-sign-in, saved archive and Happy Hour detector use their unchanged WebView.
+**The Tavern voice strip (experimental):** The original Game Chat remains
+unchanged. A second WebView2 in the same authenticated profile navigates to
+voice channel `509601787901116441` and shows the genuine `The Tavern`
+row beside the launcher's top-right edge. The previous DOM island incorrectly
+used `#app-mount *` with higher CSS specificity than the rule intended to
+reveal the row, and also rejected channel-list markup without an exposed ID.
+The voice-only injection now gives the row/hierarchy a higher-specificity
+visibility rule, preserves all other React-owned DOM nodes without collapsing
+their layout, and positions only the verified row at viewport (0,0). It
+prefers a matching channel ID; when Discord omits that ID, it accepts an
+exact `The Tavern` name in the left sidebar only if the current Discord
+route is the requested channel. An unmatched row remains hidden behind the
+native loading label and generates rate-limited, non-sensitive diagnostics
+in `chat-host.log`. Wheel/touch/scroll-key prevention stays voice-only.
+No new process, browser profile, timer, login, or microphone grant is added.
 
 The Happy Hour banner
 is an **owned top-level popup** (not a clipped child window): ownership controls
