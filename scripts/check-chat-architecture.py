@@ -11,6 +11,7 @@ source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
 reset_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
 bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
+jiub_ui = (ROOT / "src" / "ui" / "skooma-vision.ahk").read_text(encoding="utf-8-sig")
 errors = []
 
 
@@ -159,6 +160,32 @@ expect(
     and "void PositionChatWindows()\n        {\n            // The existing chat polling is a safety net" in source
     and "bounds.Top - 48" in source,
 )
+
+expect(
+    "Jiub Happy Hour face must use only the existing verified banner signal",
+    "OnMessage(0x8334, LauncherSkoomaVisionStateChanged)" in jiub_ui
+    and "PostMessage(owner, 0x8334, active ? new IntPtr(1) : IntPtr.Zero" in source
+    and "NotifyLauncherSkoomaVision(true);" in source
+    and "NotifyLauncherSkoomaVision(false);" in source
+    and "SkoomaVisionBannerActive := bannerVisible" in jiub_ui,
+)
+expect(
+    "Jiub Happy Hour face must follow banner close, hide and restore",
+    'banner.FormClosed += (_, _) => {' in source
+    and 'if (!happyHourBanner.Visible) {' in source
+    and 'happyHourBanner.Show();\n                        // The verified banner is visible again after a launcher restore.\n                        NotifyLauncherSkoomaVision(true);' in source
+    and 'happyHourBanner.Hide();\n                    // Keep Jiub\'s appearance in sync when the banner is hidden.\n                    NotifyLauncherSkoomaVision(false);' in source,
+)
+expect(
+    "Jiub picture must be a bundled native launcher control, without a floating window",
+    'asset := A_ScriptDir "\\assets\\happy-hour\\jiub-happy-hour.png"' in jiub_ui
+    and (ROOT / "assets" / "happy-hour" / "jiub-happy-hour.png").is_file()
+    and 'LauncherGui.Add("Picture"' in jiub_ui
+    and ':= Gui(' not in jiub_ui
+    and 'CreateSkoomaVision()\n    CaptureLauncherControlLayout()' in bootstrap
+    and 'SkoomaVisionPicture.Visible := visible' in jiub_ui,
+)
+
 
 
 
