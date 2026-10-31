@@ -185,6 +185,37 @@ def check(allow_missing_payload: bool = False) -> None:
         if not passing:
             errors.append(f"Favorite selection regression: {label}")
 
+    macro = (ROOT / "src/ui/macros.ahk").read_text(encoding="utf-8-sig")
+    characters = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
+    frontend = (ROOT / "src/ui/front-page.ahk").read_text(encoding="utf-8-sig")
+    bindings = (ROOT / "src/ui/macro-bindings.ahk").read_text(encoding="utf-8-sig")
+    macro_checks = {
+        "macros are embedded in the Character Book":
+            'MacroPage := CharacterPage' in macro
+            and 'BuildMacroBookPanel()' in characters
+            and 'MacroPage := Gui(' not in macro,
+        "exact empty macro label and fixed right page":
+            '"Installed Macros"' in macro
+            and '"you havent installed any macros."' in macro
+            and '"x525 y144 w355 h226' in macro,
+        "editor restores macros without overlaying the character fields":
+            'HideMacroBookPanel()' in characters
+            and 'ShowMacroBookPanel()' in characters,
+        "launcher no longer has a separate Macros button":
+            '["Macros", OpenMacros]' not in frontend,
+        "script, ZIP and application imports coexist":
+            'ImportMacroScript(archive)' in macro
+            and 'ImportMacroApplication(archive)' in macro
+            and 'SetTimer(CheckMacroImport, 200)' in macro,
+        "registered applications are not removed from disk or killed at exit":
+            'IniWrite(source, manifest, "Macro", "Target")' in macro
+            and 'macro.Kind != "App" && macro.PID' in macro
+            and 'if macro.HasOwnProp("Kind") && macro.Kind = "App"' in bindings,
+    }
+    for name, passed in macro_checks.items():
+        if not passed:
+            errors.append(f"Installed Macros regression: {name}")
+
     manifest = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
     missing = 0
     seen = set()
