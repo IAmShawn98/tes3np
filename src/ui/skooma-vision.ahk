@@ -1,8 +1,8 @@
 ; Jiub-only Happy Hour portrait. NO top-level overlays, animations, particle
 ; windows, graphics timers or owner-follow calculations. The transparent PNG
-; keeps the original black meme sunglasses silhouette, rainbow-tints their
-; existing reflections, preserves the approved grin, and adds the Colovian
-; fur hat drawn from the user-provided Morrowind in-game item reference.
+; comes directly from the user's approved Jiub Happy Hour icon.
+; It is a face-only cutout: original pixelated face, black shades with
+; rainbow reflections, and the approved goofy grin. No hat or moon pixels.
 ; Original launcher art and UI controls stay untouched.
 ;
 ; The verified ChatHost Happy Hour banner remains the sole real activation
