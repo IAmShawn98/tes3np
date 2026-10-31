@@ -2,62 +2,82 @@
 
 OpenMacros(*)
 {
-    if !CanUseNPLauncher()
+    OpenCharacterPage()
+}
+
+BuildMacroBookPanel()
+{
+    global CharacterPage, LauncherMorrowindFont
+    global MacroPage, MacroList, MacroDetails, MacroStatus, MacroEmptyNotice
+    global MacroImportButton, MacroRunButton, MacroStopButton, MacroRemoveButton
+    global MacroBindingsButton, MacroBookControls
+    MacroPage := CharacterPage
+    MacroBookControls := []
+    CharacterPage.SetFont("s18 Norm c241408", LauncherMorrowindFont)
+    heading := CharacterPage.Add("Text", "x525 y45 w355 h33 Center BackgroundTrans", "Installed Macros")
+    CharacterPage.SetFont("s9 Norm c382314", "Segoe UI")
+    explanation := CharacterPage.Add("Text", "x525 y88 w355 h43 BackgroundTrans",
+        "Add a macro (.ahk or ZIP), or link an installed application (.exe). Run it here whenever you need it.")
+    MacroEmptyNotice := CharacterPage.Add("Text", "x525 y155 w355 h34 BackgroundTrans",
+        "you havent installed any macros.")
+    MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 -Multi BackgroundF0E3C5",
+        ["Name", "Status", "Type"])
+    MacroList.ModifyCol(1, 185), MacroList.ModifyCol(2, 90), MacroList.ModifyCol(3, 70)
+    MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
+    MacroList.OnEvent("DoubleClick", RunSelectedMacro)
+    MacroDetails := CharacterPage.Add("Text", "x525 y380 w355 h40 BackgroundTrans", "")
+    MacroImportButton := CharacterPage.Add("Button", "x525 y430 w118 h29", "Add Macro / App")
+    MacroRunButton := CharacterPage.Add("Button", "x649 y430 w47 h29 Disabled", "Run")
+    MacroStopButton := CharacterPage.Add("Button", "x702 y430 w47 h29 Disabled", "Stop")
+    MacroRemoveButton := CharacterPage.Add("Button", "x755 y430 w62 h29 Disabled", "Remove")
+    MacroBindingsButton := CharacterPage.Add("Button", "x823 y430 w62 h29 Disabled", "Keys")
+    MacroStatus := CharacterPage.Add("Text", "x525 y477 w355 h48 BackgroundTrans", "Ready.")
+    MacroImportButton.OnEvent("Click", ImportMacroPackage)
+    MacroRunButton.OnEvent("Click", RunSelectedMacro)
+    MacroStopButton.OnEvent("Click", StopSelectedMacro)
+    MacroRemoveButton.OnEvent("Click", RemoveSelectedMacro)
+    MacroBindingsButton.OnEvent("Click", EditSelectedMacroBindings)
+    MacroBookControls.Push(heading, explanation, MacroEmptyNotice, MacroList,
+        MacroDetails, MacroImportButton, MacroRunButton, MacroStopButton,
+        MacroRemoveButton, MacroBindingsButton, MacroStatus)
+    LoadMacroPackages()
+    ShowMacroBookPanel()
+}
+
+ShowMacroBookPanel()
+{
+    global MacroBookControls, MacroList, MacroEmptyNotice, MacroItems
+    if !IsObject(MacroList)
         return
-    global MacroPage, MacroList, MacroDetails, MacroStatus, MacroImportButton
-    global MacroRunButton, MacroStopButton, MacroRemoveButton, MacroBindingsButton, LauncherGui
-    if !IsObject(MacroPage)
-    {
-        MacroPage := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox", "tes3np — Macros")
-        MacroPage.BackColor := "E2CEA2"
-        MacroPage.SetFont("s16 Bold c382314", "Georgia")
-        MacroPage.Add("Text", "x20 y15 w660 h30", "Your Macros")
-        MacroPage.SetFont("s10 Norm c382314", "Segoe UI")
-        MacroPage.Add("Text", "x20 y55 w660 h45", "Import an .ahk file or ZIP, select its script, and run it here. Packages stay saved on this computer. Only run macros from people you trust.")
-        MacroList := MacroPage.Add("ListView", "x20 y110 w660 h220 -Multi BackgroundF0E3C5", ["Macro", "Status", "Script"])
-        MacroList.ModifyCol(1, 240), MacroList.ModifyCol(2, 100), MacroList.ModifyCol(3, 290)
-        MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
-        MacroList.OnEvent("DoubleClick", RunSelectedMacro)
-        MacroDetails := MacroPage.Add("Text", "x20 y340 w660 h55", "No macros installed. Import an .ahk file or ZIP to get started.")
-        MacroImportButton := MacroPage.Add("Button", "x20 y405 w130 h32", "Import Macro")
-        MacroRunButton := MacroPage.Add("Button", "x160 y405 w80 h32 Disabled", "Run")
-        MacroStopButton := MacroPage.Add("Button", "x250 y405 w80 h32 Disabled", "Stop")
-        MacroRemoveButton := MacroPage.Add("Button", "x470 y405 w90 h32 Disabled", "Remove")
-        MacroBindingsButton := MacroPage.Add("Button", "x340 y405 w120 h32 Disabled", "Edit Bindings")
-        MacroBindingsButton.OnEvent("Click", EditSelectedMacroBindings)
-        close := MacroPage.Add("Button", "x570 y405 w110 h32", "Close")
-        MacroStatus := MacroPage.Add("Text", "x20 y450 w660 h40", "Ready.")
-        MacroImportButton.OnEvent("Click", ImportMacroPackage)
-        MacroRunButton.OnEvent("Click", RunSelectedMacro)
-        MacroStopButton.OnEvent("Click", StopSelectedMacro)
-        MacroRemoveButton.OnEvent("Click", RemoveSelectedMacro)
-        close.OnEvent("Click", CloseMacroPage)
-        MacroPage.OnEvent("Close", CloseMacroPage)
-        MacroPage.OnEvent("Escape", CloseMacroPage)
-        MacroPage.Opt("+OwnDialogs")
-        LoadMacroPackages()
-    }
-    ; Reconcile immediately on reopen, then poll only while the page is visible.
+    for control in MacroBookControls
+        control.Visible := true
+    MacroList.Visible := MacroItems.Length > 0
+    MacroEmptyNotice.Visible := MacroItems.Length = 0
     RefreshMacroProcesses()
-    MacroPage.Show("w700 h505")
-    if MacroItems.Length
-        SetTimer(RefreshMacroProcesses, 1000)
+}
+
+HideMacroBookPanel()
+{
+    global MacroBookControls
+    for control in MacroBookControls
+        try control.Visible := false
 }
 
 CloseMacroPage(*)
 {
-    global MacroPage
-    ; Process status only needs polling while this page is visible. Running
-    ; macros continue independently; their state is reconciled when reopened.
     SetTimer(RefreshMacroProcesses, 0)
-    MacroPage.Hide()
-    ShowLauncherWindow(true)
 }
+
 
 LoadMacroPackages()
 {
     global MacroRoot, MacroItems, MacroList
     DirCreate(MacroRoot)
+    ; Preserve existing tracked process IDs when the book window is rebuilt.
+    tracked := Map()
+    for item in MacroItems
+        if item.PID && ProcessExist(item.PID)
+            tracked[item.Folder] := item.PID
     MacroItems := []
     MacroList.Delete()
     Loop Files MacroRoot "\*", "D"
@@ -71,8 +91,9 @@ LoadMacroPackages()
             continue
         name := IniRead(metadata, "Macro", "Name", "Macro")
         description := IniRead(metadata, "Macro", "Description", "")
-        MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: 0})
-        MacroList.Add(, name, "Ready", entry)
+        pid := tracked.Has(folder) ? tracked[folder] : 0
+        MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: pid})
+        MacroList.Add(, name, pid ? "Running" : "Ready", "Macro")
     }
     RefreshMacroButtons()
 }
@@ -99,7 +120,10 @@ RefreshMacroButtons(*)
     MacroBindingsButton.Enabled := selected && !running && !busy && ReadMacroBindings(MacroItems[row]).Length > 0
     MacroStopButton.Enabled := running
     MacroRemoveButton.Enabled := selected && !running && !busy
-    MacroDetails.Text := selected ? (MacroItems[row].Description != "" ? MacroItems[row].Description : "Script: " MacroItems[row].Entry) : (MacroItems.Length ? "Select a macro to run, stop, or remove it." : "No macros installed. Import an .ahk file or ZIP to get started.")
+    MacroDetails.Text := selected ? (MacroItems[row].Description != "" ? MacroItems[row].Description : "Script: " MacroItems[row].Entry) : (MacroItems.Length ? "Select a macro to run, stop, or remove it." : "")
+    global MacroEmptyNotice, LaunchSettingsHeading
+    MacroList.Visible := MacroItems.Length > 0 && !LaunchSettingsHeading.Visible
+    MacroEmptyNotice.Visible := MacroItems.Length = 0 && !LaunchSettingsHeading.Visible
 }
 
 ImportMacroPackage(*)
@@ -245,7 +269,7 @@ AddImportedMacro(folder, name, description, entry)
 {
     global MacroItems, MacroList
     MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: 0})
-    row := MacroList.Add(, name, "Ready", entry)
+    row := MacroList.Add(, name, "Ready", "Macro")
     MacroList.Modify(row, "Select Focus Vis")
 }
 
@@ -320,7 +344,7 @@ RunSelectedMacro(*)
         }
         finally EnvSet("TES3NP_BINDINGS", previousBindings)
         macro.PID := pid
-        MacroList.Modify(row, , macro.Name, "Running", macro.Entry)
+        MacroList.Modify(row, , macro.Name, "Running", "Macro")
         MacroStatus.Text := "Started " macro.Name ". Its own hotkeys and controls remain active."
         RefreshMacroButtons()
     }
@@ -350,7 +374,7 @@ RefreshMacroProcesses()
         if macro.PID && !ProcessExist(macro.PID)
         {
             macro.PID := 0
-            MacroList.Modify(row, , macro.Name, "Ready", macro.Entry)
+            MacroList.Modify(row, , macro.Name, "Ready", "Macro")
         }
     RefreshMacroButtons()
 }
@@ -380,7 +404,7 @@ RemoveSelectedMacro(*)
 
 CleanupMacros()
 {
-    global MacroPage, MacroImport, MacroItems
+    global MacroPage, MacroImport, MacroItems, CharacterPage
     SetTimer(CheckMacroImport, 0)
     SetTimer(RefreshMacroProcesses, 0)
     if IsObject(MacroImport)
@@ -394,7 +418,8 @@ CleanupMacros()
     for macro in MacroItems
         if macro.PID && ProcessExist(macro.PID)
             try ProcessClose(macro.PID)
-    if IsObject(MacroPage)
+    ; CharacterPage owns the shared UI. Do not destroy it here.
+    if IsObject(MacroPage) && MacroPage != CharacterPage
         MacroPage.Destroy()
 }
 

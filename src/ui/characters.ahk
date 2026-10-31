@@ -9,6 +9,9 @@ OpenCharacterPage(*)
         ; magenta transparency. Reapplying alpha=0 on every visit caused a
         ; visible blank-to-opaque flash before RevealWindowDisplay().
         CharacterPage.Show()
+        RefreshMacroProcesses()
+        if MacroItems.Length
+            SetTimer(RefreshMacroProcesses, 1000)
         return
     }
     SetInterfaceLoadingText("Loading saved characters...")
@@ -19,6 +22,10 @@ OpenCharacterPage(*)
     ; those object references unless explicitly cleared.
     CharacterRows := []
     LaunchSettingsControls := []
+    global MacroPage, MacroList, MacroBookControls
+    MacroPage := 0
+    MacroList := 0
+    MacroBookControls := []
     ExecutableInput := 0
     EditorControls := []
     V016DailyLoginControls := []
@@ -77,6 +84,7 @@ OpenCharacterPage(*)
     SetInterfaceLoadingText("Loading character editor... ")
     CreateProfileEditor()
     HideProfileEditor()
+    BuildMacroBookPanel()
     ; Apply the canonical Character Book positions once after controls exist;
     ; this preserves the two-button stack without the deferred scheduler UI.
     ApplyV016CharacterLayout()
@@ -84,6 +92,8 @@ OpenCharacterPage(*)
     PrepareWindowDisplay(CharacterPage)
     CharacterPage.Show("w960 h650")
     RevealWindowDisplay(CharacterPage, true)
+    if MacroItems.Length
+        SetTimer(RefreshMacroProcesses, 1000)
 }
 
 RefreshProfiles()
@@ -227,6 +237,7 @@ HideProfileEditor()
     try LaunchSettingsHeading.Visible := false
     for control in LaunchSettingsControls
         try control.Visible := true
+    ShowMacroBookPanel()
 }
 
 CloseCharacterPage(*)
@@ -239,6 +250,7 @@ CloseCharacterPage(*)
     if ScheduledEventsBookMode
         CloseScheduledEventsBook()
     HideProfileEditor()
+    CloseMacroPage()
     CharacterPage.Hide()
     ShowLauncherWindow(true)
 }
@@ -260,6 +272,7 @@ EditProfile(index, *)
         LaunchSettingsHeading.Visible := true
         for control in LaunchSettingsControls
             control.Visible := false
+        HideMacroBookPanel()
         editor := CharacterPage
         editor.SetFont("s10 c382314", "Segoe UI")
         global EditorFields, EditorRows, EditorEntries, EditorOffset, EditorTrack, EditorThumb, EditorUpdating
