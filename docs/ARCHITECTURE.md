@@ -17,7 +17,7 @@ later declarations; state must be initialized before startup.
 | `src/ui/windows.ahk` | Window construction and reveal |
 | `src/ui/loading.ahk` | Frame covers and loading feedback |
 | `src/ui/characters.ahk` | Character book, editor and selection |
-| `src/ui/macros.ahk` | Import jobs and tracked macro processes |
+| `src/ui/macros.ahk` | Embedded Installed Macros in Character Book; script/ZIP import, linked apps and process tracking |
 | `src/ui/macro-bindings.ahk` | Declarations and saved macro keys |
 | `src/ui/patcher.ahk` | Setup gate, worker orchestration and results |
 | `scripts/patch-tes3mp.ps1` | Verification, backups, installation and rollback |

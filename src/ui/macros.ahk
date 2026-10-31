@@ -86,16 +86,36 @@ LoadMacroPackages()
         metadata := folder "\.tes3np-package.ini"
         if !FileExist(metadata)
             continue
+        kind := IniRead(metadata, "Macro", "Kind", "Macro")
         entry := IniRead(metadata, "Macro", "Entry", "")
-        if !ValidMacroEntry(folder, entry)
+        target := kind = "App" ? IniRead(metadata, "Macro", "Target", "") : ""
+        if kind != "App" && (kind != "Macro" || !ValidMacroEntry(folder, entry))
             continue
         name := IniRead(metadata, "Macro", "Name", "Macro")
         description := IniRead(metadata, "Macro", "Description", "")
         pid := tracked.Has(folder) ? tracked[folder] : 0
-        MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: pid})
-        MacroList.Add(, name, pid ? "Running" : "Ready", "Macro")
+        item := {Folder: folder, Entry: entry, Name: name, Description: description,
+            Kind: kind, Target: target, PID: pid}
+        MacroItems.Push(item)
+        MacroList.Add(, name, kind = "App" && !ValidMacroApplication(item) ? "Missing"
+            : (pid ? "Running" : "Ready"), MacroTypeLabel(item))
     }
     RefreshMacroButtons()
+}
+
+MacroTypeLabel(item)
+{
+    return item.Kind = "App" ? "App" : "Macro"
+}
+
+ValidMacroApplication(item)
+{
+    if item.Kind != "App"
+        return true
+    if item.Target = "" || !RegExMatch(item.Target, "i)\.exe$")
+        return false
+    attributes := FileExist(item.Target)
+    return attributes != "" && !InStr(attributes, "D")
 }
 
 ValidMacroEntry(folder, entry)
@@ -116,11 +136,17 @@ RefreshMacroButtons(*)
     selected := row > 0 && row <= MacroItems.Length
     running := selected && MacroItems[row].PID && ProcessExist(MacroItems[row].PID)
     busy := IsObject(MacroImport)
-    MacroRunButton.Enabled := selected && !running && !busy
-    MacroBindingsButton.Enabled := selected && !running && !busy && ReadMacroBindings(MacroItems[row]).Length > 0
+    MacroRunButton.Enabled := selected && ValidMacroApplication(MacroItems[row])
+        && !running && !busy
+    MacroBindingsButton.Enabled := selected && ValidMacroApplication(MacroItems[row])
+        && !running && !busy && ReadMacroBindings(MacroItems[row]).Length > 0
     MacroStopButton.Enabled := running
     MacroRemoveButton.Enabled := selected && !running && !busy
-    MacroDetails.Text := selected ? (MacroItems[row].Description != "" ? MacroItems[row].Description : "Script: " MacroItems[row].Entry) : (MacroItems.Length ? "Select a macro to run, stop, or remove it." : "")
+    MacroDetails.Text := selected ? (!ValidMacroApplication(MacroItems[row])
+        ? "Application missing. Remove it and add it again."
+        : (MacroItems[row].Description != "" ? MacroItems[row].Description
+        : (MacroItems[row].Kind = "App" ? "Installed application" : "Script: " MacroItems[row].Entry)))
+        : (MacroItems.Length ? "Select a tool to run, stop, or remove it." : "")
     global MacroEmptyNotice, LaunchSettingsHeading
     MacroList.Visible := MacroItems.Length > 0 && !LaunchSettingsHeading.Visible
     MacroEmptyNotice.Visible := MacroItems.Length = 0 && !LaunchSettingsHeading.Visible
@@ -131,7 +157,8 @@ ImportMacroPackage(*)
     global MacroImport, MacroImportButton, MacroStatus, MacroRoot
     if IsObject(MacroImport)
         return
-    archive := FileSelect(1, , "Import macro", "AutoHotkey scripts or ZIPs (*.ahk;*.zip)")
+    archive := FileSelect(1, , "Add macro or application",
+        "AutoHotkey scripts, ZIPs and applications (*.ahk;*.zip;*.exe)")
     if archive = ""
         return
     if RegExMatch(archive, "i)\.ahk$")
@@ -139,9 +166,14 @@ ImportMacroPackage(*)
         ImportMacroScript(archive)
         return
     }
+    if RegExMatch(archive, "i)\.exe$")
+    {
+        ImportMacroApplication(archive)
+        return
+    }
     if !RegExMatch(archive, "i)\.zip$")
     {
-        MsgBox("Choose an .ahk script or a ZIP containing scripts. Other archive formats are not supported yet.", "Import Macro")
+        MsgBox("Choose an .ahk script, ZIP containing scripts, or installed .exe.", "Add Macro / App")
         return
     }
     try
@@ -259,18 +291,52 @@ FinishMacroImport(pending)
     destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
     DirMove(pending.Folder, destination)
     AddImportedMacro(destination, name, description, entry)
-    imported := {Folder: destination, Entry: entry, Name: name}
+    imported := {Folder: destination, Entry: entry, Name: name, Kind: "Macro"}
     if ReadMacroBindings(imported).Length
         ShowMacroBindings(imported)
     MacroStatus.Text := "Imported " name ". Select it and click Run."
 }
 
-AddImportedMacro(folder, name, description, entry)
+AddImportedMacro(folder, name, description, entry, kind := "Macro", target := "")
 {
     global MacroItems, MacroList
-    MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: 0})
-    row := MacroList.Add(, name, "Ready", "Macro")
+    MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
+        Kind: kind, Target: target, PID: 0})
+    row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
     MacroList.Modify(row, "Select Focus Vis")
+    RefreshMacroButtons()
+}
+
+; An installed EXE is linked by path. Copying only its EXE would break apps
+; with side-by-side resources and would make launcher removal destructive.
+ImportMacroApplication(source)
+{
+    global MacroRoot, MacroStatus
+    if !ValidMacroApplication({Kind: "App", Target: source})
+        return
+    SplitPath(source, &filename, , , &name)
+    name := SubStr(Trim(name), 1, 100)
+    if name = ""
+        name := filename
+    folder := MacroRoot "\app-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    try
+    {
+        DirCreate(folder)
+        manifest := folder "\.tes3np-package.ini"
+        IniWrite(name, manifest, "Macro", "Name")
+        IniWrite("App", manifest, "Macro", "Kind")
+        IniWrite(filename, manifest, "Macro", "Entry")
+        IniWrite(source, manifest, "Macro", "Target")
+        IniWrite("Linked local application", manifest, "Macro", "Description")
+        AddImportedMacro(folder, name, "Linked local application", filename, "App", source)
+        MacroStatus.Text := "Added " name ". Select it and click Run."
+    }
+    catch
+    {
+        if DirExist(folder)
+            try DirDelete(folder, true)
+        MsgBox("Could not register that application.", "Add Macro / App")
+    }
 }
 
 ChooseMacroScript(scripts)
@@ -317,40 +383,53 @@ RunSelectedMacro(*)
     macro := MacroItems[row]
     if macro.PID && ProcessExist(macro.PID)
         return
-    if MsgBox("Run " macro.Name "? Imported macros execute code on your computer. Only run a package you trust.", "Run macro", 0x124) != "Yes"
+    if MsgBox("Run " macro.Name "? This tool executes code on your computer. Only run files you trust.", "Run macro / app", 0x124) != "Yes"
         return
     if ReadMacroBindings(macro).Length && !MacroBindingsReady(macro)
         if !ShowMacroBindings(macro)
             return
-    interpreter := A_IsCompiled ? A_ScriptDir "\runtime\AutoHotkey64.exe" : A_AhkPath
-    if !FileExist(interpreter)
-    {
-        interpreter := FileSelect(1, , "Choose AutoHotkey executable for this macro", "AutoHotkey (*.exe)")
-        if interpreter = ""
-            return
-    }
     try
     {
-        entry := macro.Folder "\" macro.Entry
-        if !ValidMacroEntry(macro.Folder, macro.Entry)
-            throw Error("Script no longer exists")
-        SplitPath(entry, , &workingDirectory)
-        ; Child scripts inherit the configuration path. Restore the launcher environment.
-        previousBindings := EnvGet("TES3NP_BINDINGS")
-        try
+        if macro.Kind = "App"
         {
-            EnvSet("TES3NP_BINDINGS", ReadMacroBindings(macro).Length ? MacroBindingsPath(macro) : "")
-            Run('"' interpreter '" "' entry '"', workingDirectory, , &pid)
+            if !ValidMacroApplication(macro)
+                throw Error("App executable is missing")
+            SplitPath(macro.Target, , &directory)
+            Run('"' macro.Target '"', directory, , &pid)
         }
-        finally EnvSet("TES3NP_BINDINGS", previousBindings)
+        else
+        {
+            interpreter := A_IsCompiled ? A_ScriptDir "\runtime\AutoHotkey64.exe" : A_AhkPath
+            if !FileExist(interpreter)
+            {
+                interpreter := FileSelect(1, , "Choose AutoHotkey executable for this macro",
+                    "AutoHotkey (*.exe)")
+                if interpreter = ""
+                    return
+            }
+            entry := macro.Folder "\" macro.Entry
+            if !ValidMacroEntry(macro.Folder, macro.Entry)
+                throw Error("Script no longer exists")
+            SplitPath(entry, , &directory)
+            ; Child AHK scripts inherit only their own key-binding configuration.
+            previousBindings := EnvGet("TES3NP_BINDINGS")
+            try
+            {
+                EnvSet("TES3NP_BINDINGS", ReadMacroBindings(macro).Length
+                    ? MacroBindingsPath(macro) : "")
+                Run('"' interpreter '" "' entry '"', directory, , &pid)
+            }
+            finally EnvSet("TES3NP_BINDINGS", previousBindings)
+        }
         macro.PID := pid
-        MacroList.Modify(row, , macro.Name, "Running", "Macro")
-        MacroStatus.Text := "Started " macro.Name ". Its own hotkeys and controls remain active."
+        MacroList.Modify(row, , macro.Name, "Running", MacroTypeLabel(macro))
+        MacroStatus.Text := "Started " macro.Name "."
         RefreshMacroButtons()
     }
     catch
-        MsgBox("Could not run this macro. Check its script and AutoHotkey version.", "Run macro")
+        MsgBox("Could not run this tool. Check its installation.", "Run macro / app")
 }
+
 
 StopSelectedMacro(*)
 {
@@ -374,7 +453,8 @@ RefreshMacroProcesses()
         if macro.PID && !ProcessExist(macro.PID)
         {
             macro.PID := 0
-            MacroList.Modify(row, , macro.Name, "Ready", "Macro")
+            MacroList.Modify(row, , macro.Name,
+                ValidMacroApplication(macro) ? "Ready" : "Missing", MacroTypeLabel(macro))
         }
     RefreshMacroButtons()
 }
@@ -388,7 +468,7 @@ RemoveSelectedMacro(*)
     macro := MacroItems[row]
     if macro.PID && ProcessExist(macro.PID)
         return
-    if MsgBox("Remove " macro.Name " from your installed macros? The original ZIP is kept.", "Remove macro", 0x124) != "Yes"
+    if MsgBox("Remove " macro.Name " from Installed Macros? This does not uninstall linked applications.", "Remove macro / app", 0x124) != "Yes"
         return
     try
     {
@@ -414,9 +494,10 @@ CleanupMacros()
         if DirExist(MacroImport.Folder)
             try DirDelete(MacroImport.Folder, true)
     }
-    ; Imported macros are owned sessions; stop only their tracked processes.
+    ; Macro scripts remain launcher-owned; linked apps should remain running
+    ; if the user closes TES3NP instead of being forcibly terminated.
     for macro in MacroItems
-        if macro.PID && ProcessExist(macro.PID)
+        if macro.Kind != "App" && macro.PID && ProcessExist(macro.PID)
             try ProcessClose(macro.PID)
     ; CharacterPage owns the shared UI. Do not destroy it here.
     if IsObject(MacroPage) && MacroPage != CharacterPage

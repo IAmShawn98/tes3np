@@ -35,6 +35,10 @@ All includes are explicit in the entry script. Asset paths use `A_ScriptDir`, so
 
 - Main-page text and layout: `front-page.ahk`.
 - Character fields and editor positions: `characters.ahk`.
+- Installed Macros occupy the right side of Manage Characters and retain
+  private script/ZIP packages under `%APPDATA%\tes3np\macros`.
+  Linked .exe applications are stored as paths, never copied or uninstalled.
+  The existing character editor temporarily hides this page's macro controls.
 - Add a saved preference: update profile defaults/load/save in `settings.ahk`, the editor in `characters.ahk`, its consumer in `session.ahk`, and portable export/import in `backup.ahk`.
 - Login and reconnect behavior: keep it in the single `ClientTick` state machine. Do not add an overlapping recovery timer.
 - Replace artwork: retain the referenced dimensions, transparency and paths, or update every reference and the startup asset list.
@@ -158,7 +162,14 @@ Test on Windows with AutoHotkey v2:
    per-row Play without altering the favorite.
 4. Login timings, terminal-only startup, process loss and reconnect on/off. Confirm each saved species uses its corresponding bundled ICO, and each Original Character uses its private local portrait. Verify a missing OC picture falls back to the species icon and consecutive logins switch portraits correctly. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, queued batch/scheduled logins and a one-second saved LoadDelay.
 5. Confirm Manage Characters no longer has a developer preview button; test the approved UI using a real login. Test Launch All & Close, its 10-second wait, cancellation of its explanation and saved suppression choice.
-6. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
+6. Installed Macros: on the right page of Manage Characters, verify the
+   exact empty-state text, compact layout, adding .ahk, ZIP, and an existing
+   .exe, Run/Stop/Remove, saved entries after reopening/restarting, and no
+   separate main launcher Macros entry. When editing a character, the macro
+   UI must disappear and return after Save/Cancel without overlapping the
+   species dropdown or Save button. Removing an app only deletes its launcher
+   entry, and closing TES3NP must not kill launched external applications.
+7. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
 7. Saved settings survive replacement of the application folder.
 
 Static checks alone do not validate Windows GUI behavior, game login acceptance or daily-point awards.

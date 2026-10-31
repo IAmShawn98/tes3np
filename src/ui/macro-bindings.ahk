@@ -7,6 +7,8 @@ MacroBindingsPath(macro)
 ReadMacroBindings(macro)
 {
     bindings := [], seen := Map()
+    if macro.HasOwnProp("Kind") && macro.Kind = "App"
+        return bindings
     manifest := macro.Folder "\macro.ini"
     declarations := IniRead(manifest, "Bindings", , "")
     for line in StrSplit(declarations, "`n", "`r")
