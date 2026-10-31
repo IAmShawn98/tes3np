@@ -81,7 +81,7 @@ expect(
 expect(
     "Banner presentation is independent of Discord authentication",
     "if (activationId == 0 || closingChat || IsDisposed) return;" in source
-    and "void RefreshHappyHourBanner()\n        {\n            if (happyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
+    and "void RefreshHappyHourBanner()\n        {\n            if (DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
     and "void DetectLatestHappyHour()\n        {\n            if (closingChat || IsDisposed) return;" in source,
 )
 expect(
@@ -100,7 +100,7 @@ expect(
     "Logging out must preserve a valid banner and its expiry timer",
     "Verified Happy Hour banner remains independent." in source
     and "Keep the existing genuine activation, its absolute expiry," in source
-    and "happyHourEndsAt <= DateTimeOffset.UtcNow ||" in source,
+    and "DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||" in source,
 )
 expect(
     "Only real Discord snowflake IDs may determine expiry",
@@ -113,7 +113,7 @@ expect(
 )
 expect(
     "An expired Discord announcement must never show a banner",
-    "happyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
+    "DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||" in source
     and "ends <= DateTimeOffset.UtcNow) return;" in source
     and "if (happyHourEndsAt <= DateTimeOffset.UtcNow) {" in source,
 )
