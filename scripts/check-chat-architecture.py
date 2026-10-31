@@ -11,7 +11,7 @@ source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
 reset_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
 bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
-jiub_ui = (ROOT / "src" / "ui" / "skooma-vision.ahk").read_text(encoding="utf-8-sig")
+jiub_ui = (ROOT / "src" / "ui" / "happy-hour.ahk").read_text(encoding="utf-8-sig")
 errors = []
 
 
@@ -107,7 +107,7 @@ expect(
     "DiscordTimestamp(activationId).AddHours(1)" in source,
 )
 expect(
-    "Happy Hour test mode must be removed",
+    "Legacy unguarded Happy Hour test mode must remain removed",
     "PreviewExpiredHappyHourForTesting" not in source
     and "activeHappyHourCutoff" not in source,
 )
@@ -163,18 +163,18 @@ expect(
 
 expect(
     "Jiub Happy Hour face must use only the existing verified banner signal",
-    "OnMessage(0x8334, LauncherSkoomaVisionStateChanged)" in jiub_ui
+    "OnMessage(0x8334, LauncherHappyHourFaceStateChanged)" in jiub_ui
     and "PostMessage(owner, 0x8334, active ? new IntPtr(1) : IntPtr.Zero" in source
-    and "NotifyLauncherSkoomaVision(true);" in source
-    and "NotifyLauncherSkoomaVision(false);" in source
-    and "SkoomaVisionBannerActive := bannerVisible" in jiub_ui,
+    and "NotifyLauncherHappyHourFace(true);" in source
+    and "NotifyLauncherHappyHourFace(false);" in source
+    and "HappyHourBannerVisible := bannerVisible" in jiub_ui,
 )
 expect(
     "Jiub Happy Hour face must follow banner close, hide and restore",
     'banner.FormClosed += (_, _) => {' in source
     and 'if (!happyHourBanner.Visible) {' in source
-    and 'happyHourBanner.Show();\n                        // The verified banner is visible again after a launcher restore.\n                        NotifyLauncherSkoomaVision(true);' in source
-    and 'happyHourBanner.Hide();\n                    // Keep Jiub\'s appearance in sync when the banner is hidden.\n                    NotifyLauncherSkoomaVision(false);' in source,
+    and 'happyHourBanner.Show();\n                        // The verified banner is visible again after a launcher restore.\n                        NotifyLauncherHappyHourFace(true);' in source
+    and 'happyHourBanner.Hide();\n                    // Keep Jiub\'s appearance in sync when the banner is hidden.\n                    NotifyLauncherHappyHourFace(false);' in source,
 )
 expect(
     "Jiub picture must be a bundled native launcher control, without a floating window",
@@ -182,12 +182,40 @@ expect(
     and (ROOT / "assets" / "happy-hour" / "jiub-happy-hour.png").is_file()
     and 'LauncherGui.Add("Picture"' in jiub_ui
     and ':= Gui(' not in jiub_ui
-    and 'CreateSkoomaVision()\n    CaptureLauncherControlLayout()' in bootstrap
-    and 'SkoomaVisionPicture.Visible := visible' in jiub_ui,
+    and 'CreateHappyHourJiub()\n    CaptureLauncherControlLayout()' in bootstrap
+    and 'HappyHourJiubPicture.Visible := visible' in jiub_ui,
 )
 
 
 
+
+expect(
+    "Happy Hour banner has no dismiss button or dismissal state",
+    'GoldButton("×"' not in source
+    and 'dismissedHappyHourBannerId' not in source
+    and 'happyHourBannerTitleInset.SetBounds(12, 7, width, 32)' in source,
+)
+expect(
+    "Only explicit developer flag may replay genuine archived Happy Hour",
+    'args[1].Equals("--happy-hour-dev", StringComparison.OrdinalIgnoreCase)' in source
+    and 'if (happyHourDevMode) StartHappyHourDevReplay();' in source
+    and 'if (!happyHourDevMode || closingChat || IsDisposed) return;' in source
+    and 'ulong latest = LatestArchivedHappyHourId();' in source
+    and 'if (latest == 0)' in source
+    and 'Archived event - No live bonus' in source
+    and 'DisplayHappyHourEndsAt =>' in source
+    and 'if (happyHourDevReplayActive) StopHappyHourDevReplay();' in source
+    and 'HappyHourDevModeEnabled() ? " --happy-hour-dev" : ""'
+        in (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig"),
+)
+expect(
+    "Jiub positioning, legacy setting migration and native control remain intact",
+    '"x438 y84 w120 h135 Hidden BackgroundTrans"' in jiub_ui
+    and 'IniRead(DataFile, "Launcher", "SkoomaVisionEnabled", "1")' in jiub_ui
+    and 'IniWrite(HappyHourJiubEnabled ? "1" : "0"' in jiub_ui
+    and '#Include src\\ui\\happy-hour.ahk'
+        in (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig"),
+)
 
 expect(
     "Full AppData reset must stop ChatHost before deletion",
