@@ -107,49 +107,33 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Happy Hour and Jiub detection test (temporary alpha behavior)
+## Happy Hour and Jiub production behavior
 
-This alpha branch uses the **normal Happy Hour banner and detection**.
-Its single temporary condition `ShowExpiredHappyHourForAlphaTest = true`
-lets an authentic expired Discord announcement remain displayed at
-`0m 0s`. This does **not** mean the server has an active bonus.
-There is no developer launch flag, replay timer, extra banner title,
-tray settings, or separate image preview.
+The temporary expired-announcement detection override
+`ShowExpiredHappyHourForAlphaTest` is set to `false`. Only authentic
+Yagrum-authored Discord activations less than one hour old display the normal
+Happy Hour banner, Jiub alternate face and RGB dust. Expired announcements are
+still retained in the archive but do not produce a visible Happy Hour or a fake
+`0m 0s` countdown. No developer replay, launch flag, tray control or separate
+notification is used.
 
-1. Pull and build as usual, then launch `tes3np.exe` **normally**.
-   Verify the latest verified genuine Yagrum Happy Hour announcement
-   in the Roaming archive is automatically detected on startup.
-   No announcement means no banner or Jiub alternate face.
-2. For an expired genuine event, verify the exact standard rainbow
-   heading, green `Mastery Points Are Doubled!` text, and `(0m 0s)`.
-   The banner should remain visible rather than disappearing after
-   an artificial 60-second replay. This is a display-only test;
-   it must not claim that bonus points are actually available.
-3. Confirm that Jiub changes to the approved rainbow glasses and grin
-   with the same banner signal. Check native `x438 y84 w120 h135`
-   alignment; original medallion, moon, controls and background must
-   remain unchanged. With the banner, subtle, static RGB pixie dust
-   must be **clearly perceptible** at normal 100% launcher scale.
-   Four one-pixel-offset impressions of the same transparent artwork
-   strengthen the very small colored centers without animation. The dust
-   must remain inside the launcher, below interactive controls, and must
-   not block clicks, obscure button labels, or lag when dragged. Both
-   dust and Jiub disappear on banner hide.
-   Minimize/restore and drag/scale without detached art.
-4. Confirm the banner contains no X/hide button and that the system
-   tray contains neither `Happy Hour: Jiub face` nor
-   `Preview Happy Hour face (20 sec)`.
-5. Verify new authentic announcements replace the previous banner,
-   while fake, non-Yagrum or unverified messages do not trigger it.
-   Authenticated live collection and saved-archive/offline detection
-   must retain existing behavior; a genuine active event shows its
-   true countdown rather than starting at a simulated 60 seconds.
-6. After testing, revert `ShowExpiredHappyHourForAlphaTest` to
-   `false` before release, restoring the actual one-hour expiry
-   and bounded production search. Run static checks, C# build, launcher
-   build, and packaged asset verification. Do not label source
-   checks as Windows runtime validation.
-
+1. Pull, build and launch `tes3np.exe` normally. With a recent verified
+   announcement already in the Roaming archive, confirm that the genuine
+   countdown appears even when Discord is signed out.
+2. Confirm an expired-only or empty archive shows no Happy Hour banner,
+   Jiub alternate face or RGB dust. The live search should cover the normal
+   one-hour window, not the former alpha seven-day lookback.
+3. Confirm that an active banner disappears when the original Discord event
+   reaches one hour old, including after logout, window movement and resizing.
+4. With a real active event, confirm the standard banner and on-launcher
+   Jiub image at `x438 y84 w120 h135`, plus the established subtle RGB
+   dust. They must remain synchronized, not intercept controls, and vanish
+   together when the banner closes.
+5. Confirm new authentic announcements supersede older ones; messages from
+   other users, quoted announcements and unverified images cannot trigger it.
+6. Run the architecture guard and C# build, then verify the launched Windows
+   application. Code inspection or static checks alone do not prove runtime
+   behavior.
 
 ## Validation before release
 

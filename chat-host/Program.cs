@@ -1110,11 +1110,10 @@ metrics();
         bool happyHourBannerLayoutLogged;
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
-        // TEMPORARY ALPHA DETECTION TEST (not a separate replay):
-        // Display the latest genuine verified Happy Hour even if it is over.
-        // Actual Discord timestamp still determines the countdown (0m 0s
-        // after expiry). Set false before releasing this branch.
-        const bool ShowExpiredHappyHourForAlphaTest = true;
+        // Production behavior: ignore expired announcements and close the
+        // existing banner when the real Discord activation turns one hour old.
+        // The alpha expired-announcement display override remains disabled.
+        const bool ShowExpiredHappyHourForAlphaTest = false;
         static Form GoldHappyHourWindow(int width, int height, string title)
         {
             return new Form {
