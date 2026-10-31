@@ -9,6 +9,7 @@ global LauncherUpdateButton := 0
 global LauncherExpansionToggle := 0
 global LauncherUpdateAvailable := false
 global LauncherUpdateDismissedVersion := ""
+global LauncherVoicePreviewButton := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
@@ -76,6 +77,10 @@ StartLauncher()
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
+    ; Temporary on-page shortcut to the raw Discord voice-channel test.
+    ; Positioned in the lower frame next to Settings; scales with other controls.
+    global LauncherVoicePreviewButton
+    LauncherVoicePreviewButton := AddStyledButton(LauncherGui, 650, 684, 160, 32, "Voice Preview", OpenLauncherVoicePreview)
     ; Global EP switch in the upper-left frame, away from the main scroll.
     LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
     RefreshExpansionPackToggle()
@@ -276,6 +281,12 @@ LauncherChatRightClick(wParam, lParam, msg, hwnd)
         return 0
     }
 }
+OpenLauncherVoicePreview(*)
+{
+    ; Existing Chat Host owns WebView2; no Game Chat menu or extra process.
+    SendLauncherChatCommand(5)
+}
+
 SendLauncherChatCommand(command)
 {
     ; Hidden chat windows must also be addressable when the panel is closed.
