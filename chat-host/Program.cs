@@ -1887,7 +1887,8 @@ metrics();
         // mounted at full size under the clip: no copied labels or fake clicks.
         void PositionVoiceStrip()
         {
-            if (voiceStripWindow is not { IsDisposed: false } strip ||
+            var strip = voiceStripWindow;
+            if (strip == null || strip.IsDisposed ||
                 !IsWindow(owner) || !GetWindowRect(owner, out var bounds)) return;
             double scale = Math.Max(0.6, (bounds.Right - bounds.Left) / 960.0);
             int width = Math.Max(120, (int)Math.Round(136 * scale));
