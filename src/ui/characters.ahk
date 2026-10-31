@@ -194,9 +194,20 @@ EditVisibleProfile(position, *)
 
 ChooseProfile(position, control, *)
 {
-    global SelectedProfile, CharacterListPage
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage
     index := (CharacterListPage - 1) * 10 + position
-    SelectedProfile := SelectedProfile = index ? 0 : index
+    if index < 1 || index > Profiles.Length || SelectedProfile = index
+        return
+    ; A character list always has one favorite. Switching to another one
+    ; requires explicit approval; No leaves both the tick and saved default alone.
+    if SelectedProfile > 0
+    {
+        CharacterPage.Opt("+OwnDialogs")
+        prompt := "Clicking this checkbox will mark this as your main / favorite character. Doing so will set you up for auto launching on the launchers main page. You can change this anytime by simply clicking the checkbox on another character instead. Are you sure you want to favorite this character? (Yes/No)"
+        if MsgBox(prompt, "Favorite character", 0x124) != "Yes"
+            return
+    }
+    SelectedProfile := index
     SaveDefaultProfile()
     RefreshProfiles()
 }
@@ -810,6 +821,10 @@ SaveProfileEditor(index, fields, editor, *)
         else
         {
             Profiles.Push(profile)
+            ; The first saved character becomes the favorite automatically.
+            ; No additional dialog is needed until the user picks another.
+            if Profiles.Length = 1 || SelectedProfile < 1
+                SelectedProfile := 1
             global CharacterListPage
             CharacterListPage := Ceil(Profiles.Length / 10)
         }
@@ -835,7 +850,11 @@ RemoveVisibleProfile(position, *)
         ; Close an open editor so its saved index cannot refer to a different character.
         HideProfileEditor()
         Profiles.RemoveAt(index)
-        SelectedProfile := SelectedProfile = index ? 0 : SelectedProfile > index ? SelectedProfile - 1 : SelectedProfile
+        ; Keep exactly one favorite when the current favorite is removed.
+        ; Prefer its next row, or the final row when it was last.
+        SelectedProfile := SelectedProfile = index
+            ? (Profiles.Length ? Min(index, Profiles.Length) : 0)
+            : SelectedProfile > index ? SelectedProfile - 1 : SelectedProfile
         SaveProfiles()
         RefreshProfiles()
     }

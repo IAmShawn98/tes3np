@@ -62,7 +62,14 @@ LoadProfiles()
     }
     saved := IniRead(DataFile, "Profiles", "Selected", "0")
     SelectedProfile := RegExMatch(saved, "^\d+$") && Integer(saved) <= Profiles.Length ? Integer(saved) : 0
-
+    ; Migrate older lists without a favorite to their first character.
+    ; Write only the selection here: the launcher menu may not exist yet
+    ; during startup, so SaveDefaultProfile() must not run at this point.
+    if Profiles.Length && !SelectedProfile
+    {
+        SelectedProfile := 1
+        IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")
+    }
 }
 
 ReadProfileDelay(section, key, fallback, legacyKey := "")
