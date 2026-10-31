@@ -125,7 +125,9 @@ Happy Hour detection or gameplay/login code changed.
    are a native child control, inserted before
    `CaptureLauncherControlLayout()`, and must travel synchronously with
    the picture without visible lag or a detached window.
-3. Test that the new x435 y82 w120 h140 child control aligns the
+3. Test the current user-adjusted native portrait control coordinates
+   (do not reset them) against the background. Confirm the Happy Hour
+   face control aligns the
    standalone transparent Jiub face over the original medallion (adjusted to y82 and 140px height per user inspection).
    The asset is derived from the user's 512x512 icon, masking out its
    moon/ring/background and scaling to 120x145. With the preview
@@ -138,9 +140,13 @@ Happy Hour detection or gameplay/login code changed.
    to Jiub's original portrait, fully hidden outside active preview or
    Happy Hour, and must not intercept clicking anywhere.
 4. Use a genuinely active and cached Happy Hour announcement. The
-   existing banner and Jiub appearance should appear at the same time,
-   and both should disappear on expiration or banner dismissal. An
-   expired or unverified Discord message must not trigger it.
+   existing banner and Jiub appearance must appear at the same time;
+   expiry and banner dismissal must hide both. Minimize/restore the launcher:
+   when ChatHost hides its banner, Jiub's alternate face must hide too,
+   and when that same real banner is displayed again, Jiub's face must
+   return without requiring a second Discord announcement. An expired
+   or unverified Discord message must never trigger it. Check the launcher
+   log for "HAPPY HOUR | Jiub face shown" and "restored to normal".
 5. Turn **Jiub's Happy Hour look** off and on. The original Roaming INI
    preference still controls automatic activation; manual preview
    remains available without modifying that preference.
