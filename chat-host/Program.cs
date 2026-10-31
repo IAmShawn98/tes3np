@@ -102,7 +102,8 @@ internal static class Program
     {
         if (args.Length < 1 || !long.TryParse(args[0], out long owner)) return;
         ApplicationConfiguration.Initialize();
-        Application.Run(new ChatHost(new IntPtr(owner)));
+        Application.Run(new ChatHost(new IntPtr(owner),
+            args.Length >= 2 && args[1].Equals("--happy-hour-dev", StringComparison.OrdinalIgnoreCase)));
     }
     sealed class FrameOverlay : Control
     {
@@ -1084,7 +1085,6 @@ metrics();
         // A Happy Hour exists only within one hour of its authentic Discord
         // activation message. Expired announcements are never displayed.
         ulong lastHappyHourMessageId;
-        ulong dismissedHappyHourBannerId = ulong.MaxValue;
 
         [DllImport("user32.dll")] static extern IntPtr GetLastActivePopup(IntPtr hwnd);
         [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr hwnd);
@@ -1111,19 +1111,18 @@ metrics();
         bool happyHourBannerLayoutLogged;
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
-        static Button GoldButton(string text, int x, int y, int w, int h)
-        {
-            var button = new Button {
-                Text = text, FlatStyle = FlatStyle.Flat,
-                BackColor = System.Drawing.Color.FromArgb(112, 76, 39),
-                ForeColor = System.Drawing.Color.FromArgb(255, 234, 188),
-                Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold)
-            };
-            button.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(197, 164, 92);
-            button.SetBounds(x, y, w, h);
-            return button;
-        }
-
+        // Explicit --happy-hour-dev replays an authentic archived activation
+        // for display only. Real event ID/expiry are never modified by replay.
+        readonly bool happyHourDevMode;
+        bool happyHourDevReplayActive;
+        DateTimeOffset happyHourDevUntil;
+        System.Windows.Forms.Timer? happyHourDevTicker;
+        DateTimeOffset DisplayHappyHourEndsAt =>
+            happyHourDevReplayActive ? happyHourDevUntil : happyHourEndsAt;
+        string HappyHourBannerHeading =>
+            happyHourDevReplayActive ? "HAPPY HOUR DEV PREVIEW" : "HAPPY HOUR ACTIVE";
+        string HappyHourBannerDetail =>
+            happyHourDevReplayActive ? "Archived event - No live bonus" : "Mastery Points Are Doubled!";
         static Form GoldHappyHourWindow(int width, int height, string title)
         {
             return new Form {
@@ -1174,24 +1173,24 @@ metrics();
         void LayoutHappyHourBannerContents()
         {
             if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
-            string heading = "HAPPY HOUR ACTIVE";
+            string heading = HappyHourBannerHeading;
             using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
             using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
             int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
                 happyHourBannerRainbow.Font));
             width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
-            width += HappyHourRunWidth("Mastery Points Are Doubled!", greenFont);
+            width += HappyHourRunWidth(HappyHourBannerDetail, greenFont);
             width += HappyHourRunWidth(" ", greenFont);
             width += HappyHourRunWidth(happyHourBannerClockText, timerFont);
             width += 8;
             happyHourBannerRainbow.SetBounds(0, 0, width, 32);
-            happyHourBannerTitleInset.SetBounds(44, 7, width, 32);
+            happyHourBannerTitleInset.SetBounds(12, 7, width, 32);
             happyHourBannerRequiredWidth = happyHourBannerTitleInset.Right + 10;
             if (!happyHourBannerLayoutLogged) {
                 happyHourBannerLayoutLogged = true;
                 Log("HAPPY HOUR | Single-line banner measured width=" +
                     happyHourBannerRequiredWidth + "; text='" + heading +
-                    " - Mastery Points Are Doubled! " +
+                    " - " + HappyHourBannerDetail + " " +
                     happyHourBannerClockText + "'");
             }
             happyHourBannerRainbow.Invalidate();
@@ -1200,7 +1199,7 @@ metrics();
         void PaintHappyHourBannerLine(System.Drawing.Graphics graphics,
             System.Drawing.Font headingFont)
         {
-            string heading = "HAPPY HOUR ACTIVE";
+            string heading = HappyHourBannerHeading;
             string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
                 "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
             int x = 8;
@@ -1222,7 +1221,7 @@ metrics();
             DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
             using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
             using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
-            DrawSegment("Mastery Points Are Doubled!", greenFont,
+            DrawSegment(HappyHourBannerDetail, greenFont,
                 System.Drawing.Color.FromArgb(55, 216, 70));
             DrawSegment(" ", greenFont, System.Drawing.Color.FromArgb(215, 170, 77));
             DrawSegment(happyHourBannerClockText, timerFont, happyHourBannerClockColor);
@@ -1254,10 +1253,65 @@ metrics();
                 SWP_NOZORDER_NOACTIVATE);
         }
 
+        void StopHappyHourDevReplay()
+        {
+            if (!happyHourDevReplayActive) return;
+            happyHourDevReplayActive = false;
+            happyHourDevTicker?.Stop();
+            happyHourDevTicker?.Dispose();
+            happyHourDevTicker = null;
+            if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
+            happyHourBanner = null;
+            Log("HAPPY HOUR DEV | Replay ended; production state unchanged");
+        }
+
+        void StartHappyHourDevReplay()
+        {
+            if (!happyHourDevMode || closingChat || IsDisposed) return;
+            try
+            {
+                EnsureChatLogLoaded();
+                ulong latest = LatestArchivedHappyHourId();
+                if (latest == 0)
+                {
+                    Log("HAPPY HOUR DEV | No verified archived announcement found; replay not started");
+                    return;
+                }
+                if (happyHourEndsAt > DateTimeOffset.UtcNow && lastHappyHourMessageId > 0)
+                {
+                    Log("HAPPY HOUR DEV | Genuine event already active; using real banner");
+                    return;
+                }
+                if (happyHourDevReplayActive) StopHappyHourDevReplay();
+                happyHourDevReplayActive = true;
+                happyHourDevUntil = DateTimeOffset.UtcNow.AddSeconds(60);
+                Log("HAPPY HOUR DEV | Replaying genuine archived message " + latest +
+                    "; posted=" + DiscordTimestamp(latest).ToString("O") +
+                    "; countdown is TEST ONLY, with no active game bonus");
+                var replay = new System.Windows.Forms.Timer { Interval = 1000 };
+                replay.Tick += (_, _) => {
+                    if (closingChat || IsDisposed || !happyHourDevReplayActive)
+                    {
+                        replay.Stop();
+                        return;
+                    }
+                    if (happyHourDevUntil <= DateTimeOffset.UtcNow) StopHappyHourDevReplay();
+                    else RefreshHappyHourBanner();
+                };
+                happyHourDevTicker = replay;
+                replay.Start();
+                RefreshHappyHourBanner(); // same banner and Jiub IPC, no fake Discord event
+            }
+            catch (Exception ex)
+            {
+                Log("HAPPY HOUR DEV | Archive replay failed: " + ex.Message);
+                StopHappyHourDevReplay();
+            }
+        }
+
         void RefreshHappyHourBanner()
         {
-            if (happyHourEndsAt <= DateTimeOffset.UtcNow ||
-                dismissedHappyHourBannerId == lastHappyHourMessageId ||
+            if (DisplayHappyHourEndsAt <= DateTimeOffset.UtcNow ||
                 !IsWindow(owner))
             {
                 if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
@@ -1306,12 +1360,6 @@ metrics();
                         g.FillRectangle(trim, 0, h - 5, w, 5);
                     }
                 };
-                var dismiss = GoldButton("×", 10, 10, 26, 26);
-                dismiss.Click += (_, _) => {
-                    dismissedHappyHourBannerId = lastHappyHourMessageId;
-                    banner.Close();
-                };
-                banner.Controls.Add(dismiss);
                 // The black title plate hugs the actual content, not the window.
                 var titleInset = new Panel {
                     BackColor = System.Drawing.Color.FromArgb(10, 9, 8)
@@ -1330,8 +1378,8 @@ metrics();
                 happyHourBanner = banner;
                 banner.FormClosed += (_, _) => {
                     // The visual theme follows this exact genuine banner lifecycle.
-                    // Closing/dismissing the banner switches it off immediately.
-                    NotifyLauncherSkoomaVision(false);
+                    // Closing an expired banner restores Jiub automatically.
+                    NotifyLauncherHappyHourFace(false);
                     if (ReferenceEquals(happyHourBanner, banner)) {
                         happyHourBanner = null;
                         happyHourBannerTitleInset = null;
@@ -1351,18 +1399,18 @@ metrics();
                 SetNativeWindowOwner(banner.Handle, owner);
                 // Signal only after the existing verified banner is visible.
                 // Detection, timestamps and the banner itself are unchanged.
-                NotifyLauncherSkoomaVision(true);
+                NotifyLauncherHappyHourFace(true);
                 Log("HAPPY HOUR | Banner window created for real message " +
                     lastHappyHourMessageId + "; expires=" +
                     happyHourEndsAt.ToString("O"));
             }
             if (happyHourBannerRainbow != null) {
-                bool active = happyHourEndsAt > DateTimeOffset.UtcNow;
+                bool active = DisplayHappyHourEndsAt > DateTimeOffset.UtcNow;
                 // Always derive remaining time from the original Discord
                 // snowflake; expiration removes the banner completely.
-                happyHourBannerClockText = HappyHourBannerTime(happyHourEndsAt);
+                happyHourBannerClockText = HappyHourBannerTime(DisplayHappyHourEndsAt);
                 happyHourBannerClockColor = active
-                    ? HappyHourTimerColor(happyHourEndsAt)
+                    ? HappyHourTimerColor(DisplayHappyHourEndsAt)
                     : System.Drawing.Color.FromArgb(215, 170, 77);
                 LayoutHappyHourBannerContents();
             }
@@ -1375,12 +1423,12 @@ metrics();
                     if (!happyHourBanner.Visible) {
                         happyHourBanner.Show();
                         // The verified banner is visible again after a launcher restore.
-                        NotifyLauncherSkoomaVision(true);
+                        NotifyLauncherHappyHourFace(true);
                     }
                 } else if (happyHourBanner.Visible) {
                     happyHourBanner.Hide();
                     // Keep Jiub's appearance in sync when the banner is hidden.
-                    NotifyLauncherSkoomaVision(false);
+                    NotifyLauncherHappyHourFace(false);
                 }
             }
         }
@@ -1400,9 +1448,8 @@ metrics();
             lastHappyHourMessageId = activationId;
             happyHourEndsAt = ends;
 
-            // Each new real activation updates the compact banner. Keep its
-            // independent dismissal control, owned-window movement and timer.
-            dismissedHappyHourBannerId = ulong.MaxValue;
+            // A real Discord activation supersedes any dev-only archived replay.
+            if (happyHourDevReplayActive) StopHappyHourDevReplay();
             happyHourTicker?.Stop();
             happyHourTicker?.Dispose();
             happyHourTicker = null;
@@ -1893,9 +1940,10 @@ metrics();
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
         void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
-        public ChatHost(IntPtr owner)
+        public ChatHost(IntPtr owner, bool happyHourDevMode = false)
         {
             this.owner = owner;
+            this.happyHourDevMode = happyHourDevMode;
             Text = "tes3np Chat Host";
             try
             {
@@ -2269,6 +2317,7 @@ metrics();
                 // The saved Discord archive is our only offline evidence.
                 // Load it immediately, whether this browser is signed in or not.
                 DetectLatestHappyHour();
+                if (happyHourDevMode) StartHappyHourDevReplay();
                 try
                 {
                     string data = Path.Combine(ChatDataRoot, "chat-webview2");
@@ -2314,6 +2363,9 @@ metrics();
             FormClosing += (_, _) =>
             {
                 closingChat = true;
+                happyHourDevTicker?.Stop();
+                happyHourDevTicker?.Dispose();
+                happyHourDevTicker = null;
                 watch.Stop();
                 historyWatch.Stop();
                 if (launcherLocationHook != IntPtr.Zero)
@@ -2825,10 +2877,9 @@ metrics();
             catch { }
             SetChatOpen(mode == "Always Shown");
         }
-        // WM_APP + 0x334: purely visual Skooma Vision state. This is emitted
-        // only by the existing authenticated/cached Happy Hour banner path.
-        // The launcher never determines whether a Happy Hour is real.
-        void NotifyLauncherSkoomaVision(bool active)
+        // WM_APP + 0x334: Jiub follows the existing Happy Hour banner.
+        // Dev replay is explicitly labeled and cannot change genuine detection.
+        void NotifyLauncherHappyHourFace(bool active)
         {
             if (IsWindow(owner))
                 PostMessage(owner, 0x8334, active ? new IntPtr(1) : IntPtr.Zero, IntPtr.Zero);
