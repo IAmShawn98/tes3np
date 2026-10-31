@@ -27,8 +27,7 @@ CreateHappyHourDust()
     HappyHourDustPictures := []
     for offset in [[0, 0], [1, 0], [0, 1], [1, 1]]
     {
-        opts := "x" offset[1] " y" (offset[2] - 4)
-            " w960 h720 Hidden Disabled BackgroundTrans +E0x20"
+        opts := "x" offset[1] " y" (offset[2] - 4) " w960 h720 Hidden Disabled BackgroundTrans +E0x20"
         HappyHourDustPictures.Push(LauncherGui.Add("Picture", opts, asset))
     }
 }
