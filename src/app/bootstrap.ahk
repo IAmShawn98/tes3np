@@ -35,7 +35,7 @@ StartLauncher()
     A_TrayMenu.Default := "Open Launcher"
     A_TrayMenu.Add("Stop game recovery", StopClient)
     A_TrayMenu.Add("Optional Expansion Pack", OpenPatcher)
-    InitializeSkoomaVision()
+    InitializeHappyHourJiub()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
@@ -85,7 +85,7 @@ StartLauncher()
     CreateLauncherChatToggle()
     ; Register Jiub's transparent Happy Hour expression as a NORMAL child
     ; control before capturing layout, so dragging/scaling stays synchronous.
-    CreateSkoomaVision()
+    CreateHappyHourJiub()
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
@@ -512,7 +512,7 @@ CleanupLauncher(*)
     }
     StopClient()
     DisposeGameLoginProgress()
-    DisposeSkoomaVision()
+    DisposeHappyHourJiub()
     StopEmbeddedInGameChat()
     CleanupMacros()
     CleanupPatcher()
