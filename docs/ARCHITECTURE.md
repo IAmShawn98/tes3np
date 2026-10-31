@@ -36,7 +36,18 @@ content; it communicates chat visibility through the existing window messages
 `0x8331` (launcher commands) and `0x8332` (Chat Host state). Do not add a
 second Chat Host process, popup ownership controller, or competing chat timer.
 Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
-launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events. The Happy Hour banner
+launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events.
+
+**Raw voice-channel preview (experimental):** Right-click the gold Game Chat
+tab and choose `Preview Voice Channel (unstyled)`. The existing Chat Host opens
+a single resizable WebView2 preview of guild `509601787901116437`, channel
+`509601787901116441`, with the same authenticated WebView2 environment and
+profile. This does not change the Game Chat source, renderer, polling, or the
+Happy Hour detector. It adds no second Chat Host process, separate browser data
+folder, automatic voice join, new popup-positioning timer, or injected styling.
+WebView2 handles microphone permission through its normal user prompt. The
+preview is owned by the launcher and closed with Chat Host; successful Discord
+voice operation must still be tested on Windows. The Happy Hour banner
 is an **owned top-level popup** (not a clipped child window): ownership controls
 z-order/minimization, but does not automatically move the popup with its owner.
 Use the same event hook and native, nonactivating `SetWindowPos` to move it
