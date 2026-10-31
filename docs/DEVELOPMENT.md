@@ -173,6 +173,10 @@ Test on Windows with AutoHotkey v2:
    reopening/restarting. Editing characters must hide these controls until
    Save/Cancel; linked app removal never uninstalls it, and launcher exit does
    not terminate linked apps. The main menu has no standalone Macros entry.
+   On first opening Manage Characters after launcher startup, verify that
+   the character editor and macro panel are initialized in the correct order:
+   no MacroList.GetNext() call may run on the zero integer placeholder.
+   Verify close/reopen and editor Save/Cancel restore the panel cleanly.
 7. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
 7. Saved settings survive replacement of the application folder.
 
