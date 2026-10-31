@@ -6,6 +6,8 @@ internal static class Program
 {
     const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
+    // Exact channel requested for the experimental, manual-join voice preview.
+    const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
@@ -214,6 +216,8 @@ internal static class Program
 
         readonly IntPtr owner;
         readonly WebView2 web = new() { Dock = DockStyle.None };
+        CoreWebView2Environment? chatWebEnvironment;
+        Form? voicePreviewWindow;
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
@@ -1872,6 +1876,77 @@ metrics();
             Log("CSS reloaded");
         }
 
+        // An unstyled inspection of Discord voice. This does not modify the
+        // authenticated Game Chat source or native message renderer.
+        async Task OpenVoicePreviewAsync()
+        {
+            if (closingChat || IsDisposed) return;
+            if (voicePreviewWindow is { IsDisposed: false })
+            {
+                voicePreviewWindow.Show();
+                voicePreviewWindow.Activate();
+                return;
+            }
+            if (chatWebEnvironment == null)
+            {
+                MessageBox.Show("Discord is still initializing. Try again when Game Chat is ready.",
+                    "TES3NP Voice Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var preview = new Form
+            {
+                Text = "TES3NP Voice Channel Preview (unstyled)",
+                StartPosition = FormStartPosition.CenterScreen,
+                ClientSize = new System.Drawing.Size(980, 680),
+                MinimumSize = new System.Drawing.Size(540, 400),
+                ShowInTaskbar = false,
+                BackColor = System.Drawing.Color.FromArgb(24, 24, 24)
+            };
+            var voiceWeb = new WebView2 { Dock = DockStyle.Fill };
+            preview.Controls.Add(voiceWeb);
+            voicePreviewWindow = preview;
+            preview.FormClosed += (_, _) =>
+            {
+                if (ReferenceEquals(voicePreviewWindow, preview))
+                    voicePreviewWindow = null;
+            };
+            preview.Show();
+            if (IsWindow(owner)) SetNativeWindowOwner(preview.Handle, owner);
+
+            try
+            {
+                // Share the existing authenticated profile, never a second UDF.
+                await voiceWeb.EnsureCoreWebView2Async(chatWebEnvironment);
+                if (closingChat || preview.IsDisposed) return;
+                // No CSS injection, DOM extraction, navigation hacks, auto-join,
+                // or automatic microphone/camera permission granting.
+                voiceWeb.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                voiceWeb.CoreWebView2.PermissionRequested += (_, e) =>
+                {
+                    if (e.PermissionKind == CoreWebView2PermissionKind.Microphone ||
+                        e.PermissionKind == CoreWebView2PermissionKind.Camera)
+                        Log("VOICE PREVIEW | " + e.PermissionKind +
+                            " permission requested; leaving user prompt unchanged");
+                };
+                voiceWeb.CoreWebView2.NavigationCompleted += (_, e) =>
+                    Log("VOICE PREVIEW | Navigation completed; success=" + e.IsSuccess +
+                        "; error=" + e.WebErrorStatus);
+                voiceWeb.CoreWebView2.Navigate(VoicePreviewChannel);
+                Log("VOICE PREVIEW | Opened channel " + VoicePreviewChannel);
+            }
+            catch (Exception ex)
+            {
+                Log("VOICE PREVIEW | Failed: " + ex.Message);
+                if (!preview.IsDisposed)
+                {
+                    MessageBox.Show(preview, "Discord voice preview could not load:\n" + ex.Message,
+                        "TES3NP Voice Preview", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    preview.Close();
+                }
+            }
+        }
+
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
         void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
@@ -1943,10 +2018,15 @@ metrics();
                     SetChatOpen(chatDisplayMode == "Always Shown");
                 });
             }
+            // Right-click the existing Game Chat tab for an isolated raw preview.
+            chatModeMenu.Items.Add(new ToolStripSeparator());
+            chatModeMenu.Items.Add("Preview Voice Channel (unstyled)", null,
+                (_, _) => _ = OpenVoicePreviewAsync());
             chatModeMenu.Opening += (_, _) =>
             {
-                foreach (ToolStripMenuItem item in chatModeMenu.Items)
-                    item.Checked = item.Text == chatDisplayMode;
+                foreach (ToolStripItem menuItem in chatModeMenu.Items)
+                    if (menuItem is ToolStripMenuItem item)
+                        item.Checked = item.Text == chatDisplayMode;
             };
             chatToggleButton.MouseUp += (_, e) =>
             {
@@ -2258,6 +2338,7 @@ metrics();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
+                    chatWebEnvironment = env;
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
@@ -2296,6 +2377,8 @@ metrics();
             FormClosing += (_, _) =>
             {
                 closingChat = true;
+                if (voicePreviewWindow is { IsDisposed: false })
+                    voicePreviewWindow.Close();
                 watch.Stop();
                 historyWatch.Stop();
                 if (launcherLocationHook != IntPtr.Zero)
