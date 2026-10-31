@@ -21,7 +21,7 @@ StartLauncher()
     LauncherUpdateDismissedVersion := ""
     InitializePatchLogMirror()
     LogLauncherEvent("Launcher startup beginning.")
-    for asset in ["backgrounds\launcher.png", "backgrounds\og-creatures-overlay.png", "controls\scroll-panel.png", "headings\quest.png",
+    for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
         "headings\together.png", "controls\button.png", "backgrounds\character-book.png", "icons\tes3np.ico"]
     {
         if !FileExist(A_ScriptDir "\assets\" asset)

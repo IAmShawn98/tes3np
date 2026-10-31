@@ -26,6 +26,17 @@ later declarations; state must be initialized before startup.
 State remains shared rather than class-based to preserve the accepted native GUI
 behavior. Each feature has one initialization point and one responsible module.
 
+## Launcher background artwork
+
+The approved vintage beast pair is permanently composited into
+`assets/backgrounds/launcher.png` at source resolution (1448 × 1086).
+`src/ui/front-page.ahk` draws this image once at `x0 y-4 w960 h720`.
+The obsolete `og-creatures-overlay.png` and its separate `x50 y230`
+picture control have been removed. Preserve the single-image design
+when adjusting artwork; the separate overlay previously showed seams
+and the original beasts underneath. Keep all native launcher controls,
+the Game Chat tab, and Happy Hour pixie dust drawn afterward.
+
 ## Embedded Game Chat and Happy Hour contract
 
 The AutoHotkey launcher remains authoritative for the application lifecycle,
