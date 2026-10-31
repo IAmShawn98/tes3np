@@ -49,7 +49,13 @@ LauncherSkoomaVisionStateChanged(wParam, lParam, msg, hwnd)
     global LauncherGui, SkoomaVisionBannerActive
     if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
         return 0
-    SkoomaVisionBannerActive := wParam != 0
+    bannerVisible := wParam != 0
+    if SkoomaVisionBannerActive != bannerVisible
+    {
+        SkoomaVisionBannerActive := bannerVisible
+        ; A verified ChatHost banner is the source; this is diagnostic only.
+        try LogLauncherEvent("HAPPY HOUR | Jiub face " (bannerVisible ? "shown" : "restored to normal") " by ChatHost banner.")
+    }
     RefreshSkoomaVision()
     return 0
 }
