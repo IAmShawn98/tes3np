@@ -83,7 +83,7 @@ when—the verified Happy Hour banner is actually shown or closed.
 longer creates any independent GUI, floating overlay, animations,
 particles, typography or timer-based position tracking. Instead,
 `CreateSkoomaVision()` adds a tiny, initially hidden transparent PNG
-Picture control at x435 y71 w120 h145, directly over Jiub's
+Picture control at x435 y78 w120 h145, directly over Jiub's
 original portrait. `src/app/bootstrap.ahk` creates it BEFORE
 `CaptureLauncherControlLayout()`; the launcher automatically scales and
 moves it in lockstep with all other child controls, without a separate
