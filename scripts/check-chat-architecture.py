@@ -112,8 +112,9 @@ expect(
     and "activeHappyHourCutoff" not in source,
 )
 expect(
-    "Temporary alpha detection displays only genuine latest expired events",
-    "const bool ShowExpiredHappyHourForAlphaTest = true;" in source
+    "Expired Happy Hour alpha override stays disabled in production",
+    "const bool ShowExpiredHappyHourForAlphaTest = false;" in source
+    and "const bool ShowExpiredHappyHourForAlphaTest = true;" not in source
     and "if (latest > lastHappyHourMessageId &&" in source
     and "(ShowExpiredHappyHourForAlphaTest ||" in source
     and "(!ShowExpiredHappyHourForAlphaTest && ends <= DateTimeOffset.UtcNow)" in source
@@ -121,7 +122,7 @@ expect(
     and "Math.Max(0, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalSeconds))" in source,
 )
 expect(
-    "Alpha historical search has a finite lookback and the production hour remains",
+    "Historical Happy Hour search retains its bounded production one-hour window",
     "DateTimeOffset.UtcNow.AddDays(-7)" in source
     and "DateTimeOffset.UtcNow.AddHours(-1)" in source
     and "initialBackfillAttempts >= 500" in source
