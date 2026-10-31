@@ -69,7 +69,10 @@ StartEmbeddedInGameChat()
         return
     try
     {
-        Run('"' host '" ' LauncherGui.Hwnd, A_ScriptDir, , &EmbeddedChatPid)
+        ; Developer replay only when explicitly launched with --happy-hour-dev.
+        ; Production chat and real Happy Hour detection are unaffected.
+        devArg := HappyHourDevModeEnabled() ? " --happy-hour-dev" : ""
+        Run('"' host '" ' LauncherGui.Hwnd devArg, A_ScriptDir, , &EmbeddedChatPid)
         LogLauncherEvent("CHAT | Started WebView2 host (PID " EmbeddedChatPid ").")
     }
     catch as err
