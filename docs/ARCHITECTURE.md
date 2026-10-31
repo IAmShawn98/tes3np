@@ -44,9 +44,14 @@ Chat Host creates one small, native owned window immediately outside the upper
 right frame, aligned to the user's marked position. Its WebView2 uses the
 existing authenticated `chat-webview2` profile, navigates to voice channel
 `509601787901116441` in guild `509601787901116437`, and clips the original
-Discord voice-channel row by looking up its stable ID. All the rest of Discord's
-page remains loaded behind the clip; the real voice row, not a copy or an
-automated join command, receives clicks. Its placement follows the existing
+Discord voice-channel row by looking up its stable ID. The voice-only browser installs CSS/JS before Discord navigation to hide
+every sibling branch in the channel-list scroller (display: none), leaving
+only the original clickable Tavern tree item. Other React nodes remain in
+the page so Discord's internal voice application is not destroyed. A
+child-list MutationObserver re-applies the filter when Discord updates
+its UI, and capture-phase wheel/touch/scroll-key protection prevents
+the sidebar from slipping under the native crop. This script is never
+injected into the existing Game Chat browser. Its placement follows the existing
 launcher-location WinEvent hook with the existing Chat Host watch as fallback;
 there is no separate background service, process or timer. Until Discord
 renders the row it shows a loading label. No microphone permission is granted

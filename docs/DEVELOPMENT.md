@@ -116,12 +116,19 @@ It keeps an authenticated WebView2 page open using the existing profile and
 clips only the **original** Discord `The Tavern` row from voice channel
 `509601787901116441`. This is not a bitmap, link shortcut, cloned DOM
 node, or automatic click. It must preserve the real row's pointer handling.
-No voice permission is auto-approved and the large blue video/screen-sharing
+The voice WebView uses an early JS/CSS filter to hide unrelated channel
+sidebar entries with display:none (not remove React DOM elements) and
+blocks scroll gestures inside this voice-only viewport. A MutationObserver
+reapplies the filter when Discord rebuilds the channel tree. There are
+no changes to Game Chat scrollback, login or the main menu. No voice
+permission is auto-approved and the large blue video/screen-sharing
 area is not displayed at this stage.
 
 Windows checks: (1) confirm The Tavern strip appears automatically without
-clicking Game Chat, at the marked top-right position; (2) click the live row
-and record whether Discord joins or opens a voice confirmation; (3) move,
+clicking Game Chat, at the marked top-right position; (2) repeatedly wheel
+and scroll over the strip: The Tavern must remain the only visible channel;
+click the real row and record whether Discord joins or opens a voice
+confirmation; (3) move,
 minimize, restore, and rescale the launcher and confirm the strip follows;
 (4) verify Game Chat sign-in, history, Happy Hour, and main controls remain
 unchanged; (5) check a signed-out profile displays a truthful loading state,
