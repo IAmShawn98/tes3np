@@ -107,35 +107,27 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Discord Tavern voice strip (experimental)
+## Discord Tavern voice DOM island (experimental)
 
-The previous `Voice Preview` button and full-page popup have been removed.
-The existing Chat Host automatically starts a tiny, native-owned voice strip
-along the main launcher's outside upper-right edge (red-box placement).
-It keeps an authenticated WebView2 page open using the existing profile and
-clips only the **original** Discord `The Tavern` row from voice channel
-`509601787901116441`. This is not a bitmap, link shortcut, cloned DOM
-node, or automatic click. It must preserve the real row's pointer handling.
-The voice WebView uses an early JS/CSS filter to hide unrelated channel
-sidebar entries with display:none (not remove React DOM elements) and
-blocks scroll gestures inside this voice-only viewport. A MutationObserver
-reapplies the filter when Discord rebuilds the channel tree. There are
-no changes to Game Chat scrollback, login or the main menu. No voice
-permission is auto-approved and the large blue video/screen-sharing
-area is not displayed at this stage.
+The launcher automatically shows the real Discord `The Tavern` channel
+(`509601787901116441`) at its marked upper-right outside edge. No Voice
+Preview button or full-page popup is used. The original WebView2 page is kept
+running within the existing Chat Host/profile, but an early voice-only
+JavaScript/CSS pass hides unrelated DOM branches and anchors the correct
+channel row at (0,0). It checks both the channel ID and visible row name:
+if Discord changes its markup or no matching row is rendered, display
+`The Tavern · loading`, never the wrong server channel. React-owned nodes
+are not removed or reparented, to retain real Discord event handling. Normal
+Game Chat and Happy Hour code and stored data are untouched.
 
-Windows checks: (1) confirm The Tavern strip appears automatically without
-clicking Game Chat, at the marked top-right position; (2) repeatedly wheel
-and scroll over the strip: The Tavern must remain the only visible channel;
-click the real row and record whether Discord joins or opens a voice
-confirmation; (3) move,
-minimize, restore, and rescale the launcher and confirm the strip follows;
-(4) verify Game Chat sign-in, history, Happy Hour, and main controls remain
-unchanged; (5) check a signed-out profile displays a truthful loading state,
-not a fabricated connected status; (6) check exit closes the strip and WebView2
-cleanly. If the row does not render, inspect
-`%APPDATA%\tes3np\chat-host.log` for `VOICE |` messages. Do not
-claim actual voice/audio success before observing it on Windows.
+Windows acceptance: verify the correct speaker icon and `The Tavern` label
+are visible, scroll wheel/keys cannot show another channel, the original
+row remains clickable, the panel follows launcher moves and resizing, and
+minimizing or closing the launcher hides/closes it. Confirm signed-out
+behavior, Game Chat, Happy Hour, and first-login compatibility. Test joining
+voice/audio separately; page loading or row clicking alone does not prove
+voice support. If the island fails, inspect `%APPDATA%\tes3np\chat-host.log`
+for `VOICE |` messages before further markup changes.
 
 ## Happy Hour and Jiub production behavior
 

@@ -1904,144 +1904,142 @@ metrics();
             SetWindowPos(strip.Handle, IntPtr.Zero, x, y, width, height, flags);
         }
 
-        // Discord's class hashes change. Locate the original voice row by its
-        // immutable channel ID, with a visible text fallback. Never move the
-        // React node or simulate a click: preserve its real event handlers.
-        // Voice-only WebView2: hide unrelated sidebar entries through CSS,
-        // never remove React-owned nodes or clone the clickable Tavern row.
-        // The original authenticated Game Chat WebView is not touched.
+        // Voice-only DOM island. Keep Discord's real clickable React node,
+        // but make everything outside The Tavern non-rendering/non-interactive
+        // inside this one secondary WebView2. No DOM nodes are removed or
+        // reparented: Discord still owns its event delegation and voice state.
         const string IsolateTavernChannelScript = """
             (() => {
-              if (window.__tes3npTavernIsolationInstalled) return;
-              window.__tes3npTavernIsolationInstalled = true;
-              const tavernId = '509601787901116441';
-              const hiddenAttribute = 'data-tes3np-tavern-other';
+              if (window.__tes3npTavernIsland) return;
+              window.__tes3npTavernIsland = true;
+              const id = '509601787901116441';
+              const name = 'The Tavern';
+              const rowMarker = 'data-tes3np-tavern-row';
+              const pathMarker = 'data-tes3np-tavern-path';
+              const hiddenMarker = 'data-tes3np-tavern-other';
+              let lastRow = null;
               let scheduled = false;
 
-              const findTavern = () => {
-                const direct = document.querySelector(
-                  '[data-list-item-id*="' + tavernId + '"]'
-                ) || document.querySelector('a[href$="/' + tavernId + '"]');
-                if (!direct) return null;
-                // Retain the actual interactive Discord tree item and its
-                // children; hiding its icon/label would make it useless.
-                return direct.closest('[role="treeitem"]') ||
-                  direct.closest('[data-list-item-id]') || direct;
+              const installCss = () => {
+                if (!document.head || document.getElementById('tes3np-tavern-island-css'))
+                  return;
+                const style = document.createElement('style');
+                style.id = 'tes3np-tavern-island-css';
+                style.textContent = [
+                  'html, body, #app-mount { overflow: hidden !important; margin: 0 !important; }',
+                  '#app-mount * { visibility: hidden !important; pointer-events: none !important; }',
+                  '[' + hiddenMarker + '] { display: none !important; }',
+                  '[' + pathMarker + '] { overflow: visible !important; transform: none !important;',
+                  '  filter: none !important; contain: none !important; clip-path: none !important; }',
+                  '[' + rowMarker + '], [' + rowMarker + '] * {',
+                  '  visibility: visible !important; pointer-events: auto !important; }',
+                  '[' + rowMarker + '] { position: fixed !important; top: 0 !important;',
+                  '  left: 0 !important; margin: 0 !important; padding: 0 !important;',
+                  '  width: 136px !important; max-width: 136px !important;',
+                  '  height: 24px !important; min-height: 24px !important;',
+                  '  z-index: 2147483647 !important; transform: none !important; }'
+                ].join('\n');
+                document.head.appendChild(style);
+              };
+
+              const findRow = () => {
+                // Match the actual voice ID first: text alone could select a
+                // heading or an unrelated chat item that happens to share a name.
+                const candidates = document.querySelectorAll(
+                  '[data-list-item-id*="' + id + '"], a[href$="/' + id + '"]'
+                );
+                for (const match of candidates) {
+                  const row = match.closest('[data-list-item-id]') ||
+                    match.closest('[role="treeitem"]') || match;
+                  const text = (row.textContent || '').trim();
+                  if (text.includes(name) && text.length < 220) return row;
+                }
+                return null; // Fail closed: never show a neighboring channel.
               };
 
               const isolate = () => {
-                if (!document.head || !document.body) return;
-                if (!document.getElementById('tes3np-tavern-isolation')) {
-                  const css = document.createElement('style');
-                  css.id = 'tes3np-tavern-isolation';
-                  css.textContent = [
-                    '[' + hiddenAttribute + '] { display: none !important; }',
-                    'html, body { overflow: hidden !important; overscroll-behavior: none !important; }'
-                  ].join('\n');
-                  document.head.appendChild(css);
+                installCss();
+                if (!document.body) return;
+                const row = findRow();
+                if (!row) {
+                  if (lastRow && lastRow.isConnected)
+                    lastRow.removeAttribute(rowMarker);
+                  lastRow = null;
+                  return;
                 }
+                if (lastRow && lastRow !== row && lastRow.isConnected)
+                  lastRow.removeAttribute(rowMarker);
+                lastRow = row;
+                row.setAttribute(rowMarker, '');
 
-                const row = findTavern();
-                if (!row) return; // Login/Discord loading: no fake voice row.
-
-                // Find the nearest channel-list scroll container. Limit all
-                // changes to this list, not Discord's call/audio infrastructure.
-                let scroller = null;
-                for (let node = row.parentElement, hops = 0;
-                     node && node !== document.body && hops < 18;
-                     node = node.parentElement, hops++) {
-                  const cls = typeof node.className === 'string' ? node.className : '';
-                  const overflow = getComputedStyle(node).overflowY;
-                  if ((/scroller/i.test(cls) ||
-                       /^(auto|scroll)$/.test(overflow)) &&
-                      node.querySelectorAll('[data-list-item-id]').length > 1) {
-                    scroller = node;
-                    break;
+                // Remove only other branches from layout, not from React's DOM.
+                // Stop before hiding the Discord app infrastructure itself.
+                let current = row;
+                let hops = 0;
+                while (current.parentElement && current.parentElement !== document.body
+                       && hops++ < 24) {
+                  current.removeAttribute(hiddenMarker);
+                  current.setAttribute(pathMarker, '');
+                  const parent = current.parentElement;
+                  parent.setAttribute(pathMarker, '');
+                  for (const sibling of parent.children) {
+                    if (sibling !== current && sibling.hasAttribute &&
+                        !sibling.hasAttribute(hiddenMarker))
+                      sibling.setAttribute(hiddenMarker, '');
                   }
+                  current = parent;
                 }
-                if (!scroller)
-                  scroller = row.closest('[role="tree"]');
-                if (!scroller || scroller === document.body) return;
-
-                // Each sibling branch in the channel list is visually
-                // removed and consumes zero layout space. The one branch
-                // containing The Tavern stays intact for genuine clicks.
-                for (let keep = row;
-                     keep && keep !== scroller && keep.parentElement;
-                     keep = keep.parentElement) {
-                  keep.removeAttribute(hiddenAttribute);
-                  for (const sibling of keep.parentElement.children) {
-                    if (sibling !== keep &&
-                        !sibling.hasAttribute(hiddenAttribute))
-                      sibling.setAttribute(hiddenAttribute, '');
-                  }
+                // No scrolling remains in the isolated row's layout.
+                for (let parent = row.parentElement; parent && parent !== document.body;
+                     parent = parent.parentElement) {
+                  if (parent.scrollTop) parent.scrollTop = 0;
                 }
-                scroller.style.overflowY = 'hidden';
-                if (scroller.scrollTop !== 0) scroller.scrollTop = 0;
               };
-
               const schedule = () => {
                 if (scheduled) return;
                 scheduled = true;
-                requestAnimationFrame(() => { scheduled = false; isolate(); });
+                requestAnimationFrame(() => {
+                  scheduled = false;
+                  isolate();
+                });
               };
-              // Discord can rebuild its sidebar during SPA navigation.
-              // Observing child insertions re-applies the safe visual filter
-              // without fighting React or creating a polling timer.
               new MutationObserver(schedule)
-                .observe(document, { childList: true, subtree: true });
+                .observe(document, {childList: true, subtree: true});
               document.addEventListener('DOMContentLoaded', schedule);
               schedule();
 
-              // A channel row may have focus, but wheel/touch scrolling must
-              // never make another channel drift under the narrow native clip.
               const stopScroll = event => {
                 event.preventDefault();
                 event.stopPropagation();
               };
               window.addEventListener('wheel', stopScroll,
-                { capture: true, passive: false });
+                {capture: true, passive: false});
               window.addEventListener('touchmove', stopScroll,
-                { capture: true, passive: false });
-              const scrollKeys = new Set([
-                'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '
-              ]);
+                {capture: true, passive: false});
               window.addEventListener('keydown', event => {
-                if (event.altKey || event.ctrlKey || event.metaKey ||
-                    !scrollKeys.has(event.key)) return;
-                const target = event.target;
-                if (target instanceof Element && target.closest(
-                  'input, textarea, select, button, a, [role="button"], [contenteditable="true"]'
-                )) return;
-                stopScroll(event);
+                if (event.altKey || event.ctrlKey || event.metaKey) return;
+                if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' ']
+                    .includes(event.key)) stopScroll(event);
               }, true);
             })();
             """;
 
+        // Only use the verified original Tavern island. Do not find an
+        // arbitrary row by text or by a stale scroll position.
         const string LocateVoiceRowScript = """
             (() => {
-              const id = '509601787901116441';
-              const matches = Array.from(document.querySelectorAll(
-                '[data-list-item-id*="' + id + '"],a[href$="/' + id + '"]'
-              ));
-              let row = matches.find(el => {
-                const box = el.getBoundingClientRect();
-                return box.height >= 15 && box.width >= 90;
-              });
-              if (row) {
-                row = row.querySelector('[class*="link_"],a') || row;
-              } else {
-                row = Array.from(document.querySelectorAll('[role="treeitem"]'))
-                  .find(el => el.textContent?.trim() === 'The Tavern') || null;
-              }
-              if (!row) return null;
+              const row = document.querySelector('[data-tes3np-tavern-row]');
+              if (!row || !row.isConnected ||
+                  !(row.textContent || '').includes('The Tavern') ||
+                  !(row.querySelector('[data-list-item-id*="509601787901116441"]') ||
+                    row.matches('[data-list-item-id*="509601787901116441"]') ||
+                    row.querySelector('a[href$="/509601787901116441"]') ||
+                    row.matches('a[href$="/509601787901116441"]')))
+                  return null;
               const box = row.getBoundingClientRect();
-              if (box.height < 15 || box.width < 90 || box.top < 0 ||
-                  box.bottom > window.innerHeight) return null;
-              return {
-                x: Math.round(box.left), y: Math.round(box.top),
-                width: Math.round(box.width), height: Math.round(box.height)
-              };
+              if (box.width < 80 || box.height < 16 ||
+                  box.left < -200 || box.top < -200) return null;
+              return { x: Math.round(box.left), y: Math.round(box.top) };
             })()
             """;
 
@@ -2059,11 +2057,24 @@ metrics();
                 if (closingChat || voiceStripWindow is not { IsDisposed: false } ||
                     voiceStripWeb.IsDisposed) return;
                 using var doc = System.Text.Json.JsonDocument.Parse(result);
-                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return;
+                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                {
+                    // Never display a stray Discord channel while the correct
+                    // Tavern row is absent or React is still rebuilding it.
+                    voiceRowLocated = false;
+                    if (voiceStripStatus is { IsDisposed: false })
+                    {
+                        voiceStripStatus.Text = "The Tavern · loading";
+                        voiceStripStatus.Visible = true;
+                        voiceStripStatus.BringToFront();
+                    }
+                    return;
+                }
                 int x = doc.RootElement.GetProperty("x").GetInt32();
                 int y = doc.RootElement.GetProperty("y").GetInt32();
-                // The browser stays 980x1050; only its origin shifts beneath
-                // the tiny native clip. Pointer events go to the original row.
+                // The Tavern DOM island is anchored at the browser origin.
+                // Retain the coordinates as a safeguard for transformed layouts
+                // without allowing another channel to appear under the crop.
                 voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y),
                     VoiceBrowserWidth, VoiceBrowserHeight);
                 if (!voiceRowLocated)
@@ -2132,8 +2143,8 @@ metrics();
                 await browser.EnsureCoreWebView2Async(chatWebEnvironment);
                 if (closingChat || strip.IsDisposed) return;
                 browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
-                // Isolate before Discord renders. The browser retains all
-                // React nodes for live voice and its original click handlers.
+                // The voice-only browser installs a fixed Tavern DOM island
+                // before rendering. Its original React click handlers survive.
                 await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                     IsolateTavernChannelScript);
                 if (closingChat || strip.IsDisposed) return;

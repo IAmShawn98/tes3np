@@ -38,24 +38,22 @@ second Chat Host process, popup ownership controller, or competing chat timer.
 Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
 launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events.
 
-**The Tavern voice strip (experimental):** The temporary Voice Preview
-button and full Discord popup are removed. On launcher startup, the existing
-Chat Host creates one small, native owned window immediately outside the upper
-right frame, aligned to the user's marked position. Its WebView2 uses the
-existing authenticated `chat-webview2` profile, navigates to voice channel
-`509601787901116441` in guild `509601787901116437`, and clips the original
-Discord voice-channel row by looking up its stable ID. The voice-only browser installs CSS/JS before Discord navigation to hide
-every sibling branch in the channel-list scroller (display: none), leaving
-only the original clickable Tavern tree item. Other React nodes remain in
-the page so Discord's internal voice application is not destroyed. A
-child-list MutationObserver re-applies the filter when Discord updates
-its UI, and capture-phase wheel/touch/scroll-key protection prevents
-the sidebar from slipping under the native crop. This script is never
-injected into the existing Game Chat browser. Its placement follows the existing
-launcher-location WinEvent hook with the existing Chat Host watch as fallback;
-there is no separate background service, process or timer. Until Discord
-renders the row it shows a loading label. No microphone permission is granted
-automatically. Authenticated joining and audio operation require Windows tests.
+**The Tavern voice strip (experimental):** The previous generic Discord
+sidebar crop was insufficient: other channel rows could scroll underneath it.
+The existing Chat Host starts a second WebView2 *within the same authenticated
+profile* and renders a voice-only DOM island outside the launcher's upper-right
+edge. Injection occurs before Discord loads, matching channel
+`509601787901116441` by its actual DOM identity **and** `The Tavern` text.
+Its original React-owned row is fixed to the upper-left browser origin,
+with unrelated sibling branches hidden by CSS display:none. No Discord nodes
+are deleted, moved to another parent, copied, or given simulated clicks; the
+live row keeps Discord's event handlers. The rest of the interface is visually
+suppressed and wheel/touch/key scrolling cannot show adjacent channels.
+If the required row is missing, a native loading state covers the WebView
+instead of showing another Discord channel. Its placement uses the existing
+launcher movement hook; there is no new Chat Host process, timer, browser
+profile or automatic microphone permission. The original Game Chat window,
+sign-in, saved archive and Happy Hour detector use their unchanged WebView.
 
 The Happy Hour banner
 is an **owned top-level popup** (not a clipped child window): ownership controls
