@@ -214,6 +214,22 @@ expect(
 )
 
 expect(
+    "Vintage creatures are baked into the single launcher background",
+    (lambda front, bootstrap:
+        front.count('LauncherGui.Add("Picture", "x0 y-4 w960 h720"') == 1
+        and "og-creatures-overlay.png" not in front
+        and "og-creatures-overlay.png" not in bootstrap
+        and not (ROOT / "assets" / "backgrounds" / "og-creatures-overlay.png").exists()
+        and (ROOT / "assets" / "backgrounds" / "launcher.png").is_file()
+        and front.index('LauncherGui.Add("Picture", "x0 y-4 w960 h720"')
+            < front.index('CreateHappyHourDust()')
+    )(
+        (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig"),
+        bootstrap,
+    ),
+)
+
+expect(
     "Happy Hour banner has no dismiss button or dismissal state",
     'GoldButton("×"' not in source
     and 'dismissedHappyHourBannerId' not in source
