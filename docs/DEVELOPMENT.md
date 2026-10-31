@@ -128,10 +128,13 @@ tray settings, or separate image preview.
 3. Confirm that Jiub changes to the approved rainbow glasses and grin
    with the same banner signal. Check native `x438 y84 w120 h135`
    alignment; original medallion, moon, controls and background must
-   remain unchanged. With the banner, a **very sparse, static** RGB
-   pixie-dust layer must appear within the launcher artwork only. It must
-   never cover the desktop, block clicks, obscure buttons, or float behind
-   when the launcher moves. Both dust and Jiub disappear on banner hide.
+   remain unchanged. With the banner, subtle, static RGB pixie dust
+   must be **clearly perceptible** at normal 100% launcher scale.
+   Four one-pixel-offset impressions of the same transparent artwork
+   strengthen the very small colored centers without animation. The dust
+   must remain inside the launcher, below interactive controls, and must
+   not block clicks, obscure button labels, or lag when dragged. Both
+   dust and Jiub disappear on banner hide.
    Minimize/restore and drag/scale without detached art.
 4. Confirm the banner contains no X/hide button and that the system
    tray contains neither `Happy Hour: Jiub face` nor
