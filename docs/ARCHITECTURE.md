@@ -61,57 +61,36 @@ AppData; the banner-only implementation no longer reads, migrates, or writes
 that obsolete file. Clearing Roaming data must remain a genuine reset. No new
 persistent Chat Host state is written to Local AppData.
 
-**Happy Hour lifecycle:** on Chat Host startup read the local Roaming chat
-archive even if Discord is signed out. A genuine bot-authored text announcement
-or pixel-verified image with its original Discord snowflake can display the
-banner offline, but only during the real sixty-minute active period. An empty
-archive, old expired message or obsolete last-seen marker cannot trigger it.
-Authentication gates **fetching new Discord messages and history paging**, not
-presenting an already verified active announcement. When Discord becomes
-available, search the indexed messages first and page the hidden channel if
-necessary. The original snowflake determines the expiry; the existing countdown
-timer closes the banner at its end. Logout pauses network collection without
-hiding a still-valid cached banner or resetting its countdown. The unattended
-scan ends at the active one-hour boundary. Chat visibility and manual scrolling
-never control pagination. The launcher-owned banner is the **only** Happy Hour
-notification; no separate large popup appears.
+**Happy Hour lifecycle (temporary alpha detection test):** Chat Host reads
+the Roaming chat archive on startup, even when Discord is signed out, and
+verifies the latest real Yagrum-authored text or pixel-verified announcement.
+The same discovery, message ID, countdown, banner and Jiub signal are used
+regardless of age. A single temporary `ShowExpiredHappyHourForAlphaTest = true`
+constant allows the **latest authentic expired** event to remain displayed
+with `(0m 0s)`; an active event shows its actual time remaining. This is a
+detection test, **not** evidence of an active server bonus. It does not
+manufacture chat records or timestamps, and does not create a fake 60-second
+event. An archive without a verified announcement still displays nothing.
+Newer real announcements replace older ones. Archived detection is available
+without logging into Discord; live fetching/paging still requires
+authentication. Without a cached event, the bounded history scan may look back
+up to seven days (subject to its existing six-minute/500-attempt safeguards).
+**Before release**, set the constant to `false` to restore production's
+one-hour-only expiry behavior. No obsolete last-seen markers are read or written.
 
-**Happy Hour banner and Jiub face:** The single genuine Discord-backed
-banner has **no dismiss button**. It is shown for up to one hour, using the
-verified original Discord snowflake for expiry. There are no persistent
-dismissal markers. Minimize/restore may hide/show the owned banner with
-the launcher; expiry or shutdown closes it. Chat Host posts
-`WM_APP + 0x334` (0x8334) whenever the banner is shown or hidden, so
-Jiub's picture follows that one banner and cannot be independently
-triggered by an unverified announcement.
-
-`src/ui/happy-hour.ahk` owns an optional Jiub-only PNG child control
-(`assets/happy-hour/jiub-happy-hour.png`) at the user's adjusted
-`x438 y84 w120 h135`. It is created before
-`CaptureLauncherControlLayout()`, so moving and scaling the launcher
-cannot leave a floating picture behind. The transparent image replaces
-only Jiub's face; the original bronze crescent/medallion and background
-are not rebuilt. Tray choices `Happy Hour: Jiub face` and
-`Preview Happy Hour face (20 sec)` remain. The new
-`[Launcher] HappyHourJiubEnabled` preference inherits the old
-`SkoomaVisionEnabled` value once, preserving user opt-out without
-carrying the obsolete theme name into active code. Face-only preview
-never pretends a real Happy Hour is active.
-
-**Opt-in developer replay:** Launch the compiled launcher with
-`--happy-hour-dev` to have Chat Host read the **latest previously
-verified, genuine Yagrum Happy Hour announcement** from the same
-Roaming chat archive, including an expired one. If the archive has no
-verified announcement, it logs that fact and does not invent an event.
-A replay runs for **60 seconds** and uses the existing banner and same
-Jiub IPC; the banner prominently reads `HAPPY HOUR DEV PREVIEW` and
-`Archived event - No live bonus`. The artificial test countdown is
-separate from production message ID/expiry, does not persist, and does
-not grant in-game Mastery Points. A genuinely active announcement
-takes priority. Without the explicit command-line flag, historical
-expired messages cannot display Happy Hour. This dev mode must not
-be enabled by default in production. Validate the archived replay
-and real-hour expiry on Windows before release.
+**Banner and Jiub presentation:** The one existing bronze Happy Hour banner has
+no dismiss button and uses the normal `HAPPY HOUR ACTIVE - Mastery Points Are
+Doubled!` title/countdown (including `0m 0s` for the expired alpha test).
+Jiub's image is `assets/happy-hour/jiub-happy-hour.png`, presented as a
+transparent child control by `src/ui/happy-hour.ahk` at the user's adjusted
+`x438 y84 w120 h135`. The original crescent, background and all launcher
+controls are unchanged. Chat Host posts `WM_APP + 0x334` to the launcher
+whenever it shows/hides this banner; Jiub follows the same message and moves
+natively with the launcher. The separate 60-second developer replay,
+command-line dev flag, alternate banner text, tray toggle, and 20-second
+portrait-only preview have all been removed. No separate overlay window,
+animation, or graphic effects remain. Windows compilation and a screenshot
+with the expired 0m 0s condition are still required to complete validation.
 
 Archive exports are written to temporary files and atomically replaced to
 avoid corrupting the only saved index during long history scans. Do not rewrite
