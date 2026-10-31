@@ -130,30 +130,30 @@ expect(
 )
 
 expect(
-    "Tavern voice strip uses the original clickable Discord row beside launcher",
+    "Tavern DOM island is voice-only, ID-validated and remains clickable",
     'const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";' in source
     and "await browser.EnsureCoreWebView2Async(chatWebEnvironment);" in source
-    and "const string LocateVoiceRowScript" in source
     and "const string IsolateTavernChannelScript" in source
+    and "const string LocateVoiceRowScript" in source
+    and "const rowMarker = 'data-tes3np-tavern-row';" in source
+    and "const hiddenMarker = 'data-tes3np-tavern-other';" in source
+    and "sibling.setAttribute(hiddenMarker, '');" in source
+    and "position: fixed !important; top: 0 !important;" in source
+    and "new MutationObserver(schedule)" in source
+    and "const row = document.querySelector('[data-tes3np-tavern-row]');" in source
+    and '!(row.textContent || \'\').includes(\'The Tavern\')' in source
     and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
     and "IsolateTavernChannelScript);" in source
-    and "window.__tes3npTavernIsolationInstalled = true;" in source
-    and "new MutationObserver(schedule)" in source
-    and "sibling.setAttribute(hiddenAttribute, '');" in source
-    and "window.addEventListener('wheel', stopScroll," in source
-    and "window.addEventListener('touchmove', stopScroll," in source
-    and "'[data-list-item-id*=" in source
+    and "voiceStripStatus.BringToFront();" in source
     and "voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y)," in source
-    and "PositionVoiceStrip();" in source
-    and "SetNativeWindowOwner(strip.Handle, owner);" in source
     and "_ = StartVoiceStripAsync();" in source
     and "_ = RefreshVoiceRowViewportAsync();" in source
+    and "SetNativeWindowOwner(strip.Handle, owner);" in source
     and "voiceStripWindow.Close();" in source
     and "CoreWebView2PermissionState.Allow" not in source
     and "Voice Preview" not in bootstrap
     and "OpenLauncherVoicePreview" not in bootstrap
-    and "SendLauncherChatCommand(5)" not in bootstrap
-    and "case 5: _ = OpenVoicePreviewAsync();" not in source,
+    and "SendLauncherChatCommand(5)" not in bootstrap,
 )
 
 expect(
