@@ -130,6 +130,19 @@ expect(
 )
 
 expect(
+    "Voice preview shares authenticated Chat Host and leaves voice join to Discord UI",
+    'const string VoicePreviewChannel = "https://discord.com/channels/509601787901116437/509601787901116441";' in source
+    and "chatWebEnvironment = env;" in source
+    and "await voiceWeb.EnsureCoreWebView2Async(chatWebEnvironment);" in source
+    and 'chatModeMenu.Items.Add("Preview Voice Channel (unstyled)"' in source
+    and "voiceWeb.CoreWebView2.Navigate(VoicePreviewChannel);" in source
+    and "SetNativeWindowOwner(preview.Handle, owner);" in source
+    and "voicePreviewWindow.Close();" in source
+    and "voiceWeb.CoreWebView2.PermissionRequested +=" in source
+    and "CoreWebView2PermissionState.Allow" not in source
+    and "voiceWeb.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync" not in source,
+)
+expect(
     "Archive must be written with replace-on-complete semantics",
     "WriteChatArchiveAtomically(GameChatIndexFile," in source
     and "WriteChatArchiveAtomically(GameChatLogFile," in source
