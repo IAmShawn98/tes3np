@@ -172,7 +172,7 @@ expect(
     "Happy Hour banner must track launcher movement without a timer delay",
     "void PositionHappyHourBanner()" in source
     and "SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height," in source
-    and "PositionHappyHourBanner();\n                if (repositionQueued) return;" in source
+    and "PositionHappyHourBanner();\n                PositionVoiceStrip();\n                if (repositionQueued) return;" in source
     and "SetWinEventHook(0x800B, 0x800B" in source,
 )
 expect(
