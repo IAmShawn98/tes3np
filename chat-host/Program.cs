@@ -1372,8 +1372,16 @@ metrics();
             if (happyHourBanner is { IsDisposed: false }) {
                 if (IsWindowVisible(owner) && !IsIconic(owner)) {
                     PositionHappyHourBanner();
-                    if (!happyHourBanner.Visible) happyHourBanner.Show();
-                } else if (happyHourBanner.Visible) happyHourBanner.Hide();
+                    if (!happyHourBanner.Visible) {
+                        happyHourBanner.Show();
+                        // The verified banner is visible again after a launcher restore.
+                        NotifyLauncherSkoomaVision(true);
+                    }
+                } else if (happyHourBanner.Visible) {
+                    happyHourBanner.Hide();
+                    // Keep Jiub's appearance in sync when the banner is hidden.
+                    NotifyLauncherSkoomaVision(false);
+                }
             }
         }
 
