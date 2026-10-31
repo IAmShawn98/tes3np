@@ -78,12 +78,16 @@ notification; no separate large popup appears.
 
 **Jiub Happy Hour portrait (optional, visual only):** The ChatHost posts
 `WM_APP + 0x334` (0x8334) to the existing launcher HWND when—and only
-when—the verified Happy Hour banner is actually shown or closed.
+when—the verified Happy Hour banner is actually shown, hidden,
+restored, or closed. The same ChatHost logic also signals the native
+portrait when the owner is minimized/restored; it never invents a second
+Happy Hour detector.
 `src/ui/skooma-vision.ahk` retains its existing entry points but no
 longer creates any independent GUI, floating overlay, animations,
 particles, typography or timer-based position tracking. Instead,
 `CreateSkoomaVision()` adds a tiny, initially hidden transparent PNG
-Picture control at x435 y82 w120 h140, directly over Jiub's
+Picture control at x438 y84 w120 h135 (the user's current
+approved positioning), directly over Jiub's
 original portrait. `src/app/bootstrap.ahk` creates it BEFORE
 `CaptureLauncherControlLayout()`; the launcher automatically scales and
 moves it in lockstep with all other child controls, without a separate
