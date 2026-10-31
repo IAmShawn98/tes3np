@@ -83,8 +83,10 @@ OpenCharacterPage(*)
     CharacterPage.OnEvent("Escape", CloseCharacterPage)
     SetInterfaceLoadingText("Loading character editor... ")
     CreateProfileEditor()
-    HideProfileEditor()
+    ; HideProfileEditor restores the macro panel: create that panel first.
+    ; Otherwise MacroList is still its integer zero placeholder.
     BuildMacroBookPanel()
+    HideProfileEditor()
     ; Apply the canonical Character Book positions once after controls exist;
     ; this preserves the two-button stack without the deferred scheduler UI.
     ApplyV016CharacterLayout()

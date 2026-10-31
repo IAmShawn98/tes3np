@@ -75,9 +75,15 @@ BuildMacroBookPanel()
 
 ShowMacroBookPanel()
 {
-    global MacroBookControls
+    global MacroBookControls, MacroList
+    ; The editor's hide path may run before the book has built its controls.
+    if !IsObject(MacroList)
+        return
     for control in MacroBookControls
-        control.Visible := true
+        if control != MacroList
+            control.Visible := true
+    ; Retain the legacy ListView only as an invisible selection model.
+    MacroList.Visible := false
     RefreshMacroButtons()
 }
 
@@ -95,7 +101,7 @@ RefreshMacroBookRows()
     global MacroDetails, MacroImportButton, MacroRunButton, MacroStopButton
     global MacroRemoveButton, MacroBindingsButton, MacroStatus
     global LaunchSettingsHeading, ButtonFaces
-    if !MacroBookRows.Length
+    if !IsObject(MacroList) || !MacroBookRows.Length
         return
     count := MacroItems.Length
     pages := Max(1, Ceil(count / 5))
@@ -256,6 +262,9 @@ ValidMacroEntry(folder, entry)
 RefreshMacroButtons(*)
 {
     global MacroList, MacroItems, MacroRunButton, MacroStopButton, MacroRemoveButton, MacroDetails, MacroImport, MacroBindingsButton
+    ; A stale timer or early editor callback must never read an integer here.
+    if !IsObject(MacroList)
+        return
     row := MacroList.GetNext()
     selected := row > 0 && row <= MacroItems.Length
     running := selected && MacroItems[row].PID && ProcessExist(MacroItems[row].PID)
@@ -573,6 +582,8 @@ StopSelectedMacro(*)
 RefreshMacroProcesses()
 {
     global MacroItems, MacroList
+    if !IsObject(MacroList)
+        return
     for row, macro in MacroItems
         if macro.PID && !ProcessExist(macro.PID)
         {

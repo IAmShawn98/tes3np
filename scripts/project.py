@@ -211,6 +211,13 @@ def check(allow_missing_payload: bool = False) -> None:
         "editor restores macros without overlaying the character fields":
             'HideMacroBookPanel()' in characters
             and 'ShowMacroBookPanel()' in characters,
+        "macro controls initialized before editor restoration":
+            characters.index("    BuildMacroBookPanel()\n    HideProfileEditor()")
+            > characters.index("    CreateProfileEditor()\n")
+            and 'if !IsObject(MacroList)\n        return' in macro,
+        "uninitialized macro selection cannot call GetNext":
+            'if !IsObject(MacroList) || !MacroBookRows.Length' in macro
+            and 'MacroList.Visible := false' in macro,
         "launcher no longer has a separate Macros button":
             '["Macros", OpenMacros]' not in frontend,
         "script, ZIP and application imports coexist":
