@@ -107,6 +107,24 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
+## Discord voice preview experiment
+
+From the existing Game Chat gold tab, right-click and choose
+`Preview Voice Channel (unstyled)` to display the user-requested channel
+`509601787901116441` from server `509601787901116437`. This is a
+resizable, unstyled Discord page in the same Chat Host process and the same
+WebView2 session/profile as Game Chat. It **does not automatically join voice**,
+grant microphone access, scrape channel members or change the chat layout.
+
+Windows validation: open the preview after Discord has loaded; confirm that the
+correct channel loads (or record any browser incompatibility/login screen).
+Test clicking Discord's own Join control manually and consenting to microphone
+access if desired. Check audio input/output, permissions and disconnect if the
+voice client works. Close and reopen the preview, then confirm Game Chat, saved
+authentication, Happy Hour and launcher controls remain normal. If Discord
+voice fails in WebView2, record the exact visible error before making changes.
+Do not infer voice compatibility from navigation success alone.
+
 ## Happy Hour and Jiub production behavior
 
 The temporary expired-announcement detection override
