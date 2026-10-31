@@ -71,7 +71,7 @@ UpdateCharacterMenuLabel()
         MenuEntries.Push(["Start New Adventure", StartNewAdventure])
         MenuEntries.Push([Profiles.Length ? "Manage Characters" : "Returning Fetcher", OpenCharacters])
     }
-    MenuEntries.Push(["Our Wiki", OpenWiki], ["Macros", OpenMacros], ["Quit Launcher", QuitLauncher])
+    MenuEntries.Push(["Our Wiki", OpenWiki], ["Quit Launcher", QuitLauncher])
     ScrollMenu(MenuOffset)
 }
 
