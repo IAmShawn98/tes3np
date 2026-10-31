@@ -89,9 +89,10 @@ original portrait. `src/app/bootstrap.ahk` creates it BEFORE
 moves it in lockstep with all other child controls, without a separate
 HWND to chase the owner during dragging. `assets/happy-hour/jiub-happy-hour.png`
 is a real, separately replaceable **transparent portrait cut-out**, made
-from the user-approved pixelated Jiub reference. Only Jiub's head,
-naturally seated Colovian hat, grin and black rainbow-reflecting glasses
-appear in its pixels; the existing bronze medallion/moon, background,
+from the user-approved hatless Jiub Happy Hour icon. Only the face,
+black glasses with rainbow reflections, and exaggerated smile
+appear in its pixels. The uploaded medallion and crescent were intentionally
+excluded from the overlay; the existing bronze medallion/moon, background,
 frame, UI artwork and text stay untouched underneath. The icon can
 be hidden or swapped without regenerating launcher artwork.
 No balloons, hats, confetti, clouds, kaleidoscopic effects or
