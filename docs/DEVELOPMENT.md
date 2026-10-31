@@ -107,45 +107,41 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Happy Hour banner and Jiub regression checks
+## Happy Hour and Jiub detection test (temporary alpha behavior)
 
-The single authentic Happy Hour banner no longer contains a dismiss/hide
-button or a saved dismissed-event flag. It is bound to the genuine,
-verified Discord archive and closes at the original Discord snowflake's
-one-hour expiry. Jiub's approved transparent face is a native launcher
-child picture at **x438 y84 w120 h135**. Source:
-`src/ui/happy-hour.ahk`. Both must remain independent of the login,
-update, main-menu, and Game Chat UI.
+This alpha branch uses the **normal Happy Hour banner and detection**.
+Its single temporary condition `ShowExpiredHappyHourForAlphaTest = true`
+lets an authentic expired Discord announcement remain displayed at
+`0m 0s`. This does **not** mean the server has an active bonus.
+There is no developer launch flag, replay timer, extra banner title,
+tray settings, or separate image preview.
 
-1. Run the normal launcher (no developer flag). With no currently
-   active verified Happy Hour, neither banner nor Jiub's alternate face
-   may appear. An expired archive alone must not activate production.
-2. Preview `Happy Hour face (20 sec)` from the system tray to verify
-   rainbow glasses, grin, unchanged original moon and no lag when
-   dragging or scaling the launcher.
-3. **Dev replay:** build and start the launcher with
-   `tes3np.exe --happy-hour-dev`. After Chat Host loads the Roaming
-   chat archive, it replays the *latest verified real Yagrum event*
-   for 60 seconds, even when that historical event has expired.
-   Both the banner and Jiub's face must appear. The banner must read
-   `HAPPY HOUR DEV PREVIEW` and
-   `Archived event - No live bonus`. Do not treat the artificial
-   60-second countdown as an actual game bonus or persist it.
-4. Without a verified announcement in the local archive, dev mode
-   must log `No verified archived announcement found` and show
-   nothing. Do not manufacture event IDs, timestamps or chat entries.
-5. Confirm banner has **no X button**. Minimize/restore the launcher
-   and verify the owned banner and Jiub's picture hide/show together.
-   After 60 seconds, both disappear in developer replay.
-6. Confirm a real new event is still recognized from Discord text
-   or a verified image, is displayed during its actual time window
-   (even when Discord is signed out with a valid saved archive),
-   and takes precedence over developer replay. Real expiry should
-   remain tied to the authentic Discord timestamp, never the test clock.
-7. Confirm `Happy Hour: Jiub face` remains optional and setting
-   migrates from the legacy user INI value, while keeping the original
-   launcher controls and login behavior unchanged. Verify full
-   Windows build and packaged PNG inclusion before release.
+1. Pull and build as usual, then launch `tes3np.exe` **normally**.
+   Verify the latest verified genuine Yagrum Happy Hour announcement
+   in the Roaming archive is automatically detected on startup.
+   No announcement means no banner or Jiub alternate face.
+2. For an expired genuine event, verify the exact standard rainbow
+   heading, green `Mastery Points Are Doubled!` text, and `(0m 0s)`.
+   The banner should remain visible rather than disappearing after
+   an artificial 60-second replay. This is a display-only test;
+   it must not claim that bonus points are actually available.
+3. Confirm that Jiub changes to the approved rainbow glasses and grin
+   with the same banner signal. Check native `x438 y84 w120 h135`
+   alignment; original medallion, moon, controls and background must
+   remain unchanged. Minimize/restore and drag/scale without detached art.
+4. Confirm the banner contains no X/hide button and that the system
+   tray contains neither `Happy Hour: Jiub face` nor
+   `Preview Happy Hour face (20 sec)`.
+5. Verify new authentic announcements replace the previous banner,
+   while fake, non-Yagrum or unverified messages do not trigger it.
+   Authenticated live collection and saved-archive/offline detection
+   must retain existing behavior; a genuine active event shows its
+   true countdown rather than starting at a simulated 60 seconds.
+6. After testing, revert `ShowExpiredHappyHourForAlphaTest` to
+   `false` before release, restoring the actual one-hour expiry
+   and bounded production search. Run static checks, C# build, launcher
+   build, and packaged asset verification. Do not label source
+   checks as Windows runtime validation.
 
 
 ## Validation before release
