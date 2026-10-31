@@ -117,19 +117,20 @@ Happy Hour detection or gameplay/login code changed.
 1. Use the system tray option **Preview Jiub Happy Hour (20 sec)**.
    Only Jiub should change: his existing pixelated black sunglasses
    retain their exact shape, but the lens reflections become rainbow
-   colored, his approved goofy grin remains, and he wears a beige
-   Colovian fur hat. No balloons, party hats, particles, confetti,
-   clouds or Skooma Vision title should appear. The original Morrowind background,
+   colored, and the exact goofy grin from the user-approved icon
+   replaces his original mouth. The portrait is hatless. No balloons,
+   hats, particles, confetti, clouds or Skooma Vision title should appear. The original Morrowind background,
    typography, menus, buttons and chat must remain intact.
 2. Move the launcher immediately while previewing. Jiub's accessories
    are a native child control, inserted before
    `CaptureLauncherControlLayout()`, and must travel synchronously with
    the picture without visible lag or a detached window.
 3. Test that the new x435 y71 w120 h145 child control aligns the
-   standalone transparent Jiub head/hat over the original medallion.
-   The icon MUST contain no moon/ring/background pixels. With the
-   preview off, the original stock Jiub and moon must be unchanged.
-   Check the complete fur hat, rainbow reflections, grin, original
+   standalone transparent Jiub face over the original medallion.
+   The asset is derived from the user's 512x512 icon, masking out its
+   moon/ring/background and scaling to 120x145. With the preview
+   off, original stock Jiub and moon must be unchanged.
+   Check the rainbow reflections, grin, face edges and original
    frame and title visibility.
    Test the automatic launcher size settings, desktop DPI, hide/show,
    minimize/restore, open/close Character Book and Launcher Settings,
