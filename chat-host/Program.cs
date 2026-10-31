@@ -967,10 +967,9 @@ metrics();
         DateTime lastHistoryGateLog = DateTime.MinValue;
         bool userScrolledChat;
         bool historyCatchupActive;
-        // Scan Discord backward from the newest message until the most recent
-        // genuine Happy Hour is confirmed. Older saved messages are not proof
-        // of an active event, and searching beyond the last hour is unnecessary
-        // when no currently active announcement has been found.
+        // Scan backward for the latest verified Happy Hour. The alpha
+        // detector extends the bounded search window to seven days if the
+        // existing archive contains no verified event; production uses one hour.
         DateTime initialBackfillStarted = DateTime.MinValue;
         int initialBackfillAttempts;
         bool initialBackfillComplete;
@@ -996,11 +995,12 @@ metrics();
             // through that event: newer activations could still be unseen.
             bool verifiedLatest = candidateId > 0 &&
                 oldestLoaded <= DiscordTimestamp(candidateId);
-            // A full hour of source history is sufficient to determine
-            // whether an activation can still be active. Never page days
-            // backward just to display an expired announcement.
-            bool pastActiveWindow =
-                oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1);
+            // Alpha detection may need a recent expired event missing from
+            // disk, but paging is still bounded by the existing timeout.
+            bool pastActiveWindow = oldestLoaded <=
+                (ShowExpiredHappyHourForAlphaTest
+                    ? DateTimeOffset.UtcNow.AddDays(-7)
+                    : DateTimeOffset.UtcNow.AddHours(-1));
             bool complete = verifiedLatest || pastActiveWindow;
             // Discord may throttle or stop exposing history. Log partial
             // coverage rather than claiming detection succeeded.
