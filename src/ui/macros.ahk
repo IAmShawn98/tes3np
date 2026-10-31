@@ -40,6 +40,7 @@ BuildMacroBookPanel()
         select := AddStyledButton(CharacterPage, 525, y, 207, 29, "",
             SelectMacroBookRow.Bind(position))
         ButtonFaces[select.Hwnd].MacroSelected := false
+        CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
         status := AddBookLabel(CharacterPage, 741, y + 2, 78, 25, "")
         kind := AddBookLabel(CharacterPage, 824, y + 2, 56, 25, "")
         MacroBookRows.Push({Select: select, Status: status, Kind: kind})
@@ -47,9 +48,11 @@ BuildMacroBookPanel()
     }
     MacroPreviousButton := AddStyledButton(CharacterPage, 525, 343, 88, 26,
         "Previous", PreviousMacroBookPage)
+    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
     MacroPageLabel := AddBookLabel(CharacterPage, 623, 343, 150, 26, "")
     MacroNextButton := AddStyledButton(CharacterPage, 792, 343, 88, 26,
         "Next", NextMacroBookPage)
+    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
     MacroDetails := AddBookLabel(CharacterPage, 525, 377, 355, 26, "")
     MacroImportButton := AddStyledButton(CharacterPage, 525, 410, 164, 30,
         "Add Macro / App", ImportMacroPackage)
@@ -61,6 +64,7 @@ BuildMacroBookPanel()
         "Remove", RemoveSelectedMacro)
     MacroBindingsButton := AddStyledButton(CharacterPage, 696, 446, 184, 30,
         "Edit Keys", EditSelectedMacroBindings)
+    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
     MacroStatus := AddBookLabel(CharacterPage, 525, 488, 355, 27, "Ready.")
     MacroBookControls.Push(MacroPreviousButton, MacroPageLabel, MacroNextButton,
         MacroDetails, MacroImportButton, MacroRunButton, MacroStopButton,
