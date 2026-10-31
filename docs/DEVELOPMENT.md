@@ -107,54 +107,45 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Jiub Happy Hour portrait checks
+## Happy Hour banner and Jiub regression checks
 
-The old separate Skooma Vision decoration window has been replaced by one
-small, static PNG image control within the existing launcher GUI. The same
-verified ChatHost Happy Hour banner controls its activation. No other
-Happy Hour detection or gameplay/login code changed.
+The single authentic Happy Hour banner no longer contains a dismiss/hide
+button or a saved dismissed-event flag. It is bound to the genuine,
+verified Discord archive and closes at the original Discord snowflake's
+one-hour expiry. Jiub's approved transparent face is a native launcher
+child picture at **x438 y84 w120 h135**. Source:
+`src/ui/happy-hour.ahk`. Both must remain independent of the login,
+update, main-menu, and Game Chat UI.
 
-1. Use the system tray option **Preview Jiub Happy Hour (20 sec)**.
-   Only Jiub should change: his existing pixelated black sunglasses
-   retain their exact shape, but the lens reflections become rainbow
-   colored, and the exact goofy grin from the user-approved icon
-   replaces his original mouth. The portrait is hatless. No balloons,
-   hats, particles, confetti, clouds or Skooma Vision title should appear. The original Morrowind background,
-   typography, menus, buttons and chat must remain intact.
-2. Move the launcher immediately while previewing. Jiub's accessories
-   are a native child control, inserted before
-   `CaptureLauncherControlLayout()`, and must travel synchronously with
-   the picture without visible lag or a detached window.
-3. Test the current user-adjusted native portrait control coordinates
-   (do not reset them) against the background. Confirm the Happy Hour
-   face control aligns the
-   standalone transparent Jiub face over the original medallion (adjusted to y82 and 140px height per user inspection).
-   The asset is derived from the user's 512x512 icon, masking out its
-   moon/ring/background and scaling to 120x145. With the preview
-   off, original stock Jiub and moon must be unchanged.
-   Check the rainbow reflections, grin, face edges and original
-   frame and title visibility.
-   Test the automatic launcher size settings, desktop DPI, hide/show,
-   minimize/restore, open/close Character Book and Launcher Settings,
-   and repeated 20-second previews. The picture must remain aligned
-   to Jiub's original portrait, fully hidden outside active preview or
-   Happy Hour, and must not intercept clicking anywhere.
-4. Use a genuinely active and cached Happy Hour announcement. The
-   existing banner and Jiub appearance must appear at the same time;
-   expiry and banner dismissal must hide both. Minimize/restore the launcher:
-   when ChatHost hides its banner, Jiub's alternate face must hide too,
-   and when that same real banner is displayed again, Jiub's face must
-   return without requiring a second Discord announcement. An expired
-   or unverified Discord message must never trigger it. Check the launcher
-   log for "HAPPY HOUR | Jiub face shown" and "restored to normal".
-5. Turn **Jiub's Happy Hour look** off and on. The original Roaming INI
-   preference still controls automatic activation; manual preview
-   remains available without modifying that preference.
-6. Confirm the shipped PNG
-   `assets/happy-hour/jiub-happy-hour.png` is included in
-   `dist/tes3np-windows.zip` via bundled resources. Verify
-   the current Windows source/build checks, ChatHost and client, and
-   check the restored source tree after packaging.
+1. Run the normal launcher (no developer flag). With no currently
+   active verified Happy Hour, neither banner nor Jiub's alternate face
+   may appear. An expired archive alone must not activate production.
+2. Preview `Happy Hour face (20 sec)` from the system tray to verify
+   rainbow glasses, grin, unchanged original moon and no lag when
+   dragging or scaling the launcher.
+3. **Dev replay:** build and start the launcher with
+   `tes3np.exe --happy-hour-dev`. After Chat Host loads the Roaming
+   chat archive, it replays the *latest verified real Yagrum event*
+   for 60 seconds, even when that historical event has expired.
+   Both the banner and Jiub's face must appear. The banner must read
+   `HAPPY HOUR DEV PREVIEW` and
+   `Archived event - No live bonus`. Do not treat the artificial
+   60-second countdown as an actual game bonus or persist it.
+4. Without a verified announcement in the local archive, dev mode
+   must log `No verified archived announcement found` and show
+   nothing. Do not manufacture event IDs, timestamps or chat entries.
+5. Confirm banner has **no X button**. Minimize/restore the launcher
+   and verify the owned banner and Jiub's picture hide/show together.
+   After 60 seconds, both disappear in developer replay.
+6. Confirm a real new event is still recognized from Discord text
+   or a verified image, is displayed during its actual time window
+   (even when Discord is signed out with a valid saved archive),
+   and takes precedence over developer replay. Real expiry should
+   remain tied to the authentic Discord timestamp, never the test clock.
+7. Confirm `Happy Hour: Jiub face` remains optional and setting
+   migrates from the legacy user INI value, while keeping the original
+   launcher controls and login behavior unchanged. Verify full
+   Windows build and packaged PNG inclusion before release.
 
 
 ## Validation before release
