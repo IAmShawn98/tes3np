@@ -83,14 +83,17 @@ no dismiss button and uses the normal `HAPPY HOUR ACTIVE - Mastery Points Are
 Doubled!` title/countdown (including `0m 0s` for the expired alpha test).
 Jiub's image is `assets/happy-hour/jiub-happy-hour.png`, presented as a
 transparent child control by `src/ui/happy-hour.ahk` at the user's adjusted
-`x438 y84 w120 h135`. A second, optional **static** transparent artwork layer
-(`assets/happy-hour/pixie-dust.png`, 960x720) adds a sparse scattering of
-tiny red, green, blue, cyan, pink, purple and gold speckles. It is a
-disabled, mouse-transparent picture child immediately after the original
-launcher background and before text/buttons; it cannot intercept interactions
-or draw beyond the launcher. Both pictures are toggled by the same verified
-banner visibility message and disappear together. There is no particle timer,
-animation, separate HWND, or compositor-follow loop. The original crescent, background and all launcher
+`x438 y84 w120 h135`. The **static** transparent RGB dust (`assets/happy-hour/pixie-dust.png`,
+960x720) adds a sparse scattering of tiny colored speckles. The original
+one-pixel cores were practically invisible at normal launcher scale, so the
+same asset is drawn four times at logical offsets (0,0), (1,0), (0,1), and
+(1,1) for a restrained, more legible twinkle. These four disabled and
+mouse-transparent native picture children are created immediately after the
+original background and before interactive controls. They share the launcher
+window, scale and move with its layout, and cannot draw on the desktop or
+intercept clicks. The existing verified banner signal toggles all four
+together with Jiub. There is no animation timer, separate top-level window,
+or compositor-follow loop. The original crescent, background and all launcher
 controls are unchanged. Chat Host posts `WM_APP + 0x334` to the launcher
 whenever it shows/hides this banner; Jiub follows the same message and moves
 natively with the launcher. The separate 60-second developer replay,
