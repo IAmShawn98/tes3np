@@ -36,25 +36,7 @@ content; it communicates chat visibility through the existing window messages
 `0x8331` (launcher commands) and `0x8332` (Chat Host state). Do not add a
 second Chat Host process, popup ownership controller, or competing chat timer.
 Its existing `WatchLauncherMovement` WinEvent hook tracks the AutoHotkey
-launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events.
-
-**The Tavern voice strip (experimental):** The original Game Chat remains
-unchanged. A second WebView2 in the same authenticated profile navigates to
-voice channel `509601787901116441` and shows the genuine `The Tavern`
-row beside the launcher's top-right edge. The previous DOM island incorrectly
-used `#app-mount *` with higher CSS specificity than the rule intended to
-reveal the row, and also rejected channel-list markup without an exposed ID.
-The voice-only injection now gives the row/hierarchy a higher-specificity
-visibility rule, preserves all other React-owned DOM nodes without collapsing
-their layout, and positions only the verified row at viewport (0,0). It
-prefers a matching channel ID; when Discord omits that ID, it accepts an
-exact `The Tavern` name in the left sidebar only if the current Discord
-route is the requested channel. An unmatched row remains hidden behind the
-native loading label and generates rate-limited, non-sensitive diagnostics
-in `chat-host.log`. Wheel/touch/scroll-key prevention stays voice-only.
-No new process, browser profile, timer, login, or microphone grant is added.
-
-The Happy Hour banner
+launcher's native `EVENT_OBJECT_LOCATIONCHANGE` events. The Happy Hour banner
 is an **owned top-level popup** (not a clipped child window): ownership controls
 z-order/minimization, but does not automatically move the popup with its owner.
 Use the same event hook and native, nonactivating `SetWindowPos` to move it

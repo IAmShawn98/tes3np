@@ -107,26 +107,6 @@ Both the lightweight CI workflow and the Windows packaging workflow run the
 architectural regression guard. The lightweight CI also compiles Chat Host,
 so C# syntax errors are caught without waiting for the complete launcher build.
 
-## Discord Tavern voice DOM island (experimental)
-
-A voice-only WebView2 sharing Chat Host's authenticated profile exposes the
-original Discord `The Tavern` row for channel `509601787901116441`.
-CSS hides everything else visually (no destructive React DOM removal), while
-the original channel row becomes fixed at the voice browser origin. The
-selector first tries channel ID attributes, then a precise `The Tavern`
-sidebar text match only when the Discord URL confirms the requested channel.
-The row-reveal selector outranks the blanket Discord hiding selector. Input
-scrolling is blocked only in this voice viewport.
-
-Local validation: build normally, confirm the upper-right strip displays
-the speaker icon and `The Tavern`, and verify clicks still reach the actual
-Discord row without scrolling or showing other channels. Test movement,
-scaling, minimization, sign-in and existing Game Chat/Happy Hour regressions.
-Voice joining and audio are NOT yet verified. If the native loading label
-continues, check `%APPDATA%\tes3np\chat-host.log` for a rate-limited
-`VOICE | Tavern lookup pending` line (contains selector counts/reasons only).
-This is evidence about live Discord markup for the next fix, not credentials.
-
 ## Happy Hour and Jiub production behavior
 
 The temporary expired-announcement detection override
