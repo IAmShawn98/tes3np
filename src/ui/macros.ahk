@@ -7,37 +7,62 @@ OpenMacros(*)
 
 BuildMacroBookPanel()
 {
-    global CharacterPage, LauncherMorrowindFont
+    global CharacterPage, LauncherMorrowindFont, ButtonFaces
     global MacroPage, MacroList, MacroDetails, MacroStatus, MacroEmptyNotice
     global MacroImportButton, MacroRunButton, MacroStopButton, MacroRemoveButton
-    global MacroBindingsButton, MacroBookControls
+    global MacroBindingsButton, MacroBookControls, MacroBookRows
+    global MacroPreviousButton, MacroNextButton, MacroPageLabel
     MacroPage := CharacterPage
     MacroBookControls := []
-    CharacterPage.SetFont("s18 Norm c241408", LauncherMorrowindFont)
-    heading := CharacterPage.Add("Text", "x525 y45 w355 h33 Center BackgroundTrans", "Installed Macros")
-    CharacterPage.SetFont("s9 Norm c382314", "Segoe UI")
-    explanation := CharacterPage.Add("Text", "x525 y88 w355 h43 BackgroundTrans",
-        "Add a macro (.ahk or ZIP), or link an installed application (.exe). Run it here whenever you need it.")
-    MacroEmptyNotice := CharacterPage.Add("Text", "x525 y155 w355 h34 BackgroundTrans",
+    MacroBookRows := []
+    CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
+    heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Installed Macros")
+    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    explanation := CharacterPage.Add("Text", "x525 y87 w355 h45 BackgroundTrans",
+        "Add an AutoHotkey macro (.ahk or ZIP) or link an application (.exe). Select a tool to run it.")
+    nameHeading := AddBookLabel(CharacterPage, 525, 143, 206, 22, "Macro / Application")
+    stateHeading := AddBookLabel(CharacterPage, 740, 143, 80, 22, "Status")
+    typeHeading := AddBookLabel(CharacterPage, 824, 143, 55, 22, "Type")
+    MacroEmptyNotice := CharacterPage.Add("Text", "x525 y175 w355 h30 BackgroundTrans",
         "you havent installed any macros.")
-    MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 -Multi BackgroundF0E3C5",
+    ; The legacy ListView remains an invisible selection/data model so all
+    ; tested import, run, stop, remove and binding handlers stay unchanged.
+    ; Only the visible list is replaced with the launcher-painted book rows.
+    MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 Hidden -Multi",
         ["Name", "Status", "Type"])
-    MacroList.ModifyCol(1, 185), MacroList.ModifyCol(2, 90), MacroList.ModifyCol(3, 70)
     MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
-    MacroList.OnEvent("DoubleClick", RunSelectedMacro)
-    MacroDetails := CharacterPage.Add("Text", "x525 y380 w355 h40 BackgroundTrans", "")
-    MacroImportButton := CharacterPage.Add("Button", "x525 y430 w118 h29", "Add Macro / App")
-    MacroRunButton := CharacterPage.Add("Button", "x649 y430 w47 h29 Disabled", "Run")
-    MacroStopButton := CharacterPage.Add("Button", "x702 y430 w47 h29 Disabled", "Stop")
-    MacroRemoveButton := CharacterPage.Add("Button", "x755 y430 w62 h29 Disabled", "Remove")
-    MacroBindingsButton := CharacterPage.Add("Button", "x823 y430 w62 h29 Disabled", "Keys")
-    MacroStatus := CharacterPage.Add("Text", "x525 y477 w355 h48 BackgroundTrans", "Ready.")
-    MacroImportButton.OnEvent("Click", ImportMacroPackage)
-    MacroRunButton.OnEvent("Click", RunSelectedMacro)
-    MacroStopButton.OnEvent("Click", StopSelectedMacro)
-    MacroRemoveButton.OnEvent("Click", RemoveSelectedMacro)
-    MacroBindingsButton.OnEvent("Click", EditSelectedMacroBindings)
-    MacroBookControls.Push(heading, explanation, MacroEmptyNotice, MacroList,
+    MacroBookControls.Push(heading, explanation, nameHeading, stateHeading, typeHeading,
+        MacroEmptyNotice, MacroList)
+    Loop 5
+    {
+        position := A_Index
+        y := 167 + (position - 1) * 34
+        select := AddStyledButton(CharacterPage, 525, y, 207, 29, "",
+            SelectMacroBookRow.Bind(position))
+        ButtonFaces[select.Hwnd].MacroSelected := false
+        status := AddBookLabel(CharacterPage, 741, y + 2, 78, 25, "")
+        kind := AddBookLabel(CharacterPage, 824, y + 2, 56, 25, "")
+        MacroBookRows.Push({Select: select, Status: status, Kind: kind})
+        MacroBookControls.Push(select, status, kind)
+    }
+    MacroPreviousButton := AddStyledButton(CharacterPage, 525, 343, 88, 26,
+        "Previous", PreviousMacroBookPage)
+    MacroPageLabel := AddBookLabel(CharacterPage, 623, 343, 150, 26, "")
+    MacroNextButton := AddStyledButton(CharacterPage, 792, 343, 88, 26,
+        "Next", NextMacroBookPage)
+    MacroDetails := AddBookLabel(CharacterPage, 525, 377, 355, 26, "")
+    MacroImportButton := AddStyledButton(CharacterPage, 525, 410, 164, 30,
+        "Add Macro / App", ImportMacroPackage)
+    MacroRunButton := AddStyledButton(CharacterPage, 696, 410, 88, 30,
+        "Run", RunSelectedMacro)
+    MacroStopButton := AddStyledButton(CharacterPage, 791, 410, 89, 30,
+        "Stop", StopSelectedMacro)
+    MacroRemoveButton := AddStyledButton(CharacterPage, 525, 446, 164, 30,
+        "Remove", RemoveSelectedMacro)
+    MacroBindingsButton := AddStyledButton(CharacterPage, 696, 446, 184, 30,
+        "Edit Keys", EditSelectedMacroBindings)
+    MacroStatus := AddBookLabel(CharacterPage, 525, 488, 355, 27, "Ready.")
+    MacroBookControls.Push(MacroPreviousButton, MacroPageLabel, MacroNextButton,
         MacroDetails, MacroImportButton, MacroRunButton, MacroStopButton,
         MacroRemoveButton, MacroBindingsButton, MacroStatus)
     LoadMacroPackages()
@@ -46,14 +71,10 @@ BuildMacroBookPanel()
 
 ShowMacroBookPanel()
 {
-    global MacroBookControls, MacroList, MacroEmptyNotice, MacroItems
-    if !IsObject(MacroList)
-        return
+    global MacroBookControls
     for control in MacroBookControls
         control.Visible := true
-    MacroList.Visible := MacroItems.Length > 0
-    MacroEmptyNotice.Visible := MacroItems.Length = 0
-    RefreshMacroProcesses()
+    RefreshMacroButtons()
 }
 
 HideMacroBookPanel()
@@ -61,6 +82,102 @@ HideMacroBookPanel()
     global MacroBookControls
     for control in MacroBookControls
         try control.Visible := false
+}
+
+RefreshMacroBookRows()
+{
+    global MacroList, MacroItems, MacroBookRows, MacroListPage
+    global MacroEmptyNotice, MacroPreviousButton, MacroNextButton, MacroPageLabel
+    global MacroDetails, MacroImportButton, MacroRunButton, MacroStopButton
+    global MacroRemoveButton, MacroBindingsButton, MacroStatus
+    global LaunchSettingsHeading, ButtonFaces
+    if !MacroBookRows.Length
+        return
+    count := MacroItems.Length
+    pages := Max(1, Ceil(count / 5))
+    MacroListPage := Max(1, Min(MacroListPage, pages))
+    shown := !LaunchSettingsHeading.Visible
+    selectedIndex := MacroList.GetNext()
+    ; The data/selection ListView must never paint over the book artwork.
+    MacroList.Visible := false
+    for position, itemRow in MacroBookRows
+    {
+        index := (MacroListPage - 1) * 5 + position
+        visible := shown && index <= count
+        itemRow.Select.Visible := visible
+        itemRow.Status.Visible := visible
+        itemRow.Kind.Visible := visible
+        if !visible
+            continue
+        item := MacroItems[index]
+        name := SubStr(item.Name, 1, 27)
+        if itemRow.Select.Text != name
+            itemRow.Select.Text := name
+        status := !ValidMacroApplication(item) ? "Missing"
+            : (item.PID && ProcessExist(item.PID) ? "Running" : "Ready")
+        if itemRow.Status.Text != status
+            itemRow.Status.Text := status
+        if itemRow.Kind.Text != MacroTypeLabel(item)
+            itemRow.Kind.Text := MacroTypeLabel(item)
+        selected := index = selectedIndex
+        if ButtonFaces[itemRow.Select.Hwnd].MacroSelected != selected
+        {
+            ButtonFaces[itemRow.Select.Hwnd].MacroSelected := selected
+            DllCall("InvalidateRect", "Ptr", itemRow.Select.Hwnd, "Ptr", 0, "Int", 0)
+        }
+    }
+    MacroEmptyNotice.Visible := shown && count = 0
+    paging := shown && pages > 1
+    MacroPreviousButton.Visible := paging
+    MacroNextButton.Visible := paging
+    MacroPageLabel.Visible := paging
+    MacroPreviousButton.Enabled := MacroListPage > 1
+    MacroNextButton.Enabled := MacroListPage < pages
+    if paging
+        MacroPageLabel.Text := "Page " MacroListPage " of " pages
+    displayed := Min(5, Max(0, count - (MacroListPage - 1) * 5))
+    bottom := count ? 167 + displayed * 34 : 205
+    if pages > 1
+    {
+        MoveStyledButton(MacroPreviousButton, 525, bottom + 5, 88, 26)
+        MoveStyledButton(MacroPageLabel, 623, bottom + 5, 150, 26)
+        MoveStyledButton(MacroNextButton, 792, bottom + 5, 88, 26)
+        bottom += 33
+    }
+    detailY := bottom + 4
+    MoveStyledButton(MacroDetails, 525, detailY, 355, 26)
+    MacroDetails.Visible := shown && count > 0
+    actionY := count ? detailY + 30 : 217
+    MoveStyledButton(MacroImportButton, 525, actionY, 164, 30)
+    MoveStyledButton(MacroRunButton, 696, actionY, 88, 30)
+    MoveStyledButton(MacroStopButton, 791, actionY, 89, 30)
+    MoveStyledButton(MacroRemoveButton, 525, actionY + 36, 164, 30)
+    MoveStyledButton(MacroBindingsButton, 696, actionY + 36, 184, 30)
+    MoveStyledButton(MacroStatus, 525, actionY + 76, 355, 27)
+}
+
+SelectMacroBookRow(position, *)
+{
+    global MacroList, MacroListPage, MacroItems
+    index := (MacroListPage - 1) * 5 + position
+    if index < 1 || index > MacroItems.Length
+        return
+    MacroList.Modify(index, "Select Focus")
+    RefreshMacroButtons()
+}
+
+PreviousMacroBookPage(*)
+{
+    global MacroListPage
+    MacroListPage := Max(1, MacroListPage - 1)
+    RefreshMacroButtons()
+}
+
+NextMacroBookPage(*)
+{
+    global MacroListPage, MacroItems
+    MacroListPage := Min(Max(1, Ceil(MacroItems.Length / 5)), MacroListPage + 1)
+    RefreshMacroButtons()
 }
 
 CloseMacroPage(*)
@@ -100,6 +217,9 @@ LoadMacroPackages()
         MacroList.Add(, name, kind = "App" && !ValidMacroApplication(item) ? "Missing"
             : (pid ? "Running" : "Ready"), MacroTypeLabel(item))
     }
+    ; Make the first installed tool immediately available for Run.
+    if MacroItems.Length
+        MacroList.Modify(1, "Select Focus")
     RefreshMacroButtons()
 }
 
@@ -142,14 +262,13 @@ RefreshMacroButtons(*)
         && !running && !busy && ReadMacroBindings(MacroItems[row]).Length > 0
     MacroStopButton.Enabled := running
     MacroRemoveButton.Enabled := selected && !running && !busy
-    MacroDetails.Text := selected ? (!ValidMacroApplication(MacroItems[row])
+    description := selected ? (!ValidMacroApplication(MacroItems[row])
         ? "Application missing. Remove it and add it again."
         : (MacroItems[row].Description != "" ? MacroItems[row].Description
         : (MacroItems[row].Kind = "App" ? "Installed application" : "Script: " MacroItems[row].Entry)))
-        : (MacroItems.Length ? "Select a tool to run, stop, or remove it." : "")
-    global MacroEmptyNotice, LaunchSettingsHeading
-    MacroList.Visible := MacroItems.Length > 0 && !LaunchSettingsHeading.Visible
-    MacroEmptyNotice.Visible := MacroItems.Length = 0 && !LaunchSettingsHeading.Visible
+        : ""
+    MacroDetails.Text := SubStr(description, 1, 58)
+    RefreshMacroBookRows()
 }
 
 ImportMacroPackage(*)
@@ -299,11 +418,12 @@ FinishMacroImport(pending)
 
 AddImportedMacro(folder, name, description, entry, kind := "Macro", target := "")
 {
-    global MacroItems, MacroList
+    global MacroItems, MacroList, MacroListPage
     MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
         Kind: kind, Target: target, PID: 0})
     row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
-    MacroList.Modify(row, "Select Focus Vis")
+    MacroList.Modify(row, "Select Focus")
+    MacroListPage := Ceil(row / 5)
     RefreshMacroButtons()
 }
 
@@ -475,7 +595,11 @@ RemoveSelectedMacro(*)
         DirDelete(macro.Folder, true)
         MacroItems.RemoveAt(row)
         MacroList.Delete(row)
-        MacroStatus.Text := "Macro removed."
+        global MacroListPage
+        if MacroItems.Length
+            MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
+        MacroListPage := MacroItems.Length ? Ceil(Min(row, MacroItems.Length) / 5) : 1
+        MacroStatus.Text := "Removed from launcher."
         RefreshMacroButtons()
     }
     catch
