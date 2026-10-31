@@ -135,6 +135,40 @@ def check(allow_missing_payload: bool = False) -> None:
                     errors.append(f"{relative}: missing include {match[1]}")
         except ValueError as error:
             errors.append(f"{relative}: {error}")
+    # Favorite-selection source contract: ensure the first saved character is
+    # checked, an attempted switch is confirmed before any persisted mutation,
+    # and legacy loads/imports cannot strand a nonempty list without a favorite.
+    character_ui = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
+    settings_ui = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
+    backup_ui = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
+    favorite_checks = {
+        "first character auto-favorite": (
+            "if Profiles.Length = 1 || SelectedProfile < 1" in character_ui
+            and "SelectedProfile := 1" in character_ui
+        ),
+        "favorite switch asks before saving": (
+            'if MsgBox(prompt, "Favorite character", 0x124) != "Yes"' in character_ui
+            and character_ui.index('if MsgBox(prompt, "Favorite character", 0x124) != "Yes"')
+            < character_ui.index("    SelectedProfile := index\n    SaveDefaultProfile()")
+        ),
+        "clicking selected favorite preserves it": (
+            "index > Profiles.Length || SelectedProfile = index" in character_ui
+        ),
+        "old favorite moves when removed": (
+            "? (Profiles.Length ? Min(index, Profiles.Length) : 0)" in character_ui
+        ),
+        "legacy saved profiles get first favorite": (
+            "if Profiles.Length && !SelectedProfile" in settings_ui
+            and 'IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")' in settings_ui
+        ),
+        "legacy backup receives first favorite": (
+            "if selected = 0\n            selected := 1" in backup_ui
+        ),
+    }
+    for label, passing in favorite_checks.items():
+        if not passing:
+            errors.append(f"Favorite selection regression: {label}")
+
     manifest = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
     missing = 0
     seen = set()

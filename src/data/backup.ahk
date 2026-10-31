@@ -101,6 +101,10 @@ ImportLauncherData()
             throw Error("Unsupported backup")
         count := ReadBackupInteger(path, "Profiles", "Count", 1, MaxCharacters)
         selected := ReadBackupInteger(path, "Profiles", "Selected", 0, count)
+        ; Legacy backups could contain no favorite. Every nonempty list
+        ; now has one, including immediately after the import completes.
+        if selected = 0
+            selected := 1
         restored := []
         Loop count
         {
