@@ -9,6 +9,11 @@ BuildFrontPage()
     LauncherGui.Opt("+OwnDialogs")
     LauncherGui.BackColor := "272722"
     LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
+    ; The approved vintage Morrowind beast pair is an alpha-composited artwork
+    ; layer, not a flattened screenshot. Keep it behind every menu control.
+    ; WS_EX_TRANSPARENT + Disabled ensure the art cannot intercept mouse input.
+    LauncherGui.Add("Picture", "x50 y230 w310 h462 Disabled BackgroundTrans +E0x20",
+        A_ScriptDir "\assets\backgrounds\og-creatures-overlay.png")
     ; Static Happy Hour dust is behind buttons/text and shares this HWND.
     ; The existing banner signal toggles visibility alongside Jiub's face.
     CreateHappyHourDust()

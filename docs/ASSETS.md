@@ -3,6 +3,7 @@
 | Location | Origin | Notes |
 | --- | --- | --- |
 | `assets/` | Artwork supplied or developed for this launcher | No blanket asset license is assigned by this cleanup |
+| `assets/backgrounds/og-creatures-overlay.png` | Approved vintage-style redraw of the two Morrowind launcher beasts | 310×462 transparent, paletted PNG; positioned at launcher x50 y230 as a disabled, mouse-transparent child picture above `launcher.png` but beneath all headings, controls, and Happy Hour effects. Do not flatten the approved full-launcher mockup into `launcher.png`: that would bake duplicate interactive UI into the background. Keep the original background and functional layout unchanged. |
 | `assets/icons/species/` | Morrowind-inspired race portraits approved for TES3NP | Ten 512×512 transparent PNG masters plus matching multi-resolution ICOs. Retain the race slugs and alpha channel. |
 | `patches/markerless/tes3mp.exe` | Supplied markerless TES3MP 0.8.1 Win64 client | Preserve bytes; upstream licensing is separate from launcher source |
 | `patches/expansion-pack/` | Supplied NP Expansion Pack v0.1 | Learwolf's September 30, 2026 `ASSET USAGE & COMMUNITY GUIDELINES` limits assets to NP's TES3MP server ecosystem; separate launcher ZIP redistribution is not expressly authorized. Project owner reports Learwolf is jiub and has verbally approved TES3NP; obtain and retain explicit written confirmation covering redistribution in our launcher ZIP before marking this release gate complete. Preserve original `LICENSE.txt` unchanged. |
