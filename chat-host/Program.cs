@@ -217,7 +217,12 @@ internal static class Program
         readonly IntPtr owner;
         readonly WebView2 web = new() { Dock = DockStyle.None };
         CoreWebView2Environment? chatWebEnvironment;
-        Form? voicePreviewWindow;
+        Form? voiceStripWindow;
+        WebView2? voiceStripWeb;
+        Label? voiceStripStatus;
+        bool voiceRowLocated, voiceRowScanInFlight;
+        DateTime lastVoiceRowScan = DateTime.MinValue;
+        const int VoiceBrowserWidth = 980, VoiceBrowserHeight = 1050;
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
@@ -1807,6 +1812,7 @@ metrics();
                 // Native SetWindowPos runs immediately; BeginInvoke below is
                 // retained only for the more expensive Game Chat layout.
                 PositionHappyHourBanner();
+                PositionVoiceStrip();
                 if (repositionQueued) return;
                 repositionQueued = true;
                 try
@@ -1876,74 +1882,166 @@ metrics();
             Log("CSS reloaded");
         }
 
-        // On-page Voice Preview button opens an unstyled Discord voice view.
-        // This does not modify the authenticated Game Chat source or renderer.
-        async Task OpenVoicePreviewAsync()
+        // Keep the real Discord channel row alive and interactive inside a
+        // small, launcher-owned clip window. The whole Discord page remains
+        // mounted at full size under the clip: no copied labels or fake clicks.
+        void PositionVoiceStrip()
         {
-            if (closingChat || IsDisposed) return;
-            if (voicePreviewWindow is { IsDisposed: false })
-            {
-                voicePreviewWindow.Show();
-                voicePreviewWindow.Activate();
-                return;
-            }
-            if (chatWebEnvironment == null)
-            {
-                MessageBox.Show("Discord is still initializing. Try again when Game Chat is ready.",
-                    "TES3NP Voice Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
+            if (voiceStripWindow is not { IsDisposed: false } strip ||
+                !IsWindow(owner) || !GetWindowRect(owner, out var bounds)) return;
+            double scale = Math.Max(0.6, (bounds.Right - bounds.Left) / 960.0);
+            int width = Math.Max(120, (int)Math.Round(136 * scale));
+            int height = Math.Max(22, (int)Math.Round(24 * scale));
+            var work = Screen.FromHandle(owner).WorkingArea;
+            int x = Math.Clamp(bounds.Right, work.Left,
+                Math.Max(work.Left, work.Right - width));
+            int y = Math.Clamp(bounds.Top + (int)Math.Round(4 * scale),
+                work.Top, Math.Max(work.Top, work.Bottom - height));
+            // Native no-activate positioning is also safe in the launcher
+            // location WinEvent callback; existing watch timer is fallback.
+            const uint flags = 0x0004 | 0x0010; // SWP_NOZORDER | SWP_NOACTIVATE
+            SetWindowPos(strip.Handle, IntPtr.Zero, x, y, width, height, flags);
+        }
 
-            var preview = new Form
-            {
-                Text = "TES3NP Voice Channel Preview (unstyled)",
-                StartPosition = FormStartPosition.CenterScreen,
-                ClientSize = new System.Drawing.Size(980, 680),
-                MinimumSize = new System.Drawing.Size(540, 400),
-                ShowInTaskbar = false,
-                BackColor = System.Drawing.Color.FromArgb(24, 24, 24)
-            };
-            var voiceWeb = new WebView2 { Dock = DockStyle.Fill };
-            preview.Controls.Add(voiceWeb);
-            voicePreviewWindow = preview;
-            preview.FormClosed += (_, _) =>
-            {
-                if (ReferenceEquals(voicePreviewWindow, preview))
-                    voicePreviewWindow = null;
-            };
-            preview.Show();
-            if (IsWindow(owner)) SetNativeWindowOwner(preview.Handle, owner);
+        // Discord's class hashes change. Locate the original voice row by its
+        // immutable channel ID, with a visible text fallback. Never move the
+        // React node or simulate a click: preserve its real event handlers.
+        const string LocateVoiceRowScript = """
+            (() => {
+              const id = '509601787901116441';
+              const matches = Array.from(document.querySelectorAll(
+                '[data-list-item-id*="' + id + '"],a[href$="/' + id + '"]'
+              ));
+              let row = matches.find(el => {
+                const box = el.getBoundingClientRect();
+                return box.height >= 15 && box.width >= 90;
+              });
+              if (row) {
+                row = row.querySelector('[class*="link_"],a') || row;
+              } else {
+                row = Array.from(document.querySelectorAll('[role="treeitem"]'))
+                  .find(el => el.textContent?.trim() === 'The Tavern') || null;
+              }
+              if (!row) return null;
+              const box = row.getBoundingClientRect();
+              if (box.height < 15 || box.width < 90 || box.top < 0 ||
+                  box.bottom > window.innerHeight) return null;
+              return {
+                x: Math.round(box.left), y: Math.round(box.top),
+                width: Math.round(box.width), height: Math.round(box.height)
+              };
+            })()
+            """;
 
+        async Task RefreshVoiceRowViewportAsync()
+        {
+            if (closingChat || IsDisposed || voiceStripWindow is not { IsDisposed: false } ||
+                voiceStripWeb?.CoreWebView2 == null || voiceRowScanInFlight) return;
+            var interval = voiceRowLocated ? TimeSpan.FromSeconds(3) : TimeSpan.FromSeconds(1);
+            if (DateTime.UtcNow - lastVoiceRowScan < interval) return;
+            lastVoiceRowScan = DateTime.UtcNow;
+            voiceRowScanInFlight = true;
             try
             {
-                // Share the existing authenticated profile, never a second UDF.
-                await voiceWeb.EnsureCoreWebView2Async(chatWebEnvironment);
-                if (closingChat || preview.IsDisposed) return;
-                // No CSS injection, DOM extraction, navigation hacks, auto-join,
-                // or automatic microphone/camera permission granting.
-                voiceWeb.CoreWebView2.Settings.AreDevToolsEnabled = false;
-                voiceWeb.CoreWebView2.PermissionRequested += (_, e) =>
-                {
-                    if (e.PermissionKind == CoreWebView2PermissionKind.Microphone ||
-                        e.PermissionKind == CoreWebView2PermissionKind.Camera)
-                        Log("VOICE PREVIEW | " + e.PermissionKind +
-                            " permission requested; leaving user prompt unchanged");
-                };
-                voiceWeb.CoreWebView2.NavigationCompleted += (_, e) =>
-                    Log("VOICE PREVIEW | Navigation completed; success=" + e.IsSuccess +
-                        "; error=" + e.WebErrorStatus);
-                voiceWeb.CoreWebView2.Navigate(VoicePreviewChannel);
-                Log("VOICE PREVIEW | Opened channel " + VoicePreviewChannel);
+                var result = await voiceStripWeb.CoreWebView2.ExecuteScriptAsync(LocateVoiceRowScript);
+                if (closingChat || voiceStripWindow is not { IsDisposed: false } ||
+                    voiceStripWeb.IsDisposed) return;
+                using var doc = System.Text.Json.JsonDocument.Parse(result);
+                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return;
+                int x = doc.RootElement.GetProperty("x").GetInt32();
+                int y = doc.RootElement.GetProperty("y").GetInt32();
+                // The browser stays 980x1050; only its origin shifts beneath
+                // the tiny native clip. Pointer events go to the original row.
+                voiceStripWeb.SetBounds(-Math.Max(0, x), -Math.Max(0, y),
+                    VoiceBrowserWidth, VoiceBrowserHeight);
+                if (!voiceRowLocated)
+                    Log("VOICE | Live Tavern row isolated at (" + x + "," + y + ")");
+                voiceRowLocated = true;
+                if (voiceStripStatus is { IsDisposed: false })
+                    voiceStripStatus.Visible = false;
             }
             catch (Exception ex)
             {
-                Log("VOICE PREVIEW | Failed: " + ex.Message);
-                if (!preview.IsDisposed)
+                if (!closingChat) Log("VOICE | Row placement: " + ex.Message);
+            }
+            finally { voiceRowScanInFlight = false; }
+        }
+
+        async Task StartVoiceStripAsync()
+        {
+            if (closingChat || IsDisposed || chatWebEnvironment == null ||
+                voiceStripWindow is { IsDisposed: false }) return;
+            var strip = new Form
+            {
+                Text = "tes3np Tavern Voice",
+                FormBorderStyle = FormBorderStyle.None,
+                StartPosition = FormStartPosition.Manual,
+                ShowInTaskbar = false,
+                BackColor = System.Drawing.Color.FromArgb(44, 44, 48),
+                ClientSize = new System.Drawing.Size(136, 24)
+            };
+            var viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = false,
+                BackColor = System.Drawing.Color.FromArgb(44, 44, 48) };
+            var browser = new WebView2 { Dock = DockStyle.None };
+            browser.SetBounds(0, 0, VoiceBrowserWidth, VoiceBrowserHeight);
+            var status = new Label
+            {
+                Dock = DockStyle.Fill, Text = "The Tavern · loading",
+                TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+                ForeColor = System.Drawing.Color.White,
+                BackColor = System.Drawing.Color.FromArgb(44, 44, 48),
+                Font = new System.Drawing.Font("Segoe UI", 9)
+            };
+            viewport.Controls.Add(browser);
+            viewport.Controls.Add(status);
+            strip.Controls.Add(viewport);
+            voiceStripWindow = strip;
+            voiceStripWeb = browser;
+            voiceStripStatus = status;
+            voiceRowLocated = false;
+            lastVoiceRowScan = DateTime.MinValue;
+            strip.FormClosed += (_, _) =>
+            {
+                if (ReferenceEquals(voiceStripWindow, strip))
                 {
-                    MessageBox.Show(preview, "Discord voice preview could not load:\n" + ex.Message,
-                        "TES3NP Voice Preview", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    preview.Close();
+                    voiceStripWindow = null;
+                    voiceStripWeb = null;
+                    voiceStripStatus = null;
+                    voiceRowLocated = false;
                 }
+            };
+            // Existing launcher owns the strip. Place before first show.
+            SetNativeWindowOwner(strip.Handle, owner);
+            PositionVoiceStrip();
+            strip.Show();
+            PositionVoiceStrip();
+            try
+            {
+                await browser.EnsureCoreWebView2Async(chatWebEnvironment);
+                if (closingChat || strip.IsDisposed) return;
+                browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                // Let WebView2 request permission normally, without force-allow.
+                browser.CoreWebView2.PermissionRequested += (_, e) =>
+                {
+                    if (e.PermissionKind == CoreWebView2PermissionKind.Microphone ||
+                        e.PermissionKind == CoreWebView2PermissionKind.Camera)
+                        Log("VOICE | Permission requested: " + e.PermissionKind);
+                };
+                browser.CoreWebView2.NavigationCompleted += (_, e) =>
+                {
+                    Log("VOICE | Discord view loaded=" + e.IsSuccess +
+                        "; result=" + e.WebErrorStatus);
+                    lastVoiceRowScan = DateTime.MinValue;
+                    _ = RefreshVoiceRowViewportAsync();
+                };
+                browser.CoreWebView2.Navigate(VoicePreviewChannel);
+                Log("VOICE | Started inline Tavern row; channel=" + VoicePreviewChannel);
+            }
+            catch (Exception ex)
+            {
+                Log("VOICE | Inline row failed: " + ex.Message);
+                if (!strip.IsDisposed)
+                    status.Text = "The Tavern unavailable";
             }
         }
 
@@ -2335,6 +2433,9 @@ metrics();
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     await web.EnsureCoreWebView2Async(env);
                     chatWebEnvironment = env;
+                    // Start the inline voice channel independently of Game Chat's
+                    // docked visibility. It shares this exact browser profile.
+                    _ = StartVoiceStripAsync();
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();
@@ -2373,8 +2474,8 @@ metrics();
             FormClosing += (_, _) =>
             {
                 closingChat = true;
-                if (voicePreviewWindow is { IsDisposed: false })
-                    voicePreviewWindow.Close();
+                if (voiceStripWindow is { IsDisposed: false })
+                    voiceStripWindow.Close();
                 watch.Stop();
                 historyWatch.Stop();
                 if (launcherLocationHook != IntPtr.Zero)
@@ -2396,6 +2497,7 @@ metrics();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
+                _ = RefreshVoiceRowViewportAsync();
                 PositionChatWindows();
                 if (!discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
@@ -2871,7 +2973,7 @@ metrics();
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
                     // Main-page Voice Preview button; unrelated to Game Chat menus.
-                    case 5: _ = OpenVoicePreviewAsync(); break;
+                    // Tavern strip is started automatically with Chat Host.
                 }
                 return;
             }
@@ -2920,6 +3022,7 @@ metrics();
             // movement events, regardless of whether the hook installed.
             // The native helper is a no-op if the banner is already aligned.
             PositionHappyHourBanner();
+            PositionVoiceStrip();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
