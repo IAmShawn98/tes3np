@@ -191,6 +191,26 @@ expect(
 
 
 expect(
+    "Static Happy Hour RGB pixie dust must be bundled and use the same banner state",
+    (ROOT / "assets" / "happy-hour" / "pixie-dust.png").is_file()
+    and 'CreateHappyHourDust()' in jiub_ui
+    and 'CreateHappyHourDust()' in (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
+    and 'x0 y-4 w960 h720 Hidden Disabled BackgroundTrans +E0x20' in jiub_ui
+    and 'HappyHourDustPicture.Visible := HappyHourBannerVisible' in jiub_ui
+    and 'HappyHourJiubPicture.Visible := HappyHourBannerVisible' in jiub_ui
+    and 'SetTimer(AnimateHappyHour' not in jiub_ui,
+)
+expect(
+    "Pixie dust must sit over background but under interactive launcher controls",
+    (lambda front:
+        front.index('LauncherGui.Add("Picture", "x0 y-4 w960 h720"')
+        < front.index('CreateHappyHourDust()')
+        < front.index('DragStrip := LauncherGui.Add(')
+        < front.index('BuildButtonViewport()')
+    )((ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")),
+)
+
+expect(
     "Happy Hour banner has no dismiss button or dismissal state",
     'GoldButton("×"' not in source
     and 'dismissedHappyHourBannerId' not in source
