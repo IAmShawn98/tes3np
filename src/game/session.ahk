@@ -137,25 +137,30 @@ LaunchAllCharacters(*)
 StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false, scheduledLoginAction := "", keptPids := 0)
 {
     global Client
-    source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : "Manual character"
-    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profile.Name ".")
+    source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : IsObject(profile) ? "Manual character" : "New Adventure"
+    profileName := IsObject(profile) ? profile.Name : "New Adventure"
+    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
     ; Batch transitions replace the old Client record without going through
     ; StopClient, so release its retained process handle first.
     if IsObject(Client) && Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
         DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
     batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
-    LogLauncherEvent("GAME | Launch requested | Character: " profile.Name batchText ".")
+    LogLauncherEvent("GAME | Launch requested | Character: " profileName batchText ".")
     global DataFile
     LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " executable ".")
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
-        Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
-        UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
-        LoadDelay: profile.LoadDelay, Queue: queue,
+        Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
+        UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
+        PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
+        LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, Queue: queue,
         ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : [], ProcessHandle: 0,
         LoginCompletionPending: false}
-    BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "",
-        profile.HasOwnProp("PortraitFile") ? profile.PortraitFile : "")
-    SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
+    if IsObject(profile)
+    {
+        BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "",
+            profile.HasOwnProp("PortraitFile") ? profile.PortraitFile : "")
+        SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
+    }
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
 }
@@ -239,10 +244,11 @@ ClientTick()
             if Client.LaunchIssued
                 return
             Client.LaunchIssued := true
-            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
+            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " (IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure") " | Phase: " Client.Phase ".")
             if !ValidateSelectedClientRuntime(Client.Executable)
                 throw Error("Selected TES3MP runtime is incomplete.")
             SplitPath(Client.Executable, , &workingDirectory)
+            Client.LogWatch := CaptureTES3MPLogBaseline()
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
             ; Keep a process handle so Windows retains the real exit code even
@@ -252,6 +258,10 @@ ClientTick()
             Client.Deadline := A_TickCount + AppConfig.GameWindowWaitMs
             LogLauncherEvent("GAME | TES3MP process started | PID: " pid ".")
         }
+        ; Read only log output created after this launch. This is part of the
+        ; existing client watchdog, not a parallel reconnect or polling timer.
+        if Client.Phase != "launch" && CheckTES3MPPluginMismatch()
+            return
         if Client.Phase = "closing"
         {
             if ProcessExist(Client.PID)
@@ -326,6 +336,8 @@ ClientTick()
                 if !IsObject(Client.Profile)
                 {
                     Client.Phase := "playing"
+                    Client.Deadline := A_TickCount + 15000
+                    RememberTES3NPGameClient(Client.PID)
                     SetClientStatus("Game running. Create your character in-game.")
                     LogLauncherEvent("GAME | SUCCESS | Game session started for new adventure.")
                 }
@@ -351,6 +363,13 @@ ClientTick()
         }
         if Client.Phase = "playing"
         {
+            ; A new-adventure launch needs a short connection-error watch, not
+            ; a permanent second login controller or continuous game monitoring.
+            if !IsObject(Client.Profile) && A_TickCount >= Client.Deadline
+            {
+                StopClient()
+                return
+            }
             if DllCall("IsHungAppWindow", "Ptr", hwnd)
                 RetryClient("Game window is unresponsive")
             return
@@ -488,17 +507,8 @@ StartNewAdventure(*)
     executable := GetSharedExecutable()
     if !ValidateSelectedClientRuntime(executable)
         return
-    SplitPath(executable, , &workingDirectory)
+    ; Use the same tracked launch watchdog so a new-adventure connection
+    ; receives exactly the same fresh-log mismatch handling as saved profiles.
     LogLauncherEvent("GAME | New Adventure launch requested.")
-    try
-    {
-        Run('"' executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
-        RememberTES3NPGameClient(pid)
-        LogLauncherEvent("GAME | SUCCESS | New Adventure TES3MP process started | PID: " pid ".")
-    }
-    catch Error as err
-    {
-        LogLauncherEvent("GAME | ERROR | Could not start New Adventure: " err.Message ".")
-        MsgBox("Could not launch TES3MP. Check the selected executable and try again.", "tes3np")
-    }
+    StartProfileSession(0, executable)
 }
