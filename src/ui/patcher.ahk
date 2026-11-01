@@ -377,6 +377,16 @@ CheckPatchWorker()
     {
         ; Verification must not erase an existing successful installation.
         ; Only a successful Apply establishes setup; Restore clears it.
+        if job.Action = "Import" && state = "success"
+        {
+            ; A manually downloaded pack may be newer than our bundled
+            ; manifest. Record its locations, but never change the old patch
+            ; backup chain or claim a matching server checksum before login.
+            IniWrite(job.MorrowindFolder, DataFile, "Patch", "MorrowindFolder")
+            IniWrite(job.ConfigFile, DataFile, "Patch", "ConfigFile")
+            IniWrite("1", DataFile, "ExpansionPack", "GlobalEnabled")
+            LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
+        }
         if job.Action = "Apply"
             SetupComplete := state = "success"
         else if job.Action = "Verify" && state = "success"
@@ -398,6 +408,8 @@ CheckPatchWorker()
             }
         }
         UpdateCharacterMenuLabel()
+        if job.Action = "Import"
+            RefreshExpansionPackToggle()
         UpdatePatchProgress(state = "success" ? "Waiting for Jiub" : "Expansion Pack needs attention", state = "success" ? 100 : 0)
     }
     catch Error as err
@@ -436,7 +448,7 @@ CheckPatchWorker()
         }
     }
     else
-        MsgBox(message, state = "needs_setup" ? "Setup needed" : "Patch Tes3mp", state = "error" ? "Icon!" : "Iconi")
+        MsgBox(message, job.Action = "Import" ? "Upload Expansion" : state = "needs_setup" ? "Setup needed" : "Patch Tes3mp", state = "error" ? "Icon!" : "Iconi")
 
     if state = "success" && job.Action = "Apply"
     {
