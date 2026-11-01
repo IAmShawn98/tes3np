@@ -20,6 +20,16 @@ Base game files are not redistributed. No changes are made to the original Morro
 
 The NP server's login chat message is the final in-game confirmation that EP is accepted. Local verification does not prove the server accepted it or prevent every possible client crash.
 
+## Detecting mismatched server plugins and importing a downloaded expansion
+
+When a TES3MP launch is rejected with `Your plugins or their load order don't match the server's`, TES3NP watches **only new client log output produced by that launch** and stops the failed TES3MP process. It replaces the recovery experience with an owned launcher dialog explaining that the cause may be a new NP Expansion Pack, different plugin versions, or a mismatched load order. It does not claim an update exists until the user checks the NP Discord server, and it cannot guarantee that the TES3MP-owned error popup never flashes before detection.
+
+**Upload Expansion** is a manual local-file picker, not a network downloader. Choose a downloaded `NP Expansion Pack.esp` or a ZIP containing that ESP plus supported `Data Files/Icons|Meshes|Textures/tes3mp_np` assets. The PowerShell worker validates ZIP paths and limits, stages and hashes the content, backs up existing game files and `openmw.cfg`, then replaces files transactionally with rollback on failure. It never overwrites the bundled `tes3mp.exe`, official master files, saved characters, or launcher passwords. Only the NP server can establish whether the selected download is the version now required. The import's backup journal is retained under `%APPDATA%\\tes3np\\expansion-imports`.
+
+The built-in **Install / Repair** action still verifies the **bundled** expansion manifest. When a user manually imports a newer download ahead of a launcher update, running that old repair can downgrade those imported files; use Upload Expansion for the newer file instead. The new importer does not modify the bundled manifest or release payload. A future official expansion payload update must update both source files and manifest hashes.
+
+The session controller includes the check in its existing watchdog, including the short connection window for Start New Adventure. It never adds a parallel login/reconnect timer, and it cancels queued/scheduled logins on a plugin rejection. On Windows, test redirected OneDrive Documents log directories, old logs versus fresh failures, ZIP/ESP imports, mismatched masters, rollback, and connection to the actual NP server.
+
 ## Progress and logs
 
 The existing dimmed loading card shows the current operation/file and `(x%)`, and its bar follows reported work. Operations run in a separate Windows PowerShell process so the UI remains responsive. Controls and launcher-owned game launches are blocked during the job. There are no artificial loading waits. The first and final loading placeholders use Waiting for Jiub.
