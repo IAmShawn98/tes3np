@@ -224,6 +224,108 @@ internal static class Program
         WebView2? expansionDownloadsBrowser;
         bool expansionDownloadsInitializing;
 
+        // This code is injected into the *downloads WebView only*. Game Chat
+        // uses a different WebView2 control, preserving its existing Discord
+        // DOM extraction, WebView2 CSS and Happy Hour behavior.
+        // Discord's hashed class names change often: discover the message
+        // scroller by its stable data-list-id, then hide its sibling columns
+        // along the ancestor path. Do not alter individual messages/files.
+        // If signed out, unauthorized or still loading, leave Discord visible.
+        const string ExpansionDownloadsFocusScript = """
+            (() => {
+              if (window.__tes3npExpansionFocus) {
+                window.__tes3npExpansionFocus();
+                return;
+              }
+              const hidden = new Set(), widened = new Set();
+              const hideClass = 'tes3np-expansion-hide';
+              const wideClass = 'tes3np-expansion-wide';
+              let queued = false;
+
+              function focusMessages() {
+                const isDownloadsChannel =
+                  location.pathname.replace(/\/+$/, '') ===
+                  '/channels/509601787901116437/1555049936800718928';
+                const mount = document.getElementById('app-mount');
+                const messages = isDownloadsChannel ?
+                  document.querySelector('[data-list-id="chat-messages"]') : null;
+                const nextHidden = new Set(), nextWide = new Set();
+                if (mount && messages) {
+                  // Preserve Discord's own message virtualizer/scrollbar,
+                  // attachments, click handlers and download links.
+                  let node = messages.closest('[class*="scroller_"]') || messages;
+                  while (node && node !== mount) {
+                    nextWide.add(node);
+                    const parent = node.parentElement;
+                    if (!parent) break;
+                    // The mount can hold Discord's modal/lightbox portals.
+                    // Do not hide that top-level overlay layer.
+                    if (parent !== mount) {
+                      for (const sibling of parent.children) {
+                        if (sibling === node ||
+                            sibling.matches('style,script,[role="dialog"],[role="alertdialog"]') ||
+                            sibling.matches('[class*="layerContainer"],[class*="popout"],[class*="tooltip"],[class*="modal"]'))
+                          continue;
+                        nextHidden.add(sibling);
+                      }
+                    }
+                    node = parent;
+                  }
+                }
+
+                // Discord can replace the SPA route without a full browser
+                // navigation. Restore old nodes on logout or navigation.
+                for (const node of hidden)
+                  if (!nextHidden.has(node)) node.classList.remove(hideClass);
+                for (const node of widened)
+                  if (!nextWide.has(node)) node.classList.remove(wideClass);
+                for (const node of nextHidden)
+                  if (!hidden.has(node)) node.classList.add(hideClass);
+                for (const node of nextWide)
+                  if (!widened.has(node)) node.classList.add(wideClass);
+                hidden.clear();
+                widened.clear();
+                for (const node of nextHidden) hidden.add(node);
+                for (const node of nextWide) widened.add(node);
+              }
+
+              function schedule() {
+                if (queued) return;
+                queued = true;
+                requestAnimationFrame(() => {
+                  queued = false;
+                  focusMessages();
+                });
+              }
+              function setup() {
+                if (!document.head || !document.documentElement) return;
+                const style = document.createElement('style');
+                style.id = 'tes3np-expansion-focus-style';
+                style.textContent = `
+                  .tes3np-expansion-hide { display: none !important; }
+                  .tes3np-expansion-wide {
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    max-width: none !important;
+                    flex: 1 1 auto !important;
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
+                    min-height: 0 !important;
+                  }
+                  #app-mount { width: 100% !important; }
+                `;
+                document.head.appendChild(style);
+                new MutationObserver(schedule).observe(document.documentElement,
+                  { childList: true, subtree: true });
+                window.__tes3npExpansionFocus = schedule;
+                schedule();
+              }
+              if (document.readyState === 'loading')
+                document.addEventListener('DOMContentLoaded', setup, {once:true});
+              else setup();
+            })();
+            """;
+
         void ToggleExpansionDownloads()
         {
             if (!IsWindow(owner) || closingChat) return;
@@ -280,11 +382,20 @@ internal static class Program
             {
                 await browser.EnsureCoreWebView2Async(env);
                 if (closingChat || browser.IsDisposed || browser.CoreWebView2 == null) return;
-                // Raw Discord: no chat.css injection, DOM extraction, or
-                // message rewriting. Let Discord render and handle downloads.
-                browser.CoreWebView2.NavigationCompleted += (_, e) =>
+                // The scoped DOM crop keeps only the channel message area.
+                // No Game Chat CSS or Happy Hour extraction runs in this view.
+                await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                    ExpansionDownloadsFocusScript);
+                browser.CoreWebView2.NavigationCompleted += async (_, e) =>
+                {
                     Log("EXPANSION | Discord navigation " +
                         (e.IsSuccess ? "completed" : "failed: " + e.WebErrorStatus));
+                    if (!e.IsSuccess || browser.IsDisposed || browser.CoreWebView2 == null)
+                        return;
+                    // Also reapply when Discord renders the SPA after navigation.
+                    try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }
+                    catch (Exception ex) { Log("EXPANSION | Message crop unavailable: " + ex.Message); }
+                };
                 browser.CoreWebView2.Navigate(ExpansionChannel);
             }
             catch (Exception ex)
