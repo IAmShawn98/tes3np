@@ -111,7 +111,7 @@ ShowTES3MPExpansionMismatchDialog()
     dialog.SetFont("s11 Norm cEDE1C9", "Segoe UI")
     dialog.Add("Text", "x25 y77 w610 h122 BackgroundTrans",
         "Your installed plugins or load order don't match the server's requirements. "
-        . "This may be caused by an outdated Expansion Pack or differences in your game files or load order." 
+        . "This may be caused by an outdated Expansion Pack or differences in your game files or load order."
         . Chr(10) Chr(10)
         . "Download the latest Expansion Pack below. When the download finishes, "
         . "click OK to select and install the ZIP file.")
@@ -122,7 +122,7 @@ ShowTES3MPExpansionMismatchDialog()
     downloadSlot := dialog.Add("Text", "x25 y231 w610 h150 +0x100 Background202023",
         "Connecting to the Nerevarine Prophecies Discord channel...")
     dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
-    dialog.Add("Link", "x25 y388 w610 h20", 
+    dialog.Add("Link", "x25 y388 w610 h20",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
     AddStyledButton(dialog, 340, 420, 140, 38, "OK",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd, true))
