@@ -104,21 +104,20 @@ ShowTES3MPExpansionMismatchDialog()
 {
     global LauncherGui
     ShowLauncherWindow(true)
-    dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np - Expansion Pack")
+    dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
     dialog.SetFont("s17 Bold cC5A45C", "Georgia")
-    dialog.Add("Text", "x25 y22 w630 h35 BackgroundTrans", "Expansion Pack May Need Updating")
+    dialog.Add("Text", "x25 y22 w630 h35 BackgroundTrans", "Plugins Don't Match Servers")
     dialog.SetFont("s11 Norm cEDE1C9", "Segoe UI")
-    dialog.Add("Text", "x25 y75 w630 h105 BackgroundTrans",
-        "TES3MP could not join because your installed plugins or load order do not match the server. "
-        . "This can happen when Nerevarine Prophecies releases a new Expansion Pack, "
-        . "or when game files, other mods, or the load order differ from what the server requires.")
-    dialog.Add("Text", "x25 y188 w630 h58 BackgroundTrans",
-        "Please check the Nerevarine Prophecies Discord server for a possible Expansion Pack update. "
-        . "If there is an update, download it first and click Upload Expansion below.")
-    AddStyledButton(dialog, 263, 262, 205, 38, "Upload Expansion", (*) => (dialog.Destroy(), UploadExpansionFromFile()))
-    AddStyledButton(dialog, 486, 262, 145, 38, "Cancel", (*) => dialog.Destroy())
+    dialog.Add("Text", "x25 y77 w630 h155 BackgroundTrans",
+        "You're seeing this because your load order doesn't match what's on the server. "
+        . "This is likely because of an expansion pack update. "
+        . "Please check the Nerevarine Prophecies Discord server for an update. "
+        . "If you see an update, please download it and click 'ok' to upload the new file to the launcher to continue. "
+        . "Click cancel to exit.")
+    AddStyledButton(dialog, 340, 250, 140, 38, "OK", (*) => (dialog.Destroy(), UploadExpansionFromFile()))
+    AddStyledButton(dialog, 490, 250, 140, 38, "Cancel", (*) => dialog.Destroy())
     dialog.OnEvent("Close", (*) => dialog.Destroy())
     dialog.OnEvent("Escape", (*) => dialog.Destroy())
-    dialog.Show("w660 h318")
+    dialog.Show("w660 h308")
 }
