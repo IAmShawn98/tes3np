@@ -170,7 +170,7 @@ try {
     $updated = ($lines -join [Environment]::NewLine).TrimEnd() + [Environment]::NewLine
     if ($updated -cne $original) {
         $preparedConfig = Join-Path $JobFolder 'prepared-openmw.cfg'
-        [IO.File]::WriteAllText($preparedConfig, $updated, (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText($preparedConfig, $updated, ([Text.UTF8Encoding]::new($false)))
         $plan += [pscustomobject]@{Source=$preparedConfig; Target=$ConfigFile; Hash=(Sha256 $preparedConfig)}
     }
     $needed = @($plan | Where-Object { ![IO.File]::Exists($_.Target) -or (Sha256 $_.Target) -ne $_.Hash })
