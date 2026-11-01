@@ -7,6 +7,8 @@ global LauncherVersionLabel := 0
 global LauncherSettingsButton := 0
 global LauncherUpdateButton := 0
 global LauncherExpansionToggle := 0
+; Separate download-panel button; the old global enable/disable action lives in the tray.
+global LauncherExpansionDownloadButton := 0
 global LauncherUpdateAvailable := false
 global LauncherUpdateDismissedVersion := ""
 global LauncherChatToggle := 0
@@ -16,7 +18,7 @@ global LauncherKillAlertGui := 0
 
 StartLauncher()
 {
-    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle, LauncherUpdateDismissedVersion
+    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionDownloadButton, LauncherUpdateDismissedVersion
     ; A dismissal only lasts for this launcher session. Recheck next launch.
     LauncherUpdateDismissedVersion := ""
     InitializePatchLogMirror()
@@ -35,6 +37,8 @@ StartLauncher()
     A_TrayMenu.Default := "Open Launcher"
     A_TrayMenu.Add("Stop game recovery", StopClient)
     A_TrayMenu.Add("Optional Expansion Pack", OpenPatcher)
+    A_TrayMenu.Add("Enable / Disable Expansion Pack", ToggleExpansionPack)
+    A_TrayMenu.Add("Expansion Downloads", ToggleLauncherExpansionDownloads)
     InitializeHappyHourJiub()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
@@ -76,9 +80,10 @@ StartLauncher()
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
-    ; Global EP switch in the upper-left frame, away from the main scroll.
-    LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
-    RefreshExpansionPackToggle()
+    ; Reuse the original upper-left Expansion Pack button footprint.
+    ; Downloads open in the existing ChatHost, without affecting the global
+    ; enabled/disabled status or the original patch install/repair worker.
+    LauncherExpansionDownloadButton := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Downloads", ToggleLauncherExpansionDownloads)
     ; Update notification replaces the version label in the lower-left frame.
     LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
     LauncherUpdateButton.Visible := false
@@ -212,6 +217,13 @@ ToggleLauncherChat(*)
 {
     ; Do not guess the new state: automatic mode can open/close chat itself.
     SendLauncherChatCommand(1)
+}
+
+ToggleLauncherExpansionDownloads(*)
+{
+    ; Command 5 opens/closes the second WebView2 *inside the existing ChatHost*.
+    ; Keep Discord cookies, Game Chat and Happy Hour tracking unchanged.
+    SendLauncherChatCommand(5)
 }
 LauncherPickleKillAlert(wParam, lParam, msg, hwnd)
 {
