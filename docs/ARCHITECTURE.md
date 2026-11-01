@@ -182,6 +182,12 @@ Custom images are local data and are not bundled in the portable v1 INI export;
 restoring the backup keeps the real species and its stock icon. `NewCharacterProfile`
 supplies new-profile defaults. `%APPDATA%\tes3np` remains the data root.
 
+## TES3MP plugin mismatch recovery
+
+`src/game/expansion-mismatch.ahk` is called from the **existing** `ClientTick` watchdog. It records client log lengths before each launch, reads only fresh `tes3mp-client*.log` content in the configured OpenMW user directory (including relocated Documents), and handles the exact server plugin/load-order rejection message. It stops only the failed PID, cancels batch/scheduled follow-ups, and displays the owned Upload Expansion / Cancel dialog. It does not impersonate the server, assume a new pack exists, or establish checksum compatibility without a real connection.
+
+`src/ui/expansion-upload.ahk` owns the file picker. Its PowerShell worker runs through the existing `PatchJob` progress loop and owns all game/config writes. `scripts/import-expansion-pack.ps1` accepts downloaded ZIP/ESP files, validates paths and extensions, stages and verifies bytes, and journals overwritten files for rollback. Never install downloaded code/executables from these archives or replace the launcher/markerless TES3MP client. The manually imported pack can differ from the separately bundled manifest, which remains the authoritative expected content for the older Install / Repair path. Windows tests are required to confirm native popup timing and the upload dialog.
+
 ## Patch worker contract
 
 The GUI invokes `Apply`, `Verify` or `Restore` and reads UTF-16 LE `progress.ini`
