@@ -68,7 +68,7 @@ CheckTES3MPPluginMismatch()
                 if chunk = ""
                     continue
                 text := watch.Carry chunk
-                if InStr(text, "Your plugins or their load order don't match the server's")
+                if InStr(text, "Your plugins or their load order don't match the server's", false)
                 {
                     HandleTES3MPPluginMismatch()
                     return true
