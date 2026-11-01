@@ -6,6 +6,7 @@
 #Include src\data\settings.ahk
 #Include src\data\backup.ahk
 #Include src\game\session.ahk
+#Include src\game\expansion-mismatch.ahk
 #Include src\ui\renderer.ahk
 #Include src\ui\windows.ahk
 #Include src\ui\controls.ahk
@@ -19,6 +20,7 @@
 #Include src\ui\macros.ahk
 #Include src\ui\macro-bindings.ahk
 #Include src\ui\patcher.ahk
+#Include src\ui\expansion-upload.ahk
 #Include src\ui\launcher-settings.ahk
 #Include src\ui\v016-refinements.ahk
 #Include src\app\client-detection.ahk
