@@ -153,45 +153,54 @@ expect(
     "Happy Hour banner must track launcher movement without a timer delay",
     "void PositionHappyHourBanner()" in source
     and "SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height," in source
-    and "PositionHappyHourBanner();\n                PositionExpansionDownloads();\n                if (repositionQueued) return;" in source
+    and "PositionHappyHourBanner();\n                if (repositionQueued) return;" in source
     and "SetWinEventHook(0x800B, 0x800B" in source,
 )
+mismatch = (ROOT / "src" / "game" / "expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
 expect(
-    "Expansion Downloads shares ChatHost and the existing Discord profile",
+    "Original Expansion Pack enable/disable switch is restored",
+    'LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)' in bootstrap
+    and 'RefreshExpansionPackToggle()' in bootstrap
+    and '"Expansion Downloads", ToggleLauncherExpansionDownloads' not in bootstrap,
+)
+expect(
+    "Mismatch dialog requests a child download view and disposes it on exit",
+    'SendLauncherChatCommand(6, downloadSlot.Hwnd)' in mismatch
+    and 'SendLauncherChatCommand(7, slotHwnd)' in mismatch
+    and 'UploadExpansionFromFile()' in mismatch
+    and 'Gui("+Owner" LauncherGui.Hwnd' in mismatch
+    and 'SendLauncherChatCommand(command, targetHwnd := 0)' in bootstrap,
+)
+expect(
+    "Same ChatHost process and existing Discord profile serve the popup",
     'const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";' in source
-    and "discordEnvironment = env;" in source
-    and "await browser.EnsureCoreWebView2Async(env);" in source
-    and "browser.CoreWebView2.Navigate(ExpansionChannel);" in source
-    and "case 5: ToggleExpansionDownloads(); break;" in source
-    and 'SendLauncherChatCommand(5)' in bootstrap
-    and 'LauncherExpansionDownloadButton := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Downloads", ToggleLauncherExpansionDownloads)' in bootstrap,
+    and 'discordEnvironment = env;' in source
+    and 'await browser.EnsureCoreWebView2Async(env);' in source
+    and 'case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;' in source
+    and 'case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;' in source
+    and source.count("Application.Run(new ChatHost(") == 1
+    and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1,
 )
 expect(
-    "Expansion channel crop is confined to its own WebView2 control",
+    "WebView is a native child of mismatch placeholder, not floating Discord window",
+    "SetParent(handle,placeholder);" in source
+    and "GetParent(handle)!=placeholder" in source
+    and "PositionEmbeddedExpansionDownloads();" in source
+    and "CloseEmbeddedExpansionDownloads();" in source
+    and "ToggleExpansionDownloads()" not in source,
+)
+expect(
+    "Only genuine ZIP attachment URL is presented without Discord grid changes",
     'const string ExpansionDownloadsFocusScript = """' in source
-    and 'document.querySelector(\'[data-list-id="chat-messages"]\')' in source
-    and "messages.closest('[class*=\"scroller_\"]') || messages" in source
-    and 'await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(' in source
-    and 'try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }' in source
-    and 'new MutationObserver(schedule).observe(document.documentElement,' in source
-    and "location.pathname.replace(/\\/+$/, '')" in source
-    and "const hidden = new Set(), expanded = new Set();" in source
-    and "node.contains(messages)" in source
-    and "if (node !== messages && node.contains(messages))" in source
-    and "cropDisabled = true;" in source
-    and "restore();" in source
-    and "fallback-collapsed-scroller" in source
-    and "browser.CoreWebView2.WebMessageReceived += (_, args) =>" in source
-    and "grid-template-columns: minmax(0, 1fr) !important" not in source
-    and 'browser.CoreWebView2.Navigate(ExpansionChannel);' in source,
-)
-expect(
-    "Raw expansion view cannot modify Game Chat or start another ChatHost",
-    source.count("Application.Run(new ChatHost(") == 1
-    and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1
-    and "PositionExpansionDownloads();" in source
-    and "expansionDownloadsWindow?.Dispose();" in source
-    and "browser.CoreWebView2.Navigate(ExpansionChannel);" in source,
+    and 'document.querySelector(\\'[data-list-id="chat-messages"]\\')' in source
+    and "cdn\\\\.discordapp\\\\.com" in source
+    and "media\\\\.discordapp\\\\.net" in source
+    and "location.pathname.replace(/\\\\/+$/,'')" in source
+    and "link.href=file.url;" in source
+    and "link.textContent=file.filename;" in source
+    and "new MutationObserver(schedule).observe(document.documentElement," in source
+    and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
+    and "grid-template-columns: minmax(0, 1fr) !important" not in source,
 )
 
 expect(
