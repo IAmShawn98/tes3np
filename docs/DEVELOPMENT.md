@@ -18,6 +18,9 @@
 | `src/ui/patcher.ahk` | Setup gate, startup verification, patch UI and asynchronous progress |
 | `scripts/patch-tes3mp.ps1` | Verified file plans, backups, rollback, repair and restore |
 | `patches/` | Supplied markerless client and EP with SHA-256 file manifest |
+| `src/game/expansion-mismatch.ahk` | Fresh TES3MP client log watcher and server plugin rejection dialog |
+| `src/ui/expansion-upload.ahk` | Local ZIP/ESP picker and shared patch-worker UI bridge |
+| `scripts/import-expansion-pack.ps1` | Safe user-supplied expansion ZIP/ESP staging, verified backup, install and rollback |
 | `scripts/import-macro.ps1` | Bounded ZIP validation and extraction |
 | `src/ui/loading.ahk` | Frame covers and loading feedback for actual interface work |
 | `src/ui/login-progress.ahk` | Nonactivating game login step card; presentation timer and cleanup |
