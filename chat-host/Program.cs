@@ -304,6 +304,7 @@ internal static class Program
                 style.textContent = `
                   .tes3np-expansion-hide { display: none !important; }
                   .tes3np-expansion-wide {
+                    grid-template-columns: minmax(0, 1fr) !important;
                     width: 100% !important;
                     min-width: 0 !important;
                     max-width: none !important;
@@ -317,9 +318,11 @@ internal static class Program
                 document.head.appendChild(style);
                 new MutationObserver(schedule).observe(document.documentElement,
                   { childList: true, subtree: true });
-                window.__tes3npExpansionFocus = schedule;
                 schedule();
               }
+              // Mark the document immediately, even before DOMContentLoaded,
+              // so NavigationCompleted cannot register a duplicate observer.
+              window.__tes3npExpansionFocus = schedule;
               if (document.readyState === 'loading')
                 document.addEventListener('DOMContentLoaded', setup, {once:true});
               else setup();
