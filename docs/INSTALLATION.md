@@ -13,9 +13,9 @@ TES3NP stores launcher preferences and managed custom-client overrides under `%A
 
 ## Optional Expansion Pack
 
-The launcher works without the NP Expansion Pack. The upper-left **Expansion Downloads** button opens the Nerevarine Prophecies Discord download channel (`1555049936800718928`) in a raw WebView2 panel over the main launcher, sharing the existing Game Chat sign-in. Click again or close the panel to hide it. The downloads view now hides Discord's server/channel navigation and shows the selected channel's original messages and file attachments across the panel. The file links remain Discord-managed; it does not install downloaded files or change the load order automatically.
+The launcher works without the NP Expansion Pack. The **original top-left Expansion Pack: Enabled/Disabled button** is restored; use it to change the load order for *future* game sessions after closing TES3MP/OpenMW. The system tray retains the same toggle and Optional Expansion Pack installer.
 
-To enable or disable an installed pack for future game clients, right-click the TES3NP tray icon and choose **Enable / Disable Expansion Pack**. Close TES3MP/OpenMW first. **Optional Expansion Pack** in the same tray opens the existing Install / Repair and Verify interface. TES3NP preserves unrelated mod entries and backs up the selected OpenMW configuration before changing it. When the active `openmw.cfg` or Morrowind installation is not found, configure the correct locations rather than guessing a path.
+If the server rejects a plugin/load-order mismatch, the existing **Plugins Don't Match the Server** dialog now embeds the latest downloadable ZIP file from Nerevarine Prophecies Discord channel `1555049936800718928` (using the Game Chat Discord session). Click the ZIP link to download it, then click **OK** to choose that downloaded file and run the existing backed-up import workflow. **Cancel** closes the dialog. If the embedded ZIP cannot load, an ordinary link to the official Discord channel is provided. Downloads are not installed automatically. TES3NP preserves unrelated mods and backs up the selected OpenMW configuration before replacement.
 
 **Important:** The optional Expansion Pack modifies the selected Morrowind data directory and OpenMW configuration. The custom game client setting does not: it assembles an isolated merged runtime in AppData.
 
