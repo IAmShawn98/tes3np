@@ -40,6 +40,8 @@ Settings are stored in `%APPDATA%\tes3np\settings.ini`, separate from the extrac
 
 Loading-overlay failures are recorded in `%APPDATA%\tes3np\render-errors.log`. Patching activity is recorded in `patch-all.log` and patch failures in `patch-errors.log` in the same folder. Logs omit personal paths and credentials. Patch backups are stored separately under `patch-jobs`.
 
+**Expansion Downloads:** Click the upper-left button on the main launcher to show the raw NP Discord downloads channel. Click it again, or close the panel, to hide it. This uses the Game Chat Discord login; Discord may request sign-in or server access. Download an official expansion file from the channel, then use the existing manual upload flow if you need to install it. The Discord panel does not modify game files. To enable/disable your installed pack, use **Enable / Disable Expansion Pack** in the TES3NP tray menu.
+
 Game Chat diagnostics are in `%APPDATA%\\tes3np\\chat-host.log`. Its
 message archive lives under `%APPDATA%\\tes3np\\Logs\\`, and its Discord
 browser profile is in `%APPDATA%\\tes3np\\chat-webview2\\`.
