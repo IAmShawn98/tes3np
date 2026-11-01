@@ -109,15 +109,38 @@ ShowTES3MPExpansionMismatchDialog()
     dialog.SetFont("s17 Bold cC5A45C", "Georgia")
     dialog.Add("Text", "x25 y22 w630 h35 BackgroundTrans", "Plugins Don't Match the Server")
     dialog.SetFont("s11 Norm cEDE1C9", "Segoe UI")
-    dialog.Add("Text", "x25 y77 w630 h155 BackgroundTrans",
+    dialog.Add("Text", "x25 y77 w610 h122 BackgroundTrans",
         "Your installed plugins or load order don't match the server's requirements. "
-        . "This may be caused by an outdated Expansion Pack or differences in your game files or load order.`n`n"
-        . "Check the Nerevarine Prophecies Discord server for an Expansion Pack update. "
-        . "If one is available, download it, then click OK to select and install the file. "
-        . "Click Cancel to close this window.")
-    AddStyledButton(dialog, 340, 250, 140, 38, "OK", (*) => (dialog.Destroy(), UploadExpansionFromFile()))
-    AddStyledButton(dialog, 490, 250, 140, 38, "Cancel", (*) => dialog.Destroy())
-    dialog.OnEvent("Close", (*) => dialog.Destroy())
-    dialog.OnEvent("Escape", (*) => dialog.Destroy())
-    dialog.Show("w660 h308")
+        . "This may be caused by an outdated Expansion Pack or differences in your game files or load order." 
+        . Chr(10) Chr(10)
+        . "Download the latest Expansion Pack below. When the download finishes, "
+        . "click OK to select and install the ZIP file.")
+    dialog.SetFont("s10 Bold cC5A45C", "Segoe UI")
+    dialog.Add("Text", "x25 y204 w610 h25 BackgroundTrans", "Latest Expansion Pack - Discord")
+    ; Native child HWND placeholder for the existing ChatHost's WebView2.
+    ; No extra Discord popup and no second browser profile are created.
+    downloadSlot := dialog.Add("Text", "x25 y231 w610 h150 +0x100 Background202023",
+        "Connecting to the Nerevarine Prophecies Discord channel...")
+    dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
+    dialog.Add("Link", "x25 y388 w610 h20", 
+        '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
+    AddStyledButton(dialog, 340, 420, 140, 38, "OK",
+        (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd, true))
+    AddStyledButton(dialog, 490, 420, 140, 38, "Cancel",
+        (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
+    dialog.OnEvent("Close", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
+    dialog.OnEvent("Escape", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
+    dialog.Show("w660 h476")
+    ; WM_APP command 6: attach one child browser to this exact HWND.
+    SendLauncherChatCommand(6, downloadSlot.Hwnd)
+}
+
+CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
+{
+    ; Request disposal BEFORE destroying the placeholder, so WebView2 never
+    ; leaves an orphan native child or alters the regular Game Chat window.
+    SendLauncherChatCommand(7, slotHwnd)
+    try dialog.Destroy()
+    if import
+        UploadExpansionFromFile()
 }
