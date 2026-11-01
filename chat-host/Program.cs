@@ -10,6 +10,8 @@ internal static class Program
     const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+    [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
+    [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr hwnd);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [StructLayout(LayoutKind.Sequential)]
@@ -216,259 +218,207 @@ internal static class Program
 
         readonly IntPtr owner;
         readonly WebView2 web = new() { Dock = DockStyle.None };
-        // A second view inside the EXISTING ChatHost process shares Discord
-        // authentication, but never receives Game Chat's CSS, DOM scripts,
-        // history pagination or Happy Hour observers.
+        // The download browser lives in the EXISTING ChatHost but is a native
+        // child of the AutoHotkey mismatch dialog, not another owned popup.
         CoreWebView2Environment? discordEnvironment;
         Form? expansionDownloadsWindow;
         WebView2? expansionDownloadsBrowser;
+        IntPtr expansionDownloadsParent = IntPtr.Zero;
         bool expansionDownloadsInitializing;
 
-        // This code is injected into the *downloads WebView only*. Game Chat
-        // uses a different WebView2 control, preserving its existing Discord
-        // DOM extraction, WebView2 CSS and Happy Hour behavior.
-        // Discord's hashed class names change often: discover the message
-        // scroller by its stable data-list-id, then hide its sibling columns
-        // along the ancestor path. Do not alter individual messages/files.
-        // If signed out, unauthorized or still loading, leave Discord visible.
+        // Preserve Discord's React tree and grid intact behind an opaque card.
+        // Extract ONLY the latest visible official ZIP attachment and link to
+        // its actual Discord CDN URL. Never create a fake download link.
         const string ExpansionDownloadsFocusScript = """
             (() => {
               if (window.__tes3npExpansionFocus) {
-                window.__tes3npExpansionFocus();
-                return;
+                window.__tes3npExpansionFocus(); return;
               }
-              const channel = '/channels/509601787901116437/1555049936800718928';
-              const hidden = new Set(), expanded = new Set();
-              let queued = false, cropDisabled = false, lastStatus = '';
-
-              // This only runs in the Expansion Downloads browser, never in
-              // Game Chat. No React DOM nodes are removed or reparented.
-              function restore() {
-                for (const node of hidden) node.classList.remove('tes3np-expansion-hide');
-                for (const node of expanded) node.classList.remove('tes3np-expansion-expand');
-                hidden.clear();
-                expanded.clear();
-              }
-              function notify(status) {
-                if (status === lastStatus) return;
-                lastStatus = status;
-                if (window.chrome && chrome.webview)
-                  chrome.webview.postMessage({ type: 'expansion-layout', status });
-              }
-              function focus() {
-                const correctChannel = location.pathname.replace(/\/+$/, '') === channel;
-                const messages = correctChannel ?
-                  document.querySelector('[data-list-id="chat-messages"]') : null;
-                if (!messages || cropDisabled) {
-                  restore();
-                  notify(cropDisabled ? 'fallback-full-discord' : 'waiting-for-channel');
-                  return;
-                }
-
-                // Only known Discord navigation/UI elements are optional.
-                // Never hide any ancestor of the message list. The previous
-                // all-ancestors approach collapsed Discord's root CSS grid.
-                const candidates = document.querySelectorAll(
-                  '[class*="guilds_"], [class*="sidebarList_"], ' +
-                  '[class*="sidebar_"]:has([class*="sidebarList_"]), ' +
-                  '[class*="membersWrap_"], [class*="panels_"], ' +
-                  '[class*="chat_"] [class*="title_"], ' +
-                  '[class*="chat_"] [class*="channelTextArea_"], ' +
-                  '[class*="chat_"] form[class*="form_"]'
-                );
-                const nextHidden = new Set();
-                for (const node of candidates) {
-                  if (node === messages || node.contains(messages) ||
-                      messages.contains(node) ||
-                      node.closest('[role="dialog"],[role="alertdialog"]')) continue;
-                  nextHidden.add(node);
-                }
-
-                // Change only the known chat content wrappers. Do not modify
-                // grid-template-columns or widths of every ancestor.
-                const nextExpanded = new Set();
-                for (const node of document.querySelectorAll(
-                  '[class*="chatContent_"], [class*="messagesWrapper_"]')) {
-                  if (node !== messages && node.contains(messages))
-                    nextExpanded.add(node);
-                }
-                for (const node of hidden)
-                  if (!nextHidden.has(node)) node.classList.remove('tes3np-expansion-hide');
-                for (const node of expanded)
-                  if (!nextExpanded.has(node)) node.classList.remove('tes3np-expansion-expand');
-                for (const node of nextHidden) node.classList.add('tes3np-expansion-hide');
-                for (const node of nextExpanded) node.classList.add('tes3np-expansion-expand');
-                hidden.clear();
-                expanded.clear();
-                for (const node of nextHidden) hidden.add(node);
-                for (const node of nextExpanded) expanded.add(node);
-
-                // If the browser's own message scroller collapses after CSS,
-                // restore raw Discord rather than leaving a black rectangle.
-                const scroller = messages.closest('[class*="scroller_"]') || messages;
-                requestAnimationFrame(() => {
-                  if (!correctChannel || cropDisabled || !scroller.isConnected) return;
-                  const rect = scroller.getBoundingClientRect();
-                  if (rect.width < 24 || rect.height < 24) {
-                    cropDisabled = true;
-                    restore();
-                    notify('fallback-collapsed-scroller');
-                  } else {
-                    notify('focused-messages');
-                  }
-                });
-              }
-              function schedule() {
-                if (queued) return;
-                queued = true;
-                requestAnimationFrame(() => {
-                  queued = false;
-                  focus();
-                });
+              const channel='/channels/509601787901116437/1555049936800718928';
+              let scheduled=false, lastStatus='', panel, status, sender, link, size;
+              function report(value) {
+                if (value===lastStatus) return;
+                lastStatus=value;
+                try { chrome.webview.postMessage({type:'expansion-layout',status:value}); } catch {}
               }
               function setup() {
-                if (!document.head || !document.documentElement) return;
-                const style = document.createElement('style');
-                style.id = 'tes3np-expansion-focus-style';
-                style.textContent = [
-                  '.tes3np-expansion-hide { display: none !important; }',
-                  '.tes3np-expansion-expand { flex: 1 1 auto !important;',
-                  '  min-width: 0 !important; width: 100% !important;',
-                  '  max-width: 100% !important; }'
+                if (panel || !document.documentElement) return;
+                const style=document.createElement('style');
+                style.textContent=[
+                  '#tes3np-zip-card {position:fixed!important;inset:0!important;',
+                  'z-index:2147483647!important;display:flex!important;',
+                  'flex-direction:column!important;justify-content:center!important;',
+                  'box-sizing:border-box!important;padding:12px 16px!important;',
+                  'background:#1b1b1f!important;color:#ece4d4!important;',
+                  'font:14px/1.5 "Segoe UI",Arial,sans-serif!important;overflow:auto!important}',
+                  '#tes3np-zip-card a {display:block;border:1px solid #4f4b52;',
+                  'background:#292a33;color:#77baff!important;border-radius:5px;',
+                  'padding:14px;text-decoration:none!important;overflow-wrap:anywhere}',
+                  '#tes3np-zip-card a:hover {background:#383943;border-color:#c8a566}',
+                  '#tes3np-zip-card .small {color:#b3abb1;font-size:12px}',
+                  '#tes3np-zip-card .sender {color:#d7ad6e;font-weight:600}'
                 ].join('\n');
-                document.head.appendChild(style);
+                document.documentElement.appendChild(style);
+                panel=document.createElement('div'); panel.id='tes3np-zip-card';
+                status=document.createElement('div');
+                sender=document.createElement('div'); sender.className='sender';
+                link=document.createElement('a'); link.target='_self';
+                size=document.createElement('div'); size.className='small';
+                panel.append(status,sender,link,size);
+                document.documentElement.appendChild(panel);
                 new MutationObserver(schedule).observe(document.documentElement,
-                  { childList: true, subtree: true });
+                  {childList:true,subtree:true,characterData:true});
                 schedule();
               }
-              window.__tes3npExpansionFocus = schedule;
-              if (document.readyState === 'loading')
-                document.addEventListener('DOMContentLoaded', setup, { once: true });
+              function findLatestZip() {
+                if (location.pathname.replace(/\/+$/,'')!==channel) return null;
+                const feed=document.querySelector('[data-list-id="chat-messages"]');
+                if (!feed) return null;
+                const links=Array.from(feed.querySelectorAll('a[href]'));
+                const zip=links.filter(a=>{
+                  const url=a.getAttribute('href')||'';
+                  return /^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i.test(url) &&
+                    (/\.zip(?:[?#]|$)/i.test(url) || /\.zip\b/i.test(a.textContent||''));
+                }).pop();
+                if (!zip) return null;
+                const url=zip.href;
+                let filename=(zip.textContent||'').trim();
+                if (!/\.zip\b/i.test(filename) || filename.length>160) {
+                  try { filename=decodeURIComponent(new URL(url).pathname.split('/').pop()||''); }
+                  catch { filename='Expansion Pack ZIP'; }
+                }
+                const message=zip.closest(
+                  '[id^="chat-messages-"],[data-list-item-id^="chat-messages_"],[class*="messageListItem_"]'
+                ) || zip.parentElement;
+                const author=message?.querySelector('[class*="username_"]');
+                const bytes=(message?.textContent||'').match(/\b[\d,.]+\s*(?:GB|MB|KB)\b/i);
+                return {url,filename,sender:(author?.textContent||'Nerevarine Prophecies').trim(),bytes:bytes?bytes[0]:''};
+              }
+              function refresh() {
+                if (!panel) return;
+                const file=findLatestZip();
+                if (!file) {
+                  status.textContent='Waiting for the latest official Expansion Pack ZIP. If unavailable, sign in through Game Chat.';
+                  sender.style.display='none'; link.style.display='none'; size.style.display='none';
+                  report('waiting-for-zip'); return;
+                }
+                status.textContent='Latest Expansion Pack download';
+                sender.style.display='block'; sender.textContent=file.sender;
+                link.style.display='block'; link.href=file.url; link.textContent=file.filename;
+                size.style.display=file.bytes?'block':'none'; size.textContent=file.bytes;
+                report('latest-zip-ready');
+              }
+              function schedule() {
+                if (scheduled) return;
+                scheduled=true;
+                requestAnimationFrame(()=>{ scheduled=false; refresh(); });
+              }
+              window.__tes3npExpansionFocus=schedule;
+              if (document.readyState==='loading')
+                document.addEventListener('DOMContentLoaded',setup,{once:true});
               else setup();
             })();
             """;
 
-        void ToggleExpansionDownloads()
+        void CloseEmbeddedExpansionDownloads(IntPtr requestedParent = default)
         {
-            if (!IsWindow(owner) || closingChat) return;
-            if (expansionDownloadsWindow is { IsDisposed: false, Visible: true })
-            {
-                expansionDownloadsWindow.Hide();
-                Log("EXPANSION | Discord downloads view hidden.");
+            if (requestedParent != IntPtr.Zero && requestedParent != expansionDownloadsParent)
                 return;
+            expansionDownloadsParent=IntPtr.Zero;
+            var window=expansionDownloadsWindow;
+            expansionDownloadsWindow=null;
+            expansionDownloadsBrowser=null;
+            if (window is { IsDisposed: false }) {
+                try { window.Dispose(); }
+                catch (Exception ex) { Log("EXPANSION | Child cleanup: "+ex.Message); }
             }
+        }
 
-            if (expansionDownloadsWindow == null || expansionDownloadsWindow.IsDisposed)
+        void ShowEmbeddedExpansionDownloads(IntPtr placeholder)
+        {
+            if (closingChat || !IsWindow(owner) || !IsWindow(placeholder)) return;
+            if (expansionDownloadsParent==placeholder &&
+                expansionDownloadsWindow is { IsDisposed: false }) return;
+            CloseEmbeddedExpansionDownloads();
+            try
             {
-                var window = new Form
-                {
-                    Text = "tes3np - Expansion Downloads",
-                    FormBorderStyle = FormBorderStyle.SizableToolWindow,
-                    StartPosition = FormStartPosition.Manual,
-                    ShowInTaskbar = false,
-                    BackColor = System.Drawing.Color.FromArgb(32, 30, 29),
-                    ClientSize = new System.Drawing.Size(720, 560)
+                var window=new Form {
+                    Text="tes3np Expansion ZIP",FormBorderStyle=FormBorderStyle.None,
+                    ShowInTaskbar=false,StartPosition=FormStartPosition.Manual,
+                    BackColor=System.Drawing.Color.FromArgb(27,27,31),
+                    AutoScaleMode=AutoScaleMode.None
                 };
-                var browser = new WebView2 { Dock = DockStyle.Fill };
+                var browser=new WebView2 { Dock=DockStyle.Fill };
                 window.Controls.Add(browser);
-                window.FormClosing += (_, e) =>
-                {
-                    if (!closingChat) { e.Cancel = true; window.Hide(); }
-                };
-                expansionDownloadsWindow = window;
-                expansionDownloadsBrowser = browser;
-                // Native cross-process ownership is already used for Game Chat
-                // and Happy Hour, and keeps the panel with the main launcher.
-                SetNativeWindowOwner(window.Handle, owner);
-                int exStyle = GetWindowLongEx(window.Handle, GWL_EXSTYLE);
-                SetWindowLongEx(window.Handle, GWL_EXSTYLE,
-                    (exStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
+                IntPtr handle=window.Handle;
+                int style=GetWindowLong(handle,GWL_STYLE);
+                const int WS_CLIPSIBLINGS=0x04000000;
+                SetWindowLong(handle,GWL_STYLE,
+                    (style | WS_CHILD | WS_CLIPSIBLINGS) & ~WS_POPUP);
+                SetParent(handle,placeholder);
+                if (GetParent(handle)!=placeholder)
+                    throw new InvalidOperationException("Discord browser did not attach to the dialog.");
+                expansionDownloadsWindow=window;
+                expansionDownloadsBrowser=browser;
+                expansionDownloadsParent=placeholder;
+                PositionEmbeddedExpansionDownloads();
+                ShowWindow(handle,5);
+                _=InitializeExpansionDownloadsBrowser();
+                Log("EXPANSION | Embedded newest ZIP in plugin-mismatch dialog.");
             }
-            PositionExpansionDownloads();
-            expansionDownloadsWindow.Show();
-            PositionExpansionDownloads();
-            expansionDownloadsWindow.Activate();
-            Log("EXPANSION | Opening raw Discord channel " + ExpansionChannel);
-            _ = InitializeExpansionDownloadsBrowser();
+            catch(Exception ex)
+            {
+                Log("EXPANSION | Cannot mount browser: "+ex.Message);
+                CloseEmbeddedExpansionDownloads();
+            }
+        }
+
+        void PositionEmbeddedExpansionDownloads()
+        {
+            var window=expansionDownloadsWindow;
+            if (window==null || window.IsDisposed || !window.IsHandleCreated ||
+                !IsWindow(expansionDownloadsParent)) return;
+            if (!GetClientRect(expansionDownloadsParent,out var box)) return;
+            MoveWindow(window.Handle,0,0,Math.Max(1,box.Right-box.Left),
+                Math.Max(1,box.Bottom-box.Top),true);
         }
 
         async Task InitializeExpansionDownloadsBrowser()
         {
-            var browser = expansionDownloadsBrowser;
-            var env = discordEnvironment;
-            if (browser == null || browser.IsDisposed || env == null ||
-                expansionDownloadsInitializing || browser.CoreWebView2 != null ||
-                closingChat) return;
-            expansionDownloadsInitializing = true;
+            var browser=expansionDownloadsBrowser;
+            var env=discordEnvironment;
+            if (browser==null || browser.IsDisposed || env==null ||
+                expansionDownloadsInitializing || browser.CoreWebView2!=null ||
+                closingChat || !IsWindow(expansionDownloadsParent)) return;
+            expansionDownloadsInitializing=true;
             try
             {
                 await browser.EnsureCoreWebView2Async(env);
-                if (closingChat || browser.IsDisposed || browser.CoreWebView2 == null) return;
-                // The scoped DOM crop keeps only the channel message area.
-                // No Game Chat CSS or Happy Hour extraction runs in this view.
+                if (closingChat || browser.IsDisposed || browser.CoreWebView2==null) return;
                 await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                     ExpansionDownloadsFocusScript);
-                browser.CoreWebView2.WebMessageReceived += (_, args) =>
-                {
-                    try
-                    {
-                        using var data = System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
-                        if (data.RootElement.TryGetProperty("type", out var kind) &&
-                            kind.GetString() == "expansion-layout" &&
-                            data.RootElement.TryGetProperty("status", out var status))
-                            Log("EXPANSION | Layout status: " + status.GetString());
-                    }
-                    catch (Exception ex) { Log("EXPANSION | Layout log unavailable: " + ex.Message); }
+                browser.CoreWebView2.WebMessageReceived+=(_,args)=>{
+                    try {
+                        using var json=System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
+                        if (json.RootElement.TryGetProperty("type",out var kind) &&
+                            kind.GetString()=="expansion-layout" &&
+                            json.RootElement.TryGetProperty("status",out var state))
+                            Log("EXPANSION | ZIP card: "+state.GetString());
+                    } catch {}
                 };
-                browser.CoreWebView2.NavigationCompleted += async (_, e) =>
-                {
-                    Log("EXPANSION | Discord navigation " +
-                        (e.IsSuccess ? "completed" : "failed: " + e.WebErrorStatus));
-                    if (!e.IsSuccess || browser.IsDisposed || browser.CoreWebView2 == null)
-                        return;
-                    // Also reapply when Discord renders the SPA after navigation.
+                browser.CoreWebView2.NavigationCompleted+=async (_,e)=>{
+                    Log("EXPANSION | Discord page "+(e.IsSuccess?"loaded":"failed: "+e.WebErrorStatus));
+                    if (!e.IsSuccess || browser.IsDisposed || browser.CoreWebView2==null) return;
                     try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }
-                    catch (Exception ex) { Log("EXPANSION | Message crop unavailable: " + ex.Message); }
+                    catch (Exception ex) { Log("EXPANSION | Card refresh: "+ex.Message); }
                 };
+                browser.CoreWebView2.DownloadStarting+=(_,_)=>Log("EXPANSION | Official ZIP download started.");
                 browser.CoreWebView2.Navigate(ExpansionChannel);
             }
-            catch (Exception ex)
-            {
-                Log("EXPANSION | WebView2 initialization failed: " + ex.Message);
-                if (!closingChat && expansionDownloadsWindow is { IsDisposed: false })
-                    MessageBox.Show(expansionDownloadsWindow,
-                        "Could not open the Expansion Downloads Discord channel. " +
-                        "Check your WebView2 installation or Discord sign-in.\n\n" + ex.Message,
-                        "tes3np", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            finally { expansionDownloadsInitializing = false; }
+            catch(Exception ex) { if (!closingChat) Log("EXPANSION | Embed load failed: "+ex.Message); }
+            finally { expansionDownloadsInitializing=false; }
         }
 
-        void PositionExpansionDownloads()
-        {
-            var window = expansionDownloadsWindow;
-            if (window == null || window.IsDisposed || !window.IsHandleCreated ||
-                !IsWindow(owner) || !GetWindowRect(owner, out var bounds) ||
-                !IsWindowVisible(owner) || IsIconic(owner)) return;
-            // Position the raw browser over the parchment main page. Scale its
-            // viewport with the launcher rather than covering the desktop.
-            var work = Screen.FromHandle(owner).WorkingArea;
-            int launcherWidth = bounds.Right - bounds.Left;
-            int launcherHeight = bounds.Bottom - bounds.Top;
-            int width = Math.Min(work.Width, Math.Clamp(launcherWidth - 100, 320, 780));
-            int height = Math.Min(work.Height, Math.Clamp(launcherHeight - 100, 270, 610));
-            int x = Math.Clamp(bounds.Left + (launcherWidth - width) / 2,
-                work.Left, Math.Max(work.Left, work.Right - width));
-            int y = Math.Clamp(bounds.Top + (launcherHeight - height) / 2,
-                work.Top, Math.Max(work.Top, work.Bottom - height));
-            if (GetWindowRect(window.Handle, out var current) &&
-                current.Left == x && current.Top == y &&
-                current.Right - current.Left == width &&
-                current.Bottom - current.Top == height) return;
-            const uint SWP_NOZORDER_NOACTIVATE = 0x0004 | 0x0010;
-            SetWindowPos(window.Handle, IntPtr.Zero, x, y, width, height,
-                SWP_NOZORDER_NOACTIVATE);
-        }
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
@@ -2058,7 +2008,6 @@ metrics();
                 // Native SetWindowPos runs immediately; BeginInvoke below is
                 // retained only for the more expensive Game Chat layout.
                 PositionHappyHourBanner();
-                PositionExpansionDownloads();
                 if (repositionQueued) return;
                 repositionQueued = true;
                 try
@@ -2514,7 +2463,7 @@ metrics();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
                     discordEnvironment = env;
-                    if (expansionDownloadsWindow is { IsDisposed: false, Visible: true })
+                    if (expansionDownloadsWindow is { IsDisposed: false })
                         _ = InitializeExpansionDownloadsBrowser();
                     await web.EnsureCoreWebView2Async(env);
                     EnforceChatClip();
@@ -2563,9 +2512,7 @@ metrics();
                     launcherLocationHook = IntPtr.Zero;
                 }
                 chatToggleWindow.Dispose();
-                expansionDownloadsWindow?.Dispose();
-                expansionDownloadsWindow = null;
-                expansionDownloadsBrowser = null;
+                CloseEmbeddedExpansionDownloads();
             };
             watch.Tick += async (_, _) =>
             {
@@ -3053,7 +3000,8 @@ metrics();
                     case 2: SetChatDisplayMode("Automatic"); break;
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
-                    case 5: ToggleExpansionDownloads(); break;
+                    case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
+                    case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
                 }
                 return;
             }
@@ -3102,7 +3050,6 @@ metrics();
             // movement events, regardless of whether the hook installed.
             // The native helper is a no-op if the banner is already aligned.
             PositionHappyHourBanner();
-            PositionExpansionDownloads();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
