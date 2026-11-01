@@ -355,6 +355,11 @@ internal static class Program
                 };
                 var browser=new WebView2 { Dock=DockStyle.Fill };
                 window.Controls.Add(browser);
+                // Register before native reparenting so even a failed SetParent
+                // disposes the newly created Form and WebView2 together.
+                expansionDownloadsWindow=window;
+                expansionDownloadsBrowser=browser;
+                expansionDownloadsParent=placeholder;
                 IntPtr handle=window.Handle;
                 int style=GetWindowLong(handle,GWL_STYLE);
                 const int WS_CLIPSIBLINGS=0x04000000;
@@ -363,9 +368,6 @@ internal static class Program
                 SetParent(handle,placeholder);
                 if (GetParent(handle)!=placeholder)
                     throw new InvalidOperationException("Discord browser did not attach to the dialog.");
-                expansionDownloadsWindow=window;
-                expansionDownloadsBrowser=browser;
-                expansionDownloadsParent=placeholder;
                 PositionEmbeddedExpansionDownloads();
                 ShowWindow(handle,5);
                 _=InitializeExpansionDownloadsBrowser();
