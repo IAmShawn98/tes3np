@@ -107,14 +107,14 @@ ShowTES3MPExpansionMismatchDialog()
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
     dialog.SetFont("s17 Bold cC5A45C", "Georgia")
-    dialog.Add("Text", "x25 y22 w630 h35 BackgroundTrans", "Plugins Don't Match Servers")
+    dialog.Add("Text", "x25 y22 w630 h35 BackgroundTrans", "Plugins Don't Match the Server")
     dialog.SetFont("s11 Norm cEDE1C9", "Segoe UI")
     dialog.Add("Text", "x25 y77 w630 h155 BackgroundTrans",
-        "You're seeing this because your load order doesn't match what's on the server. "
-        . "This is likely because of an expansion pack update. "
-        . "Please check the Nerevarine Prophecies Discord server for an update. "
-        . "If you see an update, please download it and click 'ok' to upload the new file to the launcher to continue. "
-        . "Click cancel to exit.")
+        "Your installed plugins or load order don't match the server's requirements. "
+        . "This may be caused by an outdated Expansion Pack or differences in your game files or load order.`n`n"
+        . "Check the Nerevarine Prophecies Discord server for an Expansion Pack update. "
+        . "If one is available, download it, then click OK to select and install the file. "
+        . "Click Cancel to close this window.")
     AddStyledButton(dialog, 340, 250, 140, 38, "OK", (*) => (dialog.Destroy(), UploadExpansionFromFile()))
     AddStyledButton(dialog, 490, 250, 140, 38, "Cancel", (*) => dialog.Destroy())
     dialog.OnEvent("Close", (*) => dialog.Destroy())
