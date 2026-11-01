@@ -175,7 +175,14 @@ expect(
     and 'try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }' in source
     and 'new MutationObserver(schedule).observe(document.documentElement,' in source
     and "location.pathname.replace(/\\/+$/, '')" in source
-    and "const nextHidden = new Set(), nextWide = new Set();" in source
+    and "const hidden = new Set(), expanded = new Set();" in source
+    and "node.contains(messages)" in source
+    and "if (node !== messages && node.contains(messages))" in source
+    and "cropDisabled = true;" in source
+    and "restore();" in source
+    and "fallback-collapsed-scroller" in source
+    and "browser.CoreWebView2.WebMessageReceived += (_, args) =>" in source
+    and "grid-template-columns: minmax(0, 1fr) !important" not in source
     and 'browser.CoreWebView2.Navigate(ExpansionChannel);' in source,
 )
 expect(
