@@ -76,7 +76,7 @@ CheckTES3MPPluginMismatch()
                 watch.Carry := StrLen(text) > 384 ? SubStr(text, -384) : text
             }
             catch Error as err
-                LogLauncherEvent("GAME | Plugin-mismatch log inspection unavailable: " err.GetType().Name ".")
+                LogLauncherEvent("GAME | Plugin-mismatch log inspection unavailable: " Type(err) ".")
         }
     }
     return false
