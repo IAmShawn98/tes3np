@@ -153,9 +153,28 @@ expect(
     "Happy Hour banner must track launcher movement without a timer delay",
     "void PositionHappyHourBanner()" in source
     and "SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height," in source
-    and "PositionHappyHourBanner();\n                if (repositionQueued) return;" in source
+    and "PositionHappyHourBanner();\n                PositionExpansionDownloads();\n                if (repositionQueued) return;" in source
     and "SetWinEventHook(0x800B, 0x800B" in source,
 )
+expect(
+    "Expansion Downloads shares ChatHost and the existing Discord profile",
+    'const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";' in source
+    and "discordEnvironment = env;" in source
+    and "await browser.EnsureCoreWebView2Async(env);" in source
+    and "browser.CoreWebView2.Navigate(ExpansionChannel);" in source
+    and "case 5: ToggleExpansionDownloads(); break;" in source
+    and 'SendLauncherChatCommand(5)' in bootstrap
+    and 'LauncherExpansionDownloadButton := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Downloads", ToggleLauncherExpansionDownloads)' in bootstrap,
+)
+expect(
+    "Raw expansion view cannot modify Game Chat or start another ChatHost",
+    source.count("Application.Run(new ChatHost(") == 1
+    and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1
+    and "PositionExpansionDownloads();" in source
+    and "expansionDownloadsWindow?.Dispose();" in source
+    and "browser.CoreWebView2.Navigate(ExpansionChannel);" in source,
+)
+
 expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
