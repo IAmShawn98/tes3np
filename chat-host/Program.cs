@@ -6,6 +6,8 @@ internal static class Program
 {
     const string ChatBuild = "chat-inset-native-frame-20261008";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
+    // Same NP Discord guild as Game Chat, but a different channel and raw WebView2.
+    const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
@@ -214,6 +216,114 @@ internal static class Program
 
         readonly IntPtr owner;
         readonly WebView2 web = new() { Dock = DockStyle.None };
+        // A second view inside the EXISTING ChatHost process shares Discord
+        // authentication, but never receives Game Chat's CSS, DOM scripts,
+        // history pagination or Happy Hour observers.
+        CoreWebView2Environment? discordEnvironment;
+        Form? expansionDownloadsWindow;
+        WebView2? expansionDownloadsBrowser;
+        bool expansionDownloadsInitializing;
+
+        void ToggleExpansionDownloads()
+        {
+            if (!IsWindow(owner) || closingChat) return;
+            if (expansionDownloadsWindow is { IsDisposed: false, Visible: true })
+            {
+                expansionDownloadsWindow.Hide();
+                Log("EXPANSION | Discord downloads view hidden.");
+                return;
+            }
+
+            if (expansionDownloadsWindow == null || expansionDownloadsWindow.IsDisposed)
+            {
+                var window = new Form
+                {
+                    Text = "tes3np - Expansion Downloads",
+                    FormBorderStyle = FormBorderStyle.SizableToolWindow,
+                    StartPosition = FormStartPosition.Manual,
+                    ShowInTaskbar = false,
+                    BackColor = System.Drawing.Color.FromArgb(32, 30, 29),
+                    ClientSize = new System.Drawing.Size(720, 560)
+                };
+                var browser = new WebView2 { Dock = DockStyle.Fill };
+                window.Controls.Add(browser);
+                window.FormClosing += (_, e) =>
+                {
+                    if (!closingChat) { e.Cancel = true; window.Hide(); }
+                };
+                expansionDownloadsWindow = window;
+                expansionDownloadsBrowser = browser;
+                // Native cross-process ownership is already used for Game Chat
+                // and Happy Hour, and keeps the panel with the main launcher.
+                SetNativeWindowOwner(window.Handle, owner);
+                int exStyle = GetWindowLongEx(window.Handle, GWL_EXSTYLE);
+                SetWindowLongEx(window.Handle, GWL_EXSTYLE,
+                    (exStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
+            }
+            PositionExpansionDownloads();
+            expansionDownloadsWindow.Show();
+            PositionExpansionDownloads();
+            expansionDownloadsWindow.Activate();
+            Log("EXPANSION | Opening raw Discord channel " + ExpansionChannel);
+            _ = InitializeExpansionDownloadsBrowser();
+        }
+
+        async Task InitializeExpansionDownloadsBrowser()
+        {
+            var browser = expansionDownloadsBrowser;
+            var env = discordEnvironment;
+            if (browser == null || browser.IsDisposed || env == null ||
+                expansionDownloadsInitializing || browser.CoreWebView2 != null ||
+                closingChat) return;
+            expansionDownloadsInitializing = true;
+            try
+            {
+                await browser.EnsureCoreWebView2Async(env);
+                if (closingChat || browser.IsDisposed || browser.CoreWebView2 == null) return;
+                // Raw Discord: no chat.css injection, DOM extraction, or
+                // message rewriting. Let Discord render and handle downloads.
+                browser.CoreWebView2.NavigationCompleted += (_, e) =>
+                    Log("EXPANSION | Discord navigation " +
+                        (e.IsSuccess ? "completed" : "failed: " + e.WebErrorStatus));
+                browser.CoreWebView2.Navigate(ExpansionChannel);
+            }
+            catch (Exception ex)
+            {
+                Log("EXPANSION | WebView2 initialization failed: " + ex.Message);
+                if (!closingChat && expansionDownloadsWindow is { IsDisposed: false })
+                    MessageBox.Show(expansionDownloadsWindow,
+                        "Could not open the Expansion Downloads Discord channel. " +
+                        "Check your WebView2 installation or Discord sign-in.\n\n" + ex.Message,
+                        "tes3np", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally { expansionDownloadsInitializing = false; }
+        }
+
+        void PositionExpansionDownloads()
+        {
+            var window = expansionDownloadsWindow;
+            if (window == null || window.IsDisposed || !window.IsHandleCreated ||
+                !IsWindow(owner) || !GetWindowRect(owner, out var bounds) ||
+                !IsWindowVisible(owner) || IsIconic(owner)) return;
+            // Position the raw browser over the parchment main page. Scale its
+            // viewport with the launcher rather than covering the desktop.
+            var work = Screen.FromHandle(owner).WorkingArea;
+            int launcherWidth = bounds.Right - bounds.Left;
+            int launcherHeight = bounds.Bottom - bounds.Top;
+            int width = Math.Min(work.Width, Math.Clamp(launcherWidth - 100, 320, 780));
+            int height = Math.Min(work.Height, Math.Clamp(launcherHeight - 100, 270, 610));
+            int x = Math.Clamp(bounds.Left + (launcherWidth - width) / 2,
+                work.Left, Math.Max(work.Left, work.Right - width));
+            int y = Math.Clamp(bounds.Top + (launcherHeight - height) / 2,
+                work.Top, Math.Max(work.Top, work.Bottom - height));
+            if (GetWindowRect(window.Handle, out var current) &&
+                current.Left == x && current.Top == y &&
+                current.Right - current.Left == width &&
+                current.Bottom - current.Top == height) return;
+            const uint SWP_NOZORDER_NOACTIVATE = 0x0004 | 0x0010;
+            SetWindowPos(window.Handle, IntPtr.Zero, x, y, width, height,
+                SWP_NOZORDER_NOACTIVATE);
+        }
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
@@ -1803,6 +1913,7 @@ metrics();
                 // Native SetWindowPos runs immediately; BeginInvoke below is
                 // retained only for the more expensive Game Chat layout.
                 PositionHappyHourBanner();
+                PositionExpansionDownloads();
                 if (repositionQueued) return;
                 repositionQueued = true;
                 try
@@ -2257,6 +2368,9 @@ metrics();
                     freshDiscordProfile = !Directory.Exists(data) || !Directory.EnumerateFileSystemEntries(data).Any();
                     Directory.CreateDirectory(data);
                     var env = await CoreWebView2Environment.CreateAsync(null, data);
+                    discordEnvironment = env;
+                    if (expansionDownloadsWindow is { IsDisposed: false, Visible: true })
+                        _ = InitializeExpansionDownloadsBrowser();
                     await web.EnsureCoreWebView2Async(env);
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
@@ -2304,6 +2418,9 @@ metrics();
                     launcherLocationHook = IntPtr.Zero;
                 }
                 chatToggleWindow.Dispose();
+                expansionDownloadsWindow?.Dispose();
+                expansionDownloadsWindow = null;
+                expansionDownloadsBrowser = null;
             };
             watch.Tick += async (_, _) =>
             {
@@ -2791,6 +2908,7 @@ metrics();
                     case 2: SetChatDisplayMode("Automatic"); break;
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
+                    case 5: ToggleExpansionDownloads(); break;
                 }
                 return;
             }
@@ -2839,6 +2957,7 @@ metrics();
             // movement events, regardless of whether the hook installed.
             // The native helper is a no-op if the banner is already aligned.
             PositionHappyHourBanner();
+            PositionExpansionDownloads();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Only the sign-in view needs extra height for its explanation.
             // Keep the established Game Chat dimensions unchanged.
