@@ -136,7 +136,17 @@ try {
                 $read = $entry.Open()
                 try {
                     $write = [IO.File]::Create($target)
-                    try { $read.CopyTo($write) } finally { $write.Dispose() }
+                    try {
+                        $buffer = New-Object byte[] 65536
+                        $copied = [long]0
+                        while (($count = $read.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                            $copied += $count
+                            if ($copied -gt $entry.Length -or $copied -gt 134217728) {
+                                throw 'Extracted ZIP file exceeded its declared size or safety limit.'
+                            }
+                            $write.Write($buffer, 0, $count)
+                        }
+                    } finally { $write.Dispose() }
                 } finally { $read.Dispose() }
                 if ([IO.File]::GetLength($target) -ne $entry.Length) { throw 'ZIP extraction size did not match its declared size.' }
                 $assets += [pscustomobject]@{Relative=$relative; Source=$target}
