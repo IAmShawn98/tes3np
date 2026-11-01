@@ -167,6 +167,18 @@ expect(
     and 'LauncherExpansionDownloadButton := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Downloads", ToggleLauncherExpansionDownloads)' in bootstrap,
 )
 expect(
+    "Expansion channel crop is confined to its own WebView2 control",
+    'const string ExpansionDownloadsFocusScript = """' in source
+    and 'document.querySelector(\'[data-list-id="chat-messages"]\')' in source
+    and "messages.closest('[class*=\"scroller_\"]') || messages" in source
+    and 'await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(' in source
+    and 'try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }' in source
+    and 'new MutationObserver(schedule).observe(document.documentElement,' in source
+    and "location.pathname.replace(/\\/+$/, '')" in source
+    and "const nextHidden = new Set(), nextWide = new Set();" in source
+    and 'browser.CoreWebView2.Navigate(ExpansionChannel);' in source,
+)
+expect(
     "Raw expansion view cannot modify Game Chat or start another ChatHost",
     source.count("Application.Run(new ChatHost(") == 1
     and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1
