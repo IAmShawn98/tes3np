@@ -237,94 +237,113 @@ internal static class Program
                 window.__tes3npExpansionFocus();
                 return;
               }
-              const hidden = new Set(), widened = new Set();
-              const hideClass = 'tes3np-expansion-hide';
-              const wideClass = 'tes3np-expansion-wide';
-              let queued = false;
+              const channel = '/channels/509601787901116437/1555049936800718928';
+              const hidden = new Set(), expanded = new Set();
+              let queued = false, cropDisabled = false, lastStatus = '';
 
-              function focusMessages() {
-                const isDownloadsChannel =
-                  location.pathname.replace(/\/+$/, '') ===
-                  '/channels/509601787901116437/1555049936800718928';
-                const mount = document.getElementById('app-mount');
-                const messages = isDownloadsChannel ?
+              // This only runs in the Expansion Downloads browser, never in
+              // Game Chat. No React DOM nodes are removed or reparented.
+              function restore() {
+                for (const node of hidden) node.classList.remove('tes3np-expansion-hide');
+                for (const node of expanded) node.classList.remove('tes3np-expansion-expand');
+                hidden.clear();
+                expanded.clear();
+              }
+              function notify(status) {
+                if (status === lastStatus) return;
+                lastStatus = status;
+                if (window.chrome && chrome.webview)
+                  chrome.webview.postMessage({ type: 'expansion-layout', status });
+              }
+              function focus() {
+                const correctChannel = location.pathname.replace(/\/+$/, '') === channel;
+                const messages = correctChannel ?
                   document.querySelector('[data-list-id="chat-messages"]') : null;
-                const nextHidden = new Set(), nextWide = new Set();
-                if (mount && messages) {
-                  // Preserve Discord's own message virtualizer/scrollbar,
-                  // attachments, click handlers and download links.
-                  let node = messages.closest('[class*="scroller_"]') || messages;
-                  while (node && node !== mount) {
-                    nextWide.add(node);
-                    const parent = node.parentElement;
-                    if (!parent) break;
-                    // The mount can hold Discord's modal/lightbox portals.
-                    // Do not hide that top-level overlay layer.
-                    if (parent !== mount) {
-                      for (const sibling of parent.children) {
-                        if (sibling === node ||
-                            sibling.matches('style,script,[role="dialog"],[role="alertdialog"]') ||
-                            sibling.matches('[class*="layerContainer"],[class*="popout"],[class*="tooltip"],[class*="modal"]'))
-                          continue;
-                        nextHidden.add(sibling);
-                      }
-                    }
-                    node = parent;
-                  }
+                if (!messages || cropDisabled) {
+                  restore();
+                  notify(cropDisabled ? 'fallback-full-discord' : 'waiting-for-channel');
+                  return;
                 }
 
-                // Discord can replace the SPA route without a full browser
-                // navigation. Restore old nodes on logout or navigation.
-                for (const node of hidden)
-                  if (!nextHidden.has(node)) node.classList.remove(hideClass);
-                for (const node of widened)
-                  if (!nextWide.has(node)) node.classList.remove(wideClass);
-                for (const node of nextHidden)
-                  if (!hidden.has(node)) node.classList.add(hideClass);
-                for (const node of nextWide)
-                  if (!widened.has(node)) node.classList.add(wideClass);
-                hidden.clear();
-                widened.clear();
-                for (const node of nextHidden) hidden.add(node);
-                for (const node of nextWide) widened.add(node);
-              }
+                // Only known Discord navigation/UI elements are optional.
+                // Never hide any ancestor of the message list. The previous
+                // all-ancestors approach collapsed Discord's root CSS grid.
+                const candidates = document.querySelectorAll(
+                  '[class*="guilds_"], [class*="sidebarList_"], ' +
+                  '[class*="sidebar_"]:has([class*="sidebarList_"]), ' +
+                  '[class*="membersWrap_"], [class*="panels_"], ' +
+                  '[class*="chat_"] [class*="title_"], ' +
+                  '[class*="chat_"] [class*="channelTextArea_"], ' +
+                  '[class*="chat_"] form[class*="form_"]'
+                );
+                const nextHidden = new Set();
+                for (const node of candidates) {
+                  if (node === messages || node.contains(messages) ||
+                      messages.contains(node) ||
+                      node.closest('[role="dialog"],[role="alertdialog"]')) continue;
+                  nextHidden.add(node);
+                }
 
+                // Change only the known chat content wrappers. Do not modify
+                // grid-template-columns or widths of every ancestor.
+                const nextExpanded = new Set();
+                for (const node of document.querySelectorAll(
+                  '[class*="chatContent_"], [class*="messagesWrapper_"]')) {
+                  if (node !== messages && node.contains(messages))
+                    nextExpanded.add(node);
+                }
+                for (const node of hidden)
+                  if (!nextHidden.has(node)) node.classList.remove('tes3np-expansion-hide');
+                for (const node of expanded)
+                  if (!nextExpanded.has(node)) node.classList.remove('tes3np-expansion-expand');
+                for (const node of nextHidden) node.classList.add('tes3np-expansion-hide');
+                for (const node of nextExpanded) node.classList.add('tes3np-expansion-expand');
+                hidden.clear();
+                expanded.clear();
+                for (const node of nextHidden) hidden.add(node);
+                for (const node of nextExpanded) expanded.add(node);
+
+                // If the browser's own message scroller collapses after CSS,
+                // restore raw Discord rather than leaving a black rectangle.
+                const scroller = messages.closest('[class*="scroller_"]') || messages;
+                requestAnimationFrame(() => {
+                  if (!correctChannel || cropDisabled || !scroller.isConnected) return;
+                  const rect = scroller.getBoundingClientRect();
+                  if (rect.width < 24 || rect.height < 24) {
+                    cropDisabled = true;
+                    restore();
+                    notify('fallback-collapsed-scroller');
+                  } else {
+                    notify('focused-messages');
+                  }
+                });
+              }
               function schedule() {
                 if (queued) return;
                 queued = true;
                 requestAnimationFrame(() => {
                   queued = false;
-                  focusMessages();
+                  focus();
                 });
               }
               function setup() {
                 if (!document.head || !document.documentElement) return;
                 const style = document.createElement('style');
                 style.id = 'tes3np-expansion-focus-style';
-                style.textContent = `
-                  .tes3np-expansion-hide { display: none !important; }
-                  .tes3np-expansion-wide {
-                    grid-template-columns: minmax(0, 1fr) !important;
-                    width: 100% !important;
-                    min-width: 0 !important;
-                    max-width: none !important;
-                    flex: 1 1 auto !important;
-                    margin-left: 0 !important;
-                    margin-right: 0 !important;
-                    min-height: 0 !important;
-                  }
-                  #app-mount { width: 100% !important; }
-                `;
+                style.textContent = [
+                  '.tes3np-expansion-hide { display: none !important; }',
+                  '.tes3np-expansion-expand { flex: 1 1 auto !important;',
+                  '  min-width: 0 !important; width: 100% !important;',
+                  '  max-width: 100% !important; }'
+                ].join('\n');
                 document.head.appendChild(style);
                 new MutationObserver(schedule).observe(document.documentElement,
                   { childList: true, subtree: true });
                 schedule();
               }
-              // Mark the document immediately, even before DOMContentLoaded,
-              // so NavigationCompleted cannot register a duplicate observer.
               window.__tes3npExpansionFocus = schedule;
               if (document.readyState === 'loading')
-                document.addEventListener('DOMContentLoaded', setup, {once:true});
+                document.addEventListener('DOMContentLoaded', setup, { once: true });
               else setup();
             })();
             """;
@@ -389,6 +408,18 @@ internal static class Program
                 // No Game Chat CSS or Happy Hour extraction runs in this view.
                 await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                     ExpansionDownloadsFocusScript);
+                browser.CoreWebView2.WebMessageReceived += (_, args) =>
+                {
+                    try
+                    {
+                        using var data = System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
+                        if (data.RootElement.TryGetProperty("type", out var kind) &&
+                            kind.GetString() == "expansion-layout" &&
+                            data.RootElement.TryGetProperty("status", out var status))
+                            Log("EXPANSION | Layout status: " + status.GetString());
+                    }
+                    catch (Exception ex) { Log("EXPANSION | Layout log unavailable: " + ex.Message); }
+                };
                 browser.CoreWebView2.NavigationCompleted += async (_, e) =>
                 {
                     Log("EXPANSION | Discord navigation " +
