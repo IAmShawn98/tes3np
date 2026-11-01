@@ -110,8 +110,8 @@ try {
             $total = [long]0
             foreach ($entry in $archive.Entries) {
                 $raw = $entry.FullName
-                if ($raw.Contains('\') -or $raw.StartsWith('/') -or $raw.Contains(':')
-                    -or $raw -match '(^|/)\.\.(/|$)' -or $raw -match '[\x00-\x1F]' ) {
+                $unsafePath = $raw.Contains('\') -or $raw.StartsWith('/') -or $raw.Contains(':') -or $raw -match '(^|/)\.\.(/|$)' -or $raw -match '[\x00-\x1F]'
+                if ($unsafePath) {
                     throw 'The ZIP contains an unsafe file path.'
                 }
                 if ($raw.EndsWith('/')) { continue }
