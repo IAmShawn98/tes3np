@@ -13,7 +13,9 @@ TES3NP stores launcher preferences and managed custom-client overrides under `%A
 
 ## Optional Expansion Pack
 
-The launcher works without the NP Expansion Pack. The top-left button reads **Expansion Pack: Disabled** or **Expansion Pack: Enabled**. Click it to change the global load order for **future** game sessions. Close TES3MP/OpenMW first. TES3NP checks the supplied Expansion Pack files, preserves unrelated mod entries, and backs up the OpenMW configuration before changing it. When the active `openmw.cfg` or Morrowind installation is not found, configure the correct locations in the optional installer rather than guessing a path.
+The launcher works without the NP Expansion Pack. The upper-left **Expansion Downloads** button opens the Nerevarine Prophecies Discord download channel (`1555049936800718928`) in a raw WebView2 panel over the main launcher, sharing the existing Game Chat sign-in. Click again or close the panel to hide it. This first version only shows Discord: it does not install downloaded files or change the load order automatically.
+
+To enable or disable an installed pack for future game clients, right-click the TES3NP tray icon and choose **Enable / Disable Expansion Pack**. Close TES3MP/OpenMW first. **Optional Expansion Pack** in the same tray opens the existing Install / Repair and Verify interface. TES3NP preserves unrelated mod entries and backs up the selected OpenMW configuration before changing it. When the active `openmw.cfg` or Morrowind installation is not found, configure the correct locations rather than guessing a path.
 
 **Important:** The optional Expansion Pack modifies the selected Morrowind data directory and OpenMW configuration. The custom game client setting does not: it assembles an isolated merged runtime in AppData.
 
