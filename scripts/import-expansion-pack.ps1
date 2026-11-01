@@ -67,7 +67,9 @@ function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
 function AllowedAsset([string]$Relative) {
     if ($Relative -ieq 'NP Expansion Pack.esp') { return $true }
     # Server-provided expansion artwork, isolated from unrelated game mods.
-    if ($Relative -notmatch '^(Icons|Meshes|Textures)/tes3mp_np/[^:]+
+    if ($Relative -notmatch '^(Icons|Meshes|Textures)/tes3mp_np/[^:]+$') { return $false }
+    $extension = [IO.Path]::GetExtension($Relative).ToLowerInvariant()
+    return $extension -in @('.tga','.dds','.nif','.kf','.png','.jpg','.jpeg','.bmp','.wav','.ogg','.mp3','.txt','.xml','.bsa')
 }
 [IO.Directory]::CreateDirectory($JobFolder) | Out-Null
 $backups = @()
