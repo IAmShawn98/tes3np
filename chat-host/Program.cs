@@ -235,7 +235,7 @@ internal static class Program
                 window.__tes3npExpansionFocus(); return;
               }
               const channel='/channels/509601787901116437/1555049936800718928';
-              let scheduled=false, lastStatus='', panel, status, sender, link, size;
+              let scheduled=false, lastStatus='', lastFileKey='', panel, status, sender, link, size;
               function report(value) {
                 if (value===lastStatus) return;
                 lastStatus=value;
@@ -298,10 +298,15 @@ internal static class Program
                 if (!panel) return;
                 const file=findLatestZip();
                 if (!file) {
+                  if (lastFileKey==='waiting') return;
+                  lastFileKey='waiting';
                   status.textContent='Waiting for the latest official Expansion Pack ZIP. If unavailable, sign in through Game Chat.';
                   sender.style.display='none'; link.style.display='none'; size.style.display='none';
                   report('waiting-for-zip'); return;
                 }
+                const key=file.url+'|'+file.filename+'|'+file.sender+'|'+file.bytes;
+                if (lastFileKey===key) return;
+                lastFileKey=key;
                 status.textContent='Latest Expansion Pack download';
                 sender.style.display='block'; sender.textContent=file.sender;
                 link.style.display='block'; link.href=file.url; link.textContent=file.filename;
