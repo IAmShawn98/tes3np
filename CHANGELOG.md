@@ -9,6 +9,10 @@
 - Global optional NP Expansion Pack enable/disable control.
 - Source, package integrity, updater transaction, and rollback validation checks.
 
+- Detect server plugin/load-order rejections in new TES3MP client logs and show an Expansion Pack recovery dialog instead of retrying the failed launch.
+- Add **Upload Expansion** to choose a manually downloaded NP ZIP/ESP, backed up and installed by a separate transactional worker. Server compatibility must still be confirmed in-game.
+- Preserve existing characters, launcher settings, other mods and the bundled TES3MP client during the import; no automatic download is attempted.
+
 ### Fixed
 
 - Fixed the character backup import error caused by an absent legacy executable input control.
