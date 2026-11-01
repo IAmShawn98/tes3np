@@ -66,6 +66,10 @@ Each Windows build stages downloaded tools in its own temporary directory. A tem
 
 The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation. Legacy Happy Hour marker files in Local AppData are now inert and are not imported by Chat Host.
 
+## Embedded Discord Expansion Downloads overlay
+
+The upper-left Expansion Downloads button replaces the former on-page enable/disable switch. The tray still exposes **Enable / Disable Expansion Pack** plus **Optional Expansion Pack** (Install / Repair). Button clicks use the existing ChatHost WM_APP message (`0x8331`, command `5`). The raw browser must share the existing `CoreWebView2Environment` and not inject Game Chat CSS or run a second Discord scraper or Chat Host. Keep the owned panel positioned over the launcher via the existing movement callback; do not add a polling timer. A live Windows check must verify first sign-in, Discord channel permissions, the download attachment action, owner movement/minimize/restore, hide/show, and that Game Chat/Happy Hour remain unchanged.
+
 ## Embedded Chat Host changes
 
 Treat `chat-host/Program.cs` as a separate WinForms process owned by the
