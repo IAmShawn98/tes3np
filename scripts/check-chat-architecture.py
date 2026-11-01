@@ -192,10 +192,10 @@ expect(
 expect(
     "Only genuine ZIP attachment URL is presented without Discord grid changes",
     'const string ExpansionDownloadsFocusScript = """' in source
-    and 'document.querySelector(\\'[data-list-id="chat-messages"]\\')' in source
-    and "cdn\\\\.discordapp\\\\.com" in source
-    and "media\\\\.discordapp\\\\.net" in source
-    and "location.pathname.replace(/\\\\/+$/,'')" in source
+    and "document.querySelector('[data-list-id=\"chat-messages\"]')" in source
+    and r"cdn\.discordapp\.com" in source
+    and r"media\.discordapp\.net" in source
+    and r"location.pathname.replace(/\/+$/,'')" in source
     and "link.href=file.url;" in source
     and "link.textContent=file.filename;" in source
     and "new MutationObserver(schedule).observe(document.documentElement," in source
