@@ -134,13 +134,13 @@ LaunchAllCharacters(*)
     StartProfileSession(profile, executable, queue)
 }
 
-StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false, scheduledLoginAction := "", keptPids := 0)
+StartProfileSession(profile, executable, queue := 0)
 {
     global Client, TES3MPLastMismatchEvidence
     ; Every login gets fresh mismatch evidence. Retain the previous result
     ; only while its own failed-login dialog is available for Copy Info.
     TES3MPLastMismatchEvidence := 0
-    source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : IsObject(profile) ? "Manual character" : "New Adventure"
+    source := IsObject(queue) ? "Batch" : IsObject(profile) ? "Manual character" : "New Adventure"
     profileName := IsObject(profile) ? profile.Name : "New Adventure"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
     ; Batch transitions replace the old Client record without going through
@@ -156,8 +156,7 @@ StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := fals
         UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
         PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
         LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, Queue: queue,
-        ScheduledDailyLogin: scheduledDailyLogin, ScheduledLoginAction: scheduledLoginAction, KeptPids: IsObject(keptPids) ? keptPids : [], ProcessHandle: 0,
-        LoginCompletionPending: false}
+        ProcessHandle: 0}
     if IsObject(profile)
     {
         BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "",
@@ -281,14 +280,11 @@ ClientTick()
                 queue := Client.Queue
                 profile := queue.RemoveAt(1)
                 LogLauncherEvent("GAME | Batch advancing to next character | Remaining after next: " queue.Length ".")
-                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin, Client.HasOwnProp("ScheduledLoginAction") ? Client.ScheduledLoginAction : "", Client.HasOwnProp("KeptPids") ? Client.KeptPids : 0)
+                StartProfileSession(profile, Client.Executable, queue)
             }
             else
             {
                 LogLauncherEvent("GAME | SUCCESS | All batch characters completed.")
-                scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
-                if scheduledDailyLogin
-                    MarkScheduledDailyLoginComplete()
                 StopClient()
                 SetClientStatus("All characters completed. Game clients closed.")
             }
@@ -296,8 +292,8 @@ ClientTick()
         }
         if !ProcessExist(Client.PID)
         {
-            ; Only the explicit "closing" phase above is allowed to advance a
-            ; Daily Login queue. If TES3MP disappears during any other phase,
+            ; Only the explicit "closing" phase advances a batch queue.
+            ; If TES3MP disappears during any other phase,
             ; the user closed it (or it exited unexpectedly), so cancel the
             ; entire monitored session instead of logging another character in.
             codeText := "unavailable"
@@ -320,11 +316,8 @@ ClientTick()
             }
             LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " Client.Executable ".")
             LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
-            scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
             if IsObject(Client.Queue)
                 Client.Queue := 0
-            if scheduledDailyLogin
-                CancelScheduledDailyLoginForToday()
             StopClient()
             SetClientStatus("Game closed.")
             return
@@ -395,38 +388,6 @@ ClientTick()
         }
         if Client.Phase = "loading" && IsObject(Client.Queue)
         {
-            if Client.HasOwnProp("ScheduledLoginAction") && Client.ScheduledLoginAction = "LoginUpTo4"
-            {
-                ; Preserve the three-second scheduled post-load handoff buffer,
-                ; independent of the completed login progress window.
-                if !Client.LoginCompletionPending
-                {
-                    Client.LoginCompletionPending := true
-                    Client.Deadline := A_TickCount + 3000
-                    return
-                }
-                keptPids := Client.HasOwnProp("KeptPids") ? Client.KeptPids : []
-                keptPids.Push(Client.PID)
-                RememberTES3NPGameClient(Client.PID)
-                if Client.Queue.Length
-                {
-                    queue := Client.Queue
-                    profile := queue.RemoveAt(1)
-                    executable := Client.Executable
-                    scheduled := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
-                    action := Client.ScheduledLoginAction
-                    LogLauncherEvent("GAME | Scheduled multi-login advancing | Logged in: " keptPids.Length " | Remaining: " queue.Length ".")
-                    StartProfileSession(profile, executable, queue, scheduled, action, keptPids)
-                }
-                else
-                {
-                    LogLauncherEvent("GAME | SUCCESS | Scheduled multi-login completed | Characters left logged in: " keptPids.Length ".")
-                    MarkScheduledDailyLoginComplete()
-                    StopClient()
-                    SetClientStatus("Up to 4 scheduled characters are logged in.")
-                }
-                return
-            }
             Client.Phase := "claim"
             Client.Deadline := A_TickCount + AppConfig.ClaimWaitMs
             SetClientStatus("Waiting 10 seconds for " Client.Profile.Name " before closing.")
