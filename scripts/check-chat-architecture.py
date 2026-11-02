@@ -283,43 +283,54 @@ expect(
 )
 
 expect(
-    "Plugin mismatch copy guidance and safe clipboard diagnostic report",
+    "Plugin mismatch report identifies Expansion Pack versus other-plugin evidence without private fields",
     '"Your Plugins Don\'t Match the Servers"' in mismatch
-    and "The likely cause is due to an update for the Nerevarine Prophecies content Expansion Pack." in mismatch
-    and "Please ensure you have the latest and greatest enabled, then retry logging in again." in mismatch
-    and "Download the latest Expansion Pack from Discord by clicking the button below," in mismatch
-    and "waiting for it to complete, then clicking the OK button to locate and install" in mismatch
-    and "send it to bug reports on Discord for further examination." in mismatch
     and '"Copy Diagnostic Info"' in mismatch
-    and "TES3MPCopyMismatchDiagnostics(nativeStatus)" in mismatch
-    and "report := TES3MPBuildSafeMismatchDiagnostics()" in mismatch
-    and "TES3MPBuildMinimumMismatchDiagnostics()" in mismatch
-    and "TES3MPTryCopyMismatchReport(report, statusControl, limited)" in mismatch
-    and "A_Clipboard := report" in mismatch
-    and "if attempt < 3" in mismatch
-    and "Clipboard unavailable after retries" in mismatch
-    and "Diagnostic collection failed (" in mismatch
-    and "if !ClipWait(1)" not in mismatch
-    and 'statusControl.Text := "Could not access clipboard. Please click Copy Diagnostic Info again."' in mismatch
-    and "TES3MPBuildSafeMismatchDiagnostics()" in mismatch
-    and "TES3MPReadSafeMismatchLogMarkers()" in mismatch
-    and 'FileGetSize(config) <= 1048576' in mismatch
+    and 'TES3MPCopyMismatchDiagnostics(nativeStatus)' in mismatch
+    and 'report := TES3MPBuildMismatchDiagnostics()' in mismatch
+    and 'TES3MPTryCopyMismatchReport(report, statusControl, limited)' in mismatch
+    and 'A_Clipboard := report' in mismatch
+    and '"Diagnostic Info Copied!"' in mismatch
+    and 'if attempt < 3' in mismatch
+    and 'TES3MPBuildMinimumMismatchDiagnostics()' in mismatch
+    and 'TES3MPAnalyzeMismatchConfig(configText)' in mismatch
+    and 'TES3MPAnalyzeMismatchLogText(raw)' in mismatch
+    and 'TES3MPMismatchAssessment(info, markers, installed)' in mismatch
+    and 'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)' in mismatch
+    and 'result.MissingExpansion := true' in mismatch
+    and 'result.MissingOther := true' in mismatch
+    and 'result.MissingBaseMaster := true' in mismatch
+    and 'info.OtherDuplicates += 1' in mismatch
+    and 'info.ExpansionIndex != info.Total' in mismatch
+    and 'currentIndex != lastRejection' in mismatch
+    and 'markers.Status = "Read" && markers.Rejected' in mismatch
+    and 'Other missing plugin specifically indicated:' in mismatch
+    and 'Missing Expansion Pack specifically named:' in mismatch
+    and 'Expansion Pack version verified: No (not checked)' in mismatch
+    and 'OpenMW config check:' in mismatch
+    and 'TES3MPReadSafeMismatchLogMarkers()' in mismatch
+    and 'FileGetSize(config) > 1048576' in mismatch
     and 'file.Length - 65536' in mismatch
-    and 'plugin = "np expansion pack.esp"' in mismatch
-    and 'plugin = "morrowind.esm"' in mismatch
-    and 'plugin = "tribunal.esm"' in mismatch
-    and 'plugin = "bloodmoon.esm"' in mismatch
-    and 'result.Rejected := InStr(raw,' in mismatch
-    and 'result.Missing := InStr(raw,' in mismatch
-    and 'result.Order := InStr(raw,' in mismatch
-    and "No raw log lines, mod names, paths, account details or tokens are copied." in mismatch
-    and "status.textContent='';" in source
     and 'statusControl.Text := ""' in mismatch
-    and "Starting Download..." not in mismatch
-    and "Starting Download..." not in source
-    and "BuildLauncherDiagnostics()" not in mismatch
-    and "A_Clipboard := raw" not in mismatch
-    and "A_Clipboard := FileRead(" not in mismatch,
+    and "status.textContent='';" in source
+    and 'Starting Download...' not in mismatch
+    and 'Starting Download...' not in source
+    and 'SAFE PLUGIN MISMATCH' not in mismatch
+    and 'Privacy: No raw log' not in mismatch
+    and 'Basic diagnostic info copied' not in mismatch
+    and 'BuildLauncherDiagnostics()' not in mismatch
+    and 'A_Clipboard := raw' not in mismatch
+    and 'A_Clipboard := FileRead(' not in mismatch,
+)
+expect(
+    "Windows build executes synthetic parser and report privacy fixtures",
+    (ROOT / "scripts" / "test-expansion-diagnostics.ahk").is_file()
+    and "test-expansion-diagnostics.ahk" in (
+        ROOT / "scripts" / "build-windows.ps1"
+    ).read_text(encoding="utf-8-sig")
+    and "Plugin-mismatch diagnostic fixture tests failed" in (
+        ROOT / "scripts" / "build-windows.ps1"
+    ).read_text(encoding="utf-8-sig"),
 )
 
 expect(
