@@ -212,3 +212,9 @@ parser checks on Windows. The GitHub workflow runs both.
 `python scripts/project.py package` builds a checked complete release ZIP.
 The build number is defined once in `AppConfig.Build` in `src/state.ahk`.
 See [RELEASING.md](RELEASING.md) for packaging and repository setup.
+
+### Local Windows regression without GitHub Actions
+
+From an existing `Update/v0.1.21-alpha` checkout, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-local-regression.ps1` to build the launcher, run its existing source/Chat Host/synthetic Expansion Pack checks, run the additional isolated updater client/metadata/rollback fixtures, and launch the built executable. The BAT build pauses at its normal confirmation prompt. PowerShell 7 (`pwsh.exe`) is required by the updater transaction fixture. The runner refuses to claim a complete offline pass if it is missing. Use `-SkipBuild` to rerun the updater fixtures against an already successful build and `-NoLaunch` to avoid opening the UI.
+
+The runner uses only the repository build output and synthetic temporary files; it does **not** edit the player's Morrowind installation, perform an Expansion Pack downgrade or launch GitHub Actions. Human verification of characters, Game Chat, Happy Hour, file import and live server login remains outstanding until someone runs the interactive checklist.
