@@ -359,6 +359,16 @@ expect(
     and 'InStr(report, "Load-order wording near rejection: No")' in (
         ROOT / "scripts" / "test-expansion-diagnostics.ahk"
     ).read_text(encoding="utf-8-sig")
+    and 'TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(text)' in mismatch
+    and 'TES3MPSelectMismatchLogEvidence(captured)' in mismatch
+    and 'markers := TES3MPSelectMismatchLogEvidence(TES3MPLastMismatchEvidence)' in mismatch
+    and 'Client evidence source: ' in mismatch
+    and 'TES3MPLastMismatchEvidence := 0' in (
+        ROOT / "src" / "game" / "session.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'chosen.Source = "Captured during failed login"' in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
+    ).read_text(encoding="utf-8-sig")
     and 'AutoHotkey fixture warnings detected; packaging stopped.' in (
         ROOT / "scripts" / "build-windows.ps1"
     ).read_text(encoding="utf-8-sig"),
