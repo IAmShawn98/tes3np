@@ -12,7 +12,7 @@ TransferLauncherData(*)
 
 ExportLauncherData()
 {
-    global Profiles, SelectedProfile, DataFile, CharacterPage, ScheduledEvents, ScheduledCountdownHotkey
+    global Profiles, SelectedProfile, DataFile, CharacterPage
     ; The v1 portable INI has no binary attachment container. Custom pictures
     ; remain local; imported characters retain their real race and stock icon.
     if MsgBox("This portable backup includes your characters, settings, and readable passwords. Original Character portrait images are stored locally and are NOT included in the INI backup. Keep it private. Continue?", "Export Data", 0x124) != "Yes"
@@ -51,28 +51,6 @@ ExportLauncherData()
             IniWrite(profile.LoadDelay, temporary, section, "Load")
             IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
         }
-        ; Include scheduler configuration in the same portable backup. Copy the
-        ; in-memory event state so exporting never stops/restarts its live timer.
-        IniWrite(ScheduledEvents.Length, temporary, "ScheduledEvents", "Count")
-        IniWrite(ScheduledCountdownHotkey, temporary, "ScheduledEvents", "Hotkey")
-        for index, event in ScheduledEvents
-        {
-            section := "ScheduledEvent" index
-            IniWrite(event.Id, temporary, section, "Id")
-            IniWrite(event.Name, temporary, section, "Name")
-            IniWrite(event.HasOwnProp("TimeBasis") ? event.TimeBasis : "IRL", temporary, section, "TimeBasis")
-            IniWrite(event.Time, temporary, section, "Time")
-            IniWrite(event.HasOwnProp("Mode") ? event.Mode : "IRL", temporary, section, "Mode")
-            IniWrite(event.HasOwnProp("DurationSeconds") ? event.DurationSeconds : 0, temporary, section, "DurationSeconds")
-            IniWrite(event.HasOwnProp("StartedAt") ? event.StartedAt : "", temporary, section, "StartedAt")
-            IniWrite(event.HasOwnProp("LoginAction") ? event.LoginAction : "LoginCloseAll", temporary, section, "LoginAction")
-            IniWrite(event.HasOwnProp("LoginProfiles") ? event.LoginProfiles : "", temporary, section, "LoginProfiles")
-            IniWrite(event.Recurring ? "1" : "0", temporary, section, "Recurring")
-            IniWrite(event.HasOwnProp("Locked") && event.Locked ? "1" : "0", temporary, section, "Locked")
-            IniWrite(event.HasOwnProp("Armed") && event.Armed ? "1" : "0", temporary, section, "Armed")
-            IniWrite(event.HasOwnProp("Completed") && event.Completed ? "1" : "0", temporary, section, "Completed")
-            IniWrite(event.HasOwnProp("LastRunDate") ? event.LastRunDate : "", temporary, section, "LastRunDate")
-        }
         FileMove(temporary, path, true)
         MsgBox("Launcher data exported. This file contains readable passwords; store it privately. Custom portrait images must be copied separately if needed.", "Export Data")
     }
@@ -87,7 +65,7 @@ ExportLauncherData()
 
 ImportLauncherData()
 {
-    global Profiles, SelectedProfile, DataFile, Client, MaxCharacters, ExecutableInput, ScheduledEvents, NextScheduledEventId, ScheduledCountdownHotkey
+    global Profiles, SelectedProfile, DataFile, Client, MaxCharacters, ExecutableInput
     if Profiles.Length || Client.Enabled
         return
     path := FileSelect(1, , "Import launcher data", "Launcher backup (*.ini)")
@@ -137,42 +115,6 @@ ImportLauncherData()
             throw Error("Invalid favorite-switch notice setting")
         if IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") = "1"
             favoriteNotice := "1"
-        restoredEvents := []
-        eventCountText := IniRead(path, "ScheduledEvents", "Count", "0")
-        eventCount := RegExMatch(eventCountText, "^\d+$") ? Integer(eventCountText) : 0
-        if eventCount > 100
-            throw Error("Too many scheduled events")
-        maxEventId := 0
-        Loop eventCount
-        {
-            section := "ScheduledEvent" A_Index
-            id := ReadBackupInteger(path, section, "Id", 1, 999999)
-            name := IniRead(path, section, "Name", "")
-            time := IniRead(path, section, "Time", "12:00")
-            try time := ParseDailyLoginTime(time)
-            catch
-                throw Error("Invalid scheduled event time")
-            mode := IniRead(path, section, "Mode", "IRL")
-            if mode != "IRL" && mode != "Countdown"
-                throw Error("Invalid scheduled event mode")
-            duration := ReadBackupInteger(path, section, "DurationSeconds", 0, 999999)
-            action := IniRead(path, section, "LoginAction", "LoginCloseAll")
-            if action != "LoginCloseAll" && action != "LoginUpTo4" && action != "AlertOnly"
-                throw Error("Invalid scheduled event action")
-            loginProfiles := IniRead(path, section, "LoginProfiles", "")
-            startedAt := IniRead(path, section, "StartedAt", "")
-            recurring := ReadBackupInteger(path, section, "Recurring", 0, 1) = 1
-            locked := ReadBackupInteger(path, section, "Locked", 0, 1) = 1
-            armed := ReadBackupInteger(path, section, "Armed", 0, 1) = 1
-            completed := ReadBackupInteger(path, section, "Completed", 0, 1) = 1
-            lastRun := IniRead(path, section, "LastRunDate", "")
-            restoredEvents.Push({Id: id, Name: name, TimeBasis: "IRL", Time: time, Mode: mode, DurationSeconds: duration,
-                StartedAt: startedAt, LoginAction: action, LoginProfiles: loginProfiles, Recurring: recurring, Locked: locked,
-                Armed: armed, Completed: completed, LastRunDate: lastRun, Due: false,
-                PreviousRemaining: mode = "Countdown" && startedAt = "" ? 1 : GetScheduledEventRawRemaining(time, "IRL")})
-            maxEventId := Max(maxEventId, id)
-        }
-        restoredHotkey := IniRead(path, "ScheduledEvents", "Hotkey", "F8")
         ; Validate everything and encrypt every password before replacing live settings.
         DirCreate(AppDataDirectory)
         if FileExist(temporary)
@@ -198,26 +140,6 @@ ImportLauncherData()
             IniWrite(profile.LoadDelay, temporary, section, "Load")
             IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
         }
-        IniWrite(restoredEvents.Length, temporary, "ScheduledEvents", "Count")
-        IniWrite(restoredHotkey, temporary, "ScheduledEvents", "Hotkey")
-        for index, event in restoredEvents
-        {
-            section := "ScheduledEvent" index
-            IniWrite(event.Id, temporary, section, "Id")
-            IniWrite(event.Name, temporary, section, "Name")
-            IniWrite(event.TimeBasis, temporary, section, "TimeBasis")
-            IniWrite(event.Time, temporary, section, "Time")
-            IniWrite(event.Mode, temporary, section, "Mode")
-            IniWrite(event.DurationSeconds, temporary, section, "DurationSeconds")
-            IniWrite(event.StartedAt, temporary, section, "StartedAt")
-            IniWrite(event.LoginAction, temporary, section, "LoginAction")
-            IniWrite(event.LoginProfiles, temporary, section, "LoginProfiles")
-            IniWrite(event.Recurring ? "1" : "0", temporary, section, "Recurring")
-            IniWrite(event.Locked ? "1" : "0", temporary, section, "Locked")
-            IniWrite(event.Armed ? "1" : "0", temporary, section, "Armed")
-            IniWrite(event.Completed ? "1" : "0", temporary, section, "Completed")
-            IniWrite(event.LastRunDate, temporary, section, "LastRunDate")
-        }
         FileMove(temporary, DataFile, true)
     }
     catch
@@ -236,9 +158,6 @@ ImportLauncherData()
         HideProfileEditor()
         Profiles := restored
         SelectedProfile := selected
-        ScheduledEvents := restoredEvents
-        NextScheduledEventId := maxEventId + 1
-        ScheduledCountdownHotkey := restoredHotkey
         ; The standalone character book can omit the legacy executable edit.
         ; OpenCharacterPage initializes that placeholder to integer 0.
         ; The imported executable path was already persisted to DataFile.
@@ -246,9 +165,6 @@ ImportLauncherData()
             ExecutableInput.Value := executable
         UpdateCharacterMenuLabel()
         RefreshProfiles()
-        ; RefreshProfiles can rebuild/relabel the Characters page before the
-        ; imported scheduler state is reflected in its painted button.
-        RefreshDailyLoginButton()
     }
     finally EndInterfaceUpdate()
     MsgBox("Launcher data imported." (pathReset ? " Select tes3mp.exe with Browse on this computer." : ""), "Import Data")
