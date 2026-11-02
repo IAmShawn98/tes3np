@@ -504,6 +504,8 @@ expect(
     and 'six attempts' in expansion_fixture
     and "CheckWorker $zip 'recover-after-lock' $true" in expansion_fixture
     and "CheckWorker $zip 'reject-persistent-win32-lock' $false" in expansion_fixture
+    and "ReplaceVerified $item.Source $item.Target $item.Hash\n        $changed += $backups[$i]" in expansion_worker
+    and 'Rollback was incomplete' in expansion_fixture
     and 'old locked ESP content' in expansion_fixture
     and "Unpacked Expansion Pack exceeds the 1 GB limit." not in expansion_worker
     and "Extracted Expansion Pack exceeds the 1 GB limit." not in expansion_worker
