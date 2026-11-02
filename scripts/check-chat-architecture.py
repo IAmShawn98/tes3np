@@ -500,6 +500,8 @@ expect(
     and 'CopyWithRetry $item.Target $backup' in expansion_worker
     and 'CopyWithRetry $Source $temp' in expansion_worker
     and 'Temporary import copy destination already exists.' in expansion_worker
+    and "[step: " in expansion_worker
+    and "failed without a sanitized diagnostic stage" in expansion_fixture
     and 'Rollback was incomplete' in expansion_fixture
     and "CheckWorker $zip 'recover-after-lock' $true" in expansion_fixture
     and "CheckWorker $zip 'reject-persistent-win32-lock' $false" in expansion_fixture
