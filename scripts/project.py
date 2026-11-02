@@ -130,7 +130,13 @@ def check(allow_missing_payload: bool = False) -> None:
             for match in re.finditer(r"(?i)\b(buffer|gui|map|array)\s*:=\s*\1\s*\(", tokens):
                 errors.append(f"{relative}: local name shadows {match[1]} constructor")
             for match in re.finditer(r"(?m)^#Include\s+(.+)$", text):
-                include = ROOT / match[1].strip().replace("\\", "/")
+                include_text = match[1].strip().replace("\\", "/")
+                # Existing application includes are rooted at the repo;
+                # standalone diagnostic fixture scripts may include their
+                # neighbor paths relative to the file containing #Include.
+                include = ROOT / include_text
+                if not include.is_file():
+                    include = path.parent / include_text
                 if not include.is_file():
                     errors.append(f"{relative}: missing include {match[1]}")
         except ValueError as error:
