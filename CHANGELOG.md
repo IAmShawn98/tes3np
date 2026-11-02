@@ -29,6 +29,8 @@
 
 ### Fixed
 
+- Fixed compiled launcher error after the unified Expansion Pack chooser introduced a reference to nonexistent AutoHotkey variable `A_Pid`. Its temporary selection filename now uses `DllCall("GetCurrentProcessId", "UInt")` (the Windows process ID). Added a pre-embedding `AutoHotkey64.exe /ErrorStdOut tes3np.ahk --check` build preflight to surface line-specific `#Warn` problems before Ahk2Exe emits a generic compilation failure. Windows rebuild and interactive ZIP/folder picker validation are pending.
+
 - Fixed Windows PowerShell 5.1 ZIP fixture startup: the portable-ZIP test now explicitly loads both `System.IO.Compression` (defines `ZipArchiveMode`) and `System.IO.Compression.FileSystem` (provides `ZipFile` and its extension helpers) before constructing the fixture. Kept ZIP path validation and actual import logic untouched; Windows build rerun remains pending.
 
 - Repaired the Windows ZIP/folder import regression fixture after a reported `The ZIP contains an unsafe file path` failure. On some Windows PowerShell/.NET Framework targets, `ZipFile.CreateFromDirectory` writes backslash-separated archive entries. The fixture now uses `ZipFileExtensions.CreateEntryFromFile` with explicit forward-slash names and independently verifies all ZIP entries; it also creates a deliberately unsafe backslash ZIP to confirm the production importer still rejects it and checks that other unsupported files fail for the intended reason. The production ZIP path safety validation is unchanged. Windows rerun and live import remain pending.
