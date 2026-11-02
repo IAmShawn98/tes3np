@@ -184,20 +184,6 @@ ProtectPassword(value, encrypt := true)
     finally DllCall("LocalFree", "Ptr", data)
 }
 
-HasSavedCharacters()
-{
-    global DataFile, MaxCharacters
-    count := IniRead(DataFile, "Profiles", "Count", "0")
-    if !RegExMatch(count, "^\d{1,6}$")
-        return false
-    Loop Min(Integer(count), MaxCharacters)
-    {
-        if Trim(IniRead(DataFile, "Character" A_Index, "Name", "")) != ""
-            return true
-    }
-    return false
-}
-
 NewCharacterProfile()
 {
     return {Name: "", Password: "", Species: "", PortraitFile: "", UsernameDelay: AppConfig.UsernameDelay,
