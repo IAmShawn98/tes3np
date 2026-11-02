@@ -1,6 +1,4 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
-global GameDetectionActive := false
-global LauncherHelpText := 0
 BuildFrontPage()
 {
     global LauncherGui, DragStrip, LauncherHeading, LauncherMorrowindFont
@@ -55,11 +53,9 @@ AddInfoCard(x, y, width, height, heading, text)
 
 UpdateCharacterMenuLabel()
 {
-    global MenuEntries, MenuOffset, Profiles, SelectedProfile, GameDetectionActive, LauncherHelpText, LauncherHeading
+    global MenuEntries, MenuOffset, Profiles, SelectedProfile
     MenuEntries := []
     ; The Expansion Pack is optional and must never hide the launch menu.
-    if IsObject(LauncherHelpText)
-        LauncherHelpText.Visible := false
     if SelectedProfile > 0 && SelectedProfile <= Profiles.Length
     {
         MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])
@@ -180,56 +176,4 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
     delta := (wParam >> 16) << 48 >> 48
     ScrollMenu(MenuOffset + (delta > 0 ? -20 : 20))
     return 0
-}
-
-
-
-; First-run detection status occupies the same scroll panel as the normal menu.
-BeginGameDetectionDisplay()
-{
-    global LauncherGui, LauncherHeading, LauncherHelpText, GameDetectionActive, LauncherControlLayout
-    GameDetectionActive := true
-    LauncherHeading.Text := "Game Launcher"
-    LauncherGui.SetFont("s10 Norm c241408", "Segoe UI")
-    LauncherHelpText := LauncherGui.Add("Text", "x345 y529 w265 h98 Center BackgroundTrans",
-        "Please wait while tes3np verifies your tes3mp folder data...")
-    LauncherControlLayout[LauncherHelpText.Hwnd] := {Control: LauncherHelpText, X: 345, Y: 529, Width: 265, Height: 98}
-    UpdateCharacterMenuLabel()
-    RefreshGameDetectionText()
-}
-
-EndGameDetectionDisplay()
-{
-    global GameDetectionActive, LauncherHeading, LauncherHelpText, LauncherGui
-    GameDetectionActive := false
-    LauncherHeading.Text := "Game Launcher"
-    if IsObject(LauncherHelpText)
-    {
-        ; Transparent Win32 text controls retain old glyphs unless the parent
-        ; repaints the full status rectangle after changing the text.
-        LauncherHelpText.Visible := false
-        LauncherHelpText.Text := ""
-        LauncherHelpText.Visible := true
-        LauncherHelpText.GetPos(&x, &y, &w, &h)
-        rect := Buffer(16, 0)
-        NumPut("Int", x, "Int", y, "Int", x + w, "Int", y + h, rect)
-        DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", rect.Ptr, "Ptr", 0, "UInt", 0x0185)
-    }
-    UpdateCharacterMenuLabel()
-    RefreshGameDetectionText()
-}
-
-; Transparent STATIC controls need their parent repainted when their text changes.
-RefreshGameDetectionText()
-{
-    global LauncherGui
-    ; A transparent STATIC cannot erase its previous glyphs. Repaint the
-    ; heading rectangle on the parent, including the background and heading.
-    global LauncherHeading
-    if !IsObject(LauncherHeading)
-        return
-    LauncherHeading.GetPos(&x, &y, &w, &h)
-    rect := Buffer(16, 0)
-    NumPut("Int", x, "Int", y, "Int", x + w, "Int", y + h, rect)
-    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", rect.Ptr, "Ptr", 0, "UInt", 0x0185)
 }
