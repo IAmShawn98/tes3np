@@ -5,6 +5,13 @@
 #Include ..\src\game\expansion-mismatch.ahk
 
 global AppConfig := {Version: "TEST"}
+; Production sets these in src/state.ahk and src/data/settings.ahk.
+; The isolated parser fixture intentionally does not load the live launcher.
+; Its test-only placeholders silence #Warn; no tests call GUI/game code.
+global Client := {PID: 0, Enabled: false, Queue: 0}
+global LauncherGui := 0
+global EmbeddedChatPid := 0
+global DataFile := ""
 
 ; This fixture includes only the production diagnostic module, NOT the whole
 ; live launcher. Provide inert dependency stubs so #Warn can resolve the same
