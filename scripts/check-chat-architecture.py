@@ -36,6 +36,11 @@ def section_between(text: str, start: str, end: str) -> str:
 
 
 expect(
+    "Unused backfill reanchor tracking flag must remain removed (CS0414)",
+    "initialBackfillReanchored" not in source,
+)
+
+expect(
     "AHK must establish the Roaming AppData root",
     'AppDataDirectory := A_AppData "\\tes3np"' in app_state,
 )
