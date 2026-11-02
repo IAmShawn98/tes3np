@@ -203,6 +203,26 @@ def check(allow_missing_payload: bool = False) -> None:
                 )
         if re.search(r"\bClient\.Queue\b", content):
             errors.append(f"{source.relative_to(ROOT)}: retired batch queue reference")
+    # A retired scheduler must stay removed from ALL executable sources, not
+    # only the AHK include graph. The words here are forbidden identifiers,
+    # not a literal search for comments about scheduler retirement.
+    inactive_scheduler_identifiers = (
+        "LoadDailyLoginSchedule", "ScheduledDailyLogin",
+        "OpenScheduledEvents", "ScheduledLoginAction",
+        "MarkScheduledDailyLoginComplete", "CancelScheduledDailyLoginForToday",
+        "SaveScheduledEventShutdownTime",
+    )
+    executable_secondary_sources = [
+        ROOT / "chat-host/Program.cs",
+        *sorted((ROOT / "scripts").glob("*.ps1")),
+    ]
+    for secondary in executable_secondary_sources:
+        secondary_text = secondary.read_text(encoding="utf-8-sig")
+        for symbol in inactive_scheduler_identifiers:
+            if symbol.lower() in secondary_text.lower():
+                errors.append(
+                    f"{secondary.relative_to(ROOT)}: retired scheduler reference {symbol}"
+                )
     session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     root_source = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
     refinements = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
