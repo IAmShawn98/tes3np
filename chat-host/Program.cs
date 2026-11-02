@@ -273,7 +273,29 @@ internal static class Program
                 panel=document.createElement('div'); panel.id='tes3np-zip-card';
                 status=document.createElement('div');
                 sender=document.createElement('div'); sender.className='sender';
-                link=document.createElement('a'); link.target='_self';
+                link=document.createElement('a');
+                // The raw CDN navigation/download stalls this tiny child
+                // WebView2 on some Windows machines. Keep the DOM card inside
+                // the dialog but hand the actual ZIP URL to the native host.
+                link.addEventListener('click',event=>{
+                  if (event.button!==0 || event.defaultPrevented) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const url=link.href;
+                  try {
+                    const uri=new URL(url);
+                    if (!attachmentHost.test(url) || !/\.zip$/i.test(uri.pathname)) {
+                      report('download-url-invalid');
+                      return;
+                    }
+                    chrome.webview.postMessage({type:'expansion-download',url});
+                    status.textContent='Opening download in your default browser...';
+                    report('download-handed-to-browser');
+                  } catch {
+                    report('download-handoff-unavailable');
+                    status.textContent='Could not open the download. Use the Discord channel link below.';
+                  }
+                });
                 size=document.createElement('div'); size.className='small';
                 panel.append(status,sender,link,size);
                 document.documentElement.appendChild(panel);
@@ -533,6 +555,23 @@ internal static class Program
                 Math.Max(1,box.Bottom-box.Top),true);
         }
 
+        static bool IsOfficialExpansionDownloadUrl(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value) ||
+                !Uri.TryCreate(value, UriKind.Absolute, out var uri))
+                return false;
+            if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                (uri.Host != "cdn.discordapp.com" && uri.Host != "media.discordapp.net") ||
+                uri.UserInfo.Length != 0 || !uri.AbsolutePath.StartsWith("/attachments/", StringComparison.Ordinal))
+                return false;
+            try {
+                var filename=Uri.UnescapeDataString(
+                    System.IO.Path.GetFileName(uri.AbsolutePath));
+                return filename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
         async Task InitializeExpansionDownloadsBrowser()
         {
             var browser=expansionDownloadsBrowser;
@@ -550,11 +589,47 @@ internal static class Program
                 browser.CoreWebView2.WebMessageReceived+=(_,args)=>{
                     try {
                         using var json=System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
-                        if (json.RootElement.TryGetProperty("type",out var kind) &&
-                            kind.GetString()=="expansion-layout" &&
+                        if (!json.RootElement.TryGetProperty("type",out var kind)) return;
+                        string? type=kind.GetString();
+                        if (type=="expansion-layout" &&
                             json.RootElement.TryGetProperty("status",out var state))
+                        {
                             Log("EXPANSION | ZIP card: "+state.GetString());
-                    } catch {}
+                        }
+                        else if (type=="expansion-download" &&
+                            json.RootElement.TryGetProperty("url",out var requested) &&
+                            requested.ValueKind==System.Text.Json.JsonValueKind.String)
+                        {
+                            string? link=requested.GetString();
+                            if (!IsOfficialExpansionDownloadUrl(link))
+                            {
+                                Log("EXPANSION | Rejected unsafe or invalid ZIP download target.");
+                                return;
+                            }
+                            // Do not navigate the embedded WebView2 to the ZIP:
+                            // a large download can block its tiny native child.
+                            // Use Windows Shell on a worker to keep Game Chat,
+                            // the mismatch dialog and Happy Hour responsive.
+                            _=Task.Run(()=>{
+                                try {
+                                    using var started=System.Diagnostics.Process.Start(
+                                        new System.Diagnostics.ProcessStartInfo {
+                                            FileName=link!,
+                                            UseShellExecute=true
+                                        });
+                                    if (started==null)
+                                        Log("EXPANSION | Default browser did not accept ZIP download.");
+                                    else
+                                        Log("EXPANSION | Opened official ZIP in the default browser.");
+                                } catch (Exception ex) {
+                                    Log("EXPANSION | Could not hand ZIP to default browser: "+ex.Message);
+                                }
+                            });
+                        }
+                    }
+                    catch (Exception ex) {
+                        Log("EXPANSION | Invalid download message: "+ex.GetType().Name);
+                    }
                 };
                 browser.CoreWebView2.NavigationCompleted+=async (_,e)=>{
                     Log("EXPANSION | Discord page "+(e.IsSuccess?"loaded":"failed: "+e.WebErrorStatus));
@@ -562,7 +637,13 @@ internal static class Program
                     try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }
                     catch (Exception ex) { Log("EXPANSION | Card refresh: "+ex.Message); }
                 };
-                browser.CoreWebView2.DownloadStarting+=(_,_)=>Log("EXPANSION | Official ZIP download started.");
+                // Defensive only: downloads are dispatched through WebMessageReceived.
+                // An unexpected WebView2 download must not silently replace the
+                // authenticated channel or navigate away from this ZIP card.
+                browser.CoreWebView2.DownloadStarting+=(_,e)=>{
+                    Log("EXPANSION | Unexpected in-WebView download; deferring to default browser.");
+                    e.Cancel=true;
+                };
                 browser.CoreWebView2.Navigate(ExpansionChannel);
             }
             catch(Exception ex) { if (!closingChat) Log("EXPANSION | Embed load failed: "+ex.Message); }
