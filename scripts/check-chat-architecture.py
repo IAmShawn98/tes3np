@@ -427,20 +427,33 @@ expect(
     ).read_text(encoding="utf-8-sig"),
 )
 
+expansion_picker = (ROOT / "scripts" / "select-expansion-package.ps1").read_text(encoding="utf-8-sig")
 expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
 expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(encoding="utf-8-sig")
 expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
 expect(
-    "Expansion source chooser offers explicit ZIP and extracted-folder options",
-    '"Select ZIP (Recommended)"' in expansion_upload
-    and '"Select Extracted Folder"' in expansion_upload
-    and 'ChooseExpansionPackageSource(sourceGui, "zip")' in expansion_upload
-    and 'ChooseExpansionPackageSource(sourceGui, "folder")' in expansion_upload
-    and 'FileSelect(1, , "Choose the official NP Expansion Pack ZIP"' in expansion_upload
-    and 'DirSelect(, 0, "Choose the extracted Expansion Pack folder containing Data Files")' in expansion_upload
+    "One native Windows Explorer-style source browser picks ZIP or extracted folder",
+    'package := SelectExpansionPackagePath()' in expansion_upload
     and 'InstallSelectedExpansionPackage(package)' in expansion_upload
-    and 'StartExpansionImportWorker(package, morrowind, config)' in expansion_upload,
+    and 'StartExpansionImportWorker(package, morrowind, config)' in expansion_upload
+    and 'select-expansion-package.ps1' in expansion_upload
+    and 'RunWait(command, , "Hide")' in expansion_upload
+    and 'DirExist(package)' in expansion_upload
+    and 'StrLower(extension) = "zip"' in expansion_upload
+    and 'ChooseExpansionPackageSource' not in expansion_upload
+    and 'Select ZIP (Recommended)' not in expansion_upload
+    and 'System.IO.Compression' not in expansion_picker
+    and '[TES3NP.Expansion.NativePicker]::Select($OwnerHwnd)' in expansion_picker
+    and 'AddPushButton(ChooseFolderButton, "Use This Folder")' in expansion_picker
+    and 'fileDialog.Close(0);' in expansion_picker
+    and 'fileDialog.GetCurrentSelection(out selection)' in expansion_picker
+    and 'fileDialog.GetFolder(out folder)' in expansion_picker
+    and 'Directory.Exists(folderPath)' in expansion_picker
+    and 'File.Exists(path)' in expansion_picker
+    and '[TES3NP.Expansion.NativePicker]::SmokeTest()' in expansion_picker
+    and 'select-expansion-package.ps1' in expansion_build
+    and 'Native Expansion Pack picker COM smoke test failed' in expansion_build,
 )
 expect(
     "Folder imports use ZIP-equivalent allowlist, limits and unchanged rollback",
