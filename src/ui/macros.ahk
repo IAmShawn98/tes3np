@@ -1,10 +1,5 @@
 ; Local macro packages. Import extracts files; only Run executes a chosen script.
 
-OpenMacros(*)
-{
-    OpenCharacterPage()
-}
-
 BuildMacroBookPanel()
 {
     global CharacterPage, LauncherMorrowindFont, ButtonFaces
