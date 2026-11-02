@@ -563,14 +563,12 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
     configOK := info.Status = "Read"
     logOK := markers.Status = "Read" && markers.Rejected
     expansion := TES3MPMismatchYesNo(info.ExpansionCount > 0, configOK)
-    expansionLast := TES3MPMismatchYesNo(info.ExpansionCount = 1
-        && info.ExpansionIndex = info.Total, configOK && info.ExpansionCount = 1)
+    expansionLast := TES3MPMismatchYesNo(info.ExpansionCount = 1 && info.ExpansionIndex = info.Total, configOK && info.ExpansionCount = 1)
     totalText := configOK ? info.Total : "Unknown"
     expansionCountText := configOK ? info.ExpansionCount : "Unknown"
     otherCountText := configOK ? info.OtherCount : "Unknown"
     duplicatesText := configOK ? info.OtherDuplicates : "Unknown"
-    afterText := (configOK && info.ExpansionCount = 1)
-        ? info.OtherAfterExpansion : "Unknown"
+    afterText := (configOK && info.ExpansionCount = 1) ? info.OtherAfterExpansion : "Unknown"
 
     ; Each field is appended explicitly. Do not split a return expression
     ; before a parenthesized value: AHK treats that as unreachable code and
@@ -597,16 +595,11 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
     report .= "Expansion ESP in configured game folder: " installed "`r`n"
     report .= "`r`n[Client rejection evidence]`r`n"
     report .= "Client log check: " markers.Status "`r`n"
-    report .= "Recent server rejection in inspected log: "
-        . TES3MPMismatchYesNo(markers.Rejected, markers.Status = "Read") "`r`n"
-    report .= "Missing Expansion Pack specifically named: "
-        . TES3MPMismatchYesNo(markers.MissingExpansion, logOK) "`r`n"
-    report .= "Other missing plugin specifically indicated: "
-        . TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
-    report .= "Missing base-game master indicated: "
-        . TES3MPMismatchYesNo(markers.MissingBaseMaster, logOK) "`r`n"
-    report .= "Missing dependency not identified: "
-        . TES3MPMismatchYesNo(markers.MissingUnspecified, logOK) "`r`n"
+    report .= "Recent server rejection in inspected log: " TES3MPMismatchYesNo(markers.Rejected, markers.Status = "Read") "`r`n"
+    report .= "Missing Expansion Pack specifically named: " TES3MPMismatchYesNo(markers.MissingExpansion, logOK) "`r`n"
+    report .= "Other missing plugin specifically indicated: " TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
+    report .= "Missing base-game master indicated: " TES3MPMismatchYesNo(markers.MissingBaseMaster, logOK) "`r`n"
+    report .= "Missing dependency not identified: " TES3MPMismatchYesNo(markers.MissingUnspecified, logOK) "`r`n"
     report .= "Load-order wording near rejection: " TES3MPMismatchYesNo(markers.Order, logOK)
     return report
 }
