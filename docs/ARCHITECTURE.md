@@ -140,15 +140,16 @@ been retired and the CI architecture guard rejects its reintroduction.
 
 ## Session contract
 
-`ClientTick` owns recovery. Phases are `launch`, `window`, `username`, `password`,
-`loading`, `playing`, `claim`, `closing`, `retry` and `stopped`.
+`ClientTick` owns recovery. Active phases are `launch`, `window`, `username`,
+`password`, `loading` and `playing`; `stopped` is the terminal state.
 `UpdateGameLoginProgress` only presents state in a nonactivating, click-through
 native window. It does not send inputs or add a recovery watchdog. The step dots
 track timed screen waits and actual SendText calls. The approved four-step
 gold-bordered production display finishes when the password input is sent and
 closes three seconds later. This marks **input completion**, not server-confirmed
-authentication. The saved in-game load delay, crash recovery, ten-second batch
-claim wait, and scheduled multi-login handoff timing remain unchanged.
+authentication. The saved in-game load delay and crash recovery remain
+unchanged; the retired scheduler, claim-and-close batch queue and event timer
+are not compiled. Manual game launches still enforce the four-client limit.
 The simulated developer preview has been removed. Cancelled sessions dispose
 of the card. Only a visible SDL window belonging
 to the tracked PID qualifies as the game. Credentials use configured delays, not
@@ -193,7 +194,7 @@ supplies new-profile defaults. `%APPDATA%\tes3np` remains the data root.
 
 ## TES3MP plugin mismatch recovery
 
-`src/game/expansion-mismatch.ahk` is called from the **existing** `ClientTick` watchdog. It records client log lengths before each launch, reads only fresh `tes3mp-client*.log` content in the configured OpenMW user directory (including relocated Documents), and handles the exact server plugin/load-order rejection message. It stops only the failed PID, cancels batch/scheduled follow-ups, and displays the owned Upload Expansion / Cancel dialog. It does not impersonate the server, assume a new pack exists, or establish checksum compatibility without a real connection.
+`src/game/expansion-mismatch.ahk` is called from the **existing** `ClientTick` watchdog. It records client log lengths before each launch, reads only fresh `tes3mp-client*.log` content in the configured OpenMW user directory (including relocated Documents), and handles the exact server plugin/load-order rejection message. It stops only the failed PID and displays the owned Upload Expansion / Cancel dialog. It does not impersonate the server, assume a new pack exists, or establish checksum compatibility without a real connection.
 
 `src/ui/expansion-upload.ahk` owns the file picker. Its PowerShell worker runs through the existing `PatchJob` progress loop and owns all game/config writes. `scripts/import-expansion-pack.ps1` accepts downloaded ZIP/ESP files, validates paths and extensions, stages and verifies bytes, and journals overwritten files for rollback. Never install downloaded code/executables from these archives or replace the launcher/markerless TES3MP client. The manually imported pack can differ from the separately bundled manifest, which remains the authoritative expected content for the older Install / Repair path. Windows tests are required to confirm native popup timing and the upload dialog.
 
