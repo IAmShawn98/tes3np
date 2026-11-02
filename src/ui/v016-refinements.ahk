@@ -479,18 +479,6 @@ AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center
 }
 
 
-AddMagicCardsInteractiveLabel(gui, x, y, w, h, prefix, text, fontHeight, callback, color := 0xFF382314)
-{
-    ; Keep the clickable checkbox symbol native, but render its label with the
-    ; vanilla journal glyphs. The transparent hit target preserves interaction.
-    gui.SetFont("s" V016Font(13) " c382314", "Segoe UI Symbol")
-    symbol := gui.Add("Text", "x" x " y" y " w" V016S(30) " h" h " +0x100 BackgroundTrans", prefix)
-    label := AddMagicCardsText(gui, x + V016S(38), y, w - V016S(38), h, text, fontHeight, color)
-    hit := gui.Add("Text", "x" x " y" y " w" w " h" h " +0x100 BackgroundTrans", "")
-    hit.OnEvent("Click", callback)
-    return {Symbol: symbol, Label: label, Hit: hit}
-}
-
 ReleaseLauncherMorrowindFont()
 {
     global LauncherMorrowindFontLoaded, LauncherMorrowindFontPath, LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
@@ -617,41 +605,6 @@ ToggleV016ReadabilityControl(control, *)
     global V016ReadabilityState
     V016ReadabilityState := !V016ReadabilityState
     UpdateV016ReadabilityLabel(control, V016ReadabilityState)
-}
-
-ToggleV016ReadabilityParts(*)
-{
-    global V016ReadabilityState
-    V016ReadabilityState := !V016ReadabilityState
-    ; Reopen settings to refresh the bitmap label and checkbox together.
-    ; The saved value is still applied only by Preview Changes.
-    try
-    {
-        global V016SettingsGuiHwnd
-        hwnd := V016SettingsGuiHwnd
-        if hwnd && DllCall("IsWindow", "Ptr", hwnd, "Int")
-        {
-            symbol := V016ReadabilityState ? "☑" : "■"
-            controls := WinGetControls("ahk_id " hwnd)
-            for ctl in controls
-                try if InStr(ControlGetText(ctl, "ahk_id " hwnd), "■") || InStr(ControlGetText(ctl, "ahk_id " hwnd), "☑")
-                    ControlSetText(symbol, ctl, "ahk_id " hwnd)
-        }
-    }
-}
-
-UpdateV016ReadabilityLabel(control, state)
-{
-    if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd, "Int")
-        return
-    try control.Text := V016CheckLabel(state, "Enhanced readability")
-}
-
-ToggleV016FollowWindows(control, *)
-{
-    global V016FollowWindowsState
-    V016FollowWindowsState := !V016FollowWindowsState
-    control.Text := V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings")
 }
 
 ApplyV016LauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, *)
