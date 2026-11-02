@@ -230,6 +230,13 @@ ToggleV016ReadabilityControl(control, *)
     UpdateV016ReadabilityLabel(control, V016ReadabilityState)
 }
 
+UpdateV016ReadabilityLabel(control, state)
+{
+    if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd, "Int")
+        return
+    try control.Text := V016CheckLabel(state, "Enhanced readability")
+}
+
 ApplyV016LauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, *)
 {
     global V016ReadabilityState, V016FollowWindowsState
