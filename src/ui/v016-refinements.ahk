@@ -1,4 +1,4 @@
-; v0.1.16 test-branch UI refinements.
+; Live character-book and launcher-settings presentation.
 
 global V016CharacterLayoutApplied := false
 global V016SettingsGuiHwnd := 0
@@ -558,27 +558,25 @@ OpenClientSelectionSettings(*)
 
 RestoreBundledClientV016(menu, *)
 {
-    global DataFile, ExecutableInput
+    global DataFile
     IniWrite("Bundled", DataFile, "Launch", "ClientMode")
-    try ExecutableInput.Value := A_ScriptDir "\client\tes3mp.exe"
     LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
     UpdateGameClientFeedbackV016(menu, "Original TES3NP runtime", "Original client restored. Your custom files remain saved for later.")
 }
 
 ActivateSavedCustomClientV016(menu, *)
 {
-    global DataFile, ExecutableInput
+    global DataFile
     if !FileExist(GetCustomOverrideFolder() "\tes3mp.exe")
         return
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
-    try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
     LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
     UpdateGameClientFeedbackV016(menu, "Custom overrides active", "Saved custom EXE and dependencies are active again.")
 }
 
 ConfigureCustomClientV016(menu, *)
 {
-    global DataFile, AppDataDirectory, ExecutableInput
+    global DataFile, AppDataDirectory
     source := FileSelect(1, , "Choose your modified tes3mp.exe", "Executable (*.exe)")
     if source = ""
         return
@@ -615,12 +613,11 @@ ChooseCustomDependencyFolderV016(menu, options, source, *)
 
 SaveCustomClientV016(menu, options, source, folder, *)
 {
-    global DataFile, AppDataDirectory, ExecutableInput
+    global DataFile, AppDataDirectory
     if !PrepareMarkerlessClientRuntime() || !InstallCustomClientOverrides(source, folder)
         return
     DirCreate(AppDataDirectory)
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
-    try ExecutableInput.Value := GetCustomOverrideFolder() "\tes3mp.exe (custom overrides)"
     LogLauncherEvent("GAME | Custom client configured | Additional dependencies: " (folder = "" ? "none" : "selected") ".")
     options.Destroy()
     UpdateGameClientFeedbackV016(menu, "Custom overrides active", folder = ""
