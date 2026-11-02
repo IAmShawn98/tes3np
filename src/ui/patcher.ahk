@@ -155,7 +155,7 @@ OpenPatcher(*)
         PatchPage.SetFont("s16 Bold c382314", "Georgia")
         PatchPage.Add("Text", "x20 y15 w720 h30", "Optional Expansion Pack")
         PatchPage.SetFont("s10 Norm c382314", "Segoe UI")
-        PatchPage.Add("Text", "x20 y55 w720 h70", "Optional NP Expansion Pack v0.1. The markerless client is already bundled with TES3NP. Install this expansion only if you choose to. Existing game files are backed up before replacement.")
+        PatchPage.Add("Text", "x20 y55 w720 h70", "Choose a current NP Expansion Pack ZIP or extracted folder for safe Upload / Repair. Legacy bundled v0.1 installation is retired to prevent overwriting newer files.")
         config := PatchConfigurationPath()
         PatchPage.Add("Text", "x20 y130 w720 h22", "Existing TES3MP folder (detected or selected)")
         PatchTesInput := PatchPage.Add("Edit", "x20 y155 w620 h25", FindTES3MPFolder())
@@ -171,18 +171,18 @@ OpenPatcher(*)
         browseConfig.OnEvent("Click", BrowsePatchConfiguration)
         license := PatchPage.Add("Button", "x20 y320 w140 h30", "Read EP License")
         license.OnEvent("Click", (*) => Run(A_ScriptDir "\patches\expansion-pack\LICENSE.txt"))
-        PatchApplyButton := PatchPage.Add("Button", "x175 y320 w145 h30 Default", "Install / Repair")
+        PatchApplyButton := PatchPage.Add("Button", "x175 y320 w145 h30 Default", "Upload / Repair")
         PatchVerifyButton := PatchPage.Add("Button", "x335 y320 w100 h30", "Verify")
         PatchRestoreButton := PatchPage.Add("Button", "x450 y320 w145 h30", "Restore Backup")
         close := PatchPage.Add("Button", "x610 y320 w130 h30", "Close")
-        PatchApplyButton.OnEvent("Click", StartPatchAction.Bind("Apply"))
+        PatchApplyButton.OnEvent("Click", StartSafeExpansionRepair)
         PatchVerifyButton.OnEvent("Click", StartPatchAction.Bind("Verify"))
         PatchRestoreButton.OnEvent("Click", StartPatchAction.Bind("Restore"))
         close.OnEvent("Click", ClosePatcher)
         PatchPage.OnEvent("Close", ClosePatcher)
         PatchPage.OnEvent("Escape", ClosePatcher)
         PatchPage.Opt("+OwnDialogs")
-        PatchStatus := PatchPage.Add("Text", "x20 y370 w720 h75", "This installation is optional. The bundled markerless client is available without installing the Expansion Pack.")
+        PatchStatus := PatchPage.Add("Text", "x20 y370 w720 h75", "The Expansion Pack is optional. Upload / Repair opens the current-package importer; Verify checks local files and load order only. The server decides version compatibility.")
     }
     PatchPage.Show("w760 h465")
 }
@@ -211,15 +211,28 @@ BrowsePatchConfiguration(*)
         PatchConfigInput.Value := path
 }
 
+StartSafeExpansionRepair(*)
+{
+    ; The legacy bundled v0.1 patch cannot safely repair a newer imported pack.
+    ; The current importer backs up and verifies the user-selected ZIP/folder.
+    if PatchInProgress()
+        return
+    ClosePatcher()
+    UploadExpansionFromFile()
+}
+
 StartPatchAction(action, *)
 {
+    if action = "Apply"
+    {
+        StartSafeExpansionRepair()
+        return
+    }
     global PatchTesInput, PatchMorrowindInput, PatchConfigInput, PatchPage, DataFile
     if PatchInProgress()
         return
     tesFolder := Trim(PatchTesInput.Value)
     if action = "Restore" && MsgBox("Restore files replaced by the most recent patch? Files changed afterward will be protected and may prevent restore.", "Restore Backup", 0x124) != "Yes"
-        return
-    if action = "Apply" && MsgBox("Install the OPTIONAL NP Expansion Pack into Morrowind and enable NP Expansion Pack.esp last? The original TES3MP executable will not be changed.", "Optional Expansion Pack", 0x124) != "Yes"
         return
     StartPatchWorker(action, tesFolder, Trim(PatchMorrowindInput.Value), Trim(PatchConfigInput.Value), PatchPage)
 }
@@ -429,7 +442,7 @@ CheckPatchWorker()
         {
             if job.Action = "Verify" && state = "needs_setup"
             {
-                if MsgBox("Some Nerevarine Prophecies game files or configuration entries are missing or different. Open Repair Game Install now? Verification did not change any files.", "Game installation needs repair", "YesNo Icon!") = "Yes"
+                if MsgBox("The optional Expansion Pack is missing or not enabled in the selected configuration. Open Upload / Repair to choose a current NP package? Verification did not change any files.", "Expansion Pack needs attention", "YesNo Icon!") = "Yes"
                     OpenPatcher()
             }
             else
