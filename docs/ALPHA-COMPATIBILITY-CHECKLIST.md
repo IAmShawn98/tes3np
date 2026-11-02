@@ -63,3 +63,15 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Publish corresponding source and build instructions for any distributed modified GPL-covered TES3MP executable.
 - [ ] Validate complete build artifacts and hashes on CI, then test the actual extracted Windows ZIP.
 - [ ] Confirm no public alpha/release was pushed before these checks pass.
+
+## November 2 source-retirement regression (local Windows only)
+
+- [ ] Confirm the legacy Install / Repair, Verify and Restore Backup controls and tray entry do not appear. Never execute a bundled v0.1 repair against a working v0.2 installation.
+- [ ] Open first-run Morrowind GOTY discovery and confirm saved folder selection works; no optional expansion is installed automatically.
+- [ ] Open the supported Expansion Pack toggle and switch Disabled / Enabled / Disabled with the original mod load order preserved.
+- [ ] Use the existing ZIP/folder importer on a disposable Morrowind installation; verify progress, success message, saved path, journal, rollback on intentionally bad input and unaffected unrelated mods.
+- [ ] Run source checks and the synthetic import fixture through the normal Build tes3np.bat workflow; GitHub Actions are not needed.
+- [ ] Test characters and first-character favorite, macros selection/run/stop, custom-client mode, Enhanced Readability, backup export/import, and new-adventure login.
+- [ ] Check Game Chat images/history scrolling, Discord authentication and genuine Happy Hour detection; avoid relying only on static source guards.
+- [ ] Run the local updater transaction and update-client fixtures in an isolated disposable test tree; do not update the live installation for this test.
+- [ ] Record build and runtime results separately. Previously reported Windows success predates this retirement commit; do not mark the new build tested until independently run.
