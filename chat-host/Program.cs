@@ -222,7 +222,6 @@ internal static class Program
             RequestOlderMessages(forceTop: true);
         }
     }
-    void HideNativeChatScrollbar() { /* No native scrollbar is created. */ }
 
 
         readonly IntPtr owner;
@@ -1318,58 +1317,6 @@ metrics();
                     failedImages[url] = DateTime.UtcNow.AddMinutes(2);
                 pendingImages.Remove(url);
                 imagesNeedRedraw = true;
-            }
-        }
-        void AppendChatImage(System.Drawing.Image image)
-        {
-            nativeMessages.SelectionStart = nativeMessages.TextLength;
-            nativeMessages.SelectionLength = 0;
-
-            // Prefer native RichEdit OLE image insertion via Paste rather than PNG RTF.
-            // Some Windows RichEdit versions silently discard \\pict\\pngblip runs.
-            // Preserve the user's clipboard, including non-text formats.
-            System.Windows.Forms.IDataObject? previousClipboard = null;
-            bool clipboardCaptured = false;
-            try
-            {
-                try
-                {
-                    previousClipboard = System.Windows.Forms.Clipboard.GetDataObject();
-                    clipboardCaptured = true;
-                }
-                catch (Exception ex)
-                {
-                    Log("Chat image clipboard snapshot unavailable: " + ex.Message);
-                    throw;
-                }
-
-                using var bitmap = new System.Drawing.Bitmap(image);
-                System.Windows.Forms.Clipboard.SetImage(bitmap);
-                // Let RichEdit choose the best clipboard format. Explicitly forcing CF_BITMAP
-                // can fail even when its OLE paste path supports the bitmap.
-                int beforeLength = (nativeMessages.Rtf ?? string.Empty).Length;
-                nativeMessages.Paste();
-                string resultingRtf = nativeMessages.Rtf ?? string.Empty;
-                bool hasPicture = resultingRtf.Contains(@"\\pict", StringComparison.OrdinalIgnoreCase) ||
-                                  resultingRtf.Contains(@"\\object", StringComparison.OrdinalIgnoreCase);
-                if (!hasPicture)
-                    throw new InvalidOperationException("RichEdit paste produced no picture/object (RTF length " +
-                        beforeLength + " -> " + resultingRtf.Length + ")");
-                Log("Chat image pasted: " + image.Width + "x" + image.Height);
-            }
-            finally
-            {
-                if (clipboardCaptured)
-                {
-                    try
-                    {
-                        if (previousClipboard != null)
-                            System.Windows.Forms.Clipboard.SetDataObject(previousClipboard, true);
-                        else
-                            System.Windows.Forms.Clipboard.Clear();
-                    }
-                    catch (Exception ex) { Log("Chat image clipboard restore error: " + ex.Message); }
-                }
             }
         }
         DateTime lastHistoryRequest = DateTime.MinValue;
