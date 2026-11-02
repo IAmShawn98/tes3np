@@ -246,6 +246,7 @@ def check(allow_missing_payload: bool = False) -> None:
     patch_ui = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
     client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
+    portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
     client_contract = (
         'customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))' in client_ui
         and 'reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
@@ -256,6 +257,9 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'IniWrite(executable, DataFile, "Launch", "Executable")' in patch_ui
         and "GetSharedExecutable()" in client_settings
         and "InstallCustomClientOverrides(source, dependencies := \"\")" in client_detection
+        and 'IniWrite(executable, temporary, "Launch", "Executable")' in portable_backup
+        and 'FileMove(temporary, DataFile, true)' in portable_backup
+        and 'An old executable path was unavailable. Use Launcher Settings > Game Client Settings' in portable_backup
     )
     if not client_contract:
         errors.append("Live game-client selection or patcher executable persistence was lost.")
