@@ -10,42 +10,62 @@ UploadExpansionFromFile(*)
         MsgBox("Close all TES3MP/OpenMW games before uploading the Expansion Pack.", "Expansion Pack", "Icon!")
         return
     }
-    ; ZIP is preferred because it carries the complete Data Files layout.
-    ; A second native action accepts a folder already extracted from that ZIP.
+    ; One native Explorer-style picker handles both kinds of complete pack.
+    ; Standard Open selects ZIPs; "Use This Folder" returns the extracted
+    ; package folder from the same dialog, without a second selector.
     ShowLauncherWindow(true)
-    sourceGui := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox",
-        "tes3np — Expansion Pack Source")
-    sourceGui.BackColor := "E2CEA2"
-    sourceGui.SetFont("s13 Bold c382314", "Georgia")
-    sourceGui.Add("Text", "x20 y15 w410 h28", "Install NP Expansion Pack")
-    sourceGui.SetFont("s10 Norm c382314", "Segoe UI")
-    sourceGui.Add("Text", "x20 y54 w410 h60",
-        "Select the complete official download. ZIP is recommended, "
-        . "or choose the folder containing its extracted Data Files.")
-    zipButton := sourceGui.Add("Button", "x20 y123 w195 h42 Default", "Select ZIP (Recommended)")
-    folderButton := sourceGui.Add("Button", "x225 y123 w205 h42", "Select Extracted Folder")
-    cancelButton := sourceGui.Add("Button", "x320 y180 w110 h30", "Cancel")
-    zipButton.OnEvent("Click", (*) => ChooseExpansionPackageSource(sourceGui, "zip"))
-    folderButton.OnEvent("Click", (*) => ChooseExpansionPackageSource(sourceGui, "folder"))
-    cancelButton.OnEvent("Click", (*) => sourceGui.Destroy())
-    sourceGui.OnEvent("Close", (*) => sourceGui.Destroy())
-    sourceGui.OnEvent("Escape", (*) => sourceGui.Destroy())
-    sourceGui.Show("w450 h225")
+    package := SelectExpansionPackagePath()
+    if package != ""
+        InstallSelectedExpansionPackage(package)
 }
 
-ChooseExpansionPackageSource(sourceGui, sourceType)
+SelectExpansionPackagePath()
 {
-    try sourceGui.Destroy()
-    if sourceType = "zip"
-        package := FileSelect(1, , "Choose the official NP Expansion Pack ZIP",
-            "Expansion Pack archive (*.zip)")
-    else if sourceType = "folder"
-        package := DirSelect(, 0, "Choose the extracted Expansion Pack folder containing Data Files")
-    else
-        return
-    if package = ""
-        return
-    InstallSelectedExpansionPackage(package)
+    global LauncherGui, BundledResourceRoot
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot)
+        ? BundledResourceRoot : A_ScriptDir
+    helper := resourceRoot "\scripts\select-expansion-package.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    if !FileExist(helper) || !FileExist(powershell)
+    {
+        MsgBox("The Expansion Pack browser is unavailable. Rebuild TES3NP.",
+            "Upload Expansion", "Icon!")
+        return ""
+    }
+    resultPath := A_Temp "\tes3np-expansion-source-" A_Pid "-" A_TickCount ".txt"
+    errorPath := resultPath ".error"
+    package := ""
+    try
+    {
+        command := '"' powershell '" -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File "'
+            . helper '" -ResultFile "' resultPath '" -OwnerHwnd ' LauncherGui.Hwnd
+        exitCode := RunWait(command, , "Hide")
+        if exitCode != 0
+        {
+            detail := FileExist(errorPath) ? FileRead(errorPath, "UTF-8") : "The native browser could not be opened."
+            throw Error(detail)
+        }
+        if FileExist(resultPath)
+        {
+            package := Trim(FileRead(resultPath, "UTF-8"), Chr(13) Chr(10))
+            SplitPath(package, , , &extension)
+            if !DirExist(package) && !(FileExist(package) && StrLower(extension) = "zip")
+                throw Error("Choose an existing Expansion Pack ZIP or extracted folder.")
+        }
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Native package picker failed (" Type(err) ").")
+        MsgBox("Could not choose the Expansion Pack: " err.Message,
+            "Upload Expansion", "Icon!")
+        package := ""
+    }
+    finally
+    {
+        try FileDelete(resultPath)
+        try FileDelete(errorPath)
+    }
+    return package
 }
 
 InstallSelectedExpansionPackage(package)
