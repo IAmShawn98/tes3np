@@ -37,7 +37,7 @@ The controller checks its tracked process and visible SDL game window every seco
 
 Settings are stored in `%APPDATA%\tes3np\settings.ini`, separate from the extracted application. Passwords are encrypted with Windows DPAPI under the current Windows account. Do not commit or share your settings file.
 
-Loading-overlay failures are recorded in `%APPDATA%\tes3np\render-errors.log`. Patching activity is recorded in `patch-all.log` and patch failures in `patch-errors.log` in the same folder. Logs omit personal paths and credentials. Patch backups are stored separately under `patch-jobs`.
+Loading-overlay failures are recorded in `%APPDATA%\tes3np\render-errors.log`. Active Expansion Pack imports record progress, results and backup journals beneath `%APPDATA%\tes3np\expansion-imports`; older `patch-all.log` and `patch-errors.log` entries may remain from previous versions. Logs omit personal paths and credentials. Patch backups are stored separately under `patch-jobs`.
 
 **Plugin mismatch report:** If the downloaded Expansion Pack does not solve the server rejection, click **Copy Diagnostic Info** and paste the report into Discord bug reports. The popup displays only **Diagnostic Info Copied!**. The report shows whether the installed load-order configuration points to the Expansion Pack, another mod or base-game master, or multiple issues. It includes aggregate counts, known status flags, and specific kinds of errors (but not private mod names or unfiltered logs). Missing or unreadable files appear as unavailable in the report, not as a clean result. It does not claim to verify the current server's Expansion Pack version or the exact offending mod when the server gives only a generic error.
 
