@@ -50,6 +50,22 @@ expect(
 )
 
 expect(
+    "Unused Win32 native scrollbar declarations must remain removed",
+    all(name not in source for name in ("GetScrollInfo", "ShowScrollBar", "SCROLLINFO")),
+)
+expect(
+    "Obsolete browser message-feed variable must remain removed",
+    "lastState" not in source,
+)
+expect(
+    "Live message feed scrolling remains wired to custom scrollbar",
+    "void ScrollChatToThumb(int y, int dragOffset)" in source
+    and "readonly BufferedScrollbar goldScrollbar = new()" in source
+    and "new ResizeObserver(metrics).observe(feed);" in source
+    and "feed.addEventListener('scroll',metrics);" in source,
+)
+
+expect(
     "AHK must establish the Roaming AppData root",
     'AppDataDirectory := A_AppData "\\tes3np"' in app_state,
 )

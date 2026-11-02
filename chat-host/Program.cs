@@ -14,10 +14,6 @@ internal static class Program
     [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr hwnd);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
-    [StructLayout(LayoutKind.Sequential)]
-    struct SCROLLINFO { public uint cbSize, fMask; public int nMin, nMax; public uint nPage; public int nPos, nTrackPos; }
-    [DllImport("user32.dll")] static extern bool GetScrollInfo(IntPtr hwnd, int bar, ref SCROLLINFO info);
-    [DllImport("user32.dll")] static extern bool ShowScrollBar(IntPtr hwnd, int bar, bool show);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     static extern IntPtr SetWindowOwner64(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
@@ -837,7 +833,6 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif
 .date-separator:before,.date-separator:after{content:"";height:1px;background:#655237;flex:1}
 </style></head><body><div id="feed"></div><script>
 const feed=document.getElementById('feed');
-let lastState='';
 let userHasScrolled=false;
 feed.addEventListener('wheel',e=>{userHasScrolled=true;if(e.deltaY>0)chrome.webview.postMessage({type:'history-stop'});},{passive:true});
 feed.addEventListener('pointerdown',()=>{userHasScrolled=true;});
