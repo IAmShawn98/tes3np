@@ -177,6 +177,20 @@ def check(allow_missing_payload: bool = False) -> None:
         "OfferFirstRunSetup", "BeginGameDetectionDisplay",
         "EndGameDetectionDisplay", "RefreshGameDetectionText",
         "GameDetectionActive", "LauncherHelpText",
+        # More dynamically unreachable legacy aliases / redundant implementations.
+        "CheckModifiedClientForPatch", "ShouldSkipMarkerless",
+        "BundledMarkerlessHash", "ConfirmInstalledUpdate",
+        "HasSavedCharacters", "OpenMacros",
+        "IsTES3MPSetupComplete", "BeginStartupPatchCheck",
+        # Unused proprietary bitmap-font rasterizer path replaced by
+        # the bundled native Mystic Cards TrueType font.
+        "FindVanillaMagicCardsFont", "ReadMagicCardsTextureName",
+        "LoadMagicCardsBitmapFont", "MagicCardsMeasureText",
+        "MagicCardsGlyphRun", "MagicCardsCreateGlyphAtlas",
+        "MagicCardsGlyphSourceRect", "MagicCardsWrapText",
+        "MagicCardsRenderText", "MagicCardsBufferToHBitmap",
+        "AddMagicCardsText", "LauncherMagicCardsData",
+        "LauncherMagicCardsFnt", "LauncherMagicCardsTex",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
