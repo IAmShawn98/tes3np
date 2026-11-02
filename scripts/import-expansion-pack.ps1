@@ -10,13 +10,47 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Retry only temporary Windows sharing/byte-range lock violations (32/33).
+# All other failures still fail immediately; repeated locks are reported with
+# an operation label, never a machine-specific path or raw file content.
+function InvokeLockRetry([scriptblock]$Action, [string]$Operation) {
+    for ($attempt = 1; $attempt -le 6; $attempt++) {
+        try { return (& $Action) }
+        catch {
+            $cause = $_.Exception.GetBaseException()
+            $code = [int]($cause.HResult -band 65535)
+            if ($cause -isnot [IO.IOException] -or $code -notin @(32, 33)) { throw }
+            if ($attempt -eq 6) {
+                throw ("Windows kept a file locked while " + $Operation +
+                    " (lock error " + $code + ", six attempts). Close applications or " +
+                    "file scanners using the Expansion Pack and try again.")
+            }
+            Start-Sleep -Milliseconds (@(150, 300, 550, 850, 1300)[$attempt - 1])
+        }
+    }
+}
 function Sha256([string]$Path) {
-    $hasher = [Security.Cryptography.SHA256]::Create()
-    try {
-        $stream = [IO.File]::OpenRead($Path)
-        try { return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
-        finally { $stream.Dispose() }
-    } finally { $hasher.Dispose() }
+    return (InvokeLockRetry {
+        $hasher = [Security.Cryptography.SHA256]::Create()
+        try {
+            $stream = [IO.File]::OpenRead($Path)
+            try { return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
+            finally { $stream.Dispose() }
+        } finally { $hasher.Dispose() }
+    } ("hashing file during " + $script:ImportActivity))
+}
+function CopyWithRetry([string]$Source, [string]$Target, [string]$Operation) {
+    InvokeLockRetry {
+        try { [IO.File]::Copy($Source, $Target, $false) }
+        catch {
+            # Delete only the disposable destination of a failed copy.
+            # Never delete the source or an installed game file.
+            if ([IO.File]::Exists($Target)) {
+                try { [IO.File]::Delete($Target) } catch {}
+            }
+            throw
+        }
+    } $Operation
 }
 function Progress([string]$Text, [int]$Percent) {
     $clean = $Text.Replace([Environment]::NewLine, ' ').Replace('=', '-')
@@ -72,16 +106,25 @@ function AssertSpace([string]$Destination, [long]$BytesNeeded) {
 function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Target)) | Out-Null
     $temp = $Target + '.tes3np-import-' + [guid]::NewGuid().ToString('N')
-    $replaceBackup = $Target + '.tes3np-replaced-' + [guid]::NewGuid().ToString('N')
     try {
-        [IO.File]::Copy($Source, $temp, $false)
+        CopyWithRetry $Source $temp ("preparing replacement during " + $script:ImportActivity)
         if ((Sha256 $temp) -ne $Expected) { throw 'A staged file did not pass SHA-256 verification.' }
         if ([IO.File]::Exists($Target)) {
-            [IO.File]::Replace($temp, $Target, $replaceBackup)
-            if (Test-Path -LiteralPath $replaceBackup) { [IO.File]::Delete($replaceBackup) }
-        } else { [IO.File]::Move($temp, $Target) }
+            # The import journal already holds a verified persistent backup.
+            # Avoid a redundant .NET File.Replace temporary backup that also
+            # has to be deleted while antivirus/indexing may be scanning it.
+            InvokeLockRetry {
+                [IO.File]::Replace($temp, $Target, $null)
+            } ("replacing file during " + $script:ImportActivity)
+        } else {
+            InvokeLockRetry {
+                [IO.File]::Move($temp, $Target)
+            } ("installing new file during " + $script:ImportActivity)
+        }
     } finally {
-        if (Test-Path -LiteralPath $temp) { [IO.File]::Delete($temp) }
+        if ([IO.File]::Exists($temp)) {
+            try { [IO.File]::Delete($temp) } catch {}
+        }
     }
 }
 function AllowedAsset([string]$Relative) {
@@ -96,6 +139,7 @@ $backups = @()
 $changed = @()
 $rollbackReady = $false
 $staged = $null
+$script:ImportActivity = 'package inspection'
 try {
     Progress 'Checking Expansion Pack download' 5
     AssertGameClosed
@@ -155,7 +199,8 @@ try {
             $target = Join-Path $staged ($relative.Replace('/', '\'))
             AssertPlain $target
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
-            [IO.File]::Copy($item.FullName, $target, $false)
+            $script:ImportActivity = "staging extracted asset $($assets.Count + 1)"
+            CopyWithRetry $item.FullName $target ("copying extracted asset " + ($assets.Count + 1))
             if ((Get-Item -LiteralPath $target).Length -ne $item.Length -or (Sha256 $target) -ne (Sha256 $item.FullName)) {
                 throw 'A staged Expansion Pack file did not pass verification.'
             }
@@ -168,12 +213,13 @@ try {
         }
         AssertSpace $staged ([long](Get-Item -LiteralPath $Package).Length)
         $target = Join-Path $staged 'NP Expansion Pack.esp'
-        [IO.File]::Copy($Package, $target, $false)
+        $script:ImportActivity = 'staging selected ESP'
+        CopyWithRetry $Package $target 'copying selected ESP'
         $assets = @([pscustomobject]@{Relative='NP Expansion Pack.esp'; Source=$target})
     }
     elseif ($extension -eq '.zip') {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $archive = [IO.Compression.ZipFile]::OpenRead($Package)
+        $archive = InvokeLockRetry { [IO.Compression.ZipFile]::OpenRead($Package) } 'opening downloaded ZIP'
         try {
             if ($archive.Entries.Count -gt 10000) { throw 'The ZIP contains too many entries.' }
             $total = [long]0
@@ -201,6 +247,7 @@ try {
                 }
                 $total += $entry.Length
                 AssertSpace $staged ([long]$entry.Length)
+                $script:ImportActivity = "staging ZIP asset $($assets.Count + 1)"
                 $target = Join-Path $staged ($relative.Replace('/', '\'))
                 AssertPlain $target
                 [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
@@ -229,6 +276,7 @@ try {
     }
     Progress 'Preparing verified game file replacements' 35
     $plan = @()
+    $script:ImportActivity = 'preparing install plan'
     foreach ($asset in $assets) {
         $target = Join-Path $data ($asset.Relative.Replace('/', '\'))
         AssertPlain $target
@@ -256,6 +304,7 @@ try {
         [IO.File]::WriteAllText($preparedConfig, $updated, ([Text.UTF8Encoding]::new($false)))
         $plan += [pscustomobject]@{Source=$preparedConfig; Target=$ConfigFile; Hash=(Sha256 $preparedConfig)}
     }
+    $script:ImportActivity = 'checking existing files'
     $needed = @($plan | Where-Object { ![IO.File]::Exists($_.Target) -or (Sha256 $_.Target) -ne $_.Hash })
     if (!$needed.Count) {
         Progress 'Expansion files already match the download' 100
@@ -265,6 +314,7 @@ try {
     Progress 'Backing up existing game files' 45
     $i = 0
     foreach ($item in $needed) {
+        $script:ImportActivity = "backing up file $($i + 1) of $($needed.Count)"
         $existing = [IO.File]::Exists($item.Target)
         $backup = Join-Path $JobFolder ('backup\' + $i)
         $before = ''
@@ -272,7 +322,7 @@ try {
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
             $before = Sha256 $item.Target
             AssertSpace $JobFolder ([long](Get-Item -LiteralPath $item.Target).Length)
-            [IO.File]::Copy($item.Target, $backup, $false)
+            CopyWithRetry $item.Target $backup ("backing up file " + ($i + 1) + " of " + $needed.Count)
             if ((Sha256 $backup) -ne $before) { throw 'Backup verification failed.' }
         }
         $backups += [pscustomobject]@{Target=$item.Target; Existed=$existing; Backup=$backup; OriginalHash=$before; InstalledHash=$item.Hash}
@@ -285,11 +335,13 @@ try {
     for ($i=0; $i -lt $needed.Count; $i++) {
         AssertGameClosed
         $item = $needed[$i]
+        $script:ImportActivity = "installing file $($i + 1) of $($needed.Count)"
         Progress ('Installing ' + [IO.Path]::GetFileName($item.Target)) ([int](50 + 45 * $i / $needed.Count))
         AssertSpace $item.Target ([long](Get-Item -LiteralPath $item.Source).Length)
         $changed += $backups[$i]
         ReplaceVerified $item.Source $item.Target $item.Hash
     }
+    $script:ImportActivity = 'verifying installed files'
     foreach ($item in $plan) {
         if (![IO.File]::Exists($item.Target) -or (Sha256 $item.Target) -ne $item.Hash) {
             throw 'Installed Expansion Pack verification failed.'
@@ -306,6 +358,7 @@ catch {
     $failedRollback = $false
     if ($rollbackReady) {
         for ($i = $changed.Count - 1; $i -ge 0; $i--) {
+            $script:ImportActivity = "rolling back file $($i + 1) of $($changed.Count)"
             $item = $changed[$i]
             try {
                 if ($item.Existed) { ReplaceVerified $item.Backup $item.Target $item.OriginalHash }
