@@ -28,7 +28,7 @@ When a TES3MP launch is rejected with `Your plugins or their load order don't ma
 
 The built-in **Install / Repair** action still verifies the **bundled** expansion manifest. When a user manually imports a newer download ahead of a launcher update, running that old repair can downgrade those imported files; use Upload Expansion for the newer file instead. The new importer does not modify the bundled manifest or release payload. A future official expansion payload update must update both source files and manifest hashes.
 
-The session controller includes the check in its existing watchdog, including the short connection window for Start New Adventure. It never adds a parallel login/reconnect timer, and it cancels queued/scheduled logins on a plugin rejection. On Windows, test redirected OneDrive Documents log directories, old logs versus fresh failures, ZIP/ESP imports, mismatched masters, rollback, and connection to the actual NP server.
+The session controller includes the check in its existing watchdog, including the short connection window for Start New Adventure. It never adds a parallel login/reconnect timer, and it stops only the rejected client without scheduling further logins. On Windows, test redirected OneDrive Documents log directories, old logs versus fresh failures, ZIP/ESP imports, mismatched masters, rollback, and connection to the actual NP server.
 
 ## Progress and logs
 
