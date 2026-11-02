@@ -374,10 +374,8 @@ TES3MPBuildSafeMismatchDiagnostics()
         }
     }
     enabled := configChecked ? (expansionCount ? "Yes" : "No") : "Unknown"
-    position := configChecked && expansionCount = 1
-        ? expansionIndex " of " contentCount : "Unknown"
-    last := configChecked && expansionCount = 1
-        ? (expansionIndex = contentCount ? "Yes" : "No") : "Unknown"
+    position := (configChecked && expansionCount = 1) ? (expansionIndex " of " contentCount) : "Unknown"
+    last := (configChecked && expansionCount = 1) ? (expansionIndex = contentCount ? "Yes" : "No") : "Unknown"
     duplicate := configChecked ? (expansionCount > 1 ? "Yes" : "No") : "Unknown"
 
     ; File existence is checked without exposing the configured install path.
