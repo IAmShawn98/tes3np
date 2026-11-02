@@ -9,7 +9,7 @@
 
 **Wipe Character Data** appears when at least one character exists. It asks for confirmation before removing all saved character credentials and the favorite selection, and stops active automation. It does not delete in-game characters or the executable setting. Export first if you need a backup. With no characters, Add character moves beneath the introductory description and Import Data becomes available.
 
-Up to 10 characters can be saved. Remove asks for confirmation. Adding a character does not change your ticked default.
+Up to 10 characters can be saved. Remove asks for confirmation. The first character is automatically marked as the favorite; later additions do not silently change that choice.
 
 With no saved characters, the launcher opens normally. Once setup is complete, use the saved favorite or an individual character's Play control to start a session.
 
@@ -27,7 +27,7 @@ With an empty character list, this button becomes **Import Data**. Select a back
 
 Login uses foreground keyboard input and each character's configured delays. Avoid typing during credential entry. These delays do not verify the contents of login screens or prove that the server accepted the login or awarded daily points.
 
-Status tooltips appear inside the active TES3MP game window during login. They show countdowns and current steps, disappear when the configured character-loading wait finishes, hide when you switch away, and never attach to the terminal. Crash monitoring continues without a tooltip.
+The launcher shows a login-progress window with the selected character's icon and steps for loading the name screen, entering the name, loading the password screen and entering the password. It closes shortly after completing those steps. Crash monitoring continues separately.
 
 The controller checks its tracked process and visible SDL game window every second. A terminal window does not qualify. Game-window startup allows 30 seconds; enabled recovery waits 5 seconds before retrying. Only the launched process is managed.
 
