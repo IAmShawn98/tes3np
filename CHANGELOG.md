@@ -29,6 +29,8 @@
 
 ### Fixed
 
+- Fixed the unified ZIP/folder Explorer picker failing at runtime with `The Expansion Pack browser is unavailable. Rebuild TES3NP.` The new `select-expansion-package.ps1` script had been created in source but omitted from `generate-bundled-resources.py`'s explicit embedded worker list. Added it to the generated FileInstall payload and therefore its content-addressed resource version, plus a Windows packaging gate that verifies both the extracted picker and existing import worker against their source SHA-256 hashes. This fixes the confirmed missing-resource root cause; rebuilt Windows EXE and actual picker UI remain to be tested.
+
 - Fixed compiled launcher error after the unified Expansion Pack chooser introduced a reference to nonexistent AutoHotkey variable `A_Pid`. Its temporary selection filename now uses `DllCall("GetCurrentProcessId", "UInt")` (the Windows process ID). Added a pre-embedding `AutoHotkey64.exe /ErrorStdOut tes3np.ahk --check` build preflight to surface line-specific `#Warn` problems before Ahk2Exe emits a generic compilation failure. Windows rebuild and interactive ZIP/folder picker validation are pending.
 
 - Fixed Windows PowerShell 5.1 ZIP fixture startup: the portable-ZIP test now explicitly loads both `System.IO.Compression` (defines `ZipArchiveMode`) and `System.IO.Compression.FileSystem` (provides `ZipFile` and its extension helpers) before constructing the fixture. Kept ZIP path validation and actual import logic untouched; Windows build rerun remains pending.
