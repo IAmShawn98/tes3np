@@ -235,7 +235,7 @@ expect(
     and "type==\"expansion-download\"" in source
     and "IsOfficialExpansionDownloadUrl(link)" in source
     and "Uri.TryCreate(value, UriKind.Absolute, out var uri)" in source
-    and "uri.UriSchemeHttps" in source
+    and "Uri.UriSchemeHttps" in source
     and 'uri.Host != "cdn.discordapp.com"' in source
     and 'uri.Host != "media.discordapp.net"' in source
     and 'uri.AbsolutePath.StartsWith("/attachments/"' in source
