@@ -130,6 +130,21 @@ try {
         throw 'AutoHotkey fixture warnings detected; packaging stopped.'
     }
 
+    # Check the COMPLETE launcher source before staging/embed compilation.
+    # #Warn issues such as an undeclared AHK built-in can fail Ahk2Exe
+    # without a useful error line in its compiler transcript.
+    Step 'Preflighting full AutoHotkey launcher source and warning diagnostics'
+    $launcherSource = Join-Path $projectRoot 'tes3np.ahk'
+    $launcherOutput = @(& $base /ErrorStdOut $launcherSource '--check' 2>&1)
+    $launcherExit = $LASTEXITCODE
+    $launcherOutput | ForEach-Object { Write-Host $_ }
+    if ($null -eq $launcherExit -or $launcherExit -ne 0) {
+        throw 'AutoHotkey launcher source preflight failed before packaging.'
+    }
+    if ($launcherOutput -match '(?i)Warning:|This line will never execute|appears to never be assigned') {
+        throw 'AutoHotkey launcher source warnings detected before packaging.'
+    }
+
     $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
     $smokeArgs = '/in "' + $smokeSource + '" /out "' + $smokeExe + '" /base "' + $base + '" /compress 0 /silent verbose'
