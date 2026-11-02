@@ -198,7 +198,7 @@ expect(
     and r"location.pathname.replace(/\/+$/,'')" in source
     and "link.href=file.url;" in source
     and "link.textContent=file.filename;" in source
-    and "new MutationObserver(schedule).observe(document.documentElement," in source
+    and "new MutationObserver(changes=>{" in source
     and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
     and "grid-template-columns: minmax(0, 1fr) !important" not in source,
 )
@@ -220,7 +220,7 @@ expect(
     and "const maxBackfills=12, maxLoadingRetries=30, maxPresentRetries=18;" in source
     and "presentRetries<=maxPresentRetries" in source
     and "attributes:true,attributeFilter:['href']" in source
-    and "new MutationObserver(schedule)" in source
+    and "new MutationObserver(changes=>{" in source
     and "lastFileKey===key" in source
     and "grid-template-columns:" not in source,
 )
@@ -262,7 +262,10 @@ expect(
     and 'RequestExpansionDownload(link,"embedded-card");' in source
     and 'Task.Run(()=>{' in source
     and 'UseShellExecute=true' in source
-    and '"Download ZIP / Retry"' in mismatch,
+    and '"Download ZIP / Retry"' in mismatch
+    and "setTimeout(()=>{scheduled=false;refresh();},150);" in source
+    and "change.target===panel || panel.contains(change.target)" in source
+    and "changes.every(change=>panel" in source,
 )
 
 expect(
