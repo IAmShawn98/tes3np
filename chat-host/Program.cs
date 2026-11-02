@@ -38,6 +38,15 @@ internal static class Program
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll", EntryPoint = "PostMessageW")] static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [StructLayout(LayoutKind.Sequential)] struct COPYDATASTRUCT
+    {
+        public IntPtr dwData;
+        public int cbData;
+        public IntPtr lpData;
+    }
+    [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW", SetLastError = true)]
+    static extern IntPtr SendCopyDataTimeout(IntPtr hwnd, uint msg, IntPtr sender,
+        ref COPYDATASTRUCT data, uint flags, uint milliseconds, out IntPtr result);
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hwnd, int index, int value);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
@@ -228,6 +237,7 @@ internal static class Program
         // The latest *validated* signed URL lives only in this ChatHost
         // session; native retry never depends on a responsive WebView2.
         string? expansionLatestZipUrl;
+        readonly object expansionLinkPublishLock=new();
 
         // Preserve Discord's React tree and grid intact behind an opaque card.
         // Extract ONLY the latest visible official ZIP attachment and link to
@@ -602,10 +612,9 @@ internal static class Program
                 return;
             }
             string freshUrl=url!;
-            // The launcher rebuilds only the plugin-mismatch dialog after
-            // Windows accepts this download handoff. Keep Game Chat and the
-            // shared Discord WebView2 profile in the existing process.
-            IntPtr popupSlot=expansionDownloadsParent;
+            // The original Discord popup stays open and is never rebuilt per
+            // download. Cross-process WebView2 teardown on every click could
+            // deadlock the launcher after one or two attempts.
             _=Task.Run(()=>{
                 try {
                     using var started=System.Diagnostics.Process.Start(
@@ -617,22 +626,60 @@ internal static class Program
                         Log("EXPANSION | Shell returned no process handle ("+origin+").");
                     else
                         Log("EXPANSION | ZIP sent to default browser ("+origin+").");
-                    // A browser can reuse an existing process, returning null
-                    // even after a successful ShellExecute. A non-throwing
-                    // result means the download URL was handed to Windows.
-                    // WM_APP + 0x335 tells AHK to dismiss/recreate only the
-                    // currently-open mismatch prompt. Post asynchronously so
-                    // the default browser never blocks the ChatHost UI.
-                    if (popupSlot!=IntPtr.Zero && IsWindow(popupSlot) && IsWindow(owner))
-                    {
-                        if (!PostMessage(owner,0x8335,popupSlot,IntPtr.Zero))
-                            Log("EXPANSION | Could not signal prompt refresh.");
-                        else
-                            Log("EXPANSION | Requested fresh mismatch prompt after ZIP handoff.");
-                    }
                 }
                 catch (Exception ex) {
                     Log("EXPANSION | Browser ZIP handoff failed ("+origin+"): "+ex.Message);
+                }
+            });
+        }
+
+        // Share the validated signed CDN URL with the AHK-owned dialog
+        // exactly once per discovered/updated ZIP. Its native retry button
+        // must NOT depend on this WinForms message loop or a WebView repaint.
+        void PublishExpansionUrlToLauncher(string url)
+        {
+            if (!IsOfficialExpansionDownloadUrl(url)) return;
+            IntPtr slot=expansionDownloadsParent;
+            if (slot==IntPtr.Zero || !IsWindow(slot) || !IsWindow(owner))
+                return;
+            // Snapshot sender HWND while on the WinForms UI thread. Never
+            // access Control.Handle from the background IPC worker.
+            IntPtr sender=Handle;
+            _=Task.Run(()=>{
+                lock (expansionLinkPublishLock)
+                {
+                    // A previously queued signed URL must never replace a
+                    // newer ZIP or a link from a freshly recreated dialog.
+                    if (expansionLatestZipUrl!=url || expansionDownloadsParent!=slot)
+                        return;
+                    string payload=slot.ToInt64().ToString(
+                        System.Globalization.CultureInfo.InvariantCulture)+"|"+url;
+                    IntPtr utf16=IntPtr.Zero;
+                    try
+                    {
+                        utf16=Marshal.StringToHGlobalUni(payload);
+                        var data=new COPYDATASTRUCT {
+                            dwData=new IntPtr(0x8335),
+                            cbData=checked((payload.Length+1)*2),
+                            lpData=utf16
+                        };
+                        // SMTO_ABORTIFHUNG. Bounded IPC keeps the Chat Host
+                        // independent if AHK's owner window becomes busy.
+                        IntPtr delivered=SendCopyDataTimeout(owner,0x004A,sender,
+                            ref data,0x0002,1500,out var result);
+                        if (delivered==IntPtr.Zero || result==IntPtr.Zero)
+                            Log("EXPANSION | Native ZIP retry link handoff was not acknowledged.");
+                        else
+                            Log("EXPANSION | Native ZIP retry link synchronized.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("EXPANSION | Native ZIP link handoff failed: "+ex.GetType().Name);
+                    }
+                    finally
+                    {
+                        if (utf16!=IntPtr.Zero) Marshal.FreeHGlobal(utf16);
+                    }
                 }
             });
         }
@@ -690,7 +737,11 @@ internal static class Program
                             }
                             // A new post or refreshed CDN signature replaces the
                             // stored URL. Never persist it or log its auth query.
-                            expansionLatestZipUrl=link;
+                            if (expansionLatestZipUrl!=link)
+                            {
+                                expansionLatestZipUrl=link;
+                                PublishExpansionUrlToLauncher(link!);
+                            }
                             if (type=="expansion-download")
                                 RequestExpansionDownload(link,"embedded-card");
                         }
@@ -3300,17 +3351,7 @@ metrics();
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
                     case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
-                    case 7:
-                    {
-                        // Normal close and auto-reopen both come from AHK.
-                        // Acknowledge only after the old WebView2 was disposed;
-                        // AHK must not destroy/recreate its placeholder first.
-                        IntPtr closingSlot=m.LParam;
-                        CloseEmbeddedExpansionDownloads(closingSlot);
-                        if (IsWindow(owner))
-                            PostMessage(owner,0x8336,closingSlot,IntPtr.Zero);
-                        break;
-                    }
+                    case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
                     case 8: RetryEmbeddedExpansionDownload(m.LParam); break;
                 }
                 return;
