@@ -306,8 +306,16 @@ internal static class Program
                 const parse=node=>{
                   const raw=(node?.getAttribute?.('data-list-item-id')||'')+' '+
                     (node?.id||'');
-                  const match=raw.match(/chat-messages[_-]+(\d{15,22})(?!\d)/);
-                  return match ? BigInt(match[1]) : null;
+                  // The existing native Game Chat parser confirms Discord
+                  // rows are chat-messages-<channelId>-<messageId>. Taking
+                  // the first number would compare the fixed channel ID and
+                  // accidentally fall back to displayed DOM order.
+                  const row=raw.match(/chat-messages-\d+-(\d{15,22})(?!\d)/);
+                  if (row) return BigInt(row[1]);
+                  // Some Discord virtualization builds store only the
+                  // message snowflake in data-list-item-id.
+                  const single=raw.match(/chat-messages___(\d{15,22})(?!\d)/);
+                  return single ? BigInt(single[1]) : null;
                 };
                 for (let el=message; el && el!==document.body; el=el.parentElement) {
                   const id=parse(el);
