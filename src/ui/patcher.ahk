@@ -1,11 +1,5 @@
 ﻿; Bundled NP setup. PowerShell performs transactional copying off the GUI thread.
 
-IsTES3MPSetupComplete()
-{
-    global SetupComplete
-    return SetupComplete
-}
-
 PatchInProgress()
 {
     global PatchJob
@@ -457,13 +451,6 @@ CheckPatchWorker()
         ShowLauncherWindow(true)
         OfferDesktopShortcutOnFirstLaunch(true)
     }
-}
-
-BeginStartupPatchCheck()
-{
-    ; Startup deliberately does not inspect or verify game files. Verification only happens
-    ; after the user explicitly chooses Verify or Install / Repair from Patch Tes3mp.
-    FinishLauncherStartup()
 }
 
 FinishLauncherStartup()
