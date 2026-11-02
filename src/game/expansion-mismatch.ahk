@@ -306,26 +306,18 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
         LogLauncherEvent("EXPANSION | Native browser handoff failed (" Type(err) ").")
 }
 
-; Privacy-first diagnostic report: ONLY fixed labels, counts and YES/NO values.
-; Never put raw client logs, mod names, paths, addresses, tokens, usernames,
-; character names, config lines or Discord messages on the clipboard.
+; Privacy-first reporting: parse only fixed categories and counts. Do not
+; copy raw config entries, client logs, mod names, paths, chat or auth tokens.
 TES3MPCopyMismatchDiagnostics(statusControl)
 {
-    ; Clipboard assignment is synchronous in AutoHotkey v2. ClipWait is for
-    ; asynchronously copying data from another app (e.g. Ctrl+C), so waiting
-    ; after assigning A_Clipboard can spuriously show a failure.
-    ; Never reveal raw exceptions or filesystem paths to a player.
-    report := ""
     limited := false
     try
-        report := TES3MPBuildSafeMismatchDiagnostics()
+        report := TES3MPBuildMismatchDiagnostics()
     catch Error as err
     {
-        ; A locked or malformed user config/log must not stop people
-        ; reporting a plugin mismatch. Copy a strict safe fallback instead.
         limited := true
-        LogLauncherEvent("EXPANSION | Diagnostic collection failed ("
-            Type(err) ", source line " err.Line "); using safe minimal report.")
+        LogLauncherEvent("EXPANSION | Diagnostic collection error ("
+            Type(err) ", line " err.Line ").")
         report := TES3MPBuildMinimumMismatchDiagnostics()
     }
     TES3MPTryCopyMismatchReport(report, statusControl, limited)
@@ -334,12 +326,12 @@ TES3MPCopyMismatchDiagnostics(statusControl)
 TES3MPBuildMinimumMismatchDiagnostics()
 {
     global AppConfig
-    ; Explicit allowlist; no raw files, user-provided strings or paths.
-    return "TES3NP - SAFE PLUGIN MISMATCH DIAGNOSTICS`r`n"
+    return "TES3NP - Plugin Mismatch Diagnostics`r`n"
         . "Launcher version: " AppConfig.Version "`r`n"
-        . "Reported issue: Server rejected plugin/load-order configuration`r`n"
-        . "Detailed configuration/log checks: Unavailable`r`n"
-        . "Privacy: No raw log lines, mod names, paths, account details or tokens are copied."
+        . "Reported issue: Server rejected the client plugin/load order`r`n"
+        . "Configuration check: Unable to complete`r`n"
+        . "Client log check: Unable to complete`r`n"
+        . "Cause: Not determined (diagnostic collection failed)"
 }
 
 TES3MPTryCopyMismatchReport(report, statusControl, limited := false, attempt := 1)
@@ -347,134 +339,142 @@ TES3MPTryCopyMismatchReport(report, statusControl, limited := false, attempt := 
     global ExpansionMismatchDialog
     if !IsObject(ExpansionMismatchDialog)
         return
-    ; Clipboard access is the ONLY operation in this try block: never report
-    ; a control repaint/logging exception as a clipboard failure.
     try
         A_Clipboard := report
     catch Error as err
     {
-        ; A separate app can briefly lock the Windows clipboard. Retry on
-        ; timers so a clipboard lock never hangs the launcher window.
         if attempt < 3
         {
             SetTimer((*) => TES3MPTryCopyMismatchReport(
                 report, statusControl, limited, attempt + 1), -200)
             return
         }
-        try statusControl.Text := "Could not access clipboard. Please click Copy Diagnostic Info again."
-        LogLauncherEvent("EXPANSION | Clipboard unavailable after retries ("
-            Type(err) ", source line " err.Line ").")
+        try statusControl.Text := "Could not access clipboard. Click Copy Diagnostic Info again."
+        LogLauncherEvent("EXPANSION | Clipboard unavailable ("
+            Type(err) ", line " err.Line ").")
         return
     }
-    try
-    {
-        if limited
-            statusControl.Text := "Basic diagnostic info copied. Some checks unavailable."
-        else
-            statusControl.Text := "Diagnostic info copied. Paste it into Discord bug reports."
-    }
-    LogLauncherEvent("EXPANSION | Safe mismatch report copied ("
-        (limited ? "limited" : "complete") ").")
+    try statusControl.Text := "Diagnostic Info Copied!"
+    LogLauncherEvent("EXPANSION | Mismatch diagnostics copied ("
+        (limited ? "collection failed" : "collected") ").")
 }
 
-TES3MPBuildSafeMismatchDiagnostics()
+TES3MPNewMismatchConfigResult(status := "Not found")
 {
-    global AppConfig, DataFile
-    configFound := "No"
-    configChecked := false
-    contentCount := 0
-    expansionCount := 0
-    expansionIndex := 0
-    morrowindMaster := false
-    tribunalMaster := false
-    bloodmoonMaster := false
-    config := PatchConfigurationPath()
-    if FileExist(config)
+    return {Status: status, Total: 0, ExpansionCount: 0, ExpansionIndex: 0,
+        OtherCount: 0, OtherDuplicates: 0, OtherAfterExpansion: 0,
+        Morrowind: false, Tribunal: false, Bloodmoon: false}
+}
+
+; Pure parser: accepts fixture text for deterministic tests. Never returns
+; arbitrary plugin names; they are used only for in-memory comparisons.
+TES3MPAnalyzeMismatchConfig(configText)
+{
+    info := TES3MPNewMismatchConfigResult("Read")
+    seenOther := Map()
+    for line in StrSplit(configText, "`n", "`r")
     {
-        configFound := "Yes"
-        try
+        if !RegExMatch(Trim(line), "i)^content\s*=\s*(.*?)`s*$", &entry)
+            continue
+        plugin := StrLower(Trim(entry[1], ' "'))
+        if plugin = ""
+            continue
+        info.Total += 1
+        if plugin = "np expansion pack.esp"
         {
-            ; Do not read or copy an unbounded configuration file.
-            if FileGetSize(config) <= 1048576
-            {
-                for line in StrSplit(FileRead(config, "UTF-8"), "`n", "`r")
-                {
-                    if !RegExMatch(Trim(line), "i)^content\s*=\s*(.*)$", &entry)
-                        continue
-                    contentCount += 1
-                    ; Names are used ONLY for comparisons with the four
-                    ; known game/plugin filenames; none enter the report.
-                    plugin := StrLower(Trim(StrReplace(Trim(entry[1]), '"', "")))
-                    if plugin = "np expansion pack.esp"
-                    {
-                        expansionCount += 1
-                        expansionIndex := contentCount
-                    }
-                    else if plugin = "morrowind.esm"
-                        morrowindMaster := true
-                    else if plugin = "tribunal.esm"
-                        tribunalMaster := true
-                    else if plugin = "bloodmoon.esm"
-                        bloodmoonMaster := true
-                }
-                configChecked := true
-            }
+            info.ExpansionCount += 1
+            info.ExpansionIndex := info.Total
+        }
+        else if plugin = "morrowind.esm"
+            info.Morrowind := true
+        else if plugin = "tribunal.esm"
+            info.Tribunal := true
+        else if plugin = "bloodmoon.esm"
+            info.Bloodmoon := true
+        else
+        {
+            info.OtherCount += 1
+            if seenOther.Has(plugin)
+                info.OtherDuplicates += 1
+            else
+                seenOther[plugin] := true
         }
     }
-    enabled := configChecked ? (expansionCount ? "Yes" : "No") : "Unknown"
-    position := (configChecked && expansionCount = 1) ? (expansionIndex " of " contentCount) : "Unknown"
-    last := (configChecked && expansionCount = 1) ? (expansionIndex = contentCount ? "Yes" : "No") : "Unknown"
-    duplicate := configChecked ? (expansionCount > 1 ? "Yes" : "No") : "Unknown"
-
-    ; File existence is checked without exposing the configured install path.
-    ; No directory crawl, file hashing or package contents are copied.
-    installed := "Not checked"
-    try
-    {
-        root := IniRead(DataFile, "Patch", "MorrowindFolder", "")
-        if root != "" && DirExist(root "\Data Files")
-            installed := FileExist(root "\Data Files\NP Expansion Pack.esp") ? "Yes" : "No"
-    }
-
-    markers := TES3MPReadSafeMismatchLogMarkers()
-    return "TES3NP - SAFE PLUGIN MISMATCH DIAGNOSTICS`r`n"
-        . "Generated (UTC): " FormatTime(A_NowUTC, "yyyy-MM-dd HH:mm:ss") "`r`n"
-        . "Launcher version: " AppConfig.Version "`r`n"
-        . "Reported issue: Server rejected plugin/load-order configuration`r`n"
-        . "`r`n[Configuration]`r`n"
-        . "Active OpenMW configuration found: " configFound "`r`n"
-        . "Configuration safely inspected: " (configChecked ? "Yes" : "No") "`r`n"
-        . "Enabled content entries: " (configChecked ? contentCount : "Unknown") "`r`n"
-        . "Expansion Pack enabled: " enabled "`r`n"
-        . "Expansion Pack content position: " position "`r`n"
-        . "Expansion Pack last in load order: " last "`r`n"
-        . "Duplicate Expansion Pack entries: " duplicate "`r`n"
-        . "Expansion Pack ESP installed at configured game location: " installed "`r`n"
-        . "Morrowind master enabled: " TES3MPSafeDiagnosticYN(morrowindMaster, configChecked) "`r`n"
-        . "Tribunal master enabled: " TES3MPSafeDiagnosticYN(tribunalMaster, configChecked) "`r`n"
-        . "Bloodmoon master enabled: " TES3MPSafeDiagnosticYN(bloodmoonMaster, configChecked) "`r`n"
-        . "`r`n[Latest client log: fixed error indicators only]`r`n"
-        . "Recent client log inspected: " TES3MPSafeDiagnosticYN(markers.Available, true) "`r`n"
-        . "Server plugin/load-order rejection present: " TES3MPSafeDiagnosticYN(markers.Rejected, markers.Available) "`r`n"
-        . "Missing plugin/master indicator present: " TES3MPSafeDiagnosticYN(markers.Missing, markers.Available) "`r`n"
-        . "Load-order indicator present: " TES3MPSafeDiagnosticYN(markers.Order, markers.Available) "`r`n"
-        . "`r`nPrivacy: Only fixed labels, version, counts and status flags are included.`r`n"
-        . "No raw log lines, mod names, paths, account details or tokens are copied."
+    if info.ExpansionCount = 1
+        info.OtherAfterExpansion := info.Total - info.ExpansionIndex
+    return info
 }
 
-TES3MPSafeDiagnosticYN(value, known)
+TES3MPReadMismatchConfigInfo()
 {
-    return !known ? "Unknown" : (value ? "Yes" : "No")
+    config := PatchConfigurationPath()
+    if !FileExist(config)
+        return TES3MPNewMismatchConfigResult("Not found")
+    try
+    {
+        if FileGetSize(config) > 1048576
+            return TES3MPNewMismatchConfigResult("Too large to inspect")
+        return TES3MPAnalyzeMismatchConfig(FileRead(config, "UTF-8"))
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Diagnostic config read unavailable ("
+            Type(err) ", line " err.Line ").")
+        return TES3MPNewMismatchConfigResult("Read error")
+    }
+}
+
+TES3MPNewMismatchLogResult(status := "Not found")
+{
+    return {Status: status, Rejected: false, MissingExpansion: false,
+        MissingOther: false, MissingBaseMaster: false,
+        MissingUnspecified: false, Order: false}
+}
+
+; Look at ONLY the last server-rejection context (nearby lines). Arbitrary
+; names are neither returned nor written to logs/clipboard.
+TES3MPAnalyzeMismatchLogText(raw)
+{
+    result := TES3MPNewMismatchLogResult("Read")
+    lines := StrSplit(StrLower(raw), "`n", "`r")
+    lastRejection := 0
+    for index, line in lines
+        if InStr(line, "your plugins or their load order don't match the server's")
+            lastRejection := index
+    if !lastRejection
+        return result
+    result.Rejected := true
+    first := Max(1, lastRejection - 18)
+    last := Min(lines.Length, lastRejection + 12)
+    Loop last - first + 1
+    {
+        line := lines[first + A_Index - 1]
+        missing := InStr(line, "missing plugin") || InStr(line, "missing master")
+            || InStr(line, "missing dependency") || InStr(line, "could not find plugin")
+            || InStr(line, "failed to load plugin")
+        result.Order := result.Order || InStr(line, "load order") > 0
+            || InStr(line, "plugin order") > 0
+        if !missing
+            continue
+        if InStr(line, "np expansion pack.esp")
+            result.MissingExpansion := true
+        else if InStr(line, "morrowind.esm") || InStr(line, "tribunal.esm")
+            || InStr(line, "bloodmoon.esm")
+            result.MissingBaseMaster := true
+        else if RegExMatch(line, "i)\.(esp|esm|omwaddon)\b")
+            result.MissingOther := true
+        else
+            result.MissingUnspecified := true
+    }
+    return result
 }
 
 TES3MPReadSafeMismatchLogMarkers()
 {
-    result := {Available: false, Rejected: false, Missing: false, Order: false}
+    result := TES3MPNewMismatchLogResult()
     newestPath := ""
     newestTime := ""
-    ; Reuse the mismatch watcher's known folder selection, but DO NOT
-    ; enumerate file sizes or rebuild its full baseline on the GUI thread.
-    ; Only the newest matching file's last 64 KiB is read, never copied.
+    ; Reuse the existing known folders, with no drive-wide search.
     watch := {Paths: []}
     SplitPath(PatchConfigurationPath(), , &configFolder)
     AddTES3MPLogFolder(watch, configFolder)
@@ -486,13 +486,22 @@ TES3MPReadSafeMismatchLogMarkers()
     {
         if !DirExist(folder)
             continue
-        Loop Files, folder "\tes3mp-client*.log", "F"
+        try
         {
-            if A_LoopFileTimeModified > newestTime
+            Loop Files, folder "\tes3mp-client*.log", "F"
             {
-                newestTime := A_LoopFileTimeModified
-                newestPath := A_LoopFileFullPath
+                if A_LoopFileTimeModified > newestTime
+                {
+                    newestTime := A_LoopFileTimeModified
+                    newestPath := A_LoopFileFullPath
+                }
             }
+        }
+        catch Error as err
+        {
+            LogLauncherEvent("EXPANSION | Diagnostic log enumeration failed ("
+                Type(err) ", line " err.Line ").")
+            result.Status := "Read error"
         }
     }
     if newestPath = ""
@@ -501,20 +510,111 @@ TES3MPReadSafeMismatchLogMarkers()
     {
         file := FileOpen(newestPath, "r", "UTF-8")
         if !IsObject(file)
-            return result
+            return TES3MPNewMismatchLogResult("Read error")
         try
         {
             file.Pos := Max(0, file.Length - 65536)
-            raw := StrLower(file.Read())
+            recent := file.Read()
         }
         finally file.Close()
-        result.Available := true
-        result.Rejected := InStr(raw, "your plugins or their load order don't match the server's") > 0
-        result.Missing := InStr(raw, "missing plugin") > 0
-            || InStr(raw, "missing master") > 0
-            || InStr(raw, "missing dependency") > 0
-        result.Order := InStr(raw, "load order") > 0
-        ; raw is deliberately never placed in the clipboard or any log.
+        return TES3MPAnalyzeMismatchLogText(recent)
     }
-    return result
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Diagnostic log read failed ("
+            Type(err) ", line " err.Line ").")
+        return TES3MPNewMismatchLogResult("Read error")
+    }
+}
+
+TES3MPMismatchYesNo(flag, available := true)
+{
+    return !available ? "Unknown" : (flag ? "Yes" : "No")
+}
+
+; This is an evidence summary, not a claim about the current server manifest
+; or the version inside a player's downloaded ZIP.
+TES3MPMismatchAssessment(info, markers, installed)
+{
+    configOK := info.Status = "Read"
+    expansionEvidence := (configOK && (info.ExpansionCount != 1
+        || info.ExpansionIndex != info.Total)) || markers.MissingExpansion
+        || installed = "No"
+    otherEvidence := (configOK && (info.OtherDuplicates > 0
+        || !info.Morrowind || !info.Tribunal || !info.Bloodmoon))
+        || markers.MissingOther || markers.MissingBaseMaster
+    if expansionEvidence && otherEvidence
+        return "Both Expansion Pack and other plugin issues indicated"
+    if expansionEvidence
+        return "Expansion Pack configuration needs attention"
+    if otherEvidence
+        return "Other plugin or base-game dependency needs attention"
+    return "Cause not determined from available checks"
+}
+
+; The report is generated solely from an allowlist of fixed strings, numeric
+; counts and known tri-state flags. No untrusted text enters the clipboard.
+TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
+{
+    configOK := info.Status = "Read"
+    logOK := markers.Status = "Read" && markers.Rejected
+    expansion := TES3MPMismatchYesNo(info.ExpansionCount > 0, configOK)
+    last := TES3MPMismatchYesNo(info.ExpansionCount = 1
+        && info.ExpansionIndex = info.Total, configOK && info.ExpansionCount = 1)
+    return "TES3NP - Plugin Mismatch Diagnostics`r`n"
+        . "Generated (UTC): " stamp "`r`n"
+        . "Launcher version: " version "`r`n"
+        . "Reported issue: Server rejected the client plugin/load order`r`n"
+        . "`r`n[Assessment]`r`n"
+        . "Evidence: " TES3MPMismatchAssessment(info, markers, installed) "`r`n"
+        . "Expansion Pack version verified: No (not checked)`r`n"
+        . "`r`n[Configured content]`r`n"
+        . "OpenMW config check: " info.Status "`r`n"
+        . "Enabled content entries: " (configOK ? info.Total : "Unknown") "`r`n"
+        . "Expansion Pack enabled: " expansion "`r`n"
+        . "Expansion Pack entries: " (configOK ? info.ExpansionCount : "Unknown") "`r`n"
+        . "Expansion Pack last: " last "`r`n"
+        . "Additional content entries (not the 3 base masters or Expansion Pack): "
+            (configOK ? info.OtherCount : "Unknown") "`r`n"
+        . "Repeated additional content entries: "
+            (configOK ? info.OtherDuplicates : "Unknown") "`r`n"
+        . "Content entries following Expansion Pack: "
+            (configOK && info.ExpansionCount = 1 ? info.OtherAfterExpansion : "Unknown") "`r`n"
+        . "Morrowind master: " TES3MPMismatchYesNo(info.Morrowind, configOK) "`r`n"
+        . "Tribunal master: " TES3MPMismatchYesNo(info.Tribunal, configOK) "`r`n"
+        . "Bloodmoon master: " TES3MPMismatchYesNo(info.Bloodmoon, configOK) "`r`n"
+        . "Expansion ESP in configured game folder: " installed "`r`n"
+        . "`r`n[Client rejection evidence]`r`n"
+        . "Client log check: " markers.Status "`r`n"
+        . "Recent server rejection in inspected log: "
+            TES3MPMismatchYesNo(markers.Rejected, markers.Status = "Read") "`r`n"
+        . "Missing Expansion Pack specifically named: "
+            TES3MPMismatchYesNo(markers.MissingExpansion, logOK) "`r`n"
+        . "Other missing plugin specifically indicated: "
+            TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
+        . "Missing base-game master indicated: "
+            TES3MPMismatchYesNo(markers.MissingBaseMaster, logOK) "`r`n"
+        . "Missing dependency not identified: "
+            TES3MPMismatchYesNo(markers.MissingUnspecified, logOK) "`r`n"
+        . "Load-order wording near rejection: "
+            TES3MPMismatchYesNo(markers.Order, logOK)
+}
+
+TES3MPBuildMismatchDiagnostics()
+{
+    global AppConfig, DataFile
+    info := TES3MPReadMismatchConfigInfo()
+    markers := TES3MPReadSafeMismatchLogMarkers()
+    installed := "Not checked"
+    try
+    {
+        root := IniRead(DataFile, "Patch", "MorrowindFolder", "")
+        if root != "" && DirExist(root "\Data Files")
+            installed := FileExist(root "\Data Files\NP Expansion Pack.esp") ? "Yes" : "No"
+    }
+    catch Error as err
+        LogLauncherEvent("EXPANSION | Diagnostic expansion-file check failed ("
+            Type(err) ", line " err.Line ").")
+    return TES3MPRenderMismatchDiagnostics(info, markers, installed,
+        AppConfig.Version, FormatTime(A_NowUTC, "yyyy-MM-dd HH:mm:ss"))
 }
