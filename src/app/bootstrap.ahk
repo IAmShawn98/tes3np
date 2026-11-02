@@ -136,6 +136,10 @@ CreateLauncherChatToggle()
     ; The chat host reports its actual open/closed state after every change.
     OnMessage(0x8332, LauncherChatStateChanged)
     OnMessage(0x8333, LauncherPickleKillAlert)
+    ; The existing ChatHost tells the launcher when the default browser
+    ; accepted a ZIP and when the old embedded download view is disposed.
+    OnMessage(0x8335, TES3MPExpansionDownloadHandedOff)
+    OnMessage(0x8336, TES3MPExpansionBrowserClosed)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
     LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
