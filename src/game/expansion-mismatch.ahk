@@ -1,9 +1,10 @@
 ; Detect TES3MP's actual plugin/load-order rejection from NEW log output only.
-; The launcher owns this dialog. A Discord ZIP handoff replaces it only after
-; ChatHost confirms that the previous embedded WebView2 child was disposed.
+; Keep one launcher-owned dialog for any number of downloads. The transient
+; signed ZIP URL is delivered from ChatHost via bounded WM_COPYDATA, stored
+; only in memory, and never requires WebView2 to handle native retries.
 global ExpansionMismatchDialog := 0
 global ExpansionMismatchSlot := 0
-global ExpansionMismatchRefreshPending := false
+global ExpansionMismatchZipUrl := ""
 ; TES3MP owns its error window; terminate only the failed PID before prompting.
 CaptureTES3MPLogBaseline()
 {
@@ -107,11 +108,12 @@ HandleTES3MPPluginMismatch()
 
 ShowTES3MPExpansionMismatchDialog()
 {
-    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
-    ; A repeated plugin mismatch must not stack duplicate dialogs.
+    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    ; No close/reopen cycle while a browser is downloading. Duplicate
+    ; server mismatches cannot stack additional native WebView2 children.
     if IsObject(ExpansionMismatchDialog)
         return
-    ExpansionMismatchRefreshPending := false
+    ExpansionMismatchZipUrl := ""
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
@@ -130,11 +132,11 @@ ShowTES3MPExpansionMismatchDialog()
     ; No extra Discord popup and no second browser profile are created.
     downloadSlot := dialog.Add("Text", "x25 y231 w610 h118 +0x100 Background202023",
         "Connecting to the Nerevarine Prophecies Discord channel...")
-    ; Always-active launcher-owned retry button. If Discord's child WebView
-    ; stops responding during a browser download, this native button still
-    ; sends a fresh request using the latest validated link in ChatHost.
+    ; The native AHK button opens the cached URL directly through Windows.
+    ; It does not use ChatHost/UI messages or recreate WebView2 on a click.
+    nativeStatus := dialog.Add("Text", "x252 y365 w367 h18 cD8C38C BackgroundTrans", "")
     AddStyledButton(dialog, 25, 359, 215, 31, "Download ZIP / Retry",
-        (*) => SendLauncherChatCommand(8, downloadSlot.Hwnd))
+        (*) => TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus))
     dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
     dialog.Add("Link", "x25 y397 w610 h20",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
@@ -153,61 +155,82 @@ ShowTES3MPExpansionMismatchDialog()
 
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
     if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
     ExpansionMismatchSlot := 0
-    ExpansionMismatchRefreshPending := false
-    ; Existing manual OK/Cancel behavior stays unchanged. ChatHost disposes
-    ; its own child on command 7; its later acknowledgment is ignored here.
+    ExpansionMismatchZipUrl := ""
+    ; Normal OK/Cancel closes just this dialog. We never recycle the
+    ; embedded Discord controller during an ordinary ZIP download.
     SendLauncherChatCommand(7, slotHwnd)
     try dialog.Destroy()
     if import
         UploadExpansionFromFile()
 }
 
-TES3MPExpansionDownloadHandedOff(slotHwnd, *)
+TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
-    ; WM_APP + 0x335 is sent only after Windows accepts a ZIP handoff.
-    ; Match the exact current dialog's placeholder, not a previous session.
-    if (!IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot || ExpansionMismatchRefreshPending)
-        return
-    ExpansionMismatchRefreshPending := true
-    LogLauncherEvent("EXPANSION | ZIP sent to browser; refreshing mismatch prompt.")
-    ; Hide the now-stale Discord child before asking ChatHost to dispose it.
-    ; No window is destroyed until ChatHost acknowledges command 7.
-    try ExpansionMismatchDialog.Hide()
-    SendLauncherChatCommand(7, slotHwnd)
-    ; If the helper never acknowledges, restore the old dialog and keep its
-    ; native OK/Cancel + external channel fallback accessible.
-    SetTimer((*) => TES3MPExpansionRefreshTimedOut(slotHwnd), -2500)
+    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    ; WM_COPYDATA is synchronous; copy the data before returning.
+    ; Only accept our current ChatHost's authenticated HTTPS attachment.
+    if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
+        return 0
+    if NumGet(lParam, 0, "Ptr") != 0x8335
+        return 0
+    cbData := NumGet(lParam, A_PtrSize, "UInt")
+    if cbData < 36 || cbData > 8192 || Mod(cbData, 2)
+        return 0
+    textPtr := NumGet(lParam, A_PtrSize = 8 ? 16 : 8, "Ptr")
+    if !textPtr
+        return 0
+    payload := StrGet(textPtr, cbData // 2 - 1, "UTF-16")
+    separator := InStr(payload, "|")
+    if !separator
+        return 0
+    slotText := SubStr(payload, 1, separator-1)
+    if !RegExMatch(slotText, "^\\d+$") || (slotText + 0) != ExpansionMismatchSlot
+        return 0
+    url := SubStr(payload, separator+1)
+    if !RegExMatch(url, "i)^https://(?:cdn\\.discordapp\\.com|media\\.discordapp\\.net)/attachments/[^?#]+\\.zip(?:[?#]|$)")
+        return 0
+    try
+    {
+        oldHidden := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        try validSender := wParam && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
+        finally DetectHiddenWindows(oldHidden)
+        if !validSender
+            return 0
+    }
+    catch
+        return 0
+    ExpansionMismatchZipUrl := url
+    LogLauncherEvent("EXPANSION | Latest Discord ZIP link is ready for native retries.")
+    return 1
 }
 
-TES3MPExpansionBrowserClosed(slotHwnd, *)
+TES3MPExpansionRequestDownload(slotHwnd, statusControl)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
-    ; WM_APP + 0x336 means ChatHost disposed this exact embedded browser.
-    if (!ExpansionMismatchRefreshPending || !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot)
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    if !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot
         return
-    dialog := ExpansionMismatchDialog
-    ExpansionMismatchDialog := 0
-    ExpansionMismatchSlot := 0
-    ExpansionMismatchRefreshPending := false
-    try dialog.Destroy()
-    ; Defer new GUI creation until after this window-message handler exits.
-    SetTimer(ShowTES3MPExpansionMismatchDialog, -100)
-}
-
-TES3MPExpansionRefreshTimedOut(slotHwnd)
-{
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
-    ; A timer from an earlier refresh cannot interrupt a newly reopened popup.
-    if (!ExpansionMismatchRefreshPending || slotHwnd != ExpansionMismatchSlot)
+    url := ExpansionMismatchZipUrl
+    if url = ""
+    {
+        LogLauncherEvent("EXPANSION | Download requested before Discord ZIP discovery.")
         return
-    ExpansionMismatchRefreshPending := false
-    if IsObject(ExpansionMismatchDialog)
-        try ExpansionMismatchDialog.Show()
-    LogLauncherEvent("EXPANSION | Discord child close timed out; prompt restored without auto-reopen.")
+    }
+    ; Re-validate every click. A cancelled browser transfer never disables
+    ; this button or creates/disposes any browser controller.
+    if !RegExMatch(url, "i)^https://(?:cdn\\.discordapp\\.com|media\\.discordapp\\.net)/attachments/[^?#]+\\.zip(?:[?#]|$)")
+        return
+    try
+    {
+        statusControl.Text := "Starting Download..."
+        Run(url)
+        LogLauncherEvent("EXPANSION | Native ZIP download requested in default browser.")
+    }
+    catch Error as err
+        LogLauncherEvent("EXPANSION | Native browser handoff failed (" Type(err) ").")
 }
