@@ -4,10 +4,6 @@
 
 ### Added
 
-### Fixed
-
-- Corrected the Expansion Pack worker's existing ZIP extraction length check (and the matching new folder staging check): `System.IO.File.GetLength` is not a .NET API, so the importer now reads the staged `FileInfo.Length` before proceeding. All staged content still receives hash verification and the existing transactional backup/rollback.
-
 
 - Added a source chooser to the Expansion Pack mismatch recovery flow: **Select ZIP (Recommended)** or **Select Extracted Folder**. Folder imports locate an extracted `Data Files` tree (including when the chosen folder itself is `Data Files`) and use the existing PowerShell worker's staging, allowed extensions, path and link checks, file limits, SHA-256 verification, backups, and rollback. A disposable Windows fixture exercises ZIP imports, both folder layouts, and rejection of unsafe/unapproved files before packaging. The exact current Discord ZIP's complete file layout has not yet been independently inspected; unexpected `Data Files` entries fail closed rather than being skipped. Windows test/build and live import remain pending.
 
@@ -30,6 +26,8 @@
 - **Live mismatch evidence capture:** After a rejected login, the launcher now classifies the original client-log rejection before terminating the game, retaining only safe fixed indicator fields. **Copy Diagnostic Info** uses that captured evidence instead of attempting to reopen a potentially locked client log; if live evidence is absent, bounded file inspection remains a fallback. Each new game session clears prior evidence. This addresses a Windows report in which the configuration checked out but client-log inspection returned Read error. Exact cause of the secondary log-read error remains unverified; live-capture runtime checks remain pending.
 
 ### Fixed
+
+- Corrected the Expansion Pack worker's existing ZIP extraction length check (and the matching new folder staging check): `System.IO.File.GetLength` is not a .NET API, so the importer now reads the staged `FileInfo.Length` before proceeding. All staged content still receives hash verification and the existing transactional backup/rollback.
 
 - Fixed the character backup import error caused by an absent legacy executable input control.
 - Fixed recurring desktop-shortcut prompts by preserving the decision when importing backups or when shortcut creation fails.
