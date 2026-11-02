@@ -228,6 +228,11 @@ internal static class Program
         // The latest *validated* signed URL lives only in this ChatHost
         // session; native retry never depends on a responsive WebView2.
         string? expansionLatestZipUrl;
+        // Native WinForms controls stay responsive after the transient Discord
+        // discovery WebView2 is disposed. A retry never needs the WebView.
+        Panel? expansionDownloadCard;
+        Label? expansionDownloadStatus;
+        Button? expansionDownloadButton;
 
         // Preserve Discord's React tree and grid intact behind an opaque card.
         // Extract ONLY the latest visible official ZIP attachment and link to
@@ -295,7 +300,7 @@ internal static class Program
                     // This card stays ready while the default browser is
                     // downloading. A cancelled/failed download requires no
                     // reset, reload, or completion signal.
-                    status.textContent='Download requested. Click the ZIP again to retry.';
+                    status.textContent='Starting Download...';
                     report('download-handed-to-browser');
                   } catch {
                     report('download-handoff-unavailable');
@@ -515,6 +520,9 @@ internal static class Program
                 return;
             expansionDownloadsParent=IntPtr.Zero;
             expansionLatestZipUrl=null;
+            expansionDownloadCard=null;
+            expansionDownloadStatus=null;
+            expansionDownloadButton=null;
             var window=expansionDownloadsWindow;
             expansionDownloadsWindow=null;
             expansionDownloadsBrowser=null;
@@ -540,6 +548,53 @@ internal static class Program
                 };
                 var browser=new WebView2 { Dock=DockStyle.Fill };
                 window.Controls.Add(browser);
+                // The native download card replaces the discovery browser as
+                // soon as an actual ZIP is found. It is NOT hosted in WebView2
+                // and never enters the browser's download/navigation lifecycle.
+                var nativeCard=new Panel {
+                    Dock=DockStyle.Fill,Visible=false,
+                    BackColor=System.Drawing.Color.FromArgb(27,27,31)
+                };
+                var caption=new Label {
+                    Text="Latest Expansion Pack download",
+                    Location=new System.Drawing.Point(12,7),
+                    AutoSize=false,Height=21,
+                    ForeColor=System.Drawing.Color.FromArgb(215,173,110),
+                    Font=new System.Drawing.Font("Segoe UI",10,System.Drawing.FontStyle.Bold)
+                };
+                var fileButton=new Button {
+                    Text="Download Expansion ZIP",
+                    Location=new System.Drawing.Point(12,34),
+                    Height=43,FlatStyle=FlatStyle.Flat,Cursor=Cursors.Hand,
+                    BackColor=System.Drawing.Color.FromArgb(43,43,51),
+                    ForeColor=System.Drawing.Color.FromArgb(119,186,255),
+                    Font=new System.Drawing.Font("Segoe UI",10,System.Drawing.FontStyle.Regular),
+                    UseVisualStyleBackColor=false,TabStop=true
+                };
+                fileButton.FlatAppearance.BorderColor=System.Drawing.Color.FromArgb(180,154,101);
+                var fileStatus=new Label {
+                    Text="",Location=new System.Drawing.Point(12,86),
+                    Height=23,AutoSize=false,
+                    ForeColor=System.Drawing.Color.FromArgb(185,179,169),
+                    Font=new System.Drawing.Font("Segoe UI",9,System.Drawing.FontStyle.Regular)
+                };
+                nativeCard.Controls.Add(caption);
+                nativeCard.Controls.Add(fileButton);
+                nativeCard.Controls.Add(fileStatus);
+                void ResizeNativeCard()
+                {
+                    int width=Math.Max(80,nativeCard.ClientSize.Width-24);
+                    caption.Width=width;fileButton.Width=width;fileStatus.Width=width;
+                }
+                nativeCard.Resize+=(_,_)=>ResizeNativeCard();
+                window.Controls.Add(nativeCard);
+                nativeCard.BringToFront();
+                expansionDownloadCard=nativeCard;
+                expansionDownloadButton=fileButton;
+                expansionDownloadStatus=fileStatus;
+                fileButton.Click+=(_,_)=>RequestExpansionDownload(
+                    expansionLatestZipUrl,"native-card");
+                ResizeNativeCard();
                 // Register before native reparenting so even a failed SetParent
                 // disposes the newly created Form and WebView2 together.
                 expansionDownloadsWindow=window;
@@ -592,6 +647,42 @@ internal static class Program
             catch { return false; }
         }
 
+        void ShowNativeExpansionDownloadCard(WebView2 source, string url)
+        {
+            if (!ReferenceEquals(source,expansionDownloadsBrowser) ||
+                source.IsDisposed || expansionDownloadsWindow is not {IsDisposed:false} window ||
+                expansionDownloadCard is not {IsDisposed:false} card ||
+                expansionDownloadButton is not {IsDisposed:false} button)
+                return;
+            if (!IsOfficialExpansionDownloadUrl(url)) return;
+            string filename;
+            try {
+                filename=Uri.UnescapeDataString(
+                    System.IO.Path.GetFileName(new Uri(url).AbsolutePath));
+            } catch { return; }
+            button.Text=filename;
+            if (card.Visible) return;
+            card.Visible=true;
+            card.BringToFront();
+            Log("EXPANSION | ZIP discovered; native card active, retiring WebView2.");
+            // WebView2 delivered this URL. Its first download could stall
+            // the entire child browser, so dispose it only AFTER this event
+            // returns. Game Chat uses another WebView control and is unchanged.
+            expansionDownloadsBrowser=null;
+            window.BeginInvoke(new Action(()=>{
+                try {
+                    if (!source.IsDisposed) {
+                        if (!window.IsDisposed) window.Controls.Remove(source);
+                        source.Dispose();
+                    }
+                    Log("EXPANSION | Discord discovery view released; native ZIP retry remains active.");
+                }
+                catch (Exception ex) {
+                    Log("EXPANSION | Could not release ZIP discovery browser: "+ex.Message);
+                }
+            }));
+        }
+
         // Each click is an independent request; a cancelled browser download
         // cannot leave a busy flag set or disable a second attempt.
         void RequestExpansionDownload(string? url, string origin)
@@ -601,6 +692,10 @@ internal static class Program
                 Log("EXPANSION | Download request rejected: invalid ZIP URL ("+origin+").");
                 return;
             }
+            // Only the download request changes state. The button remains
+            // enabled and usable for a second, third, or cancelled attempt.
+            if (expansionDownloadStatus is {IsDisposed:false} status)
+                status.Text="Starting Download...";
             string freshUrl=url!;
             _=Task.Run(()=>{
                 try {
@@ -674,6 +769,11 @@ internal static class Program
                             // A new post or refreshed CDN signature replaces the
                             // stored URL. Never persist it or log its auth query.
                             expansionLatestZipUrl=link;
+                            // The source browser is discovery-only. Replace
+                            // it with the native card as soon as a ZIP exists.
+                            // This avoids both repeated DOM scanning after
+                            // downloads and a shared UI-thread WebView stall.
+                            ShowNativeExpansionDownloadCard(browser,link!);
                             if (type=="expansion-download")
                                 RequestExpansionDownload(link,"embedded-card");
                         }
