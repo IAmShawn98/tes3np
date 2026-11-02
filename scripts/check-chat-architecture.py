@@ -476,7 +476,16 @@ expect(
     and 'AllowedAsset $relative' in expansion_worker
     and '$seen.Add($relative)' in expansion_worker
     and '$entryCount -gt 10000' in expansion_worker
-    and '$total -gt 1073741824' in expansion_worker
+    and 'AssertSpace $staged ([long]$entry.Length)' in expansion_worker
+    and 'AssertSpace $staged ([long]$item.Length)' in expansion_worker
+    and 'AssertSpace $item.Target' in expansion_worker
+    and 'AssertSpace $JobFolder' in expansion_worker
+    and "Unpacked Expansion Pack exceeds the 1 GB limit." not in expansion_worker
+    and "Extracted Expansion Pack exceeds the 1 GB limit." not in expansion_worker
+    and "134217728" not in expansion_worker
+    and "if ($staged -and [IO.Directory]::Exists($staged))" in expansion_worker
+    and "stage-cleanup-warning.txt" in expansion_worker
+    and "left a full duplicate of the pack in staging" in expansion_fixture
     and 'Sha256 $target' in expansion_worker
     and 'if ($rollbackReady) {' in expansion_worker
     and 'CheckWorker $zip' in expansion_fixture
