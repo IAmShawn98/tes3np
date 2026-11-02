@@ -176,6 +176,18 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     ; Only accept our current ChatHost's authenticated HTTPS attachment.
     if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
         return 0
+    ; Verify the sender before dereferencing an external window message.
+    try
+    {
+        oldHidden := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        try validSender := wParam && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
+        finally DetectHiddenWindows(oldHidden)
+        if !validSender
+            return 0
+    }
+    catch
+        return 0
     if NumGet(lParam, 0, "Ptr") != 0x8335
         return 0
     cbData := NumGet(lParam, A_PtrSize, "UInt")
@@ -193,17 +205,6 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
         return 0
     url := SubStr(payload, separator+1)
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
-        return 0
-    try
-    {
-        oldHidden := A_DetectHiddenWindows
-        DetectHiddenWindows(true)
-        try validSender := wParam && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
-        finally DetectHiddenWindows(oldHidden)
-        if !validSender
-            return 0
-    }
-    catch
         return 0
     ExpansionMismatchZipUrl := url
     LogLauncherEvent("EXPANSION | Latest Discord ZIP link is ready for native retries.")
