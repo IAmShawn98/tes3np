@@ -22,8 +22,7 @@ UploadExpansionFromFile(*)
 SelectExpansionPackagePath()
 {
     global LauncherGui, BundledResourceRoot
-    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot)
-        ? BundledResourceRoot : A_ScriptDir
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
     helper := resourceRoot "\scripts\select-expansion-package.ps1"
     powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
     if !FileExist(helper) || !FileExist(powershell)
