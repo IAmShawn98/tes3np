@@ -341,7 +341,7 @@ UpdatePatchProgress(label, percent)
 
 CheckPatchWorker()
 {
-    global PatchJob, PatchFrame, DataFile, SetupComplete, PatchStatus, ExecutableInput
+    global PatchJob, PatchFrame, DataFile, SetupComplete, PatchStatus
     if !IsObject(PatchJob)
         return
     job := PatchJob
@@ -397,8 +397,6 @@ CheckPatchWorker()
             {
                 executable := job.TesFolder "\tes3mp.exe"
                 IniWrite(executable, DataFile, "Launch", "Executable")
-                if IsSet(ExecutableInput)
-                    ExecutableInput.Value := executable
             }
         }
         UpdateCharacterMenuLabel()
