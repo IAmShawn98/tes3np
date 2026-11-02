@@ -164,6 +164,9 @@ def check(allow_missing_payload: bool = False) -> None:
         "OpenTroubleshooting", "OpenLauncherLog", "ClearLauncherLog",
         "CopyLauncherDiagnostics", "BuildLauncherDiagnostics",
         "ResetDisplayAccessibility",
+        # Dead preview chat window replaced by the embedded authenticated host.
+        "OpenInGameChatWindow", "ResizeInGameChatWindow",
+        "OpenInGameDiscordChannel", "InGameChatGui",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
