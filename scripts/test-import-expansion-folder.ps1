@@ -28,13 +28,13 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string
         $observedAttempt = $false
         $proc = $null
         try {
-            $args = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
+            $childArgs = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
                 '-File', ('"' + $worker + '"'),
                 '-Package', ('"' + $Package + '"'),
                 '-MorrowindFolder', ('"' + $game + '"'),
                 '-ConfigFile', ('"' + $config + '"'),
                 '-JobFolder', ('"' + $job + '"'))
-            $proc = Start-Process -FilePath $windowsPowerShell -ArgumentList $args -PassThru -WindowStyle Hidden
+            $proc = Start-Process -FilePath $windowsPowerShell -ArgumentList $childArgs -PassThru -WindowStyle Hidden
             # Confirm the worker prepared its atomic status temp while locked.
             for ($watch = 0; $watch -lt 200; $watch++) {
                 if (@(Get-ChildItem -LiteralPath $job -Filter '.progress.ini-*.tmp' -ErrorAction Stop).Count -gt 0) {
