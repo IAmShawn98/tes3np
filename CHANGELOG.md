@@ -29,6 +29,8 @@
 
 ### Fixed
 
+- Hardened official Expansion Pack v0.2 installation against transient Windows file sharing and byte-range locks (`ERROR_SHARING_VIOLATION`/`ERROR_LOCK_VIOLATION`, Win32 32/33), after a live import reported that another process locked part of a file and rolled back. Source-file hashing, staged asset copies, backup copies, and atomic game-file replacement now make up to six bounded retries only for those two OS errors; all other failures still stop immediately. Removed redundant per-replacement scratch backups because the persistent journal backup is already verified. Failure messages report the operation and file ordinal without exposing local paths. Added a synthetic Windows byte-range-lock regression that checks safe exhaustion without modifying game files, releases the lock, then verifies successful import and rollback backups. Existing archive path checks, streaming hashes and transaction rollback remain intact; live v0.2 re-test is pending.
+
 - Fixed the legitimate NP Expansion Pack v0.2 ZIP being rejected as `Unpacked Expansion Pack exceeds the 1 GB limit.` The importer had hard-coded 1 GiB total and 128 MiB per-asset limits unrelated to TES3MP. Removed both artificial caps from ZIP, extracted-folder, and legacy ESP import paths while preserving filename/path validation, streamed bounded-memory extraction, size consistency and SHA-256 checks, file-count controls, pre-copy available-space checks on staging/backup/game volumes, and backup/rollback. Temporary staging is cleaned after success or failure; backups/journals remain. Updated synthetic Windows fixtures and architecture guards against reintroducing the limits. Actual v0.2 import still requires Windows runtime verification.
 
 
