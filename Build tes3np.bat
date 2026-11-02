@@ -46,6 +46,17 @@ if not exist "%~dp0client\tes3mp.exe" goto :failed
 if not exist "%~dp0client\defaults.bin" goto :failed
 if not exist "%~dp0client\tes3mp-client-default.cfg" goto :failed
 
+rem The compiled launcher starts AHK macros through the bundled official v2
+rem interpreter. Publish it before replacing the root EXE, just like client.
+if not exist "%PACKAGE%\runtime\AutoHotkey64.exe" (
+    echo The bundled AutoHotkey v2 macro interpreter is missing.
+    goto :failed
+)
+if not exist "%~dp0runtime" mkdir "%~dp0runtime"
+xcopy /e /i /h /y "%PACKAGE%\runtime\*" "%~dp0runtime\" >nul
+if errorlevel 1 goto :failed
+if not exist "%~dp0runtime\AutoHotkey64.exe" goto :failed
+
 if not exist "%~dp0licenses" mkdir "%~dp0licenses"
 if exist "%PACKAGE%\licenses\TES3MP\LICENSE" (
     xcopy /e /i /h /y "%PACKAGE%\licenses\*" "%~dp0licenses\" >nul
