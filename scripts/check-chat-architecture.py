@@ -256,7 +256,7 @@ expect(
     and 'void HideEmbeddedExpansionDownloads(IntPtr placeholder)' in source
     and 'ShowWindow(window.Handle,0);' in source
     and 'var browser=new WebView2 { Dock=DockStyle.Fill };' in source
-    and 'Run(' + chr(39) + 'rundll32.exe url.dll,FileProtocolHandler "' + chr(39) + ' in mismatch
+    and "Run('rundll32.exe url.dll,FileProtocolHandler" in mismatch
     and 'Run(url)' not in mismatch
     and 'statusControl.Text := "Starting Download..."' in mismatch
     and 'OnMessage(0x004A, TES3MPExpansionZipAvailable)' in bootstrap
