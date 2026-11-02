@@ -13,6 +13,8 @@ from pathlib import Path, PurePosixPath
 
 REQUIRED_FILES = (
     "tes3np.exe",
+    "runtime/AutoHotkey64.exe",
+    "licenses/AutoHotkey/REDISTRIBUTION-NOTICE.txt",
     "client/tes3mp.exe",
     "client/tes3mp-client-default.cfg",
     "client/defaults.bin",
@@ -25,6 +27,7 @@ REQUIRED_FILES = (
 )
 MINIMUM_SIZE = {
     "tes3np.exe": 100_000,
+    "runtime/AutoHotkey64.exe": 100_000,
     "client/tes3mp.exe": 100_000,
     "chat-host/tes3np.ChatHost.exe": 100_000,
 }
