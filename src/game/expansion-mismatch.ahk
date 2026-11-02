@@ -347,18 +347,10 @@ TES3MPTryCopyMismatchReport(report, statusControl, limited := false, attempt := 
     global ExpansionMismatchDialog
     if !IsObject(ExpansionMismatchDialog)
         return
+    ; Clipboard access is the ONLY operation in this try block: never report
+    ; a control repaint/logging exception as a clipboard failure.
     try
-    {
-        ; Use the same direct A_Clipboard assignment already used by the
-        ; launcher's working Troubleshooting > Copy Diagnostic Information.
-        ; Do not ClipWait() after a direct assignment.
         A_Clipboard := report
-        statusControl.Text := limited
-            ? "Basic diagnostic info copied. Some checks unavailable."
-            : "Diagnostic info copied. Paste it into Discord bug reports."
-        LogLauncherEvent("EXPANSION | Safe mismatch report copied ("
-            (limited ? "limited" : "complete") ").")
-    }
     catch Error as err
     {
         ; A separate app can briefly lock the Windows clipboard. Retry on
@@ -369,10 +361,20 @@ TES3MPTryCopyMismatchReport(report, statusControl, limited := false, attempt := 
                 report, statusControl, limited, attempt + 1), -200)
             return
         }
-        statusControl.Text := "Could not access clipboard. Please click Copy Diagnostic Info again."
+        try statusControl.Text := "Could not access clipboard. Please click Copy Diagnostic Info again."
         LogLauncherEvent("EXPANSION | Clipboard unavailable after retries ("
             Type(err) ", source line " err.Line ").")
+        return
     }
+    try
+    {
+        if limited
+            statusControl.Text := "Basic diagnostic info copied. Some checks unavailable."
+        else
+            statusControl.Text := "Diagnostic info copied. Paste it into Discord bug reports."
+    }
+    LogLauncherEvent("EXPANSION | Safe mismatch report copied ("
+        (limited ? "limited" : "complete") ").")
 }
 
 TES3MPBuildSafeMismatchDiagnostics()
