@@ -292,7 +292,15 @@ expect(
     and "send it to bug reports on Discord for further examination." in mismatch
     and '"Copy Diagnostic Info"' in mismatch
     and "TES3MPCopyMismatchDiagnostics(nativeStatus)" in mismatch
-    and "A_Clipboard := TES3MPBuildSafeMismatchDiagnostics()" in mismatch
+    and "report := TES3MPBuildSafeMismatchDiagnostics()" in mismatch
+    and "TES3MPBuildMinimumMismatchDiagnostics()" in mismatch
+    and "TES3MPTryCopyMismatchReport(report, statusControl, limited)" in mismatch
+    and "A_Clipboard := report" in mismatch
+    and "if attempt < 3" in mismatch
+    and "Clipboard unavailable after retries" in mismatch
+    and "Diagnostic collection failed (" in mismatch
+    and "if !ClipWait(1)" not in mismatch
+    and 'statusControl.Text := "Could not access clipboard. Please click Copy Diagnostic Info again."' in mismatch
     and "TES3MPBuildSafeMismatchDiagnostics()" in mismatch
     and "TES3MPReadSafeMismatchLogMarkers()" in mismatch
     and 'FileGetSize(config) <= 1048576' in mismatch
