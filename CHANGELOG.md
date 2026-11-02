@@ -4,7 +4,7 @@
 
 ### Added
 
-- Improved the Expansion Pack mismatch popup's **Copy Diagnostic Info**: the existing login watchdog now gives TES3MP two ticks to flush its detailed discrepancy lines, classifies checksum differences, mismatched plugin-name slots and extra-client/server slots, and copies only fixed counts plus the first zero-based slot (never arbitrary plugin names, log text, paths or credentials). The installed Expansion Pack ESP is fingerprinted by streaming SHA-256 plus file size; the report explicitly does **not** equate that hash with a verified server version. Added isolated parser, de-duplication, redaction and SHA-256 known-vector tests in the Windows build. Windows compile and live login/popup verification remain pending.
+- Improved the Expansion Pack mismatch popup's **Copy Diagnostic Info**: the existing login watchdog now gives TES3MP two ticks to flush its detailed discrepancy lines, classifies checksum differences, mismatched plugin-name slots and extra-client/server slots, and copies fixed counts and a bounded per-slot category summary (never arbitrary plugin names, log text, paths or credentials). The installed Expansion Pack ESP is fingerprinted by streaming SHA-256 plus file size; the report explicitly does **not** equate that hash with a verified server version. Added isolated parser, de-duplication, redaction and SHA-256 known-vector tests in the Windows build. Windows compile and live login/popup verification remain pending.
 
 - Bundled standalone TES3MP 0.8.1 Windows runtime and self-contained Game Chat host, removing the requirement for a separately installed TES3MP client.
 - Optional custom TES3MP executable and dependency overrides without replacing the bundled client.
