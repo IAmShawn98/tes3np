@@ -1,4 +1,4 @@
-﻿; Character book, profile editor and launch explanation dialog.
+﻿; Character book, profile editor and favorite-selection interactions.
 
 OpenCharacterPage(*)
 {
