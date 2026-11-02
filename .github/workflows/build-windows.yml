@@ -21,12 +21,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Normalize patch script final newline
-        shell: pwsh
-        run: |
-          $path = 'scripts/patch-tes3mp.ps1'
-          $text = [IO.File]::ReadAllText($path)
-          if (-not ($text.EndsWith("`n"))) { [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true))) }
       - name: Validate complete source and payload
         run: python scripts/project.py check
       - name: Parse PowerShell helpers
