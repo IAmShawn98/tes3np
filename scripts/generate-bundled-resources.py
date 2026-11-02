@@ -23,7 +23,7 @@ for directory in ("assets", "patches"):
         ):
             continue
         resources.append(path)
-for name in ("import-macro.ps1", "patch-tes3mp.ps1", "toggle-expansion-pack.ps1", "import-expansion-pack.ps1", "select-expansion-package.ps1", "tes3np-updater.ps1", "fetch-release-notes.ps1"):
+for name in ("import-macro.ps1", "toggle-expansion-pack.ps1", "import-expansion-pack.ps1", "select-expansion-package.ps1", "tes3np-updater.ps1", "fetch-release-notes.ps1"):
     path = root / "scripts" / name
     if not path.is_file():
         raise SystemExit(f"Missing bundled worker: {path}")
