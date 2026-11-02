@@ -99,64 +99,26 @@ LaunchProfileIndex(index)
         StartProfileSession(Profiles[index], executable)
 }
 
-LaunchAllCharacters(*)
-{
-    LogLauncherEvent("GAME | SOURCE | LaunchAllCharacters invoked.")
-    global Client, Profiles, DataFile, CharacterPage
-    if Client.Enabled
-    {
-        LogLauncherEvent("GAME | BLOCKED | Launch-all requested while another monitored session is active.")
-        MsgBox("A game session is already running. Stop recovery from the tray before launching all characters.", "tes3np")
-        return
-    }
-    if Profiles.Length < 2
-        return
-    if !CanStartAnotherTES3NPGame()
-        return
-    if Profiles.Length > 4 - CountTES3NPGameClients()
-    {
-        MsgBox("This would exceed the four-client server limit. Choose fewer characters or close running clients.", "Game client limit")
-        return
-    }
-    executable := GetSharedExecutable()
-    queue := []
-    for profile in Profiles
-    {
-        if !ValidateLaunch(profile, executable)
-            return
-        queue.Push(profile.Clone())
-    }
-    if IniRead(DataFile, "Launcher", "HideLaunchAllExplanation", "0") != "1"
-        if !ShowLaunchAllExplanation()
-            return
-    profile := queue.RemoveAt(1)
-    LogLauncherEvent("GAME | Batch launch requested. Characters: " (queue.Length + 1) ".")
-    StartProfileSession(profile, executable, queue)
-}
-
-StartProfileSession(profile, executable, queue := 0)
+StartProfileSession(profile, executable)
 {
     global Client, TES3MPLastMismatchEvidence
     ; Every login gets fresh mismatch evidence. Retain the previous result
     ; only while its own failed-login dialog is available for Copy Info.
     TES3MPLastMismatchEvidence := 0
-    source := IsObject(queue) ? "Batch" : IsObject(profile) ? "Manual character" : "New Adventure"
+    source := IsObject(profile) ? "Manual character" : "New Adventure"
     profileName := IsObject(profile) ? profile.Name : "New Adventure"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
-    ; Batch transitions replace the old Client record without going through
-    ; StopClient, so release its retained process handle first.
+    ; Release any retained process handle before replacing the Client record.
     if IsObject(Client) && Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
         DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
-    batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
-    LogLauncherEvent("GAME | Launch requested | Character: " profileName batchText ".")
+    LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
     global DataFile
     LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " executable ".")
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
         UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
         PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
-        LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, Queue: queue,
-        ProcessHandle: 0}
+        LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0}
     if IsObject(profile)
     {
         BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "",
@@ -225,8 +187,6 @@ RetryClient(reason)
     global Client
     profileName := IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure"
     LogLauncherEvent("GAME | STOP | Character: " profileName " | Reason: " reason ".")
-    if IsObject(Client.Queue)
-        Client.Queue := 0
     StopClient()
     SetClientStatus(reason " — session stopped.")
 }
@@ -264,38 +224,9 @@ ClientTick()
         ; existing client watchdog, not a parallel reconnect or polling timer.
         if Client.Phase != "launch" && CheckTES3MPPluginMismatch()
             return
-        if Client.Phase = "closing"
-        {
-            if ProcessExist(Client.PID)
-            {
-                if A_TickCount >= Client.Deadline
-                {
-                    try ProcessClose(Client.PID)
-                    Client.Deadline := A_TickCount + AppConfig.RetryMs
-                }
-                return
-            }
-            if Client.Queue.Length
-            {
-                queue := Client.Queue
-                profile := queue.RemoveAt(1)
-                LogLauncherEvent("GAME | Batch advancing to next character | Remaining after next: " queue.Length ".")
-                StartProfileSession(profile, Client.Executable, queue)
-            }
-            else
-            {
-                LogLauncherEvent("GAME | SUCCESS | All batch characters completed.")
-                StopClient()
-                SetClientStatus("All characters completed. Game clients closed.")
-            }
-            return
-        }
         if !ProcessExist(Client.PID)
         {
-            ; Only the explicit "closing" phase advances a batch queue.
-            ; If TES3MP disappears during any other phase,
-            ; the user closed it (or it exited unexpectedly), so cancel the
-            ; entire monitored session instead of logging another character in.
+            ; A closed or crashed client terminates this single monitored login.
             codeText := "unavailable"
             if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
             {
@@ -315,9 +246,7 @@ ClientTick()
                 }
             }
             LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " Client.Executable ".")
-            LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
-            if IsObject(Client.Queue)
-                Client.Queue := 0
+            LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
             StopClient()
             SetClientStatus("Game closed.")
             return
@@ -373,25 +302,8 @@ ClientTick()
         remaining := Max(0, Ceil((Client.Deadline - A_TickCount) / 1000))
         if remaining > 0
         {
-            label := Client.Phase = "username" ? "Waiting for username screen" : Client.Phase = "password" ? "Waiting for password screen" : Client.Phase = "claim" ? "Collecting daily login points" : "Loading character"
+            label := Client.Phase = "username" ? "Waiting for username screen" : Client.Phase = "password" ? "Waiting for password screen" : "Loading character"
             SetClientStatus(label " — " remaining " seconds.")
-            return
-        }
-        if Client.Phase = "claim"
-        {
-            Client.Phase := "closing"
-            Client.Deadline := A_TickCount + AppConfig.RetryMs
-            SetClientStatus("Closing " Client.Profile.Name " before the next character...")
-            LogLauncherEvent("GAME | Batch character claim wait completed; closing client.")
-            WinClose("ahk_id " hwnd)
-            return
-        }
-        if Client.Phase = "loading" && IsObject(Client.Queue)
-        {
-            Client.Phase := "claim"
-            Client.Deadline := A_TickCount + AppConfig.ClaimWaitMs
-            SetClientStatus("Waiting 10 seconds for " Client.Profile.Name " before closing.")
-            LogLauncherEvent("GAME | Login inputs completed | Batch character loaded; waiting for claim period.")
             return
         }
         if Client.Phase = "loading"
