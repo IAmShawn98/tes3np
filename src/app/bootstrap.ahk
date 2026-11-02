@@ -41,12 +41,10 @@ StartLauncher()
     A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
     LoadLauncherScale()
     InitializeLauncherMorrowindFont()
-    ; Scheduled Daily Login can run before the Characters page has ever been
-    ; opened, so its saved profiles must already exist in memory at startup.
+    ; Load saved characters before constructing launch controls.
     LoadProfiles()
     ; Recover a saved custom-client swap before launch buttons are available.
     RecoverCustomClientOverrides()
-    LoadDailyLoginSchedule()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     ; Set WS_CLIPCHILDREN before the launcher is ever shown. ChatHost is a
     ; native child HWND; parent background painting must not overwrite it.
@@ -109,7 +107,6 @@ StartLauncher()
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
     ; Expansion Pack setup is optional; never run patch verification at startup.
-    SetTimer(ShowMissedScheduledEvents, -750)
     SetTimer(CheckForUpdateAvailability, -250)
     ; Offer the shortcut once after the first window is visible; never block startup.
     SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
@@ -509,12 +506,11 @@ CleanupLauncher(*)
     ReleaseLauncherMorrowindFont()
     global LauncherGui, HoverTimer, IconHandles, CharacterPage, LauncherDataResetting
     ; A confirmed full reset must not recreate logs or settings during OnExit.
-    ; Normal shutdown keeps the established diagnostic/scheduler writes.
+    ; Normal shutdown records diagnostics; a full reset must not recreate user data.
     if !LauncherDataResetting
     {
         SyncPatchLogToLauncherLog()
         LogLauncherEvent("Launcher shutting down.")
-        SaveScheduledEventShutdownTime()
     }
     StopClient()
     DisposeGameLoginProgress()
