@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016DailyLoginControls, V016CharacterLayoutApplied
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -28,9 +28,7 @@ OpenCharacterPage(*)
     MacroBookControls := []
     ExecutableInput := 0
     EditorControls := []
-    V016DailyLoginControls := []
     ; A rebuilt character book needs its canonical button layout reapplied.
-    ; The scheduler remains available in source but has no entry button.
     V016CharacterLayoutApplied := false
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
@@ -40,7 +38,7 @@ OpenCharacterPage(*)
     ; interactive buttons in their existing button font for readability.
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
     CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
-    ; Retain a hidden heading only for the character editor and scheduler views.
+    ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 180, 370, 30, "Add character", (*) => EditProfile(0))
@@ -88,7 +86,7 @@ OpenCharacterPage(*)
     BuildMacroBookPanel()
     HideProfileEditor()
     ; Apply the canonical Character Book positions once after controls exist;
-    ; this preserves the two-button stack without the deferred scheduler UI.
+    ; this preserves the compact two-button action stack.
     ApplyV016CharacterLayout()
     RefreshProfiles()
     PrepareWindowDisplay(CharacterPage)
@@ -131,8 +129,7 @@ RefreshProfiles()
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
         ; Keep the approved character action stack after every refresh/import.
-        ; With the scheduler button deferred, Add Character now occupies its
-        ; old y=540 position, immediately above Wipe Character List (y=575).
+        ; Keep Add Character directly above Wipe Character List.
         actionY := Profiles.Length ? 540 : 180
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
@@ -244,13 +241,7 @@ HideProfileEditor()
 
 CloseCharacterPage(*)
 {
-    global CharacterPage, ScheduledEventsBookMode
-    ; If Close is pressed while the shared Character Book is showing the
-    ; scheduler, restore the actual Characters page before hiding the book.
-    ; Otherwise the next Manage Characters open simply re-shows the scheduler
-    ; controls because the same CharacterPage is being reused.
-    if ScheduledEventsBookMode
-        CloseScheduledEventsBook()
+    global CharacterPage
     HideProfileEditor()
     CloseMacroPage()
     CharacterPage.Hide()
