@@ -348,6 +348,14 @@ expect(
     and 'MismatchFixtureDisallow("configuration path")' in (
         ROOT / "scripts" / "test-expansion-diagnostics.ahk"
     ).read_text(encoding="utf-8-sig")
+    and all(marker in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
+    ).read_text(encoding="utf-8-sig") for marker in (
+        "global Client :=",
+        "global LauncherGui := 0",
+        "global EmbeddedChatPid := 0",
+        'global DataFile := ""',
+    ))
     and 'InStr(report, "Load-order wording near rejection: No")' in (
         ROOT / "scripts" / "test-expansion-diagnostics.ahk"
     ).read_text(encoding="utf-8-sig")
