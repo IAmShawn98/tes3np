@@ -305,7 +305,9 @@ internal static class Program
                     // This card stays ready while the default browser is
                     // downloading. A cancelled/failed download requires no
                     // reset, reload, or completion signal.
-                    status.textContent='Starting Download...';
+                    // Leave the card unchanged; a persistent progress label
+                    // looked stuck even while the external browser handled it.
+                    status.textContent='';
                     report('download-handed-to-browser');
                   } catch {
                     report('download-handoff-unavailable');
