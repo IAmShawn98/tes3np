@@ -189,10 +189,10 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if !separator
         return 0
     slotText := SubStr(payload, 1, separator-1)
-    if !RegExMatch(slotText, "^\\d+$") || (slotText + 0) != ExpansionMismatchSlot
+    if !RegExMatch(slotText, "^\d+$") || (slotText + 0) != ExpansionMismatchSlot
         return 0
     url := SubStr(payload, separator+1)
-    if !RegExMatch(url, "i)^https://(?:cdn\\.discordapp\\.com|media\\.discordapp\\.net)/attachments/[^?#]+\\.zip(?:[?#]|$)")
+    if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     try
     {
@@ -223,7 +223,7 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl)
     }
     ; Re-validate every click. A cancelled browser transfer never disables
     ; this button or creates/disposes any browser controller.
-    if !RegExMatch(url, "i)^https://(?:cdn\\.discordapp\\.com|media\\.discordapp\\.net)/attachments/[^?#]+\\.zip(?:[?#]|$)")
+    if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return
     try
     {
