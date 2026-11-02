@@ -226,6 +226,27 @@ expect(
 )
 
 expect(
+    "ZIP click is handed to default Windows browser without navigating embedded Discord",
+    "link.addEventListener('click',event=>" in source
+    and "event.preventDefault();" in source
+    and "event.stopPropagation();" in source
+    and "chrome.webview.postMessage({type:'expansion-download',url});" in source
+    and "status.textContent='Opening download in your default browser...';" in source
+    and "type==\"expansion-download\"" in source
+    and "IsOfficialExpansionDownloadUrl(link)" in source
+    and "Uri.TryCreate(value, UriKind.Absolute, out var uri)" in source
+    and "uri.UriSchemeHttps" in source
+    and 'uri.Host != "cdn.discordapp.com"' in source
+    and 'uri.Host != "media.discordapp.net"' in source
+    and 'uri.AbsolutePath.StartsWith("/attachments/"' in source
+    and 'filename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)' in source
+    and "UseShellExecute=true" in source
+    and "Task.Run(()=>{" in source
+    and "e.Cancel=true;" in source
+    and "link.target='_self'" not in source,
+)
+
+expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
     and "void PositionChatWindows()\n        {\n            // The existing chat polling is a safety net" in source
