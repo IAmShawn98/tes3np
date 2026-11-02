@@ -216,6 +216,8 @@ function AssertGameClosed {
     AssertFixture ([IO.File]::ReadAllText($replaceOld) -ceq 'new-clr-null') 'CLR null File.Replace cannot update an existing config'
     AssertFixture (![IO.File]::Exists($replaceNew)) 'File.Replace left a staging file after replacing configuration'
     CheckWorker $zip 'zip' $true
+    # Ensure a real game-file replacement is needed on the second import.
+    WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'previous before progress lock'
     # Retest while the launcher-like progress reader holds the INI open.
     CheckWorker $zip 'zip-progress-reader-lock' $true '' $true
     foreach ($relative in @('NP Expansion Pack.esp','Icons\tes3mp_np\test.tga','Meshes\tes3mp_np\test.nif')) {
