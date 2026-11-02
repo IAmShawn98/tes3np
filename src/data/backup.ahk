@@ -64,7 +64,7 @@ ExportLauncherData()
 
 ImportLauncherData()
 {
-    global Profiles, SelectedProfile, DataFile, Client, MaxCharacters, ExecutableInput
+    global Profiles, SelectedProfile, DataFile, Client, MaxCharacters
     if Profiles.Length || Client.Enabled
         return
     path := FileSelect(1, , "Import launcher data", "Launcher backup (*.ini)")
@@ -155,16 +155,11 @@ ImportLauncherData()
         HideProfileEditor()
         Profiles := restored
         SelectedProfile := selected
-        ; The standalone character book can omit the legacy executable edit.
-        ; OpenCharacterPage initializes that placeholder to integer 0.
-        ; The imported executable path was already persisted to DataFile.
-        if IsObject(ExecutableInput)
-            ExecutableInput.Value := executable
         UpdateCharacterMenuLabel()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()
-    MsgBox("Launcher data imported." (pathReset ? " Select tes3mp.exe with Browse on this computer." : ""), "Import Data")
+    MsgBox("Launcher data imported." (pathReset ? " An old executable path was unavailable. Use Launcher Settings > Game Client Settings if you need a custom client." : ""), "Import Data")
 }
 
 ReadBackupInteger(path, section, key, minimum, maximum)
