@@ -177,7 +177,10 @@ expect(
     and 'discordEnvironment = env;' in source
     and 'await browser.EnsureCoreWebView2Async(env);' in source
     and 'case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;' in source
-    and 'case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;' in source
+    and 'case 7:\n                    {' in source
+    and 'IntPtr closingSlot=m.LParam;' in source
+    and 'CloseEmbeddedExpansionDownloads(closingSlot);' in source
+    and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero);' in source
     and source.count("Application.Run(new ChatHost(") == 1
     and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1,
 )
