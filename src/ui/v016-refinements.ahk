@@ -81,8 +81,8 @@ InitializeLauncherMorrowindFont()
 {
     global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
 
-    ; Do not substitute MysticCards/Georgia and call it the Morrowind journal font.
-    ; Vanilla Morrowind's journal uses its own Magic_Cards_Regular bitmap glyphs.
+    ; Windows controls use the bundled Mystic Cards TrueType face where
+    ; available, falling back to Georgia without probing proprietary bitmap assets.
     LauncherMorrowindFont := "Georgia"
     LauncherMorrowindFontPath := ""
     LauncherMorrowindFontLoaded := false
@@ -103,8 +103,6 @@ InitializeLauncherMorrowindFont()
             }
         }
     }
-
-
 }
 
 ReleaseLauncherMorrowindFont()
