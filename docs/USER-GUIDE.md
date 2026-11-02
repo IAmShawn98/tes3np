@@ -4,23 +4,22 @@
 
 - **Play** beside a character launches it without changing your saved default.
 - Tick one character to make it your default. **Launch <character>** uses that choice.
-- **Launch All & Close** appears with two or more saved characters. It launches them in list order, waits 10 seconds after each configured loading delay, closes that game client, and moves to the next. The launcher stays open afterward. Its explanation includes a saved **Don't show me this again** option.
-- **Auto reconnect on close or crash** is saved separately for each character under Edit. It defaults to on and applies on the next launch. Turn it off if you want to close the game without it restarting. In a batch, a failed character with reconnect off is skipped.
+- **Auto reconnect on close or crash** is saved separately for each character under Edit. It defaults to on and applies on the next launch. Turn it off if you want to close the game without it restarting.
 - **Start New Adventure** launches once without saved login input or automatic recovery.
 
 **Wipe Character Data** appears when at least one character exists. It asks for confirmation before removing all saved character credentials and the favorite selection, and stops active automation. It does not delete in-game characters or the executable setting. Export first if you need a backup. With no characters, Add character moves beneath the introductory description and Import Data becomes available.
 
 Up to 10 characters can be saved. Remove asks for confirmation. Adding a character does not change your ticked default.
 
-With no saved characters, startup opens the launcher. After setup is verified and a character exists, startup offers **Launch <character>**, **Manage Characters**, or **Open Launcher**, preferring the ticked character and otherwise using the first saved character.
+With no saved characters, the launcher opens normally. Once setup is complete, use the saved favorite or an individual character's Play control to start a session.
 
-Closing the character page returns to the main launcher, including after opening it from the startup choice.
+Closing the character page returns to the main launcher.
 
 Use the tray menu to **Open Launcher** or **Stop game recovery**. Quitting the launcher stops automation and leaves any running game open.
 
 ## Moving to another computer
 
-**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays, reconnect choices, the ticked default, executable path and launch-all explanation preference. Export warns that passwords are readable in this file. Keep it private; do not share or commit it.
+**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays, reconnect choices, the ticked default and executable path. Export warns that passwords are readable in this file. Keep it private; do not share or commit it.
 
 With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing settings and encrypts passwords for the destination Windows account. An executable path that does not exist there is cleared; use Browse to select TES3MP again. Copying the normal encrypted `settings.ini` is not a portable password backup.
 
