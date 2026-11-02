@@ -563,47 +563,53 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
     configOK := info.Status = "Read"
     logOK := markers.Status = "Read" && markers.Rejected
     expansion := TES3MPMismatchYesNo(info.ExpansionCount > 0, configOK)
-    last := TES3MPMismatchYesNo(info.ExpansionCount = 1
+    expansionLast := TES3MPMismatchYesNo(info.ExpansionCount = 1
         && info.ExpansionIndex = info.Total, configOK && info.ExpansionCount = 1)
-    return "TES3NP - Plugin Mismatch Diagnostics`r`n"
-        . "Generated (UTC): " stamp "`r`n"
-        . "Launcher version: " version "`r`n"
-        . "Reported issue: Server rejected the client plugin/load order`r`n"
-        . "`r`n[Assessment]`r`n"
-        . "Evidence: " TES3MPMismatchAssessment(info, markers, installed) "`r`n"
-        . "Expansion Pack version verified: No (not checked)`r`n"
-        . "`r`n[Configured content]`r`n"
-        . "OpenMW config check: " info.Status "`r`n"
-        . "Enabled content entries: " (configOK ? info.Total : "Unknown") "`r`n"
-        . "Expansion Pack enabled: " expansion "`r`n"
-        . "Expansion Pack entries: " (configOK ? info.ExpansionCount : "Unknown") "`r`n"
-        . "Expansion Pack last: " last "`r`n"
-        . "Additional content entries (not the 3 base masters or Expansion Pack): "
-            (configOK ? info.OtherCount : "Unknown") "`r`n"
-        . "Repeated additional content entries: "
-            (configOK ? info.OtherDuplicates : "Unknown") "`r`n"
-        . "Content entries following Expansion Pack: "
-            (configOK && info.ExpansionCount = 1 ? info.OtherAfterExpansion : "Unknown") "`r`n"
-        . "Morrowind master: " TES3MPMismatchYesNo(info.Morrowind, configOK) "`r`n"
-        . "Tribunal master: " TES3MPMismatchYesNo(info.Tribunal, configOK) "`r`n"
-        . "Bloodmoon master: " TES3MPMismatchYesNo(info.Bloodmoon, configOK) "`r`n"
-        . "Expansion ESP in configured game folder: " installed "`r`n"
-        . "`r`n[Client rejection evidence]`r`n"
-        . "Client log check: " markers.Status "`r`n"
-        . "Recent server rejection in inspected log: "
-            TES3MPMismatchYesNo(markers.Rejected, markers.Status = "Read") "`r`n"
-        . "Missing Expansion Pack specifically named: "
-            TES3MPMismatchYesNo(markers.MissingExpansion, logOK) "`r`n"
-        . "Other missing plugin specifically indicated: "
-            TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
-        . "Missing base-game master indicated: "
-            TES3MPMismatchYesNo(markers.MissingBaseMaster, logOK) "`r`n"
-        . "Missing dependency not identified: "
-            TES3MPMismatchYesNo(markers.MissingUnspecified, logOK) "`r`n"
-        . "Load-order wording near rejection: "
-            TES3MPMismatchYesNo(markers.Order, logOK)
-}
+    totalText := configOK ? info.Total : "Unknown"
+    expansionCountText := configOK ? info.ExpansionCount : "Unknown"
+    otherCountText := configOK ? info.OtherCount : "Unknown"
+    duplicatesText := configOK ? info.OtherDuplicates : "Unknown"
+    afterText := (configOK && info.ExpansionCount = 1)
+        ? info.OtherAfterExpansion : "Unknown"
 
+    ; Each field is appended explicitly. Do not split a return expression
+    ; before a parenthesized value: AHK treats that as unreachable code and
+    ; silently truncates the report beginning with OtherCount.
+    report := "TES3NP - Plugin Mismatch Diagnostics`r`n"
+    report .= "Generated (UTC): " stamp "`r`n"
+    report .= "Launcher version: " version "`r`n"
+    report .= "Reported issue: Server rejected the client plugin/load order`r`n"
+    report .= "`r`n[Assessment]`r`n"
+    report .= "Evidence: " TES3MPMismatchAssessment(info, markers, installed) "`r`n"
+    report .= "Expansion Pack version verified: No (not checked)`r`n"
+    report .= "`r`n[Configured content]`r`n"
+    report .= "OpenMW config check: " info.Status "`r`n"
+    report .= "Enabled content entries: " totalText "`r`n"
+    report .= "Expansion Pack enabled: " expansion "`r`n"
+    report .= "Expansion Pack entries: " expansionCountText "`r`n"
+    report .= "Expansion Pack last: " expansionLast "`r`n"
+    report .= "Additional content entries (not the 3 base masters or Expansion Pack): " otherCountText "`r`n"
+    report .= "Repeated additional content entries: " duplicatesText "`r`n"
+    report .= "Content entries following Expansion Pack: " afterText "`r`n"
+    report .= "Morrowind master: " TES3MPMismatchYesNo(info.Morrowind, configOK) "`r`n"
+    report .= "Tribunal master: " TES3MPMismatchYesNo(info.Tribunal, configOK) "`r`n"
+    report .= "Bloodmoon master: " TES3MPMismatchYesNo(info.Bloodmoon, configOK) "`r`n"
+    report .= "Expansion ESP in configured game folder: " installed "`r`n"
+    report .= "`r`n[Client rejection evidence]`r`n"
+    report .= "Client log check: " markers.Status "`r`n"
+    report .= "Recent server rejection in inspected log: "
+        . TES3MPMismatchYesNo(markers.Rejected, markers.Status = "Read") "`r`n"
+    report .= "Missing Expansion Pack specifically named: "
+        . TES3MPMismatchYesNo(markers.MissingExpansion, logOK) "`r`n"
+    report .= "Other missing plugin specifically indicated: "
+        . TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
+    report .= "Missing base-game master indicated: "
+        . TES3MPMismatchYesNo(markers.MissingBaseMaster, logOK) "`r`n"
+    report .= "Missing dependency not identified: "
+        . TES3MPMismatchYesNo(markers.MissingUnspecified, logOK) "`r`n"
+    report .= "Load-order wording near rejection: " TES3MPMismatchYesNo(markers.Order, logOK)
+    return report
+}
 TES3MPBuildMismatchDiagnostics()
 {
     global AppConfig, DataFile
