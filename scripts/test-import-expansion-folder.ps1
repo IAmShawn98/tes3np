@@ -96,7 +96,29 @@ function AssertGameClosed {
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = Join-Path $root 'synthetic-official.zip'
-    [IO.Compression.ZipFile]::CreateFromDirectory($packageRoot, $zip)
+    # Windows PowerShell 5.1 / .NET Framework CreateFromDirectory can store
+    # platform-native backslashes in ZIP entry names. A canonical package
+    # archive must use forward slashes, which production correctly requires.
+    # Construct explicit portable ZIP entries rather than loosening the
+    # importer's path-traversal/unsafe-separator checks.
+    $zipStream = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $prefix = $packageRoot.TrimEnd('\') + '\'
+        foreach ($sourceFile in Get-ChildItem -LiteralPath $packageRoot -Recurse -File) {
+            $entryName = $sourceFile.FullName.Substring($prefix.Length).Replace('\', '/')
+            AssertFixture (!$entryName.Contains('\') -and !$entryName.StartsWith('/')) 'ZIP fixture entry names must be portable'
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipStream, $sourceFile.FullName, $entryName) | Out-Null
+        }
+    }
+    finally { $zipStream.Dispose() }
+    $zipCheck = [IO.Compression.ZipFile]::OpenRead($zip)
+    try {
+        AssertFixture ($zipCheck.Entries.Count -ge 4) 'Portable ZIP fixture is missing expected files'
+        foreach ($entry in $zipCheck.Entries) {
+            AssertFixture (!$entry.FullName.Contains('\')) 'ZIP fixture unexpectedly contains Windows separators'
+        }
+    }
+    finally { $zipCheck.Dispose() }
     CheckWorker $zip 'zip' $true
     foreach ($relative in @('NP Expansion Pack.esp','Icons\tes3mp_np\test.tga','Meshes\tes3mp_np\test.nif')) {
         $installed = Join-Path $data $relative
