@@ -370,10 +370,15 @@ internal static class Program
                 report('latest-zip-ready');
               }
               function scrollerFor(feed) {
+                // Match the established Game Chat scroller discovery. An
+                // ancestor with overflow:hidden can have extra scrollHeight
+                // without actually being scrollable.
                 let cur=feed;
                 while(cur && cur!==document.body) {
+                  const css=getComputedStyle(cur);
                   if (cur.scrollHeight > cur.clientHeight+30 &&
-                      cur.clientHeight>30) return cur;
+                      cur.clientHeight>30 &&
+                      /(auto|scroll)/.test(css.overflowY)) return cur;
                   cur=cur.parentElement;
                 }
                 return feed.closest('[class*="scroller_"]');
