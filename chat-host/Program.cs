@@ -229,13 +229,24 @@ internal static class Program
         // Preserve Discord's React tree and grid intact behind an opaque card.
         // Extract ONLY the latest visible official ZIP attachment and link to
         // its actual Discord CDN URL. Never create a fake download link.
+        // The Discord message list is virtualized. Only show a ZIP after we
+        // reach the newest messages; compare real Discord snowflake IDs rather
+        // than treating the last rendered anchor as the latest upload. A
+        // bounded backfill handles archives where the ZIP is off-screen.
+        // Discord can still change its DOM; the manual channel link remains.
         const string ExpansionDownloadsFocusScript = """
             (() => {
               if (window.__tes3npExpansionFocus) {
                 window.__tes3npExpansionFocus(); return;
               }
               const channel='/channels/509601787901116437/1555049936800718928';
-              let scheduled=false, lastStatus='', lastFileKey='', panel, status, sender, link, size;
+              const attachmentHost=/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i;
+              let scheduled=false, retryPending=false, lastStatus='', lastFileKey='';
+              let panel, status, sender, link, size;
+              let best=null, checkedPresent=false, backfillCount=0, phase='present';
+              let previousHistoryTop='', unchangedHistory=0;
+              const maxBackfills=12;
+
               function report(value) {
                 if (value===lastStatus) return;
                 lastStatus=value;
@@ -266,57 +277,157 @@ internal static class Program
                 size=document.createElement('div'); size.className='small';
                 panel.append(status,sender,link,size);
                 document.documentElement.appendChild(panel);
+                // Observe links as well as new messages: Discord periodically
+                // replaces expiring, signed attachment URLs in the same node.
                 new MutationObserver(schedule).observe(document.documentElement,
-                  {childList:true,subtree:true,characterData:true});
+                  {childList:true,subtree:true,characterData:true,
+                   attributes:true,attributeFilter:['href']});
                 schedule();
               }
-              function findLatestZip() {
-                if (location.pathname.replace(/\/+$/,'')!==channel) return null;
-                const feed=document.querySelector('[data-list-id="chat-messages"]');
-                if (!feed) return null;
-                const links=Array.from(feed.querySelectorAll('a[href]'));
-                const zip=links.filter(a=>{
-                  const url=a.getAttribute('href')||'';
-                  return /^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\//i.test(url) &&
-                    (/\.zip(?:[?#]|$)/i.test(url) || /\.zip\b/i.test(a.textContent||''));
-                }).pop();
-                if (!zip) return null;
-                const url=zip.href;
-                let filename=(zip.textContent||'').trim();
-                if (!/\.zip\b/i.test(filename) || filename.length>160) {
-                  try { filename=decodeURIComponent(new URL(url).pathname.split('/').pop()||''); }
-                  catch { filename='Expansion Pack ZIP'; }
-                }
-                const message=zip.closest(
-                  '[id^="chat-messages-"],[data-list-item-id^="chat-messages_"],[class*="messageListItem_"]'
-                ) || zip.parentElement;
-                const author=message?.querySelector('[class*="username_"]');
-                const bytes=(message?.textContent||'').match(/\b[\d,.]+\s*(?:GB|MB|KB)\b/i);
-                return {url,filename,sender:(author?.textContent||'Nerevarine Prophecies').trim(),bytes:bytes?bytes[0]:''};
+              function retry() {
+                if (retryPending) return;
+                retryPending=true;
+                setTimeout(()=>{retryPending=false;schedule();},350);
               }
-              function refresh() {
-                if (!panel) return;
-                const file=findLatestZip();
-                if (!file) {
-                  if (lastFileKey==='waiting') return;
-                  lastFileKey='waiting';
-                  status.textContent='Waiting for the latest official Expansion Pack ZIP. If unavailable, sign in through Game Chat.';
-                  sender.style.display='none'; link.style.display='none'; size.style.display='none';
-                  report('waiting-for-zip'); return;
+              function wait(message,kind) {
+                if (lastFileKey==='waiting:'+kind) return;
+                lastFileKey='waiting:'+kind;
+                status.textContent=message;
+                sender.style.display='none';
+                link.style.display='none';
+                size.style.display='none';
+                report(kind);
+              }
+              function snowflake(message) {
+                if (!message) return null;
+                // Discord uses chat-messages-<snowflake> and/or
+                // chat-messages___<snowflake> for individual message rows.
+                // Grouped replies and system rows can use other wrappers.
+                for (let el=message; el && el!==document.body; el=el.parentElement) {
+                  const raw=(el.getAttribute?.('data-list-item-id')||'')+' '+
+                    (el.id||'');
+                  const match=raw.match(/chat-messages[_-]+(\d{15,22})(?!\d)/);
+                  if (match) return BigInt(match[1]);
                 }
+                return null;
+              }
+              function readCandidates(feed) {
+                const anchors=Array.from(feed.querySelectorAll('a[href]'));
+                const found=[];
+                for (let i=0;i<anchors.length;i++) {
+                  const a=anchors[i], url=a.href||'';
+                  if (!attachmentHost.test(url)) continue;
+                  let filename='';
+                  try { filename=decodeURIComponent(new URL(url).pathname.split('/').pop()||''); }
+                  catch { continue; }
+                  if (!/\.zip$/i.test(filename)) continue;
+                  const row=a.closest(
+                    '[data-list-item-id^="chat-messages_"],[id^="chat-messages-"],[class*="messageListItem_"]'
+                  )||a.parentElement;
+                  const author=row?.querySelector('[class*="username_"]');
+                  const sizeMatch=(row?.textContent||'').match(/\b[\d,.]+\s*(?:GB|MB|KB)\b/i);
+                  found.push({
+                    url,filename,sender:(author?.textContent||'Nerevarine Prophecies').trim(),
+                    bytes:sizeMatch?sizeMatch[0]:'',id:snowflake(row),order:i
+                  });
+                }
+                return found;
+              }
+              function remember(candidates) {
+                for (const item of candidates) {
+                  // Snowflakes are chronological; when Discord's message ID
+                  // metadata is missing, DOM order is a best-effort fallback.
+                  if (!best ||
+                      (item.id!==null && best.id!==null && item.id>best.id) ||
+                      (item.id===best.id && item.order>best.order) ||
+                      (item.id!==null && best.id===null)) best=item;
+                }
+              }
+              function show(file) {
                 const key=file.url+'|'+file.filename+'|'+file.sender+'|'+file.bytes;
                 if (lastFileKey===key) return;
                 lastFileKey=key;
-                status.textContent='Latest Expansion Pack download';
+                status.textContent=file.id===null
+                  ? 'Latest ZIP found in Discord (message date unavailable)'
+                  : 'Latest Expansion Pack ZIP found in Discord';
                 sender.style.display='block'; sender.textContent=file.sender;
                 link.style.display='block'; link.href=file.url; link.textContent=file.filename;
                 size.style.display=file.bytes?'block':'none'; size.textContent=file.bytes;
                 report('latest-zip-ready');
               }
+              function scrollerFor(feed) {
+                let cur=feed;
+                while(cur && cur!==document.body) {
+                  if (cur.scrollHeight > cur.clientHeight+30 &&
+                      cur.clientHeight>30) return cur;
+                  cur=cur.parentElement;
+                }
+                return feed.closest('[class*="scroller_"]');
+              }
+              function goToPresent(scroller) {
+                if (!scroller) return true;
+                const gap=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight;
+                if (gap>45) {
+                  scroller.scrollTop=scroller.scrollHeight;
+                  retry();
+                  return false;
+                }
+                return true;
+              }
+              function refresh() {
+                if (!panel) return;
+                if (location.pathname.replace(/\/+$/,'')!==channel) {
+                  wait('Open the Nerevarine Prophecies Expansion Pack channel in Discord.',
+                    'wrong-channel'); return;
+                }
+                const feed=document.querySelector('[data-list-id="chat-messages"]');
+                if (!feed) {
+                  wait('Loading the official Expansion Pack download channel. If it stays empty, sign into Game Chat.',
+                    'waiting-for-channel');
+                  retry();
+                  return;
+                }
+                const scroller=scrollerFor(feed);
+                if (phase==='present') {
+                  // Discord may resume at an old read position. Do not trust
+                  // those old ZIP links before reaching the newest messages.
+                  if (!goToPresent(scroller)) {
+                    wait('Checking the latest Discord uploads...', 'seeking-present');
+                    return;
+                  }
+                  checkedPresent=true;
+                  phase='search';
+                }
+                const files=readCandidates(feed);
+                remember(files);
+                if (phase==='search' && !best && backfillCount<maxBackfills && scroller) {
+                  const first=feed.querySelector('[data-list-item-id],[id^="chat-messages-"]');
+                  const firstId=first?.getAttribute('data-list-item-id')||first?.id||'';
+                  if (firstId===previousHistoryTop) unchangedHistory++;
+                  else unchangedHistory=0;
+                  previousHistoryTop=firstId;
+                  if (unchangedHistory<3) {
+                    backfillCount++;
+                    scroller.scrollTop=0;
+                    wait('Looking through recent Expansion Pack uploads...', 'searching-history');
+                    retry();
+                    return;
+                  }
+                }
+                phase='monitor';
+                if (best && checkedPresent) show(best);
+                else wait('No ZIP attachment was found in the loaded Discord history. Open the channel link below to check for updates.',
+                          'no-zip-found');
+                // When new messages arrive, stay at present and compare new
+                // Discord snowflakes; don't replace a newer file with an older
+                // entry from a virtualized/scrolled message list.
+                if (phase==='monitor' && scroller && !goToPresent(scroller))
+                  retry();
+              }
               function schedule() {
                 if (scheduled) return;
                 scheduled=true;
-                requestAnimationFrame(()=>{ scheduled=false; refresh(); });
+                requestAnimationFrame(()=>{scheduled=false;refresh();});
               }
               window.__tes3npExpansionFocus=schedule;
               if (document.readyState==='loading')
