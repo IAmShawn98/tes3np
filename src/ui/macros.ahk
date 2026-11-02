@@ -19,7 +19,7 @@ BuildMacroBookPanel()
     stateHeading := AddBookLabel(CharacterPage, 740, 143, 80, 22, "Status")
     typeHeading := AddBookLabel(CharacterPage, 824, 143, 55, 22, "Type")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y175 w355 h30 BackgroundTrans",
-        "you havent installed any macros.")
+        "No macros installed yet.")
     ; The legacy ListView remains an invisible selection/data model so all
     ; tested import, run, stop, remove and binding handlers stay unchanged.
     ; Only the visible list is replaced with the launcher-painted book rows.
@@ -140,25 +140,11 @@ RefreshMacroBookRows()
     MacroNextButton.Enabled := MacroListPage < pages
     if paging
         MacroPageLabel.Text := "Page " MacroListPage " of " pages
-    displayed := Min(5, Max(0, count - (MacroListPage - 1) * 5))
-    bottom := count ? 167 + displayed * 34 : 205
-    if pages > 1
-    {
-        MoveStyledButton(MacroPreviousButton, 525, bottom + 5, 88, 26)
-        MoveStyledButton(MacroPageLabel, 623, bottom + 5, 150, 26)
-        MoveStyledButton(MacroNextButton, 792, bottom + 5, 88, 26)
-        bottom += 33
-    }
-    detailY := bottom + 4
-    MoveStyledButton(MacroDetails, 525, detailY, 355, 26)
-    MacroDetails.Visible := shown && count > 0
-    actionY := count ? detailY + 30 : 217
-    MoveStyledButton(MacroImportButton, 525, actionY, 164, 30)
-    MoveStyledButton(MacroRunButton, 696, actionY, 88, 30)
-    MoveStyledButton(MacroStopButton, 791, actionY, 89, 30)
-    MoveStyledButton(MacroRemoveButton, 525, actionY + 36, 164, 30)
-    MoveStyledButton(MacroBindingsButton, 696, actionY + 36, 184, 30)
-    MoveStyledButton(MacroStatus, 525, actionY + 76, 355, 27)
+    ; Fixed slots stop the one-second process poll from moving native
+    ; labels and their painted backgrounds through color-keyed book artwork.
+    ; Five rows: y167..332, paging: y343, details: y377,
+    ; actions: y410/y446, status: y488.
+    MacroDetails.Visible := shown && selectedIndex > 0 && selectedIndex <= count
 }
 
 SelectMacroBookRow(position, *)
@@ -275,7 +261,8 @@ RefreshMacroButtons(*)
         : (MacroItems[row].Description != "" ? MacroItems[row].Description
         : (MacroItems[row].Kind = "App" ? "Installed application" : "Script: " MacroItems[row].Entry)))
         : ""
-    MacroDetails.Text := SubStr(description, 1, 58)
+    ; Single-line fixed-width book label.
+    MacroDetails.Text := SubStr(description, 1, 44)
     RefreshMacroBookRows()
 }
 
