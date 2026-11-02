@@ -351,8 +351,13 @@ try {
         $script:ImportActivity = "installing file $($i + 1) of $($needed.Count)"
         Progress ('Installing ' + [IO.Path]::GetFileName($item.Target)) ([int](50 + 45 * $i / $needed.Count))
         AssertSpace $item.Target ([long](Get-Item -LiteralPath $item.Source).Length)
-        $changed += $backups[$i]
+        # File.Replace/File.Move are atomic. A locked target that rejects an
+        # attempted replacement has not changed and must NOT be rolled back:
+        # the same lock would prevent restoring its verified backup.
+        # Record successful replacements only, so rollback touches files we
+        # actually changed if a later step fails.
         ReplaceVerified $item.Source $item.Target $item.Hash
+        $changed += $backups[$i]
     }
     $script:ImportActivity = 'verifying installed files'
     foreach ($item in $plan) {
