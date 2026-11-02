@@ -172,8 +172,7 @@ TES3MPExpansionDownloadHandedOff(slotHwnd, *)
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
     ; WM_APP + 0x335 is sent only after Windows accepts a ZIP handoff.
     ; Match the exact current dialog's placeholder, not a previous session.
-    if !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot
-        || ExpansionMismatchRefreshPending
+    if (!IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot || ExpansionMismatchRefreshPending)
         return
     ExpansionMismatchRefreshPending := true
     LogLauncherEvent("EXPANSION | ZIP sent to browser; refreshing mismatch prompt.")
@@ -183,15 +182,14 @@ TES3MPExpansionDownloadHandedOff(slotHwnd, *)
     SendLauncherChatCommand(7, slotHwnd)
     ; If the helper never acknowledges, restore the old dialog and keep its
     ; native OK/Cancel + external channel fallback accessible.
-    SetTimer(TES3MPExpansionRefreshTimedOut, -2500)
+    SetTimer((*) => TES3MPExpansionRefreshTimedOut(slotHwnd), -2500)
 }
 
 TES3MPExpansionBrowserClosed(slotHwnd, *)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
     ; WM_APP + 0x336 means ChatHost disposed this exact embedded browser.
-    if !ExpansionMismatchRefreshPending || !IsObject(ExpansionMismatchDialog)
-        || slotHwnd != ExpansionMismatchSlot
+    if (!ExpansionMismatchRefreshPending || !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot)
         return
     dialog := ExpansionMismatchDialog
     ExpansionMismatchDialog := 0
@@ -202,10 +200,11 @@ TES3MPExpansionBrowserClosed(slotHwnd, *)
     SetTimer(ShowTES3MPExpansionMismatchDialog, -100)
 }
 
-TES3MPExpansionRefreshTimedOut()
+TES3MPExpansionRefreshTimedOut(slotHwnd)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchRefreshPending
-    if !ExpansionMismatchRefreshPending
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
+    ; A timer from an earlier refresh cannot interrupt a newly reopened popup.
+    if (!ExpansionMismatchRefreshPending || slotHwnd != ExpansionMismatchSlot)
         return
     ExpansionMismatchRefreshPending := false
     if IsObject(ExpansionMismatchDialog)
