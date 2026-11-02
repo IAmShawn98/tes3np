@@ -69,17 +69,39 @@ function CopyWithRetry([string]$Source, [string]$Target, [string]$Operation) {
     if ([IO.File]::Exists($Target)) { throw 'Temporary import copy destination already exists.' }
     InvokeFileOperation 'copy' $Source $Target $Operation
 }
+# The launcher polls progress.ini twice every 50 ms (AHK IniRead). Never
+# truncate a file that it may be reading: publish a complete UTF-16 INI by
+# atomic same-directory rename/replace, retrying transient sharing locks.
+# This also avoids presenting a partially written progress/status record.
+function WriteJobIni([string]$Name, [string]$Body) {
+    if ($Name -notin @('progress.ini', 'result.ini')) { throw 'Unexpected import status filename.' }
+    $target = Join-Path $JobFolder $Name
+    $temp = Join-Path $JobFolder ('.' + $Name + '-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        [IO.File]::WriteAllText($temp, $Body, [Text.Encoding]::Unicode)
+        if ([IO.File]::Exists($target)) {
+            InvokeFileOperation 'replace' $temp $target ('publishing import ' + $Name)
+        } else {
+            InvokeFileOperation 'move' $temp $target ('publishing import ' + $Name)
+        }
+    }
+    finally {
+        if ([IO.File]::Exists($temp)) {
+            try { [IO.File]::Delete($temp) } catch {}
+        }
+    }
+}
 function Progress([string]$Text, [int]$Percent) {
     $clean = $Text.Replace([Environment]::NewLine, ' ').Replace('=', '-')
     $body = '[Progress]' + [Environment]::NewLine + 'Label=' + $clean + [Environment]::NewLine +
         'Percent=' + $Percent + [Environment]::NewLine
-    [IO.File]::WriteAllText((Join-Path $JobFolder 'progress.ini'), $body, [Text.Encoding]::Unicode)
+    WriteJobIni 'progress.ini' $body
 }
 function Result([string]$State, [string]$Message, [string]$Backup = '') {
     $clean = [regex]::Replace($Message, '[\r\n=]+', ' ')
     $body = '[Result]' + [Environment]::NewLine + 'State=' + $State + [Environment]::NewLine +
         'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $Backup + [Environment]::NewLine
-    [IO.File]::WriteAllText((Join-Path $JobFolder 'result.ini'), $body, [Text.Encoding]::Unicode)
+    WriteJobIni 'result.ini' $body
 }
 function AssertPlain([string]$Path) {
     $cursor = [IO.Path]::GetFullPath($Path)
