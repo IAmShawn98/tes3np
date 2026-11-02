@@ -136,7 +136,10 @@ LaunchAllCharacters(*)
 
 StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false, scheduledLoginAction := "", keptPids := 0)
 {
-    global Client
+    global Client, TES3MPLastMismatchEvidence
+    ; Every login gets fresh mismatch evidence. Retain the previous result
+    ; only while its own failed-login dialog is available for Copy Info.
+    TES3MPLastMismatchEvidence := 0
     source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : IsObject(profile) ? "Manual character" : "New Adventure"
     profileName := IsObject(profile) ? profile.Name : "New Adventure"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
