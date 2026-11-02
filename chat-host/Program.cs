@@ -698,6 +698,9 @@ internal static class Program
             // enabled and usable for a second, third, or cancelled attempt.
             if (expansionDownloadStatus is {IsDisposed:false} status)
                 status.Text="Starting Download...";
+            // Record each attempted handoff, without ever logging the signed
+            // Discord URL or its short-lived authentication query parameters.
+            Log("EXPANSION | ZIP download request queued ("+origin+").");
             string freshUrl=url!;
             _=Task.Run(()=>{
                 try {
