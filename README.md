@@ -1,6 +1,6 @@
 # TES3NP — Nerevarine Prophecies launcher
 
-TES3NP is a Windows x64 launcher for the Nerevarine Prophecies TES3MP server. It supports saved characters, automated login, scheduled events, optional custom TES3MP clients, Game Chat, and the optional NP Expansion Pack.
+TES3NP is a Windows x64 launcher for the Nerevarine Prophecies TES3MP server. It supports saved characters, manual one-character-at-a-time automated login (up to four running game clients), optional custom TES3MP clients, Game Chat, and the optional NP Expansion Pack.
 
 **Status: development alpha — not approved for public redistribution.** The packaged modified TES3MP executable still requires corresponding source/build provenance and a completed third-party licensing audit before a public release.
 
