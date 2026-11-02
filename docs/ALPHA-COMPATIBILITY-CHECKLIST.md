@@ -70,10 +70,12 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Open first-run Morrowind GOTY discovery and confirm saved folder selection works; no optional expansion is installed automatically.
 - [ ] Open the supported Expansion Pack toggle and switch Disabled / Enabled / Disabled with the original mod load order preserved.
 - [ ] Use the existing ZIP/folder importer on a disposable Morrowind installation; verify progress, success message, saved path, journal, rollback on intentionally bad input and unaffected unrelated mods.
-- [ ] Run source checks and the synthetic import fixture through the normal Build tes3np.bat workflow; GitHub Actions are not needed.
+- [x] Run source checks and the synthetic import fixture through the normal Build tes3np.bat workflow; GitHub Actions are not needed.
 - [ ] Test characters and first-character favorite, macros selection/run/stop, custom-client mode, Enhanced Readability, backup export/import, and new-adventure login.
 - [ ] Check Game Chat images/history scrolling, Discord authentication and genuine Happy Hour detection; avoid relying only on static source guards.
-- [ ] Run the local updater transaction and update-client fixtures in an isolated disposable test tree; do not update the live installation for this test.
+- [x] Run the local updater transaction and update-client fixtures in an isolated disposable test tree; do not update the live installation for this test.
 - [ ] Record build and runtime results separately. Previously reported Windows success predates this retirement commit; do not mark the new build tested until independently run.
 
 **Automated local checkpoint:** `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-local-regression.ps1` combines the existing Windows build preflight, disposable Expansion Pack import fixture, updater metadata/source tests and isolated updater rollback fixture; it launches the resulting executable for the manual checks above. A green offline result cannot substitute for interactive verification. Requires local PowerShell 7 for the updater transaction fixture. No GitHub Actions are invoked.
+
+**November 2 Windows confirmation:** The user-provided log verifies a completed source/build/ZIP check (331 functions, 143 payload hashes, compiled launcher `--check`) and a passing `-SkipBuild` updater-regression run, including metadata tamper and isolated rollback fixtures. The runner launched `tes3np.exe`. This is not evidence that any interactive feature was exercised; all interactive checkboxes above remain open. One nonfatal `WindowsBase` MSB3277 dependency warning remains. No GitHub Actions were used.
