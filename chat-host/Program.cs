@@ -2449,7 +2449,6 @@ metrics();
             {
                 var g = e.Graphics;
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                int centerX = chatToggleButton.ClientSize.Width / 2;
                 using var arrowPen = new System.Drawing.Pen(System.Drawing.Color.White, 5)
                 {
                     StartCap = System.Drawing.Drawing2D.LineCap.Round,
