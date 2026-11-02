@@ -276,7 +276,6 @@ def check(allow_missing_payload: bool = False) -> None:
     # handled by the live Game Client Settings workflow, not by a stale GUI
     # input. Protect that workflow and imported-pack persistence.
     client_ui = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
-    patch_ui = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
     client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
@@ -287,7 +286,12 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in client_ui
         and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in client_ui
         and "InstallCustomClientOverrides(source, folder)" in client_ui
-        and 'IniWrite(executable, DataFile, "Launch", "Executable")' in patch_ui
+        and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in client_ui
+        and 'OpenClientSelectionSettings(*)' in client_ui
+        and 'mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")' in client_settings
+        and 'if mode = "CustomOverrides"' in client_settings
+        and 'return GetMergedCustomClientExecutable()' in client_settings
+        and 'return A_ScriptDir "\\client\\tes3mp.exe"' in client_settings
         and "GetSharedExecutable()" in client_settings
         and "InstallCustomClientOverrides(source, dependencies := \"\")" in client_detection
         and 'IniWrite(executable, temporary, "Launch", "Executable")' in portable_backup
@@ -295,7 +299,7 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'An old executable path was unavailable. Use Launcher Settings > Game Client Settings' in portable_backup
     )
     if not client_contract:
-        errors.append("Live game-client selection or patcher executable persistence was lost.")
+        errors.append("Live Game Client Settings, client executable resolution, or backup persistence was lost.")
 
     # The Enhanced Readability control remains a live callback in Launcher
     # Settings. Its native label updater was incorrectly deleted in an audit;
