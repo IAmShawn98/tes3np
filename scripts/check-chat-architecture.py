@@ -20,6 +20,21 @@ def expect(label: str, condition: bool) -> None:
         errors.append(label)
 
 
+def section_between(text: str, start: str, end: str) -> str:
+    """Return the guarded function section, or empty text if it was removed.
+
+    Missing/renamed source must cause an explicit contract failure rather
+    than crashing the entire build preflight with IndexError.
+    """
+    start_at = text.find(start)
+    if start_at == -1:
+        return ""
+    end_at = text.find(end, start_at + len(start))
+    if end_at == -1:
+        return ""
+    return text[start_at:end_at]
+
+
 expect(
     "AHK must establish the Roaming AppData root",
     'AppDataDirectory := A_AppData "\\tes3np"' in app_state,
@@ -296,13 +311,13 @@ expect(
     and 'TES3MPAnalyzeMismatchConfig(configText)' in mismatch
     and 'TES3MPAnalyzeMismatchLogText(raw)' in mismatch
     and 'TES3MPMismatchAssessment(info, markers, installed)' in mismatch
-    and 'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)' in mismatch
+    and 'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, fingerprint := 0)' in mismatch
     and 'result.MissingExpansion := true' in mismatch
     and 'result.MissingOther := true' in mismatch
     and 'result.MissingBaseMaster := true' in mismatch
     and 'info.OtherDuplicates += 1' in mismatch
     and 'info.ExpansionIndex != info.Total' in mismatch
-    and 'currentIndex != lastRejection' in mismatch
+    and 'if currentIndex = lastRejection\n            continue' in mismatch
     and 'markers.Status = "Read" && markers.Rejected' in mismatch
     and 'Other missing plugin specifically indicated:' in mismatch
     and 'Missing Expansion Pack specifically named:' in mismatch
@@ -339,9 +354,16 @@ expect(
     and 'report .= "Repeated additional content entries: "' in mismatch
     and 'report .= "Load-order wording near rejection: "' in mismatch
     and '    return report\n}' in mismatch
-    and '    return "TES3NP - Plugin Mismatch Diagnostics' not in mismatch.split(
-        'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)\n{'
-    )[1].split('TES3MPBuildMismatchDiagnostics()\n{')[0]
+    and bool(section_between(
+        mismatch,
+        'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, fingerprint := 0)\n{',
+        'TES3MPNewExpansionFingerprintResult(status := "Not checked")\n{',
+    ))
+    and '    return "TES3NP - Plugin Mismatch Diagnostics' not in section_between(
+        mismatch,
+        'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, fingerprint := 0)\n{',
+        'TES3MPNewExpansionFingerprintResult(status := "Not checked")\n{',
+    )
     and 'PatchConfigurationPath()' in (
         ROOT / "scripts" / "test-expansion-diagnostics.ahk"
     ).read_text(encoding="utf-8-sig")
@@ -359,7 +381,7 @@ expect(
     and 'InStr(report, "Load-order wording near rejection: No")' in (
         ROOT / "scripts" / "test-expansion-diagnostics.ahk"
     ).read_text(encoding="utf-8-sig")
-    and 'TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(text)' in mismatch
+    and 'TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(currentText)' in mismatch
     and 'TES3MPSelectMismatchLogEvidence(captured)' in mismatch
     and 'markers := TES3MPSelectMismatchLogEvidence(TES3MPLastMismatchEvidence)' in mismatch
     and 'Client evidence source: ' in mismatch
@@ -371,6 +393,37 @@ expect(
     ).read_text(encoding="utf-8-sig")
     and 'AutoHotkey fixture warnings detected; packaging stopped.' in (
         ROOT / "scripts" / "build-windows.ps1"
+    ).read_text(encoding="utf-8-sig"),
+)
+
+expect(
+    "Mismatch capture remains bounded to the current failed login and reports safe comparison categories",
+    'Client.MismatchPending := true' in mismatch
+    and 'Client.MismatchLogKey := key' in mismatch
+    and 'key != Client.MismatchLogKey' in mismatch
+    and 'Client.MismatchCaptureUntil := A_TickCount + 1500' in mismatch
+    and 'TES3MPAccumulateMismatchDetailText(TES3MPLastMismatchEvidence, chunk)' in mismatch
+    and 'TES3MPAccumulateMismatchLine(result, line)' in mismatch
+    and 'Slot details (zero-based): ' in mismatch
+    and 'if shown >= 12' in mismatch
+    and 'result.SlotFlags[slot] := oldBits | newBits' in mismatch
+    and 'TES3MPLastMismatchEvidence := 0' in (
+        ROOT / "src" / "game" / "session.ahk"
+    ).read_text(encoding="utf-8-sig"),
+)
+expect(
+    "Expansion fingerprint uses Windows CNG and does not claim server version verification",
+    'TES3MPFileSHA256(path)' in mismatch
+    and 'bcrypt\\BCryptHashData' in mismatch
+    and 'block := Buffer(1048576, 0)' in mismatch
+    and 'Expansion ESP SHA-256: ' in mismatch
+    and 'Expansion ESP size (bytes): ' in mismatch
+    and 'Expansion Pack version verified: No (not checked)' in mismatch
+    and 'known SHA-256 test vector' in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'private comparison detail leaked' in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
     ).read_text(encoding="utf-8-sig"),
 )
 
