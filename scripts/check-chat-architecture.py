@@ -41,6 +41,15 @@ expect(
 )
 
 expect(
+    "Retired no-op native scrollbar helper must remain removed",
+    "HideNativeChatScrollbar" not in source,
+)
+expect(
+    "Unreachable clipboard-based RichEdit image paste must remain removed",
+    "AppendChatImage" not in source,
+)
+
+expect(
     "AHK must establish the Roaming AppData root",
     'AppDataDirectory := A_AppData "\\tes3np"' in app_state,
 )
