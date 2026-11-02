@@ -247,20 +247,20 @@ expect(
 )
 
 expect(
-    "Repeated expansion downloads do not recreate WebView2 or depend on ChatHost",
-    '"Download ZIP / Retry"' in mismatch
-    and 'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus)' in mismatch
-    and 'void RequestExpansionDownload(string? url, string origin)' in source
-    and 'string? expansionLatestZipUrl;' in source
-    and 'expansionLatestZipUrl=null;' in source
-    and 'expansionLatestZipUrl=link;' in source
-    and 'PublishExpansionUrlToLauncher(link!);' in source
-    and "chrome.webview.postMessage({type:'expansion-available',url:file.url});" in source
-    and 'Run(url)' in mismatch
+    "Repeated ZIP downloads isolate launcher from WebView2 and ShellExecute",
+    'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus)' in mismatch
+    and 'global ExpansionMismatchFileButton := 0' in mismatch
+    and 'ExpansionMismatchFileButton.Visible := true' in mismatch
+    and 'SetTimer((*) => SendLauncherChatCommand(9, slot), -20)' in mismatch
+    and 'case 9: HideEmbeddedExpansionDownloads(m.LParam); break;' in source
+    and 'void HideEmbeddedExpansionDownloads(IntPtr placeholder)' in source
+    and 'ShowWindow(window.Handle,0);' in source
+    and 'var browser=new WebView2 { Dock=DockStyle.Fill };' in source
+    and 'Run(' + chr(39) + 'rundll32.exe url.dll,FileProtocolHandler "' + chr(39) + ' in mismatch
+    and 'Run(url)' not in mismatch
     and 'statusControl.Text := "Starting Download..."' in mismatch
     and 'OnMessage(0x004A, TES3MPExpansionZipAvailable)' in bootstrap
     and 'TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)' in mismatch
-    and 'NumGet(lParam, 0, "Ptr") != 0x8335' in mismatch
     and 'ExpansionMismatchZipUrl := url' in mismatch
     and 'ExpansionMismatchZipUrl := ""' in mismatch
     and 'SendCopyDataTimeout(owner,0x004A,sender,' in source
@@ -268,14 +268,10 @@ expect(
     and 'Marshal.StringToHGlobalUni(payload)' in source
     and 'Marshal.FreeHGlobal(utf16)' in source
     and '(WinGetPID("ahk_id " wParam) = EmbeddedChatPid)' in mismatch
-    and '(StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")' in mismatch
     and 'PostMessage(owner,0x8335,popupSlot,IntPtr.Zero)' not in source
-    and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero)' not in source
     and 'ExpansionMismatchRefreshPending' not in mismatch
-    and 'TES3MPExpansionDownloadHandedOff' not in bootstrap
     and 'ShowNativeExpansionDownloadCard(' not in source
-    and 'setTimeout(()=>{scheduled=false;refresh();},150);' in source
-    and 'new MutationObserver(changes=>{' in source,
+    and 'setTimeout(()=>{scheduled=false;refresh();},150);' in source,
 )
 
 expect(
