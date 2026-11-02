@@ -2,7 +2,7 @@
 
 ## v0.1.21-alpha — unreleased
 
-- Restored the **live Launcher Settings Enhanced Readability label updater** inadvertently deleted by the source cleanup. `ToggleV016ReadabilityControl` still invokes `UpdateV016ReadabilityLabel`, so AHK `#Warn` raised an unresolved-function warning and stopped launcher compilation. Restored the original helper's HWND validation and text update; added a static contract protecting event binding, callback, helper definition and reset label. Cross-compared the 34 intentionally removed AHK functions against all current AHK modules and found no remaining references. Windows build and actual settings interaction require retesting.
+- Restored the **live Launcher Settings Enhanced Readability label updater** inadvertently deleted by the source cleanup. `ToggleV016ReadabilityControl` still invokes `UpdateV016ReadabilityLabel`, so AHK `#Warn` raised an unresolved-function warning and stopped launcher compilation. Restored the original helper's HWND validation and text update; added a static contract protecting event binding, callback, helper definition and reset label. Cross-compared the 34 intentionally removed AHK functions against all current AHK modules and found no remaining references. User subsequently confirmed the missing-helper warning was fixed on Windows (2026-11-02); no complete build transcript or separate interaction test was supplied.
 
 ### Codebase cleanup audit (2026-11-02)
 
