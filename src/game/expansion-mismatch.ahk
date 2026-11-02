@@ -261,7 +261,7 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl)
     {
         statusControl.Text := "Starting Download..."
         ; Launch the Windows URL handler in a disposable helper process.
-        ; Direct Run(url) uses ShellExecute on AHK's GUI thread and can block
+        ; Opening a URL directly uses ShellExecute on AHK's GUI thread and can block
         ; the entire launcher when the browser is busy with a large download.
         ; Run returns when rundll32 starts; it never waits for the download.
         Run('rundll32.exe url.dll,FileProtocolHandler "' url '"', , "Hide")
