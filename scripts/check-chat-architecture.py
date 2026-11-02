@@ -334,6 +334,29 @@ expect(
 )
 
 expect(
+    "Diagnostic reports are complete and standalone fixtures cannot emit unresolved-symbol warnings",
+    'report := "TES3NP - Plugin Mismatch Diagnostics' in mismatch
+    and 'report .= "Repeated additional content entries: "' in mismatch
+    and 'report .= "Load-order wording near rejection: "' in mismatch
+    and '    return report\n}' in mismatch
+    and '    return "TES3NP - Plugin Mismatch Diagnostics' not in mismatch.split(
+        'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)\n{'
+    )[1].split('TES3MPBuildMismatchDiagnostics()\n{')[0]
+    and 'PatchConfigurationPath()' in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'MismatchFixtureDisallow("configuration path")' in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'InStr(report, "Load-order wording near rejection: No")' in (
+        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'AutoHotkey fixture warnings detected; packaging stopped.' in (
+        ROOT / "scripts" / "build-windows.ps1"
+    ).read_text(encoding="utf-8-sig"),
+)
+
+expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
     and "void PositionChatWindows()\n        {\n            // The existing chat polling is a safety net" in source
