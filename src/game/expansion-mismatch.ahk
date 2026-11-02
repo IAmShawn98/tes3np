@@ -1,4 +1,9 @@
 ; Detect TES3MP's actual plugin/load-order rejection from NEW log output only.
+; The launcher owns this dialog. A Discord ZIP handoff replaces it only after
+; ChatHost confirms that the previous embedded WebView2 child was disposed.
+global ExpansionMismatchDialog := 0
+global ExpansionMismatchSlot := 0
+global ExpansionMismatchRefreshPending := false
 ; TES3MP owns its error window; terminate only the failed PID before prompting.
 CaptureTES3MPLogBaseline()
 {
@@ -102,7 +107,11 @@ HandleTES3MPPluginMismatch()
 
 ShowTES3MPExpansionMismatchDialog()
 {
-    global LauncherGui
+    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
+    ; A repeated plugin mismatch must not stack duplicate dialogs.
+    if IsObject(ExpansionMismatchDialog)
+        return
+    ExpansionMismatchRefreshPending := false
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
@@ -136,16 +145,70 @@ ShowTES3MPExpansionMismatchDialog()
     dialog.OnEvent("Close", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     dialog.OnEvent("Escape", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     dialog.Show("w660 h482")
+    ExpansionMismatchDialog := dialog
+    ExpansionMismatchSlot := downloadSlot.Hwnd
     ; WM_APP command 6: attach one child browser to this exact HWND.
     SendLauncherChatCommand(6, downloadSlot.Hwnd)
 }
 
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
-    ; Request disposal BEFORE destroying the placeholder, so WebView2 never
-    ; leaves an orphan native child or alters the regular Game Chat window.
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
+    if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
+        return
+    ExpansionMismatchDialog := 0
+    ExpansionMismatchSlot := 0
+    ExpansionMismatchRefreshPending := false
+    ; Existing manual OK/Cancel behavior stays unchanged. ChatHost disposes
+    ; its own child on command 7; its later acknowledgment is ignored here.
     SendLauncherChatCommand(7, slotHwnd)
     try dialog.Destroy()
     if import
         UploadExpansionFromFile()
+}
+
+TES3MPExpansionDownloadHandedOff(slotHwnd, *)
+{
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
+    ; WM_APP + 0x335 is sent only after Windows accepts a ZIP handoff.
+    ; Match the exact current dialog's placeholder, not a previous session.
+    if !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot
+        || ExpansionMismatchRefreshPending
+        return
+    ExpansionMismatchRefreshPending := true
+    LogLauncherEvent("EXPANSION | ZIP sent to browser; refreshing mismatch prompt.")
+    ; Hide the now-stale Discord child before asking ChatHost to dispose it.
+    ; No window is destroyed until ChatHost acknowledges command 7.
+    try ExpansionMismatchDialog.Hide()
+    SendLauncherChatCommand(7, slotHwnd)
+    ; If the helper never acknowledges, restore the old dialog and keep its
+    ; native OK/Cancel + external channel fallback accessible.
+    SetTimer(TES3MPExpansionRefreshTimedOut, -2500)
+}
+
+TES3MPExpansionBrowserClosed(slotHwnd, *)
+{
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchRefreshPending
+    ; WM_APP + 0x336 means ChatHost disposed this exact embedded browser.
+    if !ExpansionMismatchRefreshPending || !IsObject(ExpansionMismatchDialog)
+        || slotHwnd != ExpansionMismatchSlot
+        return
+    dialog := ExpansionMismatchDialog
+    ExpansionMismatchDialog := 0
+    ExpansionMismatchSlot := 0
+    ExpansionMismatchRefreshPending := false
+    try dialog.Destroy()
+    ; Defer new GUI creation until after this window-message handler exits.
+    SetTimer(ShowTES3MPExpansionMismatchDialog, -100)
+}
+
+TES3MPExpansionRefreshTimedOut()
+{
+    global ExpansionMismatchDialog, ExpansionMismatchRefreshPending
+    if !ExpansionMismatchRefreshPending
+        return
+    ExpansionMismatchRefreshPending := false
+    if IsObject(ExpansionMismatchDialog)
+        try ExpansionMismatchDialog.Show()
+    LogLauncherEvent("EXPANSION | Discord child close timed out; prompt restored without auto-reopen.")
 }
