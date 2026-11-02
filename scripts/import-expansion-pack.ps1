@@ -10,55 +10,61 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-# Retry only temporary Windows sharing/byte-range lock violations (32/33).
-# All other failures still fail immediately; repeated locks are reported with
-# an operation label, never a machine-specific path or raw file content.
-function InvokeLockRetry([scriptblock]$Action, [string]$Operation, [object[]]$Arguments = @()) {
+# Only retry Windows sharing/byte-range lock violations (32/33). Every
+# operation receives explicit typed file paths: do not invoke caller-created
+# scriptblocks across PowerShell function scopes.
+function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation) {
+    if ([string]::IsNullOrWhiteSpace($Source)) {
+        throw ('Import file source was empty while ' + $Operation + '.')
+    }
+    if ($Kind -in @('copy','replace','move') -and [string]::IsNullOrWhiteSpace($Destination)) {
+        throw ('Import file destination was empty while ' + $Operation + '.')
+    }
     for ($attempt = 1; $attempt -le 6; $attempt++) {
-        # Scripts invoked inside this function have this function's scope,
-        # NOT the local scope where the caller created the scriptblock.
-        # Explicitly pass every file path on every retry.
-        try { return (& $Action @Arguments) }
+        try {
+            switch ($Kind) {
+                'hash' {
+                    $hasher = [Security.Cryptography.SHA256]::Create()
+                    try {
+                        $stream = [IO.File]::OpenRead($Source)
+                        try {
+                            return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','').ToLowerInvariant()
+                        } finally { $stream.Dispose() }
+                    } finally { $hasher.Dispose() }
+                }
+                'copy' { [IO.File]::Copy($Source, $Destination, $false); return }
+                'replace' { [IO.File]::Replace($Source, $Destination, $null); return }
+                'move' { [IO.File]::Move($Source, $Destination); return }
+                'zipopen' { return [IO.Compression.ZipFile]::OpenRead($Source) }
+                default { throw 'Unknown Expansion Pack file operation.' }
+            }
+        }
         catch {
             $cause = $_.Exception.GetBaseException()
             $code = [int]($cause.HResult -band 65535)
-            if ($cause -isnot [IO.IOException] -or $code -notin @(32, 33)) { throw }
-            if ($attempt -eq 6) {
-                throw ("Windows kept a file locked while " + $Operation +
-                    " (lock error " + $code + ", six attempts). Close applications or " +
-                    "file scanners using the Expansion Pack and try again.")
+            # Only copy operations target our disposable stage, backup or
+            # replacement temp. Delete partial outputs, never installed files.
+            if ($Kind -eq 'copy' -and [IO.File]::Exists($Destination)) {
+                try { [IO.File]::Delete($Destination) } catch {}
             }
-            Start-Sleep -Milliseconds (@(150, 300, 550, 850, 1300)[$attempt - 1])
+            if ($cause -isnot [IO.IOException] -or $code -notin @(32,33)) {
+                throw ('Expansion Pack failed while ' + $Operation + ': ' + $cause.Message)
+            }
+            if ($attempt -eq 6) {
+                throw ('Windows kept a file locked while ' + $Operation +
+                    ' (lock error ' + $code + ', six attempts). ' +
+                    'Close applications or file scanners using the Expansion Pack and try again.')
+            }
+            Start-Sleep -Milliseconds (@(150,300,550,850,1300)[$attempt - 1])
         }
     }
 }
 function Sha256([string]$Path) {
-    return (InvokeLockRetry {
-        param([string]$filePath)
-        $hasher = [Security.Cryptography.SHA256]::Create()
-        try {
-            $stream = [IO.File]::OpenRead($filePath)
-            try { return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
-            finally { $stream.Dispose() }
-        } finally { $hasher.Dispose() }
-    } ("hashing file during " + $script:ImportActivity) @($Path))
+    return (InvokeFileOperation 'hash' $Path '' ('hashing file during ' + $script:ImportActivity))
 }
 function CopyWithRetry([string]$Source, [string]$Target, [string]$Operation) {
-    # This helper only targets fresh staging, backup and replacement-temp files.
-    # Refuse preexisting targets rather than risking deletion of installed data.
     if ([IO.File]::Exists($Target)) { throw 'Temporary import copy destination already exists.' }
-    InvokeLockRetry {
-        param([string]$sourcePath, [string]$targetPath)
-        try { [IO.File]::Copy($sourcePath, $targetPath, $false) }
-        catch {
-            # Delete only the disposable destination of a failed copy.
-            # Never delete the source or an installed game file.
-            if ([IO.File]::Exists($targetPath)) {
-                try { [IO.File]::Delete($targetPath) } catch {}
-            }
-            throw
-        }
-    } $Operation @($Source, $Target)
+    InvokeFileOperation 'copy' $Source $Target $Operation
 }
 function Progress([string]$Text, [int]$Percent) {
     $clean = $Text.Replace([Environment]::NewLine, ' ').Replace('=', '-')
@@ -121,15 +127,9 @@ function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
             # The import journal already holds a verified persistent backup.
             # Avoid a redundant .NET File.Replace temporary backup that also
             # has to be deleted while antivirus/indexing may be scanning it.
-            InvokeLockRetry {
-                param([string]$temporaryPath, [string]$installedPath)
-                [IO.File]::Replace($temporaryPath, $installedPath, $null)
-            } ("replacing file during " + $script:ImportActivity) @($temp, $Target)
+            InvokeFileOperation 'replace' $temp $Target ("replacing file during " + $script:ImportActivity) @($temp, $Target)
         } else {
-            InvokeLockRetry {
-                param([string]$temporaryPath, [string]$installedPath)
-                [IO.File]::Move($temporaryPath, $installedPath)
-            } ("installing new file during " + $script:ImportActivity) @($temp, $Target)
+            InvokeFileOperation 'move' $temp $Target ("installing new file during " + $script:ImportActivity) @($temp, $Target)
         }
     } finally {
         if ([IO.File]::Exists($temp)) {
@@ -229,10 +229,7 @@ try {
     }
     elseif ($extension -eq '.zip') {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $archive = InvokeLockRetry {
-            param([string]$archivePath)
-            [IO.Compression.ZipFile]::OpenRead($archivePath)
-        } 'opening downloaded ZIP' @($Package)
+        $archive = InvokeFileOperation 'zipopen' $Package '' 'opening downloaded ZIP'
         try {
             if ($archive.Entries.Count -gt 10000) { throw 'The ZIP contains too many entries.' }
             $total = [long]0
