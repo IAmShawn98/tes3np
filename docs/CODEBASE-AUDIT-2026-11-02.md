@@ -12,6 +12,11 @@
 - `src/ui/v016-refinements.ahk`: removed `AddMagicCardsInteractiveLabel` and two unused settings-toggle callbacks. Kept the real `ApplyV016LauncherSettings`, settings persistence, fonts, layout helpers, and accessibility controls.
 - `scripts/project.py`: extended the retired-symbol checks so all these obsolete functions cannot silently return. Existing retired scheduler/launch-all checks remain.
 
+- `chat-host/Program.cs`: removed three occurrences (one declaration, two assignments) of `initialBackfillReanchored`, a private backfill state variable never read (the prior CS0414 warning). No Happy Hour/history behavior branches depended on it.
+- `scripts/check-chat-architecture.py`: added a negative assertion preventing the dead backfill flag from returning.
+- User and release documentation: removed false claims of a still-existing scheduler, scheduled sessions, Launch All workflow and removed startup-choice dialog from `docs/USER-GUIDE.md`, `docs/ALPHA-COMPATIBILITY-CHECKLIST.md` and `docs/ALPHA-RELEASE-DRAFT.md`. Updated the guide to reflect the automatic first-character favorite and login-progress window.
+- `docs/RELEASING.md` deliberately retains a historical compatibility note: old scheduler INI sections in older published alpha installations must stay inert after an upgrade. This is a **migration safety requirement**, not active scheduler code.
+
 ## Scheduler findings
 - The previously retired `src/app/daily-login-scheduler.ahk` is **not present** on the current branch. No scheduler module is included by `tes3np.ahk`.
 - `scripts/project.py` intentionally retains **negative checks** against historical scheduler symbols, including the retired module path, `ScheduledEvents`, `ScheduledDailyLogin`, `OpenScheduledEvents`, `LoadDailyLoginSchedule` and other old entry points. These strings are test-only prohibitions, **not functioning scheduling code**. Removing them would weaken the guard against the very feature the user wants gone.
