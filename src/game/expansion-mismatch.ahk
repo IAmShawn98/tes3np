@@ -5,6 +5,7 @@
 global ExpansionMismatchDialog := 0
 global ExpansionMismatchSlot := 0
 global ExpansionMismatchZipUrl := ""
+global ExpansionMismatchFileButton := 0
 ; TES3MP owns its error window; terminate only the failed PID before prompting.
 CaptureTES3MPLogBaseline()
 {
@@ -108,7 +109,7 @@ HandleTES3MPPluginMismatch()
 
 ShowTES3MPExpansionMismatchDialog()
 {
-    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     ; No close/reopen cycle while a browser is downloading. Duplicate
     ; server mismatches cannot stack additional native WebView2 children.
     if IsObject(ExpansionMismatchDialog)
@@ -132,6 +133,13 @@ ShowTES3MPExpansionMismatchDialog()
     ; No extra Discord popup and no second browser profile are created.
     downloadSlot := dialog.Add("Text", "x25 y231 w610 h118 +0x100 Background202023",
         "Connecting to the Nerevarine Prophecies Discord channel...")
+    ; When Discord discovers a ZIP, a launcher-owned button replaces the
+    ; live browser surface (which is hidden, never disposed per download).
+    ; This protects the launcher from a stalled cross-process WebView child.
+    ExpansionMismatchFileButton := AddStyledButton(dialog, 37, 251, 586, 62,
+        "Download Expansion Pack ZIP",
+        (*) => TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus))
+    ExpansionMismatchFileButton.Visible := false
     ; The native AHK button opens the cached URL directly through Windows.
     ; It does not use ChatHost/UI messages or recreate WebView2 on a click.
     nativeStatus := dialog.Add("Text", "x252 y365 w367 h18 cD8C38C BackgroundTrans", "")
@@ -155,12 +163,13 @@ ShowTES3MPExpansionMismatchDialog()
 
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
     ExpansionMismatchSlot := 0
     ExpansionMismatchZipUrl := ""
+    ExpansionMismatchFileButton := 0
     ; Normal OK/Cancel closes just this dialog. We never recycle the
     ; embedded Discord controller during an ordinary ZIP download.
     SendLauncherChatCommand(7, slotHwnd)
@@ -171,7 +180,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 
 TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
 {
-    global LauncherGui, EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    global LauncherGui, EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     ; WM_COPYDATA is synchronous; copy the data before returning.
     ; Only accept our current ChatHost's authenticated HTTPS attachment.
     if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
@@ -213,7 +222,22 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     ExpansionMismatchZipUrl := url
-    LogLauncherEvent("EXPANSION | Latest Discord ZIP link is ready for native retries.")
+    if IsObject(ExpansionMismatchFileButton)
+    {
+        ; The filename comes from the validated official attachment path.
+        ; Query-string tokens stay in memory, never in button text or logs.
+        if RegExMatch(url, "i)/([^/?#]+\.zip)(?:[?#]|$)", &filenameMatch)
+        {
+            name := StrReplace(filenameMatch[1], "%20", " ")
+            ExpansionMismatchFileButton.Text := "Download " SubStr(name, 1, 68)
+        }
+        ExpansionMismatchFileButton.Visible := true
+    }
+    ; Defer the nonblocking hide command until AFTER the IPC reply.
+    ; Never dispose a cross-process WebView2 while downloading.
+    slot := ExpansionMismatchSlot
+    SetTimer((*) => SendLauncherChatCommand(9, slot), -20)
+    LogLauncherEvent("EXPANSION | Latest ZIP ready; switching to native download control.")
     return 1
 }
 
@@ -231,12 +255,17 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl)
     ; Re-validate every click. A cancelled browser transfer never disables
     ; this button or creates/disposes any browser controller.
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
+        || RegExMatch(url, '[\s"<>]') || StrLen(url) > 4000
         return
     try
     {
         statusControl.Text := "Starting Download..."
-        Run(url)
-        LogLauncherEvent("EXPANSION | Native ZIP download requested in default browser.")
+        ; Launch the Windows URL handler in a disposable helper process.
+        ; Direct Run(url) uses ShellExecute on AHK's GUI thread and can block
+        ; the entire launcher when the browser is busy with a large download.
+        ; Run returns when rundll32 starts; it never waits for the download.
+        Run('rundll32.exe url.dll,FileProtocolHandler "' url '"', , "Hide")
+        LogLauncherEvent("EXPANSION | ZIP download handed off asynchronously.")
     }
     catch Error as err
         LogLauncherEvent("EXPANSION | Native browser handoff failed (" Type(err) ").")
