@@ -204,6 +204,25 @@ expect(
 )
 
 expect(
+    "Future expansion ZIP selection is ordered by Discord message snowflakes",
+    "const channel='/channels/509601787901116437/1555049936800718928';" in source
+    and "function snowflake(message)" in source
+    and "BigInt(match[1])" in source
+    and "item.id>best.id" in source
+    and "item.id===best.id && item.order>=best.order" in source
+    and "const files=readCandidates(feed);" in source
+    and "remember(files);" in source
+    and "link.href=file.url;" in source
+    and "phase='present'" in source
+    and "goToPresent(scroller)" in source
+    and "const maxBackfills=12, maxLoadingRetries=30;" in source
+    and "attributes:true,attributeFilter:['href']" in source
+    and "new MutationObserver(schedule)" in source
+    and "lastFileKey===key" in source
+    and "grid-template-columns:" not in source,
+)
+
+expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
     and "void PositionChatWindows()\n        {\n            // The existing chat polling is a safety net" in source
