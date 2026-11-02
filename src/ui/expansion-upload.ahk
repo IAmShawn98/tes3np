@@ -31,7 +31,7 @@ SelectExpansionPackagePath()
             "Upload Expansion", "Icon!")
         return ""
     }
-    resultPath := A_Temp "\tes3np-expansion-source-" A_Pid "-" A_TickCount ".txt"
+    resultPath := A_Temp "\tes3np-expansion-source-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount ".txt"
     errorPath := resultPath ".error"
     package := ""
     try
