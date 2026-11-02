@@ -15,7 +15,7 @@
 - Preserve existing characters, launcher settings, other mods and the bundled TES3MP client during the import; no automatic download is attempted.
 
 - Expanded **Copy Diagnostic Info** into an actionable, privacy-filtered plugin-rejection report. It now differentiates Expansion Pack presence/position from duplicate or missing other plugins, identifies base masters and context-specific error indicators, and reports unavailable checks explicitly. It never includes raw logs, personal paths, arbitrary mod filenames or signed URLs. The confirmation says only **Diagnostic Info Copied!**, and the copied heading no longer includes SAFE or an unnecessary privacy disclaimer. Generic server rejection wording no longer counts as evidence of a separate load-order problem. Isolated AutoHotkey fixture checks now run in the Windows build; complete GUI/clipboard testing still requires Windows.
-  
+
 ### Fixed
 
 - Fixed the character backup import error caused by an absent legacy executable input control.
