@@ -237,6 +237,20 @@ def check(allow_missing_payload: bool = False) -> None:
     ):
         errors.append("Retired feature cleanup broke an active launcher/UI dependency.")
 
+    # The Enhanced Readability control remains a live callback in Launcher
+    # Settings. Its native label updater was incorrectly deleted in an audit;
+    # protect the full control -> callback -> state -> text dependency chain.
+    readability_contract = (
+        'readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))' in refinements
+        and "ToggleV016ReadabilityControl(control, *)" in refinements
+        and "UpdateV016ReadabilityLabel(control, V016ReadabilityState)" in refinements
+        and "UpdateV016ReadabilityLabel(control, state)" in refinements
+        and 'try control.Text := V016CheckLabel(state, "Enhanced readability")' in refinements
+        and 'readability.Text := V016CheckLabel(0, "Enhanced readability")' in refinements
+    )
+    if not readability_contract:
+        errors.append("Enhanced Readability callback or checkbox label updater is missing.")
+
     # Favorite-selection source contract: ensure the first saved character is
     # checked, the switch explanation appears once (regardless of answer),
     # and legacy loads/imports cannot strand a nonempty list without a favorite.
