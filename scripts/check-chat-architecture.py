@@ -248,7 +248,9 @@ expect(
 
 expect(
     "Repeated ZIP downloads isolate launcher from WebView2 and ShellExecute",
-    'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus)' in mismatch
+    'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "main-button")' in mismatch
+    and 'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "retry-button")' in mismatch
+    and 'TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")' in mismatch
     and 'global ExpansionMismatchFileButton := 0' in mismatch
     and 'global ExpansionMismatchDownloadSlot := 0' in mismatch
     and 'ExpansionMismatchDownloadSlot := downloadSlot' in mismatch
@@ -258,8 +260,6 @@ expect(
     and 'void HideEmbeddedExpansionDownloads(IntPtr placeholder)' in source
     and 'SendLauncherChatCommand(9, slotHwnd)' in mismatch
     and 'DllCall("SetWindowPos", "Ptr", ExpansionMismatchFileButton.Hwnd,' in mismatch
-    and 'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "main-button")' in mismatch
-    and 'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "retry-button")' in mismatch
     and 'case 9: HideEmbeddedExpansionDownloads(m.LParam); break;' in source
     and 'void HideEmbeddedExpansionDownloads(IntPtr placeholder)' in source
     and 'ShowWindow(window.Handle,0);' in source
