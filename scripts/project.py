@@ -123,6 +123,13 @@ def check(allow_missing_payload: bool = False) -> None:
             if stack:
                 raise ValueError("Unclosed delimiter")
             for match in re.finditer(r"(?m)^(\w+)\([^\n]*\)\s*\n\{", tokens):
+                # The standalone fixture intentionally defines inert versions
+                # of functions from the full launcher. They must not count as
+                # duplicates: only the real executable's includes define its
+                # production function namespace. Still check fixture syntax,
+                # balance, whitespace and #Include paths above/below.
+                if relative == "scripts/test-expansion-diagnostics.ahk":
+                    continue
                 name = match[1].lower()
                 if name in declarations:
                     errors.append(f"{relative}: duplicate function {match[1]} ({declarations[name]})")
