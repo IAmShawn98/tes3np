@@ -494,7 +494,12 @@ expect(
     and "InvokeFileOperation 'zipopen' $Package" in expansion_worker
     and '$code -notin @(32,33)' in expansion_worker
     and 'for ($attempt = 1; $attempt -le 6; $attempt++)' in expansion_worker
-    and '[IO.File]::Replace($Source, $Destination, $null)' in expansion_worker
+    and '[IO.File]::Replace($Source, $Destination, [NullString]::Value)' in expansion_worker
+    and '[IO.File]::Replace($Source, $Destination, $null)' not in expansion_worker
+    and '[IO.File]::Replace($Source, $Destination, [NullString]::Value)' in expansion_fixture
+    and '[IO.File]::Replace($replaceNew, $replaceOld, [NullString]::Value)' in expansion_fixture
+    and 'CLR null File.Replace cannot update an existing config' in expansion_fixture
+    and 'File.Replace left a staging file after replacing configuration' in expansion_fixture
     and 'Start-Sleep -Milliseconds' in expansion_worker
     and 'function CopyWithRetry(' in expansion_worker
     and 'CopyWithRetry $item.Target $backup' in expansion_worker
