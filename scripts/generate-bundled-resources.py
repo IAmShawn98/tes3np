@@ -12,7 +12,7 @@ output = root / "src" / "app" / "bundled-resources.generated.ahk"
 resources = []
 for directory in ("assets", "patches"):
     resources.extend(p for p in (root / directory).rglob("*") if p.is_file())
-for name in ("import-macro.ps1", "patch-tes3mp.ps1", "toggle-expansion-pack.ps1", "import-expansion-pack.ps1", "tes3np-updater.ps1", "fetch-release-notes.ps1"):
+for name in ("import-macro.ps1", "patch-tes3mp.ps1", "toggle-expansion-pack.ps1", "import-expansion-pack.ps1", "select-expansion-package.ps1", "tes3np-updater.ps1", "fetch-release-notes.ps1"):
     path = root / "scripts" / name
     if not path.is_file():
         raise SystemExit(f"Missing bundled worker: {path}")
