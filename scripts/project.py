@@ -389,8 +389,12 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroScrollTrack := CharacterPage.Add("Text"' in macro
             and 'MacroScrollThumb := CharacterPage.Add("Text"' in macro,
         "macro footer stays beneath ten rows without dynamic overlap":
-            'MacroDetails := AddBookLabel(CharacterPage, 525, 453, 355, 24, "")' in macro
-            and 'MacroStatus := AddBookLabel(CharacterPage, 525, 480, 355, 24, "Ready.")' in macro
+            'MacroDetails := CharacterPage.Add("Text",' in macro
+            and '"x525 y432 w355 h24 BackgroundTrans c241408 +0x100", "")' in macro
+            and 'MacroStatus := CharacterPage.Add("Text",' in macro
+            and '"x525 y475 w355 h24 BackgroundTrans c241408 +0x100", "Ready.")' in macro
+            and 'MacroDetails := AddBookLabel(' not in macro
+            and 'MacroStatus := AddBookLabel(' not in macro
             and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 508, 355, 28' in macro
             and 'MacroBindingsButton := AddStyledButton(CharacterPage, 525, 543, 355, 28' in macro
             and 'MacroDetails.Visible := shown && selectedIndex > 0' in macro
