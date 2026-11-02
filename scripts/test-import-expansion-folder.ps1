@@ -31,6 +31,7 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string
     AssertFixture ([IO.File]::Exists($result)) "$Name result metadata missing"
     $expected = if ($ShouldPass) { 'State=success' } else { 'State=error' }
     AssertFixture ($report.Contains($expected)) "$Name unexpected worker status: $workerMessage"
+    AssertFixture (![IO.Directory]::Exists((Join-Path $job 'stage'))) "$Name left a full duplicate of the pack in staging"
     if (!$ShouldPass -and $ExpectedError) {
         AssertFixture ($workerMessage.Contains($ExpectedError)) "$Name rejected for an unexpected reason: $workerMessage"
     }
@@ -50,6 +51,15 @@ try {
     # process guard, with a strict assertion limiting destinations to this
     # fixture's disposable synthetic game. Never alter the real worker.
     $workerText = [IO.File]::ReadAllText($productionWorker)
+    # Expansion Pack v0.2 may exceed 1 GiB or contain large individual assets.
+    # These policy assertions don't create multi-gigabyte fixture files.
+    AssertFixture (!$workerText.Contains('Unpacked Expansion Pack exceeds the 1 GB limit.')) 'Old 1 GiB ZIP cap reintroduced'
+    AssertFixture (!$workerText.Contains('Extracted Expansion Pack exceeds the 1 GB limit.')) 'Old 1 GiB folder cap reintroduced'
+    AssertFixture (!$workerText.Contains('if ($entry.Length -gt 134217728)')) 'Old 128 MiB ZIP entry cap reintroduced'
+    AssertFixture (!$workerText.Contains('if ($item.Length -gt 134217728)')) 'Old 128 MiB folder asset cap reintroduced'
+    AssertFixture ($workerText.Contains('AssertSpace $staged ([long]$entry.Length)')) 'ZIP free-space protection missing'
+    AssertFixture ($workerText.Contains('AssertSpace $staged ([long]$item.Length)')) 'Folder free-space protection missing'
+    AssertFixture ($workerText.Contains('AssertSpace $item.Target')) 'Installation destination free-space protection missing'
     $productionGuard = @'
 function AssertGameClosed {
     if (Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue) {
