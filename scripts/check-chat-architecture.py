@@ -231,7 +231,7 @@ expect(
     and "event.preventDefault();" in source
     and "event.stopPropagation();" in source
     and "chrome.webview.postMessage({type:'expansion-download',url});" in source
-    and "status.textContent='Download requested. Click the ZIP again to retry.';" in source
+    and "status.textContent='Starting Download...';" in source
     and "type==\"expansion-download\"" in source
     and "IsOfficialExpansionDownloadUrl(link)" in source
     and "Uri.TryCreate(value, UriKind.Absolute, out var uri)" in source
@@ -266,6 +266,28 @@ expect(
     and "setTimeout(()=>{scheduled=false;refresh();},150);" in source
     and "change.target===panel || panel.contains(change.target)" in source
     and "changes.every(change=>panel" in source,
+)
+
+expect(
+    "Discord discovery retires WebView2 before native repeat downloads",
+    'Panel? expansionDownloadCard;' in source
+    and 'Label? expansionDownloadStatus;' in source
+    and 'Button? expansionDownloadButton;' in source
+    and 'void ShowNativeExpansionDownloadCard(WebView2 source, string url)' in source
+    and 'fileButton.Click+=(_,_)=>RequestExpansionDownload(' in source
+    and 'var nativeCard=new Panel {' in source
+    and 'window.Controls.Add(nativeCard);' in source
+    and 'nativeCard.BringToFront();' in source
+    and 'card.Visible=true;' in source
+    and 'expansionDownloadsBrowser=null;' in source
+    and 'window.BeginInvoke(new Action(()=>{' in source
+    and 'window.Controls.Remove(source);' in source
+    and 'source.Dispose();' in source
+    and 'ShowNativeExpansionDownloadCard(browser,link!);' in source
+    and 'status.Text="Starting Download...";' in source
+    and "status.textContent='Starting Download...';" in source
+    and 'expansionLatestZipUrl=null;' in source
+    and 'SendLauncherChatCommand(8, downloadSlot.Hwnd)' in mismatch,
 )
 
 expect(
