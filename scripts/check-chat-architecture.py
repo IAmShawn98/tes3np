@@ -267,7 +267,8 @@ expect(
     and 'ref data,0x0002,1500,out var result' in source
     and 'Marshal.StringToHGlobalUni(payload)' in source
     and 'Marshal.FreeHGlobal(utf16)' in source
-    and 'source.count("Application.Run(new ChatHost(")' not in mismatch
+    and '(WinGetPID("ahk_id " wParam) = EmbeddedChatPid)' in mismatch
+    and '(StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")' in mismatch
     and 'PostMessage(owner,0x8335,popupSlot,IntPtr.Zero)' not in source
     and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero)' not in source
     and 'ExpansionMismatchRefreshPending' not in mismatch
