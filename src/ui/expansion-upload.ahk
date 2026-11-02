@@ -10,9 +10,54 @@ UploadExpansionFromFile(*)
         MsgBox("Close all TES3MP/OpenMW games before uploading the Expansion Pack.", "Expansion Pack", "Icon!")
         return
     }
-    package := FileSelect(1, , "Choose the Expansion Pack downloaded from Nerevarine Prophecies", "Expansion files (*.zip; *.esp)")
+    ; ZIP is preferred because it carries the complete Data Files layout.
+    ; A second native action accepts a folder already extracted from that ZIP.
+    ShowLauncherWindow(true)
+    sourceGui := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox",
+        "tes3np — Expansion Pack Source")
+    sourceGui.BackColor := "E2CEA2"
+    sourceGui.SetFont("s13 Bold c382314", "Georgia")
+    sourceGui.Add("Text", "x20 y15 w410 h28", "Install NP Expansion Pack")
+    sourceGui.SetFont("s10 Norm c382314", "Segoe UI")
+    sourceGui.Add("Text", "x20 y54 w410 h60",
+        "Select the complete official download. ZIP is recommended, "
+        . "or choose the folder containing its extracted Data Files.")
+    zipButton := sourceGui.Add("Button", "x20 y123 w195 h42 Default", "Select ZIP (Recommended)")
+    folderButton := sourceGui.Add("Button", "x225 y123 w205 h42", "Select Extracted Folder")
+    cancelButton := sourceGui.Add("Button", "x320 y180 w110 h30", "Cancel")
+    zipButton.OnEvent("Click", (*) => ChooseExpansionPackageSource(sourceGui, "zip"))
+    folderButton.OnEvent("Click", (*) => ChooseExpansionPackageSource(sourceGui, "folder"))
+    cancelButton.OnEvent("Click", (*) => sourceGui.Destroy())
+    sourceGui.OnEvent("Close", (*) => sourceGui.Destroy())
+    sourceGui.OnEvent("Escape", (*) => sourceGui.Destroy())
+    sourceGui.Show("w450 h225")
+}
+
+ChooseExpansionPackageSource(sourceGui, sourceType)
+{
+    try sourceGui.Destroy()
+    if sourceType = "zip"
+        package := FileSelect(1, , "Choose the official NP Expansion Pack ZIP",
+            "Expansion Pack archive (*.zip)")
+    else if sourceType = "folder"
+        package := DirSelect(, 0, "Choose the extracted Expansion Pack folder containing Data Files")
+    else
+        return
     if package = ""
         return
+    InstallSelectedExpansionPackage(package)
+}
+
+InstallSelectedExpansionPackage(package)
+{
+    global LauncherGui, DataFile
+    if PatchInProgress()
+        return
+    if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+    {
+        MsgBox("Close all TES3MP/OpenMW games before uploading the Expansion Pack.", "Expansion Pack", "Icon!")
+        return
+    }
     config := PatchConfigurationPath()
     if !FileExist(config)
     {
