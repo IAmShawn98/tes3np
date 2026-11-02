@@ -575,6 +575,22 @@ internal static class Program
             }
         }
 
+        void HideEmbeddedExpansionDownloads(IntPtr placeholder)
+        {
+            // Never tear down or reparent a live WebView2 because a download
+            // started. Hiding its native child keeps the shared Discord
+            // environment and Game Chat untouched, and lets the launcher-owned
+            // ZIP button handle subsequent clicks independently.
+            if (placeholder==IntPtr.Zero || placeholder!=expansionDownloadsParent ||
+                expansionLatestZipUrl==null || !IsWindow(placeholder))
+                return;
+            var window=expansionDownloadsWindow;
+            if (window==null || window.IsDisposed || !window.IsHandleCreated)
+                return;
+            ShowWindow(window.Handle,0); // SW_HIDE; no Dispose and no new Form
+            Log("EXPANSION | Discovery WebView hidden; launcher-native ZIP card remains.");
+        }
+
         void PositionEmbeddedExpansionDownloads()
         {
             var window=expansionDownloadsWindow;
@@ -3335,6 +3351,7 @@ metrics();
                     case 4: SetChatDisplayMode("Always Hidden"); break;
                     case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
                     case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
+                    case 9: HideEmbeddedExpansionDownloads(m.LParam); break;
                 }
                 return;
             }
