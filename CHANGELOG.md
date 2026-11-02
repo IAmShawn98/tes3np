@@ -2,6 +2,16 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Codebase cleanup audit (2026-11-02)
+
+- Removed unused standalone in-game chat preview GUI and its handlers; the active embedded authenticated Discord/Game Chat host is unchanged.
+- Removed orphaned startup-choice GUI and callbacks, the unused legacy chat-control command handler, an abandoned Magic Cards label helper, and two unused checkbox toggle callbacks. Existing character launching, Favorite handling, login progress and settings application remain in source.
+- Removed the C# Happy Hour backfill boolean that was assigned but never read (the previously observed CS0414 warning). No relevant control-flow condition used it.
+- Confirmed the retired daily-login scheduler module is absent and not included by the launcher. Added regression gates against reintroducing the removed functions. Historical scheduler names in negative tests/upgrade compatibility guidance are intentional protections, not active scheduling code.
+- Cleaned stale scheduler/Launch All/startup choice claims from user and release docs; updated the user guide for first-character auto-favorite and current login progress UI.
+- Recorded detailed findings and outstanding runtime validation in `docs/CODEBASE-AUDIT-2026-11-02.md`. Static inspection and GitHub writes completed; Windows build, dynamic callbacks and full game UI regression tests remain to be run. No release approval is implied.
+
+
 ### Removed / code audit — 2026-11-02
 
 - Completed source-tree reachability review and removed the dormant 1,225-line daily-login/event scheduler, its startup polling and shutdown writes, missed-event warnings, editor/hotkey controls, stale character-book references and event/hotkey portable-backup serialization. Old user settings remain untouched, inert and backward-compatible for character restore.
