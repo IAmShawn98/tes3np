@@ -119,18 +119,23 @@ ShowTES3MPExpansionMismatchDialog()
     dialog.Add("Text", "x25 y204 w610 h25 BackgroundTrans", "Latest Expansion Pack - Discord")
     ; Native child HWND placeholder for the existing ChatHost's WebView2.
     ; No extra Discord popup and no second browser profile are created.
-    downloadSlot := dialog.Add("Text", "x25 y231 w610 h150 +0x100 Background202023",
+    downloadSlot := dialog.Add("Text", "x25 y231 w610 h118 +0x100 Background202023",
         "Connecting to the Nerevarine Prophecies Discord channel...")
+    ; Always-active launcher-owned retry button. If Discord's child WebView
+    ; stops responding during a browser download, this native button still
+    ; sends a fresh request using the latest validated link in ChatHost.
+    AddStyledButton(dialog, 25, 359, 215, 31, "Download ZIP / Retry",
+        (*) => SendLauncherChatCommand(8, downloadSlot.Hwnd))
     dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
-    dialog.Add("Link", "x25 y388 w610 h20",
+    dialog.Add("Link", "x25 y397 w610 h20",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
-    AddStyledButton(dialog, 340, 420, 140, 38, "OK",
+    AddStyledButton(dialog, 340, 425, 140, 38, "OK",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd, true))
-    AddStyledButton(dialog, 490, 420, 140, 38, "Cancel",
+    AddStyledButton(dialog, 490, 425, 140, 38, "Cancel",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     dialog.OnEvent("Close", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     dialog.OnEvent("Escape", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
-    dialog.Show("w660 h476")
+    dialog.Show("w660 h482")
     ; WM_APP command 6: attach one child browser to this exact HWND.
     SendLauncherChatCommand(6, downloadSlot.Hwnd)
 }
