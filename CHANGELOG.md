@@ -27,6 +27,8 @@
 
 ### Fixed
 
+- Repaired the Windows ZIP/folder import regression fixture after a reported `The ZIP contains an unsafe file path` failure. On some Windows PowerShell/.NET Framework targets, `ZipFile.CreateFromDirectory` writes backslash-separated archive entries. The fixture now uses `ZipFileExtensions.CreateEntryFromFile` with explicit forward-slash names and independently verifies all ZIP entries; it also creates a deliberately unsafe backslash ZIP to confirm the production importer still rejects it and checks that other unsupported files fail for the intended reason. The production ZIP path safety validation is unchanged. Windows rerun and live import remain pending.
+
 - Corrected the synthetic ZIP/folder build test: a live TES3MP/OpenMW process could trigger the production importer's game-running safety check even though the test uses disposable files. The fixture now clones the import script into a temporary sandbox, substitutes only that process guard in the disposable copy, and checks the destination remains inside its synthetic game directory. The real importer's safety check is unchanged. On future fixture failures, the build now prints the worker's `result.ini` error instead of an empty `output=`. Windows rerun remains pending.
 
 - Corrected the Expansion Pack worker's existing ZIP extraction length check (and the matching new folder staging check): `System.IO.File.GetLength` is not a .NET API, so the importer now reads the staged `FileInfo.Length` before proceeding. All staged content still receives hash verification and the existing transactional backup/rollback.
