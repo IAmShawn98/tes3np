@@ -492,6 +492,17 @@ expect(
     and "InvokeFileOperation 'replace' $temp $Target" in expansion_worker
     and "InvokeFileOperation 'move' $temp $Target" in expansion_worker
     and "InvokeFileOperation 'zipopen' $Package" in expansion_worker
+    and 'function WriteJobIni([string]$Name, [string]$Body)' in expansion_worker
+    and "WriteJobIni 'progress.ini' $body" in expansion_worker
+    and "WriteJobIni 'result.ini' $body" in expansion_worker
+    and "InvokeFileOperation 'replace' $temp $target ('publishing import ' + $Name)" in expansion_worker
+    and "InvokeFileOperation 'move' $temp $target ('publishing import ' + $Name)" in expansion_worker
+    and "[IO.File]::WriteAllText((Join-Path $JobFolder 'progress.ini')" not in expansion_worker
+    and "[IO.File]::WriteAllText((Join-Path $JobFolder 'result.ini')" not in expansion_worker
+    and "CheckWorker $zip 'zip-progress-reader-lock' $true '' $true" in expansion_fixture
+    and "did not exercise the locked progress.ini publisher" in expansion_fixture
+    and "Start-Process -FilePath $windowsPowerShell -ArgumentList $args -PassThru" in expansion_fixture
+    and 'progress.ini' in expansion_fixture
     and '$code -notin @(32,33)' in expansion_worker
     and 'for ($attempt = 1; $attempt -le 6; $attempt++)' in expansion_worker
     and '[IO.File]::Replace($Source, $Destination, [NullString]::Value)' in expansion_worker
