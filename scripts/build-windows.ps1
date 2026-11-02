@@ -216,6 +216,20 @@ try {
             throw "Missing extracted UI asset: $asset"
         }
     }
+    # Verify that all import helpers are truly available in the compiled
+    # launcher's extracted resource directory, not only in the source checkout.
+    # An omitted worker can pass COM/source checks yet fail on a real click.
+    foreach ($helperName in @('select-expansion-package.ps1', 'import-expansion-pack.ps1')) {
+        $sourceHelper = Join-Path $projectRoot ('scripts\' + $helperName)
+        $extractedHelper = Join-Path $resourceRoot ('scripts\' + $helperName)
+        if (!(Test-Path -LiteralPath $extractedHelper -PathType Leaf)) {
+            throw "Missing extracted Expansion Pack helper: $helperName"
+        }
+        if ((GetTes3npSha256 $extractedHelper) -ine (GetTes3npSha256 $sourceHelper)) {
+            throw "Bundled Expansion Pack helper differs from source: $helperName"
+        }
+    }
+    Step 'Verified both extracted Expansion Pack helpers and source SHA-256 hashes'
     # Include every species icon installed in this checkout in the extraction
     # smoke test, without requiring people to have optional custom artwork.
     $speciesFolder = Join-Path $projectRoot 'assets\icons\species'
