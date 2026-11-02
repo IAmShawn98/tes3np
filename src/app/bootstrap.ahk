@@ -199,17 +199,6 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
     finally DllCall("user32\EndPaint", "Ptr", hwnd, "Ptr", ps)
     return 0
 }
-LauncherChatCommandClick(wParam, lParam, msg, hwnd)
-{
-    global LauncherGui, LauncherChatToggle
-    if !IsObject(LauncherChatToggle) || hwnd != LauncherGui.Hwnd
-        return
-    if lParam = LauncherChatToggle.Hwnd && (wParam >> 16) = 0
-    {
-        ToggleLauncherChat()
-        return 0
-    }
-}
 ToggleLauncherChat(*)
 {
     ; Do not guess the new state: automatic mode can open/close chat itself.
@@ -447,46 +436,6 @@ ShowLauncherWindow(reuseCached := false, *)
         if totalMs >= 250
             LogLauncherEvent("UI | Launcher transition " totalMs "ms | Cover " coverMs "ms | Scale " scaleMs "ms | Window " windowMs "ms | Controls " controlsMs "ms | Center " centerMs "ms | Final paint " (totalMs - coverMs - scaleMs - windowMs - controlsMs - centerMs) "ms.")
     }
-}
-
-ShowStartupChoice()
-{
-    global Profiles, SelectedProfile
-    index := SelectedProfile > 0 && SelectedProfile <= Profiles.Length ? SelectedProfile : 1
-    choice := Gui("-MinimizeBox -MaximizeBox", "tes3np — Ready to play")
-    choice.BackColor := "E2CEA2"
-    choice.SetFont("s11 c382314", "Segoe UI")
-    choice.Add("Text", "x20 y20 w360 h30 Center", "How would you like to start?")
-    launch := choice.Add("Button", "x20 y65 w360 h40 Default", "Launch " Profiles[index].Name)
-    manage := choice.Add("Button", "x20 y115 w360 h40", "Manage Characters")
-    open := choice.Add("Button", "x20 y165 w360 h40", "Open Launcher")
-    launch.OnEvent("Click", LaunchFromStartup.Bind(choice, index))
-    manage.OnEvent("Click", ManageFromStartup.Bind(choice))
-    open.OnEvent("Click", OpenFromStartup.Bind(choice))
-    choice.OnEvent("Close", QuitLauncher)
-    choice.OnEvent("Escape", QuitLauncher)
-    choice.Show("w400 h225")
-}
-
-LaunchFromStartup(choice, index, *)
-{
-    global Client
-    choice.Opt("+OwnDialogs")
-    LaunchProfileIndex(index)
-    if Client.Enabled
-        choice.Destroy()
-}
-
-OpenFromStartup(choice, *)
-{
-    choice.Destroy()
-    ShowLauncherWindow()
-}
-
-ManageFromStartup(choice, *)
-{
-    choice.Destroy()
-    OpenCharacterPage()
 }
 
 SetWindowIcons()
