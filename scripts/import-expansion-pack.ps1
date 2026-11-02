@@ -33,7 +33,10 @@ function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destinatio
                     } finally { $hasher.Dispose() }
                 }
                 'copy' { [IO.File]::Copy($Source, $Destination, $false); return }
-                'replace' { [IO.File]::Replace($Source, $Destination, $null); return }
+                # Windows PowerShell 5.1 coerces $null to "" for .NET string
+                # parameters. File.Replace interprets "" as an illegal backup
+                # filename; [NullString]::Value passes actual CLR null.
+                'replace' { [IO.File]::Replace($Source, $Destination, [NullString]::Value); return }
                 'move' { [IO.File]::Move($Source, $Destination); return }
                 'zipopen' { return [IO.Compression.ZipFile]::OpenRead($Source) }
                 default { throw 'Unknown Expansion Pack file operation.' }
@@ -127,9 +130,9 @@ function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
             # The import journal already holds a verified persistent backup.
             # Avoid a redundant .NET File.Replace temporary backup that also
             # has to be deleted while antivirus/indexing may be scanning it.
-            InvokeFileOperation 'replace' $temp $Target ("replacing file during " + $script:ImportActivity) @($temp, $Target)
+            InvokeFileOperation 'replace' $temp $Target ("replacing file during " + $script:ImportActivity)
         } else {
-            InvokeFileOperation 'move' $temp $Target ("installing new file during " + $script:ImportActivity) @($temp, $Target)
+            InvokeFileOperation 'move' $temp $Target ("installing new file during " + $script:ImportActivity)
         }
     } finally {
         if ([IO.File]::Exists($temp)) {
