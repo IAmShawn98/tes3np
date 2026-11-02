@@ -480,6 +480,19 @@ expect(
     and 'AssertSpace $staged ([long]$item.Length)' in expansion_worker
     and 'AssertSpace $item.Target' in expansion_worker
     and 'AssertSpace $JobFolder' in expansion_worker
+    and 'function InvokeLockRetry(' in expansion_worker
+    and '$code -notin @(32, 33)' in expansion_worker
+    and 'for ($attempt = 1; $attempt -le 6; $attempt++)' in expansion_worker
+    and 'Start-Sleep -Milliseconds' in expansion_worker
+    and 'function CopyWithRetry(' in expansion_worker
+    and 'CopyWithRetry $item.Target $backup' in expansion_worker
+    and 'CopyWithRetry $Source $temp' in expansion_worker
+    and '[IO.File]::Replace($temp, $Target, $null)' in expansion_worker
+    and '[IO.File]::Replace($temp, $Target, $replaceBackup)' not in expansion_worker
+    and 'six attempts' in expansion_fixture
+    and "CheckWorker $zip 'recover-after-lock' $true" in expansion_fixture
+    and "CheckWorker $zip 'reject-persistent-win32-lock' $false" in expansion_fixture
+    and 'old locked ESP content' in expansion_fixture
     and "Unpacked Expansion Pack exceeds the 1 GB limit." not in expansion_worker
     and "Extracted Expansion Pack exceeds the 1 GB limit." not in expansion_worker
     and "134217728" not in expansion_worker
