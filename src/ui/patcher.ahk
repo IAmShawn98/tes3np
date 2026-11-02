@@ -1,4 +1,5 @@
-﻿; Bundled NP setup. PowerShell performs transactional copying off the GUI thread.
+﻿; Shared Morrowind discovery, optional Expansion Pack toggle and import progress.
+; The retired bundled v0.1 Install / Repair GUI and worker are deliberately absent.
 
 PatchInProgress()
 {
