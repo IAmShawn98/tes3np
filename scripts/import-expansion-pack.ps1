@@ -133,7 +133,7 @@ try {
             AssertPlain $target
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
             [IO.File]::Copy($item.FullName, $target, $false)
-            if ([IO.File]::GetLength($target) -ne $item.Length -or (Sha256 $target) -ne (Sha256 $item.FullName)) {
+            if ((Get-Item -LiteralPath $target).Length -ne $item.Length -or (Sha256 $target) -ne (Sha256 $item.FullName)) {
                 throw 'A staged Expansion Pack file did not pass verification.'
             }
             $assets += [pscustomobject]@{Relative=$relative; Source=$target}
@@ -194,7 +194,7 @@ try {
                         }
                     } finally { $write.Dispose() }
                 } finally { $read.Dispose() }
-                if ([IO.File]::GetLength($target) -ne $entry.Length) { throw 'ZIP extraction size did not match its declared size.' }
+                if ((Get-Item -LiteralPath $target).Length -ne $entry.Length) { throw 'ZIP extraction size did not match its declared size.' }
                 $assets += [pscustomobject]@{Relative=$relative; Source=$target}
             }
         } finally { $archive.Dispose() }
