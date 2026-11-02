@@ -19,7 +19,7 @@ using System.Runtime.InteropServices;
 namespace TES3NP.Expansion
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    internal struct FilterSpec
+    public struct FilterSpec
     {
         [MarshalAs(UnmanagedType.LPWStr)] public string Name;
         [MarshalAs(UnmanagedType.LPWStr)] public string Pattern;
@@ -27,7 +27,7 @@ namespace TES3NP.Expansion
 
     [ComImport, Guid("42F85136-DB7E-439C-85F1-E4075D135FC8"),
      InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IFileDialog
+    public interface IFileDialog
     {
         [PreserveSig] int Show(IntPtr owner);
         [PreserveSig] int SetFileTypes(uint count, [MarshalAs(UnmanagedType.LPArray)] FilterSpec[] specs);
@@ -57,7 +57,7 @@ namespace TES3NP.Expansion
 
     [ComImport, Guid("E6FDD21A-163F-4975-9C8C-A69F1BA37034"),
      InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IFileDialogCustomize
+    public interface IFileDialogCustomize
     {
         [PreserveSig] int EnableOpenDropDown(uint id);
         [PreserveSig] int AddMenu(uint id, [MarshalAs(UnmanagedType.LPWStr)] string label);
@@ -66,7 +66,7 @@ namespace TES3NP.Expansion
 
     [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"),
      InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IShellItem
+    public interface IShellItem
     {
         [PreserveSig] int BindToHandler(IntPtr bindContext, ref Guid bhid, ref Guid iid, out IntPtr result);
         [PreserveSig] int GetParent(out IShellItem parent);
@@ -77,7 +77,7 @@ namespace TES3NP.Expansion
 
     [ComVisible(true), Guid("973510DB-7D7F-452B-8975-74A85828D354"),
      InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IFileDialogEvents
+    public interface IFileDialogEvents
     {
         [PreserveSig] int OnFileOk(IFileDialog dialog);
         [PreserveSig] int OnFolderChanging(IFileDialog dialog, IShellItem folder);
@@ -90,7 +90,7 @@ namespace TES3NP.Expansion
 
     [ComVisible(true), Guid("36116642-D713-4B97-9B83-7484A9D00433"),
      InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IFileDialogControlEvents
+    public interface IFileDialogControlEvents
     {
         [PreserveSig] int OnItemSelected(IFileDialogCustomize dialog, uint controlId, uint itemId);
         [PreserveSig] int OnButtonClicked(IFileDialogCustomize dialog, uint controlId);
@@ -99,7 +99,7 @@ namespace TES3NP.Expansion
     }
 
     [ComVisible(true), ClassInterface(ClassInterfaceType.None)]
-    internal sealed class DialogEvents : IFileDialogEvents, IFileDialogControlEvents
+    public sealed class DialogEvents : IFileDialogEvents, IFileDialogControlEvents
     {
         private const uint ChooseFolderButton = 4107;
         private readonly IFileDialog fileDialog;
