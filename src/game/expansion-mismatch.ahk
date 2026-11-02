@@ -7,6 +7,9 @@ global ExpansionMismatchSlot := 0
 global ExpansionMismatchZipUrl := ""
 global ExpansionMismatchFileButton := 0
 global ExpansionMismatchDownloadSlot := 0
+; Keep only fixed error classifications from the current failed login;
+; never retain the original client log text, paths, or player content.
+global TES3MPLastMismatchEvidence := 0
 ; TES3MP owns its error window; terminate only the failed PID before prompting.
 CaptureTES3MPLogBaseline()
 {
@@ -41,7 +44,7 @@ AddTES3MPLogFolder(watch, folder)
 
 CheckTES3MPPluginMismatch()
 {
-    global Client
+    global Client, TES3MPLastMismatchEvidence
     if !Client.Enabled || !Client.HasOwnProp("LogWatch") || !IsObject(Client.LogWatch)
         return false
     watch := Client.LogWatch
@@ -78,6 +81,11 @@ CheckTES3MPPluginMismatch()
                 text := watch.Carry chunk
                 if InStr(text, "Your plugins or their load order don't match the server's", false)
                 {
+                    ; This is the exact NEW client-log content that triggered
+                    ; the popup. Classify it NOW, before StopClient terminates
+                    ; the game and its log can become locked or inaccessible.
+                    ; The result contains only booleans and fixed status.
+                    TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(text)
                     HandleTES3MPPluginMismatch()
                     return true
                 }
@@ -426,8 +434,8 @@ TES3MPReadMismatchConfigInfo()
 
 TES3MPNewMismatchLogResult(status := "Not found")
 {
-    return {Status: status, Rejected: false, MissingExpansion: false,
-        MissingOther: false, MissingBaseMaster: false,
+    return {Status: status, Source: "Latest client log", Rejected: false,
+        MissingExpansion: false, MissingOther: false, MissingBaseMaster: false,
         MissingUnspecified: false, Order: false}
 }
 
@@ -471,6 +479,19 @@ TES3MPAnalyzeMismatchLogText(raw)
             result.MissingUnspecified := true
     }
     return result
+}
+
+TES3MPSelectMismatchLogEvidence(captured)
+{
+    ; The watcher already found a real server rejection in NEW log output.
+    ; Prefer its bounded classifications rather than reopening a possibly
+    ; locked log after the failed client is terminated.
+    if IsObject(captured) && captured.Rejected && captured.Status = "Read"
+    {
+        captured.Source := "Captured during failed login"
+        return captured
+    }
+    return TES3MPReadSafeMismatchLogMarkers()
 }
 
 TES3MPReadSafeMismatchLogMarkers()
@@ -595,6 +616,7 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
     report .= "Expansion ESP in configured game folder: " installed "`r`n"
     report .= "`r`n[Client rejection evidence]`r`n"
     report .= "Client log check: " markers.Status "`r`n"
+    report .= "Client evidence source: " markers.Source "`r`n"
     report .= "Recent server rejection in inspected log: " TES3MPMismatchYesNo(markers.Rejected, markers.Status = "Read") "`r`n"
     report .= "Missing Expansion Pack specifically named: " TES3MPMismatchYesNo(markers.MissingExpansion, logOK) "`r`n"
     report .= "Other missing plugin specifically indicated: " TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
@@ -605,9 +627,9 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
 }
 TES3MPBuildMismatchDiagnostics()
 {
-    global AppConfig, DataFile
+    global AppConfig, DataFile, TES3MPLastMismatchEvidence
     info := TES3MPReadMismatchConfigInfo()
-    markers := TES3MPReadSafeMismatchLogMarkers()
+    markers := TES3MPSelectMismatchLogEvidence(TES3MPLastMismatchEvidence)
     installed := "Not checked"
     try
     {
