@@ -167,6 +167,12 @@ def check(allow_missing_payload: bool = False) -> None:
         # Dead preview chat window replaced by the embedded authenticated host.
         "OpenInGameChatWindow", "ResizeInGameChatWindow",
         "OpenInGameDiscordChannel", "InGameChatGui",
+        # Unreachable startup dialog / old message handler.
+        "ShowStartupChoice", "LaunchFromStartup", "ManageFromStartup",
+        "OpenFromStartup", "LauncherChatCommandClick",
+        # Retired intermediate UI helper and checkbox toggle variants.
+        "AddMagicCardsInteractiveLabel", "ToggleV016ReadabilityParts",
+        "ToggleV016FollowWindows",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
