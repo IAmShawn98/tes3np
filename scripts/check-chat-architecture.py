@@ -459,6 +459,11 @@ expect(
     and 'CheckWorker $packageRoot' in expansion_fixture
     and 'CheckWorker $payload' in expansion_fixture
     and 'CheckWorker $packageRoot ' in expansion_fixture
+    and '[IO.Compression.ZipFileExtensions]::CreateEntryFromFile(' in expansion_fixture
+    and ".Replace('\\', '/')" in expansion_fixture
+    and "CheckWorker $badZip 'reject-backslash-entry' $false 'unsafe file path'" in expansion_fixture
+    and "CheckWorker $packageRoot 'reject-unknown-asset' $false 'Unexpected file in Expansion Pack Data Files'" in expansion_fixture
+    and "AssertFixture (!$entry.FullName.Contains('\\'))" in expansion_fixture
     and 'test-import-expansion-folder.ps1' in expansion_build
     and '$productionWorker = Join-Path $PSScriptRoot' in expansion_fixture
     and '$worker = Join-Path $root' in expansion_fixture
