@@ -225,6 +225,9 @@ internal static class Program
         WebView2? expansionDownloadsBrowser;
         IntPtr expansionDownloadsParent = IntPtr.Zero;
         bool expansionDownloadsInitializing;
+        // The latest *validated* signed URL lives only in this ChatHost
+        // session; native retry never depends on a responsive WebView2.
+        string? expansionLatestZipUrl;
 
         // Preserve Discord's React tree and grid intact behind an opaque card.
         // Extract ONLY the latest visible official ZIP attachment and link to
@@ -289,7 +292,10 @@ internal static class Program
                       return;
                     }
                     chrome.webview.postMessage({type:'expansion-download',url});
-                    status.textContent='Opening download in your default browser...';
+                    // This card stays ready while the default browser is
+                    // downloading. A cancelled/failed download requires no
+                    // reset, reload, or completion signal.
+                    status.textContent='Download requested. Click the ZIP again to retry.';
                     report('download-handed-to-browser');
                   } catch {
                     report('download-handoff-unavailable');
@@ -389,6 +395,10 @@ internal static class Program
                 sender.style.display='block'; sender.textContent=file.sender;
                 link.style.display='block'; link.href=file.url; link.textContent=file.filename;
                 size.style.display=file.bytes?'block':'none'; size.textContent=file.bytes;
+                // Save the live signed link for a native Download / Retry
+                // control outside WebView2. The user can request it again even
+                // if the embedded browser stops repainting after a download.
+                try { chrome.webview.postMessage({type:'expansion-available',url:file.url}); } catch {}
                 report('latest-zip-ready');
               }
               function scrollerFor(feed) {
@@ -495,6 +505,7 @@ internal static class Program
             if (requestedParent != IntPtr.Zero && requestedParent != expansionDownloadsParent)
                 return;
             expansionDownloadsParent=IntPtr.Zero;
+            expansionLatestZipUrl=null;
             var window=expansionDownloadsWindow;
             expansionDownloadsWindow=null;
             expansionDownloadsBrowser=null;
@@ -572,6 +583,51 @@ internal static class Program
             catch { return false; }
         }
 
+        // Each click is an independent request; a cancelled browser download
+        // cannot leave a busy flag set or disable a second attempt.
+        void RequestExpansionDownload(string? url, string origin)
+        {
+            if (!IsOfficialExpansionDownloadUrl(url))
+            {
+                Log("EXPANSION | Download request rejected: invalid ZIP URL ("+origin+").");
+                return;
+            }
+            string freshUrl=url!;
+            _=Task.Run(()=>{
+                try {
+                    using var started=System.Diagnostics.Process.Start(
+                        new System.Diagnostics.ProcessStartInfo {
+                            FileName=freshUrl,
+                            UseShellExecute=true
+                        });
+                    if (started==null)
+                        Log("EXPANSION | Default browser did not accept ZIP request ("+origin+").");
+                    else
+                        Log("EXPANSION | ZIP sent to default browser ("+origin+").");
+                }
+                catch (Exception ex) {
+                    Log("EXPANSION | Browser ZIP handoff failed ("+origin+"): "+ex.Message);
+                }
+            });
+        }
+
+        void RetryEmbeddedExpansionDownload(IntPtr placeholder)
+        {
+            // This is invoked by the launcher-owned NATIVE button, not the
+            // potentially stalled WebView2. Never use a URL from a prior
+            // plugin-mismatch dialog.
+            if (placeholder==IntPtr.Zero || placeholder!=expansionDownloadsParent ||
+                !IsWindow(placeholder))
+                return;
+            string? url=expansionLatestZipUrl;
+            if (url==null)
+            {
+                Log("EXPANSION | Retry requested before latest ZIP was discovered.");
+                return;
+            }
+            RequestExpansionDownload(url,"native-retry");
+        }
+
         async Task InitializeExpansionDownloadsBrowser()
         {
             var browser=expansionDownloadsBrowser;
@@ -596,35 +652,21 @@ internal static class Program
                         {
                             Log("EXPANSION | ZIP card: "+state.GetString());
                         }
-                        else if (type=="expansion-download" &&
+                        else if ((type=="expansion-available" || type=="expansion-download") &&
                             json.RootElement.TryGetProperty("url",out var requested) &&
                             requested.ValueKind==System.Text.Json.JsonValueKind.String)
                         {
                             string? link=requested.GetString();
                             if (!IsOfficialExpansionDownloadUrl(link))
                             {
-                                Log("EXPANSION | Rejected unsafe or invalid ZIP download target.");
+                                Log("EXPANSION | Rejected invalid Discord ZIP link.");
                                 return;
                             }
-                            // Do not navigate the embedded WebView2 to the ZIP:
-                            // a large download can block its tiny native child.
-                            // Use Windows Shell on a worker to keep Game Chat,
-                            // the mismatch dialog and Happy Hour responsive.
-                            _=Task.Run(()=>{
-                                try {
-                                    using var started=System.Diagnostics.Process.Start(
-                                        new System.Diagnostics.ProcessStartInfo {
-                                            FileName=link!,
-                                            UseShellExecute=true
-                                        });
-                                    if (started==null)
-                                        Log("EXPANSION | Default browser did not accept ZIP download.");
-                                    else
-                                        Log("EXPANSION | Opened official ZIP in the default browser.");
-                                } catch (Exception ex) {
-                                    Log("EXPANSION | Could not hand ZIP to default browser: "+ex.Message);
-                                }
-                            });
+                            // A new post or refreshed CDN signature replaces the
+                            // stored URL. Never persist it or log its auth query.
+                            expansionLatestZipUrl=link;
+                            if (type=="expansion-download")
+                                RequestExpansionDownload(link,"embedded-card");
                         }
                     }
                     catch (Exception ex) {
@@ -3233,6 +3275,7 @@ metrics();
                     case 4: SetChatDisplayMode("Always Hidden"); break;
                     case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
                     case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
+                    case 8: RetryEmbeddedExpansionDownload(m.LParam); break;
                 }
                 return;
             }
