@@ -31,13 +31,15 @@ update feed asset names, and a SHA-256 of each installed package.
 1. Install the actual public v0.1.20-alpha package in a writable folder.
    Record whether the old install is nested in a TES3MP directory.
 2. Preserve a non-sensitive test character, its settings and launch
-   delays, one scheduled event, and a custom-client configuration.
+   delays, and a custom-client configuration.
 3. Attempt upgrade using the candidate package through the update
    transaction (or an offline staged test). Validate the existing
    install layout against the staging safety checks; do not force an
    unrecognized ZIP nesting.
-4. Confirm character data, login delays, schedules, custom overrides,
+4. Confirm character data, login delays, custom overrides,
    chat preferences and desktop shortcut decision survive.
+   Old scheduler INI sections, if present, must remain inert and must not
+   trigger scheduled actions or be imported into portable backups.
 5. Exercise both successful update and deliberate simulated
    `after-backup` / `after-install` failure; verify rollback restores
    working files and unrelated files remain untouched.
