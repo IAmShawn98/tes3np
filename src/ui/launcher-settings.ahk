@@ -67,19 +67,6 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-ResetDisplayAccessibility(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
-{
-    result := MsgBox("Reset display and accessibility settings to their defaults?`n`nLauncher size: Automatic`nInterface text: Normal`nEnhanced readability: Off`nReduce motion: Off`nFollow Windows accessibility settings: On", "tes3np — Reset Display & Accessibility", "YesNo Icon?")
-    if result != "Yes"
-        return
-    scaleList.Choose(1)
-    textList.Choose(1)
-    readability.Value := 0
-    reduceMotionBox.Value := 0
-    followWindows.Value := 1
-    PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, "Resetting display & accessibility...")
-}
-
 PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, loadingMessage, *)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
