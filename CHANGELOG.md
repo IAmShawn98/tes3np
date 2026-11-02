@@ -4,6 +4,8 @@
 
 ### Added
 
+- Replaced the mismatch recovery flow's separate ZIP/folder choice popup with one native Windows Explorer-style chooser. **Open ZIP** returns an official ZIP; **Use This Folder** returns the highlighted/current extracted folder from the same browser. A small native COM helper runs in a separate STA Windows PowerShell process, returns only the selected local path, and uses an owned window; existing staging, game-client checks, SHA-256 verification, backup and rollback remain unchanged. A noninteractive COM smoke test now runs during Windows build preflight; manual native-dialog and live import verification are still pending.
+
 
 - Added a source chooser to the Expansion Pack mismatch recovery flow: **Select ZIP (Recommended)** or **Select Extracted Folder**. Folder imports locate an extracted `Data Files` tree (including when the chosen folder itself is `Data Files`) and use the existing PowerShell worker's staging, allowed extensions, path and link checks, file limits, SHA-256 verification, backups, and rollback. A disposable Windows fixture exercises ZIP imports, both folder layouts, and rejection of unsafe/unapproved files before packaging. The exact current Discord ZIP's complete file layout has not yet been independently inspected; unexpected `Data Files` entries fail closed rather than being skipped. Windows test/build and live import remain pending.
 
