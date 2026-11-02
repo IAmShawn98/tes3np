@@ -7,7 +7,7 @@
 - Bundled standalone TES3MP 0.8.1 Windows runtime and self-contained Game Chat host, removing the requirement for a separately installed TES3MP client.
 - Optional custom TES3MP executable and dependency overrides without replacing the bundled client.
 - Restored the original main-page **Expansion Pack: Enabled/Disabled** button (also available from the tray).
-- Moved Discord Expansion Downloads into the **Plugins Don't Match the Server** dialog. The existing Chat Host attaches a small native WebView2 child directly to that dialog and shows the latest genuine ZIP attachment as a clickable card; selecting OK runs the unchanged manual ZIP import worker. The previous standalone Discord popup is removed. Windows integration testing is pending. No expansion files are auto-installed.
+- Moved Discord Expansion Downloads into the **Plugins Don't Match the Server** dialog. The existing Chat Host attaches a small native WebView2 child directly to the dialog. The download card now searches the newest end of the channel and uses Discord message snowflake ordering to select new ZIP uploads, with bounded history search and live signed-link refresh; selecting OK still runs the unchanged manual ZIP importer. The standalone Discord popup remains removed. Windows runtime testing of the refreshed selection is pending.
 - Source, package integrity, updater transaction, and rollback validation checks.
 
 - Detect server plugin/load-order rejections in new TES3MP client logs and show an Expansion Pack recovery dialog instead of retrying the failed launch.
