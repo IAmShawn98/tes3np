@@ -475,7 +475,7 @@ TES3MPAnalyzeMismatchLogText(raw)
         return result
     result.Rejected := true
     first := Max(1, lastRejection - 18)
-    last := Min(lines.Length, lastRejection + 40)
+    last := Min(lines.Length, lastRejection + 512)
     Loop last - first + 1
     {
         currentIndex := first + A_Index - 1
