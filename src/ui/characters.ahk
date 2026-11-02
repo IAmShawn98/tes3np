@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -72,8 +72,6 @@ OpenCharacterPage(*)
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
     SessionStatus := CharacterPage.Add("Text", "x70 y555 w370 h50 Hidden", "")
-    SetInterfaceLoadingText("Loading Launch button...")
-    LaunchCharacterButton := AddStyledButton(CharacterPage, 70, 510, 370, 30, "Launch character", LaunchProfile)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
     AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
@@ -98,7 +96,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, AddCharacterButton, MaxCharacters, CharacterLimitNotice
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -135,9 +133,6 @@ RefreshProfiles()
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
         CharacterDescription.Move(70, 80, 390, 95)
-        ; Each character already has its own Play button. Keep the obsolete
-        ; full-width Launch Character button hidden so it cannot overlap actions.
-        LaunchCharacterButton.Visible := false
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : 220
         ; Preserve the original wide Import Data layout and compact Export Data
@@ -171,8 +166,6 @@ RefreshProfiles()
         if ButtonFaces.Has(DataTransferButton.Hwnd)
             ButtonFaces[DataTransferButton.Hwnd].Text := DataTransferButton.Text
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
-        LaunchCharacterButton.Text := SelectedProfile ? "Launch " Profiles[SelectedProfile].Name : "Launch character"
-        LaunchCharacterButton.Enabled := SelectedProfile > 0
     }
     finally EndInterfaceUpdate()
 }
@@ -870,47 +863,6 @@ RemoveVisibleProfile(position, *)
     finally EndInterfaceUpdate()
 }
 
-ShowLaunchAllExplanation()
-{
-    global CharacterPage, DataFile
-    result := {Accepted: false}
-    dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox", "Launch All & Close")
-    dialog.BackColor := "E2CEA2"
-    dialog.SetFont("s10 c382314", "Segoe UI")
-    dialog.Add("Text", "x20 y20 w420 h125", "This option launches each character one by one, waits 10 seconds after loading, then closes that game client. It’s useful for collecting daily login points on characters you don’t usually play every day. The launcher stays open when the list is finished.")
-    remember := dialog.Add("Checkbox", "x20 y150 w420 h25", "Don't show me this again")
-    launch := dialog.Add("Button", "x225 y190 w100 h30 Default", "Launch all")
-    cancel := dialog.Add("Button", "x340 y190 w100 h30", "Cancel")
-    launch.OnEvent("Click", AcceptLaunchAllExplanation.Bind(dialog, remember, result))
-    cancel.OnEvent("Click", (*) => dialog.Hide())
-    dialog.OnEvent("Close", (*) => dialog.Hide())
-    dialog.OnEvent("Escape", (*) => dialog.Hide())
-    CharacterPage.Opt("+Disabled")
-    try
-    {
-        dialog.Show("w460 h240")
-        WinWaitClose("ahk_id " dialog.Hwnd)
-    }
-    finally
-    {
-        CharacterPage.Opt("-Disabled")
-        dialog.Destroy()
-    }
-    return result.Accepted
-}
-
-AcceptLaunchAllExplanation(dialog, remember, result, *)
-{
-    global DataFile
-    if remember.Value
-    {
-        DirCreate(AppDataDirectory)
-        IniWrite("1", DataFile, "Launcher", "HideLaunchAllExplanation")
-    }
-    result.Accepted := true
-    dialog.Hide()
-}
-
 AddThemedEdit(owner, options, value := "")
 {
     return owner.Add("Edit", options " BackgroundE2CEA2 c382314 -E0x200 +Border", value)
@@ -922,15 +874,13 @@ WipeCharacterData(*)
     if !Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")
-    if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active recovery or launch-all sequence. Your in-game characters will NOT be deleted. Export Data first if you want a backup.", "Wipe Character Data", 0x124) != "Yes"
+    if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active login recovery. Your in-game characters will NOT be deleted. Export Data first if you want a backup.", "Wipe Character Data", 0x124) != "Yes"
         return
     BeginInterfaceUpdate(0, "Clearing saved character data...", true)
     try
     {
         StopClient()
         Client.Profile := 0
-        if Client.HasOwnProp("Queue")
-            Client.Queue := 0
         HideProfileEditor()
         Profiles := []
         SelectedProfile := 0
