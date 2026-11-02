@@ -376,14 +376,21 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroPage := Gui(' not in macro,
         "book-painted macro rows replace visible native table":
             '"Installed Macros"' in macro
-            and '"you havent installed any macros."' in macro
+            and '"No macros installed yet."' in macro
             and 'AddStyledButton(CharacterPage, 525, y, 207, 29' in macro
             and 'AddBookLabel(CharacterPage, 741, y + 2' in macro
             and 'MacroList.Visible := false' in macro
             and 'MacroListPage := Min(Max(1, Ceil(MacroItems.Length / 5))' in macro,
-        "compact controls follow item count":
-            'MoveStyledButton(MacroImportButton, 525, actionY, 164, 30)' in macro
-            and 'MoveStyledButton(MacroStatus, 525, actionY + 76' in macro,
+        "fixed macro details and action slots avoid repaint ghosts":
+            'MacroDetails := AddBookLabel(CharacterPage, 525, 377, 355, 26, "")' in macro
+            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 410, 164, 30' in macro
+            and 'MacroRunButton := AddStyledButton(CharacterPage, 696, 410, 88, 30' in macro
+            and 'MacroStopButton := AddStyledButton(CharacterPage, 791, 410, 89, 30' in macro
+            and 'MacroRemoveButton := AddStyledButton(CharacterPage, 525, 446, 164, 30' in macro
+            and 'MacroBindingsButton := AddStyledButton(CharacterPage, 696, 446, 184, 30' in macro
+            and 'MacroStatus := AddBookLabel(CharacterPage, 525, 488, 355, 27, "Ready.")' in macro
+            and 'MacroDetails.Visible := shown && selectedIndex > 0' in macro
+            and not re.search(r'MoveStyledButton\(Macro(?:Details|ImportButton|RunButton|StopButton|RemoveButton|BindingsButton|Status|PreviousButton|NextButton|PageLabel)', macro),
         "selected row highlight uses existing painter":
             'MacroSelected := selected' in macro
             and 'selectedMacro := face.HasOwnProp("MacroSelected")' in

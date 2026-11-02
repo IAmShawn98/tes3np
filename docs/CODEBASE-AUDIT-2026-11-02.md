@@ -184,3 +184,11 @@ Run the unchanged `git pull --ff-only` on `Update/v0.1.21-alpha`, then `Build te
 **Scope boundary:** all five reported interactive checks passed. Do not imply clean-machine Windows 10/11 coverage, individual fault-injection cases, alternate user profiles, a fresh public release, legal/licensing approval or an independently observed live-server connection unless additional results are provided. The previous server-connected v0.2 baseline is historical; it should not be silently upgraded to a newly repeated server-login assertion.
 
 **Next step:** retain this passing alpha as the rollback/known-good baseline, stop speculative dead-code removals and preserve the active features. Resume new TES3NP development only against a deliberate task and reversible change. Public-release readiness, clean-machine testing and licensing/distribution review remain intentionally deferred. No GitHub Actions were used.
+
+## Macro panel visual regression and targeted fix — 2026-11-02
+
+- The latest user screenshot shows overlapping description and background artifacts under Installed Macros despite the earlier five broad interactive PASS reports. Treat this newly observed **visual layout** as unresolved pending Windows retest; do not conflate it with macro Run/Stop functionality, previously tested separately.
+- Source inspection found `RefreshMacroBookRows()` repeatedly moved description, paging, action buttons and status on every refresh, including timer polling. This color-keyed GUI uses custom painted faces and backgrounds. Dynamic movement every second created a credible ghost/repaint/overlap risk.
+- Restore pre-existing stable UI slots (rows y167..332, pagination y343, details y377, action rows y410/y446, status y488); refresh only text, selected highlight, enabled state and visibility. Constrain one-line detail text to 44 characters and correct empty-state capitalization.
+- **Preserved:** hidden ListView selection/data model, page selection and macro execution/stop/removal, imports, key bindings and character editor visibility transition. Added a static check to guard the fixed layout and prevent dynamic macro-control movement.
+- Baseline before this patch was the successfully built/tested alpha at `2b7e7ad`, with later documentation-only updates. This patch requires a new Windows build and screenshot verification. No GitHub Actions.
