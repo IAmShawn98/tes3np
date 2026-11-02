@@ -264,6 +264,7 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl)
         ; Opening a URL directly uses ShellExecute on AHK's GUI thread and can block
         ; the entire launcher when the browser is busy with a large download.
         ; Run returns when rundll32 starts; it never waits for the download.
+        LogLauncherEvent("EXPANSION | Launching external ZIP URL helper.")
         Run('rundll32.exe url.dll,FileProtocolHandler "' url '"', , "Hide")
         LogLauncherEvent("EXPANSION | ZIP download handed off asynchronously.")
     }
