@@ -193,6 +193,13 @@ def check(allow_missing_payload: bool = False) -> None:
         "LauncherMagicCardsFnt", "LauncherMagicCardsTex",
         # Removed executable textbox and its disconnected Browse/save handlers.
         "ExecutableInput", "BrowseSharedExecutable", "SaveSharedExecutable",
+        # Retired bundled v0.1 Install/Repair UI and worker callbacks.
+        "OpenPatcher", "ClosePatcher", "StartPatchAction", "StartPatchWorker",
+        "BrowsePatchFolder", "BrowsePatchConfiguration", "PatchPage",
+        "PatchStatus", "PatchTesInput", "PatchMorrowindInput",
+        "PatchConfigInput", "PatchApplyButton", "PatchVerifyButton",
+        "PatchRestoreButton", "ReportPatchError", "FullPatchPath",
+        "QuotePatchArgument", "WindowsPatchError",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
@@ -225,6 +232,32 @@ def check(allow_missing_payload: bool = False) -> None:
                 errors.append(
                     f"{secondary.relative_to(ROOT)}: retired scheduler reference {symbol}"
                 )
+    # The old v0.1 repair path is retired, but the shared import monitor,
+    # Morrowind discovery, configuration toggling, and backup import stay live.
+    if (ROOT / "scripts/patch-tes3mp.ps1").exists():
+        errors.append("Legacy bundled Install/Repair worker was restored.")
+    resource_generator = (ROOT / "scripts/generate-bundled-resources.py").read_text(encoding="utf-8-sig")
+    patcher = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
+    upload = (ROOT / "src/ui/expansion-upload.ahk").read_text(encoding="utf-8-sig")
+    bootstrap = (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
+    expected_import = (
+        '"patch-tes3mp.ps1"' not in resource_generator
+        and 'UploadExpansionFromFile(*)' in upload
+        and 'StartExpansionImportWorker(package, morrowind, config)' in upload
+        and 'SetTimer(CheckPatchWorker, 50)' in upload
+        and 'CheckPatchWorker()' in patcher
+        and 'if job.Action != "Import"' in patcher
+        and 'MsgBox(message, "Upload Expansion"' in patcher
+        and 'PatchInProgress()' in patcher
+        and 'FindMorrowindFolder(config)' in patcher
+        and 'PatchConfigurationPath()' in patcher
+        and 'ToggleExpansionPack(*)' in patcher
+        and 'CanUseNPLauncher()' in patcher
+        and 'GuardPatchExit(*)' in patcher
+        and 'A_TrayMenu.Add("Optional Expansion Pack", OpenPatcher)' not in bootstrap
+    )
+    if not expected_import:
+        errors.append("Retiring legacy repair broke a live Expansion Pack/import or launcher dependency.")
     session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     root_source = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
     refinements = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
@@ -241,7 +274,7 @@ def check(allow_missing_payload: bool = False) -> None:
 
     # The retired executable textbox is gone. Selecting a game client is
     # handled by the live Game Client Settings workflow, not by a stale GUI
-    # input. Protect that workflow and direct patcher persistence.
+    # input. Protect that workflow and imported-pack persistence.
     client_ui = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
     patch_ui = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
     client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
