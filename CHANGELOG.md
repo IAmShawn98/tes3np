@@ -2,6 +2,15 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Removed / code audit — 2026-11-02
+
+- Completed source-tree reachability review and removed the dormant 1,225-line daily-login/event scheduler, its startup polling and shutdown writes, missed-event warnings, editor/hotkey controls, stale character-book references and event/hotkey portable-backup serialization. Old user settings remain untouched, inert and backward-compatible for character restore.
+- Removed the unreachable scheduled/batch claim-close controller and its queue fields, dead Launch All & Close dialog and permanently hidden full-width Launch Character button. Preserved normal per-row Play, front-page favorite quick launch, and the four-client limit.
+- Removed unused old Troubleshooting popup and broad diagnostic report, unused display-reset callback, and obsolete source-ZIP packager command. Kept current Launcher Data tools and the actual Windows packaging process.
+- Kept editable species/branding PNG masters in Git source but excluded their unused copies from the compiled standalone resources; ICO runtime art stays embedded. Corrected stale background-asset documentation and added source/build safety contracts against these dead paths.
+- See `docs/CODE-AUDIT-2026-11-02.md` for exact scope, intentionally retained active components, legacy bundled-repair downgrade risk and Windows acceptance tests. This cleaned code has **not** yet passed the next Windows build/runtime revalidation; the user's verified Expansion Pack v0.2 baseline predates the cleanup.
+
+
 ### Verified on Windows — 2026-11-02
 
 - **NP Expansion Pack v0.2 installation and live TES3MP connection succeeded (user-confirmed).** After rebuilding the alpha launcher with the atomic `progress.ini`/result publishing fix, the launcher displayed “Expansion files installed and backed up.” The user subsequently launched TES3MP, connected to Nerevarine Prophecies, and confirmed it worked without the prior plugin checksum rejection. This closes the reproduced v0.1-to-v0.2 Expansion Pack mismatch/install failure for this configuration; it does not certify every possible ZIP/folder layout or file-lock scenario.
