@@ -166,3 +166,21 @@ Run the unchanged `git pull --ff-only` on `Update/v0.1.21-alpha`, then `Build te
 - Taken together with the earlier full build log: PowerShell parsing, 331 source functions, 143 patch payload hashes, Chat Host architecture, synthetic ZIP/folder imports, native COM picker smoke test, C# build, Ahk2Exe compilation, compiled launcher `--check`, required extracted assets and final ZIP integrity passed. The one nonfatal MSB3277 `WindowsBase` version conflict warning remains open.
 - **Status:** automated Windows build and offline fixtures complete; final interactive checks of Manage Characters/favorites, macros, login, Game Client Settings, Enhancement Readability, portable data backup/import, Game Chat images/history, Happy Hour, optional Expansion Pack toggle/current package import and live server connection remain **not confirmed**. Do not run the retired bundled Install / Repair workflow or mutate the real v0.2 game files to prove the fixture. Public release review remains deferred.
 - No GitHub Actions used.
+
+## Final interactive regression accepted — 2026-11-02
+
+**Checkpoint status: TES3NP alpha cleanup/stability phase completed for the tested scope.** The user explicitly reported PASS on all five interactive categories after the full Windows build and offline regression suite had passed. These are user-reported Windows observations, not tests executed by the GitHub agent:
+
+1. PASS — Manage Characters, favorites, and character launching.
+2. PASS — Installed Macros: select, run, and stop.
+3. PASS — Game Client Settings, Enhanced Readability, and backup export/import.
+4. PASS — Game Chat, image scrolling, and Happy Hour detection.
+5. PASS — Expansion Pack toggle and current-package import. The checklist advised using a disposable installation; the user did not supply a separate import target or detailed rollback log in this confirmation, so do not infer those additional specifics.
+
+**Latest verified working baseline:** `Update/v0.1.21-alpha` at the user-tested state through commit `2b7e7add554c3caf5f6c7afc8cd1c403282431f3`, with the later `19547e593abb4ff1611a3e76644526c0236cd658` documentation-only checkpoint recording the successful automated results. No production source changes have been introduced after the user-tested build. The final acceptance and checklist documentation commits do not require rebuilding.
+
+**Previously verified locally:** source check (331 functions and 143 payload hashes), Chat Host architecture, ZIP/folder import and native picker fixtures, Chat Host compilation, AutoHotkey compilation and launcher `--check`, standalone ZIP integrity, updater source/manifest/version, metadata tamper checks and isolated updater transaction/rollback fixtures. The MSB3277 WindowsBase assembly-version warning is still nonfatal and unresolved.
+
+**Scope boundary:** all five reported interactive checks passed. Do not imply clean-machine Windows 10/11 coverage, individual fault-injection cases, alternate user profiles, a fresh public release, legal/licensing approval or an independently observed live-server connection unless additional results are provided. The previous server-connected v0.2 baseline is historical; it should not be silently upgraded to a newly repeated server-login assertion.
+
+**Next step:** retain this passing alpha as the rollback/known-good baseline, stop speculative dead-code removals and preserve the active features. Resume new TES3NP development only against a deliberate task and reversible change. Public-release readiness, clean-machine testing and licensing/distribution review remain intentionally deferred. No GitHub Actions were used.
