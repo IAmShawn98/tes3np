@@ -34,6 +34,7 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string
     AssertFixture (![IO.Directory]::Exists((Join-Path $job 'stage'))) "$Name left a full duplicate of the pack in staging"
     if (!$ShouldPass -and $ExpectedError) {
         AssertFixture ($workerMessage.Contains($ExpectedError)) "$Name rejected for an unexpected reason: $workerMessage"
+        AssertFixture (!$workerMessage.Contains('Rollback was incomplete')) "$Name incorrectly reports an incomplete rollback"
     }
     if ($ShouldPass) {
         $journal = Join-Path $job 'journal.json'
@@ -76,6 +77,7 @@ try {
     AssertFixture ($workerText.Contains("} 'opening downloaded ZIP' @(`$Package)")) 'ZIP open retry lost its archive path'
     AssertFixture ($workerText.Contains('($cause -isnot [IO.IOException] -or $code -notin @(32, 33))')) 'Retry must remain limited to Windows lock errors'
     AssertFixture ($workerText.Contains('[IO.File]::Replace($temporaryPath, $installedPath, $null)')) 'Atomic replacement must reuse the verified journal backup'
+    AssertFixture ($workerText.Contains("ReplaceVerified `$item.Source `$item.Target `$item.Hash`n        `$changed += `$backups[`$i]")) 'Rollback must track successfully committed replacements, not failed lock attempts'
     $productionGuard = @'
 function AssertGameClosed {
     if (Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue) {
