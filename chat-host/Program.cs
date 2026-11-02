@@ -307,7 +307,13 @@ internal static class Program
                 document.documentElement.appendChild(panel);
                 // Observe links as well as new messages: Discord periodically
                 // replaces expiring, signed attachment URLs in the same node.
-                new MutationObserver(schedule).observe(document.documentElement,
+                new MutationObserver(changes=>{
+                  // Ignore updates to our own download card. Otherwise each
+                  // status/link update can trigger another full Discord scan.
+                  if (changes.every(change=>panel && (
+                      change.target===panel || panel.contains(change.target)))) return;
+                  schedule();
+                }).observe(document.documentElement,
                   {childList:true,subtree:true,characterData:true,
                    attributes:true,attributeFilter:['href']});
                 schedule();
@@ -491,7 +497,10 @@ internal static class Program
               function schedule() {
                 if (scheduled) return;
                 scheduled=true;
-                requestAnimationFrame(()=>{scheduled=false;refresh();});
+                // Discord's live React tree produces many mutations per
+                // frame. Cap full scans so downloads cannot starve the child
+                // browser while a large file is opened externally.
+                setTimeout(()=>{scheduled=false;refresh();},150);
               }
               window.__tes3npExpansionFocus=schedule;
               if (document.readyState==='loading')
