@@ -459,6 +459,9 @@ expect(
     and 'CheckWorker $packageRoot' in expansion_fixture
     and 'CheckWorker $payload' in expansion_fixture
     and 'CheckWorker $packageRoot ' in expansion_fixture
+    and 'Add-Type -AssemblyName System.IO.Compression\n' in expansion_fixture
+    and 'Add-Type -AssemblyName System.IO.Compression.FileSystem\n' in expansion_fixture
+    and '[IO.Compression.ZipArchiveMode]::Create' in expansion_fixture
     and '[IO.Compression.ZipFileExtensions]::CreateEntryFromFile(' in expansion_fixture
     and ".Replace('\\', '/')" in expansion_fixture
     and "CheckWorker $badZip 'reject-backslash-entry' $false 'unsafe file path'" in expansion_fixture
