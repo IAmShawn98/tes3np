@@ -48,12 +48,17 @@ CheckTES3MPPluginMismatch()
     if !Client.Enabled || !Client.HasOwnProp("LogWatch") || !IsObject(Client.LogWatch)
         return false
     watch := Client.LogWatch
+    pending := Client.HasOwnProp("MismatchPending") && Client.MismatchPending
     for folder in watch.Paths
     {
         Loop Files, folder "\tes3mp-client*.log", "F"
         {
             path := A_LoopFileFullPath
             key := StrLower(path)
+            ; Once a rejection is found, read only its own log. Never mix
+            ; details from another game client or an unrelated old log.
+            if pending && key != Client.MismatchLogKey
+                continue
             try
             {
                 size := FileGetSize(path)
@@ -61,8 +66,6 @@ CheckTES3MPPluginMismatch()
                 previous := watch.Files.Has(key) ? watch.Files[key] : {Size: 0, Modified: ""}
                 if size = previous.Size && modified = previous.Modified
                     continue
-                ; Logs can truncate/reopen between launches. An unchanged
-                ; length with a newer timestamp is a rewritten file.
                 offset := size > previous.Size ? previous.Size : 0
                 watch.Files[key] := {Size: size, Modified: modified}
                 if size <= 0
@@ -78,25 +81,41 @@ CheckTES3MPPluginMismatch()
                 finally file.Close()
                 if chunk = ""
                     continue
-                text := watch.Carry chunk
-                if InStr(text, "Your plugins or their load order don't match the server's", false)
+                if pending
                 {
-                    ; This is the exact NEW client-log content that triggered
-                    ; the popup. Classify it NOW, before StopClient terminates
-                    ; the game and its log can become locked or inaccessible.
-                    ; The result contains only booleans and fixed status.
-                    TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(text)
-                    HandleTES3MPPluginMismatch()
+                    ; The comparison can be logged after the first rejection
+                    ; sentence. Retain categories and integer slots only.
+                    TES3MPAccumulateMismatchDetailText(TES3MPLastMismatchEvidence, chunk)
+                    continue
+                }
+                currentText := watch.Carry chunk
+                if InStr(currentText, "Your plugins or their load order don't match the server's", false)
+                {
+                    TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(currentText)
+                    Client.MismatchPending := true
+                    Client.MismatchLogKey := key
+                    ; Two ordinary watchdog ticks allow following detail
+                    ; lines to flush. No new timer or background process.
+                    Client.MismatchCaptureUntil := A_TickCount + 1500
+                    LogLauncherEvent("GAME | PLUGIN MISMATCH | Rejection captured; collecting bounded comparison categories.")
                     return true
                 }
-                watch.Carry := StrLen(text) > 384 ? SubStr(text, -384) : text
+                watch.Carry := StrLen(currentText) > 384 ? SubStr(currentText, -384) : currentText
             }
             catch Error as err
                 LogLauncherEvent("GAME | Plugin-mismatch log inspection unavailable: " Type(err) ".")
         }
     }
+    if pending
+    {
+        if A_TickCount >= Client.MismatchCaptureUntil
+            HandleTES3MPPluginMismatch()
+        ; Do not advance login stages once rejection was detected.
+        return true
+    }
     return false
 }
+
 
 HandleTES3MPPluginMismatch()
 {
@@ -436,7 +455,10 @@ TES3MPNewMismatchLogResult(status := "Not found")
 {
     return {Status: status, Source: "Latest client log", Rejected: false,
         MissingExpansion: false, MissingOther: false, MissingBaseMaster: false,
-        MissingUnspecified: false, Order: false}
+        MissingUnspecified: false, Order: false,
+        ComparisonSlots: 0, FirstSlot: -1, ChecksumCount: 0,
+        NameMismatchCount: 0, ExtraClientCount: 0, ExtraServerCount: 0,
+        SlotFlags: Map()}
 }
 
 ; Look at ONLY the last server-rejection context (nearby lines). Arbitrary
@@ -453,21 +475,35 @@ TES3MPAnalyzeMismatchLogText(raw)
         return result
     result.Rejected := true
     first := Max(1, lastRejection - 18)
-    last := Min(lines.Length, lastRejection + 12)
+    last := Min(lines.Length, lastRejection + 40)
     Loop last - first + 1
     {
         currentIndex := first + A_Index - 1
-        line := lines[currentIndex]
-        missing := InStr(line, "missing plugin") || InStr(line, "missing master")
-            || InStr(line, "missing dependency") || InStr(line, "could not find plugin")
-            || InStr(line, "failed to load plugin")
-        ; The rejection sentence itself says "load order"; that generic
-        ; message must not count as a separate order-specific error.
-        if currentIndex != lastRejection
-            result.Order := result.Order || InStr(line, "load order") > 0
-                || InStr(line, "plugin order") > 0
-        if !missing
+        if currentIndex = lastRejection
             continue
+        TES3MPAccumulateMismatchLine(result, lines[currentIndex])
+    }
+    return result
+}
+
+TES3MPAccumulateMismatchDetailText(result, raw)
+{
+    for line in StrSplit(StrLower(raw), "`n", "`r")
+        TES3MPAccumulateMismatchLine(result, line)
+    return result
+}
+
+TES3MPAccumulateMismatchLine(result, line)
+{
+    ; The generic rejection mentions load order but does not independently
+    ; prove a load-order problem.
+    if InStr(line, "your plugins or their load order don't match the server's")
+        return
+    missing := InStr(line, "missing plugin") || InStr(line, "missing master")
+        || InStr(line, "missing dependency") || InStr(line, "could not find plugin")
+        || InStr(line, "failed to load plugin")
+    if missing
+    {
         if InStr(line, "np expansion pack.esp")
             result.MissingExpansion := true
         else if InStr(line, "morrowind.esm") || InStr(line, "tribunal.esm")
@@ -478,8 +514,49 @@ TES3MPAnalyzeMismatchLogText(raw)
         else
             result.MissingUnspecified := true
     }
-    return result
+    if InStr(line, "load order") || InStr(line, "plugin order")
+        result.Order := true
+
+    ; TES3MP comparison examples:
+    ; 0: checksum 0x... doesn't match 0x...
+    ; 1: Some.esp doesn't match Other.esm, checksum ...
+    ; 3: Some.esp is past the number of plugins used by the server
+    ; Only fixed categories and zero-based slot numbers are retained.
+    if !RegExMatch(Trim(line), "i)(?:^|:\s+)(\d{1,4}):\s*(.+)$", &match)
+        return
+    slot := Integer(match[1])
+    detail := match[2]
+    bits := 0
+    if InStr(detail, "checksum") && InStr(detail, "doesn't match")
+        bits |= 1
+    if RegExMatch(detail, "i)\.(?:esm|esp|omwaddon)\b.*doesn't match.*\.(?:esm|esp|omwaddon)\b")
+        bits |= 2
+    if InStr(detail, "past the number of plugins used by the server")
+        bits |= 4
+    if InStr(detail, "past the number of plugins used by the client")
+        bits |= 8
+    if !bits
+        return
+    oldBits := result.SlotFlags.Has(slot) ? result.SlotFlags[slot] : 0
+    newBits := bits & ~oldBits
+    if !newBits
+        return
+    result.SlotFlags[slot] := oldBits | newBits
+    if !oldBits
+    {
+        result.ComparisonSlots += 1
+        result.FirstSlot := result.FirstSlot < 0 ? slot : Min(result.FirstSlot, slot)
+    }
+    if newBits & 1
+        result.ChecksumCount += 1
+    if newBits & 2
+        result.NameMismatchCount += 1
+    if newBits & 4
+        result.ExtraClientCount += 1
+    if newBits & 8
+        result.ExtraServerCount += 1
 }
+
 
 TES3MPSelectMismatchLogEvidence(captured)
 {
@@ -574,15 +651,34 @@ TES3MPMismatchAssessment(info, markers, installed)
         return "Expansion Pack configuration needs attention"
     if otherEvidence
         return "Other plugin or base-game dependency needs attention"
+    if markers.Status = "Read" && markers.Rejected && markers.ComparisonSlots > 0
+    {
+        categories := (markers.ChecksumCount > 0) + (markers.NameMismatchCount > 0)
+            + (markers.ExtraClientCount > 0) + (markers.ExtraServerCount > 0)
+        if categories > 1
+            return "TES3MP reported multiple plugin comparison discrepancies"
+        if markers.ChecksumCount > 0
+            return "TES3MP reported plugin checksum differences"
+        if markers.NameMismatchCount > 0
+            return "TES3MP reported different plugins at matching load-order slots"
+        if markers.ExtraClientCount > 0
+            return "Client has plugin slots beyond the server list"
+        if markers.ExtraServerCount > 0
+            return "Server has plugin slots beyond the client list"
+    }
     return "Cause not determined from available checks"
 }
 
 ; The report is generated solely from an allowlist of fixed strings, numeric
 ; counts and known tri-state flags. No untrusted text enters the clipboard.
-TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
+TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, fingerprint := 0)
 {
     configOK := info.Status = "Read"
     logOK := markers.Status = "Read" && markers.Rejected
+    if !IsObject(fingerprint)
+        fingerprint := TES3MPNewExpansionFingerprintResult("Not checked")
+    hashText := RegExMatch(fingerprint.Sha256, "^[0-9A-F]{64}$")
+        ? fingerprint.Sha256 : "Unknown"
     expansion := TES3MPMismatchYesNo(info.ExpansionCount > 0, configOK)
     expansionLast := TES3MPMismatchYesNo(info.ExpansionCount = 1 && info.ExpansionIndex = info.Total, configOK && info.ExpansionCount = 1)
     totalText := configOK ? info.Total : "Unknown"
@@ -614,6 +710,9 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
     report .= "Tribunal master: " TES3MPMismatchYesNo(info.Tribunal, configOK) "`r`n"
     report .= "Bloodmoon master: " TES3MPMismatchYesNo(info.Bloodmoon, configOK) "`r`n"
     report .= "Expansion ESP in configured game folder: " installed "`r`n"
+    report .= "Expansion ESP fingerprint check: " fingerprint.Status "`r`n"
+    report .= "Expansion ESP size (bytes): " fingerprint.Size "`r`n"
+    report .= "Expansion ESP SHA-256: " hashText "`r`n"
     report .= "`r`n[Client rejection evidence]`r`n"
     report .= "Client log check: " markers.Status "`r`n"
     report .= "Client evidence source: " markers.Source "`r`n"
@@ -622,24 +721,118 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp)
     report .= "Other missing plugin specifically indicated: " TES3MPMismatchYesNo(markers.MissingOther, logOK) "`r`n"
     report .= "Missing base-game master indicated: " TES3MPMismatchYesNo(markers.MissingBaseMaster, logOK) "`r`n"
     report .= "Missing dependency not identified: " TES3MPMismatchYesNo(markers.MissingUnspecified, logOK) "`r`n"
-    report .= "Load-order wording near rejection: " TES3MPMismatchYesNo(markers.Order, logOK)
+    report .= "Load-order wording near rejection: " TES3MPMismatchYesNo(markers.Order, logOK) "`r`n"
+    report .= "Detailed comparison captured: " TES3MPMismatchYesNo(markers.ComparisonSlots > 0, logOK) "`r`n"
+    report .= "Affected comparison slots: " (logOK ? markers.ComparisonSlots : "Unknown") "`r`n"
+    report .= "First differing slot (zero-based): " (logOK && markers.FirstSlot >= 0 ? markers.FirstSlot : "Unknown") "`r`n"
+    report .= "Checksum mismatch slots: " (logOK ? markers.ChecksumCount : "Unknown") "`r`n"
+    report .= "Plugin-name mismatch slots: " (logOK ? markers.NameMismatchCount : "Unknown") "`r`n"
+    report .= "Extra client plugin slots: " (logOK ? markers.ExtraClientCount : "Unknown") "`r`n"
+    report .= "Extra server plugin slots: " (logOK ? markers.ExtraServerCount : "Unknown")
     return report
 }
+TES3MPNewExpansionFingerprintResult(status := "Not checked")
+{
+    return {Status: status, Size: "Unknown", Sha256: "Unknown"}
+}
+
+; CNG hashes the actual ESP contents in bounded 1 MiB blocks. The digest
+; identifies bytes, not compatibility with any unverified server manifest.
+TES3MPFileSHA256(path)
+{
+    algorithm := 0
+    hash := 0
+    file := 0
+    try
+    {
+        if DllCall("bcrypt\BCryptOpenAlgorithmProvider", "Ptr*", &algorithm,
+            "WStr", "SHA256", "Ptr", 0, "UInt", 0, "Int") != 0
+            throw Error("SHA256 provider unavailable")
+        lengthBuffer := Buffer(4, 0)
+        returned := Buffer(4, 0)
+        if DllCall("bcrypt\BCryptGetProperty", "Ptr", algorithm, "WStr", "ObjectLength",
+            "Ptr", lengthBuffer.Ptr, "UInt", lengthBuffer.Size,
+            "Ptr", returned.Ptr, "UInt", 0, "Int") != 0
+            throw Error("SHA256 object length unavailable")
+        hashObjectLength := NumGet(lengthBuffer, 0, "UInt")
+        if hashObjectLength < 1 || hashObjectLength > 65536
+            throw Error("Invalid SHA256 object length")
+        hashObject := Buffer(hashObjectLength, 0)
+        if DllCall("bcrypt\BCryptCreateHash", "Ptr", algorithm, "Ptr*", &hash,
+            "Ptr", hashObject.Ptr, "UInt", hashObject.Size,
+            "Ptr", 0, "UInt", 0, "UInt", 0, "Int") != 0
+            throw Error("SHA256 hash initialization failed")
+        file := FileOpen(path, "r")
+        if !IsObject(file)
+            throw Error("Expansion ESP could not be opened")
+        block := Buffer(1048576, 0)
+        while (read := file.RawRead(block, block.Size)) > 0
+        {
+            if DllCall("bcrypt\BCryptHashData", "Ptr", hash,
+                "Ptr", block.Ptr, "UInt", read, "UInt", 0, "Int") != 0
+                throw Error("SHA256 update failed")
+        }
+        digest := Buffer(32, 0)
+        if DllCall("bcrypt\BCryptFinishHash", "Ptr", hash,
+            "Ptr", digest.Ptr, "UInt", digest.Size, "UInt", 0, "Int") != 0
+            throw Error("SHA256 finalize failed")
+        result := ""
+        Loop digest.Size
+            result .= Format("{:02X}", NumGet(digest, A_Index - 1, "UChar"))
+        return result
+    }
+    finally
+    {
+        if IsObject(file)
+            file.Close()
+        if hash
+            DllCall("bcrypt\BCryptDestroyHash", "Ptr", hash, "Int")
+        if algorithm
+            DllCall("bcrypt\BCryptCloseAlgorithmProvider", "Ptr", algorithm,
+                "UInt", 0, "Int")
+    }
+}
+
+TES3MPReadExpansionFingerprint(path)
+{
+    info := TES3MPNewExpansionFingerprintResult("Not found")
+    if !FileExist(path)
+        return info
+    try
+    {
+        info.Size := FileGetSize(path)
+        info.Sha256 := TES3MPFileSHA256(path)
+        info.Status := "Hashed"
+    }
+    catch Error as err
+    {
+        info.Status := "Read error"
+        LogLauncherEvent("EXPANSION | Fingerprint calculation unavailable ("
+            Type(err) ", line " err.Line ").")
+    }
+    return info
+}
+
 TES3MPBuildMismatchDiagnostics()
 {
     global AppConfig, DataFile, TES3MPLastMismatchEvidence
     info := TES3MPReadMismatchConfigInfo()
     markers := TES3MPSelectMismatchLogEvidence(TES3MPLastMismatchEvidence)
     installed := "Not checked"
+    fingerprint := TES3MPNewExpansionFingerprintResult()
     try
     {
         root := IniRead(DataFile, "Patch", "MorrowindFolder", "")
         if root != "" && DirExist(root "\Data Files")
-            installed := FileExist(root "\Data Files\NP Expansion Pack.esp") ? "Yes" : "No"
+        {
+            esp := root "\Data Files\NP Expansion Pack.esp"
+            fingerprint := TES3MPReadExpansionFingerprint(esp)
+            installed := FileExist(esp) ? "Yes" : "No"
+        }
     }
     catch Error as err
         LogLauncherEvent("EXPANSION | Diagnostic expansion-file check failed ("
             Type(err) ", line " err.Line ").")
     return TES3MPRenderMismatchDiagnostics(info, markers, installed,
-        AppConfig.Version, FormatTime(A_NowUTC, "yyyy-MM-dd HH:mm:ss"))
+        AppConfig.Version, FormatTime(A_NowUTC, "yyyy-MM-dd HH:mm:ss"), fingerprint)
 }
