@@ -4,6 +4,8 @@
 
 ### Added
 
+- Fixed a Windows build-preflight crash in `scripts/check-chat-architecture.py` after the upgraded mismatch renderer changed its function signature. The checker now handles missing or renamed source sections as ordinary contract failures rather than raising `IndexError`, and validates the new delayed-rejection capture, privacy-safe slot summary, and CNG fingerprint paths. The code remains unverified by a Windows build until the next local run.
+
 - Improved the Expansion Pack mismatch popup's **Copy Diagnostic Info**: the existing login watchdog now gives TES3MP two ticks to flush its detailed discrepancy lines, classifies checksum differences, mismatched plugin-name slots and extra-client/server slots, and copies fixed counts and a bounded per-slot category summary (never arbitrary plugin names, log text, paths or credentials). The installed Expansion Pack ESP is fingerprinted by streaming SHA-256 plus file size; the report explicitly does **not** equate that hash with a verified server version. Added isolated parser, de-duplication, redaction and SHA-256 known-vector tests in the Windows build. Windows compile and live login/popup verification remain pending.
 
 - Bundled standalone TES3MP 0.8.1 Windows runtime and self-contained Game Chat host, removing the requirement for a separately installed TES3MP client.
