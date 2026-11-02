@@ -191,6 +191,8 @@ def check(allow_missing_payload: bool = False) -> None:
         "MagicCardsRenderText", "MagicCardsBufferToHBitmap",
         "AddMagicCardsText", "LauncherMagicCardsData",
         "LauncherMagicCardsFnt", "LauncherMagicCardsTex",
+        # Removed executable textbox and its disconnected Browse/save handlers.
+        "ExecutableInput", "BrowseSharedExecutable", "SaveSharedExecutable",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
@@ -236,6 +238,27 @@ def check(allow_missing_payload: bool = False) -> None:
         and "#Include src\\ui\\v016-refinements.ahk" in root_source
     ):
         errors.append("Retired feature cleanup broke an active launcher/UI dependency.")
+
+    # The retired executable textbox is gone. Selecting a game client is
+    # handled by the live Game Client Settings workflow, not by a stale GUI
+    # input. Protect that workflow and direct patcher persistence.
+    client_ui = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
+    patch_ui = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
+    client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
+    client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
+    client_contract = (
+        'customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))' in client_ui
+        and 'reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
+        and 'restore.OnEvent("Click", (*) => RestoreBundledClientV016(menu))' in client_ui
+        and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in client_ui
+        and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in client_ui
+        and "InstallCustomClientOverrides(source, folder)" in client_ui
+        and 'IniWrite(executable, DataFile, "Launch", "Executable")' in patch_ui
+        and "GetSharedExecutable()" in client_settings
+        and "InstallCustomClientOverrides(source, dependencies := \"\")" in client_detection
+    )
+    if not client_contract:
+        errors.append("Live game-client selection or patcher executable persistence was lost.")
 
     # The Enhanced Readability control remains a live callback in Launcher
     # Settings. Its native label updater was incorrectly deleted in an audit;
