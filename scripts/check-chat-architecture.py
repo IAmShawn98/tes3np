@@ -480,33 +480,31 @@ expect(
     and 'AssertSpace $staged ([long]$item.Length)' in expansion_worker
     and 'AssertSpace $item.Target' in expansion_worker
     and 'AssertSpace $JobFolder' in expansion_worker
-    and 'function InvokeLockRetry([scriptblock]$Action, [string]$Operation, [object[]]$Arguments' in expansion_worker
-    and 'return (& $Action @Arguments)' in expansion_worker
-    and 'param([string]$filePath)' in expansion_worker
-    and '@($Path)' in expansion_worker
-    and 'param([string]$sourcePath, [string]$targetPath)' in expansion_worker
-    and '@($Source, $Target)' in expansion_worker
-    and '[IO.File]::Replace($temporaryPath, $installedPath, $null)' in expansion_worker
-    and '("replacing file during " + $script:ImportActivity) @($temp, $Target)' in expansion_worker
-    and '("installing new file during " + $script:ImportActivity) @($temp, $Target)' in expansion_worker
-    and "'opening downloaded ZIP' @($Package)" in expansion_worker
-    and '[IO.File]::Replace($temp, $Target, $null)' not in expansion_worker
-    and 'Temporary import copy destination already exists.' in expansion_worker
-    and 'return (& $Action @Arguments)' in expansion_fixture
-    and '$code -notin @(32, 33)' in expansion_worker
+    and 'function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation)' in expansion_worker
+    and 'InvokeLockRetry' not in expansion_worker
+    and "'hash' {" in expansion_worker
+    and "'copy' {" in expansion_worker
+    and "'replace' {" in expansion_worker
+    and "'move' {" in expansion_worker
+    and "'zipopen' {" in expansion_worker
+    and "InvokeFileOperation 'hash' $Path" in expansion_worker
+    and "InvokeFileOperation 'copy' $Source $Target $Operation" in expansion_worker
+    and "InvokeFileOperation 'replace' $temp $Target" in expansion_worker
+    and "InvokeFileOperation 'move' $temp $Target" in expansion_worker
+    and "InvokeFileOperation 'zipopen' $Package" in expansion_worker
+    and '$code -notin @(32,33)' in expansion_worker
     and 'for ($attempt = 1; $attempt -le 6; $attempt++)' in expansion_worker
+    and '[IO.File]::Replace($Source, $Destination, $null)' in expansion_worker
     and 'Start-Sleep -Milliseconds' in expansion_worker
     and 'function CopyWithRetry(' in expansion_worker
     and 'CopyWithRetry $item.Target $backup' in expansion_worker
     and 'CopyWithRetry $Source $temp' in expansion_worker
-    and '[IO.File]::Replace($temporaryPath, $installedPath, $null)' in expansion_worker
-    and '[IO.File]::Replace($temp, $Target, $replaceBackup)' not in expansion_worker
-    and 'six attempts' in expansion_fixture
+    and 'Temporary import copy destination already exists.' in expansion_worker
+    and 'Rollback was incomplete' in expansion_fixture
     and "CheckWorker $zip 'recover-after-lock' $true" in expansion_fixture
     and "CheckWorker $zip 'reject-persistent-win32-lock' $false" in expansion_fixture
-    and "ReplaceVerified $item.Source $item.Target $item.Hash\n        $changed += $backups[$i]" in expansion_worker
-    and 'Rollback was incomplete' in expansion_fixture
-    and 'old locked ESP content' in expansion_fixture
+    and 'ReplaceVerified $item.Source $item.Target $item.Hash\n        $changed += $backups[$i]' in expansion_worker
+    and 'function InvokeFileOperation(' in expansion_fixture
     and "Unpacked Expansion Pack exceeds the 1 GB limit." not in expansion_worker
     and "Extracted Expansion Pack exceeds the 1 GB limit." not in expansion_worker
     and "134217728" not in expansion_worker
