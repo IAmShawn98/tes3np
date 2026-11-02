@@ -439,6 +439,11 @@ expect(
     and 'StartExpansionImportWorker(package, morrowind, config)' in expansion_upload
     and 'select-expansion-package.ps1' in expansion_upload
     and 'RunWait(command, , "Hide")' in expansion_upload
+    and 'DllCall("GetCurrentProcessId", "UInt")' in expansion_upload
+    and 'A_Pid' not in expansion_upload
+    and "Preflighting full AutoHotkey launcher source and warning diagnostics" in expansion_build
+    and '$launcherOutput = @(& $base /ErrorStdOut $launcherSource' in expansion_build
+    and "'AutoHotkey launcher source warnings detected before packaging.'" in expansion_build
     and 'DirExist(package)' in expansion_upload
     and 'StrLower(extension) = "zip"' in expansion_upload
     and 'ChooseExpansionPackageSource' not in expansion_upload
