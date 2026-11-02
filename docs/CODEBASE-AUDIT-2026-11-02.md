@@ -74,6 +74,10 @@ This is a rolling source-audit ledger, not a replacement for successful local Wi
 - Release gate remains intentionally blocked on the modified TES3MP client's corresponding source, rights review and clean-machine results. No tags, release assets, production update feed or user settings were modified.
 - Static GitHub source analysis cannot exercise Windows timers, native COM dialogs, WebView2, AHK compile/runtime or a real NP session. The prior v0.2 server connection is the **pre-cleanup baseline**, not a post-cleanup regression pass.
 
+### Exact post-change source graph check
+
+At source HEAD `f29da3fcfdfc1871c19d061f626c9e837170478d` the Git tree has **257 tracked files**. All **25** live AHK modules under `src/` are included exactly once in the `tes3np.ahk` entrypoint (no missing or dangling `#Include`). No tracked filenames contain `scheduler`. Retired symbol scans over all AHK modules plus Chat Host C# and all PowerShell worker/test files found no remaining executable definitions or references for the retired scheduler and audited dead paths. This is a **source graph check**, not a claim of passing Windows compilation or dynamic tests.
+
 ### Verification and recommended Windows pass
 
 The reviewed source has explicit branch commits and source post-write checks. The existing `scripts/project.py check` guard rejects reintroduced scheduler/obsolete symbols, including the PowerShell/C# scheduler check added in this audit. `scripts/check-chat-architecture.py`, PowerShell syntax, ZIP/folder synthetic fixture, AHK diagnostic fixture, updater fixture and packaging gates remain in the build.
