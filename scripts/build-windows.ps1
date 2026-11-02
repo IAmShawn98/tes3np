@@ -106,6 +106,13 @@ try {
     $compiler = Get-ChildItem (Join-Path $tools 'compiler') -Filter 'Ahk2Exe.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
     if (!$base -or !$compiler) { throw 'Required AutoHotkey build tools were not found.' }
 
+    # Execute the same parser and report code as the launcher, with synthetic
+    # inputs and NO game files, personal settings, network or clipboard.
+    Step 'Testing plugin-mismatch diagnostics with isolated AutoHotkey fixtures'
+    $mismatchFixture = Join-Path $projectRoot 'scripts\test-expansion-diagnostics.ahk'
+    & $base /ErrorStdOut $mismatchFixture
+    if ($LASTEXITCODE -ne 0) { throw 'Plugin-mismatch diagnostic fixture tests failed; packaging stopped.' }
+
     $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
     $smokeArgs = '/in "' + $smokeSource + '" /out "' + $smokeExe + '" /base "' + $base + '" /compress 0 /silent verbose'
