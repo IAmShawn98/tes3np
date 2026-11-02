@@ -49,7 +49,7 @@ This is a rolling source-audit ledger, not a replacement for successful local Wi
 - **Root cause:** The earlier removal of obsolete `ToggleV016ReadabilityParts` and `ToggleV016FollowWindows` also deleted the *live* `UpdateV016ReadabilityLabel(control, state)` function between them. The active Enhanced Readability checkbox still bound `ToggleV016ReadabilityControl` and called that helper.
 - **Correction:** Restored the original helper, preserving its control/window validation and exact label update. Added an explicit `scripts/project.py check` guard for event binding, state callback, updater and reset path. No other Launcher Settings controls were changed.
 - **Related cross-module review:** Compared function definitions from baseline `8d89e43` with current code in the nine AHK files altered by audit. There were 34 intentionally removed AHK functions; scanned all other current AHK entry/modules as well, and none of their names remain referenced. This does not prove Windows/UI behavior for every reachable function.
-- **Validation pending:** Rebuild on Windows, confirm no `#Warn`, open Launcher Settings, toggle Enhanced Readability on/off, preview/reset settings, and verify saved preference. This regression is fixed in source only until Windows confirms.
+- **Validation pending:** Rebuild on Windows, confirm no `#Warn`, open Launcher Settings, toggle Enhanced Readability on/off, preview/reset settings, and verify saved preference. User confirmed on 2026-11-02 that this warning is fixed in their Windows environment. A complete build log and separate UI interaction results were not supplied.
 
 ## Top-to-bottom continuation — 2026-11-02
 
