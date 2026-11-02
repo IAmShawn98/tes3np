@@ -501,7 +501,7 @@ expect(
     and "[IO.File]::WriteAllText((Join-Path $JobFolder 'result.ini')" not in expansion_worker
     and "CheckWorker $zip 'zip-progress-reader-lock' $true '' $true" in expansion_fixture
     and "did not exercise the locked progress.ini publisher" in expansion_fixture
-    and "Start-Process -FilePath $windowsPowerShell -ArgumentList $args -PassThru" in expansion_fixture
+    and "Start-Process -FilePath $windowsPowerShell -ArgumentList $childArgs -PassThru" in expansion_fixture
     and 'progress.ini' in expansion_fixture
     and '$code -notin @(32,33)' in expansion_worker
     and 'for ($attempt = 1; $attempt -le 6; $attempt++)' in expansion_worker
