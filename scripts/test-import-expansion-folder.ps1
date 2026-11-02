@@ -97,7 +97,13 @@ function AssertGameClosed {
     WriteFixture $mesh 'sample-mesh'
     WriteFixture (Join-Path $packageRoot 'README.txt') 'this is outside Data Files'
 
+    # Windows PowerShell 5.1 does not necessarily load ZipArchiveMode
+    # from System.IO.Compression when only FileSystem is referenced.
+    # Both are required: ZipArchiveMode is in System.IO.Compression,
+    # while ZipFile / ZipFileExtensions live in FileSystem on .NET Framework.
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
+    AssertFixture ([IO.Compression.ZipArchiveMode]::Create -ne $null) 'ZipArchiveMode could not be loaded'
     $zip = Join-Path $root 'synthetic-official.zip'
     # Windows PowerShell 5.1 / .NET Framework CreateFromDirectory can store
     # platform-native backslashes in ZIP entry names. A canonical package
