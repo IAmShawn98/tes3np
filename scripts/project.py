@@ -148,6 +148,46 @@ def check(allow_missing_payload: bool = False) -> None:
                     errors.append(f"{relative}: missing include {match[1]}")
         except ValueError as error:
             errors.append(f"{relative}: {error}")
+    # Retired scheduler and unreachable launch-all feature: no live
+    # compilation root, orphan callback or persisted event transfer should
+    # silently reintroduce automated logins or a hidden UI control.
+    retired_names = (
+        "daily-login-scheduler.ahk", "LoadDailyLoginSchedule",
+        "ScheduledEvents", "ScheduledEvent", "ScheduledDailyLogin",
+        "ScheduledLoginAction", "ScheduledCountdown", "ShowMissedScheduledEvents",
+        "GetScheduledEvent", "MarkScheduledDailyLoginComplete",
+        "CancelScheduledDailyLoginForToday", "SaveScheduledEventShutdownTime",
+        "OpenScheduledEvents", "CloseScheduledEventsBook",
+        "V016DailyLoginControls", "OpenDailyLoginScheduleSettings",
+        "LaunchAllCharacters", "ShowLaunchAllExplanation",
+        "AcceptLaunchAllExplanation", "LaunchCharacterButton",
+        "HideLaunchAllExplanation", "ClaimWaitMs",
+    )
+    if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
+        errors.append("Retired scheduler module must not be restored.")
+    for source in [ROOT / "tes3np.ahk", *sorted((ROOT / "src").rglob("*.ahk"))]:
+        content = source.read_text(encoding="utf-8-sig")
+        for name in retired_names:
+            if name.lower() in content.lower():
+                errors.append(
+                    f"{source.relative_to(ROOT)}: retired feature reference {name}"
+                )
+        if re.search(r"\\bClient\\.Queue\\b", content):
+            errors.append(f"{source.relative_to(ROOT)}: retired batch queue reference")
+    session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
+    root_source = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
+    refinements = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
+    main_menu = (ROOT / "src/ui/front-page.ahk").read_text(encoding="utf-8-sig")
+    if not (
+        "StartProfileSession(profile, executable)" in session
+        and "CanStartAnotherTES3NPGame()" in session
+        and 'MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])' in main_menu
+        and "SetBookControlVisible(control, visible)" in refinements
+        and "if !LauncherDataResetting" in (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
+        and "#Include src\\ui\\v016-refinements.ahk" in root_source
+    ):
+        errors.append("Retired feature cleanup broke an active launcher/UI dependency.")
+
     # Favorite-selection source contract: ensure the first saved character is
     # checked, the switch explanation appears once (regardless of answer),
     # and legacy loads/imports cannot strand a nonempty list without a favorite.
