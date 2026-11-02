@@ -2,6 +2,11 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Verified on Windows — 2026-11-02
+
+- **NP Expansion Pack v0.2 installation and live TES3MP connection succeeded (user-confirmed).** After rebuilding the alpha launcher with the atomic `progress.ini`/result publishing fix, the launcher displayed “Expansion files installed and backed up.” The user subsequently launched TES3MP, connected to Nerevarine Prophecies, and confirmed it worked without the prior plugin checksum rejection. This closes the reproduced v0.1-to-v0.2 Expansion Pack mismatch/install failure for this configuration; it does not certify every possible ZIP/folder layout or file-lock scenario.
+- Preserve as the verified working baseline: unified native ZIP/folder picker; large-package importer without arbitrary byte-size caps; safe asset staging and SHA-256 verification; existing backup and rollback journal; lock handling and atomic status updates. Future broader code audit of legacy Install / Repair remains deferred by user request. No application code changed in this checkpoint.
+
 ### Added
 
 - Replaced the mismatch recovery flow's separate ZIP/folder choice popup with one native Windows Explorer-style chooser. **Open ZIP** returns an official ZIP; **Use This Folder** returns the highlighted/current extracted folder from the same browser. A small native COM helper runs in a separate STA Windows PowerShell process, returns only the selected local path, and uses an owned window; existing staging, game-client checks, SHA-256 verification, backup and rollback remain unchanged. A noninteractive COM smoke test now runs during Windows build preflight; manual native-dialog and live import verification are still pending.
