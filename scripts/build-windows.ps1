@@ -241,6 +241,18 @@ try {
             }
         }
     }
+    # Editable icon PNGs are source-only art masters; the compiled runtime
+    # uses the matching ICOs. Verify they were not needlessly FileInstalled.
+    if (Test-Path -LiteralPath (Join-Path $resourceRoot 'assets\icons\tes3np.png')) {
+        throw 'Unused branding PNG was embedded in the runtime.'
+    }
+    $runtimeSpecies = Join-Path $resourceRoot 'assets\icons\species'
+    if (Test-Path -LiteralPath $runtimeSpecies) {
+        if (@(Get-ChildItem -LiteralPath $runtimeSpecies -File -Filter '*.png').Count -gt 0) {
+            throw 'Unused species PNG source masters were embedded in the runtime.'
+        }
+    }
+    Step 'Verified editable PNG icon masters are excluded from standalone resources'
     $manifestPath = Join-Path $resourceRoot 'patches\manifest.json'
     if (!(Test-Path -LiteralPath $manifestPath)) { throw "Missing extracted patch manifest: $manifestPath" }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
