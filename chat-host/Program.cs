@@ -684,23 +684,6 @@ internal static class Program
             });
         }
 
-        void RetryEmbeddedExpansionDownload(IntPtr placeholder)
-        {
-            // This is invoked by the launcher-owned NATIVE button, not the
-            // potentially stalled WebView2. Never use a URL from a prior
-            // plugin-mismatch dialog.
-            if (placeholder==IntPtr.Zero || placeholder!=expansionDownloadsParent ||
-                !IsWindow(placeholder))
-                return;
-            string? url=expansionLatestZipUrl;
-            if (url==null)
-            {
-                Log("EXPANSION | Retry requested before latest ZIP was discovered.");
-                return;
-            }
-            RequestExpansionDownload(url,"native-retry");
-        }
-
         async Task InitializeExpansionDownloadsBrowser()
         {
             var browser=expansionDownloadsBrowser;
@@ -3352,7 +3335,6 @@ metrics();
                     case 4: SetChatDisplayMode("Always Hidden"); break;
                     case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
                     case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
-                    case 8: RetryEmbeddedExpansionDownload(m.LParam); break;
                 }
                 return;
             }
