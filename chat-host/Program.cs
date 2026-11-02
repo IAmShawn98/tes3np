@@ -300,16 +300,22 @@ internal static class Program
               }
               function snowflake(message) {
                 if (!message) return null;
-                // Discord uses chat-messages-<snowflake> and/or
-                // chat-messages___<snowflake> for individual message rows.
-                // Grouped replies and system rows can use other wrappers.
-                for (let el=message; el && el!==document.body; el=el.parentElement) {
-                  const raw=(el.getAttribute?.('data-list-item-id')||'')+' '+
-                    (el.id||'');
+                // Discord message IDs may live on a row, a nested element,
+                // or an outer virtualized list item. Use each source before
+                // falling back to the visual order of ZIP links.
+                const parse=node=>{
+                  const raw=(node?.getAttribute?.('data-list-item-id')||'')+' '+
+                    (node?.id||'');
                   const match=raw.match(/chat-messages[_-]+(\d{15,22})(?!\d)/);
-                  if (match) return BigInt(match[1]);
+                  return match ? BigInt(match[1]) : null;
+                };
+                for (let el=message; el && el!==document.body; el=el.parentElement) {
+                  const id=parse(el);
+                  if (id!==null) return id;
                 }
-                return null;
+                const nested=message.querySelector?.(
+                  '[id^="chat-messages-"],[data-list-item-id^="chat-messages_"]');
+                return nested ? parse(nested) : null;
               }
               function readCandidates(feed) {
                 const anchors=Array.from(feed.querySelectorAll('a[href]'));
@@ -348,7 +354,7 @@ internal static class Program
                 if (lastFileKey===key) return;
                 lastFileKey=key;
                 status.textContent=file.id===null
-                  ? 'Latest ZIP found in Discord (message date unavailable)'
+                  ? 'ZIP found in Discord (message date not verified)'
                   : 'Latest Expansion Pack ZIP found in Discord';
                 sender.style.display='block'; sender.textContent=file.sender;
                 link.style.display='block'; link.href=file.url; link.textContent=file.filename;
