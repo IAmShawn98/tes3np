@@ -75,3 +75,5 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Check Game Chat images/history scrolling, Discord authentication and genuine Happy Hour detection; avoid relying only on static source guards.
 - [ ] Run the local updater transaction and update-client fixtures in an isolated disposable test tree; do not update the live installation for this test.
 - [ ] Record build and runtime results separately. Previously reported Windows success predates this retirement commit; do not mark the new build tested until independently run.
+
+**Automated local checkpoint:** `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-local-regression.ps1` combines the existing Windows build preflight, disposable Expansion Pack import fixture, updater metadata/source tests and isolated updater rollback fixture; it launches the resulting executable for the manual checks above. A green offline result cannot substitute for interactive verification. Requires local PowerShell 7 for the updater transaction fixture. No GitHub Actions are invoked.
