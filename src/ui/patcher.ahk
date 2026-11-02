@@ -188,9 +188,7 @@ CheckPatchWorker()
             throw Error("Unsupported retired installer operation.")
         if state = "success"
         {
-            ; A manually downloaded pack may be newer than our bundled
-            ; manifest. Record its locations, but never change the old patch
-            ; backup chain or claim a matching server checksum before login.
+            ; Record the validated import location, without claiming server compatibility.
             IniWrite(job.MorrowindFolder, DataFile, "Patch", "MorrowindFolder")
             IniWrite(job.ConfigFile, DataFile, "Patch", "ConfigFile")
             IniWrite("1", DataFile, "ExpansionPack", "GlobalEnabled")
@@ -213,6 +211,7 @@ CheckPatchWorker()
         ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
     }
+    MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
 }
 
 FinishLauncherStartup()
