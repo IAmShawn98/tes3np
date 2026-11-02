@@ -374,7 +374,7 @@ TES3MPAnalyzeMismatchConfig(configText)
     seenOther := Map()
     for line in StrSplit(configText, "`n", "`r")
     {
-        if !RegExMatch(Trim(line), "i)^content\s*=\s*(.*?)`s*$", &entry)
+        if !RegExMatch(Trim(line), "i)^content\s*=\s*(.*?)\s*$", &entry)
             continue
         plugin := StrLower(Trim(entry[1], ' "'))
         if plugin = ""
@@ -448,12 +448,16 @@ TES3MPAnalyzeMismatchLogText(raw)
     last := Min(lines.Length, lastRejection + 12)
     Loop last - first + 1
     {
-        line := lines[first + A_Index - 1]
+        currentIndex := first + A_Index - 1
+        line := lines[currentIndex]
         missing := InStr(line, "missing plugin") || InStr(line, "missing master")
             || InStr(line, "missing dependency") || InStr(line, "could not find plugin")
             || InStr(line, "failed to load plugin")
-        result.Order := result.Order || InStr(line, "load order") > 0
-            || InStr(line, "plugin order") > 0
+        ; The rejection sentence itself says "load order"; that generic
+        ; message must not count as a separate order-specific error.
+        if currentIndex != lastRejection
+            result.Order := result.Order || InStr(line, "load order") > 0
+                || InStr(line, "plugin order") > 0
         if !missing
             continue
         if InStr(line, "np expansion pack.esp")
