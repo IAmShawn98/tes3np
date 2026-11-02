@@ -3300,7 +3300,15 @@ metrics();
                     case 3: SetChatDisplayMode("Always Shown"); break;
                     case 4: SetChatDisplayMode("Always Hidden"); break;
                     case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
-                    case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
+                    case 7:
+                        // Normal close and auto-reopen both come from AHK.
+                        // Acknowledge only after the old WebView2 was disposed;
+                        // AHK must not destroy/recreate its placeholder first.
+                        IntPtr closingSlot=m.LParam;
+                        CloseEmbeddedExpansionDownloads(closingSlot);
+                        if (IsWindow(owner))
+                            PostMessage(owner,0x8336,closingSlot,IntPtr.Zero);
+                        break;
                     case 8: RetryEmbeddedExpansionDownload(m.LParam); break;
                 }
                 return;
