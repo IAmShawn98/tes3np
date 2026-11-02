@@ -1,6 +1,6 @@
 # TES3NP alpha source audit — 2026-11-02
 
-**Branch:** `Update/v0.1.21-alpha`  
+**Branch:** `Update/v0.1.21-alpha`
 **Scope:** the complete Git-tracked source and build tree was inventoried (AutoHotkey entry point/modules, C# Chat Host, PowerShell/Python helpers and tests, GitHub workflows, documentation, assets and patch manifest). The full text of live modules and relevant code/feature references was inspected through GitHub. Binary artwork, game assets, and the supplied markerless TES3MP executable were inventoried, **not** executed, decompiled, or relicensed. The previously user-verified baseline is NP Expansion Pack v0.2 successfully installed and TES3MP connecting to the server.
 
 ## Removed after reachability checks
@@ -29,7 +29,7 @@
 
 ## Validation limits and Windows acceptance steps
 
-**Completed:** GitHub source inspection, definition/reference trace of retired functions across live AHK modules, tree inventory, targeted source assertions, commits on the existing alpha branch, and documented verification gates.  
+**Completed:** GitHub source inspection, definition/reference trace of retired functions across live AHK modules, tree inventory, targeted source assertions, commits on the existing alpha branch, and documented verification gates.
 **Not completed here:** execution of the complete Python/PowerShell checks on a Windows checkout, fresh AHK compilation, Windows GUI/runtime tests, manual server connection on the newly cleaned build. Do **not** characterize those as passed before local results.
 
 Run `git pull --ff-only` on the current alpha checkout, then `Build tes3np.bat`. Its existing preflight runs Python source/architecture checks, test import fixtures, PowerShell syntax, C# compile, AHK parser fixtures and packaging. On a successful build, start `tes3np.exe` and check: (1) normal launcher and character list spacing; (2) first character auto-favorite and one-time switch message; (3) per-row Play and front-page quick launch, with a second manually launched game permitted up to four clients; (4) gold login progress and recovery; (5) no scheduled timers, popups or old hidden controls; (6) macros and backup/export/import including an older portable backup; (7) Chat Host/Game Chat, Happy Hour and launcher settings; (8) installed Expansion Pack v0.2 still allows server login; (9) safe failure/rollback diagnostics. Do not run old Install / Repair as a validation shortcut.
