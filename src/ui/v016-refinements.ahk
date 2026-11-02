@@ -59,12 +59,11 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 
 ApplyV016CharacterLayout(*)
 {
-    global CharacterPage, LaunchCharacterButton, V016CharacterLayoutApplied
+    global CharacterPage, V016CharacterLayoutApplied
     global Profiles, AddCharacterButton, WipeCharacterButton
     if V016CharacterLayoutApplied || !IsObject(CharacterPage)
         return
 
-    LaunchCharacterButton.Visible := false
 
     ; Keep Add Character immediately above Wipe Character List. Keep the Wipe
     ; button directly beneath it, using the same styled-button mover as
