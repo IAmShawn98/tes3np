@@ -29,6 +29,9 @@
 
 ### Fixed
 
+- Fixed the legitimate NP Expansion Pack v0.2 ZIP being rejected as `Unpacked Expansion Pack exceeds the 1 GB limit.` The importer had hard-coded 1 GiB total and 128 MiB per-asset limits unrelated to TES3MP. Removed both artificial caps from ZIP, extracted-folder, and legacy ESP import paths while preserving filename/path validation, streamed bounded-memory extraction, size consistency and SHA-256 checks, file-count controls, pre-copy available-space checks on staging/backup/game volumes, and backup/rollback. Temporary staging is cleaned after success or failure; backups/journals remain. Updated synthetic Windows fixtures and architecture guards against reintroducing the limits. Actual v0.2 import still requires Windows runtime verification.
+
+
 - Fixed the unified ZIP/folder Explorer picker failing at runtime with `The Expansion Pack browser is unavailable. Rebuild TES3NP.` The new `select-expansion-package.ps1` script had been created in source but omitted from `generate-bundled-resources.py`'s explicit embedded worker list. Added it to the generated FileInstall payload and therefore its content-addressed resource version, plus a Windows packaging gate that verifies both the extracted picker and existing import worker against their source SHA-256 hashes. This fixes the confirmed missing-resource root cause; rebuilt Windows EXE and actual picker UI remain to be tested.
 
 - Fixed compiled launcher error after the unified Expansion Pack chooser introduced a reference to nonexistent AutoHotkey variable `A_Pid`. Its temporary selection filename now uses `DllCall("GetCurrentProcessId", "UInt")` (the Windows process ID). Added a pre-embedding `AutoHotkey64.exe /ErrorStdOut tes3np.ahk --check` build preflight to surface line-specific `#Warn` problems before Ahk2Exe emits a generic compilation failure. Windows rebuild and interactive ZIP/folder picker validation are pending.
