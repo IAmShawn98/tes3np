@@ -139,13 +139,6 @@ GetSharedExecutable()
     return A_ScriptDir "\client\tes3mp.exe"
 }
 
-SaveSharedExecutable(*)
-{
-    global ExecutableInput, DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(Trim(ExecutableInput.Value), DataFile, "Launch", "Executable")
-}
-
 ProtectPassword(value, encrypt := true)
 {
     ; Windows DPAPI ties saved secrets to the current Windows account.
