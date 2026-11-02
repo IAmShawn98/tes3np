@@ -31,7 +31,11 @@ global HoverTimer := UpdateButtonHover
 ; Feature state has one initialization point, before any GUI or timer exists.
 global MacroPage := 0
 global MacroList := 0
-global MacroListPage := 1
+global MacroScrollOffset := 0
+global MacroScrollTrack := 0
+global MacroScrollThumb := 0
+global MacroScrollDragging := false
+global MacroScrollGrab := 0
 global MacroBookRows := []
 global MacroBookControls := []
 global MacroEmptyNotice := 0

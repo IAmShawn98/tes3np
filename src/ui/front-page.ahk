@@ -143,6 +143,7 @@ PressMenuScroll(hwnd)
 DragMenuScroll(*)
 {
     DragEditorScroll()
+    DragMacroScroll()
     global ScrollDragging
     if ScrollDragging
         ScrollFromPointer()
@@ -161,6 +162,8 @@ ReleaseMenuScroll()
 ScrollMenuWheel(wParam, lParam, msg, hwnd)
 {
     if ScrollEditorWheel(wParam)
+        return 0
+    if ScrollMacroWheel(wParam)
         return 0
     global LauncherGui, MenuOffset
     MouseGetPos(&x, &y, &window)
