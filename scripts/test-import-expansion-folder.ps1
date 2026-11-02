@@ -40,6 +40,11 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string
         AssertFixture ([IO.File]::Exists($journal)) "$Name backup journal missing"
         $record = [IO.File]::ReadAllText($journal) | ConvertFrom-Json
         AssertFixture ([bool]$record.Completed) "$Name journal incomplete"
+        foreach ($item in @($record.Files)) {
+            if ($item.Existed) {
+                AssertFixture ([IO.File]::Exists([string]$item.Backup)) "$Name lost a rollback backup"
+            }
+        }
     }
 }
 try {
