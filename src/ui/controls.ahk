@@ -259,6 +259,8 @@ PressButton(wParam, lParam, msg, hwnd)
 ReleaseButton(wParam, lParam, msg, hwnd)
 {
     global ButtonFaces, PressedButton, HoverButton
+    if ReleaseMacroScroll()
+        return 0
     if ReleaseEditorScroll()
         return 0
     if ReleaseMenuScroll()
@@ -360,6 +362,8 @@ HandleMouseDown(wParam, lParam, msg, hwnd)
         SendMessage(0xA1, 2, 0, , "ahk_id " CharacterPage.Hwnd)
         return 0
     }
+    if PressMacroScroll(hwnd)
+        return 0
     if PressEditorScroll(hwnd)
         return 0
     if PressMenuScroll(hwnd)

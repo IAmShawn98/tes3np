@@ -374,27 +374,65 @@ def check(allow_missing_payload: bool = False) -> None:
             'MacroPage := CharacterPage' in macro
             and 'BuildMacroBookPanel()' in characters
             and 'MacroPage := Gui(' not in macro,
-        "book-painted macro rows replace visible native table":
+        "macro rows match Your Characters tick, name and inline actions":
             '"Installed Macros"' in macro
             and '"No macros installed yet."' in macro
-            and 'AddStyledButton(CharacterPage, 525, y, 207, 29' in macro
-            and 'AddBookLabel(CharacterPage, 741, y + 2' in macro
+            and 'Loop 10\n    {\n        position := A_Index\n        y := 180 + (position - 1) * 24' in macro
+            and 'AddBookTick(CharacterPage, 525, y + 2, SelectMacroBookRow.Bind(position))' in macro
+            and 'AddBookLabel(CharacterPage, 551, y, 149, 23, "")' in macro
+            and 'name.OnEvent("Click", SelectMacroBookRow.Bind(position))' in macro
+            and 'AddStyledButton(CharacterPage, 705, y, 50, 22, "Run", RunMacroBookRow.Bind(position))' in macro
+            and 'AddStyledButton(CharacterPage, 760, y, 50, 22, "Stop", StopMacroBookRow.Bind(position))' in macro
+            and 'AddStyledButton(CharacterPage, 815, y, 65, 22, "Remove", RemoveMacroBookRow.Bind(position))' in macro
             and 'MacroList.Visible := false' in macro
-            and 'MacroListPage := Min(Max(1, Ceil(MacroItems.Length / 5))' in macro,
-        "fixed macro details and action slots avoid repaint ghosts":
-            'MacroDetails := AddBookLabel(CharacterPage, 525, 377, 355, 26, "")' in macro
-            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 410, 164, 30' in macro
-            and 'MacroRunButton := AddStyledButton(CharacterPage, 696, 410, 88, 30' in macro
-            and 'MacroStopButton := AddStyledButton(CharacterPage, 791, 410, 89, 30' in macro
-            and 'MacroRemoveButton := AddStyledButton(CharacterPage, 525, 446, 164, 30' in macro
-            and 'MacroBindingsButton := AddStyledButton(CharacterPage, 696, 446, 184, 30' in macro
-            and 'MacroStatus := AddBookLabel(CharacterPage, 525, 488, 355, 27, "Ready.")' in macro
+            and 'MacroScrollOffset + position' in macro
+            and 'MacroScrollTrack := CharacterPage.Add("Text"' in macro
+            and 'MacroScrollThumb := CharacterPage.Add("Text"' in macro,
+        "macro footer stays beneath ten rows without dynamic overlap":
+            'MacroDetails := AddBookLabel(CharacterPage, 525, 453, 355, 24, "")' in macro
+            and 'MacroStatus := AddBookLabel(CharacterPage, 525, 480, 355, 24, "Ready.")' in macro
+            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 508, 355, 28' in macro
+            and 'MacroBindingsButton := AddStyledButton(CharacterPage, 525, 543, 355, 28' in macro
             and 'MacroDetails.Visible := shown && selectedIndex > 0' in macro
+            and 'maximum := Max(0, count - MacroBookRows.Length)' in macro
+            and 'index := MacroScrollOffset + position' in macro
+            and 'MacroScrollOffset := Max(0, row - 10)' in macro
+            and 'MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 10))' in macro
+            and 'MacroScrollThumb.Move(888, thumbY, 6, thumbHeight)' in macro
+            and 'MacroScrollTrack.Visible := scrollable' in macro
+            and 'MacroScrollThumb.Visible := scrollable' in macro
             and not re.search(r'MoveStyledButton\(Macro(?:Details|ImportButton|RunButton|StopButton|RemoveButton|BindingsButton|Status|PreviousButton|NextButton|PageLabel)', macro),
-        "selected row highlight uses existing painter":
-            'MacroSelected := selected' in macro
-            and 'selectedMacro := face.HasOwnProp("MacroSelected")' in
-                (ROOT / "src/ui/renderer.ahk").read_text(encoding="utf-8-sig"),
+        "unlimited macro list scrolls with wheel and draggable thumb":
+            'ScrollMacroWheel(wParam)' in macro
+            and 'PressMacroScroll(hwnd)' in macro
+            and 'DragMacroScroll()' in macro
+            and 'ReleaseMacroScroll()' in macro
+            and 'MacroListPage' not in macro
+            and 'MacroScrollOffset := 0' in (
+                ROOT / "src/state.ahk"
+            ).read_text(encoding="utf-8-sig")
+            and 'if ScrollMacroWheel(wParam)' in (
+                ROOT / "src/ui/front-page.ahk"
+            ).read_text(encoding="utf-8-sig")
+            and 'DragMacroScroll()' in (
+                ROOT / "src/ui/front-page.ahk"
+            ).read_text(encoding="utf-8-sig")
+            and 'if PressMacroScroll(hwnd)' in (
+                ROOT / "src/ui/controls.ahk"
+            ).read_text(encoding="utf-8-sig")
+            and 'if ReleaseMacroScroll()' in (
+                ROOT / "src/ui/controls.ahk"
+            ).read_text(encoding="utf-8-sig"),
+        "character-style tick mirrors the hidden selection model":
+            'SetBookTick(itemRow.Tick, selected)' in macro
+            and 'MacroList.Modify(index, "Select Focus")' in macro
+            and 'MacroList.OnEvent("ItemSelect", RefreshMacroButtons)' in macro
+            and 'RunMacroBookRow(position, *)' in macro
+            and 'StopMacroBookRow(position, *)' in macro
+            and 'RemoveMacroBookRow(position, *)' in macro
+            and 'SelectMacroBookRow(position)\n    RunSelectedMacro()' in macro
+            and 'SelectMacroBookRow(position)\n    StopSelectedMacro()' in macro
+            and 'SelectMacroBookRow(position)\n    RemoveSelectedMacro()' in macro,
         "editor restores macros without overlaying the character fields":
             'HideMacroBookPanel()' in characters
             and 'ShowMacroBookPanel()' in characters,
