@@ -31,6 +31,9 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string
     AssertFixture ([IO.File]::Exists($result)) "$Name result metadata missing"
     $expected = if ($ShouldPass) { 'State=success' } else { 'State=error' }
     AssertFixture ($report.Contains($expected)) "$Name unexpected worker status: $workerMessage"
+    if (!$ShouldPass) {
+        AssertFixture ($workerMessage.Contains('[step: ')) "$Name failed without a sanitized diagnostic stage"
+    }
     AssertFixture (![IO.Directory]::Exists((Join-Path $job 'stage'))) "$Name left a full duplicate of the pack in staging"
     if (!$ShouldPass -and $ExpectedError) {
         AssertFixture ($workerMessage.Contains($ExpectedError)) "$Name rejected for an unexpected reason: $workerMessage"
