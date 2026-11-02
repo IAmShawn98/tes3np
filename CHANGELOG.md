@@ -4,6 +4,11 @@
 
 ### Codebase cleanup audit (2026-11-02)
 
+- Top-to-bottom follow-up: removed the unreachable first-run TES3MP scanner/status overlay (the actual startup now uses `CheckFirstRunMorrowind`), old custom-client overwrite/skip prompt and markerless hash wrapper, dormant setup-check wrappers, duplicate updater confirmation, orphaned character-count helper and `OpenMacros` alias.
+- Removed the no-longer-used 11-function proprietary Magic Cards bitmap parser/atlas/renderer path and its startup probing; the working bundled Mystic Cards TrueType font remains. Removed a dead Chat Host paint-coordinate local.
+- Harmonized `.editorconfig` AHK/PowerShell line endings with Git's LF policy, removed redundant CI steps that silently edited the patch helper, and expanded retired scheduler checks to the Chat Host C# source and PowerShell workers. Preserved live custom-client SHA-256 verification, patched client, recovery, macros ListView selection model, import and native GUI dependencies.
+- See `docs/CODEBASE-AUDIT-2026-11-02.md` for layer-by-layer inventory, traceability, retained legacy Installer/Repair downgrade risk and complete Windows regression checklist. Source analysis and GitHub writes are complete; post-cleanup Windows build and runtime checks remain pending.
+
 - Removed unused standalone in-game chat preview GUI and its handlers; the active embedded authenticated Discord/Game Chat host is unchanged.
 - Removed orphaned startup-choice GUI and callbacks, the unused legacy chat-control command handler, an abandoned Magic Cards label helper, and two unused checkbox toggle callbacks. Existing character launching, Favorite handling, login progress and settings application remain in source.
 - Removed the C# Happy Hour backfill boolean that was assigned but never read (the previously observed CS0414 warning). No relevant control-flow condition used it.
