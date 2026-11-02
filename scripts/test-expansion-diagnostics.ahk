@@ -200,6 +200,14 @@ try
         "extra client slots reported")
     MismatchFixtureAssert(InStr(reportComparison, "Detailed comparison captured: Yes"),
         "comparison availability explicit")
+    MismatchFixtureAssert(InStr(reportComparison, "0 [checksum]"),
+        "first slot category included")
+    MismatchFixtureAssert(InStr(reportComparison, "1 [checksum+name]"),
+        "combined slot categories included")
+    MismatchFixtureAssert(InStr(reportComparison, "4 [extra-client]"),
+        "follow-on per-slot information included")
+    MismatchFixtureAssert(InStr(report, "Slot details (zero-based): None captured"),
+        "missing comparison details explicitly reported")
 
     serverExtra := TES3MPAnalyzeMismatchLogText(rejection
         . "`n4: Server.esp is past the number of plugins used by the client")
