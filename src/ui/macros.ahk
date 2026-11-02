@@ -3,8 +3,8 @@
 BuildMacroBookPanel()
 {
     global CharacterPage, LauncherMorrowindFont
-    global MacroPage, MacroList, MacroDetails, MacroStatus, MacroEmptyNotice
-    global MacroImportButton, MacroBindingsButton, MacroBookControls, MacroBookRows
+    global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
+    global MacroImportButton, MacroBookControls, MacroBookRows
     global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
     MacroPage := CharacterPage
     MacroBookControls := []
@@ -15,52 +15,52 @@ BuildMacroBookPanel()
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Installed Macros")
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
-    explanation := CharacterPage.Add("Text", "x525 y87 w355 h65 BackgroundTrans",
-        "This is a list of your installed macros and apps. Select one to edit its keys, or use the buttons beside it to run, stop, or remove it.")
-    MacroEmptyNotice := CharacterPage.Add("Text", "x551 y181 w329 h30 BackgroundTrans",
+    explanation := CharacterPage.Add("Text", "x525 y87 w355 h55 BackgroundTrans",
+        "This is a list of your installed macros and apps. Use the buttons beneath each item to run, stop, or remove it.")
+    MacroEmptyNotice := CharacterPage.Add("Text", "x551 y183 w329 h30 BackgroundTrans",
         "No macros installed yet.")
-    ; Retain the invisible ListView as the tested selection/data model.
+    ; The hidden ListView retains every imported item and all existing handlers.
+    ; Four rows are the viewport, not a limit on the number of macros.
     MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 Hidden -Multi",
         ["Name", "Status", "Type"])
     MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
     MacroBookControls.Push(heading, explanation, MacroEmptyNotice, MacroList)
-    ; Match Your Characters: select tick, name, three inline action buttons.
-    ; The same ten 24-pixel-spaced book rows begin at y180.
-    Loop 10
+    Loop 4
     {
         position := A_Index
-        y := 180 + (position - 1) * 24
-        tick := AddBookTick(CharacterPage, 525, y + 2, SelectMacroBookRow.Bind(position))
+        y := 152 + (position - 1) * 60
+        CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
+        status := CharacterPage.Add("Text",
+            "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-        name := AddBookLabel(CharacterPage, 551, y, 149, 23, "")
+        tick := AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))
+        name := AddBookLabel(CharacterPage, 551, y + 19, 329, 22, "")
         name.Opt("+0x100")
         name.OnEvent("Click", SelectMacroBookRow.Bind(position))
-        run := AddStyledButton(CharacterPage, 705, y, 50, 22, "Run", RunMacroBookRow.Bind(position))
-        stop := AddStyledButton(CharacterPage, 760, y, 50, 22, "Stop", StopMacroBookRow.Bind(position))
-        remove := AddStyledButton(CharacterPage, 815, y, 65, 22, "Remove", RemoveMacroBookRow.Bind(position))
-        MacroBookRows.Push({Tick: tick, Name: name, Run: run, Stop: stop, Remove: remove})
-        MacroBookControls.Push(tick, name, run, stop, remove)
+        run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
+            "Run", RunMacroBookRow.Bind(position))
+        stop := AddStyledButton(CharacterPage, 663, y + 42, 103, 20,
+            "Stop", StopMacroBookRow.Bind(position))
+        remove := AddStyledButton(CharacterPage, 775, y + 42, 105, 20,
+            "Remove", RemoveMacroBookRow.Bind(position))
+        MacroBookRows.Push({Tick: tick, Status: status, StatusError: false,
+            Name: name, Run: run, Stop: stop, Remove: remove})
+        MacroBookControls.Push(tick, status, name, run, stop, remove)
     }
-    ; Exactly ten visible rows; the viewport scrolls through any number of
-    ; installed macros without discarding or paging the hidden selection model.
+    ; The scrollbar uses the existing character-book styling.
     MacroScrollTrack := CharacterPage.Add("Text",
-        "x887 y180 w8 h238 Background704C27 +0x100 Hidden")
+        "x887 y152 w8 h242 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
-        "x888 y180 w6 h40 BackgroundC69951 +0x100 Hidden")
-    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
-    ; Painted labels at the right book flap sample unrelated background art.
-    ; Use the same native transparent Text controls as the left description.
-    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
-    MacroDetails := CharacterPage.Add("Text",
-        "x525 y432 w355 h24 BackgroundTrans c241408 +0x100", "")
-    MacroStatus := CharacterPage.Add("Text",
-        "x525 y475 w355 h24 BackgroundTrans c241408 +0x100", "Ready.")
-    MacroImportButton := AddStyledButton(CharacterPage, 525, 508, 355, 28,
+        "x888 y152 w6 h40 BackgroundC69951 +0x100 Hidden")
+    MacroImportButton := AddStyledButton(CharacterPage, 525, 407, 355, 29,
         "Add Macro / App", ImportMacroPackage)
-    MacroBindingsButton := AddStyledButton(CharacterPage, 525, 543, 355, 28,
-        "Edit Selected Macro Keys", EditSelectedMacroBindings)
+    ; Existing import/binding callbacks still write MacroStatus.Text. Preserve
+    ; failure/progress feedback, not the redundant Ready/script-details footer.
+    CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
+    MacroStatus := CharacterPage.Add("Text",
+        "x525 y443 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
-        MacroDetails, MacroStatus, MacroImportButton, MacroBindingsButton)
+        MacroImportButton, MacroStatus)
     LoadMacroPackages()
     ShowMacroBookPanel()
 }
@@ -87,11 +87,24 @@ HideMacroBookPanel()
         try control.Visible := false
 }
 
+MacroItemDisplayState(item)
+{
+    if item.Kind = "App" && !ValidMacroApplication(item)
+        return {Text: "Application missing", Error: true}
+    if item.Kind != "App" && !ValidMacroEntry(item.Folder, item.Entry)
+        return {Text: "Script missing", Error: true}
+    if item.HasOwnProp("LastError") && item.LastError != ""
+        return {Text: item.LastError, Error: true}
+    if item.PID && ProcessExist(item.PID)
+        return {Text: "Running", Error: false}
+    return {Text: "Ready", Error: false}
+}
+
 RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
-    global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb
-    global MacroDetails, MacroStatus, LaunchSettingsHeading, ButtonFaces, CharacterPage
+    global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
+    global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
     count := MacroItems.Length
@@ -105,23 +118,33 @@ RefreshMacroBookRows()
     {
         index := MacroScrollOffset + position
         visible := shown && index <= count
-        ; Polling process state must not toggle unchanged GUI visibility:
-        ; that causes unnecessary repaints over the parchment book.
-        for control in [itemRow.Tick, itemRow.Name, itemRow.Run, itemRow.Stop, itemRow.Remove]
+        for control in [itemRow.Tick, itemRow.Status, itemRow.Name,
+            itemRow.Run, itemRow.Stop, itemRow.Remove]
             if control.Visible != visible
                 control.Visible := visible
         if !visible
             continue
         item := MacroItems[index]
-        ; Keep longer names from bleeding into the Run button.
-        name := StrLen(item.Name) > 20 ? SubStr(item.Name, 1, 17) "..." : item.Name
+        ; The name occupies its own full row above the action buttons.
+        name := StrLen(item.Name) > 37 ? SubStr(item.Name, 1, 34) "..." : item.Name
         if itemRow.Name.Text != name
             itemRow.Name.Text := name
         selected := index = selectedIndex
         if ButtonFaces[itemRow.Tick.Hwnd].Checked != selected
             SetBookTick(itemRow.Tick, selected)
+        state := MacroItemDisplayState(item)
+        if itemRow.Status.Text != state.Text
+            itemRow.Status.Text := state.Text
+        if itemRow.StatusError != state.Error
+        {
+            itemRow.Status.SetFont(state.Error ? "s9 cB22222" : "s9 c241408",
+                LauncherMorrowindFont)
+            itemRow.StatusError := state.Error
+        }
         running := item.PID && ProcessExist(item.PID)
-        canRun := ValidMacroApplication(item) && !running && !busy
+        missing := !ValidMacroApplication(item)
+            || (item.Kind != "App" && !ValidMacroEntry(item.Folder, item.Entry))
+        canRun := !missing && !running && !busy
         canStop := !!running
         canRemove := !running && !busy
         if itemRow.Run.Enabled != canRun
@@ -139,37 +162,18 @@ RefreshMacroBookRows()
         MacroScrollThumb.Visible := scrollable
     if scrollable
     {
-        thumbHeight := Max(25, Round(238 * MacroBookRows.Length / count))
-        travel := 238 - thumbHeight
-        thumbY := 180 + Round(MacroScrollOffset / maximum * travel)
+        thumbHeight := Max(25, Round(242 * MacroBookRows.Length / count))
+        travel := 242 - thumbHeight
+        thumbY := 152 + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(888, thumbY, 6, thumbHeight)
     }
-    ; Keep the details and status directly beneath the final visible row
-    ; instead of leaving a large empty gap with only one installed macro.
-    ; The last of ten rows ends at y418, and its details/status still fit
-    ; above the permanently anchored Add Macro / App button at y508.
-    visibleCount := Min(MacroBookRows.Length, Max(0, count - MacroScrollOffset))
-    detailsY := 180 + visibleCount * 24 + 18
-    statusY := detailsY + 28
-    MacroDetails.GetPos(, &oldDetailsY)
-    MacroStatus.GetPos(, &oldStatusY)
-    needsRepaint := false
-    if oldDetailsY != detailsY
-    {
-        MacroDetails.Move(525, detailsY, 355, 24)
-        needsRepaint := true
-    }
-    if oldStatusY != statusY
-    {
-        MacroStatus.Move(525, statusY, 355, 24)
-        needsRepaint := true
-    }
-    ; Native transparent Text controls need the old parchment area redrawn
-    ; when moved. This runs on actual row-count changes, not each timer tick.
-    if needsRepaint && shown
-        DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0,
-            "Ptr", 0, "UInt", 0x385)
-    MacroDetails.Visible := shown && selectedIndex > 0 && selectedIndex <= count
+    ; Only import failures/progress use the small message area below Add.
+    ; Regular Ready/Running/Missing appears above each macro's name.
+    feedback := MacroStatus.Text
+    showFeedback := busy || RegExMatch(feedback,
+        "i)^(Import failed:|The script could not be imported)")
+    if MacroStatus.Visible != (shown && showFeedback)
+        MacroStatus.Visible := shown && showFeedback
 }
 
 SelectMacroBookRow(position, *)
@@ -230,7 +234,7 @@ ScrollMacroWheel(wParam)
     scale := A_ScreenDPI / 96
     x := (x - NumGet(origin, 0, "Int")) / scale
     y := (y - NumGet(origin, 4, "Int")) / scale
-    if x < 520 || x > 900 || y < 175 || y > 422
+    if x < 520 || x > 900 || y < 150 || y > 396
         return false
     delta := (wParam >> 16) << 48 >> 48
     if delta
@@ -269,9 +273,9 @@ DragMacroScroll()
     DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
     localY := (pointerY - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
     MacroScrollThumb.GetPos(, , , &thumbHeight)
-    travel := Max(1, 238 - thumbHeight)
+    travel := Max(1, 242 - thumbHeight)
     maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
-    ScrollMacroBook(Round((localY - 180 - MacroScrollGrab) / travel * maximum))
+    ScrollMacroBook(Round((localY - 152 - MacroScrollGrab) / travel * maximum))
 }
 
 ReleaseMacroScroll()
@@ -357,23 +361,11 @@ ValidMacroEntry(folder, entry)
 
 RefreshMacroButtons(*)
 {
-    global MacroList, MacroItems, MacroDetails, MacroImport, MacroBindingsButton
-    ; A stale timer or early editor callback must never read an integer here.
+    global MacroList
+    ; The selected macro and its row are driven by the existing invisible
+    ; ListView, without restoring either crossed-out footer control.
     if !IsObject(MacroList)
         return
-    row := MacroList.GetNext()
-    selected := row > 0 && row <= MacroItems.Length
-    running := selected && MacroItems[row].PID && ProcessExist(MacroItems[row].PID)
-    busy := IsObject(MacroImport)
-    MacroBindingsButton.Enabled := selected && ValidMacroApplication(MacroItems[row])
-        && !running && !busy && ReadMacroBindings(MacroItems[row]).Length > 0
-    description := selected ? (!ValidMacroApplication(MacroItems[row])
-        ? "Application missing. Remove it and add it again."
-        : (MacroItems[row].Description != "" ? MacroItems[row].Description
-        : (MacroItems[row].Kind = "App" ? "Installed application" : "Script: " MacroItems[row].Entry)))
-        : ""
-    ; Single-line fixed-width book label.
-    MacroDetails.Text := SubStr(description, 1, 44)
     RefreshMacroBookRows()
 }
 
@@ -529,7 +521,7 @@ AddImportedMacro(folder, name, description, entry, kind := "Macro", target := ""
         Kind: kind, Target: target, PID: 0})
     row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
     MacroList.Modify(row, "Select Focus")
-    MacroScrollOffset := Max(0, row - 10)
+    MacroScrollOffset := Max(0, row - 4)
     RefreshMacroButtons()
 }
 
@@ -609,6 +601,12 @@ RunSelectedMacro(*)
     macro := MacroItems[row]
     if macro.PID && ProcessExist(macro.PID)
         return
+    if !ValidMacroApplication(macro)
+        || (macro.Kind != "App" && !ValidMacroEntry(macro.Folder, macro.Entry))
+    {
+        RefreshMacroButtons()
+        return
+    }
     if MsgBox("Run " macro.Name "? This tool executes code on your computer. Only run files you trust.", "Run macro / app", 0x124) != "Yes"
         return
     if ReadMacroBindings(macro).Length && !MacroBindingsReady(macro)
@@ -648,12 +646,18 @@ RunSelectedMacro(*)
             finally EnvSet("TES3NP_BINDINGS", previousBindings)
         }
         macro.PID := pid
+        macro.LastError := ""
         MacroList.Modify(row, , macro.Name, "Running", MacroTypeLabel(macro))
         MacroStatus.Text := "Started " macro.Name "."
         RefreshMacroButtons()
     }
     catch
+    {
+        ; Per-macro launch errors appear in red above their names.
+        macro.LastError := "Launch failed"
+        RefreshMacroButtons()
         MsgBox("Could not run this tool. Check its installation.", "Run macro / app")
+    }
 }
 
 
@@ -706,7 +710,7 @@ RemoveSelectedMacro(*)
         global MacroScrollOffset
         if MacroItems.Length
             MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
-        MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 10))
+        MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))
         MacroStatus.Text := "Removed from launcher."
         RefreshMacroButtons()
     }
