@@ -207,7 +207,9 @@ expect(
     "Future expansion ZIP selection is ordered by Discord message snowflakes",
     "const channel='/channels/509601787901116437/1555049936800718928';" in source
     and "function snowflake(message)" in source
-    and "BigInt(match[1])" in source
+    and r"chat-messages-\d+-(\d{15,22})" in source
+    and "BigInt(row[1])" in source
+    and "BigInt(single[1])" in source
     and "item.id>best.id" in source
     and "item.id===best.id && item.order>=best.order" in source
     and "const files=readCandidates(feed);" in source
