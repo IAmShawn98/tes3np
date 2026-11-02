@@ -94,6 +94,17 @@ try
     MismatchFixtureAssert(!generic.Order, "generic rejection is not a separate order error")
     MismatchFixtureAssert(!generic.MissingOther && !generic.MissingExpansion,
         "generic rejection does not imply missing plugins")
+    ; Regression: the displayed mismatch was produced by a successful live
+    ; log read. Reopening the same log after StopClient can fail; use the
+    ; already-sanitized evidence and never require a second read.
+    captured := TES3MPAnalyzeMismatchLogText(
+        "Missing plugin SECRET_PERSONAL_MOD.esp`n" rejection)
+    chosen := TES3MPSelectMismatchLogEvidence(captured)
+    MismatchFixtureAssert(chosen.Rejected && chosen.MissingOther,
+        "live rejection evidence remains available after client stops")
+    MismatchFixtureAssert(chosen.Source = "Captured during failed login",
+        "live rejection provenance is explicit")
+    MismatchFixtureAssert(!chosen.MissingExpansion, "live evidence is correctly classified")
     MismatchFixtureAssert(TES3MPMismatchAssessment(info, generic, "Not checked")
         = "Cause not determined from available checks", "no unsupported conclusion")
 
@@ -111,6 +122,15 @@ try
         "client log evidence fields must be present")
     MismatchFixtureAssert(InStr(report, "Load-order wording near rejection: No"),
         "last report field must be present")
+    MismatchFixtureAssert(InStr(report, "Client evidence source: Latest client log"),
+        "fallback log provenance appears in report")
+    capturedReport := TES3MPRenderMismatchDiagnostics(info, chosen,
+        "Not checked", "TEST", "2026-11-01 00:00:00")
+    MismatchFixtureAssert(InStr(capturedReport,
+        "Client evidence source: Captured during failed login"),
+        "live evidence provenance appears in report")
+    MismatchFixtureAssert(!InStr(capturedReport, "SECRET_PERSONAL_MOD"),
+        "live log evidence never leaks arbitrary plugin names")
     MismatchFixtureAssert(!InStr(report, "SAFE PLUGIN"), "no redundant title")
     MismatchFixtureAssert(!InStr(report, "Privacy:"), "no privacy disclaimer")
 
