@@ -459,7 +459,15 @@ expect(
     and 'CheckWorker $packageRoot' in expansion_fixture
     and 'CheckWorker $payload' in expansion_fixture
     and 'CheckWorker $packageRoot ' in expansion_fixture
-    and 'test-import-expansion-folder.ps1' in expansion_build,
+    and 'test-import-expansion-folder.ps1' in expansion_build
+    and '$productionWorker = Join-Path $PSScriptRoot' in expansion_fixture
+    and '$worker = Join-Path $root' in expansion_fixture
+    and 'AssertFixture ($workerText.Contains($productionGuard))' in expansion_fixture
+    and '$env:TES3NP_IMPORT_FIXTURE_ROOT = $root' in expansion_fixture
+    and 'Fixture refused a target outside its disposable game folder.' in expansion_fixture
+    and 'detail=$workerMessage' in expansion_fixture
+    and 'Remove-Item Env:\\TES3NP_IMPORT_FIXTURE_ROOT' in expansion_fixture
+    and "if (Get-Process -Name 'tes3mp','openmw','openmw-launcher'" in expansion_worker,
 )
 
 expect(
