@@ -231,7 +231,7 @@ expect(
     and "event.preventDefault();" in source
     and "event.stopPropagation();" in source
     and "chrome.webview.postMessage({type:'expansion-download',url});" in source
-    and "status.textContent='Opening download in your default browser...';" in source
+    and "status.textContent='Download requested. Click the ZIP again to retry.';" in source
     and "type==\"expansion-download\"" in source
     and "IsOfficialExpansionDownloadUrl(link)" in source
     and "Uri.TryCreate(value, UriKind.Absolute, out var uri)" in source
@@ -244,6 +244,25 @@ expect(
     and "Task.Run(()=>{" in source
     and "e.Cancel=true;" in source
     and "link.target='_self'" not in source,
+)
+
+expect(
+    "Cancelled ZIP downloads can be requested repeatedly without restarting ChatHost",
+    '"Download ZIP / Retry"' in mismatch
+    and 'SendLauncherChatCommand(8, downloadSlot.Hwnd)' in mismatch
+    and 'case 8: RetryEmbeddedExpansionDownload(m.LParam); break;' in source
+    and 'void RetryEmbeddedExpansionDownload(IntPtr placeholder)' in source
+    and 'void RequestExpansionDownload(string? url, string origin)' in source
+    and 'string? expansionLatestZipUrl;' in source
+    and "type==\"expansion-available\"" in source
+    and "chrome.webview.postMessage({type:'expansion-available',url:file.url});" in source
+    and 'expansionLatestZipUrl=link;' in source
+    and 'expansionLatestZipUrl=null;' in source
+    and 'RequestExpansionDownload(url,"native-retry");' in source
+    and 'RequestExpansionDownload(link,"embedded-card");' in source
+    and 'Task.Run(()=>{' in source
+    and 'UseShellExecute=true' in source
+    and '"Download ZIP / Retry"' in mismatch,
 )
 
 expect(
