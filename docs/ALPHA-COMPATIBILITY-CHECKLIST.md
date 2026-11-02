@@ -11,7 +11,7 @@ The following were reported as passed by the project tester on October 29,
 - Disposable updater transaction tests: six passed, including incomplete
   package rejection and rollback after simulated failures.
 - Extracted standalone ZIP: character import (after the integer-control fix),
-  character editing and launching, saved schedules, data export, Game Chat,
+  character editing and launching, data export, Game Chat,
   and Expansion Pack enable/disable.
 - C# warnings reduced from five to one `WindowsBase` dependency conflict.
 - The shortcut-prompt persistence fix has **not** been re-verified after commit
@@ -48,7 +48,7 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Custom executable + dependency folder work; switching back to bundled preserves overrides.
 - [ ] Replace custom exe with **same size and modification time** but different contents; cache must invalidate.
 - [ ] Interrupt a custom-client override replacement between moving old overrides and installing new overrides; next startup restores previous overrides.
-- [ ] Update launcher package without deleting %APPDATA%\\tes3np: saved profiles, login delays, schedule, custom overrides and preferences persist.
+- [ ] Update launcher package without deleting %APPDATA%\\tes3np: saved profiles, login delays, custom overrides and preferences persist.
 - [ ] Two simultaneous launcher instances and an active game during update: no corruption.
 - [ ] Low disk space or antivirus-locked custom asset: operation fails safely with logs and leaves previous configuration intact.
 
