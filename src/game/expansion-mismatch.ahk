@@ -181,10 +181,14 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     {
         oldHidden := A_DetectHiddenWindows
         DetectHiddenWindows(true)
-        try validSender := wParam && EmbeddedChatPid
-            && (WinGetPID("ahk_id " wParam) = EmbeddedChatPid)
-            && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
-        finally DetectHiddenWindows(oldHidden)
+        try
+        {
+            validSender := wParam && EmbeddedChatPid
+                && (WinGetPID("ahk_id " wParam) = EmbeddedChatPid)
+                && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
+        }
+        finally
+            DetectHiddenWindows(oldHidden)
         if !validSender
             return 0
     }
