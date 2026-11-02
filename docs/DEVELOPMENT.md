@@ -64,7 +64,7 @@ Each Windows build stages downloaded tools in its own temporary directory. A tem
 
 **Build SHA256 verification:** Three distinct integrity checks in `scripts/build-windows.ps1` (all extracted patch-manifest payloads, the official TES3MP archive, and the packaged markerless executable) use a streaming .NET SHA-256 helper rather than PowerShell's optional `Get-FileHash` cmdlet. Keep the expected-hash comparisons and fail-closed behavior. This addresses a Windows PowerShell 7.6.9 report where compilation succeeded but packaging stopped because `Get-FileHash` was not recognized. Windows confirmation of the next full package build remains pending.
 
-The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or scheduler state during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation. Legacy Happy Hour marker files in Local AppData are now inert and are not imported by Chat Host.
+The Launcher Settings → Launcher Data reset command stops Chat Host and recovery, deletes the shared Roaming AppData root, then exits without rewriting logs or settings during shutdown. A failed delete must be reported rather than claimed successful. Reset does not erase the game installation. Legacy Happy Hour marker files in Local AppData are now inert and are not imported by Chat Host.
 
 ## Embedded Discord ZIP in plugin-mismatch dialog
 
@@ -179,8 +179,8 @@ Test on Windows with AutoHotkey v2:
    importing an existing selected character, deleting a nonfavorite,
    deleting the favorite with survivors, removing the final character, and
    per-row Play without altering the favorite.
-4. Login timings, terminal-only startup, process loss and reconnect on/off. Confirm each saved species uses its corresponding bundled ICO, and each Original Character uses its private local portrait. Verify a missing OC picture falls back to the species icon and consecutive logins switch portraits correctly. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, queued batch/scheduled logins and a one-second saved LoadDelay.
-5. Confirm Manage Characters no longer has a developer preview button; test the approved UI using a real login. Test Launch All & Close, its 10-second wait, cancellation of its explanation and saved suppression choice.
+4. Login timings, terminal-only startup, process loss and reconnect on/off. Confirm each saved species uses its corresponding bundled ICO, and each Original Character uses its private local portrait. Verify a missing OC picture falls back to the species icon and consecutive logins switch portraits correctly. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, manual sequential launches up to four simultaneous clients, and a one-second saved LoadDelay.
+5. Confirm Manage Characters has no scheduler, Launch All & Close, or developer-preview controls; test the approved UI using a real per-character login. Verify no timer or automated game launch occurs while TES3NP is idle.
 6. Installed Macros: on the right Character Book page, verify the exact
    empty-state text, and the same parchment-painted selectable buttons and
    labels as the left character list. The legacy ListView may remain hidden
