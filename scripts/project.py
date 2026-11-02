@@ -458,6 +458,12 @@ def check(allow_missing_payload: bool = False) -> None:
             ).read_text(encoding="utf-8-sig")
             and '"runtime/AutoHotkey64.exe"' in (
                 ROOT / "scripts/check-windows-package.py"
+            ).read_text(encoding="utf-8-sig")
+            and 'xcopy /e /i /h /y "%PACKAGE%\\runtime\\*" "%~dp0runtime\\" >nul' in (
+                ROOT / "Build tes3np.bat"
+            ).read_text(encoding="utf-8-sig")
+            and 'if not exist "%~dp0runtime\\AutoHotkey64.exe" goto :failed' in (
+                ROOT / "Build tes3np.bat"
             ).read_text(encoding="utf-8-sig"),
         "macro import safety and key setup remain":
             'ImportMacroScript(archive)' in macro
