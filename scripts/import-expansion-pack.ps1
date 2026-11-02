@@ -49,6 +49,26 @@ function AssertGameClosed {
         throw 'Close all TES3MP/OpenMW clients before importing the Expansion Pack.'
     }
 }
+# Package content has no arbitrary 128 MB/1 GB ceiling. Keep extraction
+# bounded by actual free disk space, with a small reserve for metadata.
+# Never disable hash checks, archive path validation, or transaction rollback.
+function AssertSpace([string]$Destination, [long]$BytesNeeded) {
+    if ($BytesNeeded -lt 0) { throw 'Expansion Pack declares an invalid file size.' }
+    $rootPath = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Destination))
+    try {
+        $drive = [IO.DriveInfo]::new($rootPath)
+        $free = [long]$drive.AvailableFreeSpace
+    } catch {
+        throw 'Could not determine available disk space for Expansion Pack installation.'
+    }
+    $reserve = [long]67108864 # 64 MiB for filesystem metadata/temporary files.
+    if ($BytesNeeded -gt $free - $reserve) {
+        $requiredGiB = [Math]::Round(([double]$BytesNeeded + $reserve) / 1073741824, 2)
+        $freeGiB = [Math]::Round(([double]$free) / 1073741824, 2)
+        throw ('Not enough free disk space for Expansion Pack: need approximately ' +
+            $requiredGiB + ' GiB on ' + $rootPath + ' (available: ' + $freeGiB + ' GiB).')
+    }
+}
 function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Target)) | Out-Null
     $temp = $Target + '.tes3np-import-' + [guid]::NewGuid().ToString('N')
@@ -126,9 +146,11 @@ try {
                 throw ('Unexpected file in Expansion Pack Data Files: ' + $relative)
             }
             if (!$seen.Add($relative)) { throw ('Duplicate Expansion Pack asset in folder: ' + $relative) }
-            if ($item.Length -gt 134217728) { throw 'One extracted Expansion Pack file is larger than 128 MB.' }
+            if ($item.Length -lt 0 -or $total -gt ([long]::MaxValue - $item.Length)) {
+                throw 'Extracted Expansion Pack has invalid or overflowing file sizes.'
+            }
             $total += $item.Length
-            if ($total -gt 1073741824) { throw 'Extracted Expansion Pack exceeds the 1 GB limit.' }
+            AssertSpace $staged ([long]$item.Length)
             $target = Join-Path $staged ($relative.Replace('/', '\'))
             AssertPlain $target
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
@@ -143,7 +165,7 @@ try {
         if ([IO.Path]::GetFileName($Package) -ine 'NP Expansion Pack.esp') {
             throw 'The chosen ESP must be named NP Expansion Pack.esp.'
         }
-        if ((Get-Item -LiteralPath $Package).Length -gt 134217728) { throw 'The selected ESP is larger than the allowed 128 MB.' }
+        AssertSpace $staged ([long](Get-Item -LiteralPath $Package).Length)
         $target = Join-Path $staged 'NP Expansion Pack.esp'
         [IO.File]::Copy($Package, $target, $false)
         $assets = @([pscustomobject]@{Relative='NP Expansion Pack.esp'; Source=$target})
@@ -173,9 +195,11 @@ try {
                     throw ('Unexpected file in Expansion Pack Data Files: ' + $relative)
                 }
                 if (!$seen.Add($relative)) { throw ('Duplicate Expansion Pack asset in ZIP: ' + $relative) }
-                if ($entry.Length -gt 134217728) { throw 'One archive entry is larger than 128 MB.' }
+                if ($entry.Length -lt 0 -or $total -gt ([long]::MaxValue - $entry.Length)) {
+                    throw 'Expansion Pack ZIP has invalid or overflowing file sizes.'
+                }
                 $total += $entry.Length
-                if ($total -gt 1073741824) { throw 'Unpacked Expansion Pack exceeds the 1 GB limit.' }
+                AssertSpace $staged ([long]$entry.Length)
                 $target = Join-Path $staged ($relative.Replace('/', '\'))
                 AssertPlain $target
                 [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
@@ -187,7 +211,7 @@ try {
                         $copied = [long]0
                         while (($count = $read.Read($buffer, 0, $buffer.Length)) -gt 0) {
                             $copied += $count
-                            if ($copied -gt $entry.Length -or $copied -gt 134217728) {
+                            if ($copied -gt $entry.Length) {
                                 throw 'Extracted ZIP file exceeded its declared size or safety limit.'
                             }
                             $write.Write($buffer, 0, $count)
@@ -246,6 +270,7 @@ try {
         if ($existing) {
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
             $before = Sha256 $item.Target
+            AssertSpace $JobFolder ([long](Get-Item -LiteralPath $item.Target).Length)
             [IO.File]::Copy($item.Target, $backup, $false)
             if ((Sha256 $backup) -ne $before) { throw 'Backup verification failed.' }
         }
@@ -260,6 +285,7 @@ try {
         AssertGameClosed
         $item = $needed[$i]
         Progress ('Installing ' + [IO.Path]::GetFileName($item.Target)) ([int](50 + 45 * $i / $needed.Count))
+        AssertSpace $item.Target ([long](Get-Item -LiteralPath $item.Source).Length)
         $changed += $backups[$i]
         ReplaceVerified $item.Source $item.Target $item.Hash
     }
