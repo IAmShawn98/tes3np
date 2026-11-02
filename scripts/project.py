@@ -161,10 +161,13 @@ def check(allow_missing_payload: bool = False) -> None:
         "LaunchAllCharacters", "ShowLaunchAllExplanation",
         "AcceptLaunchAllExplanation", "LaunchCharacterButton",
         "HideLaunchAllExplanation", "ClaimWaitMs",
+        "OpenTroubleshooting", "OpenLauncherLog", "ClearLauncherLog",
+        "CopyLauncherDiagnostics", "BuildLauncherDiagnostics",
+        "ResetDisplayAccessibility",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
-    for source in [ROOT / "tes3np.ahk", *sorted((ROOT / "src").rglob("*.ahk"))]:
+    for source in [ROOT / "tes3np.ahk", *sorted((ROOT / "src").rglob("*.ahk")), ROOT / "scripts/test-expansion-diagnostics.ahk"]:
         content = source.read_text(encoding="utf-8-sig")
         for name in retired_names:
             if name.lower() in content.lower():
