@@ -19,8 +19,9 @@ later declarations; state must be initialized before startup.
 | `src/ui/characters.ahk` | Character book, editor and selection |
 | `src/ui/macros.ahk` | Embedded Installed Macros in Character Book; script/ZIP import, linked apps and process tracking |
 | `src/ui/macro-bindings.ahk` | Declarations and saved macro keys |
-| `src/ui/patcher.ahk` | Setup gate, worker orchestration and results |
-| `scripts/patch-tes3mp.ps1` | Verification, backups, installation and rollback |
+| `src/ui/patcher.ahk` | Shared Morrowind discovery, Expansion Pack toggle, active import progress/exit guards |
+| `src/ui/expansion-upload.ahk` | Native ZIP/folder selection and active import startup |
+| `scripts/import-expansion-pack.ps1` | Validated current-package import, backups, rollback and results |
 | `scripts/import-macro.ps1` | ZIP validation and extraction |
 
 State remains shared rather than class-based to preserve the accepted native GUI
@@ -196,24 +197,13 @@ supplies new-profile defaults. `%APPDATA%\tes3np` remains the data root.
 
 `src/game/expansion-mismatch.ahk` is called from the **existing** `ClientTick` watchdog. It records client log lengths before each launch, reads only fresh `tes3mp-client*.log` content in the configured OpenMW user directory (including relocated Documents), and handles the exact server plugin/load-order rejection message. It stops only the failed PID and displays the owned Upload Expansion / Cancel dialog. It does not impersonate the server, assume a new pack exists, or establish checksum compatibility without a real connection.
 
-`src/ui/expansion-upload.ahk` owns the file picker. Its PowerShell worker runs through the existing `PatchJob` progress loop and owns all game/config writes. `scripts/import-expansion-pack.ps1` accepts downloaded ZIP/ESP files, validates paths and extensions, stages and verifies bytes, and journals overwritten files for rollback. Never install downloaded code/executables from these archives or replace the launcher/markerless TES3MP client. The manually imported pack can differ from the separately bundled manifest, which remains the authoritative expected content for the older Install / Repair path. Windows tests are required to confirm native popup timing and the upload dialog.
+`src/ui/expansion-upload.ahk` owns the file picker. Its PowerShell worker runs through the existing `PatchJob` progress loop and owns all game/config writes. `scripts/import-expansion-pack.ps1` accepts downloaded ZIP/ESP files, validates paths and extensions, stages and verifies bytes, and journals overwritten files for rollback. Never install downloaded code/executables from these archives or replace the launcher/markerless TES3MP client. The manually imported pack can differ from the separately bundled old v0.1 manifest, which is **not** an installation-version authority. The former Install / Repair UI and PowerShell worker have been retired. Windows tests are required to confirm native popup timing and the active upload dialog.
 
-## Patch worker contract
+## Current Expansion Pack import worker contract
 
-The GUI invokes `Apply`, `Verify` or `Restore` and reads UTF-16 LE `progress.ini`
-and `result.ini` from the job folder.
+The only remaining `PatchJob` operation is `Import`, initiated by `StartExpansionImportWorker` using the current ZIP/folder worker. The GUI's existing loading overlay reads UTF-16 LE `progress.ini` and `result.ini` from the import job directory. A `success` result records the selected Morrowind and OpenMW locations and refreshes the Expansion Pack toggle; an `error` result presents the worker's diagnostics. Neither result asserts server version compatibility.
 
-| State | Meaning | Menu |
-| --- | --- | --- |
-| `success` | Verification or installation completed | Unlocked, except after Restore |
-| `needs_setup` | Verify found missing/different managed files | Setup required |
-| `error` | Validation or operational failure | Setup required |
-
-Verify creates job/staging files but does not change game files. Expected
-setup-needed results use informational feedback and activity logging. Actual
-errors retain detailed diagnostics. Startup never trusts the saved completion
-flag without verification. The worker owns mutations; the GUI must not duplicate
-that logic.
+The worker owns staging, allowed-path checks, file hashing, backups, atomic file changes and rollback. Backups and journal metadata under `%APPDATA%\tes3np\expansion-imports` remain available for manual recovery; the old bundled patcher's Restore Backup control is not part of this workflow. The initial Morrowind selection is informational and never silently installs optional content. The retired `Apply` / `Verify` / `Restore` worker and its tray GUI must not be restored.
 
 ## Rendering and shutdown
 
