@@ -481,63 +481,6 @@ CleanupLauncher(*)
 }
 
 
-OfferFirstRunSetup(*)
-{
-    global SetupComplete, LauncherGui, DataFile, GameDetectionActive
-    static firstRunPromptShown := false
-    static firstRunDetectionStarted := 0
-    if SetupComplete
-    {
-        ; Verify returning players without showing the first-install dialog.
-        config := IniRead(DataFile, "Patch", "ConfigFile", PatchConfigurationPath())
-        morrowind := IniRead(DataFile, "Patch", "MorrowindFolder", "")
-        tesFolder := FindTES3MPFolder()
-        if tesFolder != "" && morrowind != "" && FileExist(config)
-            StartPatchWorker("Verify", tesFolder, morrowind, config, LauncherGui, true)
-        return
-    }
-    if firstRunPromptShown
-        return
-    ; Detect the actual TES3MP executable next to the launcher, not a stale
-    ; saved installation path. Never leave first-time users waiting indefinitely.
-    if !firstRunDetectionStarted
-        firstRunDetectionStarted := A_TickCount
-    ; Use the same TES3MP folder discovery as the patcher. The launcher may
-    ; be installed in a sibling, parent, or nested TES3MP directory.
-    tesFolder := FindTES3MPFolder()
-    if tesFolder = ""
-    {
-        if A_TickCount - firstRunDetectionStarted < 5000
-            return
-        firstRunPromptShown := true
-        SetTimer(OfferFirstRunSetup, 0)
-        LogLauncherEvent("First-run TES3MP detection failed: no TES3MP executable was located.")
-        EndGameDetectionDisplay()
-        MsgBox("Tes3mp could not be detected in the launcher folder.`n`nPlace tes3np.exe in your Tes3mp installation folder, then click Patch Tes3mp to continue.", "Tes3mp folder not found", "Icon!")
-        return
-    }
-    firstRunPromptShown := true
-    SetTimer(OfferFirstRunSetup, 0)
-    ; A missing setup flag does not prove the files are unpatched. Verify the
-    ; existing installation first, without changing game files.
-    config := PatchConfigurationPath()
-    morrowind := FindMorrowindFolder(config)
-    if morrowind != "" && FileExist(config)
-    {
-        LogLauncherEvent("First-run TES3MP folder detected; verifying existing installation before offering patches.")
-        EndGameDetectionDisplay()
-        if StartPatchWorker("Verify", tesFolder, morrowind, config, LauncherGui, true)
-            return
-    }
-    LogLauncherEvent("First-run TES3MP folder detected at " tesFolder "; offering patch installation.")
-    if MsgBox("Install Nerevarine Prophecies patches now? Your original files will be backed up.", "Nerevarine Prophecies", "YesNo Icon?") = "Yes"
-    {
-        EndGameDetectionDisplay()
-        OpenPatcher()
-    }
-    else
-        EndGameDetectionDisplay()
-}
 
 OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
 {
