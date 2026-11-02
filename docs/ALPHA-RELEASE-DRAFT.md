@@ -4,7 +4,7 @@
 
 ## Included features
 - Standalone Windows x64 launcher including a TES3MP 0.8.1 client runtime.
-- Character profiles, import/export, auto-login, and scheduled sessions.
+- Character profiles, import/export, auto-login, and per-character recovery.
 - Configurable optional custom executable and dependency overrides.
 - Embedded Discord Game Chat with optional visibility modes.
 - Global, optional NP Expansion Pack enable/disable with backups.
