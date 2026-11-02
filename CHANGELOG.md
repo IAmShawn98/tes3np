@@ -4,6 +4,11 @@
 
 ### Added
 
+### Fixed
+
+- Corrected the Expansion Pack worker's existing ZIP extraction length check (and the matching new folder staging check): `System.IO.File.GetLength` is not a .NET API, so the importer now reads the staged `FileInfo.Length` before proceeding. All staged content still receives hash verification and the existing transactional backup/rollback.
+
+
 - Added a source chooser to the Expansion Pack mismatch recovery flow: **Select ZIP (Recommended)** or **Select Extracted Folder**. Folder imports locate an extracted `Data Files` tree (including when the chosen folder itself is `Data Files`) and use the existing PowerShell worker's staging, allowed extensions, path and link checks, file limits, SHA-256 verification, backups, and rollback. A disposable Windows fixture exercises ZIP imports, both folder layouts, and rejection of unsafe/unapproved files before packaging. The exact current Discord ZIP's complete file layout has not yet been independently inspected; unexpected `Data Files` entries fail closed rather than being skipped. Windows test/build and live import remain pending.
 
 - Fixed a Windows build-preflight crash in `scripts/check-chat-architecture.py` after the upgraded mismatch renderer changed its function signature. The checker now handles missing or renamed source sections as ordinary contract failures rather than raising `IndexError`, and validates the new delayed-rejection capture, privacy-safe slot summary, and CNG fingerprint paths. The code remains unverified by a Windows build until the next local run.
