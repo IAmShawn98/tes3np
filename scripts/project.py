@@ -7,7 +7,6 @@ import hashlib
 import json
 import re
 import sys
-import zipfile
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -311,42 +310,14 @@ def check(allow_missing_payload: bool = False) -> None:
     print("AutoHotkey runtime and Windows GUI/game testing remain separate requirements.")
 
 
-def package(source_only: bool) -> Path:
-    check(allow_missing_payload=source_only)
-    state = (ROOT / "src/state.ahk").read_text(encoding="utf-8-sig")
-    build = re.search(r"AppConfig\s*:=\s*\{Build:\s*(\d+)", state)
-    if not build:
-        raise ValueError("Build number not found in src/state.ahk")
-    destination = ROOT / "dist" / f"tes3np-build-{build[1]}{'-source' if source_only else ''}.zip"
-    destination.parent.mkdir(exist_ok=True)
-    with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in project_files():
-            relative = path.relative_to(ROOT)
-            if source_only and relative.parts[0] == "patches" and relative.as_posix() not in {
-                "patches/manifest.json", "patches/expansion-pack/LICENSE.txt",
-            }:
-                continue
-            archive.write(path, "tes3np/" + relative.as_posix())
-    with zipfile.ZipFile(destination) as archive:
-        if archive.testzip() is not None:
-            raise ValueError("Generated ZIP failed its integrity check")
-    print(f"Created {destination.name}: {destination.stat().st_size:,} bytes")
-    return destination
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     checks = commands.add_parser("check", help="Static source and payload checks")
     checks.add_argument("--allow-missing-payload", action="store_true")
-    packages = commands.add_parser("package", help="Create a validated distribution ZIP")
-    packages.add_argument("--source-only", action="store_true")
     arguments = parser.parse_args()
     try:
-        if arguments.command == "check":
-            check(arguments.allow_missing_payload)
-        else:
-            package(arguments.source_only)
+        check(arguments.allow_missing_payload)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
         print(error, file=sys.stderr)
         return 1
