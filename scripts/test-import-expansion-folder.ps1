@@ -14,7 +14,7 @@ function WriteFixture([string]$Path, [string]$Value) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path)) | Out-Null
     [IO.File]::WriteAllText($Path, $Value, [Text.Encoding]::ASCII)
 }
-function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass) {
+function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string]$ExpectedError = '') {
     $job = Join-Path $root ('jobs\' + $Name)
     [IO.Directory]::CreateDirectory($job) | Out-Null
     $output = @(& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -Package $Package -MorrowindFolder $game -ConfigFile $config -JobFolder $job 2>&1)
@@ -31,6 +31,9 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass) {
     AssertFixture ([IO.File]::Exists($result)) "$Name result metadata missing"
     $expected = if ($ShouldPass) { 'State=success' } else { 'State=error' }
     AssertFixture ($report.Contains($expected)) "$Name unexpected worker status: $workerMessage"
+    if (!$ShouldPass -and $ExpectedError) {
+        AssertFixture ($workerMessage.Contains($ExpectedError)) "$Name rejected for an unexpected reason: $workerMessage"
+    }
     if ($ShouldPass) {
         $journal = Join-Path $job 'journal.json'
         AssertFixture ([IO.File]::Exists($journal)) "$Name backup journal missing"
@@ -133,10 +136,11 @@ function AssertGameClosed {
     $badZip = Join-Path $root 'reject-unsafe-backslashes.zip'
     $badArchive = [IO.Compression.ZipFile]::Open($badZip, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        $null = $badArchive.CreateEntry('NP Update\Data Files\NP Expansion Pack.esp')
+        $badEntry = $badArchive.CreateEntry('NP Update\Data Files\NP Expansion Pack.esp')
+        AssertFixture ($badEntry.FullName.Contains('\')) 'Malformed ZIP fixture entry must contain backslashes'
     }
     finally { $badArchive.Dispose() }
-    CheckWorker $badZip 'reject-backslash-entry' $false
+    CheckWorker $badZip 'reject-backslash-entry' $false 'unsafe file path'
     AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'new official sample ESP') 'Rejected malformed ZIP changed the installed expansion'
 
     WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'previous ESP'
@@ -152,7 +156,7 @@ function AssertGameClosed {
     $badFile = Join-Path $payload 'unapproved.exe'
     WriteFixture $badFile 'malicious fixture'
     WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'pre-rejection'
-    CheckWorker $packageRoot 'reject-unknown-asset' $false
+    CheckWorker $packageRoot 'reject-unknown-asset' $false 'Unexpected file in Expansion Pack Data Files'
     AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'pre-rejection') 'Rejected package modified the game'
     AssertFixture ([IO.File]::ReadAllText($unrelated) -ceq 'do not modify') 'Rejected package touched unrelated mod'
 
