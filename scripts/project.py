@@ -173,6 +173,10 @@ def check(allow_missing_payload: bool = False) -> None:
         # Retired intermediate UI helper and checkbox toggle variants.
         "AddMagicCardsInteractiveLabel", "ToggleV016ReadabilityParts",
         "ToggleV016FollowWindows",
+        # First-run scanner/status overlay superseded by CheckFirstRunMorrowind.
+        "OfferFirstRunSetup", "BeginGameDetectionDisplay",
+        "EndGameDetectionDisplay", "RefreshGameDetectionText",
+        "GameDetectionActive", "LauncherHelpText",
     )
     if (ROOT / "src/app/daily-login-scheduler.ahk").exists():
         errors.append("Retired scheduler module must not be restored.")
