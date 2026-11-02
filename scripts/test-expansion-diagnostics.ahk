@@ -96,6 +96,14 @@ try
         "SENSITIVE_TOKEN", "C:\Users", "password=", "data="]
         MismatchFixtureAssert(!InStr(report, privateValue), "private value in report")
     MismatchFixtureAssert(InStr(report, "Cause not determined"), "honest uncertainty")
+    ; Regression: the original multiline Return silently stopped after the
+    ; Expansion Pack fields and warned that the rest was unreachable.
+    MismatchFixtureAssert(InStr(report, "Repeated additional content entries: 0"),
+        "middle of report was not truncated")
+    MismatchFixtureAssert(InStr(report, "Other missing plugin specifically indicated: No"),
+        "client log evidence fields must be present")
+    MismatchFixtureAssert(InStr(report, "Load-order wording near rejection: No"),
+        "last report field must be present")
     MismatchFixtureAssert(!InStr(report, "SAFE PLUGIN"), "no redundant title")
     MismatchFixtureAssert(!InStr(report, "Privacy:"), "no privacy disclaimer")
 
