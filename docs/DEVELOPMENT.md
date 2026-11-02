@@ -16,7 +16,7 @@
 | `src/ui/macros.ahk` | Local macro library, import workflow and tracked script processes |
 | `src/ui/macro-bindings.ahk` | Declared macro actions, binding prompt and per-package saved keys |
 | `src/ui/patcher.ahk` | Setup gate, startup verification, patch UI and asynchronous progress |
-| `scripts/patch-tes3mp.ps1` | Verified file plans, backups, rollback, repair and restore |
+| `scripts/import-expansion-pack.ps1` | Active ZIP/folder importer with verified file plans, backup and rollback; retired bundled Install/Repair removed |
 | `patches/` | Supplied markerless client and EP with SHA-256 file manifest |
 | `src/game/expansion-mismatch.ahk` | Fresh TES3MP client log watcher and server plugin rejection dialog |
 | `src/ui/expansion-upload.ahk` | Local ZIP/ESP picker and shared patch-worker UI bridge |
