@@ -2,6 +2,9 @@
 
 ## v0.1.21-alpha — unreleased
 
+- Continued the post-audit dead-code cleanup: removed the disconnected `BrowseSharedExecutable` and `SaveSharedExecutable` helpers, the retired `ExecutableInput` textbox state, and its stale writes in patch completion, client-mode switches, and backup import. Preserved live `ClientMode` / `Launch/Executable` persistence, custom-client installation and imported data. Replaced outdated Browse guidance with Launcher Settings > Game Client Settings.
+- Cross-checked shared mouse, loading, macro and theme callbacks before pruning and **retained** them because they remain reachable. Added source guards for the deleted textbox and the live client-selection/import paths. Source-only validation passed; a fresh Windows build and interactive regression test are still required for this new cleanup.
+
 ### Verified Windows checkpoint — 2026-11-02
 
 - Restored the Enhanced Readability callback.
