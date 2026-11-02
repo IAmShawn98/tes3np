@@ -424,9 +424,16 @@ TES3MPReadSafeMismatchLogMarkers()
     result := {Available: false, Rejected: false, Missing: false, Order: false}
     newestPath := ""
     newestTime := ""
-    ; Use the same bounded known log folders as the existing mismatch watcher.
-    ; Only the latest matching log is read, and never returned verbatim.
-    watch := CaptureTES3MPLogBaseline()
+    ; Reuse the mismatch watcher's known folder selection, but DO NOT
+    ; enumerate file sizes or rebuild its full baseline on the GUI thread.
+    ; Only the newest matching file's last 64 KiB is read, never copied.
+    watch := {Paths: []}
+    SplitPath(PatchConfigurationPath(), , &configFolder)
+    AddTES3MPLogFolder(watch, configFolder)
+    AddTES3MPLogFolder(watch, A_MyDocuments "\My Games\OpenMW")
+    onedrive := EnvGet("OneDrive")
+    if onedrive != ""
+        AddTES3MPLogFolder(watch, onedrive "\Documents\My Games\OpenMW")
     for folder in watch.Paths
     {
         if !DirExist(folder)
