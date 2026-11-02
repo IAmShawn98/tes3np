@@ -48,8 +48,13 @@ BuildMacroBookPanel()
     MacroScrollThumb := CharacterPage.Add("Text",
         "x888 y180 w6 h40 BackgroundC69951 +0x100 Hidden")
     CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
-    MacroDetails := AddBookLabel(CharacterPage, 525, 453, 355, 24, "")
-    MacroStatus := AddBookLabel(CharacterPage, 525, 480, 355, 24, "Ready.")
+    ; Painted labels at the right book flap sample unrelated background art.
+    ; Use the same native transparent Text controls as the left description.
+    CharacterPage.SetFont("s10 Norm c241408", LauncherMorrowindFont)
+    MacroDetails := CharacterPage.Add("Text",
+        "x525 y432 w355 h24 BackgroundTrans c241408 +0x100", "")
+    MacroStatus := CharacterPage.Add("Text",
+        "x525 y475 w355 h24 BackgroundTrans c241408 +0x100", "Ready.")
     MacroImportButton := AddStyledButton(CharacterPage, 525, 508, 355, 28,
         "Add Macro / App", ImportMacroPackage)
     MacroBindingsButton := AddStyledButton(CharacterPage, 525, 543, 355, 28,
