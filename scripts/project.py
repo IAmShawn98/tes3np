@@ -445,6 +445,20 @@ def check(allow_missing_payload: bool = False) -> None:
         "uninitialized selection cannot call hidden ListView GetNext":
             'if !IsObject(MacroList) || !MacroBookRows.Length' in macro
             and 'MacroList.Visible := false' in macro,
+        "installed macros run with bundled AHK v2; no manual interpreter browse":
+            'interpreter := A_IsCompiled ? A_ScriptDir "\\runtime\\AutoHotkey64.exe" : A_AhkPath' in macro
+            and 'throw Error("Bundled AutoHotkey macro runtime missing")' in macro
+            and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
+            and 'Choose AutoHotkey executable for this macro' not in macro
+            and 'Copy-Item -LiteralPath $base -Destination $macroRuntime -Force' in (
+                ROOT / "scripts/build-windows.ps1"
+            ).read_text(encoding="utf-8-sig")
+            and "Packaged AutoHotkey macro interpreter smoke test failed" in (
+                ROOT / "scripts/build-windows.ps1"
+            ).read_text(encoding="utf-8-sig")
+            and '"runtime/AutoHotkey64.exe"' in (
+                ROOT / "scripts/check-windows-package.py"
+            ).read_text(encoding="utf-8-sig"),
         "macro import safety and key setup remain":
             'ImportMacroScript(archive)' in macro
             and 'ImportMacroApplication(archive)' in macro

@@ -10,7 +10,7 @@ TES3NP is a Windows x64 launcher for the Nerevarine Prophecies TES3MP server. It
 - A legitimate installation of **Morrowind Game of the Year Edition** with Tribunal and Bloodmoon.
 - WebView2 Runtime for embedded Discord Game Chat. The rest of the launcher should work without WebView2.
 
-The **complete Windows ZIP includes TES3MP 0.8.1** and its client dependencies. You do **not** need to download a separate TES3MP client, AutoHotkey, Python, or the .NET SDK to run a finished ZIP. Morrowind game files are **not** included.
+The **complete Windows ZIP includes TES3MP 0.8.1** and its client dependencies, plus an official AutoHotkey v2 interpreter in `runtime/AutoHotkey64.exe` for installed macros. You do **not** need to install AutoHotkey, Python, or the .NET SDK to run a finished ZIP. Keep the `runtime` folder beside `tes3np.exe`; Morrowind game files are **not** included.
 
 ## Installing a packaged build
 

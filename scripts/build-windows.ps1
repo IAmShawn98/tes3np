@@ -151,6 +151,46 @@ try {
     $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
 
+    # The compiled launcher cannot run user .ahk files by itself. Package the
+    # same official v2 interpreter used to compile it, so Run Macro never
+    # depends on a separate system installation or a manual EXE picker.
+    Step 'Packaging official AutoHotkey v2 runtime for installed macros'
+    $macroRuntimeFolder = Join-Path $package 'runtime'
+    $null = New-Item -ItemType Directory -Path $macroRuntimeFolder -Force
+    $macroRuntime = Join-Path $macroRuntimeFolder 'AutoHotkey64.exe'
+    Copy-Item -LiteralPath $base -Destination $macroRuntime -Force
+    if (!(Test-Path -LiteralPath $macroRuntime -PathType Leaf) -or
+        (GetTes3npSha256 $macroRuntime) -ine (GetTes3npSha256 $base)) {
+        throw 'Packaged AutoHotkey macro runtime does not match the verified build interpreter.'
+    }
+    # Execute a disposable no-op script through the actual packaged runtime,
+    # not merely Ahk2Exe, before accepting the Windows package.
+    $runtimeSmoke = Start-Process -FilePath $macroRuntime -ArgumentList ('"' + $smokeSource + '"') -PassThru
+    if (!$runtimeSmoke.WaitForExit(15000)) {
+        try { $runtimeSmoke.Kill() } catch {}
+        throw 'Packaged AutoHotkey macro interpreter smoke test timed out.'
+    }
+    if ($runtimeSmoke.ExitCode -ne 0) {
+        throw "Packaged AutoHotkey macro interpreter smoke test failed: $($runtimeSmoke.ExitCode)"
+    }
+    $ahkLicenseFolder = Join-Path $package 'licenses\AutoHotkey'
+    $null = New-Item -ItemType Directory -Path $ahkLicenseFolder -Force
+    $ahkLicense = Get-ChildItem -LiteralPath (Join-Path $tools 'autohotkey') -Recurse -File -Filter 'license.txt' |
+        Select-Object -First 1
+    if ($ahkLicense) {
+        Copy-Item -LiteralPath $ahkLicense.FullName -Destination (Join-Path $ahkLicenseFolder 'license.txt') -Force
+    }
+    @"
+AutoHotkey v2 runtime included for launching user-provided AHK scripts.
+Official upstream: https://github.com/AutoHotkey/AutoHotkey
+Release: $($ahkRelease.tag_name)
+Original archive: $($ahkAsset.name)
+Original archive URL: $($ahkAsset.browser_download_url)
+The official AutoHotkey repository publishes its license and corresponding source.
+Public redistribution/licensing review remains a separate release gate.
+"@ | Set-Content -LiteralPath (Join-Path $ahkLicenseFolder 'REDISTRIBUTION-NOTICE.txt') -Encoding UTF8
+    Step 'Verified packaged AutoHotkey64.exe hash and script execution'
+
     # Build an isolated standalone source tree; leave developer source paths untouched.
     $stageRoot = Join-Path $buildRoot 'standalone-source'
     $null = New-Item $stageRoot -ItemType Directory

@@ -625,12 +625,7 @@ RunSelectedMacro(*)
         {
             interpreter := A_IsCompiled ? A_ScriptDir "\runtime\AutoHotkey64.exe" : A_AhkPath
             if !FileExist(interpreter)
-            {
-                interpreter := FileSelect(1, , "Choose AutoHotkey executable for this macro",
-                    "AutoHotkey (*.exe)")
-                if interpreter = ""
-                    return
-            }
+                throw Error("Bundled AutoHotkey macro runtime missing")
             entry := macro.Folder "\" macro.Entry
             if !ValidMacroEntry(macro.Folder, macro.Entry)
                 throw Error("Script no longer exists")
@@ -651,12 +646,17 @@ RunSelectedMacro(*)
         MacroStatus.Text := "Started " macro.Name "."
         RefreshMacroButtons()
     }
-    catch
+    catch Error as err
     {
-        ; Per-macro launch errors appear in red above their names.
-        macro.LastError := "Launch failed"
+        ; A missing package runtime is a launcher installation problem, not
+        ; a request for an arbitrary interpreter selected by the user.
+        missingRuntime := InStr(err.Message, "Bundled AutoHotkey macro runtime missing") > 0
+        macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"
         RefreshMacroButtons()
-        MsgBox("Could not run this tool. Check its installation.", "Run macro / app")
+        MsgBox(missingRuntime
+            ? "TES3NP's bundled AutoHotkey runtime is missing.`n`nRebuild or re-extract the complete TES3NP Windows package, keeping the runtime folder beside tes3np.exe."
+            : "Could not run this tool. Check its installation.",
+            "Run macro / app", "Icon!")
     }
 }
 
