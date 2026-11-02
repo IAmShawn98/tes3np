@@ -215,7 +215,8 @@ expect(
     and "link.href=file.url;" in source
     and "phase='present'" in source
     and "goToPresent(scroller)" in source
-    and "const maxBackfills=12, maxLoadingRetries=30;" in source
+    and "const maxBackfills=12, maxLoadingRetries=30, maxPresentRetries=18;" in source
+    and "presentRetries<=maxPresentRetries" in source
     and "attributes:true,attributeFilter:['href']" in source
     and "new MutationObserver(schedule)" in source
     and "lastFileKey===key" in source
