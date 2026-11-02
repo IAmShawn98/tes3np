@@ -427,6 +427,41 @@ expect(
     ).read_text(encoding="utf-8-sig"),
 )
 
+expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
+expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(encoding="utf-8-sig")
+expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
+expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
+expect(
+    "Expansion source chooser offers explicit ZIP and extracted-folder options",
+    '"Select ZIP (Recommended)"' in expansion_upload
+    and '"Select Extracted Folder"' in expansion_upload
+    and 'ChooseExpansionPackageSource(sourceGui, "zip")' in expansion_upload
+    and 'ChooseExpansionPackageSource(sourceGui, "folder")' in expansion_upload
+    and 'FileSelect(1, , "Choose the official NP Expansion Pack ZIP"' in expansion_upload
+    and 'DirSelect(, 0, "Choose the extracted Expansion Pack folder containing Data Files")' in expansion_upload
+    and 'InstallSelectedExpansionPackage(package)' in expansion_upload
+    and 'StartExpansionImportWorker(package, morrowind, config)' in expansion_upload,
+)
+expect(
+    "Folder imports use ZIP-equivalent allowlist, limits and unchanged rollback",
+    'if ([IO.Directory]::Exists($Package)) {' in expansion_worker
+    and "$folderIsDataFiles = $root.Name -ieq 'Data Files'" in expansion_worker
+    and "elseif ($raw -match '(?i)(^|/)Data Files/(.+)$')" in expansion_worker
+    and 'Get-ChildItem -LiteralPath $root.FullName -Recurse -Force -ErrorAction Stop' in expansion_worker
+    and '[IO.FileAttributes]::ReparsePoint' in expansion_worker
+    and 'AllowedAsset $relative' in expansion_worker
+    and '$seen.Add($relative)' in expansion_worker
+    and '$entryCount -gt 10000' in expansion_worker
+    and '$total -gt 1073741824' in expansion_worker
+    and 'Sha256 $target' in expansion_worker
+    and 'if ($rollbackReady) {' in expansion_worker
+    and 'CheckWorker $zip' in expansion_fixture
+    and 'CheckWorker $packageRoot' in expansion_fixture
+    and 'CheckWorker $payload' in expansion_fixture
+    and 'CheckWorker $packageRoot ' in expansion_fixture
+    and 'test-import-expansion-folder.ps1' in expansion_build,
+)
+
 expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
