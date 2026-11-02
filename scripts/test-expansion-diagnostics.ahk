@@ -102,7 +102,7 @@ try
         "exception fallback is explicit")
     MismatchFixtureAssert(!InStr(minimal, "SAFE") && !InStr(minimal, "Privacy:"),
         "fallback heading concise")
-    FileAppend("Plugin mismatch diagnostic fixtures passed. (11 scenarios)`n", "*", "UTF-8")
+    FileAppend("Plugin mismatch diagnostic fixtures passed.`n", "*", "UTF-8")
     ExitApp(0)
 }
 catch Error as err
