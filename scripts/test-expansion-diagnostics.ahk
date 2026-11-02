@@ -6,6 +6,60 @@
 
 global AppConfig := {Version: "TEST"}
 
+; This fixture includes only the production diagnostic module, NOT the whole
+; live launcher. Provide inert dependency stubs so #Warn can resolve the same
+; external function references it resolves in tes3np.ahk. The tests call
+; only pure parser/render functions; any attempted runtime operation fails.
+MismatchFixtureDisallow(operation)
+{
+    throw Error("Fixture attempted launcher-only operation: " operation)
+}
+
+PatchConfigurationPath()
+{
+    return MismatchFixtureDisallow("configuration path")
+}
+
+LogLauncherEvent(message)
+{
+    return MismatchFixtureDisallow("launcher log")
+}
+
+ShowLauncherWindow(activate := true)
+{
+    return MismatchFixtureDisallow("launcher GUI")
+}
+
+AddStyledButton(gui, x, y, width, height, text, callback)
+{
+    return MismatchFixtureDisallow("styled button")
+}
+
+SendLauncherChatCommand(command, targetHwnd := 0)
+{
+    return MismatchFixtureDisallow("ChatHost command")
+}
+
+CancelScheduledDailyLoginForToday()
+{
+    return MismatchFixtureDisallow("scheduled login")
+}
+
+StopClient()
+{
+    return MismatchFixtureDisallow("game client")
+}
+
+SetClientStatus(status)
+{
+    return MismatchFixtureDisallow("game status")
+}
+
+UploadExpansionFromFile()
+{
+    return MismatchFixtureDisallow("ZIP importer")
+}
+
 MismatchFixtureAssert(condition, reason)
 {
     if !condition
