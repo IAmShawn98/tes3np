@@ -110,8 +110,18 @@ try {
     # inputs and NO game files, personal settings, network or clipboard.
     Step 'Testing plugin-mismatch diagnostics with isolated AutoHotkey fixtures'
     $mismatchFixture = Join-Path $projectRoot 'scripts\test-expansion-diagnostics.ahk'
-    & $base /ErrorStdOut $mismatchFixture
-    if ($LASTEXITCODE -ne 0) { throw 'Plugin-mismatch diagnostic fixture tests failed; packaging stopped.' }
+    # AHK can emit #Warn diagnostics while exiting successfully. Keep their
+    # output visible and fail the package rather than shipping a truncated
+    # diagnostic report or an unresolved fixture-only dependency.
+    $fixtureOutput = @(& $base /ErrorStdOut $mismatchFixture 2>&1)
+    $fixtureExit = $LASTEXITCODE
+    $fixtureOutput | ForEach-Object { Write-Host $_ }
+    if ($null -eq $fixtureExit -or $fixtureExit -ne 0) {
+        throw 'Plugin-mismatch diagnostic fixture tests failed; packaging stopped.'
+    }
+    if ($fixtureOutput -match '(?i)Warning:|This line will never execute|appears to never be assigned') {
+        throw 'AutoHotkey fixture warnings detected; packaging stopped.'
+    }
 
     $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
