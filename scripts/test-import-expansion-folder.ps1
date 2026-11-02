@@ -58,7 +58,7 @@ function AssertGameClosed {
 function AssertGameClosed {
     $safeRoot = $env:TES3NP_IMPORT_FIXTURE_ROOT
     if (!$safeRoot) { throw 'Synthetic import root was not provided.' }
-    $prefix = [IO.Path]::GetFullPath($safeRoot).TrimEnd('\\') + '\\'
+    $prefix = [IO.Path]::GetFullPath($safeRoot).TrimEnd('\') + '\'
     $actual = [IO.Path]::GetFullPath($MorrowindFolder)
     if (!$actual.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Fixture refused a target outside its disposable game folder.'
