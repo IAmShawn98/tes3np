@@ -82,7 +82,8 @@ try {
     AssertFixture ($workerText.Contains("InvokeFileOperation 'move' `$temp `$Target")) 'Move retry lost explicit paths'
     AssertFixture ($workerText.Contains("InvokeFileOperation 'zipopen' `$Package")) 'ZIP open retry lost the archive path'
     AssertFixture ($workerText.Contains('($cause -isnot [IO.IOException] -or $code -notin @(32,33))')) 'Retry must remain limited to Windows lock errors'
-    AssertFixture ($workerText.Contains('[IO.File]::Replace($Source, $Destination, $null)')) 'Atomic replacement must reuse the verified journal backup'
+    AssertFixture ($workerText.Contains('[IO.File]::Replace($Source, $Destination, [NullString]::Value)')) 'PowerShell 5.1 File.Replace requires a real CLR null, not a coerced empty backup filename'
+    AssertFixture (!$workerText.Contains('[IO.File]::Replace($Source, $Destination, $null)')) 'Do not pass $null into .NET string argument for replacement backup'
     AssertFixture ($workerText.Contains("ReplaceVerified `$item.Source `$item.Target `$item.Hash`n        `$changed += `$backups[`$i]")) 'Rollback must track successfully committed replacements, not failed lock attempts'
     $productionGuard = @'
 function AssertGameClosed {
@@ -162,6 +163,16 @@ function AssertGameClosed {
         }
     }
     finally { $zipCheck.Dispose() }
+    # Directly exercise the exact Windows PowerShell 5.1/.NET interop bug:
+    # $null can bind as an empty backup filename in File.Replace. An existing
+    # destination must be replaced while passing a real CLR null string.
+    $replaceOld = Join-Path $root 'clr-null-old.cfg'
+    $replaceNew = Join-Path $root 'clr-null-new.cfg'
+    WriteFixture $replaceOld 'old-clr-null'
+    WriteFixture $replaceNew 'new-clr-null'
+    [IO.File]::Replace($replaceNew, $replaceOld, [NullString]::Value)
+    AssertFixture ([IO.File]::ReadAllText($replaceOld) -ceq 'new-clr-null') 'CLR null File.Replace cannot update an existing config'
+    AssertFixture (![IO.File]::Exists($replaceNew)) 'File.Replace left a staging file after replacing configuration'
     CheckWorker $zip 'zip' $true
     foreach ($relative in @('NP Expansion Pack.esp','Icons\tes3mp_np\test.tga','Meshes\tes3mp_np\test.nif')) {
         $installed = Join-Path $data $relative
