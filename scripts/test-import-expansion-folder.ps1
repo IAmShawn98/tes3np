@@ -14,11 +14,50 @@ function WriteFixture([string]$Path, [string]$Value) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path)) | Out-Null
     [IO.File]::WriteAllText($Path, $Value, [Text.Encoding]::ASCII)
 }
-function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string]$ExpectedError = '') {
+function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string]$ExpectedError = '', [bool]$LockProgress = $false) {
     $job = Join-Path $root ('jobs\' + $Name)
     [IO.Directory]::CreateDirectory($job) | Out-Null
-    $output = @(& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -Package $Package -MorrowindFolder $game -ConfigFile $config -JobFolder $job 2>&1)
-    $exitCode = $LASTEXITCODE
+    $output = @()
+    if ($LockProgress) {
+        # Simulate the launcher reading progress.ini with no delete sharing.
+        # A direct WriteAllText would collide with it. The worker must publish
+        # via a temporary file and retry the atomic replacement.
+        $progressPath = Join-Path $job 'progress.ini'
+        [IO.File]::WriteAllText($progressPath, "[Progress]`r`nLabel=Earlier value`r`nPercent=4`r`n", [Text.Encoding]::Unicode)
+        $held = [IO.File]::Open($progressPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+        $observedAttempt = $false
+        $proc = $null
+        try {
+            $args = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
+                '-File', ('"' + $worker + '"'),
+                '-Package', ('"' + $Package + '"'),
+                '-MorrowindFolder', ('"' + $game + '"'),
+                '-ConfigFile', ('"' + $config + '"'),
+                '-JobFolder', ('"' + $job + '"'))
+            $proc = Start-Process -FilePath $windowsPowerShell -ArgumentList $args -PassThru -WindowStyle Hidden
+            # Confirm the worker prepared its atomic status temp while locked.
+            for ($watch = 0; $watch -lt 200; $watch++) {
+                if (@(Get-ChildItem -LiteralPath $job -Filter '.progress.ini-*.tmp' -ErrorAction Stop).Count -gt 0) {
+                    $observedAttempt = $true
+                    break
+                }
+                if ($proc.HasExited) { break }
+                Start-Sleep -Milliseconds 50
+            }
+            if ($observedAttempt) { Start-Sleep -Milliseconds 200 }
+        }
+        finally { $held.Dispose() }
+        if ($proc) {
+            $proc.WaitForExit()
+            $exitCode = $proc.ExitCode
+            $proc.Dispose()
+        } else { $exitCode = -1 }
+        AssertFixture ($observedAttempt) "$Name did not exercise the locked progress.ini publisher"
+    }
+    else {
+        $output = @(& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -Package $Package -MorrowindFolder $game -ConfigFile $config -JobFolder $job 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
     $result = Join-Path $job 'result.ini'
     $report = if ([IO.File]::Exists($result)) {
         [IO.File]::ReadAllText($result, [Text.Encoding]::Unicode)
@@ -83,6 +122,9 @@ try {
     AssertFixture ($workerText.Contains("InvokeFileOperation 'zipopen' `$Package")) 'ZIP open retry lost the archive path'
     AssertFixture ($workerText.Contains('($cause -isnot [IO.IOException] -or $code -notin @(32,33))')) 'Retry must remain limited to Windows lock errors'
     AssertFixture ($workerText.Contains('[IO.File]::Replace($Source, $Destination, [NullString]::Value)')) 'PowerShell 5.1 File.Replace requires a real CLR null, not a coerced empty backup filename'
+    AssertFixture ($workerText.Contains("WriteJobIni 'progress.ini' `$body")) 'Progress must use atomic publisher'
+    AssertFixture ($workerText.Contains("WriteJobIni 'result.ini' `$body")) 'Result must use atomic publisher'
+    AssertFixture ($workerText.Contains("InvokeFileOperation 'replace' `$temp `$target")) 'Atomic status replacement must retry locks'
     AssertFixture (!$workerText.Contains('[IO.File]::Replace($Source, $Destination, $null)')) 'Do not pass $null into .NET string argument for replacement backup'
     AssertFixture ($workerText.Contains("ReplaceVerified `$item.Source `$item.Target `$item.Hash`n        `$changed += `$backups[`$i]")) 'Rollback must track successfully committed replacements, not failed lock attempts'
     $productionGuard = @'
@@ -174,6 +216,8 @@ function AssertGameClosed {
     AssertFixture ([IO.File]::ReadAllText($replaceOld) -ceq 'new-clr-null') 'CLR null File.Replace cannot update an existing config'
     AssertFixture (![IO.File]::Exists($replaceNew)) 'File.Replace left a staging file after replacing configuration'
     CheckWorker $zip 'zip' $true
+    # Retest while the launcher-like progress reader holds the INI open.
+    CheckWorker $zip 'zip-progress-reader-lock' $true '' $true
     foreach ($relative in @('NP Expansion Pack.esp','Icons\tes3mp_np\test.tga','Meshes\tes3mp_np\test.nif')) {
         $installed = Join-Path $data $relative
         $source = Join-Path $payload $relative
