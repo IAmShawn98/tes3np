@@ -311,21 +311,67 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
 ; character names, config lines or Discord messages on the clipboard.
 TES3MPCopyMismatchDiagnostics(statusControl)
 {
+    ; Clipboard assignment is synchronous in AutoHotkey v2. ClipWait is for
+    ; asynchronously copying data from another app (e.g. Ctrl+C), so waiting
+    ; after assigning A_Clipboard can spuriously show a failure.
+    ; Never reveal raw exceptions or filesystem paths to a player.
+    report := ""
+    limited := false
+    try
+        report := TES3MPBuildSafeMismatchDiagnostics()
+    catch Error as err
+    {
+        ; A locked or malformed user config/log must not stop people
+        ; reporting a plugin mismatch. Copy a strict safe fallback instead.
+        limited := true
+        LogLauncherEvent("EXPANSION | Diagnostic collection failed ("
+            Type(err) ", source line " err.Line "); using safe minimal report.")
+        report := TES3MPBuildMinimumMismatchDiagnostics()
+    }
+    TES3MPTryCopyMismatchReport(report, statusControl, limited)
+}
+
+TES3MPBuildMinimumMismatchDiagnostics()
+{
+    global AppConfig
+    ; Explicit allowlist; no raw files, user-provided strings or paths.
+    return "TES3NP - SAFE PLUGIN MISMATCH DIAGNOSTICS`r`n"
+        . "Launcher version: " AppConfig.Version "`r`n"
+        . "Reported issue: Server rejected plugin/load-order configuration`r`n"
+        . "Detailed configuration/log checks: Unavailable`r`n"
+        . "Privacy: No raw log lines, mod names, paths, account details or tokens are copied."
+}
+
+TES3MPTryCopyMismatchReport(report, statusControl, limited := false, attempt := 1)
+{
+    global ExpansionMismatchDialog
+    if !IsObject(ExpansionMismatchDialog)
+        return
     try
     {
-        A_Clipboard := TES3MPBuildSafeMismatchDiagnostics()
-        if !ClipWait(1)
-        {
-            statusControl.Text := "Could not copy diagnostic info."
-            return
-        }
-        statusControl.Text := "Diagnostic info copied. Paste it into Discord bug reports."
-        LogLauncherEvent("EXPANSION | Privacy-safe structured mismatch report copied.")
+        ; Use the same direct A_Clipboard assignment already used by the
+        ; launcher's working Troubleshooting > Copy Diagnostic Information.
+        ; Do not ClipWait() after a direct assignment.
+        A_Clipboard := report
+        statusControl.Text := limited
+            ? "Basic diagnostic info copied. Some checks unavailable."
+            : "Diagnostic info copied. Paste it into Discord bug reports."
+        LogLauncherEvent("EXPANSION | Safe mismatch report copied ("
+            (limited ? "limited" : "complete") ").")
     }
     catch Error as err
     {
-        statusControl.Text := "Could not copy diagnostic info."
-        LogLauncherEvent("EXPANSION | Diagnostic report failed (" Type(err) ").")
+        ; A separate app can briefly lock the Windows clipboard. Retry on
+        ; timers so a clipboard lock never hangs the launcher window.
+        if attempt < 3
+        {
+            SetTimer((*) => TES3MPTryCopyMismatchReport(
+                report, statusControl, limited, attempt + 1), -200)
+            return
+        }
+        statusControl.Text := "Could not access clipboard. Please click Copy Diagnostic Info again."
+        LogLauncherEvent("EXPANSION | Clipboard unavailable after retries ("
+            Type(err) ", source line " err.Line ").")
     }
 }
 
