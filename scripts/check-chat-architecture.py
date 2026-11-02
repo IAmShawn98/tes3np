@@ -269,25 +269,24 @@ expect(
 )
 
 expect(
-    "Discord discovery retires WebView2 before native repeat downloads",
-    'Panel? expansionDownloadCard;' in source
-    and 'Label? expansionDownloadStatus;' in source
-    and 'Button? expansionDownloadButton;' in source
-    and 'void ShowNativeExpansionDownloadCard(WebView2 source, string url)' in source
-    and 'fileButton.Click+=(_,_)=>RequestExpansionDownload(' in source
-    and 'var nativeCard=new Panel {' in source
-    and 'window.Controls.Add(nativeCard);' in source
-    and 'nativeCard.BringToFront();' in source
-    and 'card.Visible=true;' in source
-    and 'expansionDownloadsBrowser=null;' in source
-    and 'window.BeginInvoke(new Action(()=>{' in source
-    and 'window.Controls.Remove(source);' in source
-    and 'source.Dispose();' in source
-    and 'ShowNativeExpansionDownloadCard(browser,link!);' in source
-    and 'status.Text="Starting Download...";' in source
-    and "status.textContent='Starting Download...';" in source
-    and 'expansionLatestZipUrl=null;' in source
-    and 'SendLauncherChatCommand(8, downloadSlot.Hwnd)' in mismatch,
+    "ZIP handoff reopens only the mismatch dialog after embedded browser disposal",
+    'PostMessage(owner,0x8335,popupSlot,IntPtr.Zero)' in source
+    and 'IntPtr popupSlot=expansionDownloadsParent;' in source
+    and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero);' in source
+    and 'CloseEmbeddedExpansionDownloads(closingSlot);' in source
+    and 'OnMessage(0x8335, TES3MPExpansionDownloadHandedOff)' in bootstrap
+    and 'OnMessage(0x8336, TES3MPExpansionBrowserClosed)' in bootstrap
+    and 'ExpansionMismatchDialog := dialog' in mismatch
+    and 'ExpansionMismatchSlot := downloadSlot.Hwnd' in mismatch
+    and 'ExpansionMismatchRefreshPending := true' in mismatch
+    and 'ExpansionMismatchDialog.Hide()' in mismatch
+    and 'SendLauncherChatCommand(7, slotHwnd)' in mismatch
+    and 'SetTimer(ShowTES3MPExpansionMismatchDialog, -100)' in mismatch
+    and 'TES3MPExpansionRefreshTimedOut(slotHwnd)' in mismatch
+    and 'slotHwnd != ExpansionMismatchSlot' in mismatch
+    and 'status.textContent=\'Starting Download...\';' in source
+    and 'Panel? expansionDownloadCard;' not in source
+    and 'void ShowNativeExpansionDownloadCard(' not in source,
 )
 
 expect(
