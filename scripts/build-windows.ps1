@@ -68,6 +68,10 @@ try {
     Step 'Testing ZIP and extracted-folder Expansion Pack imports using disposable fixture files'
     & (Join-Path $PSScriptRoot 'test-import-expansion-folder.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Expansion Pack folder/ZIP importer fixture failed. Previous build artifacts were not removed.' }
+    Step 'Checking native Windows Expansion Pack picker COM interfaces (no dialog shown)'
+    $powershell51 = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    & $powershell51 -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'select-expansion-package.ps1') -SmokeTest
+    if ($LASTEXITCODE -ne 0) { throw 'Native Expansion Pack picker COM smoke test failed. Previous build artifacts were not removed.' }
     Step 'Preflight compiling Chat Host before downloading tools'
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
