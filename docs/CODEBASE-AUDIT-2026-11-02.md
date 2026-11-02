@@ -42,3 +42,40 @@
 4. Verify no removed function is reachable from dynamic callbacks in a runtime session before considering more aggressive live UI/API deletion.
 
 This is a rolling source-audit ledger, not a replacement for successful local Windows tests.
+
+## Top-to-bottom continuation — 2026-11-02
+
+### Inspection map
+
+| Layer | Reviewed | Cleanup / disposition |
+| --- | --- | --- |
+| Executable entry and startup | `tes3np.ahk`, `src/state.ahk`, `src/app/bootstrap.ahk`, `src/ui/front-page.ahk` | Removed superseded `OfferFirstRunSetup` scanner and abandoned `BeginGameDetectionDisplay`/`EndGameDetectionDisplay`/`RefreshGameDetectionText` overlay and associated state. Current `CheckFirstRunMorrowind` is the startup path and is retained. |
+| Character/session state | `src/data/settings.ahk`, `src/data/backup.ahk`, `src/ui/characters.ahk`, `src/game/session.ahk`, `src/ui/login-progress.ahk` | Removed orphaned `HasSavedCharacters` helper. Preserved profile persistence, favorite choice, encrypted credentials, import/export, login stages and 4-game limit. |
+| Native UI and layout | `src/ui/actions.ahk`, `controls.ahk`, `windows.ahk`, `renderer.ahk`, `loading.ahk`, `launcher-settings.ahk`, `v016-refinements.ahk` | Removed old chat preview, startup choice, inactive toggles, and abandoned 11-function proprietary bitmap-font rasterizer/parser. Preserved bundled Mystic Cards TrueType loading and live UI/layout controls. |
+| Chat/Happy Hour | `src/ui/embedded-chat.ahk`, `src/ui/happy-hour.ahk`, `chat-host/Program.cs`, `chat.css`, `chat.ini`, `tes3np.ChatHost.csproj` and its assets | Removed unused C# backfill flag and orphaned paint coordinate; preserved WebView2, current message fetch/backfill state, Happy Hour detection, original artwork and settings. |
+| Game client and recovery | `src/app/client-detection.ahk`, `src/ui/patcher.ahk`, `src/game/expansion-mismatch.ahk`, `src/ui/expansion-upload.ahk` | Removed unused markerless overwrite/skip prompt, obsolete manifest-hash lookup, setup-state accessor and abandoned startup patch-check wrapper. Preserved live `SHA256File` (used by custom client override verification), current patcher and v0.2 import. |
+| Macros | `src/ui/macros.ahk`, `macro-bindings.ahk`, `scripts/import-macro.ps1` | Removed unused `OpenMacros` alias. Kept the active embedded macro panel and its hidden ListView **selection model**: removing it breaks selection and run/stop functionality. |
+| Updater | `src/app/update-check.ahk`, `tes3np.ahk` confirmation entry, `scripts/tes3np-updater.ps1` and updater test scripts | Removed duplicate unused `ConfirmInstalledUpdate`; live root `HandleUpdaterStartupMode` and transactional rollback/confirmation remain. |
+| Installer/build/security | PowerShell patch/import/toggle/browser workers; `project.py`, `check-chat-architecture.py`, `check-powershell.ps1`, resource generator, package/update/release validators, GitHub workflows | Kept file hashing, path sanitization, checksums, rollback, packaged picker and atomic progress records. Expanded scheduler exclusion scans from AHK to C# and PowerShell. Removed two workflow steps that silently rewrote a patch script during CI. |
+| Repo/text assets and packaging | `.gitattributes`, `.editorconfig`, tracked `assets/` and `patches/`, `docs/`, release workflows | Aligned editor LF rules for AHK/PowerShell with Git checkout LF. Kept art originals, embedded dependencies, patch manifest, licenses and old patch resources because live packager or recovery paths still depend on them. |
+
+### Additional retired identifiers guarded in `scripts/project.py`
+
+- `OfferFirstRunSetup`, `BeginGameDetectionDisplay`, `EndGameDetectionDisplay`, `RefreshGameDetectionText`, `GameDetectionActive`, `LauncherHelpText`.
+- `CheckModifiedClientForPatch`, `ShouldSkipMarkerless`, `BundledMarkerlessHash`, `ConfirmInstalledUpdate`, `HasSavedCharacters`, `OpenMacros`, `IsTES3MPSetupComplete`, `BeginStartupPatchCheck`.
+- The retired Magic Cards bitmap-only parser, atlas, layout, rasterizer and control wrappers. The live native TrueType font loader is not part of the removal.
+
+### Confirmed surviving risks and boundaries
+
+- **Legacy Install / Repair is live**, reachable from system tray and explicit recovery. It still has paths to bundled older patch resources and therefore may replace a user-updated Expansion Pack. It cannot safely be deleted as dead code and requires a distinct redesign and migration test. No change was made to the verified v0.2 installer or imported game files.
+- The old embedded `patches/expansion-pack` content is still used by the patch manifest, standalone resource generator, and patch/repair workers. Do not classify these files as orphaned just because the official user-installed package is newer.
+- C# WebView2/WindowsBase assembly-version warning may persist; unlike the dead `initialBackfillReanchored` field, it originates in a live dependency and was not removed.
+- Several macro and launcher UI internals have historic names or hidden presentation controls but are wired to actual selection, focus, and native-paint behavior. Names and invisibility alone are insufficient proof of dead code.
+- Release gate remains intentionally blocked on the modified TES3MP client's corresponding source, rights review and clean-machine results. No tags, release assets, production update feed or user settings were modified.
+- Static GitHub source analysis cannot exercise Windows timers, native COM dialogs, WebView2, AHK compile/runtime or a real NP session. The prior v0.2 server connection is the **pre-cleanup baseline**, not a post-cleanup regression pass.
+
+### Verification and recommended Windows pass
+
+The reviewed source has explicit branch commits and source post-write checks. The existing `scripts/project.py check` guard rejects reintroduced scheduler/obsolete symbols, including the PowerShell/C# scheduler check added in this audit. `scripts/check-chat-architecture.py`, PowerShell syntax, ZIP/folder synthetic fixture, AHK diagnostic fixture, updater fixture and packaging gates remain in the build.
+
+Run the unchanged `git pull --ff-only` on `Update/v0.1.21-alpha`, then `Build tes3np.bat`. Check launch, favorite characters, launch limits, macro selection and execution, new-adventure login, settings and font appearance, game chat and Happy Hour, direct v0.2 ZIP selection, and the explicit legacy patch/repair screen without running a repair that could downgrade the game. Until this passes, the audit is **source-cleaned; Windows regression pending**.
