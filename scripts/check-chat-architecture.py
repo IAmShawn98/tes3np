@@ -666,7 +666,7 @@ expect(
     and reset_ui.index("ProcessWaitClose(chatPid, 5)") < reset_ui.index("DirDelete(AppDataDirectory, true)"),
 )
 expect(
-    "Reset shutdown must not recreate Roaming logs or scheduler settings",
+    "Reset shutdown must not recreate Roaming logs or preferences",
     "LauncherDataResetting := true" in reset_ui
     and "if !LauncherDataResetting" in bootstrap
     and "ExitApp()" in reset_ui,
