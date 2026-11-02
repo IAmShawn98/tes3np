@@ -164,6 +164,79 @@ try
     MismatchFixtureAssert(orderedLog.Order, "separate load-order indicator")
     MismatchFixtureAssert(!generic.Order, "generic load-order false positive blocked")
 
+    ; TES3MP comparison details are written after the generic rejection.
+    ; Capture fixed discrepancy categories, never the arbitrary filenames.
+    comparison := TES3MPAnalyzeMismatchLogText(rejection "`n"
+        . "0: checksum 0x67C998DD doesn't match 0x7B6AF5B9`n"
+        . "1: SECRET_CHARACTER.esp doesn't match Tribunal.esm, checksum 0xABCDEF12 doesn't match 0xF481F334")
+    MismatchFixtureAssert(comparison.ComparisonSlots = 2, "differing slots counted")
+    MismatchFixtureAssert(comparison.FirstSlot = 0, "first zero-based differing slot")
+    MismatchFixtureAssert(comparison.ChecksumCount = 2, "checksum slots")
+    MismatchFixtureAssert(comparison.NameMismatchCount = 1, "plugin-name mismatch")
+    MismatchFixtureAssert(!comparison.Order, "checksum details do not imply order text")
+    MismatchFixtureAssert(TES3MPMismatchAssessment(info, comparison, "Yes")
+        = "TES3MP reported multiple plugin comparison discrepancies",
+        "comparison-specific assessment")
+    TES3MPAccumulateMismatchDetailText(comparison,
+        "4: PRIVATE_MOD.esp is past the number of plugins used by the server`n"
+        . "5: Another.esp is past the number of plugins used by the server")
+    MismatchFixtureAssert(comparison.ComparisonSlots = 4, "follow-on slots captured")
+    MismatchFixtureAssert(comparison.ExtraClientCount = 2, "extra client slots classified")
+    TES3MPAccumulateMismatchDetailText(comparison,
+        "4: PRIVATE_MOD.esp is past the number of plugins used by the server")
+    MismatchFixtureAssert(comparison.ExtraClientCount = 2,
+        "repeated comparison slot does not inflate totals")
+    reportComparison := TES3MPRenderMismatchDiagnostics(info, comparison,
+        "Yes", "TEST", "2026-11-01 00:00:00")
+    for privateValue in ["SECRET_CHARACTER", "PRIVATE_MOD", "Another.esp",
+        "0x67C998DD", "0xF481F334"]
+        MismatchFixtureAssert(!InStr(reportComparison, privateValue),
+            "private comparison detail leaked")
+    MismatchFixtureAssert(InStr(reportComparison, "Checksum mismatch slots: 2"),
+        "checksum comparison reported")
+    MismatchFixtureAssert(InStr(reportComparison, "First differing slot (zero-based): 0"),
+        "slot index reported")
+    MismatchFixtureAssert(InStr(reportComparison, "Extra client plugin slots: 2"),
+        "extra client slots reported")
+    MismatchFixtureAssert(InStr(reportComparison, "Detailed comparison captured: Yes"),
+        "comparison availability explicit")
+
+    serverExtra := TES3MPAnalyzeMismatchLogText(rejection
+        . "`n4: Server.esp is past the number of plugins used by the client")
+    MismatchFixtureAssert(serverExtra.ExtraServerCount = 1 && serverExtra.ExtraClientCount = 0,
+        "extra server slots distinguished")
+    MismatchFixtureAssert(TES3MPMismatchAssessment(info, serverExtra, "Yes")
+        = "Server has plugin slots beyond the client list",
+        "extra server assessment")
+    MismatchFixtureAssert(InStr(report, "Detailed comparison captured: No"),
+        "generic rejection does not pretend comparison was captured")
+    MismatchFixtureAssert(InStr(report, "Expansion ESP SHA-256: Unknown"),
+        "missing fingerprint must not be guessed")
+
+    ; Exercise Windows CNG using synthetic data only, never live game files.
+    fixtureEsp := A_Temp "\tes3np-expansion-sha256-" A_TickCount ".esp"
+    try
+    {
+        FileAppend("abc", fixtureEsp, "UTF-8-RAW")
+        fingerprint := TES3MPReadExpansionFingerprint(fixtureEsp)
+        MismatchFixtureAssert(fingerprint.Status = "Hashed" && fingerprint.Size = 3,
+            "local synthetic ESP bytes hashed")
+        MismatchFixtureAssert(fingerprint.Sha256 =
+            "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD",
+            "known SHA-256 test vector")
+        fingerprintReport := TES3MPRenderMismatchDiagnostics(info, generic,
+            "Yes", "TEST", "2026-11-01 00:00:00", fingerprint)
+        MismatchFixtureAssert(InStr(fingerprintReport, fingerprint.Sha256),
+            "content fingerprint included in report")
+        MismatchFixtureAssert(!InStr(fingerprintReport, fixtureEsp),
+            "local fixture path excluded from report")
+    }
+    finally
+    {
+        if FileExist(fixtureEsp)
+            FileDelete(fixtureEsp)
+    }
+
     duplicate := TES3MPAnalyzeMismatchConfig(
         "content=Morrowind.esm`ncontent=Tribunal.esm`ncontent=Bloodmoon.esm`n"
         . "content=SOME_MOD.esp`ncontent=SOME_MOD.esp`ncontent=NP Expansion Pack.esp")
