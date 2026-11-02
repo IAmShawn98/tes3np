@@ -2,7 +2,7 @@
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, SessionStatus, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -26,7 +26,6 @@ OpenCharacterPage(*)
     MacroPage := 0
     MacroList := 0
     MacroBookControls := []
-    ExecutableInput := 0
     EditorControls := []
     ; A rebuilt character book needs its canonical button layout reapplied.
     V016CharacterLayoutApplied := false
@@ -740,16 +739,6 @@ ReleaseEditorScroll()
     return true
 }
 
-BrowseSharedExecutable(*)
-{
-    global ExecutableInput
-    path := FileSelect(1, , "Select tes3mp.exe", "Applications (*.exe)")
-    if path != ""
-    {
-        ExecutableInput.Value := path
-        SaveSharedExecutable()
-    }
-}
 
 SaveProfileEditor(index, fields, editor, *)
 {
