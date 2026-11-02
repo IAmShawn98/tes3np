@@ -5,7 +5,23 @@ global V016SettingsGuiHwnd := 0
 global V016SettingsScale := 1.0
 global V016ReadabilityState := 0
 global V016FollowWindowsState := 0
-global V016DailyLoginControls := []
+
+; Shared book/settings visibility helper. Both the native control and
+; themed painted face must be hidden/shown together to prevent ghost buttons.
+SetBookControlVisible(control, visible)
+{
+    global ButtonFaces
+    try control.Visible := visible
+    try if ButtonFaces.Has(control.Hwnd)
+    {
+        face := ButtonFaces[control.Hwnd]
+        if face.HasOwnProp("Control") && IsObject(face.Control)
+            face.Control.Visible := visible
+        if face.HasOwnProp("Label") && IsObject(face.Label)
+            face.Label.Visible := visible
+    }
+    ; Avoid forcing one parent repaint per control; the page update handles it.
+}
 
 InitializeV016UiRefinements()
 {
@@ -44,17 +60,13 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 ApplyV016CharacterLayout(*)
 {
     global CharacterPage, LaunchCharacterButton, V016CharacterLayoutApplied
-    global V016DailyLoginControls, Profiles, AddCharacterButton, WipeCharacterButton
+    global Profiles, AddCharacterButton, WipeCharacterButton
     if V016CharacterLayoutApplied || !IsObject(CharacterPage)
         return
 
-    ; Scheduled Events is deferred for a later update. Keep its saved data and
-    ; implementation intact, but do not construct a button (or a painted face).
-    ; Other scheduler code already handles an empty control list.
-    V016DailyLoginControls := []
     LaunchCharacterButton.Visible := false
 
-    ; Add Character takes the former Schedule Event position. Keep the Wipe
+    ; Keep Add Character immediately above Wipe Character List. Keep the Wipe
     ; button directly beneath it, using the same styled-button mover as
     ; RefreshProfiles so the painted and native button layers stay together.
     MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 180, 370, 30)
