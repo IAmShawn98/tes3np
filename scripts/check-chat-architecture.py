@@ -177,10 +177,7 @@ expect(
     and 'discordEnvironment = env;' in source
     and 'await browser.EnsureCoreWebView2Async(env);' in source
     and 'case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;' in source
-    and 'case 7:\n                    {' in source
-    and 'IntPtr closingSlot=m.LParam;' in source
-    and 'CloseEmbeddedExpansionDownloads(closingSlot);' in source
-    and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero);' in source
+    and 'case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;' in source
     and source.count("Application.Run(new ChatHost(") == 1
     and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1,
 )
@@ -250,46 +247,34 @@ expect(
 )
 
 expect(
-    "Cancelled ZIP downloads can be requested repeatedly without restarting ChatHost",
+    "Repeated expansion downloads do not recreate WebView2 or depend on ChatHost",
     '"Download ZIP / Retry"' in mismatch
-    and 'SendLauncherChatCommand(8, downloadSlot.Hwnd)' in mismatch
-    and 'case 8: RetryEmbeddedExpansionDownload(m.LParam); break;' in source
-    and 'void RetryEmbeddedExpansionDownload(IntPtr placeholder)' in source
+    and 'TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus)' in mismatch
     and 'void RequestExpansionDownload(string? url, string origin)' in source
     and 'string? expansionLatestZipUrl;' in source
-    and "type==\"expansion-available\"" in source
-    and "chrome.webview.postMessage({type:'expansion-available',url:file.url});" in source
-    and 'expansionLatestZipUrl=link;' in source
     and 'expansionLatestZipUrl=null;' in source
-    and 'RequestExpansionDownload(url,"native-retry");' in source
-    and 'RequestExpansionDownload(link,"embedded-card");' in source
-    and 'Task.Run(()=>{' in source
-    and 'UseShellExecute=true' in source
-    and '"Download ZIP / Retry"' in mismatch
-    and "setTimeout(()=>{scheduled=false;refresh();},150);" in source
-    and "change.target===panel || panel.contains(change.target)" in source
-    and "changes.every(change=>panel" in source,
-)
-
-expect(
-    "ZIP handoff reopens only the mismatch dialog after embedded browser disposal",
-    'PostMessage(owner,0x8335,popupSlot,IntPtr.Zero)' in source
-    and 'IntPtr popupSlot=expansionDownloadsParent;' in source
-    and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero);' in source
-    and 'CloseEmbeddedExpansionDownloads(closingSlot);' in source
-    and 'OnMessage(0x8335, TES3MPExpansionDownloadHandedOff)' in bootstrap
-    and 'OnMessage(0x8336, TES3MPExpansionBrowserClosed)' in bootstrap
-    and 'ExpansionMismatchDialog := dialog' in mismatch
-    and 'ExpansionMismatchSlot := downloadSlot.Hwnd' in mismatch
-    and 'ExpansionMismatchRefreshPending := true' in mismatch
-    and 'ExpansionMismatchDialog.Hide()' in mismatch
-    and 'SendLauncherChatCommand(7, slotHwnd)' in mismatch
-    and 'SetTimer(ShowTES3MPExpansionMismatchDialog, -100)' in mismatch
-    and 'TES3MPExpansionRefreshTimedOut(slotHwnd)' in mismatch
-    and 'slotHwnd != ExpansionMismatchSlot' in mismatch
-    and 'status.textContent=\'Starting Download...\';' in source
-    and 'Panel? expansionDownloadCard;' not in source
-    and 'void ShowNativeExpansionDownloadCard(' not in source,
+    and 'expansionLatestZipUrl=link;' in source
+    and 'PublishExpansionUrlToLauncher(link!);' in source
+    and "chrome.webview.postMessage({type:'expansion-available',url:file.url});" in source
+    and 'Run(url)' in mismatch
+    and 'statusControl.Text := "Starting Download..."' in mismatch
+    and 'OnMessage(0x004A, TES3MPExpansionZipAvailable)' in bootstrap
+    and 'TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)' in mismatch
+    and 'NumGet(lParam, 0, "Ptr") != 0x8335' in mismatch
+    and 'ExpansionMismatchZipUrl := url' in mismatch
+    and 'ExpansionMismatchZipUrl := ""' in mismatch
+    and 'SendCopyDataTimeout(owner,0x004A,sender,' in source
+    and 'ref data,0x0002,1500,out var result' in source
+    and 'Marshal.StringToHGlobalUni(payload)' in source
+    and 'Marshal.FreeHGlobal(utf16)' in source
+    and 'source.count("Application.Run(new ChatHost(")' not in mismatch
+    and 'PostMessage(owner,0x8335,popupSlot,IntPtr.Zero)' not in source
+    and 'PostMessage(owner,0x8336,closingSlot,IntPtr.Zero)' not in source
+    and 'ExpansionMismatchRefreshPending' not in mismatch
+    and 'TES3MPExpansionDownloadHandedOff' not in bootstrap
+    and 'ShowNativeExpansionDownloadCard(' not in source
+    and 'setTimeout(()=>{scheduled=false;refresh();},150);' in source
+    and 'new MutationObserver(changes=>{' in source,
 )
 
 expect(
