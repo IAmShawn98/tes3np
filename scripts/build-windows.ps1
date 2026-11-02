@@ -65,6 +65,9 @@ try {
     Step 'Checking embedded Chat Host architecture before packaging'
     & python (Join-Path $PSScriptRoot 'check-chat-architecture.py')
     if ($LASTEXITCODE -ne 0) { throw 'Chat Host architecture validation failed. Previous build artifacts were not removed.' }
+    Step 'Testing ZIP and extracted-folder Expansion Pack imports using disposable fixture files'
+    & (Join-Path $PSScriptRoot 'test-import-expansion-folder.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Expansion Pack folder/ZIP importer fixture failed. Previous build artifacts were not removed.' }
     Step 'Preflight compiling Chat Host before downloading tools'
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
