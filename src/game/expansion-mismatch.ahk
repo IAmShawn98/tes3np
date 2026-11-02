@@ -171,7 +171,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 
 TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
 {
-    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    global LauncherGui, EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
     ; WM_COPYDATA is synchronous; copy the data before returning.
     ; Only accept our current ChatHost's authenticated HTTPS attachment.
     if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
@@ -181,7 +181,9 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     {
         oldHidden := A_DetectHiddenWindows
         DetectHiddenWindows(true)
-        try validSender := wParam && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
+        try validSender := wParam && EmbeddedChatPid
+            && (WinGetPID("ahk_id " wParam) = EmbeddedChatPid)
+            && (StrLower(WinGetProcessName("ahk_id " wParam)) = "tes3np.chathost.exe")
         finally DetectHiddenWindows(oldHidden)
         if !validSender
             return 0
