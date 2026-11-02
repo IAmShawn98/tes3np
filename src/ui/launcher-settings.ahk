@@ -62,13 +62,6 @@ ApplyWindowsAccessibilityPreferences()
         ReduceMotion := true
 }
 
-OpenDailyLoginScheduleSettings(parent, *)
-{
-    parent.Hide()
-    OpenScheduledEventsMenu()
-    try parent.Destroy()
-}
-
 ScaleChoiceIndex(scale)
 {
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
