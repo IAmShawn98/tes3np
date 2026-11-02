@@ -427,6 +427,7 @@ expect(
     ).read_text(encoding="utf-8-sig"),
 )
 
+resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
 expansion_picker = (ROOT / "scripts" / "select-expansion-package.ps1").read_text(encoding="utf-8-sig")
 expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
 expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(encoding="utf-8-sig")
@@ -458,7 +459,12 @@ expect(
     and 'File.Exists(path)' in expansion_picker
     and '[TES3NP.Expansion.NativePicker]::SmokeTest()' in expansion_picker
     and 'select-expansion-package.ps1' in expansion_build
-    and 'Native Expansion Pack picker COM smoke test failed' in expansion_build,
+    and 'Native Expansion Pack picker COM smoke test failed' in expansion_build
+    and '"select-expansion-package.ps1"' in resource_generator
+    and '"import-expansion-pack.ps1"' in resource_generator
+    and "Missing extracted Expansion Pack helper:" in expansion_build
+    and "Bundled Expansion Pack helper differs from source:" in expansion_build
+    and "Verified both extracted Expansion Pack helpers and source SHA-256 hashes" in expansion_build,
 )
 expect(
     "Folder imports use ZIP-equivalent allowlist, limits and unchanged rollback",
