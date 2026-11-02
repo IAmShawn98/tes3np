@@ -121,15 +121,12 @@ HandleTES3MPPluginMismatch()
 {
     global Client
     pid := Client.PID
-    scheduled := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
     LogLauncherEvent("GAME | PLUGIN MISMATCH | New TES3MP client log reports a server load-order rejection. Stopping failed launch.")
     ; Close only this attempted client (never every running TES3MP game).
     if pid && ProcessExist(pid)
         try ProcessClose(pid)
     if IsObject(Client.Queue)
         Client.Queue := 0
-    if scheduled
-        CancelScheduledDailyLoginForToday()
     StopClient()
     SetClientStatus("Game blocked: plugins or load order do not match the server.")
     ShowTES3MPExpansionMismatchDialog()
