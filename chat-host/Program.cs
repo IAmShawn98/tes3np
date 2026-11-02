@@ -244,8 +244,8 @@ internal static class Program
               let scheduled=false, retryPending=false, lastStatus='', lastFileKey='';
               let panel, status, sender, link, size;
               let best=null, checkedPresent=false, backfillCount=0, phase='present';
-              let previousHistoryTop='', unchangedHistory=0;
-              const maxBackfills=12;
+              let previousHistoryTop='', unchangedHistory=0, loadingRetries=0;
+              const maxBackfills=12, maxLoadingRetries=30;
 
               function report(value) {
                 if (value===lastStatus) return;
@@ -339,7 +339,7 @@ internal static class Program
                   // metadata is missing, DOM order is a best-effort fallback.
                   if (!best ||
                       (item.id!==null && best.id!==null && item.id>best.id) ||
-                      (item.id===best.id && item.order>best.order) ||
+                      (item.id===best.id && item.order>=best.order) ||
                       (item.id!==null && best.id===null)) best=item;
                 }
               }
@@ -384,9 +384,12 @@ internal static class Program
                 if (!feed) {
                   wait('Loading the official Expansion Pack download channel. If it stays empty, sign into Game Chat.',
                     'waiting-for-channel');
-                  retry();
+                  // The observer will also notice the Discord channel mounting.
+                  // Stop timed retries when signed out, instead of polling forever.
+                  if (++loadingRetries<=maxLoadingRetries) retry();
                   return;
                 }
+                loadingRetries=0;
                 const scroller=scrollerFor(feed);
                 if (phase==='present') {
                   // Discord may resume at an old read position. Do not trust
@@ -397,6 +400,12 @@ internal static class Program
                   }
                   checkedPresent=true;
                   phase='search';
+                }
+                // A reopened/historically restored Discord scroller cannot
+                // silently turn an older ZIP into a "latest" result.
+                if (phase==='monitor' && !goToPresent(scroller)) {
+                  wait('Checking for newer Discord uploads...', 'seeking-present');
+                  return;
                 }
                 const files=readCandidates(feed);
                 remember(files);
@@ -421,8 +430,7 @@ internal static class Program
                 // When new messages arrive, stay at present and compare new
                 // Discord snowflakes; don't replace a newer file with an older
                 // entry from a virtualized/scrolled message list.
-                if (phase==='monitor' && scroller && !goToPresent(scroller))
-                  retry();
+                // Further uploads are handled by the existing DOM observer.
               }
               function schedule() {
                 if (scheduled) return;
