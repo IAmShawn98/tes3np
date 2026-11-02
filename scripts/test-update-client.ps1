@@ -20,7 +20,25 @@ Require-Source 'releaseId\s*!=\s*"v"\s*manifest\.version' 'release identity vali
 Require-Source 'fileName\s*!=\s*"tes3np-windows\.zip"' 'package filename validation'
 Require-Source '\[0-9a-f\]\{64\}' 'SHA-256 format validation'
 Require-Source '!manifest\.updateEnabled' 'emergency update disable handling'
-Require-Source 'No update was installed' 'fail-closed user messaging'
+# The UI now uses an owned error-status panel instead of the removed
+# "No update was installed" string. Assert the actual fail-closed behavior:
+# errors report status, and neither download nor installation proceeds without
+# the user's separate confirmation.
+Require-Source 'LogLauncherEvent\("ERROR \| UPDATE \| "' 'update failure is logged'
+Require-Source 'ShowUpdateStatusPanel\("error", AppConfig\.Version\)' 'update failure opens status panel'
+Require-Source 'if choice = "Yes" && ShowGoldUpdateConfirmation\("Download Update\?"' 'download requires user confirmation'
+Require-Source 'if ShowGoldUpdateConfirmation\("Install Verified Update\?"' 'installation requires second confirmation'
+
+$downloadGate = $source.IndexOf('if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?"')
+$stage = $source.IndexOf('staged := DownloadAndStageUpdate(manifest)', $downloadGate)
+$installGate = $source.IndexOf('if ShowGoldUpdateConfirmation("Install Verified Update?"', $stage)
+$launch = $source.IndexOf('StartTransactionalUpdate(manifest.version, staged)', $installGate)
+if ($downloadGate -lt 0 -or $stage -le $downloadGate -or
+    $installGate -le $stage -or $launch -le $installGate -or
+    [regex]::Matches($source, 'StartTransactionalUpdate\(manifest\.version, staged\)').Count -ne 1) {
+    throw 'Updater client safety check missing: confirmed stage -> confirmed transactional installation order'
+}
+Write-Host 'PASS: verified update is staged and installed only after separate confirmations.'
 
 # The public release generator writes fileName/size/sha256 under "package".
 # Guard the contract against regressions that silently hide update availability.
