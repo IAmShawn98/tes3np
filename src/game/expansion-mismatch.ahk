@@ -669,6 +669,35 @@ TES3MPMismatchAssessment(info, markers, installed)
     return "Cause not determined from available checks"
 }
 
+TES3MPMismatchSlotSummary(markers)
+{
+    if markers.ComparisonSlots = 0
+        return "None captured"
+    details := ""
+    shown := 0
+    ; Only numeric plugin indices and constant category words reach the
+    ; clipboard. Bound the summary even for very large server mod lists.
+    for slot, flags in markers.SlotFlags
+    {
+        if shown >= 12
+            break
+        categories := ""
+        if flags & 1
+            categories .= "checksum"
+        if flags & 2
+            categories .= (categories = "" ? "" : "+") "name"
+        if flags & 4
+            categories .= (categories = "" ? "" : "+") "extra-client"
+        if flags & 8
+            categories .= (categories = "" ? "" : "+") "extra-server"
+        details .= (details = "" ? "" : "; ") slot " [" categories "]"
+        shown += 1
+    }
+    if markers.ComparisonSlots > shown
+        details .= "; +" (markers.ComparisonSlots - shown) " more"
+    return details
+}
+
 ; The report is generated solely from an allowlist of fixed strings, numeric
 ; counts and known tri-state flags. No untrusted text enters the clipboard.
 TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, fingerprint := 0)
@@ -728,7 +757,8 @@ TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, finger
     report .= "Checksum mismatch slots: " (logOK ? markers.ChecksumCount : "Unknown") "`r`n"
     report .= "Plugin-name mismatch slots: " (logOK ? markers.NameMismatchCount : "Unknown") "`r`n"
     report .= "Extra client plugin slots: " (logOK ? markers.ExtraClientCount : "Unknown") "`r`n"
-    report .= "Extra server plugin slots: " (logOK ? markers.ExtraServerCount : "Unknown")
+    report .= "Extra server plugin slots: " (logOK ? markers.ExtraServerCount : "Unknown") "`r`n"
+    report .= "Slot details (zero-based): " (logOK ? TES3MPMismatchSlotSummary(markers) : "Unknown")
     return report
 }
 TES3MPNewExpansionFingerprintResult(status := "Not checked")
