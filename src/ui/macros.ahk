@@ -91,7 +91,7 @@ RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb
-    global MacroDetails, LaunchSettingsHeading, ButtonFaces
+    global MacroDetails, MacroStatus, LaunchSettingsHeading, ButtonFaces, CharacterPage
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
     count := MacroItems.Length
@@ -113,7 +113,8 @@ RefreshMacroBookRows()
         if !visible
             continue
         item := MacroItems[index]
-        name := SubStr(item.Name, 1, 20)
+        ; Keep longer names from bleeding into the Run button.
+        name := StrLen(item.Name) > 20 ? SubStr(item.Name, 1, 17) "..." : item.Name
         if itemRow.Name.Text != name
             itemRow.Name.Text := name
         selected := index = selectedIndex
@@ -143,6 +144,31 @@ RefreshMacroBookRows()
         thumbY := 180 + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(888, thumbY, 6, thumbHeight)
     }
+    ; Keep the details and status directly beneath the final visible row
+    ; instead of leaving a large empty gap with only one installed macro.
+    ; The last of ten rows ends at y418, and its details/status still fit
+    ; above the permanently anchored Add Macro / App button at y508.
+    visibleCount := Min(MacroBookRows.Length, Max(0, count - MacroScrollOffset))
+    detailsY := 180 + visibleCount * 24 + 18
+    statusY := detailsY + 28
+    MacroDetails.GetPos(, &oldDetailsY)
+    MacroStatus.GetPos(, &oldStatusY)
+    needsRepaint := false
+    if oldDetailsY != detailsY
+    {
+        MacroDetails.Move(525, detailsY, 355, 24)
+        needsRepaint := true
+    }
+    if oldStatusY != statusY
+    {
+        MacroStatus.Move(525, statusY, 355, 24)
+        needsRepaint := true
+    }
+    ; Native transparent Text controls need the old parchment area redrawn
+    ; when moved. This runs on actual row-count changes, not each timer tick.
+    if needsRepaint && shown
+        DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0,
+            "Ptr", 0, "UInt", 0x385)
     MacroDetails.Visible := shown && selectedIndex > 0 && selectedIndex <= count
 }
 

@@ -398,6 +398,14 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 508, 355, 28' in macro
             and 'MacroBindingsButton := AddStyledButton(CharacterPage, 525, 543, 355, 28' in macro
             and 'MacroDetails.Visible := shown && selectedIndex > 0' in macro
+            and 'visibleCount := Min(MacroBookRows.Length, Max(0, count - MacroScrollOffset))' in macro
+            and 'detailsY := 180 + visibleCount * 24 + 18' in macro
+            and 'statusY := detailsY + 28' in macro
+            and 'if oldDetailsY != detailsY' in macro
+            and 'if oldStatusY != statusY' in macro
+            and 'if needsRepaint && shown' in macro
+            and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd, "Ptr", 0,' in macro
+            and 'name := StrLen(item.Name) > 20 ? SubStr(item.Name, 1, 17) "..." : item.Name' in macro
             and 'maximum := Max(0, count - MacroBookRows.Length)' in macro
             and 'index := MacroScrollOffset + position' in macro
             and 'MacroScrollOffset := Max(0, row - 10)' in macro
