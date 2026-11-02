@@ -47,4 +47,4 @@ global SetupComplete := false
 global AppConfig := {Version: "0.1.21-alpha", Server: "NerevarineProphecies.servegame.com:25565",
     Wiki: "https://wiki.nerevarineprophecies.com/Main_Page", UsernameDelay: 20,
     PasswordDelay: 3, LoadDelay: 20, WatchdogMs: 1000, TooltipMs: 100,
-    GameWindowWaitMs: 30000, RetryMs: 5000, ClaimWaitMs: 10000}
+    GameWindowWaitMs: 30000}
