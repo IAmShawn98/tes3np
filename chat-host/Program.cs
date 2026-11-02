@@ -1422,7 +1422,6 @@ metrics();
                     historyBackoffUntil = DateTime.UtcNow.AddMilliseconds(900);
                     string olderWindow = Channel + "/" + oldest;
                     Log("History reanchor: navigating Discord to " + olderWindow);
-                    initialBackfillReanchored = true;
                     web.CoreWebView2.Navigate(olderWindow);
                     return;
                 }
@@ -1529,7 +1528,6 @@ metrics();
         DateTime initialBackfillStarted = DateTime.MinValue;
         int initialBackfillAttempts;
         bool initialBackfillComplete;
-        bool initialBackfillReanchored;
         // Restoring Discord's hidden source from historical paging can load
         // previously unseen (but old) rows. Do not turn them into chat alerts.
         bool waitingForLiveFeedAfterHistory;
@@ -2978,7 +2976,6 @@ metrics();
             initialBackfillComplete = false;
             initialBackfillStarted = DateTime.MinValue;
             initialBackfillAttempts = 0;
-            initialBackfillReanchored = false;
             waitingForLiveFeedAfterHistory = false;
         }
 
