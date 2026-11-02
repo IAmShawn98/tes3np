@@ -8,7 +8,7 @@ global AppConfig := {Version: "TEST"}
 ; Production sets these in src/state.ahk and src/data/settings.ahk.
 ; The isolated parser fixture intentionally does not load the live launcher.
 ; Its test-only placeholders silence #Warn; no tests call GUI/game code.
-global Client := {PID: 0, Enabled: false, Queue: 0}
+global Client := {PID: 0, Enabled: false}
 global LauncherGui := 0
 global EmbeddedChatPid := 0
 global DataFile := ""
@@ -45,11 +45,6 @@ AddStyledButton(gui, x, y, width, height, text, callback)
 SendLauncherChatCommand(command, targetHwnd := 0)
 {
     return MismatchFixtureDisallow("ChatHost command")
-}
-
-CancelScheduledDailyLoginForToday()
-{
-    return MismatchFixtureDisallow("scheduled login")
 }
 
 StopClient()
