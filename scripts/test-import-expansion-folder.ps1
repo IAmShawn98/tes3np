@@ -128,6 +128,17 @@ function AssertGameClosed {
     AssertFixture ([IO.File]::ReadAllText($config).Contains('content=NP Expansion Pack.esp')) 'ZIP did not enable expansion'
     AssertFixture ([IO.File]::ReadAllText($unrelated) -ceq 'do not modify') 'ZIP touched unrelated mod'
 
+    # Deliberately malformed ZIP: the importer must continue rejecting
+    # Windows-style backslashes in archive entry names, not normalize them.
+    $badZip = Join-Path $root 'reject-unsafe-backslashes.zip'
+    $badArchive = [IO.Compression.ZipFile]::Open($badZip, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $null = $badArchive.CreateEntry('NP Update\Data Files\NP Expansion Pack.esp')
+    }
+    finally { $badArchive.Dispose() }
+    CheckWorker $badZip 'reject-backslash-entry' $false
+    AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'new official sample ESP') 'Rejected malformed ZIP changed the installed expansion'
+
     WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'previous ESP'
     WriteFixture $config $originalConfig
     CheckWorker $packageRoot 'folder-parent' $true
