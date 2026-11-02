@@ -231,7 +231,7 @@ expect(
     and "event.preventDefault();" in source
     and "event.stopPropagation();" in source
     and "chrome.webview.postMessage({type:'expansion-download',url});" in source
-    and "status.textContent='Starting Download...';" in source
+    and "status.textContent='';" in source
     and "type==\"expansion-download\"" in source
     and "IsOfficialExpansionDownloadUrl(link)" in source
     and "Uri.TryCreate(value, UriKind.Absolute, out var uri)" in source
@@ -266,7 +266,7 @@ expect(
     and 'var browser=new WebView2 { Dock=DockStyle.Fill };' in source
     and "Run('rundll32.exe url.dll,FileProtocolHandler" in mismatch
     and 'Run(url)' not in mismatch
-    and 'statusControl.Text := "Starting Download..."' in mismatch
+    and 'statusControl.Text := ""' in mismatch
     and 'OnMessage(0x004A, TES3MPExpansionZipAvailable)' in bootstrap
     and 'TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)' in mismatch
     and 'ExpansionMismatchZipUrl := url' in mismatch
@@ -280,6 +280,38 @@ expect(
     and 'ExpansionMismatchRefreshPending' not in mismatch
     and 'ShowNativeExpansionDownloadCard(' not in source
     and 'setTimeout(()=>{scheduled=false;refresh();},150);' in source,
+)
+
+expect(
+    "Plugin mismatch copy guidance and safe clipboard diagnostic report",
+    '"Your Plugins Don\'t Match the Servers"' in mismatch
+    and "The likely cause is due to an update for the Nerevarine Prophecies content Expansion Pack." in mismatch
+    and "Please ensure you have the latest and greatest enabled, then retry logging in again." in mismatch
+    and "Download the latest Expansion Pack from Discord by clicking the button below," in mismatch
+    and "waiting for it to complete, then clicking the OK button to locate and install" in mismatch
+    and "send it to bug reports on Discord for further examination." in mismatch
+    and '"Copy Diagnostic Info"' in mismatch
+    and "TES3MPCopyMismatchDiagnostics(nativeStatus)" in mismatch
+    and "A_Clipboard := TES3MPBuildSafeMismatchDiagnostics()" in mismatch
+    and "TES3MPBuildSafeMismatchDiagnostics()" in mismatch
+    and "TES3MPReadSafeMismatchLogMarkers()" in mismatch
+    and 'FileGetSize(config) <= 1048576' in mismatch
+    and 'file.Length - 65536' in mismatch
+    and 'plugin = "np expansion pack.esp"' in mismatch
+    and 'plugin = "morrowind.esm"' in mismatch
+    and 'plugin = "tribunal.esm"' in mismatch
+    and 'plugin = "bloodmoon.esm"' in mismatch
+    and 'result.Rejected := InStr(raw,' in mismatch
+    and 'result.Missing := InStr(raw,' in mismatch
+    and 'result.Order := InStr(raw,' in mismatch
+    and "No raw log lines, mod names, paths, account details or tokens are copied." in mismatch
+    and "status.textContent='';" in source
+    and 'statusControl.Text := ""' in mismatch
+    and "Starting Download..." not in mismatch
+    and "Starting Download..." not in source
+    and "BuildLauncherDiagnostics()" not in mismatch
+    and "A_Clipboard := raw" not in mismatch
+    and "A_Clipboard := FileRead(" not in mismatch,
 )
 
 expect(
