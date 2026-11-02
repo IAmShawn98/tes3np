@@ -172,7 +172,7 @@ def check(allow_missing_payload: bool = False) -> None:
                 errors.append(
                     f"{source.relative_to(ROOT)}: retired feature reference {name}"
                 )
-        if re.search(r"\\bClient\\.Queue\\b", content):
+        if re.search(r"\bClient\.Queue\b", content):
             errors.append(f"{source.relative_to(ROOT)}: retired batch queue reference")
     session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     root_source = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
