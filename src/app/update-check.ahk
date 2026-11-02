@@ -450,21 +450,6 @@ StartTransactionalUpdate(version, staged)
     Sleep(500)
 }
 
-ConfirmInstalledUpdate(version, stateFile)
-{
-    expectedState := A_Temp "\tes3np-update\update-state.ini"
-    if StrLower(GetFullPath(stateFile)) != StrLower(GetFullPath(expectedState))
-        throw Error("Update confirmation state path is invalid.")
-    if !RegExMatch(version, "^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
-        throw Error("Update confirmation version is invalid.")
-    if !FileExist(stateFile)
-        throw Error("Update confirmation state file is missing.")
-    stagedVersion := IniRead(stateFile, "Update", "Version", "")
-    if stagedVersion != version
-        throw Error("Update confirmation version does not match staged update.")
-    IniWrite("CONFIRMED", stateFile, "Update", "State")
-}
-
 GetFullPath(path)
 {
     size := DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", 0, "Ptr", 0, "Ptr", 0, "UInt")
