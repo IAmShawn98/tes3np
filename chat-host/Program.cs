@@ -649,10 +649,12 @@ internal static class Program
 
         void ShowNativeExpansionDownloadCard(WebView2 source, string url)
         {
+            var window=expansionDownloadsWindow;
+            var card=expansionDownloadCard;
+            var button=expansionDownloadButton;
             if (!ReferenceEquals(source,expansionDownloadsBrowser) ||
-                source.IsDisposed || expansionDownloadsWindow is not {IsDisposed:false} window ||
-                expansionDownloadCard is not {IsDisposed:false} card ||
-                expansionDownloadButton is not {IsDisposed:false} button)
+                source.IsDisposed || window==null || window.IsDisposed ||
+                card==null || card.IsDisposed || button==null || button.IsDisposed)
                 return;
             if (!IsOfficialExpansionDownloadUrl(url)) return;
             string filename;
