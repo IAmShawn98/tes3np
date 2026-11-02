@@ -244,8 +244,8 @@ internal static class Program
               let scheduled=false, retryPending=false, lastStatus='', lastFileKey='';
               let panel, status, sender, link, size;
               let best=null, checkedPresent=false, backfillCount=0, phase='present';
-              let previousHistoryTop='', unchangedHistory=0, loadingRetries=0;
-              const maxBackfills=12, maxLoadingRetries=30;
+              let previousHistoryTop='', unchangedHistory=0, loadingRetries=0, presentRetries=0;
+              const maxBackfills=12, maxLoadingRetries=30, maxPresentRetries=18;
 
               function report(value) {
                 if (value===lastStatus) return;
@@ -374,10 +374,13 @@ internal static class Program
                 if (!scroller) return true;
                 const gap=scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight;
                 if (gap>45) {
-                  scroller.scrollTop=scroller.scrollHeight;
-                  retry();
+                  if (++presentRetries<=maxPresentRetries) {
+                    scroller.scrollTop=scroller.scrollHeight;
+                    retry();
+                  }
                   return false;
                 }
+                presentRetries=0;
                 return true;
               }
               function refresh() {
@@ -401,7 +404,9 @@ internal static class Program
                   // Discord may resume at an old read position. Do not trust
                   // those old ZIP links before reaching the newest messages.
                   if (!goToPresent(scroller)) {
-                    wait('Checking the latest Discord uploads...', 'seeking-present');
+                    wait(presentRetries>maxPresentRetries
+                      ? 'Could not reach Discord\'s newest messages. Open the download channel link below.'
+                      : 'Checking the latest Discord uploads...', 'seeking-present');
                     return;
                   }
                   checkedPresent=true;
