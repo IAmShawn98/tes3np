@@ -95,6 +95,7 @@ function AllowedAsset([string]$Relative) {
 $backups = @()
 $changed = @()
 $rollbackReady = $false
+$staged = $null
 try {
     Progress 'Checking Expansion Pack download' 5
     AssertGameClosed
@@ -318,4 +319,18 @@ catch {
     Progress 'Expansion import failed' 100
     Result 'error' $reason
     exit 1
+}
+finally {
+    # Preserve the job's backup/journal, but do not retain a second full
+    # copy of the Expansion Pack in its disposable staging directory.
+    if ($staged -and [IO.Directory]::Exists($staged)) {
+        try { [IO.Directory]::Delete($staged, $true) }
+        catch {
+            try {
+                [IO.File]::WriteAllText((Join-Path $JobFolder 'stage-cleanup-warning.txt'),
+                    'Temporary Expansion Pack staging cleanup was incomplete.',
+                    [Text.Encoding]::ASCII)
+            } catch {}
+        }
+    }
 }
