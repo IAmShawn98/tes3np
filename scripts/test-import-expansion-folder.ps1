@@ -65,6 +65,10 @@ function AssertGameClosed {
     }
 }
 '@
+    # Repositories may be checked out with LF or CRLF on Windows.
+    $workerText = $workerText.Replace("`r`n", "`n")
+    $productionGuard = $productionGuard.Replace("`r`n", "`n")
+    $syntheticGuard = $syntheticGuard.Replace("`r`n", "`n")
     AssertFixture ($workerText.Contains($productionGuard)) 'Production client-process protection changed; update the isolated fixture before running'
     AssertFixture ($workerText.IndexOf($productionGuard) -eq $workerText.LastIndexOf($productionGuard)) 'Ambiguous production process guard'
     [IO.File]::WriteAllText($worker, $workerText.Replace($productionGuard, $syntheticGuard), ([Text.UTF8Encoding]::new($false)))
