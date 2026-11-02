@@ -1,5 +1,11 @@
 # TES3NP Codebase Audit — 2026-11-02
 
+## Latest verification — 2026-11-02
+
+- **User-confirmed post-cleanup Windows verification:** After the missing `UpdateV016ReadabilityLabel` callback was restored, the user reported that the warning was fixed, then confirmed that **everything they checked is working**. This updates the earlier audit status from *Windows regression pending* to **user-verified working baseline for tested functionality**.
+- Evidence scope: user's direct confirmation, not an independently captured full build log or a separate checklist proving every feature, clean-machine installation, updater release gate, and legacy repair path. Preserve these distinctions for future development.
+- No new application code changes were made to record this checkpoint. Keep the legacy Install / Repair downgrade risk on the separate future-audit list rather than changing a working installation.
+
 ## Baseline and scope
 - Branch: `Update/v0.1.21-alpha`; preceding verified runtime baseline: commit `8d89e43a28816c7127a628e4886b753d9568243b`, with user-confirmed successful NP Expansion Pack v0.2 installation and server connection.
 - Repository inventory from the verified baseline: 256 tracked files, including 52 files with source/build/test extensions. Primary modules: AHK v2 launcher under `tes3np.ahk` and `src/`, C# embedded Chat Host under `chat-host/`, Windows PowerShell installer/import/update workers under `scripts/`, content-addressed embedded resources and NP Expansion Pack payloads under `patches/` and `assets/`.
