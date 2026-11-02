@@ -2,6 +2,8 @@
 
 ## v0.1.21-alpha — unreleased
 
+- Restored the **live Launcher Settings Enhanced Readability label updater** inadvertently deleted by the source cleanup. `ToggleV016ReadabilityControl` still invokes `UpdateV016ReadabilityLabel`, so AHK `#Warn` raised an unresolved-function warning and stopped launcher compilation. Restored the original helper's HWND validation and text update; added a static contract protecting event binding, callback, helper definition and reset label. Cross-compared the 34 intentionally removed AHK functions against all current AHK modules and found no remaining references. Windows build and actual settings interaction require retesting.
+
 ### Codebase cleanup audit (2026-11-02)
 
 - Top-to-bottom follow-up: removed the unreachable first-run TES3MP scanner/status overlay (the actual startup now uses `CheckFirstRunMorrowind`), old custom-client overwrite/skip prompt and markerless hash wrapper, dormant setup-check wrappers, duplicate updater confirmation, orphaned character-count helper and `OpenMacros` alias.
