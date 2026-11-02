@@ -65,6 +65,9 @@ try {
     AssertFixture ($workerText.Contains('AssertSpace $staged ([long]$entry.Length)')) 'ZIP free-space protection missing'
     AssertFixture ($workerText.Contains('AssertSpace $staged ([long]$item.Length)')) 'Folder free-space protection missing'
     AssertFixture ($workerText.Contains('AssertSpace $item.Target')) 'Installation destination free-space protection missing'
+    AssertFixture ($workerText.Contains('function InvokeLockRetry(')) 'Windows sharing-violation retry protection missing'
+    AssertFixture ($workerText.Contains('($cause -isnot [IO.IOException] -or $code -notin @(32, 33))')) 'Retry must remain limited to Windows lock errors'
+    AssertFixture ($workerText.Contains('[IO.File]::Replace($temp, $Target, $null)')) 'Atomic replacement must reuse the verified journal backup'
     $productionGuard = @'
 function AssertGameClosed {
     if (Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue) {
@@ -151,6 +154,24 @@ function AssertGameClosed {
     }
     AssertFixture ([IO.File]::ReadAllText($config).Contains('content=NP Expansion Pack.esp')) 'ZIP did not enable expansion'
     AssertFixture ([IO.File]::ReadAllText($unrelated) -ceq 'do not modify') 'ZIP touched unrelated mod'
+
+    # The real failure mode is ERROR_LOCK_VIOLATION (byte-range lock).
+    # Hold one byte in an already installed asset from THIS test process,
+    # verify finite retries end safely, then release and successfully import.
+    $lockedAsset = Join-Path $data 'NP Expansion Pack.esp'
+    WriteFixture $lockedAsset 'old locked ESP content'
+    $held = [IO.File]::Open($lockedAsset, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite)
+    $held.Lock(0, 1)
+    try {
+        CheckWorker $zip 'reject-persistent-win32-lock' $false 'six attempts'
+    }
+    finally {
+        $held.Unlock(0, 1)
+        $held.Dispose()
+    }
+    AssertFixture ([IO.File]::ReadAllText($lockedAsset) -ceq 'old locked ESP content') 'File lock caused a partial game update'
+    CheckWorker $zip 'recover-after-lock' $true
+    AssertFixture ([IO.File]::ReadAllText($lockedAsset) -ceq 'new official sample ESP') 'Reimport after releasing lock failed'
 
     # Deliberately malformed ZIP: the importer must continue rejecting
     # Windows-style backslashes in archive entry names, not normalize them.
