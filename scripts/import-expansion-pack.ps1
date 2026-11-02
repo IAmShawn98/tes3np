@@ -369,7 +369,9 @@ try {
     exit 0
 }
 catch {
-    $reason = $_.Exception.GetBaseException().Message
+    # Only include a fixed operation description, not machine-specific paths.
+    # This also identifies errors outside the typed file-operations wrapper.
+    $reason = $_.Exception.GetBaseException().Message + ' [step: ' + $script:ImportActivity + ']'
     $failedRollback = $false
     if ($rollbackReady) {
         for ($i = $changed.Count - 1; $i -ge 0; $i--) {
