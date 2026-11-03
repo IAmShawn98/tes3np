@@ -52,13 +52,15 @@ BuildMacroBookPanel()
         "x887 y152 w8 h242 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
         "x888 y152 w6 h40 BackgroundC69951 +0x100 Hidden")
-    MacroImportButton := AddStyledButton(CharacterPage, 525, 407, 355, 29,
-        "Add Macro / App", ImportMacroPackage)
+    ; Start beside the first macro. RefreshMacroBookRows moves this button
+    ; down with each populated row, then pins it beneath the scroll viewport.
+    MacroImportButton := AddStyledButton(CharacterPage, 525, 226, 115, 29,
+        "Upload Macro", ImportMacroPackage)
     ; Existing import/binding callbacks still write MacroStatus.Text. Preserve
     ; failure/progress feedback, not the redundant Ready/script-details footer.
     CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
-        "x525 y443 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
+        "x525 y262 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
         MacroImportButton, MacroStatus)
     LoadMacroPackages()
@@ -104,6 +106,7 @@ RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
+    global MacroImportButton, CharacterPage
     global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
@@ -167,7 +170,30 @@ RefreshMacroBookRows()
         thumbY := 152 + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(888, thumbY, 6, thumbHeight)
     }
-    ; Only import failures/progress use the small message area below Add.
+    ; Follow the last populated row, but never move the Upload button into
+    ; the scrollable list. With 0/1/2/3/4+ macros the y positions are
+    ; 226/226/286/346/406; 5+ macros only scroll the four row slots.
+    visibleCount := Min(count, MacroBookRows.Length)
+    desiredUploadY := 226 + (Max(1, visibleCount) - 1) * 60
+    MacroImportButton.GetPos(, &oldUploadY)
+    if oldUploadY != desiredUploadY
+    {
+        ; This is a themed GDI-painted button. MoveStyledButton moves its
+        ; native hit target AND face metadata; hiding while it moves and
+        ; redrawing once avoids stale button artwork on the parchment.
+        wasVisible := MacroImportButton.Visible
+        if wasVisible
+            MacroImportButton.Visible := false
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 115, 29)
+        MacroStatus.Move(525, desiredUploadY + 36, 355, 30)
+        if wasVisible
+        {
+            MacroImportButton.Visible := true
+            DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
+                "Ptr", 0, "Ptr", 0, "UInt", 0x385)
+        }
+    }
+    ; Only import failures/progress use the message area below Upload.
     ; Regular Ready/Running/Missing appears above each macro's name.
     feedback := MacroStatus.Text
     showFeedback := busy || RegExMatch(feedback,
@@ -374,7 +400,7 @@ ImportMacroPackage(*)
     global MacroImport, MacroImportButton, MacroStatus, MacroRoot
     if IsObject(MacroImport)
         return
-    archive := FileSelect(1, , "Add macro or application",
+    archive := FileSelect(1, , "Upload Macro",
         "AutoHotkey scripts, ZIPs and applications (*.ahk;*.zip;*.exe)")
     if archive = ""
         return
@@ -390,7 +416,7 @@ ImportMacroPackage(*)
     }
     if !RegExMatch(archive, "i)\.zip$")
     {
-        MsgBox("Choose an .ahk script, ZIP containing scripts, or installed .exe.", "Add Macro / App")
+        MsgBox("Choose an .ahk script, ZIP containing scripts, or installed .exe.", "Upload Macro")
         return
     }
     try
@@ -553,7 +579,7 @@ ImportMacroApplication(source)
     {
         if DirExist(folder)
             try DirDelete(folder, true)
-        MsgBox("Could not register that application.", "Add Macro / App")
+        MsgBox("Could not register that application.", "Upload Macro")
     }
 }
 
