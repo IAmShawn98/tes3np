@@ -390,13 +390,23 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'AddStyledButton(CharacterPage, 551, y + 42, 103, 20,' in macro
             and 'AddStyledButton(CharacterPage, 663, y + 42, 103, 20,' in macro
             and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro,
-        "crossed-out footer removed and Add Macro raised":
+        "Upload Macro follows populated rows and stays pinned on scrolling":
             'MacroDetails' not in macro
             and 'MacroBindingsButton' not in macro
             and '"Edit Selected Macro Keys"' not in macro
-            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 407, 355, 29,' in macro
+            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 226, 115, 29,' in macro
+            and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
-            and '"x525 y443 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro,
+            and '"x525 y262 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
+            and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
+            and 'desiredUploadY := 226 + (Max(1, visibleCount) - 1) * 60' in macro
+            and 'if oldUploadY != desiredUploadY' in macro
+            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 115, 29)' in macro
+            and 'MacroStatus.Move(525, desiredUploadY + 36, 355, 30)' in macro
+            and 'if wasVisible' in macro
+            and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
+            and 'MoveStyledButton(control, x, y, width, height)' in characters
+            and '"Add Macro / App"' not in macro,
         "per-macro status and red error text":
             'MacroItemDisplayState(item)' in macro
             and 'return {Text: "Ready", Error: false}' in macro
