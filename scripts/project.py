@@ -403,7 +403,8 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'return {Text: "Running", Error: false}' in macro
             and 'return {Text: "Application missing", Error: true}' in macro
             and 'return {Text: "Script missing", Error: true}' in macro
-            and 'macro.LastError := "Launch failed"' in macro
+            and 'return {Text: item.LastError, Error: true}' in macro
+            and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
             and 'macro.LastError := ""' in macro
             and 'itemRow.Status.SetFont(state.Error ? "s9 cB22222" : "s9 c241408",' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro,
