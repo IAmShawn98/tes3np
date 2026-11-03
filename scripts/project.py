@@ -369,6 +369,20 @@ def check(allow_missing_payload: bool = False) -> None:
     characters = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
     frontend = (ROOT / "src/ui/front-page.ahk").read_text(encoding="utf-8-sig")
     bindings = (ROOT / "src/ui/macro-bindings.ahk").read_text(encoding="utf-8-sig")
+    build_script = (ROOT / "scripts/build-windows.ps1").read_text(encoding="utf-8-sig")
+    cleanup_checks = {
+        "temporary build cleanup uses native nonfatal rmdir":
+            "Step 'Cleaning temporary build directory (best effort)'" in build_script
+            and '& $env:ComSpec /d /c (\'rmdir /s /q "\' + $buildRoot + \'" >nul 2>nul\')' in build_script
+            and 'Remove-Item -LiteralPath $buildRoot -Recurse -Force -ErrorAction Stop' not in build_script
+            and 'Write-Warning "Temporary build tools are still locked:' in build_script
+            and "Step 'Windows launcher build completed successfully'" in build_script
+            and "exit 0" in build_script,
+    }
+    for name, passed in cleanup_checks.items():
+        if not passed:
+            errors.append("Build cleanup regression: " + name)
+
     macro_checks = {
         "macros remain embedded in the character book":
             'MacroPage := CharacterPage' in macro

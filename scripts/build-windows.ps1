@@ -386,29 +386,38 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     Step 'Windows launcher build completed successfully'
 }
 finally {
-    Step 'Cleaning temporary build directory'
-    # Antivirus/indexers or a just-exited compiler can temporarily lock extracted
-    # tools. Scratch cleanup is best effort once the ZIP has been validated:
-    # never turn a successful build into a failure due to a locked temp file.
-    # Failures in the actual build/verification try block still propagate.
-    if (Test-Path -LiteralPath $buildRoot) {
-        $cleanupDone = $false
-        $cleanupError = 'Directory is still present.'
-        for ($attempt = 1; $attempt -le 3; $attempt++) {
-            try {
-                Remove-Item -LiteralPath $buildRoot -Recurse -Force -ErrorAction Stop
+    Step 'Cleaning temporary build directory (best effort)'
+    # The official compiler and macro runtime are launched from this unique
+    # temporary tree. On Windows, antivirus/indexers or late handle release
+    # can make PowerShell's recursive Remove-Item raise a sharing violation
+    # *after* the signed-off ZIP passed every validation checkpoint.
+    #
+    # Run scratch deletion through cmd.exe instead: native rmdir reports a
+    # locked file with a non-zero exit code, not a PowerShell file-provider
+    # exception. Suppress its diagnostic stream and never let disposal of
+    # disposable build tools override the original build result. The caller
+    # still receives a failure if the actual build/verification try failed.
+    try {
+        if (Test-Path -LiteralPath $buildRoot) {
+            $cleanupDone = $false
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+                # Exact, GUID-named buildRoot only; never enumerate or delete
+                # another in-progress build's scratch directories.
+                & $env:ComSpec /d /c ('rmdir /s /q "' + $buildRoot + '" >nul 2>nul') | Out-Null
                 if (-not (Test-Path -LiteralPath $buildRoot)) {
                     $cleanupDone = $true
                     break
                 }
-            } catch {
-                $cleanupError = $_.Exception.Message
+                if ($attempt -lt 3) { Start-Sleep -Milliseconds 750 }
             }
-            if ($attempt -lt 3) { Start-Sleep -Milliseconds 500 }
+            if (-not $cleanupDone) {
+                Write-Warning "Temporary build tools are still locked: $buildRoot. The validated ZIP remains intact."
+            }
         }
-        if (-not $cleanupDone) {
-            Write-Warning "Temporary files could not be fully cleaned: $buildRoot ($cleanupError). The validated package remains intact."
-        }
+    }
+    catch {
+        # Even cmd startup or a failed scratch-directory probe is nonfatal.
+        Write-Warning "Could not clean temporary build tools ($($_.Exception.Message)). The validated ZIP remains intact."
     }
 }
 
