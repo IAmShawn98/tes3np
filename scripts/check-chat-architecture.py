@@ -167,6 +167,18 @@ expect(
     and "Math.Max(0, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalSeconds))" in source,
 )
 expect(
+    "Recent cached Happy Hour does not suppress searches for newer activations",
+    'checking for a newer Discord activation' in source
+    and 'initialBackfillComplete = false;\n                initialBackfillStarted = DateTime.MinValue;\n                initialBackfillAttempts = 0;' in source
+    and 'initialBackfillComplete = true;\n                    Log("HAPPY HOUR | Verified cached activation:' not in source
+    and 'skipping historical Discord pagination' not in source
+    and 'bool verifiedLatest = candidateId > 0 &&' in source
+    and 'oldestLoaded <= DiscordTimestamp(candidateId);' in source
+    and 'bool pastActiveWindow = oldestLoaded <=' in source
+    and 'void BackfillUntilHappyHour()' in source
+    and 'initialBackfillComplete = true;' in source,
+)
+expect(
     "Historical Happy Hour search retains its bounded production one-hour window",
     "DateTimeOffset.UtcNow.AddDays(-7)" in source
     and "DateTimeOffset.UtcNow.AddHours(-1)" in source

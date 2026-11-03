@@ -1981,14 +1981,24 @@ metrics();
                 bool valid = candidate > 0 &&
                     (ShowExpiredHappyHourForAlphaTest ||
                      DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow);
+                // A valid cached announcement is evidence for that event,
+                // NOT proof it is the most recent one. The Discord source may
+                // currently show only newer messages (or have resumed at an
+                // old read position). Skipping pagination here can hide a new
+                // Happy Hour while the game is already counting it down.
+                // Display the cached event if still active, then independently
+                // cover the live channel back through that timestamp or the
+                // one-hour active window. Do not depend on the chat being open.
+                initialBackfillComplete = false;
+                initialBackfillStarted = DateTime.MinValue;
+                initialBackfillAttempts = 0;
                 if (valid)
                 {
-                    initialBackfillComplete = true;
                     Log("HAPPY HOUR | Verified cached activation: " +
                         "messageId=" + candidate +
                         "; sent=" + DiscordTimestamp(candidate).ToString("O") +
                         "; archivedRows=" + archivedChat.Count +
-                        "; skipping historical Discord pagination");
+                        "; checking for a newer Discord activation");
                     DetectLatestHappyHour();
                 }
                 else
