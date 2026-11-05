@@ -206,17 +206,47 @@ expect(
     and "bool keepChatVisible = chatOpen" in source,
 )
 
+# Chat Host has a separate real WebView2 renderer, its parent, a native
+# loading-text control and a textured custom scrollbar. All four must change
+# state together on the first successful Discord feed.
+loading_start = source.index("        void ShowConnectingChat()")
+loading_end = source.index("        void ShowDiscordSignIn()", loading_start)
+loading = source[loading_start:loading_end]
+feed_start = source.index("                bool enteringNativeMode = !nativeMode;")
+feed_end = source.index('                    Log("Native message view activated");', feed_start)
+feed_transition = source[feed_start:feed_end]
 expect(
-    "First authenticated Discord feed must reveal its hidden renderer parent",
-    # RestoreGameChatAfterSignIn hides messageClip while nativeMode is false.
-    # Merely setting messageBrowser.Visible later leaves its entire parent
-    # hidden, producing a black feed until the user restarts the launcher.
-    "messageClip.Visible = nativeMode;" in source
-    and "messageClip.Visible = false;" in source
-    and "nativeMode = true;\n                    web.Visible = false;" in source
-    and "messageClip.Visible = true;\n                    messageBrowser.Visible = true;" in source
-    and source.index("messageClip.Visible = true;\n                    messageBrowser.Visible = true;")
-    < source.index('Log("Native message view activated");'),
+    "First login exposes native Connecting status, not a stale scrollbar",
+    'nativeMessages.Text = "Connecting to live chat...";' in loading
+    and 'frameSurface.Visible = true;' in loading
+    and 'messageClip.Visible = true;' in loading
+    and 'nativeMessages.Visible = true;' in loading
+    and 'nativeMessages.BringToFront();' in loading
+    and 'messageBrowser.Visible = false;' in loading
+    and 'goldScrollbar.Visible = false;' in loading
+    and 'ShowConnectingChat();' in source
+    and 'else ShowConnectingChat();' in source
+    and 'chatViewport.Visible = !nativeMode && !connectingChat;' in source,
+)
+expect(
+    "First authenticated feed renders into a real-sized parent before swapping views",
+    'messageClip.Visible = true;' in feed_transition
+    and 'messageBrowser.Visible = true;' in feed_transition
+    and 'nativeMessages.BringToFront();' in feed_transition
+    and feed_transition.index('nativeMessages.BringToFront();')
+        < feed_transition.index('await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(')
+    and 'nativeMode = true;\n                    connectingChat = false;' in feed_transition
+    and 'nativeMessages.Visible = false;' in feed_transition
+    and 'goldScrollbar.Visible = true;' in feed_transition
+    and 'FitWebView();' in feed_transition
+    and 'goldScrollbar.Update();' in feed_transition,
+)
+expect(
+    "Real textured scrollbar is the only scrollbar, with no stale frame-painted duplicate",
+    'goldScrollbar.Paint += (_, e) =>' in source
+    and 'g.DrawString("▲"' not in source
+    and 'g.DrawString("▼"' not in source
+    and 'int sx = w - 35;' not in source,
 )
 
 expect(
