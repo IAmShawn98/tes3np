@@ -14,6 +14,10 @@ def expect(condition, message):
 
 
 diag = read("src/app/diagnostics.ahk")
+# AutoHotkey v2 accepts ';' comments, not C-style '//' comment lines.
+# The AHK interpreter fixture previously passed while Ahk2Exe rejected these.
+expect(not any(line.lstrip().startswith("//") for line in diag.splitlines()),
+       "C-style comments in AutoHotkey diagnostic source would break Ahk2Exe")
 bootstrap = read("src/app/bootstrap.ahk")
 session = read("src/game/session.ahk")
 settings = read("src/ui/v016-refinements.ahk")
