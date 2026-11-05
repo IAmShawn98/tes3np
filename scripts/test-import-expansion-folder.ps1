@@ -68,6 +68,13 @@ function CheckWorker([string]$Package, [string]$Name, [bool]$ShouldPass, [string
     # On failure, surface its actual sanitized result instead of "output=".
     AssertFixture (($exitCode -eq 0) -eq $ShouldPass) "$Name expected success=$ShouldPass, exit=$exitCode, detail=$workerMessage, stdout=$($output -join '; ')"
     AssertFixture ([IO.File]::Exists($result)) "$Name result metadata missing"
+    # UI-facing import results must never expose the disposable user's path.
+    # Real rollback locations stay in the private journal, not result.ini.
+    AssertFixture (!$report.Contains($root)) "$Name leaked a local path in result.ini"
+    AssertFixture (!$report.Contains('[path omitted]')) "$Name inserted a privacy placeholder"
+    if ($ShouldPass) {
+        AssertFixture ($report.Contains('Backup=available')) "$Name did not retain the non-sensitive backup status"
+    }
     $expected = if ($ShouldPass) { 'State=success' } else { 'State=error' }
     AssertFixture ($report.Contains($expected)) "$Name unexpected worker status: $workerMessage"
     if (!$ShouldPass) {
