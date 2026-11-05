@@ -136,6 +136,8 @@ CreateLauncherChatToggle()
     ; ChatHost securely shares the latest validated signed attachment URL
     ; through WM_COPYDATA. Native retry never needs to call a stalled WebView.
     OnMessage(0x004A, TES3MPExpansionZipAvailable)
+    ; Separate verified ChatHost authorization signal for Discord-backed dialogs.
+    OnMessage(0x8336, DiscordExpansionPromptReady)
     LauncherChatMenu := Menu()
     LauncherChatMenu.Add("Automatic", (*) => SendLauncherChatCommand(2))
     LauncherChatMenu.Add("Always Shown", (*) => SendLauncherChatCommand(3))
@@ -279,14 +281,14 @@ SendLauncherChatCommand(command, targetHwnd := 0)
         SetTitleMatchMode(2)
         chatHwnd := WinExist("tes3np Chat Host")
         if chatHwnd
-            DllCall("PostMessageW", "Ptr", chatHwnd, "UInt", 0x8331, "Ptr", command, "Ptr", targetHwnd)
-        else
-            LogLauncherEvent("Chat command " command " failed: tes3np Chat Host window not found.")
+            return DllCall("PostMessageW", "Ptr", chatHwnd, "UInt", 0x8331, "Ptr", command, "Ptr", targetHwnd) != 0
+        LogLauncherEvent("Chat command " command " failed: tes3np Chat Host window not found.")
     }
     finally {
         DetectHiddenWindows(oldHidden)
         SetTitleMatchMode(oldMatchMode)
     }
+    return false
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
