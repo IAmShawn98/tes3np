@@ -12,7 +12,6 @@ Changes since the last public release, v0.1.20-alpha.
 - **Expansion Pack recovery:** Get help resolving Expansion Pack mismatches when the server rejects a connection.
 - **Custom game clients:** Choose a custom TES3MP executable while keeping the bundled client available.
 - **Login progress:** Follow each step as the launcher signs your character into TES3MP.
-- **In-game kill alerts:** Receive launcher notifications when a player is killed in-game.
 
 ### Improvements
 
