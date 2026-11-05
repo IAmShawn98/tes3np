@@ -51,6 +51,14 @@ The picker must temporarily return an actual selected local path to the launcher
 - Fresh Copy Launcher Logs report: **2,720 total lines** (seven report header lines and **2,713 timestamped launcher event lines**). Every event starts with a normal timestamp, including the two previously concatenated entries. Scan found **zero** merged timestamps, placeholder tokens, stray empty delimiters, Windows absolute or UNC paths, user-directory environment roots, URLs, emails, IPv4 literals, long Discord-like IDs, or password/token/secret fields. Public character names, status codes and timelines remained.
 - **Accepted:** v4 compile/build checkpoints, fixture execution, downloadable ZIP packaging and copied Launcher Log privacy and line formatting. **Still pending:** direct inspection of Chat Host/Expansion Pack/render logs, private-data non-mutation checks and real-game feature regressions. Clipboard output does not independently prove the on-disk trailing newline, but event separation passed.
 
+## Read-only secondary-log and updater readiness utility — November 5
+
+A new `scripts/audit-local-privacy.py` provides one privacy-preserving local audit without rebuilding the launcher. Run `python scripts/audit-local-privacy.py` from the checked-out repository in Windows PowerShell. It scans the local launcher, Chat Host, Expansion Pack, render and Windows crash-query diagnostic files, plus up to 30 importer `result.ini` records. It checks paths, account names, credentials, IPs, contact/URL patterns, IDs, placeholders, empty separators, launcher timestamps, the persisted terminal newline, and private backup paths in the importer result metadata.
+
+**The utility prints only filenames, counts, category labels, and PASS/REVIEW/SKIP statuses**; it never prints log lines, character details, user paths or secret values, and never reads or modifies `settings.ini` or the private Discord message archive. Missing optional logs are SKIP, **not** evidence they passed. The tool invokes existing updater source/version, metadata/tamper and transaction/rollback fixtures using disposable data. If PowerShell 7 is absent, the transaction fixture is explicitly skipped; no real updater is launched. A standalone synthetic scanner self-test passed in this environment; real Windows run is pending.
+
+The tool does **not** claim actual saved-data preservation before the prior migration, a tested live login, real Happy Hour retrieval, macro execution, completed import/toggle interactions or a clean-machine extracted-ZIP launch. These remain interactive acceptance tasks.
+
 ## Outstanding Windows acceptance — not source work
 
 1. **Completed November 5:** Full Windows build and all reported compiler, source-check, fixtures and packaged ZIP gates passed on alpha HEAD `24a2359`. An independent extracted-ZIP interactive run is still pending.
