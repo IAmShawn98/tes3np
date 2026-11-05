@@ -26,6 +26,9 @@ toggle = read("scripts/toggle-expansion-pack.ps1")
 picker = read("scripts/select-expansion-package.ps1")
 upload = read("src/ui/expansion-upload.ahk")
 fixture = read("scripts/test-diagnostic-privacy.ahk")
+macros = read("src/ui/macros.ahk")
+characters = read("src/ui/characters.ahk")
+happyhour = read("src/ui/happy-hour.ahk")
 
 expect(not any(line.lstrip().startswith("//") for line in diag.splitlines()),
        "C-style comments in AutoHotkey diagnostic source would break Ahk2Exe")
@@ -103,6 +106,7 @@ expect('[Environment]::UserName' in updater and "Write-Error $message" not in up
 expect("function CleanImportMessage([string]$Message)" in importer
        and "$clean = CleanImportMessage $Message" in importer
        and "'Backup=' + $backupStatus" in importer
+       and "[IO.File]::Exists((Join-Path $Backup 'journal.json'))" in importer
        and "'Backup=' + $Backup" not in importer
        and "WriteJobIni 'result.ini' $body" in importer,
        "import result must retain atomic publishing but omit raw errors and backup paths")
@@ -121,5 +125,14 @@ expect('reason := SanitizeDiagnosticText(err.Message)' in upload
 expect('EnvSet("USERNAME", "ExamplePerson")' in fixture
        and 'PrivacyScrubVersion", "") = "3"' in fixture,
        "disposable runtime fixture must cover account names and migration")
+expect('sameName = "GAME | Character: ExamplePerson"' in fixture,
+       "test must preserve public names even if they equal Windows account")
+expect('detail := SanitizeDiagnosticText(err.Message)' in macros
+       and '"[path omitted]"' not in macros,
+       "macro import errors must be private and free of placeholders")
+expect('reason := SanitizeDiagnosticText(err.Message)' in characters,
+       "custom portrait errors must not display raw machine paths")
+expect('missing: " asset' not in happyhour,
+       "Happy Hour missing-artwork logs must not include private install paths")
 
 print("PASS | TES3NP diagnostic privacy source contracts (clean fields)")
