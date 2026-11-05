@@ -112,4 +112,23 @@ if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source check
 }
 Write-Host 'PASS: player-facing notes are distinct from the developer changelog.'
 
+$expectedCategories = @('New Features', 'Improvements', 'Bug Fixes')
+$foundCategories = @([regex]::Matches($playerNotes, '(?m)^### (.+)
+) | ForEach-Object { $_.Groups[1].Value })
+if (($foundCategories -join '|') -ne ($expectedCategories -join '|')) {
+    throw 'Player-facing changelog categories must appear once in the standard order.'
+}
+$entries = @($playerNotes -split "`r?`n" | Where-Object { $_ -match '^- ' })
+if (-not $entries.Count) { throw 'Player-facing release notes have no entries.' }
+foreach ($entry in $entries) {
+    if ($entry -notmatch '^- \*\*[^*]+:\*\* .+\.
+) {
+        throw "Player-facing changelog entry must use **Area:** outcome format: $entry"
+    }
+}
+if ($playerNotes -notmatch 'Changes since the last public release, v0\.1\.20-alpha\.') {
+    throw 'Release notes must identify the public comparison baseline.'
+}
+Write-Host 'PASS: standardized release note categories, labels, and baseline.'
+
 Write-Host 'All launcher updater validation checks passed.'
