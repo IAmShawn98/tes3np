@@ -62,14 +62,14 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Confirm the disposable AutoHotkey diagnostic privacy fixture passes as part of the normal Windows build, and exercise Game Chat, Happy Hour, macros and login afterward.
 - [x] Source-side privacy review covers the AHK launcher, Chat Host, updater, import/toggle/picker result files, macro worker, clipboard and user-facing error boundaries. Source changes and regression guards are committed; see [diagnostic privacy audit](DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md).
 - [ ] Confirm `PrivacyScrubVersion=4` processes pre-existing v2 logs, preserves public character names, and removes placeholder fields without touching the private journal, backups, settings or Discord archive.
-- [ ] Inspect `result.ini` for `Backup=available` rather than an absolute path, and verify private `journal.json` still supports rollback. Check toggle and picker failures still show meaningful safe messages.
+- [ ] Run `python scripts/audit-local-privacy.py --self-test`, then opt-in legacy-record cleanup with `python scripts/audit-local-privacy.py --repair-legacy-import-results --skip-updater`. Confirm historical import result.ini files no longer expose private backup paths, while real journal/backups remain untouched. Toggle and picker error behavior still needs interactive verification.
 - [x] November 5 full Windows build of alpha `24a2359` passed: PowerShell parse, AHK privacy/plugin-mismatch fixtures, Chat Host compile/publish, Expansion ZIP/folder fixture, picker COM, Ahk2Exe, compiled `--check`, packaged assets/hashes and final ZIP integrity. MSB3277 WindowsBase warning is nonfatal.
 - [ ] Independently launch and test the freshly extracted standalone ZIP, not only the repository-root executable.
 - [x] November 5 fresh Launcher Log copy shows both previously merged timestamps on separate lines; no malformed event lines in the 2,713-event export.
 - [ ] Confirm the underlying on-disk migrated launcher.log ends with a newline and remains append-safe after repeated fresh launcher sessions (clipboard export alone cannot prove its terminal newline).
 
-- [ ] Run the read-only consolidated audit `python scripts/audit-local-privacy.py` after pulling the new test utility. Review PASS/REVIEW/SKIP category counts for actual Chat Host, Expansion Pack, render, launcher and importer-result files, and updater offline fixtures. No raw logs or private Discord archive should be shared. Missing optional log files are not proof of a pass.
-- [ ] If PowerShell 7 is unavailable, mark the isolated updater transaction/rollback fixture SKIPPED, not passed. It can be rerun later without touching a real installed game.
+- [x] November 5 local read-only audit: launcher.log (2,714 lines), chat-host.log (11,255 lines), tes3mp-crash-query.txt (one line), on-disk launcher newline and all three updater regression fixtures passed. Four optional log categories had no records (SKIP, not PASS). One of four historical Expansion import result.ini files was flagged for an absolute path, Windows username and private Backup value.
+- [x] PowerShell 7 updater transaction/rollback fixture passed as part of the user-supplied November 5 local audit.
 - [ ] In one live session, check character launch/login, first-favorite behavior, custom portrait, macros, Game Chat/Happy Hour, Expansion Pack toggle and optional ZIP import in a disposable game installation. Confirm stored preferences and chat remain available without opening or copying private chat archives.
 
 ## Distribution/legal
