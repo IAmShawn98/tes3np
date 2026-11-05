@@ -55,7 +55,7 @@ try {
     AssertToggle ($afterAlternateEnable.Contains('content=OtherMod.esp')) 'alternate enable lost unrelated mod'
     RunToggle 'Disable' 'alternate-disabled' $true
     AssertToggle ([IO.File]::ReadAllText($alternateEsp) -eq 'synthetic separately installed pack') 'alternate pack changed on toggle'
-    AssertToggle (![IO.File]::ReadAllText($config).Contains('content=NP Expansion Pack.esp')) 'alternate disable left content enabled'
+    AssertToggle (-not ([IO.File]::ReadAllText($config).Contains('content=NP Expansion Pack.esp'))) 'alternate disable left content enabled'
     [IO.File]::WriteAllText($config, $original, [Text.Encoding]::UTF8)
     # Original game-folder case must work independently as well.
     [IO.File]::WriteAllText($esp, 'synthetic installed Expansion Pack', [Text.Encoding]::ASCII)
