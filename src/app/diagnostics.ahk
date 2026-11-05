@@ -81,6 +81,7 @@ SanitizeDiagnosticText(text)
     ; Shareable diagnostics keep event context but never expose private values.
     ; Older placeholder-style entries are also cleaned up when copied or migrated.
     global Profiles
+    windowsUser := EnvGet("USERNAME")
     text := RegExReplace(text, "i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]", "")
     for profile in Profiles
     {
@@ -107,6 +108,11 @@ SanitizeDiagnosticText(text)
             item := RegExReplace(item, "i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "")
             item := RegExReplace(item, "\b(?:\d{1,3}\.){3}\d{1,3}\b", "")
             item := RegExReplace(item, "\b\d{16,21}\b", "")
+            ; Remove a standalone Windows account name in non-character fields.
+            ; The "Character:" field is public gameplay information.
+            if StrLen(windowsUser) >= 3 && !RegExMatch(item, "i)^Character\\s*:")
+                item := RegExReplace(item, "i)(?<![\\p{L}\\p{N}_])\\Q" windowsUser "\\E(?![\\p{L}\\p{N}_])", "")
+            item := RegExReplace(item, "[ \\t]{2,}", " ")
             ; A removed value should not leave "Path:", "URL:", or extra pipes.
             item := RegExReplace(item, "i)\b(?:Executable(?:\s+path)?|Source\s+path|Destination|Install|Stage|Path|Folder|File|URL|Mail|Email)\s*[:=]\s*$", "")
             item := Trim(item, " `t:=")
@@ -125,7 +131,7 @@ SanitizeDiagnosticText(text)
 SanitizeExistingDiagnosticLogs()
 {
     global AppDataDirectory, DataFile
-    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "2"
+    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "3"
         return
     complete := true
     for filename in ["launcher.log", "chat-host.log", "patch-all.log",
@@ -153,7 +159,7 @@ SanitizeExistingDiagnosticLogs()
     }
     if complete
     {
-        try IniWrite("2", DataFile, "Diagnostics", "PrivacyScrubVersion")
+        try IniWrite("3", DataFile, "Diagnostics", "PrivacyScrubVersion")
     }
 }
 
