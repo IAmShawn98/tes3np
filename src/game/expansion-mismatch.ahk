@@ -153,7 +153,8 @@ DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, EmbeddedChatPid, ExpansionDiscordPromptPending
     if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
-        || !ExpansionDiscordPromptPending || wParam != ExpansionDiscordPromptPending
+        || !ExpansionDiscordPromptPending
+        || (wParam != 0 && wParam != ExpansionDiscordPromptPending)
         return 0
     ; Verify the originating native window belongs to the one ChatHost PID.
     if !lParam || !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
@@ -167,6 +168,11 @@ DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
         return 0
     mode := ExpansionDiscordPromptPending
     ExpansionDiscordPromptPending := 0
+    if wParam = 0
+    {
+        LogLauncherEvent("EXPANSION | Discord download prompt cancelled before authentication.")
+        return 0
+    }
     ShowTES3MPExpansionMismatchDialog(mode = 1 ? "Install" : "Mismatch", true)
     return 0
 }
