@@ -44,22 +44,34 @@ try
     PrivacyFixtureAssert(sameName = "GAME | Character: ExamplePerson",
         "character name retained even when identical to the Windows account")
 
-    FileAppend(input "`n2026-11-04 | GAME | Path: [path omitted] | Character: TestWizard`n", AppDataDirectory "\launcher.log", "UTF-8")
+    FileAppend(input "`n2026-11-04 | GAME | Path: [path omitted] | Character: TestWizard", AppDataDirectory "\launcher.log", "UTF-8")
+    ; The first append must not join a previous log lacking its final newline.
+    LogLauncherEvent("Fixture append after incomplete historical log.")
+    PrivacyFixtureAssert(InStr(FileRead(LauncherLogFile, "UTF-8"), "Character: TestWizard`n"),
+        "new events must start on a separate line even before migration")
+    ; Reproduce historical v3-to-v4 migration damage from the uploaded log.
+    FileAppend("2026-11-04 22:58:35 | Launcher startup beginning.2026-11-04 22:58:39 | UI | Launcher transition 2547ms.`n",
+        AppDataDirectory "\launcher.log", "UTF-8")
     FileAppend(input "`n", AppDataDirectory "\chat-host.log", "UTF-8")
     DirCreate(AppDataDirectory "\Logs")
     privateArchive := "Yagrum: genuine Happy Hour announcement [discord:123456789012345678]"
     FileAppend(privateArchive, AppDataDirectory "\Logs\game-chat.log", "UTF-8")
-    IniWrite("2", DataFile, "Diagnostics", "PrivacyScrubVersion")
+    IniWrite("3", DataFile, "Diagnostics", "PrivacyScrubVersion")
     SanitizeExistingDiagnosticLogs()
     PrivacyFixtureAssert(!InStr(FileRead(LauncherLogFile, "UTF-8"), "ExamplePerson"),
         "legacy launcher log cleaned")
     PrivacyFixtureAssert(!InStr(FileRead(LauncherLogFile, "UTF-8"), "[path omitted]"),
         "previous redaction markers removed from historical logs")
+    repaired := FileRead(LauncherLogFile, "UTF-8")
+    PrivacyFixtureAssert(InStr(repaired, "Launcher startup beginning.`n2026-11-04 22:58:39"),
+        "joined legacy diagnostic timestamps are separated")
+    PrivacyFixtureAssert(SubStr(repaired, -1) = "`n",
+        "migrated diagnostics end with a newline for future writes")
     PrivacyFixtureAssert(!InStr(FileRead(AppDataDirectory "\chat-host.log", "UTF-8"),
         "test-only-secret-123"), "legacy Chat Host log cleaned")
     PrivacyFixtureAssert(FileRead(AppDataDirectory "\Logs\game-chat.log", "UTF-8")
         = privateArchive, "private chat archive not modified")
-    PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "3",
+    PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "4",
         "one-time migration checkpoint written")
     FileAppend("PASS | TES3NP diagnostic redaction fixtures`n", "*", "UTF-8")
 }
