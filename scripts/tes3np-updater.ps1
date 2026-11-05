@@ -4,7 +4,28 @@ param(
 $ErrorActionPreference='Stop'
 $LogFile=Join-Path $env:APPDATA 'tes3np\launcher.log'
 $ProgressForm=$null;$ProgressStatus=$null;$ProgressBar=$null
-function Write-UpdaterLog([string]$Message){try{$dir=Split-Path -Parent $LogFile;if($dir -and -not(Test-Path -LiteralPath $dir)){New-Item -ItemType Directory -Path $dir -Force|Out-Null};Add-Content -LiteralPath $LogFile -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss')+' | UPDATE WORKER | '+$Message) -Encoding UTF8}catch{}}
+function Write-UpdaterLog([string]$Message) {
+    try {
+        # The worker runs outside the AHK process and must sanitize at its own
+        # launcher.log write boundary. Keep update/rollback progress, not private
+        # machine paths, secrets, URLs or raw line breaks.
+        $safe = [regex]::Replace($Message, '(?i)\b[A-Z]:[\\/][^|\r\n]+', '[path omitted]')
+        $safe = [regex]::Replace($safe, '(?i)\\\\[^|\r\n]+', '[network path omitted]')
+        $safe = [regex]::Replace($safe, '(?i)\b(?:https?|wss?)://[^\s|]+', '[url omitted]')
+        $safe = [regex]::Replace($safe, '(?i)\b(?:password|token|secret|authorization|cookie|api[-_]?key)\s*[:=]\s*[^\s|]+', '[secret omitted]')
+        $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '[email omitted]')
+        $safe = [regex]::Replace($safe, '[\r\n]+', ' ')
+        $dir = Split-Path -Parent $LogFile
+        if($dir -and -not(Test-Path -LiteralPath $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+        Add-Content -LiteralPath $LogFile -Value (
+            (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' | UPDATE WORKER | ' + $safe
+        ) -Encoding UTF8
+    } catch {
+        # Never let unavailable diagnostics interrupt a verified update/rollback.
+    }
+}
 function Show-ProgressWindow{if($TestMode){return};Add-Type -AssemblyName System.Windows.Forms;Add-Type -AssemblyName System.Drawing;$script:ProgressForm=New-Object Windows.Forms.Form;$ProgressForm.Text='tes3np — Updating';$ProgressForm.StartPosition='CenterScreen';$ProgressForm.FormBorderStyle='FixedDialog';$ProgressForm.MaximizeBox=$false;$ProgressForm.MinimizeBox=$false;$ProgressForm.ControlBox=$false;$ProgressForm.TopMost=$true;$ProgressForm.ClientSize=New-Object Drawing.Size(430,170);$title=New-Object Windows.Forms.Label;$title.Text='Updating tes3np...';$title.Font=New-Object Drawing.Font('Segoe UI',14,[Drawing.FontStyle]::Bold);$title.AutoSize=$true;$title.Location=New-Object Drawing.Point(24,20);$ProgressForm.Controls.Add($title);$message=New-Object Windows.Forms.Label;$message.Text="Installing v$Version. The launcher will restart automatically when finished.`r`nPlease don't reopen tes3np manually.";$message.Font=New-Object Drawing.Font('Segoe UI',9);$message.AutoSize=$true;$message.Location=New-Object Drawing.Point(26,55);$ProgressForm.Controls.Add($message);$script:ProgressStatus=New-Object Windows.Forms.Label;$ProgressStatus.Text='Preparing update...';$ProgressStatus.Font=New-Object Drawing.Font('Segoe UI',9,[Drawing.FontStyle]::Bold);$ProgressStatus.AutoSize=$true;$ProgressStatus.Location=New-Object Drawing.Point(26,104);$ProgressForm.Controls.Add($ProgressStatus);$script:ProgressBar=New-Object Windows.Forms.ProgressBar;$ProgressBar.Location=New-Object Drawing.Point(28,130);$ProgressBar.Size=New-Object Drawing.Size(374,18);$ProgressBar.Minimum=0;$ProgressBar.Maximum=100;$ProgressBar.Value=5;$ProgressForm.Controls.Add($ProgressBar);$ProgressForm.Show();[Windows.Forms.Application]::DoEvents()}
 function Update-Progress([string]$Text,[int]$Percent){if($TestMode -or -not $ProgressForm){return};$ProgressStatus.Text=$Text;$ProgressBar.Value=[Math]::Max(0,[Math]::Min(100,$Percent));[Windows.Forms.Application]::DoEvents()}
 function Close-ProgressWindow{if($ProgressForm){try{$ProgressForm.Close();$ProgressForm.Dispose()}catch{};$script:ProgressForm=$null}}
