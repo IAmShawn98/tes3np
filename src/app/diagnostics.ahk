@@ -107,7 +107,7 @@ SanitizeDiagnosticText(text)
     windowsUser := EnvGet("USERNAME")
     ; Repair older migration boundaries where the next timestamp was joined
     ; directly after a completed log sentence, before filtering or exporting.
-    text := RegExReplace(text, "\\.(?=\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} \\| )", ".`n")
+    text := RegExReplace(text, "\.(?=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \| )", ".`n")
     text := RegExReplace(text, "i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]", "")
     for profile in Profiles
     {
