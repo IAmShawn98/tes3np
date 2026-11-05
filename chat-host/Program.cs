@@ -2404,6 +2404,10 @@ metrics();
                     @"\b(?:\d{1,3}\.){3}\d{1,3}\b", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
                     @"\b\d{16,21}\b", "");
+                string windowsUser = Environment.UserName;
+                if (windowsUser.Length >= 3)
+                    safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                        @"(?i)(?<![\p{L}\p{N}_])" + System.Text.RegularExpressions.Regex.Escape(windowsUser) + @"(?![\p{L}\p{N}_])", "");
                 var parts = new System.Collections.Generic.List<string>();
                 foreach (string piece in safe.Replace('\r', ' ').Replace('\n', ' ').Split('|'))
                 {
