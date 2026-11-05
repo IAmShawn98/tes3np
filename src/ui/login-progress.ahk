@@ -360,6 +360,6 @@ UpdateGameLoginProgress(*)
     {
         LoginProgressDisabled := true
         HideGameLoginProgress()
-        try LogLauncherEvent("UI | Login progress disabled for this session: " err.Message ".")
+        try LogLauncherEvent("UI | Login progress disabled for this session (" Type(err) ").")
     }
 }
