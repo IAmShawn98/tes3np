@@ -826,7 +826,7 @@ expect(
 )
 expect(
     "Saved characters and new adventures require GOTY data before spawning TES3MP",
-    session.count("if !EnsureMorrowindForGameLaunch()") == 2
+    session.count("if !EnsureMorrowindForGameLaunch()") == 3
     and session.index("if !EnsureMorrowindForGameLaunch()")
         < session.index("StartProfileSession(Profiles[index], executable)")
     and "FindMorrowindFolder(PatchConfigurationPath())" in patcher,

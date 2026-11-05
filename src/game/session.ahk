@@ -212,6 +212,13 @@ ClientTick()
             LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " (IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure") " | Phase: " Client.Phase ".")
             if !ValidateSelectedClientRuntime(Client.Executable)
                 throw Error("Selected TES3MP runtime is incomplete.")
+            ; Also protect recovery retries, not just manually initiated launches.
+            ; Missing GOTY is a setup requirement, not a crash to auto-retry.
+            if !EnsureMorrowindForGameLaunch()
+            {
+                StopClient()
+                return
+            }
             SplitPath(Client.Executable, , &workingDirectory)
             Client.LogWatch := CaptureTES3MPLogBaseline()
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
