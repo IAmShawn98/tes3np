@@ -4,6 +4,12 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Dedicated Discord sign-in popup — 2026-11-05
+
+- Replaced the oversized docked Discord login presentation with a separate, native launcher-owned "Sign in to Discord" window. Reuses the existing ChatHost WebView2 and Roaming profile (not another Discord session), includes plain-language purpose and Not Now, and keeps the normal Game Chat panel hidden rather than stretching it.
+- The Game Chat tab reopens the sign-in window after dismissal. Missing-pack download requests can bring it forward and still require authenticated live Discord; cancellation clears pending authorization. On successful channel sign-in, the original browser is reparented to Game Chat, the popup is disposed, and the native connecting state plus single channel reload remain.
+- Added source contracts protecting ownership, normal chat dimensions, and the existing WebView2 reuse. Windows compilation and OAuth/first-login tests are **pending**, including popup close/reopen, cancellation, high-DPI placement and original Happy Hour/feed functionality.
+
 ### Second-PC layout and mouse-input follow-up — 2026-11-05
 
 - First launcher show now applies its existing automatic/manual scale while hidden, then reveals the completed frame without visibly resizing a 960x716 window. Cached geometry is reused on subsequent shows rather than only via the character-book shortcut; display-settings changes still use their existing fallback relayout.
