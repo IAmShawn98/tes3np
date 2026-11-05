@@ -87,4 +87,14 @@ foreach ($f in $fixtures) {
     if ($actual -ne $f[2]) { throw "Version fixture failed: $($f[0]) vs $($f[1]) => $actual, expected $($f[2])" }
 }
 Write-Host 'PASS: semantic version ordering fixtures.'
+# Guard the section-aware release notes and expanded modal dimensions.
+Require-Source 'BuildStyledReleaseNoteRows\(notes\.Text\)' 'section-aware release notes'
+Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings'
+Require-Source 'ShowCenteredUpdateCard\(panel, backdrop, 800, 600\)' 'larger status modal'
+$notesHelper = Get-Content -LiteralPath 'scripts/fetch-release-notes.ps1' -Raw
+$expectedHeading = '$lines.Add(''### '' + $Matches[1])'
+if (-not $notesHelper.Contains($expectedHeading)) {
+    throw 'Published release notes must preserve heading markers.'
+}
+Write-Host 'PASS: changelog categories remain visible for draft and published versions.'
 Write-Host 'All launcher updater validation checks passed.'

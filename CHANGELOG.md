@@ -2,6 +2,12 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Release notes readability — 2026-11-05
+
+- Enlarged the existing version-status window from 720×520 to 800×600 and expanded its changelog viewport from 10 to 13 lines. Existing theme, buttons, mouse wheel, thumb dragging and window lifecycle remain intact.
+- Draft and published changelog sections now display as gold, bold headings with a diamond marker, extra section spacing and consistent line wrapping. No changes to updater confirmations, download/install behavior or release endpoints.
+- Source-level regression checks added. Windows compilation and visual/scroll interaction testing are still pending. No public update published.
+
 ### Manually installed Expansion Pack and Discord login gating — 2026-11-05
 
 - Expansion Pack starts disabled in new OpenMW configurations; the global toggle enables only an already-installed nonempty `NP Expansion Pack.esp`, using a config-only worker with backups. A missing pack requests the **official Discord ZIP dialog**, with an Install mode distinct from actual plugin/load-order mismatch diagnostics. Retired v0.1 assets are no longer build, embedded resource, manifest or package dependencies; the separately packaged modified TES3MP client remains.
