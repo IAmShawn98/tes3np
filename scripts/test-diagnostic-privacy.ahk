@@ -26,9 +26,15 @@ try
     PrivacyFixtureAssert(!InStr(safe, "test-only-secret-123"), "password value hidden")
     PrivacyFixtureAssert(!InStr(safe, "sample@example.org"), "email hidden")
     PrivacyFixtureAssert(!InStr(safe, "https://example.org"), "URL hidden")
-    PrivacyFixtureAssert(InStr(safe, "[path omitted]"), "path redaction marker present")
+    PrivacyFixtureAssert(safe = "GAME | Character: TestWizard",
+        "private fields are removed without stray labels or separators")
+    legacy := SanitizeDiagnosticText("2026-11-04 | GAME | Path: [path omitted] | URL: [url omitted] | Character: TestWizard")
+    PrivacyFixtureAssert(legacy = "2026-11-04 | GAME | Character: TestWizard",
+        "prior placeholder-style log entries are compacted")
+    PrivacyFixtureAssert(!InStr(safe, "[") && !InStr(safe, "omitted"),
+        "clean diagnostics contain no redaction notices")
 
-    FileAppend(input "`n", AppDataDirectory "\launcher.log", "UTF-8")
+    FileAppend(input "`n2026-11-04 | GAME | Path: [path omitted] | Character: TestWizard`n", AppDataDirectory "\launcher.log", "UTF-8")
     FileAppend(input "`n", AppDataDirectory "\chat-host.log", "UTF-8")
     DirCreate(AppDataDirectory "\Logs")
     privateArchive := "Yagrum: genuine Happy Hour announcement [discord:123456789012345678]"
@@ -36,11 +42,13 @@ try
     SanitizeExistingDiagnosticLogs()
     PrivacyFixtureAssert(!InStr(FileRead(LauncherLogFile, "UTF-8"), "ExamplePerson"),
         "legacy launcher log cleaned")
+    PrivacyFixtureAssert(!InStr(FileRead(LauncherLogFile, "UTF-8"), "[path omitted]"),
+        "previous redaction markers removed from historical logs")
     PrivacyFixtureAssert(!InStr(FileRead(AppDataDirectory "\chat-host.log", "UTF-8"),
         "test-only-secret-123"), "legacy Chat Host log cleaned")
     PrivacyFixtureAssert(FileRead(AppDataDirectory "\Logs\game-chat.log", "UTF-8")
         = privateArchive, "private chat archive not modified")
-    PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "1",
+    PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "2",
         "one-time migration checkpoint written")
     FileAppend("PASS | TES3NP diagnostic redaction fixtures`n", "*", "UTF-8")
 }
