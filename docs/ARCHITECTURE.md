@@ -159,8 +159,24 @@ switches `nativeMode=true`, it must restore `messageClip.Visible=true`
 still-hidden parent produces a completely black message pane with the gold
 frame/scrollbar rendered. Reopening the launcher can mask this first-login
 bug because the sign-in route is skipped next time. The source guard now
-requires the matching parent/child visibility transition. This sequence changes
-neither the persisted browser profile nor the Happy Hour archive.
+requires the matching parent/child visibility transition. After the November 5 first-login visibility fix, the first authenticated
+feed still revealed an incomplete view: `goldScrollbar` was hidden by
+`ShowDiscordSignIn` and never shown again during `nativeMode` activation,
+while `frameSurface.Paint` drew a static mock scrollbar underneath. The gold
+arrows and bronze thumb therefore appeared stale until a later redraw.
+The pending first-message state now explicitly calls `ShowConnectingChat()`
+to show the existing `nativeMessages` label ("Connecting to live chat...")
+in its normal `messageClip` parent with the gold title/frame visible and both
+scrollbar/WebView message child hidden. The Discord source still fetches using
+the same authenticated WebView2 profile, behind that loading view. The first
+real message transition sizes/reveals `messageBrowser` behind the status text
+**before** executing `window.setMessages`, then hides the label, restores the
+single real textured `goldScrollbar`, runs `FitWebView`, and invalidates the
+frame and thumb. The duplicate fake scrollbar painting has been removed, leaving
+the real child as the only scrollbar. No new retry timers, login calls, browser
+instances, or Happy Hour state changes are introduced. Windows visual/runtime
+testing is required to confirm this post-login paint sequence. This sequence
+changes neither the persisted browser profile nor the Happy Hour archive.
 
 **Validation:** `scripts/check-chat-architecture.py` guards these contracts
 and the normal CI checks now compile `chat-host/tes3np.ChatHost.csproj`.
