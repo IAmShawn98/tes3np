@@ -527,7 +527,7 @@ internal static class Program
             expansionDownloadsBrowser=null;
             if (window is { IsDisposed: false }) {
                 try { window.Dispose(); }
-                catch (Exception ex) { Log("EXPANSION | Child cleanup: "+ex.Message); }
+                catch (Exception ex) { Log("EXPANSION | Child cleanup: "+ex.GetType().Name); }
             }
         }
 
@@ -567,7 +567,7 @@ internal static class Program
             }
             catch(Exception ex)
             {
-                Log("EXPANSION | Cannot mount browser: "+ex.Message);
+                Log("EXPANSION | Cannot mount browser: "+ex.GetType().Name);
                 CloseEmbeddedExpansionDownloads();
             }
         }
@@ -641,7 +641,7 @@ internal static class Program
                         Log("EXPANSION | ZIP sent to default browser ("+origin+").");
                 }
                 catch (Exception ex) {
-                    Log("EXPANSION | Browser ZIP handoff failed ("+origin+"): "+ex.Message);
+                    Log("EXPANSION | Browser ZIP handoff failed ("+origin+"): "+ex.GetType().Name);
                 }
             });
         }
@@ -719,7 +719,7 @@ internal static class Program
                         if (type=="expansion-layout" &&
                             json.RootElement.TryGetProperty("status",out var state))
                         {
-                            Log("EXPANSION | ZIP card: "+state.GetString());
+                            Log("EXPANSION | ZIP card status updated.");
                         }
                         else if ((type=="expansion-available" || type=="expansion-download") &&
                             json.RootElement.TryGetProperty("url",out var requested) &&
@@ -750,7 +750,7 @@ internal static class Program
                     Log("EXPANSION | Discord page "+(e.IsSuccess?"loaded":"failed: "+e.WebErrorStatus));
                     if (!e.IsSuccess || browser.IsDisposed || browser.CoreWebView2==null) return;
                     try { await browser.CoreWebView2.ExecuteScriptAsync(ExpansionDownloadsFocusScript); }
-                    catch (Exception ex) { Log("EXPANSION | Card refresh: "+ex.Message); }
+                    catch (Exception ex) { Log("EXPANSION | Card refresh: "+ex.GetType().Name); }
                 };
                 // Defensive only: downloads are dispatched through WebMessageReceived.
                 // An unexpected WebView2 download must not silently replace the
@@ -761,7 +761,7 @@ internal static class Program
                 };
                 browser.CoreWebView2.Navigate(ExpansionChannel);
             }
-            catch(Exception ex) { if (!closingChat) Log("EXPANSION | Embed load failed: "+ex.Message); }
+            catch(Exception ex) { if (!closingChat) Log("EXPANSION | Embed load failed: "+ex.GetType().Name); }
             finally { expansionDownloadsInitializing=false; }
         }
 
@@ -932,7 +932,7 @@ metrics();
                         goldScrollbar.Invalidate();
                         if (userScrolledChat && browserScrollTop < Math.Max(900, browserClientHeight * 3)) RequestOlderMessages();
                     }
-                    catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.Message); }
+                    catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.GetType().Name); }
                 };
                 // A fresh Discord login temporarily hides frameSurface.
                 // Finish navigating the separate native renderer BEFORE we
@@ -962,7 +962,7 @@ metrics();
                     Log("CHAT | Native renderer still loading; continuing Discord login");
                 }
             }
-            catch (Exception ex) { Log("HTML renderer initialization failed: " + ex.Message); }
+            catch (Exception ex) { Log("HTML renderer initialization failed: " + ex.GetType().Name); }
         }
         void ScrollHtml(int pixels)
         {
@@ -1083,7 +1083,7 @@ metrics();
                 {
                     // A damaged JSON index must not disable fresh Discord
                     // history collection or prevent trying the readable log.
-                    Log("CHAT | Saved message index unreadable: " + ex.Message);
+                    Log("CHAT | Saved message index unreadable: " + ex.GetType().Name);
                 }
             }
             bool recoveredFromText = false;
@@ -1113,7 +1113,7 @@ metrics();
             if (recoveredFromText)
             {
                 try { SaveChatArchive(); }
-                catch (Exception ex) { Log("CHAT | Recovered log indexing failed: " + ex.Message); }
+                catch (Exception ex) { Log("CHAT | Recovered log indexing failed: " + ex.GetType().Name); }
             }
         }
         public sealed class ChatArchiveEntry
@@ -1245,7 +1245,7 @@ metrics();
             // Save even if Discord has already replaced this virtualized
             // message in its source viewport. The next restart can shortcut.
             try { SaveChatArchive(); }
-            catch (Exception ex) { Log("HAPPY HOUR | Failed to save verified image ID: " + ex.Message); }
+            catch (Exception ex) { Log("HAPPY HOUR | Failed to save verified image ID: " + ex.GetType().Name); }
             DetectLatestHappyHour();
         }
 
@@ -1458,7 +1458,7 @@ metrics();
                 }
             }
             catch (TimeoutException) { Log("History load timed out after 5s; retrying on next refresh"); }
-            catch (Exception ex) { Log("History load error: " + ex.Message); }
+            catch (Exception ex) { Log("History load error: " + ex.GetType().Name); }
             finally { loadingHistory = false; }
         }
         DateTime lastHistoryGateLog = DateTime.MinValue;
@@ -1965,7 +1965,7 @@ metrics();
                     ShowHappyHourBannerForMessage(latest);
                 }
             }
-            catch (Exception ex) { Log("HAPPY HOUR | Scan failed: " + ex.Message); }
+            catch (Exception ex) { Log("HAPPY HOUR | Scan failed: " + ex.GetType().Name); }
         }
 
         void BeginHappyHourDiscovery()
@@ -2010,7 +2010,7 @@ metrics();
             }
             catch (Exception ex)
             {
-                Log("HAPPY HOUR | Startup log check failed; will page Discord: " + ex.Message);
+                Log("HAPPY HOUR | Startup log check failed; will page Discord: " + ex.GetType().Name);
             }
         }
 
@@ -2172,7 +2172,7 @@ metrics();
                             archivedChat.Count + " total, oldest=" +
                             DiscordTimestamp(archivedChat.First().Key).ToString("O"));
                     } catch (Exception ex) {
-                        Log("CHAT | Could not persist newly loaded history: " + ex.Message);
+                        Log("CHAT | Could not persist newly loaded history: " + ex.GetType().Name);
                     }
                 }
                 // Match only genuine archived Discord messages; the snowflake
@@ -2208,7 +2208,7 @@ metrics();
                     Log("Native message view activated");
                 }
             }
-            catch (Exception ex) { Log("Native feed error: " + ex.Message); }
+            catch (Exception ex) { Log("Native feed error: " + ex.GetType().Name); }
         }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 250 };
         // History requests must not depend on changes to Discord messages or launcher UI.
@@ -2380,7 +2380,33 @@ metrics();
 
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
-        void Log(string message) { try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " + ChatBuild + " | " + message + Environment.NewLine); } catch { } }
+        void Log(string message)
+        {
+            try
+            {
+                // Diagnostics are shareable. The separate private message archive is not.
+                // Scrub at the write boundary even if a future caller passes an exception,
+                // navigation URL, user path or credential-like field by mistake.
+                string safe = System.Text.RegularExpressions.Regex.Replace(message,
+                    @"(?i)\b[A-Z]:[/\\][^\r\n|]+", "[path omitted]");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"(?i)\\\\[^\r\n|]+", "[network path omitted]");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"(?i)\b(?:https?|wss?)://[^\s|]+", "[url omitted]");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"(?i)\b(?:password|token|secret|authorization|cookie|api[-_]?key)\s*[:=]\s*[^\s|]+",
+                    "[secret omitted]");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[email omitted]");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"\b\d{16,21}\b", "[Discord ID omitted]");
+                safe = safe.Replace('\r', ' ').Replace('\n', ' ');
+                Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+                File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " +
+                    ChatBuild + " | " + safe + Environment.NewLine);
+            }
+            catch { }
+        }
         public ChatHost(IntPtr owner)
         {
             this.owner = owner;
@@ -2797,7 +2823,7 @@ metrics();
                 }
                 catch (Exception ex)
                 {
-                    Log("ERROR " + ex);
+                    Log("ERROR " + ex.GetType().Name);
                     MessageBox.Show("WebView2 chat unavailable: " + ex.Message + "\nInstall Microsoft Edge WebView2 Runtime.", "tes3np Chat");
                 }
             };
@@ -2821,7 +2847,7 @@ metrics();
                 refreshingChat = true;
                 try
                 {
-                try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.Message); }
+                try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.GetType().Name); }
                 if (!docked && !signInExpanded) DockToLauncher();
                 if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
                 await CheckDiscordAuthentication();
@@ -2839,7 +2865,7 @@ metrics();
                 }
                 }
                 catch (ObjectDisposedException) { }
-                catch (Exception ex) { if (!closingChat) Log("Chat timer error: " + ex.Message); }
+                catch (Exception ex) { if (!closingChat) Log("Chat timer error: " + ex.GetType().Name); }
                 finally { refreshingChat = false; }
             };
             historyWatch.Tick += (_, _) =>
@@ -2905,14 +2931,14 @@ metrics();
         {
             if (web.CoreWebView2 == null) return;
             try { await web.CoreWebView2.ExecuteScriptAsync(HideChannelHeaderScript); }
-            catch (Exception ex) { Log("Header removal error: " + ex.Message); }
+            catch (Exception ex) { Log("Header removal error: " + ex.GetType().Name); }
         }
         async Task ApplyCss()
         {
             if (web.CoreWebView2 == null) return;
             var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                 "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f);} })()";
-            try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.Message); }
+            try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.GetType().Name); }
         }
         void SuspendHappyHourUntilDiscordReturns(string reason)
         {
@@ -3008,7 +3034,7 @@ metrics();
                     web.CoreWebView2.Navigate(Channel);
                 }
             }
-            catch (Exception ex) { Log("Discord auth check: " + ex.Message); }
+            catch (Exception ex) { Log("Discord auth check: " + ex.GetType().Name); }
         }
         // Keep Discord's own inputs and authentication handlers intact.
         async Task StyleDiscordLogin()
@@ -3209,7 +3235,7 @@ metrics();
                     })()
                     """);
             }
-            catch (Exception ex) { Log("Discord login theme: " + ex.Message); }
+            catch (Exception ex) { Log("Discord login theme: " + ex.GetType().Name); }
         }
         void ShowDiscordSignIn()
         {
@@ -3276,7 +3302,7 @@ metrics();
         {
             if (web.CoreWebView2 == null) return;
             var url = web.CoreWebView2.Source;
-            Log("Navigation completed: " + url);
+            Log("Navigation completed (Discord page changed).");
             bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             await CheckDiscordAuthentication();
