@@ -1,7 +1,5 @@
-param([ValidateSet('Enable','Disable')][string]$Action,[string]$MorrowindFolder,[string]$ConfigFile,[string]$PayloadFolder,[string]$BackupFolder,[string]$ResultFile='')
+param([ValidateSet('Enable','Disable')][string]$Action,[string]$MorrowindFolder,[string]$ConfigFile,[string]$BackupFolder,[string]$ResultFile='')
 $ErrorActionPreference='Stop'
-$planned=@()
-$copied=@()
 # This result file is shown by the launcher when the toggle fails.
 function CleanToggleError([string]$Message) {
  $safe=[regex]::Replace($Message,'(?i)\b(?:Password|Token|Secret|Authorization|Cookie|Api[-_]?Key|Account|User)\s*[:=][^|\r\n]*','')
@@ -32,18 +30,14 @@ try{
  if($Action -eq 'Enable'){
   $data=Join-Path $MorrowindFolder 'Data Files'
   foreach($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')){if(!(Test-Path (Join-Path $data $master))){throw ('Missing game master: '+$master)}}
-  $manifest=Get-Content -LiteralPath (Join-Path $PayloadFolder 'manifest.json') -Raw | ConvertFrom-Json
-  $entries=@($manifest.Files | Where-Object {$_.Path -like 'expansion-pack/Data Files/*'})
-  if(!$entries.Count){throw 'No bundled Expansion Pack assets found.'}
-  foreach($entry in $entries){
-   $rel=$entry.Path.Substring('expansion-pack/Data Files/'.Length)
-   if($rel -match '(^|[/\\])\.\.([/\\]|$)' -or [IO.Path]::IsPathRooted($rel)){throw 'Unsafe asset path.'}
-   $src=Join-Path $PayloadFolder ($entry.Path.Replace('/','\'))
-   $dst=Join-Path $data ($rel.Replace('/','\'))
-   if(!(Test-Path -LiteralPath $src -PathType Leaf) -or (Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash -ine $entry.SHA256){throw ('Damaged bundled asset: '+$rel)}
-   if(Test-Path -LiteralPath $dst -PathType Leaf){
-    if((Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash -ine $entry.SHA256){throw ('Existing modified asset requires manual review: '+$rel)}
-   } else {$planned+=@{Source=$src;Target=$dst}}
+  # Enabling is a pure config operation. The ESP must already be installed
+  # from an official user-selected download; do not restore legacy files.
+  $esp = Join-Path $data 'NP Expansion Pack.esp'
+  if (!(Test-Path -LiteralPath $esp -PathType Leaf)) {
+   throw 'NP Expansion Pack is not installed. Download it from official Discord and import it first.'
+  }
+  if ((Get-Item -LiteralPath $esp).Length -le 0) {
+   throw 'Installed NP Expansion Pack.esp is empty.'
   }
   $existsData=$false
   foreach($line in $lines){
@@ -58,11 +52,6 @@ try{
  [IO.Directory]::CreateDirectory($BackupFolder)|Out-Null
  $backup=Join-Path $BackupFolder ('openmw-'+[datetime]::UtcNow.ToString('yyyyMMddHHmmssfff')+'.cfg')
  [IO.File]::Copy($ConfigFile,$backup,$false)
- foreach($item in $planned){
-  [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($item.Target))|Out-Null
-  [IO.File]::Copy($item.Source,$item.Target,$false)
-  $copied+=$item.Target
- }
  $new=($lines -join [Environment]::NewLine).TrimEnd()+[Environment]::NewLine
  $temp=$ConfigFile+'.tes3np-pending'
  try{
@@ -75,7 +64,6 @@ try{
  if($ResultFile){[IO.File]::WriteAllText($ResultFile,('Expansion Pack '+$Action+' complete.'),[Text.Encoding]::UTF8)}
  exit 0
 }catch{
- foreach($f in $copied){if(Test-Path -LiteralPath $f){Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue}}
  if($ResultFile){[IO.File]::WriteAllText($ResultFile,(CleanToggleError $_.Exception.Message),[Text.Encoding]::UTF8)}
  exit 1
 }
