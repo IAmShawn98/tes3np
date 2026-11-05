@@ -821,6 +821,7 @@ expect(
     and "bool discordSignInRequested;" in source
     and "if (discordSignInRequested) popup.Show();" in source
     and "discordSignInRequested = true;" in source
+    and "if (!discordChannelReady) discordSignInRequested = true;" in source
     and "if (discordLoginVisible) RevealDiscordSignInWindow();" in source,
 )
 
