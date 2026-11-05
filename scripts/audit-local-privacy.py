@@ -307,6 +307,31 @@ def self_test() -> bool:
         found, _ = scan_text("Backup=C:\\Private\\journal.json", launcher=False, result=True)
         if "private_backup_location_or_invalid_state" not in found:
             return False
+        # Exercise the real atomic migration against only disposable fixtures.
+        import_job = root / "expansion-imports" / "completed"
+        import_job.mkdir(parents=True)
+        fake_journal = import_job / "journal.json"
+        fake_journal.write_bytes(b"SYNTHETIC PRIVATE JOURNAL - DO NOT EDIT")
+        fake_private = root / "settings.ini"
+        fake_private.write_bytes(b"SYNTHETIC PRIVATE SETTINGS - DO NOT EDIT")
+        old_status = ("[Result]\r\nState=success\r\nMessage=Expansion import complete.\r\n"
+                      "Backup=C:\\Users\\ExamplePerson\\backup\r\n")
+        result_path = import_job / "result.ini"
+        result_path.write_bytes(old_status.encode("utf-16"))
+        fixed, errors = repair_legacy_import_results(root, min_age_seconds=0)
+        if fixed != 1 or errors:
+            return False
+        revised = read_diagnostic(result_path)
+        flags, _ = scan_text(revised, launcher=False, username="ExamplePerson", result=True)
+        if flags or "Backup=available" not in revised or "State=success" not in revised:
+            return False
+        if fake_journal.read_bytes() != b"SYNTHETIC PRIVATE JOURNAL - DO NOT EDIT":
+            return False
+        if fake_private.read_bytes() != b"SYNTHETIC PRIVATE SETTINGS - DO NOT EDIT":
+            return False
+        fixed_again, errors_again = repair_legacy_import_results(root, min_age_seconds=0)
+        if fixed_again or errors_again:
+            return False
     return True
 
 
