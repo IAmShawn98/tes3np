@@ -251,31 +251,62 @@ ReadVersionReleaseNotes(installedVersion)
     }
 }
 
-WrapReleaseNoteLines(content, maximum := 56)
+ReleaseNoteFits(control, text, maxWidth)
 {
-    wrapped := []
-    for entry in StrSplit(StrReplace(content, "`r", ""), "`n") {
-        line := Trim(entry)
-        if line = "" {
-            wrapped.Push("")
-            continue
-        }
-        while StrLen(line) > maximum {
-            splitAt := maximum
-            while splitAt > 20 && SubStr(line, splitAt, 1) != " "
-                splitAt -= 1
-            if splitAt <= 20
-                splitAt := maximum
-            wrapped.Push(RTrim(SubStr(line, 1, splitAt)))
-            line := LTrim(SubStr(line, splitAt + 1))
-        }
-        wrapped.Push(line)
-    }
-    return wrapped
+    ; Measure against the actual Windows font on this label, not a guessed
+    ; character count (proportional glyphs and DPI affect the pixel width).
+    if text = ""
+        return true
+    hFont := SendMessage(0x31, 0, 0, control.Hwnd) ; WM_GETFONT
+    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
+    if !dc
+        return false
+    oldFont := hFont ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", hFont, "Ptr") : 0
+    size := Buffer(8, 0)
+    success := DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "Str", text,
+        "Int", StrLen(text), "Ptr", size, "Int")
+    if oldFont
+        DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont)
+    DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+    return success && NumGet(size, 0, "Int") <= maxWidth
 }
 
-; Keep the category structure for both draft and published release notes.
-BuildStyledReleaseNoteRows(content)
+WrapReleaseNoteLines(line, control, maxWidth)
+{
+    parts := []
+    remaining := Trim(line)
+    while remaining != "" {
+        if ReleaseNoteFits(control, remaining, maxWidth) {
+            parts.Push(remaining)
+            break
+        }
+        ; Break on the last word boundary which actually fits on screen.
+        splitAt := 0
+        pos := 1
+        while (pos := InStr(remaining, " ", , pos)) {
+            if !ReleaseNoteFits(control, SubStr(remaining, 1, pos - 1), maxWidth)
+                break
+            splitAt := pos
+            pos += 1
+        }
+        if splitAt > 0 {
+            parts.Push(RTrim(SubStr(remaining, 1, splitAt - 1)))
+            remaining := LTrim(SubStr(remaining, splitAt + 1))
+            continue
+        }
+        ; Even exceptionally long unbroken tokens must not be clipped.
+        cut := 1
+        while cut < StrLen(remaining) && ReleaseNoteFits(control, SubStr(remaining, 1, cut + 1), maxWidth)
+            cut += 1
+        parts.Push(SubStr(remaining, 1, cut))
+        remaining := LTrim(SubStr(remaining, cut + 1))
+    }
+    return parts
+}
+
+; Render plain category headings and bullet points, as shown in RELEASE_NOTES.md.
+; Each on-screen row is measured in the real control font before scrolling.
+BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
 {
     rows := []
     for entry in StrSplit(StrReplace(content, "`r", ""), "`n") {
@@ -290,14 +321,15 @@ BuildStyledReleaseNoteRows(content)
             line := RegExReplace(line, "^#{1,6}\s+", "")
             if rows.Length && rows[rows.Length].Kind != "space"
                 rows.Push({Text: "", Kind: "space"})
-            line := "◆ " line
             kind := "heading"
         } else if RegExMatch(line, "^[-*+]\s+") {
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
         }
-        for part in WrapReleaseNoteLines(line, kind = "heading" ? 64 : 72)
+        measureRow.SetFont(kind = "heading" ? "s11 Bold cE7BE70" : "s10 cF4E9D6", "Segoe UI")
+        for part in WrapReleaseNoteLines(line, measureRow, maxWidth)
             rows.Push({Text: part, Kind: kind})
     }
+    measureRow.SetFont("s10 cF4E9D6", "Segoe UI")
     if !rows.Length
         rows.Push({Text: "No release notes available.", Kind: "body"})
     return rows
@@ -404,8 +436,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ; scroll, drag, wheel or button behavior.
     panel.Add("Text", "x28 y158 w744 h367 BackgroundC5A45C")
     panel.Add("Text", "x30 y160 w740 h363 Background171008")
-    notesLines := BuildStyledReleaseNoteRows(notes.Text)
-    page := {Offset: 1, Lines: notesLines, Visible: 13}
+    page := {Offset: 1, Lines: [], Visible: 13}
     noteRows := []
     rowStyles := []
     Loop page.Visible {
@@ -413,6 +444,8 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
         noteRows.Push(panel.Add("Text", "x42 y" (176 + (A_Index - 1) * 26) " w686 h24 Background171008", ""))
         rowStyles.Push("body")
     }
+    ; Leave an extra pixel gutter for font rasterization and scroll safety.
+    page.Lines := BuildStyledReleaseNoteRows(notes.Text, noteRows[1], 674)
     track := panel.Add("Text", "x746 y188 w16 h309 Background704C27")
     thumb := panel.Add("Text", "x750 y188 w8 h32 +0x100 BackgroundC69951")
     drag := {Active: false, StartY: 0, StartOffset: 1, ThumbHeight: 32, Timer: 0}

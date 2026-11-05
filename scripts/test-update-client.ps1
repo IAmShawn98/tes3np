@@ -113,16 +113,14 @@ if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source check
 Write-Host 'PASS: player-facing notes are distinct from the developer changelog.'
 
 $expectedCategories = @('New Features', 'Improvements', 'Removed Features')
-$foundCategories = @([regex]::Matches($playerNotes, '(?m)^### (.+)
-) | ForEach-Object { $_.Groups[1].Value })
+$foundCategories = @([regex]::Matches($playerNotes, '(?m)^### (.+)$') | ForEach-Object { $_.Groups[1].Value })
 if (($foundCategories -join '|') -ne ($expectedCategories -join '|')) {
     throw 'Player-facing changelog categories must appear in the approved order for this release.'
 }
 $entries = @($playerNotes -split "`r?`n" | Where-Object { $_ -match '^- ' })
 if (-not $entries.Count) { throw 'Player-facing release notes have no entries.' }
 foreach ($entry in $entries) {
-    if ($entry -notmatch '^- \*\*[^*]+:\*\* .+\.
-) {
+    if ($entry -notmatch '^- \*\*[^*]+:\*\* .+\.$') {
         throw "Player-facing changelog entry must use **Area:** outcome format: $entry"
     }
 }
@@ -130,5 +128,18 @@ if ($playerNotes -notmatch 'Changes since the last public release, v0\.1\.20-alp
     throw 'Release notes must identify the public comparison baseline.'
 }
 Write-Host 'PASS: standardized release note categories, labels, and baseline.'
+
+# Guards for the actual launcher viewport: no ornamental diamonds, no
+# character-count wrapping, no hard-clipped words on narrow/DPI screens.
+Require-Source 'BuildStyledReleaseNoteRows\(notes\.Text, noteRows\[1\], 674\)' 'font-measured changelog wrapping'
+Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths'
+Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting'
+if ($source -match '◆') {
+    throw 'Changelog renderer must not use ornamental diamond markers.'
+}
+if ($source -match 'WrapReleaseNoteLines\(content, maximum') {
+    throw 'Character-count wrapping can clip release note words.'
+}
+Write-Host 'PASS: plain release notes headings and measured wrapping.'
 
 Write-Host 'All launcher updater validation checks passed.'
