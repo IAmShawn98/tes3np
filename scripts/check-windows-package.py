@@ -50,6 +50,10 @@ def check_package(path: Path) -> None:
             if entry.file_size < 0:
                 raise ValueError(f"Invalid entry size: {name!r}")
 
+        # The optional Expansion Pack must never ship in the Windows ZIP.
+        # The real player-selected pack is downloaded from Discord separately.
+        if any(name.startswith(("patches/", "expansion-pack/")) for name in names):
+            raise ValueError("Legacy Expansion Pack or patch payload was packaged")
         missing = [item for item in REQUIRED_FILES if item.casefold() not in names]
         if missing:
             raise ValueError("Windows package is missing: " + ", ".join(missing))
