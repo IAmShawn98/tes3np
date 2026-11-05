@@ -98,11 +98,11 @@ SanitizeDiagnosticText(text)
     if userName != "" && StrLen(userName) >= 3
         text := StrReplace(text, userName, "[user omitted]", false)
     ; Field redaction also applies to older logs written before this change.
-    text := RegExReplace(text, "i)\\b(?:Character|Username|Account|User)\\s*:\\s*[^|`r`n]+", "[identity omitted]")
-    text := RegExReplace(text, "i)\\b(?:Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\\s*[:=]\\s*[^|`r`n ]+", "[secret omitted]")
-    text := RegExReplace(text, "i)\\b(?:https?|wss?)://[^ \\t\\r\\n|]+", "[url omitted]")
-    text := RegExReplace(text, "i)\\b[A-Z]:[\\\\/][^|`r`n]+", "[path omitted]")
-    text := RegExReplace(text, "\\\\\\\\[^|`r`n]+", "[network path omitted]")
+    text := RegExReplace(text, "i)\b(?:Character|Username|Account|User)\s*:\s*[^|`r`n]+", "[identity omitted]")
+    text := RegExReplace(text, "i)\b(?:Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=]\s*[^|`r`n ]+", "[secret omitted]")
+    text := RegExReplace(text, "i)\b(?:https?|wss?)://[^ \t\r\n|]+", "[url omitted]")
+    text := RegExReplace(text, "i)\b[A-Z]:[\\/][^|`r`n]+", "[path omitted]")
+    text := RegExReplace(text, "\\\\[^|`r`n]+", "[network path omitted]")
     return text
 }
 
