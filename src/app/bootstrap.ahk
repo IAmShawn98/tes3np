@@ -505,7 +505,12 @@ OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
                 A_ScriptDir, "", "Launch Nerevarine Prophecies", A_ScriptFullPath)
         }
         catch Error as err
-            MsgBox("Could not create the desktop shortcut: " err.Message
+        {
+            reason := SanitizeDiagnosticText(err.Message)
+            if reason = ""
+                reason := "Windows could not create the shortcut."
+            MsgBox("Could not create the desktop shortcut: " reason
                 "`nThe launcher will respect your choice and will not ask again.", "tes3np", "Icon!")
+        }
     }
 }
