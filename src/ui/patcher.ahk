@@ -258,9 +258,12 @@ SanitizePatchDiagnostic(text)
 PatchErrorDetails(step, field, err)
 {
     reason := SanitizePatchDiagnostic(err.Message)
+    if reason = ""
+        reason := "The operation could not be completed."
     details := "Step: " step "`nField: " field "`nReason: " reason "`nError type: " Type(err)
-    if err.Extra != ""
-        details .= "`nDetail: " SanitizePatchDiagnostic(err.Extra)
+    extra := SanitizePatchDiagnostic(err.Extra)
+    if extra != ""
+        details .= "`nDetail: " extra
     SplitPath(err.File, &sourceFile)
     if sourceFile != ""
         details .= "`nSource: " sourceFile " — line " err.Line
