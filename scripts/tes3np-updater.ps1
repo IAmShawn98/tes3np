@@ -6,15 +6,26 @@ $LogFile=Join-Path $env:APPDATA 'tes3np\launcher.log'
 $ProgressForm=$null;$ProgressStatus=$null;$ProgressBar=$null
 function Write-UpdaterLog([string]$Message) {
     try {
-        # The worker runs outside the AHK process and must sanitize at its own
-        # launcher.log write boundary. Keep update/rollback progress, not private
-        # machine paths, secrets, URLs or raw line breaks.
-        $safe = [regex]::Replace($Message, '(?i)\b[A-Z]:[\\/][^|\r\n]+', '[path omitted]')
-        $safe = [regex]::Replace($safe, '(?i)\\\\[^|\r\n]+', '[network path omitted]')
-        $safe = [regex]::Replace($safe, '(?i)\b(?:https?|wss?)://[^\s|]+', '[url omitted]')
-        $safe = [regex]::Replace($safe, '(?i)\b(?:password|token|secret|authorization|cookie|api[-_]?key)\s*[:=]\s*[^\s|]+', '[secret omitted]')
-        $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '[email omitted]')
+        # A standalone worker must remove sensitive fields before writing the
+        # shared launcher log. Preserve useful update and rollback milestones.
+        $safe = [regex]::Replace($Message, '(?i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]', '')
+        $safe = [regex]::Replace($safe, '(?i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=][^|\r\n]*', '')
+        $safe = [regex]::Replace($safe, '(?i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%[\\/][^|\r\n]*', '')
+        $safe = [regex]::Replace($safe, '(?i)\b(?:https?|wss?)://[^\s|]+', '')
+        $safe = [regex]::Replace($safe, '(?i)\b[A-Z]:[\\/][^|\r\n]*', '')
+        $safe = [regex]::Replace($safe, '(?i)\\\\[^|\r\n]*', '')
+        $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '')
+        $safe = [regex]::Replace($safe, '\b(?:\d{1,3}\.){3}\d{1,3}\b', '')
+        $safe = [regex]::Replace($safe, '\b\d{16,21}\b', '')
         $safe = [regex]::Replace($safe, '[\r\n]+', ' ')
+        $parts = [Collections.Generic.List[string]]::new()
+        foreach ($piece in ($safe -split '\|')) {
+            $item = [regex]::Replace($piece, '(?i)\b(?:Executable(?:\s+path)?|Source\s+path|Destination|Install|Stage|Path|Folder|File|URL|Mail|Email)\s*[:=]\s*$', '')
+            $item = $item.Trim([char[]]@(' ', [char]9, ':', '='))
+            if(-not [string]::IsNullOrWhiteSpace($item)) { [void]$parts.Add($item) }
+        }
+        $safe = [string]::Join(' | ', $parts)
+        if(-not $safe) { return }
         $dir = Split-Path -Parent $LogFile
         if($dir -and -not(Test-Path -LiteralPath $dir)) {
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
@@ -23,7 +34,7 @@ function Write-UpdaterLog([string]$Message) {
             (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' | UPDATE WORKER | ' + $safe
         ) -Encoding UTF8
     } catch {
-        # Never let unavailable diagnostics interrupt a verified update/rollback.
+        # Never interrupt update/rollback when diagnostics are unavailable.
     }
 }
 function Show-ProgressWindow{if($TestMode){return};Add-Type -AssemblyName System.Windows.Forms;Add-Type -AssemblyName System.Drawing;$script:ProgressForm=New-Object Windows.Forms.Form;$ProgressForm.Text='tes3np — Updating';$ProgressForm.StartPosition='CenterScreen';$ProgressForm.FormBorderStyle='FixedDialog';$ProgressForm.MaximizeBox=$false;$ProgressForm.MinimizeBox=$false;$ProgressForm.ControlBox=$false;$ProgressForm.TopMost=$true;$ProgressForm.ClientSize=New-Object Drawing.Size(430,170);$title=New-Object Windows.Forms.Label;$title.Text='Updating tes3np...';$title.Font=New-Object Drawing.Font('Segoe UI',14,[Drawing.FontStyle]::Bold);$title.AutoSize=$true;$title.Location=New-Object Drawing.Point(24,20);$ProgressForm.Controls.Add($title);$message=New-Object Windows.Forms.Label;$message.Text="Installing v$Version. The launcher will restart automatically when finished.`r`nPlease don't reopen tes3np manually.";$message.Font=New-Object Drawing.Font('Segoe UI',9);$message.AutoSize=$true;$message.Location=New-Object Drawing.Point(26,55);$ProgressForm.Controls.Add($message);$script:ProgressStatus=New-Object Windows.Forms.Label;$ProgressStatus.Text='Preparing update...';$ProgressStatus.Font=New-Object Drawing.Font('Segoe UI',9,[Drawing.FontStyle]::Bold);$ProgressStatus.AutoSize=$true;$ProgressStatus.Location=New-Object Drawing.Point(26,104);$ProgressForm.Controls.Add($ProgressStatus);$script:ProgressBar=New-Object Windows.Forms.ProgressBar;$ProgressBar.Location=New-Object Drawing.Point(28,130);$ProgressBar.Size=New-Object Drawing.Size(374,18);$ProgressBar.Minimum=0;$ProgressBar.Maximum=100;$ProgressBar.Value=5;$ProgressForm.Controls.Add($ProgressBar);$ProgressForm.Show();[Windows.Forms.Application]::DoEvents()}
