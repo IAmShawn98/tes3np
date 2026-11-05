@@ -59,6 +59,22 @@ A new `scripts/audit-local-privacy.py` provides one privacy-preserving local aud
 
 The tool does **not** claim actual saved-data preservation before the prior migration, a tested live login, real Happy Hour retrieval, macro execution, completed import/toggle interactions or a clean-machine extracted-ZIP launch. These remain interactive acceptance tasks.
 
+## Actual local privacy audit and legacy importer follow-up — November 5
+
+The user ran `python scripts/audit-local-privacy.py` on Windows after pulling `8c498d1`:
+
+- **PASS:** `launcher.log` (2,714 lines), `chat-host.log` (11,255 lines), `tes3mp-crash-query.txt` (one line); no flagged patterns. On-disk Launcher Log final-newline verification also passed.
+- **PASS:** isolated updater source/version, metadata/tamper, and transaction/rollback fixtures. No missing PowerShell runtime or fixture failures.
+- **SKIP (not a pass):** absent patch-all, patch-errors, render-errors, and expansion-toggle-result files.
+- **REVIEW:** one of four historical `expansion-imports/*/result.ini` files exposed a legacy absolute Windows path, account name and old `Backup=` absolute-path value. The four files had 16 lines total. All three findings appear to concern the same legacy field; this inference has not been confirmed by inspecting its raw contents, and **raw results must not be shared**.
+- **Present only (not verified unchanged):** settings.ini, game-chat.log and game-chat-index.json, 3/3. Their contents were deliberately never inspected.
+
+The *current* importer already writes a clean status and does not publish rollback locations. To address **historical** results, the audit script now exposes the explicit `--repair-legacy-import-results` option. Default audit remains read-only. The opt-in repair only considers completed `[Result]` records with `State=success/error`, at least ten minutes old, smaller than 1 MiB, in direct child job folders (no symlinks); it preserves the format/encoding, maintains a safe message and `State`, converts `Backup` to `available` only when a sibling journal exists, checks for changed files before atomically replacing **result.ini only**, and never opens, alters or deletes rollback journal, backup, settings, game files, or Discord history. This targeted fix includes a synthetic UTF-16 status/journal non-mutation regression test.
+
+**Pending user confirmation:** run `python scripts/audit-local-privacy.py --self-test`, then `python scripts/audit-local-privacy.py --repair-legacy-import-results --skip-updater`, and confirm the historical results pass. The Windows run of this new command is not yet verified; do not mark the import-result finding closed prematurely.
+
+
+
 ## Outstanding Windows acceptance — not source work
 
 1. **Completed November 5:** Full Windows build and all reported compiler, source-check, fixtures and packaged ZIP gates passed on alpha HEAD `24a2359`. An independent extracted-ZIP interactive run is still pending.
