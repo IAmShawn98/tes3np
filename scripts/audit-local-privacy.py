@@ -191,7 +191,8 @@ def repair_legacy_import_results(appdata: Path, *, min_age_seconds: int = 600) -
                 continue
             with path.open("rb") as stream:
                 bom = stream.read(4)
-            encoding = "utf-16" if bom.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+            encoding = ("utf-16" if bom.startswith((b"\xff\xfe", b"\xfe\xff"))
+                        else "utf-8-sig" if bom.startswith(b"\xef\xbb\xbf") else "utf-8")
             old = read_diagnostic(path)
             shape = RESULT_SHAPE.fullmatch(old)
             if not shape:
@@ -222,7 +223,7 @@ def repair_legacy_import_results(appdata: Path, *, min_age_seconds: int = 600) -
             # Preserve original encoding, and atomically replace only result.ini.
             # Verify it did not change while this cleanup was being prepared.
             fd, tmp = tempfile.mkstemp(prefix=".result-privacy-", suffix=".tmp", dir=path.parent)
-            with os.fdopen(fd, "w", encoding=("utf-16" if encoding == "utf-16" else "utf-8-sig"), newline="") as writer:
+            with os.fdopen(fd, "w", encoding=encoding, newline="") as writer:
                 writer.write(cleaned)
             after = path.stat()
             if (after.st_mtime_ns, after.st_size) != (before.st_mtime_ns, before.st_size):
@@ -346,7 +347,9 @@ def main() -> int:
         passed = self_test()
         print("PASS | Scanner synthetic self-test" if passed else "FAIL | Scanner synthetic self-test")
         return 0 if passed else 1
-    print("TES3NP ALPHA PRIVACY READINESS | read-only; report contains counts only")
+    print("TES3NP ALPHA PRIVACY READINESS | " +
+          ("targeted status cleanup" if args.repair_legacy_import_results else "read-only audit") +
+          "; report contains counts only")
     print("Diagnostic scan is read-only. Optional --repair-legacy-import-results edits old finished result.ini metadata only.")
     if not os.environ.get("APPDATA"):
         print("REVIEW | Windows APPDATA not available; run in normal Windows PowerShell")
