@@ -1,7 +1,9 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Off
 ; Disposable privacy tests. Never read real launcher data or Discord history.
-#Include ..\src\state.ahk
+global AppDataDirectory := A_Temp "\tes3np-privacy-fixture-" A_TickCount
+global DataFile := AppDataDirectory "\settings.ini"
+global Profiles := [{Name: "TestWizard", Password: "test-only-secret-123"}]
 #Include ..\src\app\diagnostics.ahk
 
 PrivacyFixtureAssert(ok, reason)
@@ -10,10 +12,7 @@ PrivacyFixtureAssert(ok, reason)
         throw Error("Privacy fixture failed: " reason)
 }
 
-AppDataDirectory := A_Temp "\tes3np-privacy-fixture-" A_TickCount
-DataFile := AppDataDirectory "\settings.ini"
-LauncherLogFile := AppDataDirectory "\launcher.log"
-Profiles := [{Name: "TestWizard", Password: "test-only-secret-123"}]
+
 
 try
 {
