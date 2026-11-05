@@ -85,8 +85,6 @@ SanitizeDiagnosticText(text)
             continue
         if profile.HasOwnProp("Password") && profile.Password != ""
             text := StrReplace(text, profile.Password, "[credential omitted]", false)
-        if profile.HasOwnProp("Name") && profile.Name != ""
-            text := StrReplace(text, profile.Name, "[character omitted]", false)
     }
     for entry in [[EnvGet("LOCALAPPDATA"), "%LOCALAPPDATA%"],
         [EnvGet("APPDATA"), "%APPDATA%"], [EnvGet("USERPROFILE"), "%USERPROFILE%"]]
@@ -98,7 +96,7 @@ SanitizeDiagnosticText(text)
     if userName != "" && StrLen(userName) >= 3
         text := StrReplace(text, userName, "[user omitted]", false)
     ; Field redaction also applies to older logs written before this change.
-    text := RegExReplace(text, "i)\b(?:Character|Username|Account|User)\s*:\s*[^|`r`n]+", "[identity omitted]")
+    text := RegExReplace(text, "i)\b(?:Account|User)\s*:\s*[^|`r`n]+", "[identity omitted]")
     text := RegExReplace(text, "i)\b(?:Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=]\s*[^|`r`n ]+", "[secret omitted]")
     text := RegExReplace(text, "i)\b(?:https?|wss?)://[^ \t\r\n|]+", "[url omitted]")
     text := RegExReplace(text, "i)\b[A-Z]:[\\/][^|`r`n]+", "[path omitted]")
