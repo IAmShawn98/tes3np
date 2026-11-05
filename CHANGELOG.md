@@ -2,6 +2,13 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Diagnostic privacy hardening — 2026-11-04 (Windows verification pending)
+
+- Reviewed the live AutoHotkey launcher, C# Chat Host, game-session logging, diagnostics clipboard controls, PowerShell update worker, and their shared AppData paths before editing. New diagnostics redact private Windows paths, saved password values, URLs, emails and secret-like fields; updater-worker and Chat Host writes now have their own redaction boundaries. Public in-game character names are intentionally retained in login/session diagnostics because they help identify the character being tested.
+- Copy Launcher Logs, Copy Expansion Pack Logs and Copy Render Errors sanitize old content before copying. The launcher performs a one-time in-place privacy scrub of prior diagnostic logs and Windows crash-query text after loading encrypted profiles and before launching Chat Host. It does **not** modify private settings, portable backups, WebView2 profile, or the Discord history/archive used for real Happy Hour detection. The Game Chat archive contains actual messages and is **not** a bug-report log; do not share it.
+- Added `scripts/check-diagnostic-privacy.py` and disposable `scripts/test-diagnostic-privacy.ahk` to the existing Windows build gates. GitHub source inspection/checks complete; fresh Windows AHK/C#/PowerShell compilation, privacy fixture results, clipboard checks and live-game regression are still required. No public alpha/release has been published by this change.
+
+
 - Continued the post-audit dead-code cleanup: removed the disconnected `BrowseSharedExecutable` and `SaveSharedExecutable` helpers, the retired `ExecutableInput` textbox state, and its stale writes in patch completion, client-mode switches, and backup import. Preserved live `ClientMode` / `Launch/Executable` persistence, custom-client installation and imported data. Replaced outdated Browse guidance with Launcher Settings > Game Client Settings.
 - Cross-checked shared mouse, loading, macro and theme callbacks before pruning and **retained** them because they remain reachable. Added source guards for the deleted textbox and the live client-selection/import paths. Source-only validation passed; a fresh Windows build and interactive regression test are still required for this new cleanup.
 
