@@ -21,7 +21,7 @@ CreateHappyHourDust()
     asset := A_ScriptDir "\assets\happy-hour\pixie-dust.png"
     if !FileExist(asset)
     {
-        try LogLauncherEvent("HAPPY HOUR | Pixie dust artwork missing: " asset)
+        try LogLauncherEvent("HAPPY HOUR | Pixie dust artwork missing.")
         return
     }
     HappyHourDustPictures := []
@@ -40,7 +40,7 @@ CreateHappyHourJiub()
     asset := A_ScriptDir "\assets\happy-hour\jiub-happy-hour.png"
     if !FileExist(asset)
     {
-        try LogLauncherEvent("HAPPY HOUR | Jiub image missing: " asset)
+        try LogLauncherEvent("HAPPY HOUR | Jiub image missing.")
         return
     }
     HappyHourJiubPicture := LauncherGui.Add("Picture",
