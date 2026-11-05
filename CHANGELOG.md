@@ -23,5 +23,5 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### Removed Features
 
-- **Scheduled Events:** Removed event scheduling, countdown hotkeys, and automated login reminders.
+- **Scheduled Events:** Removed event scheduling, countdown hotkeys, and automated login reminders due to implementation issues. Parts of this feature may return in other areas of the launcher as development progresses.
 
