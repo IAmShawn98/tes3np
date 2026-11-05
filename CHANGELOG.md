@@ -4,6 +4,9 @@
 
 ### Diagnostic privacy hardening — 2026-11-04 (Windows verification pending)
 
+- Improved launcher diagnostic log formatting and privacy, including separation of timestamped events.
+
+
 - Fixed missing newline delimiters in migrated diagnostic logs and added regression coverage.
 
 
