@@ -94,9 +94,13 @@ SanitizeDiagnosticText(text)
         for item in StrSplit(line, "|")
         {
             item := Trim(item)
+            ; Clear older privacy notes when migrating existing diagnostics.
+            item := StrReplace(item, "Executable path omitted.", "")
+            item := StrReplace(item, "Password value not logged.", "")
+            item := StrReplace(item, "; local Windows event description omitted for privacy.", ".")
             ; Drop complete private identity/credential fields, including labels.
             item := RegExReplace(item, "i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=].*$", "")
-            item := RegExReplace(item, "i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%[\\/].*$", "")
+            item := RegExReplace(item, "i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%(?:[\\/].*)?$", "")
             item := RegExReplace(item, "i)\b(?:https?|wss?)://\S+", "")
             item := RegExReplace(item, "i)\b[A-Z]:[\\/].*$", "")
             item := RegExReplace(item, "\\\\.*$", "")
