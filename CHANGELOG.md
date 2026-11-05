@@ -2,6 +2,10 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Launcher Play Together description — 2026-11-05
+
+- Updated the front-page **Together** information card to the user-selected concise promotion of multiplayer, the mastery system, creature camps/bosses, side activities, and events. The revised description is 298 characters versus the previous 293, preserving the card's established dimensions, font, renderer, button layout, and neighboring single-player **Quest** copy. Source change verified; Windows launcher rendering/build remain to be checked.
+
 ### First Discord login Game Chat fix — 2026-11-05 (visual fix user-confirmed)
 
 - **User acceptance:** After the completed Chat Host loading-state and real-scrollbar changes, the user reported **“Fixed!”** on November 5. This confirms the reported stale scrollbar/loading presentation issue was resolved in their tested launcher session. No detailed build transcript or separate signed-out authentication reproduction was supplied with this confirmation; other Chat/Happy Hour/ZIP regression checks remain independently pending.
