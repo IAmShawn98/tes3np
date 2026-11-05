@@ -421,7 +421,7 @@ expect(
 
 expect(
     "Plugin mismatch report identifies Expansion Pack versus other-plugin evidence without private fields",
-    '"Your Plugins Don\'t Match the Servers"' in mismatch
+    '"Your Plugins Don\'t Match the Server"' in mismatch
     and '"Copy Diagnostic Info"' in mismatch
     and 'TES3MPCopyMismatchDiagnostics(nativeStatus)' in mismatch
     and 'report := TES3MPBuildMismatchDiagnostics()' in mismatch
