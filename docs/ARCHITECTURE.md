@@ -38,6 +38,26 @@ when adjusting artwork; the separate overlay previously showed seams
 and the original beasts underneath. Keep all native launcher controls,
 the Game Chat tab, and Happy Hour pixie dust drawn afterward.
 
+## Diagnostic privacy and recovery-state boundaries
+
+The launcher-wide `LogLauncherEvent` writer and clipboard exports pass through
+`SanitizeDiagnosticText`. The standalone C# Chat Host and PowerShell updater
+sanitize their **own** write boundaries. Import/toggle workers clean result/error
+messages, and native picker errors report only exception category and HRESULT.
+Sensitive details are removed without visible placeholders, while public
+character names remain in character-labeled launcher events. A versioned,
+best-effort one-time cleanup of historical diagnostic logs runs after profiles
+load; the current checkpoint is `PrivacyScrubVersion=3`.
+
+Private state is distinct from shareable diagnostics. Do not scrub
+`settings.ini`, profile/portrait/macro data, the WebView2 authenticated profile,
+`Logs/game-chat.log`/`game-chat-index.json`, Expansion Pack rollback
+`journal.json` or backup files: some require real local paths or Discord
+content to recover safely. The user-facing importer `result.ini` retains an
+availability indicator, not an absolute backup path. See
+[Diagnostic privacy audit](DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md) for scope
+and pending Windows acceptance.
+
 ## Embedded Game Chat and Happy Hour contract
 
 The AutoHotkey launcher remains authoritative for the application lifecycle,
