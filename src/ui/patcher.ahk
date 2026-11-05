@@ -293,7 +293,9 @@ LogPatchDiagnostic(message)
 ; Detect an installed NP Expansion Pack in Morrowind or a configured OpenMW data folder.
 ExpansionPackInstalled(morrowind, config)
 {
-    folders := [morrowind "\Data Files"]
+    folders := []
+    if morrowind != "" && DirExist(morrowind)
+        folders.Push(morrowind "\Data Files")
     if FileExist(config)
     {
         try

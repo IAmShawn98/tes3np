@@ -3371,11 +3371,11 @@ metrics();
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
             var heading = new Label { Text = "Sign in to Discord", Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
                 ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
                 Font = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold) };
             var help = new Label { Text = "Sign in to use Game Chat and download the latest Expansion Pack.",
-                Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
                 ForeColor = System.Drawing.Color.FromArgb(237, 225, 201) };
             var browserPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
             var later = new Button { Text = "Not Now", Dock = DockStyle.Fill };

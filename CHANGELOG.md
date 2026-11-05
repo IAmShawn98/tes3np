@@ -4,6 +4,11 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Source regression contracts for second-PC issues — 2026-11-05
+
+- Extended the existing Python Chat Host architecture preflight with static source guards for GOTY selection and launch preflight, installed-ESP toggle status, fresh Discord recovery handshake, hidden launcher startup fit, custom-button mouse-release targeting, and the dedicated WebView2 login popup. Windows compile and UI tests remain required; source checks are not a substitute.
+- Hardened the installed-pack lookup to avoid constructing a root-relative fallback path when no Morrowind directory is configured. Used explicit System.Drawing.ContentAlignment for the new WinForms labels to avoid relying on implicit namespace imports.
+
 ### Dedicated Discord sign-in popup — 2026-11-05
 
 - Replaced the oversized docked Discord login presentation with a separate, native launcher-owned "Sign in to Discord" window. Reuses the existing ChatHost WebView2 and Roaming profile (not another Discord session), includes plain-language purpose and Not Now, and keeps the normal Game Chat panel hidden rather than stretching it.

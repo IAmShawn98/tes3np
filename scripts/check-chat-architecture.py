@@ -11,6 +11,9 @@ source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
 reset_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
 bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
+patcher = (ROOT / "src" / "ui" / "patcher.ahk").read_text(encoding="utf-8-sig")
+session = (ROOT / "src" / "game" / "session.ahk").read_text(encoding="utf-8-sig")
+controls = (ROOT / "src" / "ui" / "controls.ahk").read_text(encoding="utf-8-sig")
 jiub_ui = (ROOT / "src" / "ui" / "happy-hour.ahk").read_text(encoding="utf-8-sig")
 errors = []
 
@@ -808,6 +811,48 @@ expect(
 expect(
     "Reset mode must be part of centralized launcher state",
     "global LauncherDataResetting := false" in app_state,
+)
+
+# The seven second-PC regression reports must have explicit source-side
+# guards. These do not replace a Windows build or live interactive testing.
+expect(
+    "Missing GOTY prompts recur after Not Now and are guarded against duplicates",
+    "global MorrowindPromptGui := 0" in patcher
+    and "CheckFirstRunMorrowind(*)" in patcher
+    and "EnsureMorrowindForGameLaunch()" in patcher
+    and "MorrowindPromptGui := prompt" in patcher
+    and 'IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")' not in section_between(
+        patcher, "DismissFirstRunMorrowind(prompt, *)", "\n}"),
+)
+expect(
+    "Saved characters and new adventures require GOTY data before spawning TES3MP",
+    session.count("if !EnsureMorrowindForGameLaunch()") == 2
+    and session.index("if !EnsureMorrowindForGameLaunch()")
+        < session.index("StartProfileSession(Profiles[index], executable)")
+    and "FindMorrowindFolder(PatchConfigurationPath())" in patcher,
+)
+expect(
+    "Expansion Pack Enabled requires real nonempty ESP and current load-order entry",
+    "if !ExpansionPackInstalled(morrowind, config)" in section_between(
+        patcher, "ExpansionPackIsEnabled()", "\n}")
+    and "FileGetSize(esp) > 0" in patcher,
+)
+expect(
+    "Unfinished Discord recovery never suppresses a new game login",
+    "ResetPendingExpansionPromptForNewLaunch()" in session
+    and "SendLauncherChatCommand(11)" in mismatch
+    and "case 11: CancelPendingExpansionPrompt(); break;" in source,
+)
+expect(
+    "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
+    'LauncherGui.Show("Hide w960 h716")' in bootstrap
+    and "if LauncherCachedScale > 0 && DllCall" in bootstrap
+    and "LauncherCachedScale := LauncherScale" in bootstrap,
+)
+expect(
+    "Themed click recovery verifies the child under the actual pointer",
+    "MouseGetPos(, , &pointerWindow, &pointerControl, 2)" in controls
+    and "pointerWindow = ButtonFaces[pointerControl].Window" in controls,
 )
 
 if errors:
