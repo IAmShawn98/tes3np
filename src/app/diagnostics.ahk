@@ -6,13 +6,36 @@ global PatchLogMirrorOffset := -1
 LogLauncherEvent(message)
 {
     global LauncherLogFile
+    static firstWriteChecked := false
     try
     {
         safe := SanitizeDiagnosticText(message)
         if safe = ""
             return
         DirCreate(AppDataDirectory)
-        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " StrReplace(StrReplace(safe, "`r", " "), "`n", " ") "`n", LauncherLogFile, "UTF-8")
+        ; A prior privacy migration could leave an older log without a final
+        ; newline. Check once on startup so the first new event never joins it.
+        separator := ""
+        if !firstWriteChecked
+        {
+            firstWriteChecked := true
+            if FileExist(LauncherLogFile)
+            {
+                previous := FileOpen(LauncherLogFile, "r", "UTF-8")
+                if IsObject(previous)
+                {
+                    if previous.Length > 0
+                    {
+                        previous.Pos := previous.Length - 1
+                        lastCharacter := previous.Read(1)
+                        if lastCharacter != "`n" && lastCharacter != "`r"
+                            separator := "`n"
+                    }
+                    previous.Close()
+                }
+            }
+        }
+        FileAppend(separator FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " StrReplace(StrReplace(safe, "`r", " "), "`n", " ") "`n", LauncherLogFile, "UTF-8")
     }
 }
 
@@ -82,6 +105,9 @@ SanitizeDiagnosticText(text)
     ; Older placeholder-style entries are also cleaned up when copied or migrated.
     global Profiles
     windowsUser := EnvGet("USERNAME")
+    ; Repair older migration boundaries where the next timestamp was joined
+    ; directly after a completed log sentence, before filtering or exporting.
+    text := RegExReplace(text, "\\.(?=\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} \\| )", ".`n")
     text := RegExReplace(text, "i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]", "")
     for profile in Profiles
     {
@@ -131,7 +157,7 @@ SanitizeDiagnosticText(text)
 SanitizeExistingDiagnosticLogs()
 {
     global AppDataDirectory, DataFile
-    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "3"
+    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "4"
         return
     complete := true
     for filename in ["launcher.log", "chat-host.log", "patch-all.log",
@@ -145,6 +171,10 @@ SanitizeExistingDiagnosticLogs()
         {
             original := FileRead(path, "UTF-8")
             safe := SanitizeDiagnosticText(original)
+            ; A persisted diagnostic log must terminate its final event before
+            ; a future append. Clipboard-only cleanup can omit the final EOL.
+            if safe != ""
+                safe := RTrim(safe, "`r`n") "`n"
             if original = safe
                 continue
             try FileDelete(temporary)
@@ -159,7 +189,7 @@ SanitizeExistingDiagnosticLogs()
     }
     if complete
     {
-        try IniWrite("3", DataFile, "Diagnostics", "PrivacyScrubVersion")
+        try IniWrite("4", DataFile, "Diagnostics", "PrivacyScrubVersion")
     }
 }
 
