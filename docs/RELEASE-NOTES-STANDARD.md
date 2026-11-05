@@ -12,7 +12,7 @@ This standard applies to `RELEASE_NOTES.md` and to the text published with a TES
 
 ## Required format
 
-Use exactly this structure, in order:
+Use this structure, in order (omit any category with no eligible changes):
 
 ```markdown
 # TES3NP Release Notes
@@ -32,14 +32,19 @@ Changes since the last public release, vPREVIOUS.
 ### Bug Fixes
 
 - **Area:** Fixed a specific user-visible problem.
+
+### Removed Features
+
+- **Feature:** What previously available capability was removed.
 ```
 
-- Keep **New Features**, **Improvements**, **Bug Fixes** in that order.
+- Keep **New Features**, **Improvements**, **Bug Fixes**, **Removed Features** in that order when present.
 - Each entry is one short bullet, with a bold feature/area label followed by a plain-language outcome.
 - Use one entry per distinct change. Do not repeat the same change in another category or split one change into multiple bullets.
 - **New Features** describe newly available capabilities only; do not add bug fixes or improvements to those bullets.
 - **Improvements** describe upgrades to existing capabilities, not entirely new features or bug fixes.
 - **Bug Fixes** describe previously released defects and the corrected behavior.
+- **Removed Features** describe functionality available in the previous public version that players can no longer use.
 - Omit an empty category rather than inventing content. Do not add dates to individual bullets.
 - Keep wording consistent and avoid marketing claims or implementation jargon.
 - Update the comparison version and version heading for each new release. When published, replace `unreleased` with the actual release date.
