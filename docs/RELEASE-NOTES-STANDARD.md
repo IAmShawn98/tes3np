@@ -47,6 +47,7 @@ Changes since the last public release, vPREVIOUS.
 - **Removed Features** describe functionality available in the previous public version that players can no longer use.
 - Omit an empty category rather than inventing content. Do not add dates to individual bullets.
 - Keep wording consistent and avoid marketing claims or implementation jargon.
+- The in-launcher display uses plain headings and ordinary bullets, with no decorative diamond prefixes. Wrap against the real rendered text width, preserve complete words where possible, and ensure every line is reachable by scrolling at supported Windows display scaling.
 - Update the comparison version and version heading for each new release. When published, replace `unreleased` with the actual release date.
 - Preserve published release notes for historical versions; do not silently rewrite past release descriptions.
 
