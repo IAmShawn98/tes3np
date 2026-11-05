@@ -71,6 +71,9 @@ try {
     Step 'Testing ZIP and extracted-folder Expansion Pack imports using disposable fixture files'
     & (Join-Path $PSScriptRoot 'test-import-expansion-folder.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Expansion Pack folder/ZIP importer fixture failed. Previous build artifacts were not removed.' }
+    Step 'Testing installed-only Expansion Pack toggle in a disposable game directory'
+    & (Join-Path $PSScriptRoot 'test-expansion-toggle.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Installed Expansion Pack toggle fixture failed. Previous build artifacts were not removed.' }
     Step 'Checking native Windows Expansion Pack picker COM interfaces (no dialog shown)'
     $powershell51 = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
     & $powershell51 -NoProfile -NonInteractive -STA -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'select-expansion-package.ps1') -SmokeTest
@@ -207,7 +210,7 @@ Public redistribution/licensing review remains a separate release gate.
     # Build an isolated standalone source tree; leave developer source paths untouched.
     $stageRoot = Join-Path $buildRoot 'standalone-source'
     $null = New-Item $stageRoot -ItemType Directory
-    foreach ($item in @('tes3np.ahk','src','assets','patches','scripts')) {
+    foreach ($item in @('tes3np.ahk','src','assets','scripts')) {
         Copy-Item (Join-Path $projectRoot $item) $stageRoot -Recurse
     }
     & python (Join-Path $projectRoot 'scripts/generate-bundled-resources.py') $stageRoot
@@ -252,7 +255,7 @@ Public redistribution/licensing review remains a separate release gate.
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
     # The --check smoke test exits before FileInstall runs. Exercise extraction
     # separately and verify every file against the manifest before packaging.
-    Step 'Validating standalone embedded patch extraction'
+    Step 'Validating standalone runtime resource extraction'
     $extract = Start-Process $executable -ArgumentList '--check-resources' -PassThru -Wait
     if ($extract.ExitCode -ne 0) { throw "Embedded resource extraction failed with code $($extract.ExitCode)." }
     # Verify this executable's unique version; do not overwrite/delete the
@@ -306,16 +309,12 @@ Public redistribution/licensing review remains a separate release gate.
         }
     }
     Step 'Verified editable PNG icon masters are excluded from standalone resources'
-    $manifestPath = Join-Path $resourceRoot 'patches\manifest.json'
-    if (!(Test-Path -LiteralPath $manifestPath)) { throw "Missing extracted patch manifest: $manifestPath" }
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    foreach ($item in $manifest.Files) {
-        $payloadPath = Join-Path (Join-Path $resourceRoot 'patches') $item.Path.Replace('/', '\')
-        if (!(Test-Path -LiteralPath $payloadPath -PathType Leaf)) { throw "Missing extracted patch file: $($item.Path)" }
-        $hash = GetTes3npSha256 $payloadPath
-        if ($hash -ine $item.SHA256) { throw "Damaged extracted patch file: $($item.Path)" }
+    # Legacy Expansion Pack contents and the build-only markerless client must
+    # not be FileInstalled into tes3np.exe. The verified client ships in client/.
+    if (Test-Path -LiteralPath (Join-Path $resourceRoot 'patches')) {
+        throw 'Patch payload was embedded into the launcher instead of kept separate.'
     }
-    Step "Verified $($manifest.Files.Count) extracted patch payload files"
+    Step 'Verified no Expansion Pack or markerless client was embedded in launcher resources'
     # Download TES3MP only at BUILD time, never on user startup.
     # Pin to the official non-VR 0.8.1 release; do not scrape unknown mirrors.
     Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
