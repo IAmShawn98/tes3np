@@ -21,6 +21,11 @@ chat = read("chat-host/Program.cs")
 patcher = read("src/ui/patcher.ahk")
 loading = read("src/ui/loading.ahk")
 updater = read("scripts/tes3np-updater.ps1")
+importer = read("scripts/import-expansion-pack.ps1")
+toggle = read("scripts/toggle-expansion-pack.ps1")
+picker = read("scripts/select-expansion-package.ps1")
+upload = read("src/ui/expansion-upload.ahk")
+fixture = read("scripts/test-diagnostic-privacy.ahk")
 
 expect(not any(line.lstrip().startswith("//") for line in diag.splitlines()),
        "C-style comments in AutoHotkey diagnostic source would break Ahk2Exe")
@@ -35,8 +40,12 @@ expect('StrReplace(text, profile.Name' not in diag,
 expect('RegExReplace(item' in diag and 'StrSplit(line, "|")' in diag
        and 'Password|Token|Secret' in diag and 'item := Trim(item' in diag,
        "AHK diagnostics must remove private fields and compact pipe separators")
-expect('PrivacyScrubVersion", "") = "2"' in diag and 'IniWrite("2"' in diag,
-       "historical diagnostic logs must be rescrubbed under version 2")
+expect('PrivacyScrubVersion", "") = "3"' in diag and 'IniWrite("3"' in diag,
+       "historical diagnostic logs must be rescrubbed under version 3")
+expect('windowsUser := EnvGet("USERNAME")' in diag
+       and '\\Q" windowsUser "\\E' in diag
+       and '!RegExMatch(item, "i)^Character\\s*:")' in diag,
+       "standalone Windows usernames must be filtered but public characters kept")
 expect('"[path omitted]"' not in diag and '"[secret omitted]"' not in diag,
        "AHK diagnostics must not introduce privacy placeholders")
 expect('SanitizeExistingDiagnosticLogs()' in diag,
@@ -58,6 +67,8 @@ expect("'Source: ' + $match.ProviderName, $match.Message" not in settings,
 expect('Sanitized diagnostic log copied' not in settings
        and 'description omitted for privacy' not in settings,
        "diagnostic UI must not contain privacy placeholder notices")
+expect('Regex.Escape(windowsUser)' in chat and 'Environment.UserName' in chat,
+       "Chat Host must clean standalone Windows account names")
 expect('void Log(string message)' in chat and 'File.AppendAllText(logPath' in chat
        and 'string.Join(" | ", parts)' in chat
        and 'ChatBuild + " | " + safe +' in chat
@@ -87,5 +98,28 @@ expect("function Write-UpdaterLog([string]$Message)" in updater
        and "Add-Content -LiteralPath $LogFile" in updater
        and "' | UPDATE WORKER | ' + $safe" in updater,
        "standalone updater must clean private fields without placeholders")
+expect('[Environment]::UserName' in updater and "Write-Error $message" not in updater,
+       "updater logs and console must not reveal Windows usernames or raw errors")
+expect("function CleanImportMessage([string]$Message)" in importer
+       and "$clean = CleanImportMessage $Message" in importer
+       and "'Backup=' + $backupStatus" in importer
+       and "'Backup=' + $Backup" not in importer
+       and "WriteJobIni 'result.ini' $body" in importer,
+       "import result must retain atomic publishing but omit raw errors and backup paths")
+expect("function CleanToggleError([string]$Message)" in toggle
+       and "(CleanToggleError $_.Exception.Message)" in toggle
+       and "WriteAllText($ResultFile,$_.Exception.Message" not in toggle,
+       "Expansion toggle result must not contain raw exceptions")
+expect("$diagnostic = 'Native Expansion Pack picker failed (" in picker
+       and ".GetBaseException().Message" not in picker
+       and "Write-Host $diagnostic" in picker,
+       "picker error file and console must use safe category and HRESULT")
+expect('reason := SanitizeDiagnosticText(err.Message)' in upload
+       and 'details := FileExist(output) ? SanitizeDiagnosticText(' in patcher
+       and 'message := SanitizeDiagnosticText(message)' in patcher,
+       "Expansion Pack dialogs must clean incoming worker errors")
+expect('EnvSet("USERNAME", "ExamplePerson")' in fixture
+       and 'PrivacyScrubVersion", "") = "3"' in fixture,
+       "disposable runtime fixture must cover account names and migration")
 
 print("PASS | TES3NP diagnostic privacy source contracts (clean fields)")
