@@ -43,6 +43,11 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Read-only / Program Files game directory: no partial changes; user receives a permissions error.
 - [ ] Intentionally interrupt an Expansion Pack operation in a disposable test copy; compare files and backups before reattempting.
 
+- [ ] **November 5 authenticated Expansion Pack handoff:** Starting with a signed-out Discord browser, click Enable with no installed ESP. Verify the branded **existing Game Chat login** appears first, no download dialog/browser child is shown before login, and authenticated channel discovery opens a single **Expansion Pack Not Installed** ZIP dialog. Verify that cancelled sign-in never opens a delayed dialog, and a subsequent attempt works.
+- [ ] **November 5 already-authenticated handoff:** With Discord signed in, retry missing ESP and real plugin mismatch. Verify the same shared embedded Discord ZIP browser, proper mode-specific copy, working native download button/retry and ZIP/folder importer. Repeated clicks must not create duplicate dialogs/WebViews.
+- [ ] **November 5 installed-only toggle:** Run `scripts/test-expansion-toggle.ps1` (also in `Build tes3np.bat`), then enable, disable and re-enable an actually installed pack in a disposable Morrowind/OpenMW directory. Confirm no v0.1 files are copied, no existing mod or ESP changes, and config backups survive.
+- [ ] **November 5 packaging:** Confirm `tes3np.exe` has no embedded `patches/` payload, the current `patches/manifest.json` lists only markerless client, extracted ZIP still has a complete `client/`, and missing pack never prevents the base game from launching.
+
 ## Client safety and updates
 - [ ] Default bundled client and login work.
 - [ ] Custom executable + dependency folder work; switching back to bundled preserves overrides.
