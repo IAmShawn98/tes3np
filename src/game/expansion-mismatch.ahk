@@ -7,6 +7,8 @@ global ExpansionMismatchSlot := 0
 global ExpansionMismatchZipUrl := ""
 global ExpansionMismatchFileButton := 0
 global ExpansionMismatchDownloadSlot := 0
+; 1 = initial missing-pack install; 2 = server plugin mismatch.
+global ExpansionDiscordPromptPending := 0
 ; Keep only fixed error classifications from the current failed login;
 ; never retain the original client log text, paths, or player content.
 global TES3MPLastMismatchEvidence := 0
@@ -130,30 +132,80 @@ HandleTES3MPPluginMismatch()
     ShowTES3MPExpansionMismatchDialog()
 }
 
-ShowTES3MPExpansionMismatchDialog()
+; All Discord-dependent download dialogs wait for the existing Game Chat
+; authentication. Only the running ChatHost can complete this in-memory request.
+RequestDiscordExpansionPrompt(mode := 2)
+{
+    global ExpansionDiscordPromptPending, ExpansionMismatchDialog
+    if IsObject(ExpansionMismatchDialog) || ExpansionDiscordPromptPending
+        return
+    if mode != 1 && mode != 2
+        return
+    ExpansionDiscordPromptPending := mode
+    if !SendLauncherChatCommand(10, mode)
+    {
+        ExpansionDiscordPromptPending := 0
+        MsgBox("Game Chat is not ready. Open Game Chat, sign into Discord, then try again.", "Expansion Pack", "Icon!")
+    }
+}
+
+DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui, EmbeddedChatPid, ExpansionDiscordPromptPending
+    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+        || !ExpansionDiscordPromptPending || wParam != ExpansionDiscordPromptPending
+        return 0
+    ; Verify the originating native window belongs to the one ChatHost PID.
+    if !lParam || !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
+        return 0
+    try
+    {
+        if WinGetPID("ahk_id " lParam) != EmbeddedChatPid
+            return 0
+    }
+    catch
+        return 0
+    mode := ExpansionDiscordPromptPending
+    ExpansionDiscordPromptPending := 0
+    ShowTES3MPExpansionMismatchDialog(mode = 1 ? "Install" : "Mismatch", true)
+    return 0
+}
+
+ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
 {
     global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot
     ; No close/reopen cycle while a browser is downloading. Duplicate
     ; server mismatches cannot stack additional native WebView2 children.
     if IsObject(ExpansionMismatchDialog)
         return
+    if !authConfirmed
+    {
+        RequestDiscordExpansionPrompt(mode = "Install" ? 1 : 2)
+        return
+    }
     ExpansionMismatchZipUrl := ""
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
     dialog.SetFont("s16 Bold cC5A45C", "Georgia")
-    dialog.Add("Text", "x25 y19 w610 h43 BackgroundTrans", "Your Plugins Don't Match the Servers")
+    installing := mode = "Install"
+    dialog.Add("Text", "x25 y19 w610 h43 BackgroundTrans",
+        installing ? "Expansion Pack Not Installed" : "Your Plugins Don't Match the Server")
     dialog.SetFont("s10 Norm cEDE1C9", "Segoe UI")
-    dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans",
-        "The likely cause is due to an update for the Nerevarine Prophecies content Expansion Pack. "
-        . "Please ensure you have the latest and greatest enabled, then retry logging in again.")
+    dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", installing
+        ? "The optional NP Expansion Pack wasn't found in your Morrowind installation. "
+            . "Download the current pack from the official Nerevarine Prophecies Discord."
+        : "The server rejected your plugins or load order. A newer NP Expansion Pack may be required. "
+            . "Download the current official pack, install it, and retry your game.")
     dialog.Add("Text", "x25 y159 w610 h88 BackgroundTrans",
-        "Download the latest Expansion Pack from Discord by clicking the button below, "
-        . "waiting for it to complete, then clicking the OK button to locate and install "
-        . "the new expansion pack.")
-    dialog.Add("Text", "x25 y256 w610 h66 BackgroundTrans",
-        "If the latest expansion pack doesn't resolve your issue, please click "
-        . "'Copy Diagnostic Info' and send it to bug reports on Discord for further examination.")
+        "Click the latest Expansion Pack ZIP below to download it through your browser. "
+        . "When the download finishes, click " (installing ? "Install" : "OK") " to select the ZIP "
+        . "or its extracted folder and import it safely.")
+    dialog.Add("Text", "x25 y256 w610 h66 BackgroundTrans", installing
+        ? "The Expansion Pack is optional. Your existing game and other mods won't be changed "
+            . "until you select a downloaded file to install."
+        : "If the current pack doesn't resolve the server mismatch, click "
+            . "Copy Diagnostic Info and send the report to the Discord bug-reports channel.")
     dialog.SetFont("s10 Bold cC5A45C", "Segoe UI")
     dialog.Add("Text", "x25 y324 w610 h24 BackgroundTrans", "Latest Expansion Pack - Discord")
     ; Native child HWND placeholder for the existing ChatHost's WebView2.
@@ -173,12 +225,13 @@ ShowTES3MPExpansionMismatchDialog()
     ExpansionMismatchFileButton.Visible := false
     AddStyledButton(dialog, 25, 475, 210, 33, "Download ZIP / Retry",
         (*) => TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "retry-button"))
-    AddStyledButton(dialog, 245, 475, 210, 33, "Copy Diagnostic Info",
-        (*) => TES3MPCopyMismatchDiagnostics(nativeStatus))
+    if !installing
+        AddStyledButton(dialog, 245, 475, 210, 33, "Copy Diagnostic Info",
+            (*) => TES3MPCopyMismatchDiagnostics(nativeStatus))
     dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
     dialog.Add("Link", "x25 y543 w610 h20",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
-    AddStyledButton(dialog, 340, 574, 140, 38, "OK",
+    AddStyledButton(dialog, 340, 574, 140, 38, installing ? "Install" : "OK",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd, true))
     AddStyledButton(dialog, 490, 574, 140, 38, "Cancel",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
