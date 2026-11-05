@@ -4,6 +4,12 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Second-PC layout and mouse-input follow-up — 2026-11-05
+
+- First launcher show now applies its existing automatic/manual scale while hidden, then reveals the completed frame without visibly resizing a 960x716 window. Cached geometry is reused on subsequent shows rather than only via the character-book shortcut; display-settings changes still use their existing fallback relayout.
+- Improved custom themed-button mouse-up recovery when Windows returns release to a parent rather than the actual button after a focus/capture transition. It uses the current hovered child and same top-level window check; regular scrollbar dragging and normal capture release remain unchanged.
+- Source edits only; need Windows visual checks on the secondary PC at different DPI levels, plus repeated first-click tests and game/chat regression. The root cause of every intermittent click has not been independently reproduced here.
+
 ### Second-PC regression fixes, first source batch — 2026-11-05
 
 - User's second-PC screenshots confirmed the launcher, bundled game client and Discord/mismatch UI operate, but documented seven runtime issues. This batch addresses missing GOTY guard/prompt persistence, a stale optional Expansion Pack Enabled indicator, and a stale Discord recovery request.
