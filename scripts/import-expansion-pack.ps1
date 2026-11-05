@@ -97,8 +97,30 @@ function Progress([string]$Text, [int]$Percent) {
         'Percent=' + $Percent + [Environment]::NewLine
     WriteJobIni 'progress.ini' $body
 }
+# result.ini is read by the launcher and may be included in support reports.
+# Preserve precise fixed worker errors, not sensitive exception file paths.
+function CleanImportMessage([string]$Message) {
+    $safe = [regex]::Replace($Message, '(?i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]', '')
+    $safe = [regex]::Replace($safe, '(?i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=][^|\r\n]*', '')
+    $safe = [regex]::Replace($safe, '(?i)\b(?:https?|wss?)://[^\s|]+', '')
+    # Quoted paths are removed as a unit to retain the surrounding error reason.
+    $safe = [regex]::Replace($safe, '(?i)["''](?:[A-Z]:[\\/]|\\\\)[^"'']*["'']', '')
+    $safe = [regex]::Replace($safe, '(?i)\b[A-Z]:[\\/][^|;\r\n]+', '')
+    $safe = [regex]::Replace($safe, '(?i)\\\\[^|;\r\n]+', '')
+    $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '')
+    $safe = [regex]::Replace($safe, '\b(?:\d{1,3}\.){3}\d{1,3}\b', '')
+    $safe = [regex]::Replace($safe, '\b\d{16,21}\b', '')
+    $user = [Environment]::UserName
+    if ($user -and $user.Length -ge 3) {
+        $safe = [regex]::Replace($safe, '(?i)(?<![\p{L}\p{N}_])' + [regex]::Escape($user) + '(?![\p{L}\p{N}_])', '')
+    }
+    $safe = [regex]::Replace($safe, '[\r\n=]+', ' ')
+    $safe = [regex]::Replace($safe, '\s{2,}', ' ').Trim()
+    if (!$safe) { return 'The Expansion Pack operation could not be completed.' }
+    return $safe
+}
 function Result([string]$State, [string]$Message, [string]$Backup = '') {
-    $clean = [regex]::Replace($Message, '[\r\n=]+', ' ')
+    $clean = CleanImportMessage $Message
     $body = '[Result]' + [Environment]::NewLine + 'State=' + $State + [Environment]::NewLine +
         'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $Backup + [Environment]::NewLine
     WriteJobIni 'result.ini' $body
