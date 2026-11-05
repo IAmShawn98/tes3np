@@ -43,8 +43,14 @@ expect('StrReplace(text, profile.Name' not in diag,
 expect('RegExReplace(item' in diag and 'StrSplit(line, "|")' in diag
        and 'Password|Token|Secret' in diag and 'item := Trim(item' in diag,
        "AHK diagnostics must remove private fields and compact pipe separators")
-expect('PrivacyScrubVersion", "") = "3"' in diag and 'IniWrite("3"' in diag,
-       "historical diagnostic logs must be rescrubbed under version 3")
+expect('PrivacyScrubVersion", "") = "4"' in diag and 'IniWrite("4"' in diag,
+       "historical diagnostic logs must be rescrubbed under version 4")
+expect('static firstWriteChecked := false' in diag and 'previous.Pos := previous.Length - 1' in diag,
+       "first new event must detect and separate unterminated historical logs")
+expect('safe := RTrim(safe, "`r`n") "`n"' in diag,
+       "migrated diagnostic files must end with a newline")
+expect('RegExReplace(text, "\\.(?=' in diag and 'Launcher startup beginning.`n2026-11-04' in fixture,
+       "old timestamp joins must be repaired during migration and covered by fixture")
 expect('windowsUser := EnvGet("USERNAME")' in diag
        and '\\Q" windowsUser "\\E' in diag
        and '!RegExMatch(item, "i)^Character\\s*:")' in diag,
@@ -123,7 +129,7 @@ expect('reason := SanitizeDiagnosticText(err.Message)' in upload
        and 'message := SanitizeDiagnosticText(message)' in patcher,
        "Expansion Pack dialogs must clean incoming worker errors")
 expect('EnvSet("USERNAME", "ExamplePerson")' in fixture
-       and 'PrivacyScrubVersion", "") = "3"' in fixture,
+       and 'PrivacyScrubVersion", "") = "4"' in fixture,
        "disposable runtime fixture must cover account names and migration")
 expect('sameName = "GAME | Character: ExamplePerson"' in fixture,
        "test must preserve public names even if they equal Windows account")
