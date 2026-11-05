@@ -232,6 +232,9 @@ internal static class Program
         // The latest *validated* signed URL lives only in this ChatHost
         // session; native retry never depends on a responsive WebView2.
         string? expansionLatestZipUrl;
+        // Discord feature dialogs reuse the existing Chat Host authentication.
+        int pendingExpansionPrompt;
+        bool restoreChatAfterExpansionPrompt;
         readonly object expansionLinkPublishLock=new();
 
         // Preserve Discord's React tree and grid intact behind an opaque card.
@@ -533,6 +536,11 @@ internal static class Program
 
         void ShowEmbeddedExpansionDownloads(IntPtr placeholder)
         {
+            if (!discordChannelReady || discordLoginVisible || closingChat)
+            {
+                Log("EXPANSION | Refused unauthenticated embedded Discord surface.");
+                return;
+            }
             if (closingChat || !IsWindow(owner) || !IsWindow(placeholder)) return;
             if (expansionDownloadsParent==placeholder &&
                 expansionDownloadsWindow is { IsDisposed: false }) return;
@@ -2898,7 +2906,7 @@ metrics();
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
                 PositionChatWindows();
-                if (!discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
+                if (pendingExpansionPrompt == 0 && !discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
                     !Bounds.Contains(Cursor.Position))
                     SetChatOpen(false);
@@ -3051,6 +3059,7 @@ metrics();
                             "starting live history discovery");
                         BeginHappyHourDiscovery();
                     }
+                    CompletePendingExpansionPrompt();
                     return;
                 }
                 if (state == "\"login\"") {
@@ -3372,6 +3381,38 @@ metrics();
             await ApplyCss();
             await RefreshNativeMessages();
         }
+        // Launcher command 10 requests an Expansion Pack download dialog.
+        // Only confirmed Game Chat channel authentication allows the dialog.
+        // Signed-out users see the already-established branded login screen.
+        void RequestAuthenticatedExpansionPrompt(int mode)
+        {
+            if ((mode != 1 && mode != 2) || closingChat || !IsWindow(owner)) return;
+            if (pendingExpansionPrompt != 0) return;
+            pendingExpansionPrompt = mode;
+            restoreChatAfterExpansionPrompt = !chatOpen;
+            if (discordChannelReady && !discordLoginVisible)
+            {
+                CompletePendingExpansionPrompt();
+                return;
+            }
+            lastChatActivity = DateTime.Now;
+            SetChatOpen(true);
+            Log("EXPANSION | Waiting for existing Discord Game Chat authentication.");
+            // Navigation / CheckDiscordAuthentication will reveal ShowDiscordSignIn
+            // when Discord redirects to /login. Never reset cookies or profiles.
+        }
+        void CompletePendingExpansionPrompt()
+        {
+            if (pendingExpansionPrompt == 0 || !discordChannelReady ||
+                discordLoginVisible || closingChat || !IsWindow(owner)) return;
+            int mode = pendingExpansionPrompt;
+            pendingExpansionPrompt = 0;
+            PostMessage(owner, 0x8336, new IntPtr(mode), Handle);
+            if (restoreChatAfterExpansionPrompt && chatDisplayMode != "Always Shown")
+                SetChatOpen(false);
+            restoreChatAfterExpansionPrompt = false;
+            Log("EXPANSION | Authenticated download prompt approved.");
+        }
         // Launcher-owned toggle commands (WM_APP + 0x331).
         protected override void WndProc(ref Message m)
         {
@@ -3380,6 +3421,12 @@ metrics();
                 switch (m.WParam.ToInt64())
                 {
                     case 1:
+                        if (chatOpen && pendingExpansionPrompt != 0)
+                        {
+                            pendingExpansionPrompt = 0;
+                            restoreChatAfterExpansionPrompt = false;
+                            Log("EXPANSION | Pending download cancelled using Game Chat tab.");
+                        }
                         SetChatOpen(!chatOpen);
                         if (chatDisplayMode == "Automatic" && chatOpen) lastChatActivity = DateTime.Now;
                         break;
@@ -3389,6 +3436,7 @@ metrics();
                     case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;
                     case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
                     case 9: HideEmbeddedExpansionDownloads(m.LParam); break;
+                    case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
                 }
                 return;
             }
@@ -3396,6 +3444,11 @@ metrics();
         }
         void SetChatDisplayMode(string mode)
         {
+            if (mode == "Always Hidden" && pendingExpansionPrompt != 0)
+            {
+                pendingExpansionPrompt = 0;
+                restoreChatAfterExpansionPrompt = false;
+            }
             chatDisplayMode = mode;
             try
             {
