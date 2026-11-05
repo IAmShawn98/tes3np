@@ -57,8 +57,8 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] Automatic new-message chat expansion while a modal dialog is open: no focus theft or hidden prompt.
 - [ ] High DPI (100%, 125%, 150%) and two monitors; chat remains on-screen where possible.
 - [ ] Copy Launcher Logs includes actionable errors, excludes passwords and other account secrets.
-- [ ] After rebuilding, verify fresh `launcher.log`, `chat-host.log`, updater events and copied Expansion Pack/render logs omit Windows usernames, absolute paths, email addresses, tokens and passwords while retaining useful public character names.
-- [ ] On first startup, confirm existing diagnostic files are sanitized without touching `Logs/game-chat.log`, `Logs/game-chat-index.json`, settings, saved profiles, macros, portraits or private WebView2 data. Never attach the raw Game Chat archive to a bug report.
+- [ ] After rebuilding, verify fresh `launcher.log`, `chat-host.log`, updater events and copied Expansion Pack/render logs remove Windows usernames, absolute paths, email addresses, tokens and passwords **without** `REDACTED`, `[path omitted]`, empty labels or extra `|` separators. Useful event details and public character names must remain.
+- [ ] On first startup, confirm historical diagnostics (including `PrivacyScrubVersion=1` placeholders) are cleaned under version 2 without touching `Logs/game-chat.log`, `Logs/game-chat-index.json`, settings, saved profiles, macros, portraits or private WebView2 data. Never attach the raw Game Chat archive to a bug report.
 - [ ] Confirm the disposable AutoHotkey diagnostic privacy fixture passes as part of the normal Windows build, and exercise Game Chat, Happy Hour, macros and login afterward.
 
 ## Distribution/legal
