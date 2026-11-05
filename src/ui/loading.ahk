@@ -232,7 +232,7 @@ ReportLoadingFailure(err)
     static reported := false
     ; Keep diagnostics free of credentials and personal file paths.
     DirCreate(AppDataDirectory)
-    detail := RegExReplace(err.Message, "i)[A-Z]:\\[^`r`n]+", "[path omitted]")
+    detail := "Error type: " Type(err)
     try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " Loading overlay: " detail "`n",
         AppDataDirectory "\render-errors.log", "UTF-8")
     if !reported
