@@ -47,7 +47,7 @@ messages, and native picker errors report only exception category and HRESULT.
 Sensitive details are removed without visible placeholders, while public
 character names remain in character-labeled launcher events. A versioned,
 best-effort one-time cleanup of historical diagnostic logs runs after profiles
-load; the current checkpoint is `PrivacyScrubVersion=3`.
+load; the current checkpoint is `PrivacyScrubVersion=4`; log migrations write a final newline and repair the historical joined-timestamp pattern seen in a copied Launcher Log.
 
 Private state is distinct from shareable diagnostics. Do not scrub
 `settings.ini`, profile/portrait/macro data, the WebView2 authenticated profile,
