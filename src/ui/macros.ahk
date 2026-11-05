@@ -487,7 +487,9 @@ CheckMacroImport()
     {
         if DirExist(pending.Folder)
             DirDelete(pending.Folder, true)
-        detail := RegExReplace(err.Message, "i)[A-Z]:\\[^`r`n]+", "[path omitted]")
+        detail := SanitizeDiagnosticText(err.Message)
+        if detail = ""
+            detail := "The macro ZIP could not be imported."
         MacroStatus.Text := "Import failed: " detail
         MsgBox("The ZIP could not be imported.`n`n" detail, "Import Macro")
     }
