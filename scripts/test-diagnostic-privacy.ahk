@@ -40,6 +40,9 @@ try
         "standalone Windows account name excluded from diagnostics")
     PrivacyFixtureAssert(InStr(windowsName, "Character: TestWizard"),
         "public character name retained independently of Windows account name")
+    sameName := SanitizeDiagnosticText("GAME | Character: ExamplePerson")
+    PrivacyFixtureAssert(sameName = "GAME | Character: ExamplePerson",
+        "character name retained even when identical to the Windows account")
 
     FileAppend(input "`n2026-11-04 | GAME | Path: [path omitted] | Character: TestWizard`n", AppDataDirectory "\launcher.log", "UTF-8")
     FileAppend(input "`n", AppDataDirectory "\chat-host.log", "UTF-8")
