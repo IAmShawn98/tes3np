@@ -54,6 +54,7 @@ permissions errors, and shortcut prompt persistence after backup import.
 
 ## Chat, UI, diagnostics
 - [ ] WebView2 installed vs missing; missing chat does not block launching game.
+- [ ] **First Discord authentication regression (November 5):** on a genuinely signed-out/fresh Discord WebView2 session, sign in **without restarting TES3NP** and confirm messages render in the existing gold Game Chat panel immediately after channel navigation. The supplied screenshot showed a black pane with only the frame and scrollbar. `messageClip.Visible` was never restored when `nativeMode=true`; source fix and architecture guard committed. Check that existing chat mode, history scroll, images and Happy Hour remain unaffected. Windows runtime confirmation pending; do not clear actual Discord profile merely to test this.
 - [ ] Automatic new-message chat expansion while a modal dialog is open: no focus theft or hidden prompt.
 - [ ] High DPI (100%, 125%, 150%) and two monitors; chat remains on-screen where possible.
 - [x] November 5 Copy Launcher Logs export: 2,713 timestamped lines, useful event details, no visible passwords, personal paths, URL/email/IP/long IDs, privacy placeholders, duplicate timestamps or empty pipes. (Applies to this supplied Launcher Log only.)
