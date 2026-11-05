@@ -2882,6 +2882,7 @@ metrics();
             };
             FormClosing += (_, _) =>
             {
+                CancelPendingExpansionPrompt();
                 closingChat = true;
                 watch.Stop();
                 historyWatch.Stop();
@@ -3401,6 +3402,14 @@ metrics();
             // Navigation / CheckDiscordAuthentication will reveal ShowDiscordSignIn
             // when Discord redirects to /login. Never reset cookies or profiles.
         }
+        void CancelPendingExpansionPrompt()
+        {
+            if (pendingExpansionPrompt == 0) return;
+            pendingExpansionPrompt = 0;
+            restoreChatAfterExpansionPrompt = false;
+            // Zero mode tells the launcher to discard its pending request.
+            if (IsWindow(owner)) PostMessage(owner, 0x8336, IntPtr.Zero, Handle);
+        }
         void CompletePendingExpansionPrompt()
         {
             if (pendingExpansionPrompt == 0 || !discordChannelReady ||
@@ -3423,8 +3432,7 @@ metrics();
                     case 1:
                         if (chatOpen && pendingExpansionPrompt != 0)
                         {
-                            pendingExpansionPrompt = 0;
-                            restoreChatAfterExpansionPrompt = false;
+                            CancelPendingExpansionPrompt();
                             Log("EXPANSION | Pending download cancelled using Game Chat tab.");
                         }
                         SetChatOpen(!chatOpen);
@@ -3444,11 +3452,7 @@ metrics();
         }
         void SetChatDisplayMode(string mode)
         {
-            if (mode == "Always Hidden" && pendingExpansionPrompt != 0)
-            {
-                pendingExpansionPrompt = 0;
-                restoreChatAfterExpansionPrompt = false;
-            }
+            if (mode == "Always Hidden") CancelPendingExpansionPrompt();
             chatDisplayMode = mode;
             try
             {
