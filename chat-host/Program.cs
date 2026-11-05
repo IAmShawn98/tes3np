@@ -972,6 +972,9 @@ metrics();
         string lastFeed = "";
         readonly System.Collections.Generic.List<(string User, string Body)> renderedMessages = new();
         bool nativeMode;
+        // Keep the established bronze frame and a native "Connecting..." label
+        // visible during the first authenticated Discord feed transition.
+        bool connectingChat;
         bool freshDiscordProfile;
         bool discordLoginVisible;
         // Authentication gates live Discord fetching/paging ONLY. A genuine
@@ -2181,6 +2184,20 @@ metrics();
                 if (!changed && !redrawImages && nativeMode) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
                 if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
+                // A hidden WebView2 reports stale/zero scroll metrics. Give the
+                // first authenticated renderer a real-sized parent before DOM
+                // reconciliation, keeping the native loading text in front
+                // until the message script succeeds.
+                bool enteringNativeMode = !nativeMode;
+                if (enteringNativeMode)
+                {
+                    messageClip.Visible = true;
+                    messageBrowser.Visible = true;
+                    messageBrowser.BringToFront();
+                    nativeMessages.Visible = true;
+                    nativeMessages.BringToFront();
+                    messageClip.PerformLayout();
+                }
                 var browserMessages = history.Select(entry => new
                 {
                     id = entry.Key.ToString(),
@@ -2192,26 +2209,32 @@ metrics();
                 }).ToArray();
                 string payload = System.Text.Json.JsonSerializer.Serialize(browserMessages);
                 await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(" + payload + "," + (prepended ? "true" : "false") + ")");
-                goldScrollbar.Invalidate();
-                if (!nativeMode)
+                if (closingChat || IsDisposed || discordLoginVisible || !discordChannelReady) return;
+                if (enteringNativeMode)
                 {
                     nativeMode = true;
+                    connectingChat = false;
                     web.Visible = false;
                     chatViewport.Visible = false;
-                    nativeMessages.Visible = false;
-                    // Sign-in hides the HTML renderer's parent, not just the
-                    // renderer itself. Re-show BOTH when the first authenticated
-                    // feed arrives; a visible WebView under a hidden parent
-                    // otherwise leaves an empty black Game Chat until restart.
+                    // Sign-in hides the renderer's parent AND the real scrollbar.
+                    // Show the correctly sized WebView and textured scrollbar
+                    // together only after the first successful message update.
                     messageClip.Visible = true;
                     messageBrowser.Visible = true;
+                    nativeMessages.Visible = false;
                     messageBrowser.BringToFront();
                     messageClip.BringToFront();
+                    goldScrollbar.Visible = true;
                     goldScrollbar.BringToFront();
                     frameSurface.Visible = true;
+                    FitWebView();
+                    messageClip.PerformLayout();
                     frameSurface.Invalidate();
+                    goldScrollbar.Invalidate();
+                    goldScrollbar.Update();
                     Log("Native message view activated");
                 }
+                else goldScrollbar.Invalidate();
             }
             catch (Exception ex) { Log("Native feed error: " + ex.GetType().Name); }
         }
@@ -2266,7 +2289,9 @@ metrics();
             goldScrollbar.BringToFront();
             railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
             titleBar.Visible = false; titleText.Visible = false;
-            chatViewport.Visible = !nativeMode;
+            // During first-feed loading the hidden Discord source continues
+            // fetching, while only the native status panel is presented.
+            chatViewport.Visible = !nativeMode && !connectingChat;
 
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
@@ -2655,14 +2680,9 @@ metrics();
                 g.DrawString("Live Game Chat", headingFont, bright,
                     new System.Drawing.RectangleF((w - titleSize.Width) / 2 - 14, 8,
                         titleSize.Width + 28, 43), centeredTitle);
-                int sx = w - 35;
-                g.DrawRectangle(goldPen, sx, 74, 19, 19);
-                g.DrawRectangle(goldPen, sx, h - 55, 19, 19);
-                g.DrawRectangle(goldPen, sx, 99, 19, h - 160);
-                g.FillRectangle(bronze, sx + 3, Math.Max(102, h - 125), 14, 54);
-                g.DrawString("▲", new System.Drawing.Font("Arial", 10), bright, sx + 2, 75);
-                g.DrawString("▼", new System.Drawing.Font("Arial", 10), bright, sx + 2, h - 54);
-                // Messages are rendered exclusively by the scrollable RichTextBox child.
+                // The real goldScrollbar is the only scrollbar. Drawing a
+                // second fake track and thumb on this background left stale
+                // artwork visible while the control was hidden during sign-in.
             };
             // The frame and text are painted on one surface; no child can obscure its edges.
             frameSurface.Controls.Add(chatViewport);
@@ -2781,6 +2801,8 @@ metrics();
             messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 78));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 74));
+            // Keep the native scrollbar hidden until the first actual feed.
+            goldScrollbar.Visible = false;
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
@@ -2840,6 +2862,7 @@ metrics();
                     await InitMessageBrowser(env);
                     if (closingChat || IsDisposed) return;
                     if (freshDiscordProfile) ShowDiscordSignIn();
+                    else ShowConnectingChat();
                     web.CoreWebView2.Navigate(freshDiscordProfile ? "https://discord.com/login" : Channel);
                     Log(freshDiscordProfile ? "Fresh Discord profile: opening sign-in" : "Navigating to channel");
                 }
@@ -3259,9 +3282,31 @@ metrics();
             }
             catch (Exception ex) { Log("Discord login theme: " + ex.GetType().Name); }
         }
+        void ShowConnectingChat()
+        {
+            if (closingChat || IsDisposed || discordLoginVisible) return;
+            connectingChat = true;
+            nativeMode = false;
+            // Make the loading state visible on the existing custom frame.
+            // Do not display the old mock scrollbar while the real HTML feed
+            // is still mounting after the Discord OAuth handoff.
+            nativeMessages.Text = "Connecting to live chat...";
+            frameSurface.Visible = true;
+            messageClip.Visible = true;
+            messageBrowser.Visible = false;
+            nativeMessages.Visible = true;
+            nativeMessages.BringToFront();
+            goldScrollbar.Visible = false;
+            chatViewport.Visible = false;
+            FitWebView();
+            messageClip.BringToFront();
+            frameSurface.Invalidate();
+            Log("CHAT | Waiting for authenticated message feed");
+        }
         void ShowDiscordSignIn()
         {
             if (discordLoginVisible) return;
+            connectingChat = false;
             channelReloadAfterSignInPending = true;
             Log("Discord login: revealing the existing browser in Game Chat");
             discordLoginVisible = true;
@@ -3300,16 +3345,10 @@ metrics();
             signInExpanded = false;
             web.Parent = chatViewport;
             web.Dock = DockStyle.None;
-            // Keep the native frame hidden until the message renderer has content.
-            frameSurface.Visible = nativeMode;
-            chatViewport.Visible = !nativeMode;
-            messageClip.Visible = nativeMode;
-            goldScrollbar.Visible = nativeMode;
-            messageBrowser.Visible = nativeMode;
-            nativeMessages.Visible = false;
-            web.Visible = !nativeMode;
+            // Keep the panel open with a fresh "Connecting..." state while
+            // Discord finishes its one authenticated channel reload.
+            ShowConnectingChat();
             Text = "tes3np Chat Host";
-            FitWebView();
             DockToLauncher();
             if (keepChatVisible) {
                 lastChatActivity = DateTime.Now;
