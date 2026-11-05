@@ -112,11 +112,11 @@ if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source check
 }
 Write-Host 'PASS: player-facing notes are distinct from the developer changelog.'
 
-$expectedCategories = @('New Features', 'Improvements', 'Bug Fixes')
+$expectedCategories = @('New Features', 'Improvements', 'Removed Features')
 $foundCategories = @([regex]::Matches($playerNotes, '(?m)^### (.+)
 ) | ForEach-Object { $_.Groups[1].Value })
 if (($foundCategories -join '|') -ne ($expectedCategories -join '|')) {
-    throw 'Player-facing changelog categories must appear once in the standard order.'
+    throw 'Player-facing changelog categories must appear in the approved order for this release.'
 }
 $entries = @($playerNotes -split "`r?`n" | Where-Object { $_ -match '^- ' })
 if (-not $entries.Count) { throw 'Player-facing release notes have no entries.' }

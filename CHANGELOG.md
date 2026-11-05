@@ -11,14 +11,15 @@ Changes since the last public release, v0.1.20-alpha.
 - **Happy Hour notifications:** Get notified in the launcher when Happy Hour is detected.
 - **Expansion Pack recovery:** Get help resolving Expansion Pack mismatches when the server rejects a connection.
 - **Custom game clients:** Choose a custom TES3MP executable while keeping the bundled client available.
+- **Login progress:** Follow each step as the launcher signs your character into TES3MP.
+- **In-game kill alerts:** Receive launcher notifications when a player is killed in-game.
 
 ### Improvements
 
 - **Expansion Pack installation:** Install the Expansion Pack using either a downloaded ZIP file or an extracted folder.
 - **Connection diagnostics:** Copy clearer information about missing, mismatched, or incorrectly ordered plugins when a connection fails.
 
-### Bug Fixes
+### Removed Features
 
-- **Game Chat:** Fixed an issue that could leave the chat blank or show an incorrect scrollbar after signing in to Discord.
-- **Expansion Pack:** Fixed installation errors caused by files being locked by Windows.
+- **Scheduled Events:** Removed event scheduling, countdown hotkeys, and automated login reminders.
 
