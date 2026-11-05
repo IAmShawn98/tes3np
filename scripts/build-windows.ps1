@@ -254,7 +254,7 @@ Public redistribution/licensing review remains a separate release gate.
     Step "Compiled launcher --check exited with code $($check.ExitCode)"
     if ($check.ExitCode -ne 0) { throw 'Compiled launcher validation failed.' }
     # The --check smoke test exits before FileInstall runs. Exercise extraction
-    # separately and verify every file against the manifest before packaging.
+    # separately to ensure runtime workers/artwork exist and no patch payload is embedded.
     Step 'Validating standalone runtime resource extraction'
     $extract = Start-Process $executable -ArgumentList '--check-resources' -PassThru -Wait
     if ($extract.ExitCode -ne 0) { throw "Embedded resource extraction failed with code $($extract.ExitCode)." }
