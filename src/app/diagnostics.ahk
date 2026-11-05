@@ -75,36 +75,41 @@ InitializePatchLogMirror()
 
 SanitizeDiagnosticText(text)
 {
-    ; Central safe boundary for every launcher diagnostic and copied historical log.
-    ; Never allow raw credential values, player identities, signed URLs or absolute
-    ; machine paths to escape into a shareable diagnostic report.
+    ; Shareable diagnostics keep event context but never expose private values.
+    ; Older placeholder-style entries are also cleaned up when copied or migrated.
     global Profiles
+    text := RegExReplace(text, "i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]", "")
     for profile in Profiles
     {
-        if !IsObject(profile)
-            continue
-        if profile.HasOwnProp("Password") && profile.Password != ""
-            text := StrReplace(text, profile.Password, "[credential omitted]", false)
+        if IsObject(profile) && profile.HasOwnProp("Password") && profile.Password != ""
+            text := StrReplace(text, profile.Password, "", false)
     }
-    for entry in [[EnvGet("LOCALAPPDATA"), "%LOCALAPPDATA%"],
-        [EnvGet("APPDATA"), "%APPDATA%"], [EnvGet("USERPROFILE"), "%USERPROFILE%"]]
+    clean := ""
+    for line in StrSplit(text, "`n", "`r")
     {
-        if entry[1] != ""
-            text := StrReplace(text, entry[1], entry[2], false)
+        outputLine := ""
+        for item in StrSplit(line, "|")
+        {
+            item := Trim(item)
+            ; Drop complete private identity/credential fields, including labels.
+            item := RegExReplace(item, "i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=].*$", "")
+            item := RegExReplace(item, "i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%[\\/].*$", "")
+            item := RegExReplace(item, "i)\b(?:https?|wss?)://\S+", "")
+            item := RegExReplace(item, "i)\b[A-Z]:[\\/].*$", "")
+            item := RegExReplace(item, "\\\\.*$", "")
+            item := RegExReplace(item, "i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "")
+            item := RegExReplace(item, "\b(?:\d{1,3}\.){3}\d{1,3}\b", "")
+            item := RegExReplace(item, "\b\d{16,21}\b", "")
+            ; A removed value should not leave "Path:", "URL:", or extra pipes.
+            item := RegExReplace(item, "i)\b(?:Executable(?:\s+path)?|Source\s+path|Destination|Install|Stage|Path|Folder|File|URL|Mail|Email)\s*[:=]\s*$", "")
+            item := Trim(item, " `t:=")
+            if item != ""
+                outputLine .= (outputLine = "" ? "" : " | ") item
+        }
+        if outputLine != ""
+            clean .= (clean = "" ? "" : "`n") outputLine
     }
-    userName := EnvGet("USERNAME")
-    if userName != "" && StrLen(userName) >= 3
-        text := StrReplace(text, userName, "[user omitted]", false)
-    ; Field redaction also applies to older logs written before this change.
-    text := RegExReplace(text, "i)\b(?:Account|User)\s*:\s*[^|`r`n]+", "[identity omitted]")
-    text := RegExReplace(text, "i)\b(?:Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=]\s*[^|`r`n ]+", "[secret omitted]")
-    text := RegExReplace(text, "i)\b(?:https?|wss?)://[^ \t\r\n|]+", "[url omitted]")
-    text := RegExReplace(text, "i)\b[A-Z]:[\\/][^|`r`n]+", "[path omitted]")
-    text := RegExReplace(text, "\\\\[^|`r`n]+", "[network path omitted]")
-    text := RegExReplace(text, "i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[email omitted]")
-    text := RegExReplace(text, "\b(?:\d{1,3}\.){3}\d{1,3}\b", "[IP omitted]")
-    text := RegExReplace(text, "\b\d{16,21}\b", "[identifier omitted]")
-    return text
+    return clean
 }
 
 ; One-time in-place cleanup of historical diagnostic logs created by older
@@ -113,7 +118,7 @@ SanitizeDiagnosticText(text)
 SanitizeExistingDiagnosticLogs()
 {
     global AppDataDirectory, DataFile
-    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "1"
+    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "2"
         return
     complete := true
     for filename in ["launcher.log", "chat-host.log", "patch-all.log",
@@ -141,7 +146,7 @@ SanitizeExistingDiagnosticLogs()
     }
     if complete
     {
-        try IniWrite("1", DataFile, "Diagnostics", "PrivacyScrubVersion")
+        try IniWrite("2", DataFile, "Diagnostics", "PrivacyScrubVersion")
     }
 }
 
