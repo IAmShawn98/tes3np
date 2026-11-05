@@ -784,7 +784,8 @@ SaveProfileEditor(index, fields, editor, *)
             try portraitFile := InstallOriginalCharacterPortrait(EditorOriginalPortraitSource)
             catch Error as err
             {
-                MsgBox("Portrait could not be saved. " err.Message, "tes3np", "Icon!")
+                reason := SanitizeDiagnosticText(err.Message)
+                MsgBox("Portrait could not be saved. " (reason != "" ? reason : "Check the selected picture and folder permissions."), "tes3np", "Icon!")
                 return
             }
         }
