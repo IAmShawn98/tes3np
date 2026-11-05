@@ -4,6 +4,13 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Quiet first launch: contextual setup prompts — 2026-11-05
+
+- A Facilities 4 screenshot showed three simultaneous first-run windows: desktop shortcut offer, Locate Morrowind GOTY, and Discord sign-in. Startup no longer schedules shortcut and GOTY prompts. The existing GOTY guard still requests its chooser on saved-character or New Adventure launch (and on the actual game Run path), preserving Not Now and subsequent retries.
+- Replaced the automatic shortcut offer with a deliberate **Create Desktop Shortcut** action beside Close Settings in Launcher Settings. Preserves the same safe compiled-distribution check and shortcut target; manual creation reports success.
+- The existing authenticated ChatHost still initializes and monitors Discord/Happy Hour in the background, but its single reused Discord login popup remains hidden until a Game Chat click or user-requested Expansion Pack download. Not Now/close resets visibility intent; the same browser/profile is reused for login and later native Game Chat.
+- Added startup contract checks. **Source only**; Windows C#/AHK build and clean-profile UI testing pending. Verify background WebView2 authentication does not stall while its popup is hidden, and verify both user-triggered auth entrypoints independently.
+
 ### Final missing-GOTY recovery guard — 2026-11-05
 
 - Extended the shared GOTY preflight to the tracked game's actual Run() path, protecting auto-reconnect/recovery as well as both manual launch buttons. A missing installation stops the monitored attempt, opens the GOTY folder selector and does not enter an endless reconnect loop.

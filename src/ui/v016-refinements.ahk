@@ -179,7 +179,11 @@ OpenLauncherSettingsV016(*)
     AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))
     AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)
-    AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30), "Close Settings", CloseLauncherSettingsV016.Bind(settings))
+    ; Optional desktop shortcut is available when wanted, never a startup modal.
+    AddStyledButton(settings, V016S(32), V016S(483), V016S(214), V016S(30),
+        "Create Desktop Shortcut", (*) => OfferDesktopShortcutOnFirstLaunch(true))
+    AddStyledButton(settings, V016S(266), V016S(483), V016S(214), V016S(30),
+        "Close Settings", CloseLauncherSettingsV016.Bind(settings))
 
     ; Keep both parchment views in the same GUI. The common backdrop is never
     ; destroyed, and all data controls are created only once per settings window.

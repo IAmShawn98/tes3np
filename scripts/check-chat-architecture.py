@@ -813,6 +813,17 @@ expect(
     "global LauncherDataResetting := false" in app_state,
 )
 
+expect(
+    "First launch does not stack optional GOTY, shortcut and Discord dialogs",
+    "SetTimer(CheckFirstRunMorrowind" not in bootstrap
+    and "SetTimer(OfferDesktopShortcutOnFirstLaunch" not in bootstrap
+    and "Create Desktop Shortcut" in (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+    and "bool discordSignInRequested;" in source
+    and "if (discordSignInRequested) popup.Show();" in source
+    and "discordSignInRequested = true;" in source
+    and "if (discordLoginVisible) RevealDiscordSignInWindow();" in source,
+)
+
 # The seven second-PC regression reports must have explicit source-side
 # guards. These do not replace a Windows build or live interactive testing.
 expect(

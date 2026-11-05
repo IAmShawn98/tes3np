@@ -25,6 +25,15 @@ The most valuable remaining checks are Windows 10/11 without SDKs installed,
 first-run discovery, WebView2 absence, update confirmation on a packaged build,
 permissions errors, and shortcut prompt persistence after backup import.
 
+## Contextual first-run presentation — pending rebuilt candidate
+
+- [ ] Launch with clean AppData: no automatic desktop-shortcut, GOTY, or Discord sign-in windows. The launcher should be usable immediately, without overlapping modals.
+- [ ] Open Launcher Settings and select **Create Desktop Shortcut**; verify the correct packaged executable is targeted. No automatic startup prompt on relaunch.
+- [ ] Click **Start New Adventure** with GOTY missing: existing folder chooser appears and game does not start. **Not Now** postpones; next game launch asks again.
+- [ ] Click Game Chat while signed out: the existing dedicated sign-in popup appears. **Not Now** hides it; Game Chat opens it again without a second Discord session.
+- [ ] Enable Expansion Pack with missing assets while signed out: the same popup appears only after requesting the download, and the authenticated ZIP dialog follows successful login.
+- [ ] Validate existing Happy Hour archive/live discovery and chat first-login handoff; offline processing must not depend on forcing the login popup open at startup.
+
 ## November 5 second-PC runtime regression gate — pending rebuilt candidate
 
 The tester extracted a private packaged v0.1.21-alpha RAR on a second Windows PC. The launcher opened, the bundled game client started, Discord authentication and plugin-mismatch UI appeared. Seven user-reported issues were captured in screenshots. Changes are committed in the development branch but **have not been rebuilt or retested on that PC**.
