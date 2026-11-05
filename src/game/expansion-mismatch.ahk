@@ -152,9 +152,9 @@ RequestDiscordExpansionPrompt(mode := 2)
 DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, EmbeddedChatPid, ExpansionDiscordPromptPending
-    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+    if (!IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
         || !ExpansionDiscordPromptPending
-        || (wParam != 0 && wParam != ExpansionDiscordPromptPending)
+        || (wParam != 0 && wParam != ExpansionDiscordPromptPending))
         return 0
     ; Verify the originating native window belongs to the one ChatHost PID.
     if !lParam || !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
@@ -195,23 +195,30 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.BackColor := "1B140B"
     dialog.SetFont("s16 Bold cC5A45C", "Georgia")
     installing := mode = "Install"
-    dialog.Add("Text", "x25 y19 w610 h43 BackgroundTrans",
-        installing ? "Expansion Pack Not Installed" : "Your Plugins Don't Match the Server")
-    dialog.SetFont("s10 Norm cEDE1C9", "Segoe UI")
-    dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", installing
-        ? "The optional NP Expansion Pack wasn't found in your Morrowind installation. "
+    if installing
+    {
+        dialogTitle := "Expansion Pack Not Installed"
+        intro := "The optional NP Expansion Pack wasn't found in your Morrowind installation. "
             . "Download the current pack from the official Nerevarine Prophecies Discord."
-        : "The server rejected your plugins or load order. A newer NP Expansion Pack may be required. "
-            . "Download the current official pack, install it, and retry your game.")
+        help := "The Expansion Pack is optional. Your existing game and other mods won't be changed "
+            . "until you select a downloaded file to install."
+    }
+    else
+    {
+        dialogTitle := "Your Plugins Don't Match the Server"
+        intro := "The server rejected your plugins or load order. A newer NP Expansion Pack may be required. "
+            . "Download the current official pack, install it, and retry your game."
+        help := "If the current pack doesn't resolve the server mismatch, click "
+            . "Copy Diagnostic Info and send the report to the Discord bug-reports channel."
+    }
+    dialog.Add("Text", "x25 y19 w610 h43 BackgroundTrans", dialogTitle)
+    dialog.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", intro)
     dialog.Add("Text", "x25 y159 w610 h88 BackgroundTrans",
         "Click the latest Expansion Pack ZIP below to download it through your browser. "
         . "When the download finishes, click " (installing ? "Install" : "OK") " to select the ZIP "
         . "or its extracted folder and import it safely.")
-    dialog.Add("Text", "x25 y256 w610 h66 BackgroundTrans", installing
-        ? "The Expansion Pack is optional. Your existing game and other mods won't be changed "
-            . "until you select a downloaded file to install."
-        : "If the current pack doesn't resolve the server mismatch, click "
-            . "Copy Diagnostic Info and send the report to the Discord bug-reports channel.")
+    dialog.Add("Text", "x25 y256 w610 h66 BackgroundTrans", help)
     dialog.SetFont("s10 Bold cC5A45C", "Segoe UI")
     dialog.Add("Text", "x25 y324 w610 h24 BackgroundTrans", "Latest Expansion Pack - Discord")
     ; Native child HWND placeholder for the existing ChatHost's WebView2.
