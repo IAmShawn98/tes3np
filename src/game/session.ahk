@@ -113,7 +113,7 @@ StartProfileSession(profile, executable)
         DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
     LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
     global DataFile
-    LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable path omitted.")
+    LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") ")
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
         UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
@@ -245,7 +245,7 @@ ClientTick()
                         codeText .= " (illegal instruction)"
                 }
             }
-            LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable path omitted.")
+            LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") ")
             LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
             StopClient()
             SetClientStatus("Game closed.")
@@ -337,7 +337,7 @@ ClientTick()
         {
             SetGameLoginProgressStage(4)
             SetClientStatus("Entering password...")
-            LogLauncherEvent("GAME | Login stage | Entering password. Password value not logged.")
+            LogLauncherEvent("GAME | Login stage | Entering password.")
             SendText(Client.Profile.Password)
             Send("{Enter}")
             ; Finish only the visual. The saved LoadDelay and recovery continue.
