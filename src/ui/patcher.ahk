@@ -254,7 +254,7 @@ SanitizePatchDiagnostic(text)
     ; Keep detailed reasons while excluding personal paths from dialogs and logs.
     text := RegExReplace(text, 'i)"[A-Z]:\\[^"\r\n]*"', "[path omitted]")
     text := RegExReplace(text, "i)[A-Z]:\\[^`r`n]+", "[path omitted]")
-    return RegExReplace(text, "\\\\[^`r`n]+", "[network path omitted]")
+    return SanitizeDiagnosticText(RegExReplace(text, "\\\\[^`r`n]+", "[network path omitted]"))
 }
 
 PatchErrorDetails(step, field, err)
@@ -426,7 +426,7 @@ CheckFirstRunMorrowind(*)
     {
         IniWrite(found, DataFile, "Patch", "MorrowindFolder")
         IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
-        LogLauncherEvent("SETUP | Morrowind GOTY located: " found)
+        LogLauncherEvent("SETUP | Morrowind GOTY installation located.")
         return
     }
     prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Locate Morrowind")
@@ -464,7 +464,7 @@ SelectFirstRunMorrowind(prompt, *)
     }
     IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
     IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
-    LogLauncherEvent("SETUP | User selected Morrowind GOTY: " folder)
+    LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
     prompt.Destroy()
     MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
 }
