@@ -13,7 +13,10 @@ resources = []
 # Editable raster masters belong in source control, not in the runtime EXE.
 # The login overlay loads matching .ico files; neither these PNG originals nor
 # the 1.6 MB branding PNG are requested by any live AHK/ChatHost component.
-for directory in ("assets", "patches"):
+# The downloadable NP Expansion Pack is NEVER part of the launcher executable.
+# The modified markerless TES3MP client ships once in the separate client/
+# directory, not as another 15 MB copy inside tes3np.exe.
+for directory in ("assets",):
     for path in (root / directory).rglob("*"):
         if not path.is_file():
             continue
