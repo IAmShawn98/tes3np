@@ -9,14 +9,16 @@ Changes since the last public release, v0.1.20-alpha.
 - **Game Chat:** The launcher now contains in-game chat integration.
 - **Built-in TES3MP client:** Launch TES3MP without installing the game client separately.
 - **Happy Hour notifications:** Get notified in the launcher when Happy Hour is detected.
-- **Expansion Pack recovery:** Get help resolving Expansion Pack mismatches when the server rejects a connection.
-- **Custom game clients:** Choose a custom TES3MP executable while keeping the bundled client available.
-- **Login progress:** Follow each step as the launcher signs your character into TES3MP.
+- **Plugin mismatch recovery:** The **Your Plugins Don't Match the Server** dialog helps you resolve Expansion Pack and load-order problems.
+- **Game Client Settings:** Choose a custom TES3MP executable without replacing the bundled client.
+- **Login Progress:** See your character's login steps in a dedicated progress window.
+- **Original Character:** Choose **Original Character** in the **Species** selector to use a custom portrait.
 
 ### Improvements
 
-- **Expansion Pack installation:** Install the Expansion Pack using either a downloaded ZIP file or an extracted folder.
+- **Upload Expansion:** Install the Expansion Pack from a downloaded ZIP file or an extracted folder.
 - **Diagnostics:** Improved diagnostics for mismatches and error handling.
+- **Favorite character:** Your first added character is now automatically selected as your favorite.
 
 ### Removed Features
 
