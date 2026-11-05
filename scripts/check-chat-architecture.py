@@ -278,7 +278,10 @@ expect(
 expect(
     "Enabling a locally installed pack never deploys legacy bundled assets",
     'RequestDiscordExpansionPrompt(1)' in patcher
-    and 'FileGetSize(installedEsp) > 0' in patcher
+    and 'ExpansionPackInstalled(morrowind, config)' in patcher
+    and 'if enable && !ExpansionPackInstalled(morrowind, cfg)' in patcher
+    and 'FileGetSize(esp) > 0' in patcher
+    and '$candidateFolders += $configured' in expansion_toggle
     and ' -PayloadFolder ' not in patcher
     and '$PayloadFolder' not in expansion_toggle
     and "Join-Path $data 'NP Expansion Pack.esp'" in expansion_toggle
