@@ -56,15 +56,17 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] WebView2 installed vs missing; missing chat does not block launching game.
 - [ ] Automatic new-message chat expansion while a modal dialog is open: no focus theft or hidden prompt.
 - [ ] High DPI (100%, 125%, 150%) and two monitors; chat remains on-screen where possible.
-- [ ] Copy Launcher Logs includes actionable errors, excludes passwords and other account secrets.
+- [x] November 5 Copy Launcher Logs export: 2,713 timestamped lines, useful event details, no visible passwords, personal paths, URL/email/IP/long IDs, privacy placeholders, duplicate timestamps or empty pipes. (Applies to this supplied Launcher Log only.)
 - [ ] After rebuilding, verify fresh `launcher.log`, `chat-host.log`, updater events and copied Expansion Pack/render logs remove Windows usernames, absolute paths, email addresses, tokens and passwords **without** `REDACTED`, `[path omitted]`, empty labels or extra `|` separators. Useful event details and public character names must remain.
 - [ ] On first startup, confirm historical diagnostics (including `PrivacyScrubVersion=1` placeholders) are cleaned under version 4 without touching `Logs/game-chat.log`, `Logs/game-chat-index.json`, settings, saved profiles, macros, portraits or private WebView2 data. Never attach the raw Game Chat archive to a bug report.
 - [ ] Confirm the disposable AutoHotkey diagnostic privacy fixture passes as part of the normal Windows build, and exercise Game Chat, Happy Hour, macros and login afterward.
 - [x] Source-side privacy review covers the AHK launcher, Chat Host, updater, import/toggle/picker result files, macro worker, clipboard and user-facing error boundaries. Source changes and regression guards are committed; see [diagnostic privacy audit](DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md).
 - [ ] Confirm `PrivacyScrubVersion=4` processes pre-existing v2 logs, preserves public character names, and removes placeholder fields without touching the private journal, backups, settings or Discord archive.
 - [ ] Inspect `result.ini` for `Backup=available` rather than an absolute path, and verify private `journal.json` still supports rollback. Check toggle and picker failures still show meaningful safe messages.
-- [ ] Re-run the complete Windows build and test the freshly extracted package after the source-side privacy closure; earlier Windows compilation failures and nonfatal `WindowsBase` warning do not count as post-change acceptance.
-- [ ] Reopen the rebuilt launcher, copy Launcher Logs again, and confirm each timestamped event occupies a separate line. The November 5 upload had two historical joins that should be automatically repaired by the version-4 migration. Ensure a final newline remains after future log appends.
+- [x] November 5 full Windows build of alpha `24a2359` passed: PowerShell parse, AHK privacy/plugin-mismatch fixtures, Chat Host compile/publish, Expansion ZIP/folder fixture, picker COM, Ahk2Exe, compiled `--check`, packaged assets/hashes and final ZIP integrity. MSB3277 WindowsBase warning is nonfatal.
+- [ ] Independently launch and test the freshly extracted standalone ZIP, not only the repository-root executable.
+- [x] November 5 fresh Launcher Log copy shows both previously merged timestamps on separate lines; no malformed event lines in the 2,713-event export.
+- [ ] Confirm the underlying on-disk migrated launcher.log ends with a newline and remains append-safe after repeated fresh launcher sessions (clipboard export alone cannot prove its terminal newline).
 
 ## Distribution/legal
 - [ ] Ship all required licenses and third-party notices.
