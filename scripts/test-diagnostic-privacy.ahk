@@ -14,8 +14,10 @@ PrivacyFixtureAssert(ok, reason)
 
 
 
+previousWindowsUser := EnvGet("USERNAME")
 try
 {
+    EnvSet("USERNAME", "ExamplePerson")
     DirCreate(AppDataDirectory)
     input := "GAME | Character: TestWizard | Executable: C:\Users\ExamplePerson\tes3mp.exe"
         . " | Password: test-only-secret-123 | Mail: sample@example.org"
@@ -33,12 +35,18 @@ try
         "prior placeholder-style log entries are compacted")
     PrivacyFixtureAssert(!InStr(safe, "[") && !InStr(safe, "omitted"),
         "clean diagnostics contain no redaction notices")
+    windowsName := SanitizeDiagnosticText("GAME | Windows session ExamplePerson | Character: TestWizard")
+    PrivacyFixtureAssert(!InStr(windowsName, "ExamplePerson"),
+        "standalone Windows account name excluded from diagnostics")
+    PrivacyFixtureAssert(InStr(windowsName, "Character: TestWizard"),
+        "public character name retained independently of Windows account name")
 
     FileAppend(input "`n2026-11-04 | GAME | Path: [path omitted] | Character: TestWizard`n", AppDataDirectory "\launcher.log", "UTF-8")
     FileAppend(input "`n", AppDataDirectory "\chat-host.log", "UTF-8")
     DirCreate(AppDataDirectory "\Logs")
     privateArchive := "Yagrum: genuine Happy Hour announcement [discord:123456789012345678]"
     FileAppend(privateArchive, AppDataDirectory "\Logs\game-chat.log", "UTF-8")
+    IniWrite("2", DataFile, "Diagnostics", "PrivacyScrubVersion")
     SanitizeExistingDiagnosticLogs()
     PrivacyFixtureAssert(!InStr(FileRead(LauncherLogFile, "UTF-8"), "ExamplePerson"),
         "legacy launcher log cleaned")
@@ -48,7 +56,7 @@ try
         "test-only-secret-123"), "legacy Chat Host log cleaned")
     PrivacyFixtureAssert(FileRead(AppDataDirectory "\Logs\game-chat.log", "UTF-8")
         = privateArchive, "private chat archive not modified")
-    PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "2",
+    PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "3",
         "one-time migration checkpoint written")
     FileAppend("PASS | TES3NP diagnostic redaction fixtures`n", "*", "UTF-8")
 }
@@ -59,6 +67,7 @@ catch Error as err
 }
 finally
 {
+    EnvSet("USERNAME", previousWindowsUser)
     try DirDelete(AppDataDirectory, true)
 }
 ExitApp(0)
