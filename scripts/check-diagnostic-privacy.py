@@ -20,6 +20,7 @@ settings = read("src/ui/v016-refinements.ahk")
 chat = read("chat-host/Program.cs")
 patcher = read("src/ui/patcher.ahk")
 loading = read("src/ui/loading.ahk")
+updater = read("scripts/tes3np-updater.ps1")
 
 expect('SanitizeDiagnosticText(message)' in diag,
        "launcher logger must sanitize before appending")
@@ -69,4 +70,10 @@ expect('SanitizeDiagnosticText(RegExReplace(text' in patcher,
        "patch error detail sink must call common redactor")
 expect('detail := "Error type: " Type(err)' in loading,
        "renderer error log must not record raw exception paths")
+expect("function Write-UpdaterLog([string]$Message)" in updater and
+       "[regex]::Replace($Message" in updater and "'[path omitted]'" in updater
+       and "Add-Content -LiteralPath $LogFile" in updater and
+       "' | UPDATE WORKER | ' + $safe" in updater,
+       "standalone update worker must sanitize before writing launcher.log")
+
 print("PASS | TES3NP diagnostic privacy source contracts")
