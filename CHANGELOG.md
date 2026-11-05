@@ -4,6 +4,14 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Second-PC regression fixes, first source batch — 2026-11-05
+
+- User's second-PC screenshots confirmed the launcher, bundled game client and Discord/mismatch UI operate, but documented seven runtime issues. This batch addresses missing GOTY guard/prompt persistence, a stale optional Expansion Pack Enabled indicator, and a stale Discord recovery request.
+- "Not Now" now defers GOTY setup to the next launcher startup; launching any character or Start New Adventure without valid Morrowind, Tribunal and Bloodmoon data opens the existing GOTY chooser rather than starting a game that errors with "Plugin doesn't exist". Exactly one chooser is shown at a time.
+- "Expansion Pack: Enabled" now requires a current OpenMW load-order entry plus a present nonempty ESP in a configured game/data folder. This is *not* proof the installed pack is current with the server; no authoritative local pack-version manifest is known.
+- New launches clear unresolved prior authenticated download requests on both the AHK and C# sides, without bypassing Discord authentication for downloads.
+- Source edits only. Windows build and all runtime checks remain pending. Window resize, button hit testing, and separate Discord sign-in popup are still open.
+
 ### Windows local build post-package sharing violation — 2026-11-05
 
 - A user Windows transcript at d4e37b3 confirmed PowerShell syntax, AHK compilation and compiled --check, Chat Host publish, Expansion Pack fixture tests, resource extraction, and final ZIP integrity all passed; nevertheless Build tes3np.bat showed a sharing violation and BUILD FAILED after the completed distribution ZIP. This is post-package failure, not evidence of a broken compiled launcher. Exact locked file was not identified from the log.
