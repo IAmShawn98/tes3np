@@ -364,6 +364,19 @@ ToggleExpansionPack(*)
         morrowind := selectedFolder
         IniWrite(morrowind, DataFile, "Patch", "MorrowindFolder")
     }
+    ; Current Expansion Pack is user-installed. Never restore retired bundled assets.
+    if enable
+    {
+        installedEsp := morrowind "\Data Files\NP Expansion Pack.esp"
+        packDetected := false
+        try packDetected := FileExist(installedEsp) && FileGetSize(installedEsp) > 0
+        if !packDetected
+        {
+            LogLauncherEvent("EXPANSION | Installed ESP not found; requiring authenticated download.")
+            RequestDiscordExpansionPrompt(1)
+            return
+        }
+    }
     action := enable ? "Enable" : "Disable"
     if MsgBox(action " NP Expansion Pack for all future game clients?" Chr(10) Chr(10) "TES3NP will back up your configuration and preserve other mods.", "Expansion Pack", "YesNo Icon?") != "Yes"
         return
@@ -381,7 +394,7 @@ ToggleExpansionPack(*)
     if FileExist(output)
         FileDelete(output)
     command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
-        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '" -PayloadFolder "' resourceRoot '\patches"'
+        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '"'
         . ' -BackupFolder "' backup '" -ResultFile "' output '"'
     try
     {
