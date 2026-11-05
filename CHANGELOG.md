@@ -3,6 +3,8 @@
 ## v0.1.21-alpha — unreleased
 
 ### Diagnostic privacy hardening — 2026-11-04 (Windows verification pending)
+- **Follow-up local acceptance tooling, November 5:** Added a standard-library, read-only `scripts/audit-local-privacy.py` command. It examines the **actual local** secondary diagnostic files and importer result metadata without printing or modifying private content, verifies launcher event line separation and terminal newline, and runs existing isolated updater/version/metadata/rollback tests when the required PowerShell runtimes are available. It reports missing optional files and missing PowerShell 7 explicitly as skips. Synthetic scanner self-test passed outside Windows; no user-machine output yet. No application/game behavior was changed and no new launcher build is necessary for this test-only commit.
+
 
 - Improved launcher diagnostic log formatting and privacy, including separation of timestamped events.
 
