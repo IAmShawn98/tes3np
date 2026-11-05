@@ -149,7 +149,17 @@ finish its local navigation before the login view hides its WinForms parent.
 When Discord redirects to Game Chat, restore the original docked panel and
 reload that authenticated channel **once** to complete the SPA handoff, without
 restarting the launcher or spawning another Chat Host. Keep an already-open
-Automatic chat panel visible through this transition. This sequence changes
+Automatic chat panel visible through this transition. The login view
+explicitly hides both `messageClip` (the HTML message WebView's **parent**)
+and `messageBrowser` while the Discord sign-in UI is exposed.
+`RestoreGameChatAfterSignIn` initially keeps them hidden with `nativeMode=false`.
+When `RefreshNativeMessages` receives the first real authenticated feed and
+switches `nativeMode=true`, it must restore `messageClip.Visible=true`
+**before** `messageBrowser.Visible=true`: a visible child WebView under the
+still-hidden parent produces a completely black message pane with the gold
+frame/scrollbar rendered. Reopening the launcher can mask this first-login
+bug because the sign-in route is skipped next time. The source guard now
+requires the matching parent/child visibility transition. This sequence changes
 neither the persisted browser profile nor the Happy Hour archive.
 
 **Validation:** `scripts/check-chat-architecture.py` guards these contracts
