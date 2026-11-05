@@ -121,8 +121,11 @@ function CleanImportMessage([string]$Message) {
 }
 function Result([string]$State, [string]$Message, [string]$Backup = '') {
     $clean = CleanImportMessage $Message
+    # Backup locations belong in the private rollback journal, not the result
+    # shared with the UI or support. Preserve the pre-existing Backup key.
+    $backupStatus = if ($Backup) { 'available' } else { '' }
     $body = '[Result]' + [Environment]::NewLine + 'State=' + $State + [Environment]::NewLine +
-        'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $Backup + [Environment]::NewLine
+        'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $backupStatus + [Environment]::NewLine
     WriteJobIni 'result.ini' $body
 }
 function AssertPlain([string]$Path) {
