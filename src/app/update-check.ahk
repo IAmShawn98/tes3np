@@ -212,7 +212,7 @@ ReadDraftVersionNotes(installedVersion)
             continue
         line := Trim(entry)
         if SubStr(line, 1, 4) = "### " {
-            notes .= SubStr(line, 5) "`n"
+            notes .= "### " SubStr(line, 5) "`n"
         } else if SubStr(line, 1, 2) = "- " {
             notes .= "• " StrReplace(SubStr(line, 3), "**", "") "`n"
         }
@@ -272,6 +272,35 @@ WrapReleaseNoteLines(content, maximum := 56)
         wrapped.Push(line)
     }
     return wrapped
+}
+
+; Keep the category structure for both draft and published release notes.
+BuildStyledReleaseNoteRows(content)
+{
+    rows := []
+    for entry in StrSplit(StrReplace(content, "`r", ""), "`n") {
+        line := Trim(entry)
+        if line = "" {
+            if rows.Length && rows[rows.Length].Kind != "space"
+                rows.Push({Text: "", Kind: "space"})
+            continue
+        }
+        kind := "body"
+        if RegExMatch(line, "^#{1,6}\s+") {
+            line := RegExReplace(line, "^#{1,6}\s+", "")
+            if rows.Length && rows[rows.Length].Kind != "space"
+                rows.Push({Text: "", Kind: "space"})
+            line := "◆ " line
+            kind := "heading"
+        } else if RegExMatch(line, "^[-*+]\s+") {
+            line := "• " RegExReplace(line, "^[-*+]\s+", "")
+        }
+        for part in WrapReleaseNoteLines(line, kind = "heading" ? 64 : 72)
+            rows.Push({Text: part, Kind: kind})
+    }
+    if !rows.Length
+        rows.Push({Text: "No release notes available.", Kind: "body"})
+    return rows
 }
 
 UpdateNotesMouseWheel(dialog, page, refresh, wParam, lParam, msg, hwnd)
@@ -358,14 +387,14 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     backdrop := CreateUpdateBackdrop()
     panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Version Status")
     panel.BackColor := "C5A45C"
-    panel.Add("Text", "x2 y2 w716 h516 Background171008")
-    panel.SetFont("s12 Bold cC5A45C", "Georgia")
-    panel.Add("Text", "x28 y18 w664 h38 BackgroundTrans", "You're All Caught Up, Fetcher!")
+    panel.Add("Text", "x2 y2 w796 h596 Background171008")
+    panel.SetFont("s14 Bold cC5A45C", "Georgia")
+    panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", "You're All Caught Up, Fetcher!")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    panel.Add("Text", "x28 y61 w664 h64 BackgroundTrans",
+    panel.Add("Text", "x30 y65 w740 h55 BackgroundTrans",
         "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified.")
     panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
-    panel.Add("Text", "x28 y128 w664 h24 BackgroundTrans",
+    panel.Add("Text", "x30 y125 w740 h25 BackgroundTrans",
         "Build: v" installedVersion " Release Notes -")
     notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
@@ -373,41 +402,52 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ; by the launcher parchment. Arrows live at the ends of the track.
     ; Give release notes more reading space without changing their existing
     ; scroll, drag, wheel or button behavior.
-    panel.Add("Text", "x28 y163 w664 h278 BackgroundC5A45C")
-    panel.Add("Text", "x30 y165 w660 h274 Background171008")
-    notesLines := WrapReleaseNoteLines(notes.Text, 64)
-    page := {Offset: 1, Lines: notesLines, Visible: 10}
+    panel.Add("Text", "x28 y158 w744 h367 BackgroundC5A45C")
+    panel.Add("Text", "x30 y160 w740 h363 Background171008")
+    notesLines := BuildStyledReleaseNoteRows(notes.Text)
+    page := {Offset: 1, Lines: notesLines, Visible: 13}
     noteRows := []
-    Loop page.Visible
-        noteRows.Push(panel.Add("Text", "x38 y" (178 + (A_Index - 1) * 24) " w610 h24 Background171008", ""))
-    track := panel.Add("Text", "x665 y193 w16 h220 Background704C27")
-    thumb := panel.Add("Text", "x669 y193 w8 h30 +0x100 BackgroundC69951")
-    drag := {Active: false, StartY: 0, StartOffset: 1, ThumbHeight: 30, Timer: 0}
+    rowStyles := []
+    Loop page.Visible {
+        panel.SetFont("s10 cF4E9D6", "Segoe UI")
+        noteRows.Push(panel.Add("Text", "x42 y" (176 + (A_Index - 1) * 26) " w686 h24 Background171008", ""))
+        rowStyles.Push("body")
+    }
+    track := panel.Add("Text", "x746 y188 w16 h309 Background704C27")
+    thumb := panel.Add("Text", "x750 y188 w8 h32 +0x100 BackgroundC69951")
+    drag := {Active: false, StartY: 0, StartOffset: 1, ThumbHeight: 32, Timer: 0}
     refresh(*) {
         maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
         page.Offset := Min(maxOffset, Max(1, page.Offset))
-        for index, row in noteRows
-            row.Text := index + page.Offset - 1 <= page.Lines.Length ? page.Lines[index + page.Offset - 1] : ""
-        thumbHeight := Max(22, Round(220 * Min(1, page.Visible / Max(1, page.Lines.Length))))
+        for index, row in noteRows {
+            rowIndex := index + page.Offset - 1
+            entry := rowIndex <= page.Lines.Length ? page.Lines[rowIndex] : {Text: "", Kind: "body"}
+            if rowStyles[index] != entry.Kind {
+                row.SetFont(entry.Kind = "heading" ? "s11 Bold cE7BE70" : "s10 cF4E9D6", "Segoe UI")
+                rowStyles[index] := entry.Kind
+            }
+            row.Text := entry.Text
+        }
+        thumbHeight := Max(22, Round(309 * Min(1, page.Visible / Max(1, page.Lines.Length))))
         drag.ThumbHeight := thumbHeight
-        thumb.Move(669, 193 + Round((220 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
+        thumb.Move(750, 188 + Round((309 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
-    scrollUp := AddStyledButton(panel, 663, 167, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
-    scrollDown := AddStyledButton(panel, 663, 417, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
+    scrollUp := AddStyledButton(panel, 744, 163, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
+    scrollDown := AddStyledButton(panel, 744, 500, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
     refresh()
     ; Register an additional wheel callback only for this dialog's lifetime.
     ; It consumes wheel input solely inside the release-notes viewport.
     wheelCallback := UpdateNotesMouseWheel.Bind(panel, page, refresh)
     OnMessage(0x020A, wheelCallback, 1)
-    retry := AddStyledButton(panel, 138, 465, 212, 34, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
-    close := AddStyledButton(panel, 368, 465, 212, 34, "Close", (*) => panel.Destroy())
+    retry := AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
+    close := AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
-    ShowCenteredUpdateCard(panel, backdrop, 720, 520)
+    ShowCenteredUpdateCard(panel, backdrop, 800, 600)
     hwnd := panel.Hwnd
     WinWaitClose("ahk_id " hwnd)
     OnMessage(0x020A, wheelCallback, 0)
