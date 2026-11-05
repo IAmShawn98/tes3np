@@ -345,14 +345,14 @@ CopyExpansionPackLogs(*)
                 content := FileRead(path, "UTF-8")
                 if Trim(content) != ""
                 {
-                    report .= content "`r`n`r`n"
+                    report .= SanitizeDiagnosticText(content) "`r`n`r`n"
                     found := true
                     continue
                 }
             }
             catch Error as err
             {
-                report .= "Could not read file: " err.Message "`r`n`r`n"
+                report .= "Could not read file (" Type(err) ").`r`n`r`n"
                 continue
             }
         }
@@ -363,8 +363,8 @@ CopyExpansionPackLogs(*)
         MsgBox("No Expansion Pack log entries are available yet.", "tes3np — Diagnostics")
         return
     }
-    A_Clipboard := report
-    MsgBox("Expansion Pack logs copied to your clipboard. Review personal paths before sharing.", "tes3np — Diagnostics")
+    A_Clipboard := SanitizeDiagnosticText(report)
+    MsgBox("Sanitized Expansion Pack diagnostics copied. Review before sharing.", "tes3np — Diagnostics")
 }
 
 CopyAppDataLog(filename, syncLauncher := false, *)
@@ -380,7 +380,7 @@ CopyAppDataLog(filename, syncLauncher := false, *)
     }
     try
     {
-        content := FileRead(path, "UTF-8")
+        content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))
         if Trim(content) = ""
         {
             MsgBox("The diagnostic log is empty.", "tes3np — Diagnostics")
@@ -399,8 +399,8 @@ CopyAppDataLog(filename, syncLauncher := false, *)
                 ; Query only the Windows crash event around this specific exit,
                 ; never unrelated recent Application Error entries.
                 eventDetails := FindTes3mpWindowsCrash(recentExit)
-                content := "===== MOST RECENT TES3MP EXIT =====`r`n" recentExit
-                    . "`r`n`r`n===== WINDOWS TES3MP CRASH DETAILS =====`r`n" eventDetails
+                content := "===== MOST RECENT TES3MP EXIT =====`r`n" SanitizeDiagnosticText(recentExit)
+                    . "`r`n`r`n===== WINDOWS TES3MP CRASH DETAILS =====`r`n" SanitizeDiagnosticText(eventDetails)
                     . "`r`n`r`n===== COMPLETE LAUNCHER LOG =====`r`n" content
             }
 
@@ -409,10 +409,10 @@ CopyAppDataLog(filename, syncLauncher := false, *)
     }
     catch Error as err
     {
-        MsgBox("Could not read " filename ".`n`n" err.Message, "tes3np — Diagnostics", "Icon!")
+        MsgBox("Could not read " filename " (" Type(err) ").", "tes3np — Diagnostics", "Icon!")
         return
     }
-    MsgBox("Diagnostic log copied to your clipboard.`n`nYou can paste it into a bug report. Review the contents first in case paths or character names are private.", "tes3np — Diagnostics")
+    MsgBox("Sanitized diagnostic log copied to your clipboard. Review before sharing.", "tes3np — Diagnostics")
 }
 
 FindTes3mpWindowsCrash(exitLine)
@@ -433,13 +433,13 @@ try {
     $events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000; StartTime=$target.AddMinutes(-1); EndTime=$target.AddMinutes(2)} -ErrorAction Stop
     $match = $events | Where-Object { $_.Message -match '(?i)(^|[^a-z0-9_-])tes3mp[.]exe([^a-z0-9_-]|$)' } | Sort-Object TimeCreated -Descending | Select-Object -First 1
     if ($match) {
-        $lines = @('Windows Application Error (Event ID 1000)', 'Recorded: ' + $match.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), 'Source: ' + $match.ProviderName, $match.Message)
+        $lines = @('Windows Application Error (Event ID 1000)', 'Recorded: ' + $match.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), 'Source: ' + $match.ProviderName, 'TES3MP crash event detected; local Windows event description omitted for privacy.')
         [IO.File]::WriteAllText($OutputFile, ($lines -join [Environment]::NewLine), [Text.Encoding]::UTF8)
     } else {
         [IO.File]::WriteAllText($OutputFile, 'No matching Windows Application Error (Event ID 1000) was found for this TES3MP exit. A normal exit or an exception handled by the process may not create one.', [Text.Encoding]::UTF8)
     }
 } catch {
-    [IO.File]::WriteAllText($OutputFile, 'Windows crash details unavailable: ' + $_.Exception.Message, [Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText($OutputFile, 'Windows crash details unavailable (Windows event query failed).', [Text.Encoding]::UTF8)
 }
     )"
     try
@@ -458,7 +458,7 @@ try {
         return "Windows crash diagnostics could not be retrieved."
     }
     catch Error as err
-        return "Windows crash diagnostics unavailable: " err.Message
+        return "Windows crash diagnostics unavailable (" Type(err) ")."
 }
 
 ShowResetAppDataActions(*)
