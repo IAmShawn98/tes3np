@@ -19,7 +19,6 @@ StartLauncher()
     global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle, LauncherUpdateDismissedVersion
     ; A dismissal only lasts for this launcher session. Recheck next launch.
     LauncherUpdateDismissedVersion := ""
-    InitializePatchLogMirror()
     LogLauncherEvent("Launcher startup beginning.")
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
         "headings\together.png", "controls\button.png", "backgrounds\character-book.png", "icons\tes3np.ico"]
@@ -42,6 +41,8 @@ StartLauncher()
     InitializeLauncherMorrowindFont()
     ; Load saved characters before constructing launch controls.
     LoadProfiles()
+    SanitizeExistingDiagnosticLogs()
+    InitializePatchLogMirror()
     ; Recover a saved custom-client swap before launch buttons are available.
     RecoverCustomClientOverrides()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
