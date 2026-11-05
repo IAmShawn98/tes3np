@@ -207,6 +207,19 @@ expect(
 )
 
 expect(
+    "First authenticated Discord feed must reveal its hidden renderer parent",
+    # RestoreGameChatAfterSignIn hides messageClip while nativeMode is false.
+    # Merely setting messageBrowser.Visible later leaves its entire parent
+    # hidden, producing a black feed until the user restarts the launcher.
+    "messageClip.Visible = nativeMode;" in source
+    and "messageClip.Visible = false;" in source
+    and "nativeMode = true;\n                    web.Visible = false;" in source
+    and "messageClip.Visible = true;\n                    messageBrowser.Visible = true;" in source
+    and source.index("messageClip.Visible = true;\n                    messageBrowser.Visible = true;")
+    < source.index('Log("Native message view activated");'),
+)
+
+expect(
     "Happy Hour banner must track launcher movement without a timer delay",
     "void PositionHappyHourBanner()" in source
     and "SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height," in source
