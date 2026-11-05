@@ -257,7 +257,7 @@ ReleaseNoteFits(control, text, maxWidth)
     ; character count (proportional glyphs and DPI affect the pixel width).
     if text = ""
         return true
-    hFont := SendMessage(0x31, 0, 0, control.Hwnd) ; WM_GETFONT
+    hFont := SendMessage(0x31, 0, 0, , "ahk_id " control.Hwnd) ; WM_GETFONT
     dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
     if !dc
         return false
