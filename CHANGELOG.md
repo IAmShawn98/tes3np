@@ -3,6 +3,9 @@
 ## v0.1.21-alpha — unreleased
 
 ### Diagnostic privacy hardening — 2026-11-04 (Windows verification pending)
+
+- **Actual privacy/updater audit and legacy status follow-up, November 5:** User ran `python scripts/audit-local-privacy.py` at commit `8c498d1`. PASS for 2,714-line launcher.log, 11,255-line chat-host.log, one-line crash query, launcher on-disk newline, plus updater source/version, metadata/tamper and complete offline transaction/rollback fixtures. Four optional diagnostic categories had no files (SKIP). One of four old importer result.ini files was flagged for a Windows path, username, and legacy absolute Backup location; the current importer already writes non-sensitive metadata. Added an **explicit opt-in**, narrowly scoped `--repair-legacy-import-results` mode that only atomically rewrites old completed result.ini status files, never rollback journals/backups, settings, game files or private Discord archives; preserved prior file encoding and added synthetic private-journal regression coverage. User must run the synthetic self-test and opt-in repair on Windows before this last historical finding is accepted. No launcher application code changed or alpha published.
+
 - **Follow-up local acceptance tooling, November 5:** Added a standard-library, read-only `scripts/audit-local-privacy.py` command. It examines the **actual local** secondary diagnostic files and importer result metadata without printing or modifying private content, verifies launcher event line separation and terminal newline, and runs existing isolated updater/version/metadata/rollback tests when the required PowerShell runtimes are available. It reports missing optional files and missing PowerShell 7 explicitly as skips. Synthetic scanner self-test passed outside Windows; no user-machine output yet. No application/game behavior was changed and no new launcher build is necessary for this test-only commit.
 
 
