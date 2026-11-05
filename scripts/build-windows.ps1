@@ -399,37 +399,29 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
 }
 finally {
     Step 'Cleaning temporary build directory (best effort)'
-    # The official compiler and macro runtime are launched from this unique
-    # temporary tree. On Windows, antivirus/indexers or late handle release
-    # can make PowerShell's recursive Remove-Item raise a sharing violation
-    # *after* the signed-off ZIP passed every validation checkpoint.
-    #
-    # Run scratch deletion through cmd.exe instead: native rmdir reports a
-    # locked file with a non-zero exit code, not a PowerShell file-provider
-    # exception. Suppress its diagnostic stream and never let disposal of
-    # disposable build tools override the original build result. The caller
-    # still receives a failure if the actual build/verification try failed.
-    try {
-        if (Test-Path -LiteralPath $buildRoot) {
-            $cleanupDone = $false
-            for ($attempt = 1; $attempt -le 3; $attempt++) {
-                # Exact, GUID-named buildRoot only; never enumerate or delete
-                # another in-progress build's scratch directories.
-                & $env:ComSpec /d /c ('rmdir /s /q "' + $buildRoot + '" >nul 2>nul') | Out-Null
-                if (-not (Test-Path -LiteralPath $buildRoot)) {
-                    $cleanupDone = $true
-                    break
-                }
-                if ($attempt -lt 3) { Start-Sleep -Milliseconds 750 }
+    # Windows may temporarily lock the downloaded compiler or macro runtime.
+    # Use managed filesystem cleanup: unlike native cmd/rmdir, its failures
+    # cannot leak a nonzero process status to Build tes3np.bat after a
+    # successfully checked ZIP. Never touch dist or an installed launcher.
+    $cleaned = $false
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            if (-not [IO.Directory]::Exists($buildRoot)) {
+                $cleaned = $true
+                break
             }
-            if (-not $cleanupDone) {
-                Write-Warning "Temporary build tools are still locked: $buildRoot. The validated ZIP remains intact."
-            }
+            [IO.Directory]::Delete($buildRoot, $true)
+            $cleaned = $true
+            break
         }
+        catch {
+            # Retry only this build's GUID-named scratch directory; the
+            # original packaging exception, if any, remains authoritative.
+        }
+        if ($attempt -lt 3) { Start-Sleep -Milliseconds 750 }
     }
-    catch {
-        # Even cmd startup or a failed scratch-directory probe is nonfatal.
-        Write-Warning "Could not clean temporary build tools ($($_.Exception.Message)). The validated ZIP remains intact."
+    if (-not $cleaned) {
+        Write-Warning 'Some temporary build tools remain locked. The verified distribution ZIP is unaffected.'
     }
 }
 
