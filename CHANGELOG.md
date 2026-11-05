@@ -6,11 +6,11 @@
 
 - **Game Chat:** Chat with the community directly from the launcher using your Discord account.
 - **Built-in TES3MP client:** The Windows launcher includes the game client.
-- **Happy Hour notifications:** See detected Happy Hours in the launcher, with a banner and visual effects.
+- **Happy Hour notifications:** See detected Happy Hours in the launcher.
 
 ### Improvements
 
-- **Launcher appearance:** Updated window layouts, text readability, and release-notes presentation.
+- **Release notes:** Improved changelog presentation.
 - **Expansion Pack installation:** Import the pack from a downloaded ZIP or an extracted folder.
 
 ### Bug Fixes
