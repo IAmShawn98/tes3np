@@ -39,7 +39,7 @@ PrepareMarkerlessClientRuntime()
         path := clientFolder "\" name
         if !FileExist(path)
         {
-            LogLauncherEvent("Bundled TES3MP runtime missing: " path)
+            LogLauncherEvent("Bundled TES3MP runtime file missing.")
             MsgBox("This TES3NP installation is incomplete. Missing:" Chr(10) path Chr(10) Chr(10)
                 . "Extract the complete TES3NP release ZIP and run the tes3np.exe inside it.",
                 "Missing bundled TES3MP runtime", "Icon!")
@@ -87,7 +87,7 @@ GetManagedCustomClientExecutable(source)
     }
     catch Error as err
     {
-        LogLauncherEvent("GAME | Custom executable staging failed: " err.Message)
+        LogLauncherEvent("GAME | Custom executable staging failed (" Type(err) ").")
         MsgBox("Could not prepare custom TES3MP executable:`n" err.Message
             . "`n`nYour original file and bundled client were not changed.", "Custom client error", "Icon!")
         return ""
@@ -130,7 +130,7 @@ RecoverCustomClientOverrides()
         LogLauncherEvent("GAME | Recovered saved overrides from interrupted custom-client installation.")
     }
     catch Error as err
-        LogLauncherEvent("GAME | Interrupted custom-client recovery failed: " err.Message)
+        LogLauncherEvent("GAME | Interrupted custom-client recovery failed (" Type(err) ").")
 }
 
 GetCustomOverrideFolder()
@@ -168,7 +168,7 @@ GetMergedCustomClientExecutable()
                 checksum := SHA256File(file)
                 if checksum = ""
                 {
-                    LogLauncherEvent("GAME | SHA256 unavailable for custom override: " relative ". Using file metadata to preserve launch ability.")
+                    LogLauncherEvent("GAME | SHA256 unavailable for custom override; using file metadata to preserve launch ability.")
                     checksum := FileGetSize(file) "|" FileGetTime(file, "M")
                 }
                 signature .= relative "|" checksum ";"
@@ -204,7 +204,7 @@ GetMergedCustomClientExecutable()
     }
     catch Error as err
     {
-        LogLauncherEvent("GAME | Merged runtime failed: " err.Message)
+        LogLauncherEvent("GAME | Merged runtime failed (" Type(err) ").")
         MsgBox("Could not prepare custom client: " err.Message, "Game Client", "Icon!")
         return ""
     }
@@ -245,7 +245,7 @@ InstallCustomClientOverrides(source, dependencies := "")
                 DirCreate(destinationFolder)
                 FileCopy(A_LoopFileFullPath, destination, true)
                 copied += 1
-                LogLauncherEvent("GAME | Custom dependency staged | " relative)
+                LogLauncherEvent("GAME | Custom dependency staged.")
             }
             if copied = 0
                 throw Error("Selected dependencies folder contains no files.")
@@ -270,7 +270,7 @@ InstallCustomClientOverrides(source, dependencies := "")
     }
     catch Error as err
     {
-        LogLauncherEvent("GAME | Custom override installation failed: " err.Message)
+        LogLauncherEvent("GAME | Custom override installation failed (" Type(err) ").")
         MsgBox("Unable to save custom files: " err.Message, "Game Client", "Icon!")
         return false
     }
