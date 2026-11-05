@@ -985,6 +985,7 @@ metrics();
         bool connectingChat;
         bool freshDiscordProfile;
         bool discordLoginVisible;
+        bool discordSignInRequested;
         Form? discordSignInWindow;
         bool showChatAfterDiscordSignIn;
         // Authentication gates live Discord fetching/paging ONLY. A genuine
@@ -3320,6 +3321,8 @@ metrics();
         }
         void RevealDiscordSignInWindow()
         {
+            // Only explicit Game Chat or Expansion Pack actions may open login.
+            discordSignInRequested = true;
             if (discordSignInWindow is not { IsDisposed: false } popup) return;
             if (!popup.Visible) popup.Show();
             popup.BringToFront();
@@ -3381,12 +3384,14 @@ metrics();
             var later = new Button { Text = "Not Now", Dock = DockStyle.Fill };
             later.Click += (_, _) => {
                 popup.Hide();
+                discordSignInRequested = false;
                 CancelPendingExpansionPrompt();
             };
             popup.FormClosing += (_, e) => {
                 if (!closingChat) {
                     e.Cancel = true;
                     popup.Hide();
+                    discordSignInRequested = false;
                     CancelPendingExpansionPrompt();
                 }
             };
@@ -3399,9 +3404,14 @@ metrics();
             web.Dock = DockStyle.Fill;
             web.Parent = browserPanel;
             web.Visible = true;
-            popup.Show();
+            // Keep the authentication WebView2 alive for background channel /
+            // Happy Hour discovery without interrupting a clean first launch.
+            // The same popup becomes visible on a user-initiated action.
+            if (discordSignInRequested) popup.Show();
             SetNativeWindowOwner(popup.Handle, owner);
-            Log("Discord login: dedicated sign-in window opened with existing browser");
+            Log(discordSignInRequested
+                ? "Discord login: user-requested sign-in window opened"
+                : "Discord login: ready but deferred until requested");
         }
         void RestoreGameChatAfterSignIn()
         {
@@ -3410,7 +3420,9 @@ metrics();
             // DockToLauncher() reapplies the saved display mode and normally
             // hides Automatic chat; preserve the panel the user opened to
             // complete this sign-in instead of making it disappear.
-            bool keepChatVisible = showChatAfterDiscordSignIn && chatDisplayMode != "Always Hidden";
+            bool keepChatVisible = discordSignInRequested && showChatAfterDiscordSignIn &&
+                chatDisplayMode != "Always Hidden";
+            discordSignInRequested = false;
             discordLoginVisible = false;
             signInExpanded = false;
             web.Dock = DockStyle.None;
