@@ -68,6 +68,10 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [x] November 5 fresh Launcher Log copy shows both previously merged timestamps on separate lines; no malformed event lines in the 2,713-event export.
 - [ ] Confirm the underlying on-disk migrated launcher.log ends with a newline and remains append-safe after repeated fresh launcher sessions (clipboard export alone cannot prove its terminal newline).
 
+- [ ] Run the read-only consolidated audit `python scripts/audit-local-privacy.py` after pulling the new test utility. Review PASS/REVIEW/SKIP category counts for actual Chat Host, Expansion Pack, render, launcher and importer-result files, and updater offline fixtures. No raw logs or private Discord archive should be shared. Missing optional log files are not proof of a pass.
+- [ ] If PowerShell 7 is unavailable, mark the isolated updater transaction/rollback fixture SKIPPED, not passed. It can be rerun later without touching a real installed game.
+- [ ] In one live session, check character launch/login, first-favorite behavior, custom portrait, macros, Game Chat/Happy Hour, Expansion Pack toggle and optional ZIP import in a disposable game installation. Confirm stored preferences and chat remain available without opening or copying private chat archives.
+
 ## Distribution/legal
 - [ ] Ship all required licenses and third-party notices.
 - [ ] Publish corresponding source and build instructions for any distributed modified GPL-covered TES3MP executable.
