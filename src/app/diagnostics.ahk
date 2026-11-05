@@ -110,9 +110,9 @@ SanitizeDiagnosticText(text)
             item := RegExReplace(item, "\b\d{16,21}\b", "")
             ; Remove a standalone Windows account name in non-character fields.
             ; The "Character:" field is public gameplay information.
-            if StrLen(windowsUser) >= 3 && !RegExMatch(item, "i)^Character\\s*:")
-                item := RegExReplace(item, "i)(?<![\\p{L}\\p{N}_])\\Q" windowsUser "\\E(?![\\p{L}\\p{N}_])", "")
-            item := RegExReplace(item, "[ \\t]{2,}", " ")
+            if StrLen(windowsUser) >= 3 && !RegExMatch(item, "i)^Character\s*:")
+                item := RegExReplace(item, "i)(?<![\p{L}\p{N}_])\Q" windowsUser "\E(?![\p{L}\p{N}_])", "")
+            item := RegExReplace(item, "[ \t]{2,}", " ")
             ; A removed value should not leave "Path:", "URL:", or extra pipes.
             item := RegExReplace(item, "i)\b(?:Executable(?:\s+path)?|Source\s+path|Destination|Install|Stage|Path|Folder|File|URL|Mail|Email)\s*[:=]\s*$", "")
             item := Trim(item, " `t:=")
