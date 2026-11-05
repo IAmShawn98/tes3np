@@ -2,6 +2,12 @@
 
 ## v0.1.21-alpha — unreleased
 
+### First Discord login Game Chat fix — 2026-11-05 (Windows runtime check pending)
+
+- **Observed regression:** After the first Discord authentication, the existing Game Chat panel displayed its bronze frame and scrollbar but a black message area until restarting the launcher. Source inspection identified the exact parent-visibility mismatch: `ShowDiscordSignIn` hides `messageClip`, `RestoreGameChatAfterSignIn` leaves it hidden while native mode is false, and the first `RefreshNativeMessages` activation showed `messageBrowser` but **not its parent**. The renderer therefore remained invisible even with real messages and `nativeMode=true`. Minimal fix restores `messageClip.Visible = true` before showing the child renderer. Added a source regression guard to `scripts/check-chat-architecture.py`. Existing once-per-sign-in channel reload, Discord profile, Game Chat messages, scrolling and Happy Hour detection were not modified. **Source fix committed only; Windows build and first-login live test still required.**
+
+
+
 ### Diagnostic privacy hardening — 2026-11-04 (Windows verification pending)
 - **Historical Expansion Pack status privacy verified, November 5:** User pulled `aa46fd4`, ran the disposable `--self-test` (PASS, one synthetic UTF-16 record repaired and idempotent second pass), then opted in to `--repair-legacy-import-results --skip-updater` on Windows. Exactly one older `result.ini` record was repaired with no skipped or failed records. Rescan: 2,824-line launcher.log PASS, 11,255-line chat-host.log PASS, one-line crash query PASS, **four importer result files/16 lines PASS**; `flagged categories=0`. Patch, render, and toggle logs remain ungenerated SKIPs. Private settings/chat files were present but not opened/modified by the audit; their pre/post integrity is not independently established. All three offline updater fixtures passed in the earlier November 5 run, not this skipped-updater pass. **Available diagnostic privacy findings closed; interactive feature/packaged ZIP and absent-log cases remain outstanding.** No application source changes or public release.
 
