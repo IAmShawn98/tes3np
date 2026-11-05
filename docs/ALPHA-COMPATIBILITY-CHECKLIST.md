@@ -60,6 +60,10 @@ permissions errors, and shortcut prompt persistence after backup import.
 - [ ] After rebuilding, verify fresh `launcher.log`, `chat-host.log`, updater events and copied Expansion Pack/render logs remove Windows usernames, absolute paths, email addresses, tokens and passwords **without** `REDACTED`, `[path omitted]`, empty labels or extra `|` separators. Useful event details and public character names must remain.
 - [ ] On first startup, confirm historical diagnostics (including `PrivacyScrubVersion=1` placeholders) are cleaned under version 2 without touching `Logs/game-chat.log`, `Logs/game-chat-index.json`, settings, saved profiles, macros, portraits or private WebView2 data. Never attach the raw Game Chat archive to a bug report.
 - [ ] Confirm the disposable AutoHotkey diagnostic privacy fixture passes as part of the normal Windows build, and exercise Game Chat, Happy Hour, macros and login afterward.
+- [x] Source-side privacy review covers the AHK launcher, Chat Host, updater, import/toggle/picker result files, macro worker, clipboard and user-facing error boundaries. Source changes and regression guards are committed; see [diagnostic privacy audit](DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md).
+- [ ] Confirm `PrivacyScrubVersion=3` processes pre-existing v2 logs, preserves public character names, and removes placeholder fields without touching the private journal, backups, settings or Discord archive.
+- [ ] Inspect `result.ini` for `Backup=available` rather than an absolute path, and verify private `journal.json` still supports rollback. Check toggle and picker failures still show meaningful safe messages.
+- [ ] Re-run the complete Windows build and test the freshly extracted package after the source-side privacy closure; earlier Windows compilation failures and nonfatal `WindowsBase` warning do not count as post-change acceptance.
 
 ## Distribution/legal
 - [ ] Ship all required licenses and third-party notices.
