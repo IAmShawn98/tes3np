@@ -16,7 +16,6 @@ Changes since the last public release, v0.1.20-alpha.
 
 - **Expansion Pack installation:** Install the Expansion Pack using either a downloaded ZIP file or an extracted folder.
 - **Connection diagnostics:** Copy clearer information about missing, mismatched, or incorrectly ordered plugins when a connection fails.
-- **Troubleshooting logs:** Personal information is better protected when copying diagnostic logs.
 
 ### Bug Fixes
 
