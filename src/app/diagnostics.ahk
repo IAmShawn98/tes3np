@@ -8,8 +8,11 @@ LogLauncherEvent(message)
     global LauncherLogFile
     try
     {
+        safe := SanitizeDiagnosticText(message)
+        if safe = ""
+            return
         DirCreate(AppDataDirectory)
-        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " StrReplace(StrReplace(SanitizeDiagnosticText(message), "`r", " "), "`n", " ") "`n", LauncherLogFile, "UTF-8")
+        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " StrReplace(StrReplace(safe, "`r", " "), "`n", " ") "`n", LauncherLogFile, "UTF-8")
     }
 }
 
