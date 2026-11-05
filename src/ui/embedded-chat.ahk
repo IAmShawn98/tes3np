@@ -33,7 +33,7 @@ EnsureEmbeddedChatHostCurrent(host)
         LogLauncherEvent("CHAT | ChatHost rebuild exit code: " result)
     }
     catch as err
-        try LogLauncherEvent("CHAT | ChatHost freshness check failed: " err.Message)
+        try LogLauncherEvent("CHAT | ChatHost freshness check failed (" Type(err) ").")
 }
 
 WebView2RuntimeAvailable()
@@ -62,7 +62,7 @@ StartEmbeddedInGameChat()
         LogLauncherEvent("CHAT | WebView2 runtime not detected in standard registry locations. Attempting chat host launch; gameplay is unaffected.")
     if !FileExist(host)
     {
-        try LogLauncherEvent("CHAT | Embedded host not installed: " host)
+        try LogLauncherEvent("CHAT | Embedded host executable not installed.")
         return
     }
     if EmbeddedChatPid && ProcessExist(EmbeddedChatPid)
@@ -75,7 +75,7 @@ StartEmbeddedInGameChat()
     catch as err
     {
         EmbeddedChatPid := 0
-        try LogLauncherEvent("CHAT | Failed to start WebView2 host: " err.Message)
+        try LogLauncherEvent("CHAT | Failed to start WebView2 host (" Type(err) ").")
     }
 }
 
