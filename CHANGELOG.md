@@ -2,8 +2,9 @@
 
 ## v0.1.21-alpha — unreleased
 
-### First Discord login Game Chat fix — 2026-11-05 (Windows runtime check pending)
+### First Discord login Game Chat fix — 2026-11-05 (visual fix user-confirmed)
 
+- **User acceptance:** After the completed Chat Host loading-state and real-scrollbar changes, the user reported **“Fixed!”** on November 5. This confirms the reported stale scrollbar/loading presentation issue was resolved in their tested launcher session. No detailed build transcript or separate signed-out authentication reproduction was supplied with this confirmation; other Chat/Happy Hour/ZIP regression checks remain independently pending.
 - **Complete first-login presentation follow-up:** User screenshots show that after the initial black-pane fix, chat messages do arrive without restarting, but the scrollbar stays as an old flat painted track and the `Connecting to live chat...` status is not consistently displayed during the OAuth/channel handoff. Root causes: `ShowDiscordSignIn` hides `goldScrollbar`, initial `RefreshNativeMessages` never restores its visibility, and `frameSurface.Paint` draws an outdated duplicate fake track; `RestoreGameChatAfterSignIn` also hides the parent frame and native loading label until messages are ready. The source now displays the real connecting status within the existing gold frame from post-auth handoff, hides the scrollbar until the first successful feed, ensures a correctly sized visible HTML parent before the first `setMessages`, then restores the actual textured scrollbar and refreshes its metrics and native layout. The redundant frame-painted fake scrollbar was removed. Strengthened Chat Host architecture tests. No changes to Discord credentials, source navigation rules, message archival, scrolling intent or Happy Hour processing. **Source checks passed; Windows build and live UI verification pending.**
 
 
