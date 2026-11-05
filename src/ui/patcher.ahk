@@ -212,6 +212,9 @@ CheckPatchWorker()
         ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
     }
+    message := SanitizeDiagnosticText(message)
+    if message = ""
+        message := "The Expansion Pack operation could not be completed."
     MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
 }
 
@@ -385,7 +388,7 @@ ToggleExpansionPack(*)
         ; Invoke PowerShell directly. cmd.exe nested quoting previously lost
         ; stderr and gave users an empty "was not changed" error.
         RunWait(command, , "Hide", &exitCode)
-        details := FileExist(output) ? Trim(FileRead(output, "UTF-8")) : ""
+        details := FileExist(output) ? SanitizeDiagnosticText(Trim(FileRead(output, "UTF-8"))) : ""
         ; The worker result message alone is not proof of failure or success.
         ; The user's screenshots showed 'Disable complete' incorrectly flagged
         ; as an error. Inspect the actual on-disk OpenMW load order instead.
@@ -409,7 +412,8 @@ ToggleExpansionPack(*)
     catch Error as err
     {
         LogLauncherEvent("EXPANSION | Toggle exception type: " Type(err))
-        MsgBox(err.Message, "Expansion Pack", "Icon!")
+        reason := SanitizeDiagnosticText(err.Message)
+        MsgBox(reason != "" ? reason : "Could not update the Expansion Pack.", "Expansion Pack", "Icon!")
     }
 }
 
