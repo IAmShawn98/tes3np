@@ -373,7 +373,7 @@ ShowLauncherWindow(reuseCached := false, *)
     ; resize/repaint work, then reveal the completed page.
     ; The Characters book keeps its controls alive. Returning from it can
     ; reuse the existing launcher geometry when the layout remains valid.
-    if reuseCached && LauncherCachedScale > 0 && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
+    if LauncherCachedScale > 0 && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
         && LauncherControlLayout.Count = LauncherCachedLayoutCount
     {
         desiredScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
@@ -406,7 +406,23 @@ ShowLauncherWindow(reuseCached := false, *)
             LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding under the existing frame cover.")
         }
     }
-    LauncherGui.Show("w960 h716")
+    ; Initial window geometry is calculated while hidden. Otherwise every
+    ; fresh process launch paints a full-size 960x716 window and visibly
+    ; shrinks it, even when the user has the same saved display settings.
+    if !LauncherCachedScale
+    {
+        LauncherGui.Show("Hide w960 h716")
+        ApplyLauncherScaleToWindow()
+        CenterLauncherWithoutResizing()
+        LauncherCachedScale := LauncherScale
+        LauncherCachedLayoutCount := LauncherControlLayout.Count
+        LauncherGui.Show()
+        RepaintMenuButtons()
+        ResizeEmbeddedInGameChat()
+        return
+    }
+    ; Preserve the current window size while an existing layout is repaired.
+    LauncherGui.Show()
     ; Capture the last frame immediately to hide repaint jank, but only show
     ; the Jiub card if the transition actually takes more than 120 ms.
     startedAt := A_TickCount

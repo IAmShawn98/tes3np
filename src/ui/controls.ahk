@@ -265,19 +265,27 @@ ReleaseButton(wParam, lParam, msg, hwnd)
         return 0
     if ReleaseMenuScroll()
         return 0
-    ; A mouse-up can occasionally arrive after capture/focus churn cleared the
-    ; tracked press. If it lands on a live themed button, treat that button as
-    ; the click target instead of swallowing the first click.
+    ; Mouse capture/focus changes can deliver mouse-up to a parent HWND even
+    ; when the pointer is over a live themed button. Verify the actual child
+    ; beneath the pointer before deciding the click was lost.
     if !PressedButton
     {
-        if ButtonFaces.Has(hwnd) && DllCall("IsWindow", "Ptr", hwnd)
+        target := hwnd
+        if !ButtonFaces.Has(target)
         {
-            face := ButtonFaces[hwnd]
+            MouseGetPos(, , &pointerWindow, &pointerControl, 2)
+            if ButtonFaces.Has(pointerControl) && pointerWindow = ButtonFaces[pointerControl].Window
+                && (hwnd = pointerWindow || DllCall("GetAncestor", "Ptr", hwnd, "UInt", 2, "Ptr") = pointerWindow)
+                target := pointerControl
+        }
+        if ButtonFaces.Has(target) && DllCall("IsWindow", "Ptr", target)
+        {
+            face := ButtonFaces[target]
             if !face.HasOwnProp("IsLabel") && face.Control.Enabled && face.Control.Visible
             {
-                HoverButton := hwnd
-                ShowButtonFace(hwnd)
-                ActivateThemedButton(hwnd)
+                HoverButton := target
+                ShowButtonFace(target)
+                ActivateThemedButton(target)
                 return 0
             }
         }
