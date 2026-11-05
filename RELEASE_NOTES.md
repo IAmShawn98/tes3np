@@ -4,18 +4,17 @@
 
 ### New Features
 
-- **Game Chat:** Chat with the community from the launcher using your Discord account.
-- **Built-in game client:** The Windows launcher package includes the TES3MP client, making initial setup easier.
+- **Game Chat:** Chat with the community directly from the launcher using your Discord account.
+- **Built-in TES3MP client:** The Windows launcher includes the game client.
+- **Happy Hour notifications:** See detected Happy Hours in the launcher, with a banner and visual effects.
 
 ### Improvements
 
-- **Launcher appearance:** Refined window layouts, readability, and the release-notes display.
-- **Expansion Pack installation:** Choose a downloaded ZIP or extracted folder, with safer file replacement and backup handling.
-- **Happy Hour:** Added an in-launcher Happy Hour banner and visual effects when a Happy Hour is detected.
+- **Launcher appearance:** Updated window layouts, text readability, and release-notes presentation.
+- **Expansion Pack installation:** Import the pack from a downloaded ZIP or an extracted folder.
 
 ### Bug Fixes
 
-- Fixed issues that could leave Game Chat blank or showing an outdated scrollbar after Discord sign-in.
-- Improved detection and recovery guidance for missing or mismatched Expansion Pack files.
-- Fixed several Expansion Pack import failures caused by Windows file locks.
+- Fixed Game Chat sometimes appearing blank or displaying an outdated scrollbar after Discord sign-in.
+- Fixed Expansion Pack installation failures caused by Windows file locks.
 
