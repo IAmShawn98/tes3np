@@ -42,6 +42,22 @@ try {
     [IO.File]::WriteAllText($esp, '', [Text.Encoding]::ASCII)
     RunToggle 'Enable' 'empty-pack' $false
     AssertToggle ([IO.File]::ReadAllText($config) -eq $original) 'empty pack changed configuration'
+    # A player may install the ESP in a separate data= directory.
+    $alternate = Join-Path $root 'custom-expansion-data'
+    [IO.Directory]::CreateDirectory($alternate) | Out-Null
+    $alternateEsp = Join-Path $alternate 'NP Expansion Pack.esp'
+    [IO.File]::WriteAllText($alternateEsp, 'synthetic separately installed pack', [Text.Encoding]::ASCII)
+    $alternateConfig = $original + 'data="' + $alternate.Replace('\','/') + '"' + "`r`n"
+    [IO.File]::WriteAllText($config, $alternateConfig, [Text.Encoding]::UTF8)
+    RunToggle 'Enable' 'alternate-data-folder' $true
+    $afterAlternateEnable = [IO.File]::ReadAllText($config)
+    AssertToggle ($afterAlternateEnable.Contains('content=NP Expansion Pack.esp')) 'separately installed pack was not enabled'
+    AssertToggle ($afterAlternateEnable.Contains('content=OtherMod.esp')) 'alternate enable lost unrelated mod'
+    RunToggle 'Disable' 'alternate-disabled' $true
+    AssertToggle ([IO.File]::ReadAllText($alternateEsp) -eq 'synthetic separately installed pack') 'alternate pack changed on toggle'
+    AssertToggle (![IO.File]::ReadAllText($config).Contains('content=NP Expansion Pack.esp')) 'alternate disable left content enabled'
+    [IO.File]::WriteAllText($config, $original, [Text.Encoding]::UTF8)
+    # Original game-folder case must work independently as well.
     [IO.File]::WriteAllText($esp, 'synthetic installed Expansion Pack', [Text.Encoding]::ASCII)
     $beforeEsp = [IO.File]::ReadAllText($esp)
     RunToggle 'Enable' 'installed-pack' $true
