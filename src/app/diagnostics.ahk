@@ -117,7 +117,7 @@ SanitizeExistingDiagnosticLogs()
         return
     complete := true
     for filename in ["launcher.log", "chat-host.log", "patch-all.log",
-        "patch-errors.log", "render-errors.log"]
+        "patch-errors.log", "render-errors.log", "tes3mp-crash-query.txt"]
     {
         path := AppDataDirectory "\" filename
         if !FileExist(path)
