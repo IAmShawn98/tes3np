@@ -1,5 +1,6 @@
 ﻿; Shared Morrowind discovery, optional Expansion Pack toggle and import progress.
 ; The retired bundled v0.1 Install / Repair GUI and worker are deliberately absent.
+global MorrowindPromptGui := 0
 
 PatchInProgress()
 {
@@ -329,6 +330,10 @@ ExpansionPackIsEnabled()
     config := PatchConfigurationPath()
     if !FileExist(config)
         return false
+    ; A stale load-order entry is not proof the optional ESP is installed.
+    morrowind := FindMorrowindFolder(config)
+    if !ExpansionPackInstalled(morrowind, config)
+        return false
     try
     {
         for line in StrSplit(FileRead(config, "UTF-8"), Chr(10), Chr(13))
@@ -466,9 +471,8 @@ ToggleExpansionPack(*)
 ; TES3NP already bundles its own client.
 CheckFirstRunMorrowind(*)
 {
-    global DataFile, LauncherGui
-    if IniRead(DataFile, "Install", "MorrowindPromptDismissed", "0") = "1"
-        return
+    global DataFile, LauncherGui, MorrowindPromptGui
+    ; "Not Now" only defers until the next startup or game launch.
     found := FindMorrowindFolder(PatchConfigurationPath())
     if found != ""
     {
@@ -476,6 +480,18 @@ CheckFirstRunMorrowind(*)
         IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
         LogLauncherEvent("SETUP | Morrowind GOTY installation located.")
         return
+    }
+    if IsObject(MorrowindPromptGui)
+    {
+        try
+        {
+            if DllCall("IsWindow", "Ptr", MorrowindPromptGui.Hwnd)
+            {
+                WinActivate("ahk_id " MorrowindPromptGui.Hwnd)
+                return
+            }
+        }
+        MorrowindPromptGui := 0
     }
     prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Locate Morrowind")
     prompt.BackColor := "E2CEA2"
@@ -489,12 +505,28 @@ CheckFirstRunMorrowind(*)
     later.OnEvent("Click", (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
+    MorrowindPromptGui := prompt
     prompt.Show("w480 h250")
+}
+
+; Do not launch TES3MP until all three GOTY master files are present.
+EnsureMorrowindForGameLaunch()
+{
+    global DataFile
+    found := FindMorrowindFolder(PatchConfigurationPath())
+    if found != ""
+    {
+        IniWrite(found, DataFile, "Patch", "MorrowindFolder")
+        return true
+    }
+    LogLauncherEvent("GAME | BLOCKED | Morrowind GOTY data missing; opening folder chooser.")
+    CheckFirstRunMorrowind()
+    return false
 }
 
 SelectFirstRunMorrowind(prompt, *)
 {
-    global DataFile
+    global DataFile, MorrowindPromptGui
     folder := FileSelect("D", , "Select Morrowind GOTY installation folder")
     if folder = ""
         return
@@ -513,13 +545,15 @@ SelectFirstRunMorrowind(prompt, *)
     IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
     IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
     LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
+    MorrowindPromptGui := 0
     prompt.Destroy()
     MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
 }
 
 DismissFirstRunMorrowind(prompt, *)
 {
-    global DataFile
-    IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+    global MorrowindPromptGui
+    ; Do not permanently suppress reminders for missing game files.
+    MorrowindPromptGui := 0
     prompt.Destroy()
 }

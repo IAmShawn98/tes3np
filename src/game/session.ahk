@@ -64,6 +64,8 @@ ValidateLaunch(profile, executable)
 {
     if !CanUseNPLauncher()
         return false
+    if !EnsureMorrowindForGameLaunch()
+        return false
     SplitPath(executable, &filename)
     if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
     {
@@ -102,6 +104,7 @@ LaunchProfileIndex(index)
 StartProfileSession(profile, executable)
 {
     global Client, TES3MPLastMismatchEvidence
+    ResetPendingExpansionPromptForNewLaunch()
     ; Every login gets fresh mismatch evidence. Retain the previous result
     ; only while its own failed-login dialog is available for Copy Info.
     TES3MPLastMismatchEvidence := 0
@@ -379,6 +382,8 @@ StartNewAdventure(*)
         return
     }
     if !CanStartAnotherTES3NPGame()
+        return
+    if !EnsureMorrowindForGameLaunch()
         return
     executable := GetSharedExecutable()
     if !ValidateSelectedClientRuntime(executable)

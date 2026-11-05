@@ -3476,6 +3476,7 @@ metrics();
                     case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
                     case 9: HideEmbeddedExpansionDownloads(m.LParam); break;
                     case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
+                    case 11: CancelPendingExpansionPrompt(); break;
                 }
                 return;
             }

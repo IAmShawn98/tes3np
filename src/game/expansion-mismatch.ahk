@@ -132,6 +132,18 @@ HandleTES3MPPluginMismatch()
     ShowTES3MPExpansionMismatchDialog()
 }
 
+; Clear a prior unresolved Discord download request before a new login;
+; otherwise its pending flag can suppress a later genuine server mismatch.
+ResetPendingExpansionPromptForNewLaunch()
+{
+    global ExpansionDiscordPromptPending
+    if !ExpansionDiscordPromptPending
+        return
+    ExpansionDiscordPromptPending := 0
+    SendLauncherChatCommand(11)
+    LogLauncherEvent("EXPANSION | Reset pending Discord recovery for new game launch.")
+}
+
 ; All Discord-dependent download dialogs wait for the existing Game Chat
 ; authentication. Only the running ChatHost can complete this in-memory request.
 RequestDiscordExpansionPrompt(mode := 2)
