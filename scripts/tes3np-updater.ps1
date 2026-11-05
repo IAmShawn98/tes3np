@@ -10,7 +10,7 @@ function Write-UpdaterLog([string]$Message) {
         # shared launcher log. Preserve useful update and rollback milestones.
         $safe = [regex]::Replace($Message, '(?i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]', '')
         $safe = [regex]::Replace($safe, '(?i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=][^|\r\n]*', '')
-        $safe = [regex]::Replace($safe, '(?i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%[\\/][^|\r\n]*', '')
+        $safe = [regex]::Replace($safe, '(?i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%(?:[\\/][^|\r\n]*)?', '')
         $safe = [regex]::Replace($safe, '(?i)\b(?:https?|wss?)://[^\s|]+', '')
         $safe = [regex]::Replace($safe, '(?i)\b[A-Z]:[\\/][^|\r\n]*', '')
         $safe = [regex]::Replace($safe, '(?i)\\\\[^|\r\n]*', '')
