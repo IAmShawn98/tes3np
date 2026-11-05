@@ -4,6 +4,11 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Final missing-GOTY recovery guard — 2026-11-05
+
+- Extended the shared GOTY preflight to the tracked game's actual Run() path, protecting auto-reconnect/recovery as well as both manual launch buttons. A missing installation stops the monitored attempt, opens the GOTY folder selector and does not enter an endless reconnect loop.
+- Static source contract now requires this third guard. Windows packaged-build validation and interactive recovery testing remain pending.
+
 ### Source regression contracts for second-PC issues — 2026-11-05
 
 - Extended the existing Python Chat Host architecture preflight with static source guards for GOTY selection and launch preflight, installed-ESP toggle status, fresh Discord recovery handshake, hidden launcher startup fit, custom-button mouse-release targeting, and the dedicated WebView2 login popup. Windows compile and UI tests remain required; source checks are not a substitute.
