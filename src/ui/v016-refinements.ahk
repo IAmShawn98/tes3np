@@ -364,7 +364,7 @@ CopyExpansionPackLogs(*)
         return
     }
     A_Clipboard := SanitizeDiagnosticText(report)
-    MsgBox("Sanitized Expansion Pack diagnostics copied. Review before sharing.", "tes3np — Diagnostics")
+    MsgBox("Expansion Pack diagnostics copied. Review before sharing.", "tes3np — Diagnostics")
 }
 
 CopyAppDataLog(filename, syncLauncher := false, *)
@@ -412,7 +412,7 @@ CopyAppDataLog(filename, syncLauncher := false, *)
         MsgBox("Could not read " filename " (" Type(err) ").", "tes3np — Diagnostics", "Icon!")
         return
     }
-    MsgBox("Sanitized diagnostic log copied to your clipboard. Review before sharing.", "tes3np — Diagnostics")
+    MsgBox("Diagnostic log copied to your clipboard. Review before sharing.", "tes3np — Diagnostics")
 }
 
 FindTes3mpWindowsCrash(exitLine)
@@ -433,7 +433,7 @@ try {
     $events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000; StartTime=$target.AddMinutes(-1); EndTime=$target.AddMinutes(2)} -ErrorAction Stop
     $match = $events | Where-Object { $_.Message -match '(?i)(^|[^a-z0-9_-])tes3mp[.]exe([^a-z0-9_-]|$)' } | Sort-Object TimeCreated -Descending | Select-Object -First 1
     if ($match) {
-        $lines = @('Windows Application Error (Event ID 1000)', 'Recorded: ' + $match.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), 'Source: ' + $match.ProviderName, 'TES3MP crash event detected; local Windows event description omitted for privacy.')
+        $lines = @('Windows Application Error (Event ID 1000)', 'Recorded: ' + $match.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), 'Source: ' + $match.ProviderName, 'TES3MP crash event detected.')
         [IO.File]::WriteAllText($OutputFile, ($lines -join [Environment]::NewLine), [Text.Encoding]::UTF8)
     } else {
         [IO.File]::WriteAllText($OutputFile, 'No matching Windows Application Error (Event ID 1000) was found for this TES3MP exit. A normal exit or an exception handled by the process may not create one.', [Text.Encoding]::UTF8)
