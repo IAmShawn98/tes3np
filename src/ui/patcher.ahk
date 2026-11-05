@@ -393,13 +393,13 @@ ToggleExpansionPack(*)
         {
             if details = ""
                 details := "The OpenMW configuration still has the previous Expansion Pack state. Worker exit code: " exitCode "."
-            LogLauncherEvent("EXPANSION | Toggle failed | Exit code: " exitCode " | " details)
+            LogLauncherEvent("EXPANSION | Toggle failed | Exit code: " exitCode ".")
             MsgBox("Expansion Pack was not changed." Chr(10) Chr(10) SubStr(details, 1, 1200), "Expansion Pack", "Icon!")
             RefreshExpansionPackToggle()
             return
         }
         if exitCode
-            LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state. Details: " details)
+            LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state.")
         IniWrite(enable ? "1" : "0", DataFile, "ExpansionPack", "GlobalEnabled")
         LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
         RefreshExpansionPackToggle()
@@ -407,7 +407,7 @@ ToggleExpansionPack(*)
     }
     catch Error as err
     {
-        LogLauncherEvent("EXPANSION | Toggle exception: " err.Message)
+        LogLauncherEvent("EXPANSION | Toggle exception type: " Type(err))
         MsgBox(err.Message, "Expansion Pack", "Icon!")
     }
 }
