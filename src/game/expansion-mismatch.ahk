@@ -136,9 +136,16 @@ HandleTES3MPPluginMismatch()
 ; authentication. Only the running ChatHost can complete this in-memory request.
 RequestDiscordExpansionPrompt(mode := 2)
 {
-    global ExpansionDiscordPromptPending, ExpansionMismatchDialog
-    if IsObject(ExpansionMismatchDialog) || ExpansionDiscordPromptPending
+    global ExpansionDiscordPromptPending, ExpansionMismatchDialog, EmbeddedChatPid
+    if IsObject(ExpansionMismatchDialog)
         return
+    ; A crashed ChatHost cannot strand the request forever.
+    if ExpansionDiscordPromptPending
+    {
+        if EmbeddedChatPid && ProcessExist(EmbeddedChatPid)
+            return
+        ExpansionDiscordPromptPending := 0
+    }
     if mode != 1 && mode != 2
         return
     ExpansionDiscordPromptPending := mode
