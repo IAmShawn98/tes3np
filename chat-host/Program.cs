@@ -3391,16 +3391,47 @@ metrics();
             if (pendingExpansionPrompt != 0) return;
             pendingExpansionPrompt = mode;
             restoreChatAfterExpansionPrompt = !chatOpen;
-            if (discordChannelReady && !discordLoginVisible)
+            // The previous channelReady flag may be stale after a sign-out.
+            // Independently probe the live Discord DOM before revealing any
+            // Discord-backed popup, even for previously signed-in users.
+            _ = ResolvePendingExpansionPromptAsync();
+        }
+        async Task ResolvePendingExpansionPromptAsync()
+        {
+            if (pendingExpansionPrompt == 0 || closingChat || IsDisposed) return;
+            if (discordChannelReady && !discordLoginVisible && web.CoreWebView2 != null)
             {
-                CompletePendingExpansionPrompt();
-                return;
+                var core = web.CoreWebView2;
+                try
+                {
+                    string before = core.Source ?? "";
+                    if (string.Equals(before.TrimEnd('/'), Channel,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        string live = await core.ExecuteScriptAsync(
+                            "(() => !!document.querySelector('[data-list-id=chat-messages]'))()");
+                        if (pendingExpansionPrompt == 0 || closingChat || IsDisposed) return;
+                        if (live == "true" &&
+                            string.Equals(core.Source, before, StringComparison.OrdinalIgnoreCase))
+                        {
+                            CompletePendingExpansionPrompt();
+                            return;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log("EXPANSION | Live Discord authorization check: " + ex.GetType().Name);
+                }
+                // Never trust a ready flag if the live channel DOM disappeared.
+                SuspendHappyHourUntilDiscordReturns("live expansion authentication check");
             }
+            if (pendingExpansionPrompt == 0 || closingChat || IsDisposed) return;
             lastChatActivity = DateTime.Now;
             SetChatOpen(true);
             Log("EXPANSION | Waiting for existing Discord Game Chat authentication.");
-            // Navigation / CheckDiscordAuthentication will reveal ShowDiscordSignIn
-            // when Discord redirects to /login. Never reset cookies or profiles.
+            // Normal navigation/polling reveals the established branded
+            // Discord login; do not reset the profile or open a new browser.
         }
         void CancelPendingExpansionPrompt()
         {
