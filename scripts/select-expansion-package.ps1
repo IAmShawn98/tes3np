@@ -275,12 +275,17 @@ try {
     exit 0
 }
 catch {
+    # A native picker exception can include the user's Downloads directory or
+    # account name. Return a stable error category and HRESULT, never its text.
+    $failure = $_.Exception.GetBaseException()
+    $diagnostic = 'Native Expansion Pack picker failed (' + $failure.GetType().Name +
+        ', HRESULT 0x' + $failure.HResult.ToString('X8') + ').'
     if ($ResultFile) {
         try {
             [IO.File]::WriteAllText(($ResultFile + '.error'),
-                $_.Exception.GetBaseException().Message, [Text.UTF8Encoding]::new($false))
+                $diagnostic, [Text.UTF8Encoding]::new($false))
         } catch {}
     }
-    Write-Host ('Expansion Pack selection failed: ' + $_.Exception.GetBaseException().Message)
+    Write-Host $diagnostic
     exit 1
 }
