@@ -203,7 +203,19 @@ expect(
     "channelReloadAfterSignInPending = true;" in source
     and "channelReloadAfterSignInPending = false;" in source
     and "web.CoreWebView2.Reload();" in source
-    and "bool keepChatVisible = chatOpen" in source,
+    and "bool keepChatVisible = showChatAfterDiscordSignIn" in source,
+)
+
+expect(
+    "Discord login uses an owned dedicated window and keeps Game Chat at its normal size",
+    "Form? discordSignInWindow;" in source
+    and "void RevealDiscordSignInWindow()" in source
+    and "web.Parent = browserPanel;" in source
+    and "SetNativeWindowOwner(popup.Handle, owner);" in source
+    and "web.Parent = chatViewport;" in source
+    and "int windowHeight = chatHeight;" in source
+    and "discordLoginVisible ? Math.Max(chatHeight, 780)" not in source
+    and "web.Parent = this;" not in source,
 )
 
 # Chat Host has a separate real WebView2 renderer, its parent, a native

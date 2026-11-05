@@ -985,6 +985,8 @@ metrics();
         bool connectingChat;
         bool freshDiscordProfile;
         bool discordLoginVisible;
+        Form? discordSignInWindow;
+        bool showChatAfterDiscordSignIn;
         // Authentication gates live Discord fetching/paging ONLY. A genuine
         // unexpired message already in the local chat archive is sufficient
         // to display Happy Hour, even if Discord is signed out.
@@ -2273,8 +2275,7 @@ metrics();
         {
             if (discordLoginVisible)
             {
-                web.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-                web.BringToFront();
+                // The sign-in browser is sized by its dedicated popup panel.
                 return;
             }
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
@@ -2541,6 +2542,10 @@ metrics();
             };
             chatToggleButton.Click += (_, _) =>
             {
+                if (discordLoginVisible) {
+                    RevealDiscordSignInWindow();
+                    return;
+                }
                 // A manual toggle overrides automatic popups until the next message.
                 SetChatOpen(!chatOpen);
                 if (chatDisplayMode == "Automatic" && chatOpen)
@@ -3313,35 +3318,90 @@ metrics();
             frameSurface.Invalidate();
             Log("CHAT | Waiting for authenticated message feed");
         }
+        void RevealDiscordSignInWindow()
+        {
+            if (discordSignInWindow is not { IsDisposed: false } popup) return;
+            if (!popup.Visible) popup.Show();
+            popup.BringToFront();
+            popup.Activate();
+        }
         void ShowDiscordSignIn()
         {
+            // One browser, one Discord profile: move the existing WebView2 into
+            // a clearly named native window, never create another login session.
             if (discordLoginVisible) return;
             connectingChat = false;
             channelReloadAfterSignInPending = true;
-            Log("Discord login: revealing the existing browser in Game Chat");
+            showChatAfterDiscordSignIn = chatOpen || chatDisplayMode == "Always Shown" || freshDiscordProfile;
             discordLoginVisible = true;
-            // Login is shown inside the normal docked chat panel, not in a
-            // separate sign-in window. Keep the toggle and positioning active.
             signInExpanded = false;
             nativeMode = false;
             nativeMessages.Visible = false;
             messageBrowser.Visible = false;
             messageClip.Visible = false;
             goldScrollbar.Visible = false;
-            // The Discord browser already exists underneath the black renderer.
-            // Remove the overlay and native clipping so its login is usable.
-            web.Dock = DockStyle.None;
-            web.Parent = this;
             frameSurface.Visible = false;
-            if (web.IsHandleCreated) SetWindowRgn(web.Handle, IntPtr.Zero, true);
-            web.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            web.Visible = true;
-            web.BringToFront();
             chatViewport.Visible = false;
-            // Keep the title stable: the launcher locates this window by its title.
-            Text = "tes3np Chat Host";
-            PositionChatWindows();
-            Log("Discord login browser exposed");
+            if (web.IsHandleCreated) SetWindowRgn(web.Handle, IntPtr.Zero, true);
+            SetChatOpen(false);
+
+            var area = Screen.FromHandle(owner).WorkingArea;
+            int width = Math.Max(360, Math.Min(520, area.Width - 24));
+            int height = Math.Max(440, Math.Min(750, area.Height - 24));
+            var popup = new Form
+            {
+                Text = "tes3np - Sign in to Discord",
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.Manual,
+                Location = new System.Drawing.Point(
+                    area.Left + (area.Width - width) / 2,
+                    area.Top + (area.Height - height) / 2),
+                ClientSize = new System.Drawing.Size(width, height),
+                BackColor = System.Drawing.Color.FromArgb(27, 20, 11),
+                ForeColor = System.Drawing.Color.FromArgb(237, 225, 201),
+                MaximizeBox = false,
+                MinimizeBox = false,
+                ShowInTaskbar = false
+            };
+            var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4,
+                Padding = new Padding(12) };
+            shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+            shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+            var heading = new Label { Text = "Sign in to Discord", Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
+                Font = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold) };
+            var help = new Label { Text = "Sign in to use Game Chat and download the latest Expansion Pack.",
+                Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = System.Drawing.Color.FromArgb(237, 225, 201) };
+            var browserPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
+            var later = new Button { Text = "Not Now", Dock = DockStyle.Fill };
+            later.Click += (_, _) => {
+                popup.Hide();
+                CancelPendingExpansionPrompt();
+            };
+            popup.FormClosing += (_, e) => {
+                if (!closingChat) {
+                    e.Cancel = true;
+                    popup.Hide();
+                    CancelPendingExpansionPrompt();
+                }
+            };
+            shell.Controls.Add(heading, 0, 0);
+            shell.Controls.Add(help, 0, 1);
+            shell.Controls.Add(browserPanel, 0, 2);
+            shell.Controls.Add(later, 0, 3);
+            popup.Controls.Add(shell);
+            discordSignInWindow = popup;
+            web.Dock = DockStyle.Fill;
+            web.Parent = browserPanel;
+            web.Visible = true;
+            popup.Show();
+            SetNativeWindowOwner(popup.Handle, owner);
+            Log("Discord login: dedicated sign-in window opened with existing browser");
         }
         void RestoreGameChatAfterSignIn()
         {
@@ -3350,11 +3410,17 @@ metrics();
             // DockToLauncher() reapplies the saved display mode and normally
             // hides Automatic chat; preserve the panel the user opened to
             // complete this sign-in instead of making it disappear.
-            bool keepChatVisible = chatOpen && chatDisplayMode != "Always Hidden";
+            bool keepChatVisible = showChatAfterDiscordSignIn && chatDisplayMode != "Always Hidden";
             discordLoginVisible = false;
             signInExpanded = false;
-            web.Parent = chatViewport;
             web.Dock = DockStyle.None;
+            web.Parent = chatViewport;
+            if (discordSignInWindow is { IsDisposed: false } popup)
+            {
+                popup.Hide();
+                discordSignInWindow = null;
+                popup.Dispose();
+            }
             // Keep the panel open with a fresh "Connecting..." state while
             // Discord finishes its one authenticated channel reload.
             ShowConnectingChat();
@@ -3391,6 +3457,7 @@ metrics();
             if (pendingExpansionPrompt != 0) return;
             pendingExpansionPrompt = mode;
             restoreChatAfterExpansionPrompt = !chatOpen;
+            if (discordLoginVisible) RevealDiscordSignInWindow();
             // The previous channelReady flag may be stale after a sign-out.
             // Independently probe the live Discord DOM before revealing any
             // Discord-backed popup, even for previously signed-in users.
@@ -3461,6 +3528,11 @@ metrics();
                 switch (m.WParam.ToInt64())
                 {
                     case 1:
+                        if (discordLoginVisible)
+                        {
+                            RevealDiscordSignInWindow();
+                            break;
+                        }
                         if (chatOpen && pendingExpansionPrompt != 0)
                         {
                             CancelPendingExpansionPrompt();
@@ -3508,6 +3580,14 @@ metrics();
         }
         void SetChatOpen(bool show)
         {
+            if (discordLoginVisible)
+            {
+                // Never display a stretched/empty chat pane behind login.
+                chatOpen = false;
+                if (IsHandleCreated) ShowWindow(Handle, 0);
+                NotifyLauncherChatState();
+                return;
+            }
             chatOpen = show;
             if (!signInExpanded && IsHandleCreated)
             {
@@ -3527,9 +3607,9 @@ metrics();
             // The native helper is a no-op if the banner is already aligned.
             PositionHappyHourBanner();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
-            // Only the sign-in view needs extra height for its explanation.
-            // Keep the established Game Chat dimensions unchanged.
-            int windowHeight = discordLoginVisible ? Math.Max(chatHeight, 780) : chatHeight;
+            // Discord authentication has its own window; the docked Game Chat
+            // always retains its normal height, even when signed out.
+            int windowHeight = chatHeight;
             var work = Screen.FromHandle(owner).WorkingArea;
             windowHeight = Math.Min(windowHeight, work.Height);
             int y = bounds.Top + (bounds.Bottom - bounds.Top - windowHeight) / 2;
