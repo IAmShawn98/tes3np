@@ -155,7 +155,7 @@ StartExpansionImportWorker(package, morrowind, config)
         if IsObject(PatchFrame)
             ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
-        LogLauncherEvent("EXPANSION | Import worker launch failed: " err.Message)
+        LogLauncherEvent("EXPANSION | Import worker launch failed (" Type(err) ").")
         MsgBox("Could not start Expansion Pack import: " err.Message, "Upload Expansion", "Icon!")
         return false
     }
