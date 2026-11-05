@@ -6,7 +6,7 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### New Features
 
-- **Game Chat:** Connect with the community through Discord without leaving the launcher.
+- **Game Chat:** The launcher now contains in-game chat integration.
 - **Built-in TES3MP client:** Launch TES3MP without installing the game client separately.
 - **Happy Hour notifications:** Get notified in the launcher when Happy Hour is detected.
 
