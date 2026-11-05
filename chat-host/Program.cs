@@ -1303,7 +1303,7 @@ metrics();
             catch (Exception ex)
             {
                 Log("Chat image unavailable (" + (Uri.TryCreate(url, UriKind.Absolute, out var failedUri)
-                    ? failedUri.Host : "invalid URL") + "): " + ex.Message);
+                    ? failedUri.Host : "invalid URL") + "): " + ex.GetType().Name);
                 failedImages[url] = DateTime.UtcNow.AddMinutes(2);
             }
             finally
