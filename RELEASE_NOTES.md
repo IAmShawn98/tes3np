@@ -12,7 +12,6 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### Improvements
 
-- **Release notes:** Clearer formatting and easier-to-read categories.
 - **Expansion Pack installation:** Import the pack from a downloaded ZIP or an extracted folder.
 
 ### Bug Fixes
