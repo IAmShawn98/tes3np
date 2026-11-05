@@ -251,10 +251,8 @@ CleanupPatcher()
 
 SanitizePatchDiagnostic(text)
 {
-    ; Keep detailed reasons while excluding personal paths from dialogs and logs.
-    text := RegExReplace(text, 'i)"[A-Z]:\\[^"\r\n]*"', "[path omitted]")
-    text := RegExReplace(text, "i)[A-Z]:\\[^`r`n]+", "[path omitted]")
-    return SanitizeDiagnosticText(RegExReplace(text, "\\\\[^`r`n]+", "[network path omitted]"))
+    ; Use the same clean-field sanitizer for dialogs and file-backed logs.
+    return SanitizeDiagnosticText(text)
 }
 
 PatchErrorDetails(step, field, err)
