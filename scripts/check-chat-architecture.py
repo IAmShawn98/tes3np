@@ -257,6 +257,37 @@ expect(
     and "SetWinEventHook(0x800B, 0x800B" in source,
 )
 mismatch = (ROOT / "src" / "game" / "expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
+patcher = (ROOT / "src" / "ui" / "patcher.ahk").read_text(encoding="utf-8-sig")
+expansion_toggle = (ROOT / "scripts" / "toggle-expansion-pack.ps1").read_text(encoding="utf-8-sig")
+resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
+expect(
+    "Discord-backed Expansion Pack dialogs wait for existing Game Chat login",
+    'RequestDiscordExpansionPrompt(mode := 2)' in mismatch
+    and 'if !authConfirmed' in mismatch
+    and 'ShowTES3MPExpansionMismatchDialog(mode = 1 ? "Install" : "Mismatch", true)' in mismatch
+    and 'WinGetPID("ahk_id " lParam) != EmbeddedChatPid' in mismatch
+    and 'OnMessage(0x8336, DiscordExpansionPromptReady)' in bootstrap
+    and 'case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;' in source
+    and 'void RequestAuthenticatedExpansionPrompt(int mode)' in source
+    and 'void CompletePendingExpansionPrompt()' in source
+    and 'PostMessage(owner, 0x8336, new IntPtr(mode), Handle);' in source
+    and 'CompletePendingExpansionPrompt();' in source
+    and 'if (!discordChannelReady || discordLoginVisible || closingChat)' in source
+    and 'ShowDiscordSignIn();' in source,
+)
+expect(
+    "Enabling a locally installed pack never deploys legacy bundled assets",
+    'RequestDiscordExpansionPrompt(1)' in patcher
+    and 'FileGetSize(installedEsp) > 0' in patcher
+    and ' -PayloadFolder ' not in patcher
+    and '$PayloadFolder' not in expansion_toggle
+    and "Join-Path $data 'NP Expansion Pack.esp'" in expansion_toggle
+    and 'Get-Item -LiteralPath $esp' in expansion_toggle
+    and 'manifest.json' not in expansion_toggle
+    and 'for directory in ("assets",):' in resource_generator
+    and '"assets", "patches"' not in resource_generator,
+)
+
 expect(
     "Original Expansion Pack enable/disable switch is restored",
     'LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)' in bootstrap
