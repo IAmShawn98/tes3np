@@ -19,7 +19,7 @@ This audit covers the current `Update/v0.1.21-alpha` code. The goal is to keep s
 | Macro import `.import-error` | `scripts/import-macro.ps1` | Allowlisted static errors or exception type; macro GUI uses shared cleaner |
 | Copied Launcher, Expansion Pack and Render logs | `src/ui/v016-refinements.ahk` | Sanitize before clipboard; Windows crash-event text is not exported |
 
-The cleaner deletes the private value and the empty field, then compacts separators. It does **not** emit `REDACTED`, `[path omitted]`, or other visible privacy notices. Public in-game **character names remain** in character-labeled fields. The Windows account name is removed from other diagnostic fields, including when it appears without a path. Useful event types, timestamps, step names and status codes are preserved where possible. A narrowly scoped one-time migration advances `PrivacyScrubVersion` to **3** and reprocesses older diagnostic logs, including legacy placeholders.
+The cleaner deletes the private value and the empty field, then compacts separators. It does **not** emit `REDACTED`, `[path omitted]`, or other visible privacy notices. Public in-game **character names remain** in character-labeled fields. The Windows account name is removed from other diagnostic fields, including when it appears without a path. Useful event types, timestamps, step names and status codes are preserved where possible. A narrowly scoped one-time migration now advances `PrivacyScrubVersion` to **4** and reprocesses older diagnostic logs, including legacy placeholders and joined timestamp boundaries. It restores a trailing newline on persisted diagnostics so later events stay separate.
 
 ## Intentionally private application state (not a support log)
 
@@ -37,6 +37,13 @@ The picker must temporarily return an actual selected local path to the launcher
 - `scripts/test-diagnostic-privacy.ahk`: disposable fake Windows username, password, email, URL, path, historical-placeholder and version-2-to-3 migration cases. Confirms a fake private Discord archive is unchanged and character names remain.
 - `scripts/test-import-expansion-folder.ps1`: verifies the importer publishes result metadata without the disposable absolute job path or privacy placeholder, while keeping the atomic publisher and rollback journal.
 - `scripts/build-windows.ps1`: already invokes the source guard and disposable AHK fixture as preflight gates; no GitHub Actions are needed.
+
+## Uploaded Launcher Log acceptance — November 5
+
+- The user reported the PowerShell build/launch succeeded before the latest formatting follow-up. A build transcript was not attached.
+- Three Copy Launcher Logs uploads were byte-identical, each containing 2,711 lines. Their inspected content did not expose raw Windows user paths, URLs, emails, IP addresses, token/password labels, Discord snowflake identifiers or privacy-placeholder clutter; useful game events and character names survived.
+- **Formatting defect detected:** two historical entries were concatenated to their following timestamps. The v3 migration had written sanitized text without preserving the terminal newline. The new v4 cleanup repairs this narrow old pattern and guarantees a terminal newline when persisting logs; the first launcher log append also handles a pre-existing file missing its terminator.
+- **Not yet reverified:** the v4 formatting repair needs a fresh Windows build and new copied log. The three uploads are Launcher Log copies, not evidence that `chat-host.log`, patch worker result files or direct game/chat operations passed.
 
 ## Outstanding Windows acceptance — not source work
 
