@@ -2384,23 +2384,36 @@ metrics();
         {
             try
             {
-                // Diagnostics are shareable. The separate private message archive is not.
-                // Scrub at the write boundary even if a future caller passes an exception,
-                // navigation URL, user path or credential-like field by mistake.
+                // Keep useful event details without leaving privacy placeholder fields.
+                // The private Discord chat archive has a separate writer and is unchanged.
                 string safe = System.Text.RegularExpressions.Regex.Replace(message,
-                    @"(?i)\b[A-Z]:[/\\][^\r\n|]+", "[path omitted]");
+                    @"(?i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
-                    @"(?i)\\\\[^\r\n|]+", "[network path omitted]");
+                    @"(?i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=][^|\r\n]*", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
-                    @"(?i)\b(?:https?|wss?)://[^\s|]+", "[url omitted]");
+                    @"(?i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%[/\\][^\r\n|]*", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
-                    @"(?i)\b(?:password|token|secret|authorization|cookie|api[-_]?key)\s*[:=]\s*[^\s|]+",
-                    "[secret omitted]");
+                    @"(?i)\b(?:https?|wss?)://[^\s|]+", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
-                    @"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[email omitted]");
+                    @"(?i)\b[A-Z]:[/\\][^\r\n|]*", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
-                    @"\b\d{16,21}\b", "[Discord ID omitted]");
-                safe = safe.Replace('\r', ' ').Replace('\n', ' ');
+                    @"\\\\[^\r\n|]*", "");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"\b(?:\d{1,3}\.){3}\d{1,3}\b", "");
+                safe = System.Text.RegularExpressions.Regex.Replace(safe,
+                    @"\b\d{16,21}\b", "");
+                var parts = new System.Collections.Generic.List<string>();
+                foreach (string piece in safe.Replace('\r', ' ').Replace('\n', ' ').Split('|'))
+                {
+                    string item = System.Text.RegularExpressions.Regex.Replace(piece,
+                        @"(?i)\b(?:Executable(?:\s+path)?|Source\s+path|Destination|Install|Stage|Path|Folder|File|URL|Mail|Email)\s*[:=]\s*$", "");
+                    item = item.Trim(' ', '\t', ':', '=');
+                    if (item.Length > 0) parts.Add(item);
+                }
+                safe = string.Join(" | ", parts);
+                if (safe.Length == 0) return;
                 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
                 File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " +
                     ChatBuild + " | " + safe + Environment.NewLine);
