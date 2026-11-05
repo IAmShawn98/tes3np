@@ -206,7 +206,7 @@ expect(
     "channelReloadAfterSignInPending = true;" in source
     and "channelReloadAfterSignInPending = false;" in source
     and "web.CoreWebView2.Reload();" in source
-    and "bool keepChatVisible = showChatAfterDiscordSignIn" in source,
+    and "bool keepChatVisible = discordSignInRequested && showChatAfterDiscordSignIn" in source,
 )
 
 expect(
