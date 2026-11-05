@@ -2,6 +2,13 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Windows local build post-package sharing violation — 2026-11-05
+
+- A user Windows transcript at d4e37b3 confirmed PowerShell syntax, AHK compilation and compiled --check, Chat Host publish, Expansion Pack fixture tests, resource extraction, and final ZIP integrity all passed; nevertheless Build tes3np.bat showed a sharing violation and BUILD FAILED after the completed distribution ZIP. This is post-package failure, not evidence of a broken compiled launcher. Exact locked file was not identified from the log.
+- Updated build-windows.ps1 to retry cleaning only its own GUID-named scratch directory with managed .NET filesystem operations, without native cmd/rmdir status or console leakage. A cleanup lock is now explicitly nonfatal to validated packaging; earlier build/validation exceptions still fail.
+- The existing Build tes3np.bat now identifies the precise local deployment stage on failure and explains how to run the validated dist/tes3np-windows candidate rather than accidentally starting a stale root executable. Existing safe publish order and exit failures remain unchanged.
+- Source checks only; follow-up Windows batch completion, source-root replacement and visual changelog regression require testing. No GitHub Actions run or public update.
+
 ### Release notes readability — 2026-11-05
 
 - Enlarged the existing version-status window from 720×520 to 800×600 and expanded its changelog viewport from 10 to 13 lines. Existing theme, buttons, mouse wheel, thumb dragging and window lifecycle remain intact.
