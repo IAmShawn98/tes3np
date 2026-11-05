@@ -269,6 +269,9 @@ expect(
     and 'OnMessage(0x8336, DiscordExpansionPromptReady)' in bootstrap
     and 'case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;' in source
     and 'void RequestAuthenticatedExpansionPrompt(int mode)' in source
+    and 'async Task ResolvePendingExpansionPromptAsync()' in source
+    and 'if (live == "true"' in source
+    and 'CancelPendingExpansionPrompt();' in source
     and 'void CompletePendingExpansionPrompt()' in source
     and 'PostMessage(owner, 0x8336, new IntPtr(mode), Handle);' in source
     and 'CompletePendingExpansionPrompt();' in source
@@ -284,7 +287,7 @@ expect(
     and '$candidateFolders += $configured' in expansion_toggle
     and ' -PayloadFolder ' not in patcher
     and '$PayloadFolder' not in expansion_toggle
-    and "Join-Path $data 'NP Expansion Pack.esp'" in expansion_toggle
+    and "Join-Path $folder 'NP Expansion Pack.esp'" in expansion_toggle
     and 'Get-Item -LiteralPath $esp' in expansion_toggle
     and 'manifest.json' not in expansion_toggle
     and 'for directory in ("assets",):' in resource_generator
