@@ -4,6 +4,9 @@
 
 ### Diagnostic privacy hardening — 2026-11-04 (Windows verification pending)
 
+- Fixed missing newline delimiters in migrated diagnostic logs and added regression coverage.
+
+
 - **Source-side privacy audit closed, November 4 (Windows acceptance pending):** Reviewed the remaining worker results and exception displays. Expansion Pack import `result.ini` now cleans error text and reports backup availability instead of an absolute backup path (real paths remain in the private rollback journal). Expansion toggle results, native picker `.error`/console output, macro dialogs and desktop-shortcut/portrait errors now avoid raw private paths and privacy placeholders. Windows usernames appearing outside path fields are excluded at the launcher, Chat Host and updater boundaries, while public `Character:` values remain. Historical diagnostic migration advances to v3; source guards and disposable fixtures cover new boundaries. See [diagnostic privacy audit](docs/DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md). **No fresh full Windows build or live behavior has been verified after these changes.**
 
 
