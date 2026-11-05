@@ -289,6 +289,240 @@ LogPatchDiagnostic(message)
     }
 }
 
+; Detect a user-installed Expansion Pack in the base Morrowind folder or
+; in one of the separately configured OpenMW data directories.
+ExpansionPackInstalled(morrowind, config)
+{
+    folders := [morrowind "\Data Files"]
+    if FileExist(config)
+    {
+        try
+        {
+            for line in StrSplit(FileRead(config, "UTF-8"), "`n", "`r")
+            {
+                if RegExMatch(Trim(line), 'i)^data\s*=\s*(.+?)\s*
+    config := PatchConfigurationPath()
+    if !FileExist(config)
+        return false
+    try
+    {
+        for line in StrSplit(FileRead(config, "UTF-8"), Chr(10), Chr(13))
+            if RegExMatch(Trim(line), 'i)^content\s*=\s*"?NP Expansion Pack\.esp"?$')
+                return true
+    }
+    return false
+}
+
+RefreshExpansionPackToggle()
+{
+    global LauncherExpansionToggle
+    if IsObject(LauncherExpansionToggle)
+    {
+        try
+        {
+            LauncherExpansionToggle.Text := "Expansion Pack: " (ExpansionPackIsEnabled() ? "Enabled" : "Disabled")
+            DllCall("InvalidateRect", "Ptr", LauncherExpansionToggle.Hwnd, "Ptr", 0, "Int", 1)
+        }
+    }
+}
+
+ToggleExpansionPack(*)
+{
+    global AppDataDirectory, LauncherGui, DataFile, BundledResourceRoot
+    if PatchInProgress()
+        return
+    if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+    {
+        MsgBox("Close all TES3MP/OpenMW clients before switching the Expansion Pack. Running games will not be interrupted.", "Expansion Pack")
+        return
+    }
+    enable := !ExpansionPackIsEnabled()
+    cfg := PatchConfigurationPath()
+    morrowind := FindMorrowindFolder(cfg)
+    ; Offer direct pickers instead of sending new players to the obsolete
+    ; multi-field external TES3MP installer.
+    if !FileExist(cfg)
+    {
+        selectedConfig := FileSelect(1, , "Choose your active OpenMW configuration", "OpenMW configuration (*.cfg)")
+        if selectedConfig = ""
+            return
+        SplitPath(selectedConfig, &configName)
+        if StrLower(configName) != "openmw.cfg"
+        {
+            MsgBox("Choose the active openmw.cfg file.", "Expansion Pack", "Icon!")
+            return
+        }
+        cfg := selectedConfig
+        IniWrite(cfg, DataFile, "Patch", "ConfigFile")
+        morrowind := FindMorrowindFolder(cfg)
+    }
+    if enable && morrowind = ""
+    {
+        selectedFolder := FileSelect("D", , "Choose Morrowind GOTY installation folder")
+        if selectedFolder = ""
+            return
+        selectedFolder := RTrim(selectedFolder, "\/")
+        SplitPath(selectedFolder, &selectedName, &selectedParent)
+        if StrLower(selectedName) = "data files"
+            selectedFolder := selectedParent
+        for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+            if !FileExist(selectedFolder "\Data Files\" master)
+            {
+                MsgBox("The selected folder is missing " master ". Please select a complete Morrowind GOTY installation.", "Expansion Pack", "Icon!")
+                return
+            }
+        morrowind := selectedFolder
+        IniWrite(morrowind, DataFile, "Patch", "MorrowindFolder")
+    }
+    ; Installed packs can live under the base game or any OpenMW data folder.
+    ; Never restore retired bundled assets.
+    if enable && !ExpansionPackInstalled(morrowind, cfg)
+    {
+        LogLauncherEvent("EXPANSION | Installed ESP not found; requiring authenticated download.")
+        RequestDiscordExpansionPrompt(1)
+        return
+    }
+    action := enable ? "Enable" : "Disable"
+    if MsgBox(action " NP Expansion Pack for all future game clients?" Chr(10) Chr(10) "TES3NP will back up your configuration and preserve other mods.", "Expansion Pack", "YesNo Icon?") != "Yes"
+        return
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    script := resourceRoot "\scripts\toggle-expansion-pack.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    if !FileExist(script)
+    {
+        MsgBox("Expansion Pack toggle helper missing. Rebuild TES3NP.", "Expansion Pack", "Icon!")
+        return
+    }
+    backup := AppDataDirectory "\expansion-backups"
+    DirCreate(backup)
+    output := AppDataDirectory "\expansion-toggle-result.txt"
+    if FileExist(output)
+        FileDelete(output)
+    command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
+        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '"'
+        . ' -BackupFolder "' backup '" -ResultFile "' output '"'
+    try
+    {
+        ; Invoke PowerShell directly. cmd.exe nested quoting previously lost
+        ; stderr and gave users an empty "was not changed" error.
+        RunWait(command, , "Hide", &exitCode)
+        details := FileExist(output) ? SanitizeDiagnosticText(Trim(FileRead(output, "UTF-8"))) : ""
+        ; The worker result message alone is not proof of failure or success.
+        ; The user's screenshots showed 'Disable complete' incorrectly flagged
+        ; as an error. Inspect the actual on-disk OpenMW load order instead.
+        actualEnabled := ExpansionPackIsEnabled()
+        if actualEnabled != enable
+        {
+            if details = ""
+                details := "The OpenMW configuration still has the previous Expansion Pack state. Worker exit code: " exitCode "."
+            LogLauncherEvent("EXPANSION | Toggle failed | Exit code: " exitCode ".")
+            MsgBox("Expansion Pack was not changed." Chr(10) Chr(10) SubStr(details, 1, 1200), "Expansion Pack", "Icon!")
+            RefreshExpansionPackToggle()
+            return
+        }
+        if exitCode
+            LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state.")
+        IniWrite(enable ? "1" : "0", DataFile, "ExpansionPack", "GlobalEnabled")
+        LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
+        RefreshExpansionPackToggle()
+        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully for future launches.", "Expansion Pack", "Iconi")
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Toggle exception type: " Type(err))
+        reason := SanitizeDiagnosticText(err.Message)
+        MsgBox(reason != "" ? reason : "Could not update the Expansion Pack.", "Expansion Pack", "Icon!")
+    }
+}
+
+
+; First-run discovery is informational and never installs optional patches.
+; A missing Morrowind installation cannot be fixed by downloading TES3MP:
+; TES3NP already bundles its own client.
+CheckFirstRunMorrowind(*)
+{
+    global DataFile, LauncherGui
+    if IniRead(DataFile, "Install", "MorrowindPromptDismissed", "0") = "1"
+        return
+    found := FindMorrowindFolder(PatchConfigurationPath())
+    if found != ""
+    {
+        IniWrite(found, DataFile, "Patch", "MorrowindFolder")
+        IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+        LogLauncherEvent("SETUP | Morrowind GOTY installation located.")
+        return
+    }
+    prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Locate Morrowind")
+    prompt.BackColor := "E2CEA2"
+    prompt.SetFont("s13 Bold c241408", "Segoe UI")
+    prompt.Add("Text", "x20 y18 w440 h32", "Locate Morrowind GOTY")
+    prompt.SetFont("s10 Norm c382314", "Segoe UI")
+    prompt.Add("Text", "x20 y58 w440 h72", "TES3NP already includes TES3MP. To use your Morrowind game files, select the folder containing Data Files, including Tribunal and Bloodmoon. You can do this later.")
+    choose := prompt.Add("Button", "x20 y145 w440 h39", "Choose Morrowind Folder")
+    later := prompt.Add("Button", "x20 y194 w440 h34", "Not Now")
+    choose.OnEvent("Click", (*) => SelectFirstRunMorrowind(prompt))
+    later.OnEvent("Click", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.Show("w480 h250")
+}
+
+SelectFirstRunMorrowind(prompt, *)
+{
+    global DataFile
+    folder := FileSelect("D", , "Select Morrowind GOTY installation folder")
+    if folder = ""
+        return
+    folder := RTrim(folder, "\/")
+    SplitPath(folder, &folderName, &parent)
+    if StrLower(folderName) = "data files"
+        folder := parent
+    for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+    {
+        if !FileExist(folder "\Data Files\" master)
+        {
+            MsgBox("Could not find Data Files\" master ". Select the Morrowind GOTY folder (not an individual file).", "Morrowind folder", "Icon!")
+            return
+        }
+    }
+    IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
+    IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+    LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
+    prompt.Destroy()
+    MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
+}
+
+DismissFirstRunMorrowind(prompt, *)
+{
+    global DataFile
+    IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
+    prompt.Destroy()
+}
+, &match)
+                {
+                    configured := Trim(Trim(match[1]), Chr(34))
+                    if configured != ""
+                        folders.Push(configured)
+                }
+            }
+        }
+        catch
+        {
+            ; Unreadable configs must not make the pack appear installed.
+        }
+    }
+    for folder in folders
+    {
+        esp := RTrim(folder, "\/") "\NP Expansion Pack.esp"
+        try
+        {
+            if FileExist(esp) && FileGetSize(esp) > 0
+                return true
+        }
+    }
+    return false
+}
+
 ExpansionPackIsEnabled()
 {
     config := PatchConfigurationPath()
