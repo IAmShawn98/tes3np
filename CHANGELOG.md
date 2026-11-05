@@ -2,6 +2,12 @@
 
 ## v0.1.21-alpha — unreleased
 
+### Manually installed Expansion Pack and Discord login gating — 2026-11-05
+
+- Expansion Pack starts disabled in new OpenMW configurations; the global toggle enables only an already-installed nonempty `NP Expansion Pack.esp`, using a config-only worker with backups. A missing pack requests the **official Discord ZIP dialog**, with an Install mode distinct from actual plugin/load-order mismatch diagnostics. Retired v0.1 assets are no longer build, embedded resource, manifest or package dependencies; the separately packaged modified TES3MP client remains.
+- Existing Game Chat Discord sign-in now gates every downloadable Expansion Pack dialog. Only the currently authenticated ChatHost can authorize the native popup; signed-out players get its existing login view first, and cancelled prompts clear safely. The embedded child rejects unauthenticated launch requests. No additional Discord profile/process or automatic downloads.
+- Added isolated Windows enable/disable fixture and updated static architecture/release checks. **Source changes committed; actual Windows build, first-login handoff, download, and UI/runtime regression tests still pending.** Historical v0.1 art is still present as source-only material in the Git checkout; it is not shipped with the Windows launcher.
+
 ### Launcher Play Together description — 2026-11-05
 
 - Updated the front-page **Together** information card to the user-selected concise promotion of multiplayer, the mastery system, creature camps/bosses, side activities, and events. The revised description is 298 characters versus the previous 293, preserving the card's established dimensions, font, renderer, button layout, and neighboring single-player **Quest** copy. Source change verified; Windows launcher rendering/build remain to be checked.
