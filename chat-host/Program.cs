@@ -2391,7 +2391,7 @@ metrics();
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
                     @"(?i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=][^|\r\n]*", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
-                    @"(?i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%[/\\][^\r\n|]*", "");
+                    @"(?i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%(?:[/\\][^\r\n|]*)?", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
                     @"(?i)\b(?:https?|wss?)://[^\s|]+", "");
                 safe = System.Text.RegularExpressions.Regex.Replace(safe,
