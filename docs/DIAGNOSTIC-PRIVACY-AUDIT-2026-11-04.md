@@ -34,7 +34,7 @@ The picker must temporarily return an actual selected local path to the launcher
 ## Guardrails added or extended
 
 - `scripts/check-diagnostic-privacy.py`: verifies the launcher, C# host, updater, importer, toggle worker, picker and GUI data boundaries; rejects omitted-field markers and raw exception sinks.
-- `scripts/test-diagnostic-privacy.ahk`: disposable fake Windows username, password, email, URL, path, historical-placeholder and version-2-to-3 migration cases. Confirms a fake private Discord archive is unchanged and character names remain.
+- `scripts/test-diagnostic-privacy.ahk`: disposable fake Windows username, password, email, URL, path, historical-placeholder, version-3-to-4 migration and newline-boundary cases. Confirms a fake private Discord archive is unchanged and character names remain.
 - `scripts/test-import-expansion-folder.ps1`: verifies the importer publishes result metadata without the disposable absolute job path or privacy placeholder, while keeping the atomic publisher and rollback journal.
 - `scripts/build-windows.ps1`: already invokes the source guard and disposable AHK fixture as preflight gates; no GitHub Actions are needed.
 
@@ -45,10 +45,16 @@ The picker must temporarily return an actual selected local path to the launcher
 - **Formatting defect detected:** two historical entries were concatenated to their following timestamps. The v3 migration had written sanitized text without preserving the terminal newline. The new v4 cleanup repairs this narrow old pattern and guarantees a terminal newline when persisting logs; the first launcher log append also handles a pre-existing file missing its terminator.
 - **Not yet reverified:** the v4 formatting repair needs a fresh Windows build and new copied log. The three uploads are Launcher Log copies, not evidence that `chat-host.log`, patch worker result files or direct game/chat operations passed.
 
+## Verified Windows build and Launcher Log — November 5
+
+- The user supplied a complete `git pull --ff-only` and `Build tes3np.bat` transcript for alpha HEAD `24a2359`, followed by `Start-Process .\\tes3np.exe`. PowerShell helper parsing, source/manifest checks, privacy source guard, disposable diagnostic privacy and plugin-mismatch AutoHotkey fixtures, importer ZIP/folder regression, native picker COM fixture, C# Chat Host publish, Ahk2Exe smoke and final launcher compilation, launcher `--check`, runtime and asset SHA checks, and downloadable ZIP integrity **all passed**. The recurring WindowsBase MSB3277 warning was nonfatal. The user did not provide an independent extracted-ZIP interactive test.
+- Fresh Copy Launcher Logs report: **2,720 total lines** (seven report header lines and **2,713 timestamped launcher event lines**). Every event starts with a normal timestamp, including the two previously concatenated entries. Scan found **zero** merged timestamps, placeholder tokens, stray empty delimiters, Windows absolute or UNC paths, user-directory environment roots, URLs, emails, IPv4 literals, long Discord-like IDs, or password/token/secret fields. Public character names, status codes and timelines remained.
+- **Accepted:** v4 compile/build checkpoints, fixture execution, downloadable ZIP packaging and copied Launcher Log privacy and line formatting. **Still pending:** direct inspection of Chat Host/Expansion Pack/render logs, private-data non-mutation checks and real-game feature regressions. Clipboard output does not independently prove the on-disk trailing newline, but event separation passed.
+
 ## Outstanding Windows acceptance — not source work
 
-1. Re-run `Build tes3np.bat` on the existing alpha branch. Record PowerShell parse, AHK fixture, C# preflight, Ahk2Exe compilation, ZIP integrity, importer and picker fixture results. The previous Ahk2Exe comment error was corrected but a successful full rebuild after these changes is still **unconfirmed**.
-2. Open the newly built launcher with existing data. Confirm legacy diagnostic logs become clean, Copy Launcher Logs, Copy Expansion Pack Logs and Copy Render Errors contain no private values or empty labels, and the private chat archive and saved settings remain intact.
+1. **Completed November 5:** Full Windows build and all reported compiler, source-check, fixtures and packaged ZIP gates passed on alpha HEAD `24a2359`. An independent extracted-ZIP interactive run is still pending.
+2. **Launcher Log copy passed November 5.** Confirm separate Chat Host, Expansion Pack and Render Logs have no private values or empty labels; verify the private chat archive and saved settings remain intact.
 3. Exercise character login, macro import/run, Expansion Pack ZIP/folder import and toggle, native picker error paths, Game Chat and genuine Happy Hour detection. Check that error dialogs still explain failures.
 4. Run the existing offline updater regression and examine safe updater events. Separate source checks from real package/runtime acceptance.
 5. Only after acceptance should the public alpha/release checklist be considered.
