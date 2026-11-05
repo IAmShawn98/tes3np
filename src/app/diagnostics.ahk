@@ -107,9 +107,9 @@ SanitizeDiagnosticText(text)
     return text
 }
 
-// One-time in-place cleanup of historical diagnostic logs created by older
-// builds. This deliberately excludes the private Game Chat message archive,
-// settings.ini, backups and WebView2 profile, which are application data.
+; One-time in-place cleanup of historical diagnostic logs created by older
+; builds. This deliberately excludes the private Game Chat message archive,
+; settings.ini, backups and WebView2 profile, which are application data.
 SanitizeExistingDiagnosticLogs()
 {
     global AppDataDirectory, DataFile
