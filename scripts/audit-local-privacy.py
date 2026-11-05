@@ -5,7 +5,9 @@ Run from the repository checkout:
 
 This intentionally prints only category counts, not diagnostic lines, absolute
 paths, usernames, secrets, private Discord messages, or configuration contents.
-It never writes to AppData, game directories, or an installed launcher.
+Default mode never writes to AppData, game directories, or an installed launcher.
+The explicit --repair-legacy-import-results mode changes ONLY old completed
+Expansion Pack status result.ini files; recovery journals and backups remain intact.
 """
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 APPDATA = Path(os.environ.get("APPDATA", "")) / "tes3np"
@@ -152,6 +155,94 @@ def audit_files(appdata: Path) -> tuple[int, int, int]:
     return issues, checked, skipped
 
 
+
+# Historical importer results are report/status metadata, not the private
+# rollback journal. Opt-in cleanup only changes old, terminal result.ini files.
+RESULT_SHAPE = re.compile(
+    r"\A\[Result\]\r?\nState=(success|error)\r?\nMessage=([^\r\n]*)\r?\nBackup=([^\r\n]*)(?:\r?\n)?\Z",
+    re.IGNORECASE,
+)
+
+
+def repair_legacy_import_results(appdata: Path, *, min_age_seconds: int = 600) -> tuple[int, int]:
+    import_root = appdata / "expansion-imports"
+    if not import_root.is_dir() or import_root.is_symlink():
+        print("SKIP | Legacy Expansion import result cleanup: no safe job directory")
+        return 0, 0
+    try:
+        paths = sorted(import_root.glob("*/result.ini"))
+    except OSError:
+        print("REVIEW | Legacy Expansion import result cleanup: unable to enumerate job status files")
+        return 0, 1
+    repaired = 0
+    skipped = 0
+    failed = 0
+    username = os.environ.get("USERNAME", "")
+    for path in paths:
+        tmp = None
+        try:
+            if path.is_symlink() or path.parent.is_symlink() or not path.is_file():
+                skipped += 1
+                continue
+            before = path.stat()
+            # Never race an in-progress import or touch arbitrary large files.
+            if before.st_size > 1024 * 1024 or time.time() - before.st_mtime < min_age_seconds:
+                skipped += 1
+                continue
+            with path.open("rb") as stream:
+                bom = stream.read(4)
+            encoding = "utf-16" if bom.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+            old = read_diagnostic(path)
+            shape = RESULT_SHAPE.fullmatch(old)
+            if not shape:
+                skipped += 1
+                continue
+            state, message, backup = shape.groups()
+            issues, _ = scan_text(old, launcher=False, username=username, result=True)
+            if not issues:
+                continue
+            message_issues, _ = scan_text("Message=" + message, launcher=False, username=username)
+            if message_issues:
+                message = ("Expansion Pack import completed." if state.lower() == "success"
+                           else "Expansion Pack import failed. Check the Launcher Log for details.")
+            # The journal contains the recovery paths; it is NEVER opened or
+            # modified. A status result only needs its availability indicator.
+            journal = path.parent / "journal.json"
+            backup_status = "available" if backup.strip() and journal.is_file() and not journal.is_symlink() else ""
+            eol = "\r\n" if "\r\n" in old else "\n"
+            terminal_newline = old.endswith(("\r", "\n"))
+            cleaned = eol.join((
+                "[Result]", "State=" + state.lower(), "Message=" + message,
+                "Backup=" + backup_status,
+            )) + (eol if terminal_newline else "")
+            new_issues, _ = scan_text(cleaned, launcher=False, username=username, result=True)
+            if new_issues:
+                skipped += 1
+                continue
+            # Preserve original encoding, and atomically replace only result.ini.
+            # Verify it did not change while this cleanup was being prepared.
+            fd, tmp = tempfile.mkstemp(prefix=".result-privacy-", suffix=".tmp", dir=path.parent)
+            with os.fdopen(fd, "w", encoding=("utf-16" if encoding == "utf-16" else "utf-8-sig"), newline="") as writer:
+                writer.write(cleaned)
+            after = path.stat()
+            if (after.st_mtime_ns, after.st_size) != (before.st_mtime_ns, before.st_size):
+                skipped += 1
+                continue
+            os.replace(tmp, path)
+            tmp = None
+            repaired += 1
+        except (OSError, ValueError, UnicodeError):
+            failed += 1
+        finally:
+            if tmp is not None:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+    print(f"RESULT | Legacy Expansion import status cleanup: repaired={repaired}; skipped={skipped}; errors={failed}")
+    return repaired, failed
+
+
 def run_regression(name: str, engine: str | None, script: str) -> bool | None:
     if not engine:
         print(f"SKIP | {name}: required PowerShell runtime not installed")
@@ -222,6 +313,8 @@ def self_test() -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only local TES3NP diagnostic audit and isolated updater checks")
     parser.add_argument("--skip-updater", action="store_true", help="only check logs; skip existing isolated updater fixtures")
+    parser.add_argument("--repair-legacy-import-results", action="store_true",
+                        help="opt-in: atomically clean old finished import result.ini metadata only; preserve journals and backups")
     parser.add_argument("--self-test", action="store_true", help="test scanner with disposable synthetic data only")
     args = parser.parse_args()
     if args.self_test:
@@ -229,16 +322,20 @@ def main() -> int:
         print("PASS | Scanner synthetic self-test" if passed else "FAIL | Scanner synthetic self-test")
         return 0 if passed else 1
     print("TES3NP ALPHA PRIVACY READINESS | read-only; report contains counts only")
-    print("No credentials, settings, Discord history, Morrowind files or copied logs are changed.")
+    print("Diagnostic scan is read-only. Optional --repair-legacy-import-results edits old finished result.ini metadata only.")
     if not os.environ.get("APPDATA"):
         print("REVIEW | Windows APPDATA not available; run in normal Windows PowerShell")
         return 1
+    repair_failures = 0
+    if args.repair_legacy_import_results:
+        print("Requested targeted legacy import-result cleanup (never edits the journal, backups or installed game).")
+        _, repair_failures = repair_legacy_import_results(APPDATA)
     issues, checked, skipped = audit_files(APPDATA)
     fixture_failures, fixture_skips = (0, 0) if args.skip_updater else offline_regressions()
     print(f"SUMMARY | diagnostic files={checked}; missing categories={skipped}; flagged categories={issues}; fixture failures={fixture_failures}; fixture skips={fixture_skips}")
     print("PENDING MANUAL | saved data, Game Chat/Happy Hour, character login, macros, and extracted ZIP interactive checks")
     print("Raw private logs and Discord history should NOT be uploaded.")
-    return 1 if issues or fixture_failures else 0
+    return 1 if issues or fixture_failures or repair_failures else 0
 
 
 if __name__ == "__main__":
