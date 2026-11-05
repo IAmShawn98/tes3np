@@ -2543,6 +2543,7 @@ metrics();
             };
             chatToggleButton.Click += (_, _) =>
             {
+                if (!discordChannelReady) discordSignInRequested = true;
                 if (discordLoginVisible) {
                     RevealDiscordSignInWindow();
                     return;
@@ -3469,6 +3470,7 @@ metrics();
             if (pendingExpansionPrompt != 0) return;
             pendingExpansionPrompt = mode;
             restoreChatAfterExpansionPrompt = !chatOpen;
+            if (!discordChannelReady) discordSignInRequested = true;
             if (discordLoginVisible) RevealDiscordSignInWindow();
             // The previous channelReady flag may be stale after a sign-out.
             // Independently probe the live Discord DOM before revealing any
@@ -3540,6 +3542,9 @@ metrics();
                 switch (m.WParam.ToInt64())
                 {
                     case 1:
+                        // An early manual click before WebView2 completes startup
+                        // must still reveal login when the browser becomes ready.
+                        if (!discordChannelReady) discordSignInRequested = true;
                         if (discordLoginVisible)
                         {
                             RevealDiscordSignInWindow();
