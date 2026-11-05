@@ -20,7 +20,7 @@ CheckForUpdateAvailability(*)
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
     } catch Error as err {
         SetLauncherUpdateAvailable(false)
-        LogLauncherEvent("UPDATE | Startup availability check unavailable | " SanitizeDiagnosticPath(err.Message))
+        LogLauncherEvent("UPDATE | Startup availability check unavailable (" Type(err) ").")
     }
 }
 
@@ -93,7 +93,7 @@ CheckForUpdates(source := "", *)
             LogLauncherEvent("UPDATE | User deferred update v" latest "; clickable version label restored.")
         }
     } catch Error as err {
-        LogLauncherEvent("ERROR | UPDATE | " SanitizeDiagnosticPath(err.Message))
+        LogLauncherEvent("ERROR | UPDATE | " Type(err))
         ShowUpdateStatusPanel("error", AppConfig.Version)
     } finally {
         UpdateBusy := false
