@@ -106,14 +106,13 @@ StartProfileSession(profile, executable)
     ; only while its own failed-login dialog is available for Copy Info.
     TES3MPLastMismatchEvidence := 0
     source := IsObject(profile) ? "Manual character" : "New Adventure"
-    profileName := IsObject(profile) ? profile.Name : "New Adventure"
-    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
+    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Profile: " (IsObject(profile) ? "saved" : "new") ".")
     ; Release any retained process handle before replacing the Client record.
     if IsObject(Client) && Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
         DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
-    LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
+    LogLauncherEvent("GAME | Launch requested | Profile: " (IsObject(profile) ? "saved" : "new") ".")
     global DataFile
-    LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " executable ".")
+    LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable path omitted.")
     Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
         Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
         UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
@@ -185,8 +184,7 @@ FindGameWindow(pid)
 RetryClient(reason)
 {
     global Client
-    profileName := IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure"
-    LogLauncherEvent("GAME | STOP | Character: " profileName " | Reason: " reason ".")
+    LogLauncherEvent("GAME | STOP | Profile: " (IsObject(Client.Profile) ? "saved" : "new") " | Reason: " reason ".")
     StopClient()
     SetClientStatus(reason " — session stopped.")
 }
@@ -206,7 +204,7 @@ ClientTick()
             if Client.LaunchIssued
                 return
             Client.LaunchIssued := true
-            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " (IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure") " | Phase: " Client.Phase ".")
+            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Profile: " (IsObject(Client.Profile) ? "saved" : "new") " | Phase: " Client.Phase ".")
             if !ValidateSelectedClientRuntime(Client.Executable)
                 throw Error("Selected TES3MP runtime is incomplete.")
             SplitPath(Client.Executable, , &workingDirectory)
@@ -245,7 +243,7 @@ ClientTick()
                         codeText .= " (illegal instruction)"
                 }
             }
-            LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable: " Client.Executable ".")
+            LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled") " | Executable path omitted.")
             LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
             StopClient()
             SetClientStatus("Game closed.")
@@ -311,7 +309,7 @@ ClientTick()
             Client.Phase := "playing"
             RememberTES3NPGameClient(Client.PID)
             SetClientStatus("Login inputs completed. You can return to TES3NP and launch another character (up to four clients).")
-            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
+            LogLauncherEvent("GAME | SUCCESS | Login completed | Profile: saved | Active clients: " CountTES3NPGameClients() ".")
             ; Completed manual logins no longer hold the one-at-a-time login
             ; watchdog. Keep the game running and allow another launch.
             Client.KeepLoginProgress := true
@@ -362,7 +360,7 @@ ClientTick()
         if failedPid && ProcessExist(failedPid)
             try ProcessClose(failedPid)
         Client.LaunchIssued := false
-        LogLauncherEvent("GAME | ERROR | Client launch/login exception: " err.Message ".")
+        LogLauncherEvent("GAME | ERROR | Client launch/login exception type: " Type(err) ".")
         RetryClient("Client launch or login failed")
     }
 }
