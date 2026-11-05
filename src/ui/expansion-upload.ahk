@@ -55,7 +55,10 @@ SelectExpansionPackagePath()
     catch Error as err
     {
         LogLauncherEvent("EXPANSION | Native package picker failed (" Type(err) ").")
-        MsgBox("Could not choose the Expansion Pack: " err.Message,
+        reason := SanitizeDiagnosticText(err.Message)
+        if reason = ""
+            reason := "The native browser could not be opened."
+        MsgBox("Could not choose the Expansion Pack: " reason,
             "Upload Expansion", "Icon!")
         package := ""
     }
@@ -156,7 +159,8 @@ StartExpansionImportWorker(package, morrowind, config)
             ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
         LogLauncherEvent("EXPANSION | Import worker launch failed (" Type(err) ").")
-        MsgBox("Could not start Expansion Pack import: " err.Message, "Upload Expansion", "Icon!")
+        reason := SanitizeDiagnosticText(err.Message)
+        MsgBox("Could not start Expansion Pack import: " (reason != "" ? reason : Type(err)), "Upload Expansion", "Icon!")
         return false
     }
 }
