@@ -132,6 +132,16 @@ try {
     if ($fixtureOutput -match '(?i)Warning:|This line will never execute|appears to never be assigned') {
         throw 'AutoHotkey fixture warnings detected; packaging stopped.'
     }
+    Step 'Testing diagnostic privacy with disposable AutoHotkey fixtures'
+    $privacyFixture = Join-Path $projectRoot 'scripts\test-diagnostic-privacy.ahk'
+    $privacyOutput = @(& $base /ErrorStdOut $privacyFixture 2>&1)
+    $privacyExit = $LASTEXITCODE
+    $privacyOutput | ForEach-Object { Write-Host $_ }
+    if ($null -eq $privacyExit -or $privacyExit -ne 0 -or
+        $privacyOutput -match '(?i)Warning:|This line will never execute|appears to never be assigned') {
+        throw 'Diagnostic privacy runtime fixture failed; packaging stopped.'
+    }
+
 
     # Check the COMPLETE launcher source before staging/embed compilation.
     # #Warn issues such as an undeclared AHK built-in can fail Ahk2Exe
