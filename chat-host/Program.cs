@@ -2199,6 +2199,11 @@ metrics();
                     web.Visible = false;
                     chatViewport.Visible = false;
                     nativeMessages.Visible = false;
+                    // Sign-in hides the HTML renderer's parent, not just the
+                    // renderer itself. Re-show BOTH when the first authenticated
+                    // feed arrives; a visible WebView under a hidden parent
+                    // otherwise leaves an empty black Game Chat until restart.
+                    messageClip.Visible = true;
                     messageBrowser.Visible = true;
                     messageBrowser.BringToFront();
                     messageClip.BringToFront();
