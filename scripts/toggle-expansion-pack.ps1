@@ -30,14 +30,30 @@ try{
  if($Action -eq 'Enable'){
   $data=Join-Path $MorrowindFolder 'Data Files'
   foreach($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')){if(!(Test-Path (Join-Path $data $master))){throw ('Missing game master: '+$master)}}
-  # Enabling is a pure config operation. The ESP must already be installed
-  # from an official user-selected download; do not restore legacy files.
-  $esp = Join-Path $data 'NP Expansion Pack.esp'
-  if (!(Test-Path -LiteralPath $esp -PathType Leaf)) {
-   throw 'NP Expansion Pack is not installed. Download it from official Discord and import it first.'
+  # Pack contents may be in the base game or a separately configured OpenMW
+  # data directory. This action edits load order only; it never copies assets.
+  $candidateFolders=@($data)
+  foreach ($line in $lines) {
+   if ($line -match '^\s*data\s*=\s*(.+?)\s*$') {
+    $configured = $matches[1].Trim().Trim('"')
+    if ($configured -and [IO.Path]::IsPathRooted($configured)) {
+     $candidateFolders += $configured
+    }
+   }
   }
-  if ((Get-Item -LiteralPath $esp).Length -le 0) {
-   throw 'Installed NP Expansion Pack.esp is empty.'
+  $foundInstalled = $false
+  foreach ($folder in $candidateFolders) {
+   try {
+    $esp = Join-Path $folder 'NP Expansion Pack.esp'
+    if ((Test-Path -LiteralPath $esp -PathType Leaf) -and
+        (Get-Item -LiteralPath $esp).Length -gt 0) {
+     $foundInstalled = $true
+     break
+    }
+   } catch {}
+  }
+  if (!$foundInstalled) {
+   throw 'NP Expansion Pack is not installed in the configured OpenMW data folders. Download it from official Discord and import it first.'
   }
   $existsData=$false
   foreach($line in $lines){
