@@ -34,9 +34,60 @@ expect('StrReplace(text, profile.Password' in diag,
        "saved passwords must be redacted")
 expect('StrReplace(text, profile.Name' not in diag,
        "public character names must remain useful in logs")
-expect('RegExReplace(text' in diag and '[path omitted]' in diag
-       and '[secret omitted]' in diag and '[email omitted]' in diag,
-       "path/secret/email redaction must remain")
+expect('RegExReplace(item' in diag and 'A-Z]:[\\\\/].*
+expect('SanitizeExistingDiagnosticLogs()' in diag,
+       "legacy diagnostic files must be cleaned on launch")
+expect('"game-chat.log"' not in diag and '"game-chat-index.json"' not in diag,
+       "private Discord archive must not be mutated by log cleaner")
+start = bootstrap.index("    LoadProfiles()")
+scrub = bootstrap.index("    SanitizeExistingDiagnosticLogs()", start)
+mirror = bootstrap.index("    InitializePatchLogMirror()", scrub)
+chatstart = bootstrap.index("    SetTimer(StartEmbeddedInGameChat", mirror)
+expect(start < scrub < mirror < chatstart,
+       "privacy scrub must follow profile loading and precede ChatHost")
+expect('content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))' in settings,
+       "launcher clipboard exports must redact previously recorded logs")
+expect('report .= SanitizeDiagnosticText(content)' in settings,
+       "Expansion Pack clipboard exports must redact")
+expect('A_Clipboard := SanitizeDiagnosticText(report)' in settings,
+       "combined report must be redacted at final clipboard boundary")
+expect("'Source: ' + $match.ProviderName, $match.Message" not in settings,
+       "raw Windows crash event descriptions must never be copied")
+expect('void Log(string message)' in chat and 'File.AppendAllText(logPath' in chat
+       and 'ChatBuild + " | " + safe +' in chat and 'string.Join(" | ", parts)' in chat
+       and '"[path omitted]"' not in chat,
+       "C# Chat Host must write compact clean-field diagnostic messages")
+expect('Log("Navigation completed: " + url)' not in chat,
+       "Chat Host must not log arbitrary navigation URLs")
+expect('Log("ERROR " + ex);' not in chat,
+       "Chat Host must not log full exception stacks")
+expect('string GameChatIndexFile' in chat and 'WriteChatArchiveAtomically' in chat,
+       "private chat archive functionality must remain intact")
+expect('"GAME | CLIENT | Mode: "' in session and 'Executable path omitted.' not in session,
+       "client mode should remain without a path or placeholder notice")
+expect('LogLauncherEvent("GAME | SUCCESS | Login completed | Character: "' in session,
+       "public in-game character names must remain available for troubleshooting")
+expect('LogLauncherEvent("GAME | ERROR | Client launch/login exception: " err.Message' not in session,
+       "session exception messages must not be logged raw")
+expect('return SanitizeDiagnosticText(text)' in patcher,
+       "patch error detail sink must use common clean-field sanitizer")
+expect('detail := "Error type: " Type(err)' in loading,
+       "renderer error log must not record raw exception paths")
+expect("function Write-UpdaterLog([string]$Message)" in updater and
+       "[regex]::Replace($Message" in updater and "$safe -split" in updater
+       and "'[path omitted]'" not in updater
+       and "Add-Content -LiteralPath $LogFile" in updater and
+       "' | UPDATE WORKER | ' + $safe" in updater,
+       "standalone update worker must remove private fields without placeholders")
+
+print("PASS | TES3NP diagnostic privacy source contracts (no placeholders)")
+ in diag
+       and 'Password|Token|Secret' in diag and 'StrSplit(line, "|")' in diag,
+       "clean-field path/secret removal and pipe compaction must remain")
+expect('PrivacyScrubVersion", "") = "2"' in diag and 'IniWrite("2"' in diag,
+       "historical logs must be reprocessed under privacy cleanup version 2")
+expect('"[path omitted]"' not in diag and '"[secret omitted]"' not in diag,
+       "new diagnostic entries must never insert placeholder clutter")
 expect('SanitizeExistingDiagnosticLogs()' in diag,
        "legacy diagnostic files must be cleaned on launch")
 expect('"game-chat.log"' not in diag and '"game-chat-index.json"' not in diag,
