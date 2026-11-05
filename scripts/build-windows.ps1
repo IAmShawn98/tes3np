@@ -388,7 +388,7 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     # Include draft notes for an unreleased development build only; published
     # versions always display their exact GitHub release notes.
     if ($env:GITHUB_REF_NAME -ne 'main') {
-        Copy-Item (Join-Path $projectRoot 'CHANGELOG.md') (Join-Path $package 'CHANGELOG.md') -Force
+        Copy-Item (Join-Path $projectRoot 'RELEASE_NOTES.md') (Join-Path $package 'RELEASE_NOTES.md') -Force
     }
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip

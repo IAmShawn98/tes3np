@@ -97,4 +97,19 @@ if (-not $notesHelper.Contains($expectedHeading)) {
     throw 'Published release notes must preserve heading markers.'
 }
 Write-Host 'PASS: changelog categories remain visible for draft and published versions.'
+# Player-facing draft notes are intentionally separate from the developer history.
+Require-Source 'changelog := A_ScriptDir "\\RELEASE_NOTES\.md"' 'user-facing draft release notes'
+$buildScript = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw
+if (-not $buildScript.Contains("Copy-Item (Join-Path `$projectRoot 'RELEASE_NOTES.md')")) {
+    throw 'Development Windows package must include the player-facing release notes.'
+}
+$playerNotes = Get-Content -LiteralPath 'RELEASE_NOTES.md' -Raw
+if ($playerNotes -notmatch '(?m)^## v0\.1\.21-alpha — unreleased$') {
+    throw 'Player-facing notes must match the current unreleased version.'
+}
+if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source checks|github actions|fixture|pending windows|source-only|build transcript') {
+    throw 'Internal engineering details must not appear in player-facing release notes.'
+}
+Write-Host 'PASS: player-facing notes are distinct from the developer changelog.'
+
 Write-Host 'All launcher updater validation checks passed.'

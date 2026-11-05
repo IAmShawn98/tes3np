@@ -193,7 +193,7 @@ ReadDraftVersionNotes(installedVersion)
 {
     ; Only use this for an unreleased development version, never for a
     ; published version whose GitHub release notes are authoritative.
-    changelog := A_ScriptDir "\CHANGELOG.md"
+    changelog := A_ScriptDir "\RELEASE_NOTES.md"
     if !FileExist(changelog)
         return 0
     content := StrReplace(FileRead(changelog, "UTF-8"), "`r", "")
