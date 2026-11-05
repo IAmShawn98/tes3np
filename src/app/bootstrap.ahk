@@ -231,10 +231,10 @@ LauncherPickleKillAlert(wParam, lParam, msg, hwnd)
         SetTimer(CloseLauncherKillAlert, -6500)
     }
     catch as err {
-        LogLauncherEvent("Kill alert popup error: " err.Message)
+        LogLauncherEvent("Kill alert popup error type: " Type(err))
     }
     TrayTip(eventText, "TES3NP Kill Alert", 0x1)
-    LogLauncherEvent("Game Chat kill alert: " eventText)
+    LogLauncherEvent("Game Chat kill alert notification received.")
     return 0
 }
 CloseLauncherKillAlert()
