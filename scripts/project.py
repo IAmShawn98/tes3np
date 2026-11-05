@@ -237,6 +237,17 @@ def check(allow_missing_payload: bool = False) -> None:
     if (ROOT / "scripts/patch-tes3mp.ps1").exists():
         errors.append("Legacy bundled Install/Repair worker was restored.")
     resource_generator = (ROOT / "scripts/generate-bundled-resources.py").read_text(encoding="utf-8-sig")
+    # The historical v0.1 files may remain in source history, but they are
+    # no longer runtime or release dependencies.
+    manifest_payload = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
+    if [item["Path"] for item in manifest_payload["Files"]] != ["markerless/tes3mp.exe"]:
+        errors.append("Release manifest must not require legacy Expansion Pack payload.")
+    if 'for directory in ("assets",):' not in resource_generator:
+        errors.append("Executable resource generator is bundling non-runtime patch payloads.")
+    build_source = (ROOT / "scripts/build-windows.ps1").read_text(encoding="utf-8-sig")
+    if "@('tes3np.ahk','src','assets','scripts')" not in build_source or "test-expansion-toggle.ps1" not in build_source:
+        errors.append("Windows release build must omit old patch staging and test installed-only toggles.")
+
     patcher = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
     upload = (ROOT / "src/ui/expansion-upload.ahk").read_text(encoding="utf-8-sig")
     bootstrap = (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
