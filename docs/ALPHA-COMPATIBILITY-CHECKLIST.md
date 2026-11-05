@@ -25,6 +25,20 @@ The most valuable remaining checks are Windows 10/11 without SDKs installed,
 first-run discovery, WebView2 absence, update confirmation on a packaged build,
 permissions errors, and shortcut prompt persistence after backup import.
 
+## November 5 second-PC runtime regression gate — pending rebuilt candidate
+
+The tester extracted a private packaged v0.1.21-alpha RAR on a second Windows PC. The launcher opened, the bundled game client started, Discord authentication and plugin-mismatch UI appeared. Seven user-reported issues were captured in screenshots. Changes are committed in the development branch but **have not been rebuilt or retested on that PC**.
+
+- [ ] **Window fit:** first visible frame is already at its final scale; close/relaunch several times at 100%, 125%, and 150% display scaling. The launcher should not paint at full size then shrink, or forget manually selected scale.
+- [ ] **Missing GOTY defer:** in a disposable user profile with no GOTY installation, choose **Not Now**; relaunch the app and confirm the existing Locate Morrowind GOTY chooser returns. No duplicate popups.
+- [ ] **Missing GOTY launch guard:** attempt Launch Character and Start New Adventure without the three GOTY masters. Confirm neither starts TES3MP or displays `Plugin doesn't exist`; each requests the GOTY folder. Select a valid installation and retest launch.
+- [ ] **Buttons:** use all primary launcher buttons and modal actions repeatedly, including fast clicks after returning from Characters and dismissing prompts. Each intended click should trigger once; no 3–4-click delay.
+- [ ] **Discord login popup:** signed-out Game Chat and Expansion Pack download requests show one dedicated **tes3np - Sign in to Discord** window instead of expanding the chat side panel. Check **Not Now**, close/reopen via Game Chat, successfully sign in, and verify native chat/messages, scrollbar, and Happy Hour still work. No second Discord profile.
+- [ ] **Expansion Pack status:** with a disposable OpenMW config, confirm a missing, zero-length, or moved ESP does not display **Enabled**, even if `content=NP Expansion Pack.esp` remains. Confirm a nonempty installed ESP in a separate configured `data=` folder and proper load order can show Enabled. **Server/version freshness remains unverified**—a nonempty ESP cannot prove it matches the latest official pack.
+- [ ] **Repeat plugin mismatch:** deliberately reproduce a real server load-order rejection, Cancel its download dialog, then retry login. The dialog must reappear on each qualifying *new* mismatch; cancel pending Discord sign-in and retry too. No duplicate dialogs, stale auth or automatic downloading.
+- [ ] **Regression after fixes:** re-run ZIP/folder importer, genuine Happy Hour detection, custom game client, saved profile login, macros, read-only privacy audit, and packaging checks.
+- [ ] **Final standalone artifact:** build an exact HEAD candidate, verify SHA-256 and test extracted ZIP on the second PC. The original earlier RAR is not evidence these fixes work.
+
 ## Clean installation
 - [ ] Fresh Windows 11 x64 standard user, no AutoHotkey/.NET SDK/TES3MP installed: extract packaged ZIP to a normal user-writable directory; launcher opens.
 - [ ] Windows 10 x64 standard user: same test, including a machine without WebView2. Missing chat must not prevent game launching.
