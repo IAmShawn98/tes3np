@@ -23,6 +23,11 @@ jobs:
         run: ./scripts/check-powershell.ps1
       - name: Guard Chat Host persistence and Happy Hour contracts
         run: python scripts/check-chat-architecture.py
+      - name: Compile AutoHotkey launcher with verified official tools
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/check-ahk-compile.ps1
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
