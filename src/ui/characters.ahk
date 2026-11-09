@@ -8,7 +8,25 @@ OpenCharacterPage(*)
         ; Cached book is already fully painted and layered with its correct
         ; magenta transparency. Reapplying alpha=0 on every visit caused a
         ; visible blank-to-opaque flash before RevealWindowDisplay().
-        CharacterPage.Show()
+        ; The cached book already contains all the correct controls, but
+        ; the first re-Show can publish its empty background before Windows
+        ; repaints child HWNDs. Keep the existing bitmap/controls intact and
+        ; reveal only after the entire cached page has been repainted.
+        staged := SetPageCompositorCloak(CharacterPage, true)
+        try
+        {
+            CharacterPage.Show()
+            if staged
+            {
+                FinishButtonDisplay()
+                RevealPaintedPage(CharacterPage)
+            }
+        }
+        finally
+        {
+            if staged
+                SetPageCompositorCloak(CharacterPage, false)
+        }
         RefreshMacroProcesses()
         if MacroItems.Length
             SetTimer(RefreshMacroProcesses, 1000)
@@ -87,8 +105,20 @@ OpenCharacterPage(*)
     ApplyV016CharacterLayout()
     RefreshProfiles()
     PrepareWindowDisplay(CharacterPage)
-    CharacterPage.Show("w960 h650")
-    RevealWindowDisplay(CharacterPage, true)
+    staged := SetPageCompositorCloak(CharacterPage, true)
+    try
+    {
+        CharacterPage.Show("w960 h650")
+        ; Preserve the original magenta color key and custom button faces.
+        RevealWindowDisplay(CharacterPage, true)
+        if staged
+            RevealPaintedPage(CharacterPage)
+    }
+    finally
+    {
+        if staged
+            SetPageCompositorCloak(CharacterPage, false)
+    }
     if MacroItems.Length
         SetTimer(RefreshMacroProcesses, 1000)
 }
