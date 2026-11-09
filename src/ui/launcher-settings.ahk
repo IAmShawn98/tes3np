@@ -32,8 +32,15 @@ LoadLauncherScale()
         LauncherScale := GetAutomaticLauncherScale()
         return
     }
+    if !RegExMatch(saved, "^(?:50|60|70|80|90|100)$")
+    {
+        ; Invalid saved percentages must not display as a manual setting.
+        LauncherScaleMode := "Auto"
+        LauncherScale := GetAutomaticLauncherScale()
+        return
+    }
     LauncherScaleMode := "Manual"
-    LauncherScale := RegExMatch(saved, "^(?:50|60|70|80|90|100)$") ? Integer(saved) : GetAutomaticLauncherScale()
+    LauncherScale := Integer(saved)
 }
 
 DetectWindowsAccessibility()
@@ -70,6 +77,7 @@ ScaleChoiceIndex(scale)
 PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, loadingMessage, *)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
+    global V016ReadabilityState, V016FollowWindowsState
     oldScale := LauncherScale, oldMode := LauncherScaleMode, oldText := AccessibilityTextSize
     oldReadability := EnhancedReadability, oldReduceMotion := ReduceMotion, oldFollowWindows := FollowWindowsAccessibility
     if scaleList.Value = 1
@@ -110,7 +118,8 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         SaveEnhancedReadability(EnhancedReadability)
         SaveReduceMotion(ReduceMotion)
         SaveFollowWindowsAccessibility(FollowWindowsAccessibility)
-        settings.Destroy()
+        ; Complete the normal modal cleanup (including stale HWND/bookkeeping).
+        CloseLauncherSettingsV016(settings)
         return
     }
     LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
@@ -127,6 +136,18 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         SetInterfaceLoadingText("Finishing display restore...")
     }
     finally EndInterfaceUpdate()
+    ; A declined preview must restore the visible selectors as well as the
+    ; launcher geometry. Otherwise Reset/Preview can leave controls showing
+    ; defaults until the next login even though the old state was restored.
+    scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)
+    textList.Choose(oldText = "Large" ? 2 : oldText = "Extra Large" ? 3 : 1)
+    readability.Value := oldReadability ? 1 : 0
+    reduceMotionBox.Value := oldReduceMotion ? 1 : 0
+    followWindows.Value := oldFollowWindows ? 1 : 0
+    V016ReadabilityState := readability.Value
+    V016FollowWindowsState := followWindows.Value
+    if settings.HasOwnProp("ReadabilityControl")
+        UpdateV016ReadabilityLabel(settings.ReadabilityControl, V016ReadabilityState)
     settings.Show()
     ; Settings is modal again once the preview has been rejected/restored.
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
@@ -170,9 +191,13 @@ AccessibilityFontSize(baseSize)
 }
 ApplyAccessibilityTextSize()
 {
-    global LauncherGui, ButtonFaces
+    global LauncherGui, ButtonFaces, LauncherScale
     if !IsObject(LauncherGui)
         return
+    ; Font changes must NEVER restore native hit targets to their 100% base
+    ; positions. ApplyLauncherControlScale already moves every captured control
+    ; from its immutable baseline, including at 50/60/70/80/90 percent.
+    scale := LauncherScale / 100
     DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
@@ -181,13 +206,9 @@ ApplyAccessibilityTextSize()
             if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
                 continue
             size := AccessibilityFontSize(10)
-            if face.HasOwnProp("BaseWidth")
-            {
-                face.Control.Move(face.BaseX, , face.BaseWidth, face.BaseHeight)
-                if face.BaseWidth < 180
-                    size := Min(size, 11)
-            }
-            face.Control.SetFont("s" size " Bold", "Segoe UI")
+            if face.HasOwnProp("BaseWidth") && face.BaseWidth < 180
+                size := Min(size, 11)
+            face.Control.SetFont("s" Max(7, Round(size * scale)) " Bold", "Segoe UI")
         }
     }
     finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
@@ -266,6 +287,11 @@ ApplyLauncherScaleToWindow(center := false)
     y := top + Max(0, ((bottom - top) - height) // 2)
     DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
     ApplyLauncherControlScale()
+    ; Preview and rollback are live layout transactions. The fast return from
+    ; Characters/Settings must not trust a cached scale from before preview.
+    global LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
+    LauncherCachedScale := LauncherScale
+    LauncherCachedLayoutCount := LauncherControlLayout.Count
     if center
         CenterLauncherWithoutResizing()
 }

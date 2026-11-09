@@ -40,7 +40,22 @@ V016S(value)
 V016Font(value)
 {
     global V016SettingsScale
-    return Max(6, Round(value * V016SettingsScale))
+    return Max(9, Round(value * V016SettingsScale))
+}
+
+GetV016SettingsFitScale()
+{
+    global LauncherGui
+    ; Settings is a separate readable document: a 50% launcher should not
+    ; force its dropdowns/labels to 50%. Only shrink when the actual monitor
+    ; work area cannot fit the approved 512x590 parchment at Windows DPI.
+    WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
+    monitor := MonitorFromPoint(x + w // 2, y + h // 2)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    dpi := A_ScreenDPI / 96
+    fit := Min(1.0, (right - left - 24) / (512 * dpi),
+        (bottom - top - 24) / (590 * dpi))
+    return Max(0.45, fit)
 }
 
 HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
@@ -127,9 +142,10 @@ OpenLauncherSettingsV016(*)
     }
     V016SettingsGuiHwnd := 0
 
-    ; Use the same resolved launcher scale (automatic or manual) as the main window.
-    ; AHK still handles monitor DPI; this factor handles tes3np's own 50-100% launcher scale.
-    V016SettingsScale := LauncherScale / 100
+    ; Keep Settings readable regardless of the launcher percentage.
+    ; Compute a separate work-area fit rather than shrinking the parchment
+    ; and native dropdowns to 50% on small launcher presets.
+    V016SettingsScale := GetV016SettingsFitScale()
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
@@ -168,12 +184,14 @@ OpenLauncherSettingsV016(*)
     readabilityPrefix := V016ReadabilityState ? "☑" : "■"
     readability := settings.Add("Text", "x" V016S(32) " y" V016S(305) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
+    settings.ReadabilityControl := readability
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(70) " y" V016S(335) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
-    reduceMotionBox := {Value: 0}
+    global ReduceMotion
+    reduceMotionBox := {Value: ReduceMotion ? 1 : 0}
 
     AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
@@ -254,6 +272,8 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
     global V016ReadabilityState, V016FollowWindowsState
     if MsgBox("Reset launcher settings to their defaults?", "tes3np — Reset Launcher Settings", "YesNo Icon?") != "Yes"
         return
+    ; Reset is still a reversible preview: the No path restores both saved
+    ; values and every displayed selector/checkbox from the prior state.
     scaleList.Choose(1), textList.Choose(1)
     V016ReadabilityState := 0, V016FollowWindowsState := 1
     readability.Text := V016CheckLabel(0, "Enhanced readability")
