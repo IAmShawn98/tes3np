@@ -4,6 +4,13 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Native Launcher/Character Book/Settings page pop-in transition — 2026-11-09
+
+- A user-provided 22-second, 60 fps desktop recording repeatedly alternated between Launcher, Character Book, Settings and background applications, exposing abrupt page presentation and occasional unrelated foreground application during the handoff. The cause is not a general animation setting: the affected owned windows were being made visible before their presentation was ready or destroyed/hidden before the launcher had regained foreground.
+- Launcher Settings now applies its existing `010101` transparent key **while hidden** before the first visible `Show`, preserving the original parchment and native controls without exposing unmasked construction paints.
+- Closing Settings re-enables and activates its owner **before** destroying the owned popup. Closing Character Book restores the cached launcher **before** hiding the book; dormant editor/macro controls are reset only after it is hidden. Both changes avoid opening a focus gap to another app.
+- The full-width Settings Close button, saved scale, Character Book controls, game/Chat Host lifecycle and Expansion Pack workflow are unchanged. Added source-order regression contracts; Windows interactive visual confirmation remains pending.
+
 ### One-time first-launch desktop shortcut prompt and original Settings spacing — 2026-11-09
 
 - Removed the **Create Desktop Shortcut** action from Launcher Settings and restored the pre-November 5 full-width **Close Settings** button at x32/y483/w448; no half-row gap, shift in surrounding controls, or separate shortcut slot.
