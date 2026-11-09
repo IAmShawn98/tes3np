@@ -384,6 +384,8 @@ expect(
     and 'Gui("+Owner" LauncherGui.Hwnd' in mismatch
     and 'SendLauncherChatCommand(command, targetHwnd := 0)' in bootstrap,
 )
+expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
+
 expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
     'choice := MsgBox("NP Expansion Pack is not installed."' in patcher
@@ -669,7 +671,6 @@ expect(
 
 resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
 expansion_picker = (ROOT / "scripts" / "select-expansion-package.ps1").read_text(encoding="utf-8-sig")
-expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
 expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(encoding="utf-8-sig")
 expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
