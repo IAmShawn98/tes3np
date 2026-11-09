@@ -694,10 +694,15 @@ internal static class Program
                 !IsOfficialExpansionDownloadUrl(expansionLatestZipUrl))
             {
                 Log("EXPANSION | Automatic download denied: no authenticated current ZIP.");
+                if (slot==expansionDownloadsParent && IsWindow(owner))
+                    PostMessage(owner,0x8338,new IntPtr(-1),Handle);
                 return;
             }
             if (System.Threading.Interlocked.CompareExchange(ref expansionAutoDownloading,1,0)!=0)
+            {
+                PostMessage(owner,0x8338,new IntPtr(-1),Handle);
                 return;
+            }
             var cancellation=new CancellationTokenSource(TimeSpan.FromHours(4));
             expansionAutoDownloadCancellation=cancellation;
             string url=expansionLatestZipUrl!;
