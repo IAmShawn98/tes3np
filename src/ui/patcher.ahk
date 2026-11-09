@@ -550,7 +550,11 @@ CheckFirstRunMorrowind(*)
     prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
     MorrowindPromptGui := prompt
-    prompt.Show("w480 h250")
+    promptScale := GetOwnedMenuScale()
+    ScaleOwnedMenuContent(prompt, promptScale)
+    prompt.Show("Hide w" Round(480 * promptScale) " h" Round(250 * promptScale))
+    PositionOwnedMenuAtParent(prompt, LauncherGui)
+    prompt.Show()
 }
 
 ; Do not launch TES3MP until all three GOTY master files are present.
