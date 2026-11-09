@@ -11,6 +11,7 @@ global ExpansionMismatchStatus := 0
 global ExpansionMismatchAuthenticated := false
 global ExpansionMismatchMode := "Mismatch"
 global ExpansionAutoDownloadActive := false
+global ExpansionAutoDownloadAttempted := false
 ; 1 = initial missing-pack install; 2 = server plugin mismatch.
 global ExpansionDiscordPromptPending := 0
 ; Keep only fixed error classifications from the current failed login;
@@ -230,7 +231,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
 {
     global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
     global ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot, ExpansionMismatchStatus
-    global ExpansionMismatchAuthenticated, ExpansionMismatchMode, ExpansionAutoDownloadActive
+    global ExpansionMismatchAuthenticated, ExpansionMismatchMode, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
     ; Never hide the diagnostic behind Discord authentication. The native
     ; dialog is useful immediately; only the official download is gated.
     if IsObject(ExpansionMismatchDialog)
@@ -262,6 +263,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     }
     ExpansionMismatchMode := mode
     ExpansionAutoDownloadActive := false
+    ExpansionAutoDownloadAttempted := false
     ExpansionMismatchAuthenticated := authConfirmed
     ExpansionMismatchZipUrl := ""
     ShowLauncherWindow(true)
@@ -291,8 +293,8 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.SetFont("s10 Norm cEDE1C9", "Segoe UI")
     dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", intro)
     instructions := mode = "Install"
-        ? "When the official ZIP is found, click Download and Install. "
-            . "TES3NP will download it, verify its archive and use the existing "
+        ? "Once the official ZIP is found, TES3NP automatically downloads it, "
+            . "verifies its archive, and uses the existing "
             . "backed-up, rollback-safe installer. If anything fails, choose Repair / Install ZIP."
         : "Click the latest Expansion Pack ZIP below to download it through your browser. "
             . "When the download finishes, click Install ZIP to select the ZIP "
@@ -355,13 +357,14 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
-    global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending, ExpansionAutoDownloadActive
+    global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
     if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
     ExpansionMismatchSlot := 0
     ExpansionMismatchZipUrl := ""
     ExpansionAutoDownloadActive := false
+    ExpansionAutoDownloadAttempted := false
     ExpansionMismatchFileButton := 0
     ExpansionMismatchDownloadSlot := 0
     ExpansionMismatchStatus := 0
@@ -384,6 +387,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
+    global ExpansionMismatchMode, ExpansionMismatchStatus, ExpansionAutoDownloadAttempted
     ; WM_COPYDATA is synchronous; copy the data before returning.
     ; Only accept our current ChatHost's authenticated HTTPS attachment.
     if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
@@ -430,7 +434,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     ExpansionMismatchZipUrl := url
     if IsObject(ExpansionMismatchStatus)
         ExpansionMismatchStatus.Text := ExpansionMismatchMode = "Install"
-            ? "Latest official ZIP found. Click Download and Install."
+            ? "Official ZIP found. Beginning automatic download..."
             : "Latest official ZIP found. Click Download to open your browser."
     if IsObject(ExpansionMismatchFileButton)
     {
@@ -449,6 +453,16 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     ; control until the original message handler has returned.
     slot := ExpansionMismatchSlot
     SetTimer((*) => TES3MPExpansionActivateDownloadButton(slot), -30)
+    ; The user already approved download on the first Enable prompt. Start
+    ; once when an authenticated current attachment is discovered; later URL
+    ; refreshes do not silently restart a failed/cancelled transfer.
+    if ExpansionMismatchMode = "Install" && !ExpansionAutoDownloadAttempted
+    {
+        ExpansionAutoDownloadAttempted := true
+        status := ExpansionMismatchStatus
+        if IsObject(status)
+            SetTimer((*) => TES3MPExpansionRequestAutoInstall(slot, status), -100)
+    }
     LogLauncherEvent("EXPANSION | Latest ZIP ready; activating native download button.")
     return 1
 }
