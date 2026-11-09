@@ -135,7 +135,18 @@ if A_Args.Length && A_Args[1] = "--check-page-compositor"
     testWindow.Add("Text", "x12 y12 w255 h35", "Paint-ready test page")
     if !SetPageCompositorCloak(testWindow, true)
         ExitApp(191)
-    testWindow.Show("w280 h90")
+    ; Reproduce Settings' exact hidden + DWM-cloaked color-key setup. AHK
+    ; WinSetTransColor by window title failed in this state; by-HWND must work.
+    testWindow.Show("Hide w280 h90")
+    if !SetPageColorKey(testWindow, 0x010101)
+        ExitApp(195)
+    colorKey := Buffer(4, 0), colorAlpha := Buffer(1, 0), colorFlags := Buffer(4, 0)
+    if !DllCall("GetLayeredWindowAttributes", "Ptr", testWindow.Hwnd,
+        "Ptr", colorKey, "Ptr", colorAlpha, "Ptr", colorFlags, "Int")
+        || NumGet(colorKey, 0, "UInt") != 0x010101
+        || NumGet(colorFlags, 0, "UInt") != 1
+        ExitApp(196)
+    testWindow.Show()
     before := Buffer(4, 0)
     if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", testWindow.Hwnd,
         "UInt", 14, "Ptr", before, "UInt", 4, "Int") != 0
