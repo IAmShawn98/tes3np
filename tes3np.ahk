@@ -164,6 +164,39 @@ if A_Args.Length && A_Args[1] = "--check-page-compositor"
     testWindow.Destroy()
     ExitApp(0)
 }
+; CI-only fast return check: the full launcher is already visible beneath
+; its owned Character Book. Closing the book must not repaint all registered
+; themed controls or synchronously rebuild the parent menu.
+if A_Args.Length && A_Args[1] = "--check-cached-character-return"
+{
+    global LauncherGui := Gui("-Caption -Border", "Cached return smoke")
+    LauncherGui.Show("w560 h350")
+    global LauncherScale := 100
+    global LauncherScaleMode := "Manual"
+    global LauncherCachedScale := 100
+    global LauncherControlLayout := Map()
+    global LauncherCachedLayoutCount := 0
+    ; If ShowLauncherWindow accidentally invokes RepaintMenuButtons, its
+    ; stale-handle sweep deletes this marker. The fast branch must not do so.
+    probeHandle := 0x7E5A01
+    ButtonFaces[probeHandle] := {State: "probe"}
+    probeBook := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border", "Book")
+    probeBook.Show("w220 h160")
+    began := A_TickCount
+    ShowLauncherWindow(true)
+    probeBook.Hide()
+    elapsed := A_TickCount - began
+    if !ButtonFaces.Has(probeHandle)
+        ExitApp(201)
+    if !DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+        || DllCall("IsWindowVisible", "Ptr", probeBook.Hwnd)
+        ExitApp(202)
+    if elapsed >= 750
+        ExitApp(203)
+    ButtonFaces.Delete(probeHandle)
+    FileAppend("PASS: cached Character Book return avoids global repaint" Chr(10), "*")
+    ExitApp(0)
+}
 HandleUpdaterStartupMode()
 StartLauncher()
 
