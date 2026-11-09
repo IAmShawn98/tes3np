@@ -1017,6 +1017,23 @@ expect(
     and "arrowHalf := Max(4, Round(9 * paintScale))" in bootstrap
     and "arrowHeight := Max(4, Round(10 * paintScale))" in bootstrap,
 )
+chat_startup = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig")
+ui_loading = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
+host_freshness = section_between(chat_startup, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
+expect(
+    "Opening the source launcher never compiles ChatHost on the UI thread",
+    "EnsureEmbeddedChatHostCurrent(host)" in chat_startup
+    and "RunWait(" not in host_freshness
+    and "dotnet publish" not in host_freshness.replace("RunWait(dotnet publish)", "")
+    and "startup will not block on compilation" in host_freshness,
+)
+expect(
+    "Loading transitions avoid compositor waits and restore prior critical state",
+    "DwmFlush" not in ui_loading.replace("DwmFlush synchronously", "")
+    and "previousCritical := A_IsCritical" in ui_loading
+    and "finally Critical(previousCritical)" in ui_loading
+    and "finally EndInterfaceUpdate()" in display_settings,
+)
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
     'LauncherGui.Show("Hide w960 h716")' in bootstrap
