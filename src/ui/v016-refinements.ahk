@@ -46,16 +46,16 @@ V016Font(value)
 GetV016SettingsFitScale()
 {
     global LauncherGui
-    ; Settings is a separate readable document: a 50% launcher should not
-    ; force its dropdowns/labels to 50%. Only shrink when the actual monitor
-    ; work area cannot fit the approved 512x590 parchment at Windows DPI.
+    ; Match the active launcher percentage, bounded by owner work-area fit.
+    ; The old independent "readability" fit left Settings at 100% even for
+    ; a 50% launcher. Keep the same proportional sizes for every page.
     WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
     monitor := MonitorFromPoint(x + w // 2, y + h // 2)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     dpi := A_ScreenDPI / 96
     fit := Min(1.0, (right - left - 24) / (512 * dpi),
         (bottom - top - 24) / (590 * dpi))
-    return Max(0.45, fit)
+    return Max(0.45, Min(GetOwnedMenuScale(), fit))
 }
 
 HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
@@ -142,9 +142,7 @@ OpenLauncherSettingsV016(*)
     }
     V016SettingsGuiHwnd := 0
 
-    ; Keep Settings readable regardless of the launcher percentage.
-    ; Compute a separate work-area fit rather than shrinking the parchment
-    ; and native dropdowns to 50% on small launcher presets.
+    ; Match the existing launcher scale, with the monitor as an upper bound.
     V016SettingsScale := GetV016SettingsFitScale()
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
@@ -222,6 +220,9 @@ OpenLauncherSettingsV016(*)
     try
     {
         settings.Show("Hide w" V016S(512) " h" V016S(590))
+        ; Anchor after sizing, while still DWM-cloaked, to the actual current
+        ; launcher HWND instead of Windows' stale/default page position.
+        PositionOwnedMenuAtParent(settings, LauncherGui)
         ; AHK's WinSetTransColor looks up visible/eligible windows even for
         ; ahk_id; it cannot find our intentionally DWM-cloaked Settings HWND.
         ; Apply the unchanged 010101 key directly to the live native handle.
@@ -605,7 +606,11 @@ OpenClientSelectionSettings(*)
     close.OnEvent("Click", CloseGameClientSettingsV016.Bind(menu))
     menu.OnEvent("Escape", CloseGameClientSettingsV016.Bind(menu))
     menu.OnEvent("Close", CloseGameClientSettingsV016.Bind(menu))
-    menu.Show("w528 h416")
+    menuScale := GetOwnedMenuScale()
+    ScaleOwnedMenuContent(menu, menuScale)
+    menu.Show("Hide w" Round(528 * menuScale) " h" Round(416 * menuScale))
+    PositionOwnedMenuAtParent(menu, ownerHwnd)
+    menu.Show()
 }
 
 RestoreBundledClientV016(menu, *)
@@ -652,7 +657,11 @@ ConfigureCustomClientV016(menu, *)
     skip.OnEvent("Click", (*) => SaveCustomClientV016(menu, options, source, ""))
     cancel.OnEvent("Click", (*) => options.Destroy())
     options.OnEvent("Escape", (*) => options.Destroy())
-    options.Show("w510 h292")
+    optionScale := GetOwnedMenuScale()
+    ScaleOwnedMenuContent(options, optionScale)
+    options.Show("Hide w" Round(510 * optionScale) " h" Round(292 * optionScale))
+    PositionOwnedMenuAtParent(options, menu)
+    options.Show()
 }
 
 ChooseCustomDependencyFolderV016(menu, options, source, *)
