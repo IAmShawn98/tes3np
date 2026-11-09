@@ -126,6 +126,33 @@ if A_Args.Length && A_Args[1] = "--check-expansion-window"
     }
     ExitApp(0)
 }
+; Windows-only page presentation smoke: verify DWM really retains a
+; staged native GUI out of desktop composition until its paint is complete.
+; This uses a disposable window, not launcher profiles, Discord or files.
+if A_Args.Length && A_Args[1] = "--check-page-compositor"
+{
+    testWindow := Gui("-Caption -Border", "TES3NP staged page smoke")
+    testWindow.Add("Text", "x12 y12 w255 h35", "Paint-ready test page")
+    if !SetPageCompositorCloak(testWindow, true)
+        ExitApp(191)
+    testWindow.Show("w280 h90")
+    before := Buffer(4, 0)
+    if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", testWindow.Hwnd,
+        "UInt", 14, "Ptr", before, "UInt", 4, "Int") != 0
+        || NumGet(before, 0, "Int") = 0
+        ExitApp(192)
+    RevealPaintedPage(testWindow)
+    after := Buffer(4, 0)
+    if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", testWindow.Hwnd,
+        "UInt", 14, "Ptr", after, "UInt", 4, "Int") != 0
+        || NumGet(after, 0, "Int") != 0
+        ExitApp(193)
+    if !DllCall("IsWindowVisible", "Ptr", testWindow.Hwnd)
+        ExitApp(194)
+    FileAppend("PASS: staged page hidden until native paint and then revealed" Chr(10), "*")
+    testWindow.Destroy()
+    ExitApp(0)
+}
 HandleUpdaterStartupMode()
 StartLauncher()
 
