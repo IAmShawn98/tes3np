@@ -147,7 +147,7 @@ CreateLauncherChatToggle()
 }
 PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
 {
-    global LauncherChatToggle
+    global LauncherChatToggle, LauncherScale
     if !IsObject(LauncherChatToggle) || hwnd != LauncherChatToggle.Hwnd
         return
     ; WM_PAINT is handled here rather than letting STATIC clip the rotated font.
@@ -174,8 +174,12 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         DllCall("gdi32\DeleteObject", "Ptr", frame)
         DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
         DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", 0x00FFFFFF)
+        ; The native rotated label was stuck at 21 physical pixels even
+        ; when the tab was half-size, clipping "Game Chat" at 50-70%.
+        paintScale := LauncherScale / 100
+        fontHeight := -Max(9, Round(21 * paintScale))
         font := DllCall("gdi32\CreateFontW",
-            "Int", -21, "Int", 0, "Int", 900, "Int", 900,
+            "Int", fontHeight, "Int", 0, "Int", 900, "Int", 900,
             "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
             "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
             "UInt", 0, "Str", "Segoe UI", "Ptr")
@@ -186,16 +190,18 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", font)
         ; Arrow pointing left, matching the original toggle.
-        pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", 4, "UInt", 0x00FFFFFF, "Ptr")
+        pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", 0x00FFFFFF, "Ptr")
         oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
         cx := Round(w * 0.32), cy := Round(h * 0.50)
         global LauncherChatOpen
         direction := LauncherChatOpen ? -1 : 1
-        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * 9, "Int", cy, "Ptr", 0)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * 9, "Int", cy)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - 10)
-        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + direction * 9, "Int", cy, "Ptr", 0)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy + 10)
+        arrowHalf := Max(4, Round(9 * paintScale))
+        arrowHeight := Max(4, Round(10 * paintScale))
+        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * arrowHalf, "Int", cy, "Ptr", 0)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - arrowHeight)
+        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy, "Ptr", 0)
+        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy + arrowHeight)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldPen, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", pen)
     }

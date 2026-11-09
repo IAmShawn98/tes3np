@@ -971,6 +971,52 @@ expect(
     and "SetTimer(UpdateGameLoginProgress, 0)" in login_cleanup
     and "DisposeGameLoginProgress()" in login_cleanup,
 )
+display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
+settings_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+front_layout = (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
+font_update = section_between(
+    display_settings, "\nApplyAccessibilityTextSize()\n{", "\nApplyEnhancedReadability()\n{"
+)
+expect(
+    "Display text changes never restore unscaled themed-button geometry",
+    "size := AccessibilityFontSize(10)" in font_update
+    and "scale := LauncherScale / 100" in font_update
+    and 'Max(7, Round(size * scale))' in font_update
+    and "face.Control.Move(" not in font_update,
+)
+expect(
+    "Declined display previews restore saved state and visible settings controls",
+    "ApplyLauncherScaleToWindow(true)" in display_settings
+    and "ApplyAccessibilityTextSize()" in display_settings
+    and "ApplyEnhancedReadability()" in display_settings
+    and 'scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)' in display_settings
+    and 'textList.Choose(oldText = "Large" ? 2' in display_settings
+    and "V016ReadabilityState := readability.Value" in display_settings
+    and "V016FollowWindowsState := followWindows.Value" in display_settings
+    and "UpdateV016ReadabilityLabel(settings.ReadabilityControl, V016ReadabilityState)" in display_settings
+    and "CloseLauncherSettingsV016(settings)" in display_settings
+    and "LauncherCachedScale := LauncherScale" in display_settings,
+)
+expect(
+    "Settings remain readable and fitted at all manual launcher percentages",
+    "V016SettingsScale := GetV016SettingsFitScale()" in settings_ui
+    and "fit := Min(1.0, (right - left - 24) / (512 * dpi)," in settings_ui
+    and "return Max(0.45, fit)" in settings_ui
+    and "return Max(9, Round(value * V016SettingsScale))" in settings_ui
+    and "settings.ReadabilityControl := readability" in settings_ui
+    and "reduceMotionBox := {Value: ReduceMotion ? 1 : 0}" in settings_ui,
+)
+expect(
+    "Manual launcher scale scrolling accounts for current UI scale",
+    front_layout.count("((A_ScreenDPI / 96) * LauncherScale / 100)") >= 2
+    and "scale := (A_ScreenDPI / 96) * LauncherScale / 100" in front_layout,
+)
+expect(
+    "Game Chat toggle caption and arrow shrink with launcher tab",
+    "fontHeight := -Max(9, Round(21 * paintScale))" in bootstrap
+    and "arrowHalf := Max(4, Round(9 * paintScale))" in bootstrap
+    and "arrowHeight := Max(4, Round(10 * paintScale))" in bootstrap,
+)
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
     'LauncherGui.Show("Hide w960 h716")' in bootstrap

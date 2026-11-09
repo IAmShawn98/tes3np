@@ -113,24 +113,24 @@ ScrollMenu(offset)
 
 ScrollFromPointer()
 {
-    global LauncherGui, ScrollGrabOffset
+    global LauncherGui, ScrollGrabOffset, LauncherScale
     MouseGetPos(, &y)
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", LauncherGui.Hwnd, "Ptr", origin)
-    logicalY := (y - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
+    logicalY := (y - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * LauncherScale / 100)
     global MenuEntries, MenuRows
     ScrollMenu(Round((logicalY - 435 - ScrollGrabOffset) / 103 * Max(0, (MenuEntries.Length - MenuRows.Length) * 20)))
 }
 
 PressMenuScroll(hwnd)
 {
-    global LauncherGui, ScrollTrack, ScrollThumb, ScrollDragging, ScrollGrabOffset, MenuOffset
+    global LauncherGui, ScrollTrack, ScrollThumb, ScrollDragging, ScrollGrabOffset, MenuOffset, LauncherScale
     if hwnd != ScrollTrack.Hwnd && hwnd != ScrollThumb.Hwnd
         return false
     MouseGetPos(, &pointerY)
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", LauncherGui.Hwnd, "Ptr", origin)
-    localY := (pointerY - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
+    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * LauncherScale / 100)
     global MenuEntries, MenuRows
     maximum := Max(1, (MenuEntries.Length - MenuRows.Length) * 20)
     ScrollGrabOffset := hwnd = ScrollThumb.Hwnd ? localY - (435 + Round(MenuOffset / maximum * 103)) : 36
@@ -165,13 +165,13 @@ ScrollMenuWheel(wParam, lParam, msg, hwnd)
         return 0
     if ScrollMacroWheel(wParam)
         return 0
-    global LauncherGui, MenuOffset
+    global LauncherGui, MenuOffset, LauncherScale
     MouseGetPos(&x, &y, &window)
     if window != LauncherGui.Hwnd
         return
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", LauncherGui.Hwnd, "Ptr", origin)
-    scale := A_ScreenDPI / 96
+    scale := (A_ScreenDPI / 96) * LauncherScale / 100
     x := (x - NumGet(origin, 0, "Int")) / scale
     y := (y - NumGet(origin, 4, "Int")) / scale
     if x < 340 || x > 618 || y < 435 || y > 610
