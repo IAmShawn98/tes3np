@@ -95,4 +95,19 @@ if ($nativeProcess.ExitCode -ne 0) {
     throw "Native Expansion downloader window setup failed with code $($nativeProcess.ExitCode)."
 }
 Write-Host 'PASS: actual native downloader window and custom Cancel initialized.'
+Write-Host 'Testing actual Windows compositor staging for first-paint-ready launcher pages.'
+$pageOut = Join-Path $work 'page-compositor-stdout.txt'
+$pageErr = Join-Path $work 'page-compositor-stderr.txt'
+$pageArgs = '/ErrorStdOut "' + $launcher + '" --check-page-compositor'
+$pageTest = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $pageArgs -PassThru -RedirectStandardOutput $pageOut -RedirectStandardError $pageErr
+if (!$pageTest.WaitForExit(30000)) {
+    try { Stop-Process -Id $pageTest.Id -Force -ErrorAction SilentlyContinue } catch {}
+    throw 'Page compositor staging smoke test timed out.'
+}
+if (Test-Path $pageOut) { Get-Content $pageOut | ForEach-Object { Write-Host $_ } }
+if (Test-Path $pageErr) { Get-Content $pageErr | ForEach-Object { Write-Host $_ } }
+if ($pageTest.ExitCode -ne 0) {
+    throw "Page compositor staging smoke test failed with code $($pageTest.ExitCode)."
+}
+Write-Host 'PASS: staged native page withheld from DWM until complete paint.'
 Write-Host 'PASS: complete launcher parsed and compiled; Expansion Pack UI functions resolved.'
