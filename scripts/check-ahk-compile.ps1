@@ -125,4 +125,19 @@ if ($bookProcess.ExitCode -ne 0) {
     throw "Cached Character Book close smoke test failed with code $($bookProcess.ExitCode)."
 }
 Write-Host 'PASS: cached Character Book closes without a global control redraw.'
+Write-Host 'Testing menu scale and owner-relative placement after moving parent on Windows.'
+$menuOut = Join-Path $work 'menu-scale-stdout.txt'
+$menuErr = Join-Path $work 'menu-scale-stderr.txt'
+$menuArgs = '/ErrorStdOut "' + $launcher + '" --check-owned-menu-scaling'
+$menuTest = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $menuArgs -PassThru -RedirectStandardOutput $menuOut -RedirectStandardError $menuErr
+if (!$menuTest.WaitForExit(30000)) {
+    try { Stop-Process -Id $menuTest.Id -Force -ErrorAction SilentlyContinue } catch {}
+    throw 'Owned menu placement/scale test timed out.'
+}
+if (Test-Path $menuOut) { Get-Content $menuOut | ForEach-Object { Write-Host $_ } }
+if (Test-Path $menuErr) { Get-Content $menuErr | ForEach-Object { Write-Host $_ } }
+if ($menuTest.ExitCode -ne 0) {
+    throw "Owned menu placement/scale test failed with code $($menuTest.ExitCode)."
+}
+Write-Host 'PASS: owner-moved menu stays centered and control sizes match launcher percent.'
 Write-Host 'PASS: complete launcher parsed and compiled; Expansion Pack UI functions resolved.'
