@@ -223,7 +223,20 @@ CheckPatchWorker()
     message := SanitizeDiagnosticText(message)
     if message = ""
         message := "The Expansion Pack operation could not be completed."
+    ; The auto-downloaded ZIP is transient; the import journal and backups
+    ; remain intact for recovery. Never delete user-selected packages.
+    autoImport := job.HasOwnProp("AutoDownloadedZip") && job.AutoDownloadedZip != ""
+    if autoImport
+        try FileDelete(job.AutoDownloadedZip)
     MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
+    if state = "error" && autoImport
+    {
+        if MsgBox("Automatic Expansion Pack installation did not complete."
+            . Chr(10) "Would you like to repair it using your own ZIP or extracted folder?"
+            . Chr(10) Chr(10) "Existing verified backups remain available.", "Expansion Pack Repair",
+            "YesNo Icon?") = "Yes"
+            UploadExpansionFromFile()
+    }
 }
 
 FinishLauncherStartup()
@@ -427,8 +440,20 @@ ToggleExpansionPack(*)
     ; Never copy retired bundled Expansion Pack assets.
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {
-        LogLauncherEvent("EXPANSION | No verified imported ESP; requesting official package workflow.")
-        RequestDiscordExpansionPrompt(1)
+        choice := MsgBox("NP Expansion Pack is not installed."
+            . Chr(10) Chr(10) "Download and install the latest available package from the official"
+            . " Discord channel automatically?"
+            . Chr(10) Chr(10) "Yes: Download and install (with backup and rollback)."
+            . Chr(10) "No: Repair / install from your own ZIP or folder."
+            . Chr(10) "Cancel: Leave everything unchanged.", "Install Expansion Pack",
+            "YesNoCancel Icon?")
+        if choice = "Yes"
+        {
+            LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
+            RequestDiscordExpansionPrompt(1)
+        }
+        else if choice = "No"
+            UploadExpansionFromFile()
         return
     }
     action := enable ? "Enable" : "Disable"
