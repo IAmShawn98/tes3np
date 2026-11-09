@@ -258,6 +258,11 @@ internal static class Program
         int pendingExpansionPrompt;
         bool restoreChatAfterExpansionPrompt;
         readonly object expansionLinkPublishLock=new();
+        // A single cancellable background transfer per Chat Host. The signed
+        // CDN query remains in memory, never in a command line or log file.
+        int expansionAutoDownloading;
+        CancellationTokenSource? expansionAutoDownloadCancellation;
+        readonly string expansionAutoDownloadFolder=Path.Combine(ChatDataRoot,"expansion-downloads");
 
         // Preserve Discord's React tree and grid intact behind an opaque card.
         // Extract ONLY the latest visible official ZIP attachment and link to
@@ -545,6 +550,8 @@ internal static class Program
         {
             if (requestedParent != IntPtr.Zero && requestedParent != expansionDownloadsParent)
                 return;
+            try { expansionAutoDownloadCancellation?.Cancel(); }
+            catch (ObjectDisposedException) { }
             expansionDownloadsParent=IntPtr.Zero;
             expansionLatestZipUrl=null;
             var window=expansionDownloadsWindow;
@@ -674,6 +681,137 @@ internal static class Program
                     Log("EXPANSION | Browser ZIP handoff failed ("+origin+"): "+ex.GetType().Name);
                 }
             });
+        }
+
+        // Command 13 is accepted only for the CURRENT authenticated Discord
+        // preview slot. No generic external URL or arbitrary file path is
+        // accepted from the launcher.
+        void StartExpansionAutoDownload(IntPtr slot)
+        {
+            if (slot == IntPtr.Zero || slot != expansionDownloadsParent ||
+                !IsWindow(slot) || !IsWindow(owner) || closingChat ||
+                !discordChannelReady || discordLoginVisible ||
+                !IsOfficialExpansionDownloadUrl(expansionLatestZipUrl))
+            {
+                Log("EXPANSION | Automatic download denied: no authenticated current ZIP.");
+                return;
+            }
+            if (System.Threading.Interlocked.CompareExchange(ref expansionAutoDownloading,1,0)!=0)
+                return;
+            var cancellation=new CancellationTokenSource(TimeSpan.FromHours(4));
+            expansionAutoDownloadCancellation=cancellation;
+            string url=expansionLatestZipUrl!;
+            IntPtr sender=Handle; // Capture HWND on the WinForms thread.
+            PostMessage(owner,0x8338,IntPtr.Zero,sender);
+            _=Task.Run(()=>DownloadExpansionZipAsync(url,slot,sender,cancellation));
+        }
+
+        async Task DownloadExpansionZipAsync(string url,IntPtr slot,IntPtr sender,
+            CancellationTokenSource cancellation)
+        {
+            string? partial=null,completed=null;
+            bool accepted=false;
+            try
+            {
+                Directory.CreateDirectory(expansionAutoDownloadFolder);
+                // Never trust a CDN-supplied filename for a local path.
+                string stem="tes3np-"+Guid.NewGuid().ToString("N");
+                partial=Path.Combine(expansionAutoDownloadFolder,stem+".partial");
+                completed=Path.Combine(expansionAutoDownloadFolder,stem+".zip");
+                using var handler=new HttpClientHandler { AllowAutoRedirect=false,UseCookies=false };
+                using var client=new HttpClient(handler) { Timeout=System.Threading.Timeout.InfiniteTimeSpan };
+                using var response=await client.GetAsync(url,
+                    HttpCompletionOption.ResponseHeadersRead,cancellation.Token);
+                response.EnsureSuccessStatusCode();
+                const long maxZipBytes=16L*1024*1024*1024;
+                long? declared=response.Content.Headers.ContentLength;
+                if (declared.HasValue && (declared.Value<=0 || declared.Value>maxZipBytes))
+                    throw new InvalidDataException("ZIP size outside allowed range.");
+                var drive=new DriveInfo(Path.GetPathRoot(expansionAutoDownloadFolder)!);
+                long space=drive.AvailableFreeSpace;
+                if (space<512L*1024*1024 ||
+                    (declared.HasValue && declared.Value>space-512L*1024*1024))
+                    throw new IOException("Insufficient disk space for Expansion Pack download.");
+                await using (var input=await response.Content.ReadAsStreamAsync(cancellation.Token))
+                await using (var output=new FileStream(partial,FileMode.CreateNew,FileAccess.Write,
+                    FileShare.None,131072,useAsync:true))
+                {
+                    byte[] buffer=new byte[131072];
+                    long received=0;
+                    int previousPercent=-1;
+                    long lastReport=Environment.TickCount64;
+                    int count;
+                    while ((count=await input.ReadAsync(buffer,cancellation.Token))!=0)
+                    {
+                        received+=count;
+                        if (received>maxZipBytes || received>space-512L*1024*1024)
+                            throw new IOException("Expansion Pack download exceeded available space.");
+                        await output.WriteAsync(buffer.AsMemory(0,count),cancellation.Token);
+                        int percent=declared.HasValue
+                            ? (int)Math.Clamp(received*100/declared.Value,1,99) : 0;
+                        long now=Environment.TickCount64;
+                        if (percent!=previousPercent && now-lastReport>=250)
+                        {
+                            PostMessage(owner,0x8338,new IntPtr(percent),sender);
+                            previousPercent=percent;
+                            lastReport=now;
+                        }
+                    }
+                    if (received==0 || (declared.HasValue && received!=declared.Value))
+                        throw new InvalidDataException("ZIP download was incomplete.");
+                    await output.FlushAsync(cancellation.Token);
+                }
+                // Reject error pages masquerading as ZIPs before importing.
+                using (var check=File.OpenRead(partial))
+                {
+                    byte[] prefix=new byte[4];
+                    if (check.Read(prefix,0,4)!=4 || prefix[0]!=0x50 ||
+                        prefix[1]!=0x4B || prefix[2]!=0x03 || prefix[3]!=0x04)
+                        throw new InvalidDataException("Downloaded file is not a ZIP archive.");
+                }
+                cancellation.Token.ThrowIfCancellationRequested();
+                File.Move(partial,completed);
+                partial=null;
+                string payload=slot.ToInt64().ToString(
+                    System.Globalization.CultureInfo.InvariantCulture)+"|"+completed;
+                IntPtr utf16=IntPtr.Zero;
+                try
+                {
+                    utf16=Marshal.StringToHGlobalUni(payload);
+                    var data=new COPYDATASTRUCT {
+                        dwData=new IntPtr(0x8337),
+                        cbData=checked((payload.Length+1)*2),
+                        lpData=utf16
+                    };
+                    // Bounded IPC; AHK queues the importer after returning.
+                    IntPtr delivered=SendCopyDataTimeout(owner,0x004A,sender,
+                        ref data,0x0002,1500,out var acknowledged);
+                    accepted=delivered!=IntPtr.Zero && acknowledged!=IntPtr.Zero;
+                }
+                finally { if (utf16!=IntPtr.Zero) Marshal.FreeHGlobal(utf16); }
+                if (accepted) Log("EXPANSION | Verified ZIP transferred to installer.");
+                else Log("EXPANSION | Download completed but installer did not acknowledge.");
+            }
+            catch (OperationCanceledException)
+            {
+                Log("EXPANSION | Automatic download cancelled or timed out.");
+            }
+            catch (Exception ex)
+            {
+                // Never log signed CDN URLs, private paths or exception messages.
+                Log("EXPANSION | Automatic download failed: "+ex.GetType().Name);
+            }
+            finally
+            {
+                if (partial!=null) try { File.Delete(partial); } catch { }
+                if (!accepted && completed!=null) try { File.Delete(completed); } catch { }
+                if (!accepted && !cancellation.IsCancellationRequested)
+                    PostMessage(owner,0x8338,new IntPtr(-1),sender);
+                if (ReferenceEquals(expansionAutoDownloadCancellation,cancellation))
+                    expansionAutoDownloadCancellation=null;
+                System.Threading.Interlocked.Exchange(ref expansionAutoDownloading,0);
+                cancellation.Dispose();
+            }
         }
 
         // Share the validated signed CDN URL with the AHK-owned dialog
@@ -3619,6 +3757,7 @@ metrics();
                     case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
                     case 11: CancelPendingExpansionPrompt(false); break;
                     case 12: RetryAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
+                    case 13: StartExpansionAutoDownload(m.LParam); break;
                 }
                 return;
             }
