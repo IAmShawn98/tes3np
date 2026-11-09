@@ -193,6 +193,13 @@ CheckPatchWorker()
             ; Record the validated import location, without claiming server compatibility.
             IniWrite(job.MorrowindFolder, DataFile, "Patch", "MorrowindFolder")
             IniWrite(job.ConfigFile, DataFile, "Patch", "ConfigFile")
+            ; Record the installed file after the transactional import succeeded.
+            installedEsp := RTrim(job.MorrowindFolder, "\/") "\Data Files\NP Expansion Pack.esp"
+            installedHash := FileExist(installedEsp) ? SHA256File(installedEsp) : ""
+            if !RegExMatch(installedHash, "i)^[0-9a-f]{64}$")
+                throw Error("Could not verify the installed Expansion Pack ESP after import.")
+            IniWrite(installedEsp, DataFile, "ExpansionPack", "VerifiedEspPath")
+            IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
             IniWrite("1", DataFile, "ExpansionPack", "GlobalEnabled")
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
@@ -293,6 +300,14 @@ LogPatchDiagnostic(message)
 ; Detect an installed NP Expansion Pack in Morrowind or a configured OpenMW data folder.
 ExpansionPackInstalled(morrowind, config)
 {
+    global DataFile
+    ; A leftover ESP and a stale content= line cannot prove an active pack.
+    ; Trust only an imported ESP whose saved location and SHA-256 still match.
+    ; This is local installation evidence, not server compatibility proof.
+    verifiedPath := IniRead(DataFile, "ExpansionPack", "VerifiedEspPath", "")
+    verifiedHash := StrLower(IniRead(DataFile, "ExpansionPack", "VerifiedEspSHA256", ""))
+    if verifiedPath = "" || !RegExMatch(verifiedHash, "i)^[0-9a-f]{64}$")
+        return false
     folders := []
     if morrowind != "" && DirExist(morrowind)
         folders.Push(morrowind "\Data Files")
@@ -312,7 +327,7 @@ ExpansionPackInstalled(morrowind, config)
         }
         catch
         {
-            ; An unreadable config is not evidence that the pack is installed.
+            ; Unreadable config is not evidence of installation.
         }
     }
     for folder in folders
@@ -320,7 +335,9 @@ ExpansionPackInstalled(morrowind, config)
         esp := RTrim(folder, "\/") "\NP Expansion Pack.esp"
         try
         {
-            if FileExist(esp) && FileGetSize(esp) > 0
+            if StrLower(esp) = StrLower(verifiedPath)
+                && FileExist(esp) && FileGetSize(esp) > 0
+                && SHA256File(esp) = verifiedHash
                 return true
         }
     }
@@ -410,7 +427,7 @@ ToggleExpansionPack(*)
     ; Never copy retired bundled Expansion Pack assets.
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {
-        LogLauncherEvent("EXPANSION | Installed ESP not found; requiring authenticated download.")
+        LogLauncherEvent("EXPANSION | No verified imported ESP; requesting official package workflow.")
         RequestDiscordExpansionPrompt(1)
         return
     }
