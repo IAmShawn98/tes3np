@@ -275,7 +275,7 @@ def check(allow_missing_payload: bool = False) -> None:
 
     expected_import = (
         '"patch-tes3mp.ps1"' not in resource_generator
-        and 'UploadExpansionFromFile(*)' in upload
+        and 'UploadExpansionFromFile(args*)' in upload
         and 'StartExpansionImportWorker(package, morrowind, config)' in upload
         and 'SetTimer(CheckPatchWorker, 50)' in upload
         and 'CheckPatchWorker()' in patcher
