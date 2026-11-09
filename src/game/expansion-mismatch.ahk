@@ -223,7 +223,7 @@ TES3MPExpansionUpdateNativeProgress(label, percent)
 
 TES3MPExpansionEndNativeProgress()
 {
-    global ExpansionAutoProgressFrame, ExpansionAutoCancelButton, LauncherGui
+    global ExpansionAutoProgressFrame, ExpansionAutoCancelButton, LauncherGui, InterfaceLoadingText
     frame := ExpansionAutoProgressFrame
     ExpansionAutoProgressFrame := 0
     if IsObject(ExpansionAutoCancelButton)
@@ -233,6 +233,7 @@ TES3MPExpansionEndNativeProgress()
     {
         try ReleaseCapturedInterfaceFrame(frame)
         try LauncherGui.Opt("-Disabled")
+        InterfaceLoadingText := "Waiting for Jiub..."
     }
 }
 
