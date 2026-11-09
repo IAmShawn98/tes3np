@@ -603,6 +603,17 @@ expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(en
 expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
 expect(
+    "AutoHotkey mirror and persistent cache require GitHub release SHA-256",
+    "'https://docs.autohotkey.com/download/2.0/' + $ahkAsset.name" in expansion_build
+    and "'^AutoHotkey_2\\.0\\.\\d+\\.zip$'" in expansion_build
+    and "'Official AutoHotkey release SHA-256 digest is unavailable" in expansion_build
+    and "SaveOfficialDownload $ahkAsset.browser_download_url $ahkZip $headers 'AutoHotkey' $ahkMirror $expectedAhkHash" in expansion_build
+    and "if ($ExpectedSha256 -and (GetTes3npSha256 $Destination) -ine $ExpectedSha256)" in expansion_build
+    and "Using cached official AutoHotkey ZIP (SHA-256 verified)" in expansion_build
+    and "CheckOfficialZip $ahkZip 'AutoHotkey'" in expansion_build
+    and "if ((GetTes3npSha256 $ahkZip) -ine $expectedAhkHash)" in expansion_build,
+)
+expect(
     "Windows build retries official GitHub downloads and retains dist on upstream failure",
     "function GetOfficialRelease(" in expansion_build
     and "function SaveOfficialDownload(" in expansion_build
