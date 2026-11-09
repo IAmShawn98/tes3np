@@ -1063,6 +1063,16 @@ expect(
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap,
 )
 expect(
+    "WinForms first show stays compositor-cloaked until initial dock and saved visibility are ready",
+    'const int DWMWA_CLOAK = 13;' in source
+    and 'protected override void OnHandleCreated(EventArgs e)' in source
+    and 'if (startupPresentationPending)\n                SetStartupWindowCloak(true);' in source
+    and 'DwmSetWindowAttribute(Handle, DWMWA_CLOAK, ref value, sizeof(int))' in source
+    and 'SetChatOpen(chatDisplayMode == "Always Shown");\n            // The owner, layout and saved visibility are now authoritative.' in source
+    and 'startupPresentationPending = false;\n                SetStartupWindowCloak(false);' in source
+    and source.index('SetStartupWindowCloak(false);') > source.index('SetChatOpen(chatDisplayMode == "Always Shown");'),
+)
+expect(
     "Chat Host docking preserves positioning while recording blocking phases",
     'Log("STARTUP | Dock begin");' in source
     and 'Log("STARTUP | Setting native owner");' in source
