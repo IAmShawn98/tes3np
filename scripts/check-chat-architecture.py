@@ -561,27 +561,26 @@ expect(
     and 'try ReleaseCapturedInterfaceFrame(' not in auto_progress_helpers,
 )
 loading_ui = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
+progress_painter = section_between(
+    loading_ui,
+    'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
+    '\\nSetInterfaceLoadingText('.replace('\\n', '\n'),
+)
 expect(
-    "Expansion download progress delegates ButtonFaces ownership to later UI loader",
+    "Expansion download progress avoids full native caption invalidation and never repaints Cancel",
     'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in mismatch
     and 'global ButtonFaces' not in auto_progress_helpers
-    and 'UpdateExpansionLoadingProgress(frame, label, percent)' in loading_ui
-    and 'global ButtonFaces' in section_between(loading_ui, 'UpdateExpansionLoadingProgress(frame, label, percent)', '\nSetInterfaceLoadingText(')
-    and 'ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))' in loading_ui
-    and 'PaintButtonNow(hwnd)' in loading_ui
-    and 'ButtonFaces[hwnd].HasOwnProp("ProtectedButtonHwnd")' in loading_ui
-    and 'ButtonFaces.Has(protectedButton)' in loading_ui
-    and 'DllCall("IsWindowVisible", "Ptr", protectedButton)' in loading_ui
-    and 'PaintButtonNow(protectedButton)' in loading_ui
-    and section_between(
-        loading_ui,
-        'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
-        '\\nSetInterfaceLoadingText('.replace('\\n', '\n'),
-    ).index('PaintButtonNow(hwnd)') < section_between(
-        loading_ui,
-        'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
-        '\\nSetInterfaceLoadingText('.replace('\\n', '\n'),
-    ).index('PaintButtonNow(protectedButton)'),
+    and 'global ButtonFaces' in progress_painter
+    and 'ButtonFaces[panelHwnd].DownloadText := frame.Panel.Text' in loading_ui
+    and 'face.DownloadText := label' in progress_painter
+    and 'face.ProgressHeaderOnly := true' in progress_painter
+    and 'finally face.ProgressHeaderOnly := false' in progress_painter
+    and 'PaintButtonNow(hwnd)' in progress_painter
+    and 'PaintButtonNow(protectedButton)' not in progress_painter
+    and progress_painter.index('face.ProgressHeaderOnly := true')
+        < progress_painter.index('PaintButtonNow(hwnd)')
+        < progress_painter.index('finally face.ProgressHeaderOnly := false')
+    and 'frame.Panel.Text := label' in progress_painter.split('else')[-1],
 )
 native_renderer = (ROOT / "src" / "ui" / "renderer.ahk").read_text(encoding="utf-8-sig")
 protected_loading_paint = section_between(
@@ -608,6 +607,15 @@ expect(
     and protected_loading_paint.index('DllCall("ExcludeClipRect", "Ptr", target,')
         < protected_loading_paint.index('try DllCall("BitBlt", "Ptr", target,')
         < protected_loading_paint.index('DllCall("RestoreDC", "Ptr", target,'),
+)
+expect(
+    "Protected download progress blits only header pixels while ordinary loading cards still repaint fully",
+    'paintFace.HasOwnProp("DownloadText") ? paintFace.DownloadText : paintFace.Control.Text' in protected_loading_paint
+    and 'paintFace.HasOwnProp("ProgressHeaderOnly") && paintFace.ProgressHeaderOnly' in protected_loading_paint
+    and 'Min(height, Round(68 * scale)) : height' in protected_loading_paint
+    and 'width, "Int", blitHeight' in protected_loading_paint
+    and 'DllCall("ExcludeClipRect", "Ptr", target,' in protected_loading_paint
+    and 'DllCall("RestoreDC", "Ptr", target,' in protected_loading_paint,
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
