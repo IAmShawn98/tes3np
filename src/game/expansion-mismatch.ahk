@@ -603,6 +603,8 @@ TES3MPExpansionAutoDownloadReady(lParam)
 TES3MPExpansionBeginAutoImport(dialog, slot, package)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob
+    ; Resolve the function defined in the later included expansion-upload module.
+    global InstallSelectedExpansionPackage
     ; Read the same canonical worker state as PatchInProgress(), without
     ; introducing a cross-module function lookup in this callback.
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
