@@ -82,8 +82,19 @@ CompleteGameLoginProgress(name, pid, hwnd)
 HideGameLoginProgress()
 {
     global LoginProgressGui, LoginProgressShown, LoginProgressLastX, LoginProgressLastY
-    if IsObject(LoginProgressGui) && LoginProgressShown
+    ; The cached visibility flag can become stale if the game disappears
+    ; while the nonactivating overlay is being repainted. Always hide the
+    ; actual native window, even if LoginProgressShown was already cleared.
+    if IsObject(LoginProgressGui)
+    {
         try LoginProgressGui.Hide()
+        try
+        {
+            hwnd := LoginProgressGui.Hwnd
+            if DllCall("IsWindow", "Ptr", hwnd) && DllCall("IsWindowVisible", "Ptr", hwnd)
+                DllCall("ShowWindow", "Ptr", hwnd, "Int", 0)
+        }
+    }
     LoginProgressShown := false
     LoginProgressLastX := -1
     LoginProgressLastY := -1
@@ -314,7 +325,24 @@ UpdateGameLoginProgress(*)
     global LoginProgressShown, LoginProgressLastX, LoginProgressLastY
     global LoginProgressWidth, LoginProgressHeight
     if LoginProgressMode = ""
+    {
+        ; A stale native overlay must never survive a completed dismissal.
+        HideGameLoginProgress()
         return
+    }
+    ; Independently monitor the game process so an externally closed TES3MP
+    ; console cannot strand its always-on-top login card while ClientTick
+    ; gathers any final plugin-mismatch log lines.
+    abandoned := (LoginProgressMode = "login" && !Client.Enabled)
+        || (LoginProgressMode = "login" && Client.PID && !ProcessExist(Client.PID))
+        || (LoginProgressMode = "complete" && LoginProgressPid && !ProcessExist(LoginProgressPid))
+    if abandoned
+    {
+        SetTimer(UpdateGameLoginProgress, 0)
+        DisposeGameLoginProgress()
+        LogLauncherEvent("UI | Login progress closed after game exit or cancelled recovery.")
+        return
+    }
     if LoginProgressMode = "complete" && A_TickCount >= LoginProgressCloseAt
     {
         DismissGameLoginProgress()

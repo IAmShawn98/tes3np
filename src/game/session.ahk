@@ -152,7 +152,9 @@ StopClient(*)
     if !keepProgress
     {
         SetTimer(UpdateGameLoginProgress, 0)
-        DismissGameLoginProgress()
+        ; Cancellation, crash, plugin rejection and manual Stop must tear
+        ; down the native always-on-top card, not merely clear its state.
+        DisposeGameLoginProgress()
     }
     ToolTip(, , , 1)
     SetClientStatus("Recovery stopped. You can close the game normally.")
