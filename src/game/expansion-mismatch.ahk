@@ -394,13 +394,15 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     installing := mode != "Mismatch"
     if installing
     {
-        dialogTitle := mode = "Browse" ? "Expansion Pack Downloads" : "Expansion Pack Not Installed"
+        dialogTitle := mode = "Browse" ? "Expansion Pack Downloads" : "Expansion Pack Download Needs Attention"
         intro := mode = "Browse"
             ? "Download or import the latest optional NP Expansion Pack from the official Nerevarine Prophecies Discord."
-            : "The optional NP Expansion Pack wasn't found in your Morrowind installation. "
-                . "Download the current pack from the official Nerevarine Prophecies Discord."
-        help := "The Expansion Pack is optional. Your existing game and other mods won't be changed "
-            . "until you select a downloaded file to install."
+            : "Automatic Expansion Pack setup could not continue. You can retry the official "
+                . "Discord download or install your own complete package."
+        help := mode = "Browse"
+            ? "The Expansion Pack is optional. Your existing game and other mods won't be changed "
+                . "until you select a downloaded file to install."
+            : "The manual repair option uses the same backed-up installer. Other mods are preserved."
     }
     else
     {
@@ -414,9 +416,9 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.SetFont("s10 Norm cEDE1C9", "Segoe UI")
     dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", intro)
     instructions := mode = "Install"
-        ? "Once the official ZIP is found, TES3NP automatically downloads it, "
-            . "verifies its archive, and uses the existing "
-            . "backed-up, rollback-safe installer. If anything fails, choose Repair / Install ZIP."
+        ? "Automatic setup didn't finish. Click Download and Install to retry the "
+            . "latest official ZIP, or use Repair / Install ZIP for your own complete "
+            . "download. If Discord isn't connected, sign in through Game Chat."
         : "Click the latest Expansion Pack ZIP below to download it through your browser. "
             . "When the download finishes, click Install ZIP to select the ZIP "
             . "or its extracted folder and import it safely."
@@ -577,6 +579,8 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     ExpansionMismatchZipUrl := url
+    if ExpansionMismatchMode = "Install"
+        TES3MPExpansionUpdateNativeProgress("Latest Expansion Pack found. Connecting...", 0)
     if IsObject(ExpansionMismatchStatus)
         ExpansionMismatchStatus.Text := ExpansionMismatchMode = "Install"
             ? "Official ZIP found. Beginning automatic download..."
@@ -649,16 +653,18 @@ TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
         return
     if ExpansionMismatchZipUrl = ""
     {
-        statusControl.Text := "Finding the latest ZIP. Rechecking Game Chat authentication..."
-        RequestDiscordExpansionPrompt(1)
+        TES3MPExpansionRevealRepair("Could not confirm the official ZIP. Retry or use Repair / Install ZIP.")
         return
     }
     if !RegExMatch(ExpansionMismatchZipUrl, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         || RegExMatch(ExpansionMismatchZipUrl, '[\s"<>]') || StrLen(ExpansionMismatchZipUrl) > 4000
+    {
+        TES3MPExpansionRevealRepair("Invalid Discord download link. Use Repair / Install ZIP.")
         return
+    }
     if !SendLauncherChatCommand(13, slotHwnd)
     {
-        statusControl.Text := "Automatic download unavailable. Choose Repair / Install ZIP."
+        TES3MPExpansionRevealRepair("Automatic download unavailable. Choose Repair / Install ZIP.")
         return
     }
     ExpansionAutoDownloadActive := true
