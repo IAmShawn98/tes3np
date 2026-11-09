@@ -465,6 +465,44 @@ expect(
     and 'InstallSelectedExpansionPackage(' not in auto_import_callback
     and 'global InstallSelectedExpansionPackage' not in mismatch,
 )
+auto_install_view = section_between(
+    mismatch,
+    'ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)',
+    '\nCloseTES3MPExpansionMismatchDialog(',
+)
+auto_progress_helpers = section_between(
+    mismatch,
+    'TES3MPExpansionCloakDialog(dialog, cloak)',
+    '\n; The native explanation opens immediately.',
+)
+expect(
+    "First-enable discovery UI is compositor-cloaked BEFORE show; manual browse/mismatch stays visible",
+    'cloaked := mode = "Install" && TES3MPExpansionCloakDialog(dialog, true)' in auto_install_view
+    and auto_install_view.index('TES3MPExpansionCloakDialog(dialog, true)')
+        < auto_install_view.index('dialog.Show("w660 h627")')
+    and 'if cloaked' in auto_install_view
+    and 'if TES3MPExpansionBeginNativeProgress()' in auto_install_view
+    and 'TES3MPExpansionRevealRepair("Native download progress unavailable.' in auto_install_view
+    and 'mode != "Mismatch"' in auto_install_view
+    and 'TES3MPExpansionCloakDialog(dialog, false)' in auto_progress_helpers
+    and 'DllCall("dwmapi\\DwmSetWindowAttribute"' in auto_progress_helpers
+    and 'if IsObject(ExpansionAutoCloaked)' not in auto_progress_helpers,
+)
+expect(
+    "Native first-enable progress reuses the trusted import loader and offers safe cancel",
+    'frame := CaptureInterfaceFrame(LauncherGui, true)' in auto_progress_helpers
+    and 'ExpansionAutoCancelButton := AddStyledButton(frame.Card,' in auto_progress_helpers
+    and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
+    and 'ButtonFaces[frame.Panel.Hwnd].Progress :=' in auto_progress_helpers
+    and 'PaintButtonNow(frame.Panel.Hwnd)' in auto_progress_helpers
+    and 'DestroyBookControl(ExpansionAutoCancelButton)' in auto_progress_helpers
+    and 'ReleaseCapturedInterfaceFrame(frame)' in auto_progress_helpers
+    and 'SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)' in auto_install_view
+    and 'TES3MPExpansionRevealRepair("Automatic download failed.' in mismatch
+    and 'TES3MPExpansionUpdateNativeProgress(label, wParam)' in mismatch
+    and 'TES3MPExpansionEndNativeProgress()\n    ExpansionMismatchFileButton := 0' in mismatch
+    and 'UploadExpansionFromFile(package, true)' in mismatch,
+)
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
     'const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";' in source
