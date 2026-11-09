@@ -1266,12 +1266,13 @@ expect(
     and window_presenter.index('DllCall("UpdateWindow"')
         < window_presenter.index('SetPageCompositorCloak(gui, false)'),
 )
+entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Windows CI tests DWM staged window as a disposable visible GUI",
-    'A_Args[1] = "--check-page-compositor"' in entry
-    and 'DwmGetWindowAttribute' in entry
-    and "NumGet(before, 0, \"Int\") = 0" in entry
-    and "NumGet(after, 0, \"Int\") != 0" in entry,
+    'A_Args[1] = "--check-page-compositor"' in entry_script
+    and 'DwmGetWindowAttribute' in entry_script
+    and "NumGet(before, 0, \"Int\") = 0" in entry_script
+    and "NumGet(after, 0, \"Int\") != 0" in entry_script,
 )
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
