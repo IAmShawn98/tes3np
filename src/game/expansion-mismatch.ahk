@@ -227,16 +227,13 @@ TES3MPExpansionBeginNativeProgress()
 
 TES3MPExpansionUpdateNativeProgress(label, percent)
 {
-    global ExpansionAutoProgressFrame, ButtonFaces
+    global ExpansionAutoProgressFrame
     frame := ExpansionAutoProgressFrame
     if !IsObject(frame) || !IsObject(frame.Panel)
         return
-    try
-    {
-        frame.Panel.Text := label
-        ButtonFaces[frame.Panel.Hwnd].Progress := Max(0, Min(1, percent / 100))
-        TES3MPExpansionCallNativeUi("PaintButtonNow", frame.Panel.Hwnd)
-    }
+    ; The UI module owns the loading-panel paint state. Keep ButtonFaces
+    ; out of this early game include and reuse its established renderer.
+    try TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)
 }
 
 TES3MPExpansionEndNativeProgress()
