@@ -493,8 +493,9 @@ expect(
     'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)' in auto_progress_helpers
     and 'ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card,' in auto_progress_helpers
     and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
-    and 'ButtonFaces[frame.Panel.Hwnd].Progress :=' in auto_progress_helpers
-    and 'TES3MPExpansionCallNativeUi("PaintButtonNow", frame.Panel.Hwnd)' in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in auto_progress_helpers
+    and 'global ExpansionAutoProgressFrame, ButtonFaces' not in auto_progress_helpers
+    and 'ButtonFaces[' not in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)' in auto_progress_helpers
     and 'SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)' in auto_install_view
@@ -511,10 +512,18 @@ expect(
     and 'CaptureInterfaceFrame(LauncherGui, true)' not in auto_progress_helpers.replace(
         'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)', '')
     and 'ExpansionAutoCancelButton := AddStyledButton(' not in auto_progress_helpers
-    and 'PaintButtonNow(frame.Panel.Hwnd)' not in auto_progress_helpers.replace(
-        'TES3MPExpansionCallNativeUi("PaintButtonNow", frame.Panel.Hwnd)', '')
+    and 'PaintButtonNow(frame.Panel.Hwnd)' not in auto_progress_helpers
     and 'try DestroyBookControl(' not in auto_progress_helpers
     and 'try ReleaseCapturedInterfaceFrame(' not in auto_progress_helpers,
+)
+expect(
+    "Expansion download progress delegates ButtonFaces ownership to later UI loader",
+    'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in mismatch
+    and 'global ButtonFaces' not in auto_progress_helpers
+    and 'UpdateExpansionLoadingProgress(frame, label, percent)' in loading
+    and 'global ButtonFaces' in section_between(loading, 'UpdateExpansionLoadingProgress(frame, label, percent)', '\nSetInterfaceLoadingText(')
+    and 'ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))' in loading
+    and 'PaintButtonNow(hwnd)' in loading,
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
