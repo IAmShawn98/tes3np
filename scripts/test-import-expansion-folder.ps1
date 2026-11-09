@@ -176,9 +176,12 @@ function AssertGameClosed {
     $esp = Join-Path $payload 'NP Expansion Pack.esp'
     $icon = Join-Path $payload 'Icons\tes3mp_np\test.tga'
     $mesh = Join-Path $payload 'Meshes\tes3mp_np\test.nif'
+    $sound = Join-Path $payload 'Sound\tes3mp_np\mnts\contact.wav'
     WriteFixture $esp 'new official sample ESP'
     WriteFixture $icon 'sample-icon'
     WriteFixture $mesh 'sample-mesh'
+    # The official updated ZIP previously failed on this sound effect.
+    WriteFixture $sound 'sample-contact-audio'
     WriteFixture (Join-Path $packageRoot 'README.txt') 'this is outside Data Files'
 
     # Windows PowerShell 5.1 does not necessarily load ZipArchiveMode
@@ -227,7 +230,7 @@ function AssertGameClosed {
     WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'previous before progress lock'
     # Retest while the launcher-like progress reader holds the INI open.
     CheckWorker $zip 'zip-progress-reader-lock' $true '' $true
-    foreach ($relative in @('NP Expansion Pack.esp','Icons\tes3mp_np\test.tga','Meshes\tes3mp_np\test.nif')) {
+    foreach ($relative in @('NP Expansion Pack.esp','Icons\tes3mp_np\test.tga','Meshes\tes3mp_np\test.nif','Sound\tes3mp_np\mnts\contact.wav')) {
         $installed = Join-Path $data $relative
         $source = Join-Path $payload $relative
         AssertFixture ([IO.File]::ReadAllText($installed) -ceq [IO.File]::ReadAllText($source)) "ZIP did not install $relative"
@@ -274,6 +277,22 @@ function AssertGameClosed {
     WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'previous again'
     CheckWorker $payload 'folder-data-files' $true
     AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'new official sample ESP') 'Data Files selection did not update ESP'
+    AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'Sound\tes3mp_np\mnts\contact.wav')) -ceq 'sample-contact-audio') 'Folder import did not retain sound'
+
+    # Non-NP sound directories are not accepted.
+    $foreignSound = Join-Path $payload 'Sound\other_mod\contact.wav'
+    WriteFixture $foreignSound 'not-part-of-NP'
+    WriteFixture (Join-Path $data 'NP Expansion Pack.esp') 'pre-sound-rejection'
+    CheckWorker $packageRoot 'reject-foreign-sound' $false 'Unexpected file in Expansion Pack Data Files'
+    AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'pre-sound-rejection') 'Foreign sound changed installed ESP'
+    Remove-Item -LiteralPath $foreignSound -Force
+
+    # Never allow executables into Sound even within the NP namespace.
+    $invalidAudio = Join-Path $payload 'Sound\tes3mp_np\mnts\unapproved.exe'
+    WriteFixture $invalidAudio 'not-audio'
+    CheckWorker $packageRoot 'reject-non-audio-sound' $false 'Unexpected file in Expansion Pack Data Files'
+    AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'pre-sound-rejection') 'Invalid sound changed installed ESP'
+    Remove-Item -LiteralPath $invalidAudio -Force
 
     $badFile = Join-Path $payload 'unapproved.exe'
     WriteFixture $badFile 'malicious fixture'

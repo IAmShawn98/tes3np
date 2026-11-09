@@ -633,6 +633,10 @@ expect(
     and 'Get-ChildItem -LiteralPath $root.FullName -Recurse -Force -ErrorAction Stop' in expansion_worker
     and '[IO.FileAttributes]::ReparsePoint' in expansion_worker
     and 'AllowedAsset $relative' in expansion_worker
+    and "'^Sound/tes3mp_np/[^:]+$'" in expansion_worker
+    and "return $extension -in @('.wav','.ogg','.mp3')" in expansion_worker
+    and "CheckWorker $packageRoot 'reject-foreign-sound'" in expansion_fixture
+    and "CheckWorker $packageRoot 'reject-non-audio-sound'" in expansion_fixture
     and '$seen.Add($relative)' in expansion_worker
     and '$entryCount -gt 10000' in expansion_worker
     and 'AssertSpace $staged ([long]$entry.Length)' in expansion_worker

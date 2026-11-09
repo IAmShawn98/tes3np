@@ -189,9 +189,14 @@ function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
 }
 function AllowedAsset([string]$Relative) {
     if ($Relative -ieq 'NP Expansion Pack.esp') { return $true }
-    # Server-provided expansion artwork, isolated from unrelated game mods.
-    if ($Relative -notmatch '^(Icons|Meshes|Textures)/tes3mp_np/[^:]+$') { return $false }
     $extension = [IO.Path]::GetExtension($Relative).ToLowerInvariant()
+    # The updated official pack contains Sound/tes3mp_np/mnts/contact.wav.
+    # Restrict Sound to the NP namespace and audio formats only.
+    if ($Relative -match '^Sound/tes3mp_np/[^:]+$') {
+        return $extension -in @('.wav','.ogg','.mp3')
+    }
+    # Existing artwork allowlist and unchanged ZIP/folder safety checks.
+    if ($Relative -notmatch '^(Icons|Meshes|Textures)/tes3mp_np/[^:]+$') { return $false }
     return $extension -in @('.tga','.dds','.nif','.kf','.png','.jpg','.jpeg','.bmp','.wav','.ogg','.mp3','.txt','.xml','.bsa')
 }
 [IO.Directory]::CreateDirectory($JobFolder) | Out-Null
