@@ -173,7 +173,10 @@ TES3MPExpansionCloakDialog(dialog, cloak)
 ; No second UI renderer or installer is created.
 TES3MPExpansionCallNativeUi(name, args*)
 {
-    return Func(name).Call(args*)
+    ; AHK v2 removed Func(name). A double-deref resolves a global function
+    ; constant by its name, returning its callable object.
+    callback := %name%
+    return callback.Call(args*)
 }
 
 TES3MPExpansionBeginNativeProgress()
