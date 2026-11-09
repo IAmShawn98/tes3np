@@ -490,18 +490,30 @@ expect(
 )
 expect(
     "Native first-enable progress reuses the trusted import loader and offers safe cancel",
-    'frame := CaptureInterfaceFrame(LauncherGui, true)' in auto_progress_helpers
-    and 'ExpansionAutoCancelButton := AddStyledButton(frame.Card,' in auto_progress_helpers
+    'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)' in auto_progress_helpers
+    and 'ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card,' in auto_progress_helpers
     and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
     and 'ButtonFaces[frame.Panel.Hwnd].Progress :=' in auto_progress_helpers
-    and 'PaintButtonNow(frame.Panel.Hwnd)' in auto_progress_helpers
-    and 'DestroyBookControl(ExpansionAutoCancelButton)' in auto_progress_helpers
-    and 'ReleaseCapturedInterfaceFrame(frame)' in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("PaintButtonNow", frame.Panel.Hwnd)' in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)' in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)' in auto_progress_helpers
     and 'SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)' in auto_install_view
     and 'TES3MPExpansionRevealRepair("Automatic download failed.' in mismatch
     and 'TES3MPExpansionUpdateNativeProgress(label, wParam)' in mismatch
     and 'TES3MPExpansionEndNativeProgress()\n    ExpansionMismatchFileButton := 0' in mismatch
     and 'UploadExpansionFromFile(package, true)' in mismatch,
+)
+expect(
+    "All new native progress UI dependencies use explicit AHK function-object resolution",
+    'TES3MPExpansionCallNativeUi(name, args*)' in auto_progress_helpers
+    and 'return Func(name).Call(args*)' in auto_progress_helpers
+    and 'CaptureInterfaceFrame(LauncherGui, true)' not in auto_progress_helpers.replace(
+        'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)', '')
+    and 'ExpansionAutoCancelButton := AddStyledButton(' not in auto_progress_helpers
+    and 'PaintButtonNow(frame.Panel.Hwnd)' not in auto_progress_helpers.replace(
+        'TES3MPExpansionCallNativeUi("PaintButtonNow", frame.Panel.Hwnd)', '')
+    and 'try DestroyBookControl(' not in auto_progress_helpers
+    and 'try ReleaseCapturedInterfaceFrame(' not in auto_progress_helpers,
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
