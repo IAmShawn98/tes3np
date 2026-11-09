@@ -2849,6 +2849,7 @@ metrics();
             Shown += async (_, _) =>
             {
                 // Let WinForms finish showing the top-level host before parenting it.
+                Log("STARTUP | WinForms shown; queuing dock");
                 BeginInvoke((Action)(() => DockToLauncher()));
                 // The saved Discord archive is our only offline evidence.
                 // Load it immediately, whether this browser is signed in or not.
@@ -3688,29 +3689,39 @@ metrics();
         void DockToLauncher()
         {
             if (!IsWindow(owner) || signInExpanded) return;
+            var dockClock = System.Diagnostics.Stopwatch.StartNew();
+            Log("STARTUP | Dock begin");
             var hwnd = Handle;
             SetParent(hwnd, IntPtr.Zero);
+            Log("STARTUP | SetParent completed in " + dockClock.ElapsedMilliseconds + "ms");
             int style = GetWindowLong(hwnd, GWL_STYLE);
             SetWindowLong(hwnd, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
             ShowInTaskbar = false;
             // Native owner relationship keeps the chat above the launcher and
             // prevents it from becoming an independent Alt+Tab application.
+            Log("STARTUP | Setting native owner");
             SetNativeWindowOwner(hwnd, owner);
+            Log("STARTUP | Native owner set in " + dockClock.ElapsedMilliseconds + "ms");
             int chatExStyle = GetWindowLongEx(hwnd, GWL_EXSTYLE);
             SetWindowLongEx(hwnd, GWL_EXSTYLE,
                 (chatExStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
             ApplyWindowOpacity();
             docked = true;
             WatchLauncherMovement();
+            Log("STARTUP | Movement hook ready in " + dockClock.ElapsedMilliseconds + "ms");
             PositionChatWindows();
             SetChatOpen(chatDisplayMode == "Always Shown");
+            Log("STARTUP | Chat position and visibility ready in " + dockClock.ElapsedMilliseconds + "ms");
             // Actual launcher movement repairs the missing frame pixels on layered AHK windows.
             // Reproduce that exact compositor event once, then restore its original position.
             if (GetWindowRect(owner, out var bounds))
             {
                 const uint SWP_NOSIZE_NOZORDER_NOACTIVATE = 0x0001 | 0x0004 | 0x0010;
+                Log("STARTUP | Owner compositor refresh begin");
                 SetWindowPos(owner, IntPtr.Zero, bounds.Left + 1, bounds.Top, 0, 0, SWP_NOSIZE_NOZORDER_NOACTIVATE);
+                Log("STARTUP | Owner compositor refresh first step in " + dockClock.ElapsedMilliseconds + "ms");
                 SetWindowPos(owner, IntPtr.Zero, bounds.Left, bounds.Top, 0, 0, SWP_NOSIZE_NOZORDER_NOACTIVATE);
+                Log("STARTUP | Owner compositor refresh completed in " + dockClock.ElapsedMilliseconds + "ms");
             }
             Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
         }

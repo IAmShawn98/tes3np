@@ -1046,6 +1046,31 @@ expect(
     and "pointerWindow = ButtonFaces[pointerControl].Window" in controls,
 )
 
+update_startup = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
+automatic_update = section_between(
+    update_startup, "CheckForUpdateAvailability(*)", "\nHasSeenUpdateAutoPreview(version)"
+)
+expect(
+    "Automatic update check must never synchronously block the launcher UI",
+    'request.Open("GET", UpdateManifestUrl, true)' in automatic_update
+    and "request.WaitForResponse(0)" in automatic_update
+    and "SetTimer(PollStartupUpdateAvailability, 100)" in automatic_update
+    and "UpdateStartupRequest := request" in automatic_update
+    and "request.Abort()" in automatic_update
+    and "DownloadUpdateText(UpdateManifestUrl)" not in automatic_update
+    and "ParseAndValidateUpdateManifest(request.ResponseText)" in automatic_update
+    and 'request.SetTimeouts(5000, 5000, 10000, 10000)' in automatic_update
+    and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap,
+)
+expect(
+    "Chat Host docking preserves positioning while recording blocking phases",
+    'Log("STARTUP | Dock begin");' in source
+    and 'Log("STARTUP | Setting native owner");' in source
+    and 'Log("STARTUP | Owner compositor refresh begin");' in source
+    and 'PositionChatWindows();' in source
+    and 'WatchLauncherMovement();' in source,
+)
+
 if errors:
     print("Chat Host architectural contract violations:")
     for error in errors:
