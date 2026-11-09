@@ -1374,12 +1374,14 @@ expect(
     and 'PositionOwnedMenuAtParent(chooser, MacroPage)' in macro_menu_ui,
 )
 expect(
-    "Windows CI moves parent after child creation and verifies 60 and 80 percent geometry",
+    "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
     'A_Args[1] = "--check-owned-menu-scaling"' in entry_script
-    and 'for percent in [60, 80]' in entry_script
+    and 'for percent in [50, 60, 70, 80, 90, 100]' in entry_script
+    and 'scale := GetOwnedMenuScale()' in entry_script
     and 'ScaleOwnedMenuContent(child, scale)' in entry_script
     and 'PositionOwnedMenuAtParent(child, LauncherGui)' in entry_script
-    and 'if Abs(NumGet(movedRect, 0, "Int")' in entry_script,
+    and 'if Abs(NumGet(movedRect, 0, "Int")' in entry_script
+    and 'NumGet(edgeRect, 8, "Int") > mr' in entry_script,
 )
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
