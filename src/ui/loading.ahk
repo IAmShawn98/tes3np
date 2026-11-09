@@ -179,7 +179,13 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
     catch Error as err
     {
         if showLoading
-            LogLauncherEvent("EXPANSION | Native captured frame construction failed (" Type(err) ").")
+        {
+            ; Error type + first-party source line and operation are sufficient
+            ; for diagnosis. Do not expose err.Message, paths or personal data.
+            operation := SubStr(RegExReplace(err.What, "[^A-Za-z0-9_]", ""), 1, 70)
+            LogLauncherEvent("EXPANSION | Native captured frame construction failed ("
+                . Type(err) ", line " err.Line ", operation " operation ").")
+        }
         ReportLoadingFailure(err)
         if IsObject(cover)
             cover.Destroy()
