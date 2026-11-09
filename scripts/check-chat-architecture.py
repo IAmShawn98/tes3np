@@ -516,14 +516,15 @@ expect(
     and 'try DestroyBookControl(' not in auto_progress_helpers
     and 'try ReleaseCapturedInterfaceFrame(' not in auto_progress_helpers,
 )
+loading_ui = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Expansion download progress delegates ButtonFaces ownership to later UI loader",
     'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in mismatch
     and 'global ButtonFaces' not in auto_progress_helpers
-    and 'UpdateExpansionLoadingProgress(frame, label, percent)' in loading
-    and 'global ButtonFaces' in section_between(loading, 'UpdateExpansionLoadingProgress(frame, label, percent)', '\nSetInterfaceLoadingText(')
-    and 'ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))' in loading
-    and 'PaintButtonNow(hwnd)' in loading,
+    and 'UpdateExpansionLoadingProgress(frame, label, percent)' in loading_ui
+    and 'global ButtonFaces' in section_between(loading_ui, 'UpdateExpansionLoadingProgress(frame, label, percent)', '\nSetInterfaceLoadingText(')
+    and 'ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))' in loading_ui
+    and 'PaintButtonNow(hwnd)' in loading_ui,
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
