@@ -249,6 +249,25 @@ ReportLoadingFailure(err)
     }
 }
 
+; Protect only the native cancel button's pixels from progress blits.
+; The panel and the button remain themed AHK sibling controls in one GUI,
+; but the panel renderer never overwrites the clickable button rectangle.
+ProtectExpansionLoadingCancel(frame, cancelButton)
+{
+    global ButtonFaces
+    if !IsObject(frame) || !IsObject(frame.Panel) || !IsObject(cancelButton)
+        return false
+    panelHwnd := frame.Panel.Hwnd
+    if !ButtonFaces.Has(panelHwnd) || !DllCall("IsWindow", "Ptr", cancelButton.Hwnd)
+        return false
+    ButtonFaces[panelHwnd].ProtectedButtonHwnd := cancelButton.Hwnd
+    ; Paint both surfaces once in z-order after the registration, without
+    ; forcing the button to reappear after each progress update.
+    PaintButtonNow(panelHwnd)
+    PaintButtonNow(cancelButton.Hwnd)
+    return true
+}
+
 ; Update the auto-download's native loading card through the same
 ; renderer and ButtonFaces map used by the transactional import UI.
 ; Keep presentation state in the UI module, not the early game include.
