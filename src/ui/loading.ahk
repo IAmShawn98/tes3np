@@ -249,6 +249,22 @@ ReportLoadingFailure(err)
     }
 }
 
+; Update the auto-download's native loading card through the same
+; renderer and ButtonFaces map used by the transactional import UI.
+; Keep presentation state in the UI module, not the early game include.
+UpdateExpansionLoadingProgress(frame, label, percent)
+{
+    global ButtonFaces
+    if !IsObject(frame) || !IsObject(frame.Panel)
+        return
+    hwnd := frame.Panel.Hwnd
+    if !ButtonFaces.Has(hwnd)
+        return
+    frame.Panel.Text := label
+    ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))
+    PaintButtonNow(hwnd)
+}
+
 SetInterfaceLoadingText(message)
 {
     global InterfaceLoadingText, InterfaceFrameCover, InterfaceUpdating, InterfaceCompletedSteps, InterfaceTotalSteps, ButtonFaces
