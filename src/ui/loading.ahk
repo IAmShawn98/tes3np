@@ -261,6 +261,7 @@ ProtectExpansionLoadingCancel(frame, cancelButton)
     if !ButtonFaces.Has(panelHwnd) || !DllCall("IsWindow", "Ptr", cancelButton.Hwnd)
         return false
     ButtonFaces[panelHwnd].ProtectedButtonHwnd := cancelButton.Hwnd
+    ButtonFaces[panelHwnd].DownloadText := frame.Panel.Text
     ; Paint both surfaces once in z-order after the registration, without
     ; forcing the button to reappear after each progress update.
     PaintButtonNow(panelHwnd)
@@ -279,19 +280,26 @@ UpdateExpansionLoadingProgress(frame, label, percent)
     hwnd := frame.Panel.Hwnd
     if !ButtonFaces.Has(hwnd)
         return
-    frame.Panel.Text := label
-    ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))
-    PaintButtonNow(hwnd)
-    ; The loading panel and Cancel are native sibling HWNDs. A panel paint
-    ; can invalidate the button's themed pixels without changing hover state,
-    ; leaving the stock white control until the next mouse event. Complete
-    ; this SAME progress update by immediately painting the existing themed
-    ; button through its buffered renderer (no hide/show or new controls).
-    protectedButton := ButtonFaces[hwnd].HasOwnProp("ProtectedButtonHwnd")
-        ? ButtonFaces[hwnd].ProtectedButtonHwnd : 0
-    if protectedButton && ButtonFaces.Has(protectedButton)
-        && DllCall("IsWindowVisible", "Ptr", protectedButton)
-        PaintButtonNow(protectedButton)
+    face := ButtonFaces[hwnd]
+    face.Progress := Max(0, Min(1, percent / 100))
+    if face.HasOwnProp("ProtectedButtonHwnd")
+    {
+        ; Writing to a native Static's Text property triggers WM_SETTEXT,
+        ; which invalidates the WHOLE full-height panel and briefly exposes
+        ; the default white sibling Button before its custom painter runs.
+        ; Preserve the caption in the existing face and blit ONLY the header
+        ; containing text and progress. The footer and Cancel HWND stay still.
+        face.DownloadText := label
+        face.ProgressHeaderOnly := true
+        try PaintButtonNow(hwnd)
+        finally face.ProgressHeaderOnly := false
+    }
+    else
+    {
+        ; Keep all original loading overlays unchanged.
+        frame.Panel.Text := label
+        PaintButtonNow(hwnd)
+    }
 }
 
 SetInterfaceLoadingText(message)
