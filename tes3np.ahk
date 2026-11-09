@@ -33,6 +33,22 @@ Thread("Interrupt", 0)
 CoordMode("Mouse", "Screen")
 if A_Args.Length && A_Args[1] = "--check"
     ExitApp(0)
+; Noninteractive compiled-host probe. Verify native expansion progress can
+; resolve its actual UI functions without starting any window or game.
+if A_Args.Length && A_Args[1] = "--check-expansion-ui"
+{
+    for name in ["CaptureInterfaceFrame", "AddStyledButton",
+        "DestroyBookControl", "ReleaseCapturedInterfaceFrame",
+        "PaintButtonNow", "UploadExpansionFromFile"]
+    {
+        try callback := Func(name)
+        catch
+            ExitApp(91)
+        if !IsObject(callback)
+            ExitApp(92)
+    }
+    ExitApp(0)
+}
 HandleUpdaterStartupMode()
 StartLauncher()
 
