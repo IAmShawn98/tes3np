@@ -39,7 +39,8 @@ if A_Args.Length && A_Args[1] = "--check-expansion-ui"
 {
     for index, name in ["CaptureInterfaceFrame", "AddStyledButton",
         "DestroyBookControl", "ReleaseCapturedInterfaceFrame",
-        "PaintButtonNow", "UploadExpansionFromFile"]
+        "PaintButtonNow", "UpdateExpansionLoadingProgress",
+        "UploadExpansionFromFile"]
     {
         try callback := %name%
         catch
