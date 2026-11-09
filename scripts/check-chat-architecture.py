@@ -440,6 +440,19 @@ expect(
     and 'StrLower(folder)' in auto_zip_callback
     and 'WinGetPID("ahk_id " wParam) = EmbeddedChatPid' in mismatch,
 )
+auto_import_callback = section_between(
+    mismatch,
+    "TES3MPExpansionBeginAutoImport(dialog, slot, package)\n{",
+    "\nTES3MPExpansionRequestDownload(",
+)
+expect(
+    "Deferred auto-import uses canonical initialized PatchJob rather than an unresolved helper",
+    'global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob' in auto_import_callback
+    and '(IsSet(PatchJob) && IsObject(PatchJob))' in auto_import_callback
+    and 'if !(IsSet(PatchJob) && IsObject(PatchJob))' in auto_import_callback
+    and 'PatchInProgress()' not in auto_import_callback
+    and 'InstallSelectedExpansionPackage(package, true)' in auto_import_callback,
+)
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
     'const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";' in source
