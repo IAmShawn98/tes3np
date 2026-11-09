@@ -4,6 +4,13 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### One-time first-launch desktop shortcut prompt and original Settings spacing — 2026-11-09
+
+- Removed the **Create Desktop Shortcut** action from Launcher Settings and restored the pre-November 5 full-width **Close Settings** button at x32/y483/w448; no half-row gap, shift in surrounding controls, or separate shortcut slot.
+- Restored the shortcut Yes/No choice as the **only** deferred first-launch popup after the main launcher has painted. The choice is stored in `[Launcher] DesktopShortcutChoice` before attempting shortcut creation, so No and failed desktop-write operations do not cause repeat prompts. Existing choices are retained; incomplete/source-tree runs are skipped.
+- Missing Morrowind GOTY remains requested only when launching a game, and Discord sign-in remains conditional on Game Chat or an authenticated Expansion Pack download. No old startup prompt pileup is reintroduced.
+- Verified source layout against its original pre-shortcut version in commit `21687f7594f7`; Windows first-run and relaunch testing still pending.
+
 ### Quiet first launch: contextual setup prompts — 2026-11-05
 
 - A Facilities 4 screenshot showed three simultaneous first-run windows: desktop shortcut offer, Locate Morrowind GOTY, and Discord sign-in. Startup no longer schedules shortcut and GOTY prompts. The existing GOTY guard still requests its chooser on saved-character or New Adventure launch (and on the actual game Run path), preserving Not Now and subsequent retries.
