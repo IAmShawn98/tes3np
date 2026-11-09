@@ -68,6 +68,37 @@ if A_Args.Length && A_Args[1] = "--check-expansion-ui"
         ExitApp(94)
     ExitApp(0)
 }
+; CI-only Windows GUI smoke test: exercise the same real screenshot cover,
+; native card, custom Cancel button and protected renderer as first enable.
+; No Discord, user game files or installer are started.
+if A_Args.Length && A_Args[1] = "--check-expansion-window"
+{
+    global LauncherGui := Gui("-Caption -Border", "Native Expansion download smoke")
+    LauncherGui.BackColor := "1B140B"
+    LauncherGui.Add("Text", "x20 y20 w500 h50", "Disposable launcher window")
+    LauncherGui.Show("w960 h720")
+    try
+    {
+        if !TES3MPExpansionBeginNativeProgress()
+            throw Error("Native progress card creation returned false.")
+        if !IsObject(ExpansionAutoProgressFrame)
+            || !IsObject(ExpansionAutoCancelButton)
+            || !DllCall("IsWindowVisible", "Ptr", ExpansionAutoCancelButton.Hwnd)
+            throw Error("Native Cancel button or card is not visible.")
+        TES3MPExpansionUpdateNativeProgress("Downloading Expansion Pack... 27%", 27)
+        TES3MPExpansionUpdateNativeProgress("Downloading Expansion Pack... 65%", 65)
+        TES3MPExpansionEndNativeProgress()
+        FileAppend("PASS: native Expansion progress card and cancel UI" Chr(10), "*")
+    }
+    catch Error as err
+    {
+        ; Print only the type and first-party stage, never a path or secret.
+        FileAppend("FAIL: native Expansion progress - " Type(err) Chr(10), "*")
+        try TES3MPExpansionEndNativeProgress()
+        ExitApp(181)
+    }
+    ExitApp(0)
+}
 HandleUpdaterStartupMode()
 StartLauncher()
 
