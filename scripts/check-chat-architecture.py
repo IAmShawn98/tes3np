@@ -881,6 +881,24 @@ expect(
     and "SendLauncherChatCommand(11)" in mismatch
     and "case 11: CancelPendingExpansionPrompt(false); break;" in source,
 )
+login_progress = (ROOT / "src" / "ui" / "login-progress.ahk").read_text(encoding="utf-8-sig")
+login_cleanup = section_between(login_progress, "UpdateGameLoginProgress(*)", "\n}")
+session_stop = section_between(session, "StopClient(*)", "\nSetClientStatus(")
+expect(
+    "Aborted TES3MP login destroys its native overlay even if the visibility flag is stale",
+    "DisposeGameLoginProgress()" in session_stop
+    and "if !keepProgress" in session_stop
+    and "LoginProgressMode = \"complete\" && A_TickCount < LoginProgressCloseAt" in session_stop
+    and "if IsObject(LoginProgressGui)" in section_between(
+        login_progress, "\nHideGameLoginProgress()\n{", "\n}")
+    and 'DllCall("IsWindowVisible", "Ptr", hwnd)' in login_progress
+    and 'DllCall("ShowWindow", "Ptr", hwnd, "Int", 0)' in login_progress
+    and "if abandoned" in login_cleanup
+    and "Client.PID && !ProcessExist(Client.PID)" in login_cleanup
+    and "LoginProgressPid && !ProcessExist(LoginProgressPid)" in login_cleanup
+    and "SetTimer(UpdateGameLoginProgress, 0)" in login_cleanup
+    and "DisposeGameLoginProgress()" in login_cleanup,
+)
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
     'LauncherGui.Show("Hide w960 h716")' in bootstrap
