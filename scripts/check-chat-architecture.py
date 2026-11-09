@@ -603,6 +603,17 @@ expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(en
 expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
 expect(
+    "Official Ahk2Exe asset download and local reuse require SHA-256",
+    "if ($compilerAsset.url -notmatch '^https://api\\.github\\.com/repos/AutoHotkey/Ahk2Exe/releases/assets/[0-9]+$')" in expansion_build
+    and "'Official Ahk2Exe release SHA-256 digest is unavailable" in expansion_build
+    and "'Accept'] = 'application/octet-stream'" in expansion_build
+    and "SaveOfficialDownload $compilerAsset.browser_download_url $compilerZip $headers 'Ahk2Exe' $compilerAsset.url $expectedCompilerHash $apiHeaders" in expansion_build
+    and "if ((GetTes3npSha256 $candidate) -ieq $expectedCompilerHash)" in expansion_build
+    and "if ((GetTes3npSha256 $compilerZip) -ine $expectedCompilerHash)" in expansion_build
+    and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in expansion_build
+    and "Using verified local official Ahk2Exe ZIP" in expansion_build,
+)
+expect(
     "AutoHotkey mirror and persistent cache require GitHub release SHA-256",
     "'https://docs.autohotkey.com/download/2.0/' + $ahkAsset.name" in expansion_build
     and "'^AutoHotkey_2\\.0\\.\\d+\\.zip$'" in expansion_build
