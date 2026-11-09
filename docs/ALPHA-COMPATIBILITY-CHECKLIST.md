@@ -25,6 +25,14 @@ The most valuable remaining checks are Windows 10/11 without SDKs installed,
 first-run discovery, WebView2 absence, update confirmation on a packaged build,
 permissions errors, and shortcut prompt persistence after backup import.
 
+## Page transition pop-in and foreground exposure — pending interactive Windows verification
+
+- [ ] Repeatedly open/close **Launcher Settings**: no unmasked dark rectangle, unpainted parchment, or native button flash before the completed Settings page becomes visible.
+- [ ] Repeatedly open/close **Manage Characters**: the completed book appears correctly, and returning to the launcher does not briefly expose the desktop or unrelated foreground windows (such as OBS) between the two TES3NP pages.
+- [ ] With other applications open behind the launcher, repeat Settings/Character Book transitions, including rapid clicks and Escape/Close; TES3NP preserves the correct foreground window and remains responsive.
+- [ ] Check Launcher Settings still has the original full-width **Close Settings** button with no empty slot; Character Book editor/macro state and the cached return layout remain correct.
+- [ ] Verify Game Chat, Happy Hour banner, display scaling, and Expansion Pack toggle are unaffected by page navigation. Source and CI checks are not substitutes for visual test.
+
 ## One-time first-launch shortcut and quiet contextual setup — pending Windows runtime check
 
 - [ ] Launch a complete packaged executable with clean AppData: after its first paint, exactly one **desktop shortcut** Yes/No prompt appears. No GOTY or Discord sign-in prompt stacks with it; neither is requested until its own user action.
