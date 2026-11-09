@@ -529,7 +529,7 @@ TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)
     }
     catch
         return 0
-    if wParam > 99
+    if wParam < 0 || wParam > 99
     {
         ExpansionAutoDownloadActive := false
         if IsObject(ExpansionMismatchStatus)
