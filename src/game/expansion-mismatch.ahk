@@ -167,13 +167,28 @@ TES3MPExpansionCloakDialog(dialog, cloak)
         return false
 }
 
+; This game module is included before the shared UI modules. Resolve these
+; already-defined application functions by name at invocation, avoiding
+; AutoHotkey v2 interpreting an early direct identifier as an unset local.
+; No second UI renderer or installer is created.
+TES3MPExpansionCallNativeUi(name, args*)
+{
+    return Func(name).Call(args*)
+}
+
 TES3MPExpansionBeginNativeProgress()
 {
     global ExpansionAutoProgressFrame, ExpansionAutoCancelButton, LauncherGui, InterfaceLoadingText
     if IsObject(ExpansionAutoProgressFrame)
         return true
     InterfaceLoadingText := "Finding latest Expansion Pack..."
-    frame := CaptureInterfaceFrame(LauncherGui, true)
+    frame := 0
+    try frame := TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Native capture unavailable (" Type(err) ").")
+        return false
+    }
     if !IsObject(frame) || !IsObject(frame.Panel)
         return false
     try
@@ -187,7 +202,7 @@ TES3MPExpansionBeginNativeProgress()
         extra := Max(35, Round(ch * 0.64))
         frame.Card.Show("NA h" (ch + extra))
         buttonWidth := Round(cw * 0.55)
-        ExpansionAutoCancelButton := AddStyledButton(frame.Card, (cw - buttonWidth) // 2,
+        ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card, (cw - buttonWidth) // 2,
             ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",
             (*) => TES3MPExpansionCancelNativeDownload())
         LauncherGui.Opt("+Disabled")
@@ -200,9 +215,9 @@ TES3MPExpansionBeginNativeProgress()
         LogLauncherEvent("EXPANSION | Native progress creation failed (" Type(err) ").")
         try LauncherGui.Opt("-Disabled")
         if IsObject(ExpansionAutoCancelButton)
-            try DestroyBookControl(ExpansionAutoCancelButton)
+            try TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)
         ExpansionAutoCancelButton := 0
-        try ReleaseCapturedInterfaceFrame(frame)
+        try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
         return false
     }
 }
@@ -217,7 +232,7 @@ TES3MPExpansionUpdateNativeProgress(label, percent)
     {
         frame.Panel.Text := label
         ButtonFaces[frame.Panel.Hwnd].Progress := Max(0, Min(1, percent / 100))
-        PaintButtonNow(frame.Panel.Hwnd)
+        TES3MPExpansionCallNativeUi("PaintButtonNow", frame.Panel.Hwnd)
     }
 }
 
@@ -227,11 +242,11 @@ TES3MPExpansionEndNativeProgress()
     frame := ExpansionAutoProgressFrame
     ExpansionAutoProgressFrame := 0
     if IsObject(ExpansionAutoCancelButton)
-        try DestroyBookControl(ExpansionAutoCancelButton)
+        try TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)
     ExpansionAutoCancelButton := 0
     if IsObject(frame)
     {
-        try ReleaseCapturedInterfaceFrame(frame)
+        try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
         try LauncherGui.Opt("-Disabled")
         InterfaceLoadingText := "Waiting for Jiub..."
     }
