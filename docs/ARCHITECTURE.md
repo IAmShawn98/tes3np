@@ -37,7 +37,7 @@ Launcher Settings uses `V016SettingsScale` equal to the effective launcher perce
 
 Keep the following invariants: after dragging the launcher, both owned pages are positioned from its **current** HWND; after any Settings Preview Changes result, Settings anchors to the current launcher again; cached book reopens at the current launcher scale and position; nested native dialogs center on their immediate owner. DWM cloaking remains only for the existing staged pages. The native Expansion Pack download UI, its Discord-hosted repair page and ChatHost geometry are independent; they were not changed in this menu-page pass.
 
-CI: `scripts/check-ahk-compile.ps1` executes `--check-owned-menu-scaling` on a disposable Windows GUI (60% and 80% child geometry, parent moved after child constructed). A GUI smoke passing cannot replace actual desktop checks for readable page fonts, complete parchment, controls and no latency/pop-in.
+CI: `scripts/check-ahk-compile.ps1` executes `--check-owned-menu-scaling` on a disposable Windows GUI (50–100% child geometry, owner moved after child construction, monitor-edge clamping). A GUI smoke passing cannot replace actual desktop checks for readable page fonts, complete parchment, controls and no latency/pop-in.
 
 ## Launcher background artwork
 
