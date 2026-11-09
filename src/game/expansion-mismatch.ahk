@@ -15,6 +15,7 @@ global ExpansionAutoDownloadAttempted := false
 ; The first-enable path uses the native launcher progress card, while the
 ; authenticated Discord browser remains composition-cloaked until repair.
 global ExpansionAutoProgressFrame := 0
+global ExpansionAutoCancelButton := 0
 global ExpansionAutoCloaked := false
 ; 1 = initial missing-pack install; 2 = server plugin mismatch.
 global ExpansionDiscordPromptPending := 0
@@ -168,7 +169,7 @@ TES3MPExpansionCloakDialog(dialog, cloak)
 
 TES3MPExpansionBeginNativeProgress()
 {
-    global ExpansionAutoProgressFrame, LauncherGui, InterfaceLoadingText
+    global ExpansionAutoProgressFrame, ExpansionAutoCancelButton, LauncherGui, InterfaceLoadingText
     if IsObject(ExpansionAutoProgressFrame)
         return true
     InterfaceLoadingText := "Finding latest Expansion Pack..."
@@ -186,7 +187,7 @@ TES3MPExpansionBeginNativeProgress()
         extra := Max(35, Round(ch * 0.64))
         frame.Card.Show("NA h" (ch + extra))
         buttonWidth := Round(cw * 0.55)
-        AddStyledButton(frame.Card, (cw - buttonWidth) // 2,
+        ExpansionAutoCancelButton := AddStyledButton(frame.Card, (cw - buttonWidth) // 2,
             ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",
             (*) => TES3MPExpansionCancelNativeDownload())
         LauncherGui.Opt("+Disabled")
@@ -198,6 +199,9 @@ TES3MPExpansionBeginNativeProgress()
     {
         LogLauncherEvent("EXPANSION | Native progress creation failed (" Type(err) ").")
         try LauncherGui.Opt("-Disabled")
+        if IsObject(ExpansionAutoCancelButton)
+            try DestroyBookControl(ExpansionAutoCancelButton)
+        ExpansionAutoCancelButton := 0
         try ReleaseCapturedInterfaceFrame(frame)
         return false
     }
@@ -219,9 +223,12 @@ TES3MPExpansionUpdateNativeProgress(label, percent)
 
 TES3MPExpansionEndNativeProgress()
 {
-    global ExpansionAutoProgressFrame, LauncherGui
+    global ExpansionAutoProgressFrame, ExpansionAutoCancelButton, LauncherGui
     frame := ExpansionAutoProgressFrame
     ExpansionAutoProgressFrame := 0
+    if IsObject(ExpansionAutoCancelButton)
+        try DestroyBookControl(ExpansionAutoCancelButton)
+    ExpansionAutoCancelButton := 0
     if IsObject(frame)
     {
         try ReleaseCapturedInterfaceFrame(frame)
