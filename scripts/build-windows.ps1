@@ -61,30 +61,53 @@ function GetOfficialRelease([string]$Uri, [hashtable]$Headers, [string]$Label) {
         }
     }
 }
-function SaveOfficialDownload([string]$Uri, [string]$Destination, [hashtable]$Headers, [string]$Label) {
-    if (!$Uri.StartsWith('https://', [StringComparison]::OrdinalIgnoreCase)) {
-        throw "$Label download was not HTTPS."
+function SaveOfficialDownload(
+    [string]$Uri, [string]$Destination, [hashtable]$Headers, [string]$Label,
+    [string]$MirrorUri = '', [string]$ExpectedSha256 = ''
+) {
+    # A release mirrored on another official host must match the SHA-256 from
+    # GitHub's release metadata. No hash, no mirror and no unverified bypass.
+    if ($MirrorUri -and $ExpectedSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "$Label mirror requires an official release SHA-256 digest."
     }
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
-        try {
-            if ([IO.File]::Exists($Destination)) { [IO.File]::Delete($Destination) }
-            Invoke-WebRequest -Uri $Uri -OutFile $Destination -Headers $Headers -TimeoutSec 120 -UseBasicParsing -ErrorAction Stop
-            if (![IO.File]::Exists($Destination) -or (Get-Item -LiteralPath $Destination).Length -le 0) {
-                throw "The $Label download was empty."
-            }
-            return
+    $endpoints = @($Uri)
+    if ($MirrorUri) { $endpoints += $MirrorUri }
+    $lastError = 'no response'
+    foreach ($endpoint in $endpoints) {
+        if (!$endpoint.StartsWith('https://', [StringComparison]::OrdinalIgnoreCase)) {
+            throw "$Label download was not HTTPS."
         }
-        catch {
-            if ([IO.File]::Exists($Destination)) {
-                try { [IO.File]::Delete($Destination) } catch {}
+        # Move to the independently hosted archive promptly after persistent
+        # GitHub release-asset 504s, but still retry temporary mirror outages.
+        $maxAttempts = if ($MirrorUri -and $endpoint -eq $Uri) { 2 } else { 3 }
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            try {
+                if ([IO.File]::Exists($Destination)) { [IO.File]::Delete($Destination) }
+                Invoke-WebRequest -Uri $endpoint -OutFile $Destination -Headers $Headers -TimeoutSec 120 -UseBasicParsing -ErrorAction Stop
+                if (![IO.File]::Exists($Destination) -or (Get-Item -LiteralPath $Destination).Length -le 0) {
+                    throw "The $Label download was empty."
+                }
+                if ($ExpectedSha256 -and (GetTes3npSha256 $Destination) -ine $ExpectedSha256) {
+                    throw "$Label SHA-256 did not match GitHub release metadata."
+                }
+                return
             }
-            if ($attempt -ge 3) {
-                throw "Could not download $Label after 3 attempts: $($_.Exception.Message)"
+            catch {
+                $lastError = $_.Exception.Message
+                if ([IO.File]::Exists($Destination)) {
+                    try { [IO.File]::Delete($Destination) } catch {}
+                }
+                if ($attempt -lt $maxAttempts) {
+                    Step "$Label download unavailable; retrying ($attempt/$maxAttempts)"
+                    Start-Sleep -Seconds (2 * $attempt)
+                }
             }
-            Step "$Label download failed; retrying ($attempt/3)"
-            Start-Sleep -Seconds (2 * $attempt)
+        }
+        if ($endpoint -eq $Uri -and $MirrorUri) {
+            Step "GitHub download unavailable; trying verified official $Label mirror"
         }
     }
+    throw "Could not download $Label from official sources: $lastError"
 }
 function CheckOfficialZip([string]$Path, [string]$Label) {
     Add-Type -AssemblyName System.IO.Compression
@@ -149,18 +172,47 @@ try {
     # dist build. An intermittent GitHub gateway timeout must not destroy it.
     Step 'Querying AutoHotkey/AutoHotkey release metadata'
     $ahkRelease = GetOfficialRelease 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' $headers 'AutoHotkey'
-    $ahkAsset = $ahkRelease.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
-    if (!$ahkAsset) { throw 'Could not find AutoHotkey release archive.' }
+    $ahkAsset = $ahkRelease.assets | Where-Object name -match '^AutoHotkey_2\.0\.\d+\.zip$' | Select-Object -First 1
+    if (!$ahkAsset) { throw 'Could not find an official AutoHotkey v2.0 release ZIP.' }
     if ($ahkAsset.browser_download_url -notmatch '^https://github\.com/AutoHotkey/AutoHotkey/releases/download/') {
         throw 'Unexpected AutoHotkey release download source.'
     }
+    if ($ahkAsset.digest -notmatch '^sha256:([0-9a-fA-F]{64})$') {
+        throw 'Official AutoHotkey release SHA-256 digest is unavailable; refusing unverified archive.'
+    }
+    $expectedAhkHash = $Matches[1]
+    $ahkMirror = 'https://docs.autohotkey.com/download/2.0/' + $ahkAsset.name
     Step "Downloading AutoHotkey/AutoHotkey $($ahkRelease.tag_name): $($ahkAsset.name)"
     $ahkZip = Join-Path $tools 'autohotkey.zip'
-    SaveOfficialDownload $ahkAsset.browser_download_url $ahkZip $headers 'AutoHotkey'
+    # GitHub and AutoHotkey's own download directory publish the same version.
+    # Verify every source against the release metadata, including local cache.
+    $ahkCacheDir = Join-Path $env:LOCALAPPDATA 'tes3np\build-download-cache'
+    $cachedAhkZip = Join-Path $ahkCacheDir $ahkAsset.name
+    $cachedAhkValid = $false
+    if ([IO.File]::Exists($cachedAhkZip)) {
+        try { $cachedAhkValid = (GetTes3npSha256 $cachedAhkZip) -ieq $expectedAhkHash }
+        catch { $cachedAhkValid = $false }
+    }
+    if ($cachedAhkValid) {
+        Step 'Using cached official AutoHotkey ZIP (SHA-256 verified)'
+        Copy-Item -LiteralPath $cachedAhkZip -Destination $ahkZip -Force
+    }
+    else {
+        SaveOfficialDownload $ahkAsset.browser_download_url $ahkZip $headers 'AutoHotkey' $ahkMirror $expectedAhkHash
+    }
     CheckOfficialZip $ahkZip 'AutoHotkey'
-    if ($ahkAsset.digest -match '^sha256:([0-9a-fA-F]{64})$' -and
-        (GetTes3npSha256 $ahkZip) -ine $Matches[1]) {
-        throw 'AutoHotkey release ZIP SHA256 does not match GitHub metadata.'
+    if ((GetTes3npSha256 $ahkZip) -ine $expectedAhkHash) {
+        throw 'AutoHotkey ZIP SHA-256 does not match GitHub release metadata.'
+    }
+    if (!$cachedAhkValid) {
+        # A failed cache write must not invalidate a verified downloaded ZIP.
+        try {
+            [IO.Directory]::CreateDirectory($ahkCacheDir) | Out-Null
+            Copy-Item -LiteralPath $ahkZip -Destination $cachedAhkZip -Force
+        }
+        catch {
+            Step 'AutoHotkey cache write unavailable; build can still continue.'
+        }
     }
     Step 'Downloaded and checked AutoHotkey release ZIP'
 
