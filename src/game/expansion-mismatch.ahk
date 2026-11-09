@@ -490,7 +490,8 @@ TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
         return
     if ExpansionMismatchZipUrl = ""
     {
-        statusControl.Text := "Finding the latest ZIP. Sign into Game Chat or click Connect / Retry."
+        statusControl.Text := "Finding the latest ZIP. Rechecking Game Chat authentication..."
+        RequestDiscordExpansionPrompt(1)
         return
     }
     if !RegExMatch(ExpansionMismatchZipUrl, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
