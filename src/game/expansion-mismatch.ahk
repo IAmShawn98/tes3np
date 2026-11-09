@@ -602,9 +602,11 @@ TES3MPExpansionAutoDownloadReady(lParam)
 
 TES3MPExpansionBeginAutoImport(dialog, slot, package)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob
+    ; Read the same canonical worker state as PatchInProgress(), without
+    ; introducing a cross-module function lookup in this callback.
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
-        || ExpansionMismatchSlot != slot || PatchInProgress()
+        || ExpansionMismatchSlot != slot || (IsSet(PatchJob) && IsObject(PatchJob))
     {
         try FileDelete(package)
         return
@@ -613,7 +615,7 @@ TES3MPExpansionBeginAutoImport(dialog, slot, package)
     InstallSelectedExpansionPackage(package, true)
     ; Preflight may be cancelled before PatchJob is created. No process then
     ; owns this temporary ZIP, so clean it up here.
-    if !PatchInProgress()
+    if !(IsSet(PatchJob) && IsObject(PatchJob))
         try FileDelete(package)
 }
 
