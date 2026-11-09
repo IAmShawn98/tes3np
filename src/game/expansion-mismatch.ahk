@@ -206,19 +206,18 @@ TES3MPExpansionBeginNativeProgress()
         cw := NumGet(rect, 8, "Int")
         ch := NumGet(rect, 12, "Int")
         extra := Max(35, Round(ch * 0.64))
-        ; The loading Static is repainted through GetDC/BitBlt, not just
-        ; WM_PAINT. Enlarging that HWND over the Cancel button allowed its
-        ; progress redraw to erase the sibling button even while clickable.
-        ; Give the CARD the matching dark loading-panel background instead:
-        ; the panel owns only the title/progress bar, and the native button
-        ; occupies the footer with ZERO overlapping child HWND rectangles.
-        ; FillLoadingRect's interior 0x071016 is COLORREF (BGR) => RGB 161007.
-        frame.Card.BackColor := "161007"
+        ; Restore the original ONE-box layout: the gold-framed dark loading
+        ; panel fills the whole downloader, with Cancel below its progress bar.
+        ; Its painter now excludes the actual button rectangle from each
+        ; BitBlt instead of erasing the sibling on every progress update.
         frame.Card.Show("NA h" (ch + extra))
+        frame.Panel.Move(0, 0, cw, ch + extra)
         buttonWidth := Round(cw * 0.55)
         ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card, (cw - buttonWidth) // 2,
             ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",
             (*) => TES3MPExpansionCancelNativeDownload())
+        if !TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)
+            throw Error("Could not protect native download Cancel button from loading-panel redraws.")
         LauncherGui.Opt("+Disabled")
         ExpansionAutoProgressFrame := frame
         TES3MPExpansionUpdateNativeProgress("Finding latest Expansion Pack...", 0)
