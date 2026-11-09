@@ -603,8 +603,6 @@ TES3MPExpansionAutoDownloadReady(lParam)
 TES3MPExpansionBeginAutoImport(dialog, slot, package)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob
-    ; Resolve the function defined in the later included expansion-upload module.
-    global InstallSelectedExpansionPackage
     ; Read the same canonical worker state as PatchInProgress(), without
     ; introducing a cross-module function lookup in this callback.
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
@@ -614,7 +612,9 @@ TES3MPExpansionBeginAutoImport(dialog, slot, package)
         return
     }
     CloseTES3MPExpansionMismatchDialog(dialog, slot)
-    InstallSelectedExpansionPackage(package, true)
+    ; The existing upload entrypoint forwards an approved ZIP to its own
+    ; installer, avoiding a direct cross-module function binding.
+    UploadExpansionFromFile(package, true)
     ; Preflight may be cancelled before PatchJob is created. No process then
     ; owns this temporary ZIP, so clean it up here.
     if !(IsSet(PatchJob) && IsObject(PatchJob))
