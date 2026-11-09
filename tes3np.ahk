@@ -37,15 +37,15 @@ if A_Args.Length && A_Args[1] = "--check"
 ; resolve its actual UI functions without starting any window or game.
 if A_Args.Length && A_Args[1] = "--check-expansion-ui"
 {
-    for name in ["CaptureInterfaceFrame", "AddStyledButton",
+    for index, name in ["CaptureInterfaceFrame", "AddStyledButton",
         "DestroyBookControl", "ReleaseCapturedInterfaceFrame",
         "PaintButtonNow", "UploadExpansionFromFile"]
     {
         try callback := Func(name)
         catch
-            ExitApp(91)
+            ExitApp(100 + index)
         if !IsObject(callback)
-            ExitApp(92)
+            ExitApp(120 + index)
     }
     ExitApp(0)
 }
