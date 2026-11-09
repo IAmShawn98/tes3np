@@ -329,7 +329,8 @@ expect(
         < mismatch_dialog.index('RequestDiscordExpansionPrompt(installing ? 1 : 2)')
     and 'ExpansionMismatchDialog.Show()' in mismatch_dialog
     and 'try WinActivate("ahk_id " dialog.Hwnd)' in mismatch_dialog
-    and 'AddStyledButton(dialog, 340, 574, 140, 38, "Install ZIP"' in mismatch_dialog
+    and 'AddStyledButton(dialog, 300, 574, 180, 38,' in mismatch_dialog
+    and '"Repair / Install ZIP"' in mismatch_dialog
     and 'Open Expansion Pack Downloads' in bootstrap,
 )
 expect(
@@ -382,6 +383,46 @@ expect(
     and 'UploadExpansionFromFile()' in mismatch
     and 'Gui("+Owner" LauncherGui.Hwnd' in mismatch
     and 'SendLauncherChatCommand(command, targetHwnd := 0)' in bootstrap,
+)
+expect(
+    "User-approved first enable offers an automatic official ZIP and local repair fallback",
+    'choice := MsgBox("NP Expansion Pack is not installed."' in patcher
+    and 'RequestDiscordExpansionPrompt(1)' in patcher
+    and 'UploadExpansionFromFile()' in patcher
+    and 'TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)' in mismatch
+    and 'SendLauncherChatCommand(13, slotHwnd)' in mismatch
+    and 'case 13: StartExpansionAutoDownload(m.LParam); break;' in source
+    and 'slot != expansionDownloadsParent' in source
+    and '!discordChannelReady || discordLoginVisible' in source
+    and 'IsOfficialExpansionDownloadUrl(expansionLatestZipUrl)' in source,
+)
+expect(
+    "Auto ZIP never exposes signed CDN URLs on command lines or downloads before approval",
+    'string url=expansionLatestZipUrl!;' in source
+    and 'AllowAutoRedirect=false,UseCookies=false' in source
+    and 'ResponseHeadersRead,cancellation.Token' in source
+    and 'string stem="tes3np-"+Guid.NewGuid().ToString("N");' in source
+    and 'SendCopyDataTimeout(owner,0x004A,sender,' in source
+    and 'dwData=new IntPtr(0x8337)' in source
+    and 'OnMessage(0x8338, TES3MPExpansionDownloadProgress)' in bootstrap
+    and 'TES3MPExpansionAutoDownloadReady(lParam)' in mismatch
+    and 'WinGetPID("ahk_id " wParam) = EmbeddedChatPid' in mismatch
+    and 'SetTimer((*) => TES3MPExpansionBeginAutoImport(dialog, slot, package), -80)' in mismatch
+    and 'InstallSelectedExpansionPackage(package, true)' in mismatch,
+)
+expect(
+    "Failed or cancelled auto ZIP never installs and preserves manual rollback repair",
+    'expansionAutoDownloadCancellation?.Cancel();' in source
+    and 'File.Delete(partial)' in source
+    and 'if (!accepted && completed!=null) try { File.Delete(completed); }' in source
+    and 'TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)' in mismatch
+    and 'statusControl.Text := "Automatic download unavailable. Choose Repair / Install ZIP."' in mismatch
+    and 'Repair / Install ZIP' in mismatch
+    and 'if !autoApproved && MsgBox(' in expansion_upload
+    and 'StartExpansionImportWorker(package, morrowind, config, package)' in expansion_upload
+    and 'AutoDownloadedZip: autoDownloadedZip' in expansion_upload
+    and 'if state = "error" && autoImport' in patcher
+    and 'Would you like to repair it using your own ZIP or extracted folder?' in patcher,
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
