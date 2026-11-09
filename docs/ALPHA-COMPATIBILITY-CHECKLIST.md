@@ -27,6 +27,11 @@ permissions errors, and shortcut prompt persistence after backup import.
 
 ## Page transition pop-in and foreground exposure — pending interactive Windows verification
 
+- [ ] With the new staging, repeatedly enter/exit cached and fresh **Character Book**; check the book's painted text, character names, macro rows and themed controls appear together rather than after the parchment image.
+- [ ] Reopen **Launcher Settings** several times and confirm the complete parchment, labels, dropdowns and original full-width Close Settings button display on the first frame. No black/background rectangle or transient default native face.
+- [ ] Verify neither page remains invisible after launch/reopen, including when the launcher is resized, on another display scale, or when the window is reactivated from taskbar. The compositor helper must always uncloak, even if an intermediate update fails.
+
+
 - [ ] Repeatedly open/close **Launcher Settings**: no unmasked dark rectangle, unpainted parchment, or native button flash before the completed Settings page becomes visible.
 - [ ] Repeatedly open/close **Manage Characters**: the completed book appears correctly, and returning to the launcher does not briefly expose the desktop or unrelated foreground windows (such as OBS) between the two TES3NP pages.
 - [ ] With other applications open behind the launcher, repeat Settings/Character Book transitions, including rapid clicks and Escape/Close; TES3NP preserves the correct foreground window and remains responsive.
