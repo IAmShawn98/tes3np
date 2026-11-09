@@ -1311,6 +1311,76 @@ expect(
     and 'ShowLauncherWindow(true)\n    probeBook.Hide()' in entry_script
     and 'if !ButtonFaces.Has(probeHandle)' in entry_script,
 )
+macro_menu_ui = (ROOT / "src" / "ui" / "macros.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Parent-relative menus derive position from current owner HWND with monitor clamping",
+    'PositionOwnedMenuAtParent(menu, owner)' in window_presenter
+    and 'DllCall("GetWindowRect", "Ptr", ownerHwnd, "Ptr", ownerRect)' in window_presenter
+    and 'DllCall("GetWindowRect", "Ptr", menu.Hwnd, "Ptr", menuRect)' in window_presenter
+    and 'MonitorFromPoint(ox + ow // 2, oy + oh // 2)' in window_presenter
+    and 'MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)' in window_presenter
+    and 'DllCall("SetWindowPos", "Ptr", menu.Hwnd,' in window_presenter
+    and '"UInt", 0x0015' in window_presenter,
+)
+expect(
+    "Child controls and fonts scale with effective launcher percentage",
+    'GetOwnedMenuScale()' in window_presenter
+    and 'LauncherScale / 100' in window_presenter
+    and 'ScaleOwnedMenuContent(gui, scale)' in window_presenter
+    and 'control.Move(Round(cx * ratio), Round(cy * ratio),' in window_presenter
+    and 'DllCall("gdi32\\CreateFontIndirectW"' in window_presenter
+    and 'DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x0030,' in window_presenter
+    and 'gui.OwnedContentScale := scale' in window_presenter,
+)
+expect(
+    "Launcher Settings follows moved owner and current scale without losing parchment",
+    'return Max(0.45, Min(GetOwnedMenuScale(), fit))' in settings_layout
+    and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in settings_open
+    and 'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
+    and 'SetPageColorKey(settings, 0x010101)' in settings_open
+    and 'staged := SetPageCompositorCloak(settings, true)' in settings_open
+    and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in (
+        ROOT / "src" / "ui" / "launcher-settings.ahk"
+    ).read_text(encoding="utf-8-sig"),
+)
+expect(
+    "Fresh and cached Character Book resize and position without rebuilding book state",
+    characters_open.count('ApplyCharacterBookScale(bookScale)') == 2
+    and characters_open.count('PositionOwnedMenuAtParent(CharacterPage, LauncherGui)') == 2
+    and characters_open.count('CharacterPage.Show("Hide w" Round(960 * bookScale)') == 2
+    and 'CharacterPage.BookBackground.Value := A_ScriptDir' in characters_ui
+    and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
+    and 'x := BookS(x), y := BookS(y)' in characters_ui
+    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(95))' in characters_ui
+    and 'GetCharacterBookScale()' in characters_ui
+    and 'BookS(value)' in characters_ui
+    and 'GetCharacterBookScale()' in macro_menu_ui
+    and 'MacroScrollThumb.Move(BookS(888)' in macro_menu_ui
+    and 'if oldUploadY != BookS(desiredUploadY)' in macro_menu_ui
+    and 'BookS(890)' in characters_ui
+    and 'ShowLauncherWindow(true)' in characters_close,
+)
+expect(
+    "Secondary client, dependency, species, Morrowind and macro dialogs scale and follow their owner",
+    'ScaleOwnedMenuContent(menu, menuScale)' in settings_layout
+    and 'PositionOwnedMenuAtParent(menu, ownerHwnd)' in settings_layout
+    and 'ScaleOwnedMenuContent(options, optionScale)' in settings_layout
+    and 'PositionOwnedMenuAtParent(options, menu)' in settings_layout
+    and 'ScaleOwnedMenuContent(dialog, dialogScale)' in characters_ui
+    and 'PositionOwnedMenuAtParent(dialog, CharacterPage)' in characters_ui
+    and 'ScaleOwnedMenuContent(prompt, promptScale)' in patcher
+    and 'PositionOwnedMenuAtParent(prompt, LauncherGui)' in patcher
+    and 'ScaleOwnedMenuContent(chooser, chooserScale)' in macro_menu_ui
+    and 'PositionOwnedMenuAtParent(chooser, MacroPage)' in macro_menu_ui,
+)
+expect(
+    "Windows CI moves parent after child creation and verifies 60 and 80 percent geometry",
+    'A_Args[1] = "--check-owned-menu-scaling"' in entry_script
+    and 'for percent in [60, 80]' in entry_script
+    and 'ScaleOwnedMenuContent(child, scale)' in entry_script
+    and 'PositionOwnedMenuAtParent(child, LauncherGui)' in entry_script
+    and 'if Abs(NumGet(movedRect, 0, "Int")' in entry_script,
+)
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
     "SetTimer(CheckFirstRunMorrowind" not in bootstrap
