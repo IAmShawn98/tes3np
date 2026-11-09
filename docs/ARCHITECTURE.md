@@ -27,6 +27,18 @@ later declarations; state must be initialized before startup.
 State remains shared rather than class-based to preserve the accepted native GUI
 behavior. Each feature has one initialization point and one responsible module.
 
+## Launcher-owned page geometry and scale
+
+The launcher controls its own effective `LauncherScale` (Auto or manual). A child page must **not** infer position/scale from the mouse cursor or Windows' remembered first-show location.
+
+`src/ui/windows.ahk` provides `GetOwnedMenuScale`, `PositionOwnedMenuAtParent`, and `ScaleOwnedMenuContent`. Child positioning uses the owning HWND's current screen rectangle and monitor work area; child geometry and native LOGFONT handles are rescaled while hidden or cloaked. Only staged Settings/Character Book use DWM first-paint protection. Preserve the approved original contents/layout; do not insert extra whitespace or cover controls with a separate background.
+
+Launcher Settings uses `V016SettingsScale` equal to the effective launcher percentage (limited by monitor fit) and `V016S`/`V016Font` for native geometry. Themed buttons receive `MenuButtonScale` so their text follows the same percentage. Character Book is a persistent cached GUI: `ApplyCharacterBookScale` rescales its children and reloads its existing parchment at the new size; `BookS` maps dynamic editor and macro positions from immutable 100%-size logical coordinates. Mouse-wheel and thumb drag hit tests divide by both Windows DPI and book scale to remain aligned. A moved/scaled book does **not** invalidate the parent launcher cache or invoke its costly global repaint on Close.
+
+Keep the following invariants: after dragging the launcher, both owned pages are positioned from its **current** HWND; after any Settings Preview Changes result, Settings anchors to the current launcher again; cached book reopens at the current launcher scale and position; nested native dialogs center on their immediate owner. DWM cloaking remains only for the existing staged pages. The native Expansion Pack download UI, its Discord-hosted repair page and ChatHost geometry are independent; they were not changed in this menu-page pass.
+
+CI: `scripts/check-ahk-compile.ps1` executes `--check-owned-menu-scaling` on a disposable Windows GUI (60% and 80% child geometry, parent moved after child constructed). A GUI smoke passing cannot replace actual desktop checks for readable page fonts, complete parchment, controls and no latency/pop-in.
+
 ## Launcher background artwork
 
 The approved vintage beast pair is permanently composited into
