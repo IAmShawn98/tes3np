@@ -305,7 +305,7 @@ PaintLoadingPanel(handle, target, width, height)
     ; full card when Windows actually exposes/resizes it.
     blitHeight := paintFace.HasOwnProp("ProgressHeaderOnly") && paintFace.ProgressHeaderOnly
         ? Min(height, Round(68 * scale)) : height
-    try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", blitHeight, "Ptr", dc, "Int", 0, "Int", "UInt", 0xCC0020)
+    try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", blitHeight, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
     finally
         if savedTargetClip
             DllCall("RestoreDC", "Ptr", target, "Int", savedTargetClip)
