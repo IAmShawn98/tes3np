@@ -561,7 +561,7 @@ TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)
 TES3MPExpansionAutoDownloadReady(lParam)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
-    global ExpansionMismatchStatus, ExpansionAutoDownloadActive, AppDataDirectory
+    global ExpansionMismatchStatus, ExpansionAutoDownloadActive
     if !IsObject(ExpansionMismatchDialog) || !ExpansionAutoDownloadActive
         || ExpansionMismatchMode != "Install"
         return 0
@@ -580,7 +580,9 @@ TES3MPExpansionAutoDownloadReady(lParam)
         return 0
     package := SubStr(payload, separator + 1)
     SplitPath(package, &name, &folder)
-    if StrLower(folder) != StrLower(AppDataDirectory "\expansion-downloads")
+    ; Match ChatHost's canonical Roaming AppData root directly. The native
+    ; callback must not depend on a shared global being assigned at runtime.
+    if StrLower(folder) != StrLower(A_AppData "\tes3np\expansion-downloads")
         || !RegExMatch(name, "i)^tes3np-[0-9a-f]{32}\.zip$")
         || !FileExist(package)
         return 0
