@@ -40,7 +40,7 @@ V016S(value)
 V016Font(value)
 {
     global V016SettingsScale
-    return Max(9, Round(value * V016SettingsScale))
+    return Max(7, Round(value * V016SettingsScale))
 }
 
 GetV016SettingsFitScale()
