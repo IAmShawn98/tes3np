@@ -214,9 +214,10 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
     button := child.Add("Button", "x30 y95 w160 h40", "Test")
     try
     {
-        for percent in [60, 80]
+        for percent in [50, 60, 70, 80, 90, 100]
         {
-            scale := percent / 100
+            LauncherScale := percent
+            scale := GetOwnedMenuScale()
             ScaleOwnedMenuContent(child, scale)
             child.Show("Hide w" Round(400 * scale) " h" Round(250 * scale))
             if !PositionOwnedMenuAtParent(child, LauncherGui)
@@ -251,10 +252,25 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
         if Abs(NumGet(movedRect, 0, "Int") - NumGet(childRect, 0, "Int") - 70) > 2
             || Abs(NumGet(movedRect, 4, "Int") - NumGet(childRect, 4, "Int") - 55) > 2
             ExitApp(215)
+        ; Test an owner moved to the visible right/bottom edge. Child must
+        ; remain inside the OWNER monitor work area rather than opening in
+        ; an unrelated desktop coordinate space.
+        DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0,
+            "Int", mr - 280, "Int", mb - 280,
+            "Int", 0, "Int", 0, "UInt", 0x0015)
+        if !PositionOwnedMenuAtParent(child, LauncherGui)
+            ExitApp(218)
+        edgeRect := Buffer(16, 0)
+        DllCall("GetWindowRect", "Ptr", child.Hwnd, "Ptr", edgeRect)
+        if NumGet(edgeRect, 0, "Int") < ml
+            || NumGet(edgeRect, 4, "Int") < mt
+            || NumGet(edgeRect, 8, "Int") > mr
+            || NumGet(edgeRect, 12, "Int") > mb
+            ExitApp(219)
         child.Show()
         if !DllCall("IsWindowVisible", "Ptr", child.Hwnd)
             ExitApp(216)
-        FileAppend("PASS: menus follow moved owner and resize controls at 60/80 percent" Chr(10), "*")
+        FileAppend("PASS: menus follow moved owner, stay onscreen and scale 50-100 percent" Chr(10), "*")
     }
     catch Error as err
     {
