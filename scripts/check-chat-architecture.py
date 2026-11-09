@@ -1165,11 +1165,31 @@ expect(
     "global LauncherDataResetting := false" in app_state,
 )
 
+settings_layout = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+shortcut_offer = section_between(
+    bootstrap, "OfferDesktopShortcutOnFirstLaunch(*)", "\n}",
+)
 expect(
-    "First launch does not stack optional GOTY, shortcut and Discord dialogs",
+    "Desktop shortcut is a one-time first-launch choice, never a Settings button",
+    'SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)' in bootstrap
+    and bootstrap.count("SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)") == 1
+    and "SetTimer(CheckFirstRunMorrowind" not in bootstrap
+    and 'AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),' in settings_layout
+    and '"Close Settings", CloseLauncherSettingsV016.Bind(settings))' in settings_layout
+    and '"Create Desktop Shortcut"' not in settings_layout
+    and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in settings_layout
+    and 'AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_layout
+    and 'if !A_IsCompiled || !FileExist(A_ScriptDir "\\client\\tes3mp.exe")' in shortcut_offer
+    and 'IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""' in shortcut_offer
+    and 'answer := MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?"' in shortcut_offer
+    and 'IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")' in shortcut_offer
+    and shortcut_offer.index('IniWrite(answer = "Yes"') < shortcut_offer.index('FileCreateShortcut(')
+    and 'FileCreateShortcut(A_ScriptFullPath, A_Desktop "\\Nerevarine Prophecies.lnk"' in shortcut_offer
+    and "forceAfterInstall" not in bootstrap,
+)
+expect(
+    "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
     "SetTimer(CheckFirstRunMorrowind" not in bootstrap
-    and "SetTimer(OfferDesktopShortcutOnFirstLaunch" not in bootstrap
-    and "Create Desktop Shortcut" in (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
     and "bool discordSignInRequested;" in source
     and "if (discordSignInRequested) popup.Show();" in source
     and "discordSignInRequested = true;" in source
