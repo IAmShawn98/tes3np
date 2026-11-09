@@ -273,7 +273,34 @@ PaintLoadingPanel(handle, target, width, height)
     rect := Buffer(16, 0)
     NumPut("Int", 8, "Int", Round(8 * scale), "Int", width - 8, "Int", Round(42 * scale), rect)
     DllCall("DrawTextW", "Ptr", dc, "WStr", ButtonFaces[handle].Control.Text, "Int", -1, "Ptr", rect, "UInt", 0x825)
-    DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+    ; The automatic ZIP downloader keeps its Cancel button inside this ONE
+    ; full-height native panel. PaintButtonNow uses GetDC + BitBlt, so simply
+    ; setting WS_CLIPSIBLINGS on two sibling HWNDs does not protect the
+    ; button from a parent blit. Clip the button's *actual screen rectangle*
+    ; out of the target DC, then restore the original clip. Other native
+    ; loading cards have no ProtectedButtonHwnd and render unchanged.
+    savedTargetClip := 0
+    protectedButton := ButtonFaces[handle].HasOwnProp("ProtectedButtonHwnd")
+        ? ButtonFaces[handle].ProtectedButtonHwnd : 0
+    if protectedButton && DllCall("IsWindow", "Ptr", protectedButton)
+    {
+        buttonRect := Buffer(16, 0)
+        if DllCall("GetWindowRect", "Ptr", protectedButton, "Ptr", buttonRect)
+        {
+            ; A RECT is two POINT structures; map both screen corners to
+            ; the loading panel's client pixel coordinates.
+            DllCall("MapWindowPoints", "Ptr", 0, "Ptr", handle, "Ptr", buttonRect, "UInt", 2)
+            savedTargetClip := DllCall("SaveDC", "Ptr", target, "Int")
+            if savedTargetClip
+                DllCall("ExcludeClipRect", "Ptr", target,
+                    "Int", NumGet(buttonRect, 0, "Int"), "Int", NumGet(buttonRect, 4, "Int"),
+                    "Int", NumGet(buttonRect, 8, "Int"), "Int", NumGet(buttonRect, 12, "Int"))
+        }
+    }
+    try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+    finally
+        if savedTargetClip
+            DllCall("RestoreDC", "Ptr", target, "Int", savedTargetClip)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
     DllCall("DeleteObject", "Ptr", bitmap)
