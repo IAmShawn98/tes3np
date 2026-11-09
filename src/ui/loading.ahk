@@ -12,27 +12,30 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
             SetInterfaceLoadingText(message)
         return
     }
+    previousCritical := A_IsCritical
     Critical("On")
-    SetTimer(ShowSlowInterfaceLoading, 0)
-    startedAt := A_TickCount
-    SetTimer(ReleaseInterfaceFrame, 0)
-    ReleaseInterfaceFrame()
-    InterfaceUpdateGui := IsObject(gui) ? gui : CharacterPage
-    InterfaceCompletedSteps := 0
-    InterfaceTotalSteps := Max(1, totalSteps ? totalSteps : DefaultLoadingSteps(InterfaceUpdateGui, message))
-    InterfaceUpdating := true
-    SetInterfaceLoadingText("Waiting for Jiub...")
-    InterfaceFrameCover := CaptureInterfaceFrame(InterfaceUpdateGui, showLoading)
-    ; Freeze the real window after capturing its current frame. All control
-    ; destruction/creation now happens off-screen instead of generating a stream
-    ; of WM_PAINT messages underneath the loading cover.
-    if IsObject(InterfaceUpdateGui) && DllCall("IsWindow", "Ptr", InterfaceUpdateGui.Hwnd)
-        DllCall("SendMessageW", "Ptr", InterfaceUpdateGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0) ; WM_SETREDRAW
-    if message != ""
-        SetInterfaceLoadingText(message)
-    if IsObject(InterfaceFrameCover) && !IsObject(InterfaceFrameCover.Panel)
-        SetTimer(ShowSlowInterfaceLoading, -Max(1, 120 - (A_TickCount - startedAt)))
-    Critical("Off")
+    try
+    {
+        SetTimer(ShowSlowInterfaceLoading, 0)
+        startedAt := A_TickCount
+        SetTimer(ReleaseInterfaceFrame, 0)
+        ReleaseInterfaceFrame()
+        InterfaceUpdateGui := IsObject(gui) ? gui : CharacterPage
+        InterfaceCompletedSteps := 0
+        InterfaceTotalSteps := Max(1, totalSteps ? totalSteps : DefaultLoadingSteps(InterfaceUpdateGui, message))
+        InterfaceUpdating := true
+        SetInterfaceLoadingText("Waiting for Jiub...")
+        InterfaceFrameCover := CaptureInterfaceFrame(InterfaceUpdateGui, showLoading)
+        ; Freeze the real window after capturing its current frame. All control
+        ; destruction/creation happens under the captured, owned frame.
+        if IsObject(InterfaceUpdateGui) && DllCall("IsWindow", "Ptr", InterfaceUpdateGui.Hwnd)
+            DllCall("SendMessageW", "Ptr", InterfaceUpdateGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+        if message != ""
+            SetInterfaceLoadingText(message)
+        if IsObject(InterfaceFrameCover) && !IsObject(InterfaceFrameCover.Panel)
+            SetTimer(ShowSlowInterfaceLoading, -Max(1, 120 - (A_TickCount - startedAt)))
+    }
+    finally Critical(previousCritical)
 }
 
 EndInterfaceUpdate()
@@ -77,7 +80,10 @@ EndInterfaceUpdate()
             for layer in [InterfaceFrameCover.Gui, InterfaceFrameCover.Dim, InterfaceFrameCover.Card]
                 if IsObject(layer)
                     DllCall("SetWindowPos", "Ptr", layer.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-            DllCall("dwmapi\DwmFlush", "Int")
+            ; The real window is repainted via UpdateWindow above.
+            ; DwmFlush synchronously waits for Desktop Window Manager and
+            ; can hold the GUI thread indefinitely under GPU/remote-display
+            ; contention; do not use it in an interactive menu transition.
         }
     }
     finally
@@ -223,7 +229,8 @@ CreateLoadingCard(owner, x, y, width, height)
     PaintButtonNow(panel.Hwnd)
     DllCall("SetLayeredWindowAttributes", "Ptr", card.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
     DllCall("SetWindowPos", "Ptr", card.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-    DllCall("dwmapi\DwmFlush", "Int")
+    ; Do not wait synchronously on DWM. The card is already painted and
+    ; all three owned windows have been positioned before returning.
     return {Dim: dim, Card: card, Panel: panel}
 }
 

@@ -4,33 +4,19 @@ global EmbeddedChatPid := 0
 
 EnsureEmbeddedChatHostCurrent(host)
 {
-    ; Development check: source pulls must update the running ChatHost binary.
-    project := A_ScriptDir "\chat-host\tes3np.ChatHost.csproj"
+    ; Never run a compiler or network restore on the AHK GUI thread.
+    ; A source-checkout launch previously waited for a full build here:
+    ; a stalled .NET restore left the whole launcher Not Responding. The
+    ; explicit Windows build publishes Chat Host before launching TES3NP.
     source := A_ScriptDir "\chat-host\Program.cs"
-    if !FileExist(project) || !FileExist(source)
+    if !FileExist(source)
         return
     try
     {
         sourceTime := FileGetTime(source, "M")
         hostTime := FileExist(host) ? FileGetTime(host, "M") : "0"
-        if (hostTime >= sourceTime)
-            return
-        LogLauncherEvent("CHAT | ChatHost source is newer than executable; checking .NET SDK.")
-        dotnet := ""
-        try dotnet := RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost", "Path")
-        catch
-            dotnet := ""
-        ; Resolve the SDK through PATH, not a hard-coded machine location.
-        check := RunWait(A_ComSpec ' /d /c "where dotnet >nul 2>nul"', , "Hide")
-        if (check != 0)
-        {
-            LogLauncherEvent("CHAT | ChatHost rebuild needed, but dotnet is unavailable. Existing executable retained.")
-            return
-        }
-        command := A_ComSpec ' /d /c dotnet publish "' project '" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o "' A_ScriptDir '\chat-host"'
-        LogLauncherEvent("CHAT | Rebuilding ChatHost after git pull.")
-        result := RunWait(command, A_ScriptDir, "Hide")
-        LogLauncherEvent("CHAT | ChatHost rebuild exit code: " result)
+        if hostTime < sourceTime
+            LogLauncherEvent("CHAT | ChatHost source is newer than the executable. Use the Windows build script to update; startup will not block on compilation.")
     }
     catch as err
         try LogLauncherEvent("CHAT | ChatHost freshness check failed (" Type(err) ").")
