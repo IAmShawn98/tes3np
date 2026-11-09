@@ -492,6 +492,10 @@ expect(
     "Native first-enable progress reuses the trusted import loader and offers safe cancel",
     'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)' in auto_progress_helpers
     and 'ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card,' in auto_progress_helpers
+    and 'frame.Panel.Move(0, 0, cw, ch + extra)' in auto_progress_helpers
+    and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
+        < auto_progress_helpers.index('frame.Panel.Move(0, 0, cw, ch + extra)')
+        < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
     and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in auto_progress_helpers
     and 'global ExpansionAutoProgressFrame, ButtonFaces' not in auto_progress_helpers
