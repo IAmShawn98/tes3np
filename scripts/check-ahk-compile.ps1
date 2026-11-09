@@ -24,7 +24,8 @@ function Download-VerifiedTool([string]$Repository, [string]$NamePattern, [strin
         for ($attempt=1; $attempt -le 2; $attempt++) {
             try {
                 if (Test-Path $dest) { Remove-Item -LiteralPath $dest -Force }
-                Invoke-WebRequest -Uri $url -Headers $headers -OutFile $dest -UseBasicParsing -TimeoutSec 120
+                # Public release downloads/mirrors never receive the Actions token.
+                Invoke-WebRequest -Uri $url -Headers @{ 'User-Agent' = 'tes3np-source-validation' } -OutFile $dest -UseBasicParsing -TimeoutSec 120
                 if ((Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash -ine $expected) {
                     throw "Official $Label ZIP SHA-256 mismatch."
                 }
