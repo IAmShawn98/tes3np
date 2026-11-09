@@ -25,6 +25,13 @@ The most valuable remaining checks are Windows 10/11 without SDKs installed,
 first-run discovery, WebView2 absence, update confirmation on a packaged build,
 permissions errors, and shortcut prompt persistence after backup import.
 
+## Character Book Close responsiveness — pending Windows runtime confirmation
+
+- [ ] With Manage Characters already open, click **Close**: book should disappear immediately, with no multi-second wait and no reappearance of the old pop-in.
+- [ ] Repeat on first opening and cached reopen; confirm no delay when returning to the launcher, and the same book tabs, rows, editor controls and macro buttons remain functional.
+- [ ] With automatic launcher scale and a changed display size, confirm the cached shortcut falls back to the existing scale/geometry rebuild when necessary rather than leaving mismatched controls.
+- [ ] If a slow close remains, inspect `%APPDATA%\tes3np\launcher.log` for an allowlisted `UI | Character Book close … | Parent … | Hide …` diagnostic (only logged for 150 ms or slower); do not share secrets or full AppData backups.
+
 ## Page transition pop-in and foreground exposure — pending interactive Windows verification
 
 - [ ] After the user-confirmed pop-in fix, opening Launcher Settings must **not** throw `Target window not found` from the cloaked transparency setup; check both fresh and repeated Settings opens.
