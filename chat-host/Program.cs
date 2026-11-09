@@ -3649,10 +3649,29 @@ metrics();
             windowHeight = Math.Min(windowHeight, work.Height);
             int y = bounds.Top + (bounds.Bottom - bounds.Top - windowHeight) / 2;
             y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - windowHeight));
-            // Tall gold toggle centered vertically along the launcher's left edge,
-            // matching the marked area in the reference screenshot.
+            // The approved dock is to the left of TES3NP when space permits.
+            // If the launcher is near a monitor edge, the old negative X
+            // left Game Chat clipped/offscreen. Choose the right when it fits,
+            // otherwise clamp the complete panel to the monitor working area.
+            int panelWidth = Math.Min(chatWidth, work.Width);
+            int leftX = bounds.Left - panelWidth;
+            int rightX = bounds.Right;
+            int x;
+            if (leftX >= work.Left)
+                x = leftX;
+            else if (rightX + panelWidth <= work.Right)
+                x = rightX;
+            else
+            {
+                // A maximized or very wide launcher leaves no full-width
+                // outside dock: favor the side with more visible space.
+                int leftSpace = Math.Max(0, bounds.Left - work.Left);
+                int rightSpace = Math.Max(0, work.Right - bounds.Right);
+                x = leftSpace >= rightSpace ? work.Left : work.Right - panelWidth;
+            }
+            x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - panelWidth));
             if (chatOpen)
-                MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);
+                MoveWindow(Handle, x, y, panelWidth, windowHeight, true);
         }
         void DockToLauncher()
         {

@@ -231,6 +231,16 @@ feed_start = source.index("                bool enteringNativeMode = !nativeMode
 feed_end = source.index('                    Log("Native message view activated");', feed_start)
 feed_transition = source[feed_start:feed_end]
 expect(
+    "Game Chat remains fully on its monitor when the launcher is near an edge",
+    "int leftX = bounds.Left - panelWidth;" in source
+    and "int rightX = bounds.Right;" in source
+    and "if (leftX >= work.Left)" in source
+    and "else if (rightX + panelWidth <= work.Right)" in source
+    and "x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - panelWidth));" in source
+    and "MoveWindow(Handle, x, y, panelWidth, windowHeight, true);" in source
+    and "MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);" not in source,
+)
+expect(
     "First login exposes native Connecting status, not a stale scrollbar",
     'nativeMessages.Text = "Connecting to live chat...";' in loading
     and 'frameSurface.Visible = true;' in loading
