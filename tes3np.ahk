@@ -41,10 +41,10 @@ if A_Args.Length && A_Args[1] = "--check-expansion-ui"
         "DestroyBookControl", "ReleaseCapturedInterfaceFrame",
         "PaintButtonNow", "UploadExpansionFromFile"]
     {
-        try callback := Func(name)
+        try callback := %name%
         catch
             ExitApp(100 + index)
-        if !IsObject(callback)
+        if !HasMethod(callback, "Call")
             ExitApp(120 + index)
     }
     ExitApp(0)
