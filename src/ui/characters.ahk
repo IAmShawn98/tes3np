@@ -17,10 +17,7 @@ OpenCharacterPage(*)
         {
             CharacterPage.Show()
             if staged
-            {
-                FinishButtonDisplay()
                 RevealPaintedPage(CharacterPage)
-            }
         }
         finally
         {
@@ -110,7 +107,7 @@ OpenCharacterPage(*)
     {
         CharacterPage.Show("w960 h650")
         ; Preserve the original magenta color key and custom button faces.
-        RevealWindowDisplay(CharacterPage, true)
+        RevealWindowDisplay(CharacterPage, true, !staged)
         if staged
             RevealPaintedPage(CharacterPage)
     }
