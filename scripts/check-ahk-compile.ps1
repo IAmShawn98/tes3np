@@ -51,10 +51,16 @@ if (!$base -or !$compiler) { throw 'Verified AutoHotkey tools were not extracted
 
 $launcher = Join-Path $projectRoot 'tes3np.ahk'
 Write-Host 'Parsing complete AutoHotkey launcher (no game or UI startup).'
-$output = @(& $base /ErrorStdOut $launcher '--check' 2>&1)
-$code = $LASTEXITCODE
+$parseStdout = Join-Path $work 'parse-stdout.txt'
+$parseStderr = Join-Path $work 'parse-stderr.txt'
+$parseArguments = '/ErrorStdOut "' + $launcher + '" --check'
+$parse = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $parseArguments -PassThru -Wait -RedirectStandardOutput $parseStdout -RedirectStandardError $parseStderr
+$output = @()
+if (Test-Path $parseStdout) { $output += @(Get-Content $parseStdout) }
+if (Test-Path $parseStderr) { $output += @(Get-Content $parseStderr) }
 $output | ForEach-Object { Write-Host $_ }
-if ($null -eq $code -or $code -ne 0 -or $output -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
+Write-Host "AutoHotkey parser process exit: $($parse.ExitCode)"
+if ($parse.ExitCode -ne 0 -or $output -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
     throw 'AutoHotkey source parse/warning check failed.'
 }
 
