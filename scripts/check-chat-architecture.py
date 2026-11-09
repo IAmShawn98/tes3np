@@ -412,7 +412,7 @@ expect(
     and 'TES3MPExpansionAutoDownloadReady(lParam)' in mismatch
     and 'WinGetPID("ahk_id " wParam) = EmbeddedChatPid' in mismatch
     and 'SetTimer((*) => TES3MPExpansionBeginAutoImport(dialog, slot, package), -80)' in mismatch
-    and 'InstallSelectedExpansionPackage(package, true)' in mismatch,
+    and 'UploadExpansionFromFile(package, true)' in mismatch,
 )
 expect(
     "Failed or cancelled auto ZIP never installs and preserves manual rollback repair",
@@ -448,12 +448,22 @@ auto_import_callback = section_between(
 expect(
     "Deferred auto-import uses canonical initialized PatchJob rather than an unresolved helper",
     'global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob' in auto_import_callback
-    and 'global InstallSelectedExpansionPackage' in auto_import_callback
     and '(IsSet(PatchJob) && IsObject(PatchJob))' in auto_import_callback
     and 'if !(IsSet(PatchJob) && IsObject(PatchJob))' in auto_import_callback
     and '|| PatchInProgress()' not in auto_import_callback
     and 'if !PatchInProgress()' not in auto_import_callback
-    and 'InstallSelectedExpansionPackage(package, true)' in auto_import_callback,
+    and 'UploadExpansionFromFile(package, true)' in auto_import_callback
+    and 'InstallSelectedExpansionPackage(' not in auto_import_callback,
+)
+expect(
+    "Automatic ZIP passes through the existing upload entrypoint without an illicit global function declaration",
+    'UploadExpansionFromFile(args*)' in expansion_upload
+    and 'if args.Length = 2 && Type(args[1]) = "String" && args[2] = true' in expansion_upload
+    and 'StrLower(A_AppData "\\tes3np\\expansion-downloads")' in expansion_upload
+    and 'InstallSelectedExpansionPackage(package, true)' in expansion_upload
+    and 'UploadExpansionFromFile(package, true)' in auto_import_callback
+    and 'InstallSelectedExpansionPackage(' not in auto_import_callback
+    and 'global InstallSelectedExpansionPackage' not in mismatch,
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
