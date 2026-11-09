@@ -747,6 +747,9 @@ expect(
     and "Preflighting full AutoHotkey launcher source and warning diagnostics" in expansion_build
     and '$launcherOutput = @(& $base /ErrorStdOut $launcherSource' in expansion_build
     and "'AutoHotkey launcher source warnings detected before packaging.'" in expansion_build
+    and "Preflighting generated standalone AutoHotkey source and warning diagnostics" in expansion_build
+    and "$stageOutput = @(& $base /ErrorStdOut $stageEntry '--check' 2>&1)" in expansion_build
+    and "'Staged AutoHotkey launcher warnings detected before compilation.'" in expansion_build
     and 'DirExist(package)' in expansion_upload
     and 'StrLower(extension) = "zip"' in expansion_upload
     and 'ChooseExpansionPackageSource' not in expansion_upload
