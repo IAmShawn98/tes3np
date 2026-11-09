@@ -275,23 +275,45 @@ mismatch = (ROOT / "src" / "game" / "expansion-mismatch.ahk").read_text(encoding
 patcher = (ROOT / "src" / "ui" / "patcher.ahk").read_text(encoding="utf-8-sig")
 expansion_toggle = (ROOT / "scripts" / "toggle-expansion-pack.ps1").read_text(encoding="utf-8-sig")
 resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
+# The mismatch explanation must appear even when Discord is signed out.
+# Only the optional Discord ZIP browser is gated by live authentication.
+# Retain sender-PID checking, pending-request cleanup, and retry support.
+mismatch_dialog = section_between(
+    mismatch,
+    'ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)',
+    '\nCloseTES3MPExpansionMismatchDialog(',
+)
 expect(
-    "Discord-backed Expansion Pack dialogs wait for existing Game Chat login",
+    "Expansion Pack mismatch dialog opens without waiting for Discord",
+    'dialog.Show("w660 h627")' in mismatch_dialog
+    and 'RequestDiscordExpansionPrompt(installing ? 1 : 2)' in mismatch_dialog
+    and mismatch_dialog.index('dialog.Show("w660 h627")')
+        < mismatch_dialog.index('RequestDiscordExpansionPrompt(installing ? 1 : 2)')
+    and 'ExpansionMismatchDialog.Show()' in mismatch_dialog
+    and 'try WinActivate("ahk_id " dialog.Hwnd)' in mismatch_dialog
+    and 'AddStyledButton(dialog, 340, 574, 140, 38, "Install ZIP"' in mismatch_dialog
+    and 'Open Expansion Pack Downloads' in bootstrap,
+)
+expect(
+    "Discord-backed Expansion Pack ZIP remains authenticated and retryable",
     'RequestDiscordExpansionPrompt(mode := 2)' in mismatch
-    and 'if !authConfirmed' in mismatch
+    and 'if authConfirmed\n    {\n        if !SendLauncherChatCommand(6, downloadSlot.Hwnd)' in mismatch_dialog
     and 'ShowTES3MPExpansionMismatchDialog(mode = 1 ? "Install" : "Mismatch", true)' in mismatch
     and 'WinGetPID("ahk_id " lParam) != EmbeddedChatPid' in mismatch
     and 'OnMessage(0x8336, DiscordExpansionPromptReady)' in bootstrap
     and 'case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;' in source
+    and 'case 12: RetryAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;' in source
     and 'void RequestAuthenticatedExpansionPrompt(int mode)' in source
+    and 'void RetryAuthenticatedExpansionPrompt(int mode)' in source
     and 'async Task ResolvePendingExpansionPromptAsync()' in source
     and 'if (live == "true"' in source
-    and 'CancelPendingExpansionPrompt();' in source
     and 'void CompletePendingExpansionPrompt()' in source
     and 'PostMessage(owner, 0x8336, new IntPtr(mode), Handle);' in source
     and 'CompletePendingExpansionPrompt();' in source
     and 'if (!discordChannelReady || discordLoginVisible || closingChat)' in source
-    and 'ShowDiscordSignIn();' in source,
+    and 'ShowDiscordSignIn();' in source
+    and 'SendLauncherChatCommand(11)' in mismatch
+    and 'case 11: CancelPendingExpansionPrompt(false); break;' in source,
 )
 expect(
     "Enabling a locally installed pack never deploys legacy bundled assets",
@@ -853,7 +875,7 @@ expect(
     "Unfinished Discord recovery never suppresses a new game login",
     "ResetPendingExpansionPromptForNewLaunch()" in session
     and "SendLauncherChatCommand(11)" in mismatch
-    and "case 11: CancelPendingExpansionPrompt(); break;" in source,
+    and "case 11: CancelPendingExpansionPrompt(false); break;" in source,
 )
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
