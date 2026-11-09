@@ -1187,6 +1187,45 @@ expect(
     and 'FileCreateShortcut(A_ScriptFullPath, A_Desktop "\\Nerevarine Prophecies.lnk"' in shortcut_offer
     and "forceAfterInstall" not in bootstrap,
 )
+characters_ui = (ROOT / "src" / "ui" / "characters.ahk").read_text(encoding="utf-8-sig")
+settings_open = section_between(
+    settings_layout,
+    "OpenLauncherSettingsV016(*)",
+    "\nCloseLauncherSettingsV016(settings, *)",
+)
+settings_close = section_between(
+    settings_layout,
+    "CloseLauncherSettingsV016(settings, *)",
+    "\nV016CheckLabel(state, label)",
+)
+characters_close = section_between(
+    characters_ui,
+    "CloseCharacterPage(*)",
+    "\nEditProfile(index, *)",
+)
+expect(
+    "Settings transparency is applied while hidden and launcher owns foreground before close",
+    'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
+    and settings_open.index('settings.Show("Hide w"')
+        < settings_open.index('WinSetTransColor("010101"')
+        < settings_open.index('    settings.Show()')
+    and settings_open.index('    settings.Show()')
+        < settings_open.index('FinishButtonDisplay()')
+    and 'DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)' in settings_close
+    and settings_close.index('DllCall("EnableWindow"')
+        < settings_close.index('try WinActivate("ahk_id " LauncherGui.Hwnd)')
+        < settings_close.index('try settings.Destroy()'),
+)
+expect(
+    "Character Book raises the prepared launcher before hiding and restoring dormant book controls",
+    'ShowLauncherWindow(true)' in characters_close
+    and characters_close.index('ShowLauncherWindow(true)')
+        < characters_close.index('CharacterPage.Hide()')
+        < characters_close.index('HideProfileEditor()')
+        < characters_close.index('CloseMacroPage()')
+    and 'PrepareWindowDisplay(CharacterPage)' in characters_ui
+    and 'RevealWindowDisplay(CharacterPage, true)' in characters_ui,
+)
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
     "SetTimer(CheckFirstRunMorrowind" not in bootstrap
