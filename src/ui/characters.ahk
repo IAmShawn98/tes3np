@@ -778,7 +778,7 @@ ScrollEditorWheel(wParam)
     point := Buffer(8, 0)
     NumPut("Int", x, "Int", y, point)
     DllCall("ScreenToClient", "Ptr", CharacterPage.Hwnd, "Ptr", point)
-    scale := A_ScreenDPI / 96
+    scale := (A_ScreenDPI / 96) * GetCharacterBookScale()
     x := NumGet(point, 0, "Int") / scale
     y := NumGet(point, 4, "Int") / scale
     if x < 520 || x > 905 || y < 200 || y > 445
@@ -796,7 +796,7 @@ PressEditorScroll(hwnd)
     MouseGetPos(, &y)
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (y - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
+    localY := (y - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
     EditorGrab := hwnd = EditorThumb.Hwnd ? localY - (210 + Round(EditorOffset / 54 * 103)) : 55
     EditorScrolling := true
     DllCall("SetCapture", "Ptr", hwnd)
@@ -812,7 +812,7 @@ DragEditorScroll()
     MouseGetPos(, &y)
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (y - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
+    localY := (y - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
     ScrollEditorRows(Round((localY - 210 - EditorGrab) / 103 * 54))
 }
 
