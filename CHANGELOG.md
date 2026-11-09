@@ -4,6 +4,15 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Launcher-relative menu placement and matching child page scale — 2026-11-09
+
+- User screenshot showed the launcher dragged left while Launcher Settings appeared around its former screen position. Independent Settings fit and the full-size 960×650 Character Book also produced mismatched proportions at lower launcher scale presets.
+- Added `PositionOwnedMenuAtParent` in `src/ui/windows.ahk`: it reads current owner/child HWND rectangles, centers the child on its **current** owner (not the mouse or a remembered initial position), clamps to that owner's monitor work area, and moves without activating or repainting the cloaked window.
+- Settings now uses the effective `LauncherScale` as its normal scale (capped by available monitor fit), with matched themed button fonts and unchanged parchment layout. Settings restores relative to the latest launcher position after a declined preview. Its DWM first-paint cloak, transparency key, and full-width Close button remain unchanged.
+- Fresh and cached Character Book windows now scale their picture, control rectangles, native fonts, and hit targets together with the launcher; they center on the launcher when opened or reopened after a move. Editor and macro scrolling/hit calculations are normalized to the original unscaled layout, and dynamic import/export/upload/scrollbar moves now scale accordingly. No replacement Character Book is created merely to handle a new scale, preserving its book/editor/macro state and verified fast Close path.
+- Native Game Client Settings, optional dependency chooser, Original Character species prompt, macro script chooser, and first-use Morrowind location prompt now use the owning window's current position and launcher percentage.
+- New disposable Windows GUI `--check-owned-menu-scaling` test moves a parent window after child creation and checks centering plus control geometry at 60% and 80%. Static and compiler checks passed. Interactive testing across Auto and 50–100% sizes, monitors, fonts, artwork, scrolling and the previously fixed pop-in/Close delay is still required. The authenticated Expansion Pack downloader and Game Chat docking were not changed.
+
 ### Remove Character Book Close latency from cached launcher repaint — 2026-11-09
 
 - The user supplied the 18.43-second, 60 fps video `2026-11-09 17-42-57.mp4`. It shows Manage Characters remaining visibly onscreen after the Close interaction in repeated sequences (first approximately 2.0s–3.5s); this is a return-to-parent responsiveness problem, not the previously fixed initial pop-in.
