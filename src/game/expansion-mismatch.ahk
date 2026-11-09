@@ -188,6 +188,7 @@ TES3MPExpansionBeginNativeProgress()
     if IsObject(ExpansionAutoProgressFrame)
         return true
     InterfaceLoadingText := "Finding latest Expansion Pack..."
+    stage := "capture"
     frame := 0
     try frame := TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)
     catch Error as err
@@ -196,9 +197,13 @@ TES3MPExpansionBeginNativeProgress()
         return false
     }
     if !IsObject(frame) || !IsObject(frame.Panel)
+    {
+        LogLauncherEvent("EXPANSION | Native progress capture returned incomplete frame.")
         return false
+    }
     try
     {
+        stage := "build card"
         ; Reuse the native loading card and progress bar from manual import.
         ; A cancel control is available only before transactional install.
         rect := Buffer(16, 0)
@@ -216,8 +221,10 @@ TES3MPExpansionBeginNativeProgress()
         ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card, (cw - buttonWidth) // 2,
             ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",
             (*) => TES3MPExpansionCancelNativeDownload())
+        stage := "register native button"
         if !TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)
             throw Error("Could not protect native download Cancel button from loading-panel redraws.")
+        stage := "display native progress"
         LauncherGui.Opt("+Disabled")
         ExpansionAutoProgressFrame := frame
         TES3MPExpansionUpdateNativeProgress("Finding latest Expansion Pack...", 0)
@@ -225,7 +232,7 @@ TES3MPExpansionBeginNativeProgress()
     }
     catch Error as err
     {
-        LogLauncherEvent("EXPANSION | Native progress creation failed (" Type(err) ").")
+        LogLauncherEvent("EXPANSION | Native progress " stage " failed (" Type(err) ").")
         try LauncherGui.Opt("-Disabled")
         TES3MPExpansionRemoveDownloadCancel()
         try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
@@ -300,6 +307,43 @@ TES3MPExpansionCancelNativeDownload()
         return
     if IsObject(ExpansionMismatchDialog)
         CloseTES3MPExpansionMismatchDialog(ExpansionMismatchDialog, ExpansionMismatchSlot)
+}
+
+TES3MPExpansionStartDiscoveredZip(slot, status)
+{
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
+    global ExpansionAutoProgressFrame, ExpansionAutoDownloadAttempted
+    if ExpansionMismatchMode != "Install" || !IsObject(ExpansionMismatchDialog)
+        || slot != ExpansionMismatchSlot || !IsObject(ExpansionAutoProgressFrame)
+        || ExpansionAutoDownloadAttempted || !IsObject(status)
+        return
+    ExpansionAutoDownloadAttempted := true
+    TES3MPExpansionRequestAutoInstall(slot, status)
+}
+
+; The screenshot showed a valid official ZIP even though the startup progress
+; card was never displayed. A single deferred retry lets the launcher finish
+; its first native paint without treating a transient capture failure as a
+; failed download. Until the card exists, discovery is not permitted to start.
+TES3MPExpansionRetryNativeProgress(dialog)
+{
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
+    global ExpansionAutoCloaked, ExpansionAutoProgressFrame, ExpansionMismatchStatus
+    global ExpansionMismatchZipUrl, ExpansionAutoDownloadAttempted
+    if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
+        || ExpansionMismatchMode != "Install" || !ExpansionAutoCloaked
+        || ExpansionAutoDownloadAttempted
+        return
+    if !TES3MPExpansionBeginNativeProgress()
+    {
+        ExpansionAutoDownloadAttempted := true
+        TES3MPExpansionRevealRepair("Native download window could not initialize. Retry or use Repair / Install ZIP.")
+        return
+    }
+    LogLauncherEvent("EXPANSION | Native download progress recovered on deferred retry.")
+    SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)
+    if ExpansionMismatchZipUrl != "" && IsObject(ExpansionMismatchStatus)
+        SetTimer((*) => TES3MPExpansionStartDiscoveredZip(ExpansionMismatchSlot, ExpansionMismatchStatus), -80)
 }
 
 TES3MPExpansionDiscoveryDeadline(dialog)
@@ -523,8 +567,8 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
             SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)
         else
         {
-            ExpansionAutoDownloadAttempted := true
-            TES3MPExpansionRevealRepair("Native download progress unavailable. Retry or use Repair / Install ZIP.")
+            LogLauncherEvent("EXPANSION | Native progress not ready after first show; retrying once.")
+            SetTimer((*) => TES3MPExpansionRetryNativeProgress(dialog), -300)
         }
     }
     else
@@ -583,6 +627,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     global ExpansionMismatchMode, ExpansionMismatchStatus, ExpansionAutoDownloadAttempted
+    global ExpansionAutoProgressFrame, ExpansionAutoCloaked
     ; WM_COPYDATA is synchronous; copy the data before returning.
     ; Only accept our current ChatHost's authenticated HTTPS attachment.
     if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
@@ -627,12 +672,21 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     ExpansionMismatchZipUrl := url
-    if ExpansionMismatchMode = "Install"
+    if ExpansionMismatchMode = "Install" && IsObject(ExpansionAutoProgressFrame)
         TES3MPExpansionUpdateNativeProgress("Latest Expansion Pack found. Connecting...", 0)
     if IsObject(ExpansionMismatchStatus)
-        ExpansionMismatchStatus.Text := ExpansionMismatchMode = "Install"
-            ? "Official ZIP found. Beginning automatic download..."
-            : "Latest official ZIP found. Click Download to open your browser."
+    {
+        if ExpansionMismatchMode = "Install"
+        {
+            ; Do not overwrite the real failure once Repair is visible.
+            if ExpansionAutoCloaked
+                ExpansionMismatchStatus.Text := IsObject(ExpansionAutoProgressFrame)
+                    ? "Official ZIP found. Beginning automatic download..."
+                    : "Official ZIP found. Preparing native download window..."
+        }
+        else
+            ExpansionMismatchStatus.Text := "Latest official ZIP found. Click Download to open your browser."
+    }
     if IsObject(ExpansionMismatchFileButton)
     {
         ; The filename comes from the validated official attachment path.
@@ -653,12 +707,12 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     ; The user already approved download on the first Enable prompt. Start
     ; once when an authenticated current attachment is discovered; later URL
     ; refreshes do not silently restart a failed/cancelled transfer.
-    if ExpansionMismatchMode = "Install" && !ExpansionAutoDownloadAttempted
+    if ExpansionMismatchMode = "Install" && ExpansionAutoCloaked
+        && IsObject(ExpansionAutoProgressFrame) && !ExpansionAutoDownloadAttempted
     {
-        ExpansionAutoDownloadAttempted := true
         status := ExpansionMismatchStatus
         if IsObject(status)
-            SetTimer((*) => TES3MPExpansionRequestAutoInstall(slot, status), -100)
+            SetTimer((*) => TES3MPExpansionStartDiscoveredZip(slot, status), -100)
     }
     LogLauncherEvent("EXPANSION | Latest ZIP ready; activating native download button.")
     return 1
