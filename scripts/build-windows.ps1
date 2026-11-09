@@ -281,14 +281,57 @@ try {
 
     $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
     $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
+    $previousRuntime = Join-Path $package 'client'
+    $previousLicenses = Join-Path $package 'licenses\TES3MP'
+    $reuseTes3mp = $false
+    $archiveHash = ''
     Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
-    SaveOfficialDownload $officialTES3MP $tes3mpArchive $headers 'TES3MP 0.8.1'
-    CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'
+    try {
+        SaveOfficialDownload $officialTES3MP $tes3mpArchive $headers 'TES3MP 0.8.1'
+        CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'
+    }
+    catch {
+        # Reuse only a complete, previously packaged runtime from this exact
+        # checkout. Never substitute a random game installation or bypass the
+        # markerless SHA-256 manifest check.
+        $requiredOld = @('tes3mp.exe', 'tes3mp-client-default.cfg', 'defaults.bin', 'openmw.cfg')
+        $oldManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
+        $expectedOld = ($oldManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
+        $validOld = $expectedOld -and
+            (Test-Path -LiteralPath (Join-Path $previousRuntime 'tes3mp.exe') -PathType Leaf)
+        if ($validOld) {
+            $validOld = (GetTes3npSha256 (Join-Path $previousRuntime 'tes3mp.exe')) -ieq $expectedOld
+        }
+        foreach ($name in $requiredOld) {
+            if (!(Test-Path -LiteralPath (Join-Path $previousRuntime $name) -PathType Leaf)) {
+                $validOld = $false
+            }
+        }
+        foreach ($name in @('LICENSE', 'DejaVuFontLicense.txt', 'REDISTRIBUTION-NOTICE.txt')) {
+            if (!(Test-Path -LiteralPath (Join-Path $previousLicenses $name) -PathType Leaf)) {
+                $validOld = $false
+            }
+        }
+        if (!$validOld) { throw }
+        $notice = Get-Content -LiteralPath (Join-Path $previousLicenses 'REDISTRIBUTION-NOTICE.txt') -Raw
+        if ($notice -notmatch 'TES3MP runtime 0\.8\.1' -or
+            $notice -notmatch 'Original release archive SHA256: ([a-fA-F0-9]{64})' -or
+            $notice -notmatch [regex]::Escape($officialTES3MP)) { throw }
+        $archiveHash = [regex]::Match($notice, 'Original release archive SHA256: ([a-fA-F0-9]{64})').Groups[1].Value
+        $reuseTes3mp = $true
+        $oldClientSnapshot = Join-Path $tools 'previous-verified-client'
+        $oldLicenseSnapshot = Join-Path $tools 'previous-verified-licenses'
+        Copy-Item -LiteralPath $previousRuntime -Destination $oldClientSnapshot -Recurse -Force
+        Copy-Item -LiteralPath $previousLicenses -Destination $oldLicenseSnapshot -Recurse -Force
+        Step 'Official TES3MP download unavailable; using SHA-256 verified previously packaged runtime and license notices'
+    }
 
     $upstreamLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/LICENSE'
     $upstreamFontLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/files/mygui/DejaVuFontLicense.txt'
-    SaveOfficialDownload $upstreamLicense (Join-Path $tools 'tes3mp-license.txt') $headers 'TES3MP license'
-    SaveOfficialDownload $upstreamFontLicense (Join-Path $tools 'tes3mp-font-license.txt') $headers 'TES3MP font license'
+    if (!$reuseTes3mp) {
+        SaveOfficialDownload $upstreamLicense (Join-Path $tools 'tes3mp-license.txt') $headers 'TES3MP license'
+        SaveOfficialDownload $upstreamFontLicense (Join-Path $tools 'tes3mp-font-license.txt') $headers 'TES3MP font license'
+    }
 
     Step 'Official downloads verified; preparing new distribution'
     if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
@@ -501,13 +544,18 @@ Public redistribution/licensing review remains a separate release gate.
     # Download TES3MP only at BUILD time, never on user startup.
     # Pin to the official non-VR 0.8.1 release; do not scrape unknown mirrors.
     Step 'Using prechecked official TES3MP 0.8.1 Win64 release archive'
-    $archiveHash = GetTes3npSha256 $tes3mpArchive
-    Step "TES3MP 0.8.1 archive SHA256: $archiveHash"
-    $runtimeExtract = Join-Path $tools 'tes3mp-extracted'
-    Expand-Archive -LiteralPath $tes3mpArchive -DestinationPath $runtimeExtract
-    $runtimeExecutable = Get-ChildItem -LiteralPath $runtimeExtract -Recurse -File -Filter 'tes3mp.exe' | Select-Object -First 1
-    if (!$runtimeExecutable) { throw 'Official TES3MP archive has no tes3mp.exe.' }
-    $runtimeRoot = $runtimeExecutable.Directory.FullName
+    if (!$reuseTes3mp) {
+        $archiveHash = GetTes3npSha256 $tes3mpArchive
+        $runtimeExtract = Join-Path $tools 'tes3mp-extracted'
+        Expand-Archive -LiteralPath $tes3mpArchive -DestinationPath $runtimeExtract
+        $runtimeExecutable = Get-ChildItem -LiteralPath $runtimeExtract -Recurse -File -Filter 'tes3mp.exe' | Select-Object -First 1
+        if (!$runtimeExecutable) { throw 'Official TES3MP archive has no tes3mp.exe.' }
+        $runtimeRoot = $runtimeExecutable.Directory.FullName
+    }
+    else {
+        $runtimeRoot = $oldClientSnapshot
+    }
+    Step "TES3MP 0.8.1 archive SHA256 (recorded): $archiveHash"
     foreach ($name in @('tes3mp-client-default.cfg','defaults.bin','openmw.cfg')) {
         if (!(Test-Path -LiteralPath (Join-Path $runtimeRoot $name) -PathType Leaf)) {
             throw "Official TES3MP archive is missing $name beside its client."
@@ -539,8 +587,14 @@ Public redistribution/licensing review remains a separate release gate.
     # Include upstream GPLv3 and bundled font notices for redistribution.
     $licenseFolder = Join-Path $package 'licenses\TES3MP'
     $null = New-Item -ItemType Directory -Path $licenseFolder -Force
-    Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-license.txt') -Destination (Join-Path $licenseFolder 'LICENSE') -Force
-    Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-font-license.txt') -Destination (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Force
+    if ($reuseTes3mp) {
+        Copy-Item -LiteralPath (Join-Path $oldLicenseSnapshot 'LICENSE') -Destination (Join-Path $licenseFolder 'LICENSE') -Force
+        Copy-Item -LiteralPath (Join-Path $oldLicenseSnapshot 'DejaVuFontLicense.txt') -Destination (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Force
+    }
+    else {
+        Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-license.txt') -Destination (Join-Path $licenseFolder 'LICENSE') -Force
+        Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-font-license.txt') -Destination (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Force
+    }
     @"
 TES3MP runtime 0.8.1 (GPLv3 with additional permitted terms)
 Upstream project and source: https://github.com/TES3MP/TES3MP/tree/tes3mp-0.8.1
