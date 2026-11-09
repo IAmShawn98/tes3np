@@ -261,11 +261,19 @@ HideProfileEditor()
 CloseCharacterPage(*)
 {
     global CharacterPage
-    ; Keep the owned book in front while the already-built launcher returns
-    ; underneath it. Hiding the book first lets Windows briefly activate an
-    ; unrelated background application before the launcher is ready.
+    ; The visible parent is already painted behind this owned book. Use the
+    ; cached launcher's no-repaint return, then hide the book immediately.
+    ; A real scale/layout change still uses the existing protected rebuild.
+    startedAt := A_TickCount
     ShowLauncherWindow(true)
+    preparedMs := A_TickCount - startedAt
     CharacterPage.Hide()
+    hiddenMs := A_TickCount - startedAt
+    ; Capture only slow transitions, with no character names or file paths.
+    ; The video showed a visibly persistent book after Close, so measure the
+    ; time spent preparing the parent separately from the actual Hide call.
+    if hiddenMs >= 150
+        LogLauncherEvent("UI | Character Book close " hiddenMs "ms | Parent " preparedMs "ms | Hide " (hiddenMs - preparedMs) "ms.")
     ; Reset dormant controls only AFTER hiding, avoiding a visible flash of
     ; the editor/list while navigating back to the launcher.
     HideProfileEditor()
