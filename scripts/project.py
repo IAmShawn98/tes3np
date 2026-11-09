@@ -371,7 +371,7 @@ def check(allow_missing_payload: bool = False) -> None:
         "favorite message replaces previous copy without layout changes": (
             'descriptionText := "This is a list of all your characters.' in character_ui
             and 'does not impact them in-game!"' in character_ui
-            and 'CharacterDescription.Move(70, 80, 390, 95)' in character_ui
+            and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(95))' in character_ui
             and 'y := 180 + (index - 1) * 24' in character_ui
             and "Click on the tick box before one of your characters" not in character_ui
         ),
@@ -449,9 +449,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and '"x525 y262 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
             and 'desiredUploadY := 226 + (Max(1, visibleCount) - 1) * 60' in macro
-            and 'if oldUploadY != desiredUploadY' in macro
+            and 'if oldUploadY != BookS(desiredUploadY)' in macro
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 115, 29)' in macro
-            and 'MacroStatus.Move(525, desiredUploadY + 36, 355, 30)' in macro
+            and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
             and 'if wasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
             and 'MoveStyledButton(control, x, y, width, height)' in characters
@@ -465,12 +465,12 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'return {Text: item.LastError, Error: true}' in macro
             and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
             and 'macro.LastError := ""' in macro
-            and 'itemRow.Status.SetFont(state.Error ? "s9 cB22222" : "s9 c241408",' in macro
+            and 'itemRow.Status.SetFont(state.Error ? "s" Max(7, BookS(9)) " cB22222"' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro,
         "scroll wheel and draggable thumb still attached":
             'MacroScrollTrack := CharacterPage.Add("Text"' in macro
             and 'MacroScrollThumb := CharacterPage.Add("Text"' in macro
-            and 'MacroScrollThumb.Move(888, thumbY, 6, thumbHeight)' in macro
+            and 'MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))' in macro
             and 'ScrollMacroWheel(wParam)' in macro
             and 'PressMacroScroll(hwnd)' in macro
             and 'DragMacroScroll()' in macro
