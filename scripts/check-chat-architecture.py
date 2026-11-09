@@ -450,7 +450,8 @@ expect(
     'global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob' in auto_import_callback
     and '(IsSet(PatchJob) && IsObject(PatchJob))' in auto_import_callback
     and 'if !(IsSet(PatchJob) && IsObject(PatchJob))' in auto_import_callback
-    and 'PatchInProgress()' not in auto_import_callback
+    and '|| PatchInProgress()' not in auto_import_callback
+    and 'if !PatchInProgress()' not in auto_import_callback
     and 'InstallSelectedExpansionPackage(package, true)' in auto_import_callback,
 )
 expect(
