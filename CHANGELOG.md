@@ -4,6 +4,13 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Staged first-frame rendering for Character Book and Settings — 2026-11-09
+
+- The first Settings/Character Book focus-order changes passed compilation but **did not fix the user-reported pop-in**; do not treat that older approach as visually verified. Re-examination of the recording showed first-paint/page presentation as a separate concern. OBS frames may also be the user's Alt+Tab activity and are not, by themselves, proof of an unintended focus switch.
+- Added a narrow `src/ui/windows.ahk` compositor staging helper: cloak only new/cached Settings or Character Book while its native HWNDs complete `RedrawWindow` and `UpdateWindow`, then remove the cloak. If DWM staging is unavailable, retain the established layered/transparent presentation.
+- Settings continues applying its original `010101` transparency while hidden; Character Book retains its existing magenta book key and cached GUI controls. The main launcher, Chat Host, Expansion Pack and gameplay windows are not cloaked or recreated.
+- Added `--check-page-compositor` disposable Windows GUI smoke test that asserts DWM's `DWMWA_CLOAKED` state before reveal and its removal afterward. GitHub Windows CI passed; actual on-user-desktop visual verification is still pending.
+
 ### Native Launcher/Character Book/Settings page pop-in transition — 2026-11-09
 
 - A user-provided 22-second, 60 fps desktop recording repeatedly alternated between Launcher, Character Book, Settings and background applications, exposing abrupt page presentation and occasional unrelated foreground application during the handoff. The cause is not a general animation setting: the affected owned windows were being made visible before their presentation was ready or destroyed/hidden before the launcher had regained foreground.
