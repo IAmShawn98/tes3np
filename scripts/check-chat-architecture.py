@@ -505,7 +505,7 @@ expect(
     and 'SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)' in auto_install_view
     and 'TES3MPExpansionRevealRepair("Automatic download failed.' in mismatch
     and 'TES3MPExpansionUpdateNativeProgress(label, wParam)' in mismatch
-    and 'TES3MPExpansionEndNativeProgress()\n    ExpansionMismatchFileButton := 0' in mismatch
+    and 'TES3MPExpansionEndNativeProgress()\n    ExpansionAutoInstallLocked := false\n    ExpansionMismatchFileButton := 0' in mismatch
     and 'UploadExpansionFromFile(package, true)' in mismatch,
 )
 auto_download_ready = section_between(
