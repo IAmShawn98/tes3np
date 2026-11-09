@@ -428,6 +428,18 @@ expect(
     and 'if state = "error" && autoImport' in patcher
     and 'Would you like to repair it using your own ZIP or extracted folder?' in patcher,
 )
+auto_zip_callback = section_between(
+    mismatch,
+    "TES3MPExpansionAutoDownloadReady(lParam)",
+    "\nTES3MPExpansionBeginAutoImport(",
+)
+expect(
+    "Auto-download completion validates the private ZIP path without an uninitialized global",
+    'StrLower(A_AppData "\\tes3np\\expansion-downloads")' in auto_zip_callback
+    and 'AppDataDirectory' not in auto_zip_callback
+    and 'StrLower(folder)' in auto_zip_callback
+    and 'WinGetPID("ahk_id " wParam) = EmbeddedChatPid' in mismatch,
+)
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
     'const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";' in source
