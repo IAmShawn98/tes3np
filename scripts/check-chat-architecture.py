@@ -568,7 +568,20 @@ expect(
     and 'UpdateExpansionLoadingProgress(frame, label, percent)' in loading_ui
     and 'global ButtonFaces' in section_between(loading_ui, 'UpdateExpansionLoadingProgress(frame, label, percent)', '\nSetInterfaceLoadingText(')
     and 'ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))' in loading_ui
-    and 'PaintButtonNow(hwnd)' in loading_ui,
+    and 'PaintButtonNow(hwnd)' in loading_ui
+    and 'ButtonFaces[hwnd].HasOwnProp("ProtectedButtonHwnd")' in loading_ui
+    and 'ButtonFaces.Has(protectedButton)' in loading_ui
+    and 'DllCall("IsWindowVisible", "Ptr", protectedButton)' in loading_ui
+    and 'PaintButtonNow(protectedButton)' in loading_ui
+    and section_between(
+        loading_ui,
+        'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
+        '\\nSetInterfaceLoadingText('.replace('\\n', '\n'),
+    ).index('PaintButtonNow(hwnd)') < section_between(
+        loading_ui,
+        'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
+        '\\nSetInterfaceLoadingText('.replace('\\n', '\n'),
+    ).index('PaintButtonNow(protectedButton)'),
 )
 native_renderer = (ROOT / "src" / "ui" / "renderer.ahk").read_text(encoding="utf-8-sig")
 protected_loading_paint = section_between(
