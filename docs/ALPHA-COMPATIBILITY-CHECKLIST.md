@@ -27,6 +27,11 @@ permissions errors, and shortcut prompt persistence after backup import.
 
 ## Page transition pop-in and foreground exposure — pending interactive Windows verification
 
+- [ ] After the user-confirmed pop-in fix, opening Launcher Settings must **not** throw `Target window not found` from the cloaked transparency setup; check both fresh and repeated Settings opens.
+- [ ] Confirm **Settings**, **Manage Characters**, the Character Book's cached reopen and Close actions respond without multi-second delays; no full-system blank frame or new pop-in.
+- [ ] Verify Settings still uses the identical parchment key and the full-width Close Settings button, and Character Book still preserves its magenta transparency and original controls.
+
+
 - [ ] With the new staging, repeatedly enter/exit cached and fresh **Character Book**; check the book's painted text, character names, macro rows and themed controls appear together rather than after the parchment image.
 - [ ] Reopen **Launcher Settings** several times and confirm the complete parchment, labels, dropdowns and original full-width Close Settings button display on the first frame. No black/background rectangle or transient default native face.
 - [ ] Verify neither page remains invisible after launch/reopen, including when the launcher is resized, on another display scale, or when the window is reactivated from taskbar. The compositor helper must always uncloak, even if an intermediate update fails.
