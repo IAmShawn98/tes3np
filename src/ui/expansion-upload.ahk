@@ -70,7 +70,7 @@ SelectExpansionPackagePath()
     return package
 }
 
-InstallSelectedExpansionPackage(package)
+InstallSelectedExpansionPackage(package, autoApproved := false)
 {
     global LauncherGui, DataFile
     if PatchInProgress()
@@ -112,16 +112,22 @@ InstallSelectedExpansionPackage(package)
             return
         }
     }
-    if MsgBox("Install the selected NP Expansion Pack into this Morrowind installation?"
+    if !autoApproved && MsgBox("Install the selected NP Expansion Pack into this Morrowind installation?"
         . Chr(10) Chr(10) "Existing files will be backed up before being replaced. "
         . "Choose only downloads from the official Nerevarine Prophecies Discord server. "
         . "TES3NP cannot guarantee the download matches the live server.", "Upload Expansion", "YesNo Icon?") != "Yes"
         return
     ShowLauncherWindow(true)
-    StartExpansionImportWorker(package, morrowind, config)
+    if autoApproved
+    {
+        if !StartExpansionImportWorker(package, morrowind, config, package)
+            try FileDelete(package)
+    }
+    else
+        StartExpansionImportWorker(package, morrowind, config)
 }
 
-StartExpansionImportWorker(package, morrowind, config)
+StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
 {
     global AppDataDirectory, LauncherGui, PatchJob, PatchFrame, InterfaceLoadingText
     global BundledResourceRoot
@@ -147,7 +153,8 @@ StartExpansionImportWorker(package, morrowind, config)
         Run(command, , "Hide", &pid)
         handle := DllCall("OpenProcess", "UInt", 0x1000, "Int", false, "UInt", pid, "Ptr")
         PatchJob := {PID: pid, Handle: handle, Folder: jobFolder, Action: "Import",
-            Source: LauncherGui, Startup: false, TesFolder: "", MorrowindFolder: morrowind, ConfigFile: config}
+            Source: LauncherGui, Startup: false, TesFolder: "", MorrowindFolder: morrowind, ConfigFile: config,
+            AutoDownloadedZip: autoDownloadedZip}
         LogLauncherEvent("EXPANSION | Local Expansion Pack import started.")
         SetTimer(CheckPatchWorker, 50)
         return true
