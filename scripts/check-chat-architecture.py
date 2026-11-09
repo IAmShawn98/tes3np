@@ -492,9 +492,10 @@ expect(
     "Native first-enable progress reuses the trusted import loader and offers safe cancel",
     'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)' in auto_progress_helpers
     and 'ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card,' in auto_progress_helpers
-    and 'frame.Panel.Move(0, 0, cw, ch + extra)' in auto_progress_helpers
-    and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
-        < auto_progress_helpers.index('frame.Panel.Move(0, 0, cw, ch + extra)')
+    and 'frame.Card.BackColor := "161007"' in auto_progress_helpers
+    and 'frame.Panel.Move(0, 0, cw, ch + extra)' not in auto_progress_helpers
+    and auto_progress_helpers.index('frame.Card.BackColor := "161007"')
+        < auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
         < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
     and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in auto_progress_helpers
@@ -524,9 +525,12 @@ auto_download_close = section_between(
     '\nTES3MPExpansionZipAvailable(',
 )
 expect(
-    "Cancel Download never flickers over the progress panel and cannot run after download handoff",
-    'frame.Panel.Opt("+0x04000000") ; WS_CLIPSIBLINGS' in auto_progress_helpers
-    and auto_progress_helpers.index('frame.Panel.Opt("+0x04000000")')
+    "Cancel Download occupies non-overlapping native footer and cannot run after download handoff",
+    'frame.Card.BackColor := "161007"' in auto_progress_helpers
+    and 'frame.Panel.Move(0, 0, cw, ch + extra)' not in auto_progress_helpers
+    and 'frame.Panel.Opt("+0x04000000")' not in auto_progress_helpers
+    and 'ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",' in auto_progress_helpers
+    and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
         < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
     and 'TES3MPExpansionRemoveDownloadCancel()' in auto_progress_helpers
     and 'try ExpansionAutoCancelButton.Visible := false' in auto_progress_helpers
