@@ -1257,7 +1257,7 @@ expect(
     and characters_open.count('RevealPaintedPage(CharacterPage)') == 2
     and characters_open.count('SetPageCompositorCloak(CharacterPage, false)') == 2
     and characters_open.index('PrepareWindowDisplay(CharacterPage)')
-        < characters_open.rindex('CharacterPage.Show("w960 h650")')
+        < characters_open.rindex('CharacterPage.Show("Hide w" Round(960 * bookScale)')
         < characters_open.rindex('RevealWindowDisplay(CharacterPage, true, !staged)')
         < characters_open.rindex('RevealPaintedPage(CharacterPage)')
     and 'FinishButtonDisplay()\n                RevealPaintedPage(CharacterPage)' not in characters_open,
