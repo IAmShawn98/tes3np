@@ -1226,6 +1226,53 @@ expect(
     and 'PrepareWindowDisplay(CharacterPage)' in characters_ui
     and 'RevealWindowDisplay(CharacterPage, true)' in characters_ui,
 )
+window_presenter = (ROOT / "src" / "ui" / "windows.ahk").read_text(encoding="utf-8-sig")
+characters_open = section_between(
+    characters_ui,
+    "OpenCharacterPage(*)",
+    "\nRefreshProfiles()",
+)
+expect(
+    "Fresh and cached Character Book are staged until their controls paint",
+    'SetPageCompositorCloak(CharacterPage, true)' in characters_open
+    and characters_open.count('SetPageCompositorCloak(CharacterPage, true)') == 2
+    and characters_open.count('RevealPaintedPage(CharacterPage)') == 2
+    and characters_open.count('SetPageCompositorCloak(CharacterPage, false)') == 2
+    and characters_open.index('PrepareWindowDisplay(CharacterPage)')
+        < characters_open.rindex('CharacterPage.Show("w960 h650")')
+        < characters_open.rindex('RevealWindowDisplay(CharacterPage, true)')
+        < characters_open.rindex('RevealPaintedPage(CharacterPage)'),
+)
+expect(
+    "Settings first visible frame waits for composited parchment and native button paint",
+    'staged := SetPageCompositorCloak(settings, true)' in settings_open
+    and settings_open.index('staged := SetPageCompositorCloak(settings, true)')
+        < settings_open.index('settings.Show("Hide w"')
+        < settings_open.index('WinSetTransColor("010101"')
+        < settings_open.index('        settings.Show()')
+        < settings_open.index('FinishButtonDisplay()')
+        < settings_open.index('RevealPaintedPage(settings)')
+    and 'SetPageCompositorCloak(settings, false)' in settings_open,
+)
+expect(
+    "Only page presentation uses DWM cloak and forces child paints before uncloak",
+    'SetPageCompositorCloak(gui, cloak)' in window_presenter
+    and 'DllCall("dwmapi\\DwmSetWindowAttribute"' in window_presenter
+    and '"UInt", 13' in window_presenter
+    and 'RevealPaintedPage(gui)' in window_presenter
+    and 'DllCall("RedrawWindow", "Ptr", gui.Hwnd' in window_presenter
+    and '"UInt", 0x0185' in window_presenter
+    and 'DllCall("UpdateWindow", "Ptr", gui.Hwnd)' in window_presenter
+    and window_presenter.index('DllCall("UpdateWindow"')
+        < window_presenter.index('SetPageCompositorCloak(gui, false)'),
+)
+expect(
+    "Windows CI tests DWM staged window as a disposable visible GUI",
+    'A_Args[1] = "--check-page-compositor"' in entry
+    and 'DwmGetWindowAttribute' in entry
+    and "NumGet(before, 0, \"Int\") = 0" in entry
+    and "NumGet(after, 0, \"Int\") != 0" in entry,
+)
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
     "SetTimer(CheckFirstRunMorrowind" not in bootstrap
