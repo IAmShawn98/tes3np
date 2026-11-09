@@ -33,6 +33,8 @@ internal static class Program
     [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+    const int DWMWA_CLOAK = 13;
     [DllImport("user32.dll", EntryPoint = "PostMessageW")] static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [StructLayout(LayoutKind.Sequential)] struct COPYDATASTRUCT
     {
@@ -191,6 +193,26 @@ internal static class Program
     }
     sealed class ChatHost : Form
     {
+        // WinForms shows its main Form before the Shown callback can dock it.
+        // Cloak the very first HWND before that native show. Unlike hiding the
+        // Form or moving it off-screen, this leaves the normal WinForms/WebView2
+        // initialization lifecycle intact without painting an undocked window.
+        bool startupPresentationPending = true;
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            if (startupPresentationPending)
+                SetStartupWindowCloak(true);
+        }
+        void SetStartupWindowCloak(bool cloak)
+        {
+            if (!IsHandleCreated) return;
+            int value = cloak ? 1 : 0;
+            int hr = DwmSetWindowAttribute(Handle, DWMWA_CLOAK, ref value, sizeof(int));
+            if (hr != 0)
+                Log($"STARTUP | Window cloak {(cloak ? "enable" : "disable")} failed (0x{hr:X8})");
+        }
+
     int ChatFirstLine() => browserScrollTop;
     int ChatLineCount() => Math.Max(1, browserScrollHeight);
     int ChatVisibleLines() => Math.Max(1, browserClientHeight);
@@ -3711,6 +3733,14 @@ metrics();
             Log("STARTUP | Movement hook ready in " + dockClock.ElapsedMilliseconds + "ms");
             PositionChatWindows();
             SetChatOpen(chatDisplayMode == "Always Shown");
+            // The owner, layout and saved visibility are now authoritative.
+            // A first-run Automatic/Hidden panel is already SW_HIDE; an
+            // Always Shown panel is now correctly docked before its first paint.
+            if (startupPresentationPending)
+            {
+                startupPresentationPending = false;
+                SetStartupWindowCloak(false);
+            }
             Log("STARTUP | Chat position and visibility ready in " + dockClock.ElapsedMilliseconds + "ms");
             // Actual launcher movement repairs the missing frame pixels on layered AHK windows.
             // Reproduce that exact compositor event once, then restore its original position.
