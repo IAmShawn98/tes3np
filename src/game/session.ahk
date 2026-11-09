@@ -236,6 +236,16 @@ ClientTick()
             return
         if !ProcessExist(Client.PID)
         {
+            ; A rejected client may exit before its last log writes are flushed.
+            ; Keep the existing watchdog alive briefly to capture only NEW
+            ; mismatch evidence, then stop normally if nothing appears.
+            if !Client.HasOwnProp("MismatchExitGraceUntil")
+            {
+                Client.MismatchExitGraceUntil := A_TickCount + 2000
+                return
+            }
+            if A_TickCount < Client.MismatchExitGraceUntil
+                return
             ; A closed or crashed client terminates this single monitored login.
             codeText := "unavailable"
             if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
@@ -293,9 +303,15 @@ ClientTick()
         }
         if !hwnd || hwnd != Client.HWND
         {
-            RetryClient("Game window lost")
+            ; The game can replace its SDL window with a plugin-error window.
+            ; Give the existing fresh-log checker time to catch that rejection.
+            if !Client.HasOwnProp("MismatchWindowGraceUntil") || !Client.MismatchWindowGraceUntil
+                Client.MismatchWindowGraceUntil := A_TickCount + 2000
+            if A_TickCount >= Client.MismatchWindowGraceUntil
+                RetryClient("Game window lost")
             return
         }
+        Client.MismatchWindowGraceUntil := 0
         if Client.Phase = "playing"
         {
             ; A new-adventure launch needs a short connection-error watch, not
