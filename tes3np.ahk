@@ -77,6 +77,10 @@ if A_Args.Length && A_Args[1] = "--check-expansion-window"
     LauncherGui.BackColor := "1B140B"
     LauncherGui.Add("Text", "x20 y20 w500 h50", "Disposable launcher window")
     LauncherGui.Show("w960 h720")
+    ; Real launcher buttons initialize this painter before first enable.
+    ; Without it a synthetic window correctly raises UnsetError, which is
+    ; a test-harness setup fault rather than the download-window defect.
+    InitButtonPainter()
     ; Match the real flow: a cloaked owned Discord discovery window exists
     ; before the native download progress overlay is constructed.
     probeDialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
