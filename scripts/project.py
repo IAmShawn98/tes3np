@@ -236,6 +236,8 @@ def check(allow_missing_payload: bool = False) -> None:
     # Morrowind discovery, configuration toggling, and backup import stay live.
     if (ROOT / "scripts/patch-tes3mp.ps1").exists():
         errors.append("Legacy bundled Install/Repair worker was restored.")
+    if (ROOT / "patches/expansion-pack").exists():
+        errors.append("Obsolete Expansion Pack payload must not be stored in source.")
     resource_generator = (ROOT / "scripts/generate-bundled-resources.py").read_text(encoding="utf-8-sig")
     # The historical v0.1 files may remain in source history, but they are
     # no longer runtime or release dependencies.
@@ -249,6 +251,8 @@ def check(allow_missing_payload: bool = False) -> None:
         errors.append("Windows release build must omit old patch staging and test installed-only toggles.")
 
     patcher = (ROOT / "src/ui/patcher.ahk").read_text(encoding="utf-8-sig")
+    if not all(token in patcher for token in ("VerifiedEspPath", "VerifiedEspSHA256", "SHA256File(esp) = verifiedHash")):
+        errors.append("Expansion Pack state must verify imported ESP location and SHA-256.")
     upload = (ROOT / "src/ui/expansion-upload.ahk").read_text(encoding="utf-8-sig")
     bootstrap = (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
     expected_import = (
