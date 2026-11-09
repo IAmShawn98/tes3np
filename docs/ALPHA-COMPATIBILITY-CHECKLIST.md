@@ -25,10 +25,13 @@ The most valuable remaining checks are Windows 10/11 without SDKs installed,
 first-run discovery, WebView2 absence, update confirmation on a packaged build,
 permissions errors, and shortcut prompt persistence after backup import.
 
-## Contextual first-run presentation — pending rebuilt candidate
+## One-time first-launch shortcut and quiet contextual setup — pending Windows runtime check
 
-- [ ] Launch with clean AppData: no automatic desktop-shortcut, GOTY, or Discord sign-in windows. The launcher should be usable immediately, without overlapping modals.
-- [ ] Open Launcher Settings and select **Create Desktop Shortcut**; verify the correct packaged executable is targeted. No automatic startup prompt on relaunch.
+- [ ] Launch a complete packaged executable with clean AppData: after its first paint, exactly one **desktop shortcut** Yes/No prompt appears. No GOTY or Discord sign-in prompt stacks with it; neither is requested until its own user action.
+- [ ] Choose **No**, relaunch, and verify the desktop-shortcut prompt never returns; no .lnk is created.
+- [ ] On a separate disposable clean profile, choose **Yes**: verify the Desktop .lnk targets the actual packaged tes3np.exe and is not recreated or reoffered on relaunch.
+- [ ] Open Launcher Settings: **Close Settings** occupies the whole bottom row at the original position, with no Create Desktop Shortcut button and no empty half-row.
+- [ ] Launch source-tree / incomplete packaged candidates: shortcut prompt is skipped instead of creating a broken .lnk. Existing saved DesktopShortcutChoice values are respected.
 - [ ] Click **Start New Adventure** with GOTY missing: existing folder chooser appears and game does not start. **Not Now** postpones; next game launch asks again.
 - [ ] Click Game Chat while signed out: the existing dedicated sign-in popup appears. **Not Now** hides it; Game Chat opens it again without a second Discord session.
 - [ ] Enable Expansion Pack with missing assets while signed out: the same popup appears only after requesting the download, and the authenticated ZIP dialog follows successful login.
