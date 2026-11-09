@@ -291,39 +291,52 @@ try {
         CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'
     }
     catch {
-        # Reuse only a complete, previously packaged runtime from this exact
-        # checkout. Never substitute a random game installation or bypass the
-        # markerless SHA-256 manifest check.
-        $requiredOld = @('tes3mp.exe', 'tes3mp-client-default.cfg', 'defaults.bin', 'openmw.cfg')
-        $oldManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
-        $expectedOld = ($oldManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
-        $validOld = $expectedOld -and
-            (Test-Path -LiteralPath (Join-Path $previousRuntime 'tes3mp.exe') -PathType Leaf)
-        if ($validOld) {
-            $validOld = (GetTes3npSha256 (Join-Path $previousRuntime 'tes3mp.exe')) -ieq $expectedOld
-        }
-        foreach ($name in $requiredOld) {
-            if (!(Test-Path -LiteralPath (Join-Path $previousRuntime $name) -PathType Leaf)) {
-                $validOld = $false
+        # Use an older TES3NP distribution only when the exact markerless
+        # executable and original official release provenance are verified.
+        # Snapshot before dist is replaced; never alter the candidate.
+        $manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
+        $expectedOld = ($manifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
+        $candidates = @(
+            (Join-Path $projectRoot 'dist\tes3np-windows'),
+            (Join-Path $env:USERPROFILE 'Documents\tes3np\dist\tes3np-windows'),
+            (Join-Path $env:USERPROFILE 'Documents\tes3np\dist\local-build')
+        )
+        $requiredClient = @('tes3mp.exe', 'tes3mp-client-default.cfg', 'defaults.bin', 'openmw.cfg')
+        $requiredLicenses = @('LICENSE', 'DejaVuFontLicense.txt', 'REDISTRIBUTION-NOTICE.txt')
+        $verifiedCandidate = $null
+        foreach ($candidate in $candidates) {
+            $candidateClient = Join-Path $candidate 'client'
+            $candidateLicenses = Join-Path $candidate 'licenses\TES3MP'
+            $valid = ($expectedOld -match '^[a-fA-F0-9]{64}$')
+            foreach ($name in $requiredClient) {
+                if (!(Test-Path -LiteralPath (Join-Path $candidateClient $name) -PathType Leaf)) { $valid = $false }
             }
-        }
-        foreach ($name in @('LICENSE', 'DejaVuFontLicense.txt', 'REDISTRIBUTION-NOTICE.txt')) {
-            if (!(Test-Path -LiteralPath (Join-Path $previousLicenses $name) -PathType Leaf)) {
-                $validOld = $false
+            foreach ($name in $requiredLicenses) {
+                if (!(Test-Path -LiteralPath (Join-Path $candidateLicenses $name) -PathType Leaf)) { $valid = $false }
             }
+            if (!$valid) { continue }
+            if ((GetTes3npSha256 (Join-Path $candidateClient 'tes3mp.exe')) -ine $expectedOld) { continue }
+            $notice = Get-Content -LiteralPath (Join-Path $candidateLicenses 'REDISTRIBUTION-NOTICE.txt') -Raw
+            if ($notice -notmatch 'TES3MP runtime 0\.8\.1' -or
+                $notice -notmatch [regex]::Escape($officialTES3MP) -or
+                $notice -notmatch 'Original release archive SHA256: ([a-fA-F0-9]{64})' -or
+                $notice -notmatch ('Markerless executable SHA256: ' + [regex]::Escape($expectedOld))) { continue }
+            $archiveHash = [regex]::Match($notice, 'Original release archive SHA256: ([a-fA-F0-9]{64})').Groups[1].Value
+            $verifiedCandidate = $candidate
+            break
         }
-        if (!$validOld) { throw }
-        $notice = Get-Content -LiteralPath (Join-Path $previousLicenses 'REDISTRIBUTION-NOTICE.txt') -Raw
-        if ($notice -notmatch 'TES3MP runtime 0\.8\.1' -or
-            $notice -notmatch 'Original release archive SHA256: ([a-fA-F0-9]{64})' -or
-            $notice -notmatch [regex]::Escape($officialTES3MP)) { throw }
-        $archiveHash = [regex]::Match($notice, 'Original release archive SHA256: ([a-fA-F0-9]{64})').Groups[1].Value
-        $reuseTes3mp = $true
+        if (!$verifiedCandidate) {
+            throw 'Official TES3MP download failed and no verified prior TES3NP distribution was found. Existing dist was preserved.'
+        }
         $oldClientSnapshot = Join-Path $tools 'previous-verified-client'
         $oldLicenseSnapshot = Join-Path $tools 'previous-verified-licenses'
-        Copy-Item -LiteralPath $previousRuntime -Destination $oldClientSnapshot -Recurse -Force
-        Copy-Item -LiteralPath $previousLicenses -Destination $oldLicenseSnapshot -Recurse -Force
-        Step 'Official TES3MP download unavailable; using SHA-256 verified previously packaged runtime and license notices'
+        Copy-Item -LiteralPath (Join-Path $verifiedCandidate 'client') -Destination $oldClientSnapshot -Recurse -Force
+        Copy-Item -LiteralPath (Join-Path $verifiedCandidate 'licenses\TES3MP') -Destination $oldLicenseSnapshot -Recurse -Force
+        if ((GetTes3npSha256 (Join-Path $oldClientSnapshot 'tes3mp.exe')) -ine $expectedOld) {
+            throw 'Verified TES3MP snapshot changed during copy.'
+        }
+        $reuseTes3mp = $true
+        Step "Official download unavailable; using verified TES3MP runtime from $verifiedCandidate"
     }
 
     $upstreamLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/LICENSE'
