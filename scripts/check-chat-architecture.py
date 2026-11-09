@@ -390,6 +390,8 @@ expect(
     and 'RequestDiscordExpansionPrompt(1)' in patcher
     and 'UploadExpansionFromFile()' in patcher
     and 'TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)' in mismatch
+    and 'ExpansionAutoDownloadAttempted := true' in mismatch
+    and 'SetTimer((*) => TES3MPExpansionRequestAutoInstall(slot, status), -100)' in mismatch
     and 'SendLauncherChatCommand(13, slotHwnd)' in mismatch
     and 'case 13: StartExpansionAutoDownload(m.LParam); break;' in source
     and 'slot != expansionDownloadsParent' in source
