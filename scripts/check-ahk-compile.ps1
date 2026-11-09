@@ -110,4 +110,19 @@ if ($pageTest.ExitCode -ne 0) {
     throw "Page compositor staging smoke test failed with code $($pageTest.ExitCode)."
 }
 Write-Host 'PASS: staged native page withheld from DWM until complete paint.'
+Write-Host 'Checking fast native Character Book close with an already-painted launcher.'
+$bookOut = Join-Path $work 'character-return-stdout.txt'
+$bookErr = Join-Path $work 'character-return-stderr.txt'
+$bookArgs = '/ErrorStdOut "' + $launcher + '" --check-cached-character-return'
+$bookProcess = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $bookArgs -PassThru -RedirectStandardOutput $bookOut -RedirectStandardError $bookErr
+if (!$bookProcess.WaitForExit(30000)) {
+    try { Stop-Process -Id $bookProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+    throw 'Cached Character Book close smoke test timed out.'
+}
+if (Test-Path $bookOut) { Get-Content $bookOut | ForEach-Object { Write-Host $_ } }
+if (Test-Path $bookErr) { Get-Content $bookErr | ForEach-Object { Write-Host $_ } }
+if ($bookProcess.ExitCode -ne 0) {
+    throw "Cached Character Book close smoke test failed with code $($bookProcess.ExitCode)."
+}
+Write-Host 'PASS: cached Character Book closes without a global control redraw.'
 Write-Host 'PASS: complete launcher parsed and compiled; Expansion Pack UI functions resolved.'
