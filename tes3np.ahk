@@ -77,6 +77,11 @@ if A_Args.Length && A_Args[1] = "--check-expansion-window"
     LauncherGui.BackColor := "1B140B"
     LauncherGui.Add("Text", "x20 y20 w500 h50", "Disposable launcher window")
     LauncherGui.Show("w960 h720")
+    ; Match the real flow: a cloaked owned Discord discovery window exists
+    ; before the native download progress overlay is constructed.
+    probeDialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
+    TES3MPExpansionCloakDialog(probeDialog, true)
+    probeDialog.Show("w660 h627")
     try
     {
         if !TES3MPExpansionBeginNativeProgress()
@@ -94,6 +99,24 @@ if A_Args.Length && A_Args[1] = "--check-expansion-window"
     {
         ; Print only the type and first-party stage, never a path or secret.
         FileAppend("FAIL: native Expansion progress - " Type(err) Chr(10), "*")
+        try
+        {
+            if FileExist(LauncherLogFile)
+            {
+                lines := StrSplit(FileRead(LauncherLogFile, "UTF-8"), Chr(10))
+                count := 0
+                for index, item in lines
+                {
+                    if InStr(item, "EXPANSION | Native")
+                    {
+                        FileAppend("DIAGNOSTIC: " Trim(item) Chr(10), "*")
+                        count += 1
+                        if count > 8
+                            break
+                    }
+                }
+            }
+        }
         try TES3MPExpansionEndNativeProgress()
         ExitApp(181)
     }
