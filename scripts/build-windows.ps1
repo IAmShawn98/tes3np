@@ -483,6 +483,19 @@ Public redistribution/licensing review remains a separate release gate.
         if ([IO.File]::ReadAllText($stagedFile.FullName) -match 'A_ScriptDir\s+"\\+(assets|patches|scripts)(\\|")') { throw "Unconverted resource path in $($stagedFile.FullName)" }
     }
     if (-not $entryText.Contains('PrepareBundledResources()' + "`n" + 'StartLauncher()')) { throw 'Could not insert resource initialization before launcher startup.' }
+    # Check the exact rewritten entry and includes which Ahk2Exe is about to
+    # compile, not only the original source. A warning from an otherwise valid
+    # compiled startup must fail preflight instead of surprising the user.
+    Step 'Preflighting generated standalone AutoHotkey source and warning diagnostics'
+    $stageOutput = @(& $base /ErrorStdOut $stageEntry '--check' 2>&1)
+    $stageExit = $LASTEXITCODE
+    $stageOutput | ForEach-Object { Write-Host $_ }
+    if ($null -eq $stageExit -or $stageExit -ne 0) {
+        throw 'Staged AutoHotkey launcher source preflight failed before compilation.'
+    }
+    if ($stageOutput -match '(?i)Warning:|This line will never execute|appears to never be assigned') {
+        throw 'Staged AutoHotkey launcher warnings detected before compilation.'
+    }
     $source = $stageEntry; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
     $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
