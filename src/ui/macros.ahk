@@ -140,8 +140,8 @@ RefreshMacroBookRows()
             itemRow.Status.Text := state.Text
         if itemRow.StatusError != state.Error
         {
-            itemRow.Status.SetFont(state.Error ? "s9 cB22222" : "s9 c241408",
-                LauncherMorrowindFont)
+            itemRow.Status.SetFont(state.Error ? "s" Max(7, BookS(9)) " cB22222"
+                : "s" Max(7, BookS(9)) " c241408", LauncherMorrowindFont)
             itemRow.StatusError := state.Error
         }
         running := item.PID && ProcessExist(item.PID)
@@ -168,7 +168,7 @@ RefreshMacroBookRows()
         thumbHeight := Max(25, Round(242 * MacroBookRows.Length / count))
         travel := 242 - thumbHeight
         thumbY := 152 + Round(MacroScrollOffset / maximum * travel)
-        MacroScrollThumb.Move(888, thumbY, 6, thumbHeight)
+        MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
     }
     ; Follow the last populated row, but never move the Upload button into
     ; the scrollable list. With 0/1/2/3/4+ macros the y positions are
@@ -176,7 +176,7 @@ RefreshMacroBookRows()
     visibleCount := Min(count, MacroBookRows.Length)
     desiredUploadY := 226 + (Max(1, visibleCount) - 1) * 60
     MacroImportButton.GetPos(, &oldUploadY)
-    if oldUploadY != desiredUploadY
+    if oldUploadY != BookS(desiredUploadY)
     {
         ; This is a themed GDI-painted button. MoveStyledButton moves its
         ; native hit target AND face metadata; hiding while it moves and
@@ -185,7 +185,7 @@ RefreshMacroBookRows()
         if wasVisible
             MacroImportButton.Visible := false
         MoveStyledButton(MacroImportButton, 525, desiredUploadY, 115, 29)
-        MacroStatus.Move(525, desiredUploadY + 36, 355, 30)
+        MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))
         if wasVisible
         {
             MacroImportButton.Visible := true
@@ -257,7 +257,7 @@ ScrollMacroWheel(wParam)
         return false
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    scale := A_ScreenDPI / 96
+    scale := (A_ScreenDPI / 96) * GetCharacterBookScale()
     x := (x - NumGet(origin, 0, "Int")) / scale
     y := (y - NumGet(origin, 4, "Int")) / scale
     if x < 520 || x > 900 || y < 150 || y > 396
@@ -278,8 +278,10 @@ PressMacroScroll(hwnd)
     MouseGetPos(, &pointerY)
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (pointerY - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
+    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
     MacroScrollThumb.GetPos(, &thumbY, , &thumbHeight)
+    thumbY /= GetCharacterBookScale()
+    thumbHeight /= GetCharacterBookScale()
     MacroScrollGrab := hwnd = MacroScrollThumb.Hwnd
         ? localY - thumbY : thumbHeight / 2
     MacroScrollDragging := true
@@ -297,8 +299,9 @@ DragMacroScroll()
     MouseGetPos(, &pointerY)
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (pointerY - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
+    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
     MacroScrollThumb.GetPos(, , , &thumbHeight)
+    thumbHeight /= GetCharacterBookScale()
     travel := Max(1, 242 - thumbHeight)
     maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
     ScrollMacroBook(Round((localY - 152 - MacroScrollGrab) / travel * maximum))
