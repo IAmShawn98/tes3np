@@ -75,4 +75,9 @@ if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } 
 if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $exe)) {
     throw "Ahk2Exe launcher compile failed with exit code $($process.ExitCode)."
 }
-Write-Host 'PASS: complete AutoHotkey launcher parsed and compiled without warnings.'
+Write-Host 'Probing compiled native Expansion Pack UI function bindings without launching UI.'
+$probe = Start-Process -FilePath $exe -ArgumentList '--check-expansion-ui' -WorkingDirectory $projectRoot -PassThru -Wait
+if ($probe.ExitCode -ne 0) {
+    throw "Compiled launcher Expansion Pack UI function probe failed with exit code $($probe.ExitCode)."
+}
+Write-Host 'PASS: complete launcher parsed and compiled; Expansion Pack UI functions resolved.'
