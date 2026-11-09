@@ -4,10 +4,17 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Fix cloaked Settings transparency error and slow page buttons — 2026-11-09
+
+- The user **confirmed the DWM-staged Settings/Character Book change eliminated the visible pop-in**, but observed several-second button delays and a `Target window not found` error from `WinSetTransColor("010101", "ahk_id " settings.Hwnd)` during Settings opening. This title-based AHK lookup can fail for a deliberately DWM-cloaked window despite its HWND being valid.
+- Added `SetPageColorKey` in the existing page presenter to apply the same `010101` transparency directly by HWND using `WS_EX_LAYERED` and `SetLayeredWindowAttributes(LWA_COLORKEY)`. Settings applies it while hidden; no WinTitle lookup or new popup is involved. The page remains cloaked until painted, preserving the approved pop-in fix.
+- Removed duplicate all-window `FinishButtonDisplay` passes from staged Settings and fresh/cached Character Book and the redundant `UpdateWindow` after synchronous `RedrawWindow`. A single child paint remains before DWM uncloak. Callers without DWM staging still retain their existing button prepaint path.
+- Extended the disposable Windows `--check-page-compositor` test to apply/read back the exact color key **while the GUI is cloaked and hidden**; compiler, native GUI smoke and Chat Host CI passed. User runtime confirmation of error removal, reduced delay, and unchanged first-frame presentation is pending.
+
 ### Staged first-frame rendering for Character Book and Settings — 2026-11-09
 
 - The first Settings/Character Book focus-order changes passed compilation but **did not fix the user-reported pop-in**; do not treat that older approach as visually verified. Re-examination of the recording showed first-paint/page presentation as a separate concern. OBS frames may also be the user's Alt+Tab activity and are not, by themselves, proof of an unintended focus switch.
-- Added a narrow `src/ui/windows.ahk` compositor staging helper: cloak only new/cached Settings or Character Book while its native HWNDs complete `RedrawWindow` and `UpdateWindow`, then remove the cloak. If DWM staging is unavailable, retain the established layered/transparent presentation.
+- Added a narrow `src/ui/windows.ahk` compositor staging helper: cloak only new/cached Settings or Character Book while its native HWNDs complete a synchronous `RedrawWindow`, then remove the cloak. If DWM staging is unavailable, retain the established layered/transparent presentation.
 - Settings continues applying its original `010101` transparency while hidden; Character Book retains its existing magenta book key and cached GUI controls. The main launcher, Chat Host, Expansion Pack and gameplay windows are not cloaked or recreated.
 - Added `--check-page-compositor` disposable Windows GUI smoke test that asserts DWM's `DWMWA_CLOAKED` state before reveal and its removal afterward. GitHub Windows CI passed; actual on-user-desktop visual verification is still pending.
 
