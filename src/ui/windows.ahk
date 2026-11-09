@@ -10,12 +10,27 @@ PrepareWindowDisplay(gui)
     DllCall("SetLayeredWindowAttributes", "Ptr", gui.Hwnd, "UInt", 0, "UChar", 0, "UInt", 2)
 }
 
-RevealWindowDisplay(gui, book := false)
+RevealWindowDisplay(gui, book := false, paintButtons := true)
 {
-    FinishButtonDisplay()
+    ; A DWM-staged page paints its child HWNDs exactly once at RevealPaintedPage.
+    ; Preserve the original button prepaint for callers without a cloak.
+    if paintButtons
+        FinishButtonDisplay()
     ; The book retains its transparent outside area; the launcher is fully opaque.
     DllCall("SetLayeredWindowAttributes", "Ptr", gui.Hwnd, "UInt", book ? 0xFF00FF : 0,
         "UChar", 255, "UInt", book ? 3 : 2)
+}
+
+; WinSetTransColor resolves a WinTitle first, and AHK does not reliably
+; match a DWM-cloaked window by ahk_id. Set the same RGB color key directly
+; against the already-created HWND; no lookup or activation is required.
+SetPageColorKey(gui, colorRef)
+{
+    if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
+        return false
+    gui.Opt("+E0x80000") ; WS_EX_LAYERED
+    return DllCall("SetLayeredWindowAttributes", "Ptr", gui.Hwnd,
+        "UInt", colorRef, "UChar", 255, "UInt", 1, "Int") != 0 ; LWA_COLORKEY
 }
 
 ; An ordinary hidden Show/WinSetTransColor is not enough to guarantee the
@@ -43,9 +58,10 @@ RevealPaintedPage(gui)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
         return
-    ; RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW.
-    ; Complete the native and themed paints before removing DWM's cloak.
-    DllCall("RedrawWindow", "Ptr", gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
-    DllCall("UpdateWindow", "Ptr", gui.Hwnd)
+    ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW.
+    ; One synchronous native child paint before uncloaking. Avoid ERASE and
+    ; the redundant UpdateWindow/second paint: Settings and the cached
+    ; Character Book otherwise remain unresponsive for multiple seconds.
+    DllCall("RedrawWindow", "Ptr", gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
     SetPageCompositorCloak(gui, false)
 }
