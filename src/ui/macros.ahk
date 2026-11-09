@@ -606,7 +606,11 @@ ChooseMacroScript(scripts)
     MacroPage.Opt("+Disabled")
     try
     {
-        chooser.Show("w500 h165")
+        chooserScale := GetOwnedMenuScale()
+        ScaleOwnedMenuContent(chooser, chooserScale)
+        chooser.Show("Hide w" Round(500 * chooserScale) " h" Round(165 * chooserScale))
+        PositionOwnedMenuAtParent(chooser, MacroPage)
+        chooser.Show()
         WinWaitClose("ahk_id " chooser.Hwnd)
     }
     finally
