@@ -80,4 +80,19 @@ $probe = Start-Process -FilePath $exe -ArgumentList '--check-expansion-ui' -Work
 if ($probe.ExitCode -ne 0) {
     throw "Compiled launcher Expansion Pack UI function probe failed with exit code $($probe.ExitCode)."
 }
+Write-Host 'Running real native download card smoke test on a disposable window.'
+$nativeOut = Join-Path $work 'native-window-stdout.txt'
+$nativeErr = Join-Path $work 'native-window-stderr.txt'
+$nativeArgs = '/ErrorStdOut "' + $launcher + '" --check-expansion-window'
+$nativeProcess = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $nativeArgs -PassThru -RedirectStandardOutput $nativeOut -RedirectStandardError $nativeErr
+if (!$nativeProcess.WaitForExit(45000)) {
+    try { Stop-Process -Id $nativeProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+    throw 'Native Expansion GUI initialization smoke test timed out.'
+}
+if (Test-Path $nativeOut) { Get-Content $nativeOut | ForEach-Object { Write-Host $_ } }
+if (Test-Path $nativeErr) { Get-Content $nativeErr | ForEach-Object { Write-Host $_ } }
+if ($nativeProcess.ExitCode -ne 0) {
+    throw "Native Expansion downloader window setup failed with code $($nativeProcess.ExitCode)."
+}
+Write-Host 'PASS: actual native downloader window and custom Cancel initialized.'
 Write-Host 'PASS: complete launcher parsed and compiled; Expansion Pack UI functions resolved.'
