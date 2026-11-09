@@ -63,7 +63,8 @@ function GetOfficialRelease([string]$Uri, [hashtable]$Headers, [string]$Label) {
 }
 function SaveOfficialDownload(
     [string]$Uri, [string]$Destination, [hashtable]$Headers, [string]$Label,
-    [string]$MirrorUri = '', [string]$ExpectedSha256 = ''
+    [string]$MirrorUri = '', [string]$ExpectedSha256 = '',
+    [hashtable]$MirrorHeaders = $null
 ) {
     # A release mirrored on another official host must match the SHA-256 from
     # GitHub's release metadata. No hash, no mirror and no unverified bypass.
@@ -83,7 +84,8 @@ function SaveOfficialDownload(
         for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             try {
                 if ([IO.File]::Exists($Destination)) { [IO.File]::Delete($Destination) }
-                Invoke-WebRequest -Uri $endpoint -OutFile $Destination -Headers $Headers -TimeoutSec 120 -UseBasicParsing -ErrorAction Stop
+                $requestHeaders = if ($endpoint -eq $MirrorUri -and $null -ne $MirrorHeaders) { $MirrorHeaders } else { $Headers }
+                Invoke-WebRequest -Uri $endpoint -OutFile $Destination -Headers $requestHeaders -TimeoutSec 120 -UseBasicParsing -ErrorAction Stop
                 if (![IO.File]::Exists($Destination) -or (Get-Item -LiteralPath $Destination).Length -le 0) {
                     throw "The $Label download was empty."
                 }
@@ -218,20 +220,64 @@ try {
 
     Step 'Querying AutoHotkey/Ahk2Exe release metadata'
     $compilerRelease = GetOfficialRelease 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' $headers 'Ahk2Exe'
-    $compilerAsset = $compilerRelease.assets | Where-Object name -match '\.zip$' | Select-Object -First 1
-    if (!$compilerAsset) { throw 'Could not find Ahk2Exe release archive.' }
+    $compilerAsset = $compilerRelease.assets | Where-Object name -match '^Ahk2Exe[0-9A-Za-z.]+\.zip$' | Select-Object -First 1
+    if (!$compilerAsset) { throw 'Could not find the official Ahk2Exe release ZIP.' }
     if ($compilerAsset.browser_download_url -notmatch '^https://github\.com/AutoHotkey/Ahk2Exe/releases/download/') {
         throw 'Unexpected Ahk2Exe release download source.'
     }
-    Step "Downloading AutoHotkey/Ahk2Exe $($compilerRelease.tag_name): $($compilerAsset.name)"
-    $compilerZip = Join-Path $tools 'compiler.zip'
-    SaveOfficialDownload $compilerAsset.browser_download_url $compilerZip $headers 'Ahk2Exe'
-    CheckOfficialZip $compilerZip 'Ahk2Exe'
-    if ($compilerAsset.digest -match '^sha256:([0-9a-fA-F]{64})$' -and
-        (GetTes3npSha256 $compilerZip) -ine $Matches[1]) {
-        throw 'Ahk2Exe release ZIP SHA256 does not match GitHub metadata.'
+    if ($compilerAsset.url -notmatch '^https://api\.github\.com/repos/AutoHotkey/Ahk2Exe/releases/assets/[0-9]+$') {
+        throw 'Unexpected Ahk2Exe GitHub API asset URL.'
     }
-    Step 'Downloaded and checked Ahk2Exe release ZIP'
+    if ($compilerAsset.digest -notmatch '^sha256:([0-9a-fA-F]{64})$') {
+        throw 'Official Ahk2Exe release SHA-256 digest is unavailable; refusing unverified archive.'
+    }
+    $expectedCompilerHash = $Matches[1]
+    Step "Obtaining verified AutoHotkey/Ahk2Exe $($compilerRelease.tag_name): $($compilerAsset.name)"
+    $compilerZip = Join-Path $tools 'compiler.zip'
+    $compilerCacheDir = Join-Path $env:LOCALAPPDATA 'tes3np\build-download-cache'
+    $cachedCompilerZip = Join-Path $compilerCacheDir $compilerAsset.name
+    # A manually downloaded official ZIP is also accepted, but only when its
+    # complete SHA-256 matches the actual latest GitHub release metadata.
+    $downloadsCompilerZip = Join-Path (Join-Path $env:USERPROFILE 'Downloads') $compilerAsset.name
+    $verifiedLocalCompiler = ''
+    foreach ($candidate in @($cachedCompilerZip, $downloadsCompilerZip)) {
+        if (![IO.File]::Exists($candidate)) { continue }
+        try {
+            if ((GetTes3npSha256 $candidate) -ieq $expectedCompilerHash) {
+                $verifiedLocalCompiler = $candidate
+                break
+            }
+        }
+        catch {
+            # An unreadable candidate cannot satisfy the verified-file rule.
+        }
+    }
+    if ($verifiedLocalCompiler) {
+        Step 'Using verified local official Ahk2Exe ZIP'
+        Copy-Item -LiteralPath $verifiedLocalCompiler -Destination $compilerZip -Force
+    }
+    else {
+        # API asset endpoint may bypass transient failures at the browser
+        # release URL; GitHub's official metadata binds both to one asset.
+        $apiHeaders = @{}
+        foreach ($key in $headers.Keys) { $apiHeaders[$key] = $headers[$key] }
+        $apiHeaders['Accept'] = 'application/octet-stream'
+        SaveOfficialDownload $compilerAsset.browser_download_url $compilerZip $headers 'Ahk2Exe' $compilerAsset.url $expectedCompilerHash $apiHeaders
+    }
+    CheckOfficialZip $compilerZip 'Ahk2Exe'
+    if ((GetTes3npSha256 $compilerZip) -ine $expectedCompilerHash) {
+        throw 'Ahk2Exe ZIP SHA-256 does not match GitHub release metadata.'
+    }
+    if ($verifiedLocalCompiler -ne $cachedCompilerZip) {
+        try {
+            [IO.Directory]::CreateDirectory($compilerCacheDir) | Out-Null
+            Copy-Item -LiteralPath $compilerZip -Destination $cachedCompilerZip -Force
+        }
+        catch {
+            Step 'Ahk2Exe cache write unavailable; build can still continue.'
+        }
+    }
+    Step 'Downloaded or found and checked Ahk2Exe release ZIP'
 
     $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
     $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
