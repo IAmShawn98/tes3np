@@ -1466,11 +1466,11 @@ expect(
     and "LauncherCachedScale := LauncherScale" in display_settings,
 )
 expect(
-    "Settings remain readable and fitted at all manual launcher percentages",
+    "Settings match launcher scale, fit owner monitor and keep accessibility controls",
     "V016SettingsScale := GetV016SettingsFitScale()" in settings_ui
     and "fit := Min(1.0, (right - left - 24) / (512 * dpi)," in settings_ui
-    and "return Max(0.45, fit)" in settings_ui
-    and "return Max(9, Round(value * V016SettingsScale))" in settings_ui
+    and "return Max(0.45, Min(GetOwnedMenuScale(), fit))" in settings_ui
+    and "return Max(7, Round(value * V016SettingsScale))" in settings_ui
     and "settings.ReadabilityControl := readability" in settings_ui
     and "reduceMotionBox := {Value: ReduceMotion ? 1 : 0}" in settings_ui,
 )
