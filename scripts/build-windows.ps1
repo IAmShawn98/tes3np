@@ -44,6 +44,58 @@ function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, 
     return [int]$compilerExitCode
 }
 
+# Public GitHub downloads occasionally return 502/503/504 during an otherwise
+# healthy Windows build. Retry with bounded delays, rejecting partial files.
+# The whole build continues to fail closed after three attempts.
+function GetOfficialRelease([string]$Uri, [hashtable]$Headers, [string]$Label) {
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            return (Invoke-RestMethod -Uri $Uri -Headers $Headers -TimeoutSec 90 -ErrorAction Stop)
+        }
+        catch {
+            if ($attempt -ge 3) {
+                throw "Could not retrieve $Label release metadata after 3 attempts: $($_.Exception.Message)"
+            }
+            Step "$Label metadata request failed; retrying ($attempt/3)"
+            Start-Sleep -Seconds (2 * $attempt)
+        }
+    }
+}
+function SaveOfficialDownload([string]$Uri, [string]$Destination, [hashtable]$Headers, [string]$Label) {
+    if (!$Uri.StartsWith('https://', [StringComparison]::OrdinalIgnoreCase)) {
+        throw "$Label download was not HTTPS."
+    }
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            if ([IO.File]::Exists($Destination)) { [IO.File]::Delete($Destination) }
+            Invoke-WebRequest -Uri $Uri -OutFile $Destination -Headers $Headers -TimeoutSec 120 -UseBasicParsing -ErrorAction Stop
+            if (![IO.File]::Exists($Destination) -or (Get-Item -LiteralPath $Destination).Length -le 0) {
+                throw "The $Label download was empty."
+            }
+            return
+        }
+        catch {
+            if ([IO.File]::Exists($Destination)) {
+                try { [IO.File]::Delete($Destination) } catch {}
+            }
+            if ($attempt -ge 3) {
+                throw "Could not download $Label after 3 attempts: $($_.Exception.Message)"
+            }
+            Step "$Label download failed; retrying ($attempt/3)"
+            Start-Sleep -Seconds (2 * $attempt)
+        }
+    }
+}
+function CheckOfficialZip([string]$Path, [string]$Label) {
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        if ($archive.Entries.Count -lt 1) { throw "$Label release ZIP contains no files." }
+    }
+    finally { $archive.Dispose() }
+}
+
 $projectRoot = Split-Path $PSScriptRoot -Parent
 # Every build gets a separate scratch tree. A stale Windows file lock from a
 # previous run must never block a new build or collide with active tools.
@@ -86,30 +138,63 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Chat Host preflight compilation failed. Previous build artifacts were not removed.' }
     Step 'Starting Windows launcher build'
     if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
-    if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
     $null = New-Item $tools -ItemType Directory
-    $null = New-Item $package -ItemType Directory
 
     $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
     if ($env:GITHUB_TOKEN) {
         $headers['Authorization'] = "Bearer $($env:GITHUB_TOKEN)"
         $headers['X-GitHub-Api-Version'] = '2022-11-28'
     }
+    # Fetch and inspect all upstream artifacts BEFORE clearing the last good
+    # dist build. An intermittent GitHub gateway timeout must not destroy it.
     Step 'Querying AutoHotkey/AutoHotkey release metadata'
-    $ahkRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' -Headers $headers
+    $ahkRelease = GetOfficialRelease 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest' $headers 'AutoHotkey'
     $ahkAsset = $ahkRelease.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
     if (!$ahkAsset) { throw 'Could not find AutoHotkey release archive.' }
+    if ($ahkAsset.browser_download_url -notmatch '^https://github\.com/AutoHotkey/AutoHotkey/releases/download/') {
+        throw 'Unexpected AutoHotkey release download source.'
+    }
     Step "Downloading AutoHotkey/AutoHotkey $($ahkRelease.tag_name): $($ahkAsset.name)"
-    Invoke-WebRequest $ahkAsset.browser_download_url -OutFile (Join-Path $tools 'autohotkey.zip') -Headers $headers
-    Step 'Downloaded autohotkey.zip; verifying checksum'
+    $ahkZip = Join-Path $tools 'autohotkey.zip'
+    SaveOfficialDownload $ahkAsset.browser_download_url $ahkZip $headers 'AutoHotkey'
+    CheckOfficialZip $ahkZip 'AutoHotkey'
+    if ($ahkAsset.digest -match '^sha256:([0-9a-fA-F]{64})$' -and
+        (GetTes3npSha256 $ahkZip) -ine $Matches[1]) {
+        throw 'AutoHotkey release ZIP SHA256 does not match GitHub metadata.'
+    }
+    Step 'Downloaded and checked AutoHotkey release ZIP'
 
     Step 'Querying AutoHotkey/Ahk2Exe release metadata'
-    $compilerRelease = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' -Headers $headers
+    $compilerRelease = GetOfficialRelease 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest' $headers 'Ahk2Exe'
     $compilerAsset = $compilerRelease.assets | Where-Object name -match '\.zip$' | Select-Object -First 1
     if (!$compilerAsset) { throw 'Could not find Ahk2Exe release archive.' }
+    if ($compilerAsset.browser_download_url -notmatch '^https://github\.com/AutoHotkey/Ahk2Exe/releases/download/') {
+        throw 'Unexpected Ahk2Exe release download source.'
+    }
     Step "Downloading AutoHotkey/Ahk2Exe $($compilerRelease.tag_name): $($compilerAsset.name)"
-    Invoke-WebRequest $compilerAsset.browser_download_url -OutFile (Join-Path $tools 'compiler.zip') -Headers $headers
-    Step 'Downloaded compiler.zip; verifying checksum'
+    $compilerZip = Join-Path $tools 'compiler.zip'
+    SaveOfficialDownload $compilerAsset.browser_download_url $compilerZip $headers 'Ahk2Exe'
+    CheckOfficialZip $compilerZip 'Ahk2Exe'
+    if ($compilerAsset.digest -match '^sha256:([0-9a-fA-F]{64})$' -and
+        (GetTes3npSha256 $compilerZip) -ine $Matches[1]) {
+        throw 'Ahk2Exe release ZIP SHA256 does not match GitHub metadata.'
+    }
+    Step 'Downloaded and checked Ahk2Exe release ZIP'
+
+    $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
+    $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
+    Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
+    SaveOfficialDownload $officialTES3MP $tes3mpArchive $headers 'TES3MP 0.8.1'
+    CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'
+
+    $upstreamLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/LICENSE'
+    $upstreamFontLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/files/mygui/DejaVuFontLicense.txt'
+    SaveOfficialDownload $upstreamLicense (Join-Path $tools 'tes3mp-license.txt') $headers 'TES3MP license'
+    SaveOfficialDownload $upstreamFontLicense (Join-Path $tools 'tes3mp-font-license.txt') $headers 'TES3MP font license'
+
+    Step 'Official downloads verified; preparing new distribution'
+    if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
+    $null = New-Item $package -ItemType Directory
 
     Step 'Extracting AutoHotkey runtime'
     Expand-Archive (Join-Path $tools 'autohotkey.zip') (Join-Path $tools 'autohotkey')
@@ -317,10 +402,7 @@ Public redistribution/licensing review remains a separate release gate.
     Step 'Verified no Expansion Pack or markerless client was embedded in launcher resources'
     # Download TES3MP only at BUILD time, never on user startup.
     # Pin to the official non-VR 0.8.1 release; do not scrape unknown mirrors.
-    Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
-    $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
-    $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
-    Invoke-WebRequest -Uri $officialTES3MP -OutFile $tes3mpArchive -Headers $headers
+    Step 'Using prechecked official TES3MP 0.8.1 Win64 release archive'
     $archiveHash = GetTes3npSha256 $tes3mpArchive
     Step "TES3MP 0.8.1 archive SHA256: $archiveHash"
     $runtimeExtract = Join-Path $tools 'tes3mp-extracted'
@@ -359,10 +441,8 @@ Public redistribution/licensing review remains a separate release gate.
     # Include upstream GPLv3 and bundled font notices for redistribution.
     $licenseFolder = Join-Path $package 'licenses\TES3MP'
     $null = New-Item -ItemType Directory -Path $licenseFolder -Force
-    $upstreamLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/LICENSE'
-    $upstreamFontLicense = 'https://raw.githubusercontent.com/TES3MP/TES3MP/tes3mp-0.8.1/files/mygui/DejaVuFontLicense.txt'
-    Invoke-WebRequest -Uri $upstreamLicense -OutFile (Join-Path $licenseFolder 'LICENSE') -Headers $headers
-    Invoke-WebRequest -Uri $upstreamFontLicense -OutFile (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Headers $headers
+    Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-license.txt') -Destination (Join-Path $licenseFolder 'LICENSE') -Force
+    Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-font-license.txt') -Destination (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Force
     @"
 TES3MP runtime 0.8.1 (GPLv3 with additional permitted terms)
 Upstream project and source: https://github.com/TES3MP/TES3MP/tree/tes3mp-0.8.1

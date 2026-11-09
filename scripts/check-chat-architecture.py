@@ -603,6 +603,18 @@ expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(en
 expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
 expect(
+    "Windows build retries official GitHub downloads and retains dist on upstream failure",
+    "function GetOfficialRelease(" in expansion_build
+    and "function SaveOfficialDownload(" in expansion_build
+    and "for ($attempt = 1; $attempt -le 3; $attempt++)" in expansion_build
+    and "CheckOfficialZip $ahkZip 'AutoHotkey'" in expansion_build
+    and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in expansion_build
+    and "CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'" in expansion_build
+    and "SaveOfficialDownload $upstreamFontLicense" in expansion_build
+    and expansion_build.index("SaveOfficialDownload $upstreamFontLicense")
+        < expansion_build.index("if (Test-Path (Join-Path $projectRoot 'dist'))"),
+)
+expect(
     "One native Windows Explorer-style source browser picks ZIP or extracted folder",
     'package := SelectExpansionPackagePath()' in expansion_upload
     and 'InstallSelectedExpansionPackage(package)' in expansion_upload
