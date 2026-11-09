@@ -380,6 +380,25 @@ ShowLauncherWindow(reuseCached := false, *)
     ; launcher while its scale and themed controls are being restored. Show the
     ; existing launcher immediately behind a loading cover, do the expensive
     ; resize/repaint work, then reveal the completed page.
+    ; Manage Characters is an OWNED book above a launcher that is already
+    ; fully visible and painted. When its stored scale/layout are unchanged,
+    ; there is nothing to rebuild or repaint on Close. The older return path
+    ; needlessly walked every control and synchronously painted all themed
+    ; buttons (including those still in the book), delaying its Hide() by
+    ; more than a second in the user's 60-fps recording.
+    ;
+    ; Keep the original rebuild path for changed scale/layout or a hidden
+    ; launcher. This fast path does NOT reveal an incomplete launcher: it is
+    ; used only when the current parent window is already visible behind
+    ; its owned Character Book.
+    if reuseCached && LauncherCachedScale > 0
+        && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+        && LauncherControlLayout.Count = LauncherCachedLayoutCount
+    {
+        desiredCachedScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
+        if desiredCachedScale = LauncherCachedScale
+            return
+    }
     ; The Characters book keeps its controls alive. Returning from it can
     ; reuse the existing launcher geometry when the layout remains valid.
     if LauncherCachedScale > 0 && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
