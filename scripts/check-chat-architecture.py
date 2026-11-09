@@ -420,7 +420,7 @@ expect(
     and 'File.Delete(partial)' in source
     and 'if (!accepted && completed!=null) try { File.Delete(completed); }' in source
     and 'TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)' in mismatch
-    and 'statusControl.Text := "Automatic download unavailable. Choose Repair / Install ZIP."' in mismatch
+    and 'TES3MPExpansionRevealRepair("Automatic download unavailable. Choose Repair / Install ZIP.")' in mismatch
     and 'Repair / Install ZIP' in mismatch
     and 'if !autoApproved && MsgBox(' in expansion_upload
     and 'StartExpansionImportWorker(package, morrowind, config, package)' in expansion_upload
@@ -484,7 +484,7 @@ expect(
     and 'if TES3MPExpansionBeginNativeProgress()' in auto_install_view
     and 'TES3MPExpansionRevealRepair("Native download progress unavailable.' in auto_install_view
     and 'mode != "Mismatch"' in auto_install_view
-    and 'TES3MPExpansionCloakDialog(dialog, false)' in auto_progress_helpers
+    and 'TES3MPExpansionCloakDialog(ExpansionMismatchDialog, false)' in auto_progress_helpers
     and 'DllCall("dwmapi\\DwmSetWindowAttribute"' in auto_progress_helpers
     and 'if IsObject(ExpansionAutoCloaked)' not in auto_progress_helpers,
 )
