@@ -1207,10 +1207,10 @@ expect(
     "Settings transparency is applied while hidden and launcher owns foreground before close",
     'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
     and settings_open.index('settings.Show("Hide w"')
-        < settings_open.index('WinSetTransColor("010101"')
+        < settings_open.index('SetPageColorKey(settings, 0x010101)')
         < settings_open.index('    settings.Show()')
-    and settings_open.index('    settings.Show()')
-        < settings_open.index('FinishButtonDisplay()')
+    and 'WinSetTransColor(' not in settings_open
+    and 'if staged\n            RevealPaintedPage(settings)\n        else\n            FinishButtonDisplay()' in settings_open
     and 'DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)' in settings_close
     and settings_close.index('DllCall("EnableWindow"')
         < settings_close.index('try WinActivate("ahk_id " LauncherGui.Hwnd)')
@@ -1224,7 +1224,7 @@ expect(
         < characters_close.index('HideProfileEditor()')
         < characters_close.index('CloseMacroPage()')
     and 'PrepareWindowDisplay(CharacterPage)' in characters_ui
-    and 'RevealWindowDisplay(CharacterPage, true)' in characters_ui,
+    and 'RevealWindowDisplay(CharacterPage, true, !staged)' in characters_ui,
 )
 window_presenter = (ROOT / "src" / "ui" / "windows.ahk").read_text(encoding="utf-8-sig")
 characters_open = section_between(
@@ -1240,18 +1240,19 @@ expect(
     and characters_open.count('SetPageCompositorCloak(CharacterPage, false)') == 2
     and characters_open.index('PrepareWindowDisplay(CharacterPage)')
         < characters_open.rindex('CharacterPage.Show("w960 h650")')
-        < characters_open.rindex('RevealWindowDisplay(CharacterPage, true)')
-        < characters_open.rindex('RevealPaintedPage(CharacterPage)'),
+        < characters_open.rindex('RevealWindowDisplay(CharacterPage, true, !staged)')
+        < characters_open.rindex('RevealPaintedPage(CharacterPage)')
+    and 'FinishButtonDisplay()\n                RevealPaintedPage(CharacterPage)' not in characters_open,
 )
 expect(
     "Settings first visible frame waits for composited parchment and native button paint",
     'staged := SetPageCompositorCloak(settings, true)' in settings_open
     and settings_open.index('staged := SetPageCompositorCloak(settings, true)')
         < settings_open.index('settings.Show("Hide w"')
-        < settings_open.index('WinSetTransColor("010101"')
+        < settings_open.index('SetPageColorKey(settings, 0x010101)')
         < settings_open.index('        settings.Show()')
-        < settings_open.index('FinishButtonDisplay()')
         < settings_open.index('RevealPaintedPage(settings)')
+    and 'if staged\n            RevealPaintedPage(settings)\n        else\n            FinishButtonDisplay()' in settings_open
     and 'SetPageCompositorCloak(settings, false)' in settings_open,
 )
 expect(
@@ -1260,10 +1261,17 @@ expect(
     and 'DllCall("dwmapi\\DwmSetWindowAttribute"' in window_presenter
     and '"UInt", 13' in window_presenter
     and 'RevealPaintedPage(gui)' in window_presenter
+    and 'SetPageColorKey(gui, colorRef)' in window_presenter
+    and 'gui.Opt("+E0x80000")' in window_presenter
+    and 'DllCall("SetLayeredWindowAttributes", "Ptr", gui.Hwnd,' in window_presenter
+    and '"UInt", colorRef, "UChar", 255, "UInt", 1, "Int")' in window_presenter
+    and 'RevealWindowDisplay(gui, book := false, paintButtons := true)' in window_presenter
+    and 'if paintButtons\n        FinishButtonDisplay()' in window_presenter
     and 'DllCall("RedrawWindow", "Ptr", gui.Hwnd' in window_presenter
-    and '"UInt", 0x0185' in window_presenter
-    and 'DllCall("UpdateWindow", "Ptr", gui.Hwnd)' in window_presenter
-    and window_presenter.index('DllCall("UpdateWindow"')
+    and '"UInt", 0x0181' in window_presenter
+    and '"UInt", 0x0185' not in window_presenter
+    and 'DllCall("UpdateWindow", "Ptr", gui.Hwnd)' not in window_presenter
+    and window_presenter.index('DllCall("RedrawWindow"')
         < window_presenter.index('SetPageCompositorCloak(gui, false)'),
 )
 entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
@@ -1271,6 +1279,10 @@ expect(
     "Windows CI tests DWM staged window as a disposable visible GUI",
     'A_Args[1] = "--check-page-compositor"' in entry_script
     and 'DwmGetWindowAttribute' in entry_script
+    and 'SetPageColorKey(testWindow, 0x010101)' in entry_script
+    and 'GetLayeredWindowAttributes' in entry_script
+    and 'NumGet(colorKey, 0, "UInt") != 0x010101' in entry_script
+    and 'NumGet(colorFlags, 0, "UInt") != 1' in entry_script
     and "NumGet(before, 0, \"Int\") = 0" in entry_script
     and "NumGet(after, 0, \"Int\") != 0" in entry_script,
 )
