@@ -1216,6 +1216,24 @@ expect(
         < settings_close.index('try WinActivate("ahk_id " LauncherGui.Hwnd)')
         < settings_close.index('try settings.Destroy()'),
 )
+launcher_return = section_between(
+    bootstrap,
+    "ShowLauncherWindow(reuseCached := false, *)",
+    "\nSetWindowIcons()",
+)
+expect(
+    "Owned Character Book uses already-painted visible parent without global repaint before Hide",
+    'if reuseCached && LauncherCachedScale > 0' in launcher_return
+    and 'DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)' in launcher_return
+    and 'LauncherControlLayout.Count = LauncherCachedLayoutCount' in launcher_return
+    and 'desiredCachedScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale' in launcher_return
+    and 'if desiredCachedScale = LauncherCachedScale\n            return' in launcher_return
+    and launcher_return.index('if reuseCached && LauncherCachedScale > 0')
+        < launcher_return.index('RepaintMenuButtons()')
+    and 'ShowLauncherWindow(true)\n    preparedMs := A_TickCount - startedAt\n    CharacterPage.Hide()' in characters_close
+    and 'LogLauncherEvent("UI | Character Book close " hiddenMs "ms | Parent " preparedMs' in characters_close
+    and 'HideProfileEditor()\n    CloseMacroPage()' in characters_close,
+)
 expect(
     "Character Book raises the prepared launcher before hiding and restoring dormant book controls",
     'ShowLauncherWindow(true)' in characters_close
@@ -1285,6 +1303,13 @@ expect(
     and 'NumGet(colorFlags, 0, "UInt") != 1' in entry_script
     and "NumGet(before, 0, \"Int\") = 0" in entry_script
     and "NumGet(after, 0, \"Int\") != 0" in entry_script,
+)
+expect(
+    "Windows CI includes real owned-window test for cached Character Book return",
+    'A_Args[1] = "--check-cached-character-return"' in entry_script
+    and 'probeBook := Gui("+Owner" LauncherGui.Hwnd' in entry_script
+    and 'ShowLauncherWindow(true)\n    probeBook.Hide()' in entry_script
+    and 'if !ButtonFaces.Has(probeHandle)' in entry_script,
 )
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
