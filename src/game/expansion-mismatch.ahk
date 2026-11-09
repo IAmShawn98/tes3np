@@ -204,6 +204,11 @@ TES3MPExpansionBeginNativeProgress()
         ch := NumGet(rect, 12, "Int")
         extra := Max(35, Round(ch * 0.64))
         frame.Card.Show("NA h" (ch + extra))
+        ; Extend the EXISTING dark native loading panel to the bottom of
+        ; the card. The Cancel button is a later sibling on the same GUI,
+        ; so it paints above the dark panel, directly below the progress bar.
+        ; No separate gold footer/background is created.
+        frame.Panel.Move(0, 0, cw, ch + extra)
         buttonWidth := Round(cw * 0.55)
         ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card, (cw - buttonWidth) // 2,
             ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",
