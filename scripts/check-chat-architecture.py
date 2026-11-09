@@ -492,11 +492,13 @@ expect(
     "Native first-enable progress reuses the trusted import loader and offers safe cancel",
     'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)' in auto_progress_helpers
     and 'ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card,' in auto_progress_helpers
-    and 'frame.Card.BackColor := "161007"' in auto_progress_helpers
-    and 'frame.Panel.Move(0, 0, cw, ch + extra)' not in auto_progress_helpers
-    and auto_progress_helpers.index('frame.Card.BackColor := "161007"')
-        < auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
+    and 'frame.Card.BackColor := "161007"' not in auto_progress_helpers
+    and 'frame.Panel.Move(0, 0, cw, ch + extra)' in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)' in auto_progress_helpers
+    and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
+        < auto_progress_helpers.index('frame.Panel.Move(0, 0, cw, ch + extra)')
         < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
+        < auto_progress_helpers.index('TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)')
     and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in auto_progress_helpers
     and 'global ExpansionAutoProgressFrame, ButtonFaces' not in auto_progress_helpers
@@ -525,10 +527,11 @@ auto_download_close = section_between(
     '\nTES3MPExpansionZipAvailable(',
 )
 expect(
-    "Cancel Download occupies non-overlapping native footer and cannot run after download handoff",
-    'frame.Card.BackColor := "161007"' in auto_progress_helpers
-    and 'frame.Panel.Move(0, 0, cw, ch + extra)' not in auto_progress_helpers
+    "Cancel Download shares one full-height native panel with protected blit and cannot run after handoff",
+    'frame.Card.BackColor := "161007"' not in auto_progress_helpers
+    and 'frame.Panel.Move(0, 0, cw, ch + extra)' in auto_progress_helpers
     and 'frame.Panel.Opt("+0x04000000")' not in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)' in auto_progress_helpers
     and 'ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",' in auto_progress_helpers
     and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
         < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
@@ -566,6 +569,32 @@ expect(
     and 'global ButtonFaces' in section_between(loading_ui, 'UpdateExpansionLoadingProgress(frame, label, percent)', '\nSetInterfaceLoadingText(')
     and 'ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))' in loading_ui
     and 'PaintButtonNow(hwnd)' in loading_ui,
+)
+native_renderer = (ROOT / "src" / "ui" / "renderer.ahk").read_text(encoding="utf-8-sig")
+protected_loading_paint = section_between(
+    native_renderer,
+    "PaintLoadingPanel(handle, target, width, height)\\n{".replace("\\n", "\n"),
+    "\\nFillLoadingRect(".replace("\\n", "\n"),
+)
+protected_loading_registration = section_between(
+    loading_ui,
+    "ProtectExpansionLoadingCancel(frame, cancelButton)\\n{".replace("\\n", "\n"),
+    "\\nUpdateExpansionLoadingProgress(".replace("\\n", "\n"),
+)
+expect(
+    "Native download Cancel is excluded from each full-height panel blit without changing other loading cards",
+    'ProtectedButtonHwnd := cancelButton.Hwnd' in protected_loading_registration
+    and 'PaintButtonNow(panelHwnd)' in protected_loading_registration
+    and 'PaintButtonNow(cancelButton.Hwnd)' in protected_loading_registration
+    and 'ButtonFaces[handle].HasOwnProp("ProtectedButtonHwnd")' in protected_loading_paint
+    and 'DllCall("GetWindowRect", "Ptr", protectedButton,' in protected_loading_paint
+    and 'DllCall("MapWindowPoints", "Ptr", 0, "Ptr", handle,' in protected_loading_paint
+    and 'DllCall("SaveDC", "Ptr", target,' in protected_loading_paint
+    and 'DllCall("ExcludeClipRect", "Ptr", target,' in protected_loading_paint
+    and 'DllCall("RestoreDC", "Ptr", target,' in protected_loading_paint
+    and protected_loading_paint.index('DllCall("ExcludeClipRect", "Ptr", target,')
+        < protected_loading_paint.index('try DllCall("BitBlt", "Ptr", target,')
+        < protected_loading_paint.index('DllCall("RestoreDC", "Ptr", target,'),
 )
 expect(
     "Same ChatHost process and existing Discord profile serve the popup",
