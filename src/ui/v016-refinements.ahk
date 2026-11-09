@@ -222,12 +222,20 @@ OpenLauncherSettingsV016(*)
     try
     {
         settings.Show("Hide w" V016S(512) " h" V016S(590))
-        WinSetTransColor("010101", "ahk_id " settings.Hwnd)
+        ; AHK's WinSetTransColor looks up visible/eligible windows even for
+        ; ahk_id; it cannot find our intentionally DWM-cloaked Settings HWND.
+        ; Apply the unchanged 010101 key directly to the live native handle.
+        if !SetPageColorKey(settings, 0x010101)
+            throw Error("Could not prepare Launcher Settings transparency.")
         settings.Show()
         DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
-        FinishButtonDisplay()
+        ; The synchronous page reveal below already paints every child once.
+        ; Scanning/painting all themed buttons *before* that pass doubled the
+        ; work and caused multi-second click delays on complex pages.
         if staged
             RevealPaintedPage(settings)
+        else
+            FinishButtonDisplay()
     }
     finally
     {
