@@ -214,9 +214,13 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Size", (*) => 0)
-    settings.Show("w" V016S(512) " h" V016S(590))
-    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+    ; Prepare the owned parchment fully hidden. Showing it before setting
+    ; the transparency key exposed its unmasked 010101 frame for a compositor
+    ; tick, which looked like a pop-in when changing launcher pages.
+    settings.Show("Hide w" V016S(512) " h" V016S(590))
     WinSetTransColor("010101", "ahk_id " settings.Hwnd)
+    settings.Show()
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
     FinishButtonDisplay()
 }
 
@@ -231,12 +235,17 @@ CloseLauncherSettingsV016(settings, *)
     V016SettingsDataActive := false
     V016SettingsMainControls := []
     V016SettingsDataControls := []
-    try settings.Destroy()
-    if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd, "Int")
+    ; Hand foreground ownership back to the launcher BEFORE destroying the
+    ; owned Settings window. Otherwise Windows can activate whichever third-
+    ; party window was behind TES3NP (OBS in the recorded reproduction).
+    launcherValid := IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd, "Int")
+    if launcherValid
     {
         DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
-        WinActivate("ahk_id " LauncherGui.Hwnd)
+        try LauncherGui.Show("NA")
+        try WinActivate("ahk_id " LauncherGui.Hwnd)
     }
+    try settings.Destroy()
 }
 
 V016CheckLabel(state, label)
