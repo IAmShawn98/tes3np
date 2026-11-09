@@ -4,23 +4,71 @@ global UpdateReleasePage := "https://github.com/IAmShawn98/tes3np-releases/relea
 global UpdateManifestUrl := "https://github.com/IAmShawn98/tes3np-releases/releases/download/latest-alpha/tes3np-update.json"
 global UpdatePackageUrl := "https://github.com/IAmShawn98/tes3np-releases/releases/download/latest-alpha/tes3np-windows.zip"
 global UpdateBusy := false
+global UpdateStartupRequest := 0
+global UpdateStartupStarted := 0
 
 CheckForUpdateAvailability(*)
 {
-    global AppConfig, UpdateManifestUrl
-    ; Startup availability checks are intentionally silent. A network or metadata
-    ; failure must never interrupt normal launcher use; the button simply stays hidden.
+    global UpdateManifestUrl, UpdateStartupRequest, UpdateStartupStarted
+    ; The automatic startup check must not block the AHK GUI thread while
+    ; waiting for GitHub. Manual checks still use the existing trusted flow.
+    if IsObject(UpdateStartupRequest)
+        return
     try {
-        manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
-        available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
-        SetLauncherUpdateAvailable(available, manifest.version)
-        ; Wait until the main window and first-run startup prompts have settled.
-        if available && !HasSeenUpdateAutoPreview(manifest.version)
-            SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
-        LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") ".")
+        request := ComObject("WinHttp.WinHttpRequest.5.1")
+        request.SetTimeouts(5000, 5000, 10000, 10000)
+        request.Open("GET", UpdateManifestUrl, true)
+        request.SetRequestHeader("User-Agent", "tes3np updater")
+        UpdateStartupRequest := request
+        UpdateStartupStarted := A_TickCount
+        request.Send()
+        SetTimer(PollStartupUpdateAvailability, 100)
+        LogLauncherEvent("UPDATE | Nonblocking startup availability request started.")
     } catch Error as err {
+        SetTimer(PollStartupUpdateAvailability, 0)
+        UpdateStartupRequest := 0
         SetLauncherUpdateAvailable(false)
         LogLauncherEvent("UPDATE | Startup availability check unavailable (" Type(err) ").")
+    }
+}
+
+PollStartupUpdateAvailability(*)
+{
+    global AppConfig, UpdateStartupRequest, UpdateStartupStarted
+    request := UpdateStartupRequest
+    if !IsObject(request) {
+        SetTimer(PollStartupUpdateAvailability, 0)
+        return
+    }
+    elapsed := A_TickCount - UpdateStartupStarted
+    ; WinHTTP's individual timeouts are bounded, but abort a stalled whole
+    ; request too. Checking completion with 0 seconds never waits on WinHTTP.
+    if elapsed > 30000 {
+        SetTimer(PollStartupUpdateAvailability, 0)
+        UpdateStartupRequest := 0
+        try request.Abort()
+        SetLauncherUpdateAvailable(false)
+        LogLauncherEvent("UPDATE | Startup availability check timed out after " elapsed "ms.")
+        return
+    }
+    try {
+        if !request.WaitForResponse(0)
+            return
+        SetTimer(PollStartupUpdateAvailability, 0)
+        UpdateStartupRequest := 0
+        if request.Status != 200
+            throw Error("Update metadata returned HTTP " request.Status ".")
+        manifest := ParseAndValidateUpdateManifest(request.ResponseText)
+        available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
+        SetLauncherUpdateAvailable(available, manifest.version)
+        if available && !HasSeenUpdateAutoPreview(manifest.version)
+            SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
+        LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") " | Elapsed: " elapsed "ms.")
+    } catch Error as err {
+        SetTimer(PollStartupUpdateAvailability, 0)
+        UpdateStartupRequest := 0
+        SetLauncherUpdateAvailable(false)
+        LogLauncherEvent("UPDATE | Startup availability check unavailable (" Type(err) ") after " elapsed "ms.")
     }
 }
 
