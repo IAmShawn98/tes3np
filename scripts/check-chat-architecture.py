@@ -508,6 +508,39 @@ expect(
     and 'TES3MPExpansionEndNativeProgress()\n    ExpansionMismatchFileButton := 0' in mismatch
     and 'UploadExpansionFromFile(package, true)' in mismatch,
 )
+auto_download_ready = section_between(
+    mismatch,
+    'TES3MPExpansionAutoDownloadReady(lParam)\n{',
+    '\nTES3MPExpansionBeginAutoImport(',
+)
+auto_download_cancel = section_between(
+    mismatch,
+    'TES3MPExpansionCancelNativeDownload()\n{',
+    '\nTES3MPExpansionDiscoveryDeadline(',
+)
+auto_download_close = section_between(
+    mismatch,
+    'CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)\n{',
+    '\nTES3MPExpansionZipAvailable(',
+)
+expect(
+    "Cancel Download never flickers over the progress panel and cannot run after download handoff",
+    'frame.Panel.Opt("+0x04000000") ; WS_CLIPSIBLINGS' in auto_progress_helpers
+    and auto_progress_helpers.index('frame.Panel.Opt("+0x04000000")')
+        < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
+    and 'TES3MPExpansionRemoveDownloadCancel()' in auto_progress_helpers
+    and 'try ExpansionAutoCancelButton.Visible := false' in auto_progress_helpers
+    and 'TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)' in auto_progress_helpers
+    and 'if ExpansionAutoInstallLocked\n        return' in auto_download_cancel
+    and 'ExpansionAutoInstallLocked := true' in auto_download_ready
+    and 'ExpansionAutoDownloadActive := false' in auto_download_ready
+    and 'TES3MPExpansionRemoveDownloadCancel()' in auto_download_ready
+    and auto_download_ready.index('ExpansionAutoInstallLocked := true')
+        < auto_download_ready.index('TES3MPExpansionRemoveDownloadCancel()')
+        < auto_download_ready.index('SetTimer((*) => TES3MPExpansionBeginAutoImport(')
+    and 'TES3MPExpansionEndNativeProgress()\n    ExpansionAutoInstallLocked := false' in auto_download_close
+    and 'UploadExpansionFromFile(package, true)' in mismatch,
+)
 expect(
     "All new native progress UI dependencies use explicit AHK function-object resolution",
     'TES3MPExpansionCallNativeUi(name, args*)' in auto_progress_helpers
