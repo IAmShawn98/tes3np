@@ -1,5 +1,36 @@
 ﻿; Character book, profile editor and favorite-selection interactions.
 
+; Character Book is the launcher-owned second page, not an independent
+; unscaled 960x650 window. Dynamic editor/macro controls still use their
+; approved 100%-layout coordinates; convert them at the native boundary.
+GetCharacterBookScale()
+{
+    global CharacterPage
+    return IsObject(CharacterPage) && CharacterPage.HasOwnProp("OwnedContentScale")
+        ? CharacterPage.OwnedContentScale : 1.0
+}
+
+BookS(value)
+{
+    return Round(value * GetCharacterBookScale())
+}
+
+; Reuse the actual cached book and its editor/macro state. The common native
+; scaling routine moves both visible control rectangles and matching fonts;
+; reload the one parchment bitmap to fit the new Picture rectangle.
+ApplyCharacterBookScale(scale)
+{
+    global CharacterPage
+    if !IsObject(CharacterPage)
+        return
+    previous := GetCharacterBookScale()
+    if Abs(scale - previous) < 0.001
+        return
+    ScaleOwnedMenuContent(CharacterPage, scale)
+    if CharacterPage.HasOwnProp("BookBackground")
+        CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+}
+
 OpenCharacterPage(*)
 {
     global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, SessionStatus, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
@@ -15,6 +46,11 @@ OpenCharacterPage(*)
         staged := SetPageCompositorCloak(CharacterPage, true)
         try
         {
+            bookScale := GetOwnedMenuScale()
+            ApplyCharacterBookScale(bookScale)
+            CharacterPage.Show("Hide w" Round(960 * bookScale)
+                " h" Round(650 * bookScale))
+            PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
             CharacterPage.Show()
             if staged
                 RevealPaintedPage(CharacterPage)
@@ -46,7 +82,8 @@ OpenCharacterPage(*)
     V016CharacterLayoutApplied := false
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
-    CharacterPage.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
+    CharacterPage.BookBackground := CharacterPage.Add("Picture", "x0 y0 w960 h650",
+        A_ScriptDir "\assets\backgrounds\character-book.png")
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
     ; Use the same native Morrowind-style face as Launcher Settings. Keep
     ; interactive buttons in their existing button font for readability.
@@ -105,7 +142,12 @@ OpenCharacterPage(*)
     staged := SetPageCompositorCloak(CharacterPage, true)
     try
     {
-        CharacterPage.Show("w960 h650")
+        bookScale := GetOwnedMenuScale()
+        ApplyCharacterBookScale(bookScale)
+        CharacterPage.Show("Hide w" Round(960 * bookScale)
+            " h" Round(650 * bookScale))
+        PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
+        CharacterPage.Show()
         ; Preserve the original magenta color key and custom button faces.
         RevealWindowDisplay(CharacterPage, true, !staged)
         if staged
@@ -158,7 +200,7 @@ RefreshProfiles()
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
-        CharacterDescription.Move(70, 80, 390, 95)
+        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(95))
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : 220
         ; Preserve the original wide Import Data layout and compact Export Data
@@ -198,7 +240,12 @@ RefreshProfiles()
 
 MoveStyledButton(control, x, y, width, height)
 {
-    global ButtonFaces
+    global ButtonFaces, CharacterPage
+    if IsObject(CharacterPage) && control.Gui.Hwnd = CharacterPage.Hwnd
+    {
+        x := BookS(x), y := BookS(y)
+        width := BookS(width), height := BookS(height)
+    }
     control.Move(x, y, width, height)
     if ButtonFaces.Has(control.Hwnd)
     {
@@ -706,7 +753,7 @@ ScrollEditorRows(offset)
             row.Input.Opt(entry[1] = "Password" ? "Password" : "-Password")
             row.Input.Value := EditorFields[entry[1]].Value
         }
-        EditorThumb.Move(890, 210 + Round(EditorOffset / 54 * 103))
+        EditorThumb.Move(BookS(890), BookS(210 + Round(EditorOffset / 54 * 103)))
     }
     finally
     {
