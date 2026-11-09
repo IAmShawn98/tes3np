@@ -148,6 +148,7 @@ OpenLauncherSettingsV016(*)
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
     settings.BackColor := "010101"
+    settings.MenuButtonScale := V016SettingsScale
     V016SettingsGuiHwnd := settings.Hwnd
     V016ReadabilityState := EnhancedReadability ? 1 : 0
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
