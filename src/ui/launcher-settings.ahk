@@ -148,6 +148,9 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     V016FollowWindowsState := followWindows.Value
     if settings.HasOwnProp("ReadabilityControl")
         UpdateV016ReadabilityLabel(settings.ReadabilityControl, V016ReadabilityState)
+    ; Preview may have moved/rescaled the launcher; return Settings relative
+    ; to that CURRENT location, not its pre-preview desktop coordinates.
+    PositionOwnedMenuAtParent(settings, LauncherGui)
     settings.Show()
     ; Settings is modal again once the preview has been rejected/restored.
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
