@@ -197,6 +197,72 @@ if A_Args.Length && A_Args[1] = "--check-cached-character-return"
     FileAppend("PASS: cached Character Book return avoids global repaint" Chr(10), "*")
     ExitApp(0)
 }
+; Windows smoke test for the actual owner HWND placement and child
+; geometry/fonts at 60% and 80%. Uses disposable GUI windows; it never
+; loads a launcher profile, touches game files or starts ChatHost.
+if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
+{
+    global LauncherScale := 60
+    global LauncherGui := Gui("-Caption -Border", "Owned menu placement smoke")
+    primary := MonitorGetPrimary()
+    MonitorGetWorkArea(primary, &ml, &mt, &mr, &mb)
+    ox := ml + 100, oy := mt + 90
+    LauncherGui.Show("x" ox " y" oy " w560 h425")
+    child := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border", "Child menu")
+    child.SetFont("s12", "Segoe UI")
+    label := child.Add("Text", "x20 y25 w210 h30", "Scaled menu")
+    button := child.Add("Button", "x30 y95 w160 h40", "Test")
+    try
+    {
+        for percent in [60, 80]
+        {
+            scale := percent / 100
+            ScaleOwnedMenuContent(child, scale)
+            child.Show("Hide w" Round(400 * scale) " h" Round(250 * scale))
+            if !PositionOwnedMenuAtParent(child, LauncherGui)
+                ExitApp(211)
+            label.GetPos(&lx, &ly, &lw, &lh)
+            button.GetPos(&bx, &by, &bw, &bh)
+            if Abs(lx - Round(20 * scale)) > 1
+                || Abs(lw - Round(210 * scale)) > 1
+                || Abs(bx - Round(30 * scale)) > 1
+                || Abs(bw - Round(160 * scale)) > 1
+                ExitApp(212)
+            parentRect := Buffer(16, 0), childRect := Buffer(16, 0)
+            DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", parentRect)
+            DllCall("GetWindowRect", "Ptr", child.Hwnd, "Ptr", childRect)
+            parentCenterX := (NumGet(parentRect, 0, "Int") + NumGet(parentRect, 8, "Int")) / 2
+            parentCenterY := (NumGet(parentRect, 4, "Int") + NumGet(parentRect, 12, "Int")) / 2
+            childCenterX := (NumGet(childRect, 0, "Int") + NumGet(childRect, 8, "Int")) / 2
+            childCenterY := (NumGet(childRect, 4, "Int") + NumGet(childRect, 12, "Int")) / 2
+            if Abs(parentCenterX - childCenterX) > 2
+                || Abs(parentCenterY - childCenterY) > 2
+                ExitApp(213)
+        }
+        ; Move the parent AFTER constructing the child. Reposition must use
+        ; the new owner rectangle and never its original desktop coordinates.
+        DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0,
+            "Int", ox + 70, "Int", oy + 55,
+            "Int", 0, "Int", 0, "UInt", 0x0015)
+        if !PositionOwnedMenuAtParent(child, LauncherGui)
+            ExitApp(214)
+        movedRect := Buffer(16, 0)
+        DllCall("GetWindowRect", "Ptr", child.Hwnd, "Ptr", movedRect)
+        if Abs(NumGet(movedRect, 0, "Int") - NumGet(childRect, 0, "Int") - 70) > 2
+            || Abs(NumGet(movedRect, 4, "Int") - NumGet(childRect, 4, "Int") - 55) > 2
+            ExitApp(215)
+        child.Show()
+        if !DllCall("IsWindowVisible", "Ptr", child.Hwnd)
+            ExitApp(216)
+        FileAppend("PASS: menus follow moved owner and resize controls at 60/80 percent" Chr(10), "*")
+    }
+    catch Error as err
+    {
+        FileAppend("FAIL: owned menu scale/position - " Type(err) Chr(10), "*")
+        ExitApp(217)
+    }
+    ExitApp(0)
+}
 HandleUpdaterStartupMode()
 StartLauncher()
 
