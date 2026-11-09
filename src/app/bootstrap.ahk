@@ -137,6 +137,8 @@ CreateLauncherChatToggle()
     ; ChatHost securely shares the latest validated signed attachment URL
     ; through WM_COPYDATA. Native retry never needs to call a stalled WebView.
     OnMessage(0x004A, TES3MPExpansionZipAvailable)
+    ; Progress from the same authenticated Chat Host for the optional auto ZIP.
+    OnMessage(0x8338, TES3MPExpansionDownloadProgress)
     ; Separate verified ChatHost authorization signal for Discord-backed dialogs.
     OnMessage(0x8336, DiscordExpansionPromptReady)
     LauncherChatMenu := Menu()
