@@ -582,7 +582,11 @@ PromptOriginalCharacterSpecies(current := "")
     CharacterPage.Opt("+Disabled")
     try
     {
-        dialog.Show("w360 h155")
+        dialogScale := GetOwnedMenuScale()
+        ScaleOwnedMenuContent(dialog, dialogScale)
+        dialog.Show("Hide w" Round(360 * dialogScale) " h" Round(155 * dialogScale))
+        PositionOwnedMenuAtParent(dialog, CharacterPage)
+        dialog.Show()
         WinWaitClose("ahk_id " dialog.Hwnd)
     }
     finally
