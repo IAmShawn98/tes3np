@@ -4,6 +4,14 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Remove Character Book Close latency from cached launcher repaint — 2026-11-09
+
+- The user supplied the 18.43-second, 60 fps video `2026-11-09 17-42-57.mp4`. It shows Manage Characters remaining visibly onscreen after the Close interaction in repeated sequences (first approximately 2.0s–3.5s); this is a return-to-parent responsiveness problem, not the previously fixed initial pop-in.
+- Close calls `ShowLauncherWindow(true)` **before** hiding the owned book. The old cached path unnecessarily checked every launcher control's geometry and called global `RepaintMenuButtons()`, which also repaints all Character Book's themed controls while the user waits for the book to disappear. The Chat Host resize hook is currently a no-op.
+- `ShowLauncherWindow` now uses its existing `reuseCached` flag to return immediately **only** when the launcher parent HWND is already visible, a cached layout exists, the count is unchanged and the automatic/manual scale matches. In that case it performs no global repaint or redundant Show. Changed scale/geometry or a hidden launcher still use the existing protected fallback/rebuild.
+- `CloseCharacterPage` retains the safe ordering: parent ready before `CharacterPage.Hide()`, editor/macro resets afterward. It logs parent-prepare vs Hide durations only when the entire visible close exceeds 150 ms, without character names or file paths.
+- Added `--check-cached-character-return` Windows GUI smoke exercising a visible parent and owned book and asserting no global themed control sweep and no slow close. CI compilation and this dedicated smoke passed; user's interactive latency result remains to be verified. The DWM cloaking pop-in fix, Settings, Game Chat, scaling, and Expansion Pack remain otherwise unchanged.
+
 ### Fix cloaked Settings transparency error and slow page buttons — 2026-11-09
 
 - The user **confirmed the DWM-staged Settings/Character Book change eliminated the visible pop-in**, but observed several-second button delays and a `Target window not found` error from `WinSetTransColor("010101", "ahk_id " settings.Hwnd)` during Settings opening. This title-based AHK lookup can fail for a deliberately DWM-cloaked window despite its HWND being valid.
