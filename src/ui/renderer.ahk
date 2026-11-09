@@ -272,7 +272,9 @@ PaintLoadingPanel(handle, target, width, height)
     DllCall("SetTextColor", "Ptr", dc, "UInt", 0x5CA4C5)
     rect := Buffer(16, 0)
     NumPut("Int", 8, "Int", Round(8 * scale), "Int", width - 8, "Int", Round(42 * scale), rect)
-    DllCall("DrawTextW", "Ptr", dc, "WStr", ButtonFaces[handle].Control.Text, "Int", -1, "Ptr", rect, "UInt", 0x825)
+    paintFace := ButtonFaces[handle]
+    loadingText := paintFace.HasOwnProp("DownloadText") ? paintFace.DownloadText : paintFace.Control.Text
+    DllCall("DrawTextW", "Ptr", dc, "WStr", loadingText, "Int", -1, "Ptr", rect, "UInt", 0x825)
     ; The automatic ZIP downloader keeps its Cancel button inside this ONE
     ; full-height native panel. PaintButtonNow uses GetDC + BitBlt, so simply
     ; setting WS_CLIPSIBLINGS on two sibling HWNDs does not protect the
@@ -297,7 +299,13 @@ PaintLoadingPanel(handle, target, width, height)
                     "Int", NumGet(buttonRect, 8, "Int"), "Int", NumGet(buttonRect, 12, "Int"))
         }
     }
-    try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+    ; On download progress ticks, only the top original loading-header
+    ; height changes. Never blit the overlapping Cancel/footer pixels, nor
+    ; invalidate them through SetWindowText. Full WM_PAINT still repaints the
+    ; full card when Windows actually exposes/resizes it.
+    blitHeight := paintFace.HasOwnProp("ProgressHeaderOnly") && paintFace.ProgressHeaderOnly
+        ? Min(height, Round(68 * scale)) : height
+    try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", blitHeight, "Ptr", dc, "Int", 0, "Int", "UInt", 0xCC0020)
     finally
         if savedTargetClip
             DllCall("RestoreDC", "Ptr", target, "Int", savedTargetClip)
