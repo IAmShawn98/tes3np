@@ -65,3 +65,113 @@ RevealPaintedPage(gui)
     DllCall("RedrawWindow", "Ptr", gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
     SetPageCompositorCloak(gui, false)
 }
+
+; Child pages always open relative to the CURRENT owner rectangle, not their
+; last/default Windows position. Use HWND geometry rather than a WinTitle lookup:
+; Settings and Characters are deliberately DWM-cloaked during first paint.
+PositionOwnedMenuAtParent(menu, owner)
+{
+    if !IsObject(menu) || !DllCall("IsWindow", "Ptr", menu.Hwnd)
+        return false
+    ownerHwnd := IsObject(owner) ? owner.Hwnd : owner
+    if !ownerHwnd || !DllCall("IsWindow", "Ptr", ownerHwnd)
+        return false
+    ownerRect := Buffer(16, 0), menuRect := Buffer(16, 0)
+    if !DllCall("GetWindowRect", "Ptr", ownerHwnd, "Ptr", ownerRect)
+        || !DllCall("GetWindowRect", "Ptr", menu.Hwnd, "Ptr", menuRect)
+        return false
+    ox := NumGet(ownerRect, 0, "Int"), oy := NumGet(ownerRect, 4, "Int")
+    ow := NumGet(ownerRect, 8, "Int") - ox
+    oh := NumGet(ownerRect, 12, "Int") - oy
+    mw := NumGet(menuRect, 8, "Int") - NumGet(menuRect, 0, "Int")
+    mh := NumGet(menuRect, 12, "Int") - NumGet(menuRect, 4, "Int")
+    if mw <= 0 || mh <= 0 || ow <= 0 || oh <= 0
+        return false
+    ; Work-area bounds belong to the owner monitor even if the pointer
+    ; happened to be over a different screen when the user clicked.
+    monitor := MonitorFromPoint(ox + ow // 2, oy + oh // 2)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    x := Max(left, Min(right - mw, ox + (ow - mw) // 2))
+    y := Max(top, Min(bottom - mh, oy + (oh - mh) // 2))
+    ; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE: reposition the hidden page
+    ; without activating it or bypassing the approved first-frame protection.
+    return DllCall("SetWindowPos", "Ptr", menu.Hwnd, "Ptr", 0,
+        "Int", x, "Int", y, "Int", 0, "Int", 0,
+        "UInt", 0x0015, "Int") != 0
+}
+
+; The launcher is already scaled by ApplyLauncherScaleToWindow. Child pages
+; take the same effective percentage, NOT an independent "readability scale".
+; Never recompute Auto from the mouse's monitor: that may differ from the
+; monitor containing the already-moved launcher.
+GetOwnedMenuScale()
+{
+    global LauncherScale
+    return Max(0.5, Min(1.0, LauncherScale / 100))
+}
+
+; Native GUI controls do not inherit arbitrary parent scale changes.
+; Rescale their real rectangles and font handles together, before first
+; presentation or while the owned page is DWM-cloaked. This preserves the
+; custom Morrowind/Segoe families, weights, colors and existing hit targets.
+; Fonts created here stay alive until the page is rescaled or destroyed.
+ScaleOwnedMenuContent(gui, scale)
+{
+    if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
+        return
+    scale := Max(0.5, Min(1.0, scale))
+    previous := gui.HasOwnProp("OwnedContentScale") ? gui.OwnedContentScale : 1.0
+    if Abs(previous - scale) < 0.001
+        return
+    ratio := scale / previous
+    previousFonts := gui.HasOwnProp("OwnedGeneratedFonts") ? gui.OwnedGeneratedFonts : []
+    newFonts := [], fontCache := Map()
+    ; Suppress intermediate parent paints while button geometry/fonts change.
+    DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+    try
+    {
+        for control in gui
+        {
+            if !DllCall("IsWindow", "Ptr", control.Hwnd)
+                continue
+            control.GetPos(&cx, &cy, &cw, &ch)
+            control.Move(Round(cx * ratio), Round(cy * ratio),
+                Max(1, Round(cw * ratio)), Max(1, Round(ch * ratio)))
+            oldFont := DllCall("SendMessageW", "Ptr", control.Hwnd,
+                "UInt", 0x0031, "Ptr", 0, "Ptr", 0, "Ptr") ; WM_GETFONT
+            if !oldFont
+                continue
+            if !fontCache.Has(oldFont)
+            {
+                definition := Buffer(92, 0) ; LOGFONTW
+                if DllCall("gdi32\GetObjectW", "Ptr", oldFont,
+                    "Int", definition.Size, "Ptr", definition, "Int") < 92
+                    continue
+                height := NumGet(definition, 0, "Int")
+                if height = 0
+                    continue
+                NumPut("Int", Round(height * ratio), definition, 0)
+                NumPut("Int", 0, definition, 4) ; let GDI derive font width
+                scaledFont := DllCall("gdi32\CreateFontIndirectW",
+                    "Ptr", definition, "Ptr")
+                if !scaledFont
+                    continue
+                fontCache[oldFont] := scaledFont
+                newFonts.Push(scaledFont)
+            }
+            ; WM_SETFONT, redraw=0; RevealPaintedPage handles one final paint.
+            DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x0030,
+                "Ptr", fontCache[oldFont], "Ptr", 0)
+        }
+    }
+    finally
+    {
+        DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B,
+            "Ptr", 1, "Ptr", 0)
+    }
+    ; No controls refer to fonts from the previous size after a complete pass.
+    for font in previousFonts
+        DllCall("gdi32\DeleteObject", "Ptr", font)
+    gui.OwnedGeneratedFonts := newFonts
+    gui.OwnedContentScale := scale
+}
