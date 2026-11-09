@@ -234,10 +234,15 @@ HideProfileEditor()
 CloseCharacterPage(*)
 {
     global CharacterPage
+    ; Keep the owned book in front while the already-built launcher returns
+    ; underneath it. Hiding the book first lets Windows briefly activate an
+    ; unrelated background application before the launcher is ready.
+    ShowLauncherWindow(true)
+    CharacterPage.Hide()
+    ; Reset dormant controls only AFTER hiding, avoiding a visible flash of
+    ; the editor/list while navigating back to the launcher.
     HideProfileEditor()
     CloseMacroPage()
-    CharacterPage.Hide()
-    ShowLauncherWindow(true)
 }
 
 EditProfile(index, *)
