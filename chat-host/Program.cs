@@ -1754,6 +1754,23 @@ metrics();
                 SWP_NOZORDER_NOACTIVATE);
         }
 
+        // This updates only the existing banner's text/colors, not its
+        // visibility, ownership, z-order, or launcher focus. In particular,
+        // it must run while Settings/Characters/other dialogs are open.
+        void RefreshHappyHourBannerClock()
+        {
+            if (happyHourBanner is not { IsDisposed: false } ||
+                happyHourBannerRainbow == null) return;
+            bool active = happyHourEndsAt > DateTimeOffset.UtcNow;
+            // Derive the remaining time from the immutable, real Discord
+            // expiry on every tick; never decrement a paused local counter.
+            happyHourBannerClockText = HappyHourBannerTime(happyHourEndsAt);
+            happyHourBannerClockColor = active
+                ? HappyHourTimerColor(happyHourEndsAt)
+                : System.Drawing.Color.FromArgb(215, 170, 77);
+            LayoutHappyHourBannerContents();
+        }
+
         void RefreshHappyHourBanner()
         {
             if ((!ShowExpiredHappyHourForAlphaTest &&
@@ -1763,6 +1780,9 @@ metrics();
                 happyHourBanner = null;
                 return;
             }
+            // Menus must not pause the active countdown. Leave the
+            // separate dialog gate below to protect focus and z-order.
+            RefreshHappyHourBannerClock();
             if (OtherLauncherDialogOpen()) {
                 // Leave existing launcher dialogs in control of focus/z-order.
                 // This is the only gate before the single Happy Hour banner.
@@ -1844,19 +1864,11 @@ metrics();
                 SetNativeWindowOwner(banner.Handle, owner);
                 // Notify Jiub only after the verified Discord-backed banner shows.
                 NotifyLauncherHappyHourFace(true);
+                // Initialize the visible clock on the first show as well.
+                RefreshHappyHourBannerClock();
                 Log("HAPPY HOUR | Banner window created for real message " +
                     lastHappyHourMessageId + "; expires=" +
                     happyHourEndsAt.ToString("O"));
-            }
-            if (happyHourBannerRainbow != null) {
-                bool active = happyHourEndsAt > DateTimeOffset.UtcNow;
-                // Always use the original Discord timestamp. Alpha testing
-                // keeps an expired announcement visible at (0m 0s).
-                happyHourBannerClockText = HappyHourBannerTime(happyHourEndsAt);
-                happyHourBannerClockColor = active
-                    ? HappyHourTimerColor(happyHourEndsAt)
-                    : System.Drawing.Color.FromArgb(215, 170, 77);
-                LayoutHappyHourBannerContents();
             }
             // Native movement is synchronized by the launcher's WinEvent hook.
             // This call is a layout/fallback check, never the primary timer

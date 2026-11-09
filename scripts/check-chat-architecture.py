@@ -126,6 +126,34 @@ expect(
     and "GoldHappyHourWindow(480" not in source
     and "Form? happyHourAlert" not in source,
 )
+happy_hour_refresh = section_between(
+    source,
+    "void RefreshHappyHourBanner()",
+    "\n        [DllImport(\"user32.dll\")] static extern bool IsWindowVisible",
+)
+happy_hour_clock = section_between(
+    source,
+    "void RefreshHappyHourBannerClock()",
+    "\n        void RefreshHappyHourBanner()",
+)
+expect(
+    "Happy Hour countdown updates during any open launcher menu without stealing focus",
+    "RefreshHappyHourBannerClock();" in happy_hour_refresh
+    and "if (OtherLauncherDialogOpen())" in happy_hour_refresh
+    and happy_hour_refresh.index("RefreshHappyHourBannerClock();")
+        < happy_hour_refresh.index("if (OtherLauncherDialogOpen())")
+    and "RefreshHappyHourBannerClock();" in happy_hour_refresh[
+        happy_hour_refresh.index("Banner window created") - 250:
+    ]
+    and "HappyHourBannerTime(happyHourEndsAt)" in happy_hour_clock
+    and "DateTimeOffset.UtcNow" in happy_hour_clock
+    and "LayoutHappyHourBannerContents();" in happy_hour_clock
+    and "SetNativeWindowOwner(banner.Handle, owner);" in happy_hour_refresh
+    and "if (!happyHourBanner.Visible)" in happy_hour_refresh
+    and "else if (happyHourBanner.Visible)" in happy_hour_refresh
+    and "new System.Windows.Forms.Timer { Interval = 1000 }" in source
+    and "DiscordTimestamp(activationId).AddHours(1)" in source,
+)
 expect(
     "Banner presentation is independent of Discord authentication",
     "if (activationId == 0 || closingChat || IsDisposed) return;" in source
