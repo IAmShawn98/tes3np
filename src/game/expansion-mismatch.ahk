@@ -537,7 +537,7 @@ TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)
     }
     else if IsObject(ExpansionMismatchStatus)
         ExpansionMismatchStatus.Text := wParam = 0
-            ? "Connecting to the official download..."
+            ? "Downloading or preparing the official package..."
             : "Downloading Expansion Pack... " wParam "%"
     return 0
 }
@@ -595,6 +595,10 @@ TES3MPExpansionBeginAutoImport(dialog, slot, package)
     }
     CloseTES3MPExpansionMismatchDialog(dialog, slot)
     InstallSelectedExpansionPackage(package, true)
+    ; Preflight may be cancelled before PatchJob is created. No process then
+    ; owns this temporary ZIP, so clean it up here.
+    if !PatchInProgress()
+        try FileDelete(package)
 }
 
 TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
