@@ -3461,6 +3461,20 @@ metrics();
             await ApplyCss();
             await RefreshNativeMessages();
         }
+        // Launcher command 12 retries a pending authenticated Expansion
+        // request; a lost launcher acknowledgement cannot strand the menu.
+        void RetryAuthenticatedExpansionPrompt(int mode)
+        {
+            if ((mode != 1 && mode != 2) || closingChat || !IsWindow(owner)) return;
+            if (pendingExpansionPrompt == 0)
+            {
+                RequestAuthenticatedExpansionPrompt(mode);
+                return;
+            }
+            if (discordLoginVisible) RevealDiscordSignInWindow();
+            _ = ResolvePendingExpansionPromptAsync();
+        }
+
         // Launcher command 10 requests an Expansion Pack download dialog.
         // Only confirmed Game Chat channel authentication allows the dialog.
         // Signed-out users see the already-established branded login screen.
@@ -3514,13 +3528,16 @@ metrics();
             // Normal navigation/polling reveals the established branded
             // Discord login; do not reset the profile or open a new browser.
         }
-        void CancelPendingExpansionPrompt()
+        void CancelPendingExpansionPrompt(bool notifyLauncher = true)
         {
             if (pendingExpansionPrompt == 0) return;
             pendingExpansionPrompt = 0;
             restoreChatAfterExpansionPrompt = false;
-            // Zero mode tells the launcher to discard its pending request.
-            if (IsWindow(owner)) PostMessage(owner, 0x8336, IntPtr.Zero, Handle);
+            // A launcher-initiated close already cleared its own pending state.
+            // Don't send a stale zero acknowledgement into a rapidly reopened
+            // dialog; user-initiated login cancellation still informs launcher.
+            if (notifyLauncher && IsWindow(owner))
+                PostMessage(owner, 0x8336, IntPtr.Zero, Handle);
         }
         void CompletePendingExpansionPrompt()
         {
@@ -3565,7 +3582,8 @@ metrics();
                     case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;
                     case 9: HideEmbeddedExpansionDownloads(m.LParam); break;
                     case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
-                    case 11: CancelPendingExpansionPrompt(); break;
+                    case 11: CancelPendingExpansionPrompt(false); break;
+                    case 12: RetryAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
                 }
                 return;
             }

@@ -7,6 +7,9 @@ global ExpansionMismatchSlot := 0
 global ExpansionMismatchZipUrl := ""
 global ExpansionMismatchFileButton := 0
 global ExpansionMismatchDownloadSlot := 0
+global ExpansionMismatchStatus := 0
+global ExpansionMismatchAuthenticated := false
+global ExpansionMismatchMode := "Mismatch"
 ; 1 = initial missing-pack install; 2 = server plugin mismatch.
 global ExpansionDiscordPromptPending := 0
 ; Keep only fixed error classifications from the current failed login;
@@ -144,33 +147,50 @@ ResetPendingExpansionPromptForNewLaunch()
     LogLauncherEvent("EXPANSION | Reset pending Discord recovery for new game launch.")
 }
 
-; All Discord-dependent download dialogs wait for the existing Game Chat
-; authentication. Only the running ChatHost can complete this in-memory request.
+; The native explanation opens immediately. Discord-backed ZIP discovery
+; still requires authentication through the existing Game Chat Host.
 RequestDiscordExpansionPrompt(mode := 2)
 {
-    global ExpansionDiscordPromptPending, ExpansionMismatchDialog, EmbeddedChatPid
-    if IsObject(ExpansionMismatchDialog)
-        return
-    ; A crashed ChatHost cannot strand the request forever.
+    global ExpansionDiscordPromptPending, EmbeddedChatPid, ExpansionMismatchStatus
+    if mode != 1 && mode != 2
+        return false
     if ExpansionDiscordPromptPending
     {
         if EmbeddedChatPid && ProcessExist(EmbeddedChatPid)
-            return
+        {
+            ; Re-run the existing authenticated check rather than ignoring a
+            ; second click. ChatHost handles an already-pending request safely.
+            if !SendLauncherChatCommand(12, mode)
+            {
+                if IsObject(ExpansionMismatchStatus)
+                    ExpansionMismatchStatus.Text := "Game Chat is unavailable. Open it, then click Connect / Retry."
+                return false
+            }
+            if IsObject(ExpansionMismatchStatus)
+                ExpansionMismatchStatus.Text := "Checking Game Chat again. Sign in to Discord if prompted."
+            return true
+        }
         ExpansionDiscordPromptPending := 0
     }
-    if mode != 1 && mode != 2
-        return
     ExpansionDiscordPromptPending := mode
     if !SendLauncherChatCommand(10, mode)
     {
         ExpansionDiscordPromptPending := 0
-        MsgBox("Game Chat is not ready. Open Game Chat, sign into Discord, then try again.", "Expansion Pack", "Icon!")
+        if IsObject(ExpansionMismatchStatus)
+            ExpansionMismatchStatus.Text := "Game Chat is unavailable. Open Game Chat, then click Connect / Retry."
+        else
+            MsgBox("Game Chat is not ready. Open Game Chat, sign into Discord, then try again.", "Expansion Pack", "Icon!")
+        LogLauncherEvent("EXPANSION | Waiting for Game Chat host before opening Discord downloads.")
+        return false
     }
+    if IsObject(ExpansionMismatchStatus)
+        ExpansionMismatchStatus.Text := "Connecting to Game Chat. Sign in to Discord if prompted."
+    return true
 }
 
 DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
 {
-    global LauncherGui, EmbeddedChatPid, ExpansionDiscordPromptPending
+    global LauncherGui, EmbeddedChatPid, ExpansionDiscordPromptPending, ExpansionMismatchStatus
     if (!IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
         || !ExpansionDiscordPromptPending
         || (wParam != 0 && wParam != ExpansionDiscordPromptPending))
@@ -180,8 +200,15 @@ DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
         return 0
     try
     {
-        if WinGetPID("ahk_id " lParam) != EmbeddedChatPid
-            return 0
+        oldHidden := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        try
+        {
+            if WinGetPID("ahk_id " lParam) != EmbeddedChatPid
+                return 0
+        }
+        finally
+            DetectHiddenWindows(oldHidden)
     }
     catch
         return 0
@@ -190,6 +217,8 @@ DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
     if wParam = 0
     {
         LogLauncherEvent("EXPANSION | Discord download prompt cancelled before authentication.")
+        if IsObject(ExpansionMismatchStatus)
+            ExpansionMismatchStatus.Text := "Discord sign-in was closed. Click Connect / Retry to try again."
         return 0
     }
     ShowTES3MPExpansionMismatchDialog(mode = 1 ? "Install" : "Mismatch", true)
@@ -198,27 +227,53 @@ DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
 
 ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
 {
-    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot
-    ; No close/reopen cycle while a browser is downloading. Duplicate
-    ; server mismatches cannot stack additional native WebView2 children.
+    global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    global ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot, ExpansionMismatchStatus
+    global ExpansionMismatchAuthenticated, ExpansionMismatchMode
+    ; Never hide the diagnostic behind Discord authentication. The native
+    ; dialog is useful immediately; only the official download is gated.
     if IsObject(ExpansionMismatchDialog)
-        return
-    if !authConfirmed
     {
-        RequestDiscordExpansionPrompt(mode = "Install" ? 1 : 2)
-        return
+        try
+        {
+            if DllCall("IsWindow", "Ptr", ExpansionMismatchDialog.Hwnd)
+            {
+                ExpansionMismatchDialog.Show()
+                try WinActivate("ahk_id " ExpansionMismatchDialog.Hwnd)
+                if authConfirmed
+                {
+                    ExpansionMismatchAuthenticated := true
+                    if IsObject(ExpansionMismatchStatus)
+                        ExpansionMismatchStatus.Text := "Game Chat connected. Finding the latest official ZIP..."
+                    if !SendLauncherChatCommand(6, ExpansionMismatchSlot)
+                        && IsObject(ExpansionMismatchStatus)
+                        ExpansionMismatchStatus.Text := "Download preview unavailable. Click Connect / Retry."
+                }
+                return
+            }
+        }
+        catch Error as err
+            LogLauncherEvent("EXPANSION | Stale dialog handle; reopening menu (" Type(err) ").")
+        ; A destroyed window must never block subsequent attempts.
+        ExpansionMismatchDialog := 0
+        ExpansionMismatchStatus := 0
+        ExpansionMismatchAuthenticated := false
     }
+    ExpansionMismatchMode := mode
+    ExpansionMismatchAuthenticated := authConfirmed
     ExpansionMismatchZipUrl := ""
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
     dialog.SetFont("s16 Bold cC5A45C", "Georgia")
-    installing := mode = "Install"
+    installing := mode != "Mismatch"
     if installing
     {
-        dialogTitle := "Expansion Pack Not Installed"
-        intro := "The optional NP Expansion Pack wasn't found in your Morrowind installation. "
-            . "Download the current pack from the official Nerevarine Prophecies Discord."
+        dialogTitle := mode = "Browse" ? "Expansion Pack Downloads" : "Expansion Pack Not Installed"
+        intro := mode = "Browse"
+            ? "Download or import the latest optional NP Expansion Pack from the official Nerevarine Prophecies Discord."
+            : "The optional NP Expansion Pack wasn't found in your Morrowind installation. "
+                . "Download the current pack from the official Nerevarine Prophecies Discord."
         help := "The Expansion Pack is optional. Your existing game and other mods won't be changed "
             . "until you select a downloaded file to install."
     }
@@ -235,7 +290,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", intro)
     dialog.Add("Text", "x25 y159 w610 h88 BackgroundTrans",
         "Click the latest Expansion Pack ZIP below to download it through your browser. "
-        . "When the download finishes, click " (installing ? "Install" : "OK") " to select the ZIP "
+        . "When the download finishes, click Install ZIP to select the ZIP "
         . "or its extracted folder and import it safely.")
     dialog.Add("Text", "x25 y256 w610 h66 BackgroundTrans", help)
     dialog.SetFont("s10 Bold cC5A45C", "Segoe UI")
@@ -243,11 +298,14 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ; Native child HWND placeholder for the existing ChatHost's WebView2.
     ; No extra Discord popup and no second browser profile are created.
     downloadSlot := dialog.Add("Text", "x25 y349 w610 h113 +0x100 Background202023",
-        "Connecting to the Nerevarine Prophecies Discord channel...")
+        "Sign in through Game Chat to view the latest official Expansion Pack ZIP.")
     ExpansionMismatchDownloadSlot := downloadSlot
     ; This status is created before the download actions so both callbacks
     ; always reference a fully initialized control.
-    nativeStatus := dialog.Add("Text", "x25 y518 w610 h19 cD8C38C BackgroundTrans", "")
+    nativeStatus := dialog.Add("Text", "x25 y518 w610 h19 cD8C38C BackgroundTrans",
+        authConfirmed ? "Game Chat connected. Finding the latest official ZIP..."
+            : "Sign in to Game Chat to download; existing ZIPs can still be installed.")
+    ExpansionMismatchStatus := nativeStatus
     ; The native download button overlays the original Discord placeholder.
     ; Once a ZIP is found we must hide the placeholder itself, not only the
     ; foreign WebView child, or its native HWND can intercept mouse clicks.
@@ -255,7 +313,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
         "Download Expansion Pack ZIP",
         (*) => TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "main-button"))
     ExpansionMismatchFileButton.Visible := false
-    AddStyledButton(dialog, 25, 475, 210, 33, "Download ZIP / Retry",
+    AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry",
         (*) => TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "retry-button"))
     if !installing
         AddStyledButton(dialog, 245, 475, 210, 33, "Copy Diagnostic Info",
@@ -263,7 +321,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
     dialog.Add("Link", "x25 y543 w610 h20",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
-    AddStyledButton(dialog, 340, 574, 140, 38, installing ? "Install" : "OK",
+    AddStyledButton(dialog, 340, 574, 140, 38, "Install ZIP",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd, true))
     AddStyledButton(dialog, 490, 574, 140, 38, "Cancel",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
@@ -272,13 +330,21 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.Show("w660 h627")
     ExpansionMismatchDialog := dialog
     ExpansionMismatchSlot := downloadSlot.Hwnd
-    ; WM_APP command 6: attach one child browser to this exact HWND.
-    SendLauncherChatCommand(6, downloadSlot.Hwnd)
+    try WinActivate("ahk_id " dialog.Hwnd)
+    ; Attach the Discord browser only after ChatHost confirms authentication.
+    if authConfirmed
+    {
+        if !SendLauncherChatCommand(6, downloadSlot.Hwnd)
+            nativeStatus.Text := "Download preview unavailable. Click Connect / Retry."
+    }
+    else
+        RequestDiscordExpansionPrompt(installing ? 1 : 2)
 }
 
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
+    global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending
     if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
@@ -286,6 +352,15 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
     ExpansionMismatchZipUrl := ""
     ExpansionMismatchFileButton := 0
     ExpansionMismatchDownloadSlot := 0
+    ExpansionMismatchStatus := 0
+    ExpansionMismatchAuthenticated := false
+    ; Cancel pending authentication before destroying the native window,
+    ; so a late Game Chat acknowledgement cannot resurrect a closed menu.
+    if ExpansionDiscordPromptPending
+    {
+        ExpansionDiscordPromptPending := 0
+        SendLauncherChatCommand(11)
+    }
     ; Normal OK/Cancel closes just this dialog. We never recycle the
     ; embedded Discord controller during an ordinary ZIP download.
     SendLauncherChatCommand(7, slotHwnd)
@@ -338,6 +413,8 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     ExpansionMismatchZipUrl := url
+    if IsObject(ExpansionMismatchStatus)
+        ExpansionMismatchStatus.Text := "Latest official ZIP found. Click Download to open your browser."
     if IsObject(ExpansionMismatchFileButton)
     {
         ; The filename comes from the validated official attachment path.
@@ -384,12 +461,26 @@ TES3MPExpansionActivateDownloadButton(slotHwnd)
 TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
+    global ExpansionMismatchAuthenticated, ExpansionMismatchMode, ExpansionDiscordPromptPending
     if !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot
         return
     url := ExpansionMismatchZipUrl
     if url = ""
     {
         LogLauncherEvent("EXPANSION | Download requested before Discord ZIP discovery.")
+        if !ExpansionMismatchAuthenticated
+        {
+            statusControl.Text := "Waiting for Discord sign-in. Open Game Chat to authenticate."
+            RequestDiscordExpansionPrompt(ExpansionMismatchMode = "Mismatch" ? 2 : 1)
+        }
+        else
+        {
+            ; An earlier authorization may have expired. Recheck live Discord
+            ; auth before retrying the embedded ZIP surface.
+            ExpansionMismatchAuthenticated := false
+            statusControl.Text := "Rechecking Discord sign-in and the latest ZIP..."
+            RequestDiscordExpansionPrompt(ExpansionMismatchMode = "Mismatch" ? 2 : 1)
+        }
         return
     }
     ; Re-validate every click. A cancelled browser transfer never disables

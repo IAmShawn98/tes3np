@@ -255,6 +255,23 @@ def check(allow_missing_payload: bool = False) -> None:
         errors.append("Expansion Pack state must verify imported ESP location and SHA-256.")
     upload = (ROOT / "src/ui/expansion-upload.ahk").read_text(encoding="utf-8-sig")
     bootstrap = (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
+    mismatch_ui = (ROOT / "src/game/expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
+    session_code = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
+    if not all(token in mismatch_ui for token in (
+        "Never hide the diagnostic behind Discord authentication",
+        'AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry"',
+        'ExpansionDiscordPromptPending := 0',
+        'Sign in through Game Chat to view the latest official Expansion Pack ZIP',
+        'AddStyledButton(dialog, 340, 574, 140, 38, "Install ZIP"',
+    )):
+        errors.append("Expansion Pack dialog must always open, support retries, and clear pending authentication.")
+    if 'Open Expansion Pack Downloads' not in (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig"):
+        errors.append("Expansion Pack downloads need a persistent reopen entry in the tray.")
+    if 'case 12: RetryAuthenticatedExpansionPrompt' not in (ROOT / "chat-host/Program.cs").read_text(encoding="utf-8-sig"):
+        errors.append("Game Chat retry command must remain available after a pending auth request.")
+    if not all(token in session_code for token in ("MismatchExitGraceUntil", "MismatchWindowGraceUntil")):
+        errors.append("Game exit/window loss must allow a bounded fresh-log mismatch capture.")
+
     expected_import = (
         '"patch-tes3mp.ps1"' not in resource_generator
         and 'UploadExpansionFromFile(*)' in upload
