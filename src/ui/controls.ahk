@@ -29,7 +29,11 @@ AddStyledButton(gui, x, y, width, height, text, action)
 {
     global ButtonFaces
     InitButtonPainter()
-    gui.SetFont("s10 Bold", "Segoe UI")
+    ; Settings parchment controls are sized by V016S. Its button fonts must
+    ; use that same scale instead of remaining 10pt at 50/60 percent.
+    ; Other books are scaled together later by ScaleOwnedMenuContent.
+    buttonScale := gui.HasOwnProp("MenuButtonScale") ? gui.MenuButtonScale : 1.0
+    gui.SetFont("s" Max(7, Round(10 * buttonScale)) " Bold", "Segoe UI")
     button := gui.Add("Custom", "ClassButton x" x " y" y " w" width " h" height " +0xB +Tabstop", text)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
     ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action, Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal", BaseX: x, BaseWidth: width, BaseHeight: height}
