@@ -214,14 +214,26 @@ OpenLauncherSettingsV016(*)
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Size", (*) => 0)
-    ; Prepare the owned parchment fully hidden. Showing it before setting
-    ; the transparency key exposed its unmasked 010101 frame for a compositor
-    ; tick, which looked like a pop-in when changing launcher pages.
-    settings.Show("Hide w" V016S(512) " h" V016S(590))
-    WinSetTransColor("010101", "ahk_id " settings.Hwnd)
-    settings.Show()
-    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
-    FinishButtonDisplay()
+    ; The transparency key must be applied to the hidden Settings GUI, but
+    ; that alone does not prevent DWM from presenting its unpainted native
+    ; controls on the first visible frame. Cloak before Show and uncloak only
+    ; after the completed parchment and themed controls have been painted.
+    staged := SetPageCompositorCloak(settings, true)
+    try
+    {
+        settings.Show("Hide w" V016S(512) " h" V016S(590))
+        WinSetTransColor("010101", "ahk_id " settings.Hwnd)
+        settings.Show()
+        DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+        FinishButtonDisplay()
+        if staged
+            RevealPaintedPage(settings)
+    }
+    finally
+    {
+        if staged
+            SetPageCompositorCloak(settings, false)
+    }
 }
 
 CloseLauncherSettingsV016(settings, *)
