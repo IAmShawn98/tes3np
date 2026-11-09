@@ -282,6 +282,16 @@ UpdateExpansionLoadingProgress(frame, label, percent)
     frame.Panel.Text := label
     ButtonFaces[hwnd].Progress := Max(0, Min(1, percent / 100))
     PaintButtonNow(hwnd)
+    ; The loading panel and Cancel are native sibling HWNDs. A panel paint
+    ; can invalidate the button's themed pixels without changing hover state,
+    ; leaving the stock white control until the next mouse event. Complete
+    ; this SAME progress update by immediately painting the existing themed
+    ; button through its buffered renderer (no hide/show or new controls).
+    protectedButton := ButtonFaces[hwnd].HasOwnProp("ProtectedButtonHwnd")
+        ? ButtonFaces[hwnd].ProtectedButtonHwnd : 0
+    if protectedButton && ButtonFaces.Has(protectedButton)
+        && DllCall("IsWindowVisible", "Ptr", protectedButton)
+        PaintButtonNow(protectedButton)
 }
 
 SetInterfaceLoadingText(message)
