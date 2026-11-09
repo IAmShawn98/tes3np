@@ -109,11 +109,11 @@ StartLauncher()
     SetTimer(StartEmbeddedInGameChat, -75)
     ; Expansion Pack setup is optional; never run patch verification at startup.
     SetTimer(CheckForUpdateAvailability, -250)
-    ; A clean first run should be quiet. Missing GOTY opens its existing
-    ; chooser when Play/New Adventure actually needs those files; the optional
-    ; desktop shortcut is offered on demand from Launcher Settings.
-    ; Discord authentication is likewise requested only when Game Chat or an
-    ; authenticated Expansion Pack download is explicitly opened.
+    ; The only optional first-launch prompt is the one-time desktop
+    ; shortcut choice, shown AFTER the launcher is visible and painted.
+    ; Missing GOTY remains a game-launch action; Discord authentication
+    ; remains a Game Chat / Expansion Pack action. Do not stack them at startup.
+    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
@@ -509,18 +509,17 @@ CleanupLauncher(*)
 
 
 
-OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
+OfferDesktopShortcutOnFirstLaunch(*)
 {
     global DataFile, AppDataDirectory
-    ; Only offer a shortcut for a complete compiled distribution. In particular,
-    ; never create one to a source-tree launcher without its packaged client.
+    ; Prompt once for a complete compiled distribution, never for source-tree
+    ; tests and never again after either answer has been saved.
     if !A_IsCompiled || !FileExist(A_ScriptDir "\client\tes3mp.exe")
         return
-    if !forceAfterInstall && IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
+    if IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
         return
 
-    answer := forceAfterInstall ? "Yes"
-        : MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?", "tes3np", "YesNo Icon?")
+    answer := MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?", "tes3np", "YesNo Icon?")
     ; Record the choice before attempting filesystem operations. Otherwise an
     ; unwritable desktop re-prompts at every startup despite the user's answer.
     DirCreate(AppDataDirectory)
@@ -531,8 +530,6 @@ OfferDesktopShortcutOnFirstLaunch(forceAfterInstall := false, *)
         {
             FileCreateShortcut(A_ScriptFullPath, A_Desktop "\Nerevarine Prophecies.lnk",
                 A_ScriptDir, "", "Launch Nerevarine Prophecies", A_ScriptFullPath)
-            if forceAfterInstall
-                MsgBox("Desktop shortcut created.", "tes3np", "Iconi")
         }
         catch Error as err
         {
