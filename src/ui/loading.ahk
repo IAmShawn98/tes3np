@@ -110,13 +110,21 @@ EndInterfaceUpdate()
 CaptureInterfaceFrame(sourceWindow, showLoading := false)
 {
     if !DllCall("IsWindowVisible", "Ptr", sourceWindow.Hwnd)
+    {
+        if showLoading
+            LogLauncherEvent("EXPANSION | Native capture source window not visible.")
         return 0
+    }
     rect := Buffer(16, 0)
     DllCall("GetClientRect", "Ptr", sourceWindow.Hwnd, "Ptr", rect)
     width := NumGet(rect, 8, "Int")
     height := NumGet(rect, 12, "Int")
     if width <= 0 || height <= 0
+    {
+        if showLoading
+            LogLauncherEvent("EXPANSION | Native capture source window has no client area.")
         return 0
+    }
     origin := Buffer(8, 0)
     DllCall("ClientToScreen", "Ptr", sourceWindow.Hwnd, "Ptr", origin)
     x := NumGet(origin, 0, "Int")
@@ -126,6 +134,8 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
     bitmap := DllCall("CreateCompatibleBitmap", "Ptr", screenDC, "Int", width, "Int", height, "Ptr")
     if !screenDC || !memoryDC || !bitmap
     {
+        if showLoading
+            LogLauncherEvent("EXPANSION | Native capture GDI allocation failed.")
         if bitmap
             DllCall("DeleteObject", "Ptr", bitmap)
         if memoryDC
@@ -142,6 +152,8 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
     DllCall("ReleaseDC", "Ptr", 0, "Ptr", screenDC)
     if !copied
     {
+        if showLoading
+            LogLauncherEvent("EXPANSION | Native capture screen BitBlt failed.")
         DllCall("DeleteObject", "Ptr", bitmap)
         return 0
     }
@@ -166,6 +178,8 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
     }
     catch Error as err
     {
+        if showLoading
+            LogLauncherEvent("EXPANSION | Native captured frame construction failed (" Type(err) ").")
         ReportLoadingFailure(err)
         if IsObject(cover)
             cover.Destroy()
