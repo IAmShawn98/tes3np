@@ -393,7 +393,9 @@ expect(
     and 'UploadExpansionFromFile()' in patcher
     and 'TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)' in mismatch
     and 'ExpansionAutoDownloadAttempted := true' in mismatch
-    and 'SetTimer((*) => TES3MPExpansionRequestAutoInstall(slot, status), -100)' in mismatch
+    and 'SetTimer((*) => TES3MPExpansionStartDiscoveredZip(slot, status), -100)' in mismatch
+    and 'ExpansionAutoDownloadAttempted := true\n    TES3MPExpansionRequestAutoInstall(slot, status)' in mismatch
+    and 'IsObject(ExpansionAutoProgressFrame) && !ExpansionAutoDownloadAttempted' in mismatch
     and 'SendLauncherChatCommand(13, slotHwnd)' in mismatch
     and 'case 13: StartExpansionAutoDownload(m.LParam); break;' in source
     and 'slot != expansionDownloadsParent' in source
@@ -482,11 +484,22 @@ expect(
         < auto_install_view.index('dialog.Show("w660 h627")')
     and 'if cloaked' in auto_install_view
     and 'if TES3MPExpansionBeginNativeProgress()' in auto_install_view
-    and 'TES3MPExpansionRevealRepair("Native download progress unavailable.' in auto_install_view
+    and 'SetTimer((*) => TES3MPExpansionRetryNativeProgress(dialog), -300)' in auto_install_view
+    and 'TES3MPExpansionRevealRepair("Native download window could not initialize.' in auto_progress_helpers
     and 'mode != "Mismatch"' in auto_install_view
     and 'TES3MPExpansionCloakDialog(ExpansionMismatchDialog, false)' in auto_progress_helpers
     and 'DllCall("dwmapi\\DwmSetWindowAttribute"' in auto_progress_helpers
     and 'if IsObject(ExpansionAutoCloaked)' not in auto_progress_helpers,
+)
+expect(
+    "Initial native progress failure gets one deferred retry without prematurely revealing repair",
+    'TES3MPExpansionRetryNativeProgress(dialog)' in auto_progress_helpers
+    and 'if !TES3MPExpansionBeginNativeProgress()' in auto_progress_helpers
+    and 'SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)' in auto_progress_helpers
+    and 'SetTimer((*) => TES3MPExpansionStartDiscoveredZip(ExpansionMismatchSlot, ExpansionMismatchStatus), -80)' in auto_progress_helpers
+    and 'if ExpansionAutoCloaked' in auto_install_view + mismatch
+    and 'if ExpansionMismatchMode = "Install" && IsObject(ExpansionAutoProgressFrame)' in mismatch
+    and 'TES3MPExpansionRevealRepair("Automatic download failed.' in mismatch,
 )
 expect(
     "Native first-enable progress reuses the trusted import loader and offers safe cancel",
