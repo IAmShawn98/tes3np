@@ -506,7 +506,8 @@ expect(
 expect(
     "All new native progress UI dependencies use explicit AHK function-object resolution",
     'TES3MPExpansionCallNativeUi(name, args*)' in auto_progress_helpers
-    and 'return Func(name).Call(args*)' in auto_progress_helpers
+    and 'callback := %name%' in auto_progress_helpers
+    and 'return callback.Call(args*)' in auto_progress_helpers
     and 'CaptureInterfaceFrame(LauncherGui, true)' not in auto_progress_helpers.replace(
         'TES3MPExpansionCallNativeUi("CaptureInterfaceFrame", LauncherGui, true)', '')
     and 'ExpansionAutoCancelButton := AddStyledButton(' not in auto_progress_helpers
