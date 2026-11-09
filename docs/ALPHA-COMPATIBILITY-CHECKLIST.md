@@ -17,6 +17,17 @@ The following were reported as passed by the project tester on October 29,
 - The shortcut-prompt persistence fix has **not** been re-verified after commit
   `12b942d`; keep it open.
 
+## Launcher-relative popup placement and matched page sizing — awaiting desktop validation
+
+- [ ] Move the launcher from its initial position, then open Launcher Settings and Manage Characters. Each should appear centered on the **moved launcher**, not its old desktop position.
+- [ ] Test Automatic and manual 50%, 60%, 70%, 80%, 90%, 100% launcher sizes. Settings and Character Book, including parchment backgrounds, buttons, fonts and hitboxes, should scale proportionally with the active launcher.
+- [ ] Test opening the cached Character Book again after changing launcher scale using Preview Changes; no stale-size artwork, clipped character rows, misaligned button hitbox, or accidental rebuild/loss of editor/macro state.
+- [ ] Exercise Character Book: Add/Edit/Remove/favorite selection, Import/Export, editor scrollbar, macro Upload position, macro scroll wheel/drag, and macro controls at both 50% and 100%.
+- [ ] Open Game Client Settings, optional dependencies, Original Character species chooser, installed macro script chooser and Morrowind folder prompt. Each should follow the **current owner** and scale appropriately.
+- [ ] With the launcher near each monitor's edge (and on a second monitor, if possible), child pages should remain within that monitor's work area. Changing launcher scale must not snap already-dragged child pages offscreen when reopened.
+- [ ] Recheck DWM pop-in fix, prompt transparency, prompt Close responsiveness, Settings full-width Close button, and previously verified Expansion Pack install/toggle. These are regression checks, not features being reworked.
+- [ ] Automated Windows `--check-owned-menu-scaling` passes for 60% and 80% plus moving owner; **end-user visual tests pending**.
+
 ## Work remaining for a tester
 
 Test on a separate Windows user profile or VM with an isolated `%APPDATA%`
