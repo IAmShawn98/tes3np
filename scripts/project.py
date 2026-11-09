@@ -262,7 +262,8 @@ def check(allow_missing_payload: bool = False) -> None:
         'AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry"',
         'ExpansionDiscordPromptPending := 0',
         'Sign in through Game Chat to view the latest official Expansion Pack ZIP',
-        'AddStyledButton(dialog, 340, 574, 140, 38, "Install ZIP"',
+        'AddStyledButton(dialog, 300, 574, 180, 38,',
+        '"Repair / Install ZIP"',
     )):
         errors.append("Expansion Pack dialog must always open, support retries, and clear pending authentication.")
     if 'Open Expansion Pack Downloads' not in (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig"):
