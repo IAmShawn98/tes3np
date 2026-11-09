@@ -26,7 +26,7 @@ The following were reported as passed by the project tester on October 29,
 - [ ] Open Game Client Settings, optional dependencies, Original Character species chooser, installed macro script chooser and Morrowind folder prompt. Each should follow the **current owner** and scale appropriately.
 - [ ] With the launcher near each monitor's edge (and on a second monitor, if possible), child pages should remain within that monitor's work area. Changing launcher scale must not snap already-dragged child pages offscreen when reopened.
 - [ ] Recheck DWM pop-in fix, prompt transparency, prompt Close responsiveness, Settings full-width Close button, and previously verified Expansion Pack install/toggle. These are regression checks, not features being reworked.
-- [ ] Automated Windows `--check-owned-menu-scaling` passes for 60% and 80% plus moving owner; **end-user visual tests pending**.
+- [ ] Automated Windows `--check-owned-menu-scaling` passes for all 50–100% presets, moving the owner and checking monitor-edge clamping; **end-user visual tests pending**.
 
 ## Work remaining for a tester
 
