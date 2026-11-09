@@ -48,6 +48,24 @@ if A_Args.Length && A_Args[1] = "--check-expansion-ui"
         if !HasMethod(callback, "Call")
             ExitApp(120 + index)
     }
+    ; Execute the progress painting routine against a disposable in-memory
+    ; panel. No visible window or game files are involved. This exercises the
+    ; exact callback path that had previously warned only on a real click.
+    try
+    {
+        probePanel := {Hwnd: 0, Text: ""}
+        probeFrame := {Panel: probePanel}
+        ButtonFaces[0] := {Progress: 0}
+        painterName := "UpdateExpansionLoadingProgress"
+        painter := %painterName%
+        painter.Call(probeFrame, "Expansion progress probe", 37)
+        if Abs(ButtonFaces[0].Progress - 0.37) > 0.0001
+            || probePanel.Text != "Expansion progress probe"
+            ExitApp(93)
+        ButtonFaces.Delete(0)
+    }
+    catch
+        ExitApp(94)
     ExitApp(0)
 }
 HandleUpdaterStartupMode()
