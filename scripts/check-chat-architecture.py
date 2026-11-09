@@ -631,6 +631,11 @@ expect(
     and 'DllCall("RestoreDC", "Ptr", target,' in protected_loading_paint,
 )
 expect(
+    "Native Expansion BitBlt has both mandatory source coordinates before raster-operation type",
+    'try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", blitHeight, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)' in protected_loading_paint
+    and 'try DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", blitHeight, "Ptr", dc, "Int", 0, "Int", "UInt", 0xCC0020)' not in protected_loading_paint,
+)
+expect(
     "Same ChatHost process and existing Discord profile serve the popup",
     'const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";' in source
     and 'discordEnvironment = env;' in source
