@@ -1,6 +1,6 @@
 ; User-initiated import of an official NP download after a plugin mismatch.
 ; The file picker does not imply that Discord or the server was verified.
-UploadExpansionFromFile(*)
+UploadExpansionFromFile(args*)
 {
     global LauncherGui, DataFile
     if PatchInProgress()
@@ -8,6 +8,23 @@ UploadExpansionFromFile(*)
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
     {
         MsgBox("Close all TES3MP/OpenMW games before uploading the Expansion Pack.", "Expansion Pack", "Icon!")
+        return
+    }
+    ; This trusted auto path is validated a second time after the native
+    ; sender-PID and private ZIP-path checks in expansion-mismatch.ahk.
+    ; Ordinary button/event callbacks still use the unchanged file picker.
+    if args.Length = 2 && Type(args[1]) = "String" && args[2] = true
+    {
+        package := args[1]
+        SplitPath(package, &filename, &folder)
+        if StrLower(folder) != StrLower(A_AppData "\tes3np\expansion-downloads")
+            || !RegExMatch(filename, "i)^tes3np-[0-9a-f]{32}\.zip$")
+            || !FileExist(package)
+        {
+            LogLauncherEvent("EXPANSION | Rejected invalid automatic import source.")
+            return
+        }
+        InstallSelectedExpansionPackage(package, true)
         return
     }
     ; One native Explorer-style picker handles both kinds of complete pack.
