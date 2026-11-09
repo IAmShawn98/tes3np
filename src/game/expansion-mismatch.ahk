@@ -16,6 +16,9 @@ global ExpansionAutoDownloadAttempted := false
 ; authenticated Discord browser remains composition-cloaked until repair.
 global ExpansionAutoProgressFrame := 0
 global ExpansionAutoCancelButton := 0
+; Locked as soon as a complete ZIP is accepted, before the importer begins.
+; A queued click or progress repaint must never restore cancellation.
+global ExpansionAutoInstallLocked := false
 global ExpansionAutoCloaked := false
 ; 1 = initial missing-pack install; 2 = server plugin mismatch.
 global ExpansionDiscordPromptPending := 0
@@ -209,6 +212,10 @@ TES3MPExpansionBeginNativeProgress()
         ; so it paints above the dark panel, directly below the progress bar.
         ; No separate gold footer/background is created.
         frame.Panel.Move(0, 0, cw, ch + extra)
+        ; This native Static now overlaps the Cancel button as a sibling.
+        ; Clip sibling HWNDs when its progress graphic repaints so the
+        ; download button does not flicker or get painted over.
+        frame.Panel.Opt("+0x04000000") ; WS_CLIPSIBLINGS
         buttonWidth := Round(cw * 0.55)
         ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi("AddStyledButton", frame.Card, (cw - buttonWidth) // 2,
             ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",
@@ -222,9 +229,7 @@ TES3MPExpansionBeginNativeProgress()
     {
         LogLauncherEvent("EXPANSION | Native progress creation failed (" Type(err) ").")
         try LauncherGui.Opt("-Disabled")
-        if IsObject(ExpansionAutoCancelButton)
-            try TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)
-        ExpansionAutoCancelButton := 0
+        TES3MPExpansionRemoveDownloadCancel()
         try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
         return false
     }
@@ -241,14 +246,25 @@ TES3MPExpansionUpdateNativeProgress(label, percent)
     try TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)
 }
 
+; Retire the sole cancellation control before installation starts.
+; Hide immediately, unregister the native paint/input hooks and destroy it.
+TES3MPExpansionRemoveDownloadCancel()
+{
+    global ExpansionAutoCancelButton
+    if IsObject(ExpansionAutoCancelButton)
+    {
+        try ExpansionAutoCancelButton.Visible := false
+        try TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)
+    }
+    ExpansionAutoCancelButton := 0
+}
+
 TES3MPExpansionEndNativeProgress()
 {
-    global ExpansionAutoProgressFrame, ExpansionAutoCancelButton, LauncherGui, InterfaceLoadingText
+    global ExpansionAutoProgressFrame, LauncherGui, InterfaceLoadingText
     frame := ExpansionAutoProgressFrame
     ExpansionAutoProgressFrame := 0
-    if IsObject(ExpansionAutoCancelButton)
-        try TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)
-    ExpansionAutoCancelButton := 0
+    TES3MPExpansionRemoveDownloadCancel()
     if IsObject(frame)
     {
         try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
@@ -279,7 +295,11 @@ TES3MPExpansionRevealRepair(reason)
 
 TES3MPExpansionCancelNativeDownload()
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionAutoInstallLocked
+    ; A click already queued before the native control disappears must not
+    ; be able to close or cancel an import once the ZIP has completed.
+    if ExpansionAutoInstallLocked
+        return
     if IsObject(ExpansionMismatchDialog)
         CloseTES3MPExpansionMismatchDialog(ExpansionMismatchDialog, ExpansionMismatchSlot)
 }
@@ -412,6 +432,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ExpansionMismatchMode := mode
     ExpansionAutoDownloadActive := false
     ExpansionAutoDownloadAttempted := false
+    ExpansionAutoInstallLocked := false
     ExpansionAutoCloaked := false
     ExpansionMismatchAuthenticated := authConfirmed
     ExpansionMismatchZipUrl := ""
@@ -530,7 +551,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
-    global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted, ExpansionAutoCloaked
+    global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted, ExpansionAutoCloaked, ExpansionAutoInstallLocked
     if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
@@ -540,6 +561,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
     ExpansionAutoDownloadAttempted := false
     ExpansionAutoCloaked := false
     TES3MPExpansionEndNativeProgress()
+    ExpansionAutoInstallLocked := false
     ExpansionMismatchFileButton := 0
     ExpansionMismatchDownloadSlot := 0
     ExpansionMismatchStatus := 0
@@ -673,7 +695,9 @@ TES3MPExpansionActivateDownloadButton(slotHwnd)
 TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
-    global ExpansionAutoDownloadActive, ExpansionMismatchMode
+    global ExpansionAutoDownloadActive, ExpansionMismatchMode, ExpansionAutoInstallLocked
+    if ExpansionAutoInstallLocked
+        return
     if ExpansionMismatchMode != "Install" || !IsObject(ExpansionMismatchDialog)
         || slotHwnd != ExpansionMismatchSlot
         return
@@ -740,7 +764,7 @@ TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)
 TES3MPExpansionAutoDownloadReady(lParam)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
-    global ExpansionMismatchStatus, ExpansionAutoDownloadActive
+    global ExpansionMismatchStatus, ExpansionAutoDownloadActive, ExpansionAutoInstallLocked
     if !IsObject(ExpansionMismatchDialog) || !ExpansionAutoDownloadActive
         || ExpansionMismatchMode != "Install"
         return 0
@@ -770,7 +794,12 @@ TES3MPExpansionAutoDownloadReady(lParam)
             return 0
     catch
         return 0
+    ; Commit the one-way Download -> Install handoff as soon as the
+    ; complete, path-checked ZIP is accepted. Do this before posting the
+    ; deferred importer, so no cancel click survives the 80 ms gap.
+    ExpansionAutoInstallLocked := true
     ExpansionAutoDownloadActive := false
+    TES3MPExpansionRemoveDownloadCancel()
     TES3MPExpansionUpdateNativeProgress("Download complete. Preparing installation...", 100)
     if IsObject(ExpansionMismatchStatus)
         ExpansionMismatchStatus.Text := "Download complete. Starting verified backup and installation..."
