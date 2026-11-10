@@ -17,7 +17,7 @@ BuildMacroBookPanel()
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h55 BackgroundTrans",
         "This is a complete list of macros. You can upload any macro and run or stop it at any time!")
-    MacroEmptyNotice := CharacterPage.Add("Text", "x551 y183 w329 h30 BackgroundTrans",
+    MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
         "No macros installed yet.")
     ; The hidden ListView retains every imported item and all existing handlers.
     ; Four rows are the viewport, not a limit on the number of macros.
@@ -53,15 +53,16 @@ BuildMacroBookPanel()
         "x887 y152 w8 h242 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
         "x888 y152 w6 h40 BackgroundC69951 +0x100 Hidden")
-    ; Start beside the first macro. RefreshMacroBookRows moves this button
-    ; down with each populated row, then pins it beneath the scroll viewport.
-    MacroImportButton := AddStyledButton(CharacterPage, 525, 226, 115, 29,
+    ; Use the full available page width instead of leaving an empty strip
+    ; beside Upload Macro. With no entries, sit just below the empty notice;
+    ; populated rows still move the control under the active viewport.
+    MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
         "Upload Macro", ImportMacroPackage)
     ; Existing import/binding callbacks still write MacroStatus.Text. Preserve
     ; failure/progress feedback, not the redundant Ready/script-details footer.
     CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
-        "x525 y262 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
+        "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
         MacroImportButton, MacroStatus)
     LoadMacroPackages()
@@ -171,11 +172,11 @@ RefreshMacroBookRows()
         thumbY := 152 + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
     }
-    ; Follow the last populated row, but never move the Upload button into
-    ; the scrollable list. With 0/1/2/3/4+ macros the y positions are
-    ; 226/226/286/346/406; 5+ macros only scroll the four row slots.
+    ; Keep empty-state content close to the introduction, then follow
+    ; populated rows without putting Upload inside the scroll viewport.
+    ; For 0/1/2/3/4+ entries, y is 188/226/286/346/406.
     visibleCount := Min(count, MacroBookRows.Length)
-    desiredUploadY := 226 + (Max(1, visibleCount) - 1) * 60
+    desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 60
     MacroImportButton.GetPos(, &oldUploadY)
     if oldUploadY != BookS(desiredUploadY)
     {
@@ -185,7 +186,7 @@ RefreshMacroBookRows()
         wasVisible := MacroImportButton.Visible
         if wasVisible
             MacroImportButton.Visible := false
-        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 115, 29)
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)
         MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))
         if wasVisible
         {

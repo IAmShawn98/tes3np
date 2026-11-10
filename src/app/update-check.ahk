@@ -195,7 +195,10 @@ CreateGoldNativePrompt(owner, title, width, height)
         panel := Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)
         panel.MarginX := 0, panel.MarginY := 0
         panel.BackColor := "C5A45C"
-        panel.Add("Text", "x2 y2 w" (width - 4) " h" (height - 4) " Background171008")
+        ; Keep the dark interior's HWND so dynamic cards can resize it
+        ; together with their outer frame, without exposing a white strip.
+        panel.NativePromptBackground := panel.Add("Text",
+            "x2 y2 w" (width - 4) " h" (height - 4) " Background171008")
         panel.NativePromptBackdrop := backdrop
         panel.NativePromptWidth := width
         panel.NativePromptHeight := height

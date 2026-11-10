@@ -313,10 +313,14 @@ def check(allow_missing_payload: bool = False) -> None:
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
     client_contract = (
-        'AddStyledButton(menu, 30, 165, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))' in client_ui
-        and 'AddStyledButton(menu, 30, 213, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
-        and 'AddStyledButton(menu, 30, 261, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))' in client_ui
+        'AddStyledButton(menu, 30, 190, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))' in client_ui
+        and 'AddStyledButton(menu, 30, 238, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
+        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))' in client_ui
+        and 'reactivate.Visible := saved' in client_ui
         and 'reactivate.Enabled := saved' in client_ui
+        and 'restoreY := saved ? 286 : 238' in client_ui
+        and 'initialHeight := saved ? 460 : 412' in client_ui
+        and 'RefreshGameClientSettingsLayoutV016(menu)' in client_ui
         and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in client_ui
         and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in client_ui
         and "InstallCustomClientOverrides(source, folder)" in client_ui
@@ -445,14 +449,14 @@ def check(allow_missing_payload: bool = False) -> None:
             'MacroDetails' not in macro
             and 'MacroBindingsButton' not in macro
             and '"Edit Selected Macro Keys"' not in macro
-            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 226, 115, 29,' in macro
+            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
-            and '"x525 y262 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
+            and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
-            and 'desiredUploadY := 226 + (Max(1, visibleCount) - 1) * 60' in macro
+            and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 60' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
-            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 115, 29)' in macro
+            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
             and 'if wasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
