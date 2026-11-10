@@ -1418,6 +1418,54 @@ expect(
     ).read_text(encoding="utf-8-sig"),
 )
 
+# New interactive behaviors must remain separated from the launcher's
+# older authentication and installer contracts. Static evidence does not
+# replace a real Windows sign-in or missing-game acceptance test.
+expect(
+    "Game Chat toggle can hide and reopen its own Discord login",
+    'void ToggleGameChatDiscordSignIn()' in source
+    and 'if (pendingExpansionPrompt == 0 &&' in source
+    and source.count('ToggleGameChatDiscordSignIn();') == 2
+    and 'void DismissDiscordSignIn()' in source
+    and 'if (discordLoginVisible) RevealDiscordSignInWindow();' in source,
+)
+expect(
+    "Discord login cancellation scrolls below submit and passkey link",
+    "form.appendChild(later);" in source
+    and "later.type = 'button';" in source
+    and "chrome.webview.postMessage('tes3np-sign-in-later');" in source
+    and 'args.TryGetWebMessageAsString() == "tes3np-sign-in-later"' in source
+    and 'requestAnimationFrame(reset);' in source
+    and "min-height:44px !important" in source
+    and 'RowCount = 3,' in source
+    and 'shell.Controls.Add(later, 0, 3);' not in source,
+)
+expect(
+    "Approved ZIP survives only while missing-Morrowind setup owns it",
+    'DeferExpansionInstallForMissingMorrowind(package, autoApproved)' in (
+        ROOT / "src" / "ui" / "expansion-upload.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'PendingExpansionPackage := package' in (
+        ROOT / "src" / "ui" / "expansion-upload.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'SetTimer(InstallSelectedExpansionPackage.Bind(pendingPackage, pendingApproved), -50)' in patcher
+    and 'MorrowindPromptGui.PendingExpansionPackage = package' in mismatch
+    and 'if !deferred' in mismatch
+    and 'if prompt.HasOwnProp("PendingExpansionApproved")' in patcher,
+)
+expect(
+    "Client identity and clickable controls use TES3MP and Windows pointer",
+    '"Original TES3MP runtime"' in settings_layout
+    and '"Use Original TES3MP Client"' in settings_layout
+    and 'Original TES3NP runtime' not in settings_layout
+    and 'SetLauncherHandCursor()' in (
+        ROOT / "src" / "ui" / "renderer.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'OnMessage(0x0020, HandleNativeClickableCursor)' in (
+        ROOT / "src" / "ui" / "renderer.ahk"
+    ).read_text(encoding="utf-8-sig"),
+)
+
 # The seven second-PC regression reports must have explicit source-side
 # guards. These do not replace a Windows build or live interactive testing.
 expect(

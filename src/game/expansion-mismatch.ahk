@@ -863,7 +863,7 @@ TES3MPExpansionAutoDownloadReady(lParam)
 
 TES3MPExpansionBeginAutoImport(dialog, slot, package)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob, MorrowindPromptGui
     ; Read the same canonical worker state as PatchInProgress(), without
     ; introducing a cross-module function lookup in this callback.
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
@@ -879,7 +879,15 @@ TES3MPExpansionBeginAutoImport(dialog, slot, package)
     ; Preflight may be cancelled before PatchJob is created. No process then
     ; owns this temporary ZIP, so clean it up here.
     if !(IsSet(PatchJob) && IsObject(PatchJob))
-        try FileDelete(package)
+    {
+        ; The missing-installation prompt must retain the current approved
+        ; ZIP until the user chooses Morrowind or cancels.
+        deferred := IsObject(MorrowindPromptGui)
+            && MorrowindPromptGui.HasOwnProp("PendingExpansionPackage")
+            && MorrowindPromptGui.PendingExpansionPackage = package
+        if !deferred
+            try FileDelete(package)
+    }
 }
 
 TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")

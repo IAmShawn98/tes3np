@@ -90,6 +90,18 @@ SelectExpansionPackagePath()
 InstallSelectedExpansionPackage(package, autoApproved := false)
 {
     global LauncherGui, DataFile
+    ; Revalidate the approved automatic download after any deferred setup.
+    if autoApproved
+    {
+        SplitPath(package, &downloadName, &downloadFolder)
+        if StrLower(downloadFolder) != StrLower(A_AppData "\tes3np\expansion-downloads")
+            || !RegExMatch(downloadName, "i)^tes3np-[0-9a-f]{32}\.zip$")
+            || !FileExist(package)
+        {
+            LogLauncherEvent("EXPANSION | Deferred ZIP validation failed.")
+            return
+        }
+    }
     if PatchInProgress()
         return
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
@@ -98,6 +110,13 @@ InstallSelectedExpansionPackage(package, autoApproved := false)
         return
     }
     config := PatchConfigurationPath()
+    ; A downloaded package is not permission to bypass GOTY validation.
+    ; Morrowind may have been removed while Discord was downloading.
+    if FindMorrowindFolder(config) = ""
+    {
+        DeferExpansionInstallForMissingMorrowind(package, autoApproved)
+        return
+    }
     if !FileExist(config)
     {
         config := FileSelect(1, , "Select the active OpenMW configuration", "OpenMW configuration (*.cfg)")
@@ -113,9 +132,8 @@ InstallSelectedExpansionPackage(package, autoApproved := false)
     morrowind := FindMorrowindFolder(config)
     if morrowind = ""
     {
-        morrowind := FileSelect("D", , "Choose your Morrowind GOTY installation folder")
-        if morrowind = ""
-            return
+        DeferExpansionInstallForMissingMorrowind(package, autoApproved)
+        return
     }
     morrowind := RTrim(morrowind, "\/")
     SplitPath(morrowind, &selectedName, &parent)
@@ -142,6 +160,18 @@ InstallSelectedExpansionPackage(package, autoApproved := false)
     }
     else
         StartExpansionImportWorker(package, morrowind, config)
+}
+
+DeferExpansionInstallForMissingMorrowind(package, autoApproved)
+{
+    global MorrowindPromptGui
+    LogLauncherEvent("EXPANSION | Missing Morrowind after ZIP download; opening setup prompt.")
+    CheckFirstRunMorrowind()
+    if IsObject(MorrowindPromptGui)
+    {
+        MorrowindPromptGui.PendingExpansionPackage := package
+        MorrowindPromptGui.PendingExpansionApproved := autoApproved
+    }
 }
 
 StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")

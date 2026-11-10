@@ -2723,7 +2723,7 @@ metrics();
             {
                 if (!discordChannelReady) discordSignInRequested = true;
                 if (discordLoginVisible) {
-                    RevealDiscordSignInWindow();
+                    ToggleGameChatDiscordSignIn();
                     return;
                 }
                 // A manual toggle overrides automatic popups until the next message.
@@ -3041,6 +3041,19 @@ metrics();
                     await web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                         "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                         "; const install=()=>{if(!document.head)return;let s=document.getElementById('tes3np-chat-style');if(!s){s=document.createElement('style');s.id='tes3np-chat-style';document.head.appendChild(s)}s.textContent=css;if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f)}};install();document.addEventListener('DOMContentLoaded',install);new MutationObserver(()=>{if(!document.getElementById('tes3np-chat-style')||(document.body&&!document.getElementById('tes3np-frame')))install()}).observe(document,{childList:true,subtree:true});})()");
+                    // The Not Now control lives inside Discord's own scrolling form,
+                    // but its click is handled by the existing native Chat Host.
+                    web.CoreWebView2.WebMessageReceived += (_, args) =>
+                    {
+                        try
+                        {
+                            if (discordLoginVisible &&
+                                args.Source.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase) &&
+                                args.TryGetWebMessageAsString() == "tes3np-sign-in-later")
+                                DismissDiscordSignIn();
+                        }
+                        catch (Exception ex) { Log("Discord cancellation: " + ex.GetType().Name); }
+                    };
                     web.CoreWebView2.NavigationCompleted += async (_, _) => await UpdateViewMode();
                     web.CoreWebView2.SourceChanged += async (_, _) => await UpdateViewMode();
                     web.CoreWebView2.NewWindowRequested += (_, e) =>
@@ -3305,6 +3318,7 @@ metrics();
                       const password = document.querySelector('input[type=password]');
                       const form = password?.closest('form');
                       if (!form) return;
+                      const firstPresentation = !form.hasAttribute('data-tes3np-login');
                       form.setAttribute('data-tes3np-login', '');
                       let style = document.getElementById('tes3np-login-theme');
                       if (!style) {
@@ -3413,6 +3427,21 @@ metrics();
                         logo.src = window.__tes3npIntegrationLogo;
                         if (title) title.insertAdjacentElement('afterend', logo);
                       }
+                      // A real DOM button follows Discord's Log In button
+                      // and hyperlinks and scrolls with them (not a fixed footer).
+                      let later = form.querySelector('[data-tes3np-not-now]');
+                      if (!later) {
+                        later = document.createElement('button');
+                        later.type = 'button';
+                        later.setAttribute('data-tes3np-not-now', '');
+                        later.addEventListener('click', event => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          try { chrome.webview.postMessage('tes3np-sign-in-later'); } catch {}
+                        });
+                      }
+                      later.textContent = 'Not Now';
+                      form.appendChild(later);
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -3424,7 +3453,7 @@ metrics();
                           position:fixed !important; top:10px !important;
                           left:0 !important; right:0 !important;
                           width:100% !important; max-width:none !important;
-                          margin:0 !important; padding:6px 12px !important;
+                          margin:0 !important; padding:6px 12px 20px !important;
                           max-height:calc(100vh - 16px) !important;
                           overflow-y:auto !important; overflow-x:hidden !important;
                           scrollbar-width:none !important;
@@ -3483,7 +3512,36 @@ metrics();
                         [data-tes3np-login] button[class*="link"] {
                           color:#a85a31 !important; text-decoration:underline !important;
                         }
+                        [data-tes3np-login] button,
+                        [data-tes3np-login] a,
+                        [data-tes3np-login] [role=button],
+                        [data-tes3np-login] [role=link] {
+                          cursor:pointer !important;
+                        }
+                        [data-tes3np-not-now] {
+                          display:block !important; flex:0 0 auto !important;
+                          width:100% !important; height:auto !important;
+                          min-height:44px !important;
+                          padding:9px 14px !important;
+                          margin:12px 0 8px !important;
+                          background:#991f1f !important; color:#fff !important;
+                          border:1px solid #dfbb75 !important; border-radius:0 !important;
+                          font:16px/1.4 Georgia,'Times New Roman',serif !important;
+                          text-align:center !important; cursor:pointer !important;
+                        }
+                        [data-tes3np-not-now]:hover {
+                          background:#b33030 !important;
+                        }
                       `;
+                      if (firstPresentation) {
+                        const reset = () => {
+                          form.scrollTop = 0;
+                          document.documentElement.scrollTop = 0;
+                          if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+                        };
+                        reset();
+                        requestAnimationFrame(reset);
+                      }
                     })()
                     """);
             }
@@ -3536,13 +3594,36 @@ metrics();
             var target = new System.Drawing.Point(x, y);
             if (popup.Location != target) popup.Location = target;
         }
+        void DismissDiscordSignIn()
+        {
+            if (discordSignInWindow is { IsDisposed: false } popup)
+                popup.Hide();
+            discordSignInRequested = false;
+            CancelPendingExpansionPrompt();
+        }
+        void ToggleGameChatDiscordSignIn()
+        {
+            // Game Chat toggles its own login; Expansion authentication remains
+            // a distinct user flow with its own cancellation behavior.
+            if (pendingExpansionPrompt == 0 &&
+                discordSignInWindow is { IsDisposed: false, Visible: true })
+            {
+                DismissDiscordSignIn();
+                return;
+            }
+            RevealDiscordSignInWindow();
+        }
         void RevealDiscordSignInWindow()
         {
-            // Only explicit Game Chat or Expansion Pack actions may open login.
             discordSignInRequested = true;
             if (discordSignInWindow is not { IsDisposed: false } popup) return;
             PositionGameChatDiscordSignIn();
             if (!popup.Visible) popup.Show();
+            if (web.CoreWebView2 != null)
+                _ = web.CoreWebView2.ExecuteScriptAsync(
+                    "(() => { const f = document.querySelector('[data-tes3np-login]'); " +
+                    "if (f) f.scrollTop = 0; " +
+                    "if (document.scrollingElement) document.scrollingElement.scrollTop = 0; })()");
             popup.BringToFront();
             popup.Activate();
         }
@@ -3584,13 +3665,12 @@ metrics();
                 MinimizeBox = false,
                 ShowInTaskbar = false
             };
-            var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4,
+            var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
                 Padding = new Padding(12) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
             var heading = new Label { Text = "Sign In Required", Dock = DockStyle.Fill,
                 TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
                 ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
@@ -3599,38 +3679,15 @@ metrics();
                 Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
                 ForeColor = System.Drawing.Color.FromArgb(237, 225, 201) };
             var browserPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
-            // Match the login action's full-width, square, gold-bordered
-            // Georgia styling while making the cancellation action red/white.
-            var later = new Button {
-                Text = "Not Now", Dock = DockStyle.Fill,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = System.Drawing.Color.FromArgb(153, 34, 34),
-                ForeColor = System.Drawing.Color.White,
-                Font = new System.Drawing.Font("Georgia", 17),
-                UseVisualStyleBackColor = false,
-                Cursor = Cursors.Hand
-            };
-            later.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(223, 187, 117);
-            later.FlatAppearance.BorderSize = 1;
-            later.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(180, 48, 48);
-            later.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(112, 24, 24);
-            later.Click += (_, _) => {
-                popup.Hide();
-                discordSignInRequested = false;
-                CancelPendingExpansionPrompt();
-            };
             popup.FormClosing += (_, e) => {
                 if (!closingChat) {
                     e.Cancel = true;
-                    popup.Hide();
-                    discordSignInRequested = false;
-                    CancelPendingExpansionPrompt();
+                    DismissDiscordSignIn();
                 }
             };
             shell.Controls.Add(heading, 0, 0);
             shell.Controls.Add(help, 0, 1);
             shell.Controls.Add(browserPanel, 0, 2);
-            shell.Controls.Add(later, 0, 3);
             popup.Controls.Add(shell);
             discordSignInWindow = popup;
             PositionGameChatDiscordSignIn();
@@ -3805,7 +3862,7 @@ metrics();
                         if (!discordChannelReady) discordSignInRequested = true;
                         if (discordLoginVisible)
                         {
-                            RevealDiscordSignInWindow();
+                            ToggleGameChatDiscordSignIn();
                             break;
                         }
                         if (chatOpen && pendingExpansionPrompt != 0)
