@@ -368,11 +368,12 @@ def check(allow_missing_payload: bool = False) -> None:
             < character_ui.index('IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")')
             < character_ui.index("    SelectedProfile := index\n    SaveDefaultProfile()")
         ),
-        "favorite message replaces previous copy without layout changes": (
+        "favorite description and newly approved compact layout stay aligned": (
             'descriptionText := "This is a list of all your characters.' in character_ui
             and 'does not impact them in-game!"' in character_ui
-            and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(95))' in character_ui
-            and 'y := 180 + (index - 1) * 24' in character_ui
+            and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in character_ui
+            and 'y := 164 + (index - 1) * 24' in character_ui
+            and 'actionY := Profiles.Length ? 540 : 164' in character_ui
             and "Click on the tick box before one of your characters" not in character_ui
         ),
         "favorite notice included in portable backup": (

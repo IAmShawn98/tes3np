@@ -1351,7 +1351,8 @@ expect(
     and 'CharacterPage.BookBackground.Value := A_ScriptDir' in characters_ui
     and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
     and 'x := BookS(x), y := BookS(y)' in characters_ui
-    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(95))' in characters_ui
+    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in characters_ui
+    and 'y := 164 + (index - 1) * 24' in characters_ui
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
@@ -1393,12 +1394,36 @@ expect(
     and "if (discordLoginVisible) RevealDiscordSignInWindow();" in source,
 )
 
+# Verify the approved text and image/onboarding behavior before compiling.
+# These checks supplement (not replace) the live Windows acceptance tests.
+expect(
+    "Missing Morrowind onboarding gates the expansion toggle and resumes after selection",
+    'CheckFirstRunMorrowind(true)' in patcher
+    and 'if enable && morrowind = ""' in patcher
+    and 'SetTimer(ToggleExpansionPack, -50)' in patcher
+    and 'Morrowind Installation Not Found' in patcher
+    and 'legally purchased copy of Morrowind' in patcher,
+)
+expect(
+    "Discord sign-in emblem is published and Game Chat positioning remains separate",
+    'PositionGameChatDiscordSignIn()' in source
+    and 'pendingExpansionPrompt != 0' in source
+    and 'Discord Integration!' in source
+    and 'Sign In Required' in source
+    and 'CopyToPublishDirectory="PreserveNewest"' in (
+        ROOT / "chat-host" / "tes3np.ChatHost.csproj"
+    ).read_text(encoding="utf-8-sig")
+    and "assets\\DiscordInt.png" in (
+        ROOT / "chat-host" / "tes3np.ChatHost.csproj"
+    ).read_text(encoding="utf-8-sig"),
+)
+
 # The seven second-PC regression reports must have explicit source-side
 # guards. These do not replace a Windows build or live interactive testing.
 expect(
     "Missing GOTY prompts recur after Not Now and are guarded against duplicates",
     "global MorrowindPromptGui := 0" in patcher
-    and "CheckFirstRunMorrowind(*)" in patcher
+    and "CheckFirstRunMorrowind(resumeExpansion := false, *)" in patcher
     and "EnsureMorrowindForGameLaunch()" in patcher
     and "MorrowindPromptGui := prompt" in patcher
     and 'IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")' not in section_between(
