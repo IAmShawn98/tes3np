@@ -13,10 +13,10 @@ BuildMacroBookPanel()
     MacroScrollDragging := false
     MacroScrollGrab := 0
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
-    heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Installed Macros")
+    heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h55 BackgroundTrans",
-        "This is a list of your installed macros and apps. Use the buttons beneath each item to run, stop, or remove it.")
+        "This is a complete list of macros. You can upload any macro and run or stop it at any time!")
     MacroEmptyNotice := CharacterPage.Add("Text", "x551 y183 w329 h30 BackgroundTrans",
         "No macros installed yet.")
     ; The hidden ListView retains every imported item and all existing handlers.

@@ -88,15 +88,15 @@ OpenCharacterPage(*)
     ; Use the same native Morrowind-style face as Launcher Settings. Keep
     ; interactive buttons in their existing button font for readability.
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
-    CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
+    CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Manage Characters")
     ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 180, 370, 30, "Add character", (*) => EditProfile(0))
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30, "Add character", (*) => EditProfile(0))
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h95 BackgroundTrans", "")
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
     CharacterDescriptionMagic := false
     Loop 10
     {
@@ -104,7 +104,7 @@ OpenCharacterPage(*)
         index := A_Index
         ; Start just below the instructions; retain all ten 24px-spaced
         ; rows and their aligned painted buttons and hit targets.
-        y := 180 + (index - 1) * 24
+        y := 164 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -196,11 +196,11 @@ RefreshProfiles()
         CharacterDescription.Visible := true
         ; Keep the approved character action stack after every refresh/import.
         ; Keep Add Character directly above Wipe Character List.
-        actionY := Profiles.Length ? 540 : 180
+        actionY := Profiles.Length ? 540 : 164
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
-        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(95))
+        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : 220
         ; Preserve the original wide Import Data layout and compact Export Data
