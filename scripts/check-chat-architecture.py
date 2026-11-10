@@ -388,7 +388,11 @@ expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(enco
 
 expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
-    'choice := MsgBox("NP Expansion Pack is not installed."' in patcher
+    'ShowExpansionInstallPrompt()' in patcher
+    and 'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
+    and 'Click yes to automatically download and install the latest and greatest expansion pack listed on Discord. Yes/No' in patcher
+    and 'CloseExpansionInstallPrompt.Bind(prompt, true)' in patcher
+    and 'CloseExpansionInstallPrompt.Bind(prompt, false)' in patcher
     and 'RequestDiscordExpansionPrompt(1)' in patcher
     and 'UploadExpansionFromFile()' in patcher
     and 'TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)' in mismatch
@@ -401,6 +405,32 @@ expect(
     and 'slot != expansionDownloadsParent' in source
     and '!discordChannelReady || discordLoginVisible' in source
     and 'IsOfficialExpansionDownloadUrl(expansionLatestZipUrl)' in source,
+)
+expect(
+    "First-enable download uses a titlebarless gold card with only Yes/No",
+    'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
+    and 'ShowGoldNativePrompt(prompt)' in patcher
+    and 'AddStyledButton(prompt, 144, 189, 180, 38, "Yes",' in patcher
+    and 'AddStyledButton(prompt, 356, 189, 180, 38, "No",' in patcher
+    and 'YesNoCancel Icon?' not in patcher
+    and 'choice := MsgBox("NP Expansion Pack is not installed."' not in patcher,
+)
+expect(
+    "All automatic download failures offer a native gold recovery card",
+    'CreateGoldNativePrompt(LauncherGui, title, 700, 318)' in patcher
+    and 'ShowExpansionAutoFailureDialog(reason := "", stage := "Download")' in patcher
+    and 'AddStyledButton(prompt, 30, 254, 185, 38, "Try Again",' in patcher
+    and 'AddStyledButton(prompt, 230, 254, 270, 38, "Choose ZIP or Folder",' in patcher
+    and 'AddStyledButton(prompt, 515, 254, 155, 38, "Cancel",' in patcher
+    and 'CloseGoldNativePrompt(prompt)' in patcher
+    and 'if action = "Retry"' in patcher
+    and 'else if action = "Local"' in patcher
+    and 'UploadExpansionFromFile()' in patcher
+    and 'RequestDiscordExpansionPrompt(1)' in patcher
+    and 'SetTimer((*) => TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog", reason), -70)' in mismatch
+    and 'SetTimer((*) => TES3MPExpansionRevealRepair(' in mismatch
+    and 'if !SendLauncherChatCommand(10, mode)' in mismatch
+    and 'else if mode = 1' in mismatch,
 )
 expect(
     "Auto ZIP never exposes signed CDN URLs on command lines or downloads before approval",
@@ -428,7 +458,11 @@ expect(
     and 'StartExpansionImportWorker(package, morrowind, config, package)' in expansion_upload
     and 'AutoDownloadedZip: autoDownloadedZip' in expansion_upload
     and 'if state = "error" && autoImport' in patcher
-    and 'Would you like to repair it using your own ZIP or extracted folder?' in patcher,
+    and 'ShowExpansionAutoFailureDialog(message, "Install")' in patcher
+    and 'TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog", reason)' in mismatch
+    and 'CloseTES3MPExpansionMismatchDialog(dialog, slot)' in mismatch
+    and 'CloseExpansionAutoFailureDialog.Bind(prompt, "Retry")' in patcher
+    and 'CloseExpansionAutoFailureDialog.Bind(prompt, "Local")' in patcher,
 )
 auto_zip_callback = section_between(
     mismatch,
