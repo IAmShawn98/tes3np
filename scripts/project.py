@@ -430,7 +430,8 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'BuildMacroBookPanel()' in characters
             and 'MacroPage := Gui(' not in macro,
         "four reusable viewport rows preserve unlimited macro capacity":
-            'Loop 4\n    {\n        position := A_Index\n        y := 152 + (position - 1) * 60' in macro
+            'Loop 4\n    {\n        position := A_Index' in macro
+            and 'y := 152 + (position - 1) * 70' in macro
             and 'maximum := Max(0, count - MacroBookRows.Length)' in macro
             and 'index := MacroScrollOffset + position' in macro
             and 'MacroScrollOffset := Max(0, row - 4)' in macro
