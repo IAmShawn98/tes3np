@@ -455,7 +455,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
             and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
-            and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 60' in macro
+            and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 70' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
