@@ -28,7 +28,9 @@ BuildMacroBookPanel()
     Loop 4
     {
         position := A_Index
-        y := 152 + (position - 1) * 60
+        ; Leave an 8-pixel gap after each row's bottom button.
+        ; Previous 60px pitch overlapped the next row's "Ready" label.
+        y := 152 + (position - 1) * 70
         CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
         status := CharacterPage.Add("Text",
             "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
@@ -50,7 +52,7 @@ BuildMacroBookPanel()
     }
     ; The scrollbar uses the existing character-book styling.
     MacroScrollTrack := CharacterPage.Add("Text",
-        "x887 y152 w8 h242 Background704C27 +0x100 Hidden")
+        "x887 y152 w8 h272 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
         "x888 y152 w6 h40 BackgroundC69951 +0x100 Hidden")
     ; Use the full available page width instead of leaving an empty strip
@@ -167,16 +169,17 @@ RefreshMacroBookRows()
         MacroScrollThumb.Visible := scrollable
     if scrollable
     {
-        thumbHeight := Max(25, Round(242 * MacroBookRows.Length / count))
-        travel := 242 - thumbHeight
+        thumbHeight := Max(25, Round(272 * MacroBookRows.Length / count))
+        travel := 272 - thumbHeight
         thumbY := 152 + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
     }
     ; Keep empty-state content close to the introduction, then follow
     ; populated rows without putting Upload inside the scroll viewport.
-    ; For 0/1/2/3/4+ entries, y is 188/226/286/346/406.
+    ; For 0/1/2/3/4+ entries, y is 188/226/296/366/436.
+    ; Match row pitch so Upload always stays clear of the final action row.
     visibleCount := Min(count, MacroBookRows.Length)
-    desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 60
+    desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 70
     MacroImportButton.GetPos(, &oldUploadY)
     if oldUploadY != BookS(desiredUploadY)
     {
@@ -304,7 +307,7 @@ DragMacroScroll()
     localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
     MacroScrollThumb.GetPos(, , , &thumbHeight)
     thumbHeight /= GetCharacterBookScale()
-    travel := Max(1, 242 - thumbHeight)
+    travel := Max(1, 272 - thumbHeight)
     maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
     ScrollMacroBook(Round((localY - 152 - MacroScrollGrab) / travel * maximum))
 }

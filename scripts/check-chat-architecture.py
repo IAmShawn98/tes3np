@@ -1453,9 +1453,18 @@ expect(
     "Manage Macros empty state and Upload button do not leave blank action row",
     'MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28' in macro_menu_ui
     and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro_menu_ui
-    and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 60' in macro_menu_ui
+    and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 70' in macro_menu_ui
     and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
     and 'maximum := Max(0, count - MacroBookRows.Length)' in macro_menu_ui,
+)
+expect(
+    "Macro rows have a true line break between action buttons and next Ready status",
+    'y := 152 + (position - 1) * 70' in macro_menu_ui
+    and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro_menu_ui
+    and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 70' in macro_menu_ui
+    and '"x887 y152 w8 h272 Background704C27 +0x100 Hidden"' in macro_menu_ui
+    and 'travel := 272 - thumbHeight' in macro_menu_ui
+    and 'travel := Max(1, 272 - thumbHeight)' in macro_menu_ui,
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
