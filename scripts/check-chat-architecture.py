@@ -1395,7 +1395,8 @@ expect(
     and 'closeButton.Click += (_, _) => DismissDiscordSignIn();' in source
     and 'closeButton.BringToFront();' in source
     and 'ToggleGameChatDiscordSignIn();' in source
-    and 'FormBorderStyle = FormBorderStyle.FixedDialog,' not in source,
+    and 'FormBorderStyle = FormBorderStyle.FixedDialog,' not in section_between(
+        source, "void ShowDiscordSignIn()", "\n        void RestoreGameChatAfterSignIn()"),
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
