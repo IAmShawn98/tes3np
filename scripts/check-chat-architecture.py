@@ -1363,7 +1363,8 @@ expect(
 )
 expect(
     "Client, dependency and Morrowind use scaled native changelog cards; remaining dialogs follow owners",
-    'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, 458)' in settings_layout
+    'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)' in settings_layout
+    and 'initialHeight := saved ? 460 : 412' in settings_layout
     and 'ShowGoldNativePrompt(menu)' in settings_layout
     and 'CreateGoldNativePrompt(menu, "Optional Client Dependencies", 640, 350)' in settings_layout
     and 'ShowGoldNativePrompt(options)' in settings_layout
