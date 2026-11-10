@@ -280,13 +280,26 @@ TES3MPExpansionEndNativeProgress()
 
 TES3MPExpansionRevealRepair(reason)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchStatus
-    global ExpansionAutoCloaked, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchStatus
+    global ExpansionMismatchMode, ExpansionAutoCloaked, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
     ExpansionAutoDownloadActive := false
     ExpansionAutoDownloadAttempted := true
     TES3MPExpansionEndNativeProgress()
     if IsObject(ExpansionMismatchDialog)
     {
+        if ExpansionMismatchMode = "Install"
+        {
+            ; Retire the hidden Discord download slot and its authenticated
+            ; browser before presenting the dedicated native failure card.
+            ; The event arrives through launcher IPC, so open the next card
+            ; on a deferred UI tick after all child-window cleanup completes.
+            dialog := ExpansionMismatchDialog
+            slot := ExpansionMismatchSlot
+            CloseTES3MPExpansionMismatchDialog(dialog, slot)
+            LogLauncherEvent("EXPANSION | Automatic download failed; showing retry/local recovery choices.")
+            SetTimer((*) => TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog", reason), -70)
+            return
+        }
         if ExpansionAutoCloaked
         {
             TES3MPExpansionCloakDialog(ExpansionMismatchDialog, false)
@@ -388,6 +401,9 @@ RequestDiscordExpansionPrompt(mode := 2)
         ExpansionDiscordPromptPending := 0
         if IsObject(ExpansionMismatchStatus)
             ExpansionMismatchStatus.Text := "Game Chat is unavailable. Open Game Chat, then click Connect / Retry."
+        else if mode = 1
+            SetTimer((*) => TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog",
+                "Game Chat is unavailable. Open Game Chat, then retry the automatic download."), -60)
         else
             MsgBox("Game Chat is not ready. Open Game Chat, sign into Discord, then try again.", "Expansion Pack", "Icon!")
         LogLauncherEvent("EXPANSION | Waiting for Game Chat host before opening Discord downloads.")
@@ -576,9 +592,12 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
         if mode = "Install"
         {
             ExpansionAutoDownloadAttempted := true
-            nativeStatus.Text := "Automatic download display unavailable. Retry or use Repair / Install ZIP."
+            nativeStatus.Text := "Automatic download display unavailable."
+            SetTimer((*) => TES3MPExpansionRevealRepair(
+                "The automatic download display could not be initialized."), -60)
         }
-        try WinActivate("ahk_id " dialog.Hwnd)
+        else
+            try WinActivate("ahk_id " dialog.Hwnd)
     }
     ; Attach the Discord browser only after ChatHost confirms authentication.
     if authConfirmed

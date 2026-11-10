@@ -810,7 +810,11 @@ internal static class Program
             {
                 if (partial!=null) try { File.Delete(partial); } catch { }
                 if (!accepted && completed!=null) try { File.Delete(completed); } catch { }
-                if (!accepted && !cancellation.IsCancellationRequested)
+                // Closing the embedded download view clears its slot and
+                // is an intentional cancellation. A timeout cancels the same
+                // token but leaves the slot alive: report that as a failure
+                // so the launcher presents Try Again / Choose ZIP / Cancel.
+                if (!accepted && expansionDownloadsParent==slot)
                     PostMessage(owner,0x8338,new IntPtr(-1),sender);
                 if (ReferenceEquals(expansionAutoDownloadCancellation,cancellation))
                     expansionAutoDownloadCancellation=null;

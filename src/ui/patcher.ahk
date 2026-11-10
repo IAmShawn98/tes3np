@@ -1,6 +1,8 @@
 ﻿; Shared Morrowind discovery, optional Expansion Pack toggle and import progress.
 ; The retired bundled v0.1 Install / Repair GUI and worker are deliberately absent.
 global MorrowindPromptGui := 0
+global ExpansionInstallPromptGui := 0
+global ExpansionAutoFailurePromptGui := 0
 
 PatchInProgress()
 {
@@ -228,15 +230,13 @@ CheckPatchWorker()
     autoImport := job.HasOwnProp("AutoDownloadedZip") && job.AutoDownloadedZip != ""
     if autoImport
         try FileDelete(job.AutoDownloadedZip)
-    MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
+    ; Automatic failures get actionable retry/manual/cancel choices in the
+    ; same gold-on-dark native card as the version/changelog dialogs.
+    ; A local, manually chosen import retains its previous detailed result.
     if state = "error" && autoImport
-    {
-        if MsgBox("Automatic Expansion Pack installation did not complete."
-            . Chr(10) "Would you like to repair it using your own ZIP or extracted folder?"
-            . Chr(10) Chr(10) "Existing verified backups remain available.", "Expansion Pack Repair",
-            "YesNo Icon?") = "Yes"
-            UploadExpansionFromFile()
-    }
+        ShowExpansionAutoFailureDialog(message, "Install")
+    else
+        MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
 }
 
 FinishLauncherStartup()
@@ -430,20 +430,7 @@ ToggleExpansionPack(*)
     ; Never copy retired bundled Expansion Pack assets.
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {
-        choice := MsgBox("NP Expansion Pack is not installed."
-            . Chr(10) Chr(10) "Download and install the latest available package from the official"
-            . " Discord channel automatically?"
-            . Chr(10) Chr(10) "Yes: Download and install (with backup and rollback)."
-            . Chr(10) "No: Repair / install from your own ZIP or folder."
-            . Chr(10) "Cancel: Leave everything unchanged.", "Install Expansion Pack",
-            "YesNoCancel Icon?")
-        if choice = "Yes"
-        {
-            LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
-            RequestDiscordExpansionPrompt(1)
-        }
-        else if choice = "No"
-            UploadExpansionFromFile()
+        ShowExpansionInstallPrompt()
         return
     }
     action := enable ? "Enable" : "Disable"
@@ -509,6 +496,121 @@ ToggleExpansionPack(*)
     }
 }
 
+
+; Initial installation is a simple Yes/No decision. Manual installation
+; remains available from the existing file import and failure recovery flows.
+; Reuse the exact borderless native gold card used by changelogs and settings.
+ShowExpansionInstallPrompt()
+{
+    global LauncherGui, ExpansionInstallPromptGui
+    if IsObject(ExpansionInstallPromptGui)
+    {
+        try
+        {
+            if DllCall("IsWindow", "Ptr", ExpansionInstallPromptGui.Hwnd)
+            {
+                WinActivate("ahk_id " ExpansionInstallPromptGui.Hwnd)
+                return
+            }
+        }
+        ExpansionInstallPromptGui := 0
+    }
+    prompt := CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    prompt.Add("Text", "x30 y27 w620 h39 BackgroundTrans", "Install Expansion Pack")
+    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
+        "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord. Yes/No")
+    AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
+        CloseExpansionInstallPrompt.Bind(prompt, true))
+    AddStyledButton(prompt, 356, 189, 180, 38, "No",
+        CloseExpansionInstallPrompt.Bind(prompt, false))
+    prompt.OnEvent("Close", CloseExpansionInstallPrompt.Bind(prompt, false))
+    prompt.OnEvent("Escape", CloseExpansionInstallPrompt.Bind(prompt, false))
+    ExpansionInstallPromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+}
+
+CloseExpansionInstallPrompt(prompt, approved := false, *)
+{
+    global ExpansionInstallPromptGui
+    if !IsObject(ExpansionInstallPromptGui) || ExpansionInstallPromptGui != prompt
+        return
+    ExpansionInstallPromptGui := 0
+    CloseGoldNativePrompt(prompt)
+    if approved
+    {
+        LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
+        RequestDiscordExpansionPrompt(1)
+    }
+}
+
+; A failed Discord transfer (or failed automatic import) must never trap the
+; user behind a generic Yes/No MessageBox or require restarting the launcher.
+; Retry uses the same authenticated download pipeline; local selection goes
+; through the existing verified ZIP/folder importer and backup/rollback path.
+ShowExpansionAutoFailureDialog(reason := "", stage := "Download")
+{
+    global LauncherGui, ExpansionAutoFailurePromptGui
+    if IsObject(ExpansionAutoFailurePromptGui)
+    {
+        try
+        {
+            if DllCall("IsWindow", "Ptr", ExpansionAutoFailurePromptGui.Hwnd)
+            {
+                WinActivate("ahk_id " ExpansionAutoFailurePromptGui.Hwnd)
+                return
+            }
+        }
+        ExpansionAutoFailurePromptGui := 0
+    }
+    title := stage = "Install" ? "Expansion Pack Installation Failed" : "Expansion Pack Download Failed"
+    explanation := stage = "Install"
+        ? "Automatic installation could not be completed. Existing verified backups are preserved. Try the official download again, or choose your own Expansion Pack ZIP or extracted folder."
+        : "The automatic download could not be completed. You can try again, or choose an Expansion Pack ZIP or extracted folder already on your computer."
+    prompt := CreateGoldNativePrompt(LauncherGui, title, 700, 318)
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    prompt.Add("Text", "x30 y24 w640 h43 BackgroundTrans", title)
+    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    prompt.Add("Text", "x30 y86 w640 h91 BackgroundTrans +Wrap", explanation)
+    ; Preserve an informative but bounded sanitized failure reason. Never
+    ; show signed CDN URLs or raw paths from a private transfer.
+    if reason != ""
+    {
+        shortReason := SubStr(SanitizeDiagnosticText(reason), 1, 180)
+        if shortReason != ""
+        {
+            prompt.SetFont("s9 Norm cD8C38C", "Segoe UI")
+            prompt.Add("Text", "x30 y186 w640 h47 BackgroundTrans +Wrap", shortReason)
+        }
+    }
+    AddStyledButton(prompt, 30, 254, 185, 38, "Try Again",
+        CloseExpansionAutoFailureDialog.Bind(prompt, "Retry"))
+    AddStyledButton(prompt, 230, 254, 270, 38, "Choose ZIP or Folder",
+        CloseExpansionAutoFailureDialog.Bind(prompt, "Local"))
+    AddStyledButton(prompt, 515, 254, 155, 38, "Cancel",
+        CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Close", CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Escape", CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    ExpansionAutoFailurePromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+}
+
+CloseExpansionAutoFailureDialog(prompt, action := "Cancel", *)
+{
+    global ExpansionAutoFailurePromptGui
+    if !IsObject(ExpansionAutoFailurePromptGui) || ExpansionAutoFailurePromptGui != prompt
+        return
+    ExpansionAutoFailurePromptGui := 0
+    CloseGoldNativePrompt(prompt)
+    if action = "Retry"
+    {
+        LogLauncherEvent("EXPANSION | User requested retry of official automatic Expansion Pack download.")
+        RequestDiscordExpansionPrompt(1)
+    }
+    else if action = "Local"
+        UploadExpansionFromFile()
+}
 
 ; First-run discovery is informational and never installs optional patches.
 ; A missing Morrowind installation cannot be fixed by downloading TES3MP:
