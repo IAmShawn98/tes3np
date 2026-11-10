@@ -17,6 +17,8 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### Improvements
 
+- **Automatic Expansion Pack Installation:** Automatically download and install the latest Expansion Pack directly from Discord, with options to retry or manually install if something goes wrong.
+- **Launcher Interface:** Improved window scaling, menu positioning, and dialog appearances for a more consistent experience.
 - **Upload Expansion:** Install the Expansion Pack from a downloaded ZIP file or an extracted folder.
 - **Diagnostics:** Improved diagnostics for mismatches and error handling.
 - **Favorite character:** Your first added character is now automatically selected as your favorite.
