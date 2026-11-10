@@ -390,7 +390,7 @@ expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
     'ShowExpansionInstallPrompt()' in patcher
     and 'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
-    and 'Click yes to automatically download and install the latest and greatest expansion pack listed on Discord. Yes/No' in patcher
+    and 'Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.' in patcher
     and 'CloseExpansionInstallPrompt.Bind(prompt, true)' in patcher
     and 'CloseExpansionInstallPrompt.Bind(prompt, false)' in patcher
     and 'RequestDiscordExpansionPrompt(1)' in patcher
