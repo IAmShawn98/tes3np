@@ -1181,7 +1181,7 @@ expect(
     and 'AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_layout
     and 'if !A_IsCompiled || !FileExist(A_ScriptDir "\\client\\tes3mp.exe")' in shortcut_offer
     and 'IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""' in shortcut_offer
-    and 'answer := MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?"' in shortcut_offer
+    and 'answer := MsgBox("Would you like a desktop shortcut for Nerevarine Prophecies?"' in shortcut_offer
     and 'IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")' in shortcut_offer
     and shortcut_offer.index('IniWrite(answer = "Yes"') < shortcut_offer.index('FileCreateShortcut(')
     and 'FileCreateShortcut(A_ScriptFullPath, A_Desktop "\\Nerevarine Prophecies.lnk"' in shortcut_offer
