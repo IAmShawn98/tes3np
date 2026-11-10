@@ -20,12 +20,52 @@ ButtonWindowProc(handle, message, wParam, lParam, subclassID, reference)
     }
     if message = 0x0014
         return 1
+    if message = 0x0020 ; WM_SETCURSOR for our painted buttons
+    {
+        global ButtonFaces
+        if ButtonFaces.Has(handle)
+        {
+            face := ButtonFaces[handle]
+            if (!face.HasOwnProp("IsLabel") || face.HasOwnProp("IsTick"))
+                && face.Control.Enabled && face.Control.Visible
+            {
+                SetLauncherHandCursor()
+                return 1
+            }
+        }
+    }
     if message = 0x0318
     {
         PaintButtonToDC(handle, wParam)
         return 0
     }
     return DllCall("comctl32\DefSubclassProc", "Ptr", handle, "UInt", message, "Ptr", wParam, "Ptr", lParam, "Ptr")
+}
+
+SetLauncherHandCursor()
+{
+    ; IDC_HAND (32649) is the standard Windows pointing cursor.
+    hand := DllCall("user32\LoadCursorW", "Ptr", 0, "Ptr", 32649, "Ptr")
+    if hand
+        DllCall("user32\SetCursor", "Ptr", hand)
+}
+
+HandleNativeClickableCursor(wParam, lParam, msg, hwnd)
+{
+    ; Standard AHK Buttons/SysLinks are not in the GDI painter's map.
+    if !wParam || !DllCall("IsWindow", "Ptr", wParam)
+        || !DllCall("IsWindowEnabled", "Ptr", wParam)
+        || !DllCall("IsWindowVisible", "Ptr", wParam)
+        return
+    classBuffer := Buffer(128, 0)
+    if !DllCall("user32\GetClassNameW", "Ptr", wParam, "Ptr", classBuffer, "Int", 64, "Int")
+        return
+    className := StrGet(classBuffer, "UTF-16")
+    if className = "Button" || className = "SysLink"
+    {
+        SetLauncherHandCursor()
+        return 1
+    }
 }
 
 InitButtonPainter()
@@ -55,6 +95,7 @@ InitButtonPainter()
     ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book}
     OnMessage(0x002B, PaintButton)
     OnMessage(0x0014, KeepButtonBackground)
+    OnMessage(0x0020, HandleNativeClickableCursor)
 }
 
 PaintButton(wParam, lParam, *)
@@ -235,6 +276,7 @@ DisposeButtonPainter(*)
     ButtonPaint.Disposed := true
     OnMessage(0x002B, PaintButton, 0)
     OnMessage(0x0014, KeepButtonBackground, 0)
+    OnMessage(0x0020, HandleNativeClickableCursor, 0)
     if IsSet(ButtonPaintCallback)
     {
         for handle, face in ButtonFaces

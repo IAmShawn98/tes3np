@@ -590,14 +590,14 @@ OpenClientSelectionSettings(*)
     menu.SetFont("s14 Bold c241408", LauncherMorrowindFont)
     menu.Add("Text", "x24 y20 w480 h35", "Game Client Settings")
     menu.SetFont("s10 c382314", "Segoe UI")
-    display := mode = "Bundled" ? "Original TES3NP runtime" : mode = "CustomOverrides" ? "Custom overrides active" : "Legacy custom client (" mode ")"
+    display := mode = "Bundled" ? "Original TES3MP runtime" : mode = "CustomOverrides" ? "Custom overrides active" : "Legacy custom client (" mode ")"
     activeLabel := menu.Add("Text", "x24 y65 w480 h25", "Active client: " display)
     menu.Add("Text", "x24 y95 w480 h48", "Choose how TES3NP launches the game. Custom files are kept separate from the protected original runtime.")
     menu.SetFont("s11 Bold", "Segoe UI")
     customize := menu.Add("Button", "x24 y153 w480 h43", "Set Up Custom EXE")
     reactivate := menu.Add("Button", "x24 y205 w480 h43", "Use Saved Custom Client")
     reactivate.Enabled := saved
-    restore := menu.Add("Button", "x24 y257 w480 h43", "Use Original TES3NP Client")
+    restore := menu.Add("Button", "x24 y257 w480 h43", "Use Original TES3MP Client")
     statusLabel := menu.Add("Text", "x24 y307 w480 h40 +Wrap", "Select an option to change your game client.")
     close := menu.Add("Button", "x24 y354 w480 h38", "Close")
     menu.ClientFeedback := {Active: activeLabel, Status: statusLabel, Reactivate: reactivate}
@@ -619,7 +619,7 @@ RestoreBundledClientV016(menu, *)
     global DataFile
     IniWrite("Bundled", DataFile, "Launch", "ClientMode")
     LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
-    UpdateGameClientFeedbackV016(menu, "Original TES3NP runtime", "Original client restored. Your custom files remain saved for later.")
+    UpdateGameClientFeedbackV016(menu, "Original TES3MP runtime", "Original client restored. Your custom files remain saved for later.")
 }
 
 ActivateSavedCustomClientV016(menu, *)
@@ -650,7 +650,7 @@ ConfigureCustomClientV016(menu, *)
     options.SetFont("s12 Bold c241408", "Segoe UI")
     options.Add("Text", "x20 y20 w470 h30", "Does your custom EXE need additional files?")
     options.SetFont("s10 c382314", "Segoe UI")
-    options.Add("Text", "x20 y60 w470 h48", "Choose a folder containing matching DLLs, layouts, or other resources, or use TES3NP's bundled dependencies.")
+    options.Add("Text", "x20 y60 w470 h48", "Choose a folder containing matching DLLs, layouts, or other resources, or use the bundled TES3MP dependencies.")
     add := options.Add("Button", "x20 y122 w470 h40", "Choose Dependencies Folder")
     skip := options.Add("Button", "x20 y174 w470 h40", "Use Bundled Dependencies Only")
     cancel := options.Add("Button", "x20 y236 w470 h34", "Cancel Setup")

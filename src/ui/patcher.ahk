@@ -597,9 +597,13 @@ SelectFirstRunMorrowind(prompt, *)
     IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
     LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
     resumeExpansion := prompt.HasOwnProp("ResumeExpansionPack") && prompt.ResumeExpansionPack
+    pendingPackage := prompt.HasOwnProp("PendingExpansionPackage") ? prompt.PendingExpansionPackage : ""
+    pendingApproved := prompt.HasOwnProp("PendingExpansionApproved") && prompt.PendingExpansionApproved
     MorrowindPromptGui := 0
     prompt.Destroy()
-    if resumeExpansion
+    if pendingPackage != ""
+        SetTimer(InstallSelectedExpansionPackage.Bind(pendingPackage, pendingApproved), -50)
+    else if resumeExpansion
         SetTimer(ToggleExpansionPack, -50)
     else
         MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
@@ -608,6 +612,17 @@ SelectFirstRunMorrowind(prompt, *)
 DismissFirstRunMorrowind(prompt, *)
 {
     global MorrowindPromptGui
+    ; A deferred automatic ZIP belongs to the prompt until it is resumed
+    ; or dismissed. Clean it up on cancellation, not during active setup.
+    if prompt.HasOwnProp("PendingExpansionApproved") && prompt.PendingExpansionApproved
+        && prompt.HasOwnProp("PendingExpansionPackage")
+    {
+        package := prompt.PendingExpansionPackage
+        SplitPath(package, &name, &folder)
+        if StrLower(folder) = StrLower(A_AppData "\tes3np\expansion-downloads")
+            && RegExMatch(name, "i)^tes3np-[0-9a-f]{32}\.zip$")
+            try FileDelete(package)
+    }
     ; Do not permanently suppress reminders for missing game files.
     MorrowindPromptGui := 0
     prompt.Destroy()
