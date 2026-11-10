@@ -3441,7 +3441,8 @@ metrics();
                         });
                       }
                       later.textContent = 'Not Now';
-                      form.appendChild(later);
+                      if (later.parentElement !== form || later !== form.lastElementChild)
+                        form.appendChild(later);
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -3539,8 +3540,17 @@ metrics();
                           document.documentElement.scrollTop = 0;
                           if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
                         };
-                        reset();
-                        requestAnimationFrame(reset);
+                        // Discord may focus an input after React mounts and
+                        // restore an old scroll offset. Stop forcing the top as
+                        // soon as the player interacts with the form.
+                        let userInteracted = false;
+                        for (const eventName of ['pointerdown','keydown','wheel','touchstart'])
+                          form.addEventListener(eventName, () => { userInteracted = true; }, {once:true, passive:true});
+                        const resetIfUntouched = () => { if (!userInteracted) reset(); };
+                        resetIfUntouched();
+                        requestAnimationFrame(resetIfUntouched);
+                        setTimeout(resetIfUntouched, 180);
+                        setTimeout(resetIfUntouched, 500);
                       }
                     })()
                     """);

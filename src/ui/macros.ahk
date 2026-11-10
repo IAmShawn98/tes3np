@@ -2,7 +2,7 @@
 
 BuildMacroBookPanel()
 {
-    global CharacterPage, LauncherMorrowindFont
+    global CharacterPage, LauncherMorrowindFont, ButtonFaces
     global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
     global MacroImportButton, MacroBookControls, MacroBookRows
     global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
@@ -37,6 +37,7 @@ BuildMacroBookPanel()
         name := AddBookLabel(CharacterPage, 551, y + 19, 329, 22, "")
         name.Opt("+0x100")
         name.OnEvent("Click", SelectMacroBookRow.Bind(position))
+        ButtonFaces[name.Hwnd].IsClickable := true
         run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
             "Run", RunMacroBookRow.Bind(position))
         stop := AddStyledButton(CharacterPage, 663, y + 42, 103, 20,

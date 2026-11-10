@@ -26,7 +26,7 @@ ButtonWindowProc(handle, message, wParam, lParam, subclassID, reference)
         if ButtonFaces.Has(handle)
         {
             face := ButtonFaces[handle]
-            if (!face.HasOwnProp("IsLabel") || face.HasOwnProp("IsTick"))
+            if (!face.HasOwnProp("IsLabel") || face.HasOwnProp("IsTick") || face.HasOwnProp("IsClickable"))
                 && face.Control.Enabled && face.Control.Visible
             {
                 SetLauncherHandCursor()
