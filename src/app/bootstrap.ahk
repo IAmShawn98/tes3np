@@ -538,7 +538,7 @@ OfferDesktopShortcutOnFirstLaunch(*)
     if IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""
         return
 
-    answer := MsgBox("Would you like a Nerevarine Prophecies shortcut on your desktop?", "tes3np", "YesNo Icon?")
+    answer := MsgBox("Would you like a desktop shortcut for Nerevarine Prophecies?", "tes3np", "YesNo Icon?")
     ; Record the choice before attempting filesystem operations. Otherwise an
     ; unwritable desktop re-prompts at every startup despite the user's answer.
     DirCreate(AppDataDirectory)

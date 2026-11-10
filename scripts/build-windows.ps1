@@ -640,6 +640,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $hostOutput 'tes3np.ChatHost.exe'))) {
         throw 'WebView2 chat host publishing failed.'
     }
+    if (!(Test-Path -LiteralPath (Join-Path $hostOutput 'assets\\DiscordInt.png') -PathType Leaf)) {
+        throw 'Published Discord sign-in emblem is missing.'
+    }
     # Keep editable CSS and layout files beside the published chat host.
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.css') (Join-Path $hostOutput 'chat.css') -Force
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force

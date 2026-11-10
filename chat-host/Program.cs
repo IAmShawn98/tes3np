@@ -1153,6 +1153,7 @@ metrics();
         bool discordSignInRequested;
         Form? discordSignInWindow;
         bool showChatAfterDiscordSignIn;
+        string? discordIntegrationLogoDataUrl;
         // Authentication gates live Discord fetching/paging ONLY. A genuine
         // unexpired message already in the local chat archive is sufficient
         // to display Happy Hour, even if Discord is signed out.
@@ -3282,14 +3283,21 @@ metrics();
             if (web.CoreWebView2 == null || closingChat) return;
             try
             {
-                // Read the bundled emblem beside the chat-host executable.
-                // Embed as a data URL so Discord's CSP does not block local files.
+                // The release includes this image beside the published Chat Host.
+                // Reuse its data URL across 500ms login checks, and inject once
+                // per document; Discord's SPA can replace the form at any time.
                 string logoFile = Path.Combine(AppContext.BaseDirectory, "assets", "DiscordInt.png");
                 if (File.Exists(logoFile))
                 {
-                    string logoUrl = "data:image/png;base64," + Convert.ToBase64String(File.ReadAllBytes(logoFile));
-                    await web.CoreWebView2.ExecuteScriptAsync(
-                        "window.__tes3npIntegrationLogo = " + System.Text.Json.JsonSerializer.Serialize(logoUrl) + ";");
+                    discordIntegrationLogoDataUrl ??= "data:image/png;base64," +
+                        Convert.ToBase64String(File.ReadAllBytes(logoFile));
+                    if (await web.CoreWebView2.ExecuteScriptAsync(
+                        "Boolean(window.__tes3npIntegrationLogo)") != "true")
+                    {
+                        await web.CoreWebView2.ExecuteScriptAsync(
+                            "window.__tes3npIntegrationLogo = " +
+                            System.Text.Json.JsonSerializer.Serialize(discordIntegrationLogoDataUrl) + ";");
+                    }
                 }
                 await web.CoreWebView2.ExecuteScriptAsync("""
                     (() => {
@@ -3307,7 +3315,7 @@ metrics();
                       if (!form.querySelector('[data-tes3np-login-heading]')) {
                         const title = document.createElement('div');
                         title.setAttribute('data-tes3np-login-heading', '');
-                        title.textContent = 'Sign in to Discord';
+                        title.textContent = 'Discord Integration!';
                         form.prepend(title);
                       }
                       // Hide the Discord logo and welcome panels by hiding
@@ -3387,10 +3395,14 @@ metrics();
                       if (!benefit) {
                         benefit = document.createElement('p');
                         benefit.setAttribute('data-tes3np-login-benefit', '');
-                        benefit.textContent = 'Connect Discord for launcher chat and out-of-game alerts for happy hours, world bosses, and player mentions.';
+                        benefit.textContent = "The feature you're trying to access requires Discord integration to function. Connecting to Discord unlocks realtime in-game chat, offline happy hour notifications, automatic expansion pack installation, and more!";
                       }
                       const title = form.querySelector('[data-tes3np-login-heading]');
-                      if (title) title.insertAdjacentElement('afterend', benefit);
+                      if (title) {
+                        title.textContent = 'Discord Integration!';
+                        title.insertAdjacentElement('afterend', benefit);
+                      }
+                      benefit.textContent = "The feature you're trying to access requires Discord integration to function. Connecting to Discord unlocks realtime in-game chat, offline happy hour notifications, automatic expansion pack installation, and more!";
                       let logo = form.querySelector('[data-tes3np-integration-logo]');
                       if (!logo) {
                         logo = document.createElement('img');
@@ -3430,8 +3442,8 @@ metrics();
                         }
                         [data-tes3np-login-benefit] {
                           display:block !important;
-                          margin:4px 4px 14px !important;
-                          padding:8px 4px 0 !important;
+                          margin:3px 4px 8px !important;
+                          padding:5px 4px 0 !important;
                           border-top:none !important;
                           color:#ddc99d !important;
                           font:13px/1.4 Georgia,'Times New Roman',serif !important;
@@ -3498,11 +3510,38 @@ metrics();
             frameSurface.Invalidate();
             Log("CHAT | Waiting for authenticated message feed");
         }
+        // Only the Game Chat-triggered sign-in follows the normal dock.
+        // Expansion and all other authentication requests remain centered.
+        void PositionGameChatDiscordSignIn()
+        {
+            if (!discordSignInRequested || pendingExpansionPrompt != 0 ||
+                !IsWindow(owner) || discordSignInWindow is not { IsDisposed: false } popup ||
+                !GetWindowRect(owner, out var bounds)) return;
+            var work = Screen.FromHandle(owner).WorkingArea;
+            int popupWidth = popup.Width, popupHeight = popup.Height;
+            int normalChatWidth = Math.Min(chatWidth, work.Width);
+            int leftX = bounds.Left - normalChatWidth;
+            int rightX = bounds.Right;
+            int x;
+            if (leftX >= work.Left)
+                x = bounds.Left - popupWidth;
+            else if (rightX + normalChatWidth <= work.Right)
+                x = rightX;
+            else
+                x = bounds.Left - work.Left >= work.Right - bounds.Right
+                    ? bounds.Left - popupWidth : rightX;
+            x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - popupWidth));
+            int y = bounds.Top + (bounds.Bottom - bounds.Top - popupHeight) / 2;
+            y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - popupHeight));
+            var target = new System.Drawing.Point(x, y);
+            if (popup.Location != target) popup.Location = target;
+        }
         void RevealDiscordSignInWindow()
         {
             // Only explicit Game Chat or Expansion Pack actions may open login.
             discordSignInRequested = true;
             if (discordSignInWindow is not { IsDisposed: false } popup) return;
+            PositionGameChatDiscordSignIn();
             if (!popup.Visible) popup.Show();
             popup.BringToFront();
             popup.Activate();
@@ -3532,7 +3571,7 @@ metrics();
             int height = Math.Max(440, Math.Min(750, area.Height - 24));
             var popup = new Form
             {
-                Text = "tes3np - Sign in to Discord",
+                Text = "tes3np - Sign In Required",
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 StartPosition = FormStartPosition.Manual,
                 Location = new System.Drawing.Point(
@@ -3552,15 +3591,29 @@ metrics();
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
-            var heading = new Label { Text = "Sign in to Discord", Dock = DockStyle.Fill,
+            var heading = new Label { Text = "Sign In Required", Dock = DockStyle.Fill,
                 TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
                 ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
                 Font = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold) };
-            var help = new Label { Text = "Sign in to use Game Chat and download the latest Expansion Pack.",
+            var help = new Label { Text = "Connect your Discord account to access this feature.",
                 Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
                 ForeColor = System.Drawing.Color.FromArgb(237, 225, 201) };
             var browserPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
-            var later = new Button { Text = "Not Now", Dock = DockStyle.Fill };
+            // Match the login action's full-width, square, gold-bordered
+            // Georgia styling while making the cancellation action red/white.
+            var later = new Button {
+                Text = "Not Now", Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = System.Drawing.Color.FromArgb(153, 34, 34),
+                ForeColor = System.Drawing.Color.White,
+                Font = new System.Drawing.Font("Georgia", 17),
+                UseVisualStyleBackColor = false,
+                Cursor = Cursors.Hand
+            };
+            later.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(223, 187, 117);
+            later.FlatAppearance.BorderSize = 1;
+            later.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(180, 48, 48);
+            later.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(112, 24, 24);
             later.Click += (_, _) => {
                 popup.Hide();
                 discordSignInRequested = false;
@@ -3580,6 +3633,7 @@ metrics();
             shell.Controls.Add(later, 0, 3);
             popup.Controls.Add(shell);
             discordSignInWindow = popup;
+            PositionGameChatDiscordSignIn();
             web.Dock = DockStyle.Fill;
             web.Parent = browserPanel;
             web.Visible = true;
@@ -3662,6 +3716,15 @@ metrics();
             if (pendingExpansionPrompt != 0) return;
             pendingExpansionPrompt = mode;
             restoreChatAfterExpansionPrompt = !chatOpen;
+            // Keep the existing centered behavior for Expansion Pack auth
+            // even if Game Chat previously positioned this reusable popup.
+            if (discordSignInWindow is { IsDisposed: false } popup)
+            {
+                var area = Screen.FromHandle(owner).WorkingArea;
+                popup.Location = new System.Drawing.Point(
+                    area.Left + (area.Width - popup.Width) / 2,
+                    area.Top + (area.Height - popup.Height) / 2);
+            }
             if (!discordChannelReady) discordSignInRequested = true;
             if (discordLoginVisible) RevealDiscordSignInWindow();
             // The previous channelReady flag may be stale after a sign-out.
@@ -3820,6 +3883,8 @@ metrics();
             // movement events, regardless of whether the hook installed.
             // The native helper is a no-op if the banner is already aligned.
             PositionHappyHourBanner();
+            if (discordLoginVisible && discordSignInRequested && pendingExpansionPrompt == 0)
+                PositionGameChatDiscordSignIn();
             if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
             // Discord authentication has its own window; the docked Game Chat
             // always retains its normal height, even when signed out.

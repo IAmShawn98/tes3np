@@ -401,8 +401,16 @@ ToggleExpansionPack(*)
     enable := !ExpansionPackIsEnabled()
     cfg := PatchConfigurationPath()
     morrowind := FindMorrowindFolder(cfg)
-    ; Offer direct pickers instead of sending new players to the obsolete
-    ; multi-field external TES3MP installer.
+    ; First show the same missing-game prompt used by setup and game launch.
+    ; The folder chooser is owned by that prompt; a valid selection resumes
+    ; the Expansion Pack toggle rather than silently ending the action.
+    if enable && morrowind = ""
+    {
+        LogLauncherEvent("EXPANSION | Morrowind GOTY not found; opening setup prompt.")
+        CheckFirstRunMorrowind(true)
+        return
+    }
+    ; Offer a direct OpenMW configuration picker if the game itself exists.
     if !FileExist(cfg)
     {
         selectedConfig := FileSelect(1, , "Choose your active OpenMW configuration", "OpenMW configuration (*.cfg)")
@@ -417,24 +425,6 @@ ToggleExpansionPack(*)
         cfg := selectedConfig
         IniWrite(cfg, DataFile, "Patch", "ConfigFile")
         morrowind := FindMorrowindFolder(cfg)
-    }
-    if enable && morrowind = ""
-    {
-        selectedFolder := FileSelect("D", , "Choose Morrowind GOTY installation folder")
-        if selectedFolder = ""
-            return
-        selectedFolder := RTrim(selectedFolder, "\/")
-        SplitPath(selectedFolder, &selectedName, &selectedParent)
-        if StrLower(selectedName) = "data files"
-            selectedFolder := selectedParent
-        for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
-            if !FileExist(selectedFolder "\Data Files\" master)
-            {
-                MsgBox("The selected folder is missing " master ". Please select a complete Morrowind GOTY installation.", "Expansion Pack", "Icon!")
-                return
-            }
-        morrowind := selectedFolder
-        IniWrite(morrowind, DataFile, "Patch", "MorrowindFolder")
     }
     ; Installed packs may live under Morrowind or any configured OpenMW data folder.
     ; Never copy retired bundled Expansion Pack assets.
@@ -457,7 +447,17 @@ ToggleExpansionPack(*)
         return
     }
     action := enable ? "Enable" : "Disable"
-    if MsgBox(action " NP Expansion Pack for all future game clients?" Chr(10) Chr(10) "TES3NP will back up your configuration and preserve other mods.", "Expansion Pack", "YesNo Icon?") != "Yes"
+    if enable
+    {
+        question := "Are you sure you want to enable your installed expansion pack?"
+        explanation := "Enabling the Nerevarine Prophecies expansion pack will activate it for future game clients. You can disable it again at any time without uninstalling it."
+    }
+    else
+    {
+        question := "Are you sure you want disable your installed expansion pack?"
+        explanation := "Disabling the Nerevarine Prophecies expansion pack will not uninstall it. If you decide to turn it back on, it will immediately enable again."
+    }
+    if MsgBox(question Chr(10) Chr(10) explanation, "Expansion Pack", "YesNo Icon?") != "Yes"
         return
     resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
     script := resourceRoot "\scripts\toggle-expansion-pack.ps1"
@@ -513,7 +513,7 @@ ToggleExpansionPack(*)
 ; First-run discovery is informational and never installs optional patches.
 ; A missing Morrowind installation cannot be fixed by downloading TES3MP:
 ; TES3NP already bundles its own client.
-CheckFirstRunMorrowind(*)
+CheckFirstRunMorrowind(resumeExpansion := false, *)
 {
     global DataFile, LauncherGui, MorrowindPromptGui
     ; "Not Now" only defers until the next startup or game launch.
@@ -527,6 +527,8 @@ CheckFirstRunMorrowind(*)
     }
     if IsObject(MorrowindPromptGui)
     {
+        if resumeExpansion
+            MorrowindPromptGui.ResumeExpansionPack := true
         try
         {
             if DllCall("IsWindow", "Ptr", MorrowindPromptGui.Hwnd)
@@ -537,14 +539,15 @@ CheckFirstRunMorrowind(*)
         }
         MorrowindPromptGui := 0
     }
-    prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Locate Morrowind")
+    prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Morrowind Installation Not Found")
+    prompt.ResumeExpansionPack := resumeExpansion
     prompt.BackColor := "E2CEA2"
     prompt.SetFont("s13 Bold c241408", "Segoe UI")
-    prompt.Add("Text", "x20 y18 w440 h32", "Locate Morrowind GOTY")
+    prompt.Add("Text", "x20 y18 w440 h32", "Morrowind Installation Not Found")
     prompt.SetFont("s10 Norm c382314", "Segoe UI")
-    prompt.Add("Text", "x20 y58 w440 h72", "TES3NP already includes TES3MP. To use your Morrowind game files, select the folder containing Data Files, including Tribunal and Bloodmoon. You can do this later.")
-    choose := prompt.Add("Button", "x20 y145 w440 h39", "Choose Morrowind Folder")
-    later := prompt.Add("Button", "x20 y194 w440 h34", "Not Now")
+    prompt.Add("Text", "x20 y57 w440 h108", "You must locate, install and choose the valid file path of your legally purchased copy of Morrowind in order to play Nerevarine Prophecies. Please install Morrowind, then, click 'Choose Morrowind Folder' and locate your installation path to continue.")
+    choose := prompt.Add("Button", "x20 y175 w440 h39", "Choose Morrowind Folder")
+    later := prompt.Add("Button", "x20 y224 w440 h34", "Not Now")
     choose.OnEvent("Click", (*) => SelectFirstRunMorrowind(prompt))
     later.OnEvent("Click", (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
@@ -552,7 +555,7 @@ CheckFirstRunMorrowind(*)
     MorrowindPromptGui := prompt
     promptScale := GetOwnedMenuScale()
     ScaleOwnedMenuContent(prompt, promptScale)
-    prompt.Show("Hide w" Round(480 * promptScale) " h" Round(250 * promptScale))
+    prompt.Show("Hide w" Round(480 * promptScale) " h" Round(280 * promptScale))
     PositionOwnedMenuAtParent(prompt, LauncherGui)
     prompt.Show()
 }
@@ -593,9 +596,13 @@ SelectFirstRunMorrowind(prompt, *)
     IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
     IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
     LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
+    resumeExpansion := prompt.HasOwnProp("ResumeExpansionPack") && prompt.ResumeExpansionPack
     MorrowindPromptGui := 0
     prompt.Destroy()
-    MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
+    if resumeExpansion
+        SetTimer(ToggleExpansionPack, -50)
+    else
+        MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
 }
 
 DismissFirstRunMorrowind(prompt, *)
