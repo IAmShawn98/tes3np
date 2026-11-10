@@ -1435,7 +1435,7 @@ expect(
     and "later.type = 'button';" in source
     and "chrome.webview.postMessage('tes3np-sign-in-later');" in source
     and 'args.TryGetWebMessageAsString() == "tes3np-sign-in-later"' in source
-    and 'requestAnimationFrame(reset);' in source
+    and 'requestAnimationFrame(resetIfUntouched);' in source
     and "min-height:44px !important" in source
     and 'RowCount = 3,' in source
     and 'shell.Controls.Add(later, 0, 3);' not in source,
