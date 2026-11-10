@@ -581,30 +581,68 @@ OpenClientSelectionSettings(*)
     global LauncherGui, DataFile, V016SettingsGuiHwnd
     mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
     saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
-    ; The settings parchment deliberately disables the launcher. The
-    ; native gold card owns its dimmer to the live settings HWND instead,
-    ; preserving focus and scale while matching the changelog panels.
+    ; The Settings page owns this borderless native card, not the disabled
+    ; launcher. A compact card is sized from its actual visible actions.
     ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
-    menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, 458)
+    initialHeight := saved ? 460 : 412
+    menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)
     menu.SetFont("s17 Bold cC5A45C", "Georgia")
     menu.Add("Text", "x30 y25 w620 h40 BackgroundTrans", "Game Client Settings")
     display := mode = "Bundled" ? "Original TES3MP runtime" : mode = "CustomOverrides" ? "Custom overrides active" : "Legacy custom client (" mode ")"
     menu.SetFont("s11 Bold cE7BE70", "Segoe UI")
-    activeLabel := menu.Add("Text", "x30 y78 w620 h25 BackgroundTrans", "Active client: " display)
+    activeLabel := menu.Add("Text", "x30 y78 w620 h30 BackgroundTrans", "Active client: " display)
     menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
-    menu.Add("Text", "x30 y111 w620 h48 BackgroundTrans",
+    ; Reserve the full text height, including at small display scales.
+    ; The next button cannot overlap the second wrapped line.
+    menu.Add("Text", "x30 y115 w620 h65 BackgroundTrans +Wrap",
         "Choose how TES3NP launches the game. Custom files are kept separate from the protected original TES3MP runtime.")
-    customize := AddStyledButton(menu, 30, 165, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))
-    reactivate := AddStyledButton(menu, 30, 213, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))
+    customize := AddStyledButton(menu, 30, 190, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))
+    reactivate := AddStyledButton(menu, 30, 238, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))
+    reactivate.Visible := saved
     reactivate.Enabled := saved
-    restore := AddStyledButton(menu, 30, 261, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))
+    restoreY := saved ? 286 : 238
+    restore := AddStyledButton(menu, 30, restoreY, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))
     menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
-    statusLabel := menu.Add("Text", "x30 y323 w620 h43 BackgroundTrans +Wrap", "Select an option to change your game client.")
-    close := AddStyledButton(menu, 231, 392, 218, 38, "Close", CloseGameClientSettingsV016.Bind(menu))
-    menu.ClientFeedback := {Active: activeLabel, Status: statusLabel, Reactivate: reactivate}
+    statusY := saved ? 339 : 291
+    statusLabel := menu.Add("Text", "x30 y" statusY " w620 h48 BackgroundTrans +Wrap",
+        "Select an option to change your game client.")
+    closeY := saved ? 399 : 351
+    close := AddStyledButton(menu, 231, closeY, 218, 38, "Close", CloseGameClientSettingsV016.Bind(menu))
+    menu.ClientFeedback := {Active: activeLabel, Status: statusLabel, Reactivate: reactivate,
+        Restore: restore, Close: close, SavedVisible: saved}
     menu.OnEvent("Escape", CloseGameClientSettingsV016.Bind(menu))
     menu.OnEvent("Close", CloseGameClientSettingsV016.Bind(menu))
     ShowGoldNativePrompt(menu)
+}
+
+; A saved custom client may first appear while this dialog is open, after
+; Set Up Custom EXE finishes. Reflow the live card rather than leaving a
+; disabled button or blank gap and don't replace the shared Settings page.
+RefreshGameClientSettingsLayoutV016(menu)
+{
+    if !IsObject(menu) || !DllCall("IsWindow", "Ptr", menu.Hwnd)
+        return
+    saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
+    state := menu.ClientFeedback
+    state.Reactivate.Enabled := saved
+    state.Reactivate.Visible := saved
+    if state.SavedVisible = saved
+        return
+    scale := menu.HasOwnProp("OwnedContentScale") ? menu.OwnedContentScale : 1.0
+    state.SavedVisible := saved
+    moveY := saved ? 286 : 238
+    MoveStyledButton(state.Restore, Round(30 * scale), Round(moveY * scale),
+        Round(620 * scale), Round(40 * scale))
+    state.Status.Move(Round(30 * scale), Round((saved ? 339 : 291) * scale),
+        Round(620 * scale), Round(48 * scale))
+    MoveStyledButton(state.Close, Round(231 * scale), Round((saved ? 399 : 351) * scale),
+        Round(218 * scale), Round(38 * scale))
+    menu.NativePromptHeight := saved ? 460 : 412
+    menu.NativePromptBackground.Move(Round(2 * scale), Round(2 * scale),
+        Round(676 * scale), Round((menu.NativePromptHeight - 4) * scale))
+    ShowCenteredUpdateCard(menu, menu.NativePromptBackdrop,
+        Round(680 * scale), Round(menu.NativePromptHeight * scale))
+    DllCall("RedrawWindow", "Ptr", menu.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
 }
 
 RestoreBundledClientV016(menu, *)
@@ -686,7 +724,7 @@ UpdateGameClientFeedbackV016(menu, active, message)
         return
     menu.ClientFeedback.Active.Text := "Active client: " active
     menu.ClientFeedback.Status.Text := message
-    menu.ClientFeedback.Reactivate.Enabled := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
+    RefreshGameClientSettingsLayoutV016(menu)
     menu.Show()
     WinActivate("ahk_id " menu.Hwnd)
 }

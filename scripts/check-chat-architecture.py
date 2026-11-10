@@ -1399,6 +1399,27 @@ expect(
         source, "void ShowDiscordSignIn()", "\n        void RestoreGameChatAfterSignIn()"),
 )
 expect(
+    "Game Client text clears buttons and available actions dictate card height",
+    'menu.Add("Text", "x30 y115 w620 h65 BackgroundTrans +Wrap",' in settings_layout
+    and 'customize := AddStyledButton(menu, 30, 190, 620, 40,' in settings_layout
+    and 'initialHeight := saved ? 460 : 412' in settings_layout
+    and 'reactivate.Visible := saved' in settings_layout
+    and 'restoreY := saved ? 286 : 238' in settings_layout
+    and 'statusY := saved ? 339 : 291' in settings_layout
+    and 'closeY := saved ? 399 : 351' in settings_layout
+    and 'RefreshGameClientSettingsLayoutV016(menu)' in settings_layout
+    and 'menu.NativePromptBackground.Move(' in settings_layout
+    and 'panel.NativePromptBackground := panel.Add("Text",' in native_card_ui,
+)
+expect(
+    "Manage Macros empty state and Upload button do not leave blank action row",
+    'MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28' in macro_menu_ui
+    and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro_menu_ui
+    and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 60' in macro_menu_ui
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
+    and 'maximum := Max(0, count - MacroBookRows.Length)' in macro_menu_ui,
+)
+expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
     'A_Args[1] = "--check-owned-menu-scaling"' in entry_script
     and 'for percent in [50, 60, 70, 80, 90, 100]' in entry_script
