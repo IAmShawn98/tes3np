@@ -1421,7 +1421,10 @@ expect(
     and 'CloseGoldNativePrompt(menu)' in settings_layout
     and 'CloseGoldNativePrompt(options)' in settings_layout
     and settings_layout.count('options.Destroy()') == 0
-    and patcher.count('CloseGoldNativePrompt(prompt)') == 2,
+    and 'CloseGoldNativePrompt(prompt)' in section_between(
+        patcher, 'SelectFirstRunMorrowind(prompt, *)', '\nDismissFirstRunMorrowind(')
+    and 'CloseGoldNativePrompt(prompt)' in section_between(
+        patcher, 'DismissFirstRunMorrowind(prompt, *)', '\n}'),
 )
 expect(
     "Discord sign-in uses a borderless gold card with in-window close and original toggle",
