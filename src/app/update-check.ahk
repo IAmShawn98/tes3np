@@ -148,20 +148,23 @@ CheckForUpdates(source := "", *)
     }
 }
 
-CreateUpdateBackdrop()
+CreateUpdateBackdrop(owner := 0)
 {
     global LauncherGui
-    ; Dim only the launcher, not the entire desktop; keep the focused panel above it.
-    ; Query physical screen pixels: LauncherGui.GetPos returns DPI-scaled
-    ; coordinates, which caused the overlay to cover only part of the launcher.
+    ; Shared native-card backdrop: changelogs use the launcher; child setup
+    ; dialogs can dim their actual owner without covering the entire desktop.
+    ; Physical HWND rectangles avoid mixed-DPI clipping of scaled windows.
+    if !owner
+        owner := LauncherGui
+    ownerHwnd := IsObject(owner) ? owner.Hwnd : owner
     bounds := Buffer(16, 0)
-    if !DllCall("user32\GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds)
-        throw Error("Unable to locate launcher for update backdrop.")
+    if !ownerHwnd || !DllCall("user32\GetWindowRect", "Ptr", ownerHwnd, "Ptr", bounds)
+        throw Error("Unable to locate owner for native prompt backdrop.")
     lx := NumGet(bounds, 0, "Int")
     ly := NumGet(bounds, 4, "Int")
     lw := NumGet(bounds, 8, "Int") - lx
     lh := NumGet(bounds, 12, "Int") - ly
-    dim := Gui("-Caption -Border -DPIScale +ToolWindow +Owner" LauncherGui.Hwnd, "tes3np Update Backdrop")
+    dim := Gui("-Caption -Border -DPIScale +ToolWindow +Owner" ownerHwnd, "tes3np Native Prompt Backdrop")
     dim.BackColor := "000000"
     dim.Show("NA x" lx " y" ly " w" lw " h" lh)
     WinSetTransparent(165, "ahk_id " dim.Hwnd)
@@ -179,6 +182,50 @@ ShowCenteredUpdateCard(dialog, backdrop, width, height)
     dh := NumGet(rect, 12, "Int") - top
     dialog.Show("w" width " h" height " x" (left + Round((dw - width) / 2))
         " y" (top + Round((dh - height) / 2)))
+}
+
+; The version/changelog cards already establish the native dark-and-gold
+; prompt visual system. Use that exact frame/dim centering for settings/setup
+; instead of another tan, title-barred secondary GUI.
+CreateGoldNativePrompt(owner, title, width, height)
+{
+    backdrop := CreateUpdateBackdrop(owner)
+    try
+    {
+        panel := Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)
+        panel.MarginX := 0, panel.MarginY := 0
+        panel.BackColor := "C5A45C"
+        panel.Add("Text", "x2 y2 w" (width - 4) " h" (height - 4) " Background171008")
+        panel.NativePromptBackdrop := backdrop
+        panel.NativePromptWidth := width
+        panel.NativePromptHeight := height
+        return panel
+    }
+    catch
+    {
+        backdrop.Destroy()
+        throw
+    }
+}
+
+ShowGoldNativePrompt(panel)
+{
+    if !IsObject(panel) || !panel.HasOwnProp("NativePromptBackdrop")
+        return
+    scale := GetOwnedMenuScale()
+    ScaleOwnedMenuContent(panel, scale)
+    ShowCenteredUpdateCard(panel, panel.NativePromptBackdrop,
+        Round(panel.NativePromptWidth * scale), Round(panel.NativePromptHeight * scale))
+}
+
+CloseGoldNativePrompt(panel)
+{
+    if !IsObject(panel)
+        return
+    backdrop := panel.HasOwnProp("NativePromptBackdrop") ? panel.NativePromptBackdrop : 0
+    try panel.Destroy()
+    if IsObject(backdrop)
+        try backdrop.Destroy()
 }
 
 ShowGoldUpdateConfirmation(title, message, confirmLabel)

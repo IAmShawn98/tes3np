@@ -539,25 +539,24 @@ CheckFirstRunMorrowind(resumeExpansion := false, *)
         }
         MorrowindPromptGui := 0
     }
-    prompt := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "TES3NP - Morrowind Installation Not Found")
+    ; Match the native, titlebarless gold-on-dark changelog cards. The
+    ; backdrop is owned by the launcher and remains alive during folder
+    ; selection and optional automatic Expansion Pack resumption.
+    prompt := CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)
     prompt.ResumeExpansionPack := resumeExpansion
-    prompt.BackColor := "E2CEA2"
-    prompt.SetFont("s13 Bold c241408", "Segoe UI")
-    prompt.Add("Text", "x20 y18 w440 h32", "Morrowind Installation Not Found")
-    prompt.SetFont("s10 Norm c382314", "Segoe UI")
-    prompt.Add("Text", "x20 y57 w440 h108", "You must locate, install and choose the valid file path of your legally purchased copy of Morrowind in order to play Nerevarine Prophecies. Please install Morrowind, then, click 'Choose Morrowind Folder' and locate your installation path to continue.")
-    choose := prompt.Add("Button", "x20 y175 w440 h39", "Choose Morrowind Folder")
-    later := prompt.Add("Button", "x20 y224 w440 h34", "Not Now")
-    choose.OnEvent("Click", (*) => SelectFirstRunMorrowind(prompt))
-    later.OnEvent("Click", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    prompt.Add("Text", "x30 y26 w620 h40 BackgroundTrans", "Morrowind Installation Not Found")
+    prompt.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    prompt.Add("Text", "x30 y85 w620 h135 BackgroundTrans",
+        "You must locate, install and choose the valid file path of your legally purchased copy of Morrowind in order to play Nerevarine Prophecies. Please install Morrowind, then, click 'Choose Morrowind Folder' and locate your installation path to continue.")
+    choose := AddStyledButton(prompt, 30, 268, 392, 42, "Choose Morrowind Folder",
+        (*) => SelectFirstRunMorrowind(prompt))
+    later := AddStyledButton(prompt, 438, 268, 212, 42, "Not Now",
+        (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
     MorrowindPromptGui := prompt
-    promptScale := GetOwnedMenuScale()
-    ScaleOwnedMenuContent(prompt, promptScale)
-    prompt.Show("Hide w" Round(480 * promptScale) " h" Round(280 * promptScale))
-    PositionOwnedMenuAtParent(prompt, LauncherGui)
-    prompt.Show()
+    ShowGoldNativePrompt(prompt)
 }
 
 ; Do not launch TES3MP until all three GOTY master files are present.
@@ -600,7 +599,7 @@ SelectFirstRunMorrowind(prompt, *)
     pendingPackage := prompt.HasOwnProp("PendingExpansionPackage") ? prompt.PendingExpansionPackage : ""
     pendingApproved := prompt.HasOwnProp("PendingExpansionApproved") && prompt.PendingExpansionApproved
     MorrowindPromptGui := 0
-    prompt.Destroy()
+    CloseGoldNativePrompt(prompt)
     if pendingPackage != ""
         SetTimer(InstallSelectedExpansionPackage.Bind(pendingPackage, pendingApproved), -50)
     else if resumeExpansion
@@ -625,5 +624,5 @@ DismissFirstRunMorrowind(prompt, *)
     }
     ; Do not permanently suppress reminders for missing game files.
     MorrowindPromptGui := 0
-    prompt.Destroy()
+    CloseGoldNativePrompt(prompt)
 }

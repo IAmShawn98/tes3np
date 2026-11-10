@@ -578,40 +578,33 @@ ShowResetAppDataActions(*)
 
 OpenClientSelectionSettings(*)
 {
-    global LauncherGui, LauncherMorrowindFont, DataFile, V016SettingsGuiHwnd
+    global LauncherGui, DataFile, V016SettingsGuiHwnd
     mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
     saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
-    ; LauncherGui is disabled while the parchment Settings screen is open.
-    ; Own this dialog to Settings instead, otherwise closing it can focus the
-    ; disabled launcher and make both windows appear to have vanished.
+    ; The settings parchment deliberately disables the launcher. The
+    ; native gold card owns its dimmer to the live settings HWND instead,
+    ; preserving focus and scale while matching the changelog panels.
     ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
-    menu := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Game Client Settings")
-    menu.BackColor := "E2CEA2"
-    menu.SetFont("s14 Bold c241408", LauncherMorrowindFont)
-    menu.Add("Text", "x24 y20 w480 h35", "Game Client Settings")
-    menu.SetFont("s10 c382314", "Segoe UI")
+    menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, 458)
+    menu.SetFont("s17 Bold cC5A45C", "Georgia")
+    menu.Add("Text", "x30 y25 w620 h40 BackgroundTrans", "Game Client Settings")
     display := mode = "Bundled" ? "Original TES3MP runtime" : mode = "CustomOverrides" ? "Custom overrides active" : "Legacy custom client (" mode ")"
-    activeLabel := menu.Add("Text", "x24 y65 w480 h25", "Active client: " display)
-    menu.Add("Text", "x24 y95 w480 h48", "Choose how TES3NP launches the game. Custom files are kept separate from the protected original runtime.")
-    menu.SetFont("s11 Bold", "Segoe UI")
-    customize := menu.Add("Button", "x24 y153 w480 h43", "Set Up Custom EXE")
-    reactivate := menu.Add("Button", "x24 y205 w480 h43", "Use Saved Custom Client")
+    menu.SetFont("s11 Bold cE7BE70", "Segoe UI")
+    activeLabel := menu.Add("Text", "x30 y78 w620 h25 BackgroundTrans", "Active client: " display)
+    menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    menu.Add("Text", "x30 y111 w620 h48 BackgroundTrans",
+        "Choose how TES3NP launches the game. Custom files are kept separate from the protected original TES3MP runtime.")
+    customize := AddStyledButton(menu, 30, 165, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))
+    reactivate := AddStyledButton(menu, 30, 213, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))
     reactivate.Enabled := saved
-    restore := menu.Add("Button", "x24 y257 w480 h43", "Use Original TES3MP Client")
-    statusLabel := menu.Add("Text", "x24 y307 w480 h40 +Wrap", "Select an option to change your game client.")
-    close := menu.Add("Button", "x24 y354 w480 h38", "Close")
+    restore := AddStyledButton(menu, 30, 261, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))
+    menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    statusLabel := menu.Add("Text", "x30 y323 w620 h43 BackgroundTrans +Wrap", "Select an option to change your game client.")
+    close := AddStyledButton(menu, 231, 392, 218, 38, "Close", CloseGameClientSettingsV016.Bind(menu))
     menu.ClientFeedback := {Active: activeLabel, Status: statusLabel, Reactivate: reactivate}
-    customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))
-    reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))
-    restore.OnEvent("Click", (*) => RestoreBundledClientV016(menu))
-    close.OnEvent("Click", CloseGameClientSettingsV016.Bind(menu))
     menu.OnEvent("Escape", CloseGameClientSettingsV016.Bind(menu))
     menu.OnEvent("Close", CloseGameClientSettingsV016.Bind(menu))
-    menuScale := GetOwnedMenuScale()
-    ScaleOwnedMenuContent(menu, menuScale)
-    menu.Show("Hide w" Round(528 * menuScale) " h" Round(416 * menuScale))
-    PositionOwnedMenuAtParent(menu, ownerHwnd)
-    menu.Show()
+    ShowGoldNativePrompt(menu)
 }
 
 RestoreBundledClientV016(menu, *)
@@ -644,25 +637,25 @@ ConfigureCustomClientV016(menu, *)
         MsgBox("Select a file named tes3mp.exe.", "Game Client", "Icon!")
         return
     }
-    ; Clear action names make the optional step unambiguous.
-    options := Gui("+Owner" menu.Hwnd " -MinimizeBox -MaximizeBox", "Optional Client Dependencies")
-    options.BackColor := "E2CEA2"
-    options.SetFont("s12 Bold c241408", "Segoe UI")
-    options.Add("Text", "x20 y20 w470 h30", "Does your custom EXE need additional files?")
-    options.SetFont("s10 c382314", "Segoe UI")
-    options.Add("Text", "x20 y60 w470 h48", "Choose a folder containing matching DLLs, layouts, or other resources, or use the bundled TES3MP dependencies.")
-    add := options.Add("Button", "x20 y122 w470 h40", "Choose Dependencies Folder")
-    skip := options.Add("Button", "x20 y174 w470 h40", "Use Bundled Dependencies Only")
-    cancel := options.Add("Button", "x20 y236 w470 h34", "Cancel Setup")
-    add.OnEvent("Click", (*) => ChooseCustomDependencyFolderV016(menu, options, source))
-    skip.OnEvent("Click", (*) => SaveCustomClientV016(menu, options, source, ""))
-    cancel.OnEvent("Click", (*) => options.Destroy())
-    options.OnEvent("Escape", (*) => options.Destroy())
-    optionScale := GetOwnedMenuScale()
-    ScaleOwnedMenuContent(options, optionScale)
-    options.Show("Hide w" Round(510 * optionScale) " h" Round(292 * optionScale))
-    PositionOwnedMenuAtParent(options, menu)
-    options.Show()
+    ; Preserve the dependency workflow inside the same borderless,
+    ; changelog-style native card system as its parent Game Client Settings.
+    options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", 640, 350)
+    options.SetFont("s15 Bold cC5A45C", "Georgia")
+    options.Add("Text", "x30 y22 w580 h38 BackgroundTrans", "Optional Client Dependencies")
+    options.SetFont("s11 Bold cE7BE70", "Segoe UI")
+    options.Add("Text", "x30 y72 w580 h27 BackgroundTrans", "Does your custom EXE need additional files?")
+    options.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    options.Add("Text", "x30 y108 w580 h50 BackgroundTrans",
+        "Choose a folder containing matching DLLs, layouts, or other resources, or use the bundled TES3MP dependencies.")
+    add := AddStyledButton(options, 30, 170, 580, 38, "Choose Dependencies Folder",
+        (*) => ChooseCustomDependencyFolderV016(menu, options, source))
+    skip := AddStyledButton(options, 30, 218, 580, 38, "Use Bundled Dependencies Only",
+        (*) => SaveCustomClientV016(menu, options, source, ""))
+    cancel := AddStyledButton(options, 188, 285, 264, 38, "Cancel Setup",
+        (*) => CloseGoldNativePrompt(options))
+    options.OnEvent("Escape", (*) => CloseGoldNativePrompt(options))
+    options.OnEvent("Close", (*) => CloseGoldNativePrompt(options))
+    ShowGoldNativePrompt(options)
 }
 
 ChooseCustomDependencyFolderV016(menu, options, source, *)
@@ -681,7 +674,7 @@ SaveCustomClientV016(menu, options, source, folder, *)
     DirCreate(AppDataDirectory)
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
     LogLauncherEvent("GAME | Custom client configured | Additional dependencies: " (folder = "" ? "none" : "selected") ".")
-    options.Destroy()
+    CloseGoldNativePrompt(options)
     UpdateGameClientFeedbackV016(menu, "Custom overrides active", folder = ""
         ? "Custom EXE saved. Bundled dependencies will be used."
         : "Custom EXE and dependency files saved successfully. Ready to launch.")
@@ -701,7 +694,7 @@ UpdateGameClientFeedbackV016(menu, active, message)
 CloseGameClientSettingsV016(menu, *)
 {
     global V016SettingsGuiHwnd, LauncherGui
-    try menu.Destroy()
+    CloseGoldNativePrompt(menu)
     if V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
     {
         WinShow("ahk_id " V016SettingsGuiHwnd)

@@ -313,9 +313,10 @@ def check(allow_missing_payload: bool = False) -> None:
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
     client_contract = (
-        'customize.OnEvent("Click", (*) => ConfigureCustomClientV016(menu))' in client_ui
-        and 'reactivate.OnEvent("Click", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
-        and 'restore.OnEvent("Click", (*) => RestoreBundledClientV016(menu))' in client_ui
+        'AddStyledButton(menu, 30, 165, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))' in client_ui
+        and 'AddStyledButton(menu, 30, 213, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
+        and 'AddStyledButton(menu, 30, 261, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))' in client_ui
+        and 'reactivate.Enabled := saved' in client_ui
         and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in client_ui
         and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in client_ui
         and "InstallCustomClientOverrides(source, folder)" in client_ui
