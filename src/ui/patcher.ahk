@@ -520,7 +520,7 @@ ShowExpansionInstallPrompt()
     prompt.Add("Text", "x30 y27 w620 h39 BackgroundTrans", "Install Expansion Pack")
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
     prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
-        "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord. Yes/No")
+        "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
     AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
         CloseExpansionInstallPrompt.Bind(prompt, true))
     AddStyledButton(prompt, 356, 189, 180, 38, "No",
