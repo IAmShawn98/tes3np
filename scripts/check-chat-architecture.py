@@ -1430,15 +1430,25 @@ expect(
     and 'if (discordLoginVisible) RevealDiscordSignInWindow();' in source,
 )
 expect(
-    "Discord login cancellation scrolls below submit and passkey link",
-    "form.appendChild(later);" in source
+    "Discord login cancellation follows actual passkey row without overlapping password",
+    "anchor.insertAdjacentElement('afterend', later);" in source
+    and "form.appendChild(later);" not in source
+    and "/sign in with a passkey/i.test(el.textContent || '')" in source
+    and "parent.querySelector('input,button[type=submit]')" in source
     and "later.type = 'button';" in source
     and "chrome.webview.postMessage('tes3np-sign-in-later');" in source
     and 'args.TryGetWebMessageAsString() == "tes3np-sign-in-later"' in source
     and 'requestAnimationFrame(resetIfUntouched);' in source
+    and "position:static !important;" in source
     and "min-height:44px !important" in source
     and 'RowCount = 3,' in source
     and 'shell.Controls.Add(later, 0, 3);' not in source,
+)
+expect(
+    "Discord Integration heading has no line or underline",
+    "border:0 !important; box-shadow:none !important;" in source
+    and "text-decoration:none !important;" in source
+    and "border-bottom:1px solid #70532c !important;" not in source,
 )
 expect(
     "Approved ZIP survives only while missing-Morrowind setup owns it",
