@@ -3427,9 +3427,12 @@ metrics();
                         logo.src = window.__tes3npIntegrationLogo;
                         if (title) title.insertAdjacentElement('afterend', logo);
                       }
-                      // A real DOM button follows Discord's Log In button
-                      // and hyperlinks and scrolls with them (not a fixed footer).
-                      let later = form.querySelector('[data-tes3np-not-now]');
+                      // Discord's passkey link can be outside the nested
+                      // password form, and Discord styles some form children
+                      // with explicit flex ordering. Appending to <form> was
+                      // therefore painting Not Now over the password fields.
+                      // Anchor it to the visible passkey row instead.
+                      let later = document.querySelector('[data-tes3np-not-now]');
                       if (!later) {
                         later = document.createElement('button');
                         later.type = 'button';
@@ -3441,8 +3444,30 @@ metrics();
                         });
                       }
                       later.textContent = 'Not Now';
-                      if (later.parentElement !== form || later !== form.lastElementChild)
-                        form.appendChild(later);
+                      const passkey = [...document.querySelectorAll('a,button,[role=link],[role=button]')]
+                        .find(el => el !== later &&
+                          /sign in with a passkey/i.test(el.textContent || '') &&
+                          el.getClientRects().length > 0);
+                      if (passkey) {
+                        // Climb through link-only wrappers so the button lands
+                        // after the whole passkey row, not beside its text.
+                        let anchor = passkey;
+                        for (let depth = 0; depth < 4; depth++) {
+                          const parent = anchor.parentElement;
+                          if (!parent || parent === form || parent === document.body ||
+                              parent === document.documentElement ||
+                              parent.querySelector('input,button[type=submit]') ||
+                              parent.textContent.trim() !== anchor.textContent.trim())
+                            break;
+                          anchor = parent;
+                        }
+                        if (anchor.nextElementSibling !== later)
+                          anchor.insertAdjacentElement('afterend', later);
+                      } else if (later.isConnected) {
+                        // Do not put a fallback inside the password form.
+                        // The link appears once Discord completes rendering.
+                        later.remove();
+                      }
                       style.textContent = `
                         html,body,#app-mount { background:#090807 !important; }
                         html,body { margin:0 !important; padding:0 !important;
@@ -3491,7 +3516,8 @@ metrics();
                           text-align:center !important; color:#d9b469 !important;
                           font:20px Georgia,serif !important;
                           padding:8px 0 7px !important; margin:0 0 4px !important;
-                          border-bottom:1px solid #70532c !important;
+                          border:0 !important; box-shadow:none !important;
+                          text-decoration:none !important;
                         }
                         [data-tes3np-login] label {
                           color:#ddc99d !important; font:15px Georgia,serif !important;
@@ -3520,11 +3546,13 @@ metrics();
                           cursor:pointer !important;
                         }
                         [data-tes3np-not-now] {
-                          display:block !important; flex:0 0 auto !important;
+                          display:block !important; position:static !important;
+                          order:2147483647 !important; flex:0 0 100% !important;
+                          grid-column:1/-1 !important; clear:both !important;
                           width:100% !important; height:auto !important;
-                          min-height:44px !important;
+                          min-height:44px !important; box-sizing:border-box !important;
                           padding:9px 14px !important;
-                          margin:12px 0 8px !important;
+                          margin:14px 0 12px !important;
                           background:#991f1f !important; color:#fff !important;
                           border:1px solid #dfbb75 !important; border-radius:0 !important;
                           font:16px/1.4 Georgia,'Times New Roman',serif !important;
