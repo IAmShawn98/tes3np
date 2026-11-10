@@ -3691,20 +3691,24 @@ metrics();
             var popup = new Form
             {
                 Text = "tes3np - Sign In Required",
-                FormBorderStyle = FormBorderStyle.FixedDialog,
+                // Titlebar-free, gold-bordered native card like the launcher
+                // changelog panels. Keep explicit close controls below.
+                FormBorderStyle = FormBorderStyle.None,
+                Padding = new Padding(2),
                 StartPosition = FormStartPosition.Manual,
                 Location = new System.Drawing.Point(
                     area.Left + (area.Width - width) / 2,
                     area.Top + (area.Height - height) / 2),
                 ClientSize = new System.Drawing.Size(width, height),
-                BackColor = System.Drawing.Color.FromArgb(27, 20, 11),
+                BackColor = System.Drawing.Color.FromArgb(197, 164, 92),
                 ForeColor = System.Drawing.Color.FromArgb(237, 225, 201),
                 MaximizeBox = false,
                 MinimizeBox = false,
                 ShowInTaskbar = false
             };
             var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
-                Padding = new Padding(12) };
+                Padding = new Padding(12),
+                BackColor = System.Drawing.Color.FromArgb(27, 20, 11) };
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
             shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
@@ -3727,6 +3731,25 @@ metrics();
             shell.Controls.Add(help, 0, 1);
             shell.Controls.Add(browserPanel, 0, 2);
             popup.Controls.Add(shell);
+            // Without a Windows caption there must still be an obvious,
+            // accessible way to close the sign-in before authenticating.
+            // The Game Chat tab and in-page Not Now control remain alternatives.
+            var closeButton = new Button {
+                Text = "×",
+                Location = new System.Drawing.Point(width - 39, 6),
+                Size = new System.Drawing.Size(29, 29),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = System.Drawing.Color.FromArgb(27, 20, 11),
+                ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
+                Font = new System.Drawing.Font("Segoe UI", 14, System.Drawing.FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                TabStop = false
+            };
+            closeButton.FlatAppearance.BorderSize = 0;
+            closeButton.Click += (_, _) => DismissDiscordSignIn();
+            popup.Controls.Add(closeButton);
+            closeButton.BringToFront();
             discordSignInWindow = popup;
             PositionGameChatDiscordSignIn();
             web.Dock = DockStyle.Fill;

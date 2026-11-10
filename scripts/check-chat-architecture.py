@@ -1362,17 +1362,40 @@ expect(
     and 'ShowLauncherWindow(true)' in characters_close,
 )
 expect(
-    "Secondary client, dependency, species, Morrowind and macro dialogs scale and follow their owner",
-    'ScaleOwnedMenuContent(menu, menuScale)' in settings_layout
-    and 'PositionOwnedMenuAtParent(menu, ownerHwnd)' in settings_layout
-    and 'ScaleOwnedMenuContent(options, optionScale)' in settings_layout
-    and 'PositionOwnedMenuAtParent(options, menu)' in settings_layout
+    "Client, dependency and Morrowind use scaled native changelog cards; remaining dialogs follow owners",
+    'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, 458)' in settings_layout
+    and 'ShowGoldNativePrompt(menu)' in settings_layout
+    and 'CreateGoldNativePrompt(menu, "Optional Client Dependencies", 640, 350)' in settings_layout
+    and 'ShowGoldNativePrompt(options)' in settings_layout
+    and 'CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)' in patcher
+    and 'ShowGoldNativePrompt(prompt)' in patcher
     and 'ScaleOwnedMenuContent(dialog, dialogScale)' in characters_ui
     and 'PositionOwnedMenuAtParent(dialog, CharacterPage)' in characters_ui
-    and 'ScaleOwnedMenuContent(prompt, promptScale)' in patcher
-    and 'PositionOwnedMenuAtParent(prompt, LauncherGui)' in patcher
     and 'ScaleOwnedMenuContent(chooser, chooserScale)' in macro_menu_ui
     and 'PositionOwnedMenuAtParent(chooser, MacroPage)' in macro_menu_ui,
+)
+native_card_ui = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Borderless changelog native cards own their dimmers and release them on every exit",
+    'CreateUpdateBackdrop(owner := 0)' in native_card_ui
+    and 'CreateGoldNativePrompt(owner, title, width, height)' in native_card_ui
+    and 'Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)' in native_card_ui
+    and 'ScaleOwnedMenuContent(panel, scale)' in native_card_ui
+    and 'ShowCenteredUpdateCard(panel, panel.NativePromptBackdrop,' in native_card_ui
+    and 'CloseGoldNativePrompt(panel)' in native_card_ui
+    and 'CloseGoldNativePrompt(menu)' in settings_layout
+    and 'CloseGoldNativePrompt(options)' in settings_layout
+    and settings_layout.count('options.Destroy()') == 0
+    and patcher.count('CloseGoldNativePrompt(prompt)') == 2,
+)
+expect(
+    "Discord sign-in uses a borderless gold card with in-window close and original toggle",
+    'FormBorderStyle = FormBorderStyle.None,' in source
+    and 'Padding = new Padding(2),' in source
+    and 'closeButton.Click += (_, _) => DismissDiscordSignIn();' in source
+    and 'closeButton.BringToFront();' in source
+    and 'ToggleGameChatDiscordSignIn();' in source
+    and 'FormBorderStyle = FormBorderStyle.FixedDialog,' not in source,
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
