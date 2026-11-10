@@ -431,7 +431,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroPage := Gui(' not in macro,
         "four reusable viewport rows preserve unlimited macro capacity":
             'Loop 4\n    {\n        position := A_Index' in macro
-            and 'y := 152 + (position - 1) * 70' in macro
+            and 'y := 140 + (position - 1) * 70' in macro
             and 'maximum := Max(0, count - MacroBookRows.Length)' in macro
             and 'index := MacroScrollOffset + position' in macro
             and 'MacroScrollOffset := Max(0, row - 4)' in macro
@@ -455,7 +455,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
             and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
-            and 'desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 70' in macro
+            and 'desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro

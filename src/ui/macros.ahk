@@ -15,7 +15,7 @@ BuildMacroBookPanel()
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
-    explanation := CharacterPage.Add("Text", "x525 y87 w355 h55 BackgroundTrans",
+    explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
         "This is a complete list of macros. You can upload any macro and run or stop it at any time!")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
         "No macros installed yet.")
@@ -30,7 +30,9 @@ BuildMacroBookPanel()
         position := A_Index
         ; Leave an 8-pixel gap after each row's bottom button.
         ; Previous 60px pitch overlapped the next row's "Ready" label.
-        y := 152 + (position - 1) * 70
+        ; Preserve 8px between macro rows and remove the unused space
+        ; above the first status by moving the populated list up 12px.
+        y := 140 + (position - 1) * 70
         CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
         status := CharacterPage.Add("Text",
             "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
@@ -52,9 +54,9 @@ BuildMacroBookPanel()
     }
     ; The scrollbar uses the existing character-book styling.
     MacroScrollTrack := CharacterPage.Add("Text",
-        "x887 y152 w8 h272 Background704C27 +0x100 Hidden")
+        "x887 y140 w8 h272 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
-        "x888 y152 w6 h40 BackgroundC69951 +0x100 Hidden")
+        "x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden")
     ; Use the full available page width instead of leaving an empty strip
     ; beside Upload Macro. With no entries, sit just below the empty notice;
     ; populated rows still move the control under the active viewport.
@@ -171,15 +173,15 @@ RefreshMacroBookRows()
     {
         thumbHeight := Max(25, Round(272 * MacroBookRows.Length / count))
         travel := 272 - thumbHeight
-        thumbY := 152 + Round(MacroScrollOffset / maximum * travel)
+        thumbY := 140 + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
     }
     ; Keep empty-state content close to the introduction, then follow
     ; populated rows without putting Upload inside the scroll viewport.
-    ; For 0/1/2/3/4+ entries, y is 188/226/296/366/436.
-    ; Match row pitch so Upload always stays clear of the final action row.
+    ; For 0/1/2/3/4+ entries, y is 188/214/284/354/424.
+    ; Match row pitch so Upload stays 12px clear of final action row.
     visibleCount := Min(count, MacroBookRows.Length)
-    desiredUploadY := count = 0 ? 188 : 226 + (visibleCount - 1) * 70
+    desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70
     MacroImportButton.GetPos(, &oldUploadY)
     if oldUploadY != BookS(desiredUploadY)
     {
@@ -309,7 +311,7 @@ DragMacroScroll()
     thumbHeight /= GetCharacterBookScale()
     travel := Max(1, 272 - thumbHeight)
     maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
-    ScrollMacroBook(Round((localY - 152 - MacroScrollGrab) / travel * maximum))
+    ScrollMacroBook(Round((localY - 140 - MacroScrollGrab) / travel * maximum))
 }
 
 ReleaseMacroScroll()
