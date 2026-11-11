@@ -22,6 +22,8 @@ global LoginProgressDisabled := false
 global LoginProgressShown := false
 global LoginProgressLastX := -1
 global LoginProgressLastY := -1
+global LoginProgressGeneration := 0
+global LoginProgressHardDeadline := 0
 
 BeginGameLoginProgress(name, species := "", portraitFile := "")
 {
@@ -29,12 +31,15 @@ BeginGameLoginProgress(name, species := "", portraitFile := "")
     global LoginProgressMode, LoginProgressStage, LoginProgressName
     global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, LoginProgressDisabled
     global LoginProgressStageStarted, LoginProgressFinished
+    global LoginProgressGeneration, LoginProgressHardDeadline
     ; Recreate the visual only between logins so its portrait follows the
     ; selected character. This never restarts ClientTick or the game.
     if IsObject(LoginProgressGui)
         DisposeGameLoginProgress()
     LoginProgressSpecies := NormalizeCharacterSpecies(species)
     LoginProgressPortraitFile := NormalizeCustomPortraitFile(portraitFile)
+    LoginProgressGeneration += 1
+    LoginProgressHardDeadline := 0
     LoginProgressMode := "login"
     LoginProgressStage := 1
     LoginProgressStageStarted := A_TickCount
@@ -51,12 +56,21 @@ BeginGameLoginProgress(name, species := "", portraitFile := "")
 SetGameLoginProgressStage(stage)
 {
     global LoginProgressMode, LoginProgressStage, LoginProgressStageStarted
+    global LoginProgressHardDeadline, Client
     if LoginProgressMode != "login" || stage < 1 || stage > 4
         return
     if LoginProgressStage != stage
     {
         LoginProgressStage := stage
         LoginProgressStageStarted := A_TickCount
+    }
+    if stage = 1 && !LoginProgressHardDeadline
+    {
+        ; Presentation-only failsafe. The main watchdog still owns login
+        ; attempts, retries and the running TES3MP process.
+        expectedMs := Round((Client.UsernameDelay + Client.PasswordDelay
+            + Client.LoadDelay + 15) * 1000)
+        LoginProgressHardDeadline := A_TickCount + Max(60000, expectedMs)
     }
     UpdateGameLoginProgress()
 }
@@ -65,6 +79,7 @@ CompleteGameLoginProgress(name, pid, hwnd)
 {
     global LoginProgressMode, LoginProgressStage, LoginProgressName
     global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, AppConfig, LoginProgressFinished
+    global LoginProgressGeneration
     if LoginProgressFinished
         return
     LoginProgressFinished := true
@@ -74,9 +89,28 @@ CompleteGameLoginProgress(name, pid, hwnd)
     LoginProgressPid := pid
     LoginProgressHwnd := hwnd
     LoginProgressCloseAt := A_TickCount + 3000
-    ; Continue only the existing presentation timer, never the game watchdog.
+    ; Independently dismiss the native card after three seconds even if
+    ; the repainting timer is interrupted. The session token prevents an old
+    ; callback from closing a later character's login overlay.
+    SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -3100)
     SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
     UpdateGameLoginProgress()
+
+DismissCompletedLoginProgress(generation)
+{
+    global LoginProgressGeneration, LoginProgressMode, LoginProgressCloseAt, Client
+    if generation != LoginProgressGeneration || LoginProgressMode != "complete"
+        return
+    if A_TickCount < LoginProgressCloseAt
+    {
+        SetTimer(DismissCompletedLoginProgress.Bind(generation),
+            -Max(50, LoginProgressCloseAt - A_TickCount + 50))
+        return
+    }
+    DismissGameLoginProgress()
+    if !Client.Enabled
+        SetTimer(UpdateGameLoginProgress, 0)
+}
 }
 
 HideGameLoginProgress()
@@ -315,7 +349,9 @@ RenderGameLoginProgress()
         dirty := true
     }
     if dirty
-        DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x105)
+        ; Repaint child HWNDs as well as the parent: checkmarks must not
+        ; remain visually stale after a new login resets its progress stage.
+        DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
 }
 
 UpdateGameLoginProgress(*)
@@ -323,11 +359,22 @@ UpdateGameLoginProgress(*)
     global Client, LoginProgressMode, LoginProgressCloseAt, LoginProgressGui
     global LoginProgressDisabled, LoginProgressPid, LoginProgressHwnd
     global LoginProgressShown, LoginProgressLastX, LoginProgressLastY
-    global LoginProgressWidth, LoginProgressHeight
+    global LoginProgressWidth, LoginProgressHeight, LoginProgressHardDeadline
     if LoginProgressMode = ""
     {
         ; A stale native overlay must never survive a completed dismissal.
         HideGameLoginProgress()
+        return
+    }
+    ; If the login never reaches its expected visual-completion callback,
+    ; avoid leaving an always-on-top card covering a playable game forever.
+    ; Never stop the client or alter credentials from a UI timeout.
+    if LoginProgressMode = "login" && LoginProgressHardDeadline
+        && A_TickCount >= LoginProgressHardDeadline
+    {
+        DismissGameLoginProgress()
+        SetTimer(UpdateGameLoginProgress, 0)
+        LogLauncherEvent("UI | Login progress exceeded its display deadline; game session unchanged.")
         return
     }
     ; Independently monitor the game process so an externally closed TES3MP

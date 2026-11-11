@@ -1634,6 +1634,19 @@ expect(
     and "SetTimer(UpdateGameLoginProgress, 0)" in login_cleanup
     and "DisposeGameLoginProgress()" in login_cleanup,
 )
+expect(
+    "Login overlay has a bounded presentation lifetime and independent completion dismiss",
+    'LoginProgressGeneration += 1' in login_progress
+    and 'LoginProgressHardDeadline := A_TickCount + Max(60000, expectedMs)' in login_progress
+    and 'SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -3100)' in login_progress
+    and 'if generation != LoginProgressGeneration || LoginProgressMode != "complete"' in login_progress
+    and 'DismissGameLoginProgress()' in section_between(
+        login_progress, "DismissCompletedLoginProgress(generation)", "\n}")
+    and 'A_TickCount >= LoginProgressHardDeadline' in login_cleanup
+    and 'LogLauncherEvent("UI | Login progress exceeded its display deadline; game session unchanged.")' in login_cleanup
+    and 'DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)' in login_progress
+    and 'ProcessClose(' not in login_cleanup,
+)
 display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
 settings_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
 front_layout = (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
