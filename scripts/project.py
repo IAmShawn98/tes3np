@@ -465,7 +465,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, desiredUploadWidth, 29)' in macro
             and 'MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)' in macro
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
-            and 'if wasVisible' in macro
+            and 'if uploadWasVisible' in macro
+            and 'if bindingsWasVisible' in macro
+            and 'if uploadWasVisible || bindingsWasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
             and 'MoveStyledButton(control, x, y, width, height)' in characters
             and '"Add Macro / App"' not in macro,
