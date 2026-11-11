@@ -58,12 +58,47 @@ MacroBindingsReady(macro)
 EditSelectedMacroBindings(*)
 {
     global MacroItems, MacroList, MacroImport
+    if !IsObject(MacroList) || !MacroItems.Length
+        return
+    if IsObject(MacroImport)
+    {
+        MsgBox("Wait for the macro import to finish before editing hotkeys.",
+            "Edit Hotkeys", "Iconi")
+        return
+    }
     row := MacroList.GetNext()
-    if !row || row > MacroItems.Length || IsObject(MacroImport)
-        return
+    if !row || row > MacroItems.Length
+    {
+        ; The hidden ListView sometimes has no selected row on first open.
+        ; Follow Manage Macros' existing first-item selection convention.
+        row := 1
+        MacroList.Modify(1, "Select Focus")
+    }
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if macro.Kind = "App"
+    {
+        MsgBox("Hotkey editing is available for AutoHotkey macros with declared bindings, not linked applications.",
+            "Edit Hotkeys", "Iconi")
         return
+    }
+    if macro.PID && ProcessExist(macro.PID)
+    {
+        MsgBox("Stop " macro.Name " before changing its hotkeys. Click Stop, then Edit Hotkeys.",
+            "Edit Hotkeys", "Iconi")
+        return
+    }
+    if !ValidMacroEntry(macro.Folder, macro.Entry)
+    {
+        MsgBox("The selected macro script is missing. Reimport the package to edit its hotkeys.",
+            "Edit Hotkeys", "Icon!")
+        return
+    }
+    if !ReadMacroBindings(macro).Length
+    {
+        MsgBox("This macro does not declare any editable hotkeys. Import a version that supports configurable keys.",
+            "Edit Hotkeys", "Iconi")
+        return
+    }
     ShowMacroBindings(macro)
 }
 

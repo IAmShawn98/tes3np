@@ -35,7 +35,7 @@ On Windows, test a single-script ZIP, a multi-script ZIP, a manifest package wit
 
 ## Configurable key bindings
 
-Compatible macros prompt for their keys after import. **Edit Hotkeys** (beside Upload Macro when a macro is installed) changes them later while the selected macro is stopped. Cancelling the import-time prompt keeps the macro installed; Run prompts again until valid bindings have been saved. Choices persist per installed package, across launcher restarts. Up to 12 single keys are supported; key combinations are not supported yet. The launcher does not infer the meaning of hardcoded keys in arbitrary scripts or rewrite their source.
+Compatible macros prompt for their keys after import. **Edit Hotkeys** (beside Upload Macro when a macro is installed) changes them later while the selected macro is stopped. The button stays clickable: running macros prompt you to Stop first, and macros without declared bindings explain why editing is unavailable. Cancelling the import-time prompt keeps the macro installed; Run prompts again until valid bindings have been saved. Choices persist per installed package, across launcher restarts. Up to 12 single keys are supported; key combinations are not supported yet. The launcher does not infer the meaning of hardcoded keys in arbitrary scripts or rewrite their source.
 
 For a ZIP, add declarations to the root `macro.ini`:
 

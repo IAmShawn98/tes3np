@@ -209,19 +209,12 @@ RefreshMacroBookRows()
             DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
                 "Ptr", 0, "Ptr", 0, "UInt", 0x385)
     }
-    ; Edit only the selected package's declared hotkeys, while stopped.
-    ; Ordinary apps and macros without configurable bindings show disabled.
-    canEditBindings := false
-    if !busy && selectedIndex >= 1 && selectedIndex <= count
-    {
-        selectedMacro := MacroItems[selectedIndex]
-        canEditBindings := selectedMacro.Kind != "App"
-            && !(selectedMacro.PID && ProcessExist(selectedMacro.PID))
-            && ValidMacroEntry(selectedMacro.Folder, selectedMacro.Entry)
-            && ReadMacroBindings(selectedMacro).Length > 0
-    }
-    if MacroBindingsButton.Enabled != canEditBindings
-        MacroBindingsButton.Enabled := canEditBindings
+    ; Keep Edit Hotkeys interactive whenever packages exist. Disabled native
+    ; buttons do not hover or receive clicks, so users could not discover
+    ; why a running or non-configurable macro had no editable bindings.
+    ; The callback checks eligibility and gives actionable feedback instead.
+    if !MacroBindingsButton.Enabled
+        MacroBindingsButton.Enabled := true
     if MacroBindingsButton.Visible != (shown && count > 0)
         MacroBindingsButton.Visible := shown && count > 0
     ; Only import failures/progress use the message area below Upload.
