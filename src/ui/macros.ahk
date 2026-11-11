@@ -4,7 +4,7 @@ BuildMacroBookPanel()
 {
     global CharacterPage, LauncherMorrowindFont, ButtonFaces
     global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
-    global MacroImportButton, MacroBookControls, MacroBookRows
+    global MacroImportButton, MacroBindingsButton, MacroBookControls, MacroBookRows
     global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
     MacroPage := CharacterPage
     MacroBookControls := []
@@ -57,30 +57,33 @@ BuildMacroBookPanel()
         "x887 y140 w8 h272 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
         "x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden")
-    ; Use the full available page width instead of leaving an empty strip
-    ; beside Upload Macro. With no entries, sit just below the empty notice;
-    ; populated rows still move the control under the active viewport.
+    ; Preserve the full-width Upload button when no macros exist.
+    ; Once installed, show Edit Hotkeys alongside Upload rather than
+    ; adding a separate row that would leave the character book sparse.
     MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
         "Upload Macro", ImportMacroPackage)
+    MacroBindingsButton := AddStyledButton(CharacterPage, 741, 188, 139, 29,
+        "Edit Hotkeys", EditSelectedMacroBindings)
+    MacroBindingsButton.Visible := false
     ; Existing import/binding callbacks still write MacroStatus.Text. Preserve
     ; failure/progress feedback, not the redundant Ready/script-details footer.
     CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
         "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
-        MacroImportButton, MacroStatus)
+        MacroImportButton, MacroBindingsButton, MacroStatus)
     LoadMacroPackages()
     ShowMacroBookPanel()
 }
 
 ShowMacroBookPanel()
 {
-    global MacroBookControls, MacroList
+    global MacroBookControls, MacroList, MacroBindingsButton
     ; The editor's hide path may run before the book has built its controls.
     if !IsObject(MacroList)
         return
     for control in MacroBookControls
-        if control != MacroList
+        if control != MacroList && control != MacroBindingsButton
             control.Visible := true
     ; Retain the legacy ListView only as an invisible selection model.
     MacroList.Visible := false
@@ -112,7 +115,7 @@ RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
-    global MacroImportButton, CharacterPage
+    global MacroImportButton, MacroBindingsButton, CharacterPage
     global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
@@ -182,24 +185,45 @@ RefreshMacroBookRows()
     ; Match row pitch so Upload stays 12px clear of final action row.
     visibleCount := Min(count, MacroBookRows.Length)
     desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70
-    MacroImportButton.GetPos(, &oldUploadY)
+    desiredUploadWidth := count > 0 ? 207 : 355
+    MacroImportButton.GetPos(, &oldUploadY, &oldUploadWidth)
     if oldUploadY != BookS(desiredUploadY)
+        || oldUploadWidth != BookS(desiredUploadWidth)
     {
-        ; This is a themed GDI-painted button. MoveStyledButton moves its
-        ; native hit target AND face metadata; hiding while it moves and
-        ; redrawing once avoids stale button artwork on the parchment.
-        wasVisible := MacroImportButton.Visible
-        if wasVisible
+        ; Both controls use painted faces; move the hit targets and faces
+        ; together to avoid stale artwork on the character-book parchment.
+        uploadWasVisible := MacroImportButton.Visible
+        bindingsWasVisible := MacroBindingsButton.Visible
+        if uploadWasVisible
             MacroImportButton.Visible := false
-        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)
+        if bindingsWasVisible
+            MacroBindingsButton.Visible := false
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, desiredUploadWidth, 29)
+        MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)
         MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))
-        if wasVisible
-        {
+        if uploadWasVisible
             MacroImportButton.Visible := true
+        if bindingsWasVisible
+            MacroBindingsButton.Visible := true
+        if uploadWasVisible || bindingsWasVisible
             DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
                 "Ptr", 0, "Ptr", 0, "UInt", 0x385)
-        }
     }
+    ; Edit only the selected package's declared hotkeys, while stopped.
+    ; Ordinary apps and macros without configurable bindings show disabled.
+    canEditBindings := false
+    if !busy && selectedIndex >= 1 && selectedIndex <= count
+    {
+        selectedMacro := MacroItems[selectedIndex]
+        canEditBindings := selectedMacro.Kind != "App"
+            && !(selectedMacro.PID && ProcessExist(selectedMacro.PID))
+            && ValidMacroEntry(selectedMacro.Folder, selectedMacro.Entry)
+            && ReadMacroBindings(selectedMacro).Length > 0
+    }
+    if MacroBindingsButton.Enabled != canEditBindings
+        MacroBindingsButton.Enabled := canEditBindings
+    if MacroBindingsButton.Visible != (shown && count > 0)
+        MacroBindingsButton.Visible := shown && count > 0
     ; Only import failures/progress use the message area below Upload.
     ; Regular Ready/Running/Missing appears above each macro's name.
     feedback := MacroStatus.Text
