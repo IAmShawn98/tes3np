@@ -1454,28 +1454,17 @@ expect(
     'MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28' in macro_menu_ui
     and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70' in macro_menu_ui
-    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, desiredUploadWidth, 29)' in macro_menu_ui
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
     and 'maximum := Max(0, count - MacroBookRows.Length)' in macro_menu_ui,
 )
 expect(
-    "Installed macro hotkeys can be edited from the compact Upload action row",
-    '"Edit Hotkeys", EditSelectedMacroBindings)' in macro_menu_ui
-    and 'MacroBindingsButton := AddStyledButton(CharacterPage, 741, 188, 139, 29,' in macro_menu_ui
-    and 'desiredUploadWidth := count > 0 ? 207 : 355' in macro_menu_ui
-    and 'MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)' in macro_menu_ui
-    and 'MacroBindingsButton.Visible := shown && count > 0' in macro_menu_ui
-    and 'if !MacroBindingsButton.Enabled' in macro_menu_ui
-    and 'MacroBindingsButton.Enabled := true' in macro_menu_ui
-    and 'ReadMacroBindings(selectedMacro).Length > 0' not in macro_menu_ui
-    and 'MsgBox("Stop " macro.Name " before changing its hotkeys.' in (
-        ROOT / "src/ui/macro-bindings.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'if !ReadMacroBindings(macro).Length' in (
-        ROOT / "src/ui/macro-bindings.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'ShowMacroBindings(macro)' in (
-        ROOT / "src/ui/macro-bindings.ahk"
-    ).read_text(encoding="utf-8-sig"),
+    "Manage Macros delegates shortcut configuration to each imported macro",
+    'MacroBindingsButton' not in macro_menu_ui
+    and 'EditSelectedMacroBindings' not in macro_menu_ui
+    and 'ReadMacroBindings' not in macro_menu_ui
+    and 'TES3NP_BINDINGS' not in macro_menu_ui
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
+    and '#Include src\\ui\\macro-bindings.ahk' not in entry_script,
 )
 expect(
     "Macro rows have a true line break between action buttons and next Ready status",

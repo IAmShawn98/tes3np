@@ -407,7 +407,6 @@ def check(allow_missing_payload: bool = False) -> None:
     macro = (ROOT / "src/ui/macros.ahk").read_text(encoding="utf-8-sig")
     characters = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
     frontend = (ROOT / "src/ui/front-page.ahk").read_text(encoding="utf-8-sig")
-    bindings = (ROOT / "src/ui/macro-bindings.ahk").read_text(encoding="utf-8-sig")
     build_script = (ROOT / "scripts/build-windows.ps1").read_text(encoding="utf-8-sig")
     cleanup_checks = {
         "temporary build cleanup is nonfatal and isolated":
@@ -448,13 +447,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro,
         "Upload Macro follows populated rows and stays pinned on scrolling":
             'MacroDetails' not in macro
-            and 'MacroBindingsButton := AddStyledButton(CharacterPage, 741, 188, 139, 29,' in macro
-            and '"Edit Hotkeys", EditSelectedMacroBindings)' in macro
-            and 'MacroBindingsButton.Visible := false' in macro
-            and 'MacroBindingsButton.Visible := shown && count > 0' in macro
-            and 'if !MacroBindingsButton.Enabled' in macro
-            and 'MacroBindingsButton.Enabled := true' in macro
-            and 'ReadMacroBindings(selectedMacro).Length > 0' not in macro
+            and 'MacroBindingsButton' not in macro
+            and 'EditSelectedMacroBindings' not in macro
+            and 'TES3NP_BINDINGS' not in macro
             and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
@@ -462,14 +457,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
             and 'desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
-            and 'oldUploadWidth != BookS(desiredUploadWidth)' in macro
-            and 'desiredUploadWidth := count > 0 ? 207 : 355' in macro
-            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, desiredUploadWidth, 29)' in macro
-            and 'MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)' in macro
+            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
-            and 'if uploadWasVisible' in macro
-            and 'if bindingsWasVisible' in macro
-            and 'if uploadWasVisible || bindingsWasVisible' in macro
+            and 'if wasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
             and 'MoveStyledButton(control, x, y, width, height)' in characters
             and '"Add Macro / App"' not in macro,
@@ -542,17 +532,19 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'if not exist "%~dp0runtime\\AutoHotkey64.exe" goto :failed' in (
                 ROOT / "Build tes3np.bat"
             ).read_text(encoding="utf-8-sig"),
-        "macro import safety and key setup remain":
+        "macro imports and execution remain independent of launcher hotkey configuration":
             'ImportMacroScript(archive)' in macro
             and 'ImportMacroApplication(archive)' in macro
             and 'SetTimer(CheckMacroImport, 200)' in macro
-            and 'ReadMacroBindings(macro).Length && !MacroBindingsReady(macro)' in macro
-            and 'if !ShowMacroBindings(macro)' in macro
-            and 'ShowMacroBindings(imported)' in macro,
+            and 'Run(' in macro and 'interpreter' in macro
+            and 'entry := macro.Folder' in macro
+            and 'ReadMacroBindings' not in macro
+            and 'ShowMacroBindings' not in macro
+            and 'TES3NP_BINDINGS' not in macro,
         "linked application removal/exit remain non-destructive":
             'IniWrite(source, manifest, "Macro", "Target")' in macro
             and 'macro.Kind != "App" && macro.PID' in macro
-            and 'if macro.HasOwnProp("Kind") && macro.Kind = "App"' in bindings,
+            and 'DeleteSelectedMacro' not in macro,
     }
     for name, passed in macro_checks.items():
         if not passed:

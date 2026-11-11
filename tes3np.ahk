@@ -18,7 +18,6 @@
 #Include src\ui\happy-hour.ahk
 #Include src\ui\characters.ahk
 #Include src\ui\macros.ahk
-#Include src\ui\macro-bindings.ahk
 #Include src\ui\patcher.ahk
 #Include src\ui\expansion-upload.ahk
 #Include src\ui\launcher-settings.ahk
