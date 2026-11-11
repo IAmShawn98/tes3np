@@ -33,46 +33,10 @@ Installed packages have a launcher-created `.tes3np-package.ini` record. Do not 
 
 On Windows, test a single-script ZIP, a multi-script ZIP, a manifest package with subfolders, cancellation, restart persistence, Run/Stop, missing scripts and malformed archives. Test Unicode and space-containing paths. Verify rejected traversal paths never create files outside staging. Static source checks do not establish runtime compatibility of imported macros.
 
-## Configurable key bindings
+## Macro-owned hotkeys
 
-Compatible macros prompt for their keys after import. **Edit Hotkeys** (beside Upload Macro when a macro is installed) changes them later while the selected macro is stopped. The button stays clickable: running macros prompt you to Stop first, and macros without declared bindings explain why editing is unavailable. Cancelling the import-time prompt keeps the macro installed; Run prompts again until valid bindings have been saved. Choices persist per installed package, across launcher restarts. Up to 12 single keys are supported; key combinations are not supported yet. The launcher does not infer the meaning of hardcoded keys in arbitrary scripts or rewrite their source.
+TES3NP does not configure or interpret hotkeys inside imported macros. The **Run** button executes the selected .ahk script or linked app; **Stop** ends the process started by TES3NP. Any keyboard shortcuts, hotkey menus, pause/resume controls, and persistent key settings must be implemented by the author of each macro.
 
-For a ZIP, add declarations to the root `macro.ini`:
+Macro authors can use AutoHotkey v2's `Hotkey()` function and a local settings file (for example, `fishing.ini`). A macro can provide its own temporary key picker or use hardcoded shortcuts; TES3NP imposes no special manifest declarations or integration API. Previously installed macro packages remain installed and executable, but any legacy `[Bindings]` declarations are ignored and existing per-package `.tes3np-bindings.ini` files are not modified by this change.
 
-```ini
-[Bindings]
-Fish=C
-ReadyWeapon=F
-Potion1=2
-Potion2=3
-Potion3=4
-
-[BindingLabels]
-Fish=Sneak / Fish
-ReadyWeapon=Ready weapon
-Potion1=First fishing potion slot
-Potion2=Second fishing potion slot
-Potion3=Third fishing potion slot
-```
-
-For a directly imported `.ahk` file, declare the same information in comments instead:
-
-```autohotkey
-; @tes3np-key Fish|Sneak / Fish|C
-; @tes3np-key ReadyWeapon|Ready weapon|F
-```
-
-Declarations alone are not enough: the macro must read the saved values and use them for its actions. The launcher supplies the INI path in the child process environment variable `TES3NP_BINDINGS`. An AutoHotkey v2 macro reads it like this:
-
-```autohotkey
-bindingsFile := EnvGet("TES3NP_BINDINGS")
-fishKey := bindingsFile != "" ? IniRead(bindingsFile, "Bindings", "Fish", "C") : "C"
-; At the appropriate point in the macro:
-Send("{" fishKey "}")
-```
-
-Use matching IDs (`Fish`, for example) in declarations and code. Store defaults in the script so it can also run independently. Launcher settings live in `.tes3np-bindings.ini` in the installed package folder; removing the package removes its bindings. The launcher restores its own environment immediately after starting the macro. Packages without declarations have Edit Bindings disabled and continue to run normally.
-
-Import `examples/key-bindings-demo.ahk` to try the complete flow. This small v2 example shows its loaded bindings and sends one action with F8 or F7 only when an SDL game window is active. F9 exits. It is a binding demonstration, not an automatic fishing macro.
-
-On Windows, also verify import-time Save/Cancel, invalid keys, persisted choices after restart, Edit Bindings, disabled editing while running, and that the child script receives the chosen keys.
+When testing, confirm imported scripts can run and stop without any TES3NP binding prompts, and that the macro itself owns any hotkeys it needs.

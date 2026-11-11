@@ -4,7 +4,7 @@ BuildMacroBookPanel()
 {
     global CharacterPage, LauncherMorrowindFont, ButtonFaces
     global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
-    global MacroImportButton, MacroBindingsButton, MacroBookControls, MacroBookRows
+    global MacroImportButton, MacroBookControls, MacroBookRows
     global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
     MacroPage := CharacterPage
     MacroBookControls := []
@@ -57,33 +57,29 @@ BuildMacroBookPanel()
         "x887 y140 w8 h272 Background704C27 +0x100 Hidden")
     MacroScrollThumb := CharacterPage.Add("Text",
         "x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden")
-    ; Preserve the full-width Upload button when no macros exist.
-    ; Once installed, show Edit Hotkeys alongside Upload rather than
-    ; adding a separate row that would leave the character book sparse.
+    ; The macro itself owns all hotkeys; keep Upload full-width and tight
+    ; against the last visible macro row without extra action slots.
     MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
         "Upload Macro", ImportMacroPackage)
-    MacroBindingsButton := AddStyledButton(CharacterPage, 741, 188, 139, 29,
-        "Edit Hotkeys", EditSelectedMacroBindings)
-    MacroBindingsButton.Visible := false
-    ; Existing import/binding callbacks still write MacroStatus.Text. Preserve
+    ; Existing import callbacks still write MacroStatus.Text. Preserve
     ; failure/progress feedback, not the redundant Ready/script-details footer.
     CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
         "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
-        MacroImportButton, MacroBindingsButton, MacroStatus)
+        MacroImportButton, MacroStatus)
     LoadMacroPackages()
     ShowMacroBookPanel()
 }
 
 ShowMacroBookPanel()
 {
-    global MacroBookControls, MacroList, MacroBindingsButton
+    global MacroBookControls, MacroList
     ; The editor's hide path may run before the book has built its controls.
     if !IsObject(MacroList)
         return
     for control in MacroBookControls
-        if control != MacroList && control != MacroBindingsButton
+        if control != MacroList
             control.Visible := true
     ; Retain the legacy ListView only as an invisible selection model.
     MacroList.Visible := false
@@ -115,7 +111,7 @@ RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
-    global MacroImportButton, MacroBindingsButton, CharacterPage
+    global MacroImportButton, CharacterPage
     global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
@@ -185,38 +181,23 @@ RefreshMacroBookRows()
     ; Match row pitch so Upload stays 12px clear of final action row.
     visibleCount := Min(count, MacroBookRows.Length)
     desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70
-    desiredUploadWidth := count > 0 ? 207 : 355
-    MacroImportButton.GetPos(, &oldUploadY, &oldUploadWidth)
+    MacroImportButton.GetPos(, &oldUploadY)
     if oldUploadY != BookS(desiredUploadY)
-        || oldUploadWidth != BookS(desiredUploadWidth)
     {
-        ; Both controls use painted faces; move the hit targets and faces
-        ; together to avoid stale artwork on the character-book parchment.
-        uploadWasVisible := MacroImportButton.Visible
-        bindingsWasVisible := MacroBindingsButton.Visible
-        if uploadWasVisible
+        ; Move the themed hit target and painted face together. Hide while
+        ; relocating to avoid leaving stale button artwork on parchment.
+        wasVisible := MacroImportButton.Visible
+        if wasVisible
             MacroImportButton.Visible := false
-        if bindingsWasVisible
-            MacroBindingsButton.Visible := false
-        MoveStyledButton(MacroImportButton, 525, desiredUploadY, desiredUploadWidth, 29)
-        MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)
         MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))
-        if uploadWasVisible
+        if wasVisible
+        {
             MacroImportButton.Visible := true
-        if bindingsWasVisible
-            MacroBindingsButton.Visible := true
-        if uploadWasVisible || bindingsWasVisible
             DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
                 "Ptr", 0, "Ptr", 0, "UInt", 0x385)
+        }
     }
-    ; Keep Edit Hotkeys interactive whenever packages exist. Disabled native
-    ; buttons do not hover or receive clicks, so users could not discover
-    ; why a running or non-configurable macro had no editable bindings.
-    ; The callback checks eligibility and gives actionable feedback instead.
-    if !MacroBindingsButton.Enabled
-        MacroBindingsButton.Enabled := true
-    if MacroBindingsButton.Visible != (shown && count > 0)
-        MacroBindingsButton.Visible := shown && count > 0
     ; Only import failures/progress use the message area below Upload.
     ; Regular Ready/Running/Missing appears above each macro's name.
     feedback := MacroStatus.Text
@@ -563,9 +544,6 @@ FinishMacroImport(pending)
     destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
     DirMove(pending.Folder, destination)
     AddImportedMacro(destination, name, description, entry)
-    imported := {Folder: destination, Entry: entry, Name: name, Kind: "Macro"}
-    if ReadMacroBindings(imported).Length
-        ShowMacroBindings(imported)
     MacroStatus.Text := "Imported " name ". Select it and click Run."
 }
 
@@ -668,9 +646,6 @@ RunSelectedMacro(*)
     }
     if MsgBox("Run " macro.Name "? This tool executes code on your computer. Only run files you trust.", "Run macro / app", 0x124) != "Yes"
         return
-    if ReadMacroBindings(macro).Length && !MacroBindingsReady(macro)
-        if !ShowMacroBindings(macro)
-            return
     try
     {
         if macro.Kind = "App"
@@ -689,15 +664,8 @@ RunSelectedMacro(*)
             if !ValidMacroEntry(macro.Folder, macro.Entry)
                 throw Error("Script no longer exists")
             SplitPath(entry, , &directory)
-            ; Child AHK scripts inherit only their own key-binding configuration.
-            previousBindings := EnvGet("TES3NP_BINDINGS")
-            try
-            {
-                EnvSet("TES3NP_BINDINGS", ReadMacroBindings(macro).Length
-                    ? MacroBindingsPath(macro) : "")
-                Run('"' interpreter '" "' entry '"', directory, , &pid)
-            }
-            finally EnvSet("TES3NP_BINDINGS", previousBindings)
+            ; Macro-specific shortcuts and settings belong to the script.
+            Run('"' interpreter '" "' entry '"', directory, , &pid)
         }
         macro.PID := pid
         macro.LastError := ""
