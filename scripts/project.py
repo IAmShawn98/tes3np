@@ -448,8 +448,11 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro,
         "Upload Macro follows populated rows and stays pinned on scrolling":
             'MacroDetails' not in macro
-            and 'MacroBindingsButton' not in macro
-            and '"Edit Selected Macro Keys"' not in macro
+            and 'MacroBindingsButton := AddStyledButton(CharacterPage, 741, 188, 139, 29,' in macro
+            and '"Edit Hotkeys", EditSelectedMacroBindings)' in macro
+            and 'MacroBindingsButton.Visible := false' in macro
+            and 'MacroBindingsButton.Visible := shown && count > 0' in macro
+            and 'ReadMacroBindings(selectedMacro).Length > 0' in macro
             and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
@@ -457,7 +460,10 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
             and 'desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
-            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
+            and 'oldUploadWidth != BookS(desiredUploadWidth)' in macro
+            and 'desiredUploadWidth := count > 0 ? 207 : 355' in macro
+            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, desiredUploadWidth, 29)' in macro
+            and 'MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)' in macro
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
             and 'if wasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
