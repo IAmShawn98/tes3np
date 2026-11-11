@@ -1464,8 +1464,15 @@ expect(
     and 'desiredUploadWidth := count > 0 ? 207 : 355' in macro_menu_ui
     and 'MoveStyledButton(MacroBindingsButton, 741, desiredUploadY, 139, 29)' in macro_menu_ui
     and 'MacroBindingsButton.Visible := shown && count > 0' in macro_menu_ui
-    and 'ReadMacroBindings(selectedMacro).Length > 0' in macro_menu_ui
-    and 'selectedMacro.PID && ProcessExist(selectedMacro.PID)' in macro_menu_ui
+    and 'if !MacroBindingsButton.Enabled' in macro_menu_ui
+    and 'MacroBindingsButton.Enabled := true' in macro_menu_ui
+    and 'ReadMacroBindings(selectedMacro).Length > 0' not in macro_menu_ui
+    and 'MsgBox("Stop " macro.Name " before changing its hotkeys.' in (
+        ROOT / "src/ui/macro-bindings.ahk"
+    ).read_text(encoding="utf-8-sig")
+    and 'if !ReadMacroBindings(macro).Length' in (
+        ROOT / "src/ui/macro-bindings.ahk"
+    ).read_text(encoding="utf-8-sig")
     and 'ShowMacroBindings(macro)' in (
         ROOT / "src/ui/macro-bindings.ahk"
     ).read_text(encoding="utf-8-sig"),

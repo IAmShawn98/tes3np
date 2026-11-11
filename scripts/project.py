@@ -452,7 +452,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and '"Edit Hotkeys", EditSelectedMacroBindings)' in macro
             and 'MacroBindingsButton.Visible := false' in macro
             and 'MacroBindingsButton.Visible := shown && count > 0' in macro
-            and 'ReadMacroBindings(selectedMacro).Length > 0' in macro
+            and 'if !MacroBindingsButton.Enabled' in macro
+            and 'MacroBindingsButton.Enabled := true' in macro
+            and 'ReadMacroBindings(selectedMacro).Length > 0' not in macro
             and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
