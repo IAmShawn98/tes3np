@@ -136,7 +136,7 @@ RefreshMacroBookRows()
         ; The name occupies its own full row above the action buttons.
         name := StrLen(item.Name) > 37 ? SubStr(item.Name, 1, 34) "..." : item.Name
         if !(itemRow.Name.Text == name)
-            itemRow.Name.Text := name
+            SetPaintedLabelText(itemRow.Name, name)
         selected := index = selectedIndex
         if ButtonFaces[itemRow.Tick.Hwnd].Checked != selected
             SetBookTick(itemRow.Tick, selected)
