@@ -1,0 +1,40 @@
+name: Experimental markerless TES3MP Windows build
+
+on:
+  push:
+    branches:
+      - research/markerless-windows-build
+    paths:
+      - '.github/workflows/markerless-windows.yml'
+      - 'research/markerless/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/research/markerless-windows-build'
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prepare CMake and 7-Zip
+        shell: pwsh
+        run: |
+          python -m pip install cmake==3.31.10
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          (Join-Path $env:ProgramFiles '7-Zip') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build stock and markerless TES3MP 0.8.1
+        id: clients
+        shell: pwsh
+        run: ./research/markerless/build-markerless.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TES3MP-0.8.1-markerless-Windows-test
+          path: ${{ steps.clients.outputs.directory }}
+          if-no-files-found: error
+          retention-days: 7
