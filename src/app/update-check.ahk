@@ -104,13 +104,13 @@ CheckForUpdates(source := "", *)
         if !manifest.updateEnabled {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | Automatic installation disabled by release metadata.")
-            ShowUpdateStatusPanel("disabled", AppConfig.Version, latest, manifest.channel)
+            ShowUpdateStatusPanel("disabled", AppConfig.Version, latest)
             return
         }
         if CompareTes3npVersions(latest, AppConfig.Version) <= 0 {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
-            ShowUpdateStatusPanel(CompareTes3npVersions(latest, AppConfig.Version) = 0 ? "current" : "ahead", AppConfig.Version, latest, manifest.channel)
+            ShowUpdateStatusPanel(CompareTes3npVersions(latest, AppConfig.Version) = 0 ? "current" : "ahead", AppConfig.Version)
             return
         }
         ; The startup check owns the footer notification. Opening a preview
@@ -256,96 +256,83 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
 
 ShowUpdatePreview(installedVersion, latestVersion, channel)
 {
-    global LauncherGui, UpdateReleasePage
-    ; This is an informational, owned dialog. No updater work occurs here.
+    global UpdateReleasePage
+    notes := ReadPublishedVersionNotes(latestVersion)
     response := {Download: false}
     backdrop := CreateUpdateBackdrop()
     preview := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Update Preview")
     preview.BackColor := "C5A45C"
-    preview.SetFont("s10 cC5A45C", "Segoe UI")
-    preview.Add("Text", "x2 y2 w636 h340 Background171008")
+    preview.Add("Text", "x2 y2 w796 h596 Background171008")
     preview.SetFont("s15 Bold cC5A45C", "Georgia")
     releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
-    preview.Add("Text", "x32 y26 w588 h48 BackgroundTrans", "A New " releaseType " Is Available to Download, S'wit!")
-    preview.SetFont("s11 cFFFFFF", "Segoe UI")
-    preview.Add("Text", "x32 y86 w588 h36 BackgroundTrans", "You can review the changes below before deciding to update.")
-    preview.SetFont("s10 cFFFFFF", "Segoe UI")
-    preview.Add("Text", "x32 y137 w588 h22 BackgroundTrans", "Installed: v" installedVersion)
-    preview.Add("Text", "x32 y168 w588 h22 BackgroundTrans", "Latest: v" latestVersion)
-    preview.Add("Text", "x32 y202 w588 h22 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
-    preview.SetFont("s10 cC5A45C", "Segoe UI")
-    preview.Add("Text", "x32 y261 w588 h36 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
-    preview.Add("Text", "x32 y280 w588 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
-    downloadButton := AddStyledButton(preview, 32, 303, 230, 34, "Continue to Download", (*) => (response.Download := true, preview.Destroy()))
-    laterButton := AddStyledButton(preview, 276, 303, 140, 34, "Not Now", (*) => preview.Destroy())
-    releaseButton := AddStyledButton(preview, 430, 303, 178, 34, "Release Notes", (*) => Run(UpdateReleasePage))
+    preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", "A New " releaseType " Is Available to Download, S'wit!")
+    preview.SetFont("s10 cEDE1C9", "Segoe UI")
+    preview.Add("Text", "x30 y66 w740 h24 BackgroundTrans", "Installed: v" installedVersion "     Latest: v" latestVersion)
+    preview.Add("Text", "x30 y91 w740 h24 BackgroundTrans", "Review the changes below before deciding to update.")
+    preview.SetFont("s10 Bold cC5A45C", "Segoe UI")
+    preview.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "v" latestVersion " Release Notes")
+    closeNotes := AddUpdateNotesViewport(preview, notes)
+    AddStyledButton(preview, 32, 544, 230, 34, "Continue to Download", (*) => (response.Download := true, preview.Destroy()))
+    AddStyledButton(preview, 330, 544, 140, 34, "Not Now", (*) => preview.Destroy())
+    AddStyledButton(preview, 590, 544, 178, 34, "Release Notes", (*) => Run(UpdateReleasePage))
     preview.OnEvent("Close", (*) => preview.Destroy())
     preview.OnEvent("Escape", (*) => preview.Destroy())
-    ShowCenteredUpdateCard(preview, backdrop, 640, 344)
-    WinWaitClose("ahk_id " preview.Hwnd)
-    backdrop.Destroy()
+    try {
+        hwnd := preview.Hwnd
+        ShowCenteredUpdateCard(preview, backdrop, 800, 600)
+        WinWaitClose("ahk_id " hwnd)
+    } finally {
+        closeNotes()
+        backdrop.Destroy()
+    }
     return response.Download ? "Yes" : "No"
 }
 
-ReadDraftVersionNotes(installedVersion)
+ReadBundledVersionNotes(version)
 {
-    ; Only use this for an unreleased development version, never for a
-    ; published version whose GitHub release notes are authoritative.
     changelog := A_ScriptDir "\RELEASE_NOTES.md"
-    if !FileExist(changelog)
-        return 0
-    content := StrReplace(FileRead(changelog, "UTF-8"), "`r", "")
-    entries := StrSplit(content, "`n")
+    try content := StrReplace(FileRead(changelog, "UTF-8"), "`r", "")
+    catch
+        return ""
     collecting := false
     notes := ""
-    for entry in entries {
-        if SubStr(entry, 1, 3) = "## " {
+    for line in StrSplit(content, "`n") {
+        if RegExMatch(line, "^##[ \t]+") {
             if collecting
                 break
-            if InStr(entry, "v" installedVersion) && InStr(StrLower(entry), "unreleased")
-                collecting := true
+            collecting := RegExMatch(line, "^##[ \t]+v(\S+)", &heading) && heading[1] = version
             continue
         }
-        if !collecting
-            continue
-        line := Trim(entry)
-        if SubStr(line, 1, 4) = "### " {
-            notes .= "### " SubStr(line, 5) "`n"
-        } else if SubStr(line, 1, 2) = "- " {
-            notes .= "• " StrReplace(SubStr(line, 3), "**", "") "`n"
-        }
+        if collecting
+            notes .= line "`n"
     }
-    return notes != "" ? {Text: RTrim(notes, "`n"), Source: "Development notes — unreleased, subject to change"} : 0
+    return Trim(notes, " `t`n")
 }
 
-ReadVersionReleaseNotes(installedVersion)
+ReadVersionReleaseNotes(version)
 {
-    ; Published release notes are loaded by exact version tag. This never
-    ; substitutes the latest release's notes for an older installation.
+    bundled := ReadBundledVersionNotes(version)
+    return bundled != "" ? bundled : ReadPublishedVersionNotes(version)
+}
+
+ReadPublishedVersionNotes(version)
+{
     global BundledResourceRoot
     script := (A_IsCompiled ? BundledResourceRoot : A_ScriptDir) "\scripts\fetch-release-notes.ps1"
+    unavailable := "Release notes for v" version " are currently unavailable. Check GitHub Releases for details."
     if !FileExist(script)
-        return {Text: "The GitHub release notes helper is missing.", Source: "Notes unavailable"}
-    output := A_Temp "\tes3np-notes-" A_TickCount ".txt"
+        return unavailable
+    output := A_Temp "\tes3np-notes-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount ".txt"
     command := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script
-        . '" -Version "' installedVersion '" -OutputPath "' output '"'
+        . '" -Version "' version '" -OutputPath "' output '"'
     try {
-        exitCode := RunWait(command, A_ScriptDir, "Hide")
-        if exitCode != 0 || !FileExist(output)
-            throw Error("Release notes could not be retrieved.")
-        notesText := FileRead(output, "UTF-8")
-        sourceText := FileExist(output ".source") ? FileRead(output ".source", "UTF-8") : "GitHub Releases"
-        if InStr(sourceText, "Notes not published") {
-            draft := ReadDraftVersionNotes(installedVersion)
-            if IsObject(draft)
-                return draft
-        }
-        return {Text: notesText, Source: sourceText}
+        if RunWait(command, A_ScriptDir, "Hide") != 0 || !FileExist(output)
+            return unavailable
+        return FileRead(output, "UTF-8")
     } catch Error {
-        return {Text: "Could not load release notes for v" installedVersion ". Please check GitHub Releases.", Source: "GitHub unavailable"}
+        return unavailable
     } finally {
         try FileDelete(output)
-        try FileDelete(output ".source")
     }
 }
 
@@ -422,6 +409,7 @@ BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
             kind := "heading"
         } else if RegExMatch(line, "^[-*+]\s+") {
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
+            line := StrReplace(line, "**", "")
         }
         measureRow.SetFont(kind = "heading" ? "s11 Bold cE7BE70" : "s10 cF4E9D6", "Segoe UI")
         for part in WrapReleaseNoteLines(line, measureRow, maxWidth)
@@ -510,28 +498,11 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     return 0
 }
 
-ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "alpha")
+AddUpdateNotesViewport(panel, notes)
 {
-    global LauncherGui, UpdateReleasePage
-    state := {Retry: false}
-    backdrop := CreateUpdateBackdrop()
-    panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Version Status")
-    panel.BackColor := "C5A45C"
-    panel.Add("Text", "x2 y2 w796 h596 Background171008")
-    panel.SetFont("s14 Bold cC5A45C", "Georgia")
-    panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", "You're All Caught Up, Fetcher!")
-    panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    panel.Add("Text", "x30 y65 w740 h55 BackgroundTrans",
-        "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified.")
-    panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
-    panel.Add("Text", "x30 y125 w740 h25 BackgroundTrans",
-        "Build: v" installedVersion " Release Notes -")
-    notes := ReadVersionReleaseNotes(installedVersion)
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     ; Gold-framed notes with the same vertical gold-on-brown scrollbar used
     ; by the launcher parchment. Arrows live at the ends of the track.
-    ; Give release notes more reading space without changing their existing
-    ; scroll, drag, wheel or button behavior.
     panel.Add("Text", "x28 y158 w744 h367 BackgroundC5A45C")
     panel.Add("Text", "x30 y160 w740 h363 Background171008")
     page := {Offset: 1, Lines: [], Visible: 13}
@@ -539,11 +510,11 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     rowStyles := []
     Loop page.Visible {
         panel.SetFont("s10 cF4E9D6", "Segoe UI")
-        noteRows.Push(panel.Add("Text", "x42 y" (176 + (A_Index - 1) * 26) " w686 h24 Background171008", ""))
+        noteRows.Push(panel.Add("Text", "x42 y" (176 + (A_Index - 1) * 26) " w686 h24 Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
     ; Leave an extra pixel gutter for font rasterization and scroll safety.
-    page.Lines := BuildStyledReleaseNoteRows(notes.Text, noteRows[1], 674)
+    page.Lines := BuildStyledReleaseNoteRows(notes, noteRows[1], 674)
     track := panel.Add("Text", "x746 y188 w16 h309 Background704C27")
     thumb := panel.Add("Text", "x750 y188 w8 h32 +0x100 BackgroundC69951")
     drag := {Active: false, StartY: 0, StartOffset: 1, ThumbHeight: 32, Timer: 0}
@@ -574,20 +545,59 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "", channel := "a
     ; It consumes wheel input solely inside the release-notes viewport.
     wheelCallback := UpdateNotesMouseWheel.Bind(panel, page, refresh)
     OnMessage(0x020A, wheelCallback, 1)
-    retry := AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
-    close := AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => panel.Destroy())
+    unregister() {
+        OnMessage(0x020A, wheelCallback, 0)
+        OnMessage(0x0201, dragStartCallback, 0)
+        if drag.Active {
+            drag.Active := false
+            SetTimer(drag.Timer, 0)
+            DllCall("user32\ReleaseCapture")
+        }
+    }
+    return unregister
+}
+
+ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
+{
+    newer := mode = "disabled" && CompareTes3npVersions(latestVersion, installedVersion) > 0
+    notesVersion := newer ? latestVersion : installedVersion
+    title := "You're All Caught Up, Fetcher!"
+    message := "You are running the latest version of the tes3np launcher."
+    if mode = "error" {
+        title := "Could Not Check for Updates"
+        message := "Showing release notes for your installed version."
+    } else if mode = "disabled" {
+        title := "Automatic Updates Are Unavailable"
+        message := "Check GitHub Releases for download options."
+    } else if mode = "ahead" {
+        title := "You're Running a Newer Build"
+        message := "Showing release notes for your installed version."
+    }
+    notes := newer ? ReadPublishedVersionNotes(notesVersion) : ReadVersionReleaseNotes(installedVersion)
+    state := {Retry: false}
+    backdrop := CreateUpdateBackdrop()
+    panel := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Version Status")
+    panel.BackColor := "C5A45C"
+    panel.Add("Text", "x2 y2 w796 h596 Background171008")
+    panel.SetFont("s14 Bold cC5A45C", "Georgia")
+    panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
+    panel.SetFont("s10 cEDE1C9", "Segoe UI")
+    panel.Add("Text", "x30 y65 w740 h55 BackgroundTrans", message)
+    panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
+    panel.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "v" notesVersion " Release Notes")
+    closeNotes := AddUpdateNotesViewport(panel, notes)
+    AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
+    AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => panel.Destroy())
     panel.OnEvent("Close", (*) => panel.Destroy())
     panel.OnEvent("Escape", (*) => panel.Destroy())
-    ShowCenteredUpdateCard(panel, backdrop, 800, 600)
-    hwnd := panel.Hwnd
-    WinWaitClose("ahk_id " hwnd)
-    OnMessage(0x020A, wheelCallback, 0)
-    OnMessage(0x0201, dragStartCallback, 0)
-    drag.Active := false
-    if IsObject(drag.Timer)
-        SetTimer(drag.Timer, 0)
-    DllCall("user32\ReleaseCapture")
-    backdrop.Destroy()
+    try {
+        hwnd := panel.Hwnd
+        ShowCenteredUpdateCard(panel, backdrop, 800, 600)
+        WinWaitClose("ahk_id " hwnd)
+    } finally {
+        closeNotes()
+        backdrop.Destroy()
+    }
     if state.Retry
         SetTimer(CheckForUpdates, -100)
 }

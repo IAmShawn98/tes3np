@@ -2,35 +2,34 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')][string]$Version,
     [Parameter(Mandatory)][string]$OutputPath
 )
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$uri = 'https://api.github.com/repos/IAmShawn98/tes3np-releases/releases/tags/v' + $Version
-$notes = [ordered]@{ source = 'GitHub Releases'; text = ''; url = '' }
-try {
-    $release = Invoke-RestMethod -Uri $uri -Headers @{
-        'User-Agent'='tes3np-launcher'
-        'Accept'='application/vnd.github+json'
-    } -TimeoutSec 12
-    $notes.url = [string]$release.html_url
-    $body = [string]$release.body
-    $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($line in ($body -split '\r?\n')) {
-        $line = $line.Trim()
-        if (!$line) { continue }
-        if ($line -match '^#{1,6}\s+(.+)$') { $lines.Add('### ' + $Matches[1]); continue }
-        if ($line -match '^[-*+]\s+(.+)$') { $lines.Add([char]0x2022 + ' ' + $Matches[1]); continue }
-        if ($line -match '^\d+\.\s+(.+)$') { $lines.Add([char]0x2022 + ' ' + $Matches[1]); continue }
-        if ($line -match '^(-{3,}|\*{3,})$') { continue }
-        $lines.Add($line)
+$baseUri = 'https://api.github.com/repos/IAmShawn98/tes3np-releases/releases/tags'
+$headers = @{ 'User-Agent' = 'tes3np-launcher'; 'Accept' = 'application/vnd.github+json' }
+$versionPattern = [regex]::Escape($Version)
+$notes = ''
+
+foreach ($tag in @('latest-alpha', "v$Version")) {
+    try {
+        $release = Invoke-RestMethod -Uri "$baseUri/$tag" -Headers $headers -TimeoutSec 5
+    } catch {
+        continue
     }
-    # Keep section markers; the native AHK view wraps and styles the text.
-    $notes.text = (($lines -join "`n") -replace '[`*_]', '').Trim()
-    if (!$notes.text) { $notes.text = 'This release does not have published notes.' }
-} catch {
-    $notes.source = 'Notes not published or GitHub unavailable'
-    $notes.text = 'No published release notes were found for v' + $Version + '. Check the versioned GitHub release when it is published.'
+
+    if ($release.draft -or $release.tag_name -ne $tag) { continue }
+    $body = ([string]$release.body).Trim()
+    if (!$body) { continue }
+    $heading = [regex]::Match($body, '(?m)^##[ \t]+v(\S+)')
+    if ($tag -eq 'latest-alpha' -and
+        $release.name -notmatch "^tes3np v$versionPattern(?:\s|$)") { continue }
+    if ($heading.Success -and $heading.Groups[1].Value -ne $Version) { continue }
+
+    # The card supplies the version heading. Leave Markdown section headings
+    # and bullets for its shared renderer.
+    $notes = ($body -replace "(?m)^##[ \t]+v$versionPattern(?:[ \t]+[^\r\n]*)?[ \t]*\r?\n", '').Trim()
+    if ($notes) { break }
 }
-$parent = Split-Path -Parent $OutputPath
-if ($parent -and !(Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-[IO.File]::WriteAllText($OutputPath, $notes.text, (New-Object Text.UTF8Encoding($false)))
-[IO.File]::WriteAllText($OutputPath + '.source', $notes.source, (New-Object Text.UTF8Encoding($false)))
+
+if (!$notes) { exit 1 }
+[IO.File]::WriteAllText($OutputPath, $notes, [Text.UTF8Encoding]::new($false))
