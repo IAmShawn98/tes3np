@@ -110,7 +110,7 @@ CheckForUpdates(source := "", *)
         if CompareTes3npVersions(latest, AppConfig.Version) <= 0 {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
-            ShowUpdateStatusPanel(CompareTes3npVersions(latest, AppConfig.Version) = 0 ? "current" : "ahead", AppConfig.Version)
+            ShowUpdateStatusPanel("current", AppConfig.Version)
             return
         }
         ; The startup check owns the footer notification. Opening a preview
@@ -574,9 +574,6 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     } else if mode = "disabled" {
         title := "Automatic Updates Are Unavailable"
         message := "Check GitHub Releases for download options."
-    } else if mode = "ahead" {
-        title := "You're Running a Newer Build"
-        message := "Showing release notes for your installed version."
     }
     notes := newer ? ReadPublishedVersionNotes(notesVersion) : ReadVersionReleaseNotes(installedVersion)
     state := {Retry: false}
