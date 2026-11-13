@@ -278,6 +278,20 @@ try {
         }
     }
     Step 'Downloaded or found and checked Ahk2Exe release ZIP'
+    try {
+        $cacheFolder = Get-Item -LiteralPath $ahkCacheDir -ErrorAction Stop
+        if (!($cacheFolder.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            $staleBefore = [DateTime]::UtcNow.AddDays(-30)
+            Get-ChildItem -LiteralPath $ahkCacheDir -File | Where-Object {
+                $_.Name -match '^(AutoHotkey_2\.0\.\d+|Ahk2Exe[0-9A-Za-z.]+)\.zip$' -and
+                $_.Name -notin @($ahkAsset.name, $compilerAsset.name) -and
+                $_.LastWriteTimeUtc -lt $staleBefore -and
+                !($_.Attributes -band [IO.FileAttributes]::ReparsePoint)
+            } | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+        }
+    } catch {
+        # Cache maintenance must not prevent a build.
+    }
 
     $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
     $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'

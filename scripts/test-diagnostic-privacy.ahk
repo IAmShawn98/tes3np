@@ -4,7 +4,12 @@
 global AppDataDirectory := A_Temp "\tes3np-privacy-fixture-" A_TickCount
 global DataFile := AppDataDirectory "\settings.ini"
 global Profiles := [{Name: "TestWizard", Password: "test-only-secret-123"}]
+global BundledResourceRoot := "", MacroRoot := AppDataDirectory "\macros"
+global MacroImport := 0, PatchJob := 0, LauncherDataResetting := false
+global Client := {Enabled: false}, ExpansionAutoDownloadActive := false
+global ExpansionAutoInstallLocked := false, MorrowindPromptGui := 0
 #Include ..\src\app\diagnostics.ahk
+#Include ..\src\data\cleanup.ahk
 
 PrivacyFixtureAssert(ok, reason)
 {
@@ -73,6 +78,57 @@ try
         = privateArchive, "private chat archive not modified")
     PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "4",
         "one-time migration checkpoint written")
+
+    largeLog := AppDataDirectory "\large-fixture.log"
+    stream := FileOpen(largeLog, "w", "UTF-8")
+    try
+    {
+        line := "Old diagnostic event " Chr(0x00E9) "`n"
+        batch := ""
+        Loop 256
+            batch .= line
+        while stream.Pos <= 2 * 1024 * 1024
+            stream.Write(batch)
+        stream.Write("Latest diagnostic event " Chr(0x00E9) "`n")
+    }
+    finally stream.Close()
+    PrivacyFixtureAssert(TrimDiagnosticLog(largeLog), "oversized diagnostic log trimmed")
+    PrivacyFixtureAssert(FileGetSize(largeLog) <= 1024 * 1024 + 3,
+        "diagnostic log retains at most one MiB plus BOM")
+    tail := FileRead(largeLog, "UTF-8")
+    PrivacyFixtureAssert(InStr(tail, line) = 1
+        && InStr(tail, "Latest diagnostic event " Chr(0x00E9) "`n"),
+        "log trimming keeps complete UTF-8 events")
+    PrivacyFixtureAssert(!FileExist(largeLog ".trim.tmp"), "diagnostic staging file removed")
+
+    cache := AppDataDirectory "\client-cache"
+    old := DateAdd(A_Now, -60, "Days")
+    for id in ["00000001", "00000002", "00000003", "custom"]
+    {
+        path := cache "\" id
+        DirCreate(path)
+        FileAppend("fixture", path "\.ready")
+        FileSetTime(old, path "\.ready")
+        FileSetTime(old, path)
+    }
+    keep := cache "\00000001"
+    recent := cache "\00000002"
+    FileSetTime(, recent "\.ready")
+    PruneLauncherCache(cache, "^\d{8}$", ".ready", [keep], 30)
+    PrivacyFixtureAssert(DirExist(keep) && DirExist(recent) && DirExist(cache "\custom")
+        && !DirExist(cache "\00000003"), "prunes only stale unreferenced cache folders")
+
+    job := AppDataDirectory "\fixture-import"
+    DirCreate(job "\stage")
+    FileAppend("recovery fixture", job "\journal.json")
+    FileAppend("scratch", job "\stage\scratch")
+    CleanupFinishedExpansionImport(job)
+    PrivacyFixtureAssert(FileExist(job "\journal.json") && !DirExist(job "\stage"),
+        "import recovery journal survives scratch cleanup")
+    IniWrite("error", job "\result.ini", "Result", "State")
+    IniWrite("complete", job "\result.ini", "Result", "Rollback")
+    CleanupFinishedExpansionImport(job)
+    PrivacyFixtureAssert(!DirExist(job), "verified rollback releases the obsolete job")
     FileAppend("PASS | TES3NP diagnostic redaction fixtures`n", "*", "UTF-8")
 }
 catch Error as err

@@ -536,8 +536,9 @@ CheckMacroImport()
     }
     catch Error as err
     {
-        if DirExist(pending.Folder)
-            DirDelete(pending.Folder, true)
+        try
+            if DirExist(pending.Folder)
+                DirDelete(pending.Folder, true)
         detail := SanitizeDiagnosticText(err.Message)
         if detail = ""
             detail := "The macro ZIP could not be imported."

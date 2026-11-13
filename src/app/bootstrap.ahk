@@ -42,6 +42,7 @@ StartLauncher()
     InitializeLauncherMorrowindFont()
     ; Load saved characters before constructing launch controls.
     LoadProfiles()
+    TrimStoredDiagnosticLogs()
     SanitizeExistingDiagnosticLogs()
     InitializePatchLogMirror()
     ; Recover a saved custom-client swap before launch buttons are available.
@@ -107,6 +108,7 @@ StartLauncher()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
+    SetTimer(CleanupStaleLauncherData, -1000)
     ; Expansion Pack setup is optional; never run patch verification at startup.
     SetTimer(CheckForUpdateAvailability, -250)
     ; The only optional first-launch prompt is the one-time desktop

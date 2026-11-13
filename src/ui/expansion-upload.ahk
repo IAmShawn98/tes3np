@@ -208,6 +208,8 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
     }
     catch Error as err
     {
+        if !IsObject(PatchJob)
+            try DirDelete(jobFolder)
         LauncherGui.Opt("-Disabled")
         if IsObject(PatchFrame)
             ReleaseCapturedInterfaceFrame(PatchFrame)

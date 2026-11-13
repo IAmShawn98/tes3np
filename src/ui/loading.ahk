@@ -271,8 +271,12 @@ ReportLoadingFailure(err)
     ; Keep diagnostics free of credentials and personal file paths.
     DirCreate(AppDataDirectory)
     detail := "Error type: " Type(err)
-    try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " Loading overlay: " detail "`n",
-        AppDataDirectory "\render-errors.log", "UTF-8")
+    try
+    {
+        path := AppDataDirectory "\render-errors.log"
+        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " Loading overlay: " detail "`n", path, "UTF-8")
+        TrimDiagnosticLog(path)
+    }
     if !reported
     {
         reported := true

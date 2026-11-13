@@ -119,13 +119,14 @@ function CleanImportMessage([string]$Message) {
     if (!$safe) { return 'The Expansion Pack operation could not be completed.' }
     return $safe
 }
-function Result([string]$State, [string]$Message, [string]$Backup = '') {
+function Result([string]$State, [string]$Message, [string]$Backup = '', [bool]$RollbackComplete = $false) {
     $clean = CleanImportMessage $Message
     # Backup locations belong in the private rollback journal, not the result
     # shared with the UI or support. Preserve the pre-existing Backup key.
     $backupStatus = if ($Backup -and [IO.File]::Exists((Join-Path $Backup 'journal.json'))) { 'available' } else { '' }
     $body = '[Result]' + [Environment]::NewLine + 'State=' + $State + [Environment]::NewLine +
         'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $backupStatus + [Environment]::NewLine
+    if ($RollbackComplete) { $body += 'Rollback=complete' + [Environment]::NewLine }
     WriteJobIni 'result.ini' $body
 }
 function AssertPlain([string]$Path) {
@@ -442,7 +443,7 @@ catch {
         $reason += $(if ($failedRollback) { ' Rollback was incomplete: retain the import job backup.' } else { ' This import was rolled back.' })
     }
     Progress 'Expansion import failed' 100
-    Result 'error' $reason
+    Result 'error' $reason '' (!$failedRollback)
     exit 1
 }
 finally {
