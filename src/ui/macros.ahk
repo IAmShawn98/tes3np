@@ -16,7 +16,7 @@ BuildMacroBookPanel()
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
-        "This is a complete list of macros. You can upload any macro and run or stop it at any time!")
+        "Upload, run, or stop macros here. Click a macro name to rename it.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
         "No macros installed yet.")
     ; The hidden ListView retains every imported item and all existing handlers.
@@ -40,7 +40,7 @@ BuildMacroBookPanel()
         tick := AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))
         name := AddBookLabel(CharacterPage, 551, y + 19, 329, 22, "")
         name.Opt("+0x100")
-        name.OnEvent("Click", SelectMacroBookRow.Bind(position))
+        name.OnEvent("Click", RenameMacroBookRow.Bind(position))
         ButtonFaces[name.Hwnd].IsClickable := true
         run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
             "Run", RunMacroBookRow.Bind(position))
@@ -135,7 +135,7 @@ RefreshMacroBookRows()
         item := MacroItems[index]
         ; The name occupies its own full row above the action buttons.
         name := StrLen(item.Name) > 37 ? SubStr(item.Name, 1, 34) "..." : item.Name
-        if itemRow.Name.Text != name
+        if !(itemRow.Name.Text == name)
             itemRow.Name.Text := name
         selected := index = selectedIndex
         if ButtonFaces[itemRow.Tick.Hwnd].Checked != selected
@@ -214,6 +214,48 @@ SelectMacroBookRow(position, *)
     if index < 1 || index > MacroItems.Length
         return
     MacroList.Modify(index, "Select Focus")
+    RefreshMacroButtons()
+}
+
+RenameMacroBookRow(position, *)
+{
+    global MacroPage, MacroList, MacroScrollOffset, MacroItems
+    index := MacroScrollOffset + position
+    if index < 1 || index > MacroItems.Length
+        return
+    item := MacroItems[index]
+    MacroPage.Opt("+OwnDialogs")
+    prompt := "Enter a display name for this macro."
+    name := item.Name
+    loop
+    {
+        result := InputBox(prompt, "Rename macro", "w400 h130", name)
+        if result.Result != "OK"
+            return
+        name := Trim(result.Value)
+        if name != "" && StrLen(name) <= 100
+            break
+        prompt := "Enter a name between 1 and 100 characters."
+    }
+    if name == item.Name || index > MacroItems.Length || MacroItems[index] != item
+        return
+
+    metadata := item.Folder "\.tes3np-package.ini"
+    try
+    {
+        if !FileExist(metadata)
+            throw Error("Macro package metadata is missing.")
+        ; The INI reader strips the outer quotes, preserving quotes in the name.
+        IniWrite(Chr(34) name Chr(34), metadata, "Macro", "Name")
+    }
+    catch
+    {
+        MsgBox("Could not save the macro name. Check that the package is writable.",
+            "Rename macro", "Icon!")
+        return
+    }
+    item.Name := name
+    MacroList.Modify(index, "Select Focus", name)
     RefreshMacroButtons()
 }
 
