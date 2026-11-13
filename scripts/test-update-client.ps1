@@ -88,6 +88,7 @@ foreach ($f in $fixtures) {
 }
 Write-Host 'PASS: semantic version ordering fixtures.'
 # Both dialogs use the same styled, measured viewport and select the requested version.
+Require-Source 'if CompareTes3npVersions\(latest, AppConfig\.Version\) <= 0 \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
 Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview'
 Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status'
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline'
