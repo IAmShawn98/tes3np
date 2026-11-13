@@ -92,6 +92,13 @@ try {
 } finally {
     Pop-Location
 }
+# MSVC 2022 no longer provides std::chrono through the old transitive headers.
+$miscExtensions = Join-Path $source 'apps\openmw\mwscript\miscextensions.cpp'
+$miscText = [IO.File]::ReadAllText($miscExtensions)
+$include = '#include <cstdlib>'
+if (!$miscText.Contains($include)) { throw 'Could not locate the pinned misc extensions include.' }
+[IO.File]::WriteAllText($miscExtensions, $miscText.Replace($include, "#include <chrono>`r`n$include"), [Text.UTF8Encoding]::new($false))
+
 Write-Host 'Building the stock TES3MP client'
 Invoke-BuildTool cmake @('--build', $build, '--config', 'Release', '--target', 'tes3mp', '--parallel', '2')
 New-Item -ItemType Directory -Path $output | Out-Null
