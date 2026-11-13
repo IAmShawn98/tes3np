@@ -154,9 +154,15 @@ PaintButton(wParam, lParam, *)
         DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
         if face.Book
         {
-            face.Control.GetPos(, , &logicalWidth, &logicalHeight)
+            face.Control.GetPos(&logicalX, &logicalY, &logicalWidth, &logicalHeight)
             dpiScale := width / logicalWidth
-            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Book, "Int", Round(-face.X * dpiScale), "Int", Round(-face.Y * dpiScale), "Int", Round(960 * dpiScale), "Int", Round(650 * dpiScale))
+            x := face.X, y := face.Y, bookWidth := 960, bookHeight := 650
+            if face.HasOwnProp("UseControlPosition")
+            {
+                x := logicalX, y := logicalY
+                face.Gui.BookBackground.GetPos(, , &bookWidth, &bookHeight)
+            }
+            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Book, "Int", Round(-x * dpiScale), "Int", Round(-y * dpiScale), "Int", Round(bookWidth * dpiScale), "Int", Round(bookHeight * dpiScale))
         }
         else
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))

@@ -315,3 +315,9 @@ HandleUpdaterStartupMode() {
     LogLauncherEvent("UPDATE | CONFIRMED | Updated launcher v" AppConfig.Version " confirmed successful startup.")
     return true
 }
+
+#HotIf MacroNameEditorFocused()
+Enter::SaveMacroName()
+NumpadEnter::SaveMacroName()
+Escape::FinishMacroNameEdit()
+#HotIf

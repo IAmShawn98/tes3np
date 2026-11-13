@@ -38,6 +38,7 @@ global MacroScrollDragging := false
 global MacroScrollGrab := 0
 global MacroBookRows := []
 global MacroBookControls := []
+global MacroNameEdit := 0
 global MacroEmptyNotice := 0
 global MacroItems := []
 global MacroImport := 0
