@@ -221,9 +221,7 @@ RefreshProfiles()
             try transferFace.Control.Visible := true
             try transferFace.Label.Visible := true
         }
-        ; Invalidate the parchment underneath the old position so the previous
-        ; Import/Export artwork cannot survive as stale pixels.
-        try DllCall("RedrawWindow", "Ptr", DataTransferButton.Gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x385)
+        ; EndInterfaceUpdate repaints the old and new button positions together.
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
             MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)

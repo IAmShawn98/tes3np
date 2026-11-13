@@ -111,7 +111,7 @@ RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
-    global MacroImportButton, CharacterPage
+    global MacroImportButton, CharacterPage, InterfaceUpdating
     global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
@@ -194,8 +194,9 @@ RefreshMacroBookRows()
         if wasVisible
         {
             MacroImportButton.Visible := true
-            DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
-                "Ptr", 0, "Ptr", 0, "UInt", 0x385)
+            if !InterfaceUpdating
+                DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
+                    "Ptr", 0, "Ptr", 0, "UInt", 0x385)
         }
     }
     ; Only import failures/progress use the message area below Upload.
@@ -591,13 +592,18 @@ FinishMacroImport(pending)
 
 AddImportedMacro(folder, name, description, entry, kind := "Macro", target := "")
 {
-    global MacroItems, MacroList, MacroScrollOffset
-    MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
-        Kind: kind, Target: target, PID: 0})
-    row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
-    MacroList.Modify(row, "Select Focus")
-    MacroScrollOffset := Max(0, row - 4)
-    RefreshMacroButtons()
+    global MacroPage, MacroItems, MacroList, MacroScrollOffset
+    BeginInterfaceUpdate(MacroPage, "Updating macro list...")
+    try
+    {
+        MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
+            Kind: kind, Target: target, PID: 0})
+        row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
+        MacroList.Modify(row, "Select Focus")
+        MacroScrollOffset := Max(0, row - 4)
+        RefreshMacroButtons()
+    }
+    finally EndInterfaceUpdate()
 }
 
 ; An installed EXE is linked by path. Copying only its EXE would break apps
@@ -762,7 +768,7 @@ RefreshMacroProcesses()
 
 RemoveSelectedMacro(*)
 {
-    global MacroItems, MacroList, MacroStatus
+    global MacroPage, MacroItems, MacroList, MacroStatus, MacroScrollOffset
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length
         return
@@ -772,19 +778,24 @@ RemoveSelectedMacro(*)
     if MsgBox("Remove " macro.Name " from Installed Macros? This does not uninstall linked applications.", "Remove macro / app", 0x124) != "Yes"
         return
     try
-    {
         DirDelete(macro.Folder, true)
+    catch
+    {
+        MsgBox("Could not remove this macro package. Check that its files are not in use.", "Remove macro")
+        return
+    }
+    BeginInterfaceUpdate(MacroPage, "Updating macro list...")
+    try
+    {
         MacroItems.RemoveAt(row)
         MacroList.Delete(row)
-        global MacroScrollOffset
         if MacroItems.Length
             MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
         MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))
         MacroStatus.Text := "Removed from launcher."
         RefreshMacroButtons()
     }
-    catch
-        MsgBox("Could not remove this macro package. Check that its files are not in use.", "Remove macro")
+    finally EndInterfaceUpdate()
 }
 
 CleanupMacros()
