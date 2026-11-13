@@ -17,15 +17,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Normalize patch script final newline
-        shell: pwsh
-        run: |
-          $path = 'scripts/patch-tes3mp.ps1'
-          $text = [IO.File]::ReadAllText($path)
-          if (-not ($text.EndsWith("`n"))) {
-            [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true)))
-          }
-
       - name: Verify release evidence and disable development-only previews
         run: python scripts/check-release-gates.py
 
@@ -97,32 +88,32 @@ jobs:
             $versionedChecksum
           )
           foreach ($asset in $assets) { if (-not (Test-Path -LiteralPath $asset)) { throw "Release asset is missing: $asset" } }
-          $changelogLines = Get-Content 'CHANGELOG.md'
-          $heading = "## v$version"
-          $start = -1
-          for ($i = 0; $i -lt $changelogLines.Count; $i++) {
-            if ($changelogLines[$i].StartsWith($heading)) { $start = $i + 1; break }
-          }
-          if ($start -lt 0) { throw "No CHANGELOG.md section found for v$version." }
-          $end = $changelogLines.Count
-          for ($i = $start; $i -lt $changelogLines.Count; $i++) {
-            if ($changelogLines[$i].StartsWith('## ')) { $end = $i; break }
-          }
-          $notes = (($changelogLines[$start..($end - 1)] -join "`n").Trim())
-          if (-not $notes) { throw "CHANGELOG.md section for v$version is empty." }
+          $playerNotes = Get-Content -LiteralPath 'RELEASE_NOTES.md' -Raw -Encoding UTF8
+          $versionPattern = [regex]::Escape($version)
+          $section = [regex]::Match($playerNotes, "(?ms)^##[ \t]+v$versionPattern(?=[ \t]|\r?$)[^\r\n]*\r?\n(.*?)(?=^##[ \t]|\z)")
+          $notes = $section.Groups[1].Value.Trim()
+          if (-not $notes) { throw "No RELEASE_NOTES.md content found for v$version." }
+          $releaseDate = [DateTime]::UtcNow.ToString('yyyy-MM-dd')
+          $notes = "## v$version — $releaseDate`n`n$notes"
+          $notesFile = Join-Path $env:RUNNER_TEMP "tes3np-v$version-release-notes.md"
+          [IO.File]::WriteAllText($notesFile, $notes, [Text.UTF8Encoding]::new($false))
           $old = $PSNativeCommandUseErrorActionPreference
           $PSNativeCommandUseErrorActionPreference = $false
           gh release view $tag --repo $repo *> $null
           $releaseExists = ($LASTEXITCODE -eq 0)
           $PSNativeCommandUseErrorActionPreference = $old
           if ($releaseExists) {
-            foreach ($asset in $assets) {
+            foreach ($asset in $assets | Where-Object { $_ -ne 'dist/tes3np-update.json' }) {
               gh release upload $tag $asset --repo $repo --clobber
               if ($LASTEXITCODE -ne 0) { throw "Failed to upload release asset: $asset" }
             }
-            gh release edit $tag --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
+            gh release edit $tag --repo $repo --title "tes3np v$version - Latest Test Build" --notes-file $notesFile --prerelease
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to publish alpha release notes.' }
+            # The manifest announces the new version to launchers. Replace it
+            # after its package and changelog are both available.
+            gh release upload $tag 'dist/tes3np-update.json' --repo $repo --clobber
           } else {
-            gh release create $tag @assets --repo $repo --title "tes3np v$version - Latest Test Build" --notes $notes --prerelease
+            gh release create $tag @assets --repo $repo --title "tes3np v$version - Latest Test Build" --notes-file $notesFile --prerelease
           }
           if ($LASTEXITCODE -ne 0) { throw 'Failed to publish alpha release.' }
 

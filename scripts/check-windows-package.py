@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 
 REQUIRED_FILES = (
     "tes3np.exe",
+    "RELEASE_NOTES.md",
     "runtime/AutoHotkey64.exe",
     "licenses/AutoHotkey/REDISTRIBUTION-NOTICE.txt",
     "client/tes3mp.exe",
@@ -61,8 +63,15 @@ def check_package(path: Path) -> None:
             if archive.getinfo(name).file_size < minimum:
                 raise ValueError(f"Packaged executable is suspiciously small: {name}")
 
+        root = Path(__file__).resolve().parents[1]
+        state = (root / "src/state.ahk").read_text(encoding="utf-8-sig")
+        version = re.search(r'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"', state)
+        notes = archive.read("RELEASE_NOTES.md").decode("utf-8-sig")
+        if not version or not re.search(rf"^##[ \t]+v{re.escape(version[1])}(?=\s|$)", notes, re.MULTILINE):
+            raise ValueError("Packaged release notes do not contain the launcher version")
+
         # Compare the packaged markerless executable with the source manifest.
-        manifest_path = Path(__file__).resolve().parents[1] / "patches" / "manifest.json"
+        manifest_path = root / "patches" / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
         entry = next(
             (f for f in manifest["Files"] if f["Path"] == "markerless/tes3mp.exe"), None

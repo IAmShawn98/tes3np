@@ -660,11 +660,8 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     # Keep editable CSS and layout files beside the published chat host.
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.css') (Join-Path $hostOutput 'chat.css') -Force
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force
-    # Include draft notes for an unreleased development build only; published
-    # versions always display their exact GitHub release notes.
-    if ($env:GITHUB_REF_NAME -ne 'main') {
-        Copy-Item (Join-Path $projectRoot 'RELEASE_NOTES.md') (Join-Path $package 'RELEASE_NOTES.md') -Force
-    }
+    # Keep the installed version's release notes available offline.
+    Copy-Item (Join-Path $projectRoot 'RELEASE_NOTES.md') (Join-Path $package 'RELEASE_NOTES.md') -Force
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
     Step 'Validating final downloadable Windows ZIP'

@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$source = Get-Content -LiteralPath $SourcePath -Raw
+$source = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8
 
 function Require-Source([string]$Pattern, [string]$Name) {
     if ($source -notmatch $Pattern) { throw "Updater client safety check missing: $Name" }
@@ -87,54 +87,99 @@ foreach ($f in $fixtures) {
     if ($actual -ne $f[2]) { throw "Version fixture failed: $($f[0]) vs $($f[1]) => $actual, expected $($f[2])" }
 }
 Write-Host 'PASS: semantic version ordering fixtures.'
-# Guard the section-aware release notes and expanded modal dimensions.
-Require-Source 'BuildStyledReleaseNoteRows\(notes\.Text\)' 'section-aware release notes'
+# Both dialogs use the same styled, measured viewport and select the requested version.
+Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview'
+Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status'
+Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline'
+Require-Source 'heading\[1\] = version' 'exact bundled version heading'
 Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings'
 Require-Source 'ShowCenteredUpdateCard\(panel, backdrop, 800, 600\)' 'larger status modal'
-$notesHelper = Get-Content -LiteralPath 'scripts/fetch-release-notes.ps1' -Raw
-$expectedHeading = '$lines.Add(''### '' + $Matches[1])'
-if (-not $notesHelper.Contains($expectedHeading)) {
-    throw 'Published release notes must preserve heading markers.'
-}
-Write-Host 'PASS: changelog categories remain visible for draft and published versions.'
-# Player-facing draft notes are intentionally separate from the developer history.
-Require-Source 'changelog := A_ScriptDir "\\RELEASE_NOTES\.md"' 'user-facing draft release notes'
-$buildScript = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw
+Require-Source 'BuildStyledReleaseNoteRows\(notes, noteRows\[1\], 674\)' 'font-measured changelog wrapping'
+Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths'
+Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting'
+
+$buildScript = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
 if (-not $buildScript.Contains("Copy-Item (Join-Path `$projectRoot 'RELEASE_NOTES.md')")) {
-    throw 'Development Windows package must include the player-facing release notes.'
+    throw 'Windows packages must include the player-facing release notes.'
 }
-$playerNotes = Get-Content -LiteralPath 'RELEASE_NOTES.md' -Raw
-if ($playerNotes -notmatch '(?m)^## v0\.1\.21-alpha — unreleased$') {
-    throw 'Player-facing notes must match the current unreleased version.'
+$workflow = Get-Content -LiteralPath '.github/workflows/publish-alpha.yml' -Raw -Encoding UTF8
+if ($workflow -notmatch "Get-Content -LiteralPath 'RELEASE_NOTES\.md'" -or
+    $workflow -match "Get-Content[^\r\n]+['""]CHANGELOG\.md") {
+    throw 'The alpha publish workflow must use the player-facing release notes.'
 }
+
+$state = Get-Content -LiteralPath 'src/state.ahk' -Raw -Encoding UTF8
+$version = [regex]::Match($state, 'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value
+$playerNotes = Get-Content -LiteralPath 'RELEASE_NOTES.md' -Raw -Encoding UTF8
+$versionPattern = [regex]::Escape($version)
+$section = [regex]::Match($playerNotes, "(?ms)^##[ \t]+v$versionPattern(?=[ \t]|\r?$)[^\r\n]*\r?\n(.*?)(?=^##[ \t]|\z)")
+if (!$version -or !$section.Success) { throw 'Player-facing notes must match the launcher version.' }
+$playerNotes = $section.Groups[1].Value
 if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source checks|github actions|fixture|pending windows|source-only|build transcript') {
     throw 'Internal engineering details must not appear in player-facing release notes.'
 }
-Write-Host 'PASS: player-facing notes are distinct from the developer changelog.'
-
-$expectedCategories = @('New Features', 'Improvements', 'Removed Features')
-$foundCategories = @([regex]::Matches($playerNotes, '(?m)^### (.+)$') | ForEach-Object { $_.Groups[1].Value })
-if (($foundCategories -join '|') -ne ($expectedCategories -join '|')) {
-    throw 'Player-facing changelog categories must appear in the approved order for this release.'
+$categories = @('New Features', 'Improvements', 'Bug Fixes', 'Removed Features')
+$found = @([regex]::Matches($playerNotes, '(?m)^### ([^\r\n]+)') | ForEach-Object { $_.Groups[1].Value })
+$ordered = @($categories | Where-Object { $_ -in $found })
+if (!$found.Count -or ($found -join '|') -ne ($ordered -join '|')) {
+    throw 'Player-facing changelog categories must appear in the approved order.'
 }
 $entries = @($playerNotes -split "`r?`n" | Where-Object { $_ -match '^- ' })
-if (-not $entries.Count) { throw 'Player-facing release notes have no entries.' }
+if (!$entries.Count) { throw 'Player-facing release notes have no entries.' }
 foreach ($entry in $entries) {
-    if ($entry -notmatch '^- \*\*[^*]+:\*\* .+\.$') {
-        throw "Player-facing changelog entry must use **Area:** outcome format: $entry"
+    if ($entry -notmatch '^- \*\*[^*]+(?::\*\* |\*\* \u2014 ).+[.!?]$') {
+        throw "Player-facing changelog entry must use a bold area label and an outcome: $entry"
     }
 }
-if ($playerNotes -notmatch 'Changes since the last public release, v0\.1\.20-alpha\.') {
+if ($playerNotes -notmatch 'Changes since the last public release, v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\.') {
     throw 'Release notes must identify the public comparison baseline.'
 }
-Write-Host 'PASS: standardized release note categories, labels, and baseline.'
+Write-Host 'PASS: matching player-facing notes, ordered categories, and release publishing source.'
 
-# Guards for the actual launcher viewport: no ornamental diamonds, no
-# character-count wrapping, no hard-clipped words on narrow/DPI screens.
-Require-Source 'BuildStyledReleaseNoteRows\(notes\.Text, noteRows\[1\], 674\)' 'font-measured changelog wrapping'
-Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths'
-Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting'
-if ($source -match '◆') {
+# Mock the moving feed and exact-tag responses without network access.
+& {
+    $responses = @{}
+    function Invoke-RestMethod($Uri, $Headers, $TimeoutSec) {
+        $tag = $Uri.Split('/')[-1]
+        if (!$responses.ContainsKey($tag)) { throw "Missing fixture for $tag" }
+        return $responses[$tag]
+    }
+
+    $helper = Join-Path $PSScriptRoot 'fetch-release-notes.ps1'
+    $output = [IO.Path]::GetTempFileName()
+    try {
+        $responses['latest-alpha'] = @{
+            tag_name = 'latest-alpha'
+            name = 'tes3np v0.1.22-alpha - Latest Test Build'
+            body = "## v0.1.22-alpha`n`n### Improvements`n- **Launcher:** New notes."
+        }
+        & $helper -Version '0.1.22-alpha' -OutputPath $output
+        if ([IO.File]::ReadAllText($output) -ne "### Improvements`n- **Launcher:** New notes.") {
+            throw 'The moving release did not return the matching changelog.'
+        }
+
+        $responses['v0.1.21-alpha'] = @{
+            tag_name = 'v0.1.21-alpha'
+            body = '### Historical notes'
+        }
+        & $helper -Version '0.1.21-alpha' -OutputPath $output
+        if ([IO.File]::ReadAllText($output) -ne '### Historical notes') {
+            throw 'A mismatched moving release must fall back to the exact tag.'
+        }
+
+        $responses['latest-alpha'].body = "## v0.1.23-alpha`n`nWrong version."
+        Remove-Item -LiteralPath $output
+        & $helper -Version '0.1.22-alpha' -OutputPath $output
+        if ($LASTEXITCODE -ne 1 -or (Test-Path -LiteralPath $output)) {
+            throw 'A mismatched release body must not be displayed under the requested version.'
+        }
+    } finally {
+        Remove-Item -LiteralPath $output -ErrorAction SilentlyContinue
+    }
+}
+Write-Host 'PASS: matching, historical, and mismatched published changelog fixtures.'
+
+if ($source -match '\u25C6') {
     throw 'Changelog renderer must not use ornamental diamond markers.'
 }
 if ($source -match 'WrapReleaseNoteLines\(content, maximum') {
@@ -143,3 +188,4 @@ if ($source -match 'WrapReleaseNoteLines\(content, maximum') {
 Write-Host 'PASS: plain release notes headings and measured wrapping.'
 
 Write-Host 'All launcher updater validation checks passed.'
+exit 0
