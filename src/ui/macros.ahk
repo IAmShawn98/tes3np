@@ -4,7 +4,7 @@ BuildMacroBookPanel()
 {
     global CharacterPage, LauncherMorrowindFont, ButtonFaces
     global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
-    global MacroImportButton, MacroBookControls, MacroBookRows
+    global MacroImportButton, MacroBookControls, MacroBookRows, MacroNameEdit
     global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
     MacroPage := CharacterPage
     MacroBookControls := []
@@ -16,7 +16,7 @@ BuildMacroBookPanel()
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
-        "Upload, run, or stop macros here. Click a macro name to rename it.")
+        "Upload, run, or stop macros here. Click the pencil to rename a macro.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
         "No macros installed yet.")
     ; The hidden ListView retains every imported item and all existing handlers.
@@ -38,10 +38,12 @@ BuildMacroBookPanel()
             "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
         tick := AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))
-        name := AddBookLabel(CharacterPage, 551, y + 19, 329, 22, "")
-        name.Opt("+0x100")
-        name.OnEvent("Click", RenameMacroBookRow.Bind(position))
-        ButtonFaces[name.Hwnd].IsClickable := true
+        name := AddBookLabel(CharacterPage, 551, y + 19, 125, 22, "")
+        ButtonFaces[name.Hwnd].UseControlPosition := true
+        rename := AddStyledButton(CharacterPage, 680, y + 19, 21, 22,
+            Chr(0x270E), EditMacroBookRow.Bind(position))
+        ButtonFaces[rename.Hwnd].UseControlPosition := true
+        rename.SetFont("s10 Bold", "Segoe UI Symbol")
         run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
             "Run", RunMacroBookRow.Bind(position))
         stop := AddStyledButton(CharacterPage, 663, y + 42, 103, 20,
@@ -49,9 +51,14 @@ BuildMacroBookPanel()
         remove := AddStyledButton(CharacterPage, 775, y + 42, 105, 20,
             "Remove", RemoveMacroBookRow.Bind(position))
         MacroBookRows.Push({Tick: tick, Status: status, StatusError: false,
-            Name: name, Run: run, Stop: stop, Remove: remove})
-        MacroBookControls.Push(tick, status, name, run, stop, remove)
+            Name: name, Rename: rename, Y: y + 19, NameWidth: 125, NameScale: 0,
+            Run: run, Stop: stop, Remove: remove})
+        MacroBookControls.Push(tick, status, name, rename, run, stop, remove)
     }
+    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y159 w125 h22 Hidden Limit100 -Multi")
+    MacroNameEdit.EditingItem := 0
+    MacroNameEdit.ErrorText := ""
     ; The scrollbar uses the existing character-book styling.
     MacroScrollTrack := CharacterPage.Add("Text",
         "x887 y140 w8 h272 Background704C27 +0x100 Hidden")
@@ -74,10 +81,12 @@ BuildMacroBookPanel()
 
 ShowMacroBookPanel()
 {
-    global MacroBookControls, MacroList
+    global MacroBookControls, MacroList, MacroNameEdit
     ; The editor's hide path may run before the book has built its controls.
     if !IsObject(MacroList)
         return
+    MacroNameEdit.EditingItem := 0
+    MacroNameEdit.ErrorText := ""
     for control in MacroBookControls
         if control != MacroList
             control.Visible := true
@@ -88,7 +97,12 @@ ShowMacroBookPanel()
 
 HideMacroBookPanel()
 {
-    global MacroBookControls
+    global MacroBookControls, MacroNameEdit
+    if IsObject(MacroNameEdit)
+    {
+        MacroNameEdit.EditingItem := 0
+        MacroNameEdit.Visible := false
+    }
     ReleaseMacroScroll()
     for control in MacroBookControls
         try control.Visible := false
@@ -111,7 +125,7 @@ RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
-    global MacroImportButton, CharacterPage, InterfaceUpdating
+    global MacroImportButton, CharacterPage, InterfaceUpdating, MacroNameEdit
     global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
@@ -121,26 +135,31 @@ RefreshMacroBookRows()
     shown := !LaunchSettingsHeading.Visible
     selectedIndex := MacroList.GetNext()
     busy := IsObject(MacroImport)
+    editVisible := false
     MacroList.Visible := false
     for position, itemRow in MacroBookRows
     {
         index := MacroScrollOffset + position
         visible := shown && index <= count
-        for control in [itemRow.Tick, itemRow.Status, itemRow.Name,
+        for control in [itemRow.Tick, itemRow.Status, itemRow.Rename,
             itemRow.Run, itemRow.Stop, itemRow.Remove]
             if control.Visible != visible
                 control.Visible := visible
         if !visible
+        {
+            if itemRow.Name.Visible
+                itemRow.Name.Visible := false
             continue
+        }
         item := MacroItems[index]
-        ; The name occupies its own full row above the action buttons.
-        name := StrLen(item.Name) > 37 ? SubStr(item.Name, 1, 34) "..." : item.Name
-        if !(itemRow.Name.Text == name)
-            SetPaintedLabelText(itemRow.Name, name)
+        editing := IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = item
+        RefreshMacroNameRow(itemRow, item.Name, editing)
+        editVisible := editVisible || editing
         selected := index = selectedIndex
         if ButtonFaces[itemRow.Tick.Hwnd].Checked != selected
             SetBookTick(itemRow.Tick, selected)
-        state := MacroItemDisplayState(item)
+        state := editing && MacroNameEdit.ErrorText != ""
+            ? {Text: MacroNameEdit.ErrorText, Error: true} : MacroItemDisplayState(item)
         if itemRow.Status.Text != state.Text
             itemRow.Status.Text := state.Text
         if itemRow.StatusError != state.Error
@@ -162,6 +181,8 @@ RefreshMacroBookRows()
         if itemRow.Remove.Enabled != canRemove
             itemRow.Remove.Enabled := canRemove
     }
+    if MacroNameEdit.Visible != editVisible
+        MacroNameEdit.Visible := editVisible
     MacroEmptyNotice.Visible := shown && count = 0
     scrollable := shown && maximum > 0
     if MacroScrollTrack.Visible != scrollable
@@ -218,29 +239,120 @@ SelectMacroBookRow(position, *)
     RefreshMacroButtons()
 }
 
-RenameMacroBookRow(position, *)
+RefreshMacroNameRow(row, name, editing)
 {
-    global MacroPage, MacroList, MacroScrollOffset, MacroItems
+    global MacroNameEdit
+    scale := GetCharacterBookScale()
+    if !(row.Name.Text == name) || row.NameScale != scale
+    {
+        ; Measure the current font so the pencil follows short names, and
+        ; reserve room for Save on long names at every launcher scale.
+        handle := row.Name.Hwnd
+        dc := DllCall("GetDC", "Ptr", handle, "Ptr")
+        if dc
+        {
+            font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x0031, "Ptr", 0, "Ptr", 0, "Ptr")
+            oldFont := font ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr") : 0
+            size := Buffer(8, 0)
+            try
+                if DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", name,
+                    "Int", StrLen(name), "Ptr", size, "Int")
+                    row.NameWidth := Min(274, Max(90, Ceil(NumGet(size, 0, "Int") / (scale * A_ScreenDPI / 96)) + 4))
+            finally
+            {
+                if oldFont
+                    DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
+                DllCall("ReleaseDC", "Ptr", handle, "Ptr", dc)
+            }
+        }
+        row.NameScale := scale
+        row.Name.Move(, , BookS(row.NameWidth))
+        ; WM_SETREDRAW must only be used on a visible control.
+        if !(row.Name.Text == name)
+        {
+            if row.Name.Visible
+                SetPaintedLabelText(row.Name, name)
+            else
+                row.Name.Text := name
+        }
+    }
+    x := 555 + row.NameWidth
+    if editing
+    {
+        MacroNameEdit.GetPos(, &fieldY, &fieldWidth)
+        if fieldY != BookS(row.Y) || fieldWidth != BookS(x - 555)
+            MacroNameEdit.Move(BookS(551), BookS(row.Y), BookS(x - 555), BookS(22))
+    }
+    row.Rename.GetPos(&buttonX, , &buttonWidth)
+    width := editing ? 49 : 21
+    if buttonX != BookS(x) || buttonWidth != BookS(width)
+        MoveStyledButton(row.Rename, x, row.Y, width, 22)
+    caption := editing ? "Save" : Chr(0x270E)
+    if row.Rename.Text != caption
+        SetPaintedLabelText(row.Rename, caption)
+    if row.Name.Visible = editing
+        row.Name.Visible := !editing
+}
+
+EditMacroBookRow(position, *)
+{
+    global MacroPage, MacroScrollOffset, MacroItems, MacroNameEdit
     index := MacroScrollOffset + position
     if index < 1 || index > MacroItems.Length
         return
     item := MacroItems[index]
-    MacroPage.Opt("+OwnDialogs")
-    prompt := "Enter a display name for this macro."
-    name := item.Name
-    loop
+    if IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = item
     {
-        result := InputBox(prompt, "Rename macro", "w400 h130", name)
-        if result.Result != "OK"
-            return
-        name := Trim(result.Value)
-        if name != "" && StrLen(name) <= 100
-            break
-        prompt := "Enter a name between 1 and 100 characters."
-    }
-    if name == item.Name || index > MacroItems.Length || MacroItems[index] != item
+        SaveMacroName()
         return
+    }
+    BeginInterfaceUpdate(MacroPage)
+    try
+    {
+        MacroNameEdit.EditingItem := item
+        MacroNameEdit.ErrorText := ""
+        MacroNameEdit.Value := item.Name
+        SelectMacroBookRow(position)
+    }
+    finally EndInterfaceUpdate()
+    MacroNameEdit.Focus()
+    DllCall("SendMessageW", "Ptr", MacroNameEdit.Hwnd, "UInt", 0x00B1, "Ptr", 0, "Ptr", -1)
+}
 
+SaveMacroName()
+{
+    previousCritical := Critical("On")
+    try
+        CommitMacroName()
+    finally Critical(previousCritical)
+}
+
+CommitMacroName()
+{
+    global MacroList, MacroItems, MacroNameEdit
+    item := MacroNameEdit.EditingItem
+    if !IsObject(item)
+        return
+    index := 0
+    for row, candidate in MacroItems
+        if candidate = item
+        {
+            index := row
+            break
+        }
+    if !index
+        return FinishMacroNameEdit()
+
+    name := Trim(MacroNameEdit.Value)
+    if name = "" || StrLen(name) > 100
+    {
+        MacroNameEdit.ErrorText := "Enter a name (1–100 characters)."
+        RefreshMacroButtons()
+        MacroNameEdit.Focus()
+        return
+    }
+    if name == item.Name
+        return FinishMacroNameEdit()
     metadata := item.Folder "\.tes3np-package.ini"
     try
     {
@@ -251,13 +363,35 @@ RenameMacroBookRow(position, *)
     }
     catch
     {
-        MsgBox("Could not save the macro name. Check that the package is writable.",
-            "Rename macro", "Icon!")
+        MacroNameEdit.ErrorText := "Could not save the macro name."
+        RefreshMacroButtons()
+        MacroNameEdit.Focus()
         return
     }
     item.Name := name
-    MacroList.Modify(index, "Select Focus", name)
-    RefreshMacroButtons()
+    MacroList.Modify(index, , name)
+    FinishMacroNameEdit()
+}
+
+FinishMacroNameEdit()
+{
+    global MacroPage, MacroNameEdit
+    BeginInterfaceUpdate(MacroPage)
+    try
+    {
+        MacroNameEdit.EditingItem := 0
+        MacroNameEdit.ErrorText := ""
+        RefreshMacroButtons()
+    }
+    finally EndInterfaceUpdate()
+}
+
+MacroNameEditorFocused()
+{
+    global MacroPage, MacroNameEdit
+    return IsObject(MacroNameEdit) && IsObject(MacroNameEdit.EditingItem)
+        && IsObject(MacroPage) && MacroNameEdit.Visible && WinActive("ahk_id " MacroPage.Hwnd)
+        && MacroNameEdit.Focused
 }
 
 ; Row actions update the existing ListView selection before delegating to
@@ -769,7 +903,7 @@ RefreshMacroProcesses()
 
 RemoveSelectedMacro(*)
 {
-    global MacroPage, MacroItems, MacroList, MacroStatus, MacroScrollOffset
+    global MacroPage, MacroItems, MacroList, MacroStatus, MacroScrollOffset, MacroNameEdit
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length
         return
@@ -788,6 +922,8 @@ RemoveSelectedMacro(*)
     BeginInterfaceUpdate(MacroPage, "Updating macro list...")
     try
     {
+        if IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = macro
+            MacroNameEdit.EditingItem := 0
         MacroItems.RemoveAt(row)
         MacroList.Delete(row)
         if MacroItems.Length
