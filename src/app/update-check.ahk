@@ -262,24 +262,29 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
     backdrop := CreateUpdateBackdrop()
     preview := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Update Preview")
     preview.BackColor := "C5A45C"
-    preview.Add("Text", "x2 y2 w796 h596 Background171008")
+    preview.Add("Text", "x2 y2 w796 h626 Background171008")
     preview.SetFont("s15 Bold cC5A45C", "Georgia")
     releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
     preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", "A New " releaseType " Is Available to Download, S'wit!")
     preview.SetFont("s10 cEDE1C9", "Segoe UI")
-    preview.Add("Text", "x30 y66 w740 h24 BackgroundTrans", "Installed: v" installedVersion "     Latest: v" latestVersion)
-    preview.Add("Text", "x30 y91 w740 h24 BackgroundTrans", "Review the changes below before deciding to update.")
+    preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", "You can review the changes below before deciding to update.")
+    preview.Add("Text", "x30 y94 w195 h24 BackgroundTrans", "Installed: v" installedVersion)
+    preview.Add("Text", "x238 y94 w195 h24 BackgroundTrans", "Latest: v" latestVersion)
+    preview.Add("Text", "x446 y94 w324 h24 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
     preview.SetFont("s10 Bold cC5A45C", "Segoe UI")
     preview.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "v" latestVersion " Release Notes")
     closeNotes := AddUpdateNotesViewport(preview, notes)
-    AddStyledButton(preview, 32, 544, 230, 34, "Continue to Download", (*) => (response.Download := true, preview.Destroy()))
-    AddStyledButton(preview, 330, 544, 140, 34, "Not Now", (*) => preview.Destroy())
-    AddStyledButton(preview, 590, 544, 178, 34, "Release Notes", (*) => Run(UpdateReleasePage))
+    preview.SetFont("s10 cC5A45C", "Segoe UI")
+    preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
+    preview.Add("Text", "x30 y551 w740 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
+    AddStyledButton(preview, 32, 582, 230, 34, "Continue to Download", (*) => (response.Download := true, preview.Destroy()))
+    AddStyledButton(preview, 330, 582, 140, 34, "Not Now", (*) => preview.Destroy())
+    AddStyledButton(preview, 590, 582, 178, 34, "Release Notes", (*) => Run(UpdateReleasePage))
     preview.OnEvent("Close", (*) => preview.Destroy())
     preview.OnEvent("Escape", (*) => preview.Destroy())
     try {
         hwnd := preview.Hwnd
-        ShowCenteredUpdateCard(preview, backdrop, 800, 600)
+        ShowCenteredUpdateCard(preview, backdrop, 800, 630)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         closeNotes()
@@ -562,7 +567,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     newer := mode = "disabled" && CompareTes3npVersions(latestVersion, installedVersion) > 0
     notesVersion := newer ? latestVersion : installedVersion
     title := "You're All Caught Up, Fetcher!"
-    message := "You are running the latest version of the tes3np launcher."
+    message := "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified."
     if mode = "error" {
         title := "Could Not Check for Updates"
         message := "Showing release notes for your installed version."
@@ -584,7 +589,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     panel.SetFont("s10 cEDE1C9", "Segoe UI")
     panel.Add("Text", "x30 y65 w740 h55 BackgroundTrans", message)
     panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
-    panel.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "v" notesVersion " Release Notes")
+    panel.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "Build: v" notesVersion " Release Notes -")
     closeNotes := AddUpdateNotesViewport(panel, notes)
     AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, panel.Destroy()))
     AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => panel.Destroy())
