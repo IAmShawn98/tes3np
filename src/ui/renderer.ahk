@@ -253,6 +253,24 @@ PaintButtonNow(handle)
     finally DllCall("ReleaseDC", "Ptr", handle, "Ptr", dc)
 }
 
+SetPaintedLabelText(label, text)
+{
+    handle := label.Hwnd
+    previousCritical := Critical("On")
+    try
+    {
+        ; A static control can paint its native background during WM_SETTEXT.
+        ; Suppress that paint so the book's color key never exposes the launcher.
+        DllCall("SendMessageW", "Ptr", handle, "UInt", 0x000B, "Ptr", 0, "Ptr", 0, "Ptr")
+        try DllCall("SetWindowTextW", "Ptr", handle, "WStr", text, "Int")
+        finally
+            DllCall("SendMessageW", "Ptr", handle, "UInt", 0x000B, "Ptr", 1, "Ptr", 0, "Ptr")
+        ; RDW_INVALIDATE | RDW_NOERASE | RDW_UPDATENOW.
+        DllCall("RedrawWindow", "Ptr", handle, "Ptr", 0, "Ptr", 0, "UInt", 0x0121)
+    }
+    finally Critical(previousCritical)
+}
+
 PaintButtonToDC(handle, dc)
 {
     global ButtonFaces
