@@ -437,14 +437,22 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))' in macro
             and 'MacroList.Visible := false' in macro
             and 'MacroListPage' not in macro,
-        "status above full-width name, actions below":
+        "status above the name and inline rename button, actions below":
             'status := CharacterPage.Add("Text",' in macro
             and '"x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")' in macro
             and 'AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))' in macro
-            and 'AddBookLabel(CharacterPage, 551, y + 19, 329, 22, "")' in macro
+            and 'AddBookLabel(CharacterPage, 551, y + 19, 125, 22, "")' in macro
+            and 'rename := AddStyledButton(CharacterPage, 680, y + 19, 21, 22,' in macro
+            and 'EditMacroBookRow.Bind(position)' in macro
             and 'AddStyledButton(CharacterPage, 551, y + 42, 103, 20,' in macro
             and 'AddStyledButton(CharacterPage, 663, y + 42, 103, 20,' in macro
             and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro,
+        "inline rename uses the name row and supports keyboard save":
+            'MacroNameEdit := AddThemedEdit(CharacterPage,' in macro
+            and 'MacroNameEdit.Move(BookS(551), BookS(row.Y),' in macro
+            and 'caption := editing ? "Save" : Chr(0x270E)' in macro
+            and '#HotIf MacroNameEditorFocused()\nEnter::SaveMacroName()' in root_source
+            and 'InputBox(' not in macro,
         "Upload Macro follows populated rows and stays pinned on scrolling":
             'MacroDetails' not in macro
             and 'MacroBindingsButton' not in macro
