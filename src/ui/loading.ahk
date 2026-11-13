@@ -20,7 +20,13 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
         startedAt := A_TickCount
         SetTimer(ReleaseInterfaceFrame, 0)
         ReleaseInterfaceFrame()
-        InterfaceUpdateGui := IsObject(gui) ? gui : CharacterPage
+        target := IsObject(gui) ? gui : CharacterPage
+        InterfaceUpdateGui := 0
+        ; Hidden pages are already staged. WM_SETREDRAW(TRUE) would make a
+        ; hidden book visible if an asynchronous macro import finishes there.
+        if !IsObject(target) || !DllCall("IsWindowVisible", "Ptr", target.Hwnd)
+            return
+        InterfaceUpdateGui := target
         InterfaceCompletedSteps := 0
         InterfaceTotalSteps := Max(1, totalSteps ? totalSteps : DefaultLoadingSteps(InterfaceUpdateGui, message))
         InterfaceUpdating := true
@@ -40,7 +46,7 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
 
 EndInterfaceUpdate()
 {
-    global InterfaceUpdateGui, InterfaceUpdating, InterfaceUpdateDepth, InterfaceFrameCover, ButtonFaces
+    global CharacterPage, InterfaceUpdateGui, InterfaceUpdating, InterfaceUpdateDepth, InterfaceFrameCover
     ; Be defensive about mismatched cleanup. A stray EndInterfaceUpdate must not
     ; drive the depth negative or dereference a GUI that has already been closed.
     if InterfaceUpdateDepth <= 0
@@ -58,29 +64,36 @@ EndInterfaceUpdate()
         SetTimer(ShowSlowInterfaceLoading, 0)
         InterfaceUpdating := false
         ReleaseInterfaceFrame()
-        Critical("Off")
         return
     }
+    previousCritical := Critical("On")
+    redrawEnabled := false
+    isCharacterBook := InterfaceUpdateGui = CharacterPage
     try
     {
-        ; Re-enable painting only after the complete replacement layout exists.
-        ; RDW_ALLCHILDREN + INVALIDATE then commits one finished frame.
-        if DllCall("IsWindow", "Ptr", targetWindow)
-            DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW
-        DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
+        DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW
+        redrawEnabled := true
+        if !isCharacterBook
+            DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
         ; Commit geometry and pointer state while the captured frame still
         ; covers the real window. This makes the first click after loading use
         ; the final controls even if the pointer never moved during the update.
         SyncDynamicButtonGeometry()
         ResetThemedPointerState()
         UpdateButtonHover()
-        DllCall("UpdateWindow", "Ptr", targetWindow)
+        if isCharacterBook
+        {
+            ; Use the same synchronous child repaint as the book's startup.
+            ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW.
+            DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+        }
+        else
+            DllCall("UpdateWindow", "Ptr", targetWindow)
         if IsObject(InterfaceFrameCover)
         {
             for layer in [InterfaceFrameCover.Gui, InterfaceFrameCover.Dim, InterfaceFrameCover.Card]
                 if IsObject(layer)
                     DllCall("SetWindowPos", "Ptr", layer.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-            ; The real window is repainted via UpdateWindow above.
             ; DwmFlush synchronously waits for Desktop Window Manager and
             ; can hold the GUI thread indefinitely under GPU/remote-display
             ; contention; do not use it in an interactive menu transition.
@@ -88,18 +101,16 @@ EndInterfaceUpdate()
     }
     finally
     {
-        ; Never leave a window redraw-suspended if an update action throws.
-        if targetWindow && DllCall("IsWindow", "Ptr", targetWindow)
-            DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
-        SetTimer(ShowSlowInterfaceLoading, 0)
-        InterfaceUpdating := false
-        if IsObject(InterfaceFrameCover)
+        try
         {
-            if IsObject(InterfaceFrameCover.Panel)
-                SetInterfaceLoadingText("Waiting for Jiub")
+            ; Never leave a window redraw-suspended if an update action throws.
+            if !redrawEnabled && DllCall("IsWindow", "Ptr", targetWindow)
+                DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+            SetTimer(ShowSlowInterfaceLoading, 0)
+            InterfaceUpdating := false
             ReleaseInterfaceFrame()
         }
-        Critical("Off")
+        finally Critical(previousCritical)
     }
 }
 
