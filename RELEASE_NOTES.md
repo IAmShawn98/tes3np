@@ -31,7 +31,7 @@ Changes since the last public release, v0.1.20-alpha.
 - **Manage Macros** — Fixed a brief redraw glitch when saving a macro name.
 - **Morrowind setup** — Fixed launch and reconnect attempts that could proceed with missing game files. The launcher now opens the Morrowind folder picker.
 - **Expansion Pack imports** — Fixed imports that could fail when Windows briefly locked a file and removed a size limit that rejected the official Expansion Pack ZIP.
-- **Character backups** — Fixed an error when importing a character backup.
+- **Character backups** — Fixed an import error caused by the launcher trying to update a removed TES3MP executable field while restoring game client settings.
 - **Desktop shortcut prompt** — Fixed cases where the prompt could reappear after a choice had already been saved.
 - **Launcher updates** — Fixed how the updater reads release metadata and improved how it preserves user settings during an update.
 - **AppData cleanup** — The launcher now clears stale partial downloads, temporary files, and obsolete launcher caches on startup.
