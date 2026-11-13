@@ -15,6 +15,8 @@ permissions:
 jobs:
   build:
     if: github.ref == 'refs/heads/research/markerless-windows-build'
+    permissions:
+      contents: write
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
@@ -32,9 +34,23 @@ jobs:
         id: clients
         shell: pwsh
         run: ./research/markerless/build-markerless.ps1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: TES3MP-0.8.1-markerless-Windows-test
-          path: ${{ steps.clients.outputs.directory }}
-          if-no-files-found: error
-          retention-days: 7
+      - name: Save the test ZIP to the private test output branch
+        shell: pwsh
+        env:
+          TEST_OUTPUT_DIR: ${{ steps.clients.outputs.directory }}
+          TEST_OUTPUT_BRANCH: research/markerless-windows-test-output
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $zipName = 'TES3MP-0.8.1-markerless-Windows-test.zip'
+          $staging = Join-Path $env:RUNNER_TEMP 'markerless-test-output'
+          git fetch origin "refs/heads/$env:TEST_OUTPUT_BRANCH"
+          git worktree add --detach $staging FETCH_HEAD
+          $zip = Join-Path $staging $zipName
+          Compress-Archive -Path (Join-Path $env:TEST_OUTPUT_DIR '*') -DestinationPath $zip -Force
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $zipName" | Set-Content -LiteralPath "$zip.sha256" -Encoding ASCII
+          git -C $staging add -- $zipName "$zipName.sha256"
+          git -C $staging -c 'user.name=github-actions[bot]' -c 'user.email=41898282+github-actions[bot]@users.noreply.github.com' commit -m "Save markerless test build from $env:GITHUB_SHA"
+          git -C $staging push origin "HEAD:refs/heads/$env:TEST_OUTPUT_BRANCH"
+          Write-Host "Test ZIP SHA-256: $hash"
