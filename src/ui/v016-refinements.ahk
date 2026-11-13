@@ -471,14 +471,14 @@ CopyAppDataLog(filename, syncLauncher := false, *)
 
 FindTes3mpWindowsCrash(exitLine)
 {
-    global AppDataDirectory
     ; Windows writes Event ID 1000 asynchronously. This query is performed
     ; only on Copy Launcher Logs, not on the UI watchdog's timing-critical path.
     if StrLen(exitLine) < 19
         return "Crash event unavailable: missing exit timestamp."
     timestamp := SubStr(exitLine, 1, 19)
-    scriptPath := AppDataDirectory "\tes3mp-crash-query.ps1"
-    resultPath := AppDataDirectory "\tes3mp-crash-query.txt"
+    query := A_Temp "\tes3np-crash-query-" ProcessExist() "-" A_TickCount
+    scriptPath := query ".ps1"
+    resultPath := query ".txt"
     script := "
     (
 param([string]$Stamp, [string]$OutputFile)
@@ -498,11 +498,6 @@ try {
     )"
     try
     {
-        DirCreate(AppDataDirectory)
-        if FileExist(resultPath)
-            FileDelete(resultPath)
-        if FileExist(scriptPath)
-            FileDelete(scriptPath)
         FileAppend(script, scriptPath, "UTF-8")
         ; No shell interpolation: quote the time and paths as separate arguments.
         command := '"' A_WinDir '\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '" "' timestamp '" "' resultPath '"'
@@ -513,6 +508,11 @@ try {
     }
     catch Error as err
         return "Windows crash diagnostics unavailable (" Type(err) ")."
+    finally
+    {
+        try FileDelete(scriptPath)
+        try FileDelete(resultPath)
+    }
 }
 
 ShowResetAppDataActions(*)

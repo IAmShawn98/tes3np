@@ -3,6 +3,13 @@
 global LauncherLogFile := AppDataDirectory "\launcher.log"
 global PatchLogMirrorOffset := -1
 
+TrimStoredDiagnosticLogs()
+{
+    for filename in ["launcher.log", "chat-host.log", "patch-all.log",
+        "patch-errors.log", "render-errors.log"]
+        TrimDiagnosticLog(AppDataDirectory "\" filename)
+}
+
 LogLauncherEvent(message)
 {
     global LauncherLogFile
@@ -36,6 +43,40 @@ LogLauncherEvent(message)
             }
         }
         FileAppend(separator FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " StrReplace(StrReplace(safe, "`r", " "), "`n", " ") "`n", LauncherLogFile, "UTF-8")
+        TrimDiagnosticLog(LauncherLogFile)
+    }
+}
+
+; Keep recent complete UTF-8 events in the same file used by Copy Logs.
+TrimDiagnosticLog(path)
+{
+    temporary := path ".trim.tmp"
+    try
+    {
+        if !FileExist(path) || FileGetSize(path) <= 2 * 1024 * 1024
+            return false
+        if InStr(FileGetAttrib(path), "L")
+            return false
+        file := FileOpen(path, "r", "UTF-8")
+        try
+        {
+            file.Pos := file.Length - 1024 * 1024
+            ; Find the first complete line by bytes, even inside a UTF-8 character.
+            while !file.AtEOF && file.ReadUChar() != 10
+                continue
+            tail := file.Read()
+        }
+        finally file.Close()
+        output := FileOpen(temporary, "w", "UTF-8")
+        try output.Write(tail)
+        finally output.Close()
+        FileMove(temporary, path, true)
+        return true
+    }
+    catch
+    {
+        try FileDelete(temporary)
+        return false
     }
 }
 

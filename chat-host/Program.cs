@@ -1315,8 +1315,15 @@ metrics();
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             string temporary = path + ".tmp";
-            File.WriteAllText(temporary, contents);
-            File.Move(temporary, path, true);
+            try
+            {
+                File.WriteAllText(temporary, contents);
+                File.Move(temporary, path, true);
+            }
+            finally
+            {
+                try { File.Delete(temporary); } catch { }
+            }
         }
 
         void SaveChatArchive()
@@ -2602,6 +2609,30 @@ metrics();
 
         readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
+        readonly object diagnosticLogLock = new();
+        void TrimChatDiagnosticLog()
+        {
+            const int retainedBytes = 1024 * 1024;
+            if (new FileInfo(logPath).Length <= 2 * retainedBytes) return;
+            string temporary = logPath + ".trim.tmp";
+            try
+            {
+                using (var input = File.OpenRead(logPath))
+                {
+                    input.Seek(-retainedBytes, SeekOrigin.End);
+                    int value;
+                    do { value = input.ReadByte(); } while (value >= 0 && value != '\n');
+                    using var output = File.Create(temporary);
+                    input.CopyTo(output);
+                }
+                File.Move(temporary, logPath, true);
+            }
+            finally
+            {
+                try { File.Delete(temporary); } catch { }
+            }
+        }
+
         void Log(string message)
         {
             try
@@ -2641,8 +2672,12 @@ metrics();
                 safe = string.Join(" | ", parts);
                 if (safe.Length == 0) return;
                 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-                File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " +
-                    ChatBuild + " | " + safe + Environment.NewLine);
+                lock (diagnosticLogLock)
+                {
+                    File.AppendAllText(logPath, DateTime.Now.ToString("s") + " | " +
+                        ChatBuild + " | " + safe + Environment.NewLine);
+                    TrimChatDiagnosticLog();
+                }
             }
             catch { }
         }
@@ -3029,11 +3064,24 @@ metrics();
                     string data = Path.Combine(ChatDataRoot, "chat-webview2");
                     freshDiscordProfile = !Directory.Exists(data) || !Directory.EnumerateFileSystemEntries(data).Any();
                     Directory.CreateDirectory(data);
-                    var env = await CoreWebView2Environment.CreateAsync(null, data);
+                    // Limit the HTTP disk cache without clearing the Discord profile.
+                    var options = new CoreWebView2EnvironmentOptions("--disk-cache-size=134217728");
+                    CoreWebView2Environment env;
+                    try
+                    {
+                        env = await CoreWebView2Environment.CreateAsync(null, data, options);
+                        await web.EnsureCoreWebView2Async(env);
+                    }
+                    catch (Exception ex) when (ex.HResult == unchecked((int)0x8007139F))
+                    {
+                        // An earlier host may still be closing a browser opened
+                        // with the default options. Reuse that profile.
+                        env = await CoreWebView2Environment.CreateAsync(null, data);
+                        await web.EnsureCoreWebView2Async(env);
+                    }
                     discordEnvironment = env;
                     if (expansionDownloadsWindow is { IsDisposed: false })
                         _ = InitializeExpansionDownloadsBrowser();
-                    await web.EnsureCoreWebView2Async(env);
                     EnforceChatClip();
                     web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
                     await LoadCss();

@@ -71,7 +71,10 @@ GetManagedCustomClientExecutable(source)
     folder := AppDataDirectory "\client-cache\" Format("{:08X}", key)
     output := folder "\tes3mp.exe"
     if FileExist(folder "\.ready") && FileExist(output)
+    {
+        try FileSetTime(, folder "\.ready")
         return output
+    }
     ; A new cache folder is assembled completely before its ready marker is
     ; written. Interrupted preparation will be retried on the next launch.
     try
@@ -181,7 +184,10 @@ GetMergedCustomClientExecutable()
     folder := AppDataDirectory "\client-cache\merged-" Format("{:08X}", key)
     output := folder "\tes3mp.exe"
     if FileExist(folder "\.ready") && FileExist(output)
+    {
+        try FileSetTime(, folder "\.ready")
         return output
+    }
     try
     {
         DirCreate(AppDataDirectory "\client-cache")

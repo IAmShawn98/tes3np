@@ -225,11 +225,15 @@ CheckPatchWorker()
     message := SanitizeDiagnosticText(message)
     if message = ""
         message := "The Expansion Pack operation could not be completed."
+    if state = "error"
+        LogLauncherEvent("EXPANSION | Import failed | " message)
     ; The auto-downloaded ZIP is transient; the import journal and backups
     ; remain intact for recovery. Never delete user-selected packages.
     autoImport := job.HasOwnProp("AutoDownloadedZip") && job.AutoDownloadedZip != ""
     if autoImport
         try FileDelete(job.AutoDownloadedZip)
+    ; A finished worker no longer needs extraction or progress files.
+    try CleanupFinishedExpansionImport(job.Folder)
     ; Automatic failures get actionable retry/manual/cancel choices in the
     ; same gold-on-dark native card as the version/changelog dialogs.
     ; A local, manually chosen import retains its previous detailed result.
@@ -296,6 +300,7 @@ PatchErrorDetails(step, field, err)
 
 LogPatchDiagnostic(message)
 {
+    global PatchLogMirrorOffset
     folder := AppDataDirectory
     try
     {
@@ -303,6 +308,15 @@ LogPatchDiagnostic(message)
         line := FormatTime(, "yyyy-MM-dd HH:mm:ss") " " StrReplace(StrReplace(SanitizePatchDiagnostic(message), "`r", ""), "`n", " | ") "`n"
         for filename in ["patch-all.log", "patch-errors.log"]
             FileAppend(line, folder "\" filename, "UTF-8")
+        patchLog := folder "\patch-all.log"
+        if FileGetSize(patchLog) > 2 * 1024 * 1024
+        {
+            ; Mirror pending events before replacing the file behind the byte offset.
+            SyncPatchLogToLauncherLog()
+            if TrimDiagnosticLog(patchLog)
+                PatchLogMirrorOffset := FileGetSize(patchLog)
+        }
+        TrimDiagnosticLog(folder "\patch-errors.log")
     }
     catch
     {
@@ -485,6 +499,7 @@ ToggleExpansionPack(*)
             LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state.")
         IniWrite(enable ? "1" : "0", DataFile, "ExpansionPack", "GlobalEnabled")
         LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
+        PruneExpansionToggleBackups(backup)
         RefreshExpansionPackToggle()
         MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully for future launches.", "Expansion Pack", "Iconi")
     }
@@ -493,6 +508,10 @@ ToggleExpansionPack(*)
         LogLauncherEvent("EXPANSION | Toggle exception type: " Type(err))
         reason := SanitizeDiagnosticText(err.Message)
         MsgBox(reason != "" ? reason : "Could not update the Expansion Pack.", "Expansion Pack", "Icon!")
+    }
+    finally
+    {
+        try FileDelete(output)
     }
 }
 
