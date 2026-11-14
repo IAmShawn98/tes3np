@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$Generator = (Resolve-Path -LiteralPath $Generator).Path
 $root = Join-Path ([IO.Path]::GetTempPath()) ("tes3np-update-tests-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $root | Out-Null
 
@@ -52,6 +53,39 @@ try {
     $disabled.updateEnabled = $false
     if ($disabled.updateEnabled -ne $false) { throw 'Emergency disable fixture failed.' }
     Write-Host 'PASS: emergency update disable state is representable.'
+
+    $null = New-Item -ItemType Directory -Path (Join-Path $root 'src')
+    Push-Location $root
+    try {
+        foreach ($fixture in @(
+            @('0.1.21-alpha', 'alpha'),
+            @('0.1.21-alpha.10', 'alpha'),
+            @('0.1.21-beta.10', 'beta'),
+            @('0.1.21', 'live'),
+            @('0.1.21.10', 'live')
+        )) {
+            $version, $channel = $fixture
+            Set-Content -LiteralPath 'src/state.ahk' -Value ('global AppConfig := {Version: "' + $version + '"}')
+            $name = "tes3np-v$version-windows.zip"
+            $candidate = Join-Path $root $name
+            Copy-Item -LiteralPath $package -Destination $candidate
+            & $Generator -ChannelFeed -DisableUpdates -PackagePath $candidate -ManifestPath $manifest
+            $metadata = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+            $checksumLine = (Get-Content -LiteralPath "$candidate.sha256" -Raw).Trim()
+            if ($metadata.manifestVersion -ne 2 -or $metadata.channel -cne $channel -or
+                $metadata.version -cne $version -or $metadata.releaseId -cne "v$version" -or
+                $metadata.package.fileName -cne $name -or $metadata.package.sha256 -ne $actualHash -or
+                $metadata.updateEnabled -or $checksumLine -cne "$actualHash  $name") {
+                throw "Channel metadata or checksum did not match v$version."
+            }
+        }
+        Assert-Throws { & $Generator -ChannelFeed -PackagePath $package -ManifestPath $manifest } 'generic package in a channel feed'
+        Set-Content -LiteralPath 'src/state.ahk' -Value 'global AppConfig := {Version: "0.1.21-alpha.01"}'
+        Assert-Throws { & $Generator -ChannelFeed -PackagePath $package -ManifestPath $manifest } 'noncanonical hotfix version'
+    }
+    finally {
+        Pop-Location
+    }
 
     Write-Host 'All updater metadata safety tests passed.'
 }
