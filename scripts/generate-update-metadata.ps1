@@ -43,8 +43,11 @@ if ($ChannelFeed) {
 if (!$ChecksumPath) { $ChecksumPath = "$PackagePath.sha256" }
 $hash = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
 $revision = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { 'local' }
-if ($ChannelFeed -and (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
-    $head = git rev-parse --verify HEAD 2>$null
+# Source snapshots can generate metadata without a Git checkout. A linked
+# worktree has a .git file, while a regular checkout has a .git directory.
+if ($ChannelFeed -and (Test-Path -LiteralPath '.git') -and
+    (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
+    $head = git rev-parse --verify --quiet HEAD
     if ($LASTEXITCODE -eq 0) { $revision = $head }
 }
 $schema = if ($ChannelFeed) { 2 } else { 1 }
