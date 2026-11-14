@@ -1543,9 +1543,15 @@ expect(
     "Game Chat toggle can hide and reopen its own Discord login",
     'void ToggleGameChatDiscordSignIn()' in source
     and 'if (pendingExpansionPrompt == 0 &&' in source
-    and source.count('ToggleGameChatDiscordSignIn();') == 2
+    and source.count('ToggleGameChatDiscordSignIn();') == 1
     and 'void DismissDiscordSignIn()' in source
     and 'if (discordLoginVisible) RevealDiscordSignInWindow();' in source,
+)
+expect(
+    "Only the current Expansion browser can complete initialization or publish ZIP messages",
+    "ReferenceEquals(initializingExpansionBrowser, browser)" in source
+    and "ReferenceEquals(browser, expansionDownloadsBrowser)" in source
+    and "source.GetLeftPart(UriPartial.Path).TrimEnd('/')" in source,
 )
 expect(
     "Discord login cancellation follows actual passkey row without overlapping password",

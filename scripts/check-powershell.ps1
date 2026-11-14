@@ -2,7 +2,8 @@
 param()
 $ErrorActionPreference = 'Stop'
 $failed = $false
-Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' | ForEach-Object {
+$research = Join-Path (Split-Path -Parent $PSScriptRoot) 'research/markerless'
+Get-ChildItem -LiteralPath $PSScriptRoot, $research -Filter '*.ps1' -File | ForEach-Object {
     $tokens = $null
     $parseErrors = $null
     [System.Management.Automation.Language.Parser]::ParseFile(

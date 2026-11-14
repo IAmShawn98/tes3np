@@ -324,15 +324,13 @@ try {
 
     $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
     $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
+    $officialTes3mpHash = '72d35d574689e698196855c80e27bf79a86a591c2a7d42dddd03de0c597e2bad'
     $reuseTes3mp = $false
     $archiveHash = ''
     Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
     try {
-        SaveOfficialDownload $officialTES3MP $tes3mpArchive $headers 'TES3MP 0.8.1'
+        SaveOfficialDownload $officialTES3MP $tes3mpArchive $headers 'TES3MP 0.8.1' -ExpectedSha256 $officialTes3mpHash
         CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'
-        if ($consolePayload -and (GetTes3npSha256 $tes3mpArchive) -ine '72d35d574689e698196855c80e27bf79a86a591c2a7d42dddd03de0c597e2bad') {
-            throw 'Official TES3MP 0.8.1 runtime archive SHA-256 changed.'
-        }
     }
     catch {
         if ($consoleExe -or $consoleDlls) { throw }
@@ -367,6 +365,7 @@ try {
                 $notice -notmatch 'Original release archive SHA256: ([a-fA-F0-9]{64})' -or
                 $notice -notmatch ('Markerless executable SHA256: ' + [regex]::Escape($expectedOld))) { continue }
             $archiveHash = [regex]::Match($notice, 'Original release archive SHA256: ([a-fA-F0-9]{64})').Groups[1].Value
+            if ($archiveHash -ine $officialTes3mpHash) { continue }
             $verifiedCandidate = $candidate
             break
         }
@@ -552,8 +551,16 @@ Public redistribution/licensing review remains a separate release gate.
     # The --check smoke test exits before FileInstall runs. Exercise extraction
     # separately to ensure runtime workers/artwork exist and no patch payload is embedded.
     Step 'Validating standalone runtime resource extraction'
-    $extract = Start-Process $executable -ArgumentList '--check-resources' -PassThru -Wait
-    if ($extract.ExitCode -ne 0) { throw "Embedded resource extraction failed with code $($extract.ExitCode)." }
+    $extract = Start-Process $executable -ArgumentList '--check-resources' -PassThru
+    try {
+        if (!$extract.WaitForExit(30000)) {
+            try { $extract.Kill() } catch {}
+            throw 'Embedded resource extraction timed out after 30 seconds.'
+        }
+        if ($extract.ExitCode -ne 0) { throw "Embedded resource extraction failed with code $($extract.ExitCode)." }
+    } finally {
+        $extract.Dispose()
+    }
     # Verify this executable's unique version; do not overwrite/delete the
     # resource folder that an older, still-running launcher may be using.
     $resourceRoot = Join-Path (Join-Path $env:APPDATA 'tes3np\resources') $resourceIdentity
@@ -634,8 +641,12 @@ Public redistribution/licensing review remains a separate release gate.
     }
     $clientFolder = Join-Path $package 'client'
     $null = New-Item -ItemType Directory -Path $clientFolder -Force
+    $nonClientEntries = @('tes3mp.exe', 'tes3mp-server.exe', 'tes3mp-server-autorestart.bat',
+        'tes3mp-server-default.cfg', 'server', 'bsatool.exe', 'esmtool.exe',
+        'openmw-cs.exe', 'openmw-cs.cfg', 'defaults-cs.bin', 'openmw-essimporter.exe',
+        'openmw-iniimporter.exe', 'openmw-launcher.exe', 'openmw-wizard.exe', 'tes3mp-browser.exe')
     foreach ($entry in (Get-ChildItem -LiteralPath $runtimeRoot -Force)) {
-        if ($entry.Name -ieq 'tes3mp.exe') { continue }
+        if ($entry.Name -in $nonClientEntries -or $entry.Extension -ieq '.pdb') { continue }
         Copy-Item -LiteralPath $entry.FullName -Destination (Join-Path $clientFolder $entry.Name) -Recurse -Force
     }
 

@@ -13,7 +13,6 @@ internal static class Program
     [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr hwnd);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
-    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     static extern IntPtr SetWindowOwner64(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
@@ -115,59 +114,6 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         Application.Run(new ChatHost(new IntPtr(owner)));
     }
-    sealed class FrameOverlay : Control
-    {
-        public FrameOverlay()
-        {
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
-                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
-            BackColor = System.Drawing.Color.Transparent;
-        }
-        protected override void OnResize(EventArgs e)
-        {
-            base.OnResize(e);
-            if (Width < 30 || Height < 60) return;
-            using var outline = new System.Drawing.Region(new System.Drawing.Rectangle(0, 0, Width, Height));
-            outline.Exclude(new System.Drawing.Rectangle(15, 53, Width - 30, Height - 69));
-            Region = outline.Clone();
-            Invalidate();
-        }
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            var g = e.Graphics;
-            int w = Width, h = Height;
-            if (w < 30 || h < 60) return;
-            using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(114, 83, 43));
-            using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(14, 11, 8));
-            using var gold = new System.Drawing.Pen(System.Drawing.Color.FromArgb(210, 180, 116), 2);
-            using var inner = new System.Drawing.Pen(System.Drawing.Color.FromArgb(63, 43, 22), 2);
-            using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(220, 187, 120));
-            using var font = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Regular);
-            g.FillRectangle(bronze, 0, 0, w, 49);
-            g.FillRectangle(bronze, 0, 53, 15, h - 53);
-            g.FillRectangle(bronze, w - 15, 53, 15, h - 53);
-            g.FillRectangle(bronze, 0, h - 16, w, 16);
-            // Deterministic weathered bronze flecks approximate the in-game metalwork.
-            var rng = new Random(5318);
-            for (int n = 0; n < w * 2; n++)
-            {
-                int x = rng.Next(w), y = rng.Next(h);
-                if (y >= 53 && x >= 15 && x < w - 15 && y < h - 16) continue;
-                int v = rng.Next(0, 3);
-                using var fleck = new System.Drawing.SolidBrush(
-                    v == 0 ? System.Drawing.Color.FromArgb(62, 45, 24) :
-                    v == 1 ? System.Drawing.Color.FromArgb(161, 128, 75) :
-                             System.Drawing.Color.FromArgb(194, 159, 97));
-                g.FillRectangle(fleck, x, y, rng.Next(1, 4), rng.Next(1, 3));
-            }
-            g.DrawRectangle(gold, 2, 2, w - 5, h - 5);
-            g.DrawRectangle(inner, 6, 6, w - 13, h - 13);
-            g.DrawLine(gold, 8, 50, w - 9, 50);
-            var size = g.MeasureString("Chat", font);
-            g.FillRectangle(dark, (w - size.Width) / 2 - 17, 5, size.Width + 34, 34);
-            g.DrawString("Chat", font, ink, (w - size.Width) / 2, 8);
-        }
-    }
     sealed class BufferedScrollbar : Panel
     {
         public BufferedScrollbar()
@@ -250,7 +196,7 @@ internal static class Program
         Form? expansionDownloadsWindow;
         WebView2? expansionDownloadsBrowser;
         IntPtr expansionDownloadsParent = IntPtr.Zero;
-        bool expansionDownloadsInitializing;
+        WebView2? initializingExpansionBrowser;
         // The latest *validated* signed URL lives only in this ChatHost
         // session; native retry never depends on a responsive WebView2.
         string? expansionLatestZipUrl;
@@ -879,22 +825,27 @@ internal static class Program
             var browser=expansionDownloadsBrowser;
             var env=discordEnvironment;
             if (browser==null || browser.IsDisposed || env==null ||
-                expansionDownloadsInitializing || browser.CoreWebView2!=null ||
+                ReferenceEquals(initializingExpansionBrowser, browser) || browser.CoreWebView2!=null ||
                 closingChat || !IsWindow(expansionDownloadsParent)) return;
-            expansionDownloadsInitializing=true;
+            initializingExpansionBrowser=browser;
             try
             {
                 await browser.EnsureCoreWebView2Async(env);
-                if (closingChat || browser.IsDisposed || browser.CoreWebView2==null) return;
+                if (closingChat || !ReferenceEquals(browser, expansionDownloadsBrowser) ||
+                    browser.IsDisposed || browser.CoreWebView2==null) return;
                 await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                     ExpansionDownloadsFocusScript);
+                if (closingChat || !ReferenceEquals(browser, expansionDownloadsBrowser) || browser.IsDisposed) return;
                 browser.CoreWebView2.WebMessageReceived+=(_,args)=>{
+                    if (closingChat || !ReferenceEquals(browser, expansionDownloadsBrowser) ||
+                        !Uri.TryCreate(args.Source, UriKind.Absolute, out var source) ||
+                        !string.Equals(source.GetLeftPart(UriPartial.Path).TrimEnd('/'), ExpansionChannel,
+                            StringComparison.OrdinalIgnoreCase)) return;
                     try {
                         using var json=System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
                         if (!json.RootElement.TryGetProperty("type",out var kind)) return;
                         string? type=kind.GetString();
-                        if (type=="expansion-layout" &&
-                            json.RootElement.TryGetProperty("status",out var state))
+                        if (type=="expansion-layout" && json.RootElement.TryGetProperty("status",out _))
                         {
                             Log("EXPANSION | ZIP card status updated.");
                         }
@@ -939,27 +890,16 @@ internal static class Program
                 browser.CoreWebView2.Navigate(ExpansionChannel);
             }
             catch(Exception ex) { if (!closingChat) Log("EXPANSION | Embed load failed: "+ex.GetType().Name); }
-            finally { expansionDownloadsInitializing=false; }
+            finally
+            {
+                if (ReferenceEquals(initializingExpansionBrowser, browser)) initializingExpansionBrowser=null;
+            }
         }
 
         // A separate clipped viewport prevents the WebView's negative Y offset
         // from covering the custom frame and title.
         readonly Panel frameSurface = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69), Margin = Padding.Empty };
         readonly Panel chatViewport = new() { BackColor = System.Drawing.Color.FromArgb(9, 8, 7), Margin = Padding.Empty };
-        readonly Panel titleBar = new() { BackColor = System.Drawing.Color.FromArgb(115, 85, 43) };
-        readonly Panel railLeft = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
-        readonly Panel railRight = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
-        readonly Panel railBottom = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
-        readonly Panel railTop = new() { BackColor = System.Drawing.Color.FromArgb(164, 128, 69) };
-        readonly FrameOverlay frame = new();
-        readonly Label titleText = new() {
-            Text = "Chat", TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
-            ForeColor = System.Drawing.Color.FromArgb(224, 194, 131),
-            BackColor = System.Drawing.Color.FromArgb(18, 14, 10),
-            Font = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold)
-        };
-
-
         static System.Drawing.Bitmap? LoadTexture(string filename)
         {
             try
@@ -980,7 +920,6 @@ internal static class Program
             return new System.Drawing.Bitmap(image);
         }
         readonly System.Drawing.Bitmap? scrollbarTexture = LoadTexture("scrollbar-texture.b64");
-        readonly System.Drawing.Bitmap? headerTexture = LoadTexture("header-texture.b64");
         readonly Panel messageClip = new() { BackColor = System.Drawing.Color.FromArgb(10, 9, 8), Margin = Padding.Empty };
         readonly BufferedScrollbar goldScrollbar = new() { BackColor = System.Drawing.Color.FromArgb(11, 10, 8), Margin = Padding.Empty };
         readonly ScrollbarFreeRichTextBox nativeMessages = new()
@@ -1147,7 +1086,6 @@ metrics();
                 _ = messageBrowser.CoreWebView2.ExecuteScriptAsync("window.scrollChat(" + pixels + ")");
         }
         string lastFeed = "";
-        readonly System.Collections.Generic.List<(string User, string Body)> renderedMessages = new();
         bool nativeMode;
         // Keep the established bronze frame and a native "Connecting..." label
         // visible during the first authenticated Discord feed transition.
@@ -1554,7 +1492,7 @@ metrics();
         bool historyAwaitingNavigation;
         async Task LoadOlderMessages()
         {
-            if (loadingHistory || signInExpanded || web.CoreWebView2 == null ||
+            if (loadingHistory || discordLoginVisible || web.CoreWebView2 == null ||
                 DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(300) ||
                 DateTime.UtcNow < historyBackoffUntil ||
                 (historyAwaitingNavigation && DateTime.UtcNow - historyNavigationStarted < TimeSpan.FromMilliseconds(900))) return;
@@ -1704,7 +1642,7 @@ metrics();
         int restoredFeedStableTicks;
         void BackfillUntilHappyHour()
         {
-            if (!discordChannelReady || initialBackfillComplete || !nativeMode || signInExpanded ||
+            if (!discordChannelReady || initialBackfillComplete || !nativeMode || discordLoginVisible ||
                 loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
                 history.Count == 0) return;
             if (initialBackfillStarted == DateTime.MinValue) {
@@ -1766,7 +1704,7 @@ metrics();
             bool nearTop = forceTop || ChatFirstLine() <= Math.Max(900, browserClientHeight * 3);
             if (userScrolledChat && nearTop) historyCatchupActive = true;
             bool canRequest = (nearTop || historyCatchupActive) && !loadingHistory && IsHandleCreated &&
-                nativeMode && !signInExpanded && web.CoreWebView2 != null;
+                nativeMode && !discordLoginVisible && web.CoreWebView2 != null;
             if (!canRequest)
             {
                 if (DateTime.UtcNow - lastHistoryGateLog > TimeSpan.FromSeconds(10))
@@ -1775,7 +1713,7 @@ metrics();
                     Log("History gate: top=" + browserScrollTop +
                         " nearTop=" + nearTop + " loading=" + loadingHistory +
                         " handle=" + IsHandleCreated + " native=" + nativeMode +
-                        " signIn=" + signInExpanded +
+                        " signIn=" + discordLoginVisible +
                         " webReady=" + (web.CoreWebView2 != null));
                 }
                 return;
@@ -2492,20 +2430,10 @@ metrics();
             messageBrowser.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 74));
             chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
-            railTop.SetBounds(0, 0, ClientSize.Width, 10);
-            railLeft.SetBounds(0, 10, 13, Math.Max(1, ClientSize.Height - 10));
-            railRight.SetBounds(Math.Max(0, ClientSize.Width - 13), 10, 13, Math.Max(1, ClientSize.Height - 10));
-            railBottom.SetBounds(0, Math.Max(0, ClientSize.Height - 13), ClientSize.Width, 13);
-            titleBar.SetBounds(9, 9, Math.Max(1, ClientSize.Width - 18), 42);
-            titleText.SetBounds(Math.Max(0, (ClientSize.Width - 92) / 2), 8, 92, 31);
-
             frameSurface.Invalidate();
-            Log("Header visibility: frame=" + frameSurface.Visible + ", titleBar=" + titleBar.Visible + ", titleText=" + titleText.Visible + ", native=" + nativeMode);
             chatViewport.SendToBack();
             if (nativeMessages.Visible) messageClip.BringToFront();
             goldScrollbar.BringToFront();
-            railTop.Visible = false; railLeft.Visible = false; railRight.Visible = false; railBottom.Visible = false;
-            titleBar.Visible = false; titleText.Visible = false;
             // During first-feed loading the hidden Discord source continues
             // fetching, while only the native status panel is presented.
             chatViewport.Visible = !nativeMode && !connectingChat;
@@ -2513,28 +2441,6 @@ metrics();
             web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
             EnforceChatClip();
         }
-        // Companion window stays visible when the chat panel is tucked away.
-        readonly Form chatToggleWindow = new()
-        {
-            FormBorderStyle = FormBorderStyle.None,
-            ShowInTaskbar = false,
-            StartPosition = FormStartPosition.Manual,
-            BackColor = System.Drawing.Color.FromArgb(145, 104, 48),
-            TopMost = false,
-            Size = new System.Drawing.Size(68, 168)
-        };
-        readonly Button chatToggleButton = new()
-        {
-            Dock = DockStyle.Fill,
-            FlatStyle = FlatStyle.Flat,
-            BackColor = System.Drawing.Color.FromArgb(167, 124, 58),
-            ForeColor = System.Drawing.Color.White,
-            Font = new System.Drawing.Font("Segoe UI", 17, System.Drawing.FontStyle.Bold),
-            Cursor = Cursors.Hand,
-            Text = "",
-            TabStop = false
-        };
-        readonly ContextMenuStrip chatModeMenu = new();
         readonly string chatModeFile = Path.Combine(ChatDataRoot, "chat-display-mode.txt");
         string chatDisplayMode = "Automatic";
         bool chatOpen, feedInitialized;
@@ -2576,11 +2482,10 @@ metrics();
                 Log("Launcher movement hook unavailable; using polling fallback.");
         }
         bool docked;
-        bool signInExpanded;
         readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
         readonly string layoutFile = Path.Combine(AppContext.BaseDirectory, "chat.ini");
         DateTime cssStamp = DateTime.MinValue, layoutStamp = DateTime.MinValue;
-        int chatX = 94, chatY = 420, chatWidth = 390, chatHeight = 498;
+        int chatWidth = 390, chatHeight = 498;
         byte chatOpacity = 255;
         string userCss = Css;
         static int ReadInt(string line, string key, int fallback) =>
@@ -2591,17 +2496,15 @@ metrics();
             if (!File.Exists(layoutFile)) return;
             var stamp = File.GetLastWriteTimeUtc(layoutFile);
             if (stamp == layoutStamp) return;
-            layoutStamp = stamp;
             foreach (var raw in File.ReadAllLines(layoutFile))
             {
                 var line = raw.Trim();
                 if (line.StartsWith(";") || line.StartsWith("[") || line.Length == 0) continue;
-                chatX = ReadInt(line, "X", chatX);
-                chatY = ReadInt(line, "Y", chatY);
                 chatWidth = Math.Clamp(ReadInt(line, "Width", chatWidth), 160, 700);
                 chatHeight = Math.Clamp(ReadInt(line, "Height", chatHeight), 140, 700);
                 chatOpacity = (byte)Math.Clamp(ReadInt(line, "Opacity", chatOpacity), 120, 255);
             }
+            layoutStamp = stamp;
             if (docked) { PositionChatWindows(); ApplyWindowOpacity(); }
             Log("Layout reloaded");
         }
@@ -2625,7 +2528,6 @@ metrics();
             Log("CSS reloaded");
         }
 
-        readonly Label version = new() { Text = "TES3NP CHAT • " + ChatBuild, Dock = DockStyle.Top, Height = 24, ForeColor = System.Drawing.Color.FromArgb(225, 191, 125), BackColor = System.Drawing.Color.FromArgb(35, 26, 18), TextAlign = System.Drawing.ContentAlignment.MiddleCenter, Font = new System.Drawing.Font("Georgia", 9f, System.Drawing.FontStyle.Bold) };
         readonly string logPath = Path.Combine(ChatDataRoot, "chat-host.log");
         readonly object diagnosticLogLock = new();
         void TrimChatDiagnosticLog()
@@ -2713,85 +2615,6 @@ metrics();
                 }
             }
             catch { }
-            chatToggleButton.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(237, 199, 120);
-            chatToggleButton.FlatAppearance.BorderSize = 2;
-            chatToggleButton.Paint += (_, e) =>
-            {
-                var g = e.Graphics;
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var arrowPen = new System.Drawing.Pen(System.Drawing.Color.White, 5)
-                {
-                    StartCap = System.Drawing.Drawing2D.LineCap.Round,
-                    EndCap = System.Drawing.Drawing2D.LineCap.Round,
-                    LineJoin = System.Drawing.Drawing2D.LineJoin.Round
-                };
-                // Side-by-side layout: bold arrow at left, vertical label at right.
-                // Both are centered as one group within the tall gold tab.
-                int direction = chatOpen ? -1 : 1;
-                int arrowCenterX = 22;
-                int arrowY = chatToggleButton.ClientSize.Height / 2;
-                int tipX = arrowCenterX + direction * 13;
-                int tailX = arrowCenterX - direction * 13;
-                g.DrawLine(arrowPen, tailX, arrowY, tipX, arrowY);
-                g.DrawLine(arrowPen, tipX - direction * 10, arrowY - 10, tipX, arrowY);
-                g.DrawLine(arrowPen, tipX - direction * 10, arrowY + 10, tipX, arrowY);
-                using var labelFont = new System.Drawing.Font("Segoe UI", 11,
-                    System.Drawing.FontStyle.Bold);
-                using var labelBrush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
-                var state = g.Save();
-                g.TranslateTransform(52, chatToggleButton.ClientSize.Height / 2);
-                g.RotateTransform(-90);
-                using var alignment = new System.Drawing.StringFormat
-                {
-                    Alignment = System.Drawing.StringAlignment.Center,
-                    LineAlignment = System.Drawing.StringAlignment.Center
-                };
-                g.DrawString("Game Chat", labelFont, labelBrush,
-                    new System.Drawing.RectangleF(-65, -12, 130, 24), alignment);
-                g.Restore(state);
-            };
-            // The toggle is now an actual launcher GUI control.
-            foreach (string mode in new[] { "Automatic", "Always Shown", "Always Hidden" })
-            {
-                string selectedMode = mode;
-                chatModeMenu.Items.Add(mode, null, (_, _) =>
-                {
-                    chatDisplayMode = selectedMode;
-                    try
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(chatModeFile)!);
-                        File.WriteAllText(chatModeFile, chatDisplayMode);
-                    }
-                    catch { }
-                    SetChatOpen(chatDisplayMode == "Always Shown");
-                });
-            }
-            chatModeMenu.Opening += (_, _) =>
-            {
-                foreach (ToolStripMenuItem item in chatModeMenu.Items)
-                    item.Checked = item.Text == chatDisplayMode;
-            };
-            chatToggleButton.MouseUp += (_, e) =>
-            {
-                if (e.Button == MouseButtons.Right)
-                    chatModeMenu.Show(chatToggleButton, e.Location);
-            };
-            chatToggleButton.Click += (_, _) =>
-            {
-                if (!discordChannelReady) discordSignInRequested = true;
-                if (discordLoginVisible) {
-                    ToggleGameChatDiscordSignIn();
-                    return;
-                }
-                // A manual toggle overrides automatic popups until the next message.
-                SetChatOpen(!chatOpen);
-                if (chatDisplayMode == "Automatic" && chatOpen)
-                    lastChatActivity = DateTime.Now;
-            };
-            chatToggleWindow.FormClosing += (_, e) =>
-            {
-                if (!closingChat) { e.Cancel = true; chatToggleWindow.Hide(); }
-            };
             FormBorderStyle = FormBorderStyle.None;
             DoubleBuffered = true;
             Paint += (_, e) =>
@@ -2840,17 +2663,6 @@ metrics();
                 var size = g.MeasureString("Chat", titleFont);
                 g.FillRectangle(titleFill, (w - size.Width) / 2 - 14, 3, size.Width + 28, 30);
                 g.DrawString("Chat", titleFont, gold, (w - size.Width) / 2, 8);
-            };
-            Log("Header diagnostics: texture=" + (headerTexture == null ? "MISSING" : headerTexture.Width + "x" + headerTexture.Height) +
-                ", border=" + (borderTexture == null ? "MISSING" : borderTexture.Width + "x" + borderTexture.Height) +
-                ", baseDir=" + AppContext.BaseDirectory);
-            titleBar.Paint += (_, e) =>
-            {
-                if (headerTexture != null)
-                {
-                    e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    e.Graphics.DrawImage(headerTexture, titleBar.ClientRectangle);
-                }
             };
             ShowInTaskbar = false;
             BackColor = System.Drawing.Color.Black;
@@ -2941,12 +2753,6 @@ metrics();
             nativeMessages.BringToFront();
             frameSurface.Controls.Add(messageClip);
             frameSurface.Controls.Add(goldScrollbar);
-            frameSurface.Controls.Add(railTop);
-            frameSurface.Controls.Add(railLeft);
-            frameSurface.Controls.Add(railRight);
-            frameSurface.Controls.Add(railBottom);
-            frameSurface.Controls.Add(titleBar);
-            frameSurface.Controls.Add(titleText);
             int lastThumbY = -1, lastThumbHeight = -1;
             goldScrollbar.Paint += (_, e) =>
             {
@@ -3033,21 +2839,6 @@ metrics();
                 // HTML scrolling ends when mouse capture is released.
                 goldScrollbar.Invalidate();
             };
-            foreach (var rail in new[] { railTop, railLeft, railRight, railBottom })
-            {
-                rail.BackColor = System.Drawing.Color.FromArgb(153, 118, 64);
-                rail.Paint += (_, e) =>
-                {
-                    var g = e.Graphics;
-                    var r = new Random(812 + rail.Width * 3 + rail.Height);
-                    using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(75, 53, 27));
-                    using var light = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(204, 173, 108));
-                    for (int n = 0; n < rail.Width * rail.Height / 5; n++)
-                        g.FillRectangle(n % 3 == 0 ? light : dark, r.Next(Math.Max(1, rail.Width)), r.Next(Math.Max(1, rail.Height)), 2, 1);
-                    using var edge = new System.Drawing.Pen(System.Drawing.Color.FromArgb(224, 193, 125));
-                    g.DrawRectangle(edge, 1, 1, Math.Max(1, rail.Width - 3), Math.Max(1, rail.Height - 3));
-                };
-            }
             messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 78));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 74));
@@ -3058,13 +2849,10 @@ metrics();
             nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             messageClip.BringToFront();
             goldScrollbar.BringToFront();
-            railTop.BringToFront(); railLeft.BringToFront(); railRight.BringToFront(); railBottom.BringToFront();
-            titleBar.BringToFront(); titleText.BringToFront();
             Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
             FitWebView();
-            // The diagnostic version label is no longer part of the chat UI.
             Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
             LoadLayout();
@@ -3153,8 +2941,8 @@ metrics();
             {
                 CancelPendingExpansionPrompt();
                 closingChat = true;
-                watch.Stop();
-                historyWatch.Stop();
+                watch.Dispose();
+                historyWatch.Dispose();
                 FlushPendingChatArchive(force: true);
                 happyHourTicker?.Dispose();
                 if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
@@ -3165,8 +2953,10 @@ metrics();
                     UnhookWinEvent(launcherLocationHook);
                     launcherLocationHook = IntPtr.Zero;
                 }
-                chatToggleWindow.Dispose();
                 CloseEmbeddedExpansionDownloads();
+                discordSignInWindow?.Dispose();
+                borderTexture?.Dispose();
+                scrollbarTexture?.Dispose();
             };
             watch.Tick += async (_, _) =>
             {
@@ -3176,7 +2966,7 @@ metrics();
                 try
                 {
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.GetType().Name); }
-                if (!docked && !signInExpanded) DockToLauncher();
+                if (!docked) DockToLauncher();
                 if (docked && !nativeMode) EnforceChatClip();
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
@@ -3755,7 +3545,6 @@ metrics();
             channelReloadAfterSignInPending = true;
             showChatAfterDiscordSignIn = chatOpen || chatDisplayMode == "Always Shown" || freshDiscordProfile;
             discordLoginVisible = true;
-            signInExpanded = false;
             nativeMode = false;
             nativeMessages.Visible = false;
             messageBrowser.Visible = false;
@@ -3856,7 +3645,6 @@ metrics();
                 chatDisplayMode != "Always Hidden";
             discordSignInRequested = false;
             discordLoginVisible = false;
-            signInExpanded = false;
             web.Dock = DockStyle.None;
             web.Parent = chatViewport;
             if (discordSignInWindow is { IsDisposed: false } popup)
@@ -3882,10 +3670,7 @@ metrics();
         async Task UpdateViewMode()
         {
             if (web.CoreWebView2 == null) return;
-            var url = web.CoreWebView2.Source;
             Log("Navigation completed (Discord page changed).");
-            bool login = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
-                || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             await CheckDiscordAuthentication();
             if (discordLoginVisible) return;
             EnforceChatClip();
@@ -4066,7 +3851,7 @@ metrics();
                 return;
             }
             chatOpen = show;
-            if (!signInExpanded && IsHandleCreated)
+            if (IsHandleCreated)
             {
                 // SW_SHOW (5) activates this owned popup and steals foreground
                 // focus from parchment menus and native dialogs. Automatic
@@ -4085,7 +3870,7 @@ metrics();
             PositionHappyHourBanner();
             if (discordLoginVisible && discordSignInRequested && pendingExpansionPrompt == 0)
                 PositionGameChatDiscordSignIn();
-            if (!IsWindow(owner) || signInExpanded || !GetWindowRect(owner, out var bounds)) return;
+            if (!IsWindow(owner) || !GetWindowRect(owner, out var bounds)) return;
             // Discord authentication has its own window; the docked Game Chat
             // always retains its normal height, even when signed out.
             int windowHeight = chatHeight;
@@ -4119,7 +3904,7 @@ metrics();
         }
         void DockToLauncher()
         {
-            if (!IsWindow(owner) || signInExpanded) return;
+            if (!IsWindow(owner)) return;
             var dockClock = System.Diagnostics.Stopwatch.StartNew();
             Log("STARTUP | Dock begin");
             var hwnd = Handle;
@@ -4162,7 +3947,7 @@ metrics();
                 SetWindowPos(owner, IntPtr.Zero, bounds.Left, bounds.Top, 0, 0, SWP_NOSIZE_NOZORDER_NOACTIVATE);
                 Log("STARTUP | Owner compositor refresh completed in " + dockClock.ElapsedMilliseconds + "ms");
             }
-            Log($"Docked {chatX},{chatY} {chatWidth}x{chatHeight}");
+            Log($"Docked chat ({chatWidth}x{chatHeight})");
         }
     }
 }

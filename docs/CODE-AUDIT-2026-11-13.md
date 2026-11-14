@@ -160,3 +160,118 @@ GitHub tree before changes.
 - Twelve updater transaction fixtures passed, including invalid-journal
   recovery. Resource generation passed against a disposable source fixture.
   The packaged Windows build and full runtime checklist remain pending.
+
+## Eighth source pass
+
+The GitHub tree for `b877b1d` listed 128 tracked files. The 125 local
+files matched GitHub blob IDs before edits. The launcher background, Discord
+sign-in emblem, and tracked markerless EXE were available as tree entries only.
+
+- Removed Chat Host's unused companion toggle, hidden frame controls, old
+  header texture and ineffective X/Y preferences. The launcher-owned Game
+  Chat tab and Chat Host's live frame and scrollbar still have their callers.
+- A reopened Expansion dialog can initialize its own WebView while a closed
+  one finishes. ZIP messages are accepted from the current browser and the
+  configured channel. Shutdown disposes timers, textures and sign-in UI.
+- Build validation now bounds resource extraction and compiler smoke waits.
+  The build pins the official TES3MP archive for both client variants and
+  omits upstream server, editor and import tools from the launcher ZIP.
+- The markerless console rebuild takes an explicit build ID and directs the
+  developer to the matching dependencies. PowerShell syntax checks now
+  include the markerless research scripts.
+- Source contracts, six embedded JavaScript bodies, C# and PowerShell syntax,
+  workflow YAML, the compiler wrapper fixture, the upstream archive selection,
+  and twelve updater transaction fixtures passed. The release gate remains
+  blocked on the existing provenance, asset approval and clean Windows evidence.
+
+### File coverage at this checkpoint
+
+“Source inspected” records source read during this pass. Targeted review and
+reference checks cover selected behavior and call sites. The remaining work is
+full behavioral read-through of the files marked targeted, particularly the
+AutoHotkey UI, renderer, Expansion Pack coordination and large source-check
+scripts. Windows compilation and GUI execution are still pending.
+
+| File | Coverage |
+| --- | --- |
+| `.editorconfig` | Inventory and dependency check |
+| `.gitattributes` | Inventory and dependency check |
+| `.github/workflows/build-windows.yml` | Workflow read and YAML parsed |
+| `.github/workflows/checks.yml` | Workflow read and YAML parsed |
+| `.github/workflows/publish-alpha.yml` | Workflow read and YAML parsed |
+| `.gitignore` | Inventory and dependency check |
+| `Build tes3np.bat` | Source inspected |
+| `chat-host/Program.cs` | Source inspected |
+| `chat-host/assets/DiscordInt.png` | GitHub tree only |
+| `chat-host/border-texture.b64` | Runtime reference verified |
+| `chat-host/chat.css` | Inventory and dependency check |
+| `chat-host/chat.ini` | Source inspected |
+| `chat-host/header-texture.b64` | Removed with unused header |
+| `chat-host/scrollbar-texture.b64` | Runtime reference verified |
+| `chat-host/tes3np.ChatHost.csproj` | Source inspected |
+| `patches/manifest.json` | Inventory and dependency check |
+| `patches/markerless/tes3mp.exe` | GitHub tree only |
+| `research/markerless/README.md` | Inventory and dependency check |
+| `research/markerless/Restore-Markerless-Console.ps1` | Source inspected |
+| `research/markerless/build-markerless.ps1` | Source inspected |
+| `research/markerless/console-candidate.json` | Inventory and dependency check |
+| `research/markerless/tes3mp-0.8.1-markerless-experimental.patch` | Source inspected |
+| `research/markerless/tes3mp-release-console.patch` | Source inspected |
+| `scripts/audit-local-privacy.py` | Targeted review and source checks |
+| `scripts/build-windows.ps1` | Source inspected |
+| `scripts/check-ahk-compile.ps1` | Source inspected |
+| `scripts/check-chat-architecture.py` | Targeted review and source checks |
+| `scripts/check-diagnostic-privacy.py` | Targeted review and source checks |
+| `scripts/check-powershell.ps1` | Source inspected |
+| `scripts/check-release-gates.py` | Source inspected |
+| `scripts/check-windows-package.py` | Prior targeted review or fixture checks |
+| `scripts/fetch-release-notes.ps1` | Source inspected |
+| `scripts/generate-bundled-resources.py` | Prior targeted review or fixture checks |
+| `scripts/generate-update-metadata.ps1` | Source inspected |
+| `scripts/import-expansion-pack.ps1` | Prior targeted review or fixture checks |
+| `scripts/import-macro.ps1` | Prior targeted review or fixture checks |
+| `scripts/project.py` | Targeted review and source checks |
+| `scripts/run-local-regression.ps1` | Source inspected |
+| `scripts/select-expansion-package.ps1` | Targeted review and source checks |
+| `scripts/stage-markerless-console.ps1` | Source inspected |
+| `scripts/tes3np-updater.ps1` | Source inspected |
+| `scripts/test-diagnostic-privacy.ahk` | Prior targeted review or fixture checks |
+| `scripts/test-expansion-diagnostics.ahk` | Prior targeted review or fixture checks |
+| `scripts/test-expansion-toggle.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-import-expansion-folder.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-update-client.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-update-metadata.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-updater-transaction.ps1` | Prior targeted review or fixture checks |
+| `scripts/toggle-expansion-pack.ps1` | Prior targeted review or fixture checks |
+| `src/app/bootstrap.ahk` | Prior targeted review and reference checks |
+| `src/app/client-detection.ahk` | Prior targeted review and reference checks |
+| `src/app/diagnostics.ahk` | Prior targeted review and reference checks |
+| `src/app/update-check.ahk` | Prior targeted review and reference checks |
+| `src/data/backup.ahk` | Prior targeted review and reference checks |
+| `src/data/cleanup.ahk` | Prior targeted review and reference checks |
+| `src/data/settings.ahk` | Prior targeted review and reference checks |
+| `src/game/expansion-mismatch.ahk` | Targeted review and source checks |
+| `src/game/session.ahk` | Prior targeted review and reference checks |
+| `src/state.ahk` | Prior targeted review and reference checks |
+| `src/ui/actions.ahk` | Prior targeted review and reference checks |
+| `src/ui/characters.ahk` | Prior targeted review and reference checks |
+| `src/ui/controls.ahk` | Targeted review and source checks |
+| `src/ui/embedded-chat.ahk` | Prior targeted review and reference checks |
+| `src/ui/expansion-upload.ahk` | Prior targeted review and reference checks |
+| `src/ui/front-page.ahk` | Targeted review and source checks |
+| `src/ui/happy-hour.ahk` | Prior targeted review and reference checks |
+| `src/ui/launcher-settings.ahk` | Targeted review and source checks |
+| `src/ui/loading.ahk` | Targeted review and source checks |
+| `src/ui/login-progress.ahk` | Targeted review and source checks |
+| `src/ui/macros.ahk` | Prior targeted review and reference checks |
+| `src/ui/patcher.ahk` | Prior targeted review and reference checks |
+| `src/ui/renderer.ahk` | Targeted review and source checks |
+| `src/ui/v016-refinements.ahk` | Targeted review and source checks |
+| `src/ui/windows.ahk` | Targeted review and source checks |
+| `tes3np.ahk` | Prior targeted review and reference checks |
+
+The remaining tree entries are artwork and fonts under `assets/`, release
+and historical Markdown, and GitHub templates. Runtime asset selection was
+checked in pass seven. The unmodified binary assets were inventoried by Git
+identity. The audit does not include upstream TES3MP source files outside
+this repository.
