@@ -68,6 +68,16 @@ if ($parse.ExitCode -ne 0 -or $output -match '(?i)Warning:|appears to never be a
     throw 'AutoHotkey source parse/warning check failed.'
 }
 
+Write-Host 'Testing Expansion Pack version and plugin mismatch diagnostics.'
+$fixture = Join-Path $projectRoot 'scripts\test-expansion-diagnostics.ahk'
+$fixtureOutput = @(& $base /ErrorStdOut $fixture 2>&1)
+$fixtureExit = $LASTEXITCODE
+$fixtureOutput | ForEach-Object { Write-Host $_ }
+if ($fixtureExit -ne 0 -or $fixtureOutput -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
+    throw "Expansion Pack diagnostics failed with exit code $fixtureExit."
+}
+Write-Host 'PASS: Expansion Pack version and plugin mismatch diagnostics.'
+
 Write-Host 'Compiling the real launcher through verified Ahk2Exe.'
 $exe = Join-Path $work 'tes3np-ci-smoke.exe'
 $stdout = Join-Path $work 'compiler-stdout.txt'

@@ -70,6 +70,38 @@ MismatchFixtureAssert(condition, reason)
 
 try
 {
+    description := "NP Expansion Pack for the Nerevarine Prophecies TES3MP Server.`r`nVersion 0.2a"
+    MismatchFixtureAssert(TES3MPExpansionDescriptionVersion(description) = "v0.2a",
+        "installed pack description supplies the actual release")
+    MismatchFixtureAssert(TES3MPExpansionDescriptionVersion("NP Expansion Pack v0.2c") = "v0.2c",
+        "single-line pack title supplies the release")
+    MismatchFixtureAssert(TES3MPExpansionDescriptionVersion("Another plugin`nVersion 0.2a") = ""
+        && TES3MPExpansionDescriptionVersion("NP Expansion Pack`nRequires Version 0.2a") = "",
+        "unrelated or dependency descriptions do not supply the release")
+    headerPath := A_Temp "\tes3np-expansion-header-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount ".esp"
+    try
+    {
+        ; Include an optional subrecord before HEDR to exercise record boundaries.
+        fixture := Buffer(336, 0)
+        NumPut("UInt", 0x33534554, "UInt", 320, fixture, 0) ; TES3
+        NumPut("UInt", 0x4D524F46, "UInt", 4, fixture, 16) ; FORM
+        NumPut("UInt", 0x52444548, "UInt", 300, fixture, 28) ; HEDR
+        NumPut("Float", 1.3, fixture, 36)
+        StrPut(description, fixture.Ptr + 76, 256, "CP0")
+        headerFile := FileOpen(headerPath, "w")
+        try headerFile.RawWrite(fixture)
+        finally headerFile.Close()
+        MismatchFixtureAssert(TES3MPReadExpansionHeaderVersion(headerPath) = "v0.2a",
+            "release label is distinct from the TES3 file-format version")
+        headerFile := FileOpen(headerPath, "w")
+        try headerFile.RawWrite(fixture, 40)
+        finally headerFile.Close()
+        MismatchFixtureAssert(TES3MPReadExpansionHeaderVersion(headerPath) = "",
+            "truncated TES3 plugin header cannot supply a release label")
+    }
+    finally
+        try FileDelete(headerPath)
+
     attachment := TES3MPExpansionAttachmentPath(
         "https://cdn.discordapp.com/attachments/123/456/NP_Expansion_Pack_v0.2c.zip?signature=PRIVATE")
     MismatchFixtureAssert(TES3MPExpansionVersionFromAttachment(attachment) = "v0.2c",

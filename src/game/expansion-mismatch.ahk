@@ -538,6 +538,59 @@ TES3MPExpansionVersionFromAttachment(attachment)
         ? StrLower(match[1]) : ""
 }
 
+TES3MPReadExpansionHeaderVersion(path)
+{
+    ; The TES3 record contains HEDR. Skip the file-format version and
+    ; author to read the human-readable 256-byte plugin description.
+    try
+    {
+        file := FileOpen(path, "r")
+        try
+        {
+            file.Pos := 0
+            record := Buffer(16)
+            if file.RawRead(record, record.Size) != record.Size || NumGet(record, 0, "UInt") != 0x33534554
+                return ""
+            headerEnd := 16 + NumGet(record, 4, "UInt")
+            if headerEnd > Min(file.Length, 65536)
+                return ""
+            subrecord := Buffer(8)
+            while file.Pos + subrecord.Size <= headerEnd
+            {
+                if file.RawRead(subrecord, subrecord.Size) != subrecord.Size
+                    return ""
+                size := NumGet(subrecord, 4, "UInt")
+                next := file.Pos + size
+                if next > headerEnd
+                    return ""
+                if NumGet(subrecord, 0, "UInt") = 0x52444548 ; HEDR
+                {
+                    if size != 300
+                        return ""
+                    file.Pos += 40
+                    description := Buffer(256)
+                    if file.RawRead(description, description.Size) != description.Size
+                        return ""
+                    return TES3MPExpansionDescriptionVersion(StrGet(description, description.Size, "CP0"))
+                }
+                file.Pos := next
+            }
+        }
+        finally file.Close()
+    }
+    return ""
+}
+
+TES3MPExpansionDescriptionVersion(description)
+{
+    if !RegExMatch(description, "i)^\s*NP Expansion Pack\b")
+        return ""
+    ; Accept a standalone Version line or a short one-line pack title.
+    if RegExMatch(description, "im)^[ \t]*(?:Version(?:[ \t]*:[ \t]*|[ \t]+)|NP Expansion Pack[ \t]+(?:Version(?:[ \t]*:[ \t]*|[ \t]+))?)v?(\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3})[ \t\r]*$", &match)
+        return "v" StrLower(match[1])
+    return ""
+}
+
 TES3MPExpansionAttachmentPath(url)
 {
     ; A refreshed signature or CDN hostname must not retry the same ZIP.
