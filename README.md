@@ -2,11 +2,7 @@
 
 **tes3np** is a Windows launcher for the Morrowind multiplayer server [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/).
 
-![tes3np launcher in v0.1.20-alpha](https://raw.githubusercontent.com/IAmShawn98/tes3np-releases/main/images/Launcher-v0.1.20.png)
-
-*Launcher screenshot from v0.1.20-alpha.*
-
-The features and setup below are for **v0.1.21-alpha**, currently in development.
+![tes3np launcher](https://raw.githubusercontent.com/IAmShawn98/tes3np-releases/main/images/Launcher-v0.1.20.png)
 
 ## Features
 
@@ -19,7 +15,7 @@ The features and setup below are for **v0.1.21-alpha**, currently in development
 
 ## Download
 
-The current public download is **v0.1.20-alpha**. [Get the Windows ZIP from Releases](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha).
+Download `tes3np-v0.1.21-alpha-windows.zip` from [**Releases**](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha).
 
 ## Requirements
 
@@ -31,8 +27,6 @@ The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 
 ## Install
 
-These steps are for **v0.1.21-alpha**, which bundles TES3MP.
-
 1. Extract the entire Windows ZIP into its own folder.
 2. Run `tes3np.exe`. If asked, choose your Morrowind GOTY folder.
 3. Open **Manage Characters** to save a character, or choose **Start New Adventure** to log in manually.
@@ -43,8 +37,4 @@ Click the version number in the launcher to check for updates. You can review th
 
 ## Troubleshooting
 
-[Report a launcher problem](https://github.com/IAmShawn98/tes3np/issues/new/choose) with your tes3np version, Windows version, and what you did before the issue appeared. For a log excerpt, open **Launcher Settings → Launcher Data → Copy Launcher Logs**. Review screenshots and logs for personal details before sharing. Character exports contain passwords, so keep them private.
-
----
-
-[Release notes](https://github.com/IAmShawn98/tes3np/blob/Update/v0.1.21-alpha/RELEASE_NOTES.md) · [Build instructions](https://github.com/IAmShawn98/tes3np/blob/Update/v0.1.21-alpha/docs/DEVELOPMENT.md) · [Second-PC upgrade test](https://github.com/IAmShawn98/tes3np/issues/4)
+[Report a launcher problem](https://github.com/IAmShawn98/tes3np-releases/issues/new/choose) with your tes3np version, Windows version, and what you did before the issue appeared. For a log excerpt, open **Launcher Settings → Launcher Data → Copy Launcher Logs**. Review screenshots and logs for personal details before sharing. Character exports contain passwords, so keep them private.
