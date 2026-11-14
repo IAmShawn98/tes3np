@@ -1,6 +1,6 @@
 # tes3np
 
-**tes3np** is a Windows launcher for the Morrowind multiplayer server [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/).
+A robust game launcher for the Morrowind private server Nerevarine Prophecies.
 
 ![tes3np launcher](https://raw.githubusercontent.com/IAmShawn98/tes3np-releases/main/images/Launcher-v0.1.20.png)
 
