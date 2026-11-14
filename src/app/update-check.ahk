@@ -333,7 +333,8 @@ ReadPublishedVersionNotes(version)
     if !FileExist(script)
         return unavailable
     output := A_Temp "\tes3np-notes-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount ".txt"
-    command := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script
         . '" -Version "' version '" -OutputPath "' output '"'
     try {
         if RunWait(command, A_ScriptDir, "Hide") != 0 || !FileExist(output)

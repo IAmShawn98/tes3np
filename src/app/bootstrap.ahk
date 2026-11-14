@@ -44,7 +44,6 @@ StartLauncher()
     LoadProfiles()
     TrimStoredDiagnosticLogs()
     SanitizeExistingDiagnosticLogs()
-    InitializePatchLogMirror()
     ; Recover a saved custom-client swap before launch buttons are available.
     RecoverCustomClientOverrides()
     LauncherGui := Gui("-Caption -Border", A_IconTip)
@@ -486,7 +485,6 @@ CleanupLauncher(*)
     ; Normal shutdown records diagnostics; a full reset must not recreate user data.
     if !LauncherDataResetting
     {
-        SyncPatchLogToLauncherLog()
         LogLauncherEvent("Launcher shutting down.")
     }
     StopClient()

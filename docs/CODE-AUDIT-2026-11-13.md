@@ -68,5 +68,17 @@ GitHub tree before changes.
   the registered Steam installation as well as the default locations.
 - Expansion Pack import carries only the active worker state and avoids
   rebuilding the unrelated character menu after an import.
-- Complete remaining source cleanup and review before the dev PC build.
+
+## Third source pass
+
+- Expansion Pack toggle reads its real worker exit status and acts on the
+  selected OpenMW configuration. The verified ESP still determines the
+  enabled indicator. Removed the write-only global flag.
+- Expansion Pack error details use the common sanitizer. Existing diagnostic
+  files remain readable, while the launcher records current import failures
+  directly instead of mirroring the obsolete patch log.
+- OpenMW config read failures leave Morrowind discovery able to check the
+  registry and Steam libraries. Release-note fetches use the system Windows
+  PowerShell path.
+- The dev PC build remains deferred while the source audit continues.
   The second PC upgrade test follows a passing dev PC regression run.
