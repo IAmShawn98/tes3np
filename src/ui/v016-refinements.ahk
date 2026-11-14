@@ -210,7 +210,7 @@ OpenLauncherSettingsV016(*)
     V016SettingsDataControls := []
     V016SettingsDataActive := false
 
-    settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
+    settings.OnEvent("Escape", HandleLauncherSettingsEscapeV016)
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
     V016SettingsGuiHwnd := settings.Hwnd
     ; The transparency key must be applied to the hidden Settings GUI, but
@@ -251,9 +251,23 @@ OpenLauncherSettingsV016(*)
     }
 }
 
+HandleLauncherSettingsEscapeV016(settings)
+{
+    if IsBugReportPageVisible(settings)
+        CloseBugReportPage(settings)
+    else
+        CloseLauncherSettingsV016(settings)
+}
+
 CloseLauncherSettingsV016(settings, *)
 {
     global LauncherGui, V016SettingsGuiHwnd
+    if settings.HasOwnProp("ReportControls")
+    {
+        if settings.ReportBusy
+            return true
+        StopBugReportRequest(settings)
+    }
     hwnd := 0
     try hwnd := settings.Hwnd
     if hwnd && V016SettingsGuiHwnd = hwnd
@@ -344,7 +358,8 @@ OpenAppDataSettingsV016(settings, *)
             "Characters and preferences are saved in AppData. Export characters before resetting.")
         AddStyledButton(settings, V016S(32), V016S(243), V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
         AddStyledButton(settings, V016S(32), V016S(279), V016S(448), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
-        AddStyledButton(settings, V016S(32), V016S(315), V016S(448), V016S(30), "Report A Bug", OpenBugReportDialog.Bind(settings))
+        settings.ReportPageButton := AddStyledButton(settings, V016S(32), V016S(315), V016S(448), V016S(30),
+            "Report A Bug", OpenBugReportPage.Bind(settings))
         settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
         settings.Add("Text", "x" V016S(32) " y" V016S(351) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
         AddStyledButton(settings, V016S(32), V016S(385), V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
