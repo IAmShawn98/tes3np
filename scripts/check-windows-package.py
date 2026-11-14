@@ -98,13 +98,14 @@ def check_package(path: Path, require_console_client: bool = False) -> None:
         for name in members:
             for parent in PurePosixPath(name).parents:
                 entry = members.get(parent.as_posix())
-                if entry is not None and not entry.is_dir():
+                if entry is not None and not entry.filename.endswith(("/", "\\")):
                     raise ValueError(f"Package file blocks a directory path: {parent}")
 
         for name in members:
             if name not in ROOT_FILES and name.split("/", 1)[0] not in RUNTIME_ROOTS:
                 raise ValueError(f"Unexpected package root entry: {name}")
-        missing = [item for item in REQUIRED_FILES if item.casefold() not in members]
+        missing = [item for item in REQUIRED_FILES
+                   if item.casefold() not in members or members[item.casefold()].filename.endswith(("/", "\\"))]
         if missing:
             raise ValueError("Windows package is missing: " + ", ".join(missing))
         for name in REQUIRED_FILES:
@@ -123,7 +124,9 @@ def check_package(path: Path, require_console_client: bool = False) -> None:
 
         executable = archive.read(members["client/tes3mp.exe"])
         has_console_manifest = "licenses/tes3mp/markerless-source/client-files.json" in members
-        if require_console_client or has_console_manifest:
+        if require_console_client and not has_console_manifest:
+            raise ValueError("Windows package is missing the markerless client file manifest")
+        if has_console_manifest:
             check_console_client(archive, root, executable, members)
         else:
             manifest = json.loads((root / "patches/manifest.json").read_text(encoding="utf-8-sig"))

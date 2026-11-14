@@ -9,12 +9,24 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
-reset_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
 bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
-patcher = (ROOT / "src" / "ui" / "patcher.ahk").read_text(encoding="utf-8-sig")
-session = (ROOT / "src" / "game" / "session.ahk").read_text(encoding="utf-8-sig")
 controls = (ROOT / "src" / "ui" / "controls.ahk").read_text(encoding="utf-8-sig")
 jiub_ui = (ROOT / "src" / "ui" / "happy-hour.ahk").read_text(encoding="utf-8-sig")
+settings_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+patcher = (ROOT / "src" / "ui" / "patcher.ahk").read_text(encoding="utf-8-sig")
+session = (ROOT / "src" / "game" / "session.ahk").read_text(encoding="utf-8-sig")
+resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
+expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
+loading_ui = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
+native_renderer = (ROOT / "src" / "ui" / "renderer.ahk").read_text(encoding="utf-8-sig")
+windows_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
+diagnostic_fixture = (ROOT / "scripts" / "test-expansion-diagnostics.ahk").read_text(encoding="utf-8-sig")
+front_layout = (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
+chat_startup = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig")
+entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
+display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
+update_check = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
+chat_project = (ROOT / "chat-host" / "tes3np.ChatHost.csproj").read_text(encoding="utf-8-sig")
 errors = []
 
 
@@ -27,7 +39,7 @@ def section_between(text: str, start: str, end: str) -> str:
     """Return the guarded function section, or empty text if it was removed.
 
     Missing/renamed source must cause an explicit contract failure rather
-    than crashing the entire build preflight with IndexError.
+    than crashing the entire build preflight.
     """
     start_at = text.find(start)
     if start_at == -1:
@@ -36,6 +48,17 @@ def section_between(text: str, start: str, end: str) -> str:
     if end_at == -1:
         return ""
     return text[start_at:end_at]
+
+
+def in_order(text: str, *fragments: str) -> bool:
+    """Check first occurrences and fail cleanly if any fragment is absent."""
+    previous = -1
+    for fragment in fragments:
+        position = text.find(fragment)
+        if position <= previous:
+            return False
+        previous = position
+    return True
 
 
 expect(
@@ -138,13 +161,10 @@ happy_hour_clock = section_between(
 )
 expect(
     "Happy Hour countdown updates during any open launcher menu without stealing focus",
-    "RefreshHappyHourBannerClock();" in happy_hour_refresh
-    and "if (OtherLauncherDialogOpen())" in happy_hour_refresh
-    and happy_hour_refresh.index("RefreshHappyHourBannerClock();")
-        < happy_hour_refresh.index("if (OtherLauncherDialogOpen())")
-    and "RefreshHappyHourBannerClock();" in happy_hour_refresh[
-        happy_hour_refresh.index("Banner window created") - 250:
-    ]
+    in_order(happy_hour_refresh, "RefreshHappyHourBannerClock();", "if (OtherLauncherDialogOpen())")
+    and "RefreshHappyHourBannerClock();" in section_between(
+        happy_hour_refresh, "banner.Show();", "Banner window created",
+    )
     and "HappyHourBannerTime(happyHourEndsAt)" in happy_hour_clock
     and "DateTimeOffset.UtcNow" in happy_hour_clock
     and "LayoutHappyHourBannerContents();" in happy_hour_clock
@@ -258,12 +278,12 @@ expect(
 # Chat Host has a separate real WebView2 renderer, its parent, a native
 # loading-text control and a textured custom scrollbar. All four must change
 # state together on the first successful Discord feed.
-loading_start = source.index("        void ShowConnectingChat()")
-loading_end = source.index("        void ShowDiscordSignIn()", loading_start)
-loading = source[loading_start:loading_end]
-feed_start = source.index("                bool enteringNativeMode = !nativeMode;")
-feed_end = source.index('                    Log("Native message view activated");', feed_start)
-feed_transition = source[feed_start:feed_end]
+loading = section_between(source, "        void ShowConnectingChat()", "        void ShowDiscordSignIn()")
+feed_transition = section_between(
+    source,
+    "                bool enteringNativeMode = !nativeMode;",
+    '                    Log("Native message view activated");',
+)
 expect(
     "Game Chat remains fully on its monitor when the launcher is near an edge",
     "int leftX = bounds.Left - panelWidth;" in source
@@ -292,8 +312,11 @@ expect(
     'messageClip.Visible = true;' in feed_transition
     and 'messageBrowser.Visible = true;' in feed_transition
     and 'nativeMessages.BringToFront();' in feed_transition
-    and feed_transition.index('nativeMessages.BringToFront();')
-        < feed_transition.index('await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(')
+    and in_order(
+        feed_transition,
+        'nativeMessages.BringToFront();',
+        'await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(',
+    )
     and 'nativeMode = true;\n                    connectingChat = false;' in feed_transition
     and 'nativeMessages.Visible = false;' in feed_transition
     and 'goldScrollbar.Visible = true;' in feed_transition
@@ -316,9 +339,7 @@ expect(
     and "SetWinEventHook(0x800B, 0x800B" in source,
 )
 mismatch = (ROOT / "src" / "game" / "expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
-patcher = (ROOT / "src" / "ui" / "patcher.ahk").read_text(encoding="utf-8-sig")
 expansion_toggle = (ROOT / "scripts" / "toggle-expansion-pack.ps1").read_text(encoding="utf-8-sig")
-resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
 # The mismatch explanation must appear even when Discord is signed out.
 # Only the optional Discord ZIP browser is gated by live authentication.
 # Retain sender-PID checking, pending-request cleanup, and retry support.
@@ -331,8 +352,11 @@ expect(
     "Expansion Pack mismatch dialog opens without waiting for Discord",
     'dialog.Show("w660 h627")' in mismatch_dialog
     and 'RequestDiscordExpansionPrompt(installing ? 1 : 2)' in mismatch_dialog
-    and mismatch_dialog.index('dialog.Show("w660 h627")')
-        < mismatch_dialog.index('RequestDiscordExpansionPrompt(installing ? 1 : 2)')
+    and in_order(
+        mismatch_dialog,
+        'dialog.Show("w660 h627")',
+        'RequestDiscordExpansionPrompt(installing ? 1 : 2)',
+    )
     and 'ExpansionMismatchDialog.Show()' in mismatch_dialog
     and 'try WinActivate("ahk_id " dialog.Hwnd)' in mismatch_dialog
     and 'AddStyledButton(dialog, 300, 574, 180, 38,' in mismatch_dialog
@@ -390,7 +414,6 @@ expect(
     and 'Gui("+Owner" LauncherGui.Hwnd' in mismatch
     and 'SendLauncherChatCommand(command, targetHwnd := 0)' in bootstrap,
 )
-expansion_upload = (ROOT / "src" / "ui" / "expansion-upload.ahk").read_text(encoding="utf-8-sig")
 
 expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
@@ -520,8 +543,11 @@ auto_progress_helpers = section_between(
 expect(
     "First-enable discovery UI is compositor-cloaked BEFORE show; manual browse/mismatch stays visible",
     'cloaked := mode = "Install" && TES3MPExpansionCloakDialog(dialog, true)' in auto_install_view
-    and auto_install_view.index('TES3MPExpansionCloakDialog(dialog, true)')
-        < auto_install_view.index('dialog.Show("w660 h627")')
+    and in_order(
+        auto_install_view,
+        'TES3MPExpansionCloakDialog(dialog, true)',
+        'dialog.Show("w660 h627")',
+    )
     and 'if cloaked' in auto_install_view
     and 'if TES3MPExpansionBeginNativeProgress()' in auto_install_view
     and 'SetTimer((*) => TES3MPExpansionRetryNativeProgress(dialog), -300)' in auto_install_view
@@ -548,10 +574,13 @@ expect(
     and 'frame.Card.BackColor := "161007"' not in auto_progress_helpers
     and 'frame.Panel.Move(0, 0, cw, ch + extra)' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)' in auto_progress_helpers
-    and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
-        < auto_progress_helpers.index('frame.Panel.Move(0, 0, cw, ch + extra)')
-        < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
-        < auto_progress_helpers.index('TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)')
+    and in_order(
+        auto_progress_helpers,
+        'frame.Card.Show("NA h" (ch + extra))',
+        'frame.Panel.Move(0, 0, cw, ch + extra)',
+        'ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(',
+        'TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)',
+    )
     and 'LauncherGui.Opt("+Disabled")' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in auto_progress_helpers
     and 'global ExpansionAutoProgressFrame, ButtonFaces' not in auto_progress_helpers
@@ -586,8 +615,6 @@ expect(
     and 'frame.Panel.Opt("+0x04000000")' not in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("ProtectExpansionLoadingCancel", frame, ExpansionAutoCancelButton)' in auto_progress_helpers
     and 'ch + Max(2, (extra - 31) // 2), buttonWidth, 31, "Cancel Download",' in auto_progress_helpers
-    and auto_progress_helpers.index('frame.Card.Show("NA h" (ch + extra))')
-        < auto_progress_helpers.index('ExpansionAutoCancelButton := TES3MPExpansionCallNativeUi(')
     and 'TES3MPExpansionRemoveDownloadCancel()' in auto_progress_helpers
     and 'try ExpansionAutoCancelButton.Visible := false' in auto_progress_helpers
     and 'TES3MPExpansionCallNativeUi("DestroyBookControl", ExpansionAutoCancelButton)' in auto_progress_helpers
@@ -595,9 +622,12 @@ expect(
     and 'ExpansionAutoInstallLocked := true' in auto_download_ready
     and 'ExpansionAutoDownloadActive := false' in auto_download_ready
     and 'TES3MPExpansionRemoveDownloadCancel()' in auto_download_ready
-    and auto_download_ready.index('ExpansionAutoInstallLocked := true')
-        < auto_download_ready.index('TES3MPExpansionRemoveDownloadCancel()')
-        < auto_download_ready.index('SetTimer((*) => TES3MPExpansionBeginAutoImport(')
+    and in_order(
+        auto_download_ready,
+        'ExpansionAutoInstallLocked := true',
+        'TES3MPExpansionRemoveDownloadCancel()',
+        'SetTimer((*) => TES3MPExpansionBeginAutoImport(',
+    )
     and 'TES3MPExpansionEndNativeProgress()\n    ExpansionAutoInstallLocked := false' in auto_download_close
     and 'UploadExpansionFromFile(package, true)' in mismatch,
 )
@@ -613,7 +643,6 @@ expect(
     and 'try DestroyBookControl(' not in auto_progress_helpers
     and 'try ReleaseCapturedInterfaceFrame(' not in auto_progress_helpers,
 )
-loading_ui = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
 progress_painter = section_between(
     loading_ui,
     'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
@@ -630,12 +659,14 @@ expect(
     and 'finally face.ProgressHeaderOnly := false' in progress_painter
     and 'PaintButtonNow(hwnd)' in progress_painter
     and 'PaintButtonNow(protectedButton)' not in progress_painter
-    and progress_painter.index('face.ProgressHeaderOnly := true')
-        < progress_painter.index('PaintButtonNow(hwnd)')
-        < progress_painter.index('finally face.ProgressHeaderOnly := false')
+    and in_order(
+        progress_painter,
+        'face.ProgressHeaderOnly := true',
+        'PaintButtonNow(hwnd)',
+        'finally face.ProgressHeaderOnly := false',
+    )
     and 'frame.Panel.Text := label' in progress_painter.split('else')[-1],
 )
-native_renderer = (ROOT / "src" / "ui" / "renderer.ahk").read_text(encoding="utf-8-sig")
 protected_loading_paint = section_between(
     native_renderer,
     "PaintLoadingPanel(handle, target, width, height)\\n{".replace("\\n", "\n"),
@@ -657,9 +688,12 @@ expect(
     and 'DllCall("SaveDC", "Ptr", target,' in protected_loading_paint
     and 'DllCall("ExcludeClipRect", "Ptr", target,' in protected_loading_paint
     and 'DllCall("RestoreDC", "Ptr", target,' in protected_loading_paint
-    and protected_loading_paint.index('DllCall("ExcludeClipRect", "Ptr", target,')
-        < protected_loading_paint.index('try DllCall("BitBlt", "Ptr", target,')
-        < protected_loading_paint.index('DllCall("RestoreDC", "Ptr", target,'),
+    and in_order(
+        protected_loading_paint,
+        'DllCall("ExcludeClipRect", "Ptr", target,',
+        'try DllCall("BitBlt", "Ptr", target,',
+        'DllCall("RestoreDC", "Ptr", target,',
+    ),
 )
 expect(
     "Protected download progress blits only header pixels while ordinary loading cards still repaint fully",
@@ -828,13 +862,8 @@ expect(
 )
 expect(
     "Windows build executes synthetic parser and report privacy fixtures",
-    (ROOT / "scripts" / "test-expansion-diagnostics.ahk").is_file()
-    and "test-expansion-diagnostics.ahk" in (
-        ROOT / "scripts" / "build-windows.ps1"
-    ).read_text(encoding="utf-8-sig")
-    and "Plugin-mismatch diagnostic fixture tests failed" in (
-        ROOT / "scripts" / "build-windows.ps1"
-    ).read_text(encoding="utf-8-sig"),
+    "test-expansion-diagnostics.ahk" in windows_build
+    and "Plugin-mismatch diagnostic fixture tests failed" in windows_build,
 )
 
 expect(
@@ -853,36 +882,22 @@ expect(
         'TES3MPRenderMismatchDiagnostics(info, markers, installed, version, stamp, fingerprint := 0)\n{',
         'TES3MPNewExpansionFingerprintResult(status := "Not checked")\n{',
     )
-    and 'PatchConfigurationPath()' in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'MismatchFixtureDisallow("configuration path")' in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and all(marker in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig") for marker in (
+    and 'PatchConfigurationPath()' in diagnostic_fixture
+    and 'MismatchFixtureDisallow("configuration path")' in diagnostic_fixture
+    and all(marker in diagnostic_fixture for marker in (
         "global Client :=",
         "global LauncherGui := 0",
         "global EmbeddedChatPid := 0",
         'global DataFile := ""',
     ))
-    and 'InStr(report, "Load-order wording near rejection: No")' in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig")
+    and 'InStr(report, "Load-order wording near rejection: No")' in diagnostic_fixture
     and 'TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(currentText)' in mismatch
     and 'TES3MPSelectMismatchLogEvidence(captured)' in mismatch
     and 'markers := TES3MPSelectMismatchLogEvidence(TES3MPLastMismatchEvidence)' in mismatch
     and 'Client evidence source: ' in mismatch
-    and 'TES3MPLastMismatchEvidence := 0' in (
-        ROOT / "src" / "game" / "session.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'chosen.Source = "Captured during failed login"' in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'AutoHotkey fixture warnings detected; packaging stopped.' in (
-        ROOT / "scripts" / "build-windows.ps1"
-    ).read_text(encoding="utf-8-sig"),
+    and 'TES3MPLastMismatchEvidence := 0' in session
+    and 'chosen.Source = "Captured during failed login"' in diagnostic_fixture
+    and 'AutoHotkey fixture warnings detected; packaging stopped.' in windows_build,
 )
 
 expect(
@@ -896,9 +911,7 @@ expect(
     and 'Slot details (zero-based): ' in mismatch
     and 'if shown >= 12' in mismatch
     and 'result.SlotFlags[slot] := oldBits | newBits' in mismatch
-    and 'TES3MPLastMismatchEvidence := 0' in (
-        ROOT / "src" / "game" / "session.ahk"
-    ).read_text(encoding="utf-8-sig"),
+    and 'TES3MPLastMismatchEvidence := 0' in session,
 )
 expect(
     "Expansion fingerprint uses Windows CNG and does not claim server version verification",
@@ -908,53 +921,50 @@ expect(
     and 'Expansion ESP SHA-256: ' in mismatch
     and 'Expansion ESP size (bytes): ' in mismatch
     and 'Expansion Pack version verified: No (not checked)' in mismatch
-    and 'known SHA-256 test vector' in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'private comparison detail leaked' in (
-        ROOT / "scripts" / "test-expansion-diagnostics.ahk"
-    ).read_text(encoding="utf-8-sig"),
+    and 'known SHA-256 test vector' in diagnostic_fixture
+    and 'private comparison detail leaked' in diagnostic_fixture,
 )
 
-resource_generator = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
 expansion_picker = (ROOT / "scripts" / "select-expansion-package.ps1").read_text(encoding="utf-8-sig")
 expansion_worker = (ROOT / "scripts" / "import-expansion-pack.ps1").read_text(encoding="utf-8-sig")
-expansion_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 expansion_fixture = (ROOT / "scripts" / "test-import-expansion-folder.ps1").read_text(encoding="utf-8-sig")
 expect(
     "Official Ahk2Exe asset download and local reuse require SHA-256",
-    "if ($compilerAsset.url -notmatch '^https://api\\.github\\.com/repos/AutoHotkey/Ahk2Exe/releases/assets/[0-9]+$')" in expansion_build
-    and "'Official Ahk2Exe release SHA-256 digest is unavailable" in expansion_build
-    and "'Accept'] = 'application/octet-stream'" in expansion_build
-    and "SaveOfficialDownload $compilerAsset.browser_download_url $compilerZip $headers 'Ahk2Exe' $compilerAsset.url $expectedCompilerHash $apiHeaders" in expansion_build
-    and "if ((GetTes3npSha256 $candidate) -ieq $expectedCompilerHash)" in expansion_build
-    and "if ((GetTes3npSha256 $compilerZip) -ine $expectedCompilerHash)" in expansion_build
-    and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in expansion_build
-    and "Using verified local official Ahk2Exe ZIP" in expansion_build,
+    "if ($compilerAsset.url -notmatch '^https://api\\.github\\.com/repos/AutoHotkey/Ahk2Exe/releases/assets/[0-9]+$')" in windows_build
+    and "'Official Ahk2Exe release SHA-256 digest is unavailable" in windows_build
+    and "'Accept'] = 'application/octet-stream'" in windows_build
+    and "SaveOfficialDownload $compilerAsset.browser_download_url $compilerZip $headers 'Ahk2Exe' $compilerAsset.url $expectedCompilerHash $apiHeaders" in windows_build
+    and "if ((GetTes3npSha256 $candidate) -ieq $expectedCompilerHash)" in windows_build
+    and "if ((GetTes3npSha256 $compilerZip) -ine $expectedCompilerHash)" in windows_build
+    and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in windows_build
+    and "Using verified local official Ahk2Exe ZIP" in windows_build,
 )
 expect(
     "AutoHotkey mirror and persistent cache require GitHub release SHA-256",
-    "'https://docs.autohotkey.com/download/2.0/' + $ahkAsset.name" in expansion_build
-    and "'^AutoHotkey_2\\.0\\.\\d+\\.zip$'" in expansion_build
-    and "'Official AutoHotkey release SHA-256 digest is unavailable" in expansion_build
-    and "SaveOfficialDownload $ahkAsset.browser_download_url $ahkZip $headers 'AutoHotkey' $ahkMirror $expectedAhkHash" in expansion_build
-    and "if ($ExpectedSha256 -and (GetTes3npSha256 $Destination) -ine $ExpectedSha256)" in expansion_build
-    and "Using cached official AutoHotkey ZIP (SHA-256 verified)" in expansion_build
-    and "CheckOfficialZip $ahkZip 'AutoHotkey'" in expansion_build
-    and "if ((GetTes3npSha256 $ahkZip) -ine $expectedAhkHash)" in expansion_build,
+    "'https://docs.autohotkey.com/download/2.0/' + $ahkAsset.name" in windows_build
+    and "'^AutoHotkey_2\\.0\\.\\d+\\.zip$'" in windows_build
+    and "'Official AutoHotkey release SHA-256 digest is unavailable" in windows_build
+    and "SaveOfficialDownload $ahkAsset.browser_download_url $ahkZip $headers 'AutoHotkey' $ahkMirror $expectedAhkHash" in windows_build
+    and "if ($ExpectedSha256 -and (GetTes3npSha256 $Destination) -ine $ExpectedSha256)" in windows_build
+    and "Using cached official AutoHotkey ZIP (SHA-256 verified)" in windows_build
+    and "CheckOfficialZip $ahkZip 'AutoHotkey'" in windows_build
+    and "if ((GetTes3npSha256 $ahkZip) -ine $expectedAhkHash)" in windows_build,
 )
 expect(
     "Windows build retries official GitHub downloads and retains dist on upstream failure",
-    "function GetOfficialRelease(" in expansion_build
-    and "function SaveOfficialDownload(" in expansion_build
-    and "for ($attempt = 1; $attempt -le 3; $attempt++)" in expansion_build
-    and "CheckOfficialZip $ahkZip 'AutoHotkey'" in expansion_build
-    and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in expansion_build
-    and "CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'" in expansion_build
-    and "SaveOfficialDownload $upstreamFontLicense" in expansion_build
-    and expansion_build.index("check-windows-package.py")
-        < expansion_build.index("Installing the verified distribution into dist")
-    and "Remove-Item (Join-Path $projectRoot 'dist') -Recurse" not in expansion_build,
+    "function GetOfficialRelease(" in windows_build
+    and "function SaveOfficialDownload(" in windows_build
+    and "for ($attempt = 1; $attempt -le 3; $attempt++)" in windows_build
+    and "CheckOfficialZip $ahkZip 'AutoHotkey'" in windows_build
+    and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in windows_build
+    and "CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'" in windows_build
+    and "SaveOfficialDownload $upstreamFontLicense" in windows_build
+    and in_order(
+        windows_build,
+        "check-windows-package.py",
+        "Installing the verified distribution into dist",
+    )
+    and "Remove-Item (Join-Path $projectRoot 'dist') -Recurse" not in windows_build,
 )
 expect(
     "One native Windows Explorer-style source browser picks ZIP or extracted folder",
@@ -965,12 +975,12 @@ expect(
     and 'RunWait(command, , "Hide")' in expansion_upload
     and 'DllCall("GetCurrentProcessId", "UInt")' in expansion_upload
     and 'A_Pid' not in expansion_upload
-    and "Preflighting full AutoHotkey launcher source and warning diagnostics" in expansion_build
-    and '$launcherOutput = @(& $base /ErrorStdOut $launcherSource' in expansion_build
-    and "'AutoHotkey launcher source warnings detected before packaging.'" in expansion_build
-    and "Preflighting generated standalone AutoHotkey source and warning diagnostics" in expansion_build
-    and "$stageOutput = @(& $base /ErrorStdOut $stageEntry '--check' 2>&1)" in expansion_build
-    and "'Staged AutoHotkey launcher warnings detected before compilation.'" in expansion_build
+    and "Preflighting full AutoHotkey launcher source and warning diagnostics" in windows_build
+    and '$launcherOutput = @(& $base /ErrorStdOut $launcherSource' in windows_build
+    and "'AutoHotkey launcher source warnings detected before packaging.'" in windows_build
+    and "Preflighting generated standalone AutoHotkey source and warning diagnostics" in windows_build
+    and "$stageOutput = @(& $base /ErrorStdOut $stageEntry '--check' 2>&1)" in windows_build
+    and "'Staged AutoHotkey launcher warnings detected before compilation.'" in windows_build
     and 'DirExist(package)' in expansion_upload
     and 'StrLower(extension) = "zip"' in expansion_upload
     and 'ChooseExpansionPackageSource' not in expansion_upload
@@ -984,13 +994,13 @@ expect(
     and 'Directory.Exists(folderPath)' in expansion_picker
     and 'File.Exists(path)' in expansion_picker
     and '[TES3NP.Expansion.NativePicker]::SmokeTest()' in expansion_picker
-    and 'select-expansion-package.ps1' in expansion_build
-    and 'Native Expansion Pack picker COM smoke test failed' in expansion_build
+    and 'select-expansion-package.ps1' in windows_build
+    and 'Native Expansion Pack picker COM smoke test failed' in windows_build
     and '"scripts/select-expansion-package.ps1"' in resource_generator
     and '"scripts/import-expansion-pack.ps1"' in resource_generator
-    and "Missing extracted Expansion Pack helper:" in expansion_build
-    and "Bundled Expansion Pack helper differs from source:" in expansion_build
-    and "Verified both extracted Expansion Pack helpers and source SHA-256 hashes" in expansion_build,
+    and "Missing extracted Expansion Pack helper:" in windows_build
+    and "Bundled Expansion Pack helper differs from source:" in windows_build
+    and "Verified both extracted Expansion Pack helpers and source SHA-256 hashes" in windows_build,
 )
 expect(
     "Folder imports use ZIP-equivalent allowlist, limits and unchanged rollback",
@@ -1074,7 +1084,7 @@ expect(
     and "CheckWorker $badZip 'reject-backslash-entry' $false 'unsafe file path'" in expansion_fixture
     and "CheckWorker $packageRoot 'reject-unknown-asset' $false 'Unexpected file in Expansion Pack Data Files'" in expansion_fixture
     and "AssertFixture (!$entry.FullName.Contains('\\'))" in expansion_fixture
-    and 'test-import-expansion-folder.ps1' in expansion_build
+    and 'test-import-expansion-folder.ps1' in windows_build
     and '$productionWorker = Join-Path $PSScriptRoot' in expansion_fixture
     and '$worker = Join-Path $root' in expansion_fixture
     and 'AssertFixture ($workerText.Contains($productionGuard))' in expansion_fixture
@@ -1134,28 +1144,22 @@ expect(
 )
 expect(
     "Pixie dust must sit over background but under interactive launcher controls",
-    (lambda front:
-        front.index('LauncherGui.Add("Picture", "x0 y-4 w960 h720"')
-        < front.index('CreateHappyHourDust()')
-        < front.index('DragStrip := LauncherGui.Add(')
-        < front.index('BuildButtonViewport()')
-    )((ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")),
+    in_order(
+        front_layout,
+        'LauncherGui.Add("Picture", "x0 y-4 w960 h720"',
+        'CreateHappyHourDust()',
+        'DragStrip := LauncherGui.Add(',
+        'BuildButtonViewport()',
+    ),
 )
 
 expect(
     "Vintage creatures are baked into the single launcher background",
-    (lambda front, bootstrap:
-        front.count('LauncherGui.Add("Picture", "x0 y-4 w960 h720"') == 1
-        and "og-creatures-overlay.png" not in front
-        and "og-creatures-overlay.png" not in bootstrap
-        and not (ROOT / "assets" / "backgrounds" / "og-creatures-overlay.png").exists()
-        and (ROOT / "assets" / "backgrounds" / "launcher.png").is_file()
-        and front.index('LauncherGui.Add("Picture", "x0 y-4 w960 h720"')
-            < front.index('CreateHappyHourDust()')
-    )(
-        (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig"),
-        bootstrap,
-    ),
+    front_layout.count('LauncherGui.Add("Picture", "x0 y-4 w960 h720"') == 1
+    and "og-creatures-overlay.png" not in front_layout
+    and "og-creatures-overlay.png" not in bootstrap
+    and not (ROOT / "assets" / "backgrounds" / "og-creatures-overlay.png").exists()
+    and (ROOT / "assets" / "backgrounds" / "launcher.png").is_file(),
 )
 
 expect(
@@ -1174,40 +1178,38 @@ expect(
     and "HappyHourDevModeEnabled" not in jiub_ui
     and "A_TrayMenu.Add" not in jiub_ui
     and "--happy-hour-dev" not in
-        (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig"),
+        chat_startup,
 )
 expect(
     "Jiub coordinates and native control remain intact",
     '"x438 y84 w120 h135 Hidden BackgroundTrans"' in jiub_ui
     and '#Include src\\ui\\happy-hour.ahk'
-        in (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
+        in entry_script
     and 'HappyHourJiubPicture.Visible := HappyHourBannerVisible' in jiub_ui,
 )
 
 expect(
     "Full AppData reset must stop ChatHost before deletion",
-    reset_ui.index("StopEmbeddedInGameChat()") >= 0
-    and reset_ui.index("StopEmbeddedInGameChat()") < reset_ui.index("DirDelete(AppDataDirectory, true)"),
+    in_order(settings_ui, "StopEmbeddedInGameChat()", "DirDelete(AppDataDirectory, true)"),
 )
 expect(
     "Full AppData reset must confirm ChatHost has exited before deleting user data",
-    "chatPid := EmbeddedChatPid" in reset_ui
-    and "stillRunning := ProcessWaitClose(chatPid, 5)" in reset_ui
-    and "if stillRunning" in reset_ui
-    and reset_ui.index("ProcessWaitClose(chatPid, 5)") < reset_ui.index("DirDelete(AppDataDirectory, true)"),
+    "chatPid := EmbeddedChatPid" in settings_ui
+    and "stillRunning := ProcessWaitClose(chatPid, 5)" in settings_ui
+    and "if stillRunning" in settings_ui
+    and in_order(settings_ui, "ProcessWaitClose(chatPid, 5)", "DirDelete(AppDataDirectory, true)"),
 )
 expect(
     "Reset shutdown must not recreate Roaming logs or preferences",
-    "LauncherDataResetting := true" in reset_ui
+    "LauncherDataResetting := true" in settings_ui
     and "if !LauncherDataResetting" in bootstrap
-    and "ExitApp()" in reset_ui,
+    and "ExitApp()" in settings_ui,
 )
 expect(
     "Reset mode must be part of centralized launcher state",
     "global LauncherDataResetting := false" in app_state,
 )
 
-settings_layout = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
 shortcut_offer = section_between(
     bootstrap, "OfferDesktopShortcutOnFirstLaunch(*)", "\n}",
 )
@@ -1216,27 +1218,27 @@ expect(
     'SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)' in bootstrap
     and bootstrap.count("SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)") == 1
     and "SetTimer(CheckFirstRunMorrowind" not in bootstrap
-    and 'AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),' in settings_layout
-    and '"Close Settings", CloseLauncherSettingsV016.Bind(settings))' in settings_layout
-    and '"Create Desktop Shortcut"' not in settings_layout
-    and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in settings_layout
-    and 'AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_layout
+    and 'AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),' in settings_ui
+    and '"Close Settings", CloseLauncherSettingsV016.Bind(settings))' in settings_ui
+    and '"Create Desktop Shortcut"' not in settings_ui
+    and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in settings_ui
+    and 'AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_ui
     and 'if !A_IsCompiled || !FileExist(A_ScriptDir "\\client\\tes3mp.exe")' in shortcut_offer
     and 'IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""' in shortcut_offer
     and 'answer := MsgBox("Would you like a desktop shortcut for Nerevarine Prophecies?"' in shortcut_offer
     and 'IniWrite(answer = "Yes" ? "Yes" : "No", DataFile, "Launcher", "DesktopShortcutChoice")' in shortcut_offer
-    and shortcut_offer.index('IniWrite(answer = "Yes"') < shortcut_offer.index('FileCreateShortcut(')
+    and in_order(shortcut_offer, 'IniWrite(answer = "Yes"', 'FileCreateShortcut(')
     and 'FileCreateShortcut(A_ScriptFullPath, A_Desktop "\\Nerevarine Prophecies.lnk"' in shortcut_offer
     and "forceAfterInstall" not in bootstrap,
 )
 characters_ui = (ROOT / "src" / "ui" / "characters.ahk").read_text(encoding="utf-8-sig")
 settings_open = section_between(
-    settings_layout,
+    settings_ui,
     "OpenLauncherSettingsV016(*)",
     "\nCloseLauncherSettingsV016(settings, *)",
 )
 settings_close = section_between(
-    settings_layout,
+    settings_ui,
     "CloseLauncherSettingsV016(settings, *)",
     "\nV016CheckLabel(state, label)",
 )
@@ -1248,15 +1250,21 @@ characters_close = section_between(
 expect(
     "Settings transparency is applied while hidden and launcher owns foreground before close",
     'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
-    and settings_open.index('settings.Show("Hide w"')
-        < settings_open.index('SetPageColorKey(settings, 0x010101)')
-        < settings_open.index('    settings.Show()')
+    and in_order(
+        settings_open,
+        'settings.Show("Hide w"',
+        'SetPageColorKey(settings, 0x010101)',
+        '    settings.Show()',
+    )
     and 'WinSetTransColor(' not in settings_open
     and 'if staged\n            RevealPaintedPage(settings)\n        else\n            FinishButtonDisplay()' in settings_open
     and 'DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)' in settings_close
-    and settings_close.index('DllCall("EnableWindow"')
-        < settings_close.index('try WinActivate("ahk_id " LauncherGui.Hwnd)')
-        < settings_close.index('try settings.Destroy()'),
+    and in_order(
+        settings_close,
+        'DllCall("EnableWindow"',
+        'try WinActivate("ahk_id " LauncherGui.Hwnd)',
+        'try settings.Destroy()',
+    ),
 )
 launcher_return = section_between(
     bootstrap,
@@ -1270,8 +1278,11 @@ expect(
     and 'LauncherControlLayout.Count = LauncherCachedLayoutCount' in launcher_return
     and 'desiredCachedScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale' in launcher_return
     and 'if desiredCachedScale = LauncherCachedScale\n            return' in launcher_return
-    and launcher_return.index('if reuseCached && LauncherCachedScale > 0')
-        < launcher_return.index('RepaintMenuButtons()')
+    and in_order(
+        launcher_return,
+        'if reuseCached && LauncherCachedScale > 0',
+        'RepaintMenuButtons()',
+    )
     and 'ShowLauncherWindow(true)\n    preparedMs := A_TickCount - startedAt\n    CharacterPage.Hide()' in characters_close
     and 'LogLauncherEvent("UI | Character Book close " hiddenMs "ms | Parent " preparedMs' in characters_close
     and 'HideProfileEditor()\n    CloseMacroPage()' in characters_close,
@@ -1279,10 +1290,13 @@ expect(
 expect(
     "Character Book raises the prepared launcher before hiding and restoring dormant book controls",
     'ShowLauncherWindow(true)' in characters_close
-    and characters_close.index('ShowLauncherWindow(true)')
-        < characters_close.index('CharacterPage.Hide()')
-        < characters_close.index('HideProfileEditor()')
-        < characters_close.index('CloseMacroPage()')
+    and in_order(
+        characters_close,
+        'ShowLauncherWindow(true)',
+        'CharacterPage.Hide()',
+        'HideProfileEditor()',
+        'CloseMacroPage()',
+    )
     and 'PrepareWindowDisplay(CharacterPage)' in characters_ui
     and 'RevealWindowDisplay(CharacterPage, true, !staged)' in characters_ui,
 )
@@ -1298,20 +1312,23 @@ expect(
     and characters_open.count('SetPageCompositorCloak(CharacterPage, true)') == 2
     and characters_open.count('RevealPaintedPage(CharacterPage)') == 2
     and characters_open.count('SetPageCompositorCloak(CharacterPage, false)') == 2
-    and characters_open.index('PrepareWindowDisplay(CharacterPage)')
-        < characters_open.rindex('CharacterPage.Show("Hide w" Round(960 * bookScale)')
-        < characters_open.rindex('RevealWindowDisplay(CharacterPage, true, !staged)')
-        < characters_open.rindex('RevealPaintedPage(CharacterPage)')
+    and 0 <= characters_open.find('PrepareWindowDisplay(CharacterPage)')
+        < characters_open.rfind('CharacterPage.Show("Hide w" Round(960 * bookScale)')
+        < characters_open.rfind('RevealWindowDisplay(CharacterPage, true, !staged)')
+        < characters_open.rfind('RevealPaintedPage(CharacterPage)')
     and 'FinishButtonDisplay()\n                RevealPaintedPage(CharacterPage)' not in characters_open,
 )
 expect(
     "Settings first visible frame waits for composited parchment and native button paint",
     'staged := SetPageCompositorCloak(settings, true)' in settings_open
-    and settings_open.index('staged := SetPageCompositorCloak(settings, true)')
-        < settings_open.index('settings.Show("Hide w"')
-        < settings_open.index('SetPageColorKey(settings, 0x010101)')
-        < settings_open.index('        settings.Show()')
-        < settings_open.index('RevealPaintedPage(settings)')
+    and in_order(
+        settings_open,
+        'staged := SetPageCompositorCloak(settings, true)',
+        'settings.Show("Hide w"',
+        'SetPageColorKey(settings, 0x010101)',
+        '        settings.Show()',
+        'RevealPaintedPage(settings)',
+    )
     and 'if staged\n            RevealPaintedPage(settings)\n        else\n            FinishButtonDisplay()' in settings_open
     and 'SetPageCompositorCloak(settings, false)' in settings_open,
 )
@@ -1331,10 +1348,12 @@ expect(
     and '"UInt", 0x0181' in window_presenter
     and '"UInt", 0x0185' not in window_presenter
     and 'DllCall("UpdateWindow", "Ptr", gui.Hwnd)' not in window_presenter
-    and window_presenter.index('DllCall("RedrawWindow"')
-        < window_presenter.index('SetPageCompositorCloak(gui, false)'),
+    and in_order(
+        window_presenter,
+        'DllCall("RedrawWindow"',
+        'SetPageCompositorCloak(gui, false)',
+    ),
 )
-entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Windows CI tests DWM staged window as a disposable visible GUI",
     'A_Args[1] = "--check-page-compositor"' in entry_script
@@ -1376,14 +1395,12 @@ expect(
 )
 expect(
     "Launcher Settings follows moved owner and current scale without losing parchment",
-    'return Max(0.45, Min(GetOwnedMenuScale(), fit))' in settings_layout
+    'return Max(0.45, Min(GetOwnedMenuScale(), fit))' in settings_ui
     and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in settings_open
     and 'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
     and 'SetPageColorKey(settings, 0x010101)' in settings_open
     and 'staged := SetPageCompositorCloak(settings, true)' in settings_open
-    and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in (
-        ROOT / "src" / "ui" / "launcher-settings.ahk"
-    ).read_text(encoding="utf-8-sig"),
+    and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in display_settings,
 )
 expect(
     "Fresh and cached Character Book resize and position without rebuilding book state",
@@ -1405,11 +1422,11 @@ expect(
 )
 expect(
     "Client, dependency and Morrowind use scaled native changelog cards; remaining dialogs follow owners",
-    'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)' in settings_layout
-    and 'initialHeight := saved ? 460 : 412' in settings_layout
-    and 'ShowGoldNativePrompt(menu)' in settings_layout
-    and 'options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", ' in settings_layout
-    and 'ShowGoldNativePrompt(options)' in settings_layout
+    'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)' in settings_ui
+    and 'initialHeight := saved ? 460 : 412' in settings_ui
+    and 'ShowGoldNativePrompt(menu)' in settings_ui
+    and 'options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", ' in settings_ui
+    and 'ShowGoldNativePrompt(options)' in settings_ui
     and 'CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)' in patcher
     and 'ShowGoldNativePrompt(prompt)' in patcher
     and 'ScaleOwnedMenuContent(dialog, dialogScale)' in characters_ui
@@ -1417,18 +1434,17 @@ expect(
     and 'ScaleOwnedMenuContent(chooser, chooserScale)' in macro_menu_ui
     and 'PositionOwnedMenuAtParent(chooser, MacroPage)' in macro_menu_ui,
 )
-native_card_ui = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Borderless changelog native cards own their dimmers and release them on every exit",
-    'CreateUpdateBackdrop(owner := 0)' in native_card_ui
-    and 'CreateGoldNativePrompt(owner, title, width, height)' in native_card_ui
-    and 'Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)' in native_card_ui
-    and 'ScaleOwnedMenuContent(panel, scale)' in native_card_ui
-    and 'ShowCenteredUpdateCard(panel, panel.NativePromptBackdrop,' in native_card_ui
-    and 'CloseGoldNativePrompt(panel)' in native_card_ui
-    and 'CloseGoldNativePrompt(menu)' in settings_layout
-    and 'CloseGoldNativePrompt(options)' in settings_layout
-    and settings_layout.count('options.Destroy()') == 0
+    'CreateUpdateBackdrop(owner := 0)' in update_check
+    and 'CreateGoldNativePrompt(owner, title, width, height)' in update_check
+    and 'Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)' in update_check
+    and 'ScaleOwnedMenuContent(panel, scale)' in update_check
+    and 'ShowCenteredUpdateCard(panel, panel.NativePromptBackdrop,' in update_check
+    and 'CloseGoldNativePrompt(panel)' in update_check
+    and 'CloseGoldNativePrompt(menu)' in settings_ui
+    and 'CloseGoldNativePrompt(options)' in settings_ui
+    and settings_ui.count('options.Destroy()') == 0
     and 'CloseGoldNativePrompt(prompt)' in section_between(
         patcher, 'SelectFirstRunMorrowind(prompt, *)', '\nDismissFirstRunMorrowind(')
     and 'CloseGoldNativePrompt(prompt)' in section_between(
@@ -1446,16 +1462,16 @@ expect(
 )
 expect(
     "Game Client text clears buttons and available actions dictate card height",
-    'menu.Add("Text", "x30 y115 w620 h65 BackgroundTrans +Wrap",' in settings_layout
-    and 'customize := AddStyledButton(menu, 30, 190, 620, 40,' in settings_layout
-    and 'initialHeight := saved ? 460 : 412' in settings_layout
-    and 'reactivate.Visible := saved' in settings_layout
-    and 'restoreY := saved ? 286 : 238' in settings_layout
-    and 'statusY := saved ? 339 : 291' in settings_layout
-    and 'closeY := saved ? 399 : 351' in settings_layout
-    and 'RefreshGameClientSettingsLayoutV016(menu)' in settings_layout
-    and 'menu.NativePromptBackground.Move(' in settings_layout
-    and 'panel.NativePromptBackground := panel.Add("Text",' in native_card_ui,
+    'menu.Add("Text", "x30 y115 w620 h65 BackgroundTrans +Wrap",' in settings_ui
+    and 'customize := AddStyledButton(menu, 30, 190, 620, 40,' in settings_ui
+    and 'initialHeight := saved ? 460 : 412' in settings_ui
+    and 'reactivate.Visible := saved' in settings_ui
+    and 'restoreY := saved ? 286 : 238' in settings_ui
+    and 'statusY := saved ? 339 : 291' in settings_ui
+    and 'closeY := saved ? 399 : 351' in settings_ui
+    and 'RefreshGameClientSettingsLayoutV016(menu)' in settings_ui
+    and 'menu.NativePromptBackground.Move(' in settings_ui
+    and 'panel.NativePromptBackground := panel.Add("Text",' in update_check,
 )
 expect(
     "Manage Macros empty state and Upload button do not leave blank action row",
@@ -1528,12 +1544,8 @@ expect(
     and 'pendingExpansionPrompt != 0' in source
     and 'Discord Integration!' in source
     and 'Sign In Required' in source
-    and 'CopyToPublishDirectory="PreserveNewest"' in (
-        ROOT / "chat-host" / "tes3np.ChatHost.csproj"
-    ).read_text(encoding="utf-8-sig")
-    and "assets\\DiscordInt.png" in (
-        ROOT / "chat-host" / "tes3np.ChatHost.csproj"
-    ).read_text(encoding="utf-8-sig"),
+    and 'CopyToPublishDirectory="PreserveNewest"' in chat_project
+    and "assets\\DiscordInt.png" in chat_project,
 )
 
 # New interactive behaviors must remain separated from the launcher's
@@ -1576,12 +1588,8 @@ expect(
 )
 expect(
     "Approved ZIP survives only while missing-Morrowind setup owns it",
-    'DeferExpansionInstallForMissingMorrowind(package, autoApproved)' in (
-        ROOT / "src" / "ui" / "expansion-upload.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'PendingExpansionPackage := package' in (
-        ROOT / "src" / "ui" / "expansion-upload.ahk"
-    ).read_text(encoding="utf-8-sig")
+    'DeferExpansionInstallForMissingMorrowind(package, autoApproved)' in expansion_upload
+    and 'PendingExpansionPackage := package' in expansion_upload
     and 'SetTimer(InstallSelectedExpansionPackage.Bind(pendingPackage, pendingApproved), -50)' in patcher
     and 'MorrowindPromptGui.PendingExpansionPackage = package' in mismatch
     and 'if !deferred' in mismatch
@@ -1589,15 +1597,11 @@ expect(
 )
 expect(
     "Client identity and clickable controls use TES3MP and Windows pointer",
-    '"Original TES3MP runtime"' in settings_layout
-    and '"Use Original TES3MP Client"' in settings_layout
-    and 'Original TES3NP runtime' not in settings_layout
-    and 'SetLauncherHandCursor()' in (
-        ROOT / "src" / "ui" / "renderer.ahk"
-    ).read_text(encoding="utf-8-sig")
-    and 'OnMessage(0x0020, HandleNativeClickableCursor)' in (
-        ROOT / "src" / "ui" / "renderer.ahk"
-    ).read_text(encoding="utf-8-sig"),
+    '"Original TES3MP runtime"' in settings_ui
+    and '"Use Original TES3MP Client"' in settings_ui
+    and 'Original TES3NP runtime' not in settings_ui
+    and 'SetLauncherHandCursor()' in native_renderer
+    and 'OnMessage(0x0020, HandleNativeClickableCursor)' in native_renderer,
 )
 
 # The seven second-PC regression reports must have explicit source-side
@@ -1614,8 +1618,11 @@ expect(
 expect(
     "Saved characters and new adventures require GOTY data before spawning TES3MP",
     session.count("if !EnsureMorrowindForGameLaunch()") == 3
-    and session.index("if !EnsureMorrowindForGameLaunch()")
-        < session.index("StartProfileSession(profile, executable)")
+    and in_order(
+        session,
+        "if !EnsureMorrowindForGameLaunch()",
+        "StartProfileSession(profile, executable)",
+    )
     and "FindMorrowindFolder(PatchConfigurationPath())" in patcher,
 )
 expect(
@@ -1634,7 +1641,7 @@ expect(
 )
 expect(
     "Game client count tracks processes from launch and cancelled login discards its credentials",
-    session.index("TES3NPActiveGameHandles.Push(handle)") < session.index('Client.Phase := "window"')
+    in_order(session, "TES3NPActiveGameHandles.Push(handle)", 'Client.Phase := "window"')
     and 'if Client != session || !Client.Enabled || Client.HWND != hwnd' in session
     and 'Client.Profile := 0' in section_between(session, "StopClient(*)", "\nFindGameWindow(")
     and 'ReleaseTES3NPGameClients()' in bootstrap,
@@ -1670,9 +1677,6 @@ expect(
     and 'DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)' in login_progress
     and 'ProcessClose(' not in login_cleanup,
 )
-display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
-settings_ui = (ROOT / "src" / "ui" / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
-front_layout = (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
 font_update = section_between(
     display_settings, "\nApplyAccessibilityTextSize()\n{", "\nApplyEnhancedReadability()\n{"
 )
@@ -1702,7 +1706,7 @@ expect(
     'FileCopy(DataFile, temporary)' in display_save
     and 'FileMove(temporary, DataFile, true)' in display_save
     and display_save.count('IniWrite(') == 5
-    and display_save.index('FileMove(temporary, DataFile, true)') > display_save.rindex('IniWrite(')
+    and display_save.rfind('IniWrite(') < display_save.find('FileMove(temporary, DataFile, true)')
     and 'IniWrite(value, DataFile' not in display_settings,
 )
 expect(
@@ -1725,8 +1729,6 @@ expect(
     and "arrowHalf := Max(4, Round(9 * paintScale))" in bootstrap
     and "arrowHeight := Max(4, Round(10 * paintScale))" in bootstrap,
 )
-chat_startup = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig")
-ui_loading = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
 host_freshness = section_between(chat_startup, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
 expect(
     "Opening the source launcher never compiles ChatHost on the UI thread",
@@ -1737,9 +1739,9 @@ expect(
 )
 expect(
     "Loading transitions avoid compositor waits and restore prior critical state",
-    "DwmFlush" not in ui_loading.replace("DwmFlush synchronously", "")
-    and "previousCritical := A_IsCritical" in ui_loading
-    and "finally Critical(previousCritical)" in ui_loading
+    "DwmFlush" not in loading_ui.replace("DwmFlush synchronously", "")
+    and "previousCritical := A_IsCritical" in loading_ui
+    and "finally Critical(previousCritical)" in loading_ui
     and "finally EndInterfaceUpdate()" in display_settings,
 )
 expect(
@@ -1754,9 +1756,8 @@ expect(
     and "pointerWindow = ButtonFaces[pointerControl].Window" in controls,
 )
 
-update_startup = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
 automatic_update = section_between(
-    update_startup, "CheckForUpdateAvailability(*)", "\nHasSeenUpdateAutoPreview(version)"
+    update_check, "CheckForUpdateAvailability(*)", "\nHasSeenUpdateAutoPreview(version)"
 )
 expect(
     "Automatic update check must never synchronously block the launcher UI",
@@ -1778,7 +1779,9 @@ expect(
     and 'DwmSetWindowAttribute(Handle, DWMWA_CLOAK, ref value, sizeof(int))' in source
     and 'SetChatOpen(chatDisplayMode == "Always Shown");\n            // The owner, layout and saved visibility are now authoritative.' in source
     and 'startupPresentationPending = false;\n                SetStartupWindowCloak(false);' in source
-    and source.index('SetStartupWindowCloak(false);') > source.index('SetChatOpen(chatDisplayMode == "Always Shown");'),
+    and in_order(
+        source, 'SetChatOpen(chatDisplayMode == "Always Shown");', 'SetStartupWindowCloak(false);',
+    ),
 )
 expect(
     "Chat Host docking preserves positioning while recording blocking phases",
