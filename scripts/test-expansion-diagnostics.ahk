@@ -14,6 +14,8 @@ global EmbeddedChatPid := 0
 global ExpansionAutoFailurePromptGui := 0
 global DataFile := ""
 global FixtureWatchingLogs := false
+global MorrowindPromptGui := 0
+global PatchJob := 0
 
 ; This fixture includes only the production diagnostic module, NOT the whole
 ; live launcher. Provide inert dependency stubs so #Warn can resolve the same
@@ -57,7 +59,7 @@ StopClient()
     return MismatchFixtureDisallow("game client")
 }
 
-UploadExpansionFromFile()
+UploadExpansionFromFile(args*)
 {
     return MismatchFixtureDisallow("ZIP importer")
 }
