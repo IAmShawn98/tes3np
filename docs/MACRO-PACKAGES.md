@@ -25,9 +25,9 @@ Entry=src\main.ahk
 
 Entry must point to an existing `.ahk` file inside the ZIP. Put `#Requires AutoHotkey v2.0` in v2 scripts. Scripts launch with the current AutoHotkey interpreter; a compiled launcher asks the user to select an interpreter. For scripts requiring a different version, install that version and ensure its requirements are declared; the manager does not convert v1 scripts into v2.
 
-Limits: 25 MB ZIP, 50 MB expanded, 500 archive entries. Absolute paths, parent traversal, duplicate paths and symbolic links are rejected. Import requires Windows PowerShell and uses the bundled `scripts/import-macro.ps1` helper. Import errors are shown without executing payload code.
+The importer accepts ZIPs up to 25 MB with up to 500 entries and 50 MB of expanded contents. It rejects absolute paths, parent traversal, duplicate paths, file and folder name conflicts, Windows device names, and symbolic links. Import requires Windows PowerShell and uses the bundled `scripts/import-macro.ps1` helper.
 
-Installed packages have a launcher-created `.tes3np-package.ini` record. Do not include this metadata or `.import-success` / `.import-error` marker files in your ZIP. Installed scripts may write their own settings inside their package folder. Removing a package also removes those local files.
+The launcher reserves `.tes3np-package.ini`, `.import-success`, and `.import-error` at the ZIP root for its own records. Installed scripts may write their own settings inside their package folder. Removing a package also removes those local files.
 
 ## Release testing
 

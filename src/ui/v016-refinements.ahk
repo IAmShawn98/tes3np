@@ -514,7 +514,7 @@ try {
 
 ShowResetAppDataActions(*)
 {
-    global AppDataDirectory, LauncherDataResetting, EmbeddedChatPid
+    global AppDataDirectory, LauncherDataResetting, EmbeddedChatPid, MacroImport
     choice := MsgBox("Yes: Open the AppData folder`nNo: Reset AppData`nCancel: Return", "tes3np — Reset AppData", "YesNoCancel Icon?")
     if choice = "Yes"
         return OpenLauncherDataFolder()
@@ -529,6 +529,11 @@ ShowResetAppDataActions(*)
     if PatchInProgress()
     {
         MsgBox("Finish the current patch operation before resetting launcher data.", "tes3np — Reset AppData", "Icon!")
+        return
+    }
+    if IsObject(MacroImport)
+    {
+        MsgBox("Finish the current macro import before resetting launcher data.", "tes3np — Reset AppData", "Icon!")
         return
     }
     ; ChatHost continuously indexes Discord history. Stop this owned process

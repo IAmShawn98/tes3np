@@ -1010,7 +1010,8 @@ expect(
     and 'AssertSpace $staged ([long]$item.Length)' in expansion_worker
     and 'AssertSpace $item.Target' in expansion_worker
     and 'AssertSpace $JobFolder' in expansion_worker
-    and 'function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation)' in expansion_worker
+    and 'function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation, [string]$PreviousHash' in expansion_worker
+    and 'if ($attempt -gt 1 -and $PreviousHash) { AssertExpectedTarget $Destination $PreviousHash }' in expansion_worker
     and 'InvokeLockRetry' not in expansion_worker
     and "'hash' {" in expansion_worker
     and "'copy' {" in expansion_worker

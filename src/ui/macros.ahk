@@ -528,6 +528,8 @@ LoadMacroPackages()
     MacroList.Delete()
     Loop Files MacroRoot "\*", "D"
     {
+        if IsMacroImportFolderName(A_LoopFileName) || InStr(A_LoopFileAttrib, "L")
+            continue
         folder := A_LoopFileFullPath
         metadata := folder "\.tes3np-package.ini"
         if !FileExist(metadata)
@@ -597,7 +599,7 @@ ImportMacroPackage(*)
         return
     archive := FileSelect(1, , "Upload Macro",
         "AutoHotkey scripts, ZIPs and applications (*.ahk;*.zip;*.exe)")
-    if archive = ""
+    if archive = "" || IsObject(MacroImport)
         return
     if RegExMatch(archive, "i)\.ahk$")
     {
@@ -630,24 +632,48 @@ ImportMacroPackage(*)
         MsgBox("This file is not a ZIP archive. Create a ZIP containing your .ahk script.", "Import Macro")
         return
     }
-    staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    staging := ""
     try
     {
+        staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
         DirCreate(staging)
         helper := A_ScriptDir "\scripts\import-macro.ps1"
         powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
         Run('"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' helper '" -Archive "' archive '" -Destination "' staging '"', , "Hide", &pid)
-        MacroImport := {PID: pid, Folder: staging, Archive: archive, Started: A_TickCount}
-        MacroImportButton.Enabled := false
-        MacroStatus.Text := "Extracting and checking macro package..."
-        RefreshMacroButtons()
-        SetTimer(CheckMacroImport, 200)
     }
     catch
     {
-        if DirExist(staging)
-            DirDelete(staging, true)
+        if staging != ""
+            DeleteLauncherStagingTree(staging)
         MsgBox("Could not start ZIP import. Windows PowerShell is required.", "Import Macro")
+        return
+    }
+    handle := DllCall("OpenProcess", "UInt", 0x100001, "Int", 0, "UInt", pid, "Ptr")
+    MacroImport := {PID: pid, ProcessHandle: handle, Folder: staging, Archive: archive, Started: A_TickCount}
+    SetTimer(CheckMacroImport, 200)
+    try
+    {
+        MacroImportButton.Enabled := false
+        MacroStatus.Text := "Extracting and checking macro package..."
+        RefreshMacroButtons()
+    }
+}
+
+StopMacroImportWorker(pending)
+{
+    handle := pending.ProcessHandle
+    if !handle
+        return !ProcessExist(pending.PID)
+    try
+    {
+        if MacroProcessRunning(pending)
+            DllCall("TerminateProcess", "Ptr", handle, "UInt", 1)
+        return DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 1000, "UInt") = 0
+    }
+    finally
+    {
+        DllCall("CloseHandle", "Ptr", handle)
+        pending.ProcessHandle := 0
     }
 }
 
@@ -656,21 +682,19 @@ CheckMacroImport()
     global MacroImport, MacroImportButton, MacroStatus
     if !IsObject(MacroImport)
         return
-    timedOut := false
-    if ProcessExist(MacroImport.PID)
-    {
-        if A_TickCount - MacroImport.Started < 120000
-            return
-        timedOut := true
-        try ProcessClose(MacroImport.PID)
-    }
-    SetTimer(CheckMacroImport, 0)
     pending := MacroImport
-    MacroImport := 0
+    timedOut := pending.ProcessHandle ? MacroProcessRunning(pending) : ProcessExist(pending.PID)
+    if timedOut && A_TickCount - pending.Started < 120000
+        return
+    SetTimer(CheckMacroImport, 0)
+    workerClosed := false
     try
     {
+        workerClosed := StopMacroImportWorker(pending)
         if timedOut
             throw Error("ZIP extraction timed out after 120 seconds.")
+        if !workerClosed
+            throw Error("Could not confirm the ZIP extractor closed.")
         if !FileExist(pending.Folder "\.import-success") || FileExist(pending.Folder "\.import-error")
         {
             detail := FileExist(pending.Folder "\.import-error") ? SubStr(FileRead(pending.Folder "\.import-error", "UTF-8"), 1, 200) : "ZIP extraction helper did not complete. Check that scripts/import-macro.ps1 is present and PowerShell can run."
@@ -680,9 +704,8 @@ CheckMacroImport()
     }
     catch Error as err
     {
-        try
-            if DirExist(pending.Folder)
-                DirDelete(pending.Folder, true)
+        if workerClosed
+            DeleteLauncherStagingTree(pending.Folder)
         detail := SanitizeDiagnosticText(err.Message)
         if detail = ""
             detail := "The macro ZIP could not be imported."
@@ -691,6 +714,7 @@ CheckMacroImport()
     }
     finally
     {
+        MacroImport := 0
         MacroImportButton.Enabled := true
         RefreshMacroButtons()
     }
@@ -713,7 +737,7 @@ FinishMacroImport(pending)
         entry := scripts.Length = 1 ? scripts[1] : ChooseMacroScript(scripts)
     if entry = ""
     {
-        DirDelete(pending.Folder, true)
+        DeleteLauncherStagingTree(pending.Folder)
         MacroStatus.Text := "Import canceled."
         return
     }
@@ -727,9 +751,10 @@ FinishMacroImport(pending)
     IniWrite(name, metadata, "Macro", "Name")
     IniWrite(SubStr(description, 1, 500), metadata, "Macro", "Description")
     IniWrite(entry, metadata, "Macro", "Entry")
-    FileDelete(pending.Folder "\.import-success")
+    if FileExist(pending.Folder "\.import-success")
+        FileDelete(pending.Folder "\.import-success")
     ; Immutable unique install folders allow ZIPs with the same display name.
-    destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
     DirMove(pending.Folder, destination)
     AddImportedMacro(destination, name, description, entry)
     MacroStatus.Text := "Imported " name ". Select it and click Run."
@@ -738,17 +763,25 @@ FinishMacroImport(pending)
 AddImportedMacro(folder, name, description, entry, kind := "Macro", target := "")
 {
     global MacroPage, MacroItems, MacroList, MacroScrollOffset
-    BeginInterfaceUpdate(MacroPage, "Updating macro list...")
     try
     {
-        MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
-            Kind: kind, Target: target, ProcessHandle: 0})
-        row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
-        MacroList.Modify(row, "Select Focus")
-        MacroScrollOffset := Max(0, row - 4)
-        RefreshMacroButtons()
+        try
+        {
+            BeginInterfaceUpdate(MacroPage, "Updating macro list...")
+            row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
+            MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
+                Kind: kind, Target: target, ProcessHandle: 0})
+            MacroList.Modify(row, "Select Focus")
+            MacroScrollOffset := Max(0, row - 4)
+            RefreshMacroButtons()
+        }
+        finally EndInterfaceUpdate()
     }
-    finally EndInterfaceUpdate()
+    catch
+    {
+        try LoadMacroPackages()
+        LogLauncherEvent("MACRO | Package saved. Installed macro list refresh needed recovery.")
+    }
 }
 
 ; An installed EXE is linked by path. Copying only its EXE would break apps
@@ -762,25 +795,30 @@ ImportMacroApplication(source)
     name := SubStr(Trim(name), 1, 100)
     if name = ""
         name := filename
-    folder := MacroRoot "\app-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    staging := ""
     try
     {
-        DirCreate(folder)
-        manifest := folder "\.tes3np-package.ini"
+        id := FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
+        staging := MacroRoot "\import-" id
+        folder := MacroRoot "\app-" id
+        DirCreate(staging)
+        manifest := staging "\.tes3np-package.ini"
         IniWrite(name, manifest, "Macro", "Name")
         IniWrite("App", manifest, "Macro", "Kind")
         IniWrite(filename, manifest, "Macro", "Entry")
         IniWrite(source, manifest, "Macro", "Target")
         IniWrite("Linked local application", manifest, "Macro", "Description")
-        AddImportedMacro(folder, name, "Linked local application", filename, "App", source)
-        MacroStatus.Text := "Added " name ". Select it and click Run."
+        DirMove(staging, folder)
     }
     catch
     {
-        if DirExist(folder)
-            try DirDelete(folder, true)
+        if staging != ""
+            DeleteLauncherStagingTree(staging)
         MsgBox("Could not register that application.", "Upload Macro")
+        return
     }
+    AddImportedMacro(folder, name, "Linked local application", filename, "App", source)
+    MacroStatus.Text := "Added " name ". Select it and click Run."
 }
 
 ChooseMacroScript(scripts)
@@ -975,10 +1013,10 @@ CleanupMacros()
     SetTimer(RefreshMacroProcesses, 0)
     if IsObject(MacroImport)
     {
-        if ProcessExist(MacroImport.PID)
-            try ProcessClose(MacroImport.PID)
-        if DirExist(MacroImport.Folder)
-            try DirDelete(MacroImport.Folder, true)
+        try
+            if StopMacroImportWorker(MacroImport)
+                DeleteLauncherStagingTree(MacroImport.Folder)
+        MacroImport := 0
     }
     ; Macro scripts remain launcher-owned; linked apps should remain running
     ; if the user closes TES3NP instead of being forcibly terminated.
@@ -1001,19 +1039,19 @@ CleanupMacros()
 ImportMacroScript(source)
 {
     global MacroRoot, MacroStatus
-    staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    staging := ""
     try
     {
+        staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
         DirCreate(staging)
         SplitPath(source, &filename)
         FileCopy(source, staging "\" filename)
-        FileAppend("OK", staging "\.import-success")
         FinishMacroImport({Folder: staging, Archive: source})
     }
     catch
     {
-        if DirExist(staging)
-            try DirDelete(staging, true)
+        if staging != ""
+            DeleteLauncherStagingTree(staging)
         MacroStatus.Text := "The script could not be imported."
         MsgBox("Could not copy this AutoHotkey script. Check that the file is readable.", "Import Macro")
     }

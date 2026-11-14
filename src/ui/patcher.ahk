@@ -86,11 +86,12 @@ CheckPatchWorker()
     job := PatchJob
     progress := job.Folder "\progress.ini"
     if FileExist(progress)
-    {
-        label := IniRead(progress, "Progress", "Label", "Importing Expansion Pack")
-        value := IniRead(progress, "Progress", "Percent", "0")
-        UpdatePatchProgress(label, RegExMatch(value, "^\d+$") ? Integer(value) : 0)
-    }
+        try
+        {
+            label := IniRead(progress, "Progress", "Label", "Importing Expansion Pack")
+            value := IniRead(progress, "Progress", "Percent", "0")
+            UpdatePatchProgress(label, RegExMatch(value, "^\d+$") ? Integer(value) : 0)
+        }
     running := job.Handle
         ? DllCall("WaitForSingleObject", "Ptr", job.Handle, "UInt", 0, "UInt") = 258
         : ProcessExist(job.PID)
@@ -107,11 +108,15 @@ CheckPatchWorker()
         DllCall("CloseHandle", "Ptr", job.Handle)
     }
     result := job.Folder "\result.ini"
-    state := IniRead(result, "Result", "State", exitCode = 0 ? "success" : "error")
+    state := exitCode = 0 ? "success" : "error"
+    try state := IniRead(result, "Result", "State", state)
+    if state != "success" || (IsInteger(exitCode) && exitCode != 0)
+        state := "error"
     fallback := state = "success"
         ? "Expansion Pack import complete. Try connecting again."
         : "The Expansion Pack import exited without a result. Exit code: " exitCode ". Keep this attempt's backup files if copying had started."
-    message := IniRead(result, "Result", "Message", fallback)
+    message := fallback
+    try message := IniRead(result, "Result", "Message", fallback)
     try
     {
         if state = "success"
@@ -187,8 +192,11 @@ CanUseNPLauncher()
 
 CleanupPatcher()
 {
-    global PatchFrame
+    global PatchFrame, PatchJob
     SetTimer(CheckPatchWorker, 0)
+    if IsObject(PatchJob) && PatchJob.Handle
+        DllCall("CloseHandle", "Ptr", PatchJob.Handle)
+    PatchJob := 0
     ReleaseCapturedInterfaceFrame(PatchFrame)
     PatchFrame := 0
 }
