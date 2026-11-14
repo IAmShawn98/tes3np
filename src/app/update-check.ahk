@@ -1,15 +1,12 @@
 ; Safe update client. Installation remains an explicit user action.
 
-global UpdateReleasePage := "https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha"
-global UpdateManifestUrl := "https://github.com/IAmShawn98/tes3np-releases/releases/download/latest-alpha/tes3np-update.json"
-global UpdatePackageUrl := "https://github.com/IAmShawn98/tes3np-releases/releases/download/latest-alpha/tes3np-windows.zip"
 global UpdateBusy := false
 global UpdateStartupRequest := 0
 global UpdateStartupStarted := 0
 
 CheckForUpdateAvailability(*)
 {
-    global UpdateManifestUrl, UpdateStartupRequest, UpdateStartupStarted
+    global AppConfig, UpdateStartupRequest, UpdateStartupStarted
     ; The automatic startup check must not block the AHK GUI thread while
     ; waiting for GitHub. Manual checks still use the existing trusted flow.
     if IsObject(UpdateStartupRequest)
@@ -17,7 +14,7 @@ CheckForUpdateAvailability(*)
     try {
         request := ComObject("WinHttp.WinHttpRequest.5.1")
         request.SetTimeouts(5000, 5000, 10000, 10000)
-        request.Open("GET", UpdateManifestUrl, true)
+        request.Open("GET", GetUpdateManifestUrl(AppConfig.Version), true)
         request.SetRequestHeader("User-Agent", "tes3np updater")
         UpdateStartupRequest := request
         UpdateStartupStarted := A_TickCount
@@ -58,8 +55,8 @@ PollStartupUpdateAvailability(*)
         UpdateStartupRequest := 0
         if request.Status != 200
             throw Error("Update metadata returned HTTP " request.Status ".")
-        manifest := ParseAndValidateUpdateManifest(request.ResponseText)
-        available := manifest.updateEnabled && CompareTes3npVersions(manifest.version, AppConfig.Version) > 0
+        manifest := ParseAndValidateUpdateManifest(request.ResponseText, AppConfig.Version)
+        available := manifest.UpdateEnabled && GetLauncherUpdateKind(AppConfig.Version, manifest.Version) != ""
         SetLauncherUpdateAvailable(available, manifest.version)
         if available && !HasSeenUpdateAutoPreview(manifest.version)
             SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
@@ -90,7 +87,7 @@ AutoPreviewNewUpdate(version, *)
 
 CheckForUpdates(*)
 {
-    global AppConfig, UpdateManifestUrl, UpdateBusy, LauncherGui, DataFile
+    global AppConfig, UpdateBusy, LauncherGui, DataFile
     if UpdateBusy {
         LogLauncherEvent("UPDATE | Check ignored because another update operation is active.")
         return
@@ -100,8 +97,9 @@ CheckForUpdates(*)
     handedOff := false
     LogLauncherEvent("UPDATE | Checking trusted update manifest. Current: v" AppConfig.Version ".")
     try {
-        manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
+        manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(GetUpdateManifestUrl(AppConfig.Version)), AppConfig.Version)
         latest := manifest.version
+        kind := GetLauncherUpdateKind(AppConfig.Version, latest)
         LogLauncherEvent("UPDATE | Manifest validated. Current: v" AppConfig.Version " | Latest: v" latest ".")
         if !manifest.updateEnabled {
             SetLauncherUpdateAvailable(false)
@@ -109,7 +107,7 @@ CheckForUpdates(*)
             ShowUpdateStatusPanel("disabled", AppConfig.Version, latest)
             return
         }
-        if CompareTes3npVersions(latest, AppConfig.Version) <= 0 {
+        if kind = "" {
             SetLauncherUpdateAvailable(false)
             LogLauncherEvent("UPDATE | SUCCESS | Launcher is up to date.")
             ShowUpdateStatusPanel("current", AppConfig.Version)
@@ -124,7 +122,7 @@ CheckForUpdates(*)
         if !HasSeenUpdateAutoPreview(latest)
             IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")
         ; Viewing the gold preview never downloads, stages, or installs files.
-        choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel)
+        choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)
         if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
             BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
             try {
@@ -269,9 +267,8 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     return response.Accepted
 }
 
-ShowUpdatePreview(installedVersion, latestVersion, channel)
+ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
-    global UpdateReleasePage
     notes := ReadPublishedVersionNotes(latestVersion)
     response := {Download: false}
     backdrop := CreateUpdateBackdrop()
@@ -283,7 +280,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
         preview.Add("Text", "x2 y2 w796 h626 Background171008")
         preview.SetFont("s15 Bold cC5A45C", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
-        preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", "A New " releaseType " Is Available to Download, S'wit!")
+        title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
+        preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         preview.SetFont("s10 cEDE1C9", "Segoe UI")
         preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", "You can review the changes below before deciding to update.")
         preview.Add("Text", "x30 y94 w195 h24 BackgroundTrans", "Installed: v" installedVersion)
@@ -297,7 +295,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel)
         preview.Add("Text", "x30 y551 w740 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
         AddStyledButton(preview, 32, 582, 230, 34, "Continue to Download", (*) => (response.Download := true, preview.Destroy()))
         AddStyledButton(preview, 330, 582, 140, 34, "Not Now", (*) => preview.Destroy())
-        AddStyledButton(preview, 590, 582, 178, 34, "Release Notes", (*) => Run(UpdateReleasePage))
+        AddStyledButton(preview, 590, 582, 178, 34, "Release Notes", (*) => Run(GetTes3npReleasePage(latestVersion)))
         preview.OnEvent("Close", (*) => preview.Destroy())
         preview.OnEvent("Escape", (*) => preview.Destroy())
         hwnd := preview.Hwnd
@@ -588,7 +586,7 @@ AddUpdateNotesViewport(panel, notes)
 
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
 {
-    newer := mode = "disabled" && CompareTes3npVersions(latestVersion, installedVersion) > 0
+    newer := mode = "disabled" && GetLauncherUpdateKind(installedVersion, latestVersion) != ""
     notesVersion := newer ? latestVersion : installedVersion
     title := "You're All Caught Up, Fetcher!"
     message := "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified."
@@ -699,7 +697,6 @@ DownloadUpdateText(url)
 
 DownloadAndStageUpdate(manifest)
 {
-    global UpdatePackageUrl
     root := A_Temp "\tes3np-update\" NewLauncherFileId()
     part := root "\tes3np-windows.zip.part"
     stage := root "\staged"
@@ -707,7 +704,7 @@ DownloadAndStageUpdate(manifest)
     try {
         SetInterfaceLoadingText("Downloading update...")
         LogLauncherEvent("UPDATE | Download started | v" manifest.version ".")
-        Download(UpdatePackageUrl, part)
+        Download(manifest.PackageUrl, part)
         if !FileExist(part)
             throw Error("Downloaded update package is missing.")
         SetInterfaceLoadingText("Checking download size...")
@@ -765,82 +762,3 @@ ValidateUpdateArchive(package, stage)
 }
 
 PsQuote(value) => StrReplace(value, "'", "''")
-
-ParseAndValidateUpdateManifest(text)
-{
-    manifest := {}
-    manifest.manifestVersion := RequireManifestInteger(text, "manifestVersion")
-    manifest.product := RequireManifestString(text, "product")
-    manifest.channel := RequireManifestString(text, "channel")
-    manifest.version := RequireManifestString(text, "version")
-    manifest.releaseId := RequireManifestString(text, "releaseId")
-    manifest.platform := RequireManifestString(text, "platform")
-    manifest.architecture := RequireManifestString(text, "architecture")
-    ; The public metadata generator nests the package fields under "package".
-    ; Keep support for the older flat manifest layout for prior alpha builds.
-    if RegExMatch(text, 's)"package"\s*:\s*\{([^}]*)\}', &packageMatch) {
-        packageText := packageMatch[1]
-        manifest.fileName := RequireManifestString(packageText, "fileName")
-        manifest.size := RequireManifestInteger(packageText, "size")
-        manifest.sha256 := RequireManifestString(packageText, "sha256")
-    } else {
-        manifest.fileName := RequireManifestString(text, "fileName")
-        manifest.size := RequireManifestInteger(text, "size")
-        manifest.sha256 := RequireManifestString(text, "sha256")
-    }
-    manifest.updateEnabled := RequireManifestBoolean(text, "updateEnabled")
-    if manifest.manifestVersion != 1
-        throw Error("Unsupported update manifest version.")
-    if manifest.product != "tes3np" || manifest.channel != "alpha"
-        throw Error("Update manifest identity/channel mismatch.")
-    if manifest.platform != "windows" || manifest.architecture != "x64"
-        throw Error("Update package is not for this platform.")
-    if !RegExMatch(manifest.version, "^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
-        throw Error("Update manifest contains an invalid version.")
-    if manifest.releaseId != "v" manifest.version
-        throw Error("Update manifest release identity mismatch.")
-    if manifest.fileName != "tes3np-windows.zip"
-        throw Error("Update manifest contains an unexpected package name.")
-    if manifest.size <= 0
-        throw Error("Update manifest contains an invalid package size.")
-    if !RegExMatch(manifest.sha256, "i)^[0-9a-f]{64}$")
-        throw Error("Update manifest contains an invalid SHA-256 value.")
-    return manifest
-}
-
-RequireManifestString(text, name) {
-    if !RegExMatch(text, '"' name '"\s*:\s*"([^"\\]*)"', &m)
-        throw Error("Update manifest is missing or has invalid " name ".")
-    return m[1]
-}
-RequireManifestInteger(text, name) {
-    if !RegExMatch(text, '"' name '"\s*:\s*(\d+)', &m)
-        throw Error("Update manifest is missing or has invalid " name ".")
-    return Integer(m[1])
-}
-RequireManifestBoolean(text, name) {
-    if !RegExMatch(text, 'i)"' name '"\s*:\s*(true|false)', &m)
-        throw Error("Update manifest is missing or has invalid " name ".")
-    return StrLower(m[1]) = "true"
-}
-
-CompareTes3npVersions(left, right)
-{
-    left := RegExReplace(left, "i)^v"), right := RegExReplace(right, "i)^v")
-    leftBase := StrSplit(StrSplit(left, "-")[1], "."), rightBase := StrSplit(StrSplit(right, "-")[1], ".")
-    Loop 3 {
-        a := A_Index <= leftBase.Length ? Integer(leftBase[A_Index]) : 0
-        b := A_Index <= rightBase.Length ? Integer(rightBase[A_Index]) : 0
-        if a != b
-            return a > b ? 1 : -1
-    }
-    leftPre := InStr(left, "-") ? SubStr(left, InStr(left, "-") + 1) : ""
-    rightPre := InStr(right, "-") ? SubStr(right, InStr(right, "-") + 1) : ""
-    if leftPre = rightPre
-        return 0
-    if leftPre = ""
-        return 1
-    if rightPre = ""
-        return -1
-    return StrCompare(leftPre, rightPre, false)
-}

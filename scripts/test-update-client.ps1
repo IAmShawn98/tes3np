@@ -4,21 +4,23 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $source = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8
+$metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-metadata.ahk') -Raw -Encoding UTF8
 
-function Require-Source([string]$Pattern, [string]$Name) {
-    if ($source -notmatch $Pattern) { throw "Updater client safety check missing: $Name" }
+function Require-Source([string]$Pattern, [string]$Name, [string]$Code = $source) {
+    if ($Code -notmatch $Pattern) { throw "Updater client safety check missing: $Name" }
     Write-Host "PASS: $Name"
 }
 
-Require-Source 'tes3np-update\.json' 'dedicated update manifest endpoint'
-Require-Source 'manifestVersion\s*!=\s*1' 'manifest schema rejection'
-Require-Source 'product\s*!=\s*"tes3np"' 'product identity validation'
-Require-Source 'channel\s*!=\s*"alpha"' 'release channel validation'
-Require-Source 'platform\s*!=\s*"windows"' 'platform validation'
-Require-Source 'architecture\s*!=\s*"x64"' 'architecture validation'
-Require-Source 'releaseId\s*!=\s*"v"\s*manifest\.version' 'release identity validation'
-Require-Source 'fileName\s*!=\s*"tes3np-windows\.zip"' 'package filename validation'
-Require-Source '\[0-9a-f\]\{64\}' 'SHA-256 format validation'
+Require-Source 'update-feed/" channel "\.json"' 'channel-specific manifest endpoint' $metadata
+Require-Source '"manifestVersion", "number"\) != 2' 'manifest schema rejection' $metadata
+Require-Source '!\(ReadUpdateManifestValue\(fields, "product", "string"\) == "tes3np"\)' 'product identity validation' $metadata
+Require-Source '!\(channel == ParseTes3npVersion\(installedVersion\)\.Channel\)' 'installed channel validation' $metadata
+Require-Source '!\(ReadUpdateManifestValue\(fields, "platform", "string"\) == "windows"\)' 'platform validation' $metadata
+Require-Source '!\(ReadUpdateManifestValue\(fields, "architecture", "string"\) == "x64"\)' 'architecture validation' $metadata
+Require-Source '!\(releaseId == "v" version\)' 'release identity validation' $metadata
+Require-Source '!\(fileName == "tes3np-" releaseId "-windows\.zip"\)' 'package filename validation' $metadata
+Require-Source '\[0-9a-f\]\{64\}' 'SHA-256 format validation' $metadata
+Require-Source 'Download\(manifest\.PackageUrl, part\)' 'download uses validated package address'
 Require-Source '!manifest\.updateEnabled' 'emergency update disable handling'
 # The UI now uses an owned error-status panel instead of the removed
 # "No update was installed" string. Assert the actual fail-closed behavior:
@@ -56,12 +58,8 @@ if (-not $worker.Contains(@'
 }
 Write-Host 'PASS: updater confirmation follows startup and supports state paths with spaces.'
 
-# The public release generator writes fileName/size/sha256 under "package".
-# Guard the contract against regressions that silently hide update availability.
-Require-Source 'packageMatch' 'nested release package metadata support'
-Require-Source 'RequireManifestString\(packageText, "fileName"\)' 'nested package file name'
-Require-Source 'RequireManifestInteger\(packageText, "size"\)' 'nested package size'
-Require-Source 'RequireManifestString\(packageText, "sha256"\)' 'nested package checksum'
+# The release generator writes fileName/size/sha256 under "package".
+Require-Source 'ReadUpdateManifestValue\(fields, "package", "object"\)' 'nested release package metadata support' $metadata
 $generator = Get-Content -LiteralPath 'scripts/generate-update-metadata.ps1' -Raw
 foreach ($field in @('fileName', 'size', 'sha256')) {
     if ($generator -notmatch [regex]::Escape($field)) { throw "Release generator missing $field" }
@@ -71,40 +69,9 @@ if ($generator -notmatch 'package\s*=\s*\[ordered\]@\{') {
 }
 Write-Host 'PASS: release generator and launcher package metadata contract.'
 
-# Version comparison fixtures mirror the launcher algorithm and protect against
-# the common lexical 0.1.10 < 0.1.9 mistake.
-function Compare-Version([string]$left, [string]$right) {
-    $left = $left -replace '^v',''
-    $right = $right -replace '^v',''
-    $lp = $left.Split('-',2); $rp = $right.Split('-',2)
-    $la = $lp[0].Split('.'); $ra = $rp[0].Split('.')
-    for ($i=0; $i -lt 3; $i++) {
-        $a = if ($i -lt $la.Length) { [int]$la[$i] } else { 0 }
-        $b = if ($i -lt $ra.Length) { [int]$ra[$i] } else { 0 }
-        if ($a -ne $b) { return $(if ($a -gt $b) { 1 } else { -1 }) }
-    }
-    $lpre = if ($lp.Length -gt 1) { $lp[1] } else { '' }
-    $rpre = if ($rp.Length -gt 1) { $rp[1] } else { '' }
-    if ($lpre -eq $rpre) { return 0 }
-    if (-not $lpre) { return 1 }
-    if (-not $rpre) { return -1 }
-    return [Math]::Sign([string]::Compare($lpre,$rpre,$true))
-}
-
-$fixtures = @(
-    @('0.1.10-alpha','0.1.9-alpha',1),
-    @('0.2.0-alpha','0.1.99-alpha',1),
-    @('1.0.0','1.0.0-alpha',1),
-    @('0.1.4-alpha','0.1.4-alpha',0),
-    @('0.1.3-alpha','0.1.4-alpha',-1)
-)
-foreach ($f in $fixtures) {
-    $actual = Compare-Version $f[0] $f[1]
-    if ($actual -ne $f[2]) { throw "Version fixture failed: $($f[0]) vs $($f[1]) => $actual, expected $($f[2])" }
-}
-Write-Host 'PASS: semantic version ordering fixtures.'
 # Both dialogs use the same styled, measured viewport and select the requested version.
-Require-Source 'if CompareTes3npVersions\(latest, AppConfig\.Version\) <= 0 \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
+Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
+Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading'
 Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview'
 Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status'
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline'
@@ -148,16 +115,18 @@ foreach ($entry in $entries) {
         throw "Player-facing changelog entry must use a bold area label and an outcome: $entry"
     }
 }
-if ($playerNotes -notmatch 'Changes since the last public release, v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\.') {
+if ($playerNotes -notmatch 'Changes since the last public release, v\d+\.\d+\.\d+(?:-(?:alpha|beta)(?:\.\d+)?|\.\d+)?\.') {
     throw 'Release notes must identify the public comparison baseline.'
 }
 Write-Host 'PASS: matching player-facing notes, ordered categories, and release publishing source.'
 
-# Mock the moving feed and exact-tag responses without network access.
+# Mock exact-tag responses without network access.
 & {
     $responses = @{}
     function Invoke-RestMethod($Uri, $Headers, $TimeoutSec) {
-        $tag = $Uri.Split('/')[-1]
+        $base = 'https://api.github.com/repos/IAmShawn98/tes3np/releases/tags/'
+        if (!$Uri.StartsWith($base, [StringComparison]::Ordinal)) { throw 'Unexpected release notes repository.' }
+        $tag = $Uri.Substring($base.Length)
         if (!$responses.ContainsKey($tag)) { throw "Missing fixture for $tag" }
         return $responses[$tag]
     }
@@ -165,28 +134,27 @@ Write-Host 'PASS: matching player-facing notes, ordered categories, and release 
     $helper = Join-Path $PSScriptRoot 'fetch-release-notes.ps1'
     $output = [IO.Path]::GetTempFileName()
     try {
-        $responses['latest-alpha'] = @{
-            tag_name = 'latest-alpha'
-            name = 'tes3np v0.1.22-alpha - Latest Test Build'
-            body = "## v0.1.22-alpha`n`n### Improvements`n- **Launcher:** New notes."
+        $responses['v0.1.22-alpha.10'] = @{
+            tag_name = 'v0.1.22-alpha.10'
+            body = "## v0.1.22-alpha.10`n`n### Improvements`n- **Launcher:** New notes."
         }
-        & $helper -Version '0.1.22-alpha' -OutputPath $output
+        & $helper -Version '0.1.22-alpha.10' -OutputPath $output
         if ([IO.File]::ReadAllText($output) -ne "### Improvements`n- **Launcher:** New notes.") {
-            throw 'The moving release did not return the matching changelog.'
+            throw 'The exact hotfix tag did not return the matching changelog.'
         }
 
-        $responses['v0.1.21-alpha'] = @{
-            tag_name = 'v0.1.21-alpha'
+        $responses['v0.1.21.4'] = @{
+            tag_name = 'v0.1.21.4'
             body = '### Historical notes'
         }
-        & $helper -Version '0.1.21-alpha' -OutputPath $output
+        & $helper -Version '0.1.21.4' -OutputPath $output
         if ([IO.File]::ReadAllText($output) -ne '### Historical notes') {
-            throw 'A mismatched moving release must fall back to the exact tag.'
+            throw 'The live hotfix did not return its release notes.'
         }
 
-        $responses['latest-alpha'].body = "## v0.1.23-alpha`n`nWrong version."
+        $responses['v0.1.22-alpha.10'].body = "## v0.1.23-alpha`n`nWrong version."
         Remove-Item -LiteralPath $output
-        & $helper -Version '0.1.22-alpha' -OutputPath $output
+        & $helper -Version '0.1.22-alpha.10' -OutputPath $output
         if ($LASTEXITCODE -ne 1 -or (Test-Path -LiteralPath $output)) {
             throw 'A mismatched release body must not be displayed under the requested version.'
         }

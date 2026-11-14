@@ -1760,13 +1760,13 @@ automatic_update = section_between(
 )
 expect(
     "Automatic update check must never synchronously block the launcher UI",
-    'request.Open("GET", UpdateManifestUrl, true)' in automatic_update
+    'request.Open("GET", GetUpdateManifestUrl(AppConfig.Version), true)' in automatic_update
     and "request.WaitForResponse(0)" in automatic_update
     and "SetTimer(PollStartupUpdateAvailability, 100)" in automatic_update
     and "UpdateStartupRequest := request" in automatic_update
     and "request.Abort()" in automatic_update
-    and "DownloadUpdateText(UpdateManifestUrl)" not in automatic_update
-    and "ParseAndValidateUpdateManifest(request.ResponseText)" in automatic_update
+    and "DownloadUpdateText(" not in automatic_update
+    and "ParseAndValidateUpdateManifest(request.ResponseText, AppConfig.Version)" in automatic_update
     and 'request.SetTimeouts(5000, 5000, 10000, 10000)' in automatic_update
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap,
 )
