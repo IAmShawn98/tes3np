@@ -622,7 +622,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted, ExpansionAutoCloaked, ExpansionAutoInstallLocked
-    if IsObject(ExpansionMismatchDialog) && ExpansionMismatchDialog != dialog
+    if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
     ExpansionMismatchSlot := 0
@@ -921,7 +921,7 @@ TES3MPExpansionBeginAutoImport(dialog, slot, package)
 TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
-    global ExpansionMismatchAuthenticated, ExpansionMismatchMode, ExpansionDiscordPromptPending
+    global ExpansionMismatchAuthenticated, ExpansionMismatchMode
     if !IsObject(ExpansionMismatchDialog) || slotHwnd != ExpansionMismatchSlot
         return
     url := ExpansionMismatchZipUrl

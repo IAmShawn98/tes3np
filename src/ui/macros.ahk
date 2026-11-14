@@ -68,11 +68,10 @@ BuildMacroBookPanel()
     ; against the last visible macro row without extra action slots.
     MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
         "Upload Macro", ImportMacroPackage)
-    ; Existing import callbacks still write MacroStatus.Text. Preserve
-    ; failure/progress feedback, not the redundant Ready/script-details footer.
+    ; Progress and failure feedback for imports appears under Upload.
     CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
-        "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")
+        "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
         MacroImportButton, MacroStatus)
     LoadMacroPackages()
@@ -459,7 +458,7 @@ ScrollMacroWheel(wParam)
 PressMacroScroll(hwnd)
 {
     global CharacterPage, MacroScrollTrack, MacroScrollThumb
-    global MacroScrollDragging, MacroScrollGrab, MacroScrollOffset
+    global MacroScrollDragging, MacroScrollGrab
     if !IsObject(MacroScrollTrack) || !MacroScrollTrack.Visible
         || (hwnd != MacroScrollTrack.Hwnd && hwnd != MacroScrollThumb.Hwnd)
         return false
@@ -519,6 +518,7 @@ LoadMacroPackages()
     DirCreate(MacroRoot)
     ; Transfer process handles when the character book is rebuilt.
     tracked := Map()
+    tracked.CaseSense := "Off"
     for item in MacroItems
         if MacroProcessRunning(item)
             tracked[item.Folder] := item.ProcessHandle
@@ -601,6 +601,8 @@ ImportMacroPackage(*)
         "AutoHotkey scripts, ZIPs and applications (*.ahk;*.zip;*.exe)")
     if archive = "" || IsObject(MacroImport)
         return
+    MacroStatus.Text := ""
+    RefreshMacroButtons()
     if RegExMatch(archive, "i)\.ahk$")
     {
         ImportMacroScript(archive)
@@ -722,7 +724,7 @@ CheckMacroImport()
 
 FinishMacroImport(pending)
 {
-    global MacroStatus, MacroRoot
+    global MacroRoot
     scripts := []
     Loop Files pending.Folder "\*.ahk", "R"
         scripts.Push(SubStr(A_LoopFileFullPath, StrLen(pending.Folder) + 2))
@@ -738,7 +740,6 @@ FinishMacroImport(pending)
     if entry = ""
     {
         DeleteLauncherStagingTree(pending.Folder)
-        MacroStatus.Text := "Import canceled."
         return
     }
     SplitPath(pending.Archive, , , , &defaultName)
@@ -757,7 +758,6 @@ FinishMacroImport(pending)
     destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
     DirMove(pending.Folder, destination)
     AddImportedMacro(destination, name, description, entry)
-    MacroStatus.Text := "Imported " name ". Select it and click Run."
 }
 
 AddImportedMacro(folder, name, description, entry, kind := "Macro", target := "")
@@ -788,7 +788,7 @@ AddImportedMacro(folder, name, description, entry, kind := "Macro", target := ""
 ; with side-by-side resources and would make launcher removal destructive.
 ImportMacroApplication(source)
 {
-    global MacroRoot, MacroStatus
+    global MacroRoot
     if !ValidMacroApplication({Kind: "App", Target: source})
         return
     SplitPath(source, &filename, , , &name)
@@ -818,7 +818,6 @@ ImportMacroApplication(source)
         return
     }
     AddImportedMacro(folder, name, "Linked local application", filename, "App", source)
-    MacroStatus.Text := "Added " name ". Select it and click Run."
 }
 
 ChooseMacroScript(scripts)
@@ -862,7 +861,7 @@ AcceptMacroScript(chooser, list, scripts, result, *)
 
 RunSelectedMacro(*)
 {
-    global MacroItems, MacroList, MacroStatus, MacroImport
+    global MacroItems, MacroList, MacroImport
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length || IsObject(MacroImport)
         return
@@ -916,7 +915,6 @@ RunSelectedMacro(*)
         }
         macro.LastError := ""
         MacroList.Modify(row, , macro.Name, "Running", MacroTypeLabel(macro))
-        MacroStatus.Text := "Started " macro.Name "."
         RefreshMacroButtons()
     }
     catch Error as err
@@ -936,7 +934,7 @@ RunSelectedMacro(*)
 
 StopSelectedMacro(*)
 {
-    global MacroItems, MacroList, MacroStatus
+    global MacroItems, MacroList
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length
         return
@@ -945,12 +943,12 @@ StopSelectedMacro(*)
     {
         if !DllCall("TerminateProcess", "Ptr", macro.ProcessHandle, "UInt", 0)
         {
-            MacroStatus.Text := "Could not stop " macro.Name "."
+            macro.LastError := "Could not stop"
             RefreshMacroButtons()
             return
         }
     }
-    MacroStatus.Text := "Stopped " macro.Name "."
+    macro.LastError := ""
     RefreshMacroProcesses()
 }
 
@@ -972,7 +970,7 @@ RefreshMacroProcesses()
 
 RemoveSelectedMacro(*)
 {
-    global MacroPage, MacroItems, MacroList, MacroStatus, MacroScrollOffset, MacroNameEdit
+    global MacroPage, MacroItems, MacroList, MacroScrollOffset, MacroNameEdit
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length
         return
@@ -1000,7 +998,6 @@ RemoveSelectedMacro(*)
         if MacroItems.Length
             MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
         MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))
-        MacroStatus.Text := "Removed from launcher."
         RefreshMacroButtons()
     }
     finally EndInterfaceUpdate()
@@ -1008,7 +1005,7 @@ RemoveSelectedMacro(*)
 
 CleanupMacros()
 {
-    global MacroPage, MacroImport, MacroItems, CharacterPage
+    global MacroImport, MacroItems
     SetTimer(CheckMacroImport, 0)
     SetTimer(RefreshMacroProcesses, 0)
     if IsObject(MacroImport)
@@ -1030,9 +1027,6 @@ CleanupMacros()
             macro.ProcessHandle := 0
         }
     }
-    ; CharacterPage owns the shared UI. Do not destroy it here.
-    if IsObject(MacroPage) && MacroPage != CharacterPage
-        MacroPage.Destroy()
 }
 
 ; Single scripts need no archive or manifest. Supporting files belong in a ZIP.
@@ -1053,6 +1047,7 @@ ImportMacroScript(source)
         if staging != ""
             DeleteLauncherStagingTree(staging)
         MacroStatus.Text := "The script could not be imported."
+        RefreshMacroButtons()
         MsgBox("Could not copy this AutoHotkey script. Check that the file is readable.", "Import Macro")
     }
 }
