@@ -1,31 +1,23 @@
-# TES3NP
+# tes3np
 
-**Play Morrowind multiplayer on Nerevarine Prophecies.** Save your characters, launch straight into the game and follow Game Chat from one Windows launcher.
+tes3np is a Windows launcher for the Morrowind multiplayer server [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/Main_Page). Save up to ten characters, pick a favorite and log in from the launcher. You can also read Game Chat, see when Happy Hour is active and manage macros.
 
-[**Download for Windows**](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha) · [**Release notes**](https://github.com/IAmShawn98/tes3np-releases/releases) · [**Nerevarine Prophecies wiki**](https://wiki.nerevarineprophecies.com/Main_Page)
+> This is a preview of the v0.1.21-alpha README. The download page still has v0.1.20-alpha.
 
-> **Private preview for v0.1.21-alpha.** The download link currently opens the public v0.1.20-alpha release. The instructions below describe v0.1.21-alpha.
+## Download and install
 
-## What you can do
+You’ll need 64-bit Windows 10 or 11 and **Morrowind Game of the Year Edition** with Tribunal and Bloodmoon. The launcher ZIP includes TES3MP and the AutoHotkey runtime for macros. Game Chat uses Microsoft Edge WebView2.
 
-- **Launch your characters.** Save up to ten, select a favorite and see each step of the login. Run up to four game clients at once.
-- **Follow Game Chat and Happy Hour.** Sign in to Discord for live chat. A previously saved, still-active Happy Hour announcement can also appear while signed out.
-- **Install the optional Expansion Pack.** Use the official Discord download or import a ZIP or extracted folder. Copy a diagnostic report if the server rejects your plugins or load order.
-- **Manage macros and clients.** Import AutoHotkey scripts or ZIP packages, link an installed Windows app or select a custom TES3MP executable.
-- **Back up your characters.** Export character details, login delays and your favorite to move them to another Windows account or PC.
+1. Get the versioned Windows ZIP from [GitHub Releases](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha).
+2. Extract the entire ZIP into a folder of your choice.
+3. Open `tes3np.exe`. If asked, point it to your Morrowind folder.
 
-## Install on Windows
+Open **Manage Characters** to save a character, or choose **Start New Adventure** to log in manually. The **Expansion Pack** button helps you download and install the optional pack.
 
-1. Have **Windows 10 or 11 (64-bit)** and **Morrowind Game of the Year Edition** with Tribunal and Bloodmoon installed. Game Chat uses the Microsoft Edge WebView2 Runtime.
-2. Download the versioned Windows ZIP from **Releases** and extract the entire archive into a writable folder, such as `Documents\TES3NP`.
-3. Open `tes3np.exe`. If prompted, choose your Morrowind GOTY folder. Open **Manage Characters** to save a character, or use **Start New Adventure** to log in manually.
+## Already using tes3np?
 
-The ZIP includes TES3MP 0.8.1 and the AutoHotkey runtime. You need your own copy of Morrowind.
+Click the version number in the launcher to check for an update. Keep your `%APPDATA%\tes3np` folder during an upgrade so your characters and preferences carry over.
 
-## Update an existing installation
+## Need help?
 
-Click the version label or the update button in TES3NP to check for a newer release. Review the notes, then confirm the download and installation. The launcher keeps character profiles and preferences in `%APPDATA%\tes3np`. Keep that folder when updating.
-
-## Get help
-
-[Report a launcher bug](https://github.com/IAmShawn98/tes3np-releases/issues/new/choose) or visit the [Nerevarine Prophecies wiki](https://wiki.nerevarineprophecies.com/Main_Page) for server help. Include your launcher version, Windows version, steps to reproduce and a redacted screenshot or the relevant lines from **Launcher Settings → Launcher Data → Copy Launcher Logs**. Keep character exports and `settings.ini` private.
+[Report a launcher problem](https://github.com/IAmShawn98/tes3np-releases/issues/new/choose) with your TES3NP version, Windows version and the steps that led to the problem. If you share a screenshot or log excerpt, remove personal details. Keep character exports private because they contain passwords.
