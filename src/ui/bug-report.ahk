@@ -1,69 +1,96 @@
-OpenBugReportDialog(owner, *)
+OpenBugReportPage(settings, *)
 {
-    ownerHwnd := owner.Hwnd
-    dialog := Gui("+Owner" ownerHwnd " -MinimizeBox -MaximizeBox", "tes3np — Report A Bug")
-    dialog.BackColor := "E2CEA2"
-    dialog.SetFont("s10 c382314", "Segoe UI")
-    dialog.Add("Text", "x20 y16 w420 h23", "What happened?")
-    dialog.ReportMessage := dialog.Add("Edit", "x20 y42 w420 h128 Multi WantReturn Limit4000")
-    dialog.ReportScreenshots := []
-    dialog.ReportList := dialog.Add("ListBox", "x20 y217 w420 h85")
-    dialog.ReportAdd := dialog.Add("Button", "x20 y179 w142 h28", "Add Screenshots")
-    dialog.ReportRemove := dialog.Add("Button", "x170 y179 w100 h28 Disabled", "Remove")
-    dialog.ReportRemove.OnEvent("Click", RemoveBugReportScreenshot.Bind(dialog))
-    dialog.ReportAdd.OnEvent("Click", AddBugReportScreenshots.Bind(dialog))
-    dialog.ReportList.OnEvent("Change", UpdateBugReportScreenshotButtons.Bind(dialog))
-    dialog.Add("Text", "x20 y310 w420 h37",
-        "A recent launcher log is attached automatically. Screenshots are optional (up to 5 PNG or JPEG files, 8 MB total).")
-    dialog.ReportStatus := dialog.Add("Text", "x20 y354 w420 h43")
-    dialog.ReportSend := dialog.Add("Button", "x230 y405 w105 h30", "Send Report")
-    dialog.ReportCancel := dialog.Add("Button", "x343 y405 w97 h30", "Cancel")
-    dialog.ReportWindow := dialog.Hwnd
-    dialog.ReportRequest := 0
-    dialog.ReportPoll := 0
-    dialog.ReportBusy := false
-    dialog.ReportSend.OnEvent("Click", SendBugReport.Bind(dialog))
-    dialog.ReportCancel.OnEvent("Click", CloseBugReportDialog.Bind(dialog))
-    dialog.OnEvent("Close", CloseBugReportDialog)
-    dialog.OnEvent("Escape", CloseBugReportDialog)
-
-    owner.Opt("+Disabled")
+    global V016SettingsDataControls, V016SettingsDataActive
+    if !V016SettingsDataActive || IsBugReportPageVisible(settings)
+        return
+    BeginInterfaceUpdate(settings, "Opening Report A Bug...", false)
     try
     {
-        scale := Max(0.8, GetOwnedMenuScale())
-        ScaleOwnedMenuContent(dialog, scale)
-        dialog.Show("Hide w" Round(460 * scale) " h" Round(453 * scale))
-        PositionOwnedMenuAtParent(dialog, owner)
-        dialog.Show()
-        dialog.ReportMessage.Focus()
-        WinWaitClose("ahk_id " dialog.Hwnd)
+        if !settings.HasOwnProp("ReportControls")
+            BuildBugReportPage(settings)
+        for control in V016SettingsDataControls
+            SetBookControlVisible(control, false)
+        for control in settings.ReportControls
+            SetBookControlVisible(control, true)
     }
-    finally
+    finally EndInterfaceUpdate()
+    settings.ReportMessage.Focus()
+}
+
+BuildBugReportPage(settings)
+{
+    global LauncherMorrowindFont
+    settings.SetFont("s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
+    heading := settings.Add("Text", "x" V016S(32) " y" V016S(126) " w" V016S(448)
+        " h" V016S(32) " Center BackgroundTrans", "Report A Bug")
+    settings.SetFont("s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
+    prompt := settings.Add("Text", "x" V016S(32) " y" V016S(165) " w" V016S(448)
+        " h" V016S(22) " BackgroundTrans", "What happened?")
+    settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
+    settings.ReportMessage := AddThemedEdit(settings, "x" V016S(32) " y" V016S(190)
+        " w" V016S(448) " h" V016S(100) " Multi WantReturn Limit4000")
+
+    settings.ReportAdd := AddStyledButton(settings, V016S(32), V016S(299), V016S(214), V016S(30),
+        "Add Screenshots", AddBugReportScreenshots.Bind(settings))
+    settings.ReportRemove := AddStyledButton(settings, V016S(266), V016S(299), V016S(214), V016S(30),
+        "Remove", RemoveBugReportScreenshot.Bind(settings))
+    settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
+    settings.ReportList := settings.Add("ListBox", "x" V016S(32) " y" V016S(337)
+        " w" V016S(448) " h" V016S(54) " +0x100 -E0x200 +Border BackgroundE2CEA2")
+    settings.ReportList.OnEvent("Change", UpdateBugReportScreenshotButtons.Bind(settings))
+    note := settings.Add("Text", "x" V016S(32) " y" V016S(398) " w" V016S(448)
+        " h" V016S(40) " BackgroundTrans",
+        "A recent launcher log is attached automatically.`nUp to 5 PNG or JPEG screenshots (8 MB total).")
+    settings.ReportStatus := settings.Add("Text", "x" V016S(32) " y" V016S(440)
+        " w" V016S(448) " h" V016S(40) " BackgroundTrans")
+    settings.ReportSend := AddStyledButton(settings, V016S(32), V016S(483), V016S(214), V016S(30),
+        "Send Report", SendBugReport.Bind(settings))
+    settings.ReportCancel := AddStyledButton(settings, V016S(266), V016S(483), V016S(214), V016S(30),
+        "Cancel", CloseBugReportPage.Bind(settings))
+
+    settings.ReportControls := [heading, prompt, settings.ReportMessage, settings.ReportAdd,
+        settings.ReportRemove, settings.ReportList, note, settings.ReportStatus,
+        settings.ReportSend, settings.ReportCancel]
+    settings.ReportScreenshots := []
+    settings.ReportWindow := settings.Hwnd
+    settings.ReportRequest := 0
+    settings.ReportPoll := 0
+    settings.ReportBusy := false
+    UpdateBugReportScreenshotButtons(settings)
+}
+
+IsBugReportPageVisible(settings)
+{
+    return settings.HasOwnProp("ReportControls") && settings.ReportMessage.Visible
+}
+
+CloseBugReportPage(settings, *)
+{
+    global V016SettingsDataControls
+    if !IsBugReportPageVisible(settings) || settings.ReportBusy
+        return
+    BeginInterfaceUpdate(settings, "Returning to Launcher Data...", false)
+    try
     {
-        StopBugReportRequest(dialog)
-        if DllCall("IsWindow", "Ptr", ownerHwnd)
-        {
-            owner.Opt("-Disabled")
-            WinActivate("ahk_id " ownerHwnd)
-        }
-        DestroyScaledMenu(dialog)
+        settings.ReportMessage.Value := ""
+        settings.ReportScreenshots := []
+        RefreshBugReportScreenshots(settings)
+        for control in settings.ReportControls
+            SetBookControlVisible(control, false)
+        for control in V016SettingsDataControls
+            SetBookControlVisible(control, true)
     }
+    finally EndInterfaceUpdate()
+    settings.ReportPageButton.Focus()
 }
 
-CloseBugReportDialog(dialog, *)
+AddBugReportScreenshots(settings, *)
 {
-    if dialog.ReportBusy
-        return true
-    dialog.Hide()
-}
-
-AddBugReportScreenshots(dialog, *)
-{
-    dialog.Opt("+OwnDialogs")
+    settings.Opt("+OwnDialogs")
     paths := FileSelect("M1", , "Choose screenshots", "Screenshots (*.png; *.jpg; *.jpeg)")
     if !IsObject(paths) || !paths.Length
         return
-    selected := dialog.ReportScreenshots.Clone()
+    selected := settings.ReportScreenshots.Clone()
     known := Map()
     known.CaseSense := false
     try
@@ -91,68 +118,68 @@ AddBugReportScreenshots(dialog, *)
     }
     catch Error as err
     {
-        dialog.ReportStatus.Text := err is OSError ? "A screenshot could not be read." : err.Message
+        settings.ReportStatus.Text := err is OSError ? "A screenshot could not be read." : err.Message
         return
     }
-    dialog.ReportScreenshots := selected
-    RefreshBugReportScreenshots(dialog)
+    settings.ReportScreenshots := selected
+    RefreshBugReportScreenshots(settings)
 }
 
-RemoveBugReportScreenshot(dialog, *)
+RemoveBugReportScreenshot(settings, *)
 {
-    if dialog.ReportList.Value
+    if settings.ReportList.Value
     {
-        dialog.ReportScreenshots.RemoveAt(dialog.ReportList.Value)
-        RefreshBugReportScreenshots(dialog)
+        settings.ReportScreenshots.RemoveAt(settings.ReportList.Value)
+        RefreshBugReportScreenshots(settings)
     }
 }
 
-RefreshBugReportScreenshots(dialog)
+RefreshBugReportScreenshots(settings)
 {
     names := []
-    for path in dialog.ReportScreenshots
+    for path in settings.ReportScreenshots
     {
         SplitPath(path, &name)
         names.Push(name)
     }
-    dialog.ReportList.Delete()
+    settings.ReportList.Delete()
     if names.Length
-        dialog.ReportList.Add(names)
-    dialog.ReportStatus.Text := ""
-    UpdateBugReportScreenshotButtons(dialog)
+        settings.ReportList.Add(names)
+    settings.ReportStatus.Text := ""
+    UpdateBugReportScreenshotButtons(settings)
 }
 
-UpdateBugReportScreenshotButtons(dialog, *)
+UpdateBugReportScreenshotButtons(settings, *)
 {
-    dialog.ReportAdd.Enabled := !dialog.ReportBusy && dialog.ReportScreenshots.Length < 5
-    dialog.ReportRemove.Enabled := !dialog.ReportBusy && dialog.ReportList.Value != 0
+    settings.ReportAdd.Enabled := !settings.ReportBusy && settings.ReportScreenshots.Length < 5
+    settings.ReportRemove.Enabled := !settings.ReportBusy && settings.ReportList.Value != 0
 }
 
-SendBugReport(dialog, *)
+SendBugReport(settings, *)
 {
     global AppConfig
-    if dialog.ReportBusy
+    if settings.ReportBusy
         return
-    message := dialog.ReportMessage.Value
+    message := settings.ReportMessage.Value
     if Trim(message, " `t`r`n") = ""
     {
-        dialog.ReportStatus.Text := "Describe what happened before sending."
-        dialog.ReportMessage.Focus()
+        settings.ReportStatus.Text := "Describe what happened before sending."
+        settings.ReportMessage.Focus()
         return
     }
     if RegExMatch(message, "i)(?:[a-z][a-z0-9+.-]*://|\b(?:www\.|mailto:|(?:discord|steam|file):)|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|edu|gov|io|gg|dev|app|info|biz|xyz|me|co|uk|ca|au|de|fr|ru|cn)(?=$|[^\w-]))")
     {
-        dialog.ReportStatus.Text := "Remove links from the description before sending."
-        dialog.ReportMessage.Focus()
+        settings.ReportStatus.Text := "Remove links from the description before sending."
+        settings.ReportMessage.Focus()
         return
     }
 
-    SetBugReportBusy(dialog, true, "Sending report…")
+    SetBugReportBusy(settings, true, "Sending report…")
     try
-        screenshots := EncodeBugReportScreenshots(dialog.ReportScreenshots)
+        screenshots := EncodeBugReportScreenshots(settings.ReportScreenshots)
     catch
     {
-        SetBugReportBusy(dialog, false, "A screenshot changed or could not be read. Remove it and add it again.")
+        SetBugReportBusy(settings, false, "A screenshot changed or could not be read. Remove it and add it again.")
         return
     }
 
@@ -173,19 +200,19 @@ SendBugReport(dialog, *)
         finally DllCall("oleaut32\SafeArrayUnaccessData", "Ptr", arrayPtr, "Int")
 
         endpoint := "https://script.google.com/macros/s/AKfycbz4OcGNQ9ybOTuomR8BI2x1wQ6mlDN-OJIDOb46f7_MMt3VE6bbp7AOK_Mfmqk0OovwzA/exec"
-        dialog.ReportStarted := A_TickCount
-        dialog.ReportReadingResponse := false
+        settings.ReportStarted := A_TickCount
+        settings.ReportReadingResponse := false
         request := OpenBugReportRequest("POST", endpoint)
         request.SetRequestHeader("Content-Type", "application/json; charset=utf-8")
-        dialog.ReportRequest := request
+        settings.ReportRequest := request
         request.Send(bytes)
-        dialog.ReportPoll := PollBugReport.Bind(dialog)
-        SetTimer(dialog.ReportPoll, 100)
+        settings.ReportPoll := PollBugReport.Bind(settings)
+        SetTimer(settings.ReportPoll, 100)
     }
     catch
     {
-        StopBugReportRequest(dialog)
-        SetBugReportBusy(dialog, false, "Couldn’t start sending the report. Your draft is still here.")
+        StopBugReportRequest(settings)
+        SetBugReportBusy(settings, false, "Couldn’t start sending the report. Your draft is still here.")
     }
 }
 
@@ -198,29 +225,29 @@ OpenBugReportRequest(method, url)
     return request
 }
 
-PollBugReport(dialog)
+PollBugReport(settings)
 {
-    if !DllCall("IsWindow", "Ptr", dialog.ReportWindow)
+    if !DllCall("IsWindow", "Ptr", settings.ReportWindow)
     {
-        StopBugReportRequest(dialog)
+        StopBugReportRequest(settings)
         return
     }
-    request := dialog.ReportRequest
+    request := settings.ReportRequest
     status := "Couldn’t confirm delivery. Your draft is still here."
     try
     {
-        if A_TickCount - dialog.ReportStarted > 45000
+        if A_TickCount - settings.ReportStarted > 45000
             throw Error("Report request timed out.")
         if !request.WaitForResponse(0)
             return
-        if !dialog.ReportReadingResponse && (request.Status = 302 || request.Status = 303)
+        if !settings.ReportReadingResponse && (request.Status = 302 || request.Status = 303)
         {
             location := request.GetResponseHeader("Location")
             if !RegExMatch(location, "^https://script\.googleusercontent\.com/macros/echo\?")
                 throw Error("Unexpected report redirect.")
-            dialog.ReportReadingResponse := true
-            dialog.ReportRequest := OpenBugReportRequest("GET", location)
-            dialog.ReportRequest.Send()
+            settings.ReportReadingResponse := true
+            settings.ReportRequest := OpenBugReportRequest("GET", location)
+            settings.ReportRequest.Send()
             return
         }
         if request.Status = 200
@@ -228,11 +255,11 @@ PollBugReport(dialog)
             response := request.ResponseText
             if RegExMatch(response, '^\s*\{\s*"ok"\s*:\s*true\s*,\s*"reportId"\s*:\s*"([a-f0-9]{8})"\s*\}\s*$', &receipt)
             {
-                StopBugReportRequest(dialog)
-                dialog.ReportMessage.Value := ""
-                dialog.ReportScreenshots := []
-                RefreshBugReportScreenshots(dialog)
-                SetBugReportBusy(dialog, false, "Report sent. Report ID " receipt[1] ".")
+                StopBugReportRequest(settings)
+                settings.ReportMessage.Value := ""
+                settings.ReportScreenshots := []
+                RefreshBugReportScreenshots(settings)
+                SetBugReportBusy(settings, false, "Report sent. Report ID " receipt[1] ".")
                 return
             }
             if RegExMatch(response, '^\s*\{\s*"ok"\s*:\s*false\s*,\s*"code"\s*:\s*"([a-z_]+)"\s*\}\s*$', &failure)
@@ -255,33 +282,33 @@ PollBugReport(dialog)
     {
         ; Keep the player's text and selected screenshots for a manual retry.
     }
-    StopBugReportRequest(dialog)
-    SetBugReportBusy(dialog, false, status)
+    StopBugReportRequest(settings)
+    SetBugReportBusy(settings, false, status)
 }
 
-StopBugReportRequest(dialog)
+StopBugReportRequest(settings)
 {
-    if IsObject(dialog.ReportPoll)
+    if IsObject(settings.ReportPoll)
     {
-        SetTimer(dialog.ReportPoll, 0)
-        dialog.ReportPoll := 0
+        SetTimer(settings.ReportPoll, 0)
+        settings.ReportPoll := 0
     }
-    if IsObject(dialog.ReportRequest)
+    if IsObject(settings.ReportRequest)
     {
-        try dialog.ReportRequest.Abort()
-        dialog.ReportRequest := 0
+        try settings.ReportRequest.Abort()
+        settings.ReportRequest := 0
     }
 }
 
-SetBugReportBusy(dialog, busy, status)
+SetBugReportBusy(settings, busy, status)
 {
-    dialog.ReportBusy := busy
-    dialog.ReportMessage.Opt(busy ? "+ReadOnly" : "-ReadOnly")
-    dialog.ReportList.Enabled := !busy
-    dialog.ReportSend.Enabled := !busy
-    dialog.ReportCancel.Enabled := !busy
-    dialog.ReportStatus.Text := status
-    UpdateBugReportScreenshotButtons(dialog)
+    settings.ReportBusy := busy
+    settings.ReportMessage.Opt(busy ? "+ReadOnly" : "-ReadOnly")
+    settings.ReportList.Enabled := !busy
+    settings.ReportSend.Enabled := !busy
+    settings.ReportCancel.Enabled := !busy
+    settings.ReportStatus.Text := status
+    UpdateBugReportScreenshotButtons(settings)
 }
 
 ReadBugReportLog()
