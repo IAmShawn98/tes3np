@@ -1,5 +1,5 @@
 param(
-    [ValidatePattern('^[0-9a-fA-F]{8}$')][string]$BuildId = '6588eb15',
+    [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-fA-F]{8}$')][string]$BuildId,
     [string]$WorkRoot = (Join-Path $env:LOCALAPPDATA 'TES3MP-Markerless-Build')
 )
 
@@ -86,7 +86,7 @@ try {
     "$hash  tes3mp.exe" | Set-Content -LiteralPath (Join-Path $output 'tes3mp.exe.sha256') -Encoding ASCII
     Write-Host "Verified Windows console executable: $exe"
     Write-Host "SHA-256: $hash"
-    Write-Host 'In Game Client Settings, choose this EXE and reuse verified-dependencies-781d661c.'
+    Write-Host 'In Game Client Settings, choose this EXE and the matching dependencies from this build.'
     if ($env:OS -eq 'Windows_NT') { Start-Process explorer.exe -ArgumentList ('/select,"{0}"' -f $exe) }
 } catch {
     Write-Host "STOPPED: $($_.Exception.Message)" -ForegroundColor Red

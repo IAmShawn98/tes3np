@@ -54,7 +54,11 @@ Write-Host 'Parsing complete AutoHotkey launcher (no game or UI startup).'
 $parseStdout = Join-Path $work 'parse-stdout.txt'
 $parseStderr = Join-Path $work 'parse-stderr.txt'
 $parseArguments = '/ErrorStdOut "' + $launcher + '" --check'
-$parse = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $parseArguments -PassThru -Wait -RedirectStandardOutput $parseStdout -RedirectStandardError $parseStderr
+$parse = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $parseArguments -PassThru -RedirectStandardOutput $parseStdout -RedirectStandardError $parseStderr
+if (!$parse.WaitForExit(30000)) {
+    try { $parse.Kill() } catch {}
+    throw 'AutoHotkey source parse timed out.'
+}
 $output = @()
 if (Test-Path $parseStdout) { $output += @(Get-Content $parseStdout) }
 if (Test-Path $parseStderr) { $output += @(Get-Content $parseStderr) }
@@ -69,14 +73,22 @@ $exe = Join-Path $work 'tes3np-ci-smoke.exe'
 $stdout = Join-Path $work 'compiler-stdout.txt'
 $stderr = Join-Path $work 'compiler-stderr.txt'
 $args = '/in "' + $launcher + '" /out "' + $exe + '" /base "' + $base + '" /compress 0 /silent verbose'
-$process = Start-Process -FilePath $compiler -WorkingDirectory $projectRoot -ArgumentList $args -PassThru -Wait -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+$process = Start-Process -FilePath $compiler -WorkingDirectory $projectRoot -ArgumentList $args -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+if (!$process.WaitForExit(120000)) {
+    try { $process.Kill() } catch {}
+    throw 'Ahk2Exe launcher compile timed out.'
+}
 if (Test-Path $stdout) { Get-Content $stdout | ForEach-Object { Write-Host $_ } }
 if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } }
 if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $exe)) {
     throw "Ahk2Exe launcher compile failed with exit code $($process.ExitCode)."
 }
 Write-Host 'Probing compiled native Expansion Pack UI function bindings without launching UI.'
-$probe = Start-Process -FilePath $exe -ArgumentList '--check-expansion-ui' -WorkingDirectory $projectRoot -PassThru -Wait
+$probe = Start-Process -FilePath $exe -ArgumentList '--check-expansion-ui' -WorkingDirectory $projectRoot -PassThru
+if (!$probe.WaitForExit(30000)) {
+    try { $probe.Kill() } catch {}
+    throw 'Compiled Expansion Pack UI binding probe timed out.'
+}
 if ($probe.ExitCode -ne 0) {
     throw "Compiled launcher Expansion Pack UI function probe failed with exit code $($probe.ExitCode)."
 }
