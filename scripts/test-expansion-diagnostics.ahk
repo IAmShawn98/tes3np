@@ -12,6 +12,7 @@ global Client := {PID: 0, Enabled: false}
 global LauncherGui := 0
 global EmbeddedChatPid := 0
 global DataFile := ""
+global FixtureWatchingLogs := false
 
 ; This fixture includes only the production diagnostic module, NOT the whole
 ; live launcher. Provide inert dependency stubs so #Warn can resolve the same
@@ -29,6 +30,9 @@ PatchConfigurationPath()
 
 LogLauncherEvent(message)
 {
+    global FixtureWatchingLogs
+    if FixtureWatchingLogs && InStr(message, "Rejection captured")
+        return
     return MismatchFixtureDisallow("launcher log")
 }
 
@@ -79,6 +83,30 @@ try
     MismatchFixtureAssert(info.Morrowind && info.Tribunal && info.Bloodmoon, "masters")
 
     rejection := "Your plugins or their load order don't match the server's"
+    ; Give the real watcher two disposable client logs. Fragments from
+    ; different files must never combine into a server rejection.
+    logFolder := A_Temp "\tes3np-mismatch-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount
+    DirCreate(logFolder)
+    try
+    {
+        FixtureWatchingLogs := true
+        firstLog := logFolder "\tes3mp-client-a.log"
+        secondLog := logFolder "\tes3mp-client-b.log"
+        Client := {PID: 0, Enabled: true, LogWatch: {Paths: [logFolder], Files: Map()}}
+        FileAppend("Your plugins or their load ", firstLog, "UTF-8-RAW")
+        MismatchFixtureAssert(!CheckTES3MPPluginMismatch(), "first fragment waits")
+        FileAppend("order don't match the server's", secondLog, "UTF-8-RAW")
+        MismatchFixtureAssert(!CheckTES3MPPluginMismatch(), "separate logs stay separate")
+        FileAppend("order don't match the server's", firstLog, "UTF-8-RAW")
+        MismatchFixtureAssert(CheckTES3MPPluginMismatch(), "same-file split rejection detected")
+        MismatchFixtureAssert(Client.MismatchLogKey = StrLower(firstLog), "rejection attributed to correct log")
+    }
+    finally
+    {
+        FixtureWatchingLogs := false
+        Client := {PID: 0, Enabled: false}
+        DirDelete(logFolder, true)
+    }
     generic := TES3MPAnalyzeMismatchLogText("password=SENSITIVE_TOKEN`n" rejection)
     MismatchFixtureAssert(generic.Rejected, "server rejection")
     MismatchFixtureAssert(!generic.Order, "generic rejection is not a separate order error")

@@ -589,7 +589,7 @@ PromptOriginalCharacterSpecies(current := "")
         ; Always restore the owner after the child popup has gone away.
         ; Reuse the cached book (no rebuild, reload or resize).
         CharacterPage.Opt("-Disabled")
-        dialog.Destroy()
+        DestroyScaledMenu(dialog)
         if DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
             CharacterPage.Show("Restore")
     }

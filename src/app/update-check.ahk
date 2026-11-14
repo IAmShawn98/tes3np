@@ -231,7 +231,7 @@ CloseGoldNativePrompt(panel)
     if !IsObject(panel)
         return
     backdrop := panel.HasOwnProp("NativePromptBackdrop") ? panel.NativePromptBackdrop : 0
-    try panel.Destroy()
+    try DestroyScaledMenu(panel)
     if IsObject(backdrop)
         try backdrop.Destroy()
 }

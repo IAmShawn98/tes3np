@@ -434,7 +434,7 @@ expect(
     and 'UploadExpansionFromFile()' in patcher
     and 'RequestDiscordExpansionPrompt(1)' in patcher
     and 'SetTimer((*) => TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog", reason), -70)' in mismatch
-    and 'SetTimer((*) => TES3MPExpansionRevealRepair(' in mismatch
+    and 'SetTimer((*) => ExpansionMismatchDialog = dialog && TES3MPExpansionRevealRepair(' in mismatch
     and 'if !SendLauncherChatCommand(10, mode)' in mismatch
     and 'else if mode = 1' in mismatch,
 )
@@ -536,7 +536,7 @@ expect(
     'TES3MPExpansionRetryNativeProgress(dialog)' in auto_progress_helpers
     and 'if !TES3MPExpansionBeginNativeProgress()' in auto_progress_helpers
     and 'SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)' in auto_progress_helpers
-    and 'SetTimer((*) => TES3MPExpansionStartDiscoveredZip(ExpansionMismatchSlot, ExpansionMismatchStatus), -80)' in auto_progress_helpers
+    and 'SetTimer((*) => TES3MPExpansionStartDiscoveredZip(slot, status), -80)' in auto_progress_helpers
     and 'if ExpansionAutoCloaked' in auto_install_view + mismatch
     and 'if ExpansionMismatchMode = "Install" && IsObject(ExpansionAutoProgressFrame)' in mismatch
     and 'TES3MPExpansionRevealRepair("Automatic download failed.' in mismatch,

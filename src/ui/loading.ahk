@@ -197,10 +197,10 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
             LogLauncherEvent("EXPANSION | Native captured frame construction failed ("
                 . Type(err) ", line " err.Line ", operation " operation ").")
         }
-        ReportLoadingFailure(err)
         if IsObject(cover)
-            cover.Destroy()
+            try cover.Destroy()
         DllCall("DeleteObject", "Ptr", bitmap)
+        try ReportLoadingFailure(err)
         return 0
     }
 }
@@ -219,17 +219,20 @@ ReleaseCapturedInterfaceFrame(frame)
 {
     if !IsObject(frame)
         return
-    if IsObject(frame.Panel)
+    try
     {
-        DestroyBookControl(frame.Panel)
-        frame.Card.Destroy()
-        frame.Dim.Destroy()
+        if IsObject(frame.Panel)
+        {
+            try DestroyBookControl(frame.Panel)
+            try frame.Card.Destroy()
+            try frame.Dim.Destroy()
+        }
+        try frame.Gui.Hide()
+        ; Detach before deletion: the native Static control does not own our bitmap.
+        try DllCall("SendMessageW", "Ptr", frame.Face.Hwnd, "UInt", 0x172, "Ptr", 0, "Ptr", 0)
+        try frame.Gui.Destroy()
     }
-    frame.Gui.Hide()
-    ; Detach before deletion: the native Static control does not own our bitmap.
-    DllCall("SendMessageW", "Ptr", frame.Face.Hwnd, "UInt", 0x172, "Ptr", 0, "Ptr", 0)
-    frame.Gui.Destroy()
-    DllCall("DeleteObject", "Ptr", frame.Bitmap)
+    finally DllCall("DeleteObject", "Ptr", frame.Bitmap)
 }
 
 ; Keep the proven screenshot cover unmodified. Native windows supply dimming
@@ -238,41 +241,55 @@ ReleaseCapturedInterfaceFrame(frame)
 CreateLoadingCard(owner, x, y, width, height)
 {
     global ButtonFaces, InterfaceLoadingText
-    dim := Gui("-Caption -Border -DPIScale +ToolWindow +E0x08000000 +Owner" owner.Hwnd)
-    dim.BackColor := "000000"
-    PrepareWindowDisplay(dim)
-    dim.Show("NA x" x " y" y " w" width " h" height)
-    DllCall("SetLayeredWindowAttributes", "Ptr", dim.Hwnd, "UInt", 0, "UChar", 130, "UInt", 2)
-    DllCall("SetWindowPos", "Ptr", dim.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-    card := Gui("-Caption -Border -DPIScale +ToolWindow +E0x08000000 +Owner" dim.Hwnd)
-    card.BackColor := "C5A45C"
-    scale := width / 960
-    cw := Round(320 * scale)
-    ch := Round(68 * scale)
-    card.SetFont("s" Round(11 * scale * 96 / A_ScreenDPI) " cC5A45C", "Georgia")
-    panel := card.Add("Custom", "ClassStatic x0 y0 w" cw " h" ch, InterfaceLoadingText)
-    ButtonFaces[panel.Hwnd] := {Control: panel, Label: panel, Gui: card, Window: card.Hwnd, IsLabel: true,
-        IsLoading: true, Progress: 0, State: "normal", Action: 0}
-    AttachButtonPainter(panel.Hwnd)
-    PrepareWindowDisplay(card)
-    card.Show("NA x" (x + Round((width - cw) / 2)) " y" (y + Round((height - ch) / 2)) " w" cw " h" ch)
-    DllCall("RedrawWindow", "Ptr", card.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
-    PaintButtonNow(panel.Hwnd)
-    DllCall("SetLayeredWindowAttributes", "Ptr", card.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
-    DllCall("SetWindowPos", "Ptr", card.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-    ; Do not wait synchronously on DWM. The card is already painted and
-    ; all three owned windows have been positioned before returning.
-    return {Dim: dim, Card: card, Panel: panel}
+    dim := 0, card := 0, panel := 0
+    try
+    {
+        dim := Gui("-Caption -Border -DPIScale +ToolWindow +E0x08000000 +Owner" owner.Hwnd)
+        dim.BackColor := "000000"
+        PrepareWindowDisplay(dim)
+        dim.Show("NA x" x " y" y " w" width " h" height)
+        DllCall("SetLayeredWindowAttributes", "Ptr", dim.Hwnd, "UInt", 0, "UChar", 130, "UInt", 2)
+        DllCall("SetWindowPos", "Ptr", dim.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+        card := Gui("-Caption -Border -DPIScale +ToolWindow +E0x08000000 +Owner" dim.Hwnd)
+        card.BackColor := "C5A45C"
+        scale := width / 960
+        cw := Round(320 * scale)
+        ch := Round(68 * scale)
+        card.SetFont("s" Round(11 * scale * 96 / A_ScreenDPI) " cC5A45C", "Georgia")
+        panel := card.Add("Custom", "ClassStatic x0 y0 w" cw " h" ch, InterfaceLoadingText)
+        ButtonFaces[panel.Hwnd] := {Control: panel, Label: panel, Gui: card, Window: card.Hwnd, IsLabel: true,
+            IsLoading: true, Progress: 0, State: "normal", Action: 0}
+        AttachButtonPainter(panel.Hwnd)
+        PrepareWindowDisplay(card)
+        card.Show("NA x" (x + Round((width - cw) / 2)) " y" (y + Round((height - ch) / 2)) " w" cw " h" ch)
+        DllCall("RedrawWindow", "Ptr", card.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+        PaintButtonNow(panel.Hwnd)
+        DllCall("SetLayeredWindowAttributes", "Ptr", card.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
+        DllCall("SetWindowPos", "Ptr", card.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+        ; Do not wait synchronously on DWM. The card is already painted and
+        ; all three owned windows have been positioned before returning.
+        return {Dim: dim, Card: card, Panel: panel}
+    }
+    catch as err
+    {
+        if IsObject(panel)
+            try DestroyBookControl(panel)
+        if IsObject(card)
+            try card.Destroy()
+        if IsObject(dim)
+            try dim.Destroy()
+        throw err
+    }
 }
 
 ReportLoadingFailure(err)
 {
     static reported := false
     ; Keep diagnostics free of credentials and personal file paths.
-    DirCreate(AppDataDirectory)
     detail := "Error type: " Type(err)
     try
     {
+        DirCreate(AppDataDirectory)
         path := AppDataDirectory "\render-errors.log"
         FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " Loading overlay: " detail "`n", path, "UTF-8")
         TrimDiagnosticLog(path)
@@ -373,7 +390,12 @@ EnsureInterfaceLoading()
         return
     frame := InterfaceFrameCover
     SetInterfaceLoadingText("Waiting for Jiub...")
-    loading := CreateLoadingCard(frame.Gui, frame.X, frame.Y, frame.Width, frame.Height)
+    try loading := CreateLoadingCard(frame.Gui, frame.X, frame.Y, frame.Width, frame.Height)
+    catch Error as err
+    {
+        try ReportLoadingFailure(err)
+        return
+    }
     frame.Dim := loading.Dim
     frame.Card := loading.Card
     frame.Panel := loading.Panel

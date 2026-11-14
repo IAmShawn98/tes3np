@@ -270,6 +270,13 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
         child.Show()
         if !DllCall("IsWindowVisible", "Ptr", child.Hwnd)
             ExitApp(216)
+        fonts := child.OwnedGeneratedFonts.Clone()
+        if !fonts.Length
+            ExitApp(220)
+        DestroyScaledMenu(child)
+        for font in fonts
+            if DllCall("gdi32\GetObjectType", "Ptr", font, "UInt")
+                ExitApp(221)
         FileAppend("PASS: menus follow moved owner, stay onscreen and scale 50-100 percent" Chr(10), "*")
     }
     catch Error as err

@@ -28,7 +28,7 @@ global TES3MPLastMismatchEvidence := 0
 ; TES3MP owns its error window; terminate only the failed PID before prompting.
 CaptureTES3MPLogBaseline()
 {
-    watch := {Paths: [], Files: Map(), Carry: ""}
+    watch := {Paths: [], Files: Map()}
     config := PatchConfigurationPath()
     SplitPath(config, , &configFolder)
     AddTES3MPLogFolder(watch, configFolder)
@@ -41,7 +41,7 @@ CaptureTES3MPLogBaseline()
         Loop Files, folder "\tes3mp-client*.log", "F"
         {
             path := A_LoopFileFullPath
-            try watch.Files[StrLower(path)] := {Size: FileGetSize(path), Modified: FileGetTime(path, "M")}
+            try watch.Files[StrLower(path)] := {Size: FileGetSize(path), Modified: FileGetTime(path, "M"), Carry: ""}
         }
     }
     return watch
@@ -78,22 +78,28 @@ CheckTES3MPPluginMismatch()
             {
                 size := FileGetSize(path)
                 modified := FileGetTime(path, "M")
-                previous := watch.Files.Has(key) ? watch.Files[key] : {Size: 0, Modified: ""}
+                previous := watch.Files.Has(key) ? watch.Files[key] : {Size: 0, Modified: "", Carry: ""}
                 if size = previous.Size && modified = previous.Modified
                     continue
                 offset := size > previous.Size ? previous.Size : 0
-                watch.Files[key] := {Size: size, Modified: modified}
                 if size <= 0
+                {
+                    watch.Files[key] := {Size: size, Modified: modified, Carry: ""}
                     continue
+                }
                 file := FileOpen(path, "r", "UTF-8")
                 if !IsObject(file)
                     continue
                 try
                 {
-                    file.Pos := Max(0, size - 262144, offset)
+                    start := Max(0, size - 262144, offset)
+                    file.Pos := start
                     chunk := file.Read()
+                    endOffset := file.Pos
                 }
                 finally file.Close()
+                latest := {Size: endOffset, Modified: modified, Carry: ""}
+                watch.Files[key] := latest
                 if chunk = ""
                     continue
                 if pending
@@ -103,7 +109,7 @@ CheckTES3MPPluginMismatch()
                     TES3MPAccumulateMismatchDetailText(TES3MPLastMismatchEvidence, chunk)
                     continue
                 }
-                currentText := watch.Carry chunk
+                currentText := (start = previous.Size ? previous.Carry : "") chunk
                 if InStr(currentText, "Your plugins or their load order don't match the server's", false)
                 {
                     TES3MPLastMismatchEvidence := TES3MPAnalyzeMismatchLogText(currentText)
@@ -115,7 +121,7 @@ CheckTES3MPPluginMismatch()
                     LogLauncherEvent("GAME | PLUGIN MISMATCH | Rejection captured; collecting bounded comparison categories.")
                     return true
                 }
-                watch.Carry := StrLen(currentText) > 384 ? SubStr(currentText, -384) : currentText
+                latest.Carry := StrLen(currentText) > 384 ? SubStr(currentText, -384) : currentText
             }
             catch Error as err
                 LogLauncherEvent("GAME | Plugin-mismatch log inspection unavailable: " Type(err) ".")
@@ -198,6 +204,7 @@ TES3MPExpansionBeginNativeProgress()
     if !IsObject(frame) || !IsObject(frame.Panel)
     {
         LogLauncherEvent("EXPANSION | Native progress capture returned incomplete frame.")
+        try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
         return false
     }
     try
@@ -232,6 +239,7 @@ TES3MPExpansionBeginNativeProgress()
     catch Error as err
     {
         LogLauncherEvent("EXPANSION | Native progress " stage " failed (" Type(err) ").")
+        ExpansionAutoProgressFrame := 0
         try LauncherGui.Opt("-Disabled")
         TES3MPExpansionRemoveDownloadCancel()
         try TES3MPExpansionCallNativeUi("ReleaseCapturedInterfaceFrame", frame)
@@ -354,8 +362,10 @@ TES3MPExpansionRetryNativeProgress(dialog)
     }
     LogLauncherEvent("EXPANSION | Native download progress recovered on deferred retry.")
     SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)
-    if ExpansionMismatchZipUrl != "" && IsObject(ExpansionMismatchStatus)
-        SetTimer((*) => TES3MPExpansionStartDiscoveredZip(ExpansionMismatchSlot, ExpansionMismatchStatus), -80)
+    slot := ExpansionMismatchSlot
+    status := ExpansionMismatchStatus
+    if ExpansionMismatchZipUrl != "" && IsObject(status)
+        SetTimer((*) => TES3MPExpansionStartDiscoveredZip(slot, status), -80)
 }
 
 TES3MPExpansionDiscoveryDeadline(dialog)
@@ -592,7 +602,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
         {
             ExpansionAutoDownloadAttempted := true
             nativeStatus.Text := "Automatic download display unavailable."
-            SetTimer((*) => TES3MPExpansionRevealRepair(
+            SetTimer((*) => ExpansionMismatchDialog = dialog && TES3MPExpansionRevealRepair(
                 "The automatic download display could not be initialized."), -60)
         }
         else
@@ -690,14 +700,14 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     ExpansionMismatchZipUrl := url
-    if ExpansionMismatchMode = "Install" && IsObject(ExpansionAutoProgressFrame)
+    if ExpansionMismatchMode = "Install" && IsObject(ExpansionAutoProgressFrame) && !ExpansionAutoDownloadAttempted
         TES3MPExpansionUpdateNativeProgress("Latest Expansion Pack found. Connecting...", 0)
     if IsObject(ExpansionMismatchStatus)
     {
         if ExpansionMismatchMode = "Install"
         {
             ; Do not overwrite the real failure once Repair is visible.
-            if ExpansionAutoCloaked
+            if ExpansionAutoCloaked && !ExpansionAutoDownloadAttempted
                 ExpansionMismatchStatus.Text := IsObject(ExpansionAutoProgressFrame)
                     ? "Official ZIP found. Beginning automatic download..."
                     : "Official ZIP found. Preparing native download window..."
