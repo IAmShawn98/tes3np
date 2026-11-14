@@ -6,7 +6,7 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 
 ## Features
 
-- **Manage Characters** — Save up to 10 characters, pick a favorite, and watch the login steps as tes3np enters your details. Run up to four game clients at once.
+- **Character Management** — Register up to ten existing characters and log in up to four at a time. Mark any character as your favorite for quick logins right from the launcher’s startup page. Each species has its own loading icon, and you can add a custom profile picture for each character.
 - **Game Chat and Happy Hour** — Read live Discord chat and see how much time is left in an active Happy Hour.
 - **Expansion Pack** — Download the optional pack from the official Discord channel or install it from a ZIP or extracted folder.
 - **Manage Macros** — Import, run, and stop AutoHotkey scripts and ZIP macro packages. You can also link an installed Windows app.
