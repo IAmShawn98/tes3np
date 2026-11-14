@@ -56,7 +56,7 @@ Reuse precreated controls when editing. Redraw changed controls locally for scro
 
 Keep personal settings and logs outside the source tree. Preserve existing INI keys and defaults when adding preferences. Do not store credentials in code, screenshots, examples or committed settings files. There is no automatic migration to Local AppData in this version.
 
-The Windows build script (`scripts/build-windows.ps1`, invoked by `Build tes3np.bat`) generates the compiled launcher and self-contained Chat Host in a complete `dist/tes3np-windows.zip` package. The Windows build first checks source, Chat Host persistence/authentication contracts, PowerShell syntax and C# compilation **before** deleting previous build artifacts or downloading runtime tools. Do not include user settings, logs, temporary files or developer credentials in a package. Public distribution remains blocked until the documented release evidence and explicit maintainer approval are complete.
+The Windows build script (`scripts/build-windows.ps1`, invoked by `Build tes3np.bat`) generates the compiled launcher and self-contained Chat Host in a complete `dist/tes3np-windows.zip` package. The Windows build checks source, Chat Host persistence and authentication contracts, PowerShell syntax, and C# compilation before downloading runtime tools. It replaces the previous build output after validating the new ZIP. Do not include user settings, logs, temporary files or developer credentials in a package. Public distribution remains blocked until the documented release evidence and explicit maintainer approval are complete.
 
 Each compiled resource bundle extracts into its own `%APPDATA%\tes3np\resources\v-<content-hash>` directory instead of overwriting files used by an older launcher. This prevents cross-version `FileInstall` sharing violations when species artwork or other bundled assets change; short transient locks receive bounded retries. The build's `--check-resources` verification checks the version marker, required UI images, installed species ICOs and patch-manifest payloads before packaging. Existing roaming preferences, encrypted character passwords and the resources of already-running launchers are preserved. If extraction still fails, the error names the affected asset rather than silently launching with missing images.
 
@@ -209,8 +209,8 @@ Start with [ARCHITECTURE.md](ARCHITECTURE.md).
 Run `python scripts/project.py check` for source/manifest checks and
 `powershell -NoProfile -File scripts/check-powershell.ps1` for actual PowerShell
 parser checks on Windows. The GitHub workflow runs both.
-`python scripts/project.py package` builds a checked complete release ZIP.
-The build number is defined once in `AppConfig.Build` in `src/state.ahk`.
+`Build tes3np.bat` builds the Windows ZIP. The launcher version is defined
+in `AppConfig.Version` in `src/state.ahk`.
 See [RELEASING.md](RELEASING.md) for packaging and repository setup.
 
 ### Local Windows regression without GitHub Actions

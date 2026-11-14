@@ -105,3 +105,5 @@ GitHub tree before changes.
   OpenMW settings are still current before replacing them.
 - The batch build passes its ZIP and extraction paths through environment
   variables so apostrophes in the checkout path do not break PowerShell.
+- ZIP validation rejects ambiguous Windows paths, links and file/directory
+  conflicts. Corrected outdated build commands in the development guide.
