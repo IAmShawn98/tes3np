@@ -12,6 +12,7 @@ OpenBugReportPage(settings, *)
             SetBookControlVisible(control, false)
         for control in settings.ReportControls
             SetBookControlVisible(control, true)
+        RefreshBugReportScreenshots(settings)
     }
     finally EndInterfaceUpdate()
     settings.ReportMessage.Focus()
@@ -28,35 +29,46 @@ BuildBugReportPage(settings)
         " h" V016S(22) " BackgroundTrans", "What happened?")
     settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
     settings.ReportMessage := AddThemedEdit(settings, "x" V016S(32) " y" V016S(190)
-        " w" V016S(448) " h" V016S(100) " Multi WantReturn Limit4000")
+        " w" V016S(448) " h" V016S(76) " Multi WantReturn Limit4000")
 
-    settings.ReportAdd := AddStyledButton(settings, V016S(32), V016S(299), V016S(214), V016S(30),
-        "Add Screenshots", AddBugReportScreenshots.Bind(settings))
-    settings.ReportRemove := AddStyledButton(settings, V016S(266), V016S(299), V016S(214), V016S(30),
-        "Remove", RemoveBugReportScreenshot.Bind(settings))
+    settings.ReportAdd := AddStyledButton(settings, V016S(32), V016S(273), V016S(214), V016S(30),
+        "Add Screenshots (0)", AddBugReportScreenshots.Bind(settings))
     settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
-    settings.ReportList := settings.Add("ListBox", "x" V016S(32) " y" V016S(337)
-        " w" V016S(448) " h" V016S(54) " +0x100 -E0x200 +Border BackgroundE2CEA2")
-    settings.ReportList.OnEvent("Change", UpdateBugReportScreenshotButtons.Bind(settings))
-    note := settings.Add("Text", "x" V016S(32) " y" V016S(398) " w" V016S(448)
-        " h" V016S(40) " BackgroundTrans",
-        "A recent launcher log is attached automatically.`nUp to 5 PNG or JPEG screenshots (8 MB total).")
-    settings.ReportStatus := settings.Add("Text", "x" V016S(32) " y" V016S(440)
-        " w" V016S(448) " h" V016S(40) " BackgroundTrans")
+    box := settings.Add("Text", "x" V016S(32) " y" V016S(309) " w" V016S(448)
+        " h" V016S(112) " +Border BackgroundE2CEA2")
+    settings.ReportEmpty := settings.Add("Text", "x" V016S(41) " y" V016S(320) " w" V016S(430)
+        " h" V016S(36) " BackgroundE2CEA2", "Up to 5 PNG or JPEG screenshots (8 MB total).")
+    settings.ReportRows := []
+    Loop 5
+    {
+        rowY := 312 + (A_Index - 1) * 21
+        settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
+        name := settings.Add("Text", "x" V016S(41) " y" V016S(rowY) " w" V016S(392)
+            " h" V016S(21) " +0x4280 BackgroundE2CEA2")
+        remove := AddStyledButton(settings, V016S(441), V016S(rowY), V016S(32), V016S(20),
+            "×", RemoveBugReportScreenshot.Bind(settings, A_Index))
+        settings.ReportRows.Push({Name: name, Remove: remove})
+    }
+    settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
+    note := settings.Add("Text", "x" V016S(32) " y" V016S(426) " w" V016S(448)
+        " h" V016S(19) " BackgroundTrans", "A recent launcher log is attached automatically.")
+    settings.ReportStatus := settings.Add("Text", "x" V016S(32) " y" V016S(448)
+        " w" V016S(448) " h" V016S(32) " BackgroundTrans")
     settings.ReportSend := AddStyledButton(settings, V016S(32), V016S(483), V016S(214), V016S(30),
         "Send Report", SendBugReport.Bind(settings))
     settings.ReportCancel := AddStyledButton(settings, V016S(266), V016S(483), V016S(214), V016S(30),
         "Cancel", CloseBugReportPage.Bind(settings))
 
     settings.ReportControls := [heading, prompt, settings.ReportMessage, settings.ReportAdd,
-        settings.ReportRemove, settings.ReportList, note, settings.ReportStatus,
+        box, settings.ReportEmpty, note, settings.ReportStatus,
         settings.ReportSend, settings.ReportCancel]
+    for row in settings.ReportRows
+        settings.ReportControls.Push(row.Name, row.Remove)
     settings.ReportScreenshots := []
     settings.ReportWindow := settings.Hwnd
     settings.ReportRequest := 0
     settings.ReportPoll := 0
     settings.ReportBusy := false
-    UpdateBugReportScreenshotButtons(settings)
 }
 
 IsBugReportPageVisible(settings)
@@ -74,7 +86,7 @@ CloseBugReportPage(settings, *)
     {
         settings.ReportMessage.Value := ""
         settings.ReportScreenshots := []
-        RefreshBugReportScreenshots(settings)
+        settings.ReportStatus.Text := ""
         for control in settings.ReportControls
             SetBookControlVisible(control, false)
         for control in V016SettingsDataControls
@@ -86,73 +98,91 @@ CloseBugReportPage(settings, *)
 
 AddBugReportScreenshots(settings, *)
 {
+    if settings.ReportBusy
+        return
     settings.Opt("+OwnDialogs")
-    paths := FileSelect("M1", , "Choose screenshots", "Screenshots (*.png; *.jpg; *.jpeg)")
+    try paths := FileSelect("M1", , "Choose screenshots", "Screenshots (*.png; *.jpg; *.jpeg)")
+    catch
+    {
+        settings.ReportStatus.Text := "The screenshot picker couldn’t open."
+        return
+    }
     if !IsObject(paths) || !paths.Length
         return
-    selected := settings.ReportScreenshots.Clone()
-    known := Map()
-    known.CaseSense := false
-    try
-    {
-        totalBytes := 0
-        for path in selected
-        {
-            known[path] := true
-            totalBytes += FileGetSize(path)
-        }
-        for path in paths
-        {
-            if known.Has(path)
-                continue
-            if selected.Length = 5
-                throw Error("You can attach up to 5 screenshots.")
-            if !RegExMatch(path, "i)\.(png|jpe?g)$") || !IsValidOriginalCharacterImage(path)
-                throw Error("Choose a readable PNG or JPEG screenshot.")
-            totalBytes += FileGetSize(path)
-            if totalBytes > 8 * 1024 * 1024
-                throw Error("Screenshots must be 8 MB or less in total.")
-            known[path] := true
-            selected.Push(path)
-        }
-    }
-    catch Error as err
-    {
-        settings.ReportStatus.Text := err is OSError ? "A screenshot could not be read." : err.Message
-        return
-    }
-    settings.ReportScreenshots := selected
+    settings.ReportStatus.Text := AddBugReportAttachments(settings.ReportScreenshots, paths)
     RefreshBugReportScreenshots(settings)
 }
 
-RemoveBugReportScreenshot(settings, *)
+AddBugReportAttachments(attachments, paths)
 {
-    if settings.ReportList.Value
+    remaining := 8 * 1024 * 1024
+    known := Map()
+    known.CaseSense := "Off"
+    for attachment in attachments
     {
-        settings.ReportScreenshots.RemoveAt(settings.ReportList.Value)
-        RefreshBugReportScreenshots(settings)
+        known[attachment.Path] := true
+        remaining -= attachment.Bytes.Size
     }
+    skipped := ""
+    skippedCount := 0
+    for path in paths
+    {
+        SplitPath(path, &name)
+        try
+        {
+            if known.Has(path)
+                throw Error("That screenshot is already attached.")
+            if attachments.Length >= 5
+                throw Error("You can attach up to 5 screenshots.")
+            bytes := ReadBugReportScreenshot(path, remaining)
+            attachments.Push({Path: path, Name: name, Bytes: bytes})
+            known[path] := true
+            remaining -= bytes.Size
+        }
+        catch Error as err
+        {
+            skippedCount += 1
+            if skipped = ""
+            {
+                displayName := StrLen(name) > 32 ? SubStr(name, 1, 29) "…" : name
+                skipped := displayName " — " (err is OSError ? "Couldn’t read this file." : err.Message)
+            }
+        }
+    }
+    return skippedCount ? skippedCount " skipped. " skipped : ""
+}
+
+RemoveBugReportScreenshot(settings, index, *)
+{
+    if settings.ReportBusy || index > settings.ReportScreenshots.Length
+        return
+    settings.ReportScreenshots.RemoveAt(index)
+    settings.ReportStatus.Text := ""
+    RefreshBugReportScreenshots(settings)
+    if index > settings.ReportScreenshots.Length
+        settings.ReportAdd.Focus()
 }
 
 RefreshBugReportScreenshots(settings)
 {
-    names := []
-    for path in settings.ReportScreenshots
+    count := settings.ReportScreenshots.Length
+    SetPaintedLabelText(settings.ReportAdd, "Add Screenshots (" count ")")
+    settings.ReportEmpty.Visible := count = 0
+    for index, row in settings.ReportRows
     {
-        SplitPath(path, &name)
-        names.Push(name)
+        attached := index <= count
+        row.Name.Text := attached ? settings.ReportScreenshots[index].Name : ""
+        SetBookControlVisible(row.Name, attached)
+        SetBookControlVisible(row.Remove, attached)
     }
-    settings.ReportList.Delete()
-    if names.Length
-        settings.ReportList.Add(names)
-    settings.ReportStatus.Text := ""
     UpdateBugReportScreenshotButtons(settings)
 }
 
-UpdateBugReportScreenshotButtons(settings, *)
+UpdateBugReportScreenshotButtons(settings)
 {
     settings.ReportAdd.Enabled := !settings.ReportBusy && settings.ReportScreenshots.Length < 5
-    settings.ReportRemove.Enabled := !settings.ReportBusy && settings.ReportList.Value != 0
+    for row in settings.ReportRows
+        row.Remove.Enabled := !settings.ReportBusy
 }
 
 SendBugReport(settings, *)
@@ -174,12 +204,15 @@ SendBugReport(settings, *)
         return
     }
 
-    SetBugReportBusy(settings, true, "Sending report…")
+    count := settings.ReportScreenshots.Length
+    SetBugReportBusy(settings, true, count
+        ? "Sending " count (count = 1 ? " screenshot…" : " screenshots…")
+        : "Sending report…")
     try
         screenshots := EncodeBugReportScreenshots(settings.ReportScreenshots)
     catch
     {
-        SetBugReportBusy(settings, false, "A screenshot changed or could not be read. Remove it and add it again.")
+        SetBugReportBusy(settings, false, "Couldn’t prepare the screenshots. Your draft is still here.")
         return
     }
 
@@ -257,9 +290,11 @@ PollBugReport(settings)
             {
                 StopBugReportRequest(settings)
                 settings.ReportMessage.Value := ""
+                count := settings.ReportScreenshots.Length
                 settings.ReportScreenshots := []
                 RefreshBugReportScreenshots(settings)
-                SetBugReportBusy(settings, false, "Report sent. Report ID " receipt[1] ".")
+                status := count ? "Report sent with " count (count = 1 ? " screenshot." : " screenshots.") : "Report sent."
+                SetBugReportBusy(settings, false, status " ID " receipt[1] ".")
                 return
             }
             if RegExMatch(response, '^\s*\{\s*"ok"\s*:\s*false\s*,\s*"code"\s*:\s*"([a-z_]+)"\s*\}\s*$', &failure)
@@ -304,7 +339,6 @@ SetBugReportBusy(settings, busy, status)
 {
     settings.ReportBusy := busy
     settings.ReportMessage.Opt(busy ? "+ReadOnly" : "-ReadOnly")
-    settings.ReportList.Enabled := !busy
     settings.ReportSend.Enabled := !busy
     settings.ReportCancel.Enabled := !busy
     settings.ReportStatus.Text := status
@@ -333,24 +367,41 @@ ReadBugReportLog()
         return ""
 }
 
-EncodeBugReportScreenshots(paths)
+ReadBugReportScreenshot(path, remaining)
 {
-    remaining := 8 * 1024 * 1024
-    encoded := ""
-    for path in paths
+    if !RegExMatch(path, "i)\.(png|jpe?g)$")
+        throw Error("Choose PNG or JPEG screenshots.")
+    file := FileOpen(path, "r")
+    try
     {
-        file := FileOpen(path, "r")
-        try
-        {
-            size := file.Length
-            if size < 1 || size > remaining
-                throw Error("Screenshot size exceeds the limit.")
-            bytes := Buffer(size)
-            if file.RawRead(bytes, size) != size
-                throw Error("Could not read screenshot.")
-        }
-        finally file.Close()
+        size := file.Length
+        if size > remaining
+            throw Error("Screenshots must be 8 MB or less in total.")
+        if size < 4
+            throw Error("A screenshot is empty or incomplete.")
+        bytes := Buffer(size)
+        file.Pos := 0
+        if file.RawRead(bytes, size) != size
+            throw Error("A screenshot could not be read.")
+    }
+    finally file.Close()
+    ; Check the same signatures and end markers as the report receiver.
+    isPng := size >= 33 && NumGet(bytes, 0, "UInt") = 0x474E5089
+        && NumGet(bytes, 4, "UInt") = 0x0A1A0A0D && NumGet(bytes, size - 8, "UInt") = 0x444E4549
+    isJpeg := NumGet(bytes, 0, "UShort") = 0xD8FF && NumGet(bytes, 2, "UChar") = 0xFF
+        && NumGet(bytes, size - 2, "UShort") = 0xD9FF
+    if !isPng && !isJpeg
+        throw Error("A screenshot is incomplete or isn’t a PNG or JPEG.")
+    return bytes
+}
 
+EncodeBugReportScreenshots(attachments)
+{
+    encoded := ""
+    for index, attachment in attachments
+    {
+        bytes := attachment.Bytes
+        size := bytes.Size
         ; CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF
         characters := 0
         flags := 0x40000001
@@ -361,8 +412,7 @@ EncodeBugReportScreenshots(paths)
         if !DllCall("crypt32\CryptBinaryToStringW", "Ptr", bytes, "UInt", size,
             "UInt", flags, "Ptr", output, "UInt*", &characters)
             throw Error("Could not encode screenshot.")
-        encoded .= (encoded = "" ? "" : ",") '"' StrGet(output, "UTF-16") '"'
-        remaining -= size
+        encoded .= (index = 1 ? "" : ",") '"' StrGet(output, "UTF-16") '"'
     }
     return encoded
 }
