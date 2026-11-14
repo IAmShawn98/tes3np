@@ -80,5 +80,7 @@ GitHub tree before changes.
 - OpenMW config read failures leave Morrowind discovery able to check the
   registry and Steam libraries. Release-note fetches use the system Windows
   PowerShell path.
+- Removed the duplicate loading-overlay predicate and a first-run flag
+  with no readers. File hash checks require certutil to exit successfully.
 - The dev PC build remains deferred while the source audit continues.
   The second PC upgrade test follows a passing dev PC regression run.

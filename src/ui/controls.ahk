@@ -333,7 +333,7 @@ ActivateThemedButton(handle)
         return
     if ButtonNeedsRenderCover(face)
     {
-        BeginInterfaceUpdate(face.Gui, LoadingMessageForButton(face), ButtonLoadsContent(face), LoadingStepsForButton(face))
+        BeginInterfaceUpdate(face.Gui, LoadingMessageForButton(face), true, LoadingStepsForButton(face))
         try face.Action.Call()
         finally EndInterfaceUpdate()
     }
