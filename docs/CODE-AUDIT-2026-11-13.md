@@ -126,3 +126,19 @@ GitHub tree before changes.
   a config edit during install, and a final status write failure. An
   isolated archive test exercised a failed write and the eventual retry.
   Full Windows import, WebView2 and launcher tests remain pending.
+
+## Sixth source pass
+
+- Macro ZIPs are validated before extraction, including Windows filename
+  conflicts and launcher-owned marker names. Extracted files must match
+  their declared sizes. The package list skips unfinished import folders.
+- Macro ZIP extraction tracks the worker's process handle. Timeout and
+  shutdown request termination and wait before removing staging. Linked
+  applications publish their registration after writing all metadata.
+- Expansion Pack progress reads tolerate a transient status file error.
+  The launcher also releases the import handle during shutdown.
+- Eleven disposable macro ZIP fixtures passed, covering a valid nested
+  Unicode package, rejected paths and metadata, preservation of a nonempty
+  staging folder, and rejection of a size mismatch. Source contracts and
+  the updater transaction fixtures passed again. Native macro UI, timeout
+  and launcher shutdown remain Windows runtime checks.

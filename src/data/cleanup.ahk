@@ -74,8 +74,7 @@ CleanupStaleLauncherData()
     if IsPlainLauncherFolder(MacroRoot)
         Loop Files MacroRoot "\import-*", "D"
         {
-            if !RegExMatch(A_LoopFileName, "^import-\d{14}-\d+$")
-                || FileExist(A_LoopFileFullPath "\.tes3np-package.ini")
+            if !IsMacroImportFolderName(A_LoopFileName)
                 || (IsObject(MacroImport) && MacroImport.Folder = A_LoopFileFullPath)
                 continue
             if IsOldLauncherFile(A_LoopFileFullPath, 1)
@@ -125,6 +124,11 @@ CleanupStaleLauncherData()
         }
         PruneLauncherCache(root "\client-cache", "i)^(merged-)?[0-9a-f]{8}(-[0-9a-f]{32})?$", ".ready", keep, 30)
     }
+}
+
+IsMacroImportFolderName(name)
+{
+    return RegExMatch(name, "i)^import-\d{14}-(\d+|[0-9a-f]{32})$")
 }
 
 PruneExpansionToggleBackups(root)
