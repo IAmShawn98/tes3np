@@ -357,8 +357,8 @@ OpenAppDataSettingsV016(settings, *)
         settings.Add("Text", "x" V016S(42) " y" V016S(166) " w" V016S(428) " h" V016S(65) " BackgroundTrans",
             "Characters and preferences are saved in AppData. Export characters before resetting.")
         AddStyledButton(settings, V016S(32), V016S(243), V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
-        AddStyledButton(settings, V016S(32), V016S(279), V016S(448), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
-        settings.ReportPageButton := AddStyledButton(settings, V016S(32), V016S(315), V016S(448), V016S(30),
+        AddStyledButton(settings, V016S(32), V016S(284), V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
+        settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(284), V016S(214), V016S(30),
             "Report A Bug", OpenBugReportPage.Bind(settings))
         settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
         settings.Add("Text", "x" V016S(32) " y" V016S(351) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
