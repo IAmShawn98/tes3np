@@ -295,3 +295,25 @@ this repository.
   remain pending. Continue the behavioral read-through of the remaining
   AutoHotkey settings, login and expansion diagnostics code and the larger
   validation scripts before the dev-PC handoff.
+
+## Tenth source pass
+
+- Read the display and accessibility settings, Game Client Settings and
+  diagnostics dialogs, login progress card, and game-session watchdog.
+  Display settings now commit as one INI replacement and restore the
+  preview when saving fails. Windows accessibility overrides are applied
+  at runtime without being written back as the user's explicit choice.
+- The watchdog rechecks session ownership after dialogs and checks the
+  active window and PID before credential input. Login progress releases
+  a partially constructed window and stops polling after dismissal.
+  Settings caption dragging handles monitors with negative coordinates.
+- Reviewed the Expansion Pack diagnostic evidence, fingerprint and
+  clipboard paths. A clipboard retry remains scoped to its own dialog.
+  The local privacy scanner preserves legacy status-file line endings,
+  and updater fixtures route their diagnostics to disposable AppData.
+- Coverage added for `src/ui/launcher-settings.ahk`,
+  `src/ui/v016-refinements.ahk`, `src/ui/login-progress.ahk`,
+  `src/game/session.ahk`, the diagnostic functions in
+  `src/game/expansion-mismatch.ahk`, `scripts/audit-local-privacy.py`, and
+  `scripts/check-diagnostic-privacy.py`. The larger source-contract scripts
+  still need a complete review and reconciliation against this inventory.

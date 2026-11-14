@@ -80,6 +80,10 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     global V016ReadabilityState, V016FollowWindowsState
     oldScale := LauncherScale, oldMode := LauncherScaleMode, oldText := AccessibilityTextSize
     oldReadability := EnhancedReadability, oldReduceMotion := ReduceMotion, oldFollowWindows := FollowWindowsAccessibility
+    oldReadabilityChoice := settings.SavedReadability
+    oldMotionChoice := settings.SavedReduceMotion
+    saveFailed := false
+    saved := false
     if scaleList.Value = 1
     {
         LauncherScaleMode := "Auto", LauncherScale := GetAutomaticLauncherScale(), pendingScale := "Auto"
@@ -89,8 +93,10 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         LauncherScaleMode := "Manual", LauncherScale := Integer(StrReplace(scaleList.Text, "%")), pendingScale := LauncherScale
     }
     AccessibilityTextSize := textList.Text
-    EnhancedReadability := readability.Value = 1
-    ReduceMotion := reduceMotionBox.Value = 1
+    requestedReadability := readability.Value = 1
+    requestedReduceMotion := reduceMotionBox.Value = 1
+    EnhancedReadability := requestedReadability
+    ReduceMotion := requestedReduceMotion
     FollowWindowsAccessibility := followWindows.Value = 1
     DetectWindowsAccessibility()
     ApplyWindowsAccessibilityPreferences()
@@ -98,51 +104,38 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     ; that window, so re-enable the launcher before showing its preview/update UI.
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
     settings.Hide()
-    BeginInterfaceUpdate(LauncherGui, loadingMessage, true, 8)
     try
     {
-        SetInterfaceLoadingText("Adjusting launcher size...")
-        ApplyLauncherScaleToWindow(true)
-        SetInterfaceLoadingText("Updating interface text...")
-        ApplyAccessibilityTextSize()
-        SetInterfaceLoadingText("Updating readability...")
-        ApplyEnhancedReadability()
-        SetInterfaceLoadingText("Finishing display update...")
+        RefreshLauncherDisplay(loadingMessage)
+        LauncherGui.Opt("+OwnDialogs")
+        result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
+        if result = "Yes"
+        {
+            SaveLauncherDisplaySettings(pendingScale, AccessibilityTextSize,
+                requestedReadability, requestedReduceMotion, FollowWindowsAccessibility)
+            saved := true
+        }
     }
-    finally EndInterfaceUpdate()
-    result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
-    if result = "Yes"
+    catch Error as err
     {
-        SaveLauncherScale(pendingScale)
-        SaveAccessibilityTextSize(AccessibilityTextSize)
-        SaveEnhancedReadability(EnhancedReadability)
-        SaveReduceMotion(ReduceMotion)
-        SaveFollowWindowsAccessibility(FollowWindowsAccessibility)
-        ; Complete the normal modal cleanup (including stale HWND/bookkeeping).
+        saveFailed := true
+        LogLauncherEvent("UI | Display settings preview or save failed (" Type(err) ").")
+    }
+    if saved
+    {
         CloseLauncherSettingsV016(settings)
         return
     }
     LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability, ReduceMotion := oldReduceMotion, FollowWindowsAccessibility := oldFollowWindows
-    BeginInterfaceUpdate(LauncherGui, "Restoring previous display settings...", true, 8)
-    try
-    {
-        SetInterfaceLoadingText("Restoring launcher size...")
-        ApplyLauncherScaleToWindow(true)
-        SetInterfaceLoadingText("Restoring interface text...")
-        ApplyAccessibilityTextSize()
-        SetInterfaceLoadingText("Restoring readability...")
-        ApplyEnhancedReadability()
-        SetInterfaceLoadingText("Finishing display restore...")
-    }
-    finally EndInterfaceUpdate()
+    try RefreshLauncherDisplay("Restoring previous display settings...")
     ; A declined preview must restore the visible selectors as well as the
     ; launcher geometry. Otherwise Reset/Preview can leave controls showing
     ; defaults until the next login even though the old state was restored.
     scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)
     textList.Choose(oldText = "Large" ? 2 : oldText = "Extra Large" ? 3 : 1)
-    readability.Value := oldReadability ? 1 : 0
-    reduceMotionBox.Value := oldReduceMotion ? 1 : 0
+    readability.Value := oldReadabilityChoice
+    reduceMotionBox.Value := oldMotionChoice
     followWindows.Value := oldFollowWindows ? 1 : 0
     V016ReadabilityState := readability.Value
     V016FollowWindowsState := followWindows.Value
@@ -154,37 +147,52 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     settings.Show()
     ; Settings is modal again once the preview has been rejected/restored.
     DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+    if saveFailed
+    {
+        settings.Opt("+OwnDialogs")
+        MsgBox("Could not apply the display settings. Your saved preferences are still available.",
+            "tes3np — Display Settings", "Icon!")
+    }
 }
 
-SaveLauncherScale(value)
+RefreshLauncherDisplay(message)
 {
-    global DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(value, DataFile, "Launcher", "Scale")
+    global LauncherGui
+    try
+    {
+        BeginInterfaceUpdate(LauncherGui, message, true, 8)
+        SetInterfaceLoadingText("Adjusting launcher size...")
+        ApplyLauncherScaleToWindow(true)
+        SetInterfaceLoadingText("Updating interface text...")
+        ApplyAccessibilityTextSize()
+        SetInterfaceLoadingText("Updating readability...")
+        ApplyEnhancedReadability()
+    }
+    finally EndInterfaceUpdate()
 }
-SaveAccessibilityTextSize(value)
+
+SaveLauncherDisplaySettings(scale, textSize, readability, reduceMotion, followWindows)
 {
     global DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(value, DataFile, "Accessibility", "TextSize")
-}
-SaveEnhancedReadability(value)
-{
-    global DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(value ? "1" : "0", DataFile, "Accessibility", "EnhancedReadability")
-}
-SaveReduceMotion(value)
-{
-    global DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(value ? "1" : "0", DataFile, "Accessibility", "ReduceMotion")
-}
-SaveFollowWindowsAccessibility(value)
-{
-    global DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(value ? "1" : "0", DataFile, "Accessibility", "FollowWindows")
+    temporary := DataFile ".display-" NewLauncherFileId() ".tmp"
+    previousCritical := Critical("On")
+    try
+    {
+        DirCreate(AppDataDirectory)
+        if FileExist(DataFile)
+            FileCopy(DataFile, temporary)
+        IniWrite(scale, temporary, "Launcher", "Scale")
+        IniWrite(textSize, temporary, "Accessibility", "TextSize")
+        IniWrite(readability ? "1" : "0", temporary, "Accessibility", "EnhancedReadability")
+        IniWrite(reduceMotion ? "1" : "0", temporary, "Accessibility", "ReduceMotion")
+        IniWrite(followWindows ? "1" : "0", temporary, "Accessibility", "FollowWindows")
+        FileMove(temporary, DataFile, true)
+    }
+    finally
+    {
+        try FileDelete(temporary)
+        Critical(previousCritical)
+    }
 }
 AccessibilityFontSize(baseSize)
 {

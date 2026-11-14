@@ -1615,7 +1615,7 @@ expect(
     "Saved characters and new adventures require GOTY data before spawning TES3MP",
     session.count("if !EnsureMorrowindForGameLaunch()") == 3
     and session.index("if !EnsureMorrowindForGameLaunch()")
-        < session.index("StartProfileSession(Profiles[index], executable)")
+        < session.index("StartProfileSession(profile, executable)")
     and "FindMorrowindFolder(PatchConfigurationPath())" in patcher,
 )
 expect(
@@ -1696,6 +1696,15 @@ expect(
     and "CloseLauncherSettingsV016(settings)" in display_settings
     and "LauncherCachedScale := LauncherScale" in display_settings,
 )
+display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
+expect(
+    "Display settings stage all five values before replacing the live INI",
+    'FileCopy(DataFile, temporary)' in display_save
+    and 'FileMove(temporary, DataFile, true)' in display_save
+    and display_save.count('IniWrite(') == 5
+    and display_save.index('FileMove(temporary, DataFile, true)') > display_save.rindex('IniWrite(')
+    and 'IniWrite(value, DataFile' not in display_settings,
+)
 expect(
     "Settings match launcher scale, fit owner monitor and keep accessibility controls",
     "V016SettingsScale := GetV016SettingsFitScale()" in settings_ui
@@ -1703,7 +1712,7 @@ expect(
     and "return Max(0.45, Min(GetOwnedMenuScale(), fit))" in settings_ui
     and "return Max(7, Round(value * V016SettingsScale))" in settings_ui
     and "settings.ReadabilityControl := readability" in settings_ui
-    and "reduceMotionBox := {Value: ReduceMotion ? 1 : 0}" in settings_ui,
+    and "reduceMotionBox := {Value: settings.SavedReduceMotion}" in settings_ui,
 )
 expect(
     "Manual launcher scale scrolling accounts for current UI scale",

@@ -1,15 +1,12 @@
 ; Non-activating TES3MP login progress card. ClientTick owns inputs and timing.
 global LoginProgressGui := 0
-global LoginProgressHeading := 0
 global LoginProgressRows := []
 global LoginProgressFooter := 0
-global LoginProgressIcon := 0
 global LoginProgressCharacterName := 0
 global LoginProgressSpecies := ""
 global LoginProgressPortraitFile := ""
 global LoginProgressSummaryDots := []
 global LoginProgressStageStarted := 0
-global LoginProgressFinished := false
 global LoginProgressWidth := 0
 global LoginProgressHeight := 0
 global LoginProgressMode := ""
@@ -30,7 +27,7 @@ BeginGameLoginProgress(name, species := "", portraitFile := "")
     global LoginProgressGui, LoginProgressSpecies, LoginProgressPortraitFile
     global LoginProgressMode, LoginProgressStage, LoginProgressName
     global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, LoginProgressDisabled
-    global LoginProgressStageStarted, LoginProgressFinished
+    global LoginProgressStageStarted
     global LoginProgressGeneration, LoginProgressHardDeadline
     ; Recreate the visual only between logins so its portrait follows the
     ; selected character. This never restarts ClientTick or the game.
@@ -43,7 +40,6 @@ BeginGameLoginProgress(name, species := "", portraitFile := "")
     LoginProgressMode := "login"
     LoginProgressStage := 1
     LoginProgressStageStarted := A_TickCount
-    LoginProgressFinished := false
     LoginProgressName := name
     LoginProgressPid := 0
     LoginProgressHwnd := 0
@@ -78,11 +74,10 @@ SetGameLoginProgressStage(stage)
 CompleteGameLoginProgress(name, pid, hwnd)
 {
     global LoginProgressMode, LoginProgressStage, LoginProgressName
-    global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, AppConfig, LoginProgressFinished
+    global LoginProgressPid, LoginProgressHwnd, LoginProgressCloseAt, AppConfig
     global LoginProgressGeneration
-    if LoginProgressFinished
+    if LoginProgressMode != "login"
         return
-    LoginProgressFinished := true
     LoginProgressMode := "complete"
     LoginProgressStage := 5
     LoginProgressName := name
@@ -95,10 +90,11 @@ CompleteGameLoginProgress(name, pid, hwnd)
     SetTimer(DismissCompletedLoginProgress.Bind(LoginProgressGeneration), -3100)
     SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
     UpdateGameLoginProgress()
+}
 
 DismissCompletedLoginProgress(generation)
 {
-    global LoginProgressGeneration, LoginProgressMode, LoginProgressCloseAt, Client
+    global LoginProgressGeneration, LoginProgressMode, LoginProgressCloseAt
     if generation != LoginProgressGeneration || LoginProgressMode != "complete"
         return
     if A_TickCount < LoginProgressCloseAt
@@ -108,9 +104,6 @@ DismissCompletedLoginProgress(generation)
         return
     }
     DismissGameLoginProgress()
-    if !Client.Enabled
-        SetTimer(UpdateGameLoginProgress, 0)
-}
 }
 
 HideGameLoginProgress()
@@ -137,8 +130,7 @@ HideGameLoginProgress()
 DismissGameLoginProgress()
 {
     global LoginProgressMode, LoginProgressCloseAt, LoginProgressPid, LoginProgressHwnd
-    ; Do not clear LoginProgressFinished: the real game load delay
-    ; can elapse after the three-second visual has already closed.
+    SetTimer(UpdateGameLoginProgress, 0)
     LoginProgressMode := ""
     LoginProgressCloseAt := 0
     LoginProgressPid := 0
@@ -148,16 +140,14 @@ DismissGameLoginProgress()
 
 DisposeGameLoginProgress()
 {
-    global LoginProgressGui, LoginProgressRows, LoginProgressHeading, LoginProgressFooter
-    global LoginProgressIcon, LoginProgressCharacterName, LoginProgressSummaryDots
+    global LoginProgressGui, LoginProgressRows, LoginProgressFooter
+    global LoginProgressCharacterName, LoginProgressSummaryDots
     DismissGameLoginProgress()
     if IsObject(LoginProgressGui)
         try LoginProgressGui.Destroy()
     LoginProgressGui := 0
     LoginProgressRows := []
-    LoginProgressHeading := 0
     LoginProgressFooter := 0
-    LoginProgressIcon := 0
     LoginProgressCharacterName := 0
     LoginProgressSummaryDots := []
 }
@@ -185,9 +175,9 @@ GetCharacterLoginIconPath(species, portraitFile := "")
 
 CreateGameLoginProgress()
 {
-    global LoginProgressGui, LoginProgressHeading, LoginProgressRows
+    global LoginProgressGui, LoginProgressRows
     global LoginProgressFooter, LoginProgressWidth, LoginProgressHeight
-    global LoginProgressIcon, LoginProgressCharacterName, LoginProgressSummaryDots, LoginProgressSpecies, LoginProgressPortraitFile
+    global LoginProgressCharacterName, LoginProgressSummaryDots, LoginProgressSpecies, LoginProgressPortraitFile
     if IsObject(LoginProgressGui)
         return
     scale := A_ScreenDPI / 96
@@ -196,6 +186,8 @@ CreateGameLoginProgress()
     LoginProgressHeight := p(481)
     ; Nonactivating, click-through window: preserve TES3MP mouse and keyboard.
     window := Gui("-Caption +AlwaysOnTop +ToolWindow -DPIScale +E0x08000020", "tes3np Login Progress")
+    ; Register the window before adding controls so partial setup is disposable.
+    LoginProgressGui := window
     window.BackColor := "28241F"
 
     ; Four 4px gold strips are always visible in the production card.
@@ -204,14 +196,14 @@ CreateGameLoginProgress()
         window.Add("Text", "x" p(line[1]) " y" p(line[2])
             " w" p(line[3]) " h" p(line[4]) " BackgroundD1AE67", "")
     window.SetFont("s15 Bold cF2E4D0", "Georgia")
-    LoginProgressHeading := window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
+    window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
         " h" p(38) " Center BackgroundTrans +0x4000", "Logging in...")
     portraitPath := GetCharacterLoginIconPath(LoginProgressSpecies, LoginProgressPortraitFile)
     pictureOptions := "x" p(174) " y" p(60) " w" p(72) " h" p(72)
     ; Icon1 applies to ICO resources, but not to custom PNG/JPG/BMP portraits.
     if RegExMatch(portraitPath, "i)\.ico$")
         pictureOptions .= " Icon1"
-    LoginProgressIcon := window.Add("Picture", pictureOptions, portraitPath)
+    window.Add("Picture", pictureOptions, portraitPath)
     window.SetFont("s13 Bold cF2E4D0", "Georgia")
     LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" p(143)
         " w" p(372) " h" p(30) " Center BackgroundTrans", "")
@@ -251,7 +243,6 @@ CreateGameLoginProgress()
         LoginProgressSummaryDots.Push({Circle: circle, Symbol: symbol, Color: "", SymbolText: ""})
     }
     window.Show("Hide w" LoginProgressWidth " h" LoginProgressHeight)
-    LoginProgressGui := window
 }
 
 RenderGameLoginProgress()
@@ -364,6 +355,7 @@ UpdateGameLoginProgress(*)
     {
         ; A stale native overlay must never survive a completed dismissal.
         HideGameLoginProgress()
+        SetTimer(UpdateGameLoginProgress, 0)
         return
     }
     ; If the login never reaches its expected visual-completion callback,
@@ -373,7 +365,6 @@ UpdateGameLoginProgress(*)
         && A_TickCount >= LoginProgressHardDeadline
     {
         DismissGameLoginProgress()
-        SetTimer(UpdateGameLoginProgress, 0)
         LogLauncherEvent("UI | Login progress exceeded its display deadline; game session unchanged.")
         return
     }
@@ -385,7 +376,6 @@ UpdateGameLoginProgress(*)
         || (LoginProgressMode = "complete" && LoginProgressPid && !ProcessExist(LoginProgressPid))
     if abandoned
     {
-        SetTimer(UpdateGameLoginProgress, 0)
         DisposeGameLoginProgress()
         LogLauncherEvent("UI | Login progress closed after game exit or cancelled recovery.")
         return
@@ -393,8 +383,6 @@ UpdateGameLoginProgress(*)
     if LoginProgressMode = "complete" && A_TickCount >= LoginProgressCloseAt
     {
         DismissGameLoginProgress()
-        if !Client.Enabled
-            SetTimer(UpdateGameLoginProgress, 0)
         return
     }
     if LoginProgressDisabled
@@ -434,7 +422,7 @@ UpdateGameLoginProgress(*)
     catch Error as err
     {
         LoginProgressDisabled := true
-        HideGameLoginProgress()
+        DisposeGameLoginProgress()
         try LogLauncherEvent("UI | Login progress disabled for this session (" Type(err) ").")
     }
 }

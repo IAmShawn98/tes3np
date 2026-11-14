@@ -56,8 +56,6 @@ PlayVisibleProfile(position, *)
 
 ValidateLaunch(profile, executable)
 {
-    if !CanUseNPLauncher()
-        return false
     if !EnsureMorrowindForGameLaunch()
         return false
     SplitPath(executable, &filename)
@@ -90,16 +88,33 @@ LaunchProfileIndex(index)
         MsgBox("TES3NP is still completing a character login. Try the next character when that login finishes.", "tes3np")
         return
     }
-    if index < 1 || index > Profiles.Length || !CanStartAnotherTES3NPGame()
+    if index < 1 || index > Profiles.Length || !CanUseNPLauncher() || !CanStartAnotherTES3NPGame()
         return
+    profile := Profiles[index]
     executable := GetSharedExecutable()
-    if ValidateLaunch(Profiles[index], executable)
-        StartProfileSession(Profiles[index], executable)
+    if ValidateLaunch(profile, executable)
+        StartProfileSession(profile, executable)
 }
 
 StartProfileSession(profile, executable)
 {
-    global Client, TES3MPLastMismatchEvidence
+    global Client, TES3MPLastMismatchEvidence, DataFile
+    ; A file picker or prompt can yield to another launch request.
+    if Client.Enabled || !CanUseNPLauncher() || !CanStartAnotherTES3NPGame()
+        return
+    previousCritical := Critical("On")
+    try
+    {
+        if Client.Enabled || PatchInProgress()
+            return
+        session := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
+            Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
+            UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
+            PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
+            LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0}
+        Client := session
+    }
+    finally Critical(previousCritical)
     ResetPendingExpansionPromptForNewLaunch()
     ; Every login gets fresh mismatch evidence. Retain the previous result
     ; only while its own failed-login dialog is available for Copy Info.
@@ -108,13 +123,9 @@ StartProfileSession(profile, executable)
     profileName := IsObject(profile) ? profile.Name : "New Adventure"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
     LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
-    global DataFile
     LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled"))
-    Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
-        Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
-        UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
-        PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
-        LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0}
+    if Client != session || !Client.Enabled
+        return
     if IsObject(profile)
     {
         BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "",
@@ -336,8 +347,13 @@ ClientTick()
             StopClient()
             return
         }
+        if Client != session || !Client.Enabled
+            return
         WinActivate("ahk_id " hwnd)
-        if !WinWaitActive("ahk_id " hwnd, , 2)
+        focused := WinWaitActive("ahk_id " hwnd, , 2)
+        if Client != session || !Client.Enabled
+            return
+        if !focused
             throw Error("Could not focus game window")
         ; The tray stop action can run while WinWaitActive is waiting.
         previousCritical := A_IsCritical
@@ -352,6 +368,8 @@ ClientTick()
             {
                 SetGameLoginProgressStage(2)
                 LogLauncherEvent("GAME | Login stage | Entering username.")
+                if !WinActive("ahk_id " hwnd) || WinGetPID("ahk_id " hwnd) != session.PID
+                    return
                 SendText(Client.Profile.Name)
                 Send("{Enter}")
                 SetGameLoginProgressStage(3)
@@ -362,6 +380,8 @@ ClientTick()
             {
                 SetGameLoginProgressStage(4)
                 LogLauncherEvent("GAME | Login stage | Entering password.")
+                if !WinActive("ahk_id " hwnd) || WinGetPID("ahk_id " hwnd) != session.PID
+                    return
                 SendText(Client.Profile.Password)
                 Send("{Enter}")
                 ; Finish only the visual. The saved LoadDelay and recovery continue.

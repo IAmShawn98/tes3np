@@ -30,6 +30,10 @@ CleanupStaleLauncherData()
     for suffix in [".import.tmp", ".save.tmp"]
         if IsOldLauncherFile(DataFile suffix, 1)
             try FileDelete(DataFile suffix)
+    Loop Files DataFile ".display-*.tmp", "F"
+        if RegExMatch(A_LoopFileFullPath, "i)\.display-[0-9a-f]{32}\.tmp$")
+            && IsOldLauncherFile(A_LoopFileFullPath, 1)
+            try FileDelete(A_LoopFileFullPath)
 
     archiveFolder := root "\Logs"
     if IsPlainLauncherFolder(archiveFolder)
