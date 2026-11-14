@@ -2,12 +2,15 @@ using System;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
+#nullable enable
 
 internal static class ExpansionZipChecksum
 {
@@ -18,7 +21,7 @@ internal static class ExpansionZipChecksum
 
     internal static async Task<string> ReadAsync(Uri url)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(6));
         using var client = new HttpClient(new HttpClientHandler {
             AllowAutoRedirect = false, UseCookies = false
         });
@@ -30,6 +33,21 @@ internal static class ExpansionZipChecksum
         {
             return "";
         }
+    }
+
+    internal static string ReadDownloaded(string path)
+    {
+        using var zip = ZipFile.OpenRead(path);
+        ZipArchiveEntry? plugin = null;
+        foreach (var entry in zip.Entries)
+        {
+            if (!IsExpansionPlugin(entry.FullName))
+                continue;
+            if (plugin != null || entry.Length <= 0)
+                throw new InvalidDataException("Expected one non-empty Expansion Pack plugin.");
+            plugin = entry;
+        }
+        return plugin?.Crc32.ToString("X8", CultureInfo.InvariantCulture) ?? "";
     }
 
     internal static async Task<string> ReadAsync(HttpClient client, Uri url, CancellationToken token)
@@ -134,9 +152,7 @@ internal static class ExpansionZipChecksum
                 return "";
 
             string name = Encoding.UTF8.GetString(directory, at + headerSize, nameSize);
-            if (name.Equals(Plugin, StringComparison.OrdinalIgnoreCase)
-                || name.Equals("Data Files/" + Plugin, StringComparison.OrdinalIgnoreCase)
-                || name.EndsWith("/Data Files/" + Plugin, StringComparison.OrdinalIgnoreCase))
+            if (IsExpansionPlugin(name))
             {
                 if (checksum.Length != 0 || (U16(directory, at + 8) & 1) != 0
                     || ((U32(directory, at + 38) >> 16) & 0xF000) == 0xA000
@@ -149,6 +165,11 @@ internal static class ExpansionZipChecksum
         }
         return at == directory.Length ? checksum : "";
     }
+
+    private static bool IsExpansionPlugin(string name) =>
+        name.Equals(Plugin, StringComparison.OrdinalIgnoreCase)
+        || name.Equals("Data Files/" + Plugin, StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith("/Data Files/" + Plugin, StringComparison.OrdinalIgnoreCase);
 
     private static ushort U16(byte[] bytes, int offset) => BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(offset));
     private static uint U32(byte[] bytes, int offset) => BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(offset));

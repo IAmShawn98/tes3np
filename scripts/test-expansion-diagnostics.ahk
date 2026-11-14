@@ -11,6 +11,7 @@ global AppConfig := {Version: "TEST"}
 global Client := {PID: 0, Enabled: false}
 global LauncherGui := 0
 global EmbeddedChatPid := 0
+global ExpansionAutoFailurePromptGui := 0
 global DataFile := ""
 global FixtureWatchingLogs := false
 
@@ -204,6 +205,28 @@ try
         "Incorrect plugin load order on client`n" rejection)
     MismatchFixtureAssert(orderedLog.Order, "separate load-order indicator")
     MismatchFixtureAssert(!generic.Order, "generic load-order false positive blocked")
+    cleanExpansion := TES3MPAnalyzeMismatchConfig(
+        "content=Morrowind.esm`ncontent=Tribunal.esm`ncontent=Bloodmoon.esm`ncontent=NP Expansion Pack.esp")
+    expansionOnly := TES3MPAnalyzeMismatchLogText(rejection "`n"
+        . "3: checksum 0x0B740E71 doesn't match 0x00146E26")
+    MismatchFixtureAssert(TES3MPAllowsExpansionAutoUpdate(expansionOnly, cleanExpansion),
+        "checksum difference in the Expansion Pack slot offers an update")
+    masterOnly := TES3MPAnalyzeMismatchLogText(rejection "`n"
+        . "0: checksum 0x67C998DD doesn't match 0x7B6AF5B9")
+    MismatchFixtureAssert(!TES3MPAllowsExpansionAutoUpdate(masterOnly, cleanExpansion),
+        "base game checksum difference goes to diagnostics")
+    both := TES3MPAnalyzeMismatchLogText(rejection "`n"
+        . "0: checksum 0x67C998DD doesn't match 0x7B6AF5B9`n"
+        . "3: checksum 0x0B740E71 doesn't match 0x00146E26")
+    MismatchFixtureAssert(!TES3MPAllowsExpansionAutoUpdate(both, cleanExpansion)
+        && !TES3MPAllowsExpansionAutoUpdate(orderedLog, cleanExpansion),
+        "mixed discrepancies and load-order evidence go to diagnostics")
+    MismatchFixtureAssert(TES3MPExpansionPackMatches("00146E26", "00146E26")
+        && !TES3MPExpansionPackMatches("0B740E71", "00146E26")
+        && !TES3MPExpansionPackMatches("0B740E71", "")
+        && !TES3MPExpansionPackMatches("", ""),
+        "preflight only continues with an exact readable checksum match")
+
 
     ; TES3MP comparison details are written after the generic rejection.
     ; Capture fixed discrepancy categories, never the arbitrary filenames.
