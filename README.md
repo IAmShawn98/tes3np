@@ -13,6 +13,7 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 - **Macro Integration** — Upload your favorite macro scripts for things like fishing and training. Turn them on and off or tailor them to fit the launcher. Everything you use in one safe, backed-up environment.
 - **Custom Game Clients** — Have a custom version of tes3mp.exe and don't want to give it up? Simply go to **Launcher Settings → Game Client Settings** and set your custom client as your default and change back or update it any time you need.
 - **Discord Integration** — If you log into Discord via the launcher you will gain access to auto downloading expansion packs, game chat integration with the launcher, and even offline happy hour alerts.
+- **And More** — My goal with this launcher is to create a companion app for NP that can act as a hub to bridge the Discord, wiki, and in-game seamlessly. The installation process is simple, just follow the instructions below.
 
 ## Download
 
