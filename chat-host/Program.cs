@@ -836,7 +836,7 @@ internal static class Program
                 await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                     ExpansionDownloadsFocusScript);
                 if (closingChat || !ReferenceEquals(browser, expansionDownloadsBrowser) || browser.IsDisposed) return;
-                browser.CoreWebView2.WebMessageReceived+=(_,args)=>{
+                browser.CoreWebView2.WebMessageReceived+=(sender,args)=>{
                     if (closingChat || !ReferenceEquals(browser, expansionDownloadsBrowser) ||
                         !Uri.TryCreate(args.Source, UriKind.Absolute, out var source) ||
                         !string.Equals(source.GetLeftPart(UriPartial.Path).TrimEnd('/'), ExpansionChannel,
