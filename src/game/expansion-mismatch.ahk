@@ -141,7 +141,6 @@ HandleTES3MPPluginMismatch()
     if pid && ProcessExist(pid)
         try ProcessClose(pid)
     StopClient()
-    SetClientStatus("Game blocked: plugins or load order do not match the server.")
     ShowTES3MPExpansionMismatchDialog()
 }
 

@@ -157,7 +157,7 @@ expect(
 expect(
     "Banner presentation is independent of Discord authentication",
     "if (activationId == 0 || closingChat || IsDisposed) return;" in source
-    and "void RefreshHappyHourBanner()\n        {\n            if ((!ShowExpiredHappyHourForAlphaTest &&" in source
+    and "void RefreshHappyHourBanner()\n        {\n            if (happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner))" in source
     and "void DetectLatestHappyHour()\n        {\n            if (closingChat || IsDisposed) return;" in source,
 )
 expect(
@@ -176,7 +176,7 @@ expect(
     "Logging out must preserve a valid banner and its expiry timer",
     "Verified Happy Hour banner remains independent." in source
     and "Keep the existing genuine activation, its absolute expiry," in source
-    and "ShowExpiredHappyHourForAlphaTest &&" in source,
+    and "if (happyHourEndsAt <= DateTimeOffset.UtcNow) {" in source,
 )
 expect(
     "Only real Discord snowflake IDs may determine expiry",
@@ -188,12 +188,11 @@ expect(
     and "activeHappyHourCutoff" not in source,
 )
 expect(
-    "Expired Happy Hour alpha override stays disabled in production",
-    "const bool ShowExpiredHappyHourForAlphaTest = false;" in source
-    and "const bool ShowExpiredHappyHourForAlphaTest = true;" not in source
-    and "if (latest > lastHappyHourMessageId &&" in source
-    and "(ShowExpiredHappyHourForAlphaTest ||" in source
-    and "(!ShowExpiredHappyHourForAlphaTest && ends <= DateTimeOffset.UtcNow)" in source
+    "Happy Hour discovery and display reject expired announcements",
+    "ShowExpiredHappyHourForAlphaTest" not in source
+    and "DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow" in source
+    and "DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow" in source
+    and "ends <= DateTimeOffset.UtcNow) return;" in source
     and "HappyHourBannerTime(happyHourEndsAt)" in source
     and "Math.Max(0, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalSeconds))" in source,
 )
@@ -211,8 +210,7 @@ expect(
 )
 expect(
     "Historical Happy Hour search retains its bounded production one-hour window",
-    "DateTimeOffset.UtcNow.AddDays(-7)" in source
-    and "DateTimeOffset.UtcNow.AddHours(-1)" in source
+    "bool pastActiveWindow = oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1);" in source
     and "initialBackfillAttempts >= 500" in source
     and "TimeSpan.FromMinutes(6)" in source,
 )
@@ -1618,7 +1616,7 @@ expect(
 )
 login_progress = (ROOT / "src" / "ui" / "login-progress.ahk").read_text(encoding="utf-8-sig")
 login_cleanup = section_between(login_progress, "UpdateGameLoginProgress(*)", "\n}")
-session_stop = section_between(session, "StopClient(*)", "\nSetClientStatus(")
+session_stop = section_between(session, "StopClient(*)", "\nFindGameWindow(")
 expect(
     "Aborted TES3MP login destroys its native overlay even if the visibility flag is stale",
     "DisposeGameLoginProgress()" in session_stop

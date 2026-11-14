@@ -15,14 +15,17 @@ def main() -> int:
     # Current events are authenticated by their original Discord timestamp,
     # and expiration must be enforced at detection, display, and timer ticks.
     chat_source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
-    if "PreviewExpiredHappyHourForTesting" in chat_source:
+    if any(name in chat_source for name in (
+        "PreviewExpiredHappyHourForTesting", "ShowExpiredHappyHourForAlphaTest",
+    )):
         print("BLOCKED: obsolete Happy Hour preview mode was reintroduced.")
         return 1
     if not all(fragment in chat_source for fragment in (
         "DiscordTimestamp(activationId).AddHours(1)",
-        "const bool ShowExpiredHappyHourForAlphaTest = false;",
-        "(!ShowExpiredHappyHourForAlphaTest && ends <= DateTimeOffset.UtcNow)) return;",
-        "happyHourEndsAt <= DateTimeOffset.UtcNow) || !IsWindow(owner)",
+        "DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow",
+        "DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow",
+        "ends <= DateTimeOffset.UtcNow) return;",
+        "happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner)",
         "happyHourEndsAt <= DateTimeOffset.UtcNow) {",
     )):
         print("BLOCKED: Happy Hour active-only display guard is missing.")

@@ -1682,12 +1682,7 @@ metrics();
             // through that event: newer activations could still be unseen.
             bool verifiedLatest = candidateId > 0 &&
                 oldestLoaded <= DiscordTimestamp(candidateId);
-            // Alpha detection may need a recent expired event missing from
-            // disk, but paging is still bounded by the existing timeout.
-            bool pastActiveWindow = oldestLoaded <=
-                (ShowExpiredHappyHourForAlphaTest
-                    ? DateTimeOffset.UtcNow.AddDays(-7)
-                    : DateTimeOffset.UtcNow.AddHours(-1));
+            bool pastActiveWindow = oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1);
             bool complete = verifiedLatest || pastActiveWindow;
             // Discord may throttle or stop exposing history. Log partial
             // coverage rather than claiming detection succeeded.
@@ -1797,10 +1792,6 @@ metrics();
         bool happyHourBannerLayoutLogged;
         System.Windows.Forms.Timer? happyHourTicker;
         DateTimeOffset happyHourEndsAt;
-        // Production behavior: ignore expired announcements and close the
-        // existing banner when the real Discord activation turns one hour old.
-        // The alpha expired-announcement display override remains disabled.
-        const bool ShowExpiredHappyHourForAlphaTest = false;
         static Form GoldHappyHourWindow(int width, int height, string title)
         {
             return new Form {
@@ -1950,8 +1941,7 @@ metrics();
 
         void RefreshHappyHourBanner()
         {
-            if ((!ShowExpiredHappyHourForAlphaTest &&
-                 happyHourEndsAt <= DateTimeOffset.UtcNow) || !IsWindow(owner))
+            if (happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner))
             {
                 if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
                 happyHourBanner = null;
@@ -2076,7 +2066,7 @@ metrics();
             if (activationId == 0 || closingChat || IsDisposed) return;
             var ends = DiscordTimestamp(activationId).AddHours(1);
             if (activationId <= lastHappyHourMessageId ||
-                (!ShowExpiredHappyHourForAlphaTest && ends <= DateTimeOffset.UtcNow)) return;
+                ends <= DateTimeOffset.UtcNow) return;
 
             lastHappyHourMessageId = activationId;
             happyHourEndsAt = ends;
@@ -2089,8 +2079,7 @@ metrics();
 
             var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
             ticker.Tick += (_, _) => {
-                if (!ShowExpiredHappyHourForAlphaTest &&
-                    happyHourEndsAt <= DateTimeOffset.UtcNow) {
+                if (happyHourEndsAt <= DateTimeOffset.UtcNow) {
                     ticker.Stop();
                     if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
                     return;
@@ -2104,8 +2093,6 @@ metrics();
                 activationId + " | " + DiscordTimestamp(activationId).ToString("O"));
         }
 
-        // Search genuine archived Discord messages. Expired ones may show
-        // during this alpha test without generating fake messages or timestamps.
         static bool IsHappyHourAnnouncement(string body)
         {
             if (string.IsNullOrWhiteSpace(body)) return false;
@@ -2159,12 +2146,9 @@ metrics();
                 EnsureChatLogLoaded();
                 ulong latest = LatestArchivedHappyHourId();
                 if (latest > lastHappyHourMessageId &&
-                    (ShowExpiredHappyHourForAlphaTest ||
-                     DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow)) {
+                    DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow) {
                     Log("HAPPY HOUR | Verified latest Discord announcement " + latest +
-                        " at " + DiscordTimestamp(latest).ToString("O") +
-                        (DiscordTimestamp(latest).AddHours(1) <= DateTimeOffset.UtcNow
-                            ? " (expired; alpha display at 0m 0s)" : " (active)"));
+                        " at " + DiscordTimestamp(latest).ToString("O") + " (active)");
                     ShowHappyHourBannerForMessage(latest);
                 }
             }
@@ -2182,8 +2166,7 @@ metrics();
                 EnsureChatLogLoaded();
                 ulong candidate = LatestArchivedHappyHourId();
                 bool valid = candidate > 0 &&
-                    (ShowExpiredHappyHourForAlphaTest ||
-                     DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow);
+                    DiscordTimestamp(candidate).AddHours(1) > DateTimeOffset.UtcNow;
                 // A valid cached announcement is evidence for that event,
                 // NOT proof it is the most recent one. The Discord source may
                 // currently show only newer messages (or have resumed at an

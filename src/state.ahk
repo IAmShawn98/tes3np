@@ -45,7 +45,6 @@ global MacroImport := 0
 global MacroRoot := AppDataDirectory "\macros"
 global PatchJob := 0
 global PatchFrame := 0
-global SetupComplete := false
 
 ; Shared defaults; saved profile keys and runtime phase names remain compatible.
 global AppConfig := {Version: "0.1.21-alpha", Server: "NerevarineProphecies.servegame.com:25565",

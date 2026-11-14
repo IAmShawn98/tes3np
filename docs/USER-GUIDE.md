@@ -4,8 +4,7 @@
 
 - **Play** beside a character launches it without changing your saved default.
 - Tick one character to make it your default. **Launch <character>** uses that choice.
-- **Auto reconnect on close or crash** is saved separately for each character under Edit. It defaults to on and applies on the next launch. Turn it off if you want to close the game without it restarting.
-- **Start New Adventure** launches once without saved login input or automatic recovery.
+- **Start New Adventure** launches once and lets you enter your character information in-game.
 
 **Wipe Character Data** appears when at least one character exists. It asks for confirmation before removing all saved character credentials and the favorite selection, and stops active automation. It does not delete in-game characters or the executable setting. Export first if you need a backup. With no characters, Add character moves beneath the introductory description and Import Data becomes available.
 
@@ -19,7 +18,7 @@ Use the tray menu to **Open Launcher** or **Stop game recovery**. Quitting the l
 
 ## Moving to another computer
 
-**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays, reconnect choices, the ticked default and executable path. Export warns that passwords are readable in this file. Keep it private; do not share or commit it.
+**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays, the ticked default and executable path. Export warns that passwords are readable in this file. Keep it private; do not share or commit it.
 
 With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing settings and encrypts passwords for the destination Windows account. An executable path that does not exist there is cleared; use **Launcher Settings → Game Client Settings** if you need to configure a custom game client. Copying the normal encrypted `settings.ini` is not a portable password backup.
 
@@ -27,9 +26,9 @@ With an empty character list, this button becomes **Import Data**. Select a back
 
 Login uses foreground keyboard input and each character's configured delays. Avoid typing during credential entry. These delays do not verify the contents of login screens or prove that the server accepted the login or awarded daily points.
 
-The launcher shows a login-progress window with the selected character's icon and steps for loading the name screen, entering the name, loading the password screen and entering the password. It closes shortly after completing those steps. Crash monitoring continues separately.
+The launcher shows a login-progress window with the selected character's icon and steps for loading the name screen, entering the name, loading the password screen and entering the password. It closes shortly after completing those steps. The launcher continues monitoring until the saved character-loading delay elapses.
 
-The controller checks its tracked process and visible SDL game window every second. A terminal window does not qualify. Game-window startup allows 30 seconds; enabled recovery waits 5 seconds before retrying. Only the launched process is managed.
+The controller checks its tracked process and visible SDL game window every second. A terminal window does not qualify. Game-window startup allows 30 seconds. If the game closes or crashes, launch it again from TES3NP. Only the launched process is monitored.
 
 **Our Wiki** opens https://wiki.nerevarineprophecies.com/Main_Page. **Macros** opens the local ZIP macro manager. Import `.ahk` files directly or ZIP packages, choose their main `.ahk` script, then run, stop or remove them. See [Macro packages](MACRO-PACKAGES.md) for the ZIP format and requirements. Imported scripts can execute code; only run packages you trust.
 

@@ -65,13 +65,6 @@ StartEmbeddedInGameChat()
     }
 }
 
-ResizeEmbeddedInGameChat()
-{
-    ; ChatHost owns its rectangle via chat.ini, avoiding stale AHK coordinates
-    ; overriding live layout edits.
-    return
-}
-
 StopEmbeddedInGameChat()
 {
     global EmbeddedChatPid

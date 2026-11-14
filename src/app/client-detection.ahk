@@ -60,9 +60,15 @@ GetManagedCustomClientExecutable(source)
     bundled := A_ScriptDir "\client"
     if !FileExist(bundled "\defaults.bin")
         return source
-    ; Stable cache key includes the source path, file size and modified time,
-    ; and bundled runtime version. Changed binaries get a fresh directory.
-    token := source "|" FileGetSize(source) "|" FileGetTime(source, "M")
+    ; Custom replacements can have the same length and timestamp.
+    sourceHash := SHA256File(source)
+    if sourceHash = ""
+    {
+        LogLauncherEvent("GAME | Custom executable checksum unavailable.")
+        MsgBox("Could not read the selected TES3MP executable. Check its location and permissions.", "Custom client error", "Icon!")
+        return ""
+    }
+    token := source "|" sourceHash
         . "|" FileGetSize(bundled "\defaults.bin") "|" FileGetTime(bundled "\defaults.bin", "M")
         . "|" FileGetSize(bundled "\tes3mp.exe") "|" FileGetTime(bundled "\tes3mp.exe", "M")
     key := 2166136261
@@ -84,6 +90,8 @@ GetManagedCustomClientExecutable(source)
         DirCreate(AppDataDirectory "\client-cache")
         DirCopy(bundled, folder, true)
         FileCopy(source, output, true)
+        if SHA256File(output) != sourceHash
+            throw Error("The custom executable changed during staging. Try again.")
         FileAppend(source "`n", folder "\.ready", "UTF-8")
         LogLauncherEvent("GAME | Custom executable prepared with bundled runtime.")
         return output

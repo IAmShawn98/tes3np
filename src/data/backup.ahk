@@ -48,7 +48,8 @@ ExportLauncherData()
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
             IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
             IniWrite(profile.LoadDelay, temporary, section, "Load")
-            IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
+            ; Older v1 backup readers require this field. Automatic restart is retired.
+            IniWrite("0", temporary, section, "AutoReconnect")
         }
         FileMove(temporary, path, true)
         MsgBox("Launcher data exported. This file contains readable passwords; store it privately. Custom portrait images must be copied separately if needed.", "Export Data")
@@ -98,8 +99,7 @@ ImportLauncherData()
             restored.Push({Name: name, Password: password, Species: species,
                 UsernameDelay: ReadBackupInteger(path, section, "Username", 1, 300),
                 PasswordDelay: ReadBackupInteger(path, section, "PasswordDelay", 1, 300),
-                LoadDelay: ReadBackupInteger(path, section, "Load", 1, 300),
-                AutoReconnect: ReadBackupInteger(path, section, "AutoReconnect", 0, 1) = 1})
+                LoadDelay: ReadBackupInteger(path, section, "Load", 1, 300)})
         }
         executable := IniRead(path, "Launch", "Executable", "")
         SplitPath(executable, &filename)
@@ -135,7 +135,6 @@ ImportLauncherData()
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
             IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
             IniWrite(profile.LoadDelay, temporary, section, "Load")
-            IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
         }
         FileMove(temporary, DataFile, true)
     }

@@ -40,6 +40,22 @@ if ($downloadGate -lt 0 -or $stage -le $downloadGate -or
 }
 Write-Host 'PASS: verified update is staged and installed only after separate confirmations.'
 
+$entry = Get-Content -LiteralPath 'tes3np.ahk' -Raw -Encoding UTF8
+$builder = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
+$startup = '(?m)^updateStateFile := GetPendingUpdateStateFile\(\)\r?\nStartLauncher\(\)\r?\nif updateStateFile != ""\r?\n    ConfirmUpdatedLauncherStartup\(updateStateFile\)$'
+if ($entry -notmatch $startup -or
+    $entry -notmatch 'IniRead\(stateFile, "Update", "State", ""\) != "AWAITING_CONFIRMATION"' -or
+    -not $builder.Contains('PrepareBundledResources()`nStartLauncher()')) {
+    throw 'Update acknowledgement must follow resource extraction and successful launcher startup.'
+}
+$worker = Get-Content -LiteralPath 'scripts/tes3np-updater.ps1' -Raw -Encoding UTF8
+if (-not $worker.Contains(@'
+-ArgumentList @('--update-confirm', $Version, ('"' + $StateFile + '"')) -WorkingDirectory $InstallDir
+'@)) {
+    throw 'The updater must quote the state path and launch from the install directory.'
+}
+Write-Host 'PASS: updater confirmation follows startup and supports state paths with spaces.'
+
 # The public release generator writes fileName/size/sha256 under "package".
 # Guard the contract against regressions that silently hide update availability.
 Require-Source 'packageMatch' 'nested release package metadata support'

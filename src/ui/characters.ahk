@@ -33,7 +33,7 @@ ApplyCharacterBookScale(scale)
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, SessionStatus, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -122,7 +122,6 @@ OpenCharacterPage(*)
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    SessionStatus := CharacterPage.Add("Text", "x70 y555 w370 h50 Hidden", "")
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
     AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
@@ -327,7 +326,7 @@ CloseCharacterPage(*)
 
 EditProfile(index, *)
 {
-    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, EditorSpeciesDropDown, LaunchSettingsHeading, LaunchSettingsControls
+    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorSpeciesDropDown, LaunchSettingsHeading, LaunchSettingsControls
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
@@ -343,8 +342,7 @@ EditProfile(index, *)
         for control in LaunchSettingsControls
             control.Visible := false
         HideMacroBookPanel()
-        editor := CharacterPage
-        editor.SetFont("s10 c382314", "Segoe UI")
+        CharacterPage.SetFont("s10 c382314", "Segoe UI")
         global EditorFields, EditorRows, EditorEntries, EditorOffset, EditorTrack, EditorThumb, EditorUpdating
         EditorEntries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
             ["UsernameDelay", "Username screen delay (sec)", profile.UsernameDelay],
@@ -357,7 +355,6 @@ EditProfile(index, *)
         for row in EditorRows
             row.Key := ""
         EditorOffset := 0
-        SetBookTick(EditorReconnectTick, profile.AutoReconnect)
         ; Legacy characters remain editable without an invented race.
         species := profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : ""
         speciesIndex := 1
@@ -376,7 +373,7 @@ EditProfile(index, *)
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
         ButtonFaces[EditorSaveButton.Hwnd].LoadingText := "Saving character..."
-        ButtonFaces[EditorSaveButton.Hwnd].Action := SaveProfileEditor.Bind(index, EditorFields, editor)
+        ButtonFaces[EditorSaveButton.Hwnd].Action := SaveProfileEditor.Bind(index, EditorFields)
         for control in EditorControls
             control.Visible := true
         UpdateOriginalSpeciesHint()
@@ -390,13 +387,13 @@ EditProfile(index, *)
 
 CreateProfileEditor()
 {
-    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorReconnectTick, EditorSpeciesDropDown, EditorOCSpeciesHint
+    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
     {
         position := A_Index
-        ; Compact the five existing rows without moving Save or X.
+        ; Keep the five editable fields evenly spaced.
         y := 100 + (position - 1) * 50
         SetInterfaceLoadingText("Loading setting label " position "...")
         label := AddBookLabel(CharacterPage, 525, y, 355, 22, "")
@@ -430,16 +427,12 @@ CreateProfileEditor()
     SetInterfaceLoadingText("Loading settings scrollbar...")
     EditorTrack := CharacterPage.Add("Text", "x890 y210 w7 h213 Hidden Background704C27 +0x100")
     EditorThumb := CharacterPage.Add("Text", "x890 y210 w7 h110 Hidden BackgroundC69951 +0x100")
-    SetInterfaceLoadingText("Loading auto reconnect setting...")
-    EditorReconnectTick := AddBookTick(CharacterPage, 525, 434, ToggleEditorReconnect)
-    reconnectLabel := AddBookLabel(CharacterPage, 550, 431, 330, 24, "Auto reconnect on close or crash")
-    EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
-    EditorSaveButton := AddStyledButton(CharacterPage, 635, 465, 140, 30, "Save changes", (*) => 0)
+    EditorSaveButton := AddStyledButton(CharacterPage, 635, 440, 140, 30, "Save changes", (*) => 0)
     EditorControls.Push(EditorTrack)
     EditorControls.Push(EditorThumb)
     EditorControls.Push(EditorSaveButton)
-    dismiss := AddStyledButton(CharacterPage, 685, 507, 30, 24, "X", CloseProfileEditor)
+    dismiss := AddStyledButton(CharacterPage, 685, 482, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
 }
 
@@ -718,12 +711,6 @@ UpdateEditorField(position, control, *)
         EditorFields[EditorRows[position].Key].Value := control.Value
 }
 
-ToggleEditorReconnect(*)
-{
-    global EditorReconnectTick, ButtonFaces
-    SetBookTick(EditorReconnectTick, !ButtonFaces[EditorReconnectTick.Hwnd].Checked)
-}
-
 ScrollEditorRows(offset)
 {
     global EditorOffset, EditorUpdating, EditorRows, EditorEntries, EditorFields, EditorThumb
@@ -829,9 +816,9 @@ ReleaseEditorScroll()
 }
 
 
-SaveProfileEditor(index, fields, editor, *)
+SaveProfileEditor(index, fields, *)
 {
-    global Profiles, SelectedProfile, MaxCharacters, EditorReconnectTick, EditorSpeciesDropDown, ButtonFaces
+    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
@@ -889,11 +876,8 @@ SaveProfileEditor(index, fields, editor, *)
             }
         }
     }
-    ; Preserve the expansion-pack choice when editing an existing character.
-    expansionPack := index ? (Profiles[index].HasOwnProp("UseExpansionPack") && Profiles[index].UseExpansionPack) : NewCharacterProfile().UseExpansionPack
     profile := {Name: name, Password: fields["Password"].Value, Species: species, PortraitFile: portraitFile,
-        UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
-        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked, UseExpansionPack: expansionPack}
+        UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value)}
     BeginInterfaceUpdate(0, "Saving character...", true)
     try
     {

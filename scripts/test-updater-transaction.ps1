@@ -13,6 +13,11 @@ function New-Fixture {
         Set-Content -LiteralPath $target -Value 'TEST PAYLOAD'
     }
     $existingChat=Join-Path $install 'chat-host'
+    foreach ($rootFolder in @($stage, $install)) {
+        $assets = Join-Path $rootFolder 'chat-host/assets'
+        New-Item -ItemType Directory -Path $assets -Force | Out-Null
+        Set-Content (Join-Path $assets 'DiscordInt.png') $(if ($rootFolder -eq $stage) { 'NEW LOGO' } else { 'OLD LOGO' })
+    }
     New-Item -ItemType Directory -Path $existingChat -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $existingChat 'chat.ini') -Value 'CUSTOM USER CHAT SIZE'
     Set-Content -LiteralPath (Join-Path $existingChat 'chat.css') -Value 'CUSTOM USER CHAT STYLE'
@@ -22,18 +27,24 @@ function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
     & pwsh -NoProfile -NonInteractive -File $updater -InstallDir $fixture[0] -StageDir $fixture[1] -StateFile $fixture[2] -Version '9.9.9-alpha' -TestMode -FailAt $failAt *> $null
     $code=$LASTEXITCODE
     # A nonzero child status is the expected test result, not the harness result.
-    # Run a harmless native command so GitHub receives a clean native exit state.
-    & cmd /c exit 0
+    $global:LASTEXITCODE = 0
     return $code
 }
 try {
-    $f=New-Fixture; & $updater -InstallDir $f[0] -StageDir $f[1] -StateFile $f[2] -Version '9.9.9-alpha' -TestMode
+    $f=New-Fixture; & $updater -InstallDir ($f[0] + [IO.Path]::DirectorySeparatorChar) -StageDir $f[1] -StateFile $f[2] -Version '9.9.9-alpha' -TestMode
     if ($LASTEXITCODE -ne 0) { throw 'Successful transaction fixture failed.' }
     if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'NEW') { throw 'New launcher not installed.' }
     if ((Get-Content (Join-Path $f[0] 'user-note.txt') -Raw).Trim() -ne 'KEEP ME') { throw 'Unrelated install file was destroyed.' }
     if ((Get-Content (Join-Path $f[0] 'chat-host\chat.ini') -Raw).Trim() -ne 'CUSTOM USER CHAT SIZE') { throw 'Update overwrote saved chat layout.' }
     if ((Get-Content (Join-Path $f[0] 'chat-host\chat.css') -Raw).Trim() -ne 'CUSTOM USER CHAT STYLE') { throw 'Update overwrote saved chat theme.' }
+    if ((Get-Content (Join-Path $f[0] 'chat-host/assets/DiscordInt.png') -Raw).Trim() -ne 'NEW LOGO' -or
+        (Test-Path (Join-Path $f[0] 'chat-host/assets/assets'))) {
+        throw 'Update nested an existing Chat Host directory instead of replacing its assets.'
+    }
     if ((Get-Content $f[2] -Raw) -notmatch 'State=LAUNCHED') { throw 'Successful state not recorded.' }
+    if (Test-Path (Join-Path $f[0] '.tes3np-rollback-*')) {
+        throw 'The rollback backup was created inside the install directory.'
+    }
     Write-Host 'PASS: successful transaction preserves unrelated files.'
 
     # Simulate an existing v0.1.20-alpha directory upgrading to the new
@@ -95,8 +106,11 @@ try {
     if ((Get-Content $f[2] -Raw) -notmatch 'State=ROLLED_BACK') { throw 'Rollback state not recorded after install failure.' }
     if (Test-Path (Join-Path $f[0] 'new-only.txt')) { throw 'New file from failed update was not removed.' }
     if ((Get-Content (Join-Path $f[0] 'owned.txt') -Raw).Trim() -ne 'OLD OWNED') { throw 'Updated owned file was not rolled back.' }
+    if ((Get-Content (Join-Path $f[0] 'chat-host/assets/DiscordInt.png') -Raw).Trim() -ne 'OLD LOGO' -or
+        (Test-Path (Join-Path $f[0] 'chat-host/assets/assets'))) {
+        throw 'Rollback did not restore the original Chat Host asset path and contents.'
+    }
     Write-Host 'PASS: failure after installation restores known-good launcher.'
     Write-Host 'All updater transaction tests passed.'
-    & cmd /c exit 0
     exit 0
 } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }

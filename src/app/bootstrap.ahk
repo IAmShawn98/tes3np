@@ -16,7 +16,7 @@ global LauncherKillAlertGui := 0
 
 StartLauncher()
 {
-    global LauncherGui, HoverTimer, SetupComplete, DataFile, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle, LauncherUpdateDismissedVersion
+    global LauncherGui, HoverTimer, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle, LauncherUpdateDismissedVersion
     ; A dismissal only lasts for this launcher session. Recheck next launch.
     LauncherUpdateDismissedVersion := ""
     LogLauncherEvent("Launcher startup beginning.")
@@ -33,7 +33,7 @@ StartLauncher()
     A_TrayMenu.Add("Open Launcher", ShowLauncherWindow)
     A_TrayMenu.Default := "Open Launcher"
     A_TrayMenu.Add("Stop game recovery", StopClient)
-        A_TrayMenu.Add("Enable / Disable Expansion Pack", ToggleExpansionPack)
+    A_TrayMenu.Add("Enable / Disable Expansion Pack", ToggleExpansionPack)
     A_TrayMenu.Add("Open Expansion Pack Downloads", (*) => ShowTES3MPExpansionMismatchDialog("Browse"))
     InitializeHappyHourJiub()
     TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
@@ -56,22 +56,6 @@ StartLauncher()
     DllCall("user32\" styleSetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr", launcherStyle | 0x02000000, "Ptr")
 
     SetWindowIcons()
-    SetupComplete := IniRead(DataFile, "Patch", "Complete", "0") = "1"
-    ; A completion flag from another TES3MP directory must not suppress setup.
-    ; Do not rely on the flag when the saved installation is unavailable.
-    if SetupComplete
-    {
-        savedTesFolder := IniRead(DataFile, "Patch", "TesFolder", "")
-        savedMorrowindFolder := IniRead(DataFile, "Patch", "MorrowindFolder", "")
-        savedConfig := IniRead(DataFile, "Patch", "ConfigFile", "")
-        detectedTesFolder := FindTES3MPFolder()
-        if savedTesFolder = "" || detectedTesFolder = ""
-            || StrLower(RTrim(savedTesFolder, "\/")) != StrLower(RTrim(detectedTesFolder, "\/"))
-            || !FileExist(savedTesFolder "\tes3mp.exe")
-            || !FileExist(savedMorrowindFolder "\Data Files\Morrowind.esm")
-            || !FileExist(savedConfig)
-            SetupComplete := false
-    }
     BuildFrontPage()
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
@@ -104,7 +88,6 @@ StartLauncher()
     global SelectedProfile, Profiles
     SetTimer(HoverTimer, 30)
     ShowLauncherWindow()
-    FinishLauncherStartup()
     ; Start the embedded HWND only after the layered launcher has been shown
     ; and its first paint has completed. Previously it was parented while hidden.
     SetTimer(StartEmbeddedInGameChat, -75)
@@ -372,7 +355,6 @@ ApplyLauncherControlScale()
     finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
-    ResizeEmbeddedInGameChat()
 }
 
 ShowLauncherWindow(reuseCached := false, *)
@@ -430,7 +412,6 @@ ShowLauncherWindow(reuseCached := false, *)
             {
                 LauncherGui.Show()
                 RepaintMenuButtons()
-                ResizeEmbeddedInGameChat()
                 return
             }
             LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding under the existing frame cover.")
@@ -448,7 +429,6 @@ ShowLauncherWindow(reuseCached := false, *)
         LauncherCachedLayoutCount := LauncherControlLayout.Count
         LauncherGui.Show()
         RepaintMenuButtons()
-        ResizeEmbeddedInGameChat()
         return
     }
     ; Preserve the current window size while an existing layout is repaired.
