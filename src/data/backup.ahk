@@ -22,7 +22,7 @@ ExportLauncherData()
         return
     if !RegExMatch(path, "i)\.ini$")
         path .= ".ini"
-    if StrLower(path) = StrLower(DataFile)
+    if GetFullPath(path) = GetFullPath(DataFile)
     {
         MsgBox("Choose a backup location outside the live settings file.", "Export Data")
         return
@@ -117,15 +117,15 @@ ImportLauncherData()
         DirCreate(AppDataDirectory)
         if FileExist(temporary)
             FileDelete(temporary)
+        if FileExist(DataFile)
+            FileCopy(DataFile, temporary)
+        Loop MaxCharacters
+            try IniDelete(temporary, "Character" A_Index)
         IniWrite(count, temporary, "Profiles", "Count")
         IniWrite(selected, temporary, "Profiles", "Selected")
-        IniWrite(executable, temporary, "Launch", "Executable")
+        if executable != ""
+            IniWrite(executable, temporary, "Launch", "Executable")
         IniWrite(favoriteNotice, temporary, "Launcher", "HideFavoriteSwitchExplanation")
-        ; Import replaces the live INI. Preserve this device's onboarding
-        ; preference so restoring characters does not re-offer a shortcut.
-        shortcutChoice := IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "")
-        if shortcutChoice = "Yes" || shortcutChoice = "No"
-            IniWrite(shortcutChoice, temporary, "Launcher", "DesktopShortcutChoice")
         for index, profile in restored
         {
             section := "Character" index

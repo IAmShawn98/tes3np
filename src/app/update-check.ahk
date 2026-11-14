@@ -96,6 +96,8 @@ CheckForUpdates(*)
         return
     }
     UpdateBusy := true
+    staged := ""
+    handedOff := false
     LogLauncherEvent("UPDATE | Checking trusted update manifest. Current: v" AppConfig.Version ".")
     try {
         manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(UpdateManifestUrl))
@@ -132,6 +134,7 @@ CheckForUpdates(*)
             LogLauncherEvent("UPDATE | READY | Verified update staged for v" latest ".")
             if ShowGoldUpdateConfirmation("Install Verified Update?", "v" latest " is verified and ready.`nInstalling will restart tes3np. Rollback is available if startup fails.", "Install Update") {
                 StartTransactionalUpdate(manifest.version, staged)
+                handedOff := true
                 LogLauncherEvent("UPDATE | Transactional installer started for v" latest ".")
                 ExitApp(0)
             }
@@ -144,6 +147,8 @@ CheckForUpdates(*)
         LogLauncherEvent("ERROR | UPDATE | " Type(err))
         ShowUpdateStatusPanel("error", AppConfig.Version)
     } finally {
+        if staged != "" && !handedOff
+            DeleteLauncherStagingTree(staged)
         UpdateBusy := false
     }
 }
@@ -607,24 +612,23 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
 StartTransactionalUpdate(version, staged)
 {
     worker := A_ScriptDir "\scripts\tes3np-updater.ps1"
-    stateFile := A_Temp "\tes3np-update\update-state.ini"
-    expectedStage := A_Temp "\tes3np-update\staged"
+    stateFile := staged "\update-state.ini"
 
+    if PatchInProgress()
+        throw Error("Finish the Expansion Pack import before updating.")
     if !FileExist(worker)
         throw Error("Updater worker is missing from this installation.")
     if !FileExist(stateFile)
         throw Error("Update state file is missing.")
-    if StrLower(GetFullPath(staged)) != StrLower(GetFullPath(expectedStage))
-        throw Error("Staged update path is invalid.")
 
     pid := DllCall("GetCurrentProcessId", "UInt")
 
     psArgs := '-NoProfile -ExecutionPolicy Bypass -File "' worker
         . '" -InstallDir "' A_ScriptDir
-        . '" -StageDir "' staged
+        . '" -StageDir "' staged '\staged'
         . '" -StateFile "' stateFile
         . '" -Version "' version
-        . '" -ParentPid ' pid
+        . '" -ManagedStage -ParentPid ' pid
 
     powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
     Run('"' powershell '" ' psArgs, A_ScriptDir, "Hide")
@@ -633,14 +637,27 @@ StartTransactionalUpdate(version, staged)
     Sleep(500)
 }
 
+RecoverInterruptedLauncherUpdate()
+{
+    if !A_IsCompiled || !FileExist(A_ScriptDir ".tes3np-recovery\pending.txt")
+        return
+    worker := A_ScriptDir "\scripts\tes3np-updater.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    pid := DllCall("GetCurrentProcessId", "UInt")
+    Run('"' powershell '" -NoProfile -ExecutionPolicy Bypass -File "' worker
+        . '" -InstallDir "' A_ScriptDir '" -Version "' AppConfig.Version
+        . '" -RecoverOnly -ParentPid ' pid, A_ScriptDir, "Hide")
+    ExitApp(0)
+}
+
 GetFullPath(path)
 {
     size := DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", 0, "Ptr", 0, "Ptr", 0, "UInt")
     if !size
-        throw Error("Unable to resolve update confirmation path.")
+        throw Error("Unable to resolve the full file path.")
     pathBuffer := Buffer(size * 2, 0)
     if !DllCall("Kernel32\GetFullPathNameW", "Str", path, "UInt", size, "Ptr", pathBuffer, "Ptr", 0, "UInt")
-        throw Error("Unable to resolve update confirmation path.")
+        throw Error("Unable to resolve the full file path.")
     return StrGet(pathBuffer)
 }
 
@@ -659,55 +676,41 @@ DownloadUpdateText(url)
 DownloadAndStageUpdate(manifest)
 {
     global UpdatePackageUrl
-    root := A_Temp "\tes3np-update"
+    root := A_Temp "\tes3np-update\" NewLauncherFileId()
     part := root "\tes3np-windows.zip.part"
-    package := root "\tes3np-windows.zip"
     stage := root "\staged"
-    try DirDelete(root, true)
     DirCreate(root)
-    SetInterfaceLoadingText("Downloading update...")
-    LogLauncherEvent("UPDATE | Download started | v" manifest.version ".")
-    Download(UpdatePackageUrl, part)
-    if !FileExist(part)
-        throw Error("Downloaded update package is missing.")
-    SetInterfaceLoadingText("Checking download size...")
-    actualSize := FileGetSize(part)
-    if actualSize != manifest.size
-        throw Error("Downloaded update size does not match trusted metadata.")
-    SetInterfaceLoadingText("Verifying update...")
-    actualHash := GetFileSha256(part)
-    if StrLower(actualHash) != StrLower(manifest.sha256)
-        throw Error("Downloaded update failed SHA-256 verification.")
-    FileMove(part, package, true)
-    LogLauncherEvent("UPDATE | Download verified | SHA-256 and size match trusted metadata.")
-    SetInterfaceLoadingText("Preparing update...")
-    ValidateUpdateArchive(package, stage)
-    SetInterfaceLoadingText("Saving update state...")
-    state := root "\update-state.ini"
-    IniWrite("STAGED", state, "Update", "State")
-    IniWrite(manifest.version, state, "Update", "Version")
-    IniWrite(manifest.sha256, state, "Update", "Sha256")
-    return stage
-}
-
-GetFileSha256(path)
-{
-    shell := ComObject("WScript.Shell")
-    tempOut := A_Temp "\tes3np-hash-" A_TickCount ".txt"
-    cmd := A_ComSpec ' /D /C certutil -hashfile "' path '" SHA256 > "' tempOut '"'
-    exitCode := shell.Run(cmd, 0, true)
-    if exitCode != 0 || !FileExist(tempOut)
-        throw Error("Unable to calculate update SHA-256.")
-    text := FileRead(tempOut)
-    try FileDelete(tempOut)
-    if !RegExMatch(text, "i)([0-9a-f]{64})", &m)
-        throw Error("Unable to read update SHA-256 result.")
-    return StrLower(m[1])
+    try {
+        SetInterfaceLoadingText("Downloading update...")
+        LogLauncherEvent("UPDATE | Download started | v" manifest.version ".")
+        Download(UpdatePackageUrl, part)
+        if !FileExist(part)
+            throw Error("Downloaded update package is missing.")
+        SetInterfaceLoadingText("Checking download size...")
+        if FileGetSize(part) != manifest.size
+            throw Error("Downloaded update size does not match trusted metadata.")
+        SetInterfaceLoadingText("Verifying update...")
+        if SHA256File(part) != StrLower(manifest.sha256)
+            throw Error("Downloaded update failed SHA-256 verification.")
+        LogLauncherEvent("UPDATE | Download verified | SHA-256 and size match trusted metadata.")
+        SetInterfaceLoadingText("Preparing update...")
+        ValidateUpdateArchive(part, stage)
+        FileDelete(part)
+        SetInterfaceLoadingText("Saving update state...")
+        state := root "\update-state.ini"
+        IniWrite("STAGED", state, "Update", "State")
+        IniWrite(manifest.version, state, "Update", "Version")
+        return root
+    } catch {
+        DeleteLauncherStagingTree(root)
+        throw
+    }
 }
 
 ValidateUpdateArchive(package, stage)
 {
-    scriptPath := A_Temp "\tes3np-validate-update-" A_TickCount ".ps1"
+    SplitPath(package, , &root)
+    scriptPath := root "\validate-update.ps1"
     script := "$ErrorActionPreference='Stop'`r`n" .
         "Add-Type -AssemblyName System.IO.Compression.FileSystem`r`n" .
         "$package='" PsQuote(package) "'`r`n" .

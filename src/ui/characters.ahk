@@ -282,8 +282,12 @@ ChooseProfile(position, control, *)
         if result != "Yes"
             return
     }
-    SelectedProfile := index
-    SaveDefaultProfile()
+    try SaveDefaultProfile(index)
+    catch
+    {
+        MsgBox("Could not save your favorite character. Check launcher data permissions.", "tes3np", "Icon!")
+        return
+    }
     RefreshProfiles()
 }
 
@@ -622,13 +626,7 @@ InstallOriginalCharacterPortrait(source)
     ; Cropping/resizing is silent; only unreadable files raise an error.
     if !IsValidOriginalCharacterImage(source)
         throw Error("The selected image is not readable or exceeds the image limits.")
-    uuid := Buffer(16, 0)
-    if DllCall("ole32\CoCreateGuid", "Ptr", uuid, "Int") != 0
-        throw Error("Could not allocate a portrait filename.")
-    filename := ""
-    Loop 16
-        filename .= Format("{:02x}", NumGet(uuid, A_Index - 1, "UChar"))
-    filename .= ".png"
+    filename := NewLauncherFileId() ".png"
     target := GetCustomPortraitPath(filename)
     DirCreate(AppDataDirectory "\portraits")
     temporary := target ".tmp"
@@ -818,7 +816,7 @@ ReleaseEditorScroll()
 
 SaveProfileEditor(index, fields, *)
 {
-    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown
+    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown, CharacterListPage
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
@@ -847,7 +845,7 @@ SaveProfileEditor(index, fields, *)
         return
     }
     for key in ["UsernameDelay", "PasswordDelay", "LoadDelay"]
-        if !RegExMatch(fields[key].Value, "^\d+$") || Integer(fields[key].Value) < 1 || Integer(fields[key].Value) > 300
+        if !RegExMatch(fields[key].Value, "^\d{1,3}$") || Integer(fields[key].Value) < 1 || Integer(fields[key].Value) > 300
         {
             MsgBox("Each login delay must be between 1 and 300 seconds.", "tes3np")
             return
@@ -878,6 +876,9 @@ SaveProfileEditor(index, fields, *)
     }
     profile := {Name: name, Password: fields["Password"].Value, Species: species, PortraitFile: portraitFile,
         UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value)}
+    previousProfiles := Profiles.Clone()
+    previousFavorite := SelectedProfile
+    previousPage := CharacterListPage
     BeginInterfaceUpdate(0, "Saving character...", true)
     try
     {
@@ -890,10 +891,18 @@ SaveProfileEditor(index, fields, *)
             ; No additional dialog is needed until the user picks another.
             if Profiles.Length = 1 || SelectedProfile < 1
                 SelectedProfile := 1
-            global CharacterListPage
             CharacterListPage := Ceil(Profiles.Length / 10)
         }
-        SaveProfiles()
+        try SaveProfiles()
+        catch
+        {
+            Profiles := previousProfiles
+            SelectedProfile := previousFavorite
+            CharacterListPage := previousPage
+            MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
+            return
+        }
+        UpdateCharacterMenuLabel()
         HideProfileEditor()
         RefreshProfiles()
     }
@@ -909,6 +918,9 @@ RemoveVisibleProfile(position, *)
     CharacterPage.Opt("+OwnDialogs")
     if MsgBox("Are you sure you want to remove " Profiles[index].Name " from your character list?", "Remove character", 0x124) != "Yes"
         return
+    previousProfiles := Profiles.Clone()
+    previousFavorite := SelectedProfile
+    previousPage := CharacterListPage
     BeginInterfaceUpdate(0, "Removing character...", true)
     try
     {
@@ -920,7 +932,16 @@ RemoveVisibleProfile(position, *)
         SelectedProfile := SelectedProfile = index
             ? (Profiles.Length ? Min(index, Profiles.Length) : 0)
             : SelectedProfile > index ? SelectedProfile - 1 : SelectedProfile
-        SaveProfiles()
+        try SaveProfiles()
+        catch
+        {
+            Profiles := previousProfiles
+            SelectedProfile := previousFavorite
+            CharacterListPage := previousPage
+            MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
+            return
+        }
+        UpdateCharacterMenuLabel()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()
@@ -939,6 +960,9 @@ WipeCharacterData(*)
     CharacterPage.Opt("+OwnDialogs")
     if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active login recovery. Your in-game characters will NOT be deleted. Export Data first if you want a backup.", "Wipe Character Data", 0x124) != "Yes"
         return
+    previousProfiles := Profiles.Clone()
+    previousFavorite := SelectedProfile
+    previousPage := CharacterListPage
     BeginInterfaceUpdate(0, "Clearing saved character data...", true)
     try
     {
@@ -948,7 +972,16 @@ WipeCharacterData(*)
         Profiles := []
         SelectedProfile := 0
         CharacterListPage := 1
-        SaveProfiles()
+        try SaveProfiles()
+        catch
+        {
+            Profiles := previousProfiles
+            SelectedProfile := previousFavorite
+            CharacterListPage := previousPage
+            MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
+            return
+        }
+        UpdateCharacterMenuLabel()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()

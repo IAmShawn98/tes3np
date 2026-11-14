@@ -15,10 +15,12 @@ GitHub tree before changes.
 
 ## Verification
 
-- PowerShell syntax and updater source/metadata fixtures passed. Eight
+- PowerShell syntax and updater source/metadata fixtures passed. Eleven
   isolated updater transaction scenarios passed in PowerShell 7, including
   an in-place Chat Host asset update and restoration of the old asset during
-  rollback, plus rollback on a file/directory collision. The fixtures do not execute a Windows launcher.
+  rollback, file/directory collision, overlapping workers, preservation of an
+  unrelated recovery directory, and startup recovery without staging. The
+  fixtures do not execute a Windows launcher.
 - Diagnostic privacy contracts and synthetic scanner tests passed. Roslyn
   parsed the C# source without syntax diagnostics. Windows build,
   dependency resolution and WebView2 behavior remain pending.
@@ -41,8 +43,30 @@ GitHub tree before changes.
    v0.1.20-alpha package and the staged v0.1.21-alpha update. Verify the
    restart and retained user settings, including a path with spaces. Check
    failure before launcher confirmation restores the previous version.
-5. Assess overlapping update attempts across installs and an interrupted
-   updater before release. The normal launcher uses a shared per-user
-   staging/state path and the published v0.1.20-alpha worker remains
-   embedded in that installation. The corrected worker must be used in the
-   private transaction test to exercise the changes made here.
+5. Verify compiled startup recovery after interrupting the updater in a
+   disposable install. The published v0.1.20-alpha worker remains embedded
+   in that release, so validate the offline corrected worker and the legacy
+   handoff separately.
+
+## Second source pass
+
+- Each download stages in a unique directory. An installation-scoped mutex
+  serializes workers. A recovery journal persists beside the install and
+  can restore the previous package after the download directory is gone.
+  The packaged launcher can invoke recovery on startup.
+- Character list writes stage a copy of the settings INI before committing.
+  Failed saves restore the prior in-memory list, favorite, and page. Backup
+  import preserves unrelated local settings. Legacy profile holes retain
+  the saved favorite by original slot.
+- Chat image reads have a byte limit and a response-body timeout. An
+  unreadable chat text archive can retry before being rewritten. Closing the
+  host disposes the cached image previews and the Happy Hour timer.
+- Macro extraction disposes both streams if a file cannot be created.
+  Stop feedback reports failure when Windows cannot close the process.
+- Windows packaging builds and verifies the new ZIP before replacing the
+  previous dist output. Morrowind discovery checks secondary libraries from
+  the registered Steam installation as well as the default locations.
+- Expansion Pack import carries only the active worker state and avoids
+  rebuilding the unrelated character menu after an import.
+- Complete remaining source cleanup and review before the dev PC build.
+  The second PC upgrade test follows a passing dev PC regression run.

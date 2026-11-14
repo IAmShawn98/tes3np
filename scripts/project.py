@@ -184,7 +184,7 @@ def check(allow_missing_payload: bool = False) -> None:
         "IsTES3MPSetupComplete", "BeginStartupPatchCheck",
         "FindTES3MPFolder", "FinishLauncherStartup", "ResizeEmbeddedInGameChat",
         "CharacterMenuButton", "SanitizeDiagnosticPath", "EditorReconnectTick",
-        "ToggleEditorReconnect", "SetClientStatus", "UseExpansionPack",
+        "ToggleEditorReconnect", "SetClientStatus",
         # Unused proprietary bitmap-font rasterizer path replaced by
         # the bundled native Mystic Cards TrueType font.
         "FindVanillaMagicCardsFont", "ReadMagicCardsTextureName",
@@ -282,7 +282,8 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'StartExpansionImportWorker(package, morrowind, config)' in upload
         and 'SetTimer(CheckPatchWorker, 50)' in upload
         and 'CheckPatchWorker()' in patcher
-        and 'if job.Action != "Import"' in patcher
+        and 'if state = "success"' in patcher
+        and 'job.Action' not in patcher
         and 'MsgBox(message, "Upload Expansion"' in patcher
         and 'PatchInProgress()' in patcher
         and 'FindMorrowindFolder(config)' in patcher
@@ -336,6 +337,7 @@ def check(allow_missing_payload: bool = False) -> None:
         and "GetSharedExecutable()" in client_settings
         and "InstallCustomClientOverrides(source, dependencies := \"\")" in client_detection
         and 'IniWrite(executable, temporary, "Launch", "Executable")' in portable_backup
+        and 'FileCopy(DataFile, temporary)' in portable_backup
         and 'FileMove(temporary, DataFile, true)' in portable_backup
         and 'An old executable path was unavailable. Use Launcher Settings > Game Client Settings' in portable_backup
     )
@@ -374,7 +376,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'if result != "Yes"\n            return' in character_ui
             and character_ui.index('result := MsgBox(prompt, "Favorite character", 0x124)')
             < character_ui.index('IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")')
-            < character_ui.index("    SelectedProfile := index\n    SaveDefaultProfile()")
+            < character_ui.index("    try SaveDefaultProfile(index)")
         ),
         "favorite description and newly approved compact layout stay aligned": (
             'descriptionText := "This is a list of all your characters.' in character_ui

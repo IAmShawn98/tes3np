@@ -7,7 +7,7 @@ function New-Fixture {
     New-Item $install,$stage -ItemType Directory -Force | Out-Null
     Set-Content (Join-Path $install 'tes3np.exe') 'OLD'; Set-Content (Join-Path $install 'owned.txt') 'OLD OWNED'; Set-Content (Join-Path $install 'user-note.txt') 'KEEP ME'
     Set-Content (Join-Path $stage 'tes3np.exe') 'NEW'; Set-Content (Join-Path $stage 'owned.txt') 'NEW OWNED'; Set-Content (Join-Path $stage 'new-only.txt') 'REMOVE ON ROLLBACK'
-    foreach($relative in @('client\tes3mp.exe','client\tes3mp-client-default.cfg','client\defaults.bin','client\openmw.cfg','chat-host\tes3np.ChatHost.exe','chat-host\chat.ini','chat-host\chat.css','licenses\TES3MP\LICENSE','licenses\TES3MP\REDISTRIBUTION-NOTICE.txt')){
+    foreach($relative in @('runtime\AutoHotkey64.exe','RELEASE_NOTES.md','client\tes3mp.exe','client\tes3mp-client-default.cfg','client\defaults.bin','client\openmw.cfg','chat-host\tes3np.ChatHost.exe','chat-host\chat.ini','chat-host\chat.css','licenses\TES3MP\LICENSE','licenses\TES3MP\REDISTRIBUTION-NOTICE.txt')){
         $target=Join-Path $stage $relative
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         Set-Content -LiteralPath $target -Value 'TEST PAYLOAD'
@@ -42,7 +42,7 @@ try {
         throw 'Update nested an existing Chat Host directory instead of replacing its assets.'
     }
     if ((Get-Content $f[2] -Raw) -notmatch 'State=LAUNCHED') { throw 'Successful state not recorded.' }
-    if (Test-Path (Join-Path $f[0] '.tes3np-rollback-*')) {
+    if (Test-Path -LiteralPath ($f[0] + '.tes3np-recovery')) {
         throw 'The rollback backup was created inside the install directory.'
     }
     Write-Host 'PASS: successful transaction preserves unrelated files.'
@@ -130,6 +130,54 @@ try {
         throw 'A partial update was not restored after a file/directory conflict.'
     }
     Write-Host 'PASS: a file/directory conflict rolls back files already copied.'
+    $f = New-Fixture
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $key = [BitConverter]::ToString($sha256.ComputeHash(
+            [Text.Encoding]::UTF8.GetBytes($f[0].ToUpperInvariant()))).Replace('-', '')
+    } finally { $sha256.Dispose() }
+
+    Set-Content -LiteralPath $f[2] 'OTHER WORKER OWNS STATE'
+    $held = New-Object Threading.Mutex($false, "tes3np-update-$key")
+    if (!$held.WaitOne(0)) { throw 'Could not reserve fixture installation lock.' }
+    try {
+        $code = Invoke-UpdaterExpectedFailure $f ''
+        if ($code -eq 0 -or (Get-Content -LiteralPath $f[2] -Raw).Trim() -ne 'OTHER WORKER OWNS STATE') {
+            throw 'A competing updater ran or overwrote the active worker state.'
+        }
+        if ((Get-Content -LiteralPath (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD') {
+            throw 'The competing updater modified the installed executable.'
+        }
+    } finally {
+        $held.ReleaseMutex()
+        $held.Dispose()
+    }
+    Write-Host 'PASS: overlapping updater workers leave the active transaction alone.'
+
+    $transaction = $f[0] + '.tes3np-recovery'
+    New-Item -ItemType Directory -Path $transaction | Out-Null
+    Set-Content -LiteralPath (Join-Path $transaction 'user.txt') 'PRESERVE UNOWNED DIRECTORY'
+    $code = Invoke-UpdaterExpectedFailure $f ''
+    if ($code -eq 0 -or !(Test-Path -LiteralPath (Join-Path $transaction 'user.txt'))) {
+        throw 'Updater claimed or removed an unrelated recovery directory.'
+    }
+    Remove-Item -LiteralPath $transaction -Recurse
+    Write-Host 'PASS: an unrelated directory at the recovery path is preserved.'
+
+    New-Item -ItemType Directory -Path $transaction | Out-Null
+    [IO.File]::WriteAllText((Join-Path $transaction 'owner.txt'), $key)
+    Copy-Item -LiteralPath $f[0] -Destination (Join-Path $transaction 'backup') -Recurse
+    Set-Content -LiteralPath (Join-Path $transaction 'pending.txt') 'new-only.txt'
+    Set-Content -LiteralPath (Join-Path $f[0] 'tes3np.exe') 'INTERRUPTED UPDATE'
+    Set-Content -LiteralPath (Join-Path $f[0] 'new-only.txt') 'INTERRUPTED FILE'
+    Remove-Item -LiteralPath $f[1] -Recurse
+    & $updater -InstallDir $f[0] -Version '9.9.9-alpha' -RecoverOnly -TestMode
+    if ($LASTEXITCODE -ne 0 -or (Get-Content -LiteralPath (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'OLD' -or
+        (Test-Path -LiteralPath (Join-Path $f[0] 'new-only.txt')) -or
+        (Test-Path -LiteralPath $transaction)) {
+        throw 'Startup recovery failed to restore the interrupted transaction without its staging folder.'
+    }
+    Write-Host 'PASS: startup recovery restores an interrupted installation without its staging folder.'
     Write-Host 'All updater transaction tests passed.'
     exit 0
 } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }

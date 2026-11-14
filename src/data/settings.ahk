@@ -37,6 +37,9 @@ LoadProfiles()
     Profiles := []
     savedCount := IniRead(DataFile, "Profiles", "Count", "0")
     count := RegExMatch(savedCount, "^\d{1,6}$") ? Min(MaxCharacters, Integer(savedCount)) : 0
+    saved := IniRead(DataFile, "Profiles", "Selected", "0")
+    savedSlot := RegExMatch(saved, "^\d{1,6}$") ? Integer(saved) : 0
+    SelectedProfile := 0
     Loop count
     {
         section := "Character" A_Index
@@ -51,22 +54,25 @@ LoadProfiles()
                 password := ""
         }
         if name != ""
+        {
             Profiles.Push({Name: name, Password: password,
                 Species: NormalizeCharacterSpecies(IniRead(DataFile, section, "Species", "")),
                 PortraitFile: NormalizeCustomPortraitFile(IniRead(DataFile, section, "PortraitFile", "")),
                 UsernameDelay: ReadProfileDelay(section, "Username", AppConfig.UsernameDelay),
                 PasswordDelay: ReadProfileDelay(section, "PasswordDelay", AppConfig.PasswordDelay, "Password"),
                 LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay)})
+            if A_Index = savedSlot
+                SelectedProfile := Profiles.Length
+        }
     }
-    saved := IniRead(DataFile, "Profiles", "Selected", "0")
-    SelectedProfile := RegExMatch(saved, "^\d+$") && Integer(saved) <= Profiles.Length ? Integer(saved) : 0
     ; Migrate older lists without a favorite to their first character.
     ; Write only the selection here: the launcher menu may not exist yet
     ; during startup, so SaveDefaultProfile() must not run at this point.
     if Profiles.Length && !SelectedProfile
     {
         SelectedProfile := 1
-        IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")
+        if count = Profiles.Length
+            try IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")
     }
 }
 
@@ -77,44 +83,58 @@ ReadProfileDelay(section, key, fallback, legacyKey := "")
     value := IniRead(DataFile, section, key, "")
     if value = ""
         value := IniRead(DataFile, "Timing", legacyKey, fallback)
-    return RegExMatch(value, "^\d+$") ? Max(1, Min(300, Integer(value))) : fallback
+    if !RegExMatch(value, "^\d+$")
+        return fallback
+    digits := LTrim(value, "0")
+    return StrLen(digits) > 3 ? 300 : Max(1, Min(300, Integer("0" digits)))
 }
 
 SaveProfiles()
 {
-    global Profiles, DataFile
+    global Profiles, SelectedProfile, DataFile, MaxCharacters
     DirCreate(AppDataDirectory)
-    IniWrite(Profiles.Length, DataFile, "Profiles", "Count")
-    for index, profile in Profiles
+    temporary := DataFile ".save.tmp"
+    try
     {
-        section := "Character" index
-        SetInterfaceLoadingText("Saving character name " index "...")
-        IniWrite(profile.Name, DataFile, section, "Name")
-        IniWrite(profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : "", DataFile, section, "Species")
-        IniWrite(profile.HasOwnProp("PortraitFile") ? NormalizeCustomPortraitFile(profile.PortraitFile) : "", DataFile, section, "PortraitFile")
-        SetInterfaceLoadingText("Saving protected password " index "...")
-        IniWrite(ProtectPassword(profile.Password), DataFile, section, "Password")
-        ; Executable is shared; remove obsolete per-character copies.
-        try IniDelete(DataFile, section, "Executable")
-        SetInterfaceLoadingText("Saving login timings " index "...")
-        IniWrite(profile.UsernameDelay, DataFile, section, "Username")
-        IniWrite(profile.PasswordDelay, DataFile, section, "PasswordDelay")
-        IniWrite(profile.LoadDelay, DataFile, section, "Load")
+        if FileExist(temporary)
+            FileDelete(temporary)
+        if FileExist(DataFile)
+            FileCopy(DataFile, temporary)
+        IniWrite(Profiles.Length, temporary, "Profiles", "Count")
+        IniWrite(SelectedProfile, temporary, "Profiles", "Selected")
+        for index, profile in Profiles
+        {
+            section := "Character" index
+            SetInterfaceLoadingText("Saving character name " index "...")
+            IniWrite(profile.Name, temporary, section, "Name")
+            IniWrite(NormalizeCharacterSpecies(profile.Species), temporary, section, "Species")
+            IniWrite(NormalizeCustomPortraitFile(profile.PortraitFile), temporary, section, "PortraitFile")
+            SetInterfaceLoadingText("Saving protected password " index "...")
+            IniWrite(ProtectPassword(profile.Password), temporary, section, "Password")
+            for key in ["Executable", "AutoReconnect", "UseExpansionPack"]
+                try IniDelete(temporary, section, key)
+            SetInterfaceLoadingText("Saving login timings " index "...")
+            IniWrite(profile.UsernameDelay, temporary, section, "Username")
+            IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
+            IniWrite(profile.LoadDelay, temporary, section, "Load")
+        }
+        Loop MaxCharacters - Profiles.Length
+            try IniDelete(temporary, "Character" (Profiles.Length + A_Index))
+        FileMove(temporary, DataFile, true)
     }
-    index := Profiles.Length + 1
-    while IniRead(DataFile, "Character" index, "Name", "") != ""
+    finally
     {
-        IniDelete(DataFile, "Character" index)
-        index += 1
+        if FileExist(temporary)
+            try FileDelete(temporary)
     }
-    SaveDefaultProfile()
 }
 
-SaveDefaultProfile()
+SaveDefaultProfile(index)
 {
     global SelectedProfile, DataFile
     DirCreate(AppDataDirectory)
-    IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")
+    IniWrite(index, DataFile, "Profiles", "Selected")
+    SelectedProfile := index
     UpdateCharacterMenuLabel()
 }
 
@@ -176,4 +196,15 @@ NewCharacterProfile()
 {
     return {Name: "", Password: "", Species: "", PortraitFile: "", UsernameDelay: AppConfig.UsernameDelay,
         PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay}
+}
+
+NewLauncherFileId()
+{
+    uuid := Buffer(16, 0)
+    if DllCall("ole32\CoCreateGuid", "Ptr", uuid, "Int") != 0
+        throw Error("Could not allocate a unique file identifier.")
+    id := ""
+    Loop 16
+        id .= Format("{:02x}", NumGet(uuid, A_Index - 1, "UChar"))
+    return id
 }

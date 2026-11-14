@@ -126,8 +126,9 @@ $projectRoot = Split-Path $PSScriptRoot -Parent
 # previous run must never block a new build or collide with active tools.
 $buildRoot = Join-Path $env:TEMP ('tes3np-build-' + [guid]::NewGuid().ToString('N'))
 $tools = Join-Path $buildRoot 'tools'
-$package = Join-Path $projectRoot 'dist\tes3np-windows'
-$zip = Join-Path $projectRoot 'dist\tes3np-windows.zip'
+$dist = Join-Path $projectRoot 'dist'
+$package = Join-Path $buildRoot 'tes3np-windows'
+$zip = Join-Path $buildRoot 'tes3np-windows.zip'
 try {
     # Validate before removing dist or downloading build tools. A broken
     # PowerShell helper must never replace the last good local build.
@@ -378,7 +379,6 @@ try {
     }
 
     Step 'Official downloads verified; preparing new distribution'
-    if (Test-Path (Join-Path $projectRoot 'dist')) { Remove-Item (Join-Path $projectRoot 'dist') -Recurse -Force }
     $null = New-Item $package -ItemType Directory
 
     Step 'Extracting AutoHotkey runtime'
@@ -491,7 +491,7 @@ Public redistribution/licensing review remains a separate release gate.
     if ($resourceIdentity -notmatch '^v-[a-f0-9]{20}$') { throw 'Invalid bundled resource identity.' }
     $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
     $entryText = [IO.File]::ReadAllText($stageEntry)
-    $entryText = $entryText.Replace("`nStartLauncher()`n", "`nPrepareBundledResources()`nStartLauncher()`n")
+    $entryText = $entryText.Replace("`nif updateStateFile = `"`"`n", "`nPrepareBundledResources()`nif updateStateFile = `"`"`n")
     $entryText = $entryText.Replace("`nupdateStateFile := GetPendingUpdateStateFile()`n", "`nif A_Args.Length && A_Args[1] = `"--check-resources`"`n{`n    PrepareBundledResources()`n    ExitApp(0)`n}`nupdateStateFile := GetPendingUpdateStateFile()`n")
     $entryText = $entryText.Replace('#Include src\app\bootstrap.ahk', '#Include src\app\bootstrap.ahk' + "`n" + '#Include src\app\bundled-resources.generated.ahk')
     if (-not $entryText.Contains('#Include src\app\bundled-resources.generated.ahk')) { throw 'Generated resources include is missing.' }
@@ -513,7 +513,7 @@ Public redistribution/licensing review remains a separate release gate.
     foreach ($stagedFile in $stagedSources) {
         if ([IO.File]::ReadAllText($stagedFile.FullName) -match 'A_ScriptDir\s+"\\+(assets|patches|scripts)(\\|")') { throw "Unconverted resource path in $($stagedFile.FullName)" }
     }
-    if (-not $entryText.Contains('PrepareBundledResources()' + "`n" + 'StartLauncher()')) { throw 'Could not insert resource initialization before launcher startup.' }
+    if (-not $entryText.Contains('PrepareBundledResources()' + "`n" + 'if updateStateFile')) { throw 'Could not insert resource initialization before launcher startup.' }
     # Check the exact rewritten entry and includes which Ahk2Exe is about to
     # compile, not only the original source. A warning from an otherwise valid
     # compiled startup must fail preflight instead of surprising the user.
@@ -712,6 +712,37 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     if ($consolePayload) { $packageCheck += '--require-console-client' }
     & python (Join-Path $PSScriptRoot 'check-windows-package.py') @packageCheck
     if ($LASTEXITCODE -ne 0) { throw 'Final Windows ZIP integrity validation failed.' }
+    Step 'Installing the verified distribution into dist'
+    [IO.Directory]::CreateDirectory($dist) | Out-Null
+    $publishRoot = Join-Path $dist ('.publish-' + [Guid]::NewGuid().ToString('N'))
+    $nextPackage = Join-Path $publishRoot 'tes3np-windows'
+    $nextZip = Join-Path $publishRoot 'tes3np-windows.zip'
+    $targetPackage = Join-Path $dist 'tes3np-windows'
+    $targetZip = Join-Path $dist 'tes3np-windows.zip'
+    $previousPackage = Join-Path $publishRoot 'previous'
+    [IO.Directory]::CreateDirectory($publishRoot) | Out-Null
+    $oldMoved = $false
+    $newMoved = $false
+    try {
+        Copy-Item -LiteralPath $package -Destination $nextPackage -Recurse
+        Copy-Item -LiteralPath $zip -Destination $nextZip
+        if (Test-Path -LiteralPath $targetPackage) {
+            [IO.Directory]::Move($targetPackage, $previousPackage)
+            $oldMoved = $true
+        }
+        [IO.Directory]::Move($nextPackage, $targetPackage)
+        $newMoved = $true
+        if ([IO.File]::Exists($targetZip)) {
+            [IO.File]::Replace($nextZip, $targetZip, [NullString]::Value)
+        } else {
+            [IO.File]::Move($nextZip, $targetZip)
+        }
+    } catch {
+        if ($newMoved) { [IO.Directory]::Move($targetPackage, $nextPackage) }
+        if ($oldMoved) { [IO.Directory]::Move($previousPackage, $targetPackage) }
+        throw
+    }
+    Remove-Item -LiteralPath $publishRoot -Recurse -Force -ErrorAction SilentlyContinue
     Step 'Windows launcher build completed successfully'
 }
 finally {

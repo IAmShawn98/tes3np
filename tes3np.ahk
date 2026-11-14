@@ -280,6 +280,8 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
     ExitApp(0)
 }
 updateStateFile := GetPendingUpdateStateFile()
+if updateStateFile = ""
+    RecoverInterruptedLauncherUpdate()
 StartLauncher()
 if updateStateFile != ""
     ConfirmUpdatedLauncherStartup(updateStateFile)
@@ -292,12 +294,13 @@ GetPendingUpdateStateFile()
 
     version := A_Args[2]
     stateFile := A_Args[3]
-    expectedState := A_Temp "\tes3np-update\update-state.ini"
-
-    ; The newly installed executable is the authority for its own compiled version.
-    ; Confirm only when the worker requested this exact build and the state file is
-    ; the updater's fixed temp-state path.
-    if StrLower(GetFullPath(stateFile)) != StrLower(GetFullPath(expectedState))
+    updateRoot := GetFullPath(A_Temp "\tes3np-update")
+    stateFile := GetFullPath(stateFile)
+    SplitPath(stateFile, &name, &folder)
+    ; Accept the published v0.1.20 worker's path as well as isolated jobs.
+    SplitPath(folder, &jobId, &jobParent)
+    if name != "update-state.ini" || (folder != updateRoot
+        && (jobParent != updateRoot || !RegExMatch(jobId, "i)^[0-9a-f]{32}$")))
         throw Error("Update confirmation state path is invalid.")
     if version != AppConfig.Version
         throw Error("Update confirmation version does not match installed launcher.")

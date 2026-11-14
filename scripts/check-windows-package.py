@@ -26,6 +26,7 @@ REQUIRED_FILES = (
     "chat-host/tes3np.ChatHost.exe",
     "chat-host/chat.ini",
     "chat-host/chat.css",
+    "chat-host/assets/DiscordInt.png",
     "licenses/TES3MP/LICENSE",
     "licenses/TES3MP/REDISTRIBUTION-NOTICE.txt",
 )
@@ -98,6 +99,9 @@ def check_package(path: Path, require_console_client: bool = False) -> None:
         missing = [item for item in REQUIRED_FILES if item.casefold() not in members]
         if missing:
             raise ValueError("Windows package is missing: " + ", ".join(missing))
+        for name in REQUIRED_FILES:
+            if members[name.casefold()].file_size == 0:
+                raise ValueError(f"Required package file is empty: {name}")
         for name, minimum in MINIMUM_SIZE.items():
             if members[name.casefold()].file_size < minimum:
                 raise ValueError(f"Packaged executable is suspiciously small: {name}")

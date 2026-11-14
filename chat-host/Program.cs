@@ -1271,30 +1271,39 @@ metrics();
                 }
             }
             bool recoveredFromText = false;
+            bool textArchiveRead = true;
             if (File.Exists(GameChatLogFile))
             {
                 // Recover only log entries containing original Discord IDs.
                 // Human-readable timestamps without IDs cannot provide exact
                 // activation times and must never be guessed.
-                foreach (string line in File.ReadLines(GameChatLogFile))
+                try
                 {
-                    var idMatch = System.Text.RegularExpressions.Regex.Match(
-                        line, @"\[discord:(\d+)\]\s*$");
-                    if (!idMatch.Success ||
-                        !ulong.TryParse(idMatch.Groups[1].Value, out ulong id) ||
-                        id == 0 || archivedChat.ContainsKey(id)) continue;
-                    string content = line.Substring(0, idMatch.Index).TrimEnd();
-                    int stampEnd = content.IndexOf(']');
-                    if (stampEnd >= 0) content = content.Substring(stampEnd + 1).TrimStart();
-                    int split = content.IndexOf(": ", StringComparison.Ordinal);
-                    archivedChat[id] = split >= 0
-                        ? (content.Substring(0, split), content.Substring(split + 2))
-                        : ("", content);
-                    recoveredFromText = true;
+                    foreach (string line in File.ReadLines(GameChatLogFile))
+                    {
+                        var idMatch = System.Text.RegularExpressions.Regex.Match(
+                            line, @"\[discord:(\d+)\]\s*$");
+                        if (!idMatch.Success ||
+                            !ulong.TryParse(idMatch.Groups[1].Value, out ulong id) ||
+                            id == 0 || archivedChat.ContainsKey(id)) continue;
+                        string content = line.Substring(0, idMatch.Index).TrimEnd();
+                        int stampEnd = content.IndexOf(']');
+                        if (stampEnd >= 0) content = content.Substring(stampEnd + 1).TrimStart();
+                        int split = content.IndexOf(": ", StringComparison.Ordinal);
+                        archivedChat[id] = split >= 0
+                            ? (content.Substring(0, split), content.Substring(split + 2))
+                            : ("", content);
+                        recoveredFromText = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    textArchiveRead = false;
+                    Log("CHAT | Saved text archive unreadable: " + ex.GetType().Name);
                 }
             }
-            chatLogLoaded = true;
-            if (recoveredFromText)
+            chatLogLoaded = textArchiveRead;
+            if (recoveredFromText && textArchiveRead)
             {
                 try { SaveChatArchive(); }
                 catch (Exception ex) { Log("CHAT | Recovered log indexing failed: " + ex.GetType().Name); }
@@ -1328,6 +1337,7 @@ metrics();
 
         void SaveChatArchive()
         {
+            if (!chatLogLoaded) return;
             var records = archivedChat.Select(e => new ChatArchiveEntry {
                 Id = e.Key, User = e.Value.User, Body = e.Value.Body,
                 Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
@@ -1471,10 +1481,19 @@ metrics();
                     throw new System.Net.Http.HttpRequestException("HTTP " + (int)response.StatusCode +
                         " from " + uri.Host);
                 if (response.Content.Headers.ContentLength > 8_000_000) return;
-                byte[] bytes = await response.Content.ReadAsByteArrayAsync();
-                if (bytes.Length > 8_000_000) return;
-                using var stream = new System.IO.MemoryStream(bytes);
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+                using var responseStream = await response.Content.ReadAsStreamAsync(timeout.Token);
+                using var stream = new System.IO.MemoryStream();
+                byte[] buffer = new byte[32_768];
+                int read;
+                while ((read = await responseStream.ReadAsync(buffer.AsMemory(), timeout.Token)) > 0)
+                {
+                    if (stream.Length + read > 8_000_000) return;
+                    stream.Write(buffer, 0, read);
+                }
+                stream.Position = 0;
                 using var original = System.Drawing.Image.FromStream(stream);
+                if ((long)original.Width * original.Height > 32_000_000) return;
                 int width = Math.Min(250, original.Width);
                 int height = Math.Max(1, (int)Math.Round((double)original.Height * width / original.Width));
                 if (height > 400) { width = Math.Max(1, width * 400 / height); height = 400; }
@@ -2584,8 +2603,8 @@ metrics();
             if (!File.Exists(cssFile)) return;
             var stamp = File.GetLastWriteTimeUtc(cssFile);
             if (stamp == cssStamp) return;
-            cssStamp = stamp;
             userCss = File.ReadAllText(cssFile);
+            cssStamp = stamp;
             await ApplyCss();
             Log("CSS reloaded");
         }
@@ -3120,6 +3139,10 @@ metrics();
                 closingChat = true;
                 watch.Stop();
                 historyWatch.Stop();
+                happyHourTicker?.Dispose();
+                if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
+                foreach (var image in imageCache.Values) image.Dispose();
+                imageCache.Clear();
                 if (launcherLocationHook != IntPtr.Zero)
                 {
                     UnhookWinEvent(launcherLocationHook);
