@@ -131,6 +131,8 @@ CheckPatchWorker()
                 throw Error("Could not verify the installed Expansion Pack ESP after import.")
             IniWrite(installedEsp, DataFile, "ExpansionPack", "VerifiedEspPath")
             IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
+            if job.HasOwnProp("OfficialPack") && ExpansionPackEspChecksum(installedEsp) = job.OfficialPack.Checksum
+                try RememberExpansionPackVersion(job.OfficialPack.Checksum, job.OfficialPack.Version)
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
         RefreshExpansionPackToggle()
@@ -243,6 +245,21 @@ ExpansionPackInstalled(morrowind, config)
     verifiedHash := StrLower(IniRead(DataFile, "ExpansionPack", "VerifiedEspSHA256", ""))
     if verifiedPath = "" || !RegExMatch(verifiedHash, "i)^[0-9a-f]{64}$")
         return false
+    for esp in ExpansionPackEspPaths(morrowind, config)
+    {
+        try
+        {
+            if StrLower(esp) = StrLower(verifiedPath)
+                && FileExist(esp) && FileGetSize(esp) > 0
+                && SHA256File(esp) = verifiedHash
+                return true
+        }
+    }
+    return false
+}
+
+ExpansionPackEspPaths(morrowind, config)
+{
     folders := []
     if morrowind != "" && DirExist(morrowind)
         folders.Push(morrowind "\Data Files")
@@ -265,18 +282,65 @@ ExpansionPackInstalled(morrowind, config)
             ; Unreadable config is not evidence of installation.
         }
     }
+    candidates := Map()
+    candidates.CaseSense := "Off"
     for folder in folders
     {
-        esp := RTrim(folder, "\/") "\NP Expansion Pack.esp"
+        esp := RTrim(StrReplace(folder, "/", "\"), "\") "\NP Expansion Pack.esp"
+        if FileExist(esp)
+            candidates[esp] := true
+    }
+    paths := []
+    for esp in candidates
+        paths.Push(esp)
+    return paths
+}
+
+ExpansionPackEspChecksum(path)
+{
+    try
+    {
+        file := FileOpen(path, "r")
         try
         {
-            if StrLower(esp) = StrLower(verifiedPath)
-                && FileExist(esp) && FileGetSize(esp) > 0
-                && SHA256File(esp) = verifiedHash
-                return true
+            if file.Length = 0
+                return ""
+            file.Pos := 0
+            chunk := Buffer(65536)
+            crc := 0
+            while count := file.RawRead(chunk, chunk.Size)
+                crc := DllCall("ntdll\RtlComputeCrc32", "UInt", crc, "Ptr", chunk.Ptr, "UInt", count, "UInt")
+            return Format("{:08X}", crc)
         }
+        finally file.Close()
     }
-    return false
+    return ""
+}
+
+InstalledExpansionPackChecksum(config)
+{
+    ; Ambiguous VFS paths defer to TES3MP's existing mismatch handling.
+    paths := ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    return paths.Length = 1 ? ExpansionPackEspChecksum(paths[1]) : ""
+}
+
+RememberExpansionPackVersion(checksum, version)
+{
+    global DataFile
+    if RegExMatch(checksum, "i)^[0-9a-f]{8}$") && RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+        IniWrite(version, DataFile, "ExpansionPackVersions", checksum)
+}
+
+InstalledExpansionPackVersion(checksum)
+{
+    global DataFile
+    if RegExMatch(checksum, "i)^[0-9a-f]{8}$")
+    {
+        version := IniRead(DataFile, "ExpansionPackVersions", checksum, "")
+        if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+            return version
+    }
+    return "Unknown"
 }
 
 ExpansionPackInLoadOrder(config)
@@ -312,7 +376,9 @@ RefreshExpansionPackToggle()
     }
 }
 
-ToggleExpansionPack(*)
+ToggleExpansionPack(*) => ApplyExpansionPackToggle()
+
+ApplyExpansionPackToggle(checked := false)
 {
     global AppDataDirectory, LauncherGui, DataFile, BundledResourceRoot
     if PatchInProgress()
@@ -358,6 +424,10 @@ ToggleExpansionPack(*)
         ShowExpansionInstallPrompt()
         return
     }
+    if checked && !enable
+        return
+    if enable && !checked && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
+        return
     action := enable ? "Enable" : "Disable"
     if enable
     {
@@ -367,7 +437,7 @@ ToggleExpansionPack(*)
     else
     {
         question := "Are you sure you want disable your installed expansion pack?"
-        explanation := "Disabling the Nerevarine Prophecies expansion pack will not uninstall it. If you decide to turn it back on, it will immediately enable again."
+        explanation := "Your installed files will stay available. When you turn the pack back on, the launcher will check for an update."
     }
     if MsgBox(question Chr(10) Chr(10) explanation, "Expansion Pack", "YesNo Icon?") != "Yes"
         return
@@ -424,10 +494,8 @@ ToggleExpansionPack(*)
 }
 
 
-; Initial installation is a simple Yes/No decision. Manual installation
-; remains available from the existing file import and failure recovery flows.
-; Reuse the exact borderless native gold card used by changelogs and settings.
-ShowExpansionInstallPrompt(onDecision := 0, zipName := "")
+; Reuse the native gold card for the initial install and update choices.
+ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersion := "")
 {
     global LauncherGui, ExpansionInstallPromptGui
     if IsObject(ExpansionInstallPromptGui)
@@ -450,12 +518,13 @@ ShowExpansionInstallPrompt(onDecision := 0, zipName := "")
     prompt.Add("Text", "x30 y27 w620 h39 BackgroundTrans",
         IsObject(onDecision) ? "Update Expansion Pack" : "Install Expansion Pack")
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
-    prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
-        IsObject(onDecision) ? "Would you like to download and install the latest NP Expansion Pack from Discord?"
-            . Chr(10) zipName
-            : "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
     if IsObject(onDecision)
     {
+        prompt.Add("Text", "x30 y82 w620 h28 BackgroundTrans",
+            "Install the latest Expansion Pack from Discord?")
+        prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
+        prompt.Add("Text", "x30 y120 w620 h24 BackgroundTrans", "Installed: " installedVersion)
+        prompt.Add("Text", "x30 y148 w620 h24 BackgroundTrans", "Available: " updateVersion)
         AddStyledButton(prompt, 30, 189, 165, 38, "Yes",
             CloseExpansionInstallPrompt.Bind(prompt, "Download"))
         AddStyledButton(prompt, 210, 189, 165, 38, "No",
@@ -465,6 +534,8 @@ ShowExpansionInstallPrompt(onDecision := 0, zipName := "")
     }
     else
     {
+        prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
+            "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
         AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
             CloseExpansionInstallPrompt.Bind(prompt, "Download"))
         AddStyledButton(prompt, 356, 189, 180, 38, "No",

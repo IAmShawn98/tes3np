@@ -350,11 +350,11 @@ mismatch_dialog = section_between(
 )
 expect(
     "Expansion Pack mismatch dialog opens without waiting for Discord",
-    'dialog.Show("w660 h627")' in mismatch_dialog
+    'dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")' in mismatch_dialog
     and 'RequestDiscordExpansionPrompt(installing ? 1 : 2)' in mismatch_dialog
     and in_order(
         mismatch_dialog,
-        'dialog.Show("w660 h627")',
+        'dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")',
         'RequestDiscordExpansionPrompt(installing ? 1 : 2)',
     )
     and 'ExpansionMismatchDialog.Show()' in mismatch_dialog
@@ -423,7 +423,7 @@ expect(
     and 'if !ExpansionAutoDownloadAttempted && (ExpansionMismatchMode = "Update"' in mismatch
     and 'attachment == ExpansionLastAutomaticUpdateAttachment' in mismatch
     and 'ExpansionLastAutomaticUpdateAttachment := attachment' in mismatch
-    and 'ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update"' in mismatch,
+    and 'ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update" && ExpansionMismatchMode != "Preflight"' in mismatch,
 )
 expansion_update_offer = section_between(
     mismatch,
@@ -448,7 +448,7 @@ expect(
         'if action != "Download"',
         'CloseTES3MPExpansionMismatchDialog(dialog, slot, action = "Upload")',
         'if attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)',
-        'TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")',
+        'TES3MPExpansionRevealRepair("The official ZIP changed. Try again to check the latest version.")',
         'ExpansionLastAutomaticUpdateAttachment := attachment',
         'TES3MPExpansionRequestAutoInstall(slot, ExpansionMismatchStatus)',
     )
@@ -463,6 +463,19 @@ expect(
     and 'if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)' in mismatch_dialog
     and 'TES3MPExpansionRevealRepair("Discord sign-in was closed.' in mismatch
     and 'TES3MPExpansionRevealRepair("Official ZIP discovery timed out.' in mismatch,
+)
+
+expect(
+    "Known outdated Expansion Packs are offered before login or re-enable",
+    in_order(session, "TES3MPCheckExpansionBeforeAction(config", "Client := session")
+    and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))' in patcher
+    and 'if checksum = "" || checksum = installedChecksum || version = ""' in expansion_update_offer
+    and 'TES3MPExpansionContinuePreflight(dialog, checksum != "" && checksum = installedChecksum)' in expansion_update_offer
+    and 'if !packCurrent && TES3MPAllowsExpansionAutoUpdate(' in mismatch
+    and 'case 15: CheckExpansionDownloadSilently(m.LParam); break;' in source
+    and 'ExpansionZipChecksum.ReadAsync(uri)' in source
+    and '"Installed: " installedVersion' in patcher
+    and '"Available: " updateVersion' in patcher,
 )
 
 expect(
@@ -483,7 +496,7 @@ expect(
     and 'case 13: StartExpansionAutoDownload(m.LParam); break;' in source
     and 'slot != expansionDownloadsParent' in source
     and '!discordChannelReady || discordLoginVisible' in source
-    and 'IsOfficialExpansionDownloadUrl(expansionLatestZipUrl)' in source,
+    and 'IsOfficialExpansionDownloadUrl(expansionPublishedZipUrl)' in source,
 )
 expect(
     "First-enable download uses a titlebarless gold card with only Yes/No",
@@ -513,7 +526,7 @@ expect(
 )
 expect(
     "Auto ZIP never exposes signed CDN URLs on command lines or downloads before approval",
-    'string url=expansionLatestZipUrl!;' in source
+    'string url=expansionPublishedZipUrl!;' in source
     and 'AllowAutoRedirect=false,UseCookies=false' in source
     and 'ResponseHeadersRead,cancellation.Token' in source
     and 'string stem="tes3np-"+Guid.NewGuid().ToString("N");' in source
@@ -592,11 +605,11 @@ auto_progress_helpers = section_between(
 )
 expect(
     "Automatic discovery is compositor-cloaked before show and manual browse/mismatch stays visible",
-    'cloaked := (mode = "Install" || mode = "Update") && TES3MPExpansionCloakDialog(dialog, true)' in auto_install_view
+    'cloaked := (mode = "Install" || mode = "Update" || mode = "Preflight") && TES3MPExpansionCloakDialog(dialog, true)' in auto_install_view
     and in_order(
         auto_install_view,
         'TES3MPExpansionCloakDialog(dialog, true)',
-        'dialog.Show("w660 h627")',
+        'dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")',
     )
     and 'if cloaked' in auto_install_view
     and 'if mode = "Update" || TES3MPExpansionBeginNativeProgress()' in auto_install_view

@@ -5,6 +5,9 @@
 global ExpansionMismatchDialog := 0
 global ExpansionMismatchSlot := 0
 global ExpansionMismatchZipUrl := ""
+global ExpansionMismatchZipChecksum := ""
+global ExpansionPackPreflight := 0
+global ExpansionApprovedPack := 0
 global ExpansionMismatchFileButton := 0
 global ExpansionMismatchDownloadSlot := 0
 global ExpansionMismatchStatus := 0
@@ -143,6 +146,7 @@ HandleTES3MPPluginMismatch()
 {
     global Client, TES3MPLastMismatchEvidence
     pid := Client.PID
+    packCurrent := Client.HasOwnProp("ExpansionPackCurrent") && Client.ExpansionPackCurrent
     LogLauncherEvent("GAME | PLUGIN MISMATCH | New TES3MP client log reports a server load-order rejection. Stopping failed launch.")
     ; Close only this attempted client (never every running TES3MP game).
     if pid && ProcessExist(pid)
@@ -151,7 +155,7 @@ HandleTES3MPPluginMismatch()
     mode := "Mismatch"
     try
     {
-        if TES3MPAllowsExpansionAutoUpdate(TES3MPLastMismatchEvidence)
+        if !packCurrent && TES3MPAllowsExpansionAutoUpdate(TES3MPLastMismatchEvidence)
             && TES3MPExpansionCallNativeUi("ExpansionPackIsEnabled")
             mode := "Update"
     }
@@ -305,13 +309,19 @@ TES3MPExpansionRevealRepair(reason)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchStatus
     global ExpansionMismatchMode, ExpansionAutoCloaked, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
+    global ExpansionPackPreflight
     ExpansionAutoDownloadActive := false
     ExpansionAutoDownloadAttempted := true
     TES3MPExpansionEndNativeProgress()
     if IsObject(ExpansionMismatchDialog)
     {
-        if ExpansionMismatchMode = "Install"
+        if ExpansionMismatchMode = "Install" || ExpansionMismatchMode = "Preflight"
         {
+            if IsObject(ExpansionPackPreflight) && ExpansionPackPreflight.Waiting
+            {
+                TES3MPExpansionContinuePreflight(ExpansionMismatchDialog)
+                return
+            }
             ; Retire the hidden Discord download slot and its authenticated
             ; browser before presenting the dedicated native failure card.
             ; The event arrives through launcher IPC, so open the next card
@@ -345,31 +355,83 @@ TES3MPExpansionCancelNativeDownload()
         CloseTES3MPExpansionMismatchDialog(ExpansionMismatchDialog, ExpansionMismatchSlot)
 }
 
+TES3MPCheckExpansionBeforeAction(config, onContinue)
+{
+    global EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionPackPreflight
+    if IsObject(ExpansionPackPreflight)
+        return true
+    if !EmbeddedChatPid || IsObject(ExpansionMismatchDialog)
+        return false
+    checksum := TES3MPExpansionCallNativeUi("InstalledExpansionPackChecksum", config)
+    if checksum = ""
+        return false
+    ExpansionPackPreflight := {Checksum: checksum, Continue: onContinue, Waiting: true}
+    ShowTES3MPExpansionMismatchDialog("Preflight")
+    dialog := ExpansionMismatchDialog
+    if !IsObject(dialog)
+    {
+        ExpansionPackPreflight := 0
+        return false
+    }
+    if !SendLauncherChatCommand(15, ExpansionMismatchSlot)
+        TES3MPExpansionContinuePreflight(dialog)
+    else
+        SetTimer(TES3MPExpansionContinuePreflight.Bind(dialog), -6500)
+    return true
+}
+
+TES3MPExpansionContinuePreflight(dialog, packCurrent := false)
+{
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionPackPreflight
+    if !IsObject(ExpansionPackPreflight) || !ExpansionPackPreflight.Waiting
+        || !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
+        return
+    onContinue := ExpansionPackPreflight.Continue
+    CloseTES3MPExpansionMismatchDialog(dialog, ExpansionMismatchSlot)
+    SetTimer(() => onContinue.Call(packCurrent), -1)
+}
+
 TES3MPExpansionStartDiscoveredZip(slot, status)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
     global ExpansionAutoProgressFrame, ExpansionAutoDownloadAttempted, ExpansionAutoCloaked
-    global ExpansionMismatchZipUrl, ExpansionLastAutomaticUpdateAttachment
+    global ExpansionMismatchZipUrl, ExpansionMismatchZipChecksum, ExpansionLastAutomaticUpdateAttachment, ExpansionPackPreflight
     if !IsObject(ExpansionMismatchDialog) || slot != ExpansionMismatchSlot
         || ExpansionAutoDownloadAttempted || !IsObject(status)
         return
-    if ExpansionMismatchMode = "Update"
+    if ExpansionMismatchMode = "Update" || ExpansionMismatchMode = "Preflight"
     {
-        ; Claim the offer before the confirmation yields to Discord events.
-        ExpansionAutoDownloadAttempted := true
         dialog := ExpansionMismatchDialog
         attachment := TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
-        if attachment = "" || attachment == ExpansionLastAutomaticUpdateAttachment
-            || ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+        version := TES3MPExpansionVersionFromAttachment(attachment)
+        checksum := ExpansionMismatchZipChecksum
+        installedChecksum := IsObject(ExpansionPackPreflight) ? ExpansionPackPreflight.Checksum
+            : TES3MPExpansionCallNativeUi("InstalledExpansionPackChecksum", PatchConfigurationPath())
+        if checksum != "" && checksum = installedChecksum && version != ""
+            try TES3MPExpansionCallNativeUi("RememberExpansionPackVersion", installedChecksum, version)
+        if ExpansionMismatchMode = "Preflight"
         {
-            TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")
+            if checksum = "" || checksum = installedChecksum || version = ""
+            {
+                TES3MPExpansionContinuePreflight(dialog, checksum != "" && checksum = installedChecksum)
+                return
+            }
+            ExpansionPackPreflight.Waiting := false
+        }
+
+        ExpansionAutoDownloadAttempted := true
+        if attachment = "" || (checksum != "" && checksum = installedChecksum)
+            || (ExpansionMismatchMode = "Update" && (attachment == ExpansionLastAutomaticUpdateAttachment
+                || ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")))
+        {
+            TES3MPExpansionRevealRepair("Check your plugin files and load order, or install the pack manually.")
             return
         }
-        SplitPath(attachment, &zipName)
         try
         {
+            installedVersion := TES3MPExpansionCallNativeUi("InstalledExpansionPackVersion", installedChecksum)
             if TES3MPExpansionCallNativeUi("ShowExpansionInstallPrompt",
-                TES3MPExpansionDecideUpdate.Bind(dialog, slot, attachment), SubStr(StrReplace(zipName, "%20", " "), 1, 68))
+                TES3MPExpansionDecideUpdate.Bind(dialog, slot, attachment), installedVersion, version != "" ? version : "Unknown")
                 return
         }
         TES3MPExpansionRevealRepair("Automatic download is unavailable. Download or install the ZIP manually.")
@@ -384,23 +446,31 @@ TES3MPExpansionStartDiscoveredZip(slot, status)
 TES3MPExpansionDecideUpdate(dialog, slot, attachment, action)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchStatus
-    global ExpansionAutoCloaked, ExpansionLastAutomaticUpdateAttachment
+    global ExpansionAutoCloaked, ExpansionLastAutomaticUpdateAttachment, ExpansionMismatchZipChecksum, PatchJob
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
         || slot != ExpansionMismatchSlot || !IsObject(ExpansionMismatchStatus)
         return
     if action != "Download"
     {
+        ; Manual imports can retain the advertised version only if the
+        ; importer produces the exact ESP checksum shown for this offer.
+        currentAttachment := TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
+        officialPack := {Checksum: ExpansionMismatchZipChecksum, Version: TES3MPExpansionVersionFromAttachment(attachment)}
         CloseTES3MPExpansionMismatchDialog(dialog, slot, action = "Upload")
+        if action = "Upload" && attachment = currentAttachment && IsObject(PatchJob)
+            && officialPack.Version != "" && officialPack.Checksum != ""
+            PatchJob.OfficialPack := officialPack
         return
     }
     if attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
     {
-        TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")
+        TES3MPExpansionRevealRepair("The official ZIP changed. Try again to check the latest version.")
         return
     }
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
     {
-        TES3MPExpansionRevealRepair("Close running TES3MP/OpenMW games before installing the Expansion Pack.")
+        CloseTES3MPExpansionMismatchDialog(dialog, slot)
+        MsgBox("Close running TES3MP/OpenMW games, then try the Expansion Pack update again.", "Expansion Pack", "Icon!")
         return
     }
     if !ExpansionAutoCloaked || !TES3MPExpansionBeginNativeProgress()
@@ -411,6 +481,13 @@ TES3MPExpansionDecideUpdate(dialog, slot, attachment, action)
     ExpansionLastAutomaticUpdateAttachment := attachment
     LogLauncherEvent("EXPANSION | User approved updating the enabled Expansion Pack.")
     TES3MPExpansionRequestAutoInstall(slot, ExpansionMismatchStatus)
+}
+
+TES3MPExpansionVersionFromAttachment(attachment)
+{
+    return RegExMatch(StrReplace(attachment, "%20", " "),
+        "i)/NP[ _.-]+Expansion[ _.-]+Pack[ _.-]+(v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3})\.zip$", &match)
+        ? StrLower(match[1]) : ""
 }
 
 TES3MPExpansionAttachmentPath(url)
@@ -548,7 +625,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     global LauncherGui, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
     global ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot, ExpansionMismatchStatus
     global ExpansionMismatchAuthenticated, ExpansionMismatchMode, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
-    global ExpansionAutoCloaked, ExpansionAutoProgressFrame
+    global ExpansionAutoCloaked, ExpansionAutoProgressFrame, ExpansionMismatchZipChecksum
     ; Manual diagnostics are immediately available for failures unrelated to
     ; the pack. An update candidate reveals them only if its offer cannot finish.
     if IsObject(ExpansionMismatchDialog)
@@ -590,6 +667,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ExpansionAutoCloaked := false
     ExpansionMismatchAuthenticated := authConfirmed
     ExpansionMismatchZipUrl := ""
+    ExpansionMismatchZipChecksum := ""
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
@@ -668,10 +746,20 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.OnEvent("Escape", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     ; The dialog is merely a WebView2 host during successful automatic mode.
     ; Cloak BEFORE Show: no desktop flash and no need to hide the live browser.
-    cloaked := (mode = "Install" || mode = "Update") && TES3MPExpansionCloakDialog(dialog, true)
-    dialog.Show("w660 h627")
+    cloaked := (mode = "Install" || mode = "Update" || mode = "Preflight") && TES3MPExpansionCloakDialog(dialog, true)
+    if mode = "Preflight" && !cloaked
+    {
+        dialog.Destroy()
+        return
+    }
+    dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")
     ExpansionMismatchDialog := dialog
     ExpansionMismatchSlot := downloadSlot.Hwnd
+    if mode = "Preflight"
+    {
+        ExpansionAutoCloaked := true
+        return
+    }
     if cloaked
     {
         ExpansionAutoCloaked := true
@@ -713,11 +801,15 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     global ExpansionMismatchDownloadSlot, ExpansionMismatchStatus, ExpansionMismatchAuthenticated, ExpansionDiscordPromptPending, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted, ExpansionAutoCloaked, ExpansionAutoInstallLocked
+    global ExpansionMismatchZipChecksum, ExpansionPackPreflight, ExpansionApprovedPack
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
         return
     ExpansionMismatchDialog := 0
     ExpansionMismatchSlot := 0
     ExpansionMismatchZipUrl := ""
+    ExpansionMismatchZipChecksum := ""
+    ExpansionPackPreflight := 0
+    ExpansionApprovedPack := 0
     ExpansionAutoDownloadActive := false
     ExpansionAutoDownloadAttempted := false
     ExpansionAutoCloaked := false
@@ -746,7 +838,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, EmbeddedChatPid, ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchFileButton
     global ExpansionMismatchMode, ExpansionMismatchStatus, ExpansionAutoDownloadAttempted
-    global ExpansionAutoProgressFrame, ExpansionAutoCloaked
+    global ExpansionAutoProgressFrame, ExpansionAutoCloaked, ExpansionMismatchZipChecksum
     ; WM_COPYDATA is synchronous; copy the data before returning.
     ; Only accept our current ChatHost's authenticated HTTPS attachment.
     if !IsObject(ExpansionMismatchDialog) || !lParam || hwnd != LauncherGui.Hwnd
@@ -775,7 +867,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     if messageKind != 0x8335
         return 0
     cbData := NumGet(lParam, A_PtrSize, "UInt")
-    if cbData < 36 || cbData > 8192 || Mod(cbData, 2)
+    if cbData < 8 || cbData > 8192 || Mod(cbData, 2)
         return 0
     textPtr := NumGet(lParam, A_PtrSize = 8 ? 16 : 8, "Ptr")
     if !textPtr
@@ -787,10 +879,21 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     slotText := SubStr(payload, 1, separator-1)
     if !RegExMatch(slotText, "^\d+$") || (slotText + 0) != ExpansionMismatchSlot
         return 0
-    url := SubStr(payload, separator+1)
+    linkData := SubStr(payload, separator + 1)
+    if linkData = "|" && ExpansionMismatchMode = "Preflight"
+    {
+        SetTimer(TES3MPExpansionContinuePreflight.Bind(ExpansionMismatchDialog), -10)
+        return 1
+    }
+    details := StrSplit(linkData, "|")
+    if details.Length < 1 || details.Length > 2
+        return 0
+    url := details[1]
     if !RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/[^?#]+\.zip(?:[?#]|$)")
         return 0
     ExpansionMismatchZipUrl := url
+    ExpansionMismatchZipChecksum := details.Length = 2 && RegExMatch(details[2], "i)^[0-9a-f]{8}$")
+        ? StrUpper(details[2]) : ""
     if ExpansionMismatchMode = "Install" && IsObject(ExpansionAutoProgressFrame) && !ExpansionAutoDownloadAttempted
         TES3MPExpansionUpdateNativeProgress("Latest Expansion Pack found. Connecting...", 0)
     if IsObject(ExpansionMismatchStatus)
@@ -826,7 +929,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     ; First-enable approval or an enabled pack rejected at login can start
     ; the authenticated download. Keep the manual dialog available on failure.
     if !ExpansionAutoDownloadAttempted && (ExpansionMismatchMode = "Update"
-        || (ExpansionMismatchMode = "Install" && ExpansionAutoCloaked && IsObject(ExpansionAutoProgressFrame)))
+        || ExpansionMismatchMode = "Preflight" || (ExpansionMismatchMode = "Install" && ExpansionAutoCloaked && IsObject(ExpansionAutoProgressFrame)))
     {
         status := ExpansionMismatchStatus
         if IsObject(status)
@@ -865,10 +968,10 @@ TES3MPExpansionActivateDownloadButton(slotHwnd)
 TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl
-    global ExpansionAutoDownloadActive, ExpansionMismatchMode, ExpansionAutoInstallLocked
+    global ExpansionMismatchZipChecksum, ExpansionApprovedPack, ExpansionAutoDownloadActive, ExpansionMismatchMode, ExpansionAutoInstallLocked
     if ExpansionAutoInstallLocked
         return
-    if (ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update") || !IsObject(ExpansionMismatchDialog)
+    if (ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update" && ExpansionMismatchMode != "Preflight") || !IsObject(ExpansionMismatchDialog)
         || slotHwnd != ExpansionMismatchSlot
         return
     if ExpansionAutoDownloadActive
@@ -884,6 +987,8 @@ TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
         TES3MPExpansionRevealRepair("Invalid Discord download link. Use Repair / Install ZIP.")
         return
     }
+    ExpansionApprovedPack := {Checksum: ExpansionMismatchZipChecksum,
+        Version: TES3MPExpansionVersionFromAttachment(TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl))}
     if !SendLauncherChatCommand(13, slotHwnd)
     {
         TES3MPExpansionRevealRepair("Automatic download unavailable. Choose Repair / Install ZIP.")
@@ -936,7 +1041,7 @@ TES3MPExpansionAutoDownloadReady(lParam)
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
     global ExpansionMismatchStatus, ExpansionAutoDownloadActive, ExpansionAutoInstallLocked
     if !IsObject(ExpansionMismatchDialog) || !ExpansionAutoDownloadActive
-        || (ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update")
+        || (ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update" && ExpansionMismatchMode != "Preflight")
         return 0
     cbData := NumGet(lParam, A_PtrSize, "UInt")
     if cbData < 40 || cbData > 8192 || Mod(cbData, 2)
@@ -981,7 +1086,7 @@ TES3MPExpansionAutoDownloadReady(lParam)
 
 TES3MPExpansionBeginAutoImport(dialog, slot, package)
 {
-    global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob, MorrowindPromptGui
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, PatchJob, MorrowindPromptGui, ExpansionApprovedPack
     ; Read the same canonical worker state as PatchInProgress(), without
     ; introducing a cross-module function lookup in this callback.
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
@@ -990,10 +1095,13 @@ TES3MPExpansionBeginAutoImport(dialog, slot, package)
         try FileDelete(package)
         return
     }
+    officialPack := ExpansionApprovedPack
     CloseTES3MPExpansionMismatchDialog(dialog, slot)
     ; The existing upload entrypoint forwards an approved ZIP to its own
     ; installer, avoiding a direct cross-module function binding.
     UploadExpansionFromFile(package, true)
+    if IsObject(PatchJob) && IsObject(officialPack) && officialPack.Checksum != "" && officialPack.Version != ""
+        PatchJob.OfficialPack := officialPack
     ; Preflight may be cancelled before PatchJob is created. No process then
     ; owns this temporary ZIP, so clean it up here.
     if !(IsSet(PatchJob) && IsObject(PatchJob))
