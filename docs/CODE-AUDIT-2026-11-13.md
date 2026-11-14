@@ -15,10 +15,10 @@ GitHub tree before changes.
 
 ## Verification
 
-- PowerShell syntax and updater source/metadata fixtures passed. Seven
+- PowerShell syntax and updater source/metadata fixtures passed. Eight
   isolated updater transaction scenarios passed in PowerShell 7, including
   an in-place Chat Host asset update and restoration of the old asset during
-  rollback. The fixtures do not execute a Windows launcher.
+  rollback, plus rollback on a file/directory collision. The fixtures do not execute a Windows launcher.
 - Diagnostic privacy contracts and synthetic scanner tests passed. Roslyn
   parsed the C# source without syntax diagnostics. Windows build,
   dependency resolution and WebView2 behavior remain pending.

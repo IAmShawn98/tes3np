@@ -125,6 +125,9 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination, [string]$
                   (Test-Path -LiteralPath $target -PathType Leaf)) {
             Write-UpdaterLog("Preserving existing user-editable chat configuration: $($entry.Name)")
         } else {
+            if (Test-Path -LiteralPath $target -PathType Container) {
+                throw "Cannot install file over an existing directory: $($entry.Name)"
+            }
             Copy-Item -LiteralPath $entry.FullName -Destination $target -Force
         }
     }
