@@ -1,6 +1,6 @@
 ; Shared application state. Initialized before the UI is constructed.
 global Profiles := []
-global Client := {PID: 0, HWND: 0, Phase: "stopped", Deadline: 0, Enabled: false, Profile: 0}
+global Client := {PID: 0, HWND: 0, Phase: "stopped", Deadline: 0, Enabled: false, Profile: 0, ProcessHandle: 0}
 global CharacterPage := 0
 global AppDataDirectory := A_AppData "\tes3np"
 global DataFile := AppDataDirectory "\settings.ini"

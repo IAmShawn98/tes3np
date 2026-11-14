@@ -1,5 +1,4 @@
 ﻿; Managed TES3MP client selection, dependency verification and custom override cache.
-; The retired markerless overwrite/skip prompt was never called by the current patcher.
 
 SHA256File(path)
 {
@@ -25,8 +24,6 @@ SHA256File(path)
     return ""
 }
 
-; Use the locally installed TES3MP runtime with TES3NP's bundled client.
-; The original vanilla executable is never overwritten.
 PrepareMarkerlessClientRuntime()
 {
     ; The release contains the complete TES3MP 0.8.1 client runtime.
@@ -57,7 +54,7 @@ GetManagedCustomClientExecutable(source)
     if StrLower(filename) != "tes3mp.exe" || !FileExist(source)
         return source
     bundled := A_ScriptDir "\client"
-    if !FileExist(bundled "\defaults.bin")
+    if !FileExist(bundled "\defaults.bin") || !FileExist(bundled "\tes3mp.exe")
         return source
     ; Custom replacements can have the same length and timestamp.
     sourceHash := SHA256File(source)
@@ -74,8 +71,9 @@ GetManagedCustomClientExecutable(source)
     Loop Parse token
         key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
     folder := AppDataDirectory "\client-cache\" Format("{:08X}", key)
+    folder := SelectClientCacheFolder(folder, token)
     output := folder "\tes3mp.exe"
-    if FileExist(folder "\.ready") && FileExist(output)
+    if ClientCacheMatches(folder, token) && FileExist(output)
     {
         try FileSetTime(, folder "\.ready")
         return output
@@ -91,7 +89,7 @@ GetManagedCustomClientExecutable(source)
         FileCopy(source, output, true)
         if SHA256File(output) != sourceHash
             throw Error("The custom executable changed during staging. Try again.")
-        FileAppend(source "`n", folder "\.ready", "UTF-8")
+        FileAppend(token, folder "\.ready", "UTF-8")
         LogLauncherEvent("GAME | Custom executable prepared with bundled runtime.")
         return output
     }
@@ -102,6 +100,24 @@ GetManagedCustomClientExecutable(source)
             . "`n`nYour original file and bundled client were not changed.", "Custom client error", "Icon!")
         return ""
     }
+}
+
+SelectClientCacheFolder(folder, signature)
+{
+    if !DirExist(folder) || ClientCacheMatches(folder, signature)
+        return folder
+    ; Preserve an existing cache that another running game may be using.
+    Loop Files folder "-*", "D"
+        if ClientCacheMatches(A_LoopFileFullPath, signature)
+            return A_LoopFileFullPath
+    return folder "-" NewLauncherFileId()
+}
+
+ClientCacheMatches(folder, signature)
+{
+    try return FileRead(folder "\.ready", "UTF-8") == signature
+    catch
+        return false
 }
 
 ; Validate the selected runtime rather than assuming the bundled client.
@@ -189,8 +205,9 @@ GetMergedCustomClientExecutable()
     Loop Parse signature
         key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
     folder := AppDataDirectory "\client-cache\merged-" Format("{:08X}", key)
+    folder := SelectClientCacheFolder(folder, signature)
     output := folder "\tes3mp.exe"
-    if FileExist(folder "\.ready") && FileExist(output)
+    if ClientCacheMatches(folder, signature) && FileExist(output)
     {
         try FileSetTime(, folder "\.ready")
         return output
@@ -235,6 +252,9 @@ InstallCustomClientOverrides(source, dependencies := "")
     backup := managed "\previous"
     try
     {
+        RecoverCustomClientOverrides()
+        if DirExist(backup) && !DirExist(overrides)
+            throw Error("The previous custom client could not be recovered.")
         if dependencies != "" && (!DirExist(dependencies) || InStr(StrLower(dependencies), StrLower(managed)))
             throw Error("Invalid dependencies folder.")
         DirCreate(managed)

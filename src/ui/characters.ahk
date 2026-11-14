@@ -954,7 +954,7 @@ AddThemedEdit(owner, options, value := "")
 
 WipeCharacterData(*)
 {
-    global Profiles, SelectedProfile, CharacterListPage, CharacterPage, Client
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage
     if !Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")
@@ -967,7 +967,6 @@ WipeCharacterData(*)
     try
     {
         StopClient()
-        Client.Profile := 0
         HideProfileEditor()
         Profiles := []
         SelectedProfile := 0

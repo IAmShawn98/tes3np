@@ -1617,6 +1617,13 @@ expect(
     and "SendLauncherChatCommand(11)" in mismatch
     and "case 11: CancelPendingExpansionPrompt(false); break;" in source,
 )
+expect(
+    "Game client count tracks processes from launch and cancelled login discards its credentials",
+    session.index("TES3NPActiveGameHandles.Push(handle)") < session.index('Client.Phase := "window"')
+    and 'if Client != session || !Client.Enabled || Client.HWND != hwnd' in session
+    and 'Client.Profile := 0' in section_between(session, "StopClient(*)", "\nFindGameWindow(")
+    and 'ReleaseTES3NPGameClients()' in bootstrap,
+)
 login_progress = (ROOT / "src" / "ui" / "login-progress.ahk").read_text(encoding="utf-8-sig")
 login_cleanup = section_between(login_progress, "UpdateGameLoginProgress(*)", "\n}")
 session_stop = section_between(session, "StopClient(*)", "\nFindGameWindow(")

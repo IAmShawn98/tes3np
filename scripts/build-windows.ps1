@@ -25,23 +25,36 @@ function GetTes3npSha256([string]$FilePath) {
 
 function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, [int]$TimeoutMs) {
     Step "Starting $Label"
-    $stdout = Join-Path $env:TEMP 'tes3np-compiler-stdout.log'
-    $stderr = Join-Path $env:TEMP 'tes3np-compiler-stderr.log'
-    Remove-Item $stdout, $stderr -ErrorAction SilentlyContinue
-
-    # PowerShell 5.1 Start-Process -PassThru without -Wait can expose an
-    # empty ExitCode even after calling WaitForExit() on its returned wrapper.
-    # -Wait ensures PowerShell receives and populates the final process status.
-    $process = Start-Process -FilePath $Compiler -ArgumentList $Arguments -PassThru -Wait -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-    $compilerExitCode = $process.ExitCode
-    Step "$Label exited with code $compilerExitCode"
-    if ($null -eq $compilerExitCode -or $compilerExitCode -ne 0) {
-        Step 'COMPILER DIAGNOSTICS (full logs retained in Windows TEMP)'
-        if (Test-Path $stdout) { Get-Content $stdout | ForEach-Object { Write-Host $_ } }
-        if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } }
-        if ($null -eq $compilerExitCode) { throw "$Label finished without a readable exit code." }
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $Compiler
+    $start.Arguments = $Arguments
+    $start.WorkingDirectory = $projectRoot
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $process = [Diagnostics.Process]::Start($start)
+    try {
+        $output = $process.StandardOutput.ReadToEndAsync()
+        $errors = $process.StandardError.ReadToEndAsync()
+        if (!$process.WaitForExit($TimeoutMs)) {
+            try { $process.Kill() } catch {}
+            throw "$Label timed out after $TimeoutMs ms."
+        }
+        if (!$output.Wait(2000) -or !$errors.Wait(2000)) {
+            throw "$Label closed without completing its output."
+        }
+        $compilerExitCode = $process.ExitCode
+        Step "$Label exited with code $compilerExitCode"
+        if ($compilerExitCode -ne 0) {
+            Step 'COMPILER DIAGNOSTICS'
+            if ($output.Result) { Write-Host $output.Result }
+            if ($errors.Result) { Write-Host $errors.Result }
+        }
+        return $compilerExitCode
+    } finally {
+        $process.Dispose()
     }
-    return [int]$compilerExitCode
 }
 
 # Public GitHub downloads occasionally return 502/503/504 during an otherwise

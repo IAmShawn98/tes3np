@@ -556,7 +556,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'TES3NP_BINDINGS' not in macro,
         "linked application removal/exit remain non-destructive":
             'IniWrite(source, manifest, "Macro", "Target")' in macro
-            and 'macro.Kind != "App" && macro.PID' in macro
+            and 'macro.Kind != "App" && MacroProcessRunning(macro)' in macro
             and 'DeleteSelectedMacro' not in macro,
     }
     for name, passed in macro_checks.items():

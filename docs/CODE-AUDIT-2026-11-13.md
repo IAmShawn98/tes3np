@@ -84,3 +84,24 @@ GitHub tree before changes.
   with no readers. File hash checks require certutil to exit successfully.
 - The dev PC build remains deferred while the source audit continues.
   The second PC upgrade test follows a passing dev PC regression run.
+
+
+## Fourth source pass
+
+- Game counting now retains a process handle when TES3MP starts, including
+  clients whose login monitor is stopped before the SDL window opens.
+  Stopping the monitor releases its copy of the saved credentials. Stale
+  focus waits no longer continue a cancelled or replaced login.
+- Macro Run and Stop keep a handle for the launched instance, including
+  when the character book is rebuilt. Launcher shutdown closes tracked
+  script processes and leaves linked apps running.
+- Custom-client cache hits check the stored signature and retain existing
+  caches that a running game could be using. A new override selection first
+  recovers a prior interrupted override swap.
+- The compiler wrapper enforces its requested timeout and captures each
+  process's output independently. Disposable PowerShell checks passed for
+  compiler success, failure output, timeout and build-output rollback.
+- The Expansion Pack toggle uses a unique staging file and checks that
+  OpenMW settings are still current before replacing them.
+- The batch build passes its ZIP and extraction paths through environment
+  variables so apostrophes in the checkout path do not break PowerShell.
