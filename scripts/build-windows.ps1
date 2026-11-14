@@ -394,9 +394,11 @@ try {
     $null = New-Item $package -ItemType Directory
 
     Step 'Extracting AutoHotkey runtime'
-    Expand-Archive (Join-Path $tools 'autohotkey.zip') (Join-Path $tools 'autohotkey')
+    # The Windows PowerShell archive module can bind to an unavailable
+    # overwrite overload. All build extraction targets are fresh directories.
+    [IO.Compression.ZipFile]::ExtractToDirectory($ahkZip, (Join-Path $tools 'autohotkey'))
     Step 'Extracting Ahk2Exe compiler'
-    Expand-Archive (Join-Path $tools 'compiler.zip') (Join-Path $tools 'compiler')
+    [IO.Compression.ZipFile]::ExtractToDirectory($compilerZip, (Join-Path $tools 'compiler'))
     $base = Get-ChildItem (Join-Path $tools 'autohotkey') -Filter 'AutoHotkey64.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
     $compiler = Get-ChildItem (Join-Path $tools 'compiler') -Filter 'Ahk2Exe.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
     if (!$base -or !$compiler) { throw 'Required AutoHotkey build tools were not found.' }
@@ -625,7 +627,7 @@ Public redistribution/licensing review remains a separate release gate.
     if (!$reuseTes3mp) {
         $archiveHash = GetTes3npSha256 $tes3mpArchive
         $runtimeExtract = Join-Path $tools 'tes3mp-extracted'
-        Expand-Archive -LiteralPath $tes3mpArchive -DestinationPath $runtimeExtract
+        [IO.Compression.ZipFile]::ExtractToDirectory($tes3mpArchive, $runtimeExtract)
         $runtimeExecutable = Get-ChildItem -LiteralPath $runtimeExtract -Recurse -File -Filter 'tes3mp.exe' | Select-Object -First 1
         if (!$runtimeExecutable) { throw 'Official TES3MP archive has no tes3mp.exe.' }
         $runtimeRoot = $runtimeExecutable.Directory.FullName
@@ -731,7 +733,7 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     # Keep the installed version's release notes available offline.
     Copy-Item (Join-Path $projectRoot 'RELEASE_NOTES.md') (Join-Path $package 'RELEASE_NOTES.md') -Force
     Step 'Packaging standalone executable'
-    Compress-Archive (Join-Path $package '*') $zip
+    [IO.Compression.ZipFile]::CreateFromDirectory($package, $zip, [IO.Compression.CompressionLevel]::Optimal, $false)
     Step 'Validating final downloadable Windows ZIP'
     $packageCheck = @($zip)
     if ($consolePayload) { $packageCheck += '--require-console-client' }
