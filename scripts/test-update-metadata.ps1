@@ -55,6 +55,7 @@ try {
     Write-Host 'PASS: emergency update disable state is representable.'
 
     $null = New-Item -ItemType Directory -Path (Join-Path $root 'src')
+    $snapshotRevision = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { 'local' }
     Push-Location $root
     try {
         foreach ($fixture in @(
@@ -75,7 +76,8 @@ try {
             if ($metadata.manifestVersion -ne 2 -or $metadata.channel -cne $channel -or
                 $metadata.version -cne $version -or $metadata.releaseId -cne "v$version" -or
                 $metadata.package.fileName -cne $name -or $metadata.package.sha256 -ne $actualHash -or
-                $metadata.updateEnabled -or $checksumLine -cne "$actualHash  $name") {
+                $metadata.sourceRevision -cne $snapshotRevision -or $metadata.updateEnabled -or
+                $checksumLine -cne "$actualHash  $name") {
                 throw "Channel metadata or checksum did not match v$version."
             }
         }
