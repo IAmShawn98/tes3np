@@ -6,9 +6,9 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### New Features
 
-- **Game Chat:** The launcher now contains in-game chat integration.
-- **TES3MP Integration:** You no longer need to download tes3mp to run Nerevarine Prophecies!
-- **Happy Hour notifications:** Get notified in the launcher when Happy Hour is detected.
+- **Game Chat:** Read live Nerevarine Prophecies Discord messages alongside the launcher.
+- **Bundled TES3MP:** The Windows ZIP includes the TES3MP 0.8.1 client and its dependencies.
+- **Happy Hour notifications:** See an active Happy Hour and its remaining time on the launcher.
 - **Plugin mismatch recovery:** If your plugins don't match the server's, the launcher helps you download the Expansion Pack and troubleshoot the problem.
 - **Game Client Settings:** Choose a custom TES3MP executable without replacing the bundled client.
 - **Login Progress:** See your character's login steps in a dedicated progress window.
@@ -17,7 +17,7 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### Improvements
 
-- **Automatic Expansion Pack Installation:** Automatically download and install the latest Expansion Pack directly from Discord, with options to retry or manually install if something goes wrong.
+- **Expansion Pack setup:** With your approval, TES3NP can download and install the latest official pack from Discord. You can retry the download or choose a local package.
 - **Launcher Interface:** Improved window scaling, menu positioning, and dialog appearances for a more consistent experience.
 - **Upload Expansion:** Install the Expansion Pack from a downloaded ZIP file or an extracted folder.
 - **Diagnostics:** Improved diagnostics for mismatches and error handling.

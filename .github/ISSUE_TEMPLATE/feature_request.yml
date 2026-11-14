@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest an improvement to the TES3NP launcher.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the current workflow and where you get stuck.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What should the launcher do?
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or screenshots
+      description: Remove personal details before attaching files.
