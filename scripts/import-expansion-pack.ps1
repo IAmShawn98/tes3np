@@ -1,11 +1,16 @@
 # Import an NP-supplied ESP or ZIP after TES3MP rejects the installed plugins.
 # This operates on the selected Morrowind Data Files and active OpenMW config,
 # never on the bundled launcher/client or user credentials.
+[CmdletBinding(DefaultParameterSetName='Import')]
 param(
-    [Parameter(Mandatory=$true)][string]$Package,
-    [Parameter(Mandatory=$true)][string]$MorrowindFolder,
-    [Parameter(Mandatory=$true)][string]$ConfigFile,
-    [Parameter(Mandatory=$true)][string]$JobFolder
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$Package,
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$MorrowindFolder,
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$ConfigFile,
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$JobFolder,
+    [Parameter(Mandatory=$true, ParameterSetName='Identify')][string]$ImportHistory,
+    [Parameter(Mandatory=$true, ParameterSetName='Identify')]
+    [ValidatePattern('^[a-fA-F0-9]{64}(?:,[a-fA-F0-9]{64})*$')][string]$InstalledEspSHA256,
+    [Parameter(Mandatory=$true, ParameterSetName='Identify')][string]$VersionResult
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -123,7 +128,7 @@ function CleanImportMessage([string]$Message) {
     if (!$safe) { return 'The Expansion Pack operation could not be completed.' }
     return $safe
 }
-function Result([string]$State, [string]$Message, [string]$Backup = '', [bool]$RollbackComplete = $false) {
+function Result([string]$State, [string]$Message, [string]$Backup = '', [bool]$RollbackComplete = $false, [string]$ExpansionVersion = '') {
     $clean = CleanImportMessage $Message
     # Backup locations belong in the private rollback journal, not the result
     # shared with the UI or support. Preserve the pre-existing Backup key.
@@ -131,6 +136,9 @@ function Result([string]$State, [string]$Message, [string]$Backup = '', [bool]$R
     $body = '[Result]' + [Environment]::NewLine + 'State=' + $State + [Environment]::NewLine +
         'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $backupStatus + [Environment]::NewLine
     if ($RollbackComplete) { $body += 'Rollback=complete' + [Environment]::NewLine }
+    if ($State -eq 'success' -and $ExpansionVersion) {
+        $body += 'ExpansionVersion=' + $ExpansionVersion + [Environment]::NewLine
+    }
     WriteJobIni 'result.ini' $body
 }
 function AssertPlain([string]$Path) {
@@ -147,6 +155,66 @@ function AssertPlain([string]$Path) {
         $cursor = $parent
     }
 }
+function GetExpansionPackageVersion([string]$Source) {
+    $path = $Source.TrimEnd([char[]]'\/')
+    # Import records contain the archive filename or the selected extracted
+    # folder. Selecting Data Files can leave the version on its parent.
+    $segments = $path -split '[\\/]'
+    $name = $segments[-1]
+    if ($name -ieq 'Data Files' -and $segments.Count -gt 1) { $name = $segments[-2] }
+    if ($name -match '^NP[ _.-]+Expansion[ _.-]+Pack[ _.-]+(v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3})(?: \(\d+\))?(?:\.zip)?$') {
+        return $Matches[1].ToLowerInvariant()
+    }
+    return ''
+}
+
+function FindExpansionImportVersion([string]$History, [string[]]$Hashes) {
+    if (![IO.Directory]::Exists($History)) { return '' }
+    AssertPlain $History
+    $version = ''
+    $identified = @{}
+    $jobs = Get-ChildItem -LiteralPath $History -Directory |
+        Where-Object { $_.Name -match '^(?:[0-9a-f]{32}|\d{14}-\d+)$' } |
+        Sort-Object -Property LastWriteTimeUtc -Descending |
+        Select-Object -First 80
+    foreach ($job in $jobs) {
+        try {
+            $journal = Get-Item -LiteralPath (Join-Path $job.FullName 'journal.json') -ErrorAction SilentlyContinue
+            if (!$journal -or $journal.Length -gt 12MB) { continue }
+            AssertPlain $journal.FullName
+            $record = [IO.File]::ReadAllText($journal.FullName) | ConvertFrom-Json
+            if ($record.Completed -isnot [bool] -or !$record.Completed) { continue }
+            $sourceVersion = GetExpansionPackageVersion ([string]$record.Package)
+            if (!$sourceVersion) { continue }
+            foreach ($item in $record.Files) {
+                if (($item.Target -split '[\\/]')[-1] -ine 'NP Expansion Pack.esp' -or
+                    $item.InstalledHash -notin $Hashes) {
+                    continue
+                }
+                if ($version -and $version -ne $sourceVersion) { return '' }
+                $version = $sourceVersion
+                $identified[$item.InstalledHash] = $true
+            }
+        } catch {
+            # An unrelated old, corrupt or unparseable record cannot supply a version.
+        }
+    }
+    foreach ($hash in $Hashes) {
+        if (!$identified.ContainsKey($hash)) { return '' }
+    }
+    return $version
+}
+
+if ($PSCmdlet.ParameterSetName -eq 'Identify') {
+    # Only the version goes back to the launcher. Keep paths and hashes in the
+    # existing private journals and never open the original package.
+    $knownVersion = FindExpansionImportVersion $ImportHistory ($InstalledEspSHA256 -split ',')
+    if ($knownVersion) {
+        [IO.File]::WriteAllText($VersionResult, $knownVersion, [Text.Encoding]::ASCII)
+    }
+    exit 0
+}
+
 function AssertGameClosed {
     if (Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue) {
         throw 'Close all TES3MP/OpenMW clients before importing the Expansion Pack.'
@@ -250,6 +318,7 @@ try {
     [IO.Directory]::CreateDirectory($staged) | Out-Null
     $assets = @()
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $packageVersion = GetExpansionPackageVersion $Package
     $extension = [IO.Path]::GetExtension($Package).ToLowerInvariant()
     if ([IO.Directory]::Exists($Package)) {
         # Accept a selected Data Files folder, its parent, or a ZIP wrapper
@@ -404,7 +473,7 @@ try {
     $needed = @($plan | Where-Object { ![IO.File]::Exists($_.Target) -or (Sha256 $_.Target) -ne $_.Hash })
     if (!$needed.Count) {
         AssertExpectedTarget $ConfigFile $configHash
-        try { Result 'success' 'Selected Expansion Pack files are already installed. Try connecting again.' $JobFolder } catch {}
+        try { Result 'success' 'Selected Expansion Pack files are already installed. Try connecting again.' $JobFolder -ExpansionVersion $packageVersion } catch {}
         try { Progress 'Expansion files already match the download' 100 } catch {}
         exit 0
     }
@@ -456,7 +525,7 @@ try {
     WriteJobFile 'journal.json' ($record | ConvertTo-Json -Depth 5) ([Text.UTF8Encoding]::new($false))
     # Once the verified install is committed, a status file write cannot undo it.
     try {
-        Result 'success' 'Expansion files installed and backed up. Try joining Nerevarine Prophecies again; only the server can confirm compatibility.' $JobFolder
+        Result 'success' 'Expansion files installed and backed up. Try joining Nerevarine Prophecies again; only the server can confirm compatibility.' $JobFolder -ExpansionVersion $packageVersion
     } catch {}
     try { Progress 'Expansion import complete' 100 } catch {}
     exit 0

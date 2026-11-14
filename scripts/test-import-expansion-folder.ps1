@@ -328,7 +328,34 @@ function AssertGameClosed {
         [Convert]::ToBase64String($beforeEmptyPack)) 'Empty ESP replaced the installed pack'
     AssertFixture ([IO.File]::ReadAllText($config) -ceq $beforeEmptyConfig) 'Empty ESP changed OpenMW settings'
 
-    Write-Host 'Expansion import ZIP/folder safety fixtures passed.'
+    # Older imports retain just the original package path and ESP hash in
+    # their completed journal. The original ZIP does not need to exist.
+    $history = Join-Path $root 'legacy-imports'
+    $job = Join-Path $history ('a' * 32)
+    $hash = '2' * 64
+    $receipt = [pscustomobject]@{
+        Completed = $true
+        Package = 'C:\Old Downloads\NP_Expansion_Pack_v0.2.zip'
+        Files = @([pscustomobject]@{
+            Target = 'D:\Morrowind\Data Files\NP Expansion Pack.esp'
+            InstalledHash = $hash
+        })
+    }
+    $journal = Join-Path $job 'journal.json'
+    WriteFixture $journal ($receipt | ConvertTo-Json -Depth 4)
+    $versionFile = Join-Path $root 'identified-version.txt'
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -ImportHistory $history -InstalledEspSHA256 $hash -VersionResult $versionFile
+    AssertFixture ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($versionFile) -ceq 'v0.2') 'Legacy ZIP label was not recovered for matching ESP'
+    [IO.File]::Delete($versionFile)
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -ImportHistory $history -InstalledEspSHA256 ('3' * 64) -VersionResult $versionFile
+    AssertFixture ($LASTEXITCODE -eq 0 -and ![IO.File]::Exists($versionFile)) 'Unrelated ESP inherited a historical label'
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -ImportHistory $history -InstalledEspSHA256 ($hash + ',' + ('3' * 64)) -VersionResult $versionFile
+    AssertFixture ($LASTEXITCODE -eq 0 -and ![IO.File]::Exists($versionFile)) 'Unverified plugin copy inherited a historical label'
+    $receipt.Completed = $false
+    WriteFixture $journal ($receipt | ConvertTo-Json -Depth 4)
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -ImportHistory $history -InstalledEspSHA256 $hash -VersionResult $versionFile
+    AssertFixture ($LASTEXITCODE -eq 0 -and ![IO.File]::Exists($versionFile)) 'Incomplete import supplied a historical label'
+    Write-Host 'Expansion import ZIP/folder safety and version recovery fixtures passed.'
     exit 0
 }
 catch {
