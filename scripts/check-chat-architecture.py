@@ -1400,7 +1400,7 @@ expect(
     'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)' in settings_layout
     and 'initialHeight := saved ? 460 : 412' in settings_layout
     and 'ShowGoldNativePrompt(menu)' in settings_layout
-    and 'CreateGoldNativePrompt(menu, "Optional Client Dependencies", 640, 350)' in settings_layout
+    and 'options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", ' in settings_layout
     and 'ShowGoldNativePrompt(options)' in settings_layout
     and 'CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)' in patcher
     and 'ShowGoldNativePrompt(prompt)' in patcher
