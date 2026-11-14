@@ -531,12 +531,11 @@ CloseExpansionAutoFailureDialog(prompt, action := "Cancel", *)
 CheckFirstRunMorrowind(resumeExpansion := false, *)
 {
     global DataFile, LauncherGui, MorrowindPromptGui
-    ; "Not Now" only defers until the next startup or game launch.
+    ; "Not Now" defers the prompt until the next action that needs the game.
     found := FindMorrowindFolder(PatchConfigurationPath())
     if found != ""
     {
         IniWrite(found, DataFile, "Patch", "MorrowindFolder")
-        IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
         LogLauncherEvent("SETUP | Morrowind GOTY installation located.")
         return
     }
@@ -608,7 +607,6 @@ SelectFirstRunMorrowind(prompt, *)
         }
     }
     IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
-    IniWrite("1", DataFile, "Install", "MorrowindPromptDismissed")
     LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
     resumeExpansion := prompt.HasOwnProp("ResumeExpansionPack") && prompt.ResumeExpansionPack
     pendingPackage := prompt.HasOwnProp("PendingExpansionPackage") ? prompt.PendingExpansionPackage : ""

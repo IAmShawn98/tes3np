@@ -386,13 +386,6 @@ ButtonNeedsRenderCover(face)
         || text = "Add character" || text = "Save changes"
 }
 
-ButtonLoadsContent(face)
-{
-    ; Content preparation starts immediately for these actions, even when its
-    ; data is already in memory. Close/link actions bypass the loading overlay.
-    return ButtonNeedsRenderCover(face)
-}
-
 ; Reveal a loading card only when real work is still running after 120 ms.
 ; Fast transitions stay covered only by the captured frame and complete immediately;
 ; there is no minimum display duration or artificial wait.

@@ -8,8 +8,7 @@ SHA256File(path)
     command := A_ComSpec ' /D /C certutil -hashfile "' path '" SHA256 > "' temporary '"'
     try
     {
-        RunWait(command, , "Hide")
-        if FileExist(temporary)
+        if RunWait(command, , "Hide") = 0 && FileExist(temporary)
         {
             output := FileRead(temporary, "UTF-8")
             if RegExMatch(output, "i)\b([0-9a-f]{64})\b", &match)
