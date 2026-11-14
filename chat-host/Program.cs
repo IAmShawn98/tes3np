@@ -201,8 +201,8 @@ internal static class Program
         // session; native retry never depends on a responsive WebView2.
         string? expansionLatestZipUrl;
         string? expansionPublishedZipUrl;
-        string? expansionChecksumPath;
-        string? expansionChecksum;
+        readonly Dictionary<string, string> expansionZipChecksums = new(StringComparer.Ordinal);
+        int expansionLinkRevision;
         // Discord feature dialogs reuse the existing Chat Host authentication.
         int pendingExpansionPrompt;
         bool restoreChatAfterExpansionPrompt;
@@ -231,6 +231,8 @@ internal static class Program
               let scheduled=false, retryPending=false, lastStatus='', lastFileKey='';
               let panel, status, sender, link, size;
               let best=null, checkedPresent=false, backfillCount=0, phase='present';
+              const recentPacks=new Map(), recentPackLimit=4;
+              const packName=/^NP[ _.-]+Expansion[ _.-]+Pack[ _.-]+v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}\.zip$/i;
               let previousHistoryTop='', unchangedHistory=0, loadingRetries=0, presentRetries=0;
               const maxBackfills=12, maxLoadingRetries=30, maxPresentRetries=18;
 
@@ -354,7 +356,7 @@ internal static class Program
                   let filename='';
                   try { filename=decodeURIComponent(new URL(url).pathname.split('/').pop()||''); }
                   catch { continue; }
-                  if (!/\.zip$/i.test(filename)) continue;
+                  if (!packName.test(filename)) continue;
                   const row=a.closest(
                     '[data-list-item-id^="chat-messages_"],[id^="chat-messages-"],[class*="messageListItem_"]'
                   )||a.parentElement;
@@ -367,8 +369,13 @@ internal static class Program
                 }
                 return found;
               }
+              function newestFirst(a,b) {
+                const left=a.id??0n, right=b.id??0n;
+                return left>right ? -1 : left<right ? 1 : b.order-a.order;
+              }
               function remember(candidates) {
                 for (const item of candidates) {
+                  recentPacks.set(new URL(item.url).pathname,item);
                   // Snowflakes are chronological; when Discord's message ID
                   // metadata is missing, DOM order is a best-effort fallback.
                   if (!best ||
@@ -376,9 +383,20 @@ internal static class Program
                       (item.id===best.id && item.order>=best.order) ||
                       (item.id!==null && best.id===null)) best=item;
                 }
+                if (recentPacks.size>24) {
+                  const kept=Array.from(recentPacks.entries())
+                    .sort((a,b)=>newestFirst(a[1],b[1]))
+                    .slice(0,24);
+                  recentPacks.clear();
+                  for (const [key,item] of kept) recentPacks.set(key,item);
+                }
               }
               function show(file) {
-                const key=file.url+'|'+file.filename+'|'+file.sender+'|'+file.bytes;
+                const recent=Array.from(recentPacks.values())
+                  .filter(item=>new URL(item.url).pathname!==new URL(file.url).pathname)
+                  .sort(newestFirst)
+                  .slice(0,recentPackLimit-1);
+                const key=file.url+'|'+recent.map(item=>item.url).join('|');
                 if (lastFileKey===key) return;
                 lastFileKey=key;
                 status.textContent=file.id===null
@@ -390,7 +408,9 @@ internal static class Program
                 // Save the live signed link for a native Download / Retry
                 // control outside WebView2. The user can request it again even
                 // if the embedded browser stops repainting after a download.
-                try { chrome.webview.postMessage({type:'expansion-available',url:file.url}); } catch {}
+                try { chrome.webview.postMessage({
+                  type:'expansion-available',url:file.url,history:recent.map(item=>item.url)
+                }); } catch {}
                 report('latest-zip-ready');
               }
               function scrollerFor(feed) {
@@ -457,7 +477,7 @@ internal static class Program
                 }
                 const files=readCandidates(feed);
                 remember(files);
-                if (phase==='search' && !best && backfillCount<maxBackfills && scroller) {
+                if (phase==='search' && recentPacks.size<recentPackLimit && backfillCount<maxBackfills && scroller) {
                   const first=feed.querySelector('[data-list-item-id],[id^="chat-messages-"]');
                   const firstId=first?.getAttribute('data-list-item-id')||first?.id||'';
                   if (firstId===previousHistoryTop) unchangedHistory++;
@@ -504,6 +524,7 @@ internal static class Program
             expansionDownloadsParent=IntPtr.Zero;
             expansionLatestZipUrl=null;
             expansionPublishedZipUrl=null;
+            Interlocked.Increment(ref expansionLinkRevision);
             var window=expansionDownloadsWindow;
             expansionDownloadsWindow=null;
             expansionDownloadsBrowser=null;
@@ -665,13 +686,16 @@ internal static class Program
             var cancellation=new CancellationTokenSource(TimeSpan.FromHours(4));
             expansionAutoDownloadCancellation=cancellation;
             string url=expansionPublishedZipUrl!;
+            string expectedChecksum;
+            lock (expansionLinkPublishLock)
+                expectedChecksum = expansionZipChecksums.GetValueOrDefault(new Uri(url).AbsolutePath, "");
             IntPtr sender=Handle; // Capture HWND on the WinForms thread.
             PostMessage(owner,0x8338,IntPtr.Zero,sender);
-            _=Task.Run(()=>DownloadExpansionZipAsync(url,slot,sender,cancellation));
+            _=Task.Run(()=>DownloadExpansionZipAsync(url,slot,sender,cancellation,expectedChecksum));
         }
 
         async Task DownloadExpansionZipAsync(string url,IntPtr slot,IntPtr sender,
-            CancellationTokenSource cancellation)
+            CancellationTokenSource cancellation, string expectedChecksum)
         {
             string? partial=null,completed=null;
             bool accepted=false;
@@ -733,11 +757,14 @@ internal static class Program
                         prefix[1]!=0x4B || prefix[2]!=0x03 || prefix[3]!=0x04)
                         throw new InvalidDataException("Downloaded file is not a ZIP archive.");
                 }
+                string checksum = ExpansionZipChecksum.ReadDownloaded(partial);
+                if (checksum.Length == 0 || (expectedChecksum.Length != 0 && checksum != expectedChecksum))
+                    throw new InvalidDataException("The downloaded Expansion Pack plugin differs from the selected ZIP.");
                 cancellation.Token.ThrowIfCancellationRequested();
                 File.Move(partial,completed);
                 partial=null;
                 string payload=slot.ToInt64().ToString(
-                    System.Globalization.CultureInfo.InvariantCulture)+"|"+completed;
+                    System.Globalization.CultureInfo.InvariantCulture)+"|"+completed+"|"+checksum;
                 IntPtr utf16=IntPtr.Zero;
                 try
                 {
@@ -785,7 +812,7 @@ internal static class Program
         // Share the validated signed CDN URL with the AHK-owned dialog
         // exactly once per discovered/updated ZIP. Its native retry button
         // must NOT depend on this WinForms message loop or a WebView repaint.
-        void PublishExpansionUrlToLauncher(string url)
+        void PublishExpansionUrlToLauncher(string url, IReadOnlyList<string> history)
         {
             if (!IsOfficialExpansionDownloadUrl(url)) return;
             IntPtr slot=expansionDownloadsParent;
@@ -794,33 +821,56 @@ internal static class Program
             // Snapshot sender HWND while on the WinForms UI thread. Never
             // access Control.Handle from the background IPC worker.
             IntPtr sender=Handle;
-            _=Task.Run(async ()=>{
-                var uri = new Uri(url);
-                string? cached;
-                lock (expansionLinkPublishLock)
-                    cached = expansionChecksumPath == uri.AbsolutePath ? expansionChecksum : null;
-                string checksum = cached ?? await ExpansionZipChecksum.ReadAsync(uri).ConfigureAwait(false);
+            int revision = Interlocked.Increment(ref expansionLinkRevision);
+            _ = Task.Run(async () => {
+                var current = ReadExpansionChecksumAsync(url);
+                var previous = Task.WhenAll(history.Select(async prior => {
+                    string priorChecksum = await ReadExpansionChecksumAsync(prior).ConfigureAwait(false);
+                    string filename = Uri.UnescapeDataString(new Uri(prior).Segments[^1]);
+                    var version = System.Text.RegularExpressions.Regex.Match(filename,
+                        @"^NP[ _.-]+Expansion[ _.-]+Pack[ _.-]+(v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3})\.zip$",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    return priorChecksum.Length != 0 && version.Success
+                        ? priorChecksum + "=" + version.Groups[1].Value.ToLowerInvariant() : "";
+                }));
+                string checksum = await current.ConfigureAwait(false);
+                string[] older = await previous.ConfigureAwait(false);
                 lock (expansionLinkPublishLock)
                 {
                     // A previously queued signed URL must never replace a
                     // newer ZIP or a link from a freshly recreated dialog.
-                    if (expansionLatestZipUrl!=url || expansionDownloadsParent!=slot)
+                    if (expansionLatestZipUrl!=url || expansionDownloadsParent!=slot
+                        || revision != Volatile.Read(ref expansionLinkRevision))
                         return;
-                    if (checksum.Length != 0)
-                    {
-                        expansionChecksumPath = uri.AbsolutePath;
-                        expansionChecksum = checksum;
-                    }
                     expansionPublishedZipUrl = url;
-                    PublishExpansionLink(slot, sender, url, checksum);
+                    PublishExpansionLink(slot, sender, url, checksum, string.Join(",", older.Where(x => x.Length != 0)));
                 }
             });
         }
 
-        void PublishExpansionLink(IntPtr slot, IntPtr sender, string url, string checksum)
+        async Task<string> ReadExpansionChecksumAsync(string url)
         {
-            string payload = slot.ToInt64().ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + "|" + url + "|" + checksum;
+            var uri = new Uri(url);
+            lock (expansionLinkPublishLock)
+                if (expansionZipChecksums.TryGetValue(uri.AbsolutePath, out string? cached))
+                    return cached;
+            string checksum = await ExpansionZipChecksum.ReadAsync(uri).ConfigureAwait(false);
+            if (checksum.Length != 0)
+            {
+                lock (expansionLinkPublishLock)
+                {
+                    if (expansionZipChecksums.Count >= 24)
+                        expansionZipChecksums.Clear();
+                    expansionZipChecksums[uri.AbsolutePath] = checksum;
+                }
+            }
+            return checksum;
+        }
+
+        void PublishExpansionLink(IntPtr slot, IntPtr sender, string url, string checksum, string history = "")
+        {
+            string payload = slot.ToInt64().ToString(System.Globalization.CultureInfo.InvariantCulture) + "|"
+                + (url.Length == 0 ? "|" : url + "|" + checksum + "|" + history);
             IntPtr utf16 = IntPtr.Zero;
             try
             {
@@ -890,10 +940,22 @@ internal static class Program
                             }
                             // A new post or refreshed CDN signature replaces the
                             // stored URL. Never persist it or log its auth query.
-                            if (expansionLatestZipUrl!=link)
+                            if (type == "expansion-available")
                             {
-                                expansionLatestZipUrl=link;
-                                PublishExpansionUrlToLauncher(link!);
+                                var history = new List<string>();
+                                if (json.RootElement.TryGetProperty("history", out var entries)
+                                    && entries.ValueKind == System.Text.Json.JsonValueKind.Array)
+                                {
+                                    foreach (var entry in entries.EnumerateArray().Take(3))
+                                    {
+                                        string? older = entry.ValueKind == System.Text.Json.JsonValueKind.String
+                                            ? entry.GetString() : null;
+                                        if (IsOfficialExpansionDownloadUrl(older) && older != link)
+                                            history.Add(older!);
+                                    }
+                                }
+                                expansionLatestZipUrl = link;
+                                PublishExpansionUrlToLauncher(link!, history);
                             }
                             if (type=="expansion-download")
                                 RequestExpansionDownload(link,"embedded-card");

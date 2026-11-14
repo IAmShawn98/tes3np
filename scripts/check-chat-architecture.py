@@ -469,8 +469,12 @@ expect(
     "Known outdated Expansion Packs are offered before login or re-enable",
     in_order(session, "TES3MPCheckExpansionBeforeAction(config", "Client := session")
     and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))' in patcher
-    and 'if checksum = "" || checksum = installedChecksum || version = ""' in expansion_update_offer
-    and 'TES3MPExpansionContinuePreflight(dialog, checksum != "" && checksum = installedChecksum)' in expansion_update_offer
+    and in_order(expansion_update_offer, 'if packMatches', 'TES3MPExpansionContinuePreflight(dialog)')
+    and 'TES3MPExpansionPackMatches(installedChecksum, checksum)' in expansion_update_offer
+    and 'TES3MPExpansionPreflightUnavailable.Bind(dialog,' in mismatch
+    and 'SetTimer(TES3MPExpansionContinuePreflight.Bind' not in mismatch
+    and 'history:recent.map(item=>item.url)' in source
+    and 'ExpansionZipChecksum.ReadDownloaded(partial)' in source
     and 'if !packCurrent && TES3MPAllowsExpansionAutoUpdate(' in mismatch
     and 'case 15: CheckExpansionDownloadSilently(m.LParam); break;' in source
     and 'ExpansionZipChecksum.ReadAsync(uri)' in source
@@ -510,7 +514,7 @@ expect(
 expect(
     "All automatic download failures offer a native gold recovery card",
     'CreateGoldNativePrompt(LauncherGui, title, 700, 318)' in patcher
-    and 'ShowExpansionAutoFailureDialog(reason := "", stage := "Download")' in patcher
+    and 'ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)' in patcher
     and 'AddStyledButton(prompt, 30, 254, 185, 38, "Try Again",' in patcher
     and 'AddStyledButton(prompt, 230, 254, 270, 38, "Choose ZIP or Folder",' in patcher
     and 'AddStyledButton(prompt, 515, 254, 155, 38, "Cancel",' in patcher

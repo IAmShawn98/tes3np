@@ -132,7 +132,7 @@ CheckPatchWorker()
             IniWrite(installedEsp, DataFile, "ExpansionPack", "VerifiedEspPath")
             IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
             if job.HasOwnProp("OfficialPack") && ExpansionPackEspChecksum(installedEsp) = job.OfficialPack.Checksum
-                try RememberExpansionPackVersion(job.OfficialPack.Checksum, job.OfficialPack.Version)
+                try RememberExpansionPackVersion(job.OfficialPack.Checksum, job.OfficialPack.Version, job.OfficialPack.Attachment)
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
         RefreshExpansionPackToggle()
@@ -319,16 +319,37 @@ ExpansionPackEspChecksum(path)
 
 InstalledExpansionPackChecksum(config)
 {
-    ; Ambiguous VFS paths defer to TES3MP's existing mismatch handling.
-    paths := ExpansionPackEspPaths(FindMorrowindFolder(config), config)
-    return paths.Length = 1 ? ExpansionPackEspChecksum(paths[1]) : ""
+    ; Several configured paths can expose the same copy. Identify its
+    ; version only when every visible copy agrees.
+    checksum := ""
+    for path in ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    {
+        candidate := ExpansionPackEspChecksum(path)
+        if candidate = "" || (checksum != "" && candidate != checksum)
+            return ""
+        checksum := candidate
+    }
+    return checksum
 }
 
-RememberExpansionPackVersion(checksum, version)
+RememberExpansionPackVersion(checksum, version, attachment := "")
 {
     global DataFile
-    if RegExMatch(checksum, "i)^[0-9a-f]{8}$") && RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
-        IniWrite(version, DataFile, "ExpansionPackVersions", checksum)
+    if !RegExMatch(checksum, "i)^[0-9a-f]{8}$") || !RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+        return
+    IniWrite(version, DataFile, "ExpansionPackVersions", checksum)
+    if RegExMatch(attachment, "^/attachments/\d+/(\d+)/", &match)
+        IniWrite(checksum, DataFile, "ExpansionPackChecksums", match[1])
+}
+
+KnownExpansionAttachmentChecksum(attachment)
+{
+    global DataFile
+    ; Key by the immutable Discord attachment ID. Signed URLs stay in memory.
+    if !RegExMatch(attachment, "^/attachments/\d+/(\d+)/", &match)
+        return ""
+    checksum := IniRead(DataFile, "ExpansionPackChecksums", match[1], "")
+    return RegExMatch(checksum, "i)^[0-9a-f]{8}$") ? checksum : ""
 }
 
 InstalledExpansionPackVersion(checksum)
@@ -340,7 +361,7 @@ InstalledExpansionPackVersion(checksum)
         if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
             return version
     }
-    return "Unknown"
+    return checksum != "" ? "Unrecognized copy" : "Could not verify"
 }
 
 ExpansionPackInLoadOrder(config)
@@ -419,15 +440,16 @@ ApplyExpansionPackToggle(checked := false)
     }
     ; Installed packs may live under Morrowind or any configured OpenMW data folder.
     ; Never copy retired bundled Expansion Pack assets.
+    if checked && !enable
+        return
+    if enable && !checked && ExpansionPackEspPaths(morrowind, cfg).Length
+        && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
+        return
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {
         ShowExpansionInstallPrompt()
         return
     }
-    if checked && !enable
-        return
-    if enable && !checked && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
-        return
     action := enable ? "Enable" : "Disable"
     if enable
     {
@@ -495,7 +517,7 @@ ApplyExpansionPackToggle(checked := false)
 
 
 ; Reuse the native gold card for the initial install and update choices.
-ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersion := "")
+ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersion := "", comparisonUnavailable := false)
 {
     global LauncherGui, ExpansionInstallPromptGui
     if IsObject(ExpansionInstallPromptGui)
@@ -521,7 +543,8 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     if IsObject(onDecision)
     {
         prompt.Add("Text", "x30 y82 w620 h28 BackgroundTrans",
-            "Install the latest Expansion Pack from Discord?")
+            comparisonUnavailable ? "Could not verify your installed pack. Install the official ZIP?"
+                : "Install the latest Expansion Pack from Discord?")
         prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
         prompt.Add("Text", "x30 y120 w620 h24 BackgroundTrans", "Installed: " installedVersion)
         prompt.Add("Text", "x30 y148 w620 h24 BackgroundTrans", "Available: " updateVersion)
@@ -569,7 +592,7 @@ CloseExpansionInstallPrompt(prompt, action := "Cancel", *)
 ; user behind a generic Yes/No MessageBox or require restarting the launcher.
 ; Retry uses the same authenticated download pipeline; local selection goes
 ; through the existing verified ZIP/folder importer and backup/rollback path.
-ShowExpansionAutoFailureDialog(reason := "", stage := "Download")
+ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
 {
     global LauncherGui, ExpansionAutoFailurePromptGui
     if IsObject(ExpansionAutoFailurePromptGui)
@@ -584,11 +607,15 @@ ShowExpansionAutoFailureDialog(reason := "", stage := "Download")
         }
         ExpansionAutoFailurePromptGui := 0
     }
-    title := stage = "Install" ? "Expansion Pack Installation Failed" : "Expansion Pack Download Failed"
-    explanation := stage = "Install"
+    title := stage = "Check" ? "Check Expansion Pack" : stage = "Install"
+        ? "Expansion Pack Installation Failed" : "Expansion Pack Download Failed"
+    explanation := stage = "Check"
+        ? "Try the Discord check again or choose an official Expansion Pack ZIP or extracted folder from your computer."
+        : stage = "Install"
         ? "Automatic installation could not be completed. Existing verified backups are preserved. Try the official download again, or choose your own Expansion Pack ZIP or extracted folder."
         : "The automatic download could not be completed. You can try again, or choose an Expansion Pack ZIP or extracted folder already on your computer."
     prompt := CreateGoldNativePrompt(LauncherGui, title, 700, 318)
+    prompt.ExpansionRetry := retry
     prompt.SetFont("s17 Bold cC5A45C", "Georgia")
     prompt.Add("Text", "x30 y24 w640 h43 BackgroundTrans", title)
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
@@ -622,8 +649,11 @@ CloseExpansionAutoFailureDialog(prompt, action := "Cancel", *)
     if !IsObject(ExpansionAutoFailurePromptGui) || ExpansionAutoFailurePromptGui != prompt
         return
     ExpansionAutoFailurePromptGui := 0
+    retry := prompt.ExpansionRetry
     CloseGoldNativePrompt(prompt)
-    if action = "Retry"
+    if action = "Retry" && IsObject(retry)
+        retry.Call()
+    else if action = "Retry"
     {
         LogLauncherEvent("EXPANSION | User requested retry of official automatic Expansion Pack download.")
         RequestDiscordExpansionPrompt(1)
