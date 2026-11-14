@@ -12,8 +12,9 @@ global ExpansionMismatchAuthenticated := false
 global ExpansionMismatchMode := "Mismatch"
 global ExpansionAutoDownloadActive := false
 global ExpansionAutoDownloadAttempted := false
-; The first-enable path uses the native launcher progress card, while the
-; authenticated Discord browser remains composition-cloaked until repair.
+global ExpansionLastAutomaticUpdateAttachment := ""
+; Automatic installs use the native launcher progress card while the
+; authenticated Discord browser stays composition-cloaked.
 global ExpansionAutoProgressFrame := 0
 global ExpansionAutoCancelButton := 0
 ; Locked as soon as a complete ZIP is accepted, before the importer begins.
@@ -140,14 +141,29 @@ CheckTES3MPPluginMismatch()
 
 HandleTES3MPPluginMismatch()
 {
-    global Client
+    global Client, TES3MPLastMismatchEvidence
     pid := Client.PID
     LogLauncherEvent("GAME | PLUGIN MISMATCH | New TES3MP client log reports a server load-order rejection. Stopping failed launch.")
     ; Close only this attempted client (never every running TES3MP game).
     if pid && ProcessExist(pid)
         try ProcessClose(pid)
     StopClient()
-    ShowTES3MPExpansionMismatchDialog()
+    mode := "Mismatch"
+    try
+    {
+        if TES3MPAllowsExpansionAutoUpdate(TES3MPLastMismatchEvidence)
+            && TES3MPExpansionCallNativeUi("ExpansionPackIsEnabled")
+            mode := "Update"
+    }
+    ShowTES3MPExpansionMismatchDialog(mode)
+}
+
+TES3MPAllowsExpansionAutoUpdate(evidence)
+{
+    ; Updating the pack can help an unexplained rejection or obsolete pack.
+    ; An explicit other-plugin or base-game problem needs manual diagnosis.
+    return IsObject(evidence) && evidence.Rejected && !evidence.MissingOther
+        && !evidence.MissingBaseMaster
 }
 
 ; Clear a prior unresolved Discord download request before a new login;
@@ -332,13 +348,37 @@ TES3MPExpansionCancelNativeDownload()
 TES3MPExpansionStartDiscoveredZip(slot, status)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
-    global ExpansionAutoProgressFrame, ExpansionAutoDownloadAttempted
-    if ExpansionMismatchMode != "Install" || !IsObject(ExpansionMismatchDialog)
-        || slot != ExpansionMismatchSlot || !IsObject(ExpansionAutoProgressFrame)
+    global ExpansionAutoProgressFrame, ExpansionAutoDownloadAttempted, ExpansionAutoCloaked
+    global ExpansionMismatchZipUrl, ExpansionLastAutomaticUpdateAttachment
+    if !IsObject(ExpansionMismatchDialog) || slot != ExpansionMismatchSlot
         || ExpansionAutoDownloadAttempted || !IsObject(status)
+        return
+    if ExpansionMismatchMode = "Update"
+    {
+        attachment := TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
+        if attachment = "" || attachment == ExpansionLastAutomaticUpdateAttachment
+            || ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+            return
+        ExpansionAutoCloaked := TES3MPExpansionCloakDialog(ExpansionMismatchDialog, true)
+        if !ExpansionAutoCloaked || !TES3MPExpansionBeginNativeProgress()
+        {
+            TES3MPExpansionRevealRepair("Automatic download is unavailable. Download or install the ZIP manually.")
+            return
+        }
+        ExpansionLastAutomaticUpdateAttachment := attachment
+        LogLauncherEvent("EXPANSION | Updating enabled Expansion Pack after login rejection.")
+    }
+    else if ExpansionMismatchMode != "Install" || !IsObject(ExpansionAutoProgressFrame)
         return
     ExpansionAutoDownloadAttempted := true
     TES3MPExpansionRequestAutoInstall(slot, status)
+}
+
+TES3MPExpansionAttachmentPath(url)
+{
+    ; A refreshed signature or CDN hostname must not retry the same ZIP.
+    return RegExMatch(url, "i)^https://(?:cdn\.discordapp\.com|media\.discordapp\.net)(/attachments/[^?#]+\.zip)(?:[?#]|$)", &match)
+        ? match[1] : ""
 }
 
 ; The screenshot showed a valid official ZIP even though the startup progress
@@ -507,7 +547,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
     dialog.SetFont("s16 Bold cC5A45C", "Georgia")
-    installing := mode != "Mismatch"
+    installing := mode = "Install" || mode = "Browse"
     if installing
     {
         dialogTitle := mode = "Browse" ? "Expansion Pack Downloads" : "Expansion Pack Download Needs Attention"
@@ -712,7 +752,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
                     ? "Official ZIP found. Beginning automatic download..."
                     : "Official ZIP found. Preparing native download window..."
         }
-        else
+        else if ExpansionMismatchMode != "Update" || !ExpansionAutoDownloadAttempted
             ExpansionMismatchStatus.Text := "Latest official ZIP found. Click Download to open your browser."
     }
     if IsObject(ExpansionMismatchFileButton)
@@ -732,11 +772,10 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     ; control until the original message handler has returned.
     slot := ExpansionMismatchSlot
     SetTimer((*) => TES3MPExpansionActivateDownloadButton(slot), -30)
-    ; The user already approved download on the first Enable prompt. Start
-    ; once when an authenticated current attachment is discovered; later URL
-    ; refreshes do not silently restart a failed/cancelled transfer.
-    if ExpansionMismatchMode = "Install" && ExpansionAutoCloaked
-        && IsObject(ExpansionAutoProgressFrame) && !ExpansionAutoDownloadAttempted
+    ; First-enable approval or an enabled pack rejected at login can start
+    ; the authenticated download. Keep the manual dialog available on failure.
+    if !ExpansionAutoDownloadAttempted && (ExpansionMismatchMode = "Update"
+        || (ExpansionMismatchMode = "Install" && ExpansionAutoCloaked && IsObject(ExpansionAutoProgressFrame)))
     {
         status := ExpansionMismatchStatus
         if IsObject(status)
@@ -778,7 +817,7 @@ TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
     global ExpansionAutoDownloadActive, ExpansionMismatchMode, ExpansionAutoInstallLocked
     if ExpansionAutoInstallLocked
         return
-    if ExpansionMismatchMode != "Install" || !IsObject(ExpansionMismatchDialog)
+    if (ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update") || !IsObject(ExpansionMismatchDialog)
         || slotHwnd != ExpansionMismatchSlot
         return
     if ExpansionAutoDownloadActive
@@ -802,7 +841,7 @@ TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)
     ExpansionAutoDownloadActive := true
     TES3MPExpansionUpdateNativeProgress("Starting official Expansion Pack download...", 0)
     statusControl.Text := "Starting official Expansion Pack download..."
-    LogLauncherEvent("EXPANSION | User-approved automatic ZIP transfer requested.")
+    LogLauncherEvent("EXPANSION | Automatic ZIP transfer requested.")
 }
 
 TES3MPExpansionDownloadProgress(wParam, lParam, msg, hwnd)
@@ -846,7 +885,7 @@ TES3MPExpansionAutoDownloadReady(lParam)
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchMode
     global ExpansionMismatchStatus, ExpansionAutoDownloadActive, ExpansionAutoInstallLocked
     if !IsObject(ExpansionMismatchDialog) || !ExpansionAutoDownloadActive
-        || ExpansionMismatchMode != "Install"
+        || (ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update")
         return 0
     cbData := NumGet(lParam, A_PtrSize, "UInt")
     if cbData < 40 || cbData > 8192 || Mod(cbData, 2)
@@ -927,11 +966,12 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
     url := ExpansionMismatchZipUrl
     if url = ""
     {
+        promptMode := ExpansionMismatchMode = "Install" || ExpansionMismatchMode = "Browse" ? 1 : 2
         LogLauncherEvent("EXPANSION | Download requested before Discord ZIP discovery.")
         if !ExpansionMismatchAuthenticated
         {
             statusControl.Text := "Waiting for Discord sign-in. Open Game Chat to authenticate."
-            RequestDiscordExpansionPrompt(ExpansionMismatchMode = "Mismatch" ? 2 : 1)
+            RequestDiscordExpansionPrompt(promptMode)
         }
         else
         {
@@ -939,7 +979,7 @@ TES3MPExpansionRequestDownload(slotHwnd, statusControl, origin := "download")
             ; auth before retrying the embedded ZIP surface.
             ExpansionMismatchAuthenticated := false
             statusControl.Text := "Rechecking Discord sign-in and the latest ZIP..."
-            RequestDiscordExpansionPrompt(ExpansionMismatchMode = "Mismatch" ? 2 : 1)
+            RequestDiscordExpansionPrompt(promptMode)
         }
         return
     }
