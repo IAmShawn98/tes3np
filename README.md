@@ -23,7 +23,6 @@ Download `tes3np-v0.1.21-alpha-windows.zip` from [**Releases**](https://github.c
 
 - Windows 10 or 11, 64-bit.
 - [Morrowind Game of the Year Edition](https://en.uesp.net/wiki/Morrowind:Morrowind) with Tribunal and Bloodmoon.
-- Microsoft Edge WebView2 Runtime for Game Chat.
 
 The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 
@@ -38,5 +37,7 @@ The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 Click the version number in the launcher to check for updates. You can review the release notes before downloading and installing. Keep your `%APPDATA%\tes3np` folder so your characters and preferences carry over.
 
 ## Troubleshooting
+
+If Game Chat won’t open and WebView2 is missing, [install the Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section).
 
 [Report a launcher problem](https://github.com/IAmShawn98/tes3np-releases/issues/new/choose) with your tes3np version, Windows version, and what you did before the issue appeared. For a log excerpt, open **Launcher Settings → Launcher Data → Copy Launcher Logs**. Review screenshots and logs for personal details before sharing. Character exports contain passwords, so keep them private.
