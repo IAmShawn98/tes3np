@@ -849,7 +849,7 @@ ChooseMacroScript(scripts)
     finally
     {
         MacroPage.Opt("-Disabled")
-        chooser.Destroy()
+        DestroyScaledMenu(chooser)
     }
     return result.Entry
 }

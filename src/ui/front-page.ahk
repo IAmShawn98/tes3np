@@ -56,7 +56,7 @@ UpdateCharacterMenuLabel()
     if SelectedProfile > 0 && SelectedProfile <= Profiles.Length
     {
         MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])
-        MenuEntries.Push([Profiles.Length ? "Manage Characters" : "Returning Fetcher", OpenCharacters])
+        MenuEntries.Push(["Manage Characters", OpenCharacters])
         MenuEntries.Push(["Start New Adventure", StartNewAdventure])
     }
     else

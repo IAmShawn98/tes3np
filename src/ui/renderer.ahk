@@ -10,6 +10,14 @@ AttachButtonPainter(handle)
 
 ButtonWindowProc(handle, message, wParam, lParam, subclassID, reference)
 {
+    global ButtonFaces
+    if message = 0x0002 ; WM_DESTROY, while the control HWND is still accessible
+    {
+        ; Closing a parent destroys its child HWNDs without calling the
+        ; individual control helpers. Unregister before HWND reuse.
+        if ButtonFaces.Has(handle)
+            try UnregisterThemedControl(ButtonFaces[handle].Control)
+    }
     if message = 0x000F
     {
         paint := Buffer(A_PtrSize = 8 ? 72 : 64, 0)
@@ -22,7 +30,6 @@ ButtonWindowProc(handle, message, wParam, lParam, subclassID, reference)
         return 1
     if message = 0x0020 ; WM_SETCURSOR for our painted buttons
     {
-        global ButtonFaces
         if ButtonFaces.Has(handle)
         {
             face := ButtonFaces[handle]

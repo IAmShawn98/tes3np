@@ -125,7 +125,11 @@ ScaleOwnedMenuContent(gui, scale)
         return
     ratio := scale / previous
     previousFonts := gui.HasOwnProp("OwnedGeneratedFonts") ? gui.OwnedGeneratedFonts : []
-    newFonts := [], fontCache := Map()
+    newFonts := [], fontCache := Map(), retainedFonts := Map()
+    ; Record allocations before assigning them to native controls. A partial
+    ; resize must still leave the page owning both generations of fonts.
+    ownedFonts := previousFonts.Clone()
+    gui.OwnedGeneratedFonts := ownedFonts
     ; Suppress intermediate parent paints while button geometry/fonts change.
     DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
@@ -146,17 +150,27 @@ ScaleOwnedMenuContent(gui, scale)
                 definition := Buffer(92, 0) ; LOGFONTW
                 if DllCall("gdi32\GetObjectW", "Ptr", oldFont,
                     "Int", definition.Size, "Ptr", definition, "Int") < 92
+                {
+                    retainedFonts[oldFont] := true
                     continue
+                }
                 height := NumGet(definition, 0, "Int")
                 if height = 0
+                {
+                    retainedFonts[oldFont] := true
                     continue
+                }
                 NumPut("Int", Round(height * ratio), definition, 0)
                 NumPut("Int", 0, definition, 4) ; let GDI derive font width
                 scaledFont := DllCall("gdi32\CreateFontIndirectW",
                     "Ptr", definition, "Ptr")
                 if !scaledFont
+                {
+                    retainedFonts[oldFont] := true
                     continue
+                }
                 fontCache[oldFont] := scaledFont
+                ownedFonts.Push(scaledFont)
                 newFonts.Push(scaledFont)
             }
             ; WM_SETFONT, redraw=0; RevealPaintedPage handles one final paint.
@@ -169,9 +183,20 @@ ScaleOwnedMenuContent(gui, scale)
         DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B,
             "Ptr", 1, "Ptr", 0)
     }
-    ; No controls refer to fonts from the previous size after a complete pass.
     for font in previousFonts
-        DllCall("gdi32\DeleteObject", "Ptr", font)
+        if retainedFonts.Has(font)
+            newFonts.Push(font)
+        else
+            DllCall("gdi32\DeleteObject", "Ptr", font)
     gui.OwnedGeneratedFonts := newFonts
     gui.OwnedContentScale := scale
+}
+
+DestroyScaledMenu(gui)
+{
+    fonts := gui.HasOwnProp("OwnedGeneratedFonts") ? gui.OwnedGeneratedFonts : []
+    gui.Destroy()
+    for font in fonts
+        DllCall("gdi32\DeleteObject", "Ptr", font)
+    gui.OwnedGeneratedFonts := []
 }

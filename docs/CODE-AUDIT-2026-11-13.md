@@ -275,3 +275,23 @@ and historical Markdown, and GitHub templates. Runtime asset selection was
 checked in pass seven. The unmodified binary assets were inventoried by Git
 identity. The audit does not include upstream TES3MP source files outside
 this repository.
+
+## Ninth source pass
+
+- Read the window scaling, GDI renderer, themed input, loading overlay,
+  and front-page modules. Scaled dialogs now release their generated fonts
+  after destruction. The themed control subclass unregisters controls when
+  Windows destroys their HWNDs through the parent window.
+- Partial loading-card construction releases its windows and controls.
+  Failed capture logging cannot interrupt bitmap cleanup. The Expansion
+  Pack retry clears a failed frame and delayed callbacks retain the dialog
+  or slot they were scheduled for. ZIP URL refreshes during a download
+  leave the current progress display in place.
+- The live plugin-mismatch watcher retains carry text per client log and
+  updates its read position after a successful read. A Windows fixture
+  covers split rejection text in one file and fragments in separate files.
+- The Windows owned-menu smoke fixture now checks that generated font
+  handles are freed when the child window closes. Both new Windows cases
+  remain pending. Continue the behavioral read-through of the remaining
+  AutoHotkey settings, login and expansion diagnostics code and the larger
+  validation scripts before the dev-PC handoff.

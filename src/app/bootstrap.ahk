@@ -502,7 +502,7 @@ CleanupLauncher(*)
     SetTimer(ReleaseInterfaceFrame, 0)
     ReleaseInterfaceFrame()
     if IsObject(CharacterPage)
-        CharacterPage.Destroy()
+        DestroyScaledMenu(CharacterPage)
     LauncherGui.Destroy()
     DisposeButtonPainter()
     for icon in IconHandles
