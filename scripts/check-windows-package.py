@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import re
+import stat
 import struct
 import sys
 import zipfile
@@ -82,15 +83,21 @@ def check_package(path: Path, require_console_client: bool = False) -> None:
         members: dict[str, zipfile.ZipInfo] = {}
         for entry in archive.infolist():
             name = entry.filename.replace("\\", "/")
-            parts = PurePosixPath(name).parts
-            if not name or name.startswith("/") or ".." in parts or ":" in parts[0]:
-                raise ValueError(f"Unsafe path inside package: {name!r}")
             normalized = name.rstrip("/")
+            parts = normalized.split("/")
+            if (not normalized or any(not part or part in {".", ".."} or ":" in part
+                    or part.rstrip(" .") != part for part in parts)):
+                raise ValueError(f"Unsafe path inside package: {name!r}")
+            if entry.create_system == 3 and stat.S_ISLNK(entry.external_attr >> 16):
+                raise ValueError(f"Linked entry inside package: {name!r}")
             if normalized.casefold() in members:
                 raise ValueError(f"Duplicate or case-conflicting package entry: {name!r}")
             members[normalized.casefold()] = entry
-            if entry.file_size < 0:
-                raise ValueError(f"Invalid entry size: {name!r}")
+        for name in members:
+            for parent in PurePosixPath(name).parents:
+                entry = members.get(parent.as_posix())
+                if entry is not None and not entry.is_dir():
+                    raise ValueError(f"Package file blocks a directory path: {parent}")
 
         # The optional Expansion Pack must never ship in the Windows ZIP.
         # The real player-selected pack is downloaded from Discord separately.
