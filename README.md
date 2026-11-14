@@ -1,46 +1,25 @@
-# tes3np — Nerevarine Prophecies Launcher
+<p align="center"><img src="assets/icons/tes3np.png" width="96" alt="TES3NP launcher icon"></p>
 
-Launch Morrowind on the Nerevarine Prophecies multiplayer server, save your characters, and install the server patches from one place.
+# TES3NP
 
-## What you need
+Windows launcher for playing Morrowind multiplayer on [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/Main_Page).
 
-- A Windows PC.
-- Morrowind **Game of the Year Edition**, installed with Tribunal and Bloodmoon.
-- **TES3MP 0.8.1 for Windows 64-bit**, downloaded and extracted.
-- For the source ZIP only: **AutoHotkey v2**, installed. The Windows executable package includes it.
+[**Public Windows downloads**](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha) · [**Preview the next public homepage**](docs/public-preview/README.md) · [**Report an issue**](../../issues/new/choose)
 
-Morrowind and TES3MP are not included in this download.
+## Current alpha
 
-## Install the Windows launcher
+| Build | Status |
+| --- | --- |
+| **v0.1.20-alpha** | Current public download and update feed |
+| **v0.1.21-alpha** | Private candidate. Windows build, offline regression checks and live dev-PC checks passed on `ec11b6f`. The [second-PC upgrade test](../../issues/4) is pending. |
 
-Download the **tes3np-windows** package from the completed **Build Windows launcher** run under this repository’s **Actions** tab. Extract the downloaded artifact ZIP, then extract `tes3np-windows.zip`. Move the `tes3np` folder into your TES3MP folder and double-click **tes3np.exe**. Its custom icon is embedded, and no separate AutoHotkey installation is needed. Keep the accompanying folders together.
+The v0.1.21-alpha package includes the TES3MP 0.8.1 client and the AutoHotkey runtime for macros. It requires 64-bit Windows and Morrowind Game of the Year Edition with Tribunal and Bloodmoon. Embedded Game Chat uses WebView2.
 
-Choose **Patch Tes3mp** if shown, finish setup, then choose **Start New Adventure** or **Returning Fetcher**.
+- Save up to ten characters, pick a favorite and follow the login progress window. The launcher supports up to four running game clients.
+- Open Game Chat for live Discord messages and active Happy Hour announcements.
+- Import the optional Expansion Pack from a ZIP or extracted folder. The launcher can help find the latest official ZIP and collect a plugin mismatch report.
+- Manage AutoHotkey macros and linked apps, choose a custom TES3MP client and export a portable character backup.
 
-## Install from source in 4 steps
+## Development
 
-1. **Download:** Click the green **Code** button on this GitHub page, then **Download ZIP**.
-2. **Extract:** Right-click the ZIP and choose **Extract All**. Move the extracted launcher folder into your TES3MP folder—the folder containing `tes3mp.exe`. Keep everything inside the launcher folder together.
-3. **Set up:** Open the launcher folder and double-click **tes3np.ahk**. If **Patch Tes3mp** appears, click it, check the suggested locations, read the Expansion Pack license, and click **Install / Repair**. Wait for setup to finish.
-4. **Play:** Choose **Start New Adventure** to log in yourself, or **Returning Fetcher** to add an existing character and save its login details.
-
-Already patched? The launcher checks your installation and opens the normal menu when everything is ready.
-
-Need help choosing folders? See the [step-by-step installation guide](docs/INSTALLATION.md).
-
-## Your next launch
-
-Tick a character in **Manage Characters** to make it your favorite. Next time you open tes3np, you can launch that character directly or open the launcher.
-
-- **Play** launches any saved character.
-- **Edit** changes a character's login details, waiting times, and automatic reconnect option.
-- **Our Wiki** opens the Nerevarine Prophecies wiki.
-- **Macros** lets you import and run macros you trust.
-
-Removing a character from the launcher does not delete it in the game. Use **Export Data** before moving to another PC; the exported file contains passwords, so keep it private.
-
-## Help
-
-[Installation help](docs/INSTALLATION.md) · [User guide](docs/USER-GUIDE.md) · [Report a problem](../../issues)
-
-Technical details: [Development](docs/DEVELOPMENT.md) · [Architecture](docs/ARCHITECTURE.md) · [Patching](docs/PATCHING.md) · [Releases](docs/RELEASING.md)
+The [active alpha branch](../../tree/Update/v0.1.21-alpha) contains the current launcher source, [player-facing release notes](../../blob/Update/v0.1.21-alpha/RELEASE_NOTES.md) and [Windows build instructions](../../blob/Update/v0.1.21-alpha/docs/DEVELOPMENT.md). The [audit record](../../blob/Update/v0.1.21-alpha/docs/CODE-AUDIT-2026-11-13.md) and [release checklist](../../blob/Update/v0.1.21-alpha/docs/ALPHA-COMPATIBILITY-CHECKLIST.md) track verification. The [public distribution repository](https://github.com/IAmShawn98/tes3np-releases) hosts the downloads and updater feed.
