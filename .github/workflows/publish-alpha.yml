@@ -20,6 +20,13 @@ jobs:
       - name: Verify release evidence and disable development-only previews
         run: python scripts/check-release-gates.py
 
+      - name: Require source-built client inputs before compiling
+        shell: pwsh
+        run: |
+          if (!$env:TES3NP_MARKERLESS_CONSOLE_EXE -or !$env:TES3NP_MARKERLESS_CONSOLE_DLLS) {
+            throw 'This workflow needs the playtested local client payload. Use the verified local release candidate for publication.'
+          }
+
       - name: Validate complete source and payload
         run: python scripts/project.py check
 
@@ -43,7 +50,10 @@ jobs:
 
       - name: Generate and verify update metadata
         shell: pwsh
-        run: ./scripts/generate-update-metadata.ps1
+        run: |
+          python scripts/check-windows-package.py dist/tes3np-windows.zip --require-console-client
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/generate-update-metadata.ps1
 
       - name: Test updater metadata failure handling
         shell: pwsh

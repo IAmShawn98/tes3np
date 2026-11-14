@@ -20,8 +20,10 @@ def main() -> int:
         return 1
     if not all(fragment in chat_source for fragment in (
         "DiscordTimestamp(activationId).AddHours(1)",
-        "ends <= DateTimeOffset.UtcNow) return;",
-        "happyHourEndsAt <= DateTimeOffset.UtcNow ||",
+        "const bool ShowExpiredHappyHourForAlphaTest = false;",
+        "(!ShowExpiredHappyHourForAlphaTest && ends <= DateTimeOffset.UtcNow)) return;",
+        "happyHourEndsAt <= DateTimeOffset.UtcNow) || !IsWindow(owner)",
+        "happyHourEndsAt <= DateTimeOffset.UtcNow) {",
     )):
         print("BLOCKED: Happy Hour active-only display guard is missing.")
         return 1
