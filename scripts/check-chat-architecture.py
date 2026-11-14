@@ -425,6 +425,36 @@ expect(
     and 'ExpansionLastAutomaticUpdateAttachment := attachment' in mismatch
     and 'ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update"' in mismatch,
 )
+expansion_update_offer = section_between(
+    mismatch,
+    'TES3MPExpansionStartDiscoveredZip(slot, status)\n{',
+    '\nTES3MPExpansionDecideUpdate(',
+)
+expansion_update_decision = section_between(
+    mismatch,
+    'TES3MPExpansionDecideUpdate(dialog, slot, attachment, approved)\n{',
+    '\nTES3MPExpansionAttachmentPath(',
+)
+expect(
+    "An Expansion Pack update requires approval before transfer and reveals manual recovery on decline",
+    in_order(
+        expansion_update_offer,
+        'ExpansionAutoDownloadAttempted := true',
+        'TES3MPExpansionCallNativeUi("ShowExpansionInstallPrompt"',
+        'TES3MPExpansionDecideUpdate.Bind(dialog, slot, attachment)',
+    )
+    and in_order(
+        expansion_update_decision,
+        'if !approved || attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)',
+        'TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")',
+        'ExpansionLastAutomaticUpdateAttachment := attachment',
+        'TES3MPExpansionRequestAutoInstall(slot, ExpansionMismatchStatus)',
+    )
+    and 'onDecision.Call(approved)' in patcher
+    and 'if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)' in mismatch_dialog
+    and 'TES3MPExpansionRevealRepair("Discord sign-in was closed.' in mismatch
+    and 'TES3MPExpansionRevealRepair("Official ZIP discovery timed out.' in mismatch,
+)
 
 expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
@@ -552,15 +582,15 @@ auto_progress_helpers = section_between(
     '\n; The native explanation opens immediately.',
 )
 expect(
-    "First-enable discovery UI is compositor-cloaked BEFORE show; manual browse/mismatch stays visible",
-    'cloaked := mode = "Install" && TES3MPExpansionCloakDialog(dialog, true)' in auto_install_view
+    "Automatic discovery is compositor-cloaked before show and manual browse/mismatch stays visible",
+    'cloaked := (mode = "Install" || mode = "Update") && TES3MPExpansionCloakDialog(dialog, true)' in auto_install_view
     and in_order(
         auto_install_view,
         'TES3MPExpansionCloakDialog(dialog, true)',
         'dialog.Show("w660 h627")',
     )
     and 'if cloaked' in auto_install_view
-    and 'if TES3MPExpansionBeginNativeProgress()' in auto_install_view
+    and 'if mode = "Update" || TES3MPExpansionBeginNativeProgress()' in auto_install_view
     and 'SetTimer((*) => TES3MPExpansionRetryNativeProgress(dialog), -300)' in auto_install_view
     and 'TES3MPExpansionRevealRepair("Native download window could not initialize.' in auto_progress_helpers
     and 'installing := mode = "Install" || mode = "Browse"' in auto_install_view

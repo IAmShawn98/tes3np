@@ -427,7 +427,7 @@ ToggleExpansionPack(*)
 ; Initial installation is a simple Yes/No decision. Manual installation
 ; remains available from the existing file import and failure recovery flows.
 ; Reuse the exact borderless native gold card used by changelogs and settings.
-ShowExpansionInstallPrompt()
+ShowExpansionInstallPrompt(onDecision := 0, zipName := "")
 {
     global LauncherGui, ExpansionInstallPromptGui
     if IsObject(ExpansionInstallPromptGui)
@@ -436,6 +436,8 @@ ShowExpansionInstallPrompt()
         {
             if DllCall("IsWindow", "Ptr", ExpansionInstallPromptGui.Hwnd)
             {
+                if IsObject(onDecision)
+                    return false
                 WinActivate("ahk_id " ExpansionInstallPromptGui.Hwnd)
                 return
             }
@@ -443,11 +445,15 @@ ShowExpansionInstallPrompt()
         ExpansionInstallPromptGui := 0
     }
     prompt := CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)
+    prompt.ExpansionDecision := onDecision
     prompt.SetFont("s17 Bold cC5A45C", "Georgia")
-    prompt.Add("Text", "x30 y27 w620 h39 BackgroundTrans", "Install Expansion Pack")
+    prompt.Add("Text", "x30 y27 w620 h39 BackgroundTrans",
+        IsObject(onDecision) ? "Update Expansion Pack" : "Install Expansion Pack")
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
     prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
-        "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
+        IsObject(onDecision) ? "Would you like to download and install the latest NP Expansion Pack from Discord?"
+            . Chr(10) zipName
+            : "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
     AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
         CloseExpansionInstallPrompt.Bind(prompt, true))
     AddStyledButton(prompt, 356, 189, 180, 38, "No",
@@ -456,6 +462,7 @@ ShowExpansionInstallPrompt()
     prompt.OnEvent("Escape", CloseExpansionInstallPrompt.Bind(prompt, false))
     ExpansionInstallPromptGui := prompt
     ShowGoldNativePrompt(prompt)
+    return true
 }
 
 CloseExpansionInstallPrompt(prompt, approved := false, *)
@@ -464,8 +471,11 @@ CloseExpansionInstallPrompt(prompt, approved := false, *)
     if !IsObject(ExpansionInstallPromptGui) || ExpansionInstallPromptGui != prompt
         return
     ExpansionInstallPromptGui := 0
+    onDecision := prompt.ExpansionDecision
     CloseGoldNativePrompt(prompt)
-    if approved
+    if IsObject(onDecision)
+        onDecision.Call(approved)
+    else if approved
     {
         LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
         RequestDiscordExpansionPrompt(1)
