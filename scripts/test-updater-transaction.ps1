@@ -111,6 +111,25 @@ try {
         throw 'Rollback did not restore the original Chat Host asset path and contents.'
     }
     Write-Host 'PASS: failure after installation restores known-good launcher.'
+    $f = New-Fixture
+    $conflict = Join-Path $f[0] 'owned.txt'
+    Remove-Item -LiteralPath $conflict
+    New-Item -ItemType Directory -Path $conflict | Out-Null
+    Set-Content -LiteralPath (Join-Path $conflict 'user.txt') 'KEEP THIS DIRECTORY'
+    $code = Invoke-UpdaterExpectedFailure $f ''
+    if ($code -eq 0 -or (Get-Content $f[2] -Raw) -notmatch 'State=ROLLED_BACK') {
+        throw 'A staged file was accepted at an existing directory path.'
+    }
+    if (Test-Path -LiteralPath (Join-Path $conflict 'owned.txt')) {
+        throw 'A staged file was copied into the existing directory.'
+    }
+    if ((Get-Content -LiteralPath (Join-Path $conflict 'user.txt') -Raw).Trim() -ne 'KEEP THIS DIRECTORY') {
+        throw 'Rollback changed user data in the existing directory.'
+    }
+    if ((Get-Content -LiteralPath (Join-Path $f[0] 'chat-host/assets/DiscordInt.png') -Raw).Trim() -ne 'OLD LOGO') {
+        throw 'A partial update was not restored after a file/directory conflict.'
+    }
+    Write-Host 'PASS: a file/directory conflict rolls back files already copied.'
     Write-Host 'All updater transaction tests passed.'
     exit 0
 } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
