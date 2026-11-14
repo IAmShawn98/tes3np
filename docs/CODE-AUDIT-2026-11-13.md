@@ -401,3 +401,16 @@ this repository.
   The runner now explicitly reports when it skips the build. Run the
   full runner without `-SkipBuild` to build the current checkout and
   launch it only after the build and offline fixtures pass.
+
+## Dev-PC verification
+
+- The full Windows build passed on `ec11b6f`, including launcher and Chat
+  Host compilation, Expansion Pack fixtures, native picker smoke test,
+  resource extraction, ZIP integrity and the markerless client checksum.
+- All twelve offline updater transaction cases passed. The regression
+  runner launched the new executable, and the tester reported that the
+  live dev-PC checks passed. Chat Host emitted the existing WindowsBase
+  reference warning and compiled successfully.
+- The upgrade from the actual public v0.1.20-alpha ZIP on the second PC is
+  pending ([issue #4](../../issues/4)). The public release and update feed
+  still serve v0.1.20-alpha.

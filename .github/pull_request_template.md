@@ -1,15 +1,13 @@
 ## Change
 
-Describe the problem and resulting behavior. Link an issue where applicable.
+Describe what changes for players or maintainers. Link the issue if one exists.
 
-## Validation
+## Verification
 
-- [ ] `python scripts/project.py check` passed
-- [ ] Windows PowerShell parser checks passed
-- [ ] Affected Windows workflows tested, or untested areas described
-- [ ] Saved-data compatibility reviewed if persistence changed
-- [ ] No credentials, personal paths, logs or exports included
+- [ ] Ran the checks relevant to this change and recorded the results below.
+- [ ] Reviewed compatibility with existing settings and installs if persistence or packaging changed.
+- [ ] Reviewed attached logs or screenshots for private information.
 
-Windows / AutoHotkey / TES3MP versions tested:
+**Tested build or commit**
 
-Known limitations:
+**Results and pending checks**

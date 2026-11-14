@@ -1,34 +1,25 @@
-# TES3NP — Nerevarine Prophecies launcher
+<p align="center"><img src="assets/icons/tes3np.png" width="96" alt="TES3NP launcher icon"></p>
 
-TES3NP is a Windows x64 launcher for the Nerevarine Prophecies TES3MP server. It supports saved characters, manual one-character-at-a-time automated login (up to four running game clients), optional custom TES3MP clients, Game Chat, and the optional NP Expansion Pack.
+# TES3NP
 
-**Status: development alpha — not approved for public redistribution.** The packaged modified TES3MP executable still requires corresponding source/build provenance and a completed third-party licensing audit before a public release.
+Windows launcher for playing Morrowind multiplayer on [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/Main_Page).
 
-## Requirements
+[**Public Windows downloads**](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha) · [**Preview the next public homepage**](docs/public-preview/README.md) · [**Report an issue**](../../issues/new/choose)
 
-- Windows 10 or Windows 11 (64-bit).
-- A legitimate installation of **Morrowind Game of the Year Edition** with Tribunal and Bloodmoon.
-- WebView2 Runtime for embedded Discord Game Chat. The rest of the launcher should work without WebView2.
+## Current alpha
 
-The **complete Windows ZIP includes TES3MP 0.8.1** and its client dependencies, plus an official AutoHotkey v2 interpreter in `runtime/AutoHotkey64.exe` for installed macros. You do **not** need to install AutoHotkey, Python, or the .NET SDK to run a finished ZIP. Keep the `runtime` folder beside `tes3np.exe`; Morrowind game files are **not** included.
+| Build | Status |
+| --- | --- |
+| **v0.1.20-alpha** | Current public download and update feed |
+| **v0.1.21-alpha** | Private candidate. Windows build, offline regression checks and live dev-PC checks passed on `ec11b6f`. The [second-PC upgrade test](../../issues/4) is pending. |
 
-## Installing a packaged build
+The v0.1.21-alpha package includes the TES3MP 0.8.1 client and the AutoHotkey runtime for macros. It requires 64-bit Windows and Morrowind Game of the Year Edition with Tribunal and Bloodmoon. Embedded Game Chat uses WebView2.
 
-1. Obtain an approved complete Windows ZIP or private test artifact.
-2. Extract `tes3np-windows.zip` into a writable folder such as `Documents\TES3NP`. Keep `tes3np.exe`, `client`, `chat-host`, and the other packaged folders together.
-3. Run `tes3np.exe` normally. If Morrowind GOTY is not found, use the folder picker.
-4. Choose **Manage Characters** to add or edit characters. Optional custom clients and the Expansion Pack are configured separately.
+- Save up to ten characters, pick a favorite and follow the login progress window. The launcher supports up to four running game clients.
+- Open Game Chat for live Discord messages and active Happy Hour announcements.
+- Import the optional Expansion Pack from a ZIP or extracted folder. The launcher can help find the latest official ZIP and collect a plugin mismatch report.
+- Manage AutoHotkey macros and linked apps, choose a custom TES3MP client and export a portable character backup.
 
-The Expansion Pack is **optional** and controlled globally by the launcher button. Close game clients before toggling it. The launcher maintains settings, profiles, logs, and custom-client overrides under `%APPDATA%\tes3np`; do not delete this directory during upgrades.
+## Development
 
-**Export Data warning:** Exported character backup files contain readable passwords. Keep them private and never attach them to public issues.
-
-## Building from source
-
-See [development instructions](docs/DEVELOPMENT.md) and [release procedure](docs/RELEASING.md). The Windows source build requires Python, the Windows PowerShell environment, a .NET SDK, and downloads of AutoHotkey/Ahk2Exe and the official TES3MP runtime. Run `Build tes3np.bat` after acquiring the complete source and verified payloads.
-
-## Documentation
-
-[Install and troubleshoot](docs/INSTALLATION.md) · [User guide](docs/USER-GUIDE.md) · [Alpha verification](docs/ALPHA-COMPATIBILITY-CHECKLIST.md) · [Release gates](docs/RELEASING.md) · [Report an issue](../../issues)
-
-TES3MP's upstream project identifies its license as GPLv3 with additional permitted terms. Do not publicly distribute a modified TES3MP binary without the required corresponding source and applicable notices.
+The [active alpha branch](../../tree/Update/v0.1.21-alpha) contains the current launcher source, [player-facing release notes](../../blob/Update/v0.1.21-alpha/RELEASE_NOTES.md) and [Windows build instructions](../../blob/Update/v0.1.21-alpha/docs/DEVELOPMENT.md). The [audit record](../../blob/Update/v0.1.21-alpha/docs/CODE-AUDIT-2026-11-13.md) and [release checklist](../../blob/Update/v0.1.21-alpha/docs/ALPHA-COMPATIBILITY-CHECKLIST.md) track verification. The [public distribution repository](https://github.com/IAmShawn98/tes3np-releases) hosts the downloads and updater feed.
