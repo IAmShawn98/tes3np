@@ -165,6 +165,21 @@ try {
     if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
     $null = New-Item $tools -ItemType Directory
 
+    $consoleExe = $env:TES3NP_MARKERLESS_CONSOLE_EXE
+    $consoleDlls = $env:TES3NP_MARKERLESS_CONSOLE_DLLS
+    $consolePayload = $null
+    if ($consoleExe -or $consoleDlls) {
+        if (!$consoleExe -or !$consoleDlls) {
+            throw 'Set both TES3NP_MARKERLESS_CONSOLE_EXE and TES3NP_MARKERLESS_CONSOLE_DLLS to build the source-built candidate.'
+        }
+        $markerlessResearch = Join-Path $projectRoot 'research\markerless'
+        $candidate = Get-Content -LiteralPath (Join-Path $markerlessResearch 'console-candidate.json') -Raw | ConvertFrom-Json
+        . (Join-Path $PSScriptRoot 'stage-markerless-console.ps1')
+        $consoleStage = Join-Path $tools 'markerless-console'
+        $consolePayload = Stage-MarkerlessConsole $consoleExe $consoleDlls $consoleStage $candidate
+        Step 'Verified the tested console EXE and staged its 45 matching DLLs'
+    }
+
     $headers = @{ 'User-Agent' = 'tes3np-build'; 'Accept' = 'application/vnd.github+json' }
     if ($env:GITHUB_TOKEN) {
         $headers['Authorization'] = "Bearer $($env:GITHUB_TOKEN)"
@@ -295,16 +310,18 @@ try {
 
     $tes3mpArchive = Join-Path $tools 'tes3mp-0.8.1.zip'
     $officialTES3MP = 'https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip'
-    $previousRuntime = Join-Path $package 'client'
-    $previousLicenses = Join-Path $package 'licenses\TES3MP'
     $reuseTes3mp = $false
     $archiveHash = ''
     Step 'Downloading official TES3MP 0.8.1 Win64 runtime for distribution'
     try {
         SaveOfficialDownload $officialTES3MP $tes3mpArchive $headers 'TES3MP 0.8.1'
         CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'
+        if ($consolePayload -and (GetTes3npSha256 $tes3mpArchive) -ine '72d35d574689e698196855c80e27bf79a86a591c2a7d42dddd03de0c597e2bad') {
+            throw 'Official TES3MP 0.8.1 runtime archive SHA-256 changed.'
+        }
     }
     catch {
+        if ($consoleExe -or $consoleDlls) { throw }
         # Use an older TES3NP distribution only when the exact markerless
         # executable and original official release provenance are verified.
         # Snapshot before dist is replaced; never alter the candidate.
@@ -608,14 +625,25 @@ Public redistribution/licensing review remains a separate release gate.
         Copy-Item -LiteralPath $entry.FullName -Destination (Join-Path $clientFolder $entry.Name) -Recurse -Force
     }
 
-    # Replace ONLY the packaged copy of the official executable. The original
-    # release archive and any user-installed TES3MP remain untouched.
-    $markerlessSource = Join-Path $projectRoot 'patches\markerless\tes3mp.exe'
-    if (!(Test-Path -LiteralPath $markerlessSource)) { throw 'Bundled markerless client missing.' }
-    Copy-Item -LiteralPath $markerlessSource -Destination (Join-Path $clientFolder 'tes3mp.exe') -Force
-    $markerlessManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\manifest.json') -Raw | ConvertFrom-Json
-    $expectedMarkerless = ($markerlessManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
-    if (!$expectedMarkerless -or (GetTes3npSha256 (Join-Path $clientFolder 'tes3mp.exe')) -ine $expectedMarkerless) {
+    $clientExe = Join-Path $clientFolder 'tes3mp.exe'
+    if ($consolePayload) {
+        foreach ($file in $consolePayload.files) {
+            $destination = Join-Path $clientFolder $file.path
+            $null = New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force
+            Copy-Item -LiteralPath (Join-Path $consoleStage $file.path) -Destination $destination -Force
+        }
+        $expectedMarkerless = $candidate.executableSha256
+        Test-PackagedMarkerlessConsole $clientExe
+        Step 'Packaged source-built console client printed --help with the bundled DLLs'
+    }
+    else {
+        $markerlessSource = Join-Path $projectRoot 'patches\markerless\tes3mp.exe'
+        if (!(Test-Path -LiteralPath $markerlessSource)) { throw 'Bundled markerless client missing.' }
+        Copy-Item -LiteralPath $markerlessSource -Destination $clientExe -Force
+        $markerlessManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\\manifest.json') -Raw | ConvertFrom-Json
+        $expectedMarkerless = ($markerlessManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
+    }
+    if (!$expectedMarkerless -or (GetTes3npSha256 $clientExe) -ine $expectedMarkerless) {
         throw 'Packaged markerless client SHA256 mismatch.'
     }
     foreach ($name in @('tes3mp.exe','tes3mp-client-default.cfg','defaults.bin','openmw.cfg')) {
@@ -635,6 +663,19 @@ Public redistribution/licensing review remains a separate release gate.
         Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-license.txt') -Destination (Join-Path $licenseFolder 'LICENSE') -Force
         Copy-Item -LiteralPath (Join-Path $tools 'tes3mp-font-license.txt') -Destination (Join-Path $licenseFolder 'DejaVuFontLicense.txt') -Force
     }
+    if ($consolePayload) {
+        $sourceFolder = Join-Path $licenseFolder 'markerless-source'
+        $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+        foreach ($name in @('README.md', 'build-markerless.ps1', 'Restore-Markerless-Console.ps1',
+            'tes3mp-0.8.1-markerless-experimental.patch', 'tes3mp-release-console.patch')) {
+            Copy-Item -LiteralPath (Join-Path $markerlessResearch $name) -Destination $sourceFolder
+        }
+        $consolePayload | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $sourceFolder 'client-files.json') -Encoding UTF8
+        $sourceNotice = 'See markerless-source/README.md for source revisions, patches, and Windows build instructions.'
+    }
+    else {
+        $sourceNotice = 'Corresponding source and build instructions for the legacy executable are still required before redistribution.'
+    }
     @"
 TES3MP runtime 0.8.1 (GPLv3 with additional permitted terms)
 Upstream project and source: https://github.com/TES3MP/TES3MP/tree/tes3mp-0.8.1
@@ -642,9 +683,7 @@ Release runtime: $officialTES3MP
 Original release archive SHA256: $archiveHash
 TES3NP ships a separately modified markerless tes3mp.exe rather than the upstream binary.
 Markerless executable SHA256: $expectedMarkerless
-Corresponding source and build instructions for the modified executable must
-be made available by the distributor to comply with GPLv3. Do not publish
-a release until that source and applicable third-party notices are supplied.
+$sourceNotice
 Bethesda Morrowind game data is not bundled and must be supplied by users.
 "@ | Set-Content -LiteralPath (Join-Path $licenseFolder 'REDISTRIBUTION-NOTICE.txt') -Encoding UTF8
     Step 'Verified complete bundled TES3MP runtime and included license notices'
@@ -665,7 +704,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     Step 'Packaging standalone executable'
     Compress-Archive (Join-Path $package '*') $zip
     Step 'Validating final downloadable Windows ZIP'
-    & python (Join-Path $PSScriptRoot 'check-windows-package.py') $zip
+    $packageCheck = @($zip)
+    if ($consolePayload) { $packageCheck += '--require-console-client' }
+    & python (Join-Path $PSScriptRoot 'check-windows-package.py') @packageCheck
     if ($LASTEXITCODE -ne 0) { throw 'Final Windows ZIP integrity validation failed.' }
     Step 'Windows launcher build completed successfully'
 }

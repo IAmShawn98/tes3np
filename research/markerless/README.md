@@ -1,41 +1,43 @@
-# Experimental source-based TES3MP 0.8.1 markerless investigation
+# TES3MP 0.8.1 markerless console client
 
-**Research only. Do not replace the functioning TES3NP bundled executable or publish this patch's compiled output as an approved release.**
+The source-built client was tested on Windows 11 through TES3NP. It connected to
+Nerevarine Prophecies, loaded a character, hid remote player map markers, and
+launched with a visible Windows console after the matching DLLs were installed.
+Clean-install and upgrade acceptance remain separate release checks.
 
-## Exact source baseline
+## Source and build
 
-- Upstream repository: https://github.com/TES3MP/TES3MP
-- Source ref: `0.8.1`
-- Target files:
-  - `apps/openmw/mwmp/GUIController.cpp` (upstream file Git blob SHA `3dda6dc8080828c3d3d512f5ec622563d01523d5`)
-  - `apps/openmw/mwmp/DedicatedPlayer.cpp` (upstream file Git blob SHA `eaac4407e8d7431cc715afbb507c1ca86e79f8cd`)
+- TES3MP source, commit `68954091c54d0596037c4fb54d2812313b7582a1`:
+  https://github.com/TES3MP/TES3MP/tree/68954091c54d0596037c4fb54d2812313b7582a1
+- CrabNet source, commit `19e66190e83f53bcdcbcd6513238ed2e54878a21`:
+  https://github.com/TES3MP/CrabNet/tree/19e66190e83f53bcdcbcd6513238ed2e54878a21
+- The included `tes3mp-0.8.1-markerless-experimental.patch` disables the two
+  remote-player marker update functions. `tes3mp-release-console.patch` selects
+  the Windows console subsystem and the normal C runtime entry point.
 
-The patch in this directory adds an early `return;` to `mwmp::GUIController::updatePlayersMarkers` and `DedicatedPlayer::updateMarker`. The changes are closely patterned after two documented changes visible in https://github.com/Skooma-Breath/surf_tes3mp, but **not authenticated as jiub's original source**. They are a *new experimental proposal* against official TES3MP, not a reverse-engineered or verified replacement for the May 2023 binary.
-
-## Apply safely in a separate upstream source checkout
-
-Run these in a **separate clone** of upstream TES3MP, never in the TES3NP launcher source directory or any live game directory.
+Install Visual Studio 2022 C++ tools and a Windows SDK, Git for Windows,
+7-Zip, Python 3.11, and CMake 3.31.10. Put Git, Python, CMake and 7-Zip on PATH.
+Use a short writable build directory with no spaces. Keep both patches and the
+PowerShell scripts in one directory, then run:
 
 ```powershell
-git clone --recursive https://github.com/TES3MP/TES3MP.git tes3mp-markerless-research
-cd tes3mp-markerless-research
-git checkout 0.8.1
-git submodule update --init --recursive
-git status --short
-git apply --check "C:\path\to\tes3np\research\markerless\tes3mp-0.8.1-markerless-experimental.patch"
-git apply "C:\path\to\tes3np\research\markerless\tes3mp-0.8.1-markerless-experimental.patch"
-git diff --check
-git diff -- apps/openmw/mwmp/GUIController.cpp apps/openmw/mwmp/DedicatedPlayer.cpp
+$buildRoot = Join-Path $env:LOCALAPPDATA 'TES3MP-Markerless-Build'
+$env:CI = 'true'
+.\build-markerless.ps1 -WorkRoot $buildRoot
+.\Restore-Markerless-Console.ps1 -BuildId '<ID printed by first script>' -WorkRoot $buildRoot
 ```
 
-**These steps have not been executed on a Windows machine in this investigation.** GitHub file inspection confirmed the two target functions exist in upstream `0.8.1`, but compilation, patch application, and actual marker/crash behavior are still untested.
+The first script configures both clients with Visual Studio 2022 using the
+upstream dependency recipe. It pins Qt 5.15.0 and adds the explicit chrono
+include required by the newer compiler. The second reuses that build and
+relinks the markerless Release executable as a console application. The
+source-built package uses the DLLs and plugins staged from the same local
+build, alongside the official 0.8.1 runtime resources. Build tools and
+timestamps may differ between builds, so a rebuild is not expected to have
+the same SHA-256.
 
-## Build and release gates
-
-1. Verify patch application against a pristine exact upstream checkout and compare against official `0.8.1` source.
-2. Record and test a complete pinned Windows toolchain and dependencies, including MSVC, CMake, Qt and TES3MP/OpenMW submodules.
-3. Compile the new client in isolation, record its SHA-256 and source tree commit, and compare real gameplay behavior with unmodified upstream and the existing jiub-supplied binary.
-4. Test player markers, minimap stability with multiple players, game login and server compatibility, OpenMW settings, antivirus false positives and clean Windows machines.
-5. If the experimental client is ever distributed, provide its own exact source revision, this patch, full build scripts/instructions and all applicable GPLv3 and other license notices. Review all third-party asset permissions separately.
-
-This research artifact does **not** prove the source of the existing markerless executable and does **not** clear the release gate for bundling that executable.
+The playtested console executable has SHA-256
+`9028acd49dd6d87df54daa1fd4c3ea393e5e80f3680d0b4ef01d364a0d28d50b`.
+The candidate ZIP records the exact EXE and the 45 staged DLL hashes in
+`client-files.json`. The executable previously bundled by TES3NP has separate
+provenance. See the parent TES3MP license and notices.
