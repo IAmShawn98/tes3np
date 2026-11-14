@@ -69,6 +69,14 @@ MismatchFixtureAssert(condition, reason)
 
 try
 {
+    attachment := TES3MPExpansionAttachmentPath(
+        "https://cdn.discordapp.com/attachments/123/456/NP_Expansion_Pack_v0.2c.zip?signature=PRIVATE")
+    MismatchFixtureAssert(TES3MPExpansionVersionFromAttachment(attachment) = "v0.2c",
+        "Discord ZIP becomes a short version label")
+    MismatchFixtureAssert(TES3MPExpansionVersionFromAttachment("/attachments/123/456/NP%20Expansion%20Pack%20v0.3.zip") = "v0.3",
+        "encoded spaces work in official attachment names")
+    MismatchFixtureAssert(TES3MPExpansionVersionFromAttachment("/attachments/123/456/CustomPack-v0.2c.zip") = "",
+        "other ZIPs do not produce an official version label")
     clean := "content=Morrowind.esm`ncontent=Tribunal.esm`n"
         . "content=Bloodmoon.esm`ncontent=PRIVATE_CHARACTER_MOD.esp`n"
         . "content=NP Expansion Pack.esp`n"

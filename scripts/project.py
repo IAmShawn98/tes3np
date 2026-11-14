@@ -261,7 +261,7 @@ def check(allow_missing_payload: bool = False) -> None:
     mismatch_ui = (ROOT / "src/game/expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
     session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     if not all(token in mismatch_ui for token in (
-        'cloaked := (mode = "Install" || mode = "Update")',
+        'cloaked := (mode = "Install" || mode = "Update" || mode = "Preflight")',
         'AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry"',
         'ExpansionDiscordPromptPending := 0',
         'Sign in through Game Chat to view the latest official Expansion Pack ZIP',

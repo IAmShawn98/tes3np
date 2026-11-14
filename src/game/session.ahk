@@ -96,11 +96,15 @@ LaunchProfileIndex(index)
         StartProfileSession(profile, executable)
 }
 
-StartProfileSession(profile, executable)
+StartProfileSession(profile, executable, packChecked := false, packCurrent := false)
 {
     global Client, TES3MPLastMismatchEvidence, DataFile
     ; A file picker or prompt can yield to another launch request.
     if Client.Enabled || !CanUseNPLauncher() || !CanStartAnotherTES3NPGame()
+        return
+    config := PatchConfigurationPath()
+    if !packChecked && ExpansionPackInLoadOrder(config)
+        && TES3MPCheckExpansionBeforeAction(config, StartProfileSession.Bind(profile, executable, true))
         return
     previousCritical := Critical("On")
     try
@@ -111,7 +115,8 @@ StartProfileSession(profile, executable)
             Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
             UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
             PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
-            LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0}
+            LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0,
+            ExpansionPackCurrent: packCurrent}
         Client := session
     }
     finally Critical(previousCritical)

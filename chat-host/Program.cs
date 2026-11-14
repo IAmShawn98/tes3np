@@ -200,6 +200,9 @@ internal static class Program
         // The latest *validated* signed URL lives only in this ChatHost
         // session; native retry never depends on a responsive WebView2.
         string? expansionLatestZipUrl;
+        string? expansionPublishedZipUrl;
+        string? expansionChecksumPath;
+        string? expansionChecksum;
         // Discord feature dialogs reuse the existing Chat Host authentication.
         int pendingExpansionPrompt;
         bool restoreChatAfterExpansionPrompt;
@@ -500,6 +503,7 @@ internal static class Program
             catch (ObjectDisposedException) { }
             expansionDownloadsParent=IntPtr.Zero;
             expansionLatestZipUrl=null;
+            expansionPublishedZipUrl=null;
             var window=expansionDownloadsWindow;
             expansionDownloadsWindow=null;
             expansionDownloadsBrowser=null;
@@ -507,6 +511,14 @@ internal static class Program
                 try { window.Dispose(); }
                 catch (Exception ex) { Log("EXPANSION | Child cleanup: "+ex.GetType().Name); }
             }
+        }
+
+        void CheckExpansionDownloadSilently(IntPtr placeholder)
+        {
+            if (discordChannelReady && !discordLoginVisible && !closingChat)
+                ShowEmbeddedExpansionDownloads(placeholder);
+            else if (IsWindow(placeholder) && IsWindow(owner))
+                PublishExpansionLink(placeholder, Handle, "", "");
         }
 
         void ShowEmbeddedExpansionDownloads(IntPtr placeholder)
@@ -637,7 +649,8 @@ internal static class Program
             if (slot == IntPtr.Zero || slot != expansionDownloadsParent ||
                 !IsWindow(slot) || !IsWindow(owner) || closingChat ||
                 !discordChannelReady || discordLoginVisible ||
-                !IsOfficialExpansionDownloadUrl(expansionLatestZipUrl))
+                !IsOfficialExpansionDownloadUrl(expansionPublishedZipUrl)
+                || expansionLatestZipUrl != expansionPublishedZipUrl)
             {
                 Log("EXPANSION | Automatic download denied: no authenticated current ZIP.");
                 if (slot==expansionDownloadsParent && IsWindow(owner))
@@ -651,7 +664,7 @@ internal static class Program
             }
             var cancellation=new CancellationTokenSource(TimeSpan.FromHours(4));
             expansionAutoDownloadCancellation=cancellation;
-            string url=expansionLatestZipUrl!;
+            string url=expansionPublishedZipUrl!;
             IntPtr sender=Handle; // Capture HWND on the WinForms thread.
             PostMessage(owner,0x8338,IntPtr.Zero,sender);
             _=Task.Run(()=>DownloadExpansionZipAsync(url,slot,sender,cancellation));
@@ -781,43 +794,59 @@ internal static class Program
             // Snapshot sender HWND while on the WinForms UI thread. Never
             // access Control.Handle from the background IPC worker.
             IntPtr sender=Handle;
-            _=Task.Run(()=>{
+            _=Task.Run(async ()=>{
+                var uri = new Uri(url);
+                string? cached;
+                lock (expansionLinkPublishLock)
+                    cached = expansionChecksumPath == uri.AbsolutePath ? expansionChecksum : null;
+                string checksum = cached ?? await ExpansionZipChecksum.ReadAsync(uri).ConfigureAwait(false);
                 lock (expansionLinkPublishLock)
                 {
                     // A previously queued signed URL must never replace a
                     // newer ZIP or a link from a freshly recreated dialog.
                     if (expansionLatestZipUrl!=url || expansionDownloadsParent!=slot)
                         return;
-                    string payload=slot.ToInt64().ToString(
-                        System.Globalization.CultureInfo.InvariantCulture)+"|"+url;
-                    IntPtr utf16=IntPtr.Zero;
-                    try
+                    if (checksum.Length != 0)
                     {
-                        utf16=Marshal.StringToHGlobalUni(payload);
-                        var data=new COPYDATASTRUCT {
-                            dwData=new IntPtr(0x8335),
-                            cbData=checked((payload.Length+1)*2),
-                            lpData=utf16
-                        };
-                        // SMTO_ABORTIFHUNG. Bounded IPC keeps the Chat Host
-                        // independent if AHK's owner window becomes busy.
-                        IntPtr delivered=SendCopyDataTimeout(owner,0x004A,sender,
-                            ref data,0x0002,1500,out var result);
-                        if (delivered==IntPtr.Zero || result==IntPtr.Zero)
-                            Log("EXPANSION | Native ZIP retry link handoff was not acknowledged.");
-                        else
-                            Log("EXPANSION | Native ZIP retry link synchronized.");
+                        expansionChecksumPath = uri.AbsolutePath;
+                        expansionChecksum = checksum;
                     }
-                    catch (Exception ex)
-                    {
-                        Log("EXPANSION | Native ZIP link handoff failed: "+ex.GetType().Name);
-                    }
-                    finally
-                    {
-                        if (utf16!=IntPtr.Zero) Marshal.FreeHGlobal(utf16);
-                    }
+                    expansionPublishedZipUrl = url;
+                    PublishExpansionLink(slot, sender, url, checksum);
                 }
             });
+        }
+
+        void PublishExpansionLink(IntPtr slot, IntPtr sender, string url, string checksum)
+        {
+            string payload = slot.ToInt64().ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + "|" + url + "|" + checksum;
+            IntPtr utf16 = IntPtr.Zero;
+            try
+            {
+                utf16=Marshal.StringToHGlobalUni(payload);
+                var data=new COPYDATASTRUCT {
+                    dwData=new IntPtr(0x8335),
+                    cbData=checked((payload.Length+1)*2),
+                    lpData=utf16
+                };
+                // SMTO_ABORTIFHUNG. Bounded IPC keeps the Chat Host
+                // independent if AHK's owner window becomes busy.
+                IntPtr delivered=SendCopyDataTimeout(owner,0x004A,sender,
+                    ref data,0x0002,1500,out var result);
+                if (delivered==IntPtr.Zero || result==IntPtr.Zero)
+                    Log("EXPANSION | Native ZIP retry link handoff was not acknowledged.");
+                else
+                    Log("EXPANSION | Native ZIP retry link synchronized.");
+            }
+            catch (Exception ex)
+            {
+                Log("EXPANSION | Native ZIP link handoff failed: "+ex.GetType().Name);
+            }
+            finally
+            {
+                if (utf16!=IntPtr.Zero) Marshal.FreeHGlobal(utf16);
+            }
         }
 
         async Task InitializeExpansionDownloadsBrowser()
@@ -3811,6 +3840,7 @@ metrics();
                     case 12: RetryAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
                     case 13: StartExpansionAutoDownload(m.LParam); break;
                     case 14: Close(); break;
+                    case 15: CheckExpansionDownloadSilently(m.LParam); break;
                 }
                 return;
             }
