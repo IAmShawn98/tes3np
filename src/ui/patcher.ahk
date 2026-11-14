@@ -521,7 +521,7 @@ ApplyExpansionPackToggle(checked := false)
     if checked && !enable
         return
     if enable && !checked && ExpansionPackEspPaths(morrowind, cfg).Length
-        && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true), false, false)
+        && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
         return
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {

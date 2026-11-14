@@ -416,7 +416,7 @@ expect(
         "actualEnabled := ExpansionPackInLoadOrder(cfg)",
         'MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully."',
     )
-    and 'if showProgress && TES3MPExpansionBeginNativeProgress()' in mismatch,
+    and 'if TES3MPExpansionBeginNativeProgress()\n        TES3MPExpansionUpdateNativeProgress("Checking for an Expansion Pack update...", 0)' in mismatch,
 )
 expect(
     "Mismatch dialog requests a child download view and disposes it on exit",
@@ -480,7 +480,7 @@ expect(
 expect(
     "Known outdated Expansion Packs are offered before login or re-enable",
     in_order(session, "TES3MPCheckExpansionBeforeAction(config", "Client := session")
-    and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true), false, false)' in patcher
+    and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))' in patcher
     and in_order(expansion_update_offer, 'if packMatches', 'TES3MPExpansionContinuePreflight(dialog)')
     and 'TES3MPExpansionPackMatches(installedChecksum, checksum)' in expansion_update_offer
     and 'TES3MPExpansionPreflightUnavailable.Bind(dialog,' in mismatch

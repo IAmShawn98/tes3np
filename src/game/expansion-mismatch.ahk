@@ -361,7 +361,7 @@ TES3MPExpansionCancelNativeDownload()
         CloseTES3MPExpansionMismatchDialog(ExpansionMismatchDialog, ExpansionMismatchSlot)
 }
 
-TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false, showProgress := true)
+TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionPackPreflight, ExpansionAutoFailurePromptGui
     if IsObject(ExpansionAutoFailurePromptGui)
@@ -385,11 +385,11 @@ TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false, show
         ExpansionPackPreflight := 0
         TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog",
             "The update check could not open.", "Check",
-            TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true, showProgress))
+            TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true))
         return true
     }
-    ExpansionPackPreflight.Retry := TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true, showProgress)
-    if showProgress && TES3MPExpansionBeginNativeProgress()
+    ExpansionPackPreflight.Retry := TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true)
+    if TES3MPExpansionBeginNativeProgress()
         TES3MPExpansionUpdateNativeProgress("Checking for an Expansion Pack update...", 0)
     if !(authenticate ? RequestDiscordExpansionPrompt(2) : SendLauncherChatCommand(15, ExpansionMismatchSlot))
         TES3MPExpansionPreflightUnavailable(dialog, "Open Game Chat and sign into Discord, then try again.")
