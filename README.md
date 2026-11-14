@@ -38,6 +38,6 @@ The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 
 Click the version number in the launcher to check for updates. You can review the release notes before downloading and installing. Keep your `%APPDATA%\tes3np` folder so your characters and preferences carry over.
 
-## Troubleshooting
+## Bug Reporting
 
 Open **Launcher Settings → Launcher Data → Report A Bug**. Describe what you were doing and what happened. Add screenshots if they help show the issue, then click **Send Report**. The launcher automatically attaches a recent sanitized launcher log.
