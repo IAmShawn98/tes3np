@@ -10,8 +10,8 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 - **Auto Login** — Characters you register in the launcher can be logged in automatically from the **Manage Characters** page. The first character you add automatically becomes your favorite, and you can switch favorites at any time. Your favorite character appears on the launcher’s startup page for easy access.
 - **Data Backups** — Your launcher data can be exported so you can reinstall or relocate at any time.
 - **Expansion Pack Support** — Enable or disable expansion packs any time. If an expansion pack isn't installed, first time enabling it will ask if you want to download and install it automatically. If a new expansion pack releases, it will update to the latest version for you.
+- **Macro Integration** — Upload your favorite macro scripts for things like fishing and training. Turn them on and off or tailor them to fit the launcher. Everything you use in one safe, backed-up environment.
 - **Game Chat and Happy Hour** — Read live Discord chat and see how much time is left in an active Happy Hour.
-- **Manage Macros** — Import, run, and stop AutoHotkey scripts and ZIP macro packages. You can also link an installed Windows app.
 - **Game Client Settings** — Use the bundled TES3MP client or select a custom one.
 
 ## Download
