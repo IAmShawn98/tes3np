@@ -40,4 +40,4 @@ Click the version number in the launcher to check for updates. You can review th
 
 ## Bug Reporting
 
-Open **Launcher Settings → Launcher Data → Report A Bug**. Describe what you were doing and what happened. Add screenshots if they help show the issue, then click **Send Report**. The launcher automatically attaches a recent sanitized launcher log.
+Open **Launcher Settings → Launcher Data → Report A Bug**. Describe what you were doing and what happened. Add screenshots if they help show the issue, then click **Send Report**. The launcher automatically attaches your launch logs to help troubleshooting. The logs only contain diagnostic data, no personal information!
