@@ -33,7 +33,7 @@ ApplyCharacterBookScale(scale)
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -72,7 +72,6 @@ OpenCharacterPage(*)
     ; GUI's controls are destroyed with the window, but AHK arrays still retain
     ; those object references unless explicitly cleared.
     CharacterRows := []
-    LaunchSettingsControls := []
     global MacroPage, MacroList, MacroBookControls
     MacroPage := 0
     MacroList := 0
@@ -97,7 +96,6 @@ OpenCharacterPage(*)
     ; a full extra paragraph of empty control space above the first row.
     CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
-    CharacterDescriptionMagic := false
     Loop 10
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
@@ -163,7 +161,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, AddCharacterButton, MaxCharacters, CharacterLimitNotice
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -186,11 +184,6 @@ RefreshProfiles()
             }
         }
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
-        ; Keep functional description text on the bundled Mystic Cards TTF. The
-        ; vanilla bitmap renderer is intentionally not used for long paragraphs.
-        if IsObject(CharacterDescriptionMagic)
-            CharacterDescriptionMagic.Visible := false
-        CharacterDescriptionMagic := false
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
         ; Keep the approved character action stack after every refresh/import.
@@ -293,16 +286,10 @@ ChooseProfile(position, control, *)
 
 HideProfileEditor()
 {
-    global EditorControls, EditorScrolling, LaunchSettingsHeading, LaunchSettingsControls
-    EditorScrolling := false
-    ; EditorControls/LaunchSettingsControls can still reference controls from a
-    ; CharacterPage that was deliberately destroyed during a book-page rebuild.
-    ; Ignore those stale handles; OpenCharacterPage will populate fresh controls.
+    global EditorControls, LaunchSettingsHeading
     for control in EditorControls
         try control.Visible := false
     try LaunchSettingsHeading.Visible := false
-    for control in LaunchSettingsControls
-        try control.Visible := true
     ShowMacroBookPanel()
 }
 
@@ -330,7 +317,7 @@ CloseCharacterPage(*)
 
 EditProfile(index, *)
 {
-    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorSpeciesDropDown, LaunchSettingsHeading, LaunchSettingsControls
+    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorSpeciesDropDown, LaunchSettingsHeading
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
@@ -343,22 +330,16 @@ EditProfile(index, *)
         profile := index ? Profiles[index] : NewCharacterProfile()
         LaunchSettingsHeading.Text := index ? "Editing " profile.Name : "Add New Character"
         LaunchSettingsHeading.Visible := true
-        for control in LaunchSettingsControls
-            control.Visible := false
         HideMacroBookPanel()
         CharacterPage.SetFont("s10 c382314", "Segoe UI")
-        global EditorFields, EditorRows, EditorEntries, EditorOffset, EditorTrack, EditorThumb, EditorUpdating
-        EditorEntries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
+        global EditorFields
+        entries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
             ["UsernameDelay", "Username screen delay (sec)", profile.UsernameDelay],
             ["PasswordDelay", "Password screen delay (sec)", profile.PasswordDelay],
             ["LoadDelay", "Character loading delay (sec)", profile.LoadDelay]]
         EditorFields := Map()
-        for entry in EditorEntries
+        for entry in entries
             EditorFields[entry[1]] := {Value: entry[3]}
-        EditorUpdating := true
-        for row in EditorRows
-            row.Key := ""
-        EditorOffset := 0
         ; Legacy characters remain editable without an invented race.
         species := profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : ""
         speciesIndex := 1
@@ -373,7 +354,7 @@ EditProfile(index, *)
         ; dropdown always shows the character's real species at a glance.
         EditorSpeciesDropDown.Choose(speciesIndex)
         EditorPreviousSpeciesChoice := speciesIndex
-        ScrollEditorRows(0)
+        PopulateProfileEditorRows(entries)
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
         ButtonFaces[EditorSaveButton.Hwnd].LoadingText := "Saving character..."
@@ -381,8 +362,6 @@ EditProfile(index, *)
         for control in EditorControls
             control.Visible := true
         UpdateOriginalSpeciesHint()
-        EditorTrack.Visible := false
-        EditorThumb.Visible := false
     }
     finally EndInterfaceUpdate()
 }
@@ -391,7 +370,7 @@ EditProfile(index, *)
 
 CreateProfileEditor()
 {
-    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint
+    global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
@@ -428,13 +407,8 @@ CreateProfileEditor()
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
-    SetInterfaceLoadingText("Loading settings scrollbar...")
-    EditorTrack := CharacterPage.Add("Text", "x890 y210 w7 h213 Hidden Background704C27 +0x100")
-    EditorThumb := CharacterPage.Add("Text", "x890 y210 w7 h110 Hidden BackgroundC69951 +0x100")
     SetInterfaceLoadingText("Loading Save button...")
     EditorSaveButton := AddStyledButton(CharacterPage, 635, 440, 140, 30, "Save changes", (*) => 0)
-    EditorControls.Push(EditorTrack)
-    EditorControls.Push(EditorThumb)
     EditorControls.Push(EditorSaveButton)
     dismiss := AddStyledButton(CharacterPage, 685, 482, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
@@ -444,7 +418,7 @@ CreateProfileEditor()
 ; presentation-only entry; the real species is chosen in a separate dialog.
 UpdateOriginalSpeciesHint()
 {
-    global EditorSpeciesDropDown, EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode
+    global EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode
     isOriginal := EditorOriginalMode
     EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
         ? "Species: " EditorOriginalSpecies "  |  Change portrait" : ""
@@ -709,24 +683,18 @@ UpdateEditorField(position, control, *)
         EditorFields[EditorRows[position].Key].Value := control.Value
 }
 
-ScrollEditorRows(offset)
+PopulateProfileEditorRows(entries)
 {
-    global EditorOffset, EditorUpdating, EditorRows, EditorEntries, EditorFields, EditorThumb
-    ; These five rows already exist: scrolling only swaps their displayed values.
-    ; Redraw the changed fields locally instead of rebuilding or covering the book.
+    global EditorUpdating, EditorRows, EditorFields
     previousCritical := A_IsCritical
     Critical("On")
     changed := []
     EditorUpdating := true
     try
     {
-        EditorOffset := 0
-        first := 1
         for position, row in EditorRows
         {
-            entry := EditorEntries[first + position - 1]
-            if row.Key = entry[1]
-                continue
+            entry := entries[position]
             for control in [row.Label, row.Input]
             {
                 if DllCall("IsWindowVisible", "Ptr", control.Hwnd)
@@ -740,7 +708,6 @@ ScrollEditorRows(offset)
             row.Input.Opt(entry[1] = "Password" ? "Password" : "-Password")
             row.Input.Value := EditorFields[entry[1]].Value
         }
-        EditorThumb.Move(BookS(890), BookS(210 + Round(EditorOffset / 54 * 103)))
     }
     finally
     {
@@ -753,66 +720,6 @@ ScrollEditorRows(offset)
         Critical(previousCritical)
     }
 }
-
-ScrollEditorWheel(wParam)
-{
-    global CharacterPage, EditorTrack, EditorOffset
-    if !IsObject(CharacterPage) || !IsSet(EditorTrack) || !EditorTrack.Visible
-        return false
-    MouseGetPos(&x, &y, &window)
-    if window != CharacterPage.Hwnd
-        return false
-    point := Buffer(8, 0)
-    NumPut("Int", x, "Int", y, point)
-    DllCall("ScreenToClient", "Ptr", CharacterPage.Hwnd, "Ptr", point)
-    scale := (A_ScreenDPI / 96) * GetCharacterBookScale()
-    x := NumGet(point, 0, "Int") / scale
-    y := NumGet(point, 4, "Int") / scale
-    if x < 520 || x > 905 || y < 200 || y > 445
-        return false
-    delta := (wParam >> 16) << 48 >> 48
-    ScrollEditorRows(EditorOffset + (delta > 0 ? -54 : 54))
-    return true
-}
-
-PressEditorScroll(hwnd)
-{
-    global EditorTrack, EditorThumb, EditorScrolling, EditorGrab, EditorOffset, CharacterPage
-    if !IsSet(EditorTrack) || !EditorTrack.Visible || (hwnd != EditorTrack.Hwnd && hwnd != EditorThumb.Hwnd)
-        return false
-    MouseGetPos(, &y)
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (y - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
-    EditorGrab := hwnd = EditorThumb.Hwnd ? localY - (210 + Round(EditorOffset / 54 * 103)) : 55
-    EditorScrolling := true
-    DllCall("SetCapture", "Ptr", hwnd)
-    DragEditorScroll()
-    return true
-}
-
-DragEditorScroll()
-{
-    global EditorScrolling, EditorGrab, CharacterPage
-    if !IsSet(EditorScrolling) || !EditorScrolling
-        return
-    MouseGetPos(, &y)
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (y - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
-    ScrollEditorRows(Round((localY - 210 - EditorGrab) / 103 * 54))
-}
-
-ReleaseEditorScroll()
-{
-    global EditorScrolling
-    if !IsSet(EditorScrolling) || !EditorScrolling
-        return false
-    EditorScrolling := false
-    DllCall("ReleaseCapture")
-    return true
-}
-
 
 SaveProfileEditor(index, fields, *)
 {

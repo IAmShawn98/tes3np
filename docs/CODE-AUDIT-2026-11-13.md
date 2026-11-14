@@ -184,7 +184,7 @@ sign-in emblem, and tracked markerless EXE were available as tree entries only.
   and twelve updater transaction fixtures passed. The release gate remains
   blocked on the existing provenance, asset approval and clean Windows evidence.
 
-### File coverage through pass eleven
+### File coverage through pass twelve
 
 “Source inspected” records a source read-through. Targeted review and
 reference checks cover selected behavior and call sites. Later passes below
@@ -234,18 +234,18 @@ compilation and GUI execution are still pending.
 | `scripts/select-expansion-package.ps1` | Targeted review and source checks |
 | `scripts/stage-markerless-console.ps1` | Source inspected |
 | `scripts/tes3np-updater.ps1` | Source inspected |
-| `scripts/test-diagnostic-privacy.ahk` | Prior targeted review or fixture checks |
+| `scripts/test-diagnostic-privacy.ahk` | Source inspected |
 | `scripts/test-expansion-diagnostics.ahk` | Prior targeted review or fixture checks |
-| `scripts/test-expansion-toggle.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-expansion-toggle.ps1` | Source inspected |
 | `scripts/test-import-expansion-folder.ps1` | Prior targeted review or fixture checks |
-| `scripts/test-update-client.ps1` | Prior targeted review or fixture checks |
-| `scripts/test-update-metadata.ps1` | Prior targeted review or fixture checks |
-| `scripts/test-updater-transaction.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-update-client.ps1` | Source inspected |
+| `scripts/test-update-metadata.ps1` | Source inspected |
+| `scripts/test-updater-transaction.ps1` | Source inspected |
 | `scripts/toggle-expansion-pack.ps1` | Source inspected |
 | `src/app/bootstrap.ahk` | Source inspected |
 | `src/app/client-detection.ahk` | Source inspected |
 | `src/app/diagnostics.ahk` | Source inspected |
-| `src/app/update-check.ahk` | Prior targeted review and reference checks |
+| `src/app/update-check.ahk` | Source inspected |
 | `src/data/backup.ahk` | Source inspected |
 | `src/data/cleanup.ahk` | Source inspected |
 | `src/data/settings.ahk` | Source inspected |
@@ -253,10 +253,10 @@ compilation and GUI execution are still pending.
 | `src/game/session.ahk` | Source inspected |
 | `src/state.ahk` | Source inspected |
 | `src/ui/actions.ahk` | Source inspected |
-| `src/ui/characters.ahk` | Prior targeted review and reference checks |
+| `src/ui/characters.ahk` | Source inspected |
 | `src/ui/controls.ahk` | Source inspected |
 | `src/ui/embedded-chat.ahk` | Source inspected |
-| `src/ui/expansion-upload.ahk` | Prior targeted review and reference checks |
+| `src/ui/expansion-upload.ahk` | Source inspected |
 | `src/ui/front-page.ahk` | Source inspected |
 | `src/ui/happy-hour.ahk` | Source inspected |
 | `src/ui/launcher-settings.ahk` | Source inspected |
@@ -267,7 +267,7 @@ compilation and GUI execution are still pending.
 | `src/ui/renderer.ahk` | Source inspected |
 | `src/ui/v016-refinements.ahk` | Source inspected |
 | `src/ui/windows.ahk` | Source inspected |
-| `tes3np.ahk` | Prior targeted review and reference checks |
+| `tes3np.ahk` | Source inspected |
 
 The remaining tree entries are artwork and fonts under `assets/`, release
 and historical Markdown, and GitHub templates. Runtime asset selection was
@@ -342,3 +342,23 @@ this repository.
   now spans the entire Git tree. The line-by-line audit remains open.
   The dev-PC build follows source sign-off, and the second-PC upgrade
   follows a passing dev-PC run.
+
+## Twelfth source pass
+
+- Read the launcher entry, update UI, Character Book and local Expansion
+  Pack upload UI. Update dialogs now release their windows and dimmers
+  after failed construction or display. Release-note mouse callbacks are
+  installed after the controls are ready and removed when the dialog
+  closes. Removed unused control and scroll state.
+- The character editor displays all five fields at once. Removed its
+  permanently hidden scrollbar, unused description overlay and empty
+  control collection. The existing row population retains its redraw and
+  event suppression. Launcher and macro scrolling still have their
+  independent event handlers.
+- Read the update client, metadata, transaction, diagnostic privacy and
+  Expansion Pack toggle fixtures. Updater client and mocked release notes
+  tests passed in PowerShell. The source checks and diagnostics contracts
+  passed. Native dialog and editor behavior still require Windows checks.
+- The remaining full read-throughs are marked targeted in the table.
+  They cover the macro UI, Expansion Pack mismatch coordination, patcher,
+  importer and picker, and the remaining Expansion Pack fixtures.

@@ -265,8 +265,6 @@ ReleaseButton(wParam, lParam, msg, hwnd)
     global ButtonFaces, PressedButton, HoverButton
     if ReleaseMacroScroll()
         return 0
-    if ReleaseEditorScroll()
-        return 0
     if ReleaseMenuScroll()
         return 0
     ; Mouse capture/focus changes can deliver mouse-up to a parent HWND even
@@ -375,8 +373,6 @@ HandleMouseDown(wParam, lParam, msg, hwnd)
         return 0
     }
     if PressMacroScroll(hwnd)
-        return 0
-    if PressEditorScroll(hwnd)
         return 0
     if PressMenuScroll(hwnd)
         return 0
