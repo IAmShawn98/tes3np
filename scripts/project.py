@@ -462,7 +462,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
-            and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "Ready.")' in macro
+            and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")' in macro
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
             and 'desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
@@ -480,6 +480,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'return {Text: "Script missing", Error: true}' in macro
             and 'return {Text: item.LastError, Error: true}' in macro
             and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
+            and 'macro.LastError := "Could not stop"' in macro
             and 'macro.LastError := ""' in macro
             and 'itemRow.Status.SetFont(state.Error ? "s" Max(7, BookS(9)) " cB22222"' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro,
@@ -524,6 +525,7 @@ def check(allow_missing_payload: bool = False) -> None:
             'interpreter := A_IsCompiled ? A_ScriptDir "\\runtime\\AutoHotkey64.exe" : A_AhkPath' in macro
             and 'throw Error("Bundled AutoHotkey macro runtime missing")' in macro
             and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
+            and 'macro.LastError := "Could not stop"' in macro
             and 'Choose AutoHotkey executable for this macro' not in macro
             and 'Copy-Item -LiteralPath $base -Destination $macroRuntime -Force' in (
                 ROOT / "scripts/build-windows.ps1"

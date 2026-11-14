@@ -361,8 +361,12 @@ try {
             }
         } finally { $archive.Dispose() }
     } else { throw 'Only an extracted folder, .zip, or NP Expansion Pack.esp is supported.' }
-    if (!($assets | Where-Object { $_.Relative -ieq 'NP Expansion Pack.esp' })) {
+    $expansion = $assets | Where-Object { $_.Relative -ieq 'NP Expansion Pack.esp' } | Select-Object -First 1
+    if (!$expansion) {
         throw 'The selected package is missing NP Expansion Pack.esp in its Data Files.'
+    }
+    if ((Get-Item -LiteralPath $expansion.Source).Length -eq 0) {
+        throw 'NP Expansion Pack.esp is empty. Select a complete Expansion Pack package.'
     }
     Progress 'Preparing verified game file replacements' 35
     $plan = @()

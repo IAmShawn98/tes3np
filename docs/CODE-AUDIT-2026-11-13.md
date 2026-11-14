@@ -184,21 +184,21 @@ sign-in emblem, and tracked markerless EXE were available as tree entries only.
   and twelve updater transaction fixtures passed. The release gate remains
   blocked on the existing provenance, asset approval and clean Windows evidence.
 
-### File coverage through pass twelve
+### File coverage through pass thirteen
 
 “Source inspected” records a source read-through. Targeted review and
-reference checks cover selected behavior and call sites. Later passes below
-record the exact additional coverage and the remaining source work. Windows
-compilation and GUI execution are still pending.
+reference checks cover selected behavior and call sites. Pass thirteen
+completes the read-through of the remaining executable source and fixtures.
+Windows compilation and GUI execution are still pending.
 
 | File | Coverage |
 | --- | --- |
-| `.editorconfig` | Inventory and dependency check |
-| `.gitattributes` | Inventory and dependency check |
+| `.editorconfig` | Configuration inspected |
+| `.gitattributes` | Configuration inspected |
 | `.github/workflows/build-windows.yml` | Workflow read and YAML parsed |
 | `.github/workflows/checks.yml` | Workflow read and YAML parsed |
 | `.github/workflows/publish-alpha.yml` | Workflow read and YAML parsed |
-| `.gitignore` | Inventory and dependency check |
+| `.gitignore` | Configuration inspected |
 | `Build tes3np.bat` | Source inspected |
 | `chat-host/Program.cs` | Source inspected |
 | `chat-host/assets/DiscordInt.png` | GitHub tree only |
@@ -227,17 +227,17 @@ compilation and GUI execution are still pending.
 | `scripts/fetch-release-notes.ps1` | Source inspected |
 | `scripts/generate-bundled-resources.py` | Source inspected |
 | `scripts/generate-update-metadata.ps1` | Source inspected |
-| `scripts/import-expansion-pack.ps1` | Prior targeted review or fixture checks |
+| `scripts/import-expansion-pack.ps1` | Source inspected |
 | `scripts/import-macro.ps1` | Source inspected |
 | `scripts/project.py` | Source inspected |
 | `scripts/run-local-regression.ps1` | Source inspected |
-| `scripts/select-expansion-package.ps1` | Targeted review and source checks |
+| `scripts/select-expansion-package.ps1` | Source inspected |
 | `scripts/stage-markerless-console.ps1` | Source inspected |
 | `scripts/tes3np-updater.ps1` | Source inspected |
 | `scripts/test-diagnostic-privacy.ahk` | Source inspected |
-| `scripts/test-expansion-diagnostics.ahk` | Prior targeted review or fixture checks |
+| `scripts/test-expansion-diagnostics.ahk` | Source inspected |
 | `scripts/test-expansion-toggle.ps1` | Source inspected |
-| `scripts/test-import-expansion-folder.ps1` | Prior targeted review or fixture checks |
+| `scripts/test-import-expansion-folder.ps1` | Source inspected |
 | `scripts/test-update-client.ps1` | Source inspected |
 | `scripts/test-update-metadata.ps1` | Source inspected |
 | `scripts/test-updater-transaction.ps1` | Source inspected |
@@ -249,7 +249,7 @@ compilation and GUI execution are still pending.
 | `src/data/backup.ahk` | Source inspected |
 | `src/data/cleanup.ahk` | Source inspected |
 | `src/data/settings.ahk` | Source inspected |
-| `src/game/expansion-mismatch.ahk` | Targeted review and source checks |
+| `src/game/expansion-mismatch.ahk` | Source inspected |
 | `src/game/session.ahk` | Source inspected |
 | `src/state.ahk` | Source inspected |
 | `src/ui/actions.ahk` | Source inspected |
@@ -262,8 +262,8 @@ compilation and GUI execution are still pending.
 | `src/ui/launcher-settings.ahk` | Source inspected |
 | `src/ui/loading.ahk` | Source inspected |
 | `src/ui/login-progress.ahk` | Source inspected |
-| `src/ui/macros.ahk` | Prior targeted review and reference checks |
-| `src/ui/patcher.ahk` | Prior targeted review and reference checks |
+| `src/ui/macros.ahk` | Source inspected |
+| `src/ui/patcher.ahk` | Source inspected |
 | `src/ui/renderer.ahk` | Source inspected |
 | `src/ui/v016-refinements.ahk` | Source inspected |
 | `src/ui/windows.ahk` | Source inspected |
@@ -362,3 +362,29 @@ this repository.
 - The remaining full read-throughs are marked targeted in the table.
   They cover the macro UI, Expansion Pack mismatch coordination, patcher,
   importer and picker, and the remaining Expansion Pack fixtures.
+
+## Thirteenth source pass
+
+- Finished the source read-through of the macro UI, Expansion Pack
+  mismatch and patcher coordination, importer, native picker, and the
+  remaining diagnostic and folder-import fixtures.
+- Removed macro status writes that were filtered out of the visible
+  panel. A failed Stop now appears on the affected row. A successful
+  retry clears the error. A Character Book rebuild matches saved macro
+  process handles by case-insensitive Windows folder paths.
+- Repeated closes of a retired Expansion Pack dialog no longer clear
+  a newer pending operation. Empty Expansion Pack ESPs are rejected
+  before any game files or settings are modified. Corrected the Windows
+  importer fixture's stale function-signature assertion and added a
+  disposable empty-ESP folder case.
+- Source and privacy checks, PowerShell parsing, native picker C#
+  compilation, eleven macro ZIP extraction cases and five Expansion Pack
+  worker cases passed here. The worker cases covered an existing job,
+  rollback after a concurrent configuration edit, committed import after
+  a failed status write, and empty standalone ESP and ZIP inputs.
+- Source review is complete for the tracked launcher, Chat Host,
+  scripts, fixtures and workflows. Artwork and executable payloads were
+  inventoried by Git identity. The dev PC is the next verification stage
+  for native AutoHotkey, COM, WebView2, live gameplay and the complete
+  package and payload checks. The second-PC upgrade follows a passing
+  dev-PC run.

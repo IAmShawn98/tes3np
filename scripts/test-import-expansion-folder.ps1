@@ -115,7 +115,7 @@ try {
     AssertFixture ($workerText.Contains('AssertSpace $staged ([long]$entry.Length)')) 'ZIP free-space protection missing'
     AssertFixture ($workerText.Contains('AssertSpace $staged ([long]$item.Length)')) 'Folder free-space protection missing'
     AssertFixture ($workerText.Contains('AssertSpace $item.Target')) 'Installation destination free-space protection missing'
-    AssertFixture ($workerText.Contains('function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation)')) 'Lock retry needs explicit typed file paths'
+    AssertFixture ($workerText.Contains('function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation, [string]$PreviousHash')) 'Lock retry needs explicit typed file paths'
     AssertFixture (!$workerText.Contains('InvokeLockRetry')) 'Legacy caller scriptblock retries must not return'
     AssertFixture ($workerText.Contains("'hash' {")) 'Hash branch missing from typed retry'
     AssertFixture ($workerText.Contains("'copy' {")) 'Copy branch missing from typed retry'
@@ -318,6 +318,15 @@ function AssertGameClosed {
     } finally {
         [IO.File]::WriteAllText($worker, $existingWorker)
     }
+
+    $emptyPack = Join-Path $root 'empty-package'
+    WriteFixture (Join-Path $emptyPack 'NP Expansion Pack.esp') ''
+    $beforeEmptyPack = [IO.File]::ReadAllBytes($lockedAsset)
+    $beforeEmptyConfig = [IO.File]::ReadAllText($config)
+    CheckWorker $emptyPack 'reject-empty-esp' $false 'NP Expansion Pack.esp is empty'
+    AssertFixture ([Convert]::ToBase64String([IO.File]::ReadAllBytes($lockedAsset)) -ceq
+        [Convert]::ToBase64String($beforeEmptyPack)) 'Empty ESP replaced the installed pack'
+    AssertFixture ([IO.File]::ReadAllText($config) -ceq $beforeEmptyConfig) 'Empty ESP changed OpenMW settings'
 
     Write-Host 'Expansion import ZIP/folder safety fixtures passed.'
     exit 0
