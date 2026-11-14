@@ -39,6 +39,13 @@ CleanupStaleLauncherData()
             if FileExist(path) && IsOldLauncherFile(path ".tmp", 1)
                 try FileDelete(path ".tmp")
         }
+    if IsPlainLauncherFolder(archiveFolder)
+        Loop Files archiveFolder "\*.tmp", "F"
+        {
+            if RegExMatch(A_LoopFileName, "i)^game-chat(\.log|-index\.json)\.[0-9a-f]{32}\.tmp$")
+                && IsOldLauncherFile(A_LoopFileFullPath, 1)
+                try FileDelete(A_LoopFileFullPath)
+        }
 
     ; Only the uncommitted copy is disposable. Recovery owns overrides/previous.
     customClient := root "\custom-client"
@@ -92,7 +99,7 @@ CleanupStaleLauncherData()
         Loop Files imports "\*", "D"
         {
             job := A_LoopFileFullPath
-            if !RegExMatch(A_LoopFileName, "^\d{14}-\d+$")
+            if !RegExMatch(A_LoopFileName, "i)^(\d{14}-\d+|[0-9a-f]{32})$")
                 || !IsPlainLauncherFolder(job) || !IsOldLauncherFile(job, 7)
                 || (IsObject(PatchJob) && PatchJob.Folder = job)
                 continue

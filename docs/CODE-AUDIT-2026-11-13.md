@@ -107,3 +107,22 @@ GitHub tree before changes.
   variables so apostrophes in the checkout path do not break PowerShell.
 - ZIP validation rejects ambiguous Windows paths, links and file/directory
   conflicts. Corrected outdated build commands in the development guide.
+
+
+## Fifth source pass
+
+- Expansion Pack imports verify the previous contents immediately before
+  replacing game files and OpenMW config. Rollback checks that the installed
+  copy still belongs to the import before restoring or deleting it.
+- Import journals are published atomically. A successful import stays
+  committed if its final status file cannot be written. New jobs use unique
+  folders, and a reused folder keeps its existing backups and journal.
+- Chat archive writes remain pending after transient failures and retry
+  even on an unchanged feed. Failed rendering can retry the same snapshot.
+  Removed a no-op frame hook and released GDI regions when Windows rejects
+  a clip update. Launcher shutdown asks its own Chat Host to close and flush
+  before falling back to termination.
+- Disposable tests passed for a real ESP import, a reused job directory,
+  a config edit during install, and a final status write failure. An
+  isolated archive test exercised a failed write and the eventual retry.
+  Full Windows import, WebView2 and launcher tests remain pending.

@@ -188,9 +188,10 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
         MsgBox("Expansion Pack import worker is unavailable. Rebuild TES3NP.", "Upload Expansion", "Icon!")
         return false
     }
-    jobFolder := AppDataDirectory "\expansion-imports\" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    jobFolder := ""
     try
     {
+        jobFolder := AppDataDirectory "\expansion-imports\" NewLauncherFileId()
         DirCreate(jobFolder)
         command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' helper '"'
             . ' -Package "' package '" -MorrowindFolder "' morrowind '" -ConfigFile "' config '" -JobFolder "' jobFolder '"'
@@ -198,7 +199,7 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
         PatchFrame := CaptureInterfaceFrame(LauncherGui, true)
         LauncherGui.Opt("+Disabled")
         Run(command, , "Hide", &pid)
-        handle := DllCall("OpenProcess", "UInt", 0x1000, "Int", false, "UInt", pid, "Ptr")
+        handle := DllCall("OpenProcess", "UInt", 0x101000, "Int", false, "UInt", pid, "Ptr")
         PatchJob := {PID: pid, Handle: handle, Folder: jobFolder,
             MorrowindFolder: morrowind, ConfigFile: config,
             AutoDownloadedZip: autoDownloadedZip}
@@ -208,7 +209,7 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
     }
     catch Error as err
     {
-        if !IsObject(PatchJob)
+        if jobFolder != "" && !IsObject(PatchJob)
             try DirDelete(jobFolder)
         LauncherGui.Opt("-Disabled")
         if IsObject(PatchFrame)

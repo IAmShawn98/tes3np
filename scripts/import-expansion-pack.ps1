@@ -13,7 +13,7 @@ Set-StrictMode -Version Latest
 # Only retry Windows sharing/byte-range lock violations (32/33). Every
 # operation receives explicit typed file paths: do not invoke caller-created
 # scriptblocks across PowerShell function scopes.
-function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation) {
+function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation, [string]$PreviousHash = '') {
     if ([string]::IsNullOrWhiteSpace($Source)) {
         throw ('Import file source was empty while ' + $Operation + '.')
     }
@@ -21,6 +21,7 @@ function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destinatio
         throw ('Import file destination was empty while ' + $Operation + '.')
     }
     for ($attempt = 1; $attempt -le 6; $attempt++) {
+        if ($attempt -gt 1 -and $PreviousHash) { AssertExpectedTarget $Destination $PreviousHash }
         try {
             switch ($Kind) {
                 'hash' {
@@ -75,10 +76,13 @@ function CopyWithRetry([string]$Source, [string]$Target, [string]$Operation) {
 # This also avoids presenting a partially written progress/status record.
 function WriteJobIni([string]$Name, [string]$Body) {
     if ($Name -notin @('progress.ini', 'result.ini')) { throw 'Unexpected import status filename.' }
+    WriteJobFile $Name $Body ([Text.Encoding]::Unicode)
+}
+function WriteJobFile([string]$Name, [string]$Body, [Text.Encoding]$Encoding) {
     $target = Join-Path $JobFolder $Name
     $temp = Join-Path $JobFolder ('.' + $Name + '-' + [guid]::NewGuid().ToString('N') + '.tmp')
     try {
-        [IO.File]::WriteAllText($temp, $Body, [Text.Encoding]::Unicode)
+        [IO.File]::WriteAllText($temp, $Body, $Encoding)
         if ([IO.File]::Exists($target)) {
             InvokeFileOperation 'replace' $temp $target ('publishing import ' + $Name)
         } else {
@@ -168,17 +172,26 @@ function AssertSpace([string]$Destination, [long]$BytesNeeded) {
             $requiredGiB + ' GiB on ' + $rootPath + ' (available: ' + $freeGiB + ' GiB).')
     }
 }
-function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected) {
+function AssertExpectedTarget([string]$Target, [string]$PreviousHash) {
+    AssertPlain $Target
+    $present = [IO.File]::Exists($Target)
+    if (($PreviousHash -eq '' -and $present) -or
+        ($PreviousHash -ne '' -and (!$present -or (Sha256 $Target) -ne $PreviousHash))) {
+        throw 'A game file changed during the Expansion Pack import.'
+    }
+}
+function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected, [string]$PreviousHash) {
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Target)) | Out-Null
     $temp = $Target + '.tes3np-import-' + [guid]::NewGuid().ToString('N')
     try {
         CopyWithRetry $Source $temp ("preparing replacement during " + $script:ImportActivity)
         if ((Sha256 $temp) -ne $Expected) { throw 'A staged file did not pass SHA-256 verification.' }
-        if ([IO.File]::Exists($Target)) {
+        AssertExpectedTarget $Target $PreviousHash
+        if ($PreviousHash -ne '') {
             # The import journal already holds a verified persistent backup.
             # Avoid a redundant .NET File.Replace temporary backup that also
             # has to be deleted while antivirus/indexing may be scanning it.
-            InvokeFileOperation 'replace' $temp $Target ("replacing file during " + $script:ImportActivity)
+            InvokeFileOperation 'replace' $temp $Target ("replacing file during " + $script:ImportActivity) $PreviousHash
         } else {
             InvokeFileOperation 'move' $temp $Target ("installing new file during " + $script:ImportActivity)
         }
@@ -206,7 +219,18 @@ $changed = @()
 $rollbackReady = $false
 $staged = $null
 $script:ImportActivity = 'package inspection'
+$jobLock = $null
+$jobReady = $false
 try {
+    AssertPlain $JobFolder
+    $jobLock = [IO.File]::Open((Join-Path $JobFolder '.import.lock'),
+        [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    foreach ($name in @('stage', 'backup', 'journal.json', 'result.ini')) {
+        if (Test-Path -LiteralPath (Join-Path $JobFolder $name)) {
+            throw 'This Expansion Pack import job already contains data. Start a new import.'
+        }
+    }
+    $jobReady = $true
     Progress 'Checking Expansion Pack download' 5
     AssertGameClosed
     if (![IO.File]::Exists($Package) -and ![IO.Directory]::Exists($Package)) {
@@ -348,7 +372,9 @@ try {
         AssertPlain $target
         $plan += [pscustomobject]@{Source=$asset.Source; Target=$target; Hash=(Sha256 $asset.Source)}
     }
+    $configHash = Sha256 $ConfigFile
     $original = [IO.File]::ReadAllText($ConfigFile)
+    AssertExpectedTarget $ConfigFile $configHash
     if ($original -match '(?m)^\s*config\s*=') { throw 'Nested OpenMW configs are not supported. Select your active user openmw.cfg.' }
     $lines = @($original -split '\r?\n' | Where-Object { $_ -notmatch '^\s*content\s*=\s*"?NP Expansion Pack\.esp"?\s*$' })
     $hasData = $false
@@ -373,8 +399,9 @@ try {
     $script:ImportActivity = 'checking existing files'
     $needed = @($plan | Where-Object { ![IO.File]::Exists($_.Target) -or (Sha256 $_.Target) -ne $_.Hash })
     if (!$needed.Count) {
-        Progress 'Expansion files already match the download' 100
-        Result 'success' 'Selected Expansion Pack files are already installed. Try connecting again.' $JobFolder
+        AssertExpectedTarget $ConfigFile $configHash
+        try { Result 'success' 'Selected Expansion Pack files are already installed. Try connecting again.' $JobFolder } catch {}
+        try { Progress 'Expansion files already match the download' 100 } catch {}
         exit 0
     }
     Progress 'Backing up existing game files' 45
@@ -391,12 +418,14 @@ try {
             CopyWithRetry $item.Target $backup ("backing up file " + ($i + 1) + " of " + $needed.Count)
             if ((Sha256 $backup) -ne $before) { throw 'Backup verification failed.' }
         }
+        if ($item.Target -ieq $ConfigFile -and $before -ne $configHash) {
+            throw 'OpenMW settings changed while TES3NP was preparing the import.'
+        }
         $backups += [pscustomobject]@{Target=$item.Target; Existed=$existing; Backup=$backup; OriginalHash=$before; InstalledHash=$item.Hash}
         $i++
     }
-    $journal = Join-Path $JobFolder 'journal.json'
     $record = [pscustomobject]@{Completed=$false; Package=$Package; Files=$backups}
-    [IO.File]::WriteAllText($journal, ($record | ConvertTo-Json -Depth 5))
+    WriteJobFile 'journal.json' ($record | ConvertTo-Json -Depth 5) ([Text.UTF8Encoding]::new($false))
     $rollbackReady = $true
     for ($i=0; $i -lt $needed.Count; $i++) {
         AssertGameClosed
@@ -409,8 +438,9 @@ try {
         # the same lock would prevent restoring its verified backup.
         # Record successful replacements only, so rollback touches files we
         # actually changed if a later step fails.
-        ReplaceVerified $item.Source $item.Target $item.Hash
-        $changed += $backups[$i]
+        $backupEntry = $backups[$i]
+        ReplaceVerified $item.Source $item.Target $item.Hash $backupEntry.OriginalHash
+        $changed += $backupEntry
     }
     $script:ImportActivity = 'verifying installed files'
     foreach ($item in $plan) {
@@ -419,14 +449,17 @@ try {
         }
     }
     $record.Completed = $true
-    [IO.File]::WriteAllText($journal, ($record | ConvertTo-Json -Depth 5))
-    Progress 'Expansion import complete' 100
-    Result 'success' 'Expansion files installed and backed up. Try joining Nerevarine Prophecies again; only the server can confirm compatibility.' $JobFolder
+    WriteJobFile 'journal.json' ($record | ConvertTo-Json -Depth 5) ([Text.UTF8Encoding]::new($false))
+    # Once the verified install is committed, a status file write cannot undo it.
+    try {
+        Result 'success' 'Expansion files installed and backed up. Try joining Nerevarine Prophecies again; only the server can confirm compatibility.' $JobFolder
+    } catch {}
+    try { Progress 'Expansion import complete' 100 } catch {}
     exit 0
 }
 catch {
-    # Only include a fixed operation description, not machine-specific paths.
-    # This also identifies errors outside the typed file-operations wrapper.
+    if (!$jobReady) { exit 1 }
+    # Attach the current operation before sanitizing the worker error.
     $reason = $_.Exception.GetBaseException().Message + ' [step: ' + $script:ImportActivity + ']'
     $failedRollback = $false
     if ($rollbackReady) {
@@ -434,16 +467,20 @@ catch {
             $script:ImportActivity = "rolling back file $($i + 1) of $($changed.Count)"
             $item = $changed[$i]
             try {
-                if ($item.Existed) { ReplaceVerified $item.Backup $item.Target $item.OriginalHash }
-                elseif ([IO.File]::Exists($item.Target)) { [IO.File]::Delete($item.Target) }
+                if ($item.Existed) {
+                    ReplaceVerified $item.Backup $item.Target $item.OriginalHash $item.InstalledHash
+                } elseif ([IO.File]::Exists($item.Target)) {
+                    AssertExpectedTarget $item.Target $item.InstalledHash
+                    [IO.File]::Delete($item.Target)
+                }
             } catch { $failedRollback = $true }
         }
     }
     if ($rollbackReady) {
         $reason += $(if ($failedRollback) { ' Rollback was incomplete: retain the import job backup.' } else { ' This import was rolled back.' })
     }
-    Progress 'Expansion import failed' 100
     Result 'error' $reason '' (!$failedRollback)
+    try { Progress 'Expansion import failed' 100 } catch {}
     exit 1
 }
 finally {
@@ -459,4 +496,5 @@ finally {
             } catch {}
         }
     }
+    if ($jobLock) { $jobLock.Dispose() }
 }
