@@ -1605,8 +1605,10 @@ expect(
 )
 expect(
     "Expansion Pack Enabled requires real nonempty ESP and current load-order entry",
-    "if !ExpansionPackInstalled(morrowind, config)" in section_between(
+    "ExpansionPackInLoadOrder(config)" in section_between(
         patcher, "ExpansionPackIsEnabled()", "\n}")
+    and "ExpansionPackInstalled(FindMorrowindFolder(config), config)" in patcher
+    and "enable := !ExpansionPackInLoadOrder(cfg)" in patcher
     and "FileGetSize(esp) > 0" in patcher,
 )
 expect(

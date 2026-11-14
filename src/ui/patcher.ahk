@@ -15,7 +15,10 @@ FindMorrowindFolder(config)
     global DataFile
     candidates := [IniRead(DataFile, "Patch", "MorrowindFolder", "")]
     if FileExist(config)
-        for line in StrSplit(FileRead(config, "UTF-8"), "`n", "`r")
+    {
+        configText := ""
+        try configText := FileRead(config, "UTF-8")
+        for line in StrSplit(configText, "`n", "`r")
             if RegExMatch(line, '^\s*data\s*=\s*"?(.+?)"?\s*$', &match)
             {
                 data := RTrim(StrReplace(match[1], "/", "\"), "\")
@@ -23,6 +26,7 @@ FindMorrowindFolder(config)
                 if StrLower(name) = "data files"
                     candidates.Push(parent)
             }
+    }
     for registry in ["HKLM\SOFTWARE\WOW6432Node\Bethesda Softworks\Morrowind", "HKLM\SOFTWARE\Bethesda Softworks\Morrowind"]
         try candidates.Push(RegRead(registry, "Installed Path"))
     steamRoots := [EnvGet("ProgramFiles(x86)") "\Steam", EnvGet("ProgramFiles") "\Steam"]
@@ -116,7 +120,6 @@ CheckPatchWorker()
                 throw Error("Could not verify the installed Expansion Pack ESP after import.")
             IniWrite(installedEsp, DataFile, "ExpansionPack", "VerifiedEspPath")
             IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
-            IniWrite("1", DataFile, "ExpansionPack", "GlobalEnabled")
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
         RefreshExpansionPackToggle()
@@ -184,19 +187,13 @@ CleanupPatcher()
     PatchFrame := 0
 }
 
-SanitizePatchDiagnostic(text)
-{
-    ; Use the same clean-field sanitizer for dialogs and file-backed logs.
-    return SanitizeDiagnosticText(text)
-}
-
 PatchErrorDetails(step, field, err)
 {
-    reason := SanitizePatchDiagnostic(err.Message)
+    reason := SanitizeDiagnosticText(err.Message)
     if reason = ""
         reason := "The operation could not be completed."
     details := "Step: " step "`nField: " field "`nReason: " reason "`nError type: " Type(err)
-    extra := SanitizePatchDiagnostic(err.Extra)
+    extra := SanitizeDiagnosticText(err.Extra)
     if extra != ""
         details .= "`nDetail: " extra
     SplitPath(err.File, &sourceFile)
@@ -207,27 +204,17 @@ PatchErrorDetails(step, field, err)
 
 LogPatchDiagnostic(message)
 {
-    global PatchLogMirrorOffset
-    folder := AppDataDirectory
     try
     {
-        DirCreate(folder)
-        line := FormatTime(, "yyyy-MM-dd HH:mm:ss") " " StrReplace(StrReplace(SanitizePatchDiagnostic(message), "`r", ""), "`n", " | ") "`n"
-        for filename in ["patch-all.log", "patch-errors.log"]
-            FileAppend(line, folder "\" filename, "UTF-8")
-        patchLog := folder "\patch-all.log"
-        if FileGetSize(patchLog) > 2 * 1024 * 1024
-        {
-            ; Mirror pending events before replacing the file behind the byte offset.
-            SyncPatchLogToLauncherLog()
-            if TrimDiagnosticLog(patchLog)
-                PatchLogMirrorOffset := FileGetSize(patchLog)
-        }
-        TrimDiagnosticLog(folder "\patch-errors.log")
+        DirCreate(AppDataDirectory)
+        path := AppDataDirectory "\patch-errors.log"
+        line := FormatTime(, "yyyy-MM-dd HH:mm:ss") " " SanitizeDiagnosticText(message)
+        FileAppend(StrReplace(StrReplace(line, "`r", ""), "`n", " | ") "`n", path, "UTF-8")
+        TrimDiagnosticLog(path)
     }
     catch
     {
-        ; An unwritable diagnostic log must not hide the original error dialog.
+        ; A failed diagnostic write must not hide the original error.
     }
 }
 
@@ -278,14 +265,9 @@ ExpansionPackInstalled(morrowind, config)
     return false
 }
 
-ExpansionPackIsEnabled()
+ExpansionPackInLoadOrder(config)
 {
-    config := PatchConfigurationPath()
     if !FileExist(config)
-        return false
-    ; A stale load-order entry is not proof the optional ESP is installed.
-    morrowind := FindMorrowindFolder(config)
-    if !ExpansionPackInstalled(morrowind, config)
         return false
     try
     {
@@ -294,6 +276,13 @@ ExpansionPackIsEnabled()
                 return true
     }
     return false
+}
+
+ExpansionPackIsEnabled()
+{
+    config := PatchConfigurationPath()
+    return ExpansionPackInLoadOrder(config)
+        && ExpansionPackInstalled(FindMorrowindFolder(config), config)
 }
 
 RefreshExpansionPackToggle()
@@ -319,8 +308,8 @@ ToggleExpansionPack(*)
         MsgBox("Close all TES3MP/OpenMW clients before switching the Expansion Pack. Running games will not be interrupted.", "Expansion Pack")
         return
     }
-    enable := !ExpansionPackIsEnabled()
     cfg := PatchConfigurationPath()
+    enable := !ExpansionPackInLoadOrder(cfg)
     morrowind := FindMorrowindFolder(cfg)
     ; First show the same missing-game prompt used by setup and game launch.
     ; The folder chooser is owned by that prompt; a valid selection resumes
@@ -346,6 +335,7 @@ ToggleExpansionPack(*)
         cfg := selectedConfig
         IniWrite(cfg, DataFile, "Patch", "ConfigFile")
         morrowind := FindMorrowindFolder(cfg)
+        enable := !ExpansionPackInLoadOrder(cfg)
     }
     ; Installed packs may live under Morrowind or any configured OpenMW data folder.
     ; Never copy retired bundled Expansion Pack assets.
@@ -377,9 +367,7 @@ ToggleExpansionPack(*)
     }
     backup := AppDataDirectory "\expansion-backups"
     DirCreate(backup)
-    output := AppDataDirectory "\expansion-toggle-result.txt"
-    if FileExist(output)
-        FileDelete(output)
+    output := AppDataDirectory "\expansion-toggle-result-" NewLauncherFileId() ".txt"
     command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
         . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '"'
         . ' -BackupFolder "' backup '" -ResultFile "' output '"'
@@ -387,12 +375,12 @@ ToggleExpansionPack(*)
     {
         ; Invoke PowerShell directly. cmd.exe nested quoting previously lost
         ; stderr and gave users an empty "was not changed" error.
-        RunWait(command, , "Hide", &exitCode)
+        exitCode := RunWait(command, , "Hide")
         details := FileExist(output) ? SanitizeDiagnosticText(Trim(FileRead(output, "UTF-8"))) : ""
         ; The worker result message alone is not proof of failure or success.
         ; The user's screenshots showed 'Disable complete' incorrectly flagged
         ; as an error. Inspect the actual on-disk OpenMW load order instead.
-        actualEnabled := ExpansionPackIsEnabled()
+        actualEnabled := ExpansionPackInLoadOrder(cfg)
         if actualEnabled != enable
         {
             if details = ""
@@ -404,7 +392,6 @@ ToggleExpansionPack(*)
         }
         if exitCode
             LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state.")
-        IniWrite(enable ? "1" : "0", DataFile, "ExpansionPack", "GlobalEnabled")
         LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
         PruneExpansionToggleBackups(backup)
         RefreshExpansionPackToggle()

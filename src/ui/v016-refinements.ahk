@@ -338,7 +338,7 @@ OpenAppDataSettingsV016(settings, *)
         settings.Add("Text", "x" V016S(42) " y" V016S(166) " w" V016S(428) " h" V016S(96) " BackgroundTrans",
             "Characters and preferences are saved in AppData. Export characters before resetting. If the game crashes, copy Launcher Logs to share the error.")
         AddStyledButton(settings, V016S(32), V016S(268), V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
-        AddStyledButton(settings, V016S(32), V016S(309), V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log", true))
+        AddStyledButton(settings, V016S(32), V016S(309), V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
         settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
         settings.Add("Text", "x" V016S(32) " y" V016S(351) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
         AddStyledButton(settings, V016S(32), V016S(385), V016S(448), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
@@ -385,7 +385,6 @@ CopyExpansionPackLogs(*)
     global AppDataDirectory
     ; Both logs are retained separately on disk. The clipboard gets a
     ; clearly labeled combined report, including any missing-file notices.
-    try SyncPatchLogToLauncherLog()
     report := ""
     found := false
     for filename in ["patch-all.log", "patch-errors.log"]
@@ -421,11 +420,9 @@ CopyExpansionPackLogs(*)
     MsgBox("Expansion Pack diagnostics copied. Review before sharing.", "tes3np — Diagnostics")
 }
 
-CopyAppDataLog(filename, syncLauncher := false, *)
+CopyAppDataLog(filename, *)
 {
     global AppDataDirectory
-    if syncLauncher
-        SyncPatchLogToLauncherLog()
     path := AppDataDirectory "\" filename
     if !FileExist(path)
     {

@@ -21,6 +21,12 @@ CleanupStaleLauncherData()
         if IsOldLauncherFile(path, 1)
             try FileDelete(path)
     }
+    Loop Files root "\expansion-toggle-result-*.txt", "F"
+    {
+        if RegExMatch(A_LoopFileName, "i)^expansion-toggle-result-[0-9a-f]{32}\.txt$")
+            && IsOldLauncherFile(A_LoopFileFullPath, 1)
+            try FileDelete(A_LoopFileFullPath)
+    }
     for suffix in [".import.tmp", ".save.tmp"]
         if IsOldLauncherFile(DataFile suffix, 1)
             try FileDelete(DataFile suffix)

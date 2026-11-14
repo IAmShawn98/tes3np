@@ -34,8 +34,6 @@ expect(not any(line.lstrip().startswith("//") for line in diag.splitlines()),
        "C-style comments in AutoHotkey diagnostic source would break Ahk2Exe")
 expect('SanitizeDiagnosticText(message)' in diag,
        "launcher logger must sanitize before appending")
-expect('LogLauncherEvent("PATCH | " SanitizeDiagnosticText(line))' in diag,
-       "patch mirror must sanitize lines")
 expect('StrReplace(text, profile.Password' in diag,
        "saved passwords must be excluded from diagnostics")
 expect('StrReplace(text, profile.Name' not in diag,
@@ -63,9 +61,8 @@ expect('"game-chat.log"' not in diag and '"game-chat-index.json"' not in diag,
        "private Discord archive must not be modified by log cleanup")
 start = bootstrap.index("    LoadProfiles()")
 scrub = bootstrap.index("    SanitizeExistingDiagnosticLogs()", start)
-mirror = bootstrap.index("    InitializePatchLogMirror()", scrub)
-chatstart = bootstrap.index("    SetTimer(StartEmbeddedInGameChat", mirror)
-expect(start < scrub < mirror < chatstart,
+chatstart = bootstrap.index("    SetTimer(StartEmbeddedInGameChat", scrub)
+expect(start < scrub < chatstart,
        "privacy scrub must follow profile loading and precede ChatHost")
 expect('content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))' in settings
        and 'report .= SanitizeDiagnosticText(content)' in settings
@@ -96,7 +93,8 @@ expect('LogLauncherEvent("GAME | SUCCESS | Login completed | Character: "' in se
        "public in-game character names must remain")
 expect('LogLauncherEvent("GAME | ERROR | Client launch/login exception: " err.Message' not in session,
        "raw session exception details must not be logged")
-expect('return SanitizeDiagnosticText(text)' in patcher,
+expect('SanitizeDiagnosticText(err.Message)' in patcher
+       and 'SanitizeDiagnosticText(message)' in patcher,
        "patch diagnostics must reuse common cleaner")
 expect('detail := "Error type: " Type(err)' in loading,
        "renderer error log must not record raw exception paths")
