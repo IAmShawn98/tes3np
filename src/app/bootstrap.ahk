@@ -289,12 +289,13 @@ SendLauncherChatCommand(command, targetHwnd := 0)
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
-    global LauncherUpdateButton, LauncherVersionLabel, LauncherUpdateAvailable, LauncherUpdateDismissedVersion
+    global AppConfig, LauncherUpdateButton, LauncherVersionLabel, LauncherUpdateAvailable, LauncherUpdateDismissedVersion
     LauncherUpdateAvailable := isAvailable
     if !IsObject(LauncherUpdateButton) || !IsObject(LauncherVersionLabel)
         return
     if LauncherUpdateAvailable && latestVersion != "" {
-        LauncherUpdateButton.Text := "Preview Latest v" latestVersion " Update!"
+        kind := GetLauncherUpdateKind(AppConfig.Version, latestVersion)
+        LauncherUpdateButton.Text := kind = "hotfix" ? "Hotfix available" : "Preview Latest v" latestVersion " Update!"
         DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
     }
     showUpdate := LauncherUpdateAvailable && latestVersion != LauncherUpdateDismissedVersion

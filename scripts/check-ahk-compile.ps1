@@ -49,6 +49,34 @@ $base = Get-ChildItem -LiteralPath $ahkRoot -Recurse -Filter 'AutoHotkey64.exe' 
 $compiler = Get-ChildItem -LiteralPath $compilerRoot -Recurse -Filter 'Ahk2Exe.exe' -File | Select-Object -First 1 -ExpandProperty FullName
 if (!$base -or !$compiler) { throw 'Verified AutoHotkey tools were not extracted.' }
 
+Write-Host 'Testing the production AutoHotkey updater parser with generated metadata.'
+$metadataTest = Join-Path $projectRoot 'scripts/test-update-metadata.ahk'
+$generator = Join-Path $projectRoot 'scripts/generate-update-metadata.ps1'
+$manifest = Join-Path $work 'channel-metadata.json'
+$state = Get-Content -LiteralPath (Join-Path $projectRoot 'src/state.ahk') -Raw -Encoding UTF8
+$version = [regex]::Match($state, 'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value
+$package = Join-Path $work "tes3np-v$version-windows.zip"
+[IO.File]::WriteAllBytes($package, [byte[]](1,2,3,4,5,6,7,8))
+Push-Location $projectRoot
+try {
+    & $generator -ChannelFeed -PackagePath $package -ManifestPath $manifest
+}
+finally {
+    Pop-Location
+}
+$metadataOut = Join-Path $work 'metadata-stdout.txt'
+$metadataErr = Join-Path $work 'metadata-stderr.txt'
+$metadataArgs = "/ErrorStdOut `"$metadataTest`" `"$manifest`" $version"
+$metadataProbe = Start-Process -FilePath $base -ArgumentList $metadataArgs -PassThru -RedirectStandardOutput $metadataOut -RedirectStandardError $metadataErr
+if (!$metadataProbe.WaitForExit(30000)) {
+    try { $metadataProbe.Kill() } catch {}
+    throw 'AutoHotkey updater metadata test timed out.'
+}
+Get-Content $metadataOut, $metadataErr | ForEach-Object { Write-Host $_ }
+if ($metadataProbe.ExitCode -ne 0) {
+    throw "AutoHotkey updater metadata test failed with code $($metadataProbe.ExitCode)."
+}
+
 $launcher = Join-Path $projectRoot 'tes3np.ahk'
 Write-Host 'Parsing complete AutoHotkey launcher (no game or UI startup).'
 $parseStdout = Join-Path $work 'parse-stdout.txt'
