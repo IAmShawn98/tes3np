@@ -70,11 +70,19 @@ if ($parse.ExitCode -ne 0 -or $output -match '(?i)Warning:|appears to never be a
 
 Write-Host 'Testing Expansion Pack version and plugin mismatch diagnostics.'
 $fixture = Join-Path $projectRoot 'scripts\test-expansion-diagnostics.ahk'
-$fixtureOutput = @(& $base /ErrorStdOut $fixture 2>&1)
-$fixtureExit = $LASTEXITCODE
+$fixtureStdout = Join-Path $work 'expansion-fixture-stdout.txt'
+$fixtureStderr = Join-Path $work 'expansion-fixture-stderr.txt'
+$fixtureProcess = Start-Process -FilePath $base -WorkingDirectory $projectRoot `
+    -ArgumentList ('/ErrorStdOut "' + $fixture + '"') -PassThru `
+    -RedirectStandardOutput $fixtureStdout -RedirectStandardError $fixtureStderr
+if (!$fixtureProcess.WaitForExit(30000)) {
+    try { $fixtureProcess.Kill() } catch {}
+    throw 'Expansion Pack diagnostics timed out.'
+}
+$fixtureOutput = @(Get-Content -LiteralPath $fixtureStdout, $fixtureStderr)
 $fixtureOutput | ForEach-Object { Write-Host $_ }
-if ($fixtureExit -ne 0 -or $fixtureOutput -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
-    throw "Expansion Pack diagnostics failed with exit code $fixtureExit."
+if ($fixtureProcess.ExitCode -ne 0 -or $fixtureOutput -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
+    throw "Expansion Pack diagnostics failed with exit code $($fixtureProcess.ExitCode)."
 }
 Write-Host 'PASS: Expansion Pack version and plugin mismatch diagnostics.'
 
