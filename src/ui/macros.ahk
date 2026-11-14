@@ -108,6 +108,12 @@ HideMacroBookPanel()
         try control.Visible := false
 }
 
+MacroProcessRunning(item)
+{
+    return item.ProcessHandle
+        && DllCall("WaitForSingleObject", "Ptr", item.ProcessHandle, "UInt", 0, "UInt") = 258
+}
+
 MacroItemDisplayState(item)
 {
     if item.Kind = "App" && !ValidMacroApplication(item)
@@ -116,7 +122,7 @@ MacroItemDisplayState(item)
         return {Text: "Script missing", Error: true}
     if item.HasOwnProp("LastError") && item.LastError != ""
         return {Text: item.LastError, Error: true}
-    if item.PID && ProcessExist(item.PID)
+    if MacroProcessRunning(item)
         return {Text: "Running", Error: false}
     return {Text: "Ready", Error: false}
 }
@@ -168,7 +174,7 @@ RefreshMacroBookRows()
                 : "s" Max(7, BookS(9)) " c241408", LauncherMorrowindFont)
             itemRow.StatusError := state.Error
         }
-        running := item.PID && ProcessExist(item.PID)
+        running := MacroProcessRunning(item)
         missing := !ValidMacroApplication(item)
             || (item.Kind != "App" && !ValidMacroEntry(item.Folder, item.Entry))
         canRun := !missing && !running && !busy
@@ -511,11 +517,13 @@ LoadMacroPackages()
     global MacroRoot, MacroItems, MacroList, MacroScrollOffset
     MacroScrollOffset := 0
     DirCreate(MacroRoot)
-    ; Preserve existing tracked process IDs when the book window is rebuilt.
+    ; Transfer process handles when the character book is rebuilt.
     tracked := Map()
     for item in MacroItems
-        if item.PID && ProcessExist(item.PID)
-            tracked[item.Folder] := item.PID
+        if MacroProcessRunning(item)
+            tracked[item.Folder] := item.ProcessHandle
+        else if item.ProcessHandle
+            DllCall("CloseHandle", "Ptr", item.ProcessHandle)
     MacroItems := []
     MacroList.Delete()
     Loop Files MacroRoot "\*", "D"
@@ -531,13 +539,15 @@ LoadMacroPackages()
             continue
         name := IniRead(metadata, "Macro", "Name", "Macro")
         description := IniRead(metadata, "Macro", "Description", "")
-        pid := tracked.Has(folder) ? tracked[folder] : 0
+        handle := tracked.Has(folder) ? tracked.Delete(folder) : 0
         item := {Folder: folder, Entry: entry, Name: name, Description: description,
-            Kind: kind, Target: target, PID: pid}
+            Kind: kind, Target: target, ProcessHandle: handle}
         MacroItems.Push(item)
         MacroList.Add(, name, kind = "App" && !ValidMacroApplication(item) ? "Missing"
-            : (pid ? "Running" : "Ready"), MacroTypeLabel(item))
+            : (handle ? "Running" : "Ready"), MacroTypeLabel(item))
     }
+    for folder, handle in tracked
+        DllCall("CloseHandle", "Ptr", handle)
     ; Make the first installed tool immediately available for Run.
     if MacroItems.Length
         MacroList.Modify(1, "Select Focus")
@@ -732,7 +742,7 @@ AddImportedMacro(folder, name, description, entry, kind := "Macro", target := ""
     try
     {
         MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
-            Kind: kind, Target: target, PID: 0})
+            Kind: kind, Target: target, ProcessHandle: 0})
         row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
         MacroList.Modify(row, "Select Focus")
         MacroScrollOffset := Max(0, row - 4)
@@ -819,7 +829,7 @@ RunSelectedMacro(*)
     if !row || row > MacroItems.Length || IsObject(MacroImport)
         return
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if MacroProcessRunning(macro)
         return
     if !ValidMacroApplication(macro)
         || (macro.Kind != "App" && !ValidMacroEntry(macro.Folder, macro.Entry))
@@ -850,7 +860,22 @@ RunSelectedMacro(*)
             ; Macro-specific shortcuts and settings belong to the script.
             Run('"' interpreter '" "' entry '"', directory, , &pid)
         }
-        macro.PID := pid
+        if macro.ProcessHandle
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
+        ; SYNCHRONIZE and PROCESS_TERMINATE bind Stop to this exact process.
+        macro.ProcessHandle := DllCall("OpenProcess", "UInt", 0x100001, "Int", 0, "UInt", pid, "Ptr")
+        if !macro.ProcessHandle
+        {
+            if ProcessExist(pid)
+            {
+                macro.LastError := "Process tracking unavailable"
+                RefreshMacroButtons()
+                return
+            }
+            macro.LastError := ""
+            RefreshMacroButtons()
+            return
+        }
         macro.LastError := ""
         MacroList.Modify(row, , macro.Name, "Running", MacroTypeLabel(macro))
         MacroStatus.Text := "Started " macro.Name "."
@@ -878,10 +903,9 @@ StopSelectedMacro(*)
     if !row || row > MacroItems.Length
         return
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if MacroProcessRunning(macro)
     {
-        try ProcessClose(macro.PID)
-        catch
+        if !DllCall("TerminateProcess", "Ptr", macro.ProcessHandle, "UInt", 0)
         {
             MacroStatus.Text := "Could not stop " macro.Name "."
             RefreshMacroButtons()
@@ -898,9 +922,10 @@ RefreshMacroProcesses()
     if !IsObject(MacroList)
         return
     for row, macro in MacroItems
-        if macro.PID && !ProcessExist(macro.PID)
+        if macro.ProcessHandle && !MacroProcessRunning(macro)
         {
-            macro.PID := 0
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
+            macro.ProcessHandle := 0
             MacroList.Modify(row, , macro.Name,
                 ValidMacroApplication(macro) ? "Ready" : "Missing", MacroTypeLabel(macro))
         }
@@ -914,7 +939,7 @@ RemoveSelectedMacro(*)
     if !row || row > MacroItems.Length
         return
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if MacroProcessRunning(macro)
         return
     if MsgBox("Remove " macro.Name " from Installed Macros? This does not uninstall linked applications.", "Remove macro / app", 0x124) != "Yes"
         return
@@ -930,6 +955,8 @@ RemoveSelectedMacro(*)
     {
         if IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = macro
             MacroNameEdit.EditingItem := 0
+        if macro.ProcessHandle
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
         MacroItems.RemoveAt(row)
         MacroList.Delete(row)
         if MacroItems.Length
@@ -956,8 +983,15 @@ CleanupMacros()
     ; Macro scripts remain launcher-owned; linked apps should remain running
     ; if the user closes TES3NP instead of being forcibly terminated.
     for macro in MacroItems
-        if macro.Kind != "App" && macro.PID && ProcessExist(macro.PID)
-            try ProcessClose(macro.PID)
+    {
+        if macro.Kind != "App" && MacroProcessRunning(macro)
+            DllCall("TerminateProcess", "Ptr", macro.ProcessHandle, "UInt", 0)
+        if macro.ProcessHandle
+        {
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
+            macro.ProcessHandle := 0
+        }
+    }
     ; CharacterPage owns the shared UI. Do not destroy it here.
     if IsObject(MacroPage) && MacroPage != CharacterPage
         MacroPage.Destroy()

@@ -25,7 +25,8 @@ set "BUILD_STAGE=Extracting validated distribution ZIP"
 mkdir "%PACKAGE%" >nul 2>&1
 if errorlevel 1 goto :failed
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%~dp0dist\tes3np-windows.zip' -DestinationPath '%PACKAGE%' -Force"
+set "TES3NP_BUILD_ZIP=%~dp0dist\tes3np-windows.zip"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath $env:TES3NP_BUILD_ZIP -DestinationPath $env:PACKAGE -Force"
 if errorlevel 1 goto :failed
 
 if not exist "%PACKAGE%\tes3np.exe" (

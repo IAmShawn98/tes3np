@@ -116,7 +116,7 @@ CleanupStaleLauncherData()
             if folder != ""
                 keep.Push(folder)
         }
-        PruneLauncherCache(root "\client-cache", "i)^(merged-)?[0-9a-f]{8}$", ".ready", keep, 30)
+        PruneLauncherCache(root "\client-cache", "i)^(merged-)?[0-9a-f]{8}(-[0-9a-f]{32})?$", ".ready", keep, 30)
     }
 }
 

@@ -488,6 +488,7 @@ CleanupLauncher(*)
         LogLauncherEvent("Launcher shutting down.")
     }
     StopClient()
+    ReleaseTES3NPGameClients()
     DisposeGameLoginProgress()
     DisposeHappyHourJiub()
     StopEmbeddedInGameChat()

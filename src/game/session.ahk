@@ -1,39 +1,33 @@
-﻿; Single-client login, sequential launches and crash recovery.
+﻿; Serialized login and tracking of launched game clients.
 
 ; Track successfully launched clients without retaining credentials or HWNDs.
-global TES3NPActiveGamePids := []
+global TES3NPActiveGameHandles := []
 
 CountTES3NPGameClients()
 {
-    global TES3NPActiveGamePids, Client
+    global TES3NPActiveGameHandles, Client
     live := []
-    for pid in TES3NPActiveGamePids
-        if pid && ProcessExist(pid)
-            live.Push(pid)
-    TES3NPActiveGamePids := live
-    ; A game still undergoing automated login also occupies a slot.
-    if IsObject(Client) && Client.Enabled && Client.PID && ProcessExist(Client.PID)
+    count := 0
+    for handle in TES3NPActiveGameHandles
     {
-        found := false
-        for pid in live
-            if pid = Client.PID
-                found := true
-        if !found
-            return live.Length + 1
+        running := DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 0, "UInt") = 258
+        if running
+            count += 1
+        if running || (Client.Enabled && Client.ProcessHandle = handle)
+            live.Push(handle)
+        else
+            DllCall("CloseHandle", "Ptr", handle)
     }
-    return live.Length
+    TES3NPActiveGameHandles := live
+    return count
 }
 
-RememberTES3NPGameClient(pid)
+ReleaseTES3NPGameClients()
 {
-    global TES3NPActiveGamePids
-    if !pid
-        return
-    CountTES3NPGameClients()
-    for existing in TES3NPActiveGamePids
-        if existing = pid
-            return
-    TES3NPActiveGamePids.Push(pid)
+    global TES3NPActiveGameHandles
+    for handle in TES3NPActiveGameHandles
+        DllCall("CloseHandle", "Ptr", handle)
+    TES3NPActiveGameHandles := []
 }
 
 CanStartAnotherTES3NPGame()
@@ -113,9 +107,6 @@ StartProfileSession(profile, executable)
     source := IsObject(profile) ? "Manual character" : "New Adventure"
     profileName := IsObject(profile) ? profile.Name : "New Adventure"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
-    ; Release any retained process handle before replacing the Client record.
-    if IsObject(Client) && Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
-        DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
     LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
     global DataFile
     LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled"))
@@ -141,11 +132,6 @@ StopClient(*)
     phase := Client.Phase
     Client.Enabled := false
     Client.Phase := "stopped"
-    if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
-    {
-        DllCall("CloseHandle", "Ptr", Client.ProcessHandle)
-        Client.ProcessHandle := 0
-    }
     SetTimer(ClientTick, 0)
     ; Saved LoadDelay may be only one second. Keep the already-completed
     ; three-second visual alive when the successful manual watchdog ends.
@@ -158,7 +144,8 @@ StopClient(*)
         ; down the native always-on-top card, not merely clear its state.
         DisposeGameLoginProgress()
     }
-    ToolTip(, , , 1)
+    Client.Profile := 0
+    Client.ProcessHandle := 0
     if wasEnabled
         LogLauncherEvent("GAME | Recovery stopped | Previous phase: " phase ".")
 }
@@ -167,12 +154,11 @@ FindGameWindow(pid)
 {
     for hwnd in WinGetList("ahk_pid " pid)
     {
-        className := WinGetClass("ahk_id " hwnd)
-        if className = "ConsoleWindowClass" || InStr(className, "Terminal")
+        ; The window can disappear while the process is closing.
+        try className := WinGetClass("ahk_id " hwnd)
+        catch
             continue
-        if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
-            continue
-        if !InStr(className, "SDL")
+        if !InStr(className, "SDL") || !DllCall("IsWindowVisible", "Ptr", hwnd)
             continue
         return hwnd
     }
@@ -189,9 +175,10 @@ EndClientMonitoring(reason)
 
 ClientTick()
 {
-    global Client, DataFile
+    global Client, DataFile, TES3NPActiveGameHandles
     if !Client.Enabled
         return
+    session := Client
     try
     {
         if Client.Phase = "launch"
@@ -205,20 +192,29 @@ ClientTick()
             LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " (IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure") " | Phase: " Client.Phase ".")
             if !ValidateSelectedClientRuntime(Client.Executable)
                 throw Error("Selected TES3MP runtime is incomplete.")
-            ; Also protect recovery retries, not just manually initiated launches.
-            ; Missing GOTY is a setup requirement, not a crash to auto-retry.
+            ; Recheck the game files immediately before starting the process.
             if !EnsureMorrowindForGameLaunch()
             {
-                StopClient()
+                if Client = session
+                    StopClient()
                 return
             }
+            if Client != session || !Client.Enabled
+                return
             SplitPath(Client.Executable, , &workingDirectory)
             Client.LogWatch := CaptureTES3MPLogBaseline()
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
-            ; Keep a process handle so Windows retains the real exit code even
-            ; after the process disappears from ProcessExist().
-            Client.ProcessHandle := DllCall("OpenProcess", "UInt", 0x1000, "Int", 0, "UInt", pid, "Ptr")
+            ; Keep a handle for the lifetime of the launched process, including
+            ; after the login controller has stopped watching it.
+            handle := DllCall("OpenProcess", "UInt", 0x101001, "Int", 0, "UInt", pid, "Ptr")
+            if !handle
+                handle := DllCall("OpenProcess", "UInt", 0x101000, "Int", 0, "UInt", pid, "Ptr")
+            if handle
+            {
+                Client.ProcessHandle := handle
+                TES3NPActiveGameHandles.Push(handle)
+            }
             Client.Phase := "window"
             Client.Deadline := A_TickCount + AppConfig.GameWindowWaitMs
             LogLauncherEvent("GAME | TES3MP process started | PID: " pid ".")
@@ -227,7 +223,10 @@ ClientTick()
         ; existing client watchdog, not a parallel reconnect or polling timer.
         if Client.Phase != "launch" && CheckTES3MPPluginMismatch()
             return
-        if !ProcessExist(Client.PID)
+        running := Client.ProcessHandle
+            ? DllCall("WaitForSingleObject", "Ptr", Client.ProcessHandle, "UInt", 0, "UInt") = 258
+            : ProcessExist(Client.PID)
+        if !running
         {
             ; A rejected client may exit before its last log writes are flushed.
             ; Keep the existing watchdog alive briefly to capture only NEW
@@ -242,7 +241,7 @@ ClientTick()
             ; A closed or crashed client terminates this single monitored login.
             codeText := "unavailable"
             exitCode := -1
-            if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
+            if Client.ProcessHandle
             {
                 resultCode := Buffer(4, 0)
                 if DllCall("GetExitCodeProcess", "Ptr", Client.ProcessHandle, "Ptr", resultCode)
@@ -283,7 +282,6 @@ ClientTick()
                 {
                     Client.Phase := "playing"
                     Client.Deadline := A_TickCount + 15000
-                    RememberTES3NPGameClient(Client.PID)
                     LogLauncherEvent("GAME | SUCCESS | Game session started for new adventure.")
                 }
                 else
@@ -331,7 +329,6 @@ ClientTick()
         if Client.Phase = "loading"
         {
             Client.Phase := "playing"
-            RememberTES3NPGameClient(Client.PID)
             LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
             ; Completed manual logins no longer hold the one-at-a-time login
             ; watchdog. Keep the game running and allow another launch.
@@ -342,43 +339,47 @@ ClientTick()
         WinActivate("ahk_id " hwnd)
         if !WinWaitActive("ahk_id " hwnd, , 2)
             throw Error("Could not focus game window")
-        if Client.Phase = "username"
+        ; The tray stop action can run while WinWaitActive is waiting.
+        previousCritical := A_IsCritical
+        Critical("On")
+        try
         {
-            SetGameLoginProgressStage(2)
-            LogLauncherEvent("GAME | Login stage | Entering username.")
-            SendText(Client.Profile.Name)
-            Send("{Enter}")
-            SetGameLoginProgressStage(3)
-            Client.Phase := "password"
-            Client.Deadline := A_TickCount + Client.PasswordDelay * 1000
+            if Client != session || !Client.Enabled || Client.HWND != hwnd
+                return
+            if !WinActive("ahk_id " hwnd)
+                return
+            if Client.Phase = "username"
+            {
+                SetGameLoginProgressStage(2)
+                LogLauncherEvent("GAME | Login stage | Entering username.")
+                SendText(Client.Profile.Name)
+                Send("{Enter}")
+                SetGameLoginProgressStage(3)
+                Client.Phase := "password"
+                Client.Deadline := A_TickCount + Client.PasswordDelay * 1000
+            }
+            else if Client.Phase = "password"
+            {
+                SetGameLoginProgressStage(4)
+                LogLauncherEvent("GAME | Login stage | Entering password.")
+                SendText(Client.Profile.Password)
+                Send("{Enter}")
+                ; Finish only the visual. The saved LoadDelay and recovery continue.
+                CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
+                Client.Phase := "loading"
+                Client.Deadline := A_TickCount + Client.LoadDelay * 1000
+            }
         }
-        else if Client.Phase = "password"
-        {
-            SetGameLoginProgressStage(4)
-            LogLauncherEvent("GAME | Login stage | Entering password.")
-            SendText(Client.Profile.Password)
-            Send("{Enter}")
-            ; Finish only the visual. The saved LoadDelay and recovery continue.
-            CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
-            Client.Phase := "loading"
-            Client.Deadline := A_TickCount + Client.LoadDelay * 1000
-        }
-        else
-        {
-            Client.Phase := "playing"
-            RememberTES3NPGameClient(Client.PID)
-            LogLauncherEvent("GAME | SUCCESS | Login state completed.")
-            StopClient()
-        }
+        finally Critical(previousCritical)
     }
     catch Error as err
     {
+        if Client != session || !Client.Enabled
+            return
         ; If Run() succeeded and a later launch/login step failed, do not leave
         ; the TES3MP process orphaned after recovery monitoring stops.
-        failedPid := Client.HasOwnProp("PID") ? Client.PID : 0
-        if failedPid && ProcessExist(failedPid)
-            try ProcessClose(failedPid)
-        Client.LaunchIssued := false
+        if Client.ProcessHandle
+            DllCall("TerminateProcess", "Ptr", Client.ProcessHandle, "UInt", 0)
         LogLauncherEvent("GAME | ERROR | Client launch/login exception type: " Type(err) ".")
         failedToStart := Client.Phase = "launch" || Client.Phase = "window"
         EndClientMonitoring("Client launch or login failed")
@@ -392,7 +393,7 @@ StartNewAdventure(*)
 {
     if !CanUseNPLauncher()
         return
-    global Client, DataFile
+    global Client
     if Client.Enabled
     {
         LogLauncherEvent("GAME | BLOCKED | New Adventure requested while another monitored session is active.")

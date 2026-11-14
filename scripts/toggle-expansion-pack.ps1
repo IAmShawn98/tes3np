@@ -69,12 +69,15 @@ try{
  $backup=Join-Path $BackupFolder ('openmw-'+[datetime]::UtcNow.ToString('yyyyMMddHHmmssfff')+'.cfg')
  [IO.File]::Copy($ConfigFile,$backup,$false)
  $new=($lines -join [Environment]::NewLine).TrimEnd()+[Environment]::NewLine
- $temp=$ConfigFile+'.tes3np-pending'
+ $temp=$ConfigFile+'.tes3np-'+[Guid]::NewGuid().ToString('N')+'.tmp'
  try{
   [IO.File]::WriteAllText($temp,$new,[Text.UTF8Encoding]::new($false))
   # File.Replace requires a valid backup path on Windows; null triggers
   # "The path is not of a legal form." Use our already-created, unique
   # backup file as the replacement backup, retaining rollback protection.
+  if ([IO.File]::ReadAllText($ConfigFile) -cne $old) {
+   throw 'The OpenMW configuration changed while TES3NP was preparing the toggle. Try again.'
+  }
   [IO.File]::Replace($temp,$ConfigFile,$backup)
  }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Force}}
  if($ResultFile){[IO.File]::WriteAllText($ResultFile,('Expansion Pack '+$Action+' complete.'),[Text.Encoding]::UTF8)}
