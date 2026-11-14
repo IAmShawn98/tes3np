@@ -355,23 +355,57 @@ TES3MPExpansionStartDiscoveredZip(slot, status)
         return
     if ExpansionMismatchMode = "Update"
     {
+        ; Claim the offer before the confirmation yields to Discord events.
+        ExpansionAutoDownloadAttempted := true
+        dialog := ExpansionMismatchDialog
         attachment := TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
         if attachment = "" || attachment == ExpansionLastAutomaticUpdateAttachment
             || ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
-            return
-        ExpansionAutoCloaked := TES3MPExpansionCloakDialog(ExpansionMismatchDialog, true)
-        if !ExpansionAutoCloaked || !TES3MPExpansionBeginNativeProgress()
         {
-            TES3MPExpansionRevealRepair("Automatic download is unavailable. Download or install the ZIP manually.")
+            TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")
             return
         }
-        ExpansionLastAutomaticUpdateAttachment := attachment
-        LogLauncherEvent("EXPANSION | Updating enabled Expansion Pack after login rejection.")
+        SplitPath(attachment, &zipName)
+        try
+        {
+            if TES3MPExpansionCallNativeUi("ShowExpansionInstallPrompt",
+                TES3MPExpansionDecideUpdate.Bind(dialog, slot, attachment), SubStr(StrReplace(zipName, "%20", " "), 1, 68))
+                return
+        }
+        TES3MPExpansionRevealRepair("Automatic download is unavailable. Download or install the ZIP manually.")
+        return
     }
     else if ExpansionMismatchMode != "Install" || !IsObject(ExpansionAutoProgressFrame)
         return
     ExpansionAutoDownloadAttempted := true
     TES3MPExpansionRequestAutoInstall(slot, status)
+}
+
+TES3MPExpansionDecideUpdate(dialog, slot, attachment, approved)
+{
+    global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchStatus
+    global ExpansionAutoCloaked, ExpansionLastAutomaticUpdateAttachment
+    if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
+        || slot != ExpansionMismatchSlot || !IsObject(ExpansionMismatchStatus)
+        return
+    if !approved || attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
+    {
+        TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")
+        return
+    }
+    if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+    {
+        TES3MPExpansionRevealRepair("Close running TES3MP/OpenMW games before installing the Expansion Pack.")
+        return
+    }
+    if !ExpansionAutoCloaked || !TES3MPExpansionBeginNativeProgress()
+    {
+        TES3MPExpansionRevealRepair("Automatic download is unavailable. Download or install the ZIP manually.")
+        return
+    }
+    ExpansionLastAutomaticUpdateAttachment := attachment
+    LogLauncherEvent("EXPANSION | User approved updating the enabled Expansion Pack.")
+    TES3MPExpansionRequestAutoInstall(slot, ExpansionMismatchStatus)
 }
 
 TES3MPExpansionAttachmentPath(url)
@@ -413,8 +447,9 @@ TES3MPExpansionDiscoveryDeadline(dialog)
     global ExpansionMismatchDialog, ExpansionMismatchMode
     global ExpansionAutoDownloadAttempted, ExpansionAutoProgressFrame
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
-        || ExpansionMismatchMode != "Install" || ExpansionAutoDownloadAttempted
-        || !IsObject(ExpansionAutoProgressFrame)
+        || ExpansionAutoDownloadAttempted
+        || (ExpansionMismatchMode != "Update"
+            && (ExpansionMismatchMode != "Install" || !IsObject(ExpansionAutoProgressFrame)))
         return
     TES3MPExpansionRevealRepair("Official ZIP discovery timed out. Retry or choose Repair / Install ZIP.")
 }
@@ -466,6 +501,7 @@ RequestDiscordExpansionPrompt(mode := 2)
 DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
 {
     global LauncherGui, EmbeddedChatPid, ExpansionDiscordPromptPending, ExpansionMismatchStatus
+    global ExpansionMismatchMode, ExpansionAutoCloaked
     if (!IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
         || !ExpansionDiscordPromptPending
         || (wParam != 0 && wParam != ExpansionDiscordPromptPending))
@@ -492,7 +528,9 @@ DiscordExpansionPromptReady(wParam, lParam, msg, hwnd)
     if wParam = 0
     {
         LogLauncherEvent("EXPANSION | Discord download prompt cancelled before authentication.")
-        if IsObject(ExpansionMismatchStatus)
+        if ExpansionMismatchMode = "Update" && ExpansionAutoCloaked
+            TES3MPExpansionRevealRepair("Discord sign-in was closed. Click Connect / Retry to try again.")
+        else if IsObject(ExpansionMismatchStatus)
             ExpansionMismatchStatus.Text := "Discord sign-in was closed. Click Connect / Retry to try again."
         return 0
     }
@@ -506,8 +544,8 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     global ExpansionMismatchFileButton, ExpansionMismatchDownloadSlot, ExpansionMismatchStatus
     global ExpansionMismatchAuthenticated, ExpansionMismatchMode, ExpansionAutoDownloadActive, ExpansionAutoDownloadAttempted
     global ExpansionAutoCloaked, ExpansionAutoProgressFrame
-    ; Never hide the diagnostic behind Discord authentication. The native
-    ; dialog is useful immediately; only the official download is gated.
+    ; Manual diagnostics are immediately available for failures unrelated to
+    ; the pack. An update candidate reveals them only if its offer cannot finish.
     if IsObject(ExpansionMismatchDialog)
     {
         try
@@ -515,7 +553,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
             if DllCall("IsWindow", "Ptr", ExpansionMismatchDialog.Hwnd)
             {
                 ExpansionMismatchDialog.Show()
-                if !IsObject(ExpansionAutoProgressFrame)
+                if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)
                     try WinActivate("ahk_id " ExpansionMismatchDialog.Hwnd)
                 if authConfirmed
                 {
@@ -523,8 +561,12 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
                     if IsObject(ExpansionMismatchStatus)
                         ExpansionMismatchStatus.Text := "Game Chat connected. Finding the latest official ZIP..."
                     if !SendLauncherChatCommand(6, ExpansionMismatchSlot)
-                        && IsObject(ExpansionMismatchStatus)
-                        ExpansionMismatchStatus.Text := "Download preview unavailable. Click Connect / Retry."
+                    {
+                        if ExpansionMismatchMode = "Update" && ExpansionAutoCloaked
+                            TES3MPExpansionRevealRepair("Download preview unavailable. Click Connect / Retry.")
+                        else if IsObject(ExpansionMismatchStatus)
+                            ExpansionMismatchStatus.Text := "Download preview unavailable. Click Connect / Retry."
+                    }
                 }
                 return
             }
@@ -621,14 +663,14 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     dialog.OnEvent("Escape", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     ; The dialog is merely a WebView2 host during successful automatic mode.
     ; Cloak BEFORE Show: no desktop flash and no need to hide the live browser.
-    cloaked := mode = "Install" && TES3MPExpansionCloakDialog(dialog, true)
+    cloaked := (mode = "Install" || mode = "Update") && TES3MPExpansionCloakDialog(dialog, true)
     dialog.Show("w660 h627")
     ExpansionMismatchDialog := dialog
     ExpansionMismatchSlot := downloadSlot.Hwnd
     if cloaked
     {
         ExpansionAutoCloaked := true
-        if TES3MPExpansionBeginNativeProgress()
+        if mode = "Update" || TES3MPExpansionBeginNativeProgress()
             SetTimer((*) => TES3MPExpansionDiscoveryDeadline(dialog), -60000)
         else
         {
@@ -646,7 +688,11 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
                 "The automatic download display could not be initialized."), -60)
         }
         else
+        {
+            if mode = "Update"
+                ExpansionAutoDownloadAttempted := true
             try WinActivate("ahk_id " dialog.Hwnd)
+        }
     }
     ; Attach the Discord browser only after ChatHost confirms authentication.
     if authConfirmed
@@ -654,8 +700,8 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
         if !SendLauncherChatCommand(6, downloadSlot.Hwnd)
             nativeStatus.Text := "Download preview unavailable. Click Connect / Retry."
     }
-    else
-        RequestDiscordExpansionPrompt(installing ? 1 : 2)
+    else if !RequestDiscordExpansionPrompt(installing ? 1 : 2) && mode = "Update" && ExpansionAutoCloaked
+        TES3MPExpansionRevealRepair(nativeStatus.Text)
 }
 
 CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
