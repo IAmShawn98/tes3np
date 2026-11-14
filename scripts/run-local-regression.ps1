@@ -50,7 +50,11 @@ try {
     }
     Run-OfflineTest 'Isolated updater transaction and rollback fixtures' $pwsh.Source (Join-Path $PSScriptRoot 'test-updater-transaction.ps1')
 
-    Write-Host 'PASS | Offline build + updater fixture pass complete. Interactive Windows regression remains separate.' -ForegroundColor Green
+    if ($SkipBuild) {
+        Write-Host 'PASS | Offline updater fixtures complete. Build skipped.' -ForegroundColor Green
+    } else {
+        Write-Host 'PASS | Windows build and offline updater fixtures complete.' -ForegroundColor Green
+    }
     if (!$NoLaunch) {
         $launcher = Join-Path $root 'tes3np.exe'
         if (!(Test-Path -LiteralPath $launcher -PathType Leaf)) {

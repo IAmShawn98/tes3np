@@ -388,3 +388,16 @@ this repository.
   for native AutoHotkey, COM, WebView2, live gameplay and the complete
   package and payload checks. The second-PC upgrade follows a passing
   dev-PC run.
+
+## First dev-PC build
+
+- The dev PC pulled `3667538`. The payload hash, static and privacy checks,
+  Expansion Pack import and toggle fixtures, and native picker COM smoke
+  test passed. Chat Host compilation stopped with CS1503 because the
+  Expansion Pack WebView event handler's sender was named `_`, making
+  `out _` refer to an object parameter instead of a JSON discard.
+- Renamed the sender parameter. The offline updater fixtures passed in a
+  separate `-SkipBuild` run, which launched the previous executable.
+  The runner now explicitly reports when it skips the build. Run the
+  full runner without `-SkipBuild` to build the current checkout and
+  launch it only after the build and offline fixtures pass.
