@@ -131,8 +131,11 @@ CheckPatchWorker()
                 throw Error("Could not verify the installed Expansion Pack ESP after import.")
             IniWrite(installedEsp, DataFile, "ExpansionPack", "VerifiedEspPath")
             IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
-            if job.HasOwnProp("OfficialPack") && ExpansionPackEspChecksum(installedEsp) = job.OfficialPack.Checksum
-                try RememberExpansionPackVersion(job.OfficialPack.Checksum, job.OfficialPack.Version, job.OfficialPack.Attachment)
+            checksum := ExpansionPackEspChecksum(installedEsp)
+            if job.HasOwnProp("OfficialPack") && checksum = job.OfficialPack.Checksum
+                try RememberExpansionPackVersion(checksum, job.OfficialPack.Version, job.OfficialPack.Attachment)
+            else
+                try RememberExpansionPackVersion(checksum, IniRead(result, "Result", "ExpansionVersion", ""))
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
         RefreshExpansionPackToggle()
@@ -360,8 +363,57 @@ InstalledExpansionPackVersion(checksum)
         version := IniRead(DataFile, "ExpansionPackVersions", checksum, "")
         if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
             return version
+
+        version := ""
+        try version := RecoverExpansionImportVersion(checksum)
+        if version != ""
+        {
+            try RememberExpansionPackVersion(checksum, version)
+            return version
+        }
     }
     return checksum != "" ? "Unrecognized copy" : "Could not verify"
+}
+
+RecoverExpansionImportVersion(checksum)
+{
+    global AppDataDirectory, BundledResourceRoot
+    config := PatchConfigurationPath()
+    paths := ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    if !paths.Length || ExpansionPackEspChecksum(paths[1]) != checksum
+        return ""
+    history := AppDataDirectory "\expansion-imports"
+    if !DirExist(history)
+        return ""
+    hashes := ""
+    for path in paths
+    {
+        hash := SHA256File(path)
+        if !RegExMatch(hash, "i)^[0-9a-f]{64}$")
+            return ""
+        hashes .= (hashes = "" ? "" : ",") hash
+    }
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    worker := resourceRoot "\scripts\import-expansion-pack.ps1"
+    if !FileExist(worker)
+        return ""
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    output := A_Temp "\tes3np-expansion-version-" NewLauncherFileId() ".txt"
+    try
+    {
+        command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' worker '"'
+            . ' -ImportHistory "' history '" -InstalledEspSHA256 ' hashes ' -VersionResult "' output '"'
+        if RunWait(command, , "Hide") = 0 && FileExist(output)
+        {
+            version := Trim(FileRead(output, "UTF-8"))
+            if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+                && InstalledExpansionPackChecksum(config) = checksum
+                return version
+        }
+    }
+    finally
+        try FileDelete(output)
+    return ""
 }
 
 ExpansionPackInLoadOrder(config)
