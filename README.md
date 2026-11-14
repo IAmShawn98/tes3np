@@ -8,10 +8,10 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 
 - **Character Management** — Register up to ten existing characters and log in up to four at a time. Mark any character as your favorite for quick logins right from the launcher’s startup page. Each species has its own loading icon, and you can add a custom profile picture for each character.
 - **Auto Login** — Characters you register in the launcher can be logged in automatically from the **Manage Characters** page. The first character you add automatically becomes your favorite, and you can switch favorites at any time. Your favorite character appears on the launcher’s startup page for easy access.
+- **Data Backups** — Your launcher data can be exported so you can reinstall or relocate at any time.
 - **Game Chat and Happy Hour** — Read live Discord chat and see how much time is left in an active Happy Hour.
 - **Expansion Pack** — Download the optional pack from the official Discord channel or install it from a ZIP or extracted folder.
 - **Manage Macros** — Import, run, and stop AutoHotkey scripts and ZIP macro packages. You can also link an installed Windows app.
-- **Character Backups** — Export your characters, login delays, and favorite to move them to another PC.
 - **Game Client Settings** — Use the bundled TES3MP client or select a custom one.
 
 ## Download
