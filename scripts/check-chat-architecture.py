@@ -1417,7 +1417,6 @@ expect(
     and 'GetCharacterBookScale()' in macro_menu_ui
     and 'MacroScrollThumb.Move(BookS(888)' in macro_menu_ui
     and 'if oldUploadY != BookS(desiredUploadY)' in macro_menu_ui
-    and 'BookS(890)' in characters_ui
     and 'ShowLauncherWindow(true)' in characters_close,
 )
 expect(

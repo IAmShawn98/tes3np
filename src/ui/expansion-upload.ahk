@@ -2,7 +2,6 @@
 ; The file picker does not imply that Discord or the server was verified.
 UploadExpansionFromFile(args*)
 {
-    global LauncherGui, DataFile
     if PatchInProgress()
         return
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
@@ -89,7 +88,6 @@ SelectExpansionPackagePath()
 
 InstallSelectedExpansionPackage(package, autoApproved := false)
 {
-    global LauncherGui, DataFile
     ; Revalidate the approved automatic download after any deferred setup.
     if autoApproved
     {
