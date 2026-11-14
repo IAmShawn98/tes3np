@@ -64,8 +64,8 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
     if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd, "Int")
         return
     pt := Buffer(8, 0)
-    NumPut("Int", lParam & 0xFFFF, pt, 0)
-    NumPut("Int", (lParam >> 16) & 0xFFFF, pt, 4)
+    NumPut("Int", (lParam & 0xFFFF) << 48 >> 48, pt, 0)
+    NumPut("Int", ((lParam >> 16) & 0xFFFF) << 48 >> 48, pt, 4)
     DllCall("ScreenToClient", "Ptr", V016SettingsGuiHwnd, "Ptr", pt)
     localY := NumGet(pt, 4, "Int")
     if localY >= 0 && localY <= V016S(96)
@@ -130,7 +130,7 @@ ReleaseLauncherMorrowindFont()
 
 OpenLauncherSettingsV016(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility, LauncherMorrowindFont
+    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, FollowWindowsAccessibility, LauncherMorrowindFont, DataFile
     global V016SettingsGuiHwnd, V016SettingsScale, V016ReadabilityState, V016FollowWindowsState
 
     ; Launcher Settings is a single modal-style window. If it is already open,
@@ -149,8 +149,9 @@ OpenLauncherSettingsV016(*)
     settings.MarginX := 0, settings.MarginY := 0
     settings.BackColor := "010101"
     settings.MenuButtonScale := V016SettingsScale
-    V016SettingsGuiHwnd := settings.Hwnd
-    V016ReadabilityState := EnhancedReadability ? 1 : 0
+    settings.SavedReadability := IniRead(DataFile, "Accessibility", "EnhancedReadability", "0") = "1" ? 1 : 0
+    settings.SavedReduceMotion := IniRead(DataFile, "Accessibility", "ReduceMotion", "0") = "1" ? 1 : 0
+    V016ReadabilityState := settings.SavedReadability
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
     settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
@@ -189,8 +190,7 @@ OpenLauncherSettingsV016(*)
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
-    global ReduceMotion
-    reduceMotionBox := {Value: ReduceMotion ? 1 : 0}
+    reduceMotionBox := {Value: settings.SavedReduceMotion}
 
     AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
@@ -212,7 +212,7 @@ OpenLauncherSettingsV016(*)
 
     settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
-    settings.OnEvent("Size", (*) => 0)
+    V016SettingsGuiHwnd := settings.Hwnd
     ; The transparency key must be applied to the hidden Settings GUI, but
     ; that alone does not prevent DWM from presenting its unpainted native
     ; controls on the first visible frame. Cloak before Show and uncloak only
@@ -239,10 +239,15 @@ OpenLauncherSettingsV016(*)
         else
             FinishButtonDisplay()
     }
+    catch as err
+    {
+        CloseLauncherSettingsV016(settings)
+        throw err
+    }
     finally
     {
         if staged
-            SetPageCompositorCloak(settings, false)
+            try SetPageCompositorCloak(settings, false)
     }
 }
 

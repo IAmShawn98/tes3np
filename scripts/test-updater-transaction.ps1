@@ -1,6 +1,8 @@
 $ErrorActionPreference='Stop'
 $updater = Join-Path $PSScriptRoot 'tes3np-updater.ps1'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('tes3np-transaction-test-' + [guid]::NewGuid().ToString('N'))
+$savedAppData = $env:APPDATA
+$fixtureAppData = $root + '-appdata'
 function New-Fixture {
     if (Test-Path $root) { Remove-Item $root -Recurse -Force }
     $install=Join-Path $root 'live'; $stage=Join-Path $root 'stage\tes3np'; $state=Join-Path $root 'state.ini'
@@ -31,6 +33,7 @@ function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
     return $code
 }
 try {
+    $env:APPDATA = $fixtureAppData
     $f=New-Fixture; & $updater -InstallDir ($f[0] + [IO.Path]::DirectorySeparatorChar) -StageDir $f[1] -StateFile $f[2] -Version '9.9.9-alpha' -TestMode
     if ($LASTEXITCODE -ne 0) { throw 'Successful transaction fixture failed.' }
     if ((Get-Content (Join-Path $f[0] 'tes3np.exe') -Raw).Trim() -ne 'NEW') { throw 'New launcher not installed.' }
@@ -195,4 +198,7 @@ try {
     Write-Host 'PASS: startup recovery restores an interrupted installation without its staging folder.'
     Write-Host 'All updater transaction tests passed.'
     exit 0
-} finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
+} finally {
+    $env:APPDATA = $savedAppData
+    Remove-Item -LiteralPath $root, $fixtureAppData -Recurse -Force -ErrorAction SilentlyContinue
+}

@@ -998,6 +998,13 @@ TES3MPTryCopyMismatchReport(report, statusControl, limited := false, attempt := 
     if !IsObject(ExpansionMismatchDialog)
         return
     try
+    {
+        if statusControl.Gui != ExpansionMismatchDialog || !DllCall("IsWindow", "Ptr", statusControl.Hwnd)
+            return
+    }
+    catch
+        return
+    try
         A_Clipboard := report
     catch Error as err
     {

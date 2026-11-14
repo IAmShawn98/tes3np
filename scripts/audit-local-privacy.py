@@ -80,10 +80,9 @@ def scan_text(text: str, *, launcher: bool, username: str = "", result: bool = F
 
 def read_diagnostic(path: Path) -> str:
     # The launcher uses UTF-8. Handle a legacy PowerShell UTF-16 BOM too.
-    with path.open("rb") as stream:
-        header = stream.read(4)
-    encoding = "utf-16" if header.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
-    return path.read_text(encoding=encoding, errors="replace")
+    data = path.read_bytes()
+    encoding = "utf-16" if data.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+    return data.decode(encoding, errors="replace")
 
 
 def public_label(name: str) -> str:
@@ -134,7 +133,7 @@ def audit_files(appdata: Path) -> tuple[int, int, int]:
         checked += len(existing)
         if unreadable:
             total["unreadable_diagnostic"] += 1
-        if name == "launcher.log" and existing:
+        if name == "launcher.log" and events:
             try:
                 with existing[0].open("rb") as stream:
                     stream.seek(-1, 2)
@@ -325,6 +324,8 @@ def self_test() -> bool:
         revised = read_diagnostic(result_path)
         flags, _ = scan_text(revised, launcher=False, username="ExamplePerson", result=True)
         if flags or "Backup=available" not in revised or "State=success" not in revised:
+            return False
+        if revised.count("\r\n") != old_status.count("\r\n"):
             return False
         if fake_journal.read_bytes() != b"SYNTHETIC PRIVATE JOURNAL - DO NOT EDIT":
             return False
