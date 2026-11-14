@@ -59,10 +59,10 @@ expect('SanitizeExistingDiagnosticLogs()' in diag,
        "legacy diagnostic files must be cleaned on launch")
 expect('"game-chat.log"' not in diag and '"game-chat-index.json"' not in diag,
        "private Discord archive must not be modified by log cleanup")
-start = bootstrap.index("    LoadProfiles()")
-scrub = bootstrap.index("    SanitizeExistingDiagnosticLogs()", start)
-chatstart = bootstrap.index("    SetTimer(StartEmbeddedInGameChat", scrub)
-expect(start < scrub < chatstart,
+start = bootstrap.find("    LoadProfiles()")
+scrub = bootstrap.find("    SanitizeExistingDiagnosticLogs()", start)
+chatstart = bootstrap.find("    SetTimer(StartEmbeddedInGameChat", scrub)
+expect(0 <= start < scrub < chatstart,
        "privacy scrub must follow profile loading and precede ChatHost")
 expect('content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))' in settings
        and 'report .= SanitizeDiagnosticText(content)' in settings

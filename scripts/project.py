@@ -1,4 +1,4 @@
-"""Dependency-free source checks and release packaging; never execute game code."""
+"""Dependency-free source and payload validation for the launcher."""
 
 from __future__ import annotations
 
@@ -244,8 +244,8 @@ def check(allow_missing_payload: bool = False) -> None:
     resource_generator = (ROOT / "scripts/generate-bundled-resources.py").read_text(encoding="utf-8-sig")
     # The historical v0.1 files may remain in source history, but they are
     # no longer runtime or release dependencies.
-    manifest_payload = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
-    if [item["Path"] for item in manifest_payload["Files"]] != ["markerless/tes3mp.exe"]:
+    manifest = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
+    if [item["Path"] for item in manifest["Files"]] != ["markerless/tes3mp.exe"]:
         errors.append("Release manifest must not require legacy Expansion Pack payload.")
     if '.rglob(' in resource_generator or '"assets/icons/tes3np.ico"' not in resource_generator:
         errors.append("Executable resource generator is bundling non-runtime patch payloads.")
@@ -259,7 +259,7 @@ def check(allow_missing_payload: bool = False) -> None:
     upload = (ROOT / "src/ui/expansion-upload.ahk").read_text(encoding="utf-8-sig")
     bootstrap = (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
     mismatch_ui = (ROOT / "src/game/expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
-    session_code = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
+    session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     if not all(token in mismatch_ui for token in (
         "Never hide the diagnostic behind Discord authentication",
         'AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry"',
@@ -269,11 +269,11 @@ def check(allow_missing_payload: bool = False) -> None:
         '"Repair / Install ZIP"',
     )):
         errors.append("Expansion Pack dialog must always open, support retries, and clear pending authentication.")
-    if 'Open Expansion Pack Downloads' not in (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig"):
+    if 'Open Expansion Pack Downloads' not in bootstrap:
         errors.append("Expansion Pack downloads need a persistent reopen entry in the tray.")
     if 'case 12: RetryAuthenticatedExpansionPrompt' not in (ROOT / "chat-host/Program.cs").read_text(encoding="utf-8-sig"):
         errors.append("Game Chat retry command must remain available after a pending auth request.")
-    if not all(token in session_code for token in ("MismatchExitGraceUntil", "MismatchWindowGraceUntil")):
+    if not all(token in session for token in ("MismatchExitGraceUntil", "MismatchWindowGraceUntil")):
         errors.append("Game exit/window loss must allow a bounded fresh-log mismatch capture.")
 
     expected_import = (
@@ -295,7 +295,6 @@ def check(allow_missing_payload: bool = False) -> None:
     )
     if not expected_import:
         errors.append("Retiring legacy repair broke a live Expansion Pack/import or launcher dependency.")
-    session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     root_source = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
     refinements = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
     main_menu = (ROOT / "src/ui/front-page.ahk").read_text(encoding="utf-8-sig")
@@ -304,7 +303,7 @@ def check(allow_missing_payload: bool = False) -> None:
         and "CanStartAnotherTES3NPGame()" in session
         and 'MenuEntries.Push(["Launch " Profiles[SelectedProfile].Name, LaunchProfile])' in main_menu
         and "SetBookControlVisible(control, visible)" in refinements
-        and "if !LauncherDataResetting" in (ROOT / "src/app/bootstrap.ahk").read_text(encoding="utf-8-sig")
+        and "if !LauncherDataResetting" in bootstrap
         and "#Include src\\ui\\v016-refinements.ahk" in root_source
     ):
         errors.append("Retired feature cleanup broke an active launcher/UI dependency.")
@@ -312,24 +311,23 @@ def check(allow_missing_payload: bool = False) -> None:
     # The retired executable textbox is gone. Selecting a game client is
     # handled by the live Game Client Settings workflow, not by a stale GUI
     # input. Protect that workflow and imported-pack persistence.
-    client_ui = (ROOT / "src/ui/v016-refinements.ahk").read_text(encoding="utf-8-sig")
     client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
     client_contract = (
-        'AddStyledButton(menu, 30, 190, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))' in client_ui
-        and 'AddStyledButton(menu, 30, 238, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in client_ui
-        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))' in client_ui
-        and 'reactivate.Visible := saved' in client_ui
-        and 'reactivate.Enabled := saved' in client_ui
-        and 'restoreY := saved ? 286 : 238' in client_ui
-        and 'initialHeight := saved ? 460 : 412' in client_ui
-        and 'RefreshGameClientSettingsLayoutV016(menu)' in client_ui
-        and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in client_ui
-        and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in client_ui
-        and "InstallCustomClientOverrides(source, folder)" in client_ui
-        and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in client_ui
-        and 'OpenClientSelectionSettings(*)' in client_ui
+        'AddStyledButton(menu, 30, 190, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))' in refinements
+        and 'AddStyledButton(menu, 30, 238, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in refinements
+        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))' in refinements
+        and 'reactivate.Visible := saved' in refinements
+        and 'reactivate.Enabled := saved' in refinements
+        and 'restoreY := saved ? 286 : 238' in refinements
+        and 'initialHeight := saved ? 460 : 412' in refinements
+        and 'RefreshGameClientSettingsLayoutV016(menu)' in refinements
+        and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in refinements
+        and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in refinements
+        and "InstallCustomClientOverrides(source, folder)" in refinements
+        and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in refinements
+        and 'OpenClientSelectionSettings(*)' in refinements
         and 'mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")' in client_settings
         and 'if mode = "CustomOverrides"' in client_settings
         and 'return GetMergedCustomClientExecutable()' in client_settings
@@ -364,8 +362,9 @@ def check(allow_missing_payload: bool = False) -> None:
     # checked, the switch explanation appears once (regardless of answer),
     # and legacy loads/imports cannot strand a nonempty list without a favorite.
     character_ui = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
-    settings_ui = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
-    backup_ui = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
+    favorite_notice = character_ui.find('result := MsgBox(prompt, "Favorite character", 0x124)')
+    save_notice = character_ui.find('IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")')
+    save_favorite = character_ui.find("    try SaveDefaultProfile(index)")
     favorite_checks = {
         "first character auto-favorite": (
             "if Profiles.Length = 1 || SelectedProfile < 1" in character_ui
@@ -373,12 +372,8 @@ def check(allow_missing_payload: bool = False) -> None:
         ),
         "favorite switch explains once and remembers either answer": (
             'IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") != "1"' in character_ui
-            and 'result := MsgBox(prompt, "Favorite character", 0x124)' in character_ui
-            and 'IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")' in character_ui
             and 'if result != "Yes"\n            return' in character_ui
-            and character_ui.index('result := MsgBox(prompt, "Favorite character", 0x124)')
-            < character_ui.index('IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")')
-            < character_ui.index("    try SaveDefaultProfile(index)")
+            and 0 <= favorite_notice < save_notice < save_favorite
         ),
         "favorite description and newly approved compact layout stay aligned": (
             'descriptionText := "This is a list of all your characters.' in character_ui
@@ -389,9 +384,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and "Click on the tick box before one of your characters" not in character_ui
         ),
         "favorite notice included in portable backup": (
-            'IniWrite(IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0"), temporary, "Launcher", "HideFavoriteSwitchExplanation")' in backup_ui
-            and 'IniWrite(favoriteNotice, temporary, "Launcher", "HideFavoriteSwitchExplanation")' in backup_ui
-            and 'if IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") = "1"' in backup_ui
+            'IniWrite(IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0"), temporary, "Launcher", "HideFavoriteSwitchExplanation")' in portable_backup
+            and 'IniWrite(favoriteNotice, temporary, "Launcher", "HideFavoriteSwitchExplanation")' in portable_backup
+            and 'if IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") = "1"' in portable_backup
         ),
         "clicking selected favorite preserves it": (
             "index > Profiles.Length || SelectedProfile = index" in character_ui
@@ -400,11 +395,11 @@ def check(allow_missing_payload: bool = False) -> None:
             "? (Profiles.Length ? Min(index, Profiles.Length) : 0)" in character_ui
         ),
         "legacy saved profiles get first favorite": (
-            "if Profiles.Length && !SelectedProfile" in settings_ui
-            and 'IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")' in settings_ui
+            "if Profiles.Length && !SelectedProfile" in client_settings
+            and 'IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")' in client_settings
         ),
         "legacy backup receives first favorite": (
-            "if selected = 0\n            selected := 1" in backup_ui
+            "if selected = 0\n            selected := 1" in portable_backup
         ),
     }
     for label, passing in favorite_checks.items():
@@ -412,28 +407,27 @@ def check(allow_missing_payload: bool = False) -> None:
             errors.append(f"Favorite selection regression: {label}")
 
     macro = (ROOT / "src/ui/macros.ahk").read_text(encoding="utf-8-sig")
-    characters = (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
-    frontend = (ROOT / "src/ui/front-page.ahk").read_text(encoding="utf-8-sig")
-    build_script = (ROOT / "scripts/build-windows.ps1").read_text(encoding="utf-8-sig")
     cleanup_checks = {
         "temporary build cleanup is nonfatal and isolated":
-            "Step 'Cleaning temporary build directory (best effort)'" in build_script
-            and "[IO.Directory]::Delete($buildRoot, $true)" in build_script
-            and "if (-not [IO.Directory]::Exists($buildRoot))" in build_script
-            and "if ($attempt -lt 3) { Start-Sleep -Milliseconds 750 }" in build_script
-            and "Write-Warning 'Some temporary build tools remain locked." in build_script
-            and "Remove-Item -LiteralPath $buildRoot -Recurse -Force -ErrorAction Stop" not in build_script
-            and "Step 'Windows launcher build completed successfully'" in build_script
-            and "exit 0" in build_script,
+            "Step 'Cleaning temporary build directory (best effort)'" in build_source
+            and "[IO.Directory]::Delete($buildRoot, $true)" in build_source
+            and "if (-not [IO.Directory]::Exists($buildRoot))" in build_source
+            and "if ($attempt -lt 3) { Start-Sleep -Milliseconds 750 }" in build_source
+            and "Write-Warning 'Some temporary build tools remain locked." in build_source
+            and "Remove-Item -LiteralPath $buildRoot -Recurse -Force -ErrorAction Stop" not in build_source
+            and "Step 'Windows launcher build completed successfully'" in build_source
+            and "exit 0" in build_source,
     }
     for name, passed in cleanup_checks.items():
         if not passed:
             errors.append("Build cleanup regression: " + name)
 
+    profile_editor = character_ui.find("    CreateProfileEditor()\n")
+    macro_panel = character_ui.find("    BuildMacroBookPanel()\n    HideProfileEditor()")
     macro_checks = {
         "macros remain embedded in the character book":
             'MacroPage := CharacterPage' in macro
-            and 'BuildMacroBookPanel()' in characters
+            and 'BuildMacroBookPanel()' in character_ui
             and 'MacroPage := Gui(' not in macro,
         "four reusable viewport rows preserve unlimited macro capacity":
             'Loop 4\n    {\n        position := A_Index' in macro
@@ -476,7 +470,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))' in macro
             and 'if wasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
-            and 'MoveStyledButton(control, x, y, width, height)' in characters
+            and 'MoveStyledButton(control, x, y, width, height)' in character_ui
             and '"Add Macro / App"' not in macro,
         "per-macro status and red error text":
             'MacroItemDisplayState(item)' in macro
@@ -497,8 +491,8 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'PressMacroScroll(hwnd)' in macro
             and 'DragMacroScroll()' in macro
             and 'ReleaseMacroScroll()' in macro
-            and 'if ScrollMacroWheel(wParam)' in frontend
-            and 'DragMacroScroll()' in frontend
+            and 'if ScrollMacroWheel(wParam)' in main_menu
+            and 'DragMacroScroll()' in main_menu
             and 'if PressMacroScroll(hwnd)' in (
                 ROOT / "src/ui/controls.ahk"
             ).read_text(encoding="utf-8-sig")
@@ -518,11 +512,10 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'SelectMacroBookRow(position)\n    StopSelectedMacro()' in macro
             and 'SelectMacroBookRow(position)\n    RemoveSelectedMacro()' in macro,
         "editing character still hides/restores macros":
-            'HideMacroBookPanel()' in characters
-            and 'ShowMacroBookPanel()' in characters,
+            'HideMacroBookPanel()' in character_ui
+            and 'ShowMacroBookPanel()' in character_ui,
         "macro controls exist before editor restoration":
-            characters.index("    BuildMacroBookPanel()\n    HideProfileEditor()")
-            > characters.index("    CreateProfileEditor()\n")
+            0 <= profile_editor < macro_panel
             and 'if !IsObject(MacroList)\n        return' in macro,
         "uninitialized selection cannot call hidden ListView GetNext":
             'if !IsObject(MacroList) || !MacroBookRows.Length' in macro
@@ -565,7 +558,6 @@ def check(allow_missing_payload: bool = False) -> None:
         if not passed:
             errors.append(f"Installed Macros regression: {name}")
 
-    manifest = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
     missing = 0
     seen = set()
     for item in manifest["Files"]:
