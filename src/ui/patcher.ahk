@@ -458,10 +458,10 @@ ShowExpansionInstallPrompt(onDecision := 0, zipName := "")
     {
         AddStyledButton(prompt, 30, 189, 165, 38, "Yes",
             CloseExpansionInstallPrompt.Bind(prompt, "Download"))
-        AddStyledButton(prompt, 210, 189, 260, 38, "Upload ZIP or Folder",
-            CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
-        AddStyledButton(prompt, 485, 189, 165, 38, "No",
+        AddStyledButton(prompt, 210, 189, 165, 38, "No",
             CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+        AddStyledButton(prompt, 390, 189, 260, 38, "Manual Install",
+            CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
     }
     else
     {

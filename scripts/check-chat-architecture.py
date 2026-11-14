@@ -452,7 +452,12 @@ expect(
         'ExpansionLastAutomaticUpdateAttachment := attachment',
         'TES3MPExpansionRequestAutoInstall(slot, ExpansionMismatchStatus)',
     )
-    and 'AddStyledButton(prompt, 210, 189, 260, 38, "Upload ZIP or Folder",' in patcher
+    and in_order(
+        patcher,
+        'AddStyledButton(prompt, 30, 189, 165, 38, "Yes",',
+        'AddStyledButton(prompt, 210, 189, 165, 38, "No",',
+        'AddStyledButton(prompt, 390, 189, 260, 38, "Manual Install",',
+    )
     and 'CloseExpansionInstallPrompt.Bind(prompt, "Upload")' in patcher
     and 'onDecision.Call(action)' in patcher
     and 'if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)' in mismatch_dialog
