@@ -1241,10 +1241,14 @@ metrics();
         string GameChatLogFile => Path.Combine(gameChatLogDirectory, "game-chat.log");
         string GameChatIndexFile => Path.Combine(gameChatLogDirectory, "game-chat-index.json");
         bool chatLogLoaded;
+        bool chatArchiveDirty;
+        DateTimeOffset nextChatArchiveLoad;
+        DateTimeOffset nextChatArchiveSave;
         void EnsureChatLogLoaded()
         {
-            if (chatLogLoaded) return;
-            Directory.CreateDirectory(gameChatLogDirectory);
+            if (chatLogLoaded || DateTimeOffset.UtcNow < nextChatArchiveLoad) return;
+            nextChatArchiveLoad = DateTimeOffset.UtcNow.AddSeconds(5);
+            bool indexArchiveRead = true;
             if (File.Exists(GameChatIndexFile))
             {
                 try
@@ -1253,10 +1257,10 @@ metrics();
                         File.ReadAllText(GameChatIndexFile)) ?? new();
                     foreach (var entry in records)
                     {
-                        if (entry.Id == 0) continue;
-                        archivedChat[entry.Id] = (entry.User ?? "", entry.Body ?? "");
+                        if (entry == null || entry.Id == 0) continue;
+                        archivedChat.TryAdd(entry.Id, (entry.User ?? "", entry.Body ?? ""));
                         if (entry.Images is { Length: > 0 })
-                            archivedImageUrls[entry.Id] = entry.Images;
+                            archivedImageUrls.TryAdd(entry.Id, entry.Images);
                         // This flag is persisted only after real image pixels
                         // pass the announcement's visual signature.
                         if (entry.VerifiedHappyHourImage && entry.Images is { Length: > 0 })
@@ -1265,8 +1269,9 @@ metrics();
                 }
                 catch (Exception ex)
                 {
-                    // A damaged JSON index must not disable fresh Discord
-                    // history collection or prevent trying the readable log.
+                    // A temporarily inaccessible index may contain unique image evidence.
+                    // A malformed index can be rebuilt from the readable log.
+                    indexArchiveRead = ex is System.Text.Json.JsonException;
                     Log("CHAT | Saved message index unreadable: " + ex.GetType().Name);
                 }
             }
@@ -1302,13 +1307,26 @@ metrics();
                     Log("CHAT | Saved text archive unreadable: " + ex.GetType().Name);
                 }
             }
-            chatLogLoaded = textArchiveRead;
-            if (recoveredFromText && textArchiveRead)
+            chatLogLoaded = indexArchiveRead && textArchiveRead;
+            chatArchiveDirty |= recoveredFromText;
+        }
+
+        void FlushPendingChatArchive(bool force = false)
+        {
+            if (!chatArchiveDirty || !chatLogLoaded ||
+                (!force && DateTimeOffset.UtcNow < nextChatArchiveSave)) return;
+            try
             {
-                try { SaveChatArchive(); }
-                catch (Exception ex) { Log("CHAT | Recovered log indexing failed: " + ex.GetType().Name); }
+                SaveChatArchive();
+                chatArchiveDirty = false;
+            }
+            catch (Exception ex)
+            {
+                nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(5);
+                Log("CHAT | Could not persist chat archive: " + ex.GetType().Name);
             }
         }
+
         public sealed class ChatArchiveEntry
         {
             public ulong Id { get; set; }
@@ -1323,7 +1341,7 @@ metrics();
         static void WriteChatArchiveAtomically(string path, string contents)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            string temporary = path + ".tmp";
+            string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
                 File.WriteAllText(temporary, contents);
@@ -1337,7 +1355,6 @@ metrics();
 
         void SaveChatArchive()
         {
-            if (!chatLogLoaded) return;
             var records = archivedChat.Select(e => new ChatArchiveEntry {
                 Id = e.Key, User = e.Value.User, Body = e.Value.Body,
                 Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
@@ -1445,8 +1462,8 @@ metrics();
             if (!newlyVerified) return;
             // Save even if Discord has already replaced this virtualized
             // message in its source viewport. The next restart can shortcut.
-            try { SaveChatArchive(); }
-            catch (Exception ex) { Log("HAPPY HOUR | Failed to save verified image ID: " + ex.GetType().Name); }
+            chatArchiveDirty = true;
+            FlushPendingChatArchive();
             DetectLatestHappyHour();
         }
 
@@ -2219,10 +2236,12 @@ metrics();
             }
         }
 
+        bool refreshingNativeFeed;
         async Task RefreshNativeMessages()
         {
-            if (closingChat || IsDisposed || web.CoreWebView2 == null ||
+            if (refreshingNativeFeed || closingChat || IsDisposed || web.CoreWebView2 == null ||
                 discordLoginVisible || !discordChannelReady) return;
+            refreshingNativeFeed = true;
             try
             {
                 string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
@@ -2276,13 +2295,12 @@ metrics();
                     lastChatActivity = DateTime.Now;
                     SetChatOpen(true);
                 }
-                lastFeed = json;
                 // Merge the entire virtualized Discord window before detecting
                 // Happy Hour. This also works when the local archive is empty.
                 EnsureChatLogLoaded();
                 ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;
                 bool changed = false;
-                int newlyArchived = 0;
+
                 foreach (var msg in doc.RootElement.EnumerateArray())
                 {
                     string id = msg.GetProperty("id").GetString() ?? "";
@@ -2316,11 +2334,11 @@ metrics();
                         // even when Discord grouped this message under an
                         // earlier author's heading. Display history is unchanged.
                         archivedChat[key] = (isHappyHour ? sourceAuthor : user, archivalBody);
-                        newlyArchived++;
+                        chatArchiveDirty = true;
                     }
                     if (images.Length > 0 && !archivedImageUrls.ContainsKey(key)) {
                         archivedImageUrls[key] = images;
-                        newlyArchived++;
+                        chatArchiveDirty = true;
                     }
                     // Register Yagrum's genuine bot message BEFORE requesting
                     // its image. A late image download must still recognize
@@ -2370,16 +2388,8 @@ metrics();
                         changed = true;
                     }
                 }
-                if (newlyArchived > 0) {
-                    try {
-                        SaveChatArchive();
-                        Log("CHAT | Saved " + newlyArchived + " chat archive updates; " +
-                            archivedChat.Count + " total, oldest=" +
-                            DiscordTimestamp(archivedChat.First().Key).ToString("O"));
-                    } catch (Exception ex) {
-                        Log("CHAT | Could not persist newly loaded history: " + ex.GetType().Name);
-                    }
-                }
+                lastFeed = json;
+                FlushPendingChatArchive();
                 // Match only genuine archived Discord messages; the snowflake
                 // timestamp supplies the real one-hour remaining time.
                 DetectLatestHappyHour();
@@ -2438,7 +2448,12 @@ metrics();
                 }
                 else goldScrollbar.Invalidate();
             }
-            catch (Exception ex) { Log("Native feed error: " + ex.GetType().Name); }
+            catch (Exception ex)
+            {
+                imagesNeedRedraw = true;
+                Log("Native feed error: " + ex.GetType().Name);
+            }
+            finally { refreshingNativeFeed = false; }
         }
         readonly System.Windows.Forms.Timer watch = new() { Interval = 250 };
         // History requests must not depend on changes to Discord messages or launcher UI.
@@ -2446,19 +2461,20 @@ metrics();
         bool closingChat;
         bool refreshingChat;
         [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+        [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr handle);
         [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr hwnd, IntPtr region, bool redraw);
-        void RaiseFrame()
-        {
-            // Frame is rendered inside the browser DOM; native rails are not used.
-        }
         void EnforceChatClip()
         {
             if (discordLoginVisible || !web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
             // Native clipping remains effective when WebView2 recreates its
             // composition surface after Discord finishes loading.
             var region = CreateRectRgn(0, HeaderCrop, web.Width, web.Height);
+            if (region == IntPtr.Zero) return;
             if (SetWindowRgn(web.Handle, region, true) == 0)
+            {
+                DeleteObject(region);
                 Log("Unable to set WebView clip region");
+            }
             // Frame is now a browser overlay, not a competing native HWND.
         }
         // Clip the Discord header outside the visible child window.
@@ -3139,6 +3155,7 @@ metrics();
                 closingChat = true;
                 watch.Stop();
                 historyWatch.Stop();
+                FlushPendingChatArchive(force: true);
                 happyHourTicker?.Dispose();
                 if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
                 foreach (var image in imageCache.Values) image.Dispose();
@@ -3160,9 +3177,15 @@ metrics();
                 {
                 try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.GetType().Name); }
                 if (!docked && !signInExpanded) DockToLauncher();
-                if (docked && !nativeMode) { EnforceChatClip(); RaiseFrame(); }
+                if (docked && !nativeMode) EnforceChatClip();
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
+                if (closingChat || IsDisposed) return;
+                if (chatArchiveDirty)
+                {
+                    EnsureChatLogLoaded();
+                    FlushPendingChatArchive();
+                }
                 PositionChatWindows();
                 if (pendingExpansionPrompt == 0 && !discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
@@ -4002,6 +4025,7 @@ metrics();
                     case 11: CancelPendingExpansionPrompt(false); break;
                     case 12: RetryAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;
                     case 13: StartExpansionAutoDownload(m.LParam); break;
+                    case 14: Close(); break;
                 }
                 return;
             }

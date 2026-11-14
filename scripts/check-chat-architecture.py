@@ -222,6 +222,14 @@ expect(
     and "File.Move(temporary, path, true);" in source,
 )
 expect(
+    "A failed chat archive write stays pending and is retried even when the feed is unchanged",
+    "bool chatArchiveDirty;" in source
+    and "chatLogLoaded = indexArchiveRead && textArchiveRead;" in source
+    and "if (chatArchiveDirty)\n                {\n                    EnsureChatLogLoaded();\n                    FlushPendingChatArchive();" in source
+    and "SaveChatArchive();\n                chatArchiveDirty = false;" in source
+    and "finally { refreshingNativeFeed = false; }" in source,
+)
+expect(
     "Fresh authentication initializes the native renderer before hiding it",
     "await InitMessageBrowser(env);" in source
     and "rendererNavigation.Task.WaitAsync(TimeSpan.FromSeconds(8))" in source
@@ -1043,7 +1051,7 @@ expect(
     and 'Rollback was incomplete' in expansion_fixture
     and "CheckWorker $zip 'recover-after-lock' $true" in expansion_fixture
     and "CheckWorker $zip 'reject-persistent-win32-lock' $false" in expansion_fixture
-    and 'ReplaceVerified $item.Source $item.Target $item.Hash\n        $changed += $backups[$i]' in expansion_worker
+    and 'ReplaceVerified $item.Source $item.Target $item.Hash $backupEntry.OriginalHash\n        $changed += $backupEntry' in expansion_worker
     and 'function InvokeFileOperation(' in expansion_fixture
     and "Unpacked Expansion Pack exceeds the 1 GB limit." not in expansion_worker
     and "Extracted Expansion Pack exceeds the 1 GB limit." not in expansion_worker

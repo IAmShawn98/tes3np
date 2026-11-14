@@ -91,7 +91,10 @@ CheckPatchWorker()
         value := IniRead(progress, "Progress", "Percent", "0")
         UpdatePatchProgress(label, RegExMatch(value, "^\d+$") ? Integer(value) : 0)
     }
-    if ProcessExist(job.PID)
+    running := job.Handle
+        ? DllCall("WaitForSingleObject", "Ptr", job.Handle, "UInt", 0, "UInt") = 258
+        : ProcessExist(job.PID)
+    if running
         return
     SetTimer(CheckPatchWorker, 0)
     PatchJob := 0
@@ -104,8 +107,11 @@ CheckPatchWorker()
         DllCall("CloseHandle", "Ptr", job.Handle)
     }
     result := job.Folder "\result.ini"
-    state := IniRead(result, "Result", "State", "error")
-    message := IniRead(result, "Result", "Message", "The Expansion Pack import exited without a result. Exit code: " exitCode ". Check scripts/import-expansion-pack.ps1. Keep this attempt's backup files if copying had started.")
+    state := IniRead(result, "Result", "State", exitCode = 0 ? "success" : "error")
+    fallback := state = "success"
+        ? "Expansion Pack import complete. Try connecting again."
+        : "The Expansion Pack import exited without a result. Exit code: " exitCode ". Keep this attempt's backup files if copying had started."
+    message := IniRead(result, "Result", "Message", fallback)
     try
     {
         if state = "success"

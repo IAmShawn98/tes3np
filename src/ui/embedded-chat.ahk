@@ -68,7 +68,13 @@ StartEmbeddedInGameChat()
 StopEmbeddedInGameChat()
 {
     global EmbeddedChatPid
-    if EmbeddedChatPid && ProcessExist(EmbeddedChatPid)
-        try ProcessClose(EmbeddedChatPid)
+    pid := EmbeddedChatPid
+    if !pid
+        return
+    try
+        if SendLauncherChatCommand(14)
+            ProcessWaitClose(pid, 1)
+    if ProcessExist(pid)
+        try ProcessClose(pid)
     EmbeddedChatPid := 0
 }

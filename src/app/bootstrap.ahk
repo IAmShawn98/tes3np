@@ -265,22 +265,25 @@ LauncherChatRightClick(wParam, lParam, msg, hwnd)
 }
 SendLauncherChatCommand(command, targetHwnd := 0)
 {
-    ; Hidden chat windows must also be addressable when the panel is closed.
+    global EmbeddedChatPid
+    if !EmbeddedChatPid
+        return false
+    ; Hidden windows must remain addressable while chat is collapsed.
     oldHidden := A_DetectHiddenWindows
-    oldMatchMode := A_TitleMatchMode
     DetectHiddenWindows(true)
     try
     {
-        SetTitleMatchMode(2)
-        chatHwnd := WinExist("tes3np Chat Host")
-        if chatHwnd
-            return DllCall("PostMessageW", "Ptr", chatHwnd, "UInt", 0x8331, "Ptr", command, "Ptr", targetHwnd) != 0
+        for chatHwnd in WinGetList("ahk_pid " EmbeddedChatPid)
+        {
+            try title := WinGetTitle("ahk_id " chatHwnd)
+            catch
+                continue
+            if title = "tes3np Chat Host"
+                return DllCall("PostMessageW", "Ptr", chatHwnd, "UInt", 0x8331, "Ptr", command, "Ptr", targetHwnd) != 0
+        }
         LogLauncherEvent("Chat command " command " failed: tes3np Chat Host window not found.")
     }
-    finally {
-        DetectHiddenWindows(oldHidden)
-        SetTitleMatchMode(oldMatchMode)
-    }
+    finally DetectHiddenWindows(oldHidden)
     return false
 }
 

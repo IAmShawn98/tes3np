@@ -133,7 +133,7 @@ try {
     AssertFixture ($workerText.Contains("WriteJobIni 'result.ini' `$body")) 'Result must use atomic publisher'
     AssertFixture ($workerText.Contains("InvokeFileOperation 'replace' `$temp `$target")) 'Atomic status replacement must retry locks'
     AssertFixture (!$workerText.Contains('[IO.File]::Replace($Source, $Destination, $null)')) 'Do not pass $null into .NET string argument for replacement backup'
-    AssertFixture ($workerText.Contains("ReplaceVerified `$item.Source `$item.Target `$item.Hash`n        `$changed += `$backups[`$i]")) 'Rollback must track successfully committed replacements, not failed lock attempts'
+    AssertFixture ($workerText.Contains("ReplaceVerified `$item.Source `$item.Target `$item.Hash `$backupEntry.OriginalHash`n        `$changed += `$backupEntry")) 'Rollback must track successfully committed replacements, not failed lock attempts'
     $productionGuard = @'
 function AssertGameClosed {
     if (Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue) {
@@ -300,6 +300,24 @@ function AssertGameClosed {
     CheckWorker $packageRoot 'reject-unknown-asset' $false 'Unexpected file in Expansion Pack Data Files'
     AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'pre-rejection') 'Rejected package modified the game'
     AssertFixture ([IO.File]::ReadAllText($unrelated) -ceq 'do not modify') 'Rejected package touched unrelated mod'
+
+    # Simulate another program editing OpenMW after the worker captured its
+    # backup. Earlier replacements must roll back and the edit must survive.
+    $existingWorker = [IO.File]::ReadAllText($worker)
+    $targetCheck = '        AssertExpectedTarget $Target $PreviousHash'
+    AssertFixture ($existingWorker.IndexOf($targetCheck) -ge 0 -and
+        $existingWorker.IndexOf($targetCheck) -eq $existingWorker.LastIndexOf($targetCheck)) 'Cannot locate unique import target guard'
+    $change = '        if ($Target -ieq $ConfigFile) { [IO.File]::WriteAllText($Target, "external fixture edit") }'
+    [IO.File]::WriteAllText($worker, $existingWorker.Replace($targetCheck, "$change`n$targetCheck"))
+    try {
+        WriteFixture $lockedAsset 'previous ESP before config edit'
+        WriteFixture $config $originalConfig
+        CheckWorker $zip 'reject-concurrent-config-edit' $false 'A game file changed during the Expansion Pack import'
+        AssertFixture ([IO.File]::ReadAllText($config) -ceq 'external fixture edit') 'Import overwrote an external config edit'
+        AssertFixture ([IO.File]::ReadAllText($lockedAsset) -ceq 'previous ESP before config edit') 'Import did not restore its earlier ESP replacement'
+    } finally {
+        [IO.File]::WriteAllText($worker, $existingWorker)
+    }
 
     Write-Host 'Expansion import ZIP/folder safety fixtures passed.'
     exit 0
