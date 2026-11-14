@@ -133,9 +133,13 @@ CheckPatchWorker()
             IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
             checksum := ExpansionPackEspChecksum(installedEsp)
             if job.HasOwnProp("OfficialPack") && checksum = job.OfficialPack.Checksum
+            {
                 try RememberExpansionPackVersion(checksum, job.OfficialPack.Version, job.OfficialPack.Attachment)
+            }
             else
+            {
                 try RememberExpansionPackVersion(checksum, IniRead(result, "Result", "ExpansionVersion", ""))
+            }
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
         RefreshExpansionPackToggle()
