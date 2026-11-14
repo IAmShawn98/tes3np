@@ -492,7 +492,7 @@ Public redistribution/licensing review remains a separate release gate.
     $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
     $entryText = [IO.File]::ReadAllText($stageEntry)
     $entryText = $entryText.Replace("`nStartLauncher()`n", "`nPrepareBundledResources()`nStartLauncher()`n")
-    $entryText = $entryText.Replace("`nHandleUpdaterStartupMode()`n", "`nif A_Args.Length && A_Args[1] = `"--check-resources`"`n{`n    PrepareBundledResources()`n    ExitApp(0)`n}`nHandleUpdaterStartupMode()`n")
+    $entryText = $entryText.Replace("`nupdateStateFile := GetPendingUpdateStateFile()`n", "`nif A_Args.Length && A_Args[1] = `"--check-resources`"`n{`n    PrepareBundledResources()`n    ExitApp(0)`n}`nupdateStateFile := GetPendingUpdateStateFile()`n")
     $entryText = $entryText.Replace('#Include src\app\bootstrap.ahk', '#Include src\app\bootstrap.ahk' + "`n" + '#Include src\app\bundled-resources.generated.ahk')
     if (-not $entryText.Contains('#Include src\app\bundled-resources.generated.ahk')) { throw 'Generated resources include is missing.' }
     [IO.File]::WriteAllText($stageEntry, $entryText)

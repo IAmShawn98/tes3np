@@ -85,12 +85,12 @@ AutoPreviewNewUpdate(version, *)
         return
     if !IsObject(LauncherGui) || !DllCall("user32\\IsWindowVisible", "Ptr", LauncherGui.Hwnd)
         return
-    CheckForUpdates("startup")
+    CheckForUpdates()
 }
 
-CheckForUpdates(source := "", *)
+CheckForUpdates(*)
 {
-    global AppConfig, UpdateReleasePage, UpdateManifestUrl, UpdateBusy, LauncherGui, DataFile
+    global AppConfig, UpdateManifestUrl, UpdateBusy, LauncherGui, DataFile
     if UpdateBusy {
         LogLauncherEvent("UPDATE | Check ignored because another update operation is active.")
         return
@@ -626,8 +626,8 @@ StartTransactionalUpdate(version, staged)
         . '" -Version "' version
         . '" -ParentPid ' pid
 
-    command := A_ComSpec ' /D /S /C start "" /B powershell.exe ' psArgs
-    Run(command, A_ScriptDir, "Hide")
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    Run('"' powershell '" ' psArgs, A_ScriptDir, "Hide")
 
     ; Give the detached updater worker time to start before tes3np exits.
     Sleep(500)

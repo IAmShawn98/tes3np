@@ -10,88 +10,6 @@ PatchInProgress()
     return IsObject(PatchJob)
 }
 
-FindTES3MPFolder()
-{
-    global DataFile
-    ; Prefer the user's verified choice, then common installs and Steam libraries.
-    ; Detection is read-only: do not change or replace the vanilla executable.
-    candidates := [IniRead(DataFile, "Patch", "TesFolder", ""),
-        IniRead(DataFile, "Launch", "Executable", ""),
-        A_ScriptDir, A_ScriptDir "\..", A_ScriptDir "\..\..",
-        A_MyDocuments, A_Desktop, A_MyDocuments "\TES3MP",
-        A_MyDocuments "\My Games\TES3MP",
-        EnvGet("USERPROFILE") "\Downloads",
-        EnvGet("USERPROFILE") "\Desktop",
-        EnvGet("LOCALAPPDATA") "\Programs",
-        EnvGet("ProgramFiles") "\TES3MP",
-        EnvGet("ProgramFiles(x86)") "\TES3MP",
-        "C:\Games", "C:\TES3MP", "C:\OpenMW"]
-    steamRoots := []
-    for key in ["HKCU\Software\Valve\Steam", "HKLM\SOFTWARE\WOW6432Node\Valve\Steam",
-        "HKLM\SOFTWARE\Valve\Steam"]
-        for valueName in ["SteamPath", "InstallPath"]
-            try
-            {
-                steamRoot := RegRead(key, valueName)
-                if DirExist(steamRoot)
-                    steamRoots.Push(steamRoot)
-            }
-    for folder in [EnvGet("ProgramFiles(x86)") "\Steam", EnvGet("ProgramFiles") "\Steam"]
-        if DirExist(folder)
-            steamRoots.Push(folder)
-    for steam in steamRoots
-    {
-        candidates.Push(steam "\steamapps\common")
-        libraryFile := steam "\steamapps\libraryfolders.vdf"
-        if FileExist(libraryFile)
-        {
-            try
-            {
-                libraryText := FileRead(libraryFile, "UTF-8")
-                position := 1
-                while RegExMatch(libraryText, 'i)"path"\s*"([^"]+)"', &match, position)
-                {
-                    libraryPath := StrReplace(match[1], "\\", "\")
-                    candidates.Push(libraryPath "\steamapps\common")
-                    position := match.Pos(0) + match.Len(0)
-                }
-            }
-        }
-    }
-    visited := Map()
-    for base in candidates
-    {
-        if base = ""
-            continue
-        if FileExist(base) && !DirExist(base)
-            SplitPath(base, , &base)
-        if !DirExist(base)
-            continue
-        ; Check selected folder and immediate children only; avoid a blocking
-        ; full-drive crawl on launcher startup.
-        paths := [base, base "\TES3MP", base "\tes3mp.Win64.release.0.8.1",
-            base "\tes3mp.Win64.release.0.8.1\tes3mp.Win64.release.0.8.1"]
-        try
-        {
-            Loop Files, base "\*", "D"
-                if InStr(StrLower(A_LoopFileName), "tes3mp")
-                    paths.Push(A_LoopFileFullPath)
-        }
-        for path in paths
-        {
-            normalized := StrLower(RTrim(path, "\/"))
-            if visited.Has(normalized)
-                continue
-            visited[normalized] := true
-            if normalized = StrLower(RTrim(A_ScriptDir "\client", "\/"))
-                continue
-            if FileExist(path "\tes3mp.exe") && FileExist(path "\openmw.cfg")
-                return path
-        }
-    }
-    return ""
-}
-
 FindMorrowindFolder(config)
 {
     global DataFile
@@ -241,11 +159,6 @@ CheckPatchWorker()
         ShowExpansionAutoFailureDialog(message, "Install")
     else
         MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
-}
-
-FinishLauncherStartup()
-{
-    UpdateCharacterMenuLabel()
 }
 
 GuardPatchExit(*)

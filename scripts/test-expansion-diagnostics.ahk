@@ -52,11 +52,6 @@ StopClient()
     return MismatchFixtureDisallow("game client")
 }
 
-SetClientStatus(status)
-{
-    return MismatchFixtureDisallow("game status")
-}
-
 UploadExpansionFromFile()
 {
     return MismatchFixtureDisallow("ZIP importer")

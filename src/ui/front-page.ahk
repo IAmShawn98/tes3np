@@ -28,13 +28,10 @@ BuildFrontPage()
     HoverButton := 0
     PressedButton := 0
     BuildButtonViewport()
-    global MenuRows, MenuEntries, CharacterMenuButton
-    LoadProfiles()
-    MenuEntries := []
+    global MenuRows
     MenuRows := []
     Loop 4
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters))
-    CharacterMenuButton := MenuRows[2]
     UpdateCharacterMenuLabel()
 }
 

@@ -279,13 +279,16 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
     }
     ExitApp(0)
 }
-HandleUpdaterStartupMode()
+updateStateFile := GetPendingUpdateStateFile()
 StartLauncher()
+if updateStateFile != ""
+    ConfirmUpdatedLauncherStartup(updateStateFile)
 
-HandleUpdaterStartupMode() {
+GetPendingUpdateStateFile()
+{
     global AppConfig
     if A_Args.Length < 3 || A_Args[1] != "--update-confirm"
-        return false
+        return ""
 
     version := A_Args[2]
     stateFile := A_Args[3]
@@ -300,7 +303,15 @@ HandleUpdaterStartupMode() {
         throw Error("Update confirmation version does not match installed launcher.")
     if !FileExist(stateFile)
         throw Error("Update confirmation state file is missing.")
+    if IniRead(stateFile, "Update", "State", "") != "AWAITING_CONFIRMATION"
+        || IniRead(stateFile, "Update", "Version", "") != AppConfig.Version
+        throw Error("Update confirmation does not match a pending installation.")
+    return stateFile
+}
 
+ConfirmUpdatedLauncherStartup(stateFile)
+{
+    global AppConfig
     ; Publish confirmation as one complete file replacement. IniWrite uses the
     ; Windows profile API, while the PowerShell worker reads the file directly;
     ; replacing the complete file avoids cache/partial-write visibility problems
@@ -313,7 +324,6 @@ HandleUpdaterStartupMode() {
     FileMove(confirmTemp, stateFile, true)
 
     LogLauncherEvent("UPDATE | CONFIRMED | Updated launcher v" AppConfig.Version " confirmed successful startup.")
-    return true
 }
 
 #HotIf MacroNameEditorFocused()

@@ -159,18 +159,8 @@ StopClient(*)
         DisposeGameLoginProgress()
     }
     ToolTip(, , , 1)
-    SetClientStatus("Recovery stopped. You can close the game normally.")
     if wasEnabled
         LogLauncherEvent("GAME | Recovery stopped | Previous phase: " phase ".")
-}
-
-SetClientStatus(text)
-{
-    global SessionStatus, Client
-    Client.Status := text
-    if IsSet(SessionStatus)
-        SessionStatus.Text := text
-    UpdateGameLoginProgress()
 }
 
 FindGameWindow(pid)
@@ -189,13 +179,12 @@ FindGameWindow(pid)
     return 0
 }
 
-RetryClient(reason)
+EndClientMonitoring(reason)
 {
     global Client
     profileName := IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure"
     LogLauncherEvent("GAME | STOP | Character: " profileName " | Reason: " reason ".")
     StopClient()
-    SetClientStatus(reason " — session stopped.")
 }
 
 ClientTick()
@@ -274,7 +263,6 @@ ClientTick()
             LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
             failedToStart := Client.Phase = "window"
             StopClient()
-            SetClientStatus("Game closed.")
             if failedToStart
             {
                 message := "TES3MP closed before a game window opened. Exit code: " codeText "."
@@ -296,7 +284,6 @@ ClientTick()
                     Client.Phase := "playing"
                     Client.Deadline := A_TickCount + 15000
                     RememberTES3NPGameClient(Client.PID)
-                    SetClientStatus("Game running. Create your character in-game.")
                     LogLauncherEvent("GAME | SUCCESS | Game session started for new adventure.")
                 }
                 else
@@ -304,18 +291,15 @@ ClientTick()
                     Client.Phase := "username"
                     SetGameLoginProgressStage(1)
                     Client.Deadline := A_TickCount + Client.UsernameDelay * 1000
-                    SetClientStatus("Waiting for username screen — " Client.UsernameDelay " seconds.")
                     LogLauncherEvent("GAME | Login stage | Waiting for username screen.")
                 }
             }
             else if A_TickCount >= Client.Deadline
             {
-                RetryClient("Game window did not appear")
+                EndClientMonitoring("Game window did not appear")
                 MsgBox("TES3MP did not open a game window in time. Check for a TES3MP error window and close the client if it is still running.",
                     "TES3MP Startup Timed Out", "Icon!")
             }
-            else
-                SetClientStatus("Waiting for the game window (console does not count).")
             return
         }
         if !hwnd || hwnd != Client.HWND
@@ -325,7 +309,7 @@ ClientTick()
             if !Client.HasOwnProp("MismatchWindowGraceUntil") || !Client.MismatchWindowGraceUntil
                 Client.MismatchWindowGraceUntil := A_TickCount + 2000
             if A_TickCount >= Client.MismatchWindowGraceUntil
-                RetryClient("Game window lost")
+                EndClientMonitoring("Game window lost")
             return
         }
         Client.MismatchWindowGraceUntil := 0
@@ -339,21 +323,15 @@ ClientTick()
                 return
             }
             if DllCall("IsHungAppWindow", "Ptr", hwnd)
-                RetryClient("Game window is unresponsive")
+                EndClientMonitoring("Game window is unresponsive")
             return
         }
-        remaining := Max(0, Ceil((Client.Deadline - A_TickCount) / 1000))
-        if remaining > 0
-        {
-            label := Client.Phase = "username" ? "Waiting for username screen" : Client.Phase = "password" ? "Waiting for password screen" : "Loading character"
-            SetClientStatus(label " — " remaining " seconds.")
+        if A_TickCount < Client.Deadline
             return
-        }
         if Client.Phase = "loading"
         {
             Client.Phase := "playing"
             RememberTES3NPGameClient(Client.PID)
-            SetClientStatus("Login inputs completed. You can return to TES3NP and launch another character (up to four clients).")
             LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
             ; Completed manual logins no longer hold the one-at-a-time login
             ; watchdog. Keep the game running and allow another launch.
@@ -367,19 +345,16 @@ ClientTick()
         if Client.Phase = "username"
         {
             SetGameLoginProgressStage(2)
-            SetClientStatus("Entering username...")
             LogLauncherEvent("GAME | Login stage | Entering username.")
             SendText(Client.Profile.Name)
             Send("{Enter}")
             SetGameLoginProgressStage(3)
             Client.Phase := "password"
             Client.Deadline := A_TickCount + Client.PasswordDelay * 1000
-            SetClientStatus("Waiting for password screen — " Client.PasswordDelay " seconds.")
         }
         else if Client.Phase = "password"
         {
             SetGameLoginProgressStage(4)
-            SetClientStatus("Entering password...")
             LogLauncherEvent("GAME | Login stage | Entering password.")
             SendText(Client.Profile.Password)
             Send("{Enter}")
@@ -387,7 +362,6 @@ ClientTick()
             CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
             Client.Phase := "loading"
             Client.Deadline := A_TickCount + Client.LoadDelay * 1000
-            SetClientStatus("Loading character — " Client.LoadDelay " seconds.")
         }
         else
         {
@@ -407,7 +381,7 @@ ClientTick()
         Client.LaunchIssued := false
         LogLauncherEvent("GAME | ERROR | Client launch/login exception type: " Type(err) ".")
         failedToStart := Client.Phase = "launch" || Client.Phase = "window"
-        RetryClient("Client launch or login failed")
+        EndClientMonitoring("Client launch or login failed")
         if failedToStart
             MsgBox("TES3MP could not start. Check the selected executable and its dependencies in Game Client Settings.",
                 "TES3MP Startup Failed", "Icon!")

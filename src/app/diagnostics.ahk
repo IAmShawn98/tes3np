@@ -239,8 +239,3 @@ OpenLauncherDataFolder(*)
     DirCreate(AppDataDirectory)
     Run('explorer.exe "' AppDataDirectory '"')
 }
-
-SanitizeDiagnosticPath(path)
-{
-    return SanitizeDiagnosticText(path)
-}
