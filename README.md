@@ -1,6 +1,6 @@
 # tes3np
 
-A robust game launcher for the Morrowind private server Nerevarine Prophecies.
+A robust game launcher for the Morrowind private server [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/Main_Page).
 
 ![tes3np launcher](https://raw.githubusercontent.com/IAmShawn98/tes3np-releases/main/images/Launcher-v0.1.20.png)
 
