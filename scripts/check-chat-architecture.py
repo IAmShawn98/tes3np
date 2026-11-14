@@ -414,6 +414,17 @@ expect(
     and 'Gui("+Owner" LauncherGui.Hwnd' in mismatch
     and 'SendLauncherChatCommand(command, targetHwnd := 0)' in bootstrap,
 )
+expect(
+    "An enabled pack can update on login rejection using the authenticated ZIP transfer",
+    '&& TES3MPExpansionCallNativeUi("ExpansionPackIsEnabled")' in mismatch
+    and 'mode := "Update"' in mismatch
+    and 'ShowTES3MPExpansionMismatchDialog(mode)' in mismatch
+    and 'installing := mode = "Install" || mode = "Browse"' in mismatch_dialog
+    and 'if !ExpansionAutoDownloadAttempted && (ExpansionMismatchMode = "Update"' in mismatch
+    and 'attachment == ExpansionLastAutomaticUpdateAttachment' in mismatch
+    and 'ExpansionLastAutomaticUpdateAttachment := attachment' in mismatch
+    and 'ExpansionMismatchMode != "Install" && ExpansionMismatchMode != "Update"' in mismatch,
+)
 
 expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
@@ -552,7 +563,7 @@ expect(
     and 'if TES3MPExpansionBeginNativeProgress()' in auto_install_view
     and 'SetTimer((*) => TES3MPExpansionRetryNativeProgress(dialog), -300)' in auto_install_view
     and 'TES3MPExpansionRevealRepair("Native download window could not initialize.' in auto_progress_helpers
-    and 'mode != "Mismatch"' in auto_install_view
+    and 'installing := mode = "Install" || mode = "Browse"' in auto_install_view
     and 'TES3MPExpansionCloakDialog(ExpansionMismatchDialog, false)' in auto_progress_helpers
     and 'DllCall("dwmapi\\DwmSetWindowAttribute"' in auto_progress_helpers
     and 'if IsObject(ExpansionAutoCloaked)' not in auto_progress_helpers,

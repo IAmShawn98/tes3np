@@ -112,6 +112,17 @@ try
     MismatchFixtureAssert(!generic.Order, "generic rejection is not a separate order error")
     MismatchFixtureAssert(!generic.MissingOther && !generic.MissingExpansion,
         "generic rejection does not imply missing plugins")
+    MismatchFixtureAssert(TES3MPAllowsExpansionAutoUpdate(generic),
+        "unexplained rejection can check for a newer enabled pack")
+    MismatchFixtureAssert(!TES3MPAllowsExpansionAutoUpdate(0)
+        && !TES3MPAllowsExpansionAutoUpdate(TES3MPNewMismatchLogResult()),
+        "automatic update requires a server rejection")
+    attachment := "/attachments/1234/5678/NP_Expansion_Pack_v0.2c.zip"
+    MismatchFixtureAssert(TES3MPExpansionAttachmentPath("https://cdn.discordapp.com" attachment "?ex=old") == attachment
+        && TES3MPExpansionAttachmentPath("https://media.discordapp.net" attachment "?ex=new") == attachment,
+        "refreshed Discord links share one attachment identity")
+    MismatchFixtureAssert(TES3MPExpansionAttachmentPath("https://example.com" attachment) = "",
+        "an unrelated download host has no Discord attachment identity")
     ; Regression: the displayed mismatch was produced by a successful live
     ; log read. Reopening the same log after StopClient can fail; use the
     ; already-sanitized evidence and never require a second read.
@@ -123,6 +134,8 @@ try
     MismatchFixtureAssert(chosen.Source = "Captured during failed login",
         "live rejection provenance is explicit")
     MismatchFixtureAssert(!chosen.MissingExpansion, "live evidence is correctly classified")
+    MismatchFixtureAssert(!TES3MPAllowsExpansionAutoUpdate(chosen),
+        "explicit unrelated dependency stays in manual recovery")
     MismatchFixtureAssert(TES3MPMismatchAssessment(info, generic, "Not checked")
         = "Cause not determined from available checks", "no unsupported conclusion")
 
@@ -176,6 +189,8 @@ try
     baseLog := TES3MPAnalyzeMismatchLogText("Missing master Tribunal.esm`n" rejection)
     MismatchFixtureAssert(baseLog.MissingBaseMaster && !baseLog.MissingOther,
         "base game master distinguished")
+    MismatchFixtureAssert(!TES3MPAllowsExpansionAutoUpdate(baseLog),
+        "missing base-game master stays in manual recovery")
 
     orderedLog := TES3MPAnalyzeMismatchLogText(
         "Incorrect plugin load order on client`n" rejection)
