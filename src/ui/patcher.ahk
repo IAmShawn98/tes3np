@@ -478,8 +478,9 @@ ToggleExpansionPack(*) => ApplyExpansionPackToggle()
 
 ApplyExpansionPackToggle(checked := false)
 {
-    global AppDataDirectory, LauncherGui, DataFile, BundledResourceRoot
-    if PatchInProgress()
+    global AppDataDirectory, DataFile, BundledResourceRoot
+    static applying := false
+    if applying || PatchInProgress()
         return
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
     {
@@ -520,7 +521,7 @@ ApplyExpansionPackToggle(checked := false)
     if checked && !enable
         return
     if enable && !checked && ExpansionPackEspPaths(morrowind, cfg).Length
-        && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
+        && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true), false, false)
         return
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {
@@ -528,18 +529,6 @@ ApplyExpansionPackToggle(checked := false)
         return
     }
     action := enable ? "Enable" : "Disable"
-    if enable
-    {
-        question := "Are you sure you want to enable your installed expansion pack?"
-        explanation := "Enabling the Nerevarine Prophecies expansion pack will activate it for future game clients. You can disable it again at any time without uninstalling it."
-    }
-    else
-    {
-        question := "Are you sure you want disable your installed expansion pack?"
-        explanation := "Your installed files will stay available. When you turn the pack back on, the launcher will check for an update."
-    }
-    if MsgBox(question Chr(10) Chr(10) explanation, "Expansion Pack", "YesNo Icon?") != "Yes"
-        return
     resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
     script := resourceRoot "\scripts\toggle-expansion-pack.ps1"
     powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -554,6 +543,7 @@ ApplyExpansionPackToggle(checked := false)
     command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
         . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '"'
         . ' -BackupFolder "' backup '" -ResultFile "' output '"'
+    applying := true
     try
     {
         ; Invoke PowerShell directly. cmd.exe nested quoting previously lost
@@ -578,7 +568,7 @@ ApplyExpansionPackToggle(checked := false)
         LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
         PruneExpansionToggleBackups(backup)
         RefreshExpansionPackToggle()
-        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully for future launches.", "Expansion Pack", "Iconi")
+        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully.", "Expansion Pack", "Iconi")
     }
     catch Error as err
     {
@@ -589,6 +579,7 @@ ApplyExpansionPackToggle(checked := false)
     finally
     {
         try FileDelete(output)
+        applying := false
     }
 }
 

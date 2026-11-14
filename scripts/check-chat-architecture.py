@@ -406,6 +406,18 @@ expect(
     and 'RefreshExpansionPackToggle()' in bootstrap
     and '"Expansion Downloads", ToggleLauncherExpansionDownloads' not in bootstrap,
 )
+expansion_toggle_action = section_between(patcher, "ApplyExpansionPackToggle(checked := false)", "\nShowExpansionInstallPrompt(")
+expect(
+    "Normal Expansion Pack toggles skip confirmation and show one success message after verifying the change",
+    "YesNo" not in expansion_toggle_action
+    and in_order(
+        expansion_toggle_action,
+        "exitCode := RunWait(command,",
+        "actualEnabled := ExpansionPackInLoadOrder(cfg)",
+        'MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully."',
+    )
+    and 'if showProgress && TES3MPExpansionBeginNativeProgress()' in mismatch,
+)
 expect(
     "Mismatch dialog requests a child download view and disposes it on exit",
     'SendLauncherChatCommand(6, downloadSlot.Hwnd)' in mismatch
@@ -468,7 +480,7 @@ expect(
 expect(
     "Known outdated Expansion Packs are offered before login or re-enable",
     in_order(session, "TES3MPCheckExpansionBeforeAction(config", "Client := session")
-    and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))' in patcher
+    and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true), false, false)' in patcher
     and in_order(expansion_update_offer, 'if packMatches', 'TES3MPExpansionContinuePreflight(dialog)')
     and 'TES3MPExpansionPackMatches(installedChecksum, checksum)' in expansion_update_offer
     and 'TES3MPExpansionPreflightUnavailable.Bind(dialog,' in mismatch
