@@ -944,8 +944,9 @@ expect(
     and "CheckOfficialZip $compilerZip 'Ahk2Exe'" in expansion_build
     and "CheckOfficialZip $tes3mpArchive 'TES3MP 0.8.1'" in expansion_build
     and "SaveOfficialDownload $upstreamFontLicense" in expansion_build
-    and expansion_build.index("SaveOfficialDownload $upstreamFontLicense")
-        < expansion_build.index("if (Test-Path (Join-Path $projectRoot 'dist'))"),
+    and expansion_build.index("check-windows-package.py")
+        < expansion_build.index("Installing the verified distribution into dist")
+    and "Remove-Item (Join-Path $projectRoot 'dist') -Recurse" not in expansion_build,
 )
 expect(
     "One native Windows Explorer-style source browser picks ZIP or extracted folder",

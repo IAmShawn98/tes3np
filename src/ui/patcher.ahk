@@ -25,16 +25,14 @@ FindMorrowindFolder(config)
             }
     for registry in ["HKLM\SOFTWARE\WOW6432Node\Bethesda Softworks\Morrowind", "HKLM\SOFTWARE\Bethesda Softworks\Morrowind"]
         try candidates.Push(RegRead(registry, "Installed Path"))
-    try
+    steamRoots := [EnvGet("ProgramFiles(x86)") "\Steam", EnvGet("ProgramFiles") "\Steam"]
+    try steamRoots.InsertAt(1, RegRead("HKCU\Software\Valve\Steam", "SteamPath"))
+    candidates.Push("C:\GOG Games\Morrowind")
+    for steamRoot in steamRoots
     {
-        steam := RegRead("HKCU\Software\Valve\Steam", "SteamPath")
-        candidates.Push(steam "\steamapps\common\Morrowind")
-    }
-    candidates.Push(EnvGet("ProgramFiles(x86)") "\Steam\steamapps\common\Morrowind", "C:\GOG Games\Morrowind")
-    ; A secondary Steam library can live on another drive. Read Steam's
-    ; registered library paths rather than guessing drive letters.
-    for steamRoot in [EnvGet("ProgramFiles(x86)") "\Steam", EnvGet("ProgramFiles") "\Steam"]
-    {
+        if !DirExist(steamRoot)
+            continue
+        candidates.Push(steamRoot "\steamapps\common\Morrowind")
         libraryFile := steamRoot "\steamapps\libraryfolders.vdf"
         if !FileExist(libraryFile)
             continue
@@ -78,7 +76,7 @@ UpdatePatchProgress(label, percent)
 
 CheckPatchWorker()
 {
-    global PatchJob, PatchFrame, DataFile
+    global PatchJob, PatchFrame, DataFile, LauncherGui
     if !IsObject(PatchJob)
         return
     job := PatchJob
@@ -106,8 +104,6 @@ CheckPatchWorker()
     message := IniRead(result, "Result", "Message", "The Expansion Pack import exited without a result. Exit code: " exitCode ". Check scripts/import-expansion-pack.ps1. Keep this attempt's backup files if copying had started.")
     try
     {
-        if job.Action != "Import"
-            throw Error("Unsupported retired installer operation.")
         if state = "success"
         {
             ; Record the validated import location, without claiming server compatibility.
@@ -123,7 +119,6 @@ CheckPatchWorker()
             IniWrite("1", DataFile, "ExpansionPack", "GlobalEnabled")
             LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
-        UpdateCharacterMenuLabel()
         RefreshExpansionPackToggle()
         UpdatePatchProgress(state = "success" ? "Waiting for Jiub" : "Expansion Pack needs attention", state = "success" ? 100 : 0)
     }
@@ -132,11 +127,10 @@ CheckPatchWorker()
         state := "error"
         message := PatchErrorDetails("Save completed import", "Launcher settings", err)
         LogPatchDiagnostic(message)
-        UpdateCharacterMenuLabel()
     }
     finally
     {
-        job.Source.Opt("-Disabled")
+        LauncherGui.Opt("-Disabled")
         ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
     }
@@ -147,7 +141,7 @@ CheckPatchWorker()
         LogLauncherEvent("EXPANSION | Import failed | " message)
     ; The auto-downloaded ZIP is transient; the import journal and backups
     ; remain intact for recovery. Never delete user-selected packages.
-    autoImport := job.HasOwnProp("AutoDownloadedZip") && job.AutoDownloadedZip != ""
+    autoImport := job.AutoDownloadedZip != ""
     if autoImport
         try FileDelete(job.AutoDownloadedZip)
     ; A finished worker no longer needs extraction or progress files.

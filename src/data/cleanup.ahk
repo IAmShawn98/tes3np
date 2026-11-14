@@ -21,8 +21,9 @@ CleanupStaleLauncherData()
         if IsOldLauncherFile(path, 1)
             try FileDelete(path)
     }
-    if FileExist(DataFile) && IsOldLauncherFile(DataFile ".import.tmp", 1)
-        try FileDelete(DataFile ".import.tmp")
+    for suffix in [".import.tmp", ".save.tmp"]
+        if IsOldLauncherFile(DataFile suffix, 1)
+            try FileDelete(DataFile suffix)
 
     archiveFolder := root "\Logs"
     if IsPlainLauncherFolder(archiveFolder)
@@ -40,13 +41,22 @@ CleanupStaleLauncherData()
 
     portraits := root "\portraits"
     if IsPlainLauncherFolder(portraits)
-        Loop Files portraits "\*.png.tmp", "F"
+        Loop Files portraits "\*.tmp", "F"
         {
-            if RegExMatch(A_LoopFileName, "i)^[0-9a-f]{32}\.png\.tmp$")
+            if RegExMatch(A_LoopFileName, "i)^[0-9a-f]{32}\.(png|jpg|jpeg|bmp)\.tmp$")
                 && IsOldLauncherFile(A_LoopFileFullPath, 1)
                 try FileDelete(A_LoopFileFullPath)
         }
     PruneExpansionToggleBackups(root "\expansion-backups")
+
+    updateRoot := A_Temp "\tes3np-update"
+    if IsPlainLauncherFolder(updateRoot)
+        Loop Files updateRoot "\*", "D"
+        {
+            if RegExMatch(A_LoopFileName, "i)^[0-9a-f]{32}$")
+                && IsOldLauncherFile(A_LoopFileFullPath, 7)
+                DeleteLauncherStagingTree(A_LoopFileFullPath)
+        }
 
     if IsPlainLauncherFolder(MacroRoot)
         Loop Files MacroRoot "\import-*", "D"

@@ -881,9 +881,15 @@ StopSelectedMacro(*)
     if macro.PID && ProcessExist(macro.PID)
     {
         try ProcessClose(macro.PID)
+        catch
+        {
+            MacroStatus.Text := "Could not stop " macro.Name "."
+            RefreshMacroButtons()
+            return
+        }
     }
-    RefreshMacroProcesses()
     MacroStatus.Text := "Stopped " macro.Name "."
+    RefreshMacroProcesses()
 }
 
 RefreshMacroProcesses()

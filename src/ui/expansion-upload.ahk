@@ -199,8 +199,8 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
         LauncherGui.Opt("+Disabled")
         Run(command, , "Hide", &pid)
         handle := DllCall("OpenProcess", "UInt", 0x1000, "Int", false, "UInt", pid, "Ptr")
-        PatchJob := {PID: pid, Handle: handle, Folder: jobFolder, Action: "Import",
-            Source: LauncherGui, Startup: false, TesFolder: "", MorrowindFolder: morrowind, ConfigFile: config,
+        PatchJob := {PID: pid, Handle: handle, Folder: jobFolder,
+            MorrowindFolder: morrowind, ConfigFile: config,
             AutoDownloadedZip: autoDownloadedZip}
         LogLauncherEvent("EXPANSION | Local Expansion Pack import started.")
         SetTimer(CheckPatchWorker, 50)

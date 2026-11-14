@@ -37,9 +37,12 @@ try {
         } else {
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
             $inputStream = $entry.Open()
-            $outputStream = [IO.File]::Open($target, [IO.FileMode]::CreateNew)
-            try { $inputStream.CopyTo($outputStream) }
-            finally { $outputStream.Dispose(); $inputStream.Dispose() }
+            try {
+                $outputStream = [IO.File]::Open($target, [IO.FileMode]::CreateNew)
+                try { $inputStream.CopyTo($outputStream) }
+                finally { $outputStream.Dispose() }
+            }
+            finally { $inputStream.Dispose() }
         }
     }
     [IO.File]::WriteAllText([IO.Path]::Combine($root, '.import-success'), 'OK')
