@@ -381,14 +381,19 @@ TES3MPExpansionStartDiscoveredZip(slot, status)
     TES3MPExpansionRequestAutoInstall(slot, status)
 }
 
-TES3MPExpansionDecideUpdate(dialog, slot, attachment, approved)
+TES3MPExpansionDecideUpdate(dialog, slot, attachment, action)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionMismatchZipUrl, ExpansionMismatchStatus
     global ExpansionAutoCloaked, ExpansionLastAutomaticUpdateAttachment
     if !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
         || slot != ExpansionMismatchSlot || !IsObject(ExpansionMismatchStatus)
         return
-    if !approved || attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
+    if action != "Download"
+    {
+        CloseTES3MPExpansionMismatchDialog(dialog, slot, action = "Upload")
+        return
+    }
+    if attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)
     {
         TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")
         return

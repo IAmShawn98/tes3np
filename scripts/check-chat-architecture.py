@@ -432,11 +432,11 @@ expansion_update_offer = section_between(
 )
 expansion_update_decision = section_between(
     mismatch,
-    'TES3MPExpansionDecideUpdate(dialog, slot, attachment, approved)\n{',
+    'TES3MPExpansionDecideUpdate(dialog, slot, attachment, action)\n{',
     '\nTES3MPExpansionAttachmentPath(',
 )
 expect(
-    "An Expansion Pack update requires approval before transfer and reveals manual recovery on decline",
+    "An Expansion Pack update offers download, local upload, or dismissal",
     in_order(
         expansion_update_offer,
         'ExpansionAutoDownloadAttempted := true',
@@ -445,12 +445,16 @@ expect(
     )
     and in_order(
         expansion_update_decision,
-        'if !approved || attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)',
+        'if action != "Download"',
+        'CloseTES3MPExpansionMismatchDialog(dialog, slot, action = "Upload")',
+        'if attachment != TES3MPExpansionAttachmentPath(ExpansionMismatchZipUrl)',
         'TES3MPExpansionRevealRepair("Choose the official ZIP or install a copy manually.")',
         'ExpansionLastAutomaticUpdateAttachment := attachment',
         'TES3MPExpansionRequestAutoInstall(slot, ExpansionMismatchStatus)',
     )
-    and 'onDecision.Call(approved)' in patcher
+    and 'AddStyledButton(prompt, 210, 189, 260, 38, "Upload ZIP or Folder",' in patcher
+    and 'CloseExpansionInstallPrompt.Bind(prompt, "Upload")' in patcher
+    and 'onDecision.Call(action)' in patcher
     and 'if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)' in mismatch_dialog
     and 'TES3MPExpansionRevealRepair("Discord sign-in was closed.' in mismatch
     and 'TES3MPExpansionRevealRepair("Official ZIP discovery timed out.' in mismatch,
@@ -461,8 +465,8 @@ expect(
     'ShowExpansionInstallPrompt()' in patcher
     and 'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
     and 'Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.' in patcher
-    and 'CloseExpansionInstallPrompt.Bind(prompt, true)' in patcher
-    and 'CloseExpansionInstallPrompt.Bind(prompt, false)' in patcher
+    and 'CloseExpansionInstallPrompt.Bind(prompt, "Download")' in patcher
+    and 'CloseExpansionInstallPrompt.Bind(prompt, "Cancel")' in patcher
     and 'RequestDiscordExpansionPrompt(1)' in patcher
     and 'UploadExpansionFromFile()' in patcher
     and 'TES3MPExpansionRequestAutoInstall(slotHwnd, statusControl)' in mismatch

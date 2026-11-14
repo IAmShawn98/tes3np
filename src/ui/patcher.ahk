@@ -454,18 +454,30 @@ ShowExpansionInstallPrompt(onDecision := 0, zipName := "")
         IsObject(onDecision) ? "Would you like to download and install the latest NP Expansion Pack from Discord?"
             . Chr(10) zipName
             : "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
-    AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
-        CloseExpansionInstallPrompt.Bind(prompt, true))
-    AddStyledButton(prompt, 356, 189, 180, 38, "No",
-        CloseExpansionInstallPrompt.Bind(prompt, false))
-    prompt.OnEvent("Close", CloseExpansionInstallPrompt.Bind(prompt, false))
-    prompt.OnEvent("Escape", CloseExpansionInstallPrompt.Bind(prompt, false))
+    if IsObject(onDecision)
+    {
+        AddStyledButton(prompt, 30, 189, 165, 38, "Yes",
+            CloseExpansionInstallPrompt.Bind(prompt, "Download"))
+        AddStyledButton(prompt, 210, 189, 260, 38, "Upload ZIP or Folder",
+            CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
+        AddStyledButton(prompt, 485, 189, 165, 38, "No",
+            CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+    }
+    else
+    {
+        AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
+            CloseExpansionInstallPrompt.Bind(prompt, "Download"))
+        AddStyledButton(prompt, 356, 189, 180, 38, "No",
+            CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+    }
+    prompt.OnEvent("Close", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Escape", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
     ExpansionInstallPromptGui := prompt
     ShowGoldNativePrompt(prompt)
     return true
 }
 
-CloseExpansionInstallPrompt(prompt, approved := false, *)
+CloseExpansionInstallPrompt(prompt, action := "Cancel", *)
 {
     global ExpansionInstallPromptGui
     if !IsObject(ExpansionInstallPromptGui) || ExpansionInstallPromptGui != prompt
@@ -474,8 +486,8 @@ CloseExpansionInstallPrompt(prompt, approved := false, *)
     onDecision := prompt.ExpansionDecision
     CloseGoldNativePrompt(prompt)
     if IsObject(onDecision)
-        onDecision.Call(approved)
-    else if approved
+        onDecision.Call(action)
+    else if action = "Download"
     {
         LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
         RequestDiscordExpansionPrompt(1)
