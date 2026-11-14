@@ -204,10 +204,7 @@ SendBugReport(settings, *)
         return
     }
 
-    count := settings.ReportScreenshots.Length
-    SetBugReportBusy(settings, true, count
-        ? "Sending " count (count = 1 ? " screenshot…" : " screenshots…")
-        : "Sending report…")
+    SetBugReportBusy(settings, true, "Sending report...")
     try
         screenshots := EncodeBugReportScreenshots(settings.ReportScreenshots)
     catch
