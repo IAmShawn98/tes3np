@@ -41,5 +41,3 @@ Click the version number in the launcher to check for updates. You can review th
 ## Troubleshooting
 
 Open **Launcher Settings → Launcher Data → Report A Bug**. Describe what you were doing and what happened. Add screenshots if they help show the issue, then click **Send Report**. The launcher automatically attaches a recent sanitized launcher log.
-
-If the launcher won’t open, [report the issue on GitHub](https://github.com/IAmShawn98/tes3np-releases/issues/new/choose) and include your tes3np version, Windows version, and what happened.
