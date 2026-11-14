@@ -53,7 +53,16 @@ function Show-ProgressWindow{if($TestMode){return};Add-Type -AssemblyName System
 function Update-Progress([string]$Text,[int]$Percent){if($TestMode -or -not $ProgressForm){return};$ProgressStatus.Text=$Text;$ProgressBar.Value=[Math]::Max(0,[Math]::Min(100,$Percent));[Windows.Forms.Application]::DoEvents()}
 function Close-ProgressWindow{if($ProgressForm){try{$ProgressForm.Close();$ProgressForm.Dispose()}catch{};$script:ProgressForm=$null}}
 function Set-State([string]$State){$dir=Split-Path -Parent $StateFile;if($dir -and -not(Test-Path -LiteralPath $dir)){New-Item -ItemType Directory -Path $dir -Force|Out-Null};@('[Update]',"State=$State","Version=$Version","UpdatedUtc=$([DateTime]::UtcNow.ToString('o'))")|Set-Content -LiteralPath $StateFile -Encoding UTF8;Write-UpdaterLog("STATE | $State")}
-function Get-State{if(-not(Test-Path -LiteralPath $StateFile)){return ''};$line=Get-Content -LiteralPath $StateFile|Where-Object{$_ -like 'State=*'}|Select-Object -First 1;if($line){return $line.Substring(6)};return ''}
+function Test-LauncherConfirmation {
+    try {
+        $lines = Get-Content -LiteralPath $StateFile -Encoding UTF8 -ErrorAction Stop
+        return ($lines -contains 'State=CONFIRMED') -and ($lines -contains "Version=$Version")
+    } catch {
+        # The launcher or a scanner may briefly hold the state file open.
+        # The startup deadline still bounds retries if it stays unavailable.
+        return $false
+    }
+}
 function Wait-Parent{if($ParentPid -le 0){Write-UpdaterLog 'No parent PID supplied; continuing.';return};Update-Progress 'Waiting for the launcher to close...' 10;Write-UpdaterLog("Waiting for launcher PID $ParentPid to exit.");try{Wait-Process -Id $ParentPid -Timeout 30 -ErrorAction Stop;Write-UpdaterLog 'Original launcher exited.'}catch{if(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue){throw 'Launcher did not exit in time.'};Write-UpdaterLog 'Original launcher was already closed.'}}
 function Assert-SafePaths {
     $separator = [IO.Path]::DirectorySeparatorChar
@@ -164,7 +173,17 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination, [string]$
         }
     }
 }
-function Stop-LaunchedProcessForRollback($Process){if(-not $Process -or $Process.HasExited){return};Write-UpdaterLog("Stopping updated launcher PID $($Process.Id) before rollback.");try{Stop-Process -Id $Process.Id -Force -ErrorAction Stop;Wait-Process -Id $Process.Id -Timeout 10 -ErrorAction SilentlyContinue}catch{Write-UpdaterLog("Could not stop updated launcher cleanly: $($_.Exception.Message)")};if(Get-Process -Id $Process.Id -ErrorAction SilentlyContinue){throw 'Updated launcher is still running; rollback cannot safely continue.'};Write-UpdaterLog 'Updated launcher stopped; rollback may proceed.'}
+function Stop-LaunchedProcessForRollback($Process) {
+    if (!$Process -or $Process.HasExited) { return }
+    Write-UpdaterLog("Stopping updated launcher PID $($Process.Id) before rollback.")
+    try { $Process.Kill() } catch {
+        if (!$Process.HasExited) { throw }
+    }
+    if (!$Process.WaitForExit(10000)) {
+        throw 'Updated launcher is still running; rollback cannot safely continue.'
+    }
+    Write-UpdaterLog 'Updated launcher stopped; rollback may proceed.'
+}
 function Restore-Rollback([string]$Backup, [string]$Destination, [string]$Journal) {
     foreach ($path in @($Backup, $Journal)) {
         $entry = Get-Item -LiteralPath $path -Force
@@ -175,11 +194,14 @@ function Restore-Rollback([string]$Backup, [string]$Destination, [string]$Journa
     if (-not (Test-Path -LiteralPath (Join-Path $Backup 'tes3np.exe') -PathType Leaf)) {
         throw 'The previous launcher backup is missing.'
     }
-    foreach ($relative in @(Get-Content -LiteralPath $Journal -Encoding UTF8)) {
+    $newFiles = @(Get-Content -LiteralPath $Journal -Encoding UTF8)
+    foreach ($relative in $newFiles) {
         if (!$relative -or [IO.Path]::IsPathRooted($relative) -or
             $relative.Contains(':') -or $relative -match '(^|[\\/])\.\.([\\/]|$)') {
             throw 'Invalid path in the update rollback journal.'
         }
+    }
+    foreach ($relative in $newFiles) {
         $installed = Join-Path $Destination $relative
         if (Test-Path -LiteralPath $installed -PathType Leaf) {
             Remove-Item -LiteralPath $installed -Force
@@ -320,17 +342,17 @@ try {
 
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     while ([DateTime]::UtcNow -lt $deadline) {
-        if ($launched.HasExited) {
-            Write-UpdaterLog("Updated launcher exited before startup completed. ExitCode=$($launched.ExitCode)")
-            break
-        }
-        if ((Get-State) -eq 'CONFIRMED') {
-            Update-Progress 'Update complete!' 100
+        if (Test-LauncherConfirmation) {
             Remove-Item -LiteralPath $journal -Force
             try { Set-State 'SUCCESS' } catch { Write-UpdaterLog 'Could not record successful update state.' }
             Write-UpdaterLog 'SUCCESS | Updated launcher confirmed startup.'
+            try { Update-Progress 'Update complete!' 100 } catch {}
             Start-Sleep -Milliseconds 700
             exit 0
+        }
+        if ($launched.HasExited) {
+            Write-UpdaterLog("Updated launcher exited before startup completed. ExitCode=$($launched.ExitCode)")
+            break
         }
         [Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 250
@@ -383,6 +405,7 @@ try {
         $installLock.ReleaseMutex()
     }
     if ($installLock) { $installLock.Dispose() }
+    if ($launched) { $launched.Dispose() }
     if ($managedRoot) {
         Remove-Item -LiteralPath (Join-Path $managedRoot 'staged') -Recurse -Force -ErrorAction SilentlyContinue
     }

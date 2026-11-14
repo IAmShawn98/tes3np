@@ -850,12 +850,16 @@ SaveProfileEditor(index, fields, *)
             MsgBox("Each login delay must be between 1 and 300 seconds.", "tes3np")
             return
         }
-    portraitFile := ""
+    portraitFile := "", newPortrait := ""
     if isOriginal
     {
         if EditorOriginalPortraitSource != ""
         {
-            try portraitFile := InstallOriginalCharacterPortrait(EditorOriginalPortraitSource)
+            try
+            {
+                portraitFile := InstallOriginalCharacterPortrait(EditorOriginalPortraitSource)
+                newPortrait := portraitFile
+            }
             catch Error as err
             {
                 reason := SanitizeDiagnosticText(err.Message)
@@ -879,9 +883,10 @@ SaveProfileEditor(index, fields, *)
     previousProfiles := Profiles.Clone()
     previousFavorite := SelectedProfile
     previousPage := CharacterListPage
-    BeginInterfaceUpdate(0, "Saving character...", true)
+    saved := false
     try
     {
+        BeginInterfaceUpdate(0, "Saving character...", true)
         if index
             Profiles[index] := profile
         else
@@ -902,11 +907,17 @@ SaveProfileEditor(index, fields, *)
             MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
             return
         }
+        saved := true
         UpdateCharacterMenuLabel()
         HideProfileEditor()
         RefreshProfiles()
     }
-    finally EndInterfaceUpdate()
+    finally
+    {
+        if !saved && newPortrait != ""
+            try FileDelete(GetCustomPortraitPath(newPortrait))
+        EndInterfaceUpdate()
+    }
 }
 
 RemoveVisibleProfile(position, *)

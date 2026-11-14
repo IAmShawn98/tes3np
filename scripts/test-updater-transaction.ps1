@@ -167,6 +167,21 @@ try {
     New-Item -ItemType Directory -Path $transaction | Out-Null
     [IO.File]::WriteAllText((Join-Path $transaction 'owner.txt'), $key)
     Copy-Item -LiteralPath $f[0] -Destination (Join-Path $transaction 'backup') -Recurse
+    Set-Content -LiteralPath (Join-Path $transaction 'pending.txt') @('keep-during-recovery.txt', '../invalid.txt')
+    $retained = Join-Path $f[0] 'keep-during-recovery.txt'
+    Set-Content -LiteralPath $retained 'KEEP UNTIL JOURNAL VALIDATES'
+    & pwsh -NoProfile -NonInteractive -File $updater -InstallDir $f[0] -Version '9.9.9-alpha' -RecoverOnly -TestMode *> $null
+    if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $retained) -or
+        !(Test-Path -LiteralPath (Join-Path $transaction 'pending.txt'))) {
+        throw 'An invalid recovery journal caused a partial cleanup or lost recovery data.'
+    }
+    $global:LASTEXITCODE = 0
+    Remove-Item -LiteralPath $transaction -Recurse
+    Write-Host 'PASS: recovery validates the complete journal before removing any files.'
+
+    New-Item -ItemType Directory -Path $transaction | Out-Null
+    [IO.File]::WriteAllText((Join-Path $transaction 'owner.txt'), $key)
+    Copy-Item -LiteralPath $f[0] -Destination (Join-Path $transaction 'backup') -Recurse
     Set-Content -LiteralPath (Join-Path $transaction 'pending.txt') 'new-only.txt'
     Set-Content -LiteralPath (Join-Path $f[0] 'tes3np.exe') 'INTERRUPTED UPDATE'
     Set-Content -LiteralPath (Join-Path $f[0] 'new-only.txt') 'INTERRUPTED FILE'

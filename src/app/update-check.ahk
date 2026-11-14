@@ -730,7 +730,8 @@ ValidateUpdateArchive(package, stage)
     try {
         FileAppend(script, scriptPath, "UTF-8")
         shell := ComObject("WScript.Shell")
-        command := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '"'
+        powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+        command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '"'
         exitCode := shell.Run(command, 0, true)
         if exitCode != 0
             throw Error("Update package failed safe staging validation.")

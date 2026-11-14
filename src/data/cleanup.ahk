@@ -116,12 +116,9 @@ CleanupStaleLauncherData()
     if !Client.Enabled && !ProcessExist("tes3mp.exe")
     {
         keep := []
-        for key in ["CustomExecutable", "Executable"]
-        {
-            SplitPath(IniRead(DataFile, "Launch", key, ""), , &folder)
-            if folder != ""
-                keep.Push(folder)
-        }
+        SplitPath(IniRead(DataFile, "Launch", "CustomExecutable", ""), , &folder)
+        if folder != ""
+            keep.Push(folder)
         PruneLauncherCache(root "\client-cache", "i)^(merged-)?[0-9a-f]{8}(-[0-9a-f]{32})?$", ".ready", keep, 30)
     }
 }

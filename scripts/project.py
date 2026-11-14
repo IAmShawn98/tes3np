@@ -247,7 +247,7 @@ def check(allow_missing_payload: bool = False) -> None:
     manifest_payload = json.loads((ROOT / "patches/manifest.json").read_text(encoding="utf-8-sig"))
     if [item["Path"] for item in manifest_payload["Files"]] != ["markerless/tes3mp.exe"]:
         errors.append("Release manifest must not require legacy Expansion Pack payload.")
-    if 'for directory in ("assets",):' not in resource_generator:
+    if '.rglob(' in resource_generator or '"assets/icons/tes3np.ico"' not in resource_generator:
         errors.append("Executable resource generator is bundling non-runtime patch payloads.")
     build_source = (ROOT / "scripts/build-windows.ps1").read_text(encoding="utf-8-sig")
     if "@('tes3np.ahk','src','assets','scripts')" not in build_source or "test-expansion-toggle.ps1" not in build_source:
@@ -336,10 +336,12 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'return A_ScriptDir "\\client\\tes3mp.exe"' in client_settings
         and "GetSharedExecutable()" in client_settings
         and "InstallCustomClientOverrides(source, dependencies := \"\")" in client_detection
+        and 'try executable := GetSharedExecutable()' in portable_backup
         and 'IniWrite(executable, temporary, "Launch", "Executable")' in portable_backup
+        and 'IniRead(path, "Launch", "Executable"' not in portable_backup
+        and 'restored.Push({Name: name, Password: password, Species: species, PortraitFile: "",' in portable_backup
         and 'FileCopy(DataFile, temporary)' in portable_backup
         and 'FileMove(temporary, DataFile, true)' in portable_backup
-        and 'An old executable path was unavailable. Use Launcher Settings > Game Client Settings' in portable_backup
     )
     if not client_contract:
         errors.append("Live Game Client Settings, client executable resolution, or backup persistence was lost.")

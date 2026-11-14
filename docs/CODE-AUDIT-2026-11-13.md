@@ -142,3 +142,21 @@ GitHub tree before changes.
   staging folder, and rejection of a size mismatch. Source contracts and
   the updater transaction fixtures passed again. Native macro UI, timeout
   and launcher shutdown remain Windows runtime checks.
+
+## Seventh source pass
+
+- Failed character saves discard the newly generated portrait. Imported v1
+  profiles have the same portrait field as locally created profiles. The
+  exporter retains the executable field for older readers, while import
+  preserves the destination PC's active client settings.
+- The updater retries a temporarily unreadable startup confirmation,
+  checks its version, and uses the launched process handle during rollback.
+  Recovery validates the full journal before deleting staged additions.
+- The resource generator includes the runtime artwork, font license,
+  species icons and workers explicitly. The release ZIP checker rejects
+  extra root entries. A reference scan covered all 395 launcher declarations,
+  including UI callbacks referenced by name, and found no unreferenced
+  function declarations.
+- Twelve updater transaction fixtures passed, including invalid-journal
+  recovery. Resource generation passed against a disposable source fixture.
+  The packaged Windows build and full runtime checklist remain pending.

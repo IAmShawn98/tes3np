@@ -582,11 +582,12 @@ Public redistribution/licensing review remains a separate release gate.
         }
     }
     Step 'Verified both extracted Expansion Pack helpers and source SHA-256 hashes'
-    # Include every species icon installed in this checkout in the extraction
-    # smoke test, without requiring people to have optional custom artwork.
+    # Check the optional species icons that the launcher actually uses.
     $speciesFolder = Join-Path $projectRoot 'assets\icons\species'
     if (Test-Path -LiteralPath $speciesFolder -PathType Container) {
         foreach ($icon in (Get-ChildItem -LiteralPath $speciesFolder -File -Filter '*.ico')) {
+            if ($icon.BaseName -notin @('argonian','breton','dark-elf','high-elf','imperial',
+                    'khajiit','nord','orc','redguard','wood-elf')) { continue }
             $path = Join-Path $resourceRoot ('assets\icons\species\' + $icon.Name)
             if (!(Test-Path -LiteralPath $path -PathType Leaf)) {
                 throw "Missing extracted species portrait: $($icon.Name)"
