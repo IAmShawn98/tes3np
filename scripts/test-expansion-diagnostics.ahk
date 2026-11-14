@@ -142,7 +142,9 @@ try
         MismatchFixtureAssert(!CheckTES3MPPluginMismatch(), "separate logs stay separate")
         FileAppend("order don't match the server's", firstLog, "UTF-8-RAW")
         MismatchFixtureAssert(CheckTES3MPPluginMismatch(), "same-file split rejection detected")
-        MismatchFixtureAssert(Client.MismatchLogKey = StrLower(firstLog), "rejection attributed to correct log")
+        ; A_Temp can contain a DOS short name on GitHub's Windows runner.
+        SplitPath(Client.MismatchLogKey, &matchedLogName)
+        MismatchFixtureAssert(matchedLogName = "tes3mp-client-a.log", "rejection attributed to correct log")
     }
     finally
     {
