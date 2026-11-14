@@ -9,30 +9,29 @@ import sys
 
 root = Path(sys.argv[1]).resolve()
 output = root / "src" / "app" / "bundled-resources.generated.ahk"
+# List runtime artwork, the font and its license, and the launcher workers.
+# Keep editable PNG masters and checkout-only files out of the executable.
+required = (
+    "assets/backgrounds/launcher.png", "assets/backgrounds/character-book.png",
+    "assets/controls/button.png", "assets/controls/scroll-panel.png",
+    "assets/fonts/MysticCards.ttf", "assets/fonts/MysticCardsFontLicense.txt",
+    "assets/happy-hour/jiub-happy-hour.png", "assets/happy-hour/pixie-dust.png",
+    "assets/headings/quest.png", "assets/headings/together.png", "assets/icons/tes3np.ico",
+    "scripts/import-macro.ps1", "scripts/toggle-expansion-pack.ps1",
+    "scripts/import-expansion-pack.ps1", "scripts/select-expansion-package.ps1",
+    "scripts/tes3np-updater.ps1", "scripts/fetch-release-notes.ps1",
+)
 resources = []
-# Editable raster masters belong in source control, not in the runtime EXE.
-# The login overlay loads matching .ico files; neither these PNG originals nor
-# the 1.6 MB branding PNG are requested by any live AHK/ChatHost component.
-# The downloadable NP Expansion Pack is NEVER part of the launcher executable.
-# The modified markerless TES3MP client ships once in the separate client/
-# directory, not as another 15 MB copy inside tes3np.exe.
-for directory in ("assets",):
-    for path in (root / directory).rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(root).as_posix()
-        if relative == "assets/icons/tes3np.png" or (
-            relative.startswith("assets/icons/species/") and path.suffix.lower() == ".png"
-        ):
-            continue
-        resources.append(path)
-for name in ("import-macro.ps1", "toggle-expansion-pack.ps1", "import-expansion-pack.ps1", "select-expansion-package.ps1", "tes3np-updater.ps1", "fetch-release-notes.ps1"):
-    path = root / "scripts" / name
+for name in required:
+    path = root / name
     if not path.is_file():
-        raise SystemExit(f"Missing bundled worker: {path}")
+        raise SystemExit(f"Missing bundled resource: {path}")
     resources.append(path)
-if not resources:
-    raise SystemExit("No resources to bundle")
+for species in ("argonian", "breton", "dark-elf", "high-elf", "imperial",
+                "khajiit", "nord", "orc", "redguard", "wood-elf"):
+    icon = root / "assets/icons/species" / f"{species}.ico"
+    if icon.is_file():
+        resources.append(icon)
 
 digest = hashlib.sha256()
 for path in sorted(resources):
@@ -60,10 +59,11 @@ lines = [
     '        return',
 ]
 for path in sorted(resources):
-    relative = path.relative_to(root).as_posix().replace("/", "\\")
+    source = path.relative_to(root)
+    relative = source.as_posix().replace("/", "\\")
     if '"' in relative:
         raise SystemExit(f"Unsupported resource name: {relative}")
-    parent = str(Path(relative).parent).replace("/", "\\")
+    parent = source.parent.as_posix().replace("/", "\\")
     lines.append(f'    DirCreate(BundledResourceRoot "\\{parent}")')
     # Source of FileInstall must be literal for Ahk2Exe. Bounded retries
     # tolerate transient scanner/indexer locks without hiding real failures.

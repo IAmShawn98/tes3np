@@ -18,9 +18,9 @@ Use the tray menu to **Open Launcher** or **Stop game recovery**. Quitting the l
 
 ## Moving to another computer
 
-**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays, the ticked default and executable path. Export warns that passwords are readable in this file. Keep it private; do not share or commit it.
+**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays and the ticked favorite. For older launcher versions, it also includes the executable path when available. The backup contains readable passwords, so keep it private.
 
-With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing settings and encrypts passwords for the destination Windows account. An executable path that does not exist there is cleared; use **Launcher Settings → Game Client Settings** if you need to configure a custom game client. Copying the normal encrypted `settings.ini` is not a portable password backup.
+With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing character settings and encrypts passwords for the destination Windows account. Game client selection stays local to each PC. Configure it under **Launcher Settings → Game Client Settings**.
 
 ## Login and recovery
 

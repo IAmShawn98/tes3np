@@ -27,17 +27,19 @@ ExportLauncherData()
         MsgBox("Choose a backup location outside the live settings file.", "Export Data")
         return
     }
-    temporary := path "." DllCall("GetCurrentProcessId", "UInt") ".tmp"
+    temporary := ""
     try
     {
-        if FileExist(temporary)
-            FileDelete(temporary)
+        temporary := path "." NewLauncherFileId() ".tmp"
         IniWrite("tes3np", temporary, "Backup", "Application")
         IniWrite("1", temporary, "Backup", "Version")
         IniWrite("HexUTF8", temporary, "Backup", "Passwords")
         IniWrite(Profiles.Length, temporary, "Profiles", "Count")
         IniWrite(SelectedProfile, temporary, "Profiles", "Selected")
-        IniWrite(GetSharedExecutable(), temporary, "Launch", "Executable")
+        ; Keep the field for v1 readers. Current client selection is local.
+        executable := ""
+        try executable := GetSharedExecutable()
+        IniWrite(executable, temporary, "Launch", "Executable")
         IniWrite(IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0"), temporary, "Launcher", "HideFavoriteSwitchExplanation")
         for index, profile in Profiles
         {
@@ -58,7 +60,7 @@ ExportLauncherData()
         MsgBox("The backup could not be written. Choose a writable location and try again.", "Export Data")
     finally
     {
-        if FileExist(temporary)
+        if temporary != "" && FileExist(temporary)
             try FileDelete(temporary)
     }
 }
@@ -96,16 +98,11 @@ ImportLauncherData()
                 throw Error("Invalid character species")
             if Trim(name) = "" || StrLen(name) > 256 || RegExMatch(name, "[\r\n]") || StrLen(password) > 4096 || RegExMatch(password, "[\r\n]")
                 throw Error("Invalid character")
-            restored.Push({Name: name, Password: password, Species: species,
+            restored.Push({Name: name, Password: password, Species: species, PortraitFile: "",
                 UsernameDelay: ReadBackupInteger(path, section, "Username", 1, 300),
                 PasswordDelay: ReadBackupInteger(path, section, "PasswordDelay", 1, 300),
                 LoadDelay: ReadBackupInteger(path, section, "Load", 1, 300)})
         }
-        executable := IniRead(path, "Launch", "Executable", "")
-        SplitPath(executable, &filename)
-        pathReset := !FileExist(executable) || StrLower(filename) != "tes3mp.exe"
-        if pathReset
-            executable := ""
         ; Old v1 backups omit this optional notice flag. Do not reset a notice
         ; already acknowledged on this computer when importing such a backup.
         favoriteNotice := IniRead(path, "Launcher", "HideFavoriteSwitchExplanation", "0")
@@ -123,8 +120,6 @@ ImportLauncherData()
             try IniDelete(temporary, "Character" A_Index)
         IniWrite(count, temporary, "Profiles", "Count")
         IniWrite(selected, temporary, "Profiles", "Selected")
-        if executable != ""
-            IniWrite(executable, temporary, "Launch", "Executable")
         IniWrite(favoriteNotice, temporary, "Launcher", "HideFavoriteSwitchExplanation")
         for index, profile in restored
         {
@@ -158,7 +153,7 @@ ImportLauncherData()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()
-    MsgBox("Launcher data imported." (pathReset ? " An old executable path was unavailable. Use Launcher Settings > Game Client Settings if you need a custom client." : ""), "Import Data")
+    MsgBox("Launcher data imported.", "Import Data")
 }
 
 ReadBackupInteger(path, section, key, minimum, maximum)

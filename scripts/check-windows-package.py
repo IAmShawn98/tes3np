@@ -37,6 +37,8 @@ MINIMUM_SIZE = {
     "client/tes3mp.exe": 100_000,
     "chat-host/tes3np.ChatHost.exe": 100_000,
 }
+RUNTIME_ROOTS = {"client", "chat-host", "licenses", "runtime"}
+ROOT_FILES = {"tes3np.exe", "release_notes.md"}
 
 
 def check_console_client(archive: zipfile.ZipFile, root: Path, executable: bytes,
@@ -99,10 +101,9 @@ def check_package(path: Path, require_console_client: bool = False) -> None:
                 if entry is not None and not entry.is_dir():
                     raise ValueError(f"Package file blocks a directory path: {parent}")
 
-        # The optional Expansion Pack must never ship in the Windows ZIP.
-        # The real player-selected pack is downloaded from Discord separately.
-        if any(name.startswith(("patches/", "expansion-pack/")) for name in members):
-            raise ValueError("Legacy Expansion Pack or patch payload was packaged")
+        for name in members:
+            if name not in ROOT_FILES and name.split("/", 1)[0] not in RUNTIME_ROOTS:
+                raise ValueError(f"Unexpected package root entry: {name}")
         missing = [item for item in REQUIRED_FILES if item.casefold() not in members]
         if missing:
             raise ValueError("Windows package is missing: " + ", ".join(missing))
