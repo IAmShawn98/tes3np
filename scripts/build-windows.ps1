@@ -173,10 +173,10 @@ try {
             throw 'Set both TES3NP_MARKERLESS_CONSOLE_EXE and TES3NP_MARKERLESS_CONSOLE_DLLS to build the source-built candidate.'
         }
         $markerlessResearch = Join-Path $projectRoot 'research\markerless'
-        $candidate = Get-Content -LiteralPath (Join-Path $markerlessResearch 'console-candidate.json') -Raw | ConvertFrom-Json
+        $consoleCandidate = Get-Content -LiteralPath (Join-Path $markerlessResearch 'console-candidate.json') -Raw | ConvertFrom-Json
         . (Join-Path $PSScriptRoot 'stage-markerless-console.ps1')
         $consoleStage = Join-Path $tools 'markerless-console'
-        $consolePayload = Stage-MarkerlessConsole $consoleExe $consoleDlls $consoleStage $candidate
+        $consolePayload = Stage-MarkerlessConsole $consoleExe $consoleDlls $consoleStage $consoleCandidate
         Step 'Verified the tested console EXE and staged its 45 matching DLLs'
     }
 
@@ -632,7 +632,7 @@ Public redistribution/licensing review remains a separate release gate.
             $null = New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force
             Copy-Item -LiteralPath (Join-Path $consoleStage $file.path) -Destination $destination -Force
         }
-        $expectedMarkerless = $candidate.executableSha256
+        $expectedMarkerless = ($consolePayload.files | Where-Object Path -eq 'tes3mp.exe').SHA256
         Test-PackagedMarkerlessConsole $clientExe
         Step 'Packaged source-built console client printed --help with the bundled DLLs'
     }
@@ -643,8 +643,12 @@ Public redistribution/licensing review remains a separate release gate.
         $markerlessManifest = Get-Content -LiteralPath (Join-Path $projectRoot 'patches\\manifest.json') -Raw | ConvertFrom-Json
         $expectedMarkerless = ($markerlessManifest.Files | Where-Object Path -eq 'markerless/tes3mp.exe' | Select-Object -First 1).SHA256
     }
-    if (!$expectedMarkerless -or (GetTes3npSha256 $clientExe) -ine $expectedMarkerless) {
-        throw 'Packaged markerless client SHA256 mismatch.'
+    if ($expectedMarkerless -notmatch '^[0-9a-fA-F]{64}$') {
+        throw 'Expected SHA256 is missing or invalid for the packaged markerless client.'
+    }
+    $actualMarkerless = GetTes3npSha256 $clientExe
+    if ($actualMarkerless -ine $expectedMarkerless) {
+        throw "Packaged markerless client SHA256 mismatch. Expected $expectedMarkerless, found $actualMarkerless."
     }
     foreach ($name in @('tes3mp.exe','tes3mp-client-default.cfg','defaults.bin','openmw.cfg')) {
         if (!(Test-Path -LiteralPath (Join-Path $clientFolder $name) -PathType Leaf)) {
