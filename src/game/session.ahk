@@ -91,6 +91,8 @@ LaunchProfileIndex(index)
     if Client.Enabled
     {
         LogLauncherEvent("GAME | BLOCKED | Launch requested while another monitored session is active.")
+        if Client.Phase = "launch" || Client.Phase = "window"
+            return
         MsgBox("TES3NP is still completing a character login. Try the next character when that login finishes.", "tes3np")
         return
     }
@@ -250,6 +252,7 @@ ClientTick()
                 return
             ; A closed or crashed client terminates this single monitored login.
             codeText := "unavailable"
+            exitCode := -1
             if Client.HasOwnProp("ProcessHandle") && Client.ProcessHandle
             {
                 resultCode := Buffer(4, 0)
@@ -269,8 +272,16 @@ ClientTick()
             }
             LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled"))
             LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
+            failedToStart := Client.Phase = "window"
             StopClient()
             SetClientStatus("Game closed.")
+            if failedToStart
+            {
+                message := "TES3MP closed before a game window opened. Exit code: " codeText "."
+                if exitCode = 0xC0000135 || exitCode = 0xC0000139 || exitCode = 0xC000007B
+                    message .= Chr(10) Chr(10) "For a custom EXE, add the DLLs from the same build in Game Client Settings."
+                MsgBox(message, "TES3MP Startup Failed", "Icon!")
+            }
             return
         }
         hwnd := FindGameWindow(Client.PID)
@@ -298,7 +309,11 @@ ClientTick()
                 }
             }
             else if A_TickCount >= Client.Deadline
+            {
                 RetryClient("Game window did not appear")
+                MsgBox("TES3MP did not open a game window in time. Check for a TES3MP error window and close the client if it is still running.",
+                    "TES3MP Startup Timed Out", "Icon!")
+            }
             else
                 SetClientStatus("Waiting for the game window (console does not count).")
             return
@@ -391,7 +406,11 @@ ClientTick()
             try ProcessClose(failedPid)
         Client.LaunchIssued := false
         LogLauncherEvent("GAME | ERROR | Client launch/login exception type: " Type(err) ".")
+        failedToStart := Client.Phase = "launch" || Client.Phase = "window"
         RetryClient("Client launch or login failed")
+        if failedToStart
+            MsgBox("TES3MP could not start. Check the selected executable and its dependencies in Game Client Settings.",
+                "TES3MP Startup Failed", "Icon!")
     }
 }
 

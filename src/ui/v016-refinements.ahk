@@ -677,19 +677,19 @@ ConfigureCustomClientV016(menu, *)
     }
     ; Preserve the dependency workflow inside the same borderless,
     ; changelog-style native card system as its parent Game Client Settings.
-    options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", 640, 350)
+    options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", 640, 382)
     options.SetFont("s15 Bold cC5A45C", "Georgia")
     options.Add("Text", "x30 y22 w580 h38 BackgroundTrans", "Optional Client Dependencies")
     options.SetFont("s11 Bold cE7BE70", "Segoe UI")
     options.Add("Text", "x30 y72 w580 h27 BackgroundTrans", "Does your custom EXE need additional files?")
     options.SetFont("s10 Norm cEDE1C9", "Segoe UI")
-    options.Add("Text", "x30 y108 w580 h50 BackgroundTrans",
+    options.Add("Text", "x30 y108 w580 h76 BackgroundTrans +Wrap",
         "Choose a folder containing matching DLLs, layouts, or other resources, or use the bundled TES3MP dependencies.")
-    add := AddStyledButton(options, 30, 170, 580, 38, "Choose Dependencies Folder",
+    add := AddStyledButton(options, 30, 198, 580, 38, "Choose Dependencies Folder",
         (*) => ChooseCustomDependencyFolderV016(menu, options, source))
-    skip := AddStyledButton(options, 30, 218, 580, 38, "Use Bundled Dependencies Only",
+    skip := AddStyledButton(options, 30, 246, 580, 38, "Use Bundled Dependencies Only",
         (*) => SaveCustomClientV016(menu, options, source, ""))
-    cancel := AddStyledButton(options, 188, 285, 264, 38, "Cancel Setup",
+    cancel := AddStyledButton(options, 188, 317, 264, 38, "Cancel Setup",
         (*) => CloseGoldNativePrompt(options))
     options.OnEvent("Escape", (*) => CloseGoldNativePrompt(options))
     options.OnEvent("Close", (*) => CloseGoldNativePrompt(options))
