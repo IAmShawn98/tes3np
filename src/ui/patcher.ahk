@@ -364,6 +364,11 @@ InstalledExpansionPackVersion(checksum)
     global DataFile
     if RegExMatch(checksum, "i)^[0-9a-f]{8}$")
     {
+        version := ""
+        try version := InstalledExpansionHeaderVersion(checksum)
+        if version != ""
+            return version
+
         version := IniRead(DataFile, "ExpansionPackVersions", checksum, "")
         if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
             return version
@@ -377,6 +382,22 @@ InstalledExpansionPackVersion(checksum)
         }
     }
     return checksum != "" ? "Unrecognized copy" : "Could not verify"
+}
+
+InstalledExpansionHeaderVersion(checksum)
+{
+    config := PatchConfigurationPath()
+    version := ""
+    for path in ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    {
+        if ExpansionPackEspChecksum(path) != checksum
+            return ""
+        candidate := TES3MPReadExpansionHeaderVersion(path)
+        if candidate = "" || (version != "" && candidate != version)
+            return ""
+        version := candidate
+    }
+    return version
 }
 
 RecoverExpansionImportVersion(checksum)
