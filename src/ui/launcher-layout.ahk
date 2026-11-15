@@ -22,7 +22,7 @@ CaptureLauncherControlLayout()
 
 ApplyLauncherControlScale()
 {
-    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherVersionLabel, LauncherMorrowindFont
+    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherMorrowindFont
     if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
         return
     scale := LauncherScale / 100
@@ -46,8 +46,7 @@ ApplyLauncherControlScale()
         }
         if IsObject(LauncherHeading)
             LauncherHeading.SetFont("s" Max(12, Round(19 * scale)) " Norm c241408", LauncherMorrowindFont)
-        if IsObject(LauncherVersionLabel)
-            LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
+        ScaleLauncherVersionLabel(scale)
     }
     finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
