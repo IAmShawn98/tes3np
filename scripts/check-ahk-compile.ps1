@@ -101,6 +101,41 @@ if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } 
 if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $exe)) {
     throw "Ahk2Exe launcher compile failed with exit code $($process.ExitCode)."
 }
+Write-Host 'Checking the compiled launcher update handshake with Windows PowerShell and PowerShell 7 state encodings.'
+$version = [regex]::Match((Get-Content (Join-Path $projectRoot 'src\state.ahk') -Raw),
+    'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value
+if (!$version) { throw 'Could not read the launcher version for the update-state check.' }
+$updateRoot = Join-Path ([IO.Path]::GetTempPath()) 'tes3np-update'
+$job = Join-Path $updateRoot ([guid]::NewGuid().ToString('N'))
+$stateFile = Join-Path $job 'update-state.ini'
+New-Item -ItemType Directory -Path $job -Force | Out-Null
+try {
+    $pending = "[Update]" + [Environment]::NewLine +
+        "State=AWAITING_CONFIRMATION" + [Environment]::NewLine +
+        "Version=$version" + [Environment]::NewLine
+    $fixtures = @(
+        @{ Name = 'UTF-8 with BOM (Windows PowerShell)'; Encoding = [Text.UTF8Encoding]::new($true); Content = $pending; Expected = 0 }
+        @{ Name = 'UTF-8 without BOM (PowerShell 7)'; Encoding = [Text.UTF8Encoding]::new($false); Content = $pending; Expected = 0 }
+        @{ Name = 'rejected completed state'; Encoding = [Text.UTF8Encoding]::new($true); Content = $pending.Replace('AWAITING_CONFIRMATION', 'SUCCESS'); Expected = 223 }
+        @{ Name = 'rejected mismatched version'; Encoding = [Text.UTF8Encoding]::new($true); Content = $pending.Replace("Version=$version", 'Version=0.0.0'); Expected = 223 }
+    )
+    foreach ($fixture in $fixtures) {
+        [IO.File]::WriteAllText($stateFile, $fixture.Content, $fixture.Encoding)
+        $arguments = '--check-update-state --update-confirm ' + $version + ' "' + $stateFile + '"'
+        $stateProbe = Start-Process -FilePath $exe -WorkingDirectory $projectRoot -ArgumentList $arguments -PassThru
+        if (!$stateProbe.WaitForExit(30000)) {
+            try { $stateProbe.Kill() } catch {}
+            throw "Compiled update-state probe timed out: $($fixture.Name)"
+        }
+        if ($stateProbe.ExitCode -ne $fixture.Expected) {
+            throw "Compiled update-state probe failed: $($fixture.Name), exit $($stateProbe.ExitCode)."
+        }
+        Write-Host "PASS: update handshake $($fixture.Name)."
+    }
+} finally {
+    Remove-Item -LiteralPath $job -Recurse -Force
+}
+
 Write-Host 'Probing compiled native Expansion Pack UI function bindings without launching UI.'
 $probe = Start-Process -FilePath $exe -ArgumentList '--check-expansion-ui' -WorkingDirectory $projectRoot -PassThru
 if (!$probe.WaitForExit(30000)) {

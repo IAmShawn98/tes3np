@@ -44,7 +44,8 @@ $entry = Get-Content -LiteralPath 'tes3np.ahk' -Raw -Encoding UTF8
 $builder = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
 $startup = '(?m)^updateStateFile := GetPendingUpdateStateFile\(\)\r?\nif updateStateFile = ""\r?\n    RecoverInterruptedLauncherUpdate\(\)\r?\nStartLauncher\(\)\r?\nif updateStateFile != ""\r?\n    ConfirmUpdatedLauncherStartup\(updateStateFile\)$'
 if ($entry -notmatch $startup -or
-    $entry -notmatch 'IniRead\(stateFile, "Update", "State", ""\) != "AWAITING_CONFIRMATION"' -or
+    $entry -notmatch 'FileRead\(stateFile, "UTF-8"\)' -or
+    $entry -notmatch 'lines\[2\] != "State=AWAITING_CONFIRMATION" \|\| lines\[3\] != "Version=" AppConfig\.Version' -or
     -not $builder.Contains('PrepareBundledResources()`nif updateStateFile')) {
     throw 'Update acknowledgement must follow resource extraction and successful launcher startup.'
 }

@@ -287,6 +287,18 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
     }
     ExitApp(0)
 }
+; Exercise the compiled update handshake without launching the UI or writing AppData.
+if A_Args.Length && A_Args[1] = "--check-update-state"
+{
+    A_Args.RemoveAt(1)
+    try
+        ExitApp(GetPendingUpdateStateFile() = "" ? 222 : 0)
+    catch Error as err
+    {
+        FileAppend("Update-state probe: " err.Message Chr(10), "*")
+        ExitApp(223)
+    }
+}
 updateStateFile := GetPendingUpdateStateFile()
 if updateStateFile = ""
     RecoverInterruptedLauncherUpdate()
@@ -314,8 +326,11 @@ GetPendingUpdateStateFile()
         throw Error("Update confirmation version does not match installed launcher.")
     if !FileExist(stateFile)
         throw Error("Update confirmation state file is missing.")
-    if IniRead(stateFile, "Update", "State", "") != "AWAITING_CONFIRMATION"
-        || IniRead(stateFile, "Update", "Version", "") != AppConfig.Version
+    ; Windows PowerShell 5.1 writes a UTF-8 BOM, which IniRead cannot decode.
+    ; Read the worker record directly, as the worker does for our acknowledgement.
+    lines := StrSplit(FileRead(stateFile, "UTF-8"), "`n", "`r")
+    if lines.Length < 3 || lines[1] != "[Update]"
+        || lines[2] != "State=AWAITING_CONFIRMATION" || lines[3] != "Version=" AppConfig.Version
         throw Error("Update confirmation does not match a pending installation.")
     return stateFile
 }
