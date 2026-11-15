@@ -239,17 +239,30 @@ expect(
 
 expect(
     "Archive must be written with replace-on-complete semantics",
-    "WriteChatArchiveAtomically(GameChatIndexFile," in source
-    and "WriteChatArchiveAtomically(GameChatLogFile," in source
+    "WriteChatArchiveAtomically(indexPath," in source
+    and "WriteChatArchiveAtomically(textPath," in source
     and "File.Move(temporary, path, true);" in source,
 )
 expect(
-    "A failed chat archive write stays pending and is retried even when the feed is unchanged",
-    "bool chatArchiveDirty;" in source
+    "Archive writes use a single background snapshot and retry independently of the feed",
+    "Task<string?>? chatArchiveSave;" in source
     and "chatLogLoaded = indexArchiveRead && textArchiveRead;" in source
-    and "if (chatArchiveDirty)\n                {\n                    EnsureChatLogLoaded();\n                    FlushPendingChatArchive();" in source
-    and "SaveChatArchive();\n                chatArchiveDirty = false;" in source
+    and "if (!pending.IsCompleted) return;" in source
+    and "chatArchiveDirty = true;\n                    nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(5);" in source
+    and "historyWatch.Tick += (_, _) =>" in source
+    and "if (chatArchiveDirty && !chatLogLoaded) EnsureChatLogLoaded();\n                FlushPendingChatArchive();" in source
+    and in_order(source, "Task<string?> QueueChatArchiveSave(", "}).ToArray();",
+                 "return Task.Run(async () =>", "SaveChatArchive(records, indexPath, textPath);")
     and "finally { refreshingNativeFeed = false; }" in source,
+)
+expect(
+    "The final archive write follows an active write and drains after the UI loop",
+    "chatArchiveSave = QueueChatArchiveSave(chatArchiveSave);" in source
+    and "await previous.ConfigureAwait(false)" in source
+    and "QueueFinalChatArchiveSave();" in source
+    and in_order(source, "Application.Run(chat);", "chat.WaitForChatArchiveOnExit();")
+    and "pending.Wait(TimeSpan.FromSeconds(3))" in source
+    and in_order(embedded_chat, "SendLauncherChatCommand(14)", "ProcessWaitClose(pid, 5)", "ProcessClose(pid)"),
 )
 expect(
     "Fresh authentication initializes the native renderer before hiding it",
@@ -807,7 +820,8 @@ expect(
     and 'await browser.EnsureCoreWebView2Async(env);' in source
     and 'case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;' in source
     and 'case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;' in source
-    and source.count("Application.Run(new ChatHost(") == 1
+    and source.count("new ChatHost(new IntPtr(owner))") == 1
+    and "Application.Run(chat);" in source
     and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1,
 )
 expect(

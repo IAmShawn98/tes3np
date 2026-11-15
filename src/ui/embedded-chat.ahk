@@ -72,7 +72,7 @@ StopEmbeddedInGameChat()
         return
     try
         if SendLauncherChatCommand(14)
-            ProcessWaitClose(pid, 1)
+            ProcessWaitClose(pid, 5)
     if ProcessExist(pid)
         try ProcessClose(pid)
     EmbeddedChatPid := 0
