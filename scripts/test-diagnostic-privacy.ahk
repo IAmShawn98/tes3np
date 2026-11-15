@@ -109,14 +109,18 @@ try
         DirCreate(path)
         FileAppend("fixture", path "\.ready")
         FileSetTime(old, path "\.ready")
-        FileSetTime(old, path)
+        FileSetTime(old, path, "M", "D")
+        PrivacyFixtureAssert(IsOldLauncherFile(path, 30) && IsOldLauncherFile(path "\.ready", 30),
+            "fixture ages both directory and marker for " id)
     }
     keep := cache "\00000001"
     recent := cache "\00000002"
     FileSetTime(, recent "\.ready")
     PruneLauncherCache(cache, "^\d{8}$", ".ready", [keep], 30)
-    PrivacyFixtureAssert(DirExist(keep) && DirExist(recent) && DirExist(cache "\custom")
-        && !DirExist(cache "\00000003"), "prunes only stale unreferenced cache folders")
+    PrivacyFixtureAssert(DirExist(keep), "keeps explicitly protected cache")
+    PrivacyFixtureAssert(DirExist(recent), "keeps recently used cache")
+    PrivacyFixtureAssert(DirExist(cache "\custom"), "keeps unrelated directory")
+    PrivacyFixtureAssert(!DirExist(cache "\00000003"), "removes stale unreferenced cache")
 
     job := AppDataDirectory "\fixture-import"
     DirCreate(job "\stage")
