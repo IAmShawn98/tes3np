@@ -4,6 +4,10 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Character crash recovery — 2026-11-14
+
+- Restored the per-character reconnect setting in the Character Book and backup data. Opted-in characters can relaunch after a recognized TES3MP crash through the existing login watchdog. A normal exit or console close leaves the game closed. One recovery attempt is allowed until login completes.
+
 ### Launcher updater, Expansion Pack, and bug reporting — 2026-11-14
 
 - Added bug reporting in Launcher Data with diagnostic logs and optional screenshots. Selected screenshots stay attached while editing the report, and the attachment count is visible.

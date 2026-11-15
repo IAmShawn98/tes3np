@@ -559,7 +559,7 @@ ShowResetAppDataActions(*)
     }
     ; ChatHost continuously indexes Discord history. Stop this owned process
     ; and game recovery BEFORE deleting the shared Roaming AppData root.
-    StopClient()
+    StopGameRecovery()
     chatPid := EmbeddedChatPid
     StopEmbeddedInGameChat()
     ; ProcessClose requests termination but may return before Windows has

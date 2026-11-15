@@ -319,6 +319,7 @@ EditProfile(index, *)
 {
     global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorSpeciesDropDown, LaunchSettingsHeading
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice, EditorOriginalMode
+    global EditorReconnectTick
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -355,6 +356,7 @@ EditProfile(index, *)
         EditorSpeciesDropDown.Choose(speciesIndex)
         EditorPreviousSpeciesChoice := speciesIndex
         PopulateProfileEditorRows(entries)
+        SetBookTick(EditorReconnectTick, profile.AutoReconnect)
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
         ButtonFaces[EditorSaveButton.Hwnd].LoadingText := "Saving character..."
@@ -370,7 +372,7 @@ EditProfile(index, *)
 
 CreateProfileEditor()
 {
-    global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint
+    global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint, EditorReconnectTick
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
@@ -407,11 +409,22 @@ CreateProfileEditor()
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
+    EditorReconnectTick := AddBookTick(CharacterPage, 525, 435, ToggleEditorReconnect)
+    reconnectLabel := AddBookLabel(CharacterPage, 551, 432, 329, 24, "Auto reconnect on crash")
+    reconnectLabel.Opt("+0x100")
+    reconnectLabel.OnEvent("Click", ToggleEditorReconnect)
+    EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
-    EditorSaveButton := AddStyledButton(CharacterPage, 635, 440, 140, 30, "Save changes", (*) => 0)
+    EditorSaveButton := AddStyledButton(CharacterPage, 635, 465, 140, 30, "Save changes", (*) => 0)
     EditorControls.Push(EditorSaveButton)
-    dismiss := AddStyledButton(CharacterPage, 685, 482, 30, 24, "X", CloseProfileEditor)
+    dismiss := AddStyledButton(CharacterPage, 685, 507, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
+}
+
+ToggleEditorReconnect(*)
+{
+    global EditorReconnectTick, ButtonFaces
+    SetBookTick(EditorReconnectTick, !ButtonFaces[EditorReconnectTick.Hwnd].Checked)
 }
 
 ; Keep the existing race list intact. "Original Character" is the only
@@ -723,7 +736,7 @@ PopulateProfileEditorRows(entries)
 
 SaveProfileEditor(index, fields, *)
 {
-    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown, CharacterListPage
+    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown, CharacterListPage, EditorReconnectTick, ButtonFaces
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
@@ -786,7 +799,8 @@ SaveProfileEditor(index, fields, *)
         }
     }
     profile := {Name: name, Password: fields["Password"].Value, Species: species, PortraitFile: portraitFile,
-        UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value)}
+        UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
+        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked}
     previousProfiles := Profiles.Clone()
     previousFavorite := SelectedProfile
     previousPage := CharacterListPage
@@ -884,7 +898,7 @@ WipeCharacterData(*)
     BeginInterfaceUpdate(0, "Clearing saved character data...", true)
     try
     {
-        StopClient()
+        StopGameRecovery()
         HideProfileEditor()
         Profiles := []
         SelectedProfile := 0

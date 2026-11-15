@@ -34,7 +34,23 @@
 Thread("Interrupt", 0)
 CoordMode("Mouse", "Screen")
 if A_Args.Length && A_Args[1] = "--check"
+{
+    if !IsTES3MPCrashExit(0xC0000005) || !IsTES3MPCrashExit(0xE06D7363)
+        || IsTES3MPCrashExit(0) || IsTES3MPCrashExit(1)
+        || IsTES3MPCrashExit(0xC000013A) || IsTES3MPCrashExit(0xC0000135)
+        || NewCharacterProfile().AutoReconnect
+        ExitApp(222)
+    oldProfile := NewCharacterProfile()
+    oldProfile.Name := "Recovery fixture"
+    oldProfile.AutoReconnect := true
+    Profiles := [oldProfile.Clone()]
+    if FindCrashRecoveryProfile(oldProfile) != Profiles[1]
+        ExitApp(223)
+    Profiles[1].AutoReconnect := false
+    if IsObject(FindCrashRecoveryProfile(oldProfile))
+        ExitApp(224)
     ExitApp(0)
+}
 ; Noninteractive compiled-host probe. Verify native expansion progress can
 ; resolve its actual UI functions without starting any window or game.
 if A_Args.Length && A_Args[1] = "--check-expansion-ui"

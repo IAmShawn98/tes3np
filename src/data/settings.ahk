@@ -60,7 +60,8 @@ LoadProfiles()
                 PortraitFile: NormalizeCustomPortraitFile(IniRead(DataFile, section, "PortraitFile", "")),
                 UsernameDelay: ReadProfileDelay(section, "Username", AppConfig.UsernameDelay),
                 PasswordDelay: ReadProfileDelay(section, "PasswordDelay", AppConfig.PasswordDelay, "Password"),
-                LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay)})
+                LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay),
+                AutoReconnect: IniRead(DataFile, section, "AutoReconnect", "0") = "1"})
             if A_Index = savedSlot
                 SelectedProfile := Profiles.Length
         }
@@ -111,7 +112,8 @@ SaveProfiles()
             IniWrite(NormalizeCustomPortraitFile(profile.PortraitFile), temporary, section, "PortraitFile")
             SetInterfaceLoadingText("Saving protected password " index "...")
             IniWrite(ProtectPassword(profile.Password), temporary, section, "Password")
-            for key in ["Executable", "AutoReconnect", "UseExpansionPack"]
+            IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
+            for key in ["Executable", "UseExpansionPack"]
                 try IniDelete(temporary, section, key)
             SetInterfaceLoadingText("Saving login timings " index "...")
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
@@ -195,7 +197,7 @@ ProtectPassword(value, encrypt := true)
 NewCharacterProfile()
 {
     return {Name: "", Password: "", Species: "", PortraitFile: "", UsernameDelay: AppConfig.UsernameDelay,
-        PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay}
+        PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay, AutoReconnect: false}
 }
 
 NewLauncherFileId()
