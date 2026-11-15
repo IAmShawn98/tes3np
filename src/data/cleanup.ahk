@@ -4,7 +4,8 @@ CleanupStaleLauncherData()
 {
     global AppDataDirectory, BundledResourceRoot, MacroRoot, MacroImport, PatchJob
     global LauncherDataResetting, Client, DataFile
-    global ExpansionAutoDownloadActive, ExpansionAutoInstallLocked, MorrowindPromptGui, ExpansionRecoveryRunning
+    global ExpansionAutoDownloadActive, ExpansionAutoInstallLocked, MorrowindPromptGui
+    global ExpansionRecoveryRunning, ExpansionRecoveryPending
     root := AppDataDirectory
     if LauncherDataResetting || !IsPlainLauncherFolder(root)
         return
@@ -98,7 +99,7 @@ CleanupStaleLauncherData()
         }
 
     imports := root "\expansion-imports"
-    if !ExpansionRecoveryRunning && IsPlainLauncherFolder(imports)
+    if !ExpansionRecoveryRunning && !ExpansionRecoveryPending && IsPlainLauncherFolder(imports)
         Loop Files imports "\*", "D"
         {
             job := A_LoopFileFullPath

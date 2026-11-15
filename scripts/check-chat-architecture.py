@@ -1311,6 +1311,12 @@ expect(
     and "ExitApp()" in settings_ui,
 )
 expect(
+    "Full AppData reset rechecks recovery before removing its backups",
+    in_order(settings_ui, "ProcessWaitClose(chatPid, 5)", "canReset := CanResetLauncherAppData(false)",
+             "if canReset", "DirDelete(AppDataDirectory, true)")
+    and "else if ExpansionRecoveryPending" in settings_ui,
+)
+expect(
     "Reset mode must be part of centralized launcher state",
     "global LauncherDataResetting := false" in app_state,
 )

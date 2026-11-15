@@ -33,12 +33,12 @@ CheckExpansionRecoveryLaunchGate()
 {
     global ExpansionRecoveryRunning, ExpansionRecoveryPending
     ExpansionRecoveryRunning := true
-    activeBlocksLaunch := PatchInProgress() && !CanUseNPLauncher(false)
+    activeBlocksUse := PatchInProgress() && !CanUseNPLauncher(false) && !CanResetLauncherAppData(false)
     ExpansionRecoveryRunning := false
     ExpansionRecoveryPending := true
-    pendingBlocksLaunch := !PatchInProgress() && !CanUseNPLauncher(false)
+    pendingBlocksUse := !PatchInProgress() && !CanUseNPLauncher(false) && !CanResetLauncherAppData(false)
     ExpansionRecoveryPending := false
-    return activeBlocksLaunch && pendingBlocksLaunch && CanUseNPLauncher(false)
+    return activeBlocksUse && pendingBlocksUse && CanUseNPLauncher(false) && CanResetLauncherAppData(false)
 }
 
 CheckBackupExecutablePaths()

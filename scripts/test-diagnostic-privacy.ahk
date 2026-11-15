@@ -8,7 +8,7 @@ global BundledResourceRoot := "", MacroRoot := AppDataDirectory "\macros"
 global MacroImport := 0, PatchJob := 0, LauncherDataResetting := false
 global Client := {Enabled: false}, ExpansionAutoDownloadActive := false
 global ExpansionAutoInstallLocked := false, MorrowindPromptGui := 0
-global ExpansionRecoveryRunning := false
+global ExpansionRecoveryRunning := false, ExpansionRecoveryPending := false
 #Include ..\src\app\diagnostics.ahk
 #Include ..\src\data\cleanup.ahk
 
