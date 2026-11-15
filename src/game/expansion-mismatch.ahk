@@ -389,13 +389,37 @@ TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false)
         return true
     }
     ExpansionPackPreflight.Retry := TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true)
+    ExpansionPackPreflight.Deadline := TES3MPExpansionPreflightUnavailable.Bind(dialog,
+        "Discord did not finish checking for the latest pack.")
+    if authenticate
+        TES3MPExpansionAuthenticatePreflight(dialog)
+    else
+        TES3MPExpansionStartPreflightDiscovery(dialog, 15)
+    return true
+}
+
+TES3MPExpansionStartPreflightDiscovery(dialog, command)
+{
+    global ExpansionPackPreflight, ExpansionMismatchSlot
     if TES3MPExpansionBeginNativeProgress()
         TES3MPExpansionUpdateNativeProgress("Checking for an Expansion Pack update...", 0)
-    if !(authenticate ? RequestDiscordExpansionPrompt(2) : SendLauncherChatCommand(15, ExpansionMismatchSlot))
-        TES3MPExpansionPreflightUnavailable(dialog, "Open Game Chat and sign into Discord, then try again.")
-    else
-        SetTimer(TES3MPExpansionPreflightUnavailable.Bind(dialog, "Discord did not finish checking for the latest pack."), -25000)
-    return true
+    SetTimer(ExpansionPackPreflight.Deadline, -25000)
+    if !SendLauncherChatCommand(command, ExpansionMismatchSlot)
+        TES3MPExpansionPreflightUnavailable(dialog, "The Discord download preview is unavailable.")
+}
+
+TES3MPExpansionAuthenticatePreflight(dialog)
+{
+    global ExpansionMismatchDialog, ExpansionPackPreflight, ExpansionDiscordPromptPending
+    ; The signed-out reply is deferred from WM_COPYDATA. Ignore it if the
+    ; preflight has since closed or already opened the sign-in prompt.
+    if !IsObject(ExpansionPackPreflight) || !ExpansionPackPreflight.Waiting
+        || ExpansionMismatchDialog != dialog || ExpansionDiscordPromptPending
+        return
+    SetTimer(ExpansionPackPreflight.Deadline, 0)
+    TES3MPExpansionEndNativeProgress()
+    if !RequestDiscordExpansionPrompt(2)
+        TES3MPExpansionPreflightUnavailable(dialog, "The Discord sign-in window is unavailable.")
 }
 
 TES3MPExpansionPreflightUnavailable(dialog, reason)
@@ -737,19 +761,22 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
         {
             if DllCall("IsWindow", "Ptr", ExpansionMismatchDialog.Hwnd)
             {
-                ExpansionMismatchDialog.Show()
-                if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)
-                    try WinActivate("ahk_id " ExpansionMismatchDialog.Hwnd)
+                if ExpansionMismatchMode != "Preflight"
+                {
+                    ExpansionMismatchDialog.Show()
+                    if !ExpansionAutoCloaked && !IsObject(ExpansionAutoProgressFrame)
+                        try WinActivate("ahk_id " ExpansionMismatchDialog.Hwnd)
+                }
                 if authConfirmed
                 {
                     ExpansionMismatchAuthenticated := true
                     if IsObject(ExpansionMismatchStatus)
                         ExpansionMismatchStatus.Text := "Game Chat connected. Finding the latest official ZIP..."
-                    if !SendLauncherChatCommand(6, ExpansionMismatchSlot)
+                    if ExpansionMismatchMode = "Preflight"
+                        TES3MPExpansionStartPreflightDiscovery(ExpansionMismatchDialog, 6)
+                    else if !SendLauncherChatCommand(6, ExpansionMismatchSlot)
                     {
-                        if ExpansionMismatchMode = "Preflight"
-                            TES3MPExpansionPreflightUnavailable(ExpansionMismatchDialog, "The Discord download preview is unavailable.")
-                        else if ExpansionMismatchMode = "Update" && ExpansionAutoCloaked
+                        if ExpansionMismatchMode = "Update" && ExpansionAutoCloaked
                             TES3MPExpansionRevealRepair("Download preview unavailable. Click Connect / Retry.")
                         else if IsObject(ExpansionMismatchStatus)
                             ExpansionMismatchStatus.Text := "Download preview unavailable. Click Connect / Retry."
@@ -913,6 +940,8 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
     ExpansionMismatchSlot := 0
     ExpansionMismatchZipUrl := ""
     ExpansionMismatchZipChecksum := ""
+    if IsObject(ExpansionPackPreflight) && ExpansionPackPreflight.HasOwnProp("Deadline")
+        SetTimer(ExpansionPackPreflight.Deadline, 0)
     ExpansionPackPreflight := 0
     ExpansionApprovedPack := 0
     ExpansionAutoDownloadActive := false
@@ -987,8 +1016,7 @@ TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)
     linkData := SubStr(payload, separator + 1)
     if linkData = "|" && ExpansionMismatchMode = "Preflight"
     {
-        SetTimer(TES3MPExpansionPreflightUnavailable.Bind(ExpansionMismatchDialog,
-            "Sign into Discord through Game Chat to check the official download."), -10)
+        SetTimer(TES3MPExpansionAuthenticatePreflight.Bind(ExpansionMismatchDialog), -10)
         return 1
     }
     details := StrSplit(linkData, "|")
