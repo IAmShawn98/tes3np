@@ -310,7 +310,7 @@ CheckUpdateStateHandshake()
 {
     try
     {
-        GetPendingUpdateStateFile()
+        GetPendingUpdateStatePath()
         ExitApp(0)
     }
     catch Error as err
