@@ -13,6 +13,8 @@ RunLauncherChecks(args)
         case "--check":
             if !CheckBackupExecutablePaths()
                 ExitApp(225)
+            if !CheckExpansionRecoveryLaunchGate()
+                ExitApp(226)
             CheckCrashRecoveryProfiles()
         case "--check-expansion-ui":
             CheckExpansionProgressBindings()
@@ -25,6 +27,18 @@ RunLauncherChecks(args)
         case "--check-owned-menu-scaling":
             CheckOwnedMenuScaling()
     }
+}
+
+CheckExpansionRecoveryLaunchGate()
+{
+    global ExpansionRecoveryRunning, ExpansionRecoveryPending
+    ExpansionRecoveryRunning := true
+    activeBlocksLaunch := PatchInProgress() && !CanUseNPLauncher(false)
+    ExpansionRecoveryRunning := false
+    ExpansionRecoveryPending := true
+    pendingBlocksLaunch := !PatchInProgress() && !CanUseNPLauncher(false)
+    ExpansionRecoveryPending := false
+    return activeBlocksLaunch && pendingBlocksLaunch && CanUseNPLauncher(false)
 }
 
 CheckBackupExecutablePaths()
