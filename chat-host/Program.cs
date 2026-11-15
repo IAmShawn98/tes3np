@@ -110,9 +110,16 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--check-chat-archive")
+        {
+            Environment.ExitCode = ChatHost.CheckChatArchivePersistence();
+            return;
+        }
         if (args.Length < 1 || !long.TryParse(args[0], out long owner)) return;
         ApplicationConfiguration.Initialize();
-        Application.Run(new ChatHost(new IntPtr(owner)));
+        var chat = new ChatHost(new IntPtr(owner));
+        Application.Run(chat);
+        chat.WaitForChatArchiveOnExit();
     }
     sealed class BufferedScrollbar : Panel
     {
@@ -1271,6 +1278,7 @@ metrics();
         string GameChatIndexFile => Path.Combine(gameChatLogDirectory, "game-chat-index.json");
         bool chatLogLoaded;
         bool chatArchiveDirty;
+        Task<string?>? chatArchiveSave;
         DateTimeOffset nextChatArchiveLoad;
         DateTimeOffset nextChatArchiveSave;
         void EnsureChatLogLoaded()
@@ -1340,20 +1348,73 @@ metrics();
             chatArchiveDirty |= recoveredFromText;
         }
 
-        void FlushPendingChatArchive(bool force = false)
+        void FlushPendingChatArchive()
         {
+            if (chatArchiveSave is { } pending)
+            {
+                if (!pending.IsCompleted) return;
+                chatArchiveSave = null;
+                if (pending.GetAwaiter().GetResult() is { } failure)
+                {
+                    chatArchiveDirty = true;
+                    nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(5);
+                    Log("CHAT | Could not persist chat archive: " + failure);
+                }
+            }
             if (!chatArchiveDirty || !chatLogLoaded ||
-                (!force && DateTimeOffset.UtcNow < nextChatArchiveSave)) return;
-            try
+                DateTimeOffset.UtcNow < nextChatArchiveSave) return;
+            chatArchiveSave = QueueChatArchiveSave();
+            chatArchiveDirty = false;
+            nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(2);
+        }
+
+        void QueueFinalChatArchiveSave()
+        {
+            if (chatArchiveSave?.IsCompletedSuccessfully == true && chatArchiveSave.Result == null)
+                chatArchiveSave = null;
+            if (chatLogLoaded && (chatArchiveDirty || chatArchiveSave != null))
+                chatArchiveSave = QueueChatArchiveSave(chatArchiveSave);
+        }
+
+        public void WaitForChatArchiveOnExit()
+        {
+            if (chatArchiveSave is not { } pending) return;
+            // The message loop has ended. Give the last snapshot a bounded flush.
+            if (!pending.Wait(TimeSpan.FromSeconds(3)))
+                Log("CHAT | Timed out saving the chat archive during shutdown.");
+            else if (pending.GetAwaiter().GetResult() is { } failure)
+                Log("CHAT | Could not persist chat archive: " + failure);
+        }
+
+        Task<string?> QueueChatArchiveSave(Task<string?>? previous = null)
+        {
+            // Copy the UI-owned index before handing it to the writer. Image
+            // URL arrays are never mutated after their entries are added.
+            var records = archivedChat.Select(e => new ChatArchiveEntry {
+                Id = e.Key, User = e.Value.User, Body = e.Value.Body,
+                Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
+                VerifiedHappyHourImage = verifiedHappyHourImageIds.Contains(e.Key)
+            }).ToArray();
+            bool changed = chatArchiveDirty;
+            string indexPath = GameChatIndexFile, textPath = GameChatLogFile;
+            return WriteChatArchiveSnapshot(records, indexPath, textPath, changed, previous);
+        }
+
+        static Task<string?> WriteChatArchiveSnapshot(ChatArchiveEntry[] records, string indexPath,
+            string textPath, bool changed, Task<string?>? previous = null)
+        {
+            return Task.Run(async () =>
             {
-                SaveChatArchive();
-                chatArchiveDirty = false;
-            }
-            catch (Exception ex)
-            {
-                nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(5);
-                Log("CHAT | Could not persist chat archive: " + ex.GetType().Name);
-            }
+                // Shutdown queues behind any write already in progress.
+                var previousFailure = previous == null ? null : await previous.ConfigureAwait(false);
+                if (!changed && previousFailure == null) return null;
+                try
+                {
+                    SaveChatArchive(records, indexPath, textPath);
+                    return null;
+                }
+                catch (Exception ex) { return ex.GetType().Name; }
+            });
         }
 
         public sealed class ChatArchiveEntry
@@ -1363,6 +1424,44 @@ metrics();
             public string Body { get; set; } = "";
             public string[] Images { get; set; } = Array.Empty<string>();
             public bool VerifiedHappyHourImage { get; set; }
+        }
+
+        public static int CheckChatArchivePersistence()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "tes3np-chat-check-" + Guid.NewGuid().ToString("N"));
+            string indexPath = Path.Combine(root, "game-chat-index.json");
+            string textPath = Path.Combine(root, "game-chat.log");
+            var first = new ChatArchiveEntry { Id = 1, User = "Tester", Body = "Tester: hello\r\nworld" };
+            var image = new ChatArchiveEntry { Id = 2, User = "Yagrum", Images = ["fixture image"], VerifiedHappyHourImage = true };
+            try
+            {
+                var blockedWriter = new TaskCompletionSource<string?>();
+                var initial = WriteChatArchiveSnapshot([first], indexPath, textPath, true, blockedWriter.Task);
+                var final = WriteChatArchiveSnapshot([first, image], indexPath, textPath, true, initial);
+                blockedWriter.SetResult(null);
+                if (final.GetAwaiter().GetResult() != null) return 1;
+                var records = System.Text.Json.JsonSerializer.Deserialize<ChatArchiveEntry[]>(File.ReadAllText(indexPath));
+                string text = File.ReadAllText(textPath);
+                if (records == null || records.Length != 2 || records[0].Body != first.Body ||
+                    !records[1].VerifiedHappyHourImage || records[1].Images.Single() != "fixture image" ||
+                    !text.Contains("Tester: hello\\nworld [discord:1]") ||
+                    !text.Contains("Yagrum: [image attachment] [discord:2]")) return 2;
+                var latest = new ChatArchiveEntry { Id = 3, User = "Tester", Body = "after retry" };
+                Task<string?> failed;
+                using (var held = File.Open(textPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    failed = WriteChatArchiveSnapshot([first, image, latest], indexPath, textPath, true);
+                    if (failed.GetAwaiter().GetResult() == null) return 3;
+                }
+                var retry = WriteChatArchiveSnapshot([first, image, latest], indexPath, textPath, false, failed);
+                return retry.GetAwaiter().GetResult() == null &&
+                    File.ReadAllText(textPath).Contains("Tester: after retry [discord:3]") &&
+                    !Directory.EnumerateFiles(root, "*.tmp").Any() ? 0 : 4;
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
         // Windows may terminate the chat host while Discord history is being
         // indexed. Replace each archive file atomically rather than truncate
@@ -1382,20 +1481,15 @@ metrics();
             }
         }
 
-        void SaveChatArchive()
+        static void SaveChatArchive(ChatArchiveEntry[] records, string indexPath, string textPath)
         {
-            var records = archivedChat.Select(e => new ChatArchiveEntry {
-                Id = e.Key, User = e.Value.User, Body = e.Value.Body,
-                Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
-                VerifiedHappyHourImage = verifiedHappyHourImageIds.Contains(e.Key)
-            }).ToArray();
-            WriteChatArchiveAtomically(GameChatIndexFile,
+            WriteChatArchiveAtomically(indexPath,
                 System.Text.Json.JsonSerializer.Serialize(records));
             var output = new System.Text.StringBuilder();
             string previousDate = "";
-            foreach (var entry in archivedChat)
+            foreach (var entry in records)
             {
-                var sent = DiscordTimestamp(entry.Key).ToLocalTime();
+                var sent = DiscordTimestamp(entry.Id).ToLocalTime();
                 string date = sent.ToString("dddd, MMMM d, yyyy");
                 if (date != previousDate)
                 {
@@ -1403,9 +1497,9 @@ metrics();
                     output.AppendLine("========== " + date + " ==========");
                     previousDate = date;
                 }
-                string user = entry.Value.User.Trim();
-                string body = entry.Value.Body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n").Trim();
-                if (body.Length == 0 && archivedImageUrls.TryGetValue(entry.Key, out var images) && images.Length > 0)
+                string user = entry.User.Trim();
+                string body = entry.Body.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\\n").Trim();
+                if (body.Length == 0 && entry.Images.Length > 0)
                     body = "[image attachment]";
                 // Discord groups consecutive messages under one username. Some
                 // extracted bodies therefore already begin with "Player: ".
@@ -1419,9 +1513,9 @@ metrics();
                 if (string.IsNullOrWhiteSpace(user)) user = "System";
                 // Keep the source message ID in the readable export so it
                 // can rebuild an index after an interrupted/corrupt JSON save.
-                output.AppendLine($"[{sent:hh:mm:ss tt}] {user}: {body} [discord:{entry.Key}]");
+                output.AppendLine($"[{sent:hh:mm:ss tt}] {user}: {body} [discord:{entry.Id}]");
             }
-            WriteChatArchiveAtomically(GameChatLogFile, output.ToString());
+            WriteChatArchiveAtomically(textPath, output.ToString());
         }
         readonly System.Collections.Generic.Dictionary<string, System.Drawing.Image> imageCache = new();
         readonly System.Collections.Generic.Dictionary<string, bool> happyHourImageClassification = new();
@@ -1492,7 +1586,6 @@ metrics();
             // Save even if Discord has already replaced this virtualized
             // message in its source viewport. The next restart can shortcut.
             chatArchiveDirty = true;
-            FlushPendingChatArchive();
             DetectLatestHappyHour();
         }
 
@@ -2418,7 +2511,6 @@ metrics();
                     }
                 }
                 lastFeed = json;
-                FlushPendingChatArchive();
                 // Match only genuine archived Discord messages; the snowflake
                 // timestamp supplies the real one-hour remaining time.
                 DetectLatestHappyHour();
@@ -3034,7 +3126,7 @@ metrics();
                 closingChat = true;
                 watch.Dispose();
                 historyWatch.Dispose();
-                FlushPendingChatArchive(force: true);
+                QueueFinalChatArchiveSave();
                 happyHourTicker?.Dispose();
                 if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
                 foreach (var image in imageCache.Values) image.Dispose();
@@ -3062,11 +3154,6 @@ metrics();
                 await CheckDiscordAuthentication();
                 await RefreshNativeMessages();
                 if (closingChat || IsDisposed) return;
-                if (chatArchiveDirty)
-                {
-                    EnsureChatLogLoaded();
-                    FlushPendingChatArchive();
-                }
                 PositionChatWindows();
                 if (pendingExpansionPrompt == 0 && !discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
@@ -3085,9 +3172,12 @@ metrics();
             };
             historyWatch.Tick += (_, _) =>
             {
+                if (closingChat || IsDisposed) return;
+                if (chatArchiveDirty && !chatLogLoaded) EnsureChatLogLoaded();
+                FlushPendingChatArchive();
                 // The scan runs in the hidden source regardless of the
                 // visible chat's open/closed state or manual scroll position.
-                if (!closingChat && !IsDisposed && nativeMode) {
+                if (nativeMode) {
                     if (!initialBackfillComplete)
                         BackfillUntilHappyHour();
                     else
