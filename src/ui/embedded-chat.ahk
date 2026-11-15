@@ -3,7 +3,6 @@ global EmbeddedChatPid := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
-global LauncherKillAlertGui := 0
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -113,9 +112,8 @@ CreateLauncherChatToggle()
     ; The themed-button handlers can intercept WM_COMMAND, so use the control's Click event.
     LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
 
-    ; Chat Host reports visibility, kill alerts, and Expansion Pack download state.
+    ; Chat Host reports visibility and Expansion Pack download state.
     OnMessage(0x8332, LauncherChatStateChanged)
-    OnMessage(0x8333, ShowLauncherKillAlert)
     ; WM_COPYDATA carries the signed ZIP URL to the native retry flow.
     OnMessage(0x004A, TES3MPExpansionZipAvailable)
     OnMessage(0x8338, TES3MPExpansionDownloadProgress)
@@ -215,48 +213,5 @@ LauncherChatRightClick(wParam, lParam, msg, hwnd)
     {
         LauncherChatMenu.Show()
         return 0
-    }
-}
-
-ShowLauncherKillAlert(wParam, lParam, msg, hwnd)
-{
-    global LauncherGui, LauncherKillAlertGui
-    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
-        return
-    alertFile := A_AppData "\TES3NP\Logs\last-kill-alert.txt"
-    eventText := "A character was killed in Nerevarine Prophecies!"
-    try {
-        if FileExist(alertFile)
-            eventText := Trim(FileRead(alertFile, "UTF-8"))
-    }
-    if !eventText
-        eventText := "A character was killed in Nerevarine Prophecies!"
-    ; Show the alert independently of Windows tray toast settings.
-    try {
-        if IsObject(LauncherKillAlertGui)
-            LauncherKillAlertGui.Destroy()
-        LauncherKillAlertGui := Gui("+AlwaysOnTop -Caption +ToolWindow", "TES3NP Kill Alert")
-        LauncherKillAlertGui.BackColor := "261E14"
-        LauncherKillAlertGui.SetFont("s11 Bold cE8C77C", "Segoe UI")
-        LauncherKillAlertGui.Add("Text", "x14 y12 w400 h26", "TES3NP Kill Alert")
-        LauncherKillAlertGui.SetFont("s10 Norm cFFFFFF", "Segoe UI")
-        LauncherKillAlertGui.Add("Text", "x14 y42 w400 h64", eventText)
-        LauncherKillAlertGui.Show("NoActivate w428 h115")
-        SetTimer(CloseLauncherKillAlert, -6500)
-    }
-    catch as err {
-        LogLauncherEvent("Kill alert popup error type: " Type(err))
-    }
-    TrayTip(eventText, "TES3NP Kill Alert", 0x1)
-    LogLauncherEvent("Game Chat kill alert notification received.")
-    return 0
-}
-
-CloseLauncherKillAlert()
-{
-    global LauncherKillAlertGui
-    if IsObject(LauncherKillAlertGui) {
-        try LauncherKillAlertGui.Destroy()
-        LauncherKillAlertGui := 0
     }
 }
