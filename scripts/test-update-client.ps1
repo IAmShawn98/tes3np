@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $source = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8
 $metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-metadata.ahk') -Raw -Encoding UTF8
+$installSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-install.ahk') -Raw -Encoding UTF8
 $dialogSource = Get-Content -LiteralPath 'src/ui/update-dialogs.ahk' -Raw -Encoding UTF8
 $notesSource = Get-Content -LiteralPath 'src/ui/update-notes.ahk' -Raw -Encoding UTF8
 
@@ -22,7 +23,7 @@ Require-Source '!\(ReadUpdateManifestValue\(fields, "architecture", "string"\) =
 Require-Source '!\(releaseId == "v" version\)' 'release identity validation' $metadata
 Require-Source '!\(fileName == "tes3np-" releaseId "-windows\.zip"\)' 'package filename validation' $metadata
 Require-Source '\[0-9a-f\]\{64\}' 'SHA-256 format validation' $metadata
-Require-Source 'Download\(manifest\.PackageUrl, part\)' 'download uses validated package address'
+Require-Source 'Download\(manifest\.PackageUrl, part\)' 'download uses validated package address' $installSource
 Require-Source '!manifest\.updateEnabled' 'emergency update disable handling'
 # The UI now uses an owned error-status panel instead of the removed
 # "No update was installed" string. Assert the actual fail-closed behavior:
@@ -46,10 +47,11 @@ Write-Host 'PASS: verified update is staged and installed only after separate co
 
 $entry = Get-Content -LiteralPath 'tes3np.ahk' -Raw -Encoding UTF8
 $builder = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
+Require-Source '#Include src\\app\\update-install\.ahk' 'update installation module is included by the launcher' $entry
 $startup = '(?m)^updateStatePath := GetPendingUpdateStatePath\(\)\r?\n(?:\r?\n|;[^\r\n]*\r?\n)*; @bundled-resource-setup@\r?\n\r?\nif updateStatePath = ""\r?\n    RecoverInterruptedLauncherUpdate\(\)\r?\nStartLauncher\(\)\r?\nif updateStatePath != ""\r?\n    ConfirmUpdatedLauncherStartup\(updateStatePath\)$'
 if ($entry -notmatch $startup -or
-    $source -notmatch 'FileRead\(statePath, "UTF-8"\)' -or
-    $source -notmatch 'lines\[2\] != "State=AWAITING_CONFIRMATION" \|\| lines\[3\] != "Version=" AppConfig\.Version' -or
+    $installSource -notmatch 'FileRead\(statePath, "UTF-8"\)' -or
+    $installSource -notmatch 'lines\[2\] != "State=AWAITING_CONFIRMATION" \|\| lines\[3\] != "Version=" AppConfig\.Version' -or
     -not $builder.Contains('$resourceSetupMarker = ''; @bundled-resource-setup@''') -or
     $builder -notmatch 'PrepareBundledResources\(\)\r?\nif A_Args\.Length && A_Args\[1\] = "--check-resources"') {
     throw 'Update acknowledgement must follow resource extraction and successful launcher startup.'
