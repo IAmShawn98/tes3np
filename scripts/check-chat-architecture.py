@@ -26,6 +26,7 @@ embedded_chat = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="
 entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
 launcher_smoke_tests = (ROOT / "scripts" / "launcher-smoke-tests.ahk").read_text(encoding="utf-8-sig")
 display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
+launcher_layout = (ROOT / "src" / "ui" / "launcher-layout.ahk").read_text(encoding="utf-8-sig")
 update_check = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
 chat_project = (ROOT / "chat-host" / "tes3np.ChatHost.csproj").read_text(encoding="utf-8-sig")
 errors = []
@@ -1357,9 +1358,9 @@ expect(
     ),
 )
 launcher_return = section_between(
-    bootstrap,
+    launcher_layout,
     "ShowLauncherWindow(reuseCached := false, *)",
-    "\nSetWindowIcons()",
+    "\nGetAutomaticLauncherScale()",
 )
 expect(
     "Owned Character Book uses already-painted visible parent without global repaint before Hide",
@@ -1777,6 +1778,9 @@ expect(
     and 'Max(7, Round(size * scale))' in font_update
     and "face.Control.Move(" not in font_update,
 )
+launcher_scale_apply = section_between(
+    launcher_layout, "ApplyLauncherScaleToWindow(center := false)", "\n}",
+)
 expect(
     "Declined display previews restore saved state and visible settings controls",
     "ApplyLauncherScaleToWindow(true)" in display_settings
@@ -1788,7 +1792,12 @@ expect(
     and "V016FollowWindowsState := followWindows.Value" in display_settings
     and "UpdateV016ReadabilityLabel(settings.ReadabilityControl, V016ReadabilityState)" in display_settings
     and "CloseLauncherSettingsV016(settings)" in display_settings
-    and "LauncherCachedScale := LauncherScale" in display_settings,
+    and in_order(
+        launcher_scale_apply,
+        "ApplyLauncherControlScale()",
+        "LauncherCachedScale := LauncherScale",
+        "LauncherCachedLayoutCount := LauncherControlLayout.Count",
+    ),
 )
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
 expect(
@@ -1838,9 +1847,10 @@ expect(
 )
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
-    'LauncherGui.Show("Hide w960 h716")' in bootstrap
-    and "if LauncherCachedScale > 0 && DllCall" in bootstrap
-    and "LauncherCachedScale := LauncherScale" in bootstrap,
+    '#Include src\\ui\\launcher-layout.ahk' in entry_script
+    and 'LauncherGui.Show("Hide w960 h716")' in launcher_return
+    and "if LauncherCachedScale > 0 && DllCall" in launcher_return
+    and "LauncherCachedScale := LauncherScale" in launcher_return,
 )
 expect(
     "Themed click recovery verifies the child under the actual pointer",
