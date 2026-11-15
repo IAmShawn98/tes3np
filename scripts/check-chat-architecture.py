@@ -24,6 +24,7 @@ diagnostic_fixture = (ROOT / "scripts" / "test-expansion-diagnostics.ahk").read_
 front_layout = (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
 chat_startup = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig")
 entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
+launcher_smoke_tests = (ROOT / "scripts" / "launcher-smoke-tests.ahk").read_text(encoding="utf-8-sig")
 display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
 update_check = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
 chat_project = (ROOT / "chat-host" / "tes3np.ChatHost.csproj").read_text(encoding="utf-8-sig")
@@ -1445,21 +1446,22 @@ expect(
 )
 expect(
     "Windows CI tests DWM staged window as a disposable visible GUI",
-    'A_Args[1] = "--check-page-compositor"' in entry_script
-    and 'DwmGetWindowAttribute' in entry_script
-    and 'SetPageColorKey(testWindow, 0x010101)' in entry_script
-    and 'GetLayeredWindowAttributes' in entry_script
-    and 'NumGet(colorKey, 0, "UInt") != 0x010101' in entry_script
-    and 'NumGet(colorFlags, 0, "UInt") != 1' in entry_script
-    and "NumGet(before, 0, \"Int\") = 0" in entry_script
-    and "NumGet(after, 0, \"Int\") != 0" in entry_script,
+    'case "--check-page-compositor":' in launcher_smoke_tests
+    and 'DwmGetWindowAttribute' in launcher_smoke_tests
+    and 'SetPageColorKey(testWindow, 0x010101)' in launcher_smoke_tests
+    and 'GetLayeredWindowAttributes' in launcher_smoke_tests
+    and 'NumGet(colorKey, 0, "UInt") != 0x010101' in launcher_smoke_tests
+    and 'NumGet(colorFlags, 0, "UInt") != 1' in launcher_smoke_tests
+    and "NumGet(before, 0, \"Int\") = 0" in launcher_smoke_tests
+    and "NumGet(after, 0, \"Int\") != 0" in launcher_smoke_tests
+    and '#Include scripts\\launcher-smoke-tests.ahk' in entry_script,
 )
 expect(
     "Windows CI includes real owned-window test for cached Character Book return",
-    'A_Args[1] = "--check-cached-character-return"' in entry_script
-    and 'probeBook := Gui("+Owner" LauncherGui.Hwnd' in entry_script
-    and 'ShowLauncherWindow(true)\n    probeBook.Hide()' in entry_script
-    and 'if !ButtonFaces.Has(probeHandle)' in entry_script,
+    'case "--check-cached-character-return":' in launcher_smoke_tests
+    and 'probeBook := Gui("+Owner" LauncherGui.Hwnd' in launcher_smoke_tests
+    and 'ShowLauncherWindow(true)\n    probeBook.Hide()' in launcher_smoke_tests
+    and 'if !ButtonFaces.Has(probeHandle)' in launcher_smoke_tests,
 )
 macro_menu_ui = (ROOT / "src" / "ui" / "macros.ahk").read_text(encoding="utf-8-sig")
 expect(
@@ -1598,13 +1600,13 @@ expect(
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
-    'A_Args[1] = "--check-owned-menu-scaling"' in entry_script
-    and 'for percent in [50, 60, 70, 80, 90, 100]' in entry_script
-    and 'scale := GetOwnedMenuScale()' in entry_script
-    and 'ScaleOwnedMenuContent(child, scale)' in entry_script
-    and 'PositionOwnedMenuAtParent(child, LauncherGui)' in entry_script
-    and 'if Abs(NumGet(movedRect, 0, "Int")' in entry_script
-    and 'NumGet(edgeRect, 8, "Int") > mr' in entry_script,
+    'case "--check-owned-menu-scaling":' in launcher_smoke_tests
+    and 'for percent in [50, 60, 70, 80, 90, 100]' in launcher_smoke_tests
+    and 'scale := GetOwnedMenuScale()' in launcher_smoke_tests
+    and 'ScaleOwnedMenuContent(child, scale)' in launcher_smoke_tests
+    and 'PositionOwnedMenuAtParent(child, LauncherGui)' in launcher_smoke_tests
+    and 'if Abs(NumGet(movedRect, 0, "Int")' in launcher_smoke_tests
+    and 'NumGet(edgeRect, 8, "Int") > mr' in launcher_smoke_tests,
 )
 expect(
     "One-time shortcut prompt never stacks optional GOTY or background Discord sign-in",
