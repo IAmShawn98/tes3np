@@ -183,8 +183,7 @@ def check(allow_missing_payload: bool = False) -> None:
         "HasSavedCharacters", "OpenMacros",
         "IsTES3MPSetupComplete", "BeginStartupPatchCheck",
         "FindTES3MPFolder", "FinishLauncherStartup", "ResizeEmbeddedInGameChat",
-        "CharacterMenuButton", "SanitizeDiagnosticPath", "EditorReconnectTick",
-        "ToggleEditorReconnect", "SetClientStatus",
+        "CharacterMenuButton", "SanitizeDiagnosticPath", "SetClientStatus",
         # Unused proprietary bitmap-font rasterizer path replaced by
         # the bundled native Mystic Cards TrueType font.
         "FindVanillaMagicCardsFont", "ReadMagicCardsTextureName",

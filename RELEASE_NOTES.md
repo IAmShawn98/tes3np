@@ -28,6 +28,7 @@ Changes since the last public release, v0.1.20-alpha.
 
 ### Bug Fixes
 
+- **Character reconnect** — Edit a character to enable automatic reconnect after a crash. Closing the game normally leaves it closed.
 - **Game Chat** — Fixed a blank chat panel after first-time sign-in that could require restarting the launcher. The loading message and scrollbar now appear during the transition into Game Chat.
 - **Discord sign-in** — Expansion Pack checks open the dedicated sign-in window when needed and resume after you sign in. Sign-in requests made while Discord is initializing are also handled.
 - **Manage Characters** — Fixed visible flashing when editing or deleting characters and reduced the delay when closing the page.

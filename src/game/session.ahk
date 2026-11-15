@@ -2,10 +2,13 @@
 
 ; Track successfully launched clients without retaining credentials or HWNDs.
 global TES3NPActiveGameHandles := []
+; Only opted-in characters retain a reconnect reference after login.
+global TES3NPCrashRecovery := Map()
+global GameRecoveryGeneration := 0
 
 CountTES3NPGameClients()
 {
-    global TES3NPActiveGameHandles, Client
+    global TES3NPActiveGameHandles, TES3NPCrashRecovery, Client
     live := []
     count := 0
     for handle in TES3NPActiveGameHandles
@@ -13,7 +16,7 @@ CountTES3NPGameClients()
         running := DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 0, "UInt") = 258
         if running
             count += 1
-        if running || (Client.Enabled && Client.ProcessHandle = handle)
+        if running || TES3NPCrashRecovery.Has(handle) || (Client.Enabled && Client.ProcessHandle = handle)
             live.Push(handle)
         else
             DllCall("CloseHandle", "Ptr", handle)
@@ -96,27 +99,36 @@ LaunchProfileIndex(index)
         StartProfileSession(profile, executable)
 }
 
-StartProfileSession(profile, executable, packChecked := false, packCurrent := false)
+StartProfileSession(profile, executable, packChecked := false, packCurrent := false, recoveryGeneration := -1)
 {
-    global Client, TES3MPLastMismatchEvidence, DataFile
+    global Client, TES3MPLastMismatchEvidence, DataFile, GameRecoveryGeneration
+    recovering := recoveryGeneration >= 0
+    if recovering
+    {
+        profile := FindCrashRecoveryProfile(profile)
+        if !IsObject(profile) || recoveryGeneration != GameRecoveryGeneration
+            return
+    }
     ; A file picker or prompt can yield to another launch request.
     if Client.Enabled || !CanUseNPLauncher() || !CanStartAnotherTES3NPGame()
         return
     config := PatchConfigurationPath()
     if !packChecked && ExpansionPackInLoadOrder(config)
-        && TES3MPCheckExpansionBeforeAction(config, StartProfileSession.Bind(profile, executable, true))
+        && TES3MPCheckExpansionBeforeAction(config, ResumeProfileLaunch.Bind(profile, executable, recoveryGeneration))
         return
     previousCritical := Critical("On")
     try
     {
         if Client.Enabled || PatchInProgress()
+            || (recovering && recoveryGeneration != GameRecoveryGeneration)
             return
         session := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
             Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
             UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
             PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
             LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0,
-            ExpansionPackCurrent: packCurrent}
+            ExpansionPackCurrent: packCurrent,
+            SavedProfile: IsObject(profile) && profile.AutoReconnect ? profile : 0, Recovering: recovering}
         Client := session
     }
     finally Critical(previousCritical)
@@ -124,7 +136,7 @@ StartProfileSession(profile, executable, packChecked := false, packCurrent := fa
     ; Every login gets fresh mismatch evidence. Retain the previous result
     ; only while its own failed-login dialog is available for Copy Info.
     TES3MPLastMismatchEvidence := 0
-    source := IsObject(profile) ? "Manual character" : "New Adventure"
+    source := recovering ? "Crash recovery" : (IsObject(profile) ? "Manual character" : "New Adventure")
     profileName := IsObject(profile) ? profile.Name : "New Adventure"
     LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
     LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
@@ -141,14 +153,28 @@ StartProfileSession(profile, executable, packChecked := false, packCurrent := fa
     ClientTick()
 }
 
+ResumeProfileLaunch(profile, executable, recoveryGeneration, packCurrent := false)
+{
+    StartProfileSession(profile, executable, true, packCurrent, recoveryGeneration)
+}
+
+StopGameRecovery(*)
+{
+    global TES3NPCrashRecovery, GameRecoveryGeneration
+    GameRecoveryGeneration += 1
+    TES3NPCrashRecovery.Clear()
+    StopClient()
+}
+
 StopClient(*)
 {
-    global Client, LoginProgressMode, LoginProgressCloseAt
+    global Client, LoginProgressMode, LoginProgressCloseAt, TES3NPCrashRecovery
     wasEnabled := Client.Enabled
     phase := Client.Phase
     Client.Enabled := false
     Client.Phase := "stopped"
-    SetTimer(ClientTick, 0)
+    if !TES3NPCrashRecovery.Count
+        SetTimer(ClientTick, 0)
     ; Saved LoadDelay may be only one second. Keep the already-completed
     ; three-second visual alive when the successful manual watchdog ends.
     keepProgress := Client.HasOwnProp("KeepLoginProgress") && Client.KeepLoginProgress
@@ -161,6 +187,8 @@ StopClient(*)
         DisposeGameLoginProgress()
     }
     Client.Profile := 0
+    if Client.HasOwnProp("SavedProfile")
+        Client.SavedProfile := 0
     Client.ProcessHandle := 0
     if wasEnabled
         LogLauncherEvent("GAME | Recovery stopped | Previous phase: " phase ".")
@@ -189,11 +217,94 @@ EndClientMonitoring(reason)
     StopClient()
 }
 
+FindCrashRecoveryProfile(profile)
+{
+    global Profiles
+    if !IsObject(profile)
+        return 0
+    ; Reopening the Character Book reloads profiles from disk. Match the
+    ; login rather than the object, and fail closed if it is ambiguous.
+    found := 0
+    for saved in Profiles
+    {
+        if saved == profile
+            return saved.AutoReconnect ? saved : 0
+        if saved.Name == profile.Name && saved.Password == profile.Password
+        {
+            if IsObject(found)
+                return 0
+            found := saved
+        }
+    }
+    return IsObject(found) && found.AutoReconnect ? found : 0
+}
+
+IsTES3MPCrashExit(exitCode)
+{
+    ; The legacy client may return other nonzero codes for startup failures.
+    ; Recognize Windows crash statuses, including typical unhandled C++ errors.
+    return exitCode = 0xC0000005 || exitCode = 0xC000001D || exitCode = 0xC0000094
+        || exitCode = 0xC00000FD || exitCode = 0xC0000374 || exitCode = 0xC0000409
+        || exitCode = 0xE06D7363
+}
+
+ReadTES3MPExitCode(handle)
+{
+    if handle
+    {
+        result := Buffer(4, 0)
+        if DllCall("GetExitCodeProcess", "Ptr", handle, "Ptr", result)
+            return NumGet(result, 0, "UInt")
+    }
+    return -1
+}
+
+CheckTES3MPCrashRecovery()
+{
+    global Client, TES3NPCrashRecovery, GameRecoveryGeneration
+    global ExpansionMismatchDialog, ExpansionInstallPromptGui, ExpansionAutoFailurePromptGui
+    static checking := false
+    if checking || PatchInProgress() || IsObject(ExpansionMismatchDialog)
+        || IsObject(ExpansionInstallPromptGui) || IsObject(ExpansionAutoFailurePromptGui)
+        return
+    checking := true
+    try
+    {
+        for handle, profile in TES3NPCrashRecovery
+        {
+            current := FindCrashRecoveryProfile(profile)
+            if IsObject(current)
+                && DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 0, "UInt") = 258
+                continue
+            generation := GameRecoveryGeneration
+            if !TES3NPCrashRecovery.Has(handle)
+                break
+            TES3NPCrashRecovery.Delete(handle)
+            exitCode := ReadTES3MPExitCode(handle)
+            CountTES3NPGameClients()
+            if IsObject(current) && IsTES3MPCrashExit(exitCode)
+            {
+                LogLauncherEvent("GAME | RECOVERY | Relaunch after TES3MP crash | Exit code: " Format("0x{:08X}", exitCode) ".")
+                executable := GetSharedExecutable()
+                if ValidateLaunch(current, executable)
+                    StartProfileSession(current, executable, false, false, generation)
+            }
+            break
+        }
+    }
+    finally checking := false
+    if !Client.Enabled && !TES3NPCrashRecovery.Count
+        SetTimer(ClientTick, 0)
+}
+
 ClientTick()
 {
-    global Client, DataFile, TES3NPActiveGameHandles
+    global Client, DataFile, TES3NPActiveGameHandles, TES3NPCrashRecovery
     if !Client.Enabled
+    {
+        CheckTES3MPCrashRecovery()
         return
+    }
     session := Client
     try
     {
@@ -254,29 +365,27 @@ ClientTick()
             }
             if A_TickCount < Client.MismatchExitGraceUntil
                 return
-            ; A closed or crashed client terminates this single monitored login.
             codeText := "unavailable"
-            exitCode := -1
-            if Client.ProcessHandle
+            exitCode := ReadTES3MPExitCode(Client.ProcessHandle)
+            if exitCode != -1
             {
-                resultCode := Buffer(4, 0)
-                if DllCall("GetExitCodeProcess", "Ptr", Client.ProcessHandle, "Ptr", resultCode)
-                {
-                    exitCode := NumGet(resultCode, 0, "UInt")
-                    codeText := Format("0x{:08X}", exitCode)
-                    if exitCode = 0
-                        codeText .= " (normal exit)"
-                    else if exitCode = 0xC0000005
-                        codeText .= " (access violation)"
-                    else if exitCode = 0xC0000409
-                        codeText .= " (stack buffer overrun / fail-fast)"
-                    else if exitCode = 0xC000001D
-                        codeText .= " (illegal instruction)"
-                }
+                codeText := Format("0x{:08X}", exitCode)
+                if exitCode = 0
+                    codeText .= " (normal exit)"
+                else if exitCode = 0xC0000005
+                    codeText .= " (access violation)"
+                else if exitCode = 0xC0000409
+                    codeText .= " (stack buffer overrun / fail-fast)"
+                else if exitCode = 0xC000001D
+                    codeText .= " (illegal instruction)"
             }
             LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled"))
-            LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
-            failedToStart := Client.Phase = "window"
+            retryCrash := !Client.Recovering && IsTES3MPCrashExit(exitCode) && IsObject(FindCrashRecoveryProfile(Client.SavedProfile))
+            if retryCrash
+                TES3NPCrashRecovery[Client.ProcessHandle] := Client.SavedProfile
+            else
+                LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
+            failedToStart := Client.Phase = "window" && !retryCrash
             StopClient()
             if failedToStart
             {
@@ -348,6 +457,8 @@ ClientTick()
             LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
             ; Completed manual logins no longer hold the one-at-a-time login
             ; watchdog. Keep the game running and allow another launch.
+            if Client.ProcessHandle && IsObject(FindCrashRecoveryProfile(Client.SavedProfile))
+                TES3NPCrashRecovery[Client.ProcessHandle] := Client.SavedProfile
             Client.KeepLoginProgress := true
             StopClient()
             return

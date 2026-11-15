@@ -32,7 +32,7 @@ StartLauncher()
     }
     A_TrayMenu.Add("Open Launcher", ShowLauncherWindow)
     A_TrayMenu.Default := "Open Launcher"
-    A_TrayMenu.Add("Stop game recovery", StopClient)
+    A_TrayMenu.Add("Stop game recovery", StopGameRecovery)
     A_TrayMenu.Add("Enable / Disable Expansion Pack", ToggleExpansionPack)
     A_TrayMenu.Add("Open Expansion Pack Downloads", (*) => ShowTES3MPExpansionMismatchDialog("Browse"))
     InitializeHappyHourJiub()
@@ -491,7 +491,7 @@ CleanupLauncher(*)
     {
         LogLauncherEvent("Launcher shutting down.")
     }
-    StopClient()
+    StopGameRecovery()
     ReleaseTES3NPGameClients()
     DisposeGameLoginProgress()
     DisposeHappyHourJiub()

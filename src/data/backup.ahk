@@ -50,8 +50,7 @@ ExportLauncherData()
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
             IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
             IniWrite(profile.LoadDelay, temporary, section, "Load")
-            ; Older v1 backup readers require this field. Automatic restart is retired.
-            IniWrite("0", temporary, section, "AutoReconnect")
+            IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
         }
         FileMove(temporary, path, true)
         MsgBox("Launcher data exported. This file contains readable passwords; store it privately. Custom portrait images must be copied separately if needed.", "Export Data")
@@ -101,7 +100,8 @@ ImportLauncherData()
             restored.Push({Name: name, Password: password, Species: species, PortraitFile: "",
                 UsernameDelay: ReadBackupInteger(path, section, "Username", 1, 300),
                 PasswordDelay: ReadBackupInteger(path, section, "PasswordDelay", 1, 300),
-                LoadDelay: ReadBackupInteger(path, section, "Load", 1, 300)})
+                LoadDelay: ReadBackupInteger(path, section, "Load", 1, 300),
+                AutoReconnect: IniRead(path, section, "AutoReconnect", "0") = "1"})
         }
         ; Old v1 backups omit this optional notice flag. Do not reset a notice
         ; already acknowledged on this computer when importing such a backup.
@@ -127,6 +127,7 @@ ImportLauncherData()
             IniWrite(profile.Name, temporary, section, "Name")
             IniWrite(profile.Species, temporary, section, "Species")
             IniWrite(ProtectPassword(profile.Password), temporary, section, "Password")
+            IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
             IniWrite(profile.UsernameDelay, temporary, section, "Username")
             IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
             IniWrite(profile.LoadDelay, temporary, section, "Load")
