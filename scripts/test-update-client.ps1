@@ -80,7 +80,7 @@ Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release 
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
 Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings' $notesSource
-Require-Source 'ShowCenteredUpdateCard\(panel, backdrop, 800, 600\)' 'larger status modal'
+Require-Source 'ShowCenteredGoldPrompt\(panel, backdrop, 800, 600\)' 'larger status modal'
 Require-Source 'BuildStyledReleaseNoteRows\(notes, noteRows\[1\], 674\)' 'font-measured changelog wrapping' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource

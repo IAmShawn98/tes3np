@@ -1392,6 +1392,7 @@ expect(
     and 'RevealWindowDisplay(CharacterPage, true, !staged)' in characters_ui,
 )
 window_presenter = (ROOT / "src" / "ui" / "windows.ahk").read_text(encoding="utf-8-sig")
+gold_prompts = (ROOT / "src" / "ui" / "gold-prompts.ahk").read_text(encoding="utf-8-sig")
 characters_open = section_between(
     characters_ui,
     "OpenCharacterPage(*)",
@@ -1527,12 +1528,13 @@ expect(
 )
 expect(
     "Borderless changelog native cards own their dimmers and release them on every exit",
-    'CreateUpdateBackdrop(owner := 0)' in update_check
-    and 'CreateGoldNativePrompt(owner, title, width, height)' in update_check
-    and 'Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)' in update_check
-    and 'ScaleOwnedMenuContent(panel, scale)' in update_check
-    and 'ShowCenteredUpdateCard(panel, panel.NativePromptBackdrop,' in update_check
-    and 'CloseGoldNativePrompt(panel)' in update_check
+    '#Include src\\ui\\gold-prompts.ahk' in entry_script
+    and 'CreateGoldPromptBackdrop(owner := 0)' in gold_prompts
+    and 'CreateGoldNativePrompt(owner, title, width, height)' in gold_prompts
+    and 'Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)' in gold_prompts
+    and 'ScaleOwnedMenuContent(panel, scale)' in gold_prompts
+    and 'ShowCenteredGoldPrompt(panel, panel.NativePromptBackdrop,' in gold_prompts
+    and 'CloseGoldNativePrompt(panel)' in gold_prompts
     and 'CloseGoldNativePrompt(menu)' in settings_ui
     and 'CloseGoldNativePrompt(options)' in settings_ui
     and settings_ui.count('options.Destroy()') == 0
@@ -1562,7 +1564,7 @@ expect(
     and 'closeY := saved ? 399 : 351' in settings_ui
     and 'RefreshGameClientSettingsLayoutV016(menu)' in settings_ui
     and 'menu.NativePromptBackground.Move(' in settings_ui
-    and 'panel.NativePromptBackground := panel.Add("Text",' in update_check,
+    and 'panel.NativePromptBackground := panel.Add("Text",' in gold_prompts,
 )
 expect(
     "Manage Macros empty state and Upload button do not leave blank action row",

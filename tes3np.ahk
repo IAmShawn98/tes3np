@@ -9,6 +9,7 @@
 #Include src\game\expansion-mismatch.ahk
 #Include src\ui\renderer.ahk
 #Include src\ui\windows.ahk
+#Include src\ui\gold-prompts.ahk
 #Include src\ui\controls.ahk
 #Include src\ui\loading.ahk
 #Include src\ui\login-progress.ahk

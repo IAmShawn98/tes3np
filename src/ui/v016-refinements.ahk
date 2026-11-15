@@ -663,7 +663,7 @@ RefreshGameClientSettingsLayoutV016(menu)
     menu.NativePromptHeight := saved ? 460 : 412
     menu.NativePromptBackground.Move(Round(2 * scale), Round(2 * scale),
         Round(676 * scale), Round((menu.NativePromptHeight - 4) * scale))
-    ShowCenteredUpdateCard(menu, menu.NativePromptBackdrop,
+    ShowCenteredGoldPrompt(menu, menu.NativePromptBackdrop,
         Round(680 * scale), Round(menu.NativePromptHeight * scale))
     DllCall("RedrawWindow", "Ptr", menu.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
 }
