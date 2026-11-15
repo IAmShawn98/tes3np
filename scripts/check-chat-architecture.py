@@ -22,7 +22,7 @@ native_renderer = (ROOT / "src" / "ui" / "renderer.ahk").read_text(encoding="utf
 windows_build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8-sig")
 diagnostic_fixture = (ROOT / "scripts" / "test-expansion-diagnostics.ahk").read_text(encoding="utf-8-sig")
 front_layout = (ROOT / "src" / "ui" / "front-page.ahk").read_text(encoding="utf-8-sig")
-chat_startup = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig")
+embedded_chat = (ROOT / "src" / "ui" / "embedded-chat.ahk").read_text(encoding="utf-8-sig")
 entry_script = (ROOT / "tes3np.ahk").read_text(encoding="utf-8-sig")
 launcher_smoke_tests = (ROOT / "scripts" / "launcher-smoke-tests.ahk").read_text(encoding="utf-8-sig")
 display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
@@ -370,7 +370,7 @@ expect(
     and 'if authConfirmed\n    {\n        if !SendLauncherChatCommand(6, downloadSlot.Hwnd)' in mismatch_dialog
     and 'ShowTES3MPExpansionMismatchDialog(mode = 1 ? "Install" : "Mismatch", true)' in mismatch
     and 'WinGetPID("ahk_id " lParam) != EmbeddedChatPid' in mismatch
-    and 'OnMessage(0x8336, DiscordExpansionPromptReady)' in bootstrap
+    and 'OnMessage(0x8336, DiscordExpansionPromptReady)' in embedded_chat
     and 'case 10: RequestAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;' in source
     and 'case 12: RetryAuthenticatedExpansionPrompt((int)m.LParam.ToInt64()); break;' in source
     and 'void RequestAuthenticatedExpansionPrompt(int mode)' in source
@@ -425,7 +425,7 @@ expect(
     and 'SendLauncherChatCommand(7, slotHwnd)' in mismatch
     and 'UploadExpansionFromFile()' in mismatch
     and 'Gui("+Owner" LauncherGui.Hwnd' in mismatch
-    and 'SendLauncherChatCommand(command, targetHwnd := 0)' in bootstrap,
+    and 'SendLauncherChatCommand(command, targetHwnd := 0)' in embedded_chat,
 )
 expect(
     "An enabled pack can update on login rejection using the authenticated ZIP transfer",
@@ -559,7 +559,7 @@ expect(
     and 'string stem="tes3np-"+Guid.NewGuid().ToString("N");' in source
     and 'SendCopyDataTimeout(owner,0x004A,sender,' in source
     and 'dwData=new IntPtr(0x8337)' in source
-    and 'OnMessage(0x8338, TES3MPExpansionDownloadProgress)' in bootstrap
+    and 'OnMessage(0x8338, TES3MPExpansionDownloadProgress)' in embedded_chat
     and 'TES3MPExpansionAutoDownloadReady(lParam)' in mismatch
     and 'WinGetPID("ahk_id " wParam) = EmbeddedChatPid' in mismatch
     and 'SetTimer((*) => TES3MPExpansionBeginAutoImport(dialog, slot, package), -80)' in mismatch
@@ -895,7 +895,7 @@ expect(
     and "Run('rundll32.exe url.dll,FileProtocolHandler" in mismatch
     and 'Run(url)' not in mismatch
     and 'statusControl.Text := ""' in mismatch
-    and 'OnMessage(0x004A, TES3MPExpansionZipAvailable)' in bootstrap
+    and 'OnMessage(0x004A, TES3MPExpansionZipAvailable)' in embedded_chat
     and 'TES3MPExpansionZipAvailable(wParam, lParam, msg, hwnd)' in mismatch
     and 'ExpansionMismatchZipUrl := url' in mismatch
     and 'ExpansionMismatchZipUrl := ""' in mismatch
@@ -1268,7 +1268,7 @@ expect(
     and "HappyHourDevModeEnabled" not in jiub_ui
     and "A_TrayMenu.Add" not in jiub_ui
     and "--happy-hour-dev" not in
-        chat_startup,
+        embedded_chat,
 )
 expect(
     "Jiub coordinates and native control remain intact",
@@ -1815,14 +1815,16 @@ expect(
 )
 expect(
     "Game Chat toggle caption and arrow shrink with launcher tab",
-    "fontHeight := -Max(9, Round(21 * paintScale))" in bootstrap
-    and "arrowHalf := Max(4, Round(9 * paintScale))" in bootstrap
-    and "arrowHeight := Max(4, Round(10 * paintScale))" in bootstrap,
+    '#Include src\\ui\\embedded-chat.ahk' in entry_script
+    and "CreateLauncherChatToggle()" in bootstrap
+    and "fontHeight := -Max(9, Round(21 * paintScale))" in embedded_chat
+    and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat
+    and "arrowHeight := Max(4, Round(10 * paintScale))" in embedded_chat,
 )
-host_freshness = section_between(chat_startup, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
+host_freshness = section_between(embedded_chat, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
 expect(
     "Opening the source launcher never compiles ChatHost on the UI thread",
-    "EnsureEmbeddedChatHostCurrent(host)" in chat_startup
+    "EnsureEmbeddedChatHostCurrent(host)" in embedded_chat
     and "RunWait(" not in host_freshness
     and "dotnet publish" not in host_freshness.replace("RunWait(dotnet publish)", "")
     and "startup will not block on compilation" in host_freshness,
