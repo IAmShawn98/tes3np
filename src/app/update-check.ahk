@@ -204,98 +204,10 @@ CheckForUpdates(*)
     }
 }
 
-CreateUpdateBackdrop(owner := 0)
-{
-    global LauncherGui
-    ; Shared native-card backdrop: changelogs use the launcher; child setup
-    ; dialogs can dim their actual owner without covering the entire desktop.
-    ; Physical HWND rectangles avoid mixed-DPI clipping of scaled windows.
-    if !owner
-        owner := LauncherGui
-    ownerHwnd := IsObject(owner) ? owner.Hwnd : owner
-    bounds := Buffer(16, 0)
-    if !ownerHwnd || !DllCall("user32\GetWindowRect", "Ptr", ownerHwnd, "Ptr", bounds)
-        throw Error("Unable to locate owner for native prompt backdrop.")
-    lx := NumGet(bounds, 0, "Int")
-    ly := NumGet(bounds, 4, "Int")
-    lw := NumGet(bounds, 8, "Int") - lx
-    lh := NumGet(bounds, 12, "Int") - ly
-    dim := Gui("-Caption -Border -DPIScale +ToolWindow +Owner" ownerHwnd, "tes3np Native Prompt Backdrop")
-    dim.BackColor := "000000"
-    try {
-        dim.Show("NA x" lx " y" ly " w" lw " h" lh)
-        WinSetTransparent(165, "ahk_id " dim.Hwnd)
-        return dim
-    } catch {
-        try dim.Destroy()
-        throw
-    }
-}
-
-ShowCenteredUpdateCard(dialog, backdrop, width, height)
-{
-    rect := Buffer(16, 0)
-    if !DllCall("user32\GetWindowRect", "Ptr", backdrop.Hwnd, "Ptr", rect)
-        throw Error("Unable to center update dialog.")
-    left := NumGet(rect, 0, "Int")
-    top := NumGet(rect, 4, "Int")
-    dw := NumGet(rect, 8, "Int") - left
-    dh := NumGet(rect, 12, "Int") - top
-    dialog.Show("w" width " h" height " x" (left + Round((dw - width) / 2))
-        " y" (top + Round((dh - height) / 2)))
-}
-
-; The version/changelog cards already establish the native dark-and-gold
-; prompt visual system. Use that exact frame/dim centering for settings/setup
-; instead of another tan, title-barred secondary GUI.
-CreateGoldNativePrompt(owner, title, width, height)
-{
-    backdrop := CreateUpdateBackdrop(owner)
-    try
-    {
-        panel := Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)
-        panel.MarginX := 0, panel.MarginY := 0
-        panel.BackColor := "C5A45C"
-        ; Keep the dark interior's HWND so dynamic cards can resize it
-        ; together with their outer frame, without exposing a white strip.
-        panel.NativePromptBackground := panel.Add("Text",
-            "x2 y2 w" (width - 4) " h" (height - 4) " Background171008")
-        panel.NativePromptBackdrop := backdrop
-        panel.NativePromptWidth := width
-        panel.NativePromptHeight := height
-        return panel
-    }
-    catch
-    {
-        backdrop.Destroy()
-        throw
-    }
-}
-
-ShowGoldNativePrompt(panel)
-{
-    if !IsObject(panel) || !panel.HasOwnProp("NativePromptBackdrop")
-        return
-    scale := GetOwnedMenuScale()
-    ScaleOwnedMenuContent(panel, scale)
-    ShowCenteredUpdateCard(panel, panel.NativePromptBackdrop,
-        Round(panel.NativePromptWidth * scale), Round(panel.NativePromptHeight * scale))
-}
-
-CloseGoldNativePrompt(panel)
-{
-    if !IsObject(panel)
-        return
-    backdrop := panel.HasOwnProp("NativePromptBackdrop") ? panel.NativePromptBackdrop : 0
-    try DestroyScaledMenu(panel)
-    if IsObject(backdrop)
-        try backdrop.Destroy()
-}
-
 ShowGoldUpdateConfirmation(title, message, confirmLabel)
 {
     response := {Accepted: false}
-    backdrop := CreateUpdateBackdrop()
+    backdrop := CreateGoldPromptBackdrop()
     window := 0
     try {
         window := Gui("-Caption -Border +Owner" backdrop.Hwnd " -DPIScale", "tes3np — Update Confirmation")
@@ -310,7 +222,7 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
         window.OnEvent("Escape", (*) => window.Destroy())
         window.OnEvent("Close", (*) => window.Destroy())
         hwnd := window.Hwnd
-        ShowCenteredUpdateCard(window, backdrop, 640, 258)
+        ShowCenteredGoldPrompt(window, backdrop, 640, 258)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(window)
@@ -324,7 +236,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
     notes := ReadPublishedVersionNotes(latestVersion)
     response := {Download: false}
-    backdrop := CreateUpdateBackdrop()
+    backdrop := CreateGoldPromptBackdrop()
     preview := 0
     closeNotes := 0
     try {
@@ -352,7 +264,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         preview.OnEvent("Close", (*) => preview.Destroy())
         preview.OnEvent("Escape", (*) => preview.Destroy())
         hwnd := preview.Hwnd
-        ShowCenteredUpdateCard(preview, backdrop, 800, 630)
+        ShowCenteredGoldPrompt(preview, backdrop, 800, 630)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(closeNotes)
@@ -379,7 +291,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     }
     notes := newer ? ReadPublishedVersionNotes(notesVersion) : ReadVersionReleaseNotes(installedVersion)
     state := {Retry: false}
-    backdrop := CreateUpdateBackdrop()
+    backdrop := CreateGoldPromptBackdrop()
     panel := 0
     closeNotes := 0
     try {
@@ -398,7 +310,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         panel.OnEvent("Close", (*) => panel.Destroy())
         panel.OnEvent("Escape", (*) => panel.Destroy())
         hwnd := panel.Hwnd
-        ShowCenteredUpdateCard(panel, backdrop, 800, 600)
+        ShowCenteredGoldPrompt(panel, backdrop, 800, 600)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(closeNotes)
