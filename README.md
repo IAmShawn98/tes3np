@@ -36,7 +36,7 @@ The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 
 ## Update
 
-Click the version number in the launcher to check for updates. You can review the release notes before downloading and installing. Keep your `%APPDATA%\tes3np` folder so your characters and preferences carry over.
+Click the version number in the bottom left corner to check for updates. You can review the release notes before downloading and installing. Keep your `%APPDATA%\tes3np` folder so your characters and preferences carry over.
 
 ## Bug Reporting
 
