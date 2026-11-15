@@ -4,6 +4,16 @@
 
 > Internal development history. The launcher and eventual public release use `RELEASE_NOTES.md` for concise, player-facing changes compared with v0.1.20-alpha. Preserve this detailed record for troubleshooting and development handoffs.
 
+### Launcher updater, Expansion Pack, and bug reporting — 2026-11-14
+
+- Added bug reporting in Launcher Data with diagnostic logs and optional screenshots. Selected screenshots stay attached while editing the report, and the attachment count is visible.
+- The Expansion Pack preflight checks the official Discord release before login or re-enabling an installed pack. It offers the update before continuing, shows the available and recognized installed versions, and offers Manual Install. Installed-version detection uses the ESP header, cached checksum associations, and matching import records.
+- Normal Expansion Pack toggles show one success confirmation. Enabling uses the existing update progress window while the check runs. Signed-out preflight opens the existing standalone Discord sign-in window and resumes the same check after authentication.
+- The channel-aware launcher reads alpha, beta, or live metadata, compares hotfix numbers numerically, and verifies the ZIP name, size, and SHA-256. The legacy bridge uses the existing schema 1 feed and package names.
+- Fixed the v0.1.21 startup confirmation reader for UTF-8 state files produced by Windows PowerShell 5.1 and PowerShell 7. The Windows encoding and invalid-state checks passed.
+- On the development PC, the original public v0.1.20 updater installed and restarted channel-aware bridge build `23e0212` with existing characters and settings intact. Both manifest formats described the same verified ZIP. The earlier deliberate rollback test restored v0.1.20. The later Discord patch was verified on Windows through sign-in, download, game launch, and a second launch without a repeat update offer.
+- Pending: final combined package upgrade on the second PC, live discovery and download through both feeds, and the existing Windows owned-menu font cleanup smoke failure (exit 221).
+
 ### Launcher-relative menu placement and matching child page scale — 2026-11-09
 
 - User screenshot showed the launcher dragged left while Launcher Settings appeared around its former screen position. Independent Settings fit and the full-size 960×650 Character Book also produced mismatched proportions at lower launcher scale presets.

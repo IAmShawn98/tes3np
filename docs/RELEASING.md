@@ -50,10 +50,12 @@ update feed asset names, and a SHA-256 of each installed package.
    v0.1.20-alpha profile. Neither test replaces a clean Windows 10/11
    machine verification.
 
-**Do not mark this gate passed** based only on the current isolated
-updater transaction tests. Those tests passed previously, but direct
-migration from the published v0.1.20-alpha artifact has not yet been
-verified.
+The development-PC offline bridge test passed using the updater shipped
+in the public v0.1.20-alpha ZIP. The channel-aware v0.1.21-alpha candidate
+restarted and retained the test character and launcher settings.
+Validate the final combined candidate on the second PC. Live discovery
+and download through the legacy feed and reachability of the new alpha
+feed remain pending.
 
 ## Versioning
 

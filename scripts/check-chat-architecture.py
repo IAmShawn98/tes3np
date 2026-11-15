@@ -484,6 +484,16 @@ expect(
     and in_order(expansion_update_offer, 'if packMatches', 'TES3MPExpansionContinuePreflight(dialog)')
     and 'TES3MPExpansionPackMatches(installedChecksum, checksum)' in expansion_update_offer
     and 'TES3MPExpansionPreflightUnavailable.Bind(dialog,' in mismatch
+    and 'SetTimer(TES3MPExpansionAuthenticatePreflight.Bind(ExpansionMismatchDialog), -10)' in mismatch
+    and in_order(
+        section_between(mismatch, 'TES3MPExpansionAuthenticatePreflight(dialog)\n{',
+                        'TES3MPExpansionPreflightUnavailable(dialog, reason)\n{'),
+        'SetTimer(ExpansionPackPreflight.Deadline, 0)',
+        'TES3MPExpansionEndNativeProgress()',
+        'RequestDiscordExpansionPrompt(2)',
+    )
+    and 'TES3MPExpansionStartPreflightDiscovery(ExpansionMismatchDialog, 6)' in mismatch
+    and 'Sign into Discord through Game Chat to check the official download.' not in mismatch
     and 'SetTimer(TES3MPExpansionContinuePreflight.Bind' not in mismatch
     and 'history:recent.map(item=>item.url)' in source
     and 'ExpansionZipChecksum.ReadDownloaded(partial)' in source
