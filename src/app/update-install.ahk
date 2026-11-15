@@ -74,7 +74,7 @@ StartTransactionalUpdate(version, staged)
     stateFile := staged "\update-state.ini"
 
     if PatchInProgress()
-        throw Error("Finish the Expansion Pack import before updating.")
+        throw Error("Finish the current Expansion Pack operation before updating.")
     if !FileExist(worker)
         throw Error("Updater worker is missing from this installation.")
     if !FileExist(stateFile)

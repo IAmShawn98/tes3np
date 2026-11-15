@@ -31,14 +31,18 @@ RunLauncherChecks(args)
 
 CheckExpansionRecoveryLaunchGate()
 {
-    global ExpansionRecoveryRunning, ExpansionRecoveryPending
+    global ExpansionRecoveryRunning, ExpansionRecoveryPending, ExpansionToggleRunning
     ExpansionRecoveryRunning := true
     activeBlocksUse := PatchInProgress() && !CanUseNPLauncher(false) && !CanResetLauncherAppData(false)
     ExpansionRecoveryRunning := false
     ExpansionRecoveryPending := true
     pendingBlocksUse := !PatchInProgress() && !CanUseNPLauncher(false) && !CanResetLauncherAppData(false)
     ExpansionRecoveryPending := false
-    return activeBlocksUse && pendingBlocksUse && CanUseNPLauncher(false) && CanResetLauncherAppData(false)
+    ExpansionToggleRunning := true
+    toggleBlocksUse := PatchInProgress() && !CanUseNPLauncher(false) && !CanResetLauncherAppData(false)
+    ExpansionToggleRunning := false
+    return activeBlocksUse && pendingBlocksUse && toggleBlocksUse
+        && CanUseNPLauncher(false) && CanResetLauncherAppData(false)
 }
 
 CheckBackupExecutablePaths()

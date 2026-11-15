@@ -6,8 +6,8 @@ global ExpansionAutoFailurePromptGui := 0
 
 PatchInProgress()
 {
-    global PatchJob, ExpansionRecoveryRunning
-    return IsObject(PatchJob) || ExpansionRecoveryRunning
+    global PatchJob, ExpansionRecoveryRunning, ExpansionToggleRunning
+    return IsObject(PatchJob) || ExpansionRecoveryRunning || ExpansionToggleRunning
 }
 
 RecoverExpansionImports()
@@ -527,9 +527,8 @@ ToggleExpansionPack(*) => ApplyExpansionPackToggle()
 
 ApplyExpansionPackToggle(checked := false)
 {
-    global AppDataDirectory, DataFile, BundledResourceRoot
-    static applying := false
-    if applying || PatchInProgress()
+    global AppDataDirectory, DataFile, BundledResourceRoot, ExpansionToggleRunning, Client
+    if PatchInProgress()
         return
     if !RecoverExpansionImports()
         return
@@ -594,11 +593,18 @@ ApplyExpansionPackToggle(checked := false)
     command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
         . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '"'
         . ' -BackupFolder "' backup '" -ResultFile "' output '"'
-    applying := true
+    ; Preflight can yield to another launcher action. Claim the shared worker slot before writing.
+    previousCritical := Critical("On")
     try
     {
-        ; Invoke PowerShell directly. cmd.exe nested quoting previously lost
-        ; stderr and gave users an empty "was not changed" error.
+        if Client.Enabled || !CanUseNPLauncher(false)
+            return
+        ExpansionToggleRunning := true
+    }
+    finally Critical(previousCritical)
+    try
+    {
+        ; RunWait yields to launcher callbacks while PowerShell edits the config.
         exitCode := RunWait(command, , "Hide")
         details := FileExist(output) ? SanitizeDiagnosticText(Trim(FileRead(output, "UTF-8"))) : ""
         ; The worker result message alone is not proof of failure or success.
@@ -630,7 +636,7 @@ ApplyExpansionPackToggle(checked := false)
     finally
     {
         try FileDelete(output)
-        applying := false
+        ExpansionToggleRunning := false
     }
 }
 

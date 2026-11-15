@@ -174,9 +174,9 @@ DeferExpansionInstallForMissingMorrowind(package, autoApproved)
 
 StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
 {
-    global AppDataDirectory, LauncherGui, PatchJob, PatchFrame, InterfaceLoadingText
+    global AppDataDirectory, LauncherGui, PatchJob, PatchFrame, InterfaceLoadingText, Client
     global BundledResourceRoot
-    if PatchInProgress()
+    if Client.Enabled || PatchInProgress()
         return false
     if !RecoverExpansionImports()
         return false
@@ -189,8 +189,13 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
         return false
     }
     jobFolder := ""
+    previousCritical := Critical("On")
+    failure := 0
     try
     {
+        ; Keep the launch check and worker registration together.
+        if Client.Enabled || !CanUseNPLauncher(false)
+            return false
         jobFolder := AppDataDirectory "\expansion-imports\" NewLauncherFileId()
         DirCreate(jobFolder)
         command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' helper '"'
@@ -203,9 +208,7 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
         PatchJob := {PID: pid, Handle: handle, Folder: jobFolder,
             MorrowindFolder: morrowind, ConfigFile: config,
             AutoDownloadedZip: autoDownloadedZip}
-        LogLauncherEvent("EXPANSION | Local Expansion Pack import started.")
         SetTimer(CheckPatchWorker, 50)
-        return true
     }
     catch Error as err
     {
@@ -215,9 +218,16 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
         if IsObject(PatchFrame)
             ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
-        LogLauncherEvent("EXPANSION | Import worker launch failed (" Type(err) ").")
-        reason := SanitizeDiagnosticText(err.Message)
-        MsgBox("Could not start Expansion Pack import: " (reason != "" ? reason : Type(err)), "Upload Expansion", "Icon!")
+        failure := err
+    }
+    finally Critical(previousCritical)
+    if IsObject(failure)
+    {
+        LogLauncherEvent("EXPANSION | Import worker launch failed (" Type(failure) ").")
+        reason := SanitizeDiagnosticText(failure.Message)
+        MsgBox("Could not start Expansion Pack import: " (reason != "" ? reason : Type(failure)), "Upload Expansion", "Icon!")
         return false
     }
+    LogLauncherEvent("EXPANSION | Local Expansion Pack import started.")
+    return true
 }
