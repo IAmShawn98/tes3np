@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $source = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8
 $metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-metadata.ahk') -Raw -Encoding UTF8
+$notesSource = Get-Content -LiteralPath 'src/ui/update-notes.ahk' -Raw -Encoding UTF8
 
 function Require-Source([string]$Pattern, [string]$Name, [string]$Code = $source) {
     if ($Code -notmatch $Pattern) { throw "Updater client safety check missing: $Name" }
@@ -76,13 +77,16 @@ Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading'
 Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview'
 Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status'
-Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline'
-Require-Source 'heading\[1\] = version' 'exact bundled version heading'
-Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings'
+Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
+Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
+Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings' $notesSource
 Require-Source 'ShowCenteredUpdateCard\(panel, backdrop, 800, 600\)' 'larger status modal'
-Require-Source 'BuildStyledReleaseNoteRows\(notes, noteRows\[1\], 674\)' 'font-measured changelog wrapping'
-Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths'
-Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting'
+Require-Source 'BuildStyledReleaseNoteRows\(notes, noteRows\[1\], 674\)' 'font-measured changelog wrapping' $notesSource
+Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
+Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
+Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry
+Require-Source 'UpdateNotesMouseWheel\.Bind\(viewport, page, refresh\)' 'wheel handler is bound to the release notes viewport' $notesSource
+Require-Source 'GetWindowRect", "Ptr", viewport\.Hwnd, "Ptr", bounds' 'wheel hit test uses the viewport HWND' $notesSource
 
 $buildScript = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
 if (-not $buildScript.Contains("Copy-Item (Join-Path `$projectRoot 'RELEASE_NOTES.md')")) {
@@ -166,10 +170,10 @@ Write-Host 'PASS: matching player-facing notes, ordered categories, and release 
 }
 Write-Host 'PASS: matching, historical, and mismatched published changelog fixtures.'
 
-if ($source -match '\u25C6') {
+if ($notesSource -match '\u25C6') {
     throw 'Changelog renderer must not use ornamental diamond markers.'
 }
-if ($source -match 'WrapReleaseNoteLines\(content, maximum') {
+if ($notesSource -match 'WrapReleaseNoteLines\(content, maximum') {
     throw 'Character-count wrapping can clip release note words.'
 }
 Write-Host 'PASS: plain release notes headings and measured wrapping.'
