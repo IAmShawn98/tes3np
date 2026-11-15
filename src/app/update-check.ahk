@@ -3,6 +3,59 @@
 global UpdateBusy := false
 global UpdateStartupRequest := 0
 global UpdateStartupStarted := 0
+global LauncherVersionLabel := 0
+global LauncherUpdateButton := 0
+global LauncherUpdateDismissedVersion := ""
+
+CreateLauncherVersionLabel()
+{
+    global AppConfig, LauncherGui, LauncherVersionLabel, LauncherUpdateDismissedVersion
+
+    LauncherUpdateDismissedVersion := ""
+    LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
+}
+
+CreateLauncherUpdateButton()
+{
+    global LauncherGui, LauncherUpdateButton
+
+    ; The update button shares the version label's space.
+    LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
+    LauncherUpdateButton.Visible := false
+}
+
+ScaleLauncherVersionLabel(scale)
+{
+    global LauncherVersionLabel
+
+    if IsObject(LauncherVersionLabel)
+        LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
+}
+
+SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
+{
+    global AppConfig, LauncherUpdateButton, LauncherVersionLabel, LauncherUpdateDismissedVersion
+
+    if !IsObject(LauncherUpdateButton) || !IsObject(LauncherVersionLabel)
+        return
+    if isAvailable && latestVersion != "" {
+        kind := GetLauncherUpdateKind(AppConfig.Version, latestVersion)
+        LauncherUpdateButton.Text := kind = "hotfix" ? "Hotfix available" : "Preview Latest v" latestVersion " Update!"
+        DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
+    }
+    showUpdate := isAvailable && latestVersion != LauncherUpdateDismissedVersion
+    LauncherUpdateButton.Visible := showUpdate
+    LauncherVersionLabel.Visible := !showUpdate
+}
+
+DismissLauncherUpdate(latestVersion)
+{
+    global LauncherUpdateDismissedVersion
+    LauncherUpdateDismissedVersion := latestVersion
+    SetLauncherUpdateAvailable(true, latestVersion)
+}
 
 CheckForUpdateAvailability(*)
 {

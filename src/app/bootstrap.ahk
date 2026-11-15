@@ -1,17 +1,11 @@
 ﻿; Application startup, quick-launch choice, tray wiring and shutdown.
 
-global LauncherVersionLabel := 0
-global LauncherSettingsButton := 0
-global LauncherUpdateButton := 0
 global LauncherExpansionToggle := 0
-global LauncherUpdateAvailable := false
-global LauncherUpdateDismissedVersion := ""
 
 StartLauncher()
 {
-    global HoverTimer, LauncherUpdateDismissedVersion
+    global HoverTimer
 
-    LauncherUpdateDismissedVersion := ""
     LogLauncherEvent("Launcher startup beginning.")
     RequireLauncherAssets()
     ConfigureLauncherTrayMenu()
@@ -65,8 +59,7 @@ ConfigureLauncherTrayMenu()
 
 BuildLauncherWindow()
 {
-    global LauncherGui, LauncherVersionLabel, LauncherSettingsButton
-    global LauncherExpansionToggle, LauncherUpdateButton
+    global LauncherGui, LauncherExpansionToggle
 
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     ; WS_CLIPCHILDREN keeps launcher repaints from drawing over the embedded chat window.
@@ -77,15 +70,11 @@ BuildLauncherWindow()
 
     SetWindowIcons()
     BuildFrontPage()
-    LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
-    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
-    LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
-    LauncherSettingsButton := AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
+    CreateLauncherVersionLabel()
+    AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
     LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
     RefreshExpansionPackToggle()
-    ; The update button shares the version label's space.
-    LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
-    LauncherUpdateButton.Visible := false
+    CreateLauncherUpdateButton()
     CreateLauncherChatToggle()
     ; Include Jiub in the layout snapshot so it scales with the other controls.
     CreateHappyHourJiub()
@@ -109,31 +98,6 @@ RegisterLauncherEventHandlers()
     OnExit(GuardPatchExit)
     OnExit(CleanupLauncher)
 }
-
-
-SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
-{
-    global AppConfig, LauncherUpdateButton, LauncherVersionLabel, LauncherUpdateAvailable, LauncherUpdateDismissedVersion
-    LauncherUpdateAvailable := isAvailable
-    if !IsObject(LauncherUpdateButton) || !IsObject(LauncherVersionLabel)
-        return
-    if LauncherUpdateAvailable && latestVersion != "" {
-        kind := GetLauncherUpdateKind(AppConfig.Version, latestVersion)
-        LauncherUpdateButton.Text := kind = "hotfix" ? "Hotfix available" : "Preview Latest v" latestVersion " Update!"
-        DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
-    }
-    showUpdate := LauncherUpdateAvailable && latestVersion != LauncherUpdateDismissedVersion
-    LauncherUpdateButton.Visible := showUpdate
-    LauncherVersionLabel.Visible := !showUpdate
-}
-
-DismissLauncherUpdate(latestVersion)
-{
-    global LauncherUpdateDismissedVersion
-    LauncherUpdateDismissedVersion := latestVersion
-    SetLauncherUpdateAvailable(true, latestVersion)
-}
-
 
 SetWindowIcons()
 {
