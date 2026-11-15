@@ -79,7 +79,7 @@ CheckBackupExecutablePaths()
 
 CheckCrashRecoveryProfiles()
 {
-    global Profiles
+    global Profiles, SelectedProfile, AppDataDirectory, DataFile
     if !IsTES3MPCrashExit(0xC0000005) || !IsTES3MPCrashExit(0xE06D7363)
         || IsTES3MPCrashExit(0) || IsTES3MPCrashExit(1)
         || IsTES3MPCrashExit(0xC000013A) || IsTES3MPCrashExit(0xC0000135)
@@ -94,6 +94,53 @@ CheckCrashRecoveryProfiles()
     Profiles[1].AutoReconnect := false
     if IsObject(FindCrashRecoveryProfile(oldProfile))
         ExitApp(224)
+    AppDataDirectory := A_Temp "\tes3np-reconnect-check-" NewLauncherFileId()
+    DataFile := AppDataDirectory "\settings.ini"
+    first := NewCharacterProfile()
+    first.Name := "Reconnect enabled"
+    first.Password := "synthetic first password"
+    first.AutoReconnect := true
+    second := NewCharacterProfile()
+    second.Name := "Reconnect disabled"
+    second.Password := "synthetic second password"
+    Profiles := [first, second]
+    SelectedProfile := 2
+    failure := ""
+    try
+    {
+        SaveProfiles()
+        Profiles := []
+        SelectedProfile := 0
+        LoadProfiles()
+        if Profiles.Length != 2 || SelectedProfile != 2
+            || IniRead(DataFile, "Character1", "AutoReconnect", "") != "1"
+            || IniRead(DataFile, "Character2", "AutoReconnect", "") != "0"
+            || FindCrashRecoveryProfile(first) != Profiles[1] || IsObject(FindCrashRecoveryProfile(second))
+            throw Error("Reload did not preserve the initial per-character reconnect settings.")
+        Profiles[1].AutoReconnect := false
+        Profiles[2].AutoReconnect := true
+        SaveProfiles()
+        LoadProfiles()
+        if Profiles.Length != 2 || SelectedProfile != 2
+            || IniRead(DataFile, "Character1", "AutoReconnect", "") != "0"
+            || IniRead(DataFile, "Character2", "AutoReconnect", "") != "1"
+            || IsObject(FindCrashRecoveryProfile(first)) || FindCrashRecoveryProfile(second) != Profiles[2]
+            throw Error("Reload did not preserve the updated per-character reconnect settings.")
+        IniDelete(DataFile, "Character2", "AutoReconnect")
+        LoadProfiles()
+        if Profiles[2].AutoReconnect
+            throw Error("A legacy profile without AutoReconnect should default to off.")
+    }
+    catch Error as err
+        failure := err.Message
+    finally
+        try DirDelete(AppDataDirectory, true)
+    if failure != ""
+    {
+        FileAppend("FAIL: " failure "`n", "**")
+        ExitApp(227)
+    }
+    FileAppend("PASS: per-character AutoReconnect survives saving and reloading in both directions.`n", "*")
     ExitApp(0)
 }
 

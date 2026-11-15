@@ -1343,6 +1343,16 @@ expect(
     and "forceAfterInstall" not in bootstrap,
 )
 characters_ui = (ROOT / "src" / "ui" / "characters.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "AutoReconnect is saved from the character editor state",
+    in_order(characters_ui, 'EditorFields["AutoReconnect"] := profile.AutoReconnect',
+             'SetBookTick(EditorReconnectTick, EditorFields["AutoReconnect"])',
+             'SaveProfileEditor.Bind(index, EditorFields)')
+    and in_order(section_between(characters_ui, "\nToggleEditorReconnect(*)", "\n}"),
+                 'EditorFields["AutoReconnect"] := !EditorFields["AutoReconnect"]',
+                 'SetBookTick(EditorReconnectTick, EditorFields["AutoReconnect"])')
+    and 'AutoReconnect: fields["AutoReconnect"]' in characters_ui,
+)
 settings_open = section_between(
     settings_ui,
     "OpenLauncherSettingsV016(*)",
