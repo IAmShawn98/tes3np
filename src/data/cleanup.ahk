@@ -179,8 +179,10 @@ PruneLauncherCache(root, namePattern, marker, keep, minimumAgeDays)
         return
     protected := Map()
     protected.CaseSense := "Off"
+    ; Compare the same absolute, long paths produced by the pruning loops.
     for folder in keep
-        protected[folder] := true
+        Loop Files RTrim(folder, "\/"), "D"
+            protected[A_LoopFileFullPath] := true
     newest := "", newestTime := 0
     Loop Files root "\*", "D"
     {
