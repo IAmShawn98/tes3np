@@ -178,6 +178,8 @@ StartExpansionImportWorker(package, morrowind, config, autoDownloadedZip := "")
     global BundledResourceRoot
     if PatchInProgress()
         return false
+    if !RecoverExpansionImports()
+        return false
     resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
     helper := resourceRoot "\scripts\import-expansion-pack.ps1"
     powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"

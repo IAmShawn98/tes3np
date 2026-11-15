@@ -10,6 +10,40 @@ PatchInProgress()
     return IsObject(PatchJob)
 }
 
+RecoverExpansionImports()
+{
+    global AppDataDirectory, BundledResourceRoot
+    history := AppDataDirectory "\expansion-imports"
+    if !DirExist(history)
+        return true
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    worker := resourceRoot "\scripts\import-expansion-pack.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    static running := false
+    if running
+        return false
+    running := true
+    code := 3
+    try
+        code := RunWait('"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'
+            . worker '" -RecoverHistory "' history '"', , "Hide")
+    catch
+        code := 3
+    finally
+        running := false
+    if code = 0
+        return true
+    if code = 2
+    {
+        LogLauncherEvent("EXPANSION | Interrupted import rolled back.")
+        MsgBox("TES3NP restored the files from an interrupted Expansion Pack import.", "Expansion Pack", "Iconi")
+        return true
+    }
+    LogLauncherEvent("EXPANSION | Interrupted import recovery is pending.")
+    MsgBox("TES3NP could not finish checking or recovering an earlier Expansion Pack import. Close any TES3MP/OpenMW clients and restart TES3NP to retry. If recovery is still pending, keep the import backups.", "Expansion Pack", "Icon!")
+    return false
+}
+
 FindMorrowindFolder(config)
 {
     global DataFile
@@ -481,6 +515,8 @@ ApplyExpansionPackToggle(checked := false)
     global AppDataDirectory, DataFile, BundledResourceRoot
     static applying := false
     if applying || PatchInProgress()
+        return
+    if !RecoverExpansionImports()
         return
     if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
     {

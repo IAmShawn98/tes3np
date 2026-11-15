@@ -146,7 +146,8 @@ function AssertGameClosed {
     $safeRoot = $env:TES3NP_IMPORT_FIXTURE_ROOT
     if (!$safeRoot) { throw 'Synthetic import root was not provided.' }
     $prefix = [IO.Path]::GetFullPath($safeRoot).TrimEnd('\') + '\'
-    $actual = [IO.Path]::GetFullPath($MorrowindFolder)
+    $selected = if ($RecoverHistory) { $RecoverHistory } else { $MorrowindFolder }
+    $actual = [IO.Path]::GetFullPath($selected)
     if (!$actual.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Fixture refused a target outside its disposable game folder.'
     }
@@ -300,6 +301,7 @@ function AssertGameClosed {
     CheckWorker $packageRoot 'reject-unknown-asset' $false 'Unexpected file in Expansion Pack Data Files'
     AssertFixture ([IO.File]::ReadAllText((Join-Path $data 'NP Expansion Pack.esp')) -ceq 'pre-rejection') 'Rejected package modified the game'
     AssertFixture ([IO.File]::ReadAllText($unrelated) -ceq 'do not modify') 'Rejected package touched unrelated mod'
+    Remove-Item -LiteralPath $badFile -Force
 
     # Simulate another program editing OpenMW after the worker captured its
     # backup. Earlier replacements must roll back and the edit must survive.
@@ -327,6 +329,70 @@ function AssertGameClosed {
     AssertFixture ([Convert]::ToBase64String([IO.File]::ReadAllBytes($lockedAsset)) -ceq
         [Convert]::ToBase64String($beforeEmptyPack)) 'Empty ESP replaced the installed pack'
     AssertFixture ([IO.File]::ReadAllText($config) -ceq $beforeEmptyConfig) 'Empty ESP changed OpenMW settings'
+
+    # Stop the real import code after replacement, before it can commit or roll back.
+    $recoveryHistory = Join-Path $root 'interrupted-imports'
+    $interruptedJob = Join-Path $recoveryHistory ('b' * 32)
+    $killWorker = Join-Path $root 'interrupt-import-worker.ps1'
+    $checkpoint = '    $script:ImportActivity = ''verifying installed files'''
+    $pause = '    [IO.File]::WriteAllText((Join-Path $JobFolder ''ready-to-kill''), ''ready'')' + "`n" + '    Start-Sleep -Seconds 120'
+    AssertFixture ($existingWorker.IndexOf($checkpoint) -ge 0 -and
+        $existingWorker.IndexOf($checkpoint) -eq $existingWorker.LastIndexOf($checkpoint)) 'Cannot locate the import commit checkpoint'
+    [IO.File]::WriteAllText($killWorker, $existingWorker.Replace($checkpoint, "$pause`n$checkpoint"))
+    $newAsset = Join-Path $data 'Icons\tes3mp_np\interrupted.tga'
+    WriteFixture (Join-Path $payload 'Icons\tes3mp_np\interrupted.tga') 'new fixture asset'
+    WriteFixture $lockedAsset 'original ESP before interruption'
+    WriteFixture $config $originalConfig
+    $arguments = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
+        '-File', ('"' + $killWorker + '"'), '-Package', ('"' + $packageRoot + '"'),
+        '-MorrowindFolder', ('"' + $game + '"'), '-ConfigFile', ('"' + $config + '"'),
+        '-JobFolder', ('"' + $interruptedJob + '"'))
+    $proc = Start-Process -FilePath $windowsPowerShell -ArgumentList $arguments -PassThru -WindowStyle Hidden
+    try {
+        $killMarker = Join-Path $interruptedJob 'ready-to-kill'
+        for ($wait = 0; $wait -lt 200 -and !$proc.HasExited -and ![IO.File]::Exists($killMarker); $wait++) {
+            Start-Sleep -Milliseconds 50
+        }
+        AssertFixture ([IO.File]::Exists($killMarker)) 'Importer did not reach the interruption checkpoint'
+        & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -RecoverHistory $recoveryHistory
+        AssertFixture ($LASTEXITCODE -eq 3 -and [IO.File]::Exists($newAsset)) 'Recovery touched an active import'
+    }
+    finally {
+        if (!$proc.HasExited) { $proc.Kill() }
+        $proc.WaitForExit()
+        $proc.Dispose()
+    }
+    AssertFixture ([IO.File]::Exists($newAsset) -and [IO.File]::ReadAllText($lockedAsset) -ceq 'new official sample ESP' -and
+        [IO.File]::ReadAllText($config) -cne $originalConfig) 'Interruption fixture did not install the expected files'
+    WriteFixture $newAsset 'later external edit'
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -RecoverHistory $recoveryHistory
+    AssertFixture ($LASTEXITCODE -eq 3) 'Recovery must report the later external edit'
+    AssertFixture ([IO.File]::ReadAllText($config) -ceq $originalConfig -and
+        [IO.File]::ReadAllText($lockedAsset) -ceq 'original ESP before interruption') 'Recovery did not restore the original config and ESP'
+    AssertFixture ([IO.File]::ReadAllText($newAsset) -ceq 'later external edit') 'Recovery overwrote the later edit'
+    WriteFixture $newAsset 'new fixture asset'
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -RecoverHistory $recoveryHistory
+    AssertFixture ($LASTEXITCODE -eq 2 -and ![IO.File]::Exists($newAsset)) 'Recovery did not remove the new file on retry'
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -RecoverHistory $recoveryHistory
+    AssertFixture ($LASTEXITCODE -eq 0) 'Completed rollback was not recognized on the next startup'
+    $journalPath = Join-Path $interruptedJob 'journal.json'
+    $record = [IO.File]::ReadAllText($journalPath) | ConvertFrom-Json
+    $invalid = [IO.File]::ReadAllText($journalPath) | ConvertFrom-Json
+    $invalid.Files[-1].Target = $unrelated
+    WriteFixture $journalPath ($invalid | ConvertTo-Json -Depth 5)
+    [IO.File]::Delete((Join-Path $interruptedJob 'result.ini'))
+    WriteFixture $lockedAsset 'new official sample ESP'
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -RecoverHistory $recoveryHistory
+    AssertFixture ($LASTEXITCODE -eq 3 -and [IO.File]::ReadAllText($lockedAsset) -ceq 'new official sample ESP' -and
+        [IO.File]::ReadAllText($unrelated) -ceq 'do not modify') 'Invalid journal modified installed files before validation'
+    WriteFixture $journalPath ($record | ConvertTo-Json -Depth 5)
+    $laterJob = Join-Path $recoveryHistory ('c' * 32)
+    $record.Completed = $true
+    WriteFixture (Join-Path $laterJob 'journal.json') ($record | ConvertTo-Json -Depth 5)
+    [IO.Directory]::SetCreationTimeUtc($interruptedJob, [DateTime]::UtcNow.AddDays(-1))
+    & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $worker -RecoverHistory $recoveryHistory
+    AssertFixture ($LASTEXITCODE -eq 2 -and [IO.File]::ReadAllText($lockedAsset) -ceq 'new official sample ESP') 'Recovery overwrote bytes from a later committed import'
+    Write-Host 'PASS: interrupted import rollback, active worker protection, external changes, invalid journals and recovery retry.'
 
     # Older imports retain just the original package path and ESP hash in
     # their completed journal. The original ZIP does not need to exist.

@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$MorrowindFolder,
     [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$ConfigFile,
     [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$JobFolder,
+    [Parameter(Mandatory=$true, ParameterSetName='Recover')][string]$RecoverHistory,
     [Parameter(Mandatory=$true, ParameterSetName='Identify')][string]$ImportHistory,
     [Parameter(Mandatory=$true, ParameterSetName='Identify')]
     [ValidatePattern('^[a-fA-F0-9]{64}(?:,[a-fA-F0-9]{64})*$')][string]$InstalledEspSHA256,
@@ -281,6 +282,137 @@ function AllowedAsset([string]$Relative) {
     if ($Relative -notmatch '^(Icons|Meshes|Textures)/tes3mp_np/[^:]+$') { return $false }
     return $extension -in @('.tga','.dds','.nif','.kf','.png','.jpg','.jpeg','.bmp','.wav','.ogg','.mp3','.txt','.xml','.bsa')
 }
+
+function ReadRecoveryEntries($Record) {
+    if ($Record.Completed -isnot [bool] -or $Record.Files -isnot [array] -or
+        !$Record.Files.Count -or $Record.Files.Count -gt 10001) {
+        throw 'Invalid Expansion Pack recovery journal.'
+    }
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $dataRoot = ''
+    $configSeen = $false
+    for ($i = 0; $i -lt $Record.Files.Count; $i++) {
+        $item = $Record.Files[$i]
+        if ($item.Existed -isnot [bool] -or $item.Target -isnot [string] -or
+            $item.OriginalHash -isnot [string] -or $item.InstalledHash -isnot [string] -or
+            $item.Target -notmatch '^(?:[a-z]:[\\/]|\\\\[^.\\?][^\\]*\\[^\\]+\\)' -or
+            $item.InstalledHash -notmatch '^[0-9a-f]{64}$' -or
+            ($item.Existed -and $item.OriginalHash -notmatch '^[0-9a-f]{64}$') -or
+            (!$item.Existed -and $item.OriginalHash -cne '')) {
+            throw 'Invalid Expansion Pack recovery entry.'
+        }
+        $target = [IO.Path]::GetFullPath($item.Target)
+        if ($target.Substring([IO.Path]::GetPathRoot($target).Length).Contains(':') -or !$seen.Add($target)) {
+            throw 'Invalid or duplicate Expansion Pack recovery target.'
+        }
+        AssertPlain $target
+        if ([IO.Path]::GetFileName($target) -ieq 'openmw.cfg') {
+            if ($configSeen -or !$item.Existed) { throw 'Invalid OpenMW recovery target.' }
+            $configSeen = $true
+        } elseif ($target -match '^(.*?\\Data Files)\\(.+)$' -and (AllowedAsset $Matches[2].Replace('\','/'))) {
+            if ($dataRoot -and $dataRoot -ine $Matches[1]) { throw 'Recovery targets multiple Morrowind data folders.' }
+            $dataRoot = $Matches[1]
+        } else {
+            throw 'Recovery target is outside the allowed Expansion Pack files.'
+        }
+        # Derive the backup path from the job and entry index.
+        $backup = Join-Path $JobFolder ('backup\' + $i)
+        [pscustomobject]@{Target=$target; Existed=$item.Existed; Backup=$backup
+            OriginalHash=$item.OriginalHash; InstalledHash=$item.InstalledHash}
+    }
+    if ($dataRoot) {
+        foreach ($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')) {
+            if (![IO.File]::Exists((Join-Path $dataRoot $master))) {
+                throw 'Cannot verify the Morrowind folder for Expansion Pack recovery.'
+            }
+        }
+    }
+}
+
+function UndoInterruptedImport($Record, $NewerTargets) {
+    $entries = @(ReadRecoveryEntries $Record)
+    $restore = [Collections.Generic.List[object]]::new()
+    $conflict = $false
+    foreach ($item in $entries) {
+        if ($NewerTargets.Contains($item.Target)) { continue }
+        if ([IO.Directory]::Exists($item.Target)) { $conflict = $true; continue }
+        $current = if ([IO.File]::Exists($item.Target)) { Sha256 $item.Target } else { '' }
+        if ($current -eq $item.OriginalHash) { continue }
+        if ($current -ne $item.InstalledHash) { $conflict = $true; continue }
+        if ($item.Existed) {
+            AssertPlain $item.Backup
+            if (![IO.File]::Exists($item.Backup) -or (Sha256 $item.Backup) -ne $item.OriginalHash) {
+                throw 'An Expansion Pack recovery backup is missing or invalid.'
+            }
+        }
+        $restore.Add($item)
+    }
+    for ($i = $restore.Count - 1; $i -ge 0; $i--) {
+        AssertGameClosed
+        $item = $restore[$i]
+        if ($item.Existed) {
+            ReplaceVerified $item.Backup $item.Target $item.OriginalHash $item.InstalledHash
+        } else {
+            AssertExpectedTarget $item.Target $item.InstalledHash
+            [IO.File]::Delete($item.Target)
+        }
+    }
+    if ($conflict) { throw 'A game file changed after the Expansion Pack import was interrupted.' }
+}
+
+if ($PSCmdlet.ParameterSetName -eq 'Recover') {
+    $script:ImportActivity = 'recovering an interrupted Expansion Pack import'
+    $recovered = $false
+    $pending = $false
+    try {
+        if (![IO.Directory]::Exists($RecoverHistory)) { exit 0 }
+        AssertPlain $RecoverHistory
+        $newerTargets = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        $jobs = Get-ChildItem -LiteralPath $RecoverHistory -Directory | Sort-Object CreationTimeUtc -Descending
+        foreach ($job in $jobs) {
+            if ($job.Name -notmatch '^(?:[0-9a-f]{32}|\d{14}-\d+)$') { continue }
+            $JobFolder = $job.FullName
+            $lock = Join-Path $JobFolder '.import.lock'
+            $journal = Join-Path $JobFolder 'journal.json'
+            if (![IO.File]::Exists($lock) -and ![IO.File]::Exists($journal)) { continue }
+            $jobLock = $null
+            try {
+                AssertPlain $lock
+                $jobLock = [IO.File]::Open($lock, [IO.FileMode]::OpenOrCreate,
+                    [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+                if (![IO.File]::Exists($journal)) { continue }
+                $result = Join-Path $JobFolder 'result.ini'
+                AssertPlain $result
+                if ([IO.File]::Exists($result) -and
+                    [IO.File]::ReadAllText($result) -match '(?m)^Rollback=complete\r?$') { continue }
+                AssertPlain $journal
+                if ((Get-Item -LiteralPath $journal).Length -gt 12MB) { throw 'Recovery journal is too large.' }
+                $record = [IO.File]::ReadAllText($journal) | ConvertFrom-Json
+                if ($record.Completed -is [bool] -and $record.Completed) {
+                    # A later successful import may have installed the same bytes.
+                    foreach ($item in $record.Files) {
+                        $null = $newerTargets.Add([IO.Path]::GetFullPath($item.Target))
+                    }
+                    continue
+                }
+                AssertGameClosed
+                UndoInterruptedImport $record $newerTargets
+                Result 'error' 'The interrupted Expansion Pack import was rolled back. You can import the pack again.' '' $true
+                $recovered = $true
+            } catch {
+                $pending = $true
+                # Resolve the newest uncertain job before touching older records.
+                break
+            } finally {
+                if ($jobLock) { $jobLock.Dispose() }
+            }
+        }
+    } catch { $pending = $true }
+    if ($pending) { exit 3 }
+    if ($recovered) { exit 2 }
+    exit 0
+}
+
 [IO.Directory]::CreateDirectory($JobFolder) | Out-Null
 $backups = @()
 $changed = @()

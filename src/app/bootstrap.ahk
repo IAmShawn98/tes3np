@@ -20,6 +20,7 @@ StartLauncher()
     SanitizeExistingDiagnosticLogs()
     ; Restore any saved client override before the launch controls are available.
     RecoverCustomClientOverrides()
+    RecoverExpansionImports()
 
     BuildLauncherWindow()
     RegisterLauncherEventHandlers()
