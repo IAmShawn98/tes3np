@@ -24,6 +24,7 @@
 #Include src\ui\v016-refinements.ahk
 #Include src\ui\bug-report.ahk
 #Include src\app\client-detection.ahk
+#Include src\app\update-metadata.ahk
 #Include src\app\update-check.ahk
 #Include src\app\diagnostics.ahk
 #Include src\data\cleanup.ahk

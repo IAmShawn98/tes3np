@@ -1,4 +1,5 @@
 $ErrorActionPreference='Stop'
+$pwsh = (Get-Process -Id $PID).Path
 $updater = Join-Path $PSScriptRoot 'tes3np-updater.ps1'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('tes3np-transaction-test-' + [guid]::NewGuid().ToString('N'))
 $savedAppData = $env:APPDATA
@@ -26,7 +27,7 @@ function New-Fixture {
     return @($install,(Join-Path $root 'stage'),$state)
 }
 function Invoke-UpdaterExpectedFailure($fixture,[string]$failAt) {
-    & pwsh -NoProfile -NonInteractive -File $updater -InstallDir $fixture[0] -StageDir $fixture[1] -StateFile $fixture[2] -Version '9.9.9-alpha' -TestMode -FailAt $failAt *> $null
+    & $pwsh -NoProfile -NonInteractive -File $updater -InstallDir $fixture[0] -StageDir $fixture[1] -StateFile $fixture[2] -Version '9.9.9-alpha' -TestMode -FailAt $failAt *> $null
     $code=$LASTEXITCODE
     # A nonzero child status is the expected test result, not the harness result.
     $global:LASTEXITCODE = 0
@@ -173,7 +174,7 @@ try {
     Set-Content -LiteralPath (Join-Path $transaction 'pending.txt') @('keep-during-recovery.txt', '../invalid.txt')
     $retained = Join-Path $f[0] 'keep-during-recovery.txt'
     Set-Content -LiteralPath $retained 'KEEP UNTIL JOURNAL VALIDATES'
-    & pwsh -NoProfile -NonInteractive -File $updater -InstallDir $f[0] -Version '9.9.9-alpha' -RecoverOnly -TestMode *> $null
+    & $pwsh -NoProfile -NonInteractive -File $updater -InstallDir $f[0] -Version '9.9.9-alpha' -RecoverOnly -TestMode *> $null
     if ($LASTEXITCODE -eq 0 -or !(Test-Path -LiteralPath $retained) -or
         !(Test-Path -LiteralPath (Join-Path $transaction 'pending.txt'))) {
         throw 'An invalid recovery journal caused a partial cleanup or lost recovery data.'

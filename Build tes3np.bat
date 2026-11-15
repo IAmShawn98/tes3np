@@ -26,7 +26,7 @@ mkdir "%PACKAGE%" >nul 2>&1
 if errorlevel 1 goto :failed
 
 set "TES3NP_BUILD_ZIP=%~dp0dist\tes3np-windows.zip"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath $env:TES3NP_BUILD_ZIP -DestinationPath $env:PACKAGE -Force"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::ExtractToDirectory($env:TES3NP_BUILD_ZIP, $env:PACKAGE)"
 if errorlevel 1 goto :failed
 
 if not exist "%PACKAGE%\tes3np.exe" (
