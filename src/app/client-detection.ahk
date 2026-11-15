@@ -26,8 +26,6 @@ SHA256File(path)
 
 PrepareMarkerlessClientRuntime()
 {
-    ; The release contains the complete TES3MP 0.8.1 client runtime.
-    ; No lookup, downloads or writes to an external TES3MP installation.
     clientFolder := A_ScriptDir "\client"
     required := ["tes3mp.exe", "tes3mp-client-default.cfg", "defaults.bin", "openmw.cfg"]
     for name in required
@@ -45,8 +43,7 @@ PrepareMarkerlessClientRuntime()
     return true
 }
 
-; Stage a bare custom executable alongside a COPY of bundled dependencies.
-; Never overwrite TES3NP's bundled client or the user's original binary.
+; Pair a selected executable with a private copy of the bundled dependencies.
 GetManagedCustomClientExecutable(source)
 {
     global AppDataDirectory
@@ -67,17 +64,11 @@ GetManagedCustomClientExecutable(source)
     token := source "|" sourceHash
         . "|" FileGetSize(bundled "\defaults.bin") "|" FileGetTime(bundled "\defaults.bin", "M")
         . "|" FileGetSize(bundled "\tes3mp.exe") "|" FileGetTime(bundled "\tes3mp.exe", "M")
-    key := 2166136261
-    Loop Parse token
-        key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
-    folder := AppDataDirectory "\client-cache\" Format("{:08X}", key)
-    folder := SelectClientCacheFolder(folder, token)
+    folder := SelectClientCacheFolder(token)
+    cached := ReuseClientCache(folder, token)
+    if cached != ""
+        return cached
     output := folder "\tes3mp.exe"
-    if ClientCacheMatches(folder, token) && FileExist(output)
-    {
-        try FileSetTime(, folder "\.ready")
-        return output
-    }
     ; A new cache folder is assembled completely before its ready marker is
     ; written. Interrupted preparation will be retried on the next launch.
     try
@@ -102,8 +93,16 @@ GetManagedCustomClientExecutable(source)
     }
 }
 
-SelectClientCacheFolder(folder, signature)
+SelectClientCacheFolder(signature, prefix := "")
 {
+    global AppDataDirectory
+
+    ; Match the existing cache names so prepared runtimes survive launcher updates.
+    key := 2166136261
+    Loop Parse signature
+        key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
+    folder := AppDataDirectory "\client-cache\" prefix Format("{:08X}", key)
+
     if !DirExist(folder) || ClientCacheMatches(folder, signature)
         return folder
     ; Preserve an existing cache that another running game may be using.
@@ -111,6 +110,15 @@ SelectClientCacheFolder(folder, signature)
         if ClientCacheMatches(A_LoopFileFullPath, signature)
             return A_LoopFileFullPath
     return folder "-" NewLauncherFileId()
+}
+
+ReuseClientCache(folder, signature)
+{
+    executable := folder "\tes3mp.exe"
+    if !ClientCacheMatches(folder, signature) || !FileExist(executable)
+        return ""
+    try FileSetTime(, folder "\.ready")
+    return executable
 }
 
 ClientCacheMatches(folder, signature)
@@ -201,17 +209,11 @@ GetMergedCustomClientExecutable()
             }
         }
     }
-    key := 2166136261
-    Loop Parse signature
-        key := Mod((key ^ Ord(A_LoopField)) * 16777619, 4294967296)
-    folder := AppDataDirectory "\client-cache\merged-" Format("{:08X}", key)
-    folder := SelectClientCacheFolder(folder, signature)
+    folder := SelectClientCacheFolder(signature, "merged-")
+    cached := ReuseClientCache(folder, signature)
+    if cached != ""
+        return cached
     output := folder "\tes3mp.exe"
-    if ClientCacheMatches(folder, signature) && FileExist(output)
-    {
-        try FileSetTime(, folder "\.ready")
-        return output
-    }
     try
     {
         DirCreate(AppDataDirectory "\client-cache")
