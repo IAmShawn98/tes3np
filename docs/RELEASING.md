@@ -225,6 +225,32 @@ The check looks for documentation and review markers, not independent legal
 proof. Passing it still requires the repository owner's explicit release
 approval. Do not invent or pre-fill approvals.
 
+## Single-repository updater contract
+
+The new launcher reads `alpha.json`, `beta.json` or `live.json` from the
+`update-feed` branch of the development repository. The installed version
+determines the channel. Versions use `0.1.21-alpha`, `0.1.21-beta` or
+`0.1.21` for a feature build. Append `.1`, `.2` and so on to the full
+version for each published hotfix. The public release tag adds the leading
+`v`. Version numbers are compared numerically within the installed channel.
+
+To generate a schema 2 candidate manifest and checksum after packaging,
+copy the validated ZIP to `tes3np-v<version>-windows.zip` and pass that
+path to `scripts/generate-update-metadata.ps1 -ChannelFeed -PackagePath`.
+Use `-ManifestPath` for the candidate manifest path. The launcher derives
+the download address and release notes from the exact tag and validates
+the filename, size and SHA-256 before staging. Generate with
+`-DisableUpdates` to prepare a manifest with automatic updates disabled.
+
+Publish only after the release evidence and owner approval are recorded.
+Verify the deployed ZIP and checksum before updating the channel manifest.
+After confirming the new manifest and download, remove the superseded ZIP
+and checksum for that channel and feature build while retaining its notes.
+Keep the latest approved ZIP for each older feature build. Existing `v0.1.20-alpha` launchers can receive the first channel-aware alpha
+through the old `latest-alpha` endpoint using its schema 1 manifest and
+`tes3np-windows.zip` asset. Keep that bridge available for returning users
+once the candidate and legacy handoff have been approved.
+
 ## Release checklist
 
 1. Update `AppConfig.Version` in `src/state.ahk` and add the matching version to `CHANGELOG.md`.

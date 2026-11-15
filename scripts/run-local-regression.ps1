@@ -42,13 +42,18 @@ try {
     Run-OfflineTest 'Updater source and version-contract checks' $windowsPowerShell (Join-Path $PSScriptRoot 'test-update-client.ps1')
     Run-OfflineTest 'Updater metadata and tamper fixtures' $windowsPowerShell (Join-Path $PSScriptRoot 'test-update-metadata.ps1')
 
-    # The transaction fixture uses "pwsh" to spawn its expected-failure
-    # children. Do not claim full regression coverage if PS7 is missing.
-    $pwsh = Get-Command 'pwsh.exe' -CommandType Application -ErrorAction SilentlyContinue
+    # Use the current PowerShell 7 installation when possible. Windows can
+    # expose multiple pwsh.exe aliases, so discovery must return one path.
+    $pwsh = if ($PSVersionTable.PSVersion.Major -ge 7) {
+        Join-Path $PSHOME 'pwsh.exe'
+    } else {
+        Get-Command 'pwsh.exe' -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty Source
+    }
     if (!$pwsh) {
         throw 'PowerShell 7 (pwsh.exe) is required for the isolated updater transaction fixture. Build succeeded, but the full offline regression pass is incomplete.'
     }
-    Run-OfflineTest 'Isolated updater transaction and rollback fixtures' $pwsh.Source (Join-Path $PSScriptRoot 'test-updater-transaction.ps1')
+    Run-OfflineTest 'Isolated updater transaction and rollback fixtures' $pwsh (Join-Path $PSScriptRoot 'test-updater-transaction.ps1')
 
     if ($SkipBuild) {
         Write-Host 'PASS | Offline updater fixtures complete. Build skipped.' -ForegroundColor Green
