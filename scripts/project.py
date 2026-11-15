@@ -288,7 +288,7 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'FindMorrowindFolder(config)' in patcher
         and 'PatchConfigurationPath()' in patcher
         and 'ToggleExpansionPack(*)' in patcher
-        and 'CanUseNPLauncher()' in patcher
+        and 'CanUseNPLauncher(showMessage := true)' in patcher
         and 'GuardPatchExit(*)' in patcher
         and 'A_TrayMenu.Add("Optional Expansion Pack", OpenPatcher)' not in bootstrap
     )

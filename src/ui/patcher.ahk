@@ -6,31 +6,34 @@ global ExpansionAutoFailurePromptGui := 0
 
 PatchInProgress()
 {
-    global PatchJob
-    return IsObject(PatchJob)
+    global PatchJob, ExpansionRecoveryRunning
+    return IsObject(PatchJob) || ExpansionRecoveryRunning
 }
 
 RecoverExpansionImports()
 {
-    global AppDataDirectory, BundledResourceRoot
+    global AppDataDirectory, BundledResourceRoot, ExpansionRecoveryRunning, ExpansionRecoveryPending
+    if PatchInProgress()
+        return false
     history := AppDataDirectory "\expansion-imports"
     if !DirExist(history)
+    {
+        ExpansionRecoveryPending := false
         return true
+    }
     resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
     worker := resourceRoot "\scripts\import-expansion-pack.ps1"
     powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
-    static running := false
-    if running
-        return false
-    running := true
-    code := 3
+    ExpansionRecoveryRunning := true
     try
-        code := RunWait('"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'
-            . worker '" -RecoverHistory "' history '"', , "Hide")
-    catch
+    {
         code := 3
+        try code := RunWait('"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'
+            . worker '" -RecoverHistory "' history '"', , "Hide")
+        ExpansionRecoveryPending := code != 0 && code != 2
+    }
     finally
-        running := false
+        ExpansionRecoveryRunning := false
     if code = 0
         return true
     if code = 2
@@ -114,7 +117,7 @@ UpdatePatchProgress(label, percent)
 
 CheckPatchWorker()
 {
-    global PatchJob, PatchFrame, DataFile, LauncherGui
+    global PatchJob, PatchFrame, DataFile, LauncherGui, ExpansionRecoveryPending
     if !IsObject(PatchJob)
         return
     job := PatchJob
@@ -132,7 +135,6 @@ CheckPatchWorker()
     if running
         return
     SetTimer(CheckPatchWorker, 0)
-    PatchJob := 0
     exitCode := "unknown"
     if job.Handle
     {
@@ -146,6 +148,13 @@ CheckPatchWorker()
     try state := IniRead(result, "Result", "State", state)
     if state != "success" || (IsInteger(exitCode) && exitCode != 0)
         state := "error"
+    ; If a worker stopped before confirming rollback, wait for recovery before launching.
+    if state = "error" && FileExist(job.Folder "\journal.json")
+    {
+        ExpansionRecoveryPending := true
+        try ExpansionRecoveryPending := IniRead(result, "Result", "Rollback", "") != "complete"
+    }
+    PatchJob := 0
     fallback := state = "success"
         ? "Expansion Pack import complete. Try connecting again."
         : "The Expansion Pack import exited without a result. Exit code: " exitCode ". Keep this attempt's backup files if copying had started."
@@ -216,18 +225,24 @@ GuardPatchExit(*)
 {
     if PatchInProgress()
     {
-        MsgBox("Please wait for the current Expansion Pack import to finish before closing tes3np.", "Patch Tes3mp")
+        MsgBox("Please wait for the current Expansion Pack operation to finish before closing tes3np.", "Patch Tes3mp")
         return 1
     }
 }
 
-CanUseNPLauncher()
+CanUseNPLauncher(showMessage := true)
 {
-    ; Expansion Pack installation is optional. Only block launch while files
-    ; are actively being modified; game executable validation happens separately.
+    global ExpansionRecoveryPending
     if PatchInProgress()
     {
-        MsgBox("Finish the current Expansion Pack operation before launching.", "tes3np")
+        if showMessage
+            MsgBox("Finish the current Expansion Pack operation before launching.", "tes3np")
+        return false
+    }
+    if ExpansionRecoveryPending
+    {
+        if showMessage
+            MsgBox("An Expansion Pack import still needs recovery. Close any TES3MP/OpenMW clients and restart TES3NP to retry.", "Expansion Pack", "Icon!")
         return false
     }
     return true

@@ -110,7 +110,7 @@ StartProfileSession(profile, executable, packChecked := false, packCurrent := fa
             return
     }
     ; A file picker or prompt can yield to another launch request.
-    if Client.Enabled || !CanUseNPLauncher() || !CanStartAnotherTES3NPGame()
+    if Client.Enabled || !CanUseNPLauncher(!recovering) || !CanStartAnotherTES3NPGame()
         return
     config := PatchConfigurationPath()
     if !packChecked && ExpansionPackInLoadOrder(config)
@@ -119,7 +119,7 @@ StartProfileSession(profile, executable, packChecked := false, packCurrent := fa
     previousCritical := Critical("On")
     try
     {
-        if Client.Enabled || PatchInProgress()
+        if Client.Enabled || !CanUseNPLauncher(false)
             || (recovering && recoveryGeneration != GameRecoveryGeneration)
             return
         session := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
@@ -264,7 +264,7 @@ CheckTES3MPCrashRecovery()
     global Client, TES3NPCrashRecovery, GameRecoveryGeneration
     global ExpansionMismatchDialog, ExpansionInstallPromptGui, ExpansionAutoFailurePromptGui
     static checking := false
-    if checking || PatchInProgress() || IsObject(ExpansionMismatchDialog)
+    if checking || !CanUseNPLauncher(false) || IsObject(ExpansionMismatchDialog)
         || IsObject(ExpansionInstallPromptGui) || IsObject(ExpansionAutoFailurePromptGui)
         return
     checking := true
