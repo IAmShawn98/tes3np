@@ -101,7 +101,7 @@ if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } 
 if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $exe)) {
     throw "Ahk2Exe launcher compile failed with exit code $($process.ExitCode)."
 }
-Write-Host 'Checking the compiled launcher update handshake with Windows PowerShell and PowerShell 7 state encodings.'
+Write-Host 'Checking the launcher update handshake with Windows PowerShell and PowerShell 7 state encodings.'
 $version = [regex]::Match((Get-Content (Join-Path $projectRoot 'src\state.ahk') -Raw),
     'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value
 if (!$version) { throw 'Could not read the launcher version for the update-state check.' }
@@ -121,19 +121,19 @@ try {
     )
     foreach ($fixture in $fixtures) {
         [IO.File]::WriteAllText($stateFile, $fixture.Content, $fixture.Encoding)
-        $arguments = '/ErrorStdOut --check-update-state --update-confirm ' + $version + ' "' + $stateFile + '"'
+        $arguments = '/ErrorStdOut "' + $launcher + '" --update-confirm ' + $version + ' "' + $stateFile + '" --check-update-state'
         $stateOut = Join-Path $work 'update-state-stdout.txt'
         $stateErr = Join-Path $work 'update-state-stderr.txt'
-        $stateProbe = Start-Process -FilePath $exe -WorkingDirectory $projectRoot -ArgumentList $arguments -PassThru `
+        $stateProbe = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $arguments -PassThru `
             -RedirectStandardOutput $stateOut -RedirectStandardError $stateErr
         if (!$stateProbe.WaitForExit(30000)) {
             try { $stateProbe.Kill() } catch {}
             Get-Content -LiteralPath $stateOut, $stateErr
-            throw "Compiled update-state probe timed out: $($fixture.Name)"
+            throw "Update-state probe timed out: $($fixture.Name)"
         }
         if ($stateProbe.ExitCode -ne $fixture.Expected) {
             Get-Content -LiteralPath $stateOut, $stateErr
-            throw "Compiled update-state probe failed: $($fixture.Name), exit $($stateProbe.ExitCode)."
+            throw "Update-state probe failed: $($fixture.Name), exit $($stateProbe.ExitCode)."
         }
         Write-Host "PASS: update handshake $($fixture.Name)."
     }

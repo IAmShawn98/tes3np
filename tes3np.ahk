@@ -287,12 +287,14 @@ if A_Args.Length && A_Args[1] = "--check-owned-menu-scaling"
     }
     ExitApp(0)
 }
-; Exercise the compiled update handshake without launching the UI or writing AppData.
-if A_Args.Length && A_Args[1] = "--check-update-state"
+; Exercise the update handshake without launching the UI or writing AppData.
+if !A_IsCompiled && A_Args.Length = 4 && A_Args[4] = "--check-update-state"
 {
-    A_Args.RemoveAt(1)
     try
-        ExitApp(GetPendingUpdateStateFile() = "" ? 222 : 0)
+    {
+        GetPendingUpdateStateFile()
+        ExitApp(0)
+    }
     catch Error as err
     {
         FileAppend("Update-state probe: " err.Message Chr(10), "*")
