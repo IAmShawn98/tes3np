@@ -1,0 +1,200 @@
+; Capture the main window's control layout, then scale and present it.
+
+global LauncherBaseWidth := 960
+global LauncherBaseHeight := 716
+global LauncherControlLayout := Map()
+global LauncherCachedScale := 0
+global LauncherCachedLayoutCount := 0
+
+CaptureLauncherControlLayout()
+{
+    global LauncherGui, LauncherControlLayout
+    LauncherControlLayout := Map()
+    for control in LauncherGui
+    {
+        try
+        {
+            control.GetPos(&x, &y, &width, &height)
+            LauncherControlLayout[control.Hwnd] := {Control: control, X: x, Y: y, Width: width, Height: height}
+        }
+    }
+}
+
+ApplyLauncherControlScale()
+{
+    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherVersionLabel, LauncherMorrowindFont
+    if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
+        return
+    scale := LauncherScale / 100
+    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+    try
+    {
+        for hwnd, item in LauncherControlLayout
+        {
+            if !DllCall("IsWindow", "Ptr", hwnd)
+                continue
+            item.Control.Move(Round(item.X * scale), Round(item.Y * scale), Round(item.Width * scale), Round(item.Height * scale))
+        }
+        for hwnd, face in ButtonFaces
+        {
+            if !DllCall("IsWindow", "Ptr", hwnd) || face.Window != LauncherGui.Hwnd
+                continue
+            if face.HasOwnProp("IsInfo")
+                face.Control.SetFont("s" Max(7, Round(10 * scale)) " Norm", "Palatino Linotype")
+            else if !face.HasOwnProp("IsLabel")
+                face.Control.SetFont("s" Max(7, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
+        }
+        if IsObject(LauncherHeading)
+            LauncherHeading.SetFont("s" Max(12, Round(19 * scale)) " Norm c241408", LauncherMorrowindFont)
+        if IsObject(LauncherVersionLabel)
+            LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
+    }
+    finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
+    RepaintMenuButtons()
+}
+
+ShowLauncherWindow(reuseCached := false, *)
+{
+    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
+    ; The Character Book can close immediately when its parent is already painted at the requested scale.
+    if reuseCached && LauncherCachedScale > 0
+        && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+        && LauncherControlLayout.Count = LauncherCachedLayoutCount
+    {
+        desiredCachedScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
+        if desiredCachedScale = LauncherCachedScale
+            return
+    }
+    ; Validate control positions before showing a cached layout.
+    if LauncherCachedScale > 0 && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
+        && LauncherControlLayout.Count = LauncherCachedLayoutCount
+    {
+        desiredScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
+        if desiredScale = LauncherCachedScale
+        {
+            healthy := true
+            for hwnd, item in LauncherControlLayout
+            {
+                if !DllCall("IsWindow", "Ptr", hwnd)
+                {
+                    healthy := false
+                    break
+                }
+                item.Control.GetPos(&x, &y, &w, &h)
+                ratio := desiredScale / 100
+                if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
+                    || Abs(w - Round(item.Width * ratio)) > 2 || Abs(h - Round(item.Height * ratio)) > 2
+                {
+                    healthy := false
+                    break
+                }
+            }
+            if healthy
+            {
+                LauncherGui.Show()
+                RepaintMenuButtons()
+                return
+            }
+            LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding under the existing frame cover.")
+        }
+    }
+    ; Apply the saved scale before first paint to avoid flashing the default window size.
+    if !LauncherCachedScale
+    {
+        LauncherGui.Show("Hide w960 h716")
+        ApplyLauncherScaleToWindow()
+        CenterLauncherWithoutResizing()
+        LauncherCachedScale := LauncherScale
+        LauncherCachedLayoutCount := LauncherControlLayout.Count
+        LauncherGui.Show()
+        RepaintMenuButtons()
+        return
+    }
+    ; Preserve the current window size while an existing layout is repaired.
+    LauncherGui.Show()
+    ; Cover the repaint with the previous frame while the layout is rebuilt.
+    startedAt := A_TickCount
+    BeginInterfaceUpdate(LauncherGui, "Waiting for Jiub...", false)
+    coverMs := A_TickCount - startedAt
+    scaleMs := 0, windowMs := 0, controlsMs := 0, centerMs := 0
+    try
+    {
+        stepAt := A_TickCount
+        if LauncherScaleMode = "Auto"
+            LauncherScale := GetAutomaticLauncherScale()
+        scaleMs := A_TickCount - stepAt
+        stepAt := A_TickCount
+        ApplyLauncherScaleToWindow()
+        windowMs := A_TickCount - stepAt
+        stepAt := A_TickCount
+        ApplyLauncherControlScale()
+        controlsMs := A_TickCount - stepAt
+        stepAt := A_TickCount
+        CenterLauncherWithoutResizing()
+        centerMs := A_TickCount - stepAt
+    }
+    finally
+    {
+        EndInterfaceUpdate()
+        LauncherCachedScale := LauncherScale
+        LauncherCachedLayoutCount := LauncherControlLayout.Count
+        totalMs := A_TickCount - startedAt
+        if totalMs >= 250
+            LogLauncherEvent("UI | Launcher transition " totalMs "ms | Cover " coverMs "ms | Scale " scaleMs "ms | Window " windowMs "ms | Controls " controlsMs "ms | Center " centerMs "ms | Final paint " (totalMs - coverMs - scaleMs - windowMs - controlsMs - centerMs) "ms.")
+    }
+}
+
+GetAutomaticLauncherScale()
+{
+    global LauncherBaseWidth, LauncherBaseHeight
+    MouseGetPos(&mouseX, &mouseY)
+    monitor := MonitorFromPoint(mouseX, mouseY)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    dpiFactor := A_ScreenDPI / 96
+    requiredWidth := LauncherBaseWidth * dpiFactor, requiredHeight := LauncherBaseHeight * dpiFactor
+    fit := Min(1.0, (right - left) / requiredWidth, (bottom - top) / requiredHeight)
+    if fit < 1
+        fit := Max(0.5, fit * 0.96)
+    percent := Floor((fit * 100) / 10) * 10
+    return Max(50, Min(100, percent))
+}
+
+CenterLauncherWithoutResizing()
+{
+    global LauncherGui
+    MouseGetPos(&mouseX, &mouseY)
+    monitor := MonitorFromPoint(mouseX, mouseY)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    WinGetPos(,, &width, &height, "ahk_id " LauncherGui.Hwnd)
+    x := left + Max(0, ((right - left) - width) // 2), y := top + Max(0, ((bottom - top) - height) // 2)
+    WinMove(x, y,,, "ahk_id " LauncherGui.Hwnd)
+}
+
+ApplyLauncherScaleToWindow(center := false)
+{
+    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
+    global LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
+
+    if LauncherScaleMode = "Auto"
+        LauncherScale := GetAutomaticLauncherScale()
+
+    ; Resize the window and its controls together so artwork and hit targets stay aligned.
+    dpiFactor := A_ScreenDPI / 96
+    scale := LauncherScale / 100
+    width := Round(LauncherBaseWidth * dpiFactor * scale)
+    height := Round(LauncherBaseHeight * dpiFactor * scale)
+    MouseGetPos(&mouseX, &mouseY)
+    monitor := MonitorFromPoint(mouseX, mouseY)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    x := left + Max(0, ((right - left) - width) // 2)
+    y := top + Max(0, ((bottom - top) - height) // 2)
+    DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
+    ApplyLauncherControlScale()
+
+    ; Refresh the cache for settings previews and rollbacks.
+    LauncherCachedScale := LauncherScale
+    LauncherCachedLayoutCount := LauncherControlLayout.Count
+    if center
+        CenterLauncherWithoutResizing()
+}

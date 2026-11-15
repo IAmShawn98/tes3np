@@ -4,8 +4,6 @@
 
 global LauncherScale := 100
 global LauncherScaleMode := "Auto"
-global LauncherBaseWidth := 960
-global LauncherBaseHeight := 716
 global AccessibilityTextSize := "Normal"
 global EnhancedReadability := false
 global ReduceMotion := false
@@ -243,20 +241,6 @@ ApplyEnhancedReadability()
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }
-GetAutomaticLauncherScale()
-{
-    global LauncherBaseWidth, LauncherBaseHeight
-    MouseGetPos(&mouseX, &mouseY)
-    monitor := MonitorFromPoint(mouseX, mouseY)
-    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    dpiFactor := A_ScreenDPI / 96
-    requiredWidth := LauncherBaseWidth * dpiFactor, requiredHeight := LauncherBaseHeight * dpiFactor
-    fit := Min(1.0, (right - left) / requiredWidth, (bottom - top) / requiredHeight)
-    if fit < 1
-        fit := Max(0.5, fit * 0.96)
-    percent := Floor((fit * 100) / 10) * 10
-    return Max(50, Min(100, percent))
-}
 MonitorFromPoint(x, y)
 {
     count := MonitorGetCount()
@@ -267,42 +251,4 @@ MonitorFromPoint(x, y)
             return A_Index
     }
     return MonitorGetPrimary()
-}
-CenterLauncherWithoutResizing()
-{
-    global LauncherGui
-    MouseGetPos(&mouseX, &mouseY)
-    monitor := MonitorFromPoint(mouseX, mouseY)
-    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    WinGetPos(,, &width, &height, "ahk_id " LauncherGui.Hwnd)
-    x := left + Max(0, ((right - left) - width) // 2), y := top + Max(0, ((bottom - top) - height) // 2)
-    WinMove(x, y,,, "ahk_id " LauncherGui.Hwnd)
-}
-ApplyLauncherScaleToWindow(center := false)
-{
-    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
-    if LauncherScaleMode = "Auto"
-        LauncherScale := GetAutomaticLauncherScale()
-
-    ; Window size and every captured launcher control must use the same scale in
-    ; the same operation. Previously settings preview resized only the outer
-    ; window, leaving the artwork/buttons at their old scale until restart.
-    dpiFactor := A_ScreenDPI / 96
-    scale := LauncherScale / 100
-    width := Round(LauncherBaseWidth * dpiFactor * scale)
-    height := Round(LauncherBaseHeight * dpiFactor * scale)
-    MouseGetPos(&mouseX, &mouseY)
-    monitor := MonitorFromPoint(mouseX, mouseY)
-    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    x := left + Max(0, ((right - left) - width) // 2)
-    y := top + Max(0, ((bottom - top) - height) // 2)
-    DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
-    ApplyLauncherControlScale()
-    ; Preview and rollback are live layout transactions. The fast return from
-    ; Characters/Settings must not trust a cached scale from before preview.
-    global LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
-    LauncherCachedScale := LauncherScale
-    LauncherCachedLayoutCount := LauncherControlLayout.Count
-    if center
-        CenterLauncherWithoutResizing()
 }

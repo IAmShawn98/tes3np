@@ -21,6 +21,7 @@
 #Include src\ui\patcher.ahk
 #Include src\ui\expansion-upload.ahk
 #Include src\ui\launcher-settings.ahk
+#Include src\ui\launcher-layout.ahk
 #Include src\ui\v016-refinements.ahk
 #Include src\ui\bug-report.ahk
 #Include src\app\client-detection.ahk
