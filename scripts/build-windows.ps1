@@ -3,10 +3,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 function Step([string]$Message) { Write-Host "BUILD CHECKPOINT | $Message" }
 
-# The SHA256 cmdlet is not present in every host configuration (including
-# a reported PowerShell 7.6.9 build session). .NET hashing is available in
-# both Windows PowerShell 5.1 and PowerShell 7, and verifies the same bytes.
-# Keep all manifest comparisons fail-closed rather than skipping verification.
+# Use .NET hashing so archive verification works even when Get-FileHash is unavailable.
 function GetTes3npSha256([string]$FilePath) {
     $algorithm = [System.Security.Cryptography.SHA256]::Create()
     try {
@@ -505,10 +502,18 @@ Public redistribution/licensing review remains a separate release gate.
     if ($resourceIdentity -notmatch '^v-[a-f0-9]{20}$') { throw 'Invalid bundled resource identity.' }
     $stageEntry = Join-Path $stageRoot 'tes3np.ahk'
     $entryText = [IO.File]::ReadAllText($stageEntry)
-    $entryText = $entryText.Replace("`nif updateStateFile = `"`"`n", "`nPrepareBundledResources()`nif updateStateFile = `"`"`n")
-    $entryText = $entryText.Replace("`nupdateStateFile := GetPendingUpdateStateFile()`n", "`nif A_Args.Length && A_Args[1] = `"--check-resources`"`n{`n    PrepareBundledResources()`n    ExitApp(0)`n}`nupdateStateFile := GetPendingUpdateStateFile()`n")
-    $entryText = $entryText.Replace('#Include src\app\bootstrap.ahk', '#Include src\app\bootstrap.ahk' + "`n" + '#Include src\app\bundled-resources.generated.ahk')
-    if (-not $entryText.Contains('#Include src\app\bundled-resources.generated.ahk')) { throw 'Generated resources include is missing.' }
+    $resourceSetupMarker = '; @bundled-resource-setup@'
+    $markerLine = '(?m)^' + [regex]::Escape($resourceSetupMarker) + '(?=\r?$)'
+    if ([regex]::Matches($entryText, $markerLine).Count -ne 1) {
+        throw "Expected exactly one bundled resource setup marker in tes3np.ahk: $resourceSetupMarker"
+    }
+    $resourceSetup = @'
+#Include src\app\bundled-resources.generated.ahk
+PrepareBundledResources()
+if A_Args.Length && A_Args[1] = "--check-resources"
+    ExitApp(0)
+'@
+    $entryText = [regex]::Replace($entryText, $markerLine, $resourceSetup)
     [IO.File]::WriteAllText($stageEntry, $entryText)
     Get-ChildItem (Join-Path $stageRoot 'src') -Filter '*.ahk' -Recurse | Where-Object { $_.Name -ne 'bundled-resources.generated.ahk' } | ForEach-Object {
         $text = [IO.File]::ReadAllText($_.FullName)
@@ -527,7 +532,6 @@ Public redistribution/licensing review remains a separate release gate.
     foreach ($stagedFile in $stagedSources) {
         if ([IO.File]::ReadAllText($stagedFile.FullName) -match 'A_ScriptDir\s+"\\+(assets|patches|scripts)(\\|")') { throw "Unconverted resource path in $($stagedFile.FullName)" }
     }
-    if (-not $entryText.Contains('PrepareBundledResources()' + "`n" + 'if updateStateFile')) { throw 'Could not insert resource initialization before launcher startup.' }
     # Check the exact rewritten entry and includes which Ahk2Exe is about to
     # compile, not only the original source. A warning from an otherwise valid
     # compiled startup must fail preflight instead of surprising the user.
@@ -621,8 +625,7 @@ Public redistribution/licensing review remains a separate release gate.
         throw 'Patch payload was embedded into the launcher instead of kept separate.'
     }
     Step 'Verified no Expansion Pack or markerless client was embedded in launcher resources'
-    # Download TES3MP only at BUILD time, never on user startup.
-    # Pin to the official non-VR 0.8.1 release; do not scrape unknown mirrors.
+    # Package the pinned official non-VR runtime so startup can run offline.
     Step 'Using prechecked official TES3MP 0.8.1 Win64 release archive'
     if (!$reuseTes3mp) {
         $archiveHash = GetTes3npSha256 $tes3mpArchive

@@ -37,8 +37,11 @@ CoordMode("Mouse", "Screen")
 RunLauncherChecks(A_Args)
 
 ; An updater restart validates its pending state and confirms only after startup.
-; The Windows packager inserts bundled resource setup before recovery or startup.
 updateStateFile := GetPendingUpdateStateFile()
+
+; The Windows packager replaces this marker with bundled resource initialization.
+; @bundled-resource-setup@
+
 if updateStateFile = ""
     RecoverInterruptedLauncherUpdate()
 StartLauncher()
@@ -56,7 +59,7 @@ GetPendingUpdateStateFile()
     updateRoot := GetFullPath(A_Temp "\tes3np-update")
     stateFile := GetFullPath(stateFile)
     SplitPath(stateFile, &name, &folder)
-    ; Accept the published v0.1.20 worker's path as well as isolated jobs.
+    ; The legacy updater uses the shared directory. New jobs use individual subdirectories.
     SplitPath(folder, &jobId, &jobParent)
     if name != "update-state.ini" || (folder != updateRoot
         && (jobParent != updateRoot || !RegExMatch(jobId, "i)^[0-9a-f]{32}$")))
@@ -65,8 +68,7 @@ GetPendingUpdateStateFile()
         throw Error("Update confirmation version does not match installed launcher.")
     if !FileExist(stateFile)
         throw Error("Update confirmation state file is missing.")
-    ; Windows PowerShell 5.1 writes a UTF-8 BOM, which IniRead cannot decode.
-    ; Read the worker record directly, as the worker does for our acknowledgement.
+    ; Read UTF-8 directly so a byte-order mark cannot hide the [Update] section.
     lines := StrSplit(FileRead(stateFile, "UTF-8"), "`n", "`r")
     if lines.Length < 3 || lines[1] != "[Update]"
         || lines[2] != "State=AWAITING_CONFIRMATION" || lines[3] != "Version=" AppConfig.Version
