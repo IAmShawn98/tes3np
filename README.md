@@ -24,7 +24,7 @@ Download `tes3np-v0.1.21-alpha-windows.zip` from [**Releases**](https://github.c
 - Windows 10 or 11, 64-bit.
 - [Morrowind Game of the Year Edition](https://en.uesp.net/wiki/Morrowind:Morrowind) with Tribunal and Bloodmoon.
 
-If the chat window doesn't function after logging into Discord, you might need to download [the Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section).
+If the chat window doesn't function after logging into Discord, you might need to download [Microsoft WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section).
 
 The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 
