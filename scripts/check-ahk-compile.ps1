@@ -96,23 +96,25 @@ if ($parse.ExitCode -ne 0 -or $output -match '(?i)Warning:|appears to never be a
     throw 'AutoHotkey source parse/warning check failed.'
 }
 
-Write-Host 'Testing Expansion Pack version and plugin mismatch diagnostics.'
-$fixture = Join-Path $projectRoot 'scripts\test-expansion-diagnostics.ahk'
-$fixtureStdout = Join-Path $work 'expansion-fixture-stdout.txt'
-$fixtureStderr = Join-Path $work 'expansion-fixture-stderr.txt'
-$fixtureProcess = Start-Process -FilePath $base -WorkingDirectory $projectRoot `
-    -ArgumentList ('/ErrorStdOut "' + $fixture + '"') -PassThru `
-    -RedirectStandardOutput $fixtureStdout -RedirectStandardError $fixtureStderr
-if (!$fixtureProcess.WaitForExit(30000)) {
-    try { $fixtureProcess.Kill() } catch {}
-    throw 'Expansion Pack diagnostics timed out.'
+foreach ($name in @('test-expansion-diagnostics', 'test-diagnostic-privacy')) {
+    Write-Host "Running AutoHotkey fixture: $name"
+    $fixture = Join-Path $projectRoot "scripts\$name.ahk"
+    $fixtureStdout = Join-Path $work "$name-stdout.txt"
+    $fixtureStderr = Join-Path $work "$name-stderr.txt"
+    $fixtureProcess = Start-Process -FilePath $base -WorkingDirectory $projectRoot `
+        -ArgumentList ('/ErrorStdOut "' + $fixture + '"') -PassThru `
+        -RedirectStandardOutput $fixtureStdout -RedirectStandardError $fixtureStderr
+    if (!$fixtureProcess.WaitForExit(30000)) {
+        try { $fixtureProcess.Kill() } catch {}
+        throw "AutoHotkey fixture $name timed out."
+    }
+    $fixtureOutput = @(Get-Content -LiteralPath $fixtureStdout, $fixtureStderr)
+    $fixtureOutput | ForEach-Object { Write-Host $_ }
+    if ($fixtureProcess.ExitCode -ne 0 -or $fixtureOutput -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
+        throw "AutoHotkey fixture $name failed with exit code $($fixtureProcess.ExitCode)."
+    }
+    Write-Host "PASS: $name"
 }
-$fixtureOutput = @(Get-Content -LiteralPath $fixtureStdout, $fixtureStderr)
-$fixtureOutput | ForEach-Object { Write-Host $_ }
-if ($fixtureProcess.ExitCode -ne 0 -or $fixtureOutput -match '(?i)Warning:|appears to never be assigned|This line will never execute') {
-    throw "Expansion Pack diagnostics failed with exit code $($fixtureProcess.ExitCode)."
-}
-Write-Host 'PASS: Expansion Pack version and plugin mismatch diagnostics.'
 
 Write-Host 'Compiling the real launcher through verified Ahk2Exe.'
 $exe = Join-Path $work 'tes3np-ci-smoke.exe'

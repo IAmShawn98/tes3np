@@ -23,6 +23,23 @@ jobs:
         run: ./scripts/check-powershell.ps1
       - name: Guard Chat Host persistence and Happy Hour contracts
         run: python scripts/check-chat-architecture.py
+      - name: Check diagnostic privacy contracts
+        run: python scripts/check-diagnostic-privacy.py
+      - name: Test launcher updater validation
+        shell: pwsh
+        run: ./scripts/test-update-client.ps1
+      - name: Test updater metadata validation
+        shell: pwsh
+        run: ./scripts/test-update-metadata.ps1
+      - name: Test updater transaction and rollback
+        shell: pwsh
+        run: ./scripts/test-updater-transaction.ps1
+      - name: Test Expansion Pack import
+        shell: powershell
+        run: ./scripts/test-import-expansion-folder.ps1
+      - name: Test Expansion Pack toggle
+        shell: powershell
+        run: ./scripts/test-expansion-toggle.ps1
       - name: Compile AutoHotkey launcher with verified official tools
         shell: pwsh
         env:
