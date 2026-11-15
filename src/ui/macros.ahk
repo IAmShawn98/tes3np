@@ -399,6 +399,13 @@ MacroNameEditorFocused()
         && MacroNameEdit.Focused
 }
 
+; Restrict macro editing shortcuts to the focused name field.
+#HotIf MacroNameEditorFocused()
+Enter::SaveMacroName()
+NumpadEnter::SaveMacroName()
+Escape::FinishMacroNameEdit()
+#HotIf
+
 ; Row actions update the existing ListView selection before delegating to
 ; the tested macro execution, stop and removal callbacks.
 RunMacroBookRow(position, *)

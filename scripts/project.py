@@ -451,7 +451,7 @@ def check(allow_missing_payload: bool = False) -> None:
             'MacroNameEdit := AddThemedEdit(CharacterPage,' in macro
             and 'MacroNameEdit.Move(BookS(551), BookS(row.Y),' in macro
             and 'caption := editing ? "Save" : Chr(0x270E)' in macro
-            and '#HotIf MacroNameEditorFocused()\nEnter::SaveMacroName()' in root_source
+            and '#HotIf MacroNameEditorFocused()\nEnter::SaveMacroName()' in macro
             and 'InputBox(' not in macro,
         "Upload Macro follows populated rows and stays pinned on scrolling":
             'MacroDetails' not in macro
