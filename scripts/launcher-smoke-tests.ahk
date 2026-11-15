@@ -325,6 +325,11 @@ CheckOwnedMenuScaling()
         fonts := child.OwnedGeneratedFonts.Clone()
         if !fonts.Length
             ExitApp(220)
+        fontDefinition := Buffer(92, 0) ; LOGFONTW
+        for font in fonts
+            if DllCall("gdi32\GetObjectW", "Ptr", font,
+                "Int", fontDefinition.Size, "Ptr", fontDefinition, "Int") != fontDefinition.Size
+                ExitApp(220)
         DestroyScaledMenu(child)
         ; GDI can batch deletions. Check handle lifetime after the batch has completed.
         if !DllCall("gdi32\GdiFlush", "Int")
@@ -334,13 +339,15 @@ CheckOwnedMenuScaling()
         }
         for font in fonts
         {
-            if DllCall("gdi32\GetObjectType", "Ptr", font, "UInt")
+            ; Query the font's data so a stale type alone cannot report a leak.
+            if DllCall("gdi32\GetObjectW", "Ptr", font,
+                "Int", fontDefinition.Size, "Ptr", fontDefinition, "Int")
             {
-                FileAppend("FAIL: generated menu font still exists after destruction and GDI flush." Chr(10), "*")
+                FileAppend("FAIL: generated menu font data is still readable after destruction and GDI flush." Chr(10), "*")
                 ExitApp(221)
             }
         }
-        FileAppend("PASS: menus follow moved owner, stay onscreen and scale 50-100 percent" Chr(10), "*")
+        FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
     }
     catch Error as err
     {
