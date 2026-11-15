@@ -1,4 +1,4 @@
-﻿; Hide construction paints and reveal completed windows without changing their controls.
+﻿; Stage first paint, position owned windows, and scale their native controls.
 
 PrepareWindowDisplay(gui)
 {
@@ -12,8 +12,7 @@ PrepareWindowDisplay(gui)
 
 RevealWindowDisplay(gui, book := false, paintButtons := true)
 {
-    ; A DWM-staged page paints its child HWNDs exactly once at RevealPaintedPage.
-    ; Preserve the original button prepaint for callers without a cloak.
+    ; DWM-staged pages paint their children in RevealPaintedPage.
     if paintButtons
         FinishButtonDisplay()
     ; The book retains its transparent outside area; the launcher is fully opaque.
@@ -21,9 +20,7 @@ RevealWindowDisplay(gui, book := false, paintButtons := true)
         "UChar", 255, "UInt", book ? 3 : 2)
 }
 
-; WinSetTransColor resolves a WinTitle first, and AHK does not reliably
-; match a DWM-cloaked window by ahk_id. Set the same RGB color key directly
-; against the already-created HWND; no lookup or activation is required.
+; Apply the color key by HWND so it works while the window is DWM-cloaked.
 SetPageColorKey(gui, colorRef)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
@@ -33,15 +30,8 @@ SetPageColorKey(gui, colorRef)
         "UInt", colorRef, "UChar", 255, "UInt", 1, "Int") != 0 ; LWA_COLORKEY
 }
 
-; An ordinary hidden Show/WinSetTransColor is not enough to guarantee the
-; *first composited frame* is ready. DWM can publish the background before
-; AHK's child controls have received their WM_PAINT callbacks. Cloak the
-; page before showing it, force its complete native paint while cloaked, then
-; reveal the finished page as one desktop frame.
-;
-; Unlike alpha-zero, this also works for the Settings parchment which uses
-; its own 010101 transparent color key. Do not cloak the launcher or ChatHost:
-; those are already live and must remain visible through page handoffs.
+; Cloak pages while child controls paint so DWM presents the first frame complete.
+; This preserves the Settings parchment's color key and keeps the launcher visible.
 SetPageCompositorCloak(gui, cloak)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
@@ -58,17 +48,12 @@ RevealPaintedPage(gui)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
         return
-    ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW.
-    ; One synchronous native child paint before uncloaking. Avoid ERASE and
-    ; the redundant UpdateWindow/second paint: Settings and the cached
-    ; Character Book otherwise remain unresponsive for multiple seconds.
+    ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW paints the controls before reveal.
     DllCall("RedrawWindow", "Ptr", gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
     SetPageCompositorCloak(gui, false)
 }
 
-; Child pages always open relative to the CURRENT owner rectangle, not their
-; last/default Windows position. Use HWND geometry rather than a WinTitle lookup:
-; Settings and Characters are deliberately DWM-cloaked during first paint.
+; Center the menu on its owner's current bounds, including while the menu is cloaked.
 PositionOwnedMenuAtParent(menu, owner)
 {
     if !IsObject(menu) || !DllCall("IsWindow", "Ptr", menu.Hwnd)
@@ -87,34 +72,26 @@ PositionOwnedMenuAtParent(menu, owner)
     mh := NumGet(menuRect, 12, "Int") - NumGet(menuRect, 4, "Int")
     if mw <= 0 || mh <= 0 || ow <= 0 || oh <= 0
         return false
-    ; Work-area bounds belong to the owner monitor even if the pointer
-    ; happened to be over a different screen when the user clicked.
+    ; Clamp to the owner's monitor work area.
     monitor := MonitorFromPoint(ox + ow // 2, oy + oh // 2)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     x := Max(left, Min(right - mw, ox + (ow - mw) // 2))
     y := Max(top, Min(bottom - mh, oy + (oh - mh) // 2))
-    ; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE: reposition the hidden page
-    ; without activating it or bypassing the approved first-frame protection.
+    ; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE.
     return DllCall("SetWindowPos", "Ptr", menu.Hwnd, "Ptr", 0,
         "Int", x, "Int", y, "Int", 0, "Int", 0,
         "UInt", 0x0015, "Int") != 0
 }
 
-; The launcher is already scaled by ApplyLauncherScaleToWindow. Child pages
-; take the same effective percentage, NOT an independent "readability scale".
-; Never recompute Auto from the mouse's monitor: that may differ from the
-; monitor containing the already-moved launcher.
+; Owned menus inherit the scale already applied to the launcher.
 GetOwnedMenuScale()
 {
     global LauncherScale
     return Max(0.5, Min(1.0, LauncherScale / 100))
 }
 
-; Native GUI controls do not inherit arbitrary parent scale changes.
-; Rescale their real rectangles and font handles together, before first
-; presentation or while the owned page is DWM-cloaked. This preserves the
-; custom Morrowind/Segoe families, weights, colors and existing hit targets.
-; Fonts created here stay alive until the page is rescaled or destroyed.
+; Scale child bounds and fonts together to keep text aligned with hit targets.
+; Keep generated fonts alive while the controls use them.
 ScaleOwnedMenuContent(gui, scale)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)

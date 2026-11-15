@@ -292,9 +292,20 @@ CheckOwnedMenuScaling()
         if !fonts.Length
             ExitApp(220)
         DestroyScaledMenu(child)
+        ; GDI can batch deletions. Check handle lifetime after the batch has completed.
+        if !DllCall("gdi32\GdiFlush", "Int")
+        {
+            FileAppend("FAIL: GDI batch failed while releasing generated menu fonts." Chr(10), "*")
+            ExitApp(221)
+        }
         for font in fonts
+        {
             if DllCall("gdi32\GetObjectType", "Ptr", font, "UInt")
+            {
+                FileAppend("FAIL: generated menu font still exists after destruction and GDI flush." Chr(10), "*")
                 ExitApp(221)
+            }
+        }
         FileAppend("PASS: menus follow moved owner, stay onscreen and scale 50-100 percent" Chr(10), "*")
     }
     catch Error as err
