@@ -131,6 +131,17 @@ if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } 
 if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $exe)) {
     throw "Ahk2Exe launcher compile failed with exit code $($process.ExitCode)."
 }
+Write-Host 'Running the compiled launcher smoke check without console redirection.'
+$compiledCheck = Start-Process -FilePath $exe -ArgumentList '--check' -WorkingDirectory $projectRoot -PassThru
+if (!$compiledCheck.WaitForExit(30000)) {
+    try { $compiledCheck.Kill() } catch {}
+    throw 'Compiled launcher smoke check timed out.'
+}
+if ($compiledCheck.ExitCode -ne 0) {
+    throw "Compiled launcher smoke check failed with exit code $($compiledCheck.ExitCode)."
+}
+Write-Host 'PASS: compiled launcher smoke check.'
+
 Write-Host 'Checking the launcher update handshake with Windows PowerShell and PowerShell 7 state encodings.'
 $version = [regex]::Match((Get-Content (Join-Path $projectRoot 'src\state.ahk') -Raw),
     'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value

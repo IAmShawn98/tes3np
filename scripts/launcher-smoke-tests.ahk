@@ -69,7 +69,7 @@ CheckBackupExecutablePaths()
     }
     catch Error as err
     {
-        FileAppend(err.Message "`n", "**")
+        try FileAppend(err.Message "`n", "**")
         return false
     }
     finally
@@ -137,10 +137,11 @@ CheckCrashRecoveryProfiles()
         try DirDelete(AppDataDirectory, true)
     if failure != ""
     {
-        FileAppend("FAIL: " failure "`n", "**")
+        try FileAppend("FAIL: " failure "`n", "**")
         ExitApp(227)
     }
-    FileAppend("PASS: per-character AutoReconnect survives saving and reloading in both directions.`n", "*")
+    ; The compiled GUI may have no console. The exit code carries the result.
+    try FileAppend("PASS: per-character AutoReconnect survives saving and reloading in both directions.`n", "*")
     ExitApp(0)
 }
 
