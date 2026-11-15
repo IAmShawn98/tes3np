@@ -341,6 +341,7 @@ EditProfile(index, *)
         EditorFields := Map()
         for entry in entries
             EditorFields[entry[1]] := {Value: entry[3]}
+        EditorFields["AutoReconnect"] := profile.AutoReconnect
         ; Legacy characters remain editable without an invented race.
         species := profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : ""
         speciesIndex := 1
@@ -356,7 +357,7 @@ EditProfile(index, *)
         EditorSpeciesDropDown.Choose(speciesIndex)
         EditorPreviousSpeciesChoice := speciesIndex
         PopulateProfileEditorRows(entries)
-        SetBookTick(EditorReconnectTick, profile.AutoReconnect)
+        SetBookTick(EditorReconnectTick, EditorFields["AutoReconnect"])
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
         ButtonFaces[EditorSaveButton.Hwnd].LoadingText := "Saving character..."
@@ -423,8 +424,9 @@ CreateProfileEditor()
 
 ToggleEditorReconnect(*)
 {
-    global EditorReconnectTick, ButtonFaces
-    SetBookTick(EditorReconnectTick, !ButtonFaces[EditorReconnectTick.Hwnd].Checked)
+    global EditorReconnectTick, EditorFields
+    EditorFields["AutoReconnect"] := !EditorFields["AutoReconnect"]
+    SetBookTick(EditorReconnectTick, EditorFields["AutoReconnect"])
 }
 
 ; Keep the existing race list intact. "Original Character" is the only
@@ -736,7 +738,7 @@ PopulateProfileEditorRows(entries)
 
 SaveProfileEditor(index, fields, *)
 {
-    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown, CharacterListPage, EditorReconnectTick, ButtonFaces
+    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown, CharacterListPage
     global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
@@ -800,7 +802,7 @@ SaveProfileEditor(index, fields, *)
     }
     profile := {Name: name, Password: fields["Password"].Value, Species: species, PortraitFile: portraitFile,
         UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
-        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked}
+        AutoReconnect: fields["AutoReconnect"]}
     previousProfiles := Profiles.Clone()
     previousFavorite := SelectedProfile
     previousPage := CharacterListPage
