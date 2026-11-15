@@ -333,7 +333,11 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'return A_ScriptDir "\\client\\tes3mp.exe"' in client_settings
         and "GetSharedExecutable()" in client_settings
         and "InstallCustomClientOverrides(source, dependencies := \"\")" in client_detection
-        and 'try executable := GetSharedExecutable()' in portable_backup
+        and 'try executable := GetBackupExecutable(DataFile)' in portable_backup
+        and not any(call in portable_backup for call in (
+            "GetSharedExecutable(", "GetManagedCustomClientExecutable(",
+            "GetMergedCustomClientExecutable(", "RecoverCustomClientOverrides(",
+        ))
         and 'IniWrite(executable, temporary, "Launch", "Executable")' in portable_backup
         and 'IniRead(path, "Launch", "Executable"' not in portable_backup
         and 'restored.Push({Name: name, Password: password, Species: species, PortraitFile: "",' in portable_backup

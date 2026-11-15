@@ -11,6 +11,8 @@ RunLauncherChecks(args)
     switch args[1]
     {
         case "--check":
+            if !CheckBackupExecutablePaths()
+                ExitApp(225)
             CheckCrashRecoveryProfiles()
         case "--check-expansion-ui":
             CheckExpansionProgressBindings()
@@ -23,6 +25,38 @@ RunLauncherChecks(args)
         case "--check-owned-menu-scaling":
             CheckOwnedMenuScaling()
     }
+}
+
+CheckBackupExecutablePaths()
+{
+    settings := A_Temp "\tes3np-backup-check-" NewLauncherFileId() ".ini"
+    bundled := A_ScriptDir "\client\tes3mp.exe"
+    custom := A_Temp "\Custom TES3MP\tes3mp.exe"
+    try
+    {
+        if GetBackupExecutable(settings) != bundled || FileExist(settings)
+            throw Error("Backup lookup failed for default client settings.")
+        IniWrite("CustomExe", settings, "Launch", "ClientMode")
+        if GetBackupExecutable(settings) != ""
+            throw Error("Backup lookup should allow a missing custom path.")
+        IniWrite(custom, settings, "Launch", "CustomExecutable")
+        for mode, expected in Map("Bundled", bundled, "CustomExe", custom,
+            "CustomRuntime", custom, "Custom", custom, "CustomOverrides", "")
+        {
+            IniWrite(mode, settings, "Launch", "ClientMode")
+            before := FileRead(settings)
+            if GetBackupExecutable(settings) != expected || FileRead(settings) != before
+                throw Error("Backup executable lookup failed for " mode ".")
+        }
+    }
+    catch Error as err
+    {
+        FileAppend(err.Message "`n", "**")
+        return false
+    }
+    finally
+        try FileDelete(settings)
+    return true
 }
 
 CheckCrashRecoveryProfiles()

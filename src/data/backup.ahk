@@ -36,9 +36,8 @@ ExportLauncherData()
         IniWrite("HexUTF8", temporary, "Backup", "Passwords")
         IniWrite(Profiles.Length, temporary, "Profiles", "Count")
         IniWrite(SelectedProfile, temporary, "Profiles", "Selected")
-        ; Keep the field for v1 readers. Current client selection is local.
         executable := ""
-        try executable := GetSharedExecutable()
+        try executable := GetBackupExecutable(DataFile)
         IniWrite(executable, temporary, "Launch", "Executable")
         IniWrite(IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0"), temporary, "Launcher", "HideFavoriteSwitchExplanation")
         for index, profile in Profiles
@@ -62,6 +61,17 @@ ExportLauncherData()
         if temporary != "" && FileExist(temporary)
             try FileDelete(temporary)
     }
+}
+
+GetBackupExecutable(settingsPath)
+{
+    mode := IniRead(settingsPath, "Launch", "ClientMode", "Bundled")
+    ; Older readers may launch this path directly. Overrides need an assembled runtime.
+    if mode = "CustomOverrides"
+        return ""
+    if mode = "CustomExe" || mode = "CustomRuntime" || mode = "Custom"
+        return Trim(IniRead(settingsPath, "Launch", "CustomExecutable", ""))
+    return A_ScriptDir "\client\tes3mp.exe"
 }
 
 ImportLauncherData()
