@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $source = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8
 $metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-metadata.ahk') -Raw -Encoding UTF8
+$dialogSource = Get-Content -LiteralPath 'src/ui/update-dialogs.ahk' -Raw -Encoding UTF8
 $notesSource = Get-Content -LiteralPath 'src/ui/update-notes.ahk' -Raw -Encoding UTF8
 
 function Require-Source([string]$Pattern, [string]$Name, [string]$Code = $source) {
@@ -74,13 +75,14 @@ Write-Host 'PASS: release generator and launcher package metadata contract.'
 
 # Both dialogs use the same styled, measured viewport and select the requested version.
 Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
-Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading'
-Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview'
-Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status'
+Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
+Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview' $dialogSource
+Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
 Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings' $notesSource
-Require-Source 'ShowCenteredGoldPrompt\(panel, backdrop, 800, 600\)' 'larger status modal'
+Require-Source 'ShowCenteredGoldPrompt\(panel, backdrop, 800, 600\)' 'larger status modal' $dialogSource
+Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
 Require-Source 'BuildStyledReleaseNoteRows\(notes, noteRows\[1\], 674\)' 'font-measured changelog wrapping' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
