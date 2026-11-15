@@ -1,11 +1,16 @@
-; Public-alpha diagnostics and lightweight launcher logging.
+; Launcher logging, log retention, and diagnostic privacy.
 
 global LauncherLogFile := AppDataDirectory "\launcher.log"
 
+GetDiagnosticLogNames()
+{
+    return ["launcher.log", "chat-host.log", "patch-all.log",
+        "patch-errors.log", "render-errors.log"]
+}
+
 TrimStoredDiagnosticLogs()
 {
-    for filename in ["launcher.log", "chat-host.log", "patch-all.log",
-        "patch-errors.log", "render-errors.log"]
+    for filename in GetDiagnosticLogNames()
         TrimDiagnosticLog(AppDataDirectory "\" filename)
 }
 
@@ -131,17 +136,17 @@ SanitizeDiagnosticText(text)
     return clean
 }
 
-; One-time in-place cleanup of historical diagnostic logs created by older
-; builds. This deliberately excludes the private Game Chat message archive,
-; settings.ini, backups and WebView2 profile, which are application data.
+; Scrub older shareable diagnostics in place, keeping private app data separate.
 SanitizeExistingDiagnosticLogs()
 {
     global AppDataDirectory, DataFile
     if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "4"
         return
     complete := true
-    for filename in ["launcher.log", "chat-host.log", "patch-all.log",
-        "patch-errors.log", "render-errors.log", "tes3mp-crash-query.txt"]
+    filenames := GetDiagnosticLogNames()
+    ; The legacy crash-query output needs privacy cleanup alongside the logs.
+    filenames.Push("tes3mp-crash-query.txt")
+    for filename in filenames
     {
         path := AppDataDirectory "\" filename
         if !FileExist(path)
