@@ -535,28 +535,19 @@ try {
 
 ShowResetAppDataActions(*)
 {
-    global AppDataDirectory, LauncherDataResetting, EmbeddedChatPid, MacroImport
+    global AppDataDirectory, LauncherDataResetting, EmbeddedChatPid
     choice := MsgBox("Yes: Open the AppData folder`nNo: Reset AppData`nCancel: Return", "tes3np — Reset AppData", "YesNoCancel Icon?")
     if choice = "Yes"
         return OpenLauncherDataFolder()
-    if choice != "No"
+    if choice != "No" || !CanResetLauncherAppData()
         return
     warning := "This will delete all information inside tes3np AppData, including your saved characters and launcher settings.`n`nYou should export your character data before doing this.`n`ntes3np will close after the reset.`n`nAre you sure you want to continue?"
     if MsgBox(warning, "tes3np — Reset AppData", "YesNo Icon!") != "Yes"
         return
     if MsgBox("This cannot be undone. Permanently reset tes3np AppData and close now?", "tes3np — Final Confirmation", "YesNo Icon!") != "Yes"
         return
-    ; A live patch worker owns changes and cannot be interrupted safely.
-    if PatchInProgress()
-    {
-        MsgBox("Finish the current patch operation before resetting launcher data.", "tes3np — Reset AppData", "Icon!")
+    if !CanResetLauncherAppData()
         return
-    }
-    if IsObject(MacroImport)
-    {
-        MsgBox("Finish the current macro import before resetting launcher data.", "tes3np — Reset AppData", "Icon!")
-        return
-    }
     ; ChatHost continuously indexes Discord history. Stop this owned process
     ; and game recovery BEFORE deleting the shared Roaming AppData root.
     StopGameRecovery()
@@ -582,21 +573,54 @@ ShowResetAppDataActions(*)
             return
         }
     }
-    LauncherDataResetting := true
+    ; A worker may have started while the confirmations or Chat Host wait yielded.
+    previousCritical := Critical("On")
+    errorMessage := ""
     try
     {
-        if DirExist(AppDataDirectory)
-            DirDelete(AppDataDirectory, true)
+        canReset := CanResetLauncherAppData(false)
+        if canReset
+        {
+            LauncherDataResetting := true
+            if DirExist(AppDataDirectory)
+                DirDelete(AppDataDirectory, true)
+        }
     }
     catch as err
     {
         LauncherDataResetting := false
-        MsgBox("AppData reset failed: " err.Message "`n`nRestart tes3np before retrying.", "tes3np — Reset AppData", "Icon!")
+        errorMessage := "AppData reset failed: " err.Message "`n`nRestart tes3np before retrying."
+    }
+    finally Critical(previousCritical)
+    if errorMessage != ""
+    {
+        MsgBox(errorMessage, "tes3np — Reset AppData", "Icon!")
+        return
+    }
+    if !canReset
+    {
+        CanResetLauncherAppData()
         return
     }
     ; Do not recreate AppData here, and do not leave background timers running:
     ; CleanupLauncher's reset path skips its normal settings/log writes.
     ExitApp()
+}
+
+CanResetLauncherAppData(showMessage := true)
+{
+    global ExpansionRecoveryPending, MacroImport
+    if PatchInProgress()
+        message := "Finish the current Expansion Pack operation before resetting launcher data."
+    else if ExpansionRecoveryPending
+        message := "An interrupted Expansion Pack import still needs its backups. Close any TES3MP/OpenMW clients and restart TES3NP to retry recovery before resetting launcher data."
+    else if IsObject(MacroImport)
+        message := "Finish the current macro import before resetting launcher data."
+    else
+        return true
+    if showMessage
+        MsgBox(message, "tes3np — Reset AppData", "Icon!")
+    return false
 }
 
 OpenClientSelectionSettings(*)
