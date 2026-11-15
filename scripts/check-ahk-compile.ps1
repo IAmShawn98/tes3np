@@ -105,7 +105,12 @@ Write-Host 'Checking the launcher update handshake with Windows PowerShell and P
 $version = [regex]::Match((Get-Content (Join-Path $projectRoot 'src\state.ahk') -Raw),
     'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value
 if (!$version) { throw 'Could not read the launcher version for the update-state check.' }
-$updateRoot = Join-Path ([IO.Path]::GetTempPath()) 'tes3np-update'
+$fixtureTemp = Join-Path $work 'update state fixture'
+$updateRoot = Join-Path $fixtureTemp 'tes3np-update'
+$savedTemp = $env:TEMP
+$savedTmp = $env:TMP
+$env:TEMP = $fixtureTemp
+$env:TMP = $fixtureTemp
 $job = Join-Path $updateRoot ([guid]::NewGuid().ToString('N'))
 $stateFile = Join-Path $job 'update-state.ini'
 New-Item -ItemType Directory -Path $job -Force | Out-Null
@@ -138,6 +143,8 @@ try {
         Write-Host "PASS: update handshake $($fixture.Name)."
     }
 } finally {
+    $env:TEMP = $savedTemp
+    $env:TMP = $savedTmp
     Remove-Item -LiteralPath $job -Recurse -Force
 }
 
