@@ -121,13 +121,18 @@ try {
     )
     foreach ($fixture in $fixtures) {
         [IO.File]::WriteAllText($stateFile, $fixture.Content, $fixture.Encoding)
-        $arguments = '--check-update-state --update-confirm ' + $version + ' "' + $stateFile + '"'
-        $stateProbe = Start-Process -FilePath $exe -WorkingDirectory $projectRoot -ArgumentList $arguments -PassThru
+        $arguments = '/ErrorStdOut --check-update-state --update-confirm ' + $version + ' "' + $stateFile + '"'
+        $stateOut = Join-Path $work 'update-state-stdout.txt'
+        $stateErr = Join-Path $work 'update-state-stderr.txt'
+        $stateProbe = Start-Process -FilePath $exe -WorkingDirectory $projectRoot -ArgumentList $arguments -PassThru `
+            -RedirectStandardOutput $stateOut -RedirectStandardError $stateErr
         if (!$stateProbe.WaitForExit(30000)) {
             try { $stateProbe.Kill() } catch {}
+            Get-Content -LiteralPath $stateOut, $stateErr
             throw "Compiled update-state probe timed out: $($fixture.Name)"
         }
         if ($stateProbe.ExitCode -ne $fixture.Expected) {
+            Get-Content -LiteralPath $stateOut, $stateErr
             throw "Compiled update-state probe failed: $($fixture.Name), exit $($stateProbe.ExitCode)."
         }
         Write-Host "PASS: update handshake $($fixture.Name)."
