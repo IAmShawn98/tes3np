@@ -16,10 +16,39 @@ global LauncherKillAlertGui := 0
 
 StartLauncher()
 {
-    global LauncherGui, HoverTimer, LauncherVersionLabel, LauncherSettingsButton, LauncherUpdateButton, LauncherExpansionToggle, LauncherUpdateDismissedVersion
-    ; A dismissal only lasts for this launcher session. Recheck next launch.
+    global HoverTimer, LauncherUpdateDismissedVersion
+
     LauncherUpdateDismissedVersion := ""
     LogLauncherEvent("Launcher startup beginning.")
+    RequireLauncherAssets()
+    ConfigureLauncherTrayMenu()
+    InitializeHappyHourJiub()
+    TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
+    A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
+
+    LoadLauncherScale()
+    InitializeLauncherMorrowindFont()
+    LoadProfiles()
+    TrimStoredDiagnosticLogs()
+    SanitizeExistingDiagnosticLogs()
+    ; Restore any saved client override before the launch controls are available.
+    RecoverCustomClientOverrides()
+
+    BuildLauncherWindow()
+    RegisterLauncherEventHandlers()
+    SetTimer(HoverTimer, 30)
+    ShowLauncherWindow()
+
+    ; Start chat after the launcher is visible so it can attach to the painted window.
+    SetTimer(StartEmbeddedInGameChat, -75)
+    SetTimer(CleanupStaleLauncherData, -1000)
+    SetTimer(CheckForUpdateAvailability, -250)
+    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
+    LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
+}
+
+RequireLauncherAssets()
+{
     for asset in ["backgrounds\launcher.png", "controls\scroll-panel.png", "headings\quest.png",
         "headings\together.png", "controls\button.png", "backgrounds\character-book.png", "icons\tes3np.ico"]
     {
@@ -30,25 +59,24 @@ StartLauncher()
             ExitApp()
         }
     }
+}
+
+ConfigureLauncherTrayMenu()
+{
     A_TrayMenu.Add("Open Launcher", ShowLauncherWindow)
     A_TrayMenu.Default := "Open Launcher"
     A_TrayMenu.Add("Stop game recovery", StopGameRecovery)
     A_TrayMenu.Add("Enable / Disable Expansion Pack", ToggleExpansionPack)
     A_TrayMenu.Add("Open Expansion Pack Downloads", (*) => ShowTES3MPExpansionMismatchDialog("Browse"))
-    InitializeHappyHourJiub()
-    TraySetIcon(A_ScriptDir "\assets\icons\tes3np.ico")
-    A_IconTip := "tes3np - Nerevarine Prophecies Launcher"
-    LoadLauncherScale()
-    InitializeLauncherMorrowindFont()
-    ; Load saved characters before constructing launch controls.
-    LoadProfiles()
-    TrimStoredDiagnosticLogs()
-    SanitizeExistingDiagnosticLogs()
-    ; Recover a saved custom-client swap before launch buttons are available.
-    RecoverCustomClientOverrides()
+}
+
+BuildLauncherWindow()
+{
+    global LauncherGui, LauncherVersionLabel, LauncherSettingsButton
+    global LauncherExpansionToggle, LauncherUpdateButton
+
     LauncherGui := Gui("-Caption -Border", A_IconTip)
-    ; Set WS_CLIPCHILDREN before the launcher is ever shown. ChatHost is a
-    ; native child HWND; parent background painting must not overwrite it.
+    ; WS_CLIPCHILDREN keeps launcher repaints from drawing over the embedded chat window.
     styleGetter := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
     styleSetter := A_PtrSize = 8 ? "SetWindowLongPtrW" : "SetWindowLongW"
     launcherStyle := DllCall("user32\" styleGetter, "Ptr", LauncherGui.Hwnd, "Int", -16, "Ptr")
@@ -60,21 +88,24 @@ StartLauncher()
     LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
     LauncherSettingsButton := AddStyledButton(LauncherGui, 820, 684, 140, 32, "Launcher Settings", OpenLauncherSettingsV016)
-    ; Restore the original upper-left global Expansion Pack switch.
-    ; Discord downloads now live inside the plugin-mismatch dialog only.
     LauncherExpansionToggle := AddStyledButton(LauncherGui, 0, 0, 190, 27, "Expansion Pack: Disabled", ToggleExpansionPack)
     RefreshExpansionPackToggle()
-    ; Update notification replaces the version label in the lower-left frame.
+    ; The update button shares the version label's space.
     LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
     LauncherUpdateButton.Visible := false
     CreateLauncherChatToggle()
-    ; Register Jiub's transparent Happy Hour expression as a NORMAL child
-    ; control before capturing layout, so dragging/scaling stays synchronous.
+    ; Include Jiub in the layout snapshot so it scales with the other controls.
     CreateHappyHourJiub()
     CaptureLauncherControlLayout()
     ApplyAccessibilityTextSize()
     ApplyEnhancedReadability()
     InitializeV016UiRefinements()
+}
+
+RegisterLauncherEventHandlers()
+{
+    global LauncherGui
+
     OnMessage(0x0201, HandleMouseDown)
     OnMessage(0x0202, ReleaseButton)
     OnMessage(0x0100, HandleThemedButtonKey)
@@ -84,21 +115,6 @@ StartLauncher()
     LauncherGui.OnEvent("Close", QuitLauncher)
     OnExit(GuardPatchExit)
     OnExit(CleanupLauncher)
-    global SelectedProfile, Profiles
-    SetTimer(HoverTimer, 30)
-    ShowLauncherWindow()
-    ; Start the embedded HWND only after the layered launcher has been shown
-    ; and its first paint has completed. Previously it was parented while hidden.
-    SetTimer(StartEmbeddedInGameChat, -75)
-    SetTimer(CleanupStaleLauncherData, -1000)
-    ; Expansion Pack setup is optional; never run patch verification at startup.
-    SetTimer(CheckForUpdateAvailability, -250)
-    ; The only optional first-launch prompt is the one-time desktop
-    ; shortcut choice, shown AFTER the launcher is visible and painted.
-    ; Missing GOTY remains a game-launch action; Discord authentication
-    ; remains a Game Chat / Expansion Pack action. Do not stack them at startup.
-    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
-    LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
 
