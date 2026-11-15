@@ -44,11 +44,12 @@ Write-Host 'PASS: verified update is staged and installed only after separate co
 
 $entry = Get-Content -LiteralPath 'tes3np.ahk' -Raw -Encoding UTF8
 $builder = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
-$startup = '(?m)^updateStateFile := GetPendingUpdateStateFile\(\)\r?\nif updateStateFile = ""\r?\n    RecoverInterruptedLauncherUpdate\(\)\r?\nStartLauncher\(\)\r?\nif updateStateFile != ""\r?\n    ConfirmUpdatedLauncherStartup\(updateStateFile\)$'
+$startup = '(?m)^updateStateFile := GetPendingUpdateStateFile\(\)\r?\n(?:\r?\n|;[^\r\n]*\r?\n)*; @bundled-resource-setup@\r?\n\r?\nif updateStateFile = ""\r?\n    RecoverInterruptedLauncherUpdate\(\)\r?\nStartLauncher\(\)\r?\nif updateStateFile != ""\r?\n    ConfirmUpdatedLauncherStartup\(updateStateFile\)$'
 if ($entry -notmatch $startup -or
     $entry -notmatch 'FileRead\(stateFile, "UTF-8"\)' -or
     $entry -notmatch 'lines\[2\] != "State=AWAITING_CONFIRMATION" \|\| lines\[3\] != "Version=" AppConfig\.Version' -or
-    -not $builder.Contains('PrepareBundledResources()`nif updateStateFile')) {
+    -not $builder.Contains('$resourceSetupMarker = ''; @bundled-resource-setup@''') -or
+    $builder -notmatch 'PrepareBundledResources\(\)\r?\nif A_Args\.Length && A_Args\[1\] = "--check-resources"') {
     throw 'Update acknowledgement must follow resource extraction and successful launcher startup.'
 }
 $worker = Get-Content -LiteralPath 'scripts/tes3np-updater.ps1' -Raw -Encoding UTF8
