@@ -112,7 +112,7 @@ OpenCharacterPage(*)
         SetInterfaceLoadingText("Loading Edit button " index "...")
         edit := AddStyledButton(CharacterPage, 300, y, 60, 22, "Edit", EditVisibleProfile.Bind(index))
         SetInterfaceLoadingText("Loading Remove button " index "...")
-        remove := AddStyledButton(CharacterPage, 370, y, 70, 22, "Remove", RemoveVisibleProfile.Bind(index))
+        remove := AddStyledButton(CharacterPage, 365, y, 75, 22, "Remove", RemoveVisibleProfile.Bind(index))
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
@@ -186,15 +186,14 @@ RefreshProfiles()
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
-        ; Keep the approved character action stack after every refresh/import.
-        ; Keep Add Character directly above Wipe Character List.
+        ; Use the same gap below Add character in both list states.
         actionY := Profiles.Length ? 540 : 164
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
         CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
         transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : 220
+        transferY := Profiles.Length ? 575 : actionY + 35
         ; Preserve the original wide Import Data layout and compact Export Data
         ; layout. MoveStyledButton updates both the native control and its painted
         ; face; do not change position or dimensions independently.
