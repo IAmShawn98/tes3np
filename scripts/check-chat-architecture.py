@@ -275,7 +275,22 @@ expect(
     "channelReloadAfterSignInPending = true;" in source
     and "channelReloadAfterSignInPending = false;" in source
     and "web.CoreWebView2.Reload();" in source
-    and "bool keepChatVisible = discordSignInRequested && showChatAfterDiscordSignIn" in source,
+    and "bool keepChatVisible = discordSignInRequested &&" in source
+    and 'path is "/quest-home" or "/quests" or "/shop" or "/store"' in source
+    and in_order(
+        section_between(source, "        async Task CheckDiscordAuthentication()", "        async Task StyleDiscordLogin()"),
+        "IsDiscordAppRoute(url)",
+        "RestoreGameChatAfterSignIn();",
+        "core.Navigate(Channel);",
+        "web.CoreWebView2.Reload();",
+        "discordChannelReady = true;",
+    )
+    and in_order(
+        section_between(source, "        void RestoreGameChatAfterSignIn()", "        async Task UpdateViewMode()"),
+        "web.Visible = false;",
+        "web.Parent = chatViewport;",
+        "ShowConnectingChat();",
+    ),
 )
 
 expect(
@@ -523,7 +538,14 @@ expect(
     "User-approved first enable offers an automatic official ZIP and local repair fallback",
     'ShowExpansionInstallPrompt()' in patcher
     and 'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
-    and 'Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.' in patcher
+    and '"Download and Install"' in patcher
+    and '"Choose ZIP or Folder"' in patcher
+    and in_order(expansion_toggle_action, "ShowExpansionInstallPrompt()", "PrepareExpansionOpenMWConfiguration(cfg, morrowind)")
+    and in_order(
+        expansion_upload,
+        "PrepareExpansionOpenMWConfiguration(config, morrowind)",
+        "StartExpansionImportWorker(package, morrowind, config, package)",
+    )
     and 'CloseExpansionInstallPrompt.Bind(prompt, "Download")' in patcher
     and 'CloseExpansionInstallPrompt.Bind(prompt, "Cancel")' in patcher
     and 'RequestDiscordExpansionPrompt(1)' in patcher
@@ -1746,7 +1768,9 @@ expect(
         "if !EnsureMorrowindForGameLaunch()",
         "StartProfileSession(profile, executable)",
     )
-    and "FindMorrowindFolder(PatchConfigurationPath())" in patcher,
+    and "FindMorrowindFolder(PatchConfigurationPath())" in patcher
+    and "EnsureOpenMWConfiguration(DefaultOpenMWConfigurationPath(), found)" in patcher
+    and "CheckFirstRunOpenMWConfiguration()" in launcher_smoke_tests,
 )
 expect(
     "Expansion Pack Enabled requires real nonempty ESP and current load-order entry",

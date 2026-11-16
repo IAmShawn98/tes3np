@@ -108,48 +108,25 @@ InstallSelectedExpansionPackage(package, autoApproved := false)
         return
     }
     config := PatchConfigurationPath()
-    ; A downloaded package is not permission to bypass GOTY validation.
     ; Morrowind may have been removed while Discord was downloading.
-    if FindMorrowindFolder(config) = ""
-    {
-        DeferExpansionInstallForMissingMorrowind(package, autoApproved)
-        return
-    }
-    if !FileExist(config)
-    {
-        config := FileSelect(1, , "Select the active OpenMW configuration", "OpenMW configuration (*.cfg)")
-        if config = ""
-            return
-    }
-    SplitPath(config, &configName)
-    if StrLower(configName) != "openmw.cfg"
-    {
-        MsgBox("Choose your active openmw.cfg file, not another configuration file.", "Expansion Pack", "Icon!")
-        return
-    }
     morrowind := FindMorrowindFolder(config)
     if morrowind = ""
     {
         DeferExpansionInstallForMissingMorrowind(package, autoApproved)
         return
     }
-    morrowind := RTrim(morrowind, "\/")
-    SplitPath(morrowind, &selectedName, &parent)
-    if StrLower(selectedName) = "data files"
-        morrowind := parent
-    for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
-    {
-        if !FileExist(morrowind "\Data Files\" master)
-        {
-            MsgBox("The selected Morrowind installation is missing " master ".", "Expansion Pack", "Icon!")
-            return
-        }
-    }
     if !autoApproved && MsgBox("Install the selected NP Expansion Pack into this Morrowind installation?"
         . Chr(10) Chr(10) "Existing files will be backed up before being replaced. "
         . "Choose only downloads from the official Nerevarine Prophecies Discord server. "
         . "TES3NP cannot guarantee the download matches the live server.", "Upload Expansion", "YesNo Icon?") != "Yes"
         return
+    config := PrepareExpansionOpenMWConfiguration(config, morrowind)
+    if config = ""
+    {
+        if autoApproved
+            try FileDelete(package)
+        return
+    }
     ShowLauncherWindow(true)
     if autoApproved
     {

@@ -97,10 +97,83 @@ FindMorrowindFolder(config)
     return ""
 }
 
+DefaultOpenMWConfigurationPath() => A_MyDocuments "\My Games\OpenMW\openmw.cfg"
+
 PatchConfigurationPath()
 {
     global DataFile
-    return IniRead(DataFile, "Patch", "ConfigFile", A_MyDocuments "\My Games\OpenMW\openmw.cfg")
+    return IniRead(DataFile, "Patch", "ConfigFile", DefaultOpenMWConfigurationPath())
+}
+
+CreateVanillaOpenMWConfiguration(config, morrowind)
+{
+    if DirExist(config)
+        throw Error("The OpenMW configuration path is a folder.")
+    if FileExist(config)
+        return
+    SplitPath(config, , &folder)
+    dataPath := StrReplace(RTrim(morrowind, "\/") "\Data Files", "\", "/")
+    dataPath := StrReplace(StrReplace(dataPath, "@", "@a"), "#", "@h")
+    contents := 'data="' dataPath '"`r`n'
+    for master in ["Morrowind", "Tribunal", "Bloodmoon"]
+    {
+        contents .= "fallback-archive=" master ".bsa`r`n"
+            . "content=" master ".esm`r`n"
+    }
+
+    ; Publish a complete first-run config without replacing one created by OpenMW.
+    temp := config "." NewLauncherFileId() ".tmp"
+    try
+    {
+        DirCreate(folder)
+        FileAppend(contents, temp, "UTF-8-RAW")
+        FileMove(temp, config, false)
+    }
+    catch Error as err
+    {
+        if !FileExist(config) || DirExist(config)
+            throw err
+    }
+    finally
+    {
+        if FileExist(temp)
+            try FileDelete(temp)
+    }
+}
+
+EnsureOpenMWConfiguration(config, morrowind)
+{
+    try CreateVanillaOpenMWConfiguration(config, morrowind)
+    catch Error as err
+    {
+        LogLauncherEvent("SETUP | Could not create the OpenMW configuration (" Type(err) ").")
+        MsgBox("TES3NP could not create the OpenMW configuration for Morrowind GOTY."
+            . "`n`nMake sure this location is writable, then try again.`n" config,
+            "Morrowind GOTY Setup", "Icon!")
+        return false
+    }
+    return true
+}
+
+PrepareExpansionOpenMWConfiguration(config, morrowind)
+{
+    if !FileExist(config) && config != DefaultOpenMWConfigurationPath()
+    {
+        if MsgBox("TES3NP could not find your saved OpenMW configuration.`n`n"
+            . "Choose the openmw.cfg that TES3MP uses to manage the Expansion Pack load order.",
+            "Locate OpenMW Configuration", "YesNo Icon?") != "Yes"
+            return ""
+        config := FileSelect(1, , "Locate your OpenMW configuration", "OpenMW configuration (*.cfg)")
+        if config = ""
+            return ""
+    }
+    SplitPath(config, &configName)
+    if StrLower(configName) != "openmw.cfg" || DirExist(config)
+    {
+        MsgBox("Choose the openmw.cfg file that TES3MP uses.", "Expansion Pack", "Icon!")
+        return ""
+    }
+    return EnsureOpenMWConfiguration(config, morrowind) ? config : ""
 }
 
 UpdatePatchProgress(label, percent)
@@ -549,33 +622,26 @@ ApplyExpansionPackToggle(checked := false)
         CheckFirstRunMorrowind(true)
         return
     }
-    ; Offer a direct OpenMW configuration picker if the game itself exists.
-    if !FileExist(cfg)
-    {
-        selectedConfig := FileSelect(1, , "Choose your active OpenMW configuration", "OpenMW configuration (*.cfg)")
-        if selectedConfig = ""
-            return
-        SplitPath(selectedConfig, &configName)
-        if StrLower(configName) != "openmw.cfg"
-        {
-            MsgBox("Choose the active openmw.cfg file.", "Expansion Pack", "Icon!")
-            return
-        }
-        cfg := selectedConfig
-        IniWrite(cfg, DataFile, "Patch", "ConfigFile")
-        morrowind := FindMorrowindFolder(cfg)
-        enable := !ExpansionPackInLoadOrder(cfg)
-    }
-    ; Installed packs may live under Morrowind or any configured OpenMW data folder.
-    ; Never copy retired bundled Expansion Pack assets.
     if checked && !enable
         return
-    if enable && !checked && ExpansionPackEspPaths(morrowind, cfg).Length
+    if enable && !checked && FileExist(cfg) && ExpansionPackEspPaths(morrowind, cfg).Length
         && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
         return
     if enable && !ExpansionPackInstalled(morrowind, cfg)
     {
         ShowExpansionInstallPrompt()
+        return
+    }
+    originalConfig := cfg
+    cfg := PrepareExpansionOpenMWConfiguration(cfg, morrowind)
+    if cfg = ""
+        return
+    if cfg != originalConfig
+    {
+        IniWrite(cfg, DataFile, "Patch", "ConfigFile")
+        RefreshExpansionPackToggle()
+        if !ExpansionPackInLoadOrder(cfg)
+            ApplyExpansionPackToggle()
         return
     }
     action := enable ? "Enable" : "Disable"
@@ -683,10 +749,12 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     else
     {
         prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
-            "Click yes to automatically download and install the latest and greatest expansion pack listed on Discord.")
-        AddStyledButton(prompt, 144, 189, 180, 38, "Yes",
+            "Download and install the official Expansion Pack from Discord, or choose a ZIP or extracted folder you already downloaded.")
+        AddStyledButton(prompt, 30, 189, 226, 38, "Download and Install",
             CloseExpansionInstallPrompt.Bind(prompt, "Download"))
-        AddStyledButton(prompt, 356, 189, 180, 38, "No",
+        AddStyledButton(prompt, 271, 189, 220, 38, "Choose ZIP or Folder",
+            CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
+        AddStyledButton(prompt, 506, 189, 144, 38, "Cancel",
             CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
     }
     prompt.OnEvent("Close", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
@@ -711,6 +779,8 @@ CloseExpansionInstallPrompt(prompt, action := "Cancel", *)
         LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
         RequestDiscordExpansionPrompt(1)
     }
+    else if action = "Upload"
+        UploadExpansionFromFile()
 }
 
 ; A failed Discord transfer (or failed automatic import) must never trap the
@@ -824,7 +894,7 @@ CheckFirstRunMorrowind(resumeExpansion := false, *)
     prompt.Add("Text", "x30 y26 w620 h40 BackgroundTrans", "Morrowind Installation Not Found")
     prompt.SetFont("s10 Norm cEDE1C9", "Segoe UI")
     prompt.Add("Text", "x30 y85 w620 h135 BackgroundTrans",
-        "You must locate, install and choose the valid file path of your legally purchased copy of Morrowind in order to play Nerevarine Prophecies. Please install Morrowind, then, click 'Choose Morrowind Folder' and locate your installation path to continue.")
+        "TES3MP needs a legally purchased copy of Morrowind Game of the Year Edition (GOTY), or Morrowind with both Tribunal and Bloodmoon installed. Install the game if needed, then choose the folder that contains Data Files.")
     choose := AddStyledButton(prompt, 30, 268, 392, 42, "Choose Morrowind Folder",
         (*) => SelectFirstRunMorrowind(prompt))
     later := AddStyledButton(prompt, 438, 268, 212, 42, "Not Now",
@@ -843,9 +913,11 @@ EnsureMorrowindForGameLaunch()
     if found != ""
     {
         IniWrite(found, DataFile, "Patch", "MorrowindFolder")
+        if IniRead(DataFile, "Launch", "ClientMode", "Bundled") = "Bundled"
+            return EnsureOpenMWConfiguration(DefaultOpenMWConfigurationPath(), found)
         return true
     }
-    LogLauncherEvent("GAME | BLOCKED | Morrowind GOTY data missing; opening folder chooser.")
+    LogLauncherEvent("GAME | BLOCKED | Morrowind GOTY data missing; opening setup prompt.")
     CheckFirstRunMorrowind()
     return false
 }

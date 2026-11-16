@@ -1191,6 +1191,9 @@ metrics();
         bool freshDiscordProfile;
         bool discordLoginVisible;
         bool discordSignInRequested;
+        bool checkingDiscordAuthentication;
+        ulong discordNavigationId;
+        bool discordNavigationInProgress;
         Form? discordSignInWindow;
         bool showChatAfterDiscordSignIn;
         string? discordIntegrationLogoDataUrl;
@@ -2547,6 +2550,7 @@ metrics();
                 {
                     nativeMode = true;
                     connectingChat = false;
+                    if (chatOpen) lastChatActivity = DateTime.Now;
                     web.Visible = false;
                     chatViewport.Visible = false;
                     // Sign-in hides the renderer's parent AND the real scrollbar.
@@ -3095,7 +3099,17 @@ metrics();
                         }
                         catch (Exception ex) { Log("Discord cancellation: " + ex.GetType().Name); }
                     };
-                    web.CoreWebView2.NavigationCompleted += async (_, _) => await UpdateViewMode();
+                    web.CoreWebView2.NavigationStarting += (_, e) =>
+                    {
+                        discordNavigationId = e.NavigationId;
+                        discordNavigationInProgress = true;
+                    };
+                    web.CoreWebView2.NavigationCompleted += async (_, e) =>
+                    {
+                        if (e.NavigationId != discordNavigationId) return;
+                        discordNavigationInProgress = false;
+                        await UpdateViewMode();
+                    };
                     web.CoreWebView2.SourceChanged += async (_, _) => await UpdateViewMode();
                     web.CoreWebView2.NewWindowRequested += (_, e) =>
                     {
@@ -3155,7 +3169,8 @@ metrics();
                 await RefreshNativeMessages();
                 if (closingChat || IsDisposed) return;
                 PositionChatWindows();
-                if (pendingExpansionPrompt == 0 && !discordLoginVisible && chatDisplayMode == "Automatic" && chatOpen &&
+                if (pendingExpansionPrompt == 0 && !discordLoginVisible && !connectingChat &&
+                    chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
                     !Bounds.Contains(Cursor.Position))
                     SetChatOpen(false);
@@ -3261,23 +3276,34 @@ metrics();
             waitingForLiveFeedAfterHistory = false;
         }
 
+        static bool IsDiscordAppRoute(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                uri.Scheme != Uri.UriSchemeHttps || uri.Host != "discord.com") return false;
+            string path = uri.AbsolutePath.TrimEnd('/');
+            return path.StartsWith("/channels/", StringComparison.OrdinalIgnoreCase) ||
+                path is "/quest-home" or "/quests" or "/shop" or "/store";
+        }
+
         async Task CheckDiscordAuthentication()
         {
-            if (web.CoreWebView2 == null || closingChat) return;
+            if (web.CoreWebView2 == null || closingChat || checkingDiscordAuthentication) return;
+            checkingDiscordAuthentication = true;
             try
             {
-                string url = web.CoreWebView2.Source ?? "";
+                var core = web.CoreWebView2;
+                string url = core.Source ?? "";
+                ulong navigationId = discordNavigationId;
                 bool onLogin = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                     || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
-                // A login URL is definitive, even while the login page's
-                // JavaScript/DOM is still mounting.
                 if (onLogin) {
                     SuspendHappyHourUntilDiscordReturns("sign-in URL");
                     ShowDiscordSignIn();
                     await StyleDiscordLogin();
                     return;
                 }
-                string state = await web.CoreWebView2.ExecuteScriptAsync(
+                if (discordNavigationInProgress) return;
+                string state = await core.ExecuteScriptAsync(
                     "(() => { if (document.readyState === 'loading') return 'loading'; " +
                     "if (document.querySelector('[data-list-id=chat-messages]')) return 'chat'; " +
                     "if (document.querySelector('input[type=password]')) return 'login'; " +
@@ -3285,35 +3311,8 @@ metrics();
                     "if (/Discord App Detected|Discord App Launched/i.test(t)) return 'app-prompt'; " +
                     "return 'pending'; })()");
                 if (closingChat || IsDisposed || web.CoreWebView2 == null ||
-                    !string.Equals(url, web.CoreWebView2.Source,
-                        StringComparison.OrdinalIgnoreCase)) return;
-                if (state == "\"chat\"" &&
-                    url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (discordLoginVisible)
-                    {
-                        RestoreGameChatAfterSignIn();
-                        if (channelReloadAfterSignInPending)
-                        {
-                            // Initial OAuth/login route can expose a partial
-                            // Discord channel DOM. One authenticated reload
-                            // completes the SPA handoff without relaunching
-                            // TES3NP or discarding its WebView2 session.
-                            channelReloadAfterSignInPending = false;
-                            Log("CHAT | First sign-in complete; reloading channel once to finish feed initialization");
-                            web.CoreWebView2.Reload();
-                            return;
-                        }
-                    }
-                    if (!discordChannelReady) {
-                        discordChannelReady = true;
-                        Log("CHAT | Authenticated Discord Game Chat ready; " +
-                            "starting live history discovery");
-                        BeginHappyHourDiscovery();
-                    }
-                    CompletePendingExpansionPrompt();
-                    return;
-                }
+                    navigationId != discordNavigationId || discordNavigationInProgress ||
+                    !string.Equals(url, core.Source, StringComparison.OrdinalIgnoreCase)) return;
                 if (state == "\"login\"") {
                     SuspendHappyHourUntilDiscordReturns("Discord login form");
                     ShowDiscordSignIn();
@@ -3323,24 +3322,48 @@ metrics();
                     SuspendHappyHourUntilDiscordReturns("Discord desktop-app prompt");
                     ShowDiscordSignIn();
                     Log("Discord desktop-app prompt detected; navigating to browser sign-in");
-                    web.CoreWebView2.Navigate("https://discord.com/login");
+                    core.Navigate("https://discord.com/login");
                     return;
                 }
-                if (discordChannelReady &&
-                    !url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase))
+                bool onChannel = string.Equals(url.TrimEnd('/'), Channel, StringComparison.OrdinalIgnoreCase);
+                if (!onChannel)
                     SuspendHappyHourUntilDiscordReturns("navigated away from Game Chat");
-                // After authentication Discord may land on its home page,
-                // not the server channel. Redirect once to the configured feed.
-                if (discordLoginVisible &&
-                    url.StartsWith("https://discord.com/channels/", StringComparison.OrdinalIgnoreCase) &&
-                    !url.StartsWith(Channel, StringComparison.OrdinalIgnoreCase) &&
-                    state != "\"loading\"")
+                // Discord can return the login browser to Home, Quests or Shop.
+                // Move it out of the sign-in card before opening the chat route.
+                if (discordLoginVisible && state != "\"loading\"" && IsDiscordAppRoute(url))
                 {
-                    Log("Discord signed in; opening Game Chat channel");
-                    web.CoreWebView2.Navigate(Channel);
+                    RestoreGameChatAfterSignIn();
+                    if (!onChannel)
+                    {
+                        Log("Discord sign-in returned to the app; opening Game Chat channel");
+                        core.Navigate(Channel);
+                        return;
+                    }
                 }
+                if (!onChannel || state == "\"loading\"") return;
+                if (channelReloadAfterSignInPending)
+                {
+                    // The first channel document after login can mount without a feed.
+                    channelReloadAfterSignInPending = false;
+                    Log("CHAT | First sign-in complete; reloading channel once to finish feed initialization");
+                    web.CoreWebView2.Reload();
+                    return;
+                }
+                if (state != "\"chat\"") return;
+                if (!discordChannelReady) {
+                    discordChannelReady = true;
+                    Log("CHAT | Authenticated Discord Game Chat ready; starting live history discovery");
+                    BeginHappyHourDiscovery();
+                    if (discordSignInRequested && pendingExpansionPrompt == 0)
+                    {
+                        discordSignInRequested = false;
+                        if (chatDisplayMode != "Always Hidden") SetChatOpen(true);
+                    }
+                }
+                CompletePendingExpansionPrompt();
             }
             catch (Exception ex) { Log("Discord auth check: " + ex.GetType().Name); }
+            finally { checkingDiscordAuthentication = false; }
         }
         // Keep Discord's own inputs and authentication handlers intact.
         async Task StyleDiscordLogin()
@@ -3822,10 +3845,12 @@ metrics();
             // DockToLauncher() reapplies the saved display mode and normally
             // hides Automatic chat; preserve the panel the user opened to
             // complete this sign-in instead of making it disappear.
-            bool keepChatVisible = discordSignInRequested && showChatAfterDiscordSignIn &&
+            bool keepChatVisible = discordSignInRequested &&
+                (pendingExpansionPrompt == 0 || showChatAfterDiscordSignIn) &&
                 chatDisplayMode != "Always Hidden";
             discordSignInRequested = false;
             discordLoginVisible = false;
+            web.Visible = false;
             web.Dock = DockStyle.None;
             web.Parent = chatViewport;
             if (discordSignInWindow is { IsDisposed: false } popup)
@@ -3853,7 +3878,7 @@ metrics();
             if (web.CoreWebView2 == null) return;
             Log("Navigation completed (Discord page changed).");
             await CheckDiscordAuthentication();
-            if (discordLoginVisible) return;
+            if (discordLoginVisible || !discordChannelReady) return;
             EnforceChatClip();
             await ApplyCss();
             await RefreshNativeMessages();
@@ -3967,10 +3992,14 @@ metrics();
                     case 1:
                         // An early manual click before WebView2 completes startup
                         // must still reveal login when the browser becomes ready.
-                        if (!discordChannelReady) discordSignInRequested = true;
                         if (discordLoginVisible)
                         {
                             ToggleGameChatDiscordSignIn();
+                            break;
+                        }
+                        if (!discordChannelReady && !connectingChat)
+                        {
+                            discordSignInRequested = !discordSignInRequested;
                             break;
                         }
                         if (chatOpen && pendingExpansionPrompt != 0)
