@@ -15,6 +15,8 @@ RunLauncherChecks(args)
                 ExitApp(225)
             if !CheckExpansionRecoveryLaunchGate()
                 ExitApp(226)
+            if !CheckFirstRunOpenMWConfiguration()
+                ExitApp(228)
             CheckCrashRecoveryProfiles()
         case "--check-expansion-ui":
             CheckExpansionProgressBindings()
@@ -74,6 +76,38 @@ CheckBackupExecutablePaths()
     }
     finally
         try FileDelete(settings)
+    return true
+}
+
+CheckFirstRunOpenMWConfiguration()
+{
+    root := A_Temp "\tes3np-openmw-check-" NewLauncherFileId()
+    config := root "\OpenMW\openmw.cfg"
+    morrowind := root "\Morrowind GOTY"
+    try
+    {
+        CreateVanillaOpenMWConfiguration(config, morrowind)
+        before := FileRead(config, "UTF-8")
+        expectedPath := StrReplace(StrReplace(StrReplace(morrowind, "\", "/"), "@", "@a"), "#", "@h")
+        expected := 'data="' expectedPath '/Data Files"'
+        for master in ["Morrowind", "Tribunal", "Bloodmoon"]
+            expected .= "`r`nfallback-archive=" master ".bsa`r`ncontent=" master ".esm"
+        if RTrim(before, "`r`n") != expected || ExpansionPackInLoadOrder(config)
+            throw Error("First-run OpenMW configuration must load only Morrowind GOTY.")
+
+        FileAppend("content=NP Expansion Pack.esp`r`n", config, "UTF-8-RAW")
+        before := FileRead(config, "UTF-8")
+        CreateVanillaOpenMWConfiguration(config, root "\Another Installation")
+        if FileRead(config, "UTF-8") != before || !ExpansionPackInLoadOrder(config)
+            throw Error("First-run setup must preserve an existing OpenMW configuration.")
+    }
+    catch Error as err
+    {
+        try FileAppend(err.Message "`n", "**")
+        return false
+    }
+    finally
+        try DirDelete(root, true)
     return true
 }
 
