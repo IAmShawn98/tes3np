@@ -561,12 +561,20 @@ expect(
     and '!discordChannelReady || discordLoginVisible' in source
     and 'IsOfficialExpansionDownloadUrl(expansionPublishedZipUrl)' in source,
 )
+first_install_prompt = section_between(patcher, "    else\n    {\n        prompt.Add(\"Text\", \"x30 y89", '    prompt.OnEvent("Close", CloseExpansionInstallPrompt')
 expect(
-    "First-enable download uses a titlebarless gold card with only Yes/No",
+    "First-enable download uses a gold card with automatic and local install options",
     'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
     and 'ShowGoldNativePrompt(prompt)' in patcher
-    and 'AddStyledButton(prompt, 144, 189, 180, 38, "Yes",' in patcher
-    and 'AddStyledButton(prompt, 356, 189, 180, 38, "No",' in patcher
+    and in_order(
+        first_install_prompt,
+        '"Download and Install"',
+        'CloseExpansionInstallPrompt.Bind(prompt, "Download")',
+        '"Choose ZIP or Folder"',
+        'CloseExpansionInstallPrompt.Bind(prompt, "Upload")',
+        '"Cancel"',
+        'CloseExpansionInstallPrompt.Bind(prompt, "Cancel")',
+    )
     and 'YesNoCancel Icon?' not in patcher
     and 'choice := MsgBox("NP Expansion Pack is not installed."' not in patcher,
 )
