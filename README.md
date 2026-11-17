@@ -38,4 +38,6 @@ Click the version number in the bottom-left corner to review release notes and c
 
 ## Bug Reporting
 
+![TES3NP Report A Bug dialog with a description field, screenshot attachments, and Send Report button](docs/images/bug-report.webp)
+
 Open **Launcher Settings → Launcher Data → Report A Bug** to send a description, diagnostic logs, and optional screenshots.
