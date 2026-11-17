@@ -30,7 +30,7 @@ Requires **Windows 10 or 11 (64-bit)** and [**Morrowind GOTY**](https://en.uesp.
 
 If Game Chat isn’t working, check whether [Microsoft WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) is installed. It comes with Windows 11 and is already installed on most Windows 10 PCs.
 
-See the [player guide](docs/USER-GUIDE.md) for Game Chat setup, Expansion Pack installation, and moving your characters to another PC.
+See [player guide](docs/USER-GUIDE.md) for a more in-depth user guide.
 
 ## Update
 
