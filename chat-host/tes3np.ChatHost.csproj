@@ -9,5 +9,19 @@
   </PropertyGroup>
   <ItemGroup><Content Include="border-texture.b64;scrollbar-texture.b64" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="assets\DiscordInt.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
-  <ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3595.46" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3595.46" GeneratePathProperty="true" /></ItemGroup>
+  <Target Name="CopyChatHostNotices" AfterTargets="Publish" Condition="'$(SelfContained)' == 'true'">
+    <ItemGroup>
+      <_ChatCoreRuntimePack Include="@(ResolvedRuntimePack)" Condition="'%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.NETCore.App'" />
+      <_ChatDesktopRuntimePack Include="@(ResolvedRuntimePack)" Condition="'%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.WindowsDesktop.App'" />
+    </ItemGroup>
+    <Error Condition="'@(_ChatCoreRuntimePack)' == '' Or '@(_ChatDesktopRuntimePack)' == '' Or '$(PkgMicrosoft_Web_WebView2)' == ''"
+           Text="Could not resolve the runtime and WebView2 notices for the self-contained Chat Host." />
+    <Copy SourceFiles="@(_ChatCoreRuntimePack->'%(PackageDirectory)/LICENSE.TXT');@(_ChatCoreRuntimePack->'%(PackageDirectory)/THIRD-PARTY-NOTICES.TXT')"
+          DestinationFolder="$(PublishDir)licenses/DotNet" />
+    <Copy SourceFiles="@(_ChatDesktopRuntimePack->'%(PackageDirectory)/LICENSE')"
+          DestinationFolder="$(PublishDir)licenses/WindowsDesktop" />
+    <Copy SourceFiles="$(PkgMicrosoft_Web_WebView2)/LICENSE.txt;$(PkgMicrosoft_Web_WebView2)/NOTICE.txt"
+          DestinationFolder="$(PublishDir)licenses/WebView2" />
+  </Target>
 </Project>

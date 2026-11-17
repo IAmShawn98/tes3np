@@ -11,7 +11,7 @@ selected for release.
 | Expansion Pack | The .21 source tree and build manifest exclude the original Expansion Pack. The launcher can import a pack obtained from the official channel. Confirm the final ZIP excludes the historical payload. |
 | Modified TES3MP client | Verify the packaged source-built console client, corresponding source, and notices against the [client provenance record](MODIFIED-TES3MP-SOURCE-PROVENANCE.md). |
 | Launcher artwork, fonts, and documentation images | Match the [asset inventory](ASSETS.md) to the files in the .21 package and record the applicable licenses or permissions. |
-| Third-party components | Match the notices to the package, including TES3MP, CrabNet, AutoHotkey, the Chat Host runtime, and fonts. The source-built candidate includes CrabNet's pinned license. |
+| Third-party components | Match the notices to the final ZIP. The package checker requires the AutoHotkey and TES3MP notices. The self-contained Chat Host publishes license files from its resolved .NET, Windows Desktop, and WebView2 packages, and the ZIP checker requires those files. The source-built console client includes CrabNet's pinned license. |
 
 Record the reviewer, date, supporting permission or license, and exact
 ZIP SHA-256 when the .21 review is complete.
