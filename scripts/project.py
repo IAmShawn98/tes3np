@@ -308,15 +308,15 @@ def check(allow_missing_payload: bool = False) -> None:
         errors.append("Retired feature cleanup broke an active launcher/UI dependency.")
 
     # The retired executable textbox is gone. Selecting a game client is
-    # handled by the live Game Client Settings workflow, not by a stale GUI
+    # handled by the live TES3MP Setup workflow, not by a stale GUI
     # input. Protect that workflow and imported-pack persistence.
     client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
     client_contract = (
-        'AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Set Up a Custom Client", (*) => ConfigureCustomClientV016(menu))' in refinements
-        and 'AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in refinements
-        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP Client", (*) => RestoreBundledClientV016(menu))' in refinements
+        'AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Choose a Custom EXE", (*) => ConfigureCustomClientV016(menu))' in refinements
+        and 'AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Custom Setup", (*) => ActivateSavedCustomClientV016(menu))' in refinements
+        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP", (*) => RestoreBundledClientV016(menu))' in refinements
         and 'reactivate.Visible := saved' in refinements
         and 'reactivate.Enabled := saved' in refinements
         and 'restoreY := (saved ? 286 : 238) + textOffset' in refinements
@@ -325,7 +325,7 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in refinements
         and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in refinements
         and "InstallCustomClientOverrides(source, folder)" in refinements
-        and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in refinements
+        and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)' in refinements
         and 'OpenClientSelectionSettings(*)' in refinements
         and 'mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")' in client_settings
         and 'if mode = "CustomOverrides"' in client_settings
@@ -345,7 +345,7 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'FileMove(temporary, DataFile, true)' in portable_backup
     )
     if not client_contract:
-        errors.append("Live Game Client Settings, client executable resolution, or backup persistence was lost.")
+        errors.append("Live TES3MP Setup, client executable resolution, or backup persistence was lost.")
 
     # The Enhanced Readability control remains a live callback in Launcher
     # Settings. Its native label updater was incorrectly deleted in an audit;

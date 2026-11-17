@@ -195,7 +195,7 @@ OpenLauncherSettingsV016(*)
     AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
     AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)
+    AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)
     ; Restore the original full-width Close Settings button exactly as it
     ; appeared before the desktop-shortcut button divided this row.
     AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),
@@ -632,27 +632,27 @@ OpenClientSelectionSettings(*)
     ; launcher. A compact card is sized from its actual visible actions.
     ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
     initialHeight := saved ? 460 : 412
-    menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)
+    menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — TES3MP Setup", 680, initialHeight)
     menu.SetFont("s17 Bold cC5A45C", "Georgia")
-    heading := menu.Add("Text", "x30 y25 w620 BackgroundTrans +Wrap", "Game Client Settings")
+    heading := menu.Add("Text", "x30 y25 w620 BackgroundTrans +Wrap", "TES3MP Setup")
     heading.GetPos(, , , &headingHeight)
     activeY := Max(78, 25 + headingHeight + 8)
-    display := mode = "Bundled" ? "Using the included TES3MP client" : "Using your custom TES3MP client"
+    display := mode = "Bundled" ? "Using the included TES3MP setup" : "Using your custom TES3MP setup"
     menu.SetFont("s11 Bold cE7BE70", "Segoe UI")
     activeLabel := menu.Add("Text", "x30 y" activeY " w620 BackgroundTrans +Wrap", display)
     activeLabel.GetPos(, , , &activeHeight)
     detailsY := Max(115, activeY + activeHeight + 8)
     menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
     details := menu.Add("Text", "x30 y" detailsY " w620 BackgroundTrans +Wrap",
-        "Use the TES3MP client that comes with the launcher, or set up your own. "
-        . "You can switch back to the included client any time and use your saved custom setup again later.")
+        "Choose which copy of TES3MP opens when you launch the game. "
+        . "TES3NP comes with a setup that's ready to play.")
     textOffset := FitGameClientPromptCopyV016(menu, details, detailsY, 190)
-    customize := AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Set Up a Custom Client", (*) => ConfigureCustomClientV016(menu))
-    reactivate := AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))
+    customize := AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Choose a Custom EXE", (*) => ConfigureCustomClientV016(menu))
+    reactivate := AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Custom Setup", (*) => ActivateSavedCustomClientV016(menu))
     reactivate.Visible := saved
     reactivate.Enabled := saved
     restoreY := (saved ? 286 : 238) + textOffset
-    restore := AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP Client", (*) => RestoreBundledClientV016(menu))
+    restore := AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP", (*) => RestoreBundledClientV016(menu))
     menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
     statusY := (saved ? 339 : 291) + textOffset
     statusLabel := menu.Add("Text", "x30 y" statusY " w620 h48 BackgroundTrans +Wrap", "")
@@ -714,7 +714,7 @@ RestoreBundledClientV016(menu, *)
     global DataFile
     IniWrite("Bundled", DataFile, "Launch", "ClientMode")
     LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
-    UpdateGameClientFeedbackV016(menu, "Using the included TES3MP client", "Ready to play with the included client.")
+    UpdateGameClientFeedbackV016(menu, "Using the included TES3MP setup", "The included setup is ready to play.")
 }
 
 ActivateSavedCustomClientV016(menu, *)
@@ -724,7 +724,7 @@ ActivateSavedCustomClientV016(menu, *)
         return
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
     LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
-    UpdateGameClientFeedbackV016(menu, "Using your custom TES3MP client", "Saved custom client is ready to play.")
+    UpdateGameClientFeedbackV016(menu, "Using your custom TES3MP setup", "Your custom setup is ready to play.")
 }
 
 ConfigureCustomClientV016(menu, *)
@@ -735,14 +735,14 @@ ConfigureCustomClientV016(menu, *)
     SplitPath(source, &name)
     if StrLower(name) != "tes3mp.exe" || !FileExist(source)
     {
-        MsgBox("Select a file named tes3mp.exe.", "Game Client", "Icon!")
+        MsgBox("Select a file named tes3mp.exe.", "TES3MP Setup", "Icon!")
         return
     }
     ; Preserve the dependency workflow inside the same borderless,
-    ; changelog-style native card system as its parent Game Client Settings.
-    options := CreateGoldNativePrompt(menu, "Set Up Your Custom Client", 640, 382)
+    ; changelog-style native card system as its parent TES3MP Setup.
+    options := CreateGoldNativePrompt(menu, "Set Up Your Custom EXE", 640, 382)
     options.SetFont("s15 Bold cC5A45C", "Georgia")
-    heading := options.Add("Text", "x30 y22 w580 BackgroundTrans +Wrap", "Set Up Your Custom Client")
+    heading := options.Add("Text", "x30 y22 w580 BackgroundTrans +Wrap", "Set Up Your Custom EXE")
     heading.GetPos(, , , &headingHeight)
     detailsY := Max(72, 22 + headingHeight + 8)
     options.SetFont("s10 Norm cEDE1C9", "Segoe UI")
@@ -752,7 +752,7 @@ ConfigureCustomClientV016(menu, *)
     textOffset := FitGameClientPromptCopyV016(options, details, detailsY, 198)
     add := AddStyledButton(options, 30, 198 + textOffset, 580, 38, "Choose Folder With Extra Files",
         (*) => ChooseCustomDependencyFolderV016(menu, options, source))
-    skip := AddStyledButton(options, 30, 246 + textOffset, 580, 38, "Use Just My Custom Exe",
+    skip := AddStyledButton(options, 30, 246 + textOffset, 580, 38, "Use My Custom Exe",
         (*) => SaveCustomClientV016(menu, options, source, ""))
     cancel := AddStyledButton(options, 188, 317 + textOffset, 264, 38, "Cancel",
         (*) => CloseGoldNativePrompt(options))
@@ -764,7 +764,7 @@ ConfigureCustomClientV016(menu, *)
 ChooseCustomDependencyFolderV016(menu, options, source, *)
 {
     ; Use the modern Explorer-style picker, but select a folder rather than a file.
-    folder := FileSelect("D", , "Choose the folder with your custom client's extra files")
+    folder := FileSelect("D", , "Choose the folder with your custom EXE's extra files")
     if folder != ""
         SaveCustomClientV016(menu, options, source, folder)
 }
@@ -778,7 +778,7 @@ SaveCustomClientV016(menu, options, source, folder, *)
     IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
     LogLauncherEvent("GAME | Custom client configured | Additional dependencies: " (folder = "" ? "none" : "selected") ".")
     CloseGoldNativePrompt(options)
-    UpdateGameClientFeedbackV016(menu, "Using your custom TES3MP client", folder = ""
+    UpdateGameClientFeedbackV016(menu, "Using your custom TES3MP setup", folder = ""
         ? "Custom EXE saved with included files."
         : "Custom EXE and extra files saved.")
 }

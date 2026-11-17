@@ -21,7 +21,7 @@ If the server rejects a plugin/load-order mismatch, the existing **Plugins Don't
 
 ## Optional custom TES3MP client
 
-Open **Launcher Settings → Game Client Settings → Set Up a Custom Client** and select your `tes3mp.exe`. If it came with its own DLLs or other files, select **Choose Folder With Extra Files**. Select **Use Just My Custom Exe** to run your EXE with the files included with TES3NP. You can switch back with **Use Included TES3MP Client** and return to your saved setup with **Use Saved Custom Client**.
+Open **Launcher Settings → TES3MP Setup → Choose a Custom EXE** and select your `tes3mp.exe`. If it came with its own DLLs or other files, select **Choose Folder With Extra Files**. Select **Use My Custom Exe** to run your EXE with the files included with TES3NP. You can switch back with **Use Included TES3MP** and return to your saved setup with **Use Custom Setup**.
 
 ## Chat and prerequisites
 
