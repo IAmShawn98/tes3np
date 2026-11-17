@@ -12,9 +12,13 @@ Status: PENDING_CLEAN_MACHINE
   and isolated upgrade and rollback fixtures. The packaged markerless
   client printed `--help` with its matching DLLs.
 - The Chat Host built successfully with one `MSB3277` warning.
-- `--check-owned-menu-scaling` exited 217. This is the probe's exception
-  handler. The command captured the exit code, so the underlying exception
-  remains to be identified from a run with output redirected.
+- The first packaged `--check-owned-menu-scaling` invocation, with
+  unredirected output, exited 217. On retest with stdout and stderr
+  redirected, the same packaged EXE printed PASS for owner movement,
+  work-area bounds, 50–100% scaling, and font release. The source probe at
+  `8566ff7ac492b8a68d7b64ea7b19c3a554f44204` also printed PASS using the
+  package's AutoHotkey runtime. PowerShell did not print numeric exit codes
+  on the retest.
 
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
