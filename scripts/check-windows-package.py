@@ -22,6 +22,7 @@ REQUIRED_FILES = (
     "RELEASE_NOTES.md",
     GUIDE_FILE,
     "runtime/AutoHotkey64.exe",
+    "licenses/AutoHotkey/license.txt",
     "licenses/AutoHotkey/REDISTRIBUTION-NOTICE.txt",
     "client/tes3mp.exe",
     "client/tes3mp-client-default.cfg",
@@ -31,7 +32,13 @@ REQUIRED_FILES = (
     "chat-host/chat.ini",
     "chat-host/chat.css",
     "chat-host/assets/DiscordInt.png",
+    "chat-host/licenses/DotNet/LICENSE.TXT",
+    "chat-host/licenses/DotNet/THIRD-PARTY-NOTICES.TXT",
+    "chat-host/licenses/WindowsDesktop/LICENSE",
+    "chat-host/licenses/WebView2/LICENSE.txt",
+    "chat-host/licenses/WebView2/NOTICE.txt",
     "licenses/TES3MP/LICENSE",
+    "licenses/TES3MP/DejaVuFontLicense.txt",
     "licenses/TES3MP/REDISTRIBUTION-NOTICE.txt",
 )
 MINIMUM_SIZE = {
