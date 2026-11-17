@@ -243,6 +243,21 @@ function Start-UpdateFixtureServer([string]$Bundle, [string]$PortFile) {
     }
 }
 
+function Read-LegacyBridgeLogTail([string]$Path) {
+    $sharing = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
+    try {
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, $sharing)
+        try {
+            $null = $stream.Seek([Math]::Max(0L, $stream.Length - 65536L), [IO.SeekOrigin]::Begin)
+            $reader = [IO.StreamReader]::new($stream)
+            try { return $reader.ReadToEnd() }
+            finally { $reader.Dispose() }
+        }
+        finally { $stream.Dispose() }
+    }
+    catch [IO.IOException] { return '' }
+}
+
 function Invoke-InteractiveBridgeTest {
     if ([Environment]::UserName -ine $TestAccount) {
         throw "Run the bridge from the $TestAccount Windows account so it uses disposable profile data."
@@ -290,20 +305,27 @@ function Invoke-InteractiveBridgeTest {
         Write-Host "Running the v0.1.20-alpha bridge test from $install"
         Write-Host 'Use the normal update button and accept its download and install prompts. Keep this window open.'
 
-        $stateFile = Join-Path $updateTemp 'tes3np-update\update-state.ini'
+        $log = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'tes3np\launcher.log'
+        $workerStart = "UPDATE WORKER | START | Transactional updater started for v$($manifest.version). ParentPid=$($starter.Id)"
         $deadline = [DateTime]::UtcNow.AddMinutes(10)
+        # Leave update-state.ini entirely to the legacy worker and launcher.
+        # The old worker overwrites it in place and rolls back on a sharing error.
         while ([DateTime]::UtcNow -lt $deadline) {
-            if ([IO.File]::Exists($stateFile)) {
-                $state = @(Get-Content -LiteralPath $stateFile -ErrorAction SilentlyContinue)
-                if ($state -match '^State=(?:ROLLED_BACK|ROLLBACK_FAILED|FAILED)$') {
-                    throw "The legacy updater reported $($state -match '^State='). See $stateFile."
-                }
-                if ($starter.HasExited -and ($state -contains 'State=SUCCESS') -and ($state -contains "Version=$($manifest.version)")) {
-                    if ((Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash -ine $expectedHash) {
-                        throw 'Startup was confirmed, but the installed launcher hash differs from the candidate.'
+            if ($starter.HasExited) {
+                $trace = Read-LegacyBridgeLogTail $log
+                $startAt = $trace.LastIndexOf($workerStart, [StringComparison]::Ordinal)
+                if ($startAt -ge 0) {
+                    $workerTrace = $trace.Substring($startAt)
+                    if ($workerTrace -match '(?m)UPDATE WORKER \| STATE \| (ROLLED_BACK|ROLLBACK_FAILED|FAILED)\r?$') {
+                        throw "The legacy updater reported $($Matches[1]). See $log."
                     }
-                    Write-Host "PASS: v0.1.20-alpha discovered and installed v$($manifest.version). The candidate restarted, confirmed startup, and matched its expected executable hash." -ForegroundColor Green
-                    return
+                    if ($workerTrace.Contains('UPDATE WORKER | SUCCESS | Rollback backup removed; update transaction complete.')) {
+                        if ((Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash -ine $expectedHash) {
+                            throw 'Startup was confirmed, but the installed launcher hash differs from the candidate.'
+                        }
+                        Write-Host "PASS: v0.1.20-alpha discovered and installed v$($manifest.version). The candidate restarted, confirmed startup, and matched its expected executable hash." -ForegroundColor Green
+                        return
+                    }
                 }
             }
             Start-Sleep -Seconds 1
