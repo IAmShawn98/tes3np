@@ -31,8 +31,8 @@ Status: PENDING_CLEAN_MACHINE
 - The packaged source-built client printed `--help` with its matching
   DLLs. The tester confirmed the TES3NP launcher opened.
 - The Chat Host built with the existing WindowsBase `MSB3277` warning.
-  Game Chat runtime and Morrowind launch verification for this build
-  remain pending.
+- The tester confirmed that the Game Chat window worked and Morrowind
+  launched from TES3NP on this build.
 
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
