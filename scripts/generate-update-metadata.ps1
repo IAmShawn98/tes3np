@@ -24,7 +24,7 @@ if (-not $match.Success) {
 }
 
 $version = $match.Groups[1].Value.Trim()
-$versionPattern = '\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?<channel>alpha|beta)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z'
+$versionPattern = '\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?<channel>alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z'
 $parsedVersion = [regex]::Match($version, $versionPattern)
 if (!$parsedVersion.Success) {
     throw "Launcher version has an unexpected format: $version"

@@ -97,8 +97,10 @@ if (-not $buildScript.Contains("Copy-Item (Join-Path `$projectRoot 'RELEASE_NOTE
     throw 'Windows packages must include the player-facing release notes.'
 }
 $workflow = Get-Content -LiteralPath '.github/workflows/publish-alpha.yml' -Raw -Encoding UTF8
-if ($workflow -notmatch "Get-Content -LiteralPath 'RELEASE_NOTES\.md'" -or
-    $workflow -match "Get-Content[^\r\n]+['""]CHANGELOG\.md") {
+$publisher = Get-Content -LiteralPath 'scripts/publish-alpha.ps1' -Raw -Encoding UTF8
+if ($workflow -notmatch 'run: ./scripts/publish-alpha\.ps1' -or
+    $publisher -notmatch "Get-Content -LiteralPath 'RELEASE_NOTES\.md'" -or
+    $publisher -match "Get-Content[^\r\n]+['""]CHANGELOG\.md") {
     throw 'The alpha publish workflow must use the player-facing release notes.'
 }
 
@@ -125,7 +127,7 @@ foreach ($entry in $entries) {
         throw "Player-facing changelog entry must use a bold area label and an outcome: $entry"
     }
 }
-if ($playerNotes -notmatch 'Changes since the last public release, v\d+\.\d+\.\d+(?:-(?:alpha|beta)(?:\.\d+)?|\.\d+)?\.') {
+if ($playerNotes -notmatch 'Changes since the last public release, v\d+\.\d+\.\d+(?:-(?:alpha|beta|live)(?:\.\d+)?|\.\d+)?\.') {
     throw 'Release notes must identify the public comparison baseline.'
 }
 Write-Host 'PASS: matching player-facing notes, ordered categories, and release publishing source.'
@@ -153,13 +155,22 @@ Write-Host 'PASS: matching player-facing notes, ordered categories, and release 
             throw 'The exact hotfix tag did not return the matching changelog.'
         }
 
+        $responses['v1.0.0-live.1'] = @{
+            tag_name = 'v1.0.0-live.1'
+            body = "## v1.0.0-live.1`n`n### Bug Fixes`n- **Launcher:** Fixed startup."
+        }
+        & $helper -Version '1.0.0-live.1' -OutputPath $output
+        if ([IO.File]::ReadAllText($output) -ne "### Bug Fixes`n- **Launcher:** Fixed startup.") {
+            throw 'The live hotfix did not return its release notes.'
+        }
+
         $responses['v0.1.21.4'] = @{
             tag_name = 'v0.1.21.4'
             body = '### Historical notes'
         }
         & $helper -Version '0.1.21.4' -OutputPath $output
         if ([IO.File]::ReadAllText($output) -ne '### Historical notes') {
-            throw 'The live hotfix did not return its release notes.'
+            throw 'The older unsuffixed live tag did not return its release notes.'
         }
 
         $responses['v0.1.22-alpha.10'].body = "## v0.1.23-alpha`n`nWrong version."

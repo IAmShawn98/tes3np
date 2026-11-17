@@ -53,16 +53,17 @@ feed remain pending.
 
 ## Versioning
 
-tes3np uses Semantic Versioning rather than internal build numbers.
+TES3NP versions use three numeric components followed by the release channel.
 
 - `0.x.y-alpha` — active development; features and behavior may change.
 - `0.x.y-beta` — feature-complete enough for broader testing.
-- `0.x.y-rc.N` — release candidate undergoing final validation.
-- `1.0.0` — first stable public release.
+- `1.0.0-live` — first stable public release. Publish Live builds as
+  stable GitHub Releases.
 
 The canonical application version is `AppConfig.Version` in `src/state.ahk`.
 Git tags and GitHub Releases use the same version prefixed with `v`, for example
-`v0.1.0-alpha`.
+`v0.1.21-alpha` or `v1.0.0-live`. Append `.1`, `.2` and so on for
+hotfixes, for example `v1.0.0-live.1` and `v1.0.0-live.2`.
 
 ## October 29 provenance investigation for the previously supplied client
 
@@ -228,10 +229,8 @@ approval. Do not invent or pre-fill approvals.
 
 The new launcher reads `alpha.json`, `beta.json` or `live.json` from the
 `update-feed` branch of the development repository. The installed version
-determines the channel. Versions use `0.1.21-alpha`, `0.1.21-beta` or
-`0.1.21` for a feature build. Append `.1`, `.2` and so on to the full
-version for each published hotfix. The public release tag adds the leading
-`v`. Version numbers are compared numerically within the installed channel.
+determines the channel. Version numbers are compared numerically within the
+installed channel. Older unsuffixed Live versions remain readable.
 
 To generate a schema 2 candidate manifest and checksum after packaging,
 copy the validated ZIP to `tes3np-v<version>-windows.zip` and pass that
@@ -258,7 +257,8 @@ the filename, size and SHA-256 before staging. Generate with
    of `RELEASE_NOTES.md`, and only the versioned ZIP and checksum.
 3. After owner approval and the visibility change, run **Publish Alpha**
    from the current `main` with the draft tag and reviewed ZIP SHA-256.
-   The workflow validates the package and evidence, publishes the draft,
+   The workflow validates the package and evidence, publishes the draft
+   with its matching notes from `RELEASE_NOTES.md`,
    confirms that the tag resolves to the reviewed commit, and checks the
    public downloads before creating or updating `update-feed:alpha.json`.
    If the release publishes but feed verification fails, resolve the
