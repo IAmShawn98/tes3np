@@ -23,7 +23,8 @@ its matching DLLs. See the [Windows evidence record](CLEAN-WINDOWS-TEST-RESULTS.
 The old `patches/markerless/tes3mp.exe` in Git and in the published .20 ZIP
 has SHA-256 `0066f76fa8898180dfdf2897152b8c33b252fecbd64d206ac9b94d5c79dc9b81`.
 The older binary's exact source, build process, and modification authorship
-are still unverified. Review it separately before publicizing Git history.
+are still unverified. Its retained copy is part of the
+[historical repository visibility review](ASSET-DISTRIBUTION-APPROVAL.md#historical-20-release-and-repository-visibility).
 
 Complete this record using the exact Windows release ZIP. Record the source
 commit, ZIP SHA-256, package-check output, packaged EXE and DLL manifest,

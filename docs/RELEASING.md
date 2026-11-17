@@ -8,6 +8,7 @@ https://iamshawn98.github.io/tes3np/.
 
 `IAmShawn98/tes3np-releases` currently serves the temporary site and the
 public `latest-alpha` bridge used by installed v0.1.20-alpha launchers.
+Preserve the original .20 tag, versioned Windows ZIP, and checksum as shipped.
 Keep the old route and its versioned .20 download reachable until
 v0.1.22-alpha is publicly released and its update feed is verified.
 Publishing v0.1.21-alpha, making `tes3np` public, updating the legacy feed,
@@ -88,8 +89,7 @@ console candidate. Its exact corresponding source, build procedure and
 modification authorship remain unverified. The May 2023 Nerevarine
 Prophecies Discord post describes disabling remote map markers. Upstream
 TES3MP 0.8.1 and the public example patches document the baseline and
-possible implementation. The legacy binary still needs its own review
-before redistribution.
+possible implementation. This binary is part of the historical .20 release.
 
 The [original provenance investigation](https://github.com/IAmShawn98/tes3np/blob/aebc384e384a71daa4080fa8e69fbbcd9bcf1a82/docs/RELEASING.md#october-29-provenance-investigation-for-the-previously-supplied-client)
 records the supplied download, attribution, source comparison and limitations.
@@ -104,10 +104,9 @@ patches and build procedure, and `console-candidate.json` in that
 directory for its approved test EXE hash and DLL requirements. The
 release package checker verifies the EXE and the staged DLL manifest
 against the packaged source materials. Capture those results for the
-exact release ZIP in the formal provenance evidence. The previously
-supplied binary remains tracked at `patches/markerless/tes3mp.exe`.
-Before changing repository visibility, review that file and retained
-asset history as well as the contents of the Windows package.
+exact release ZIP in the formal provenance evidence. See the
+[asset review](ASSET-DISTRIBUTION-APPROVAL.md#historical-20-release-and-repository-visibility)
+for the separate repository visibility review.
 
 ## Release evidence gate
 
@@ -120,7 +119,7 @@ until three reviewed evidence files exist:
   author/source access and license notices; mark
   `Status: VERIFIED_SOURCE_AND_BUILD` only after verification.
 - `docs/ASSET-DISTRIBUTION-APPROVAL.md`: review ownership, redistribution
-  rights and all third-party notices; mark
+  scope, and third-party notices for the exact .21 release ZIP. Mark
   `Status: ASSET_RIGHTS_REVIEWED` only when confirmed.
 - `docs/CLEAN-WINDOWS-TEST-RESULTS.md`: actual fresh Windows machine/VM
   results with OS versions, packaged ZIP hash, prerequisites, user-level

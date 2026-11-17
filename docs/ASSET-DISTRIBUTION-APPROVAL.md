@@ -1,21 +1,29 @@
-# Asset distribution review
+# v0.1.21-alpha asset distribution review
 
 Status: PENDING_RIGHTS_REVIEW
 
-The Windows package and public Git refs both need review. The `.21` source
-tree excludes the original Expansion Pack. The `.20` source tag and the
-existing public `.20` Windows ZIP each contain 142 files under
-`patches/expansion-pack/`, including Learwolf's original [asset notice](https://github.com/IAmShawn98/tes3np/blob/a77a1fac99845be4954323220f46535079b390b1/patches/expansion-pack/LICENSE.txt).
-The notice limits the assets to the Nerevarine Prophecies ecosystem. The
-scope of permission for the historical source and downloadable archive still
-needs to be documented before making this repository public.
+This record covers the contents of the v0.1.21-alpha Windows ZIP.
+Review ownership, redistribution scope, and notices against the exact ZIP
+selected for release.
 
 | Material | Evidence and open review |
 | --- | --- |
-| Original Expansion Pack | Identify written permission covering the retained source and archived Windows ZIP, or keep the affected history private while resolving distribution. |
-| Legacy markerless executable | Present in Git history and the public `.20` ZIP. Review the older binary separately from the planned source-built payload. See [client provenance](MODIFIED-TES3MP-SOURCE-PROVENANCE.md). |
-| Launcher artwork and documentation screenshots | The [asset inventory](ASSETS.md) identifies the main artwork, icons, and font. Verify which files and historical versions can be published. |
-| Packaged third-party components | Match the licenses and notices to the exact ZIP, including TES3MP, CrabNet, AutoHotkey, the embedded Chat Host runtime, and fonts. The source-built package includes CrabNet's pinned license. |
+| Expansion Pack | The .21 source tree and build manifest exclude the original Expansion Pack. The launcher can import a pack obtained from the official channel. Confirm the final ZIP excludes the historical payload. |
+| Modified TES3MP client | Verify the packaged source-built console client, corresponding source, and notices against the [client provenance record](MODIFIED-TES3MP-SOURCE-PROVENANCE.md). |
+| Launcher artwork, fonts, and documentation images | Match the [asset inventory](ASSETS.md) to the files in the .21 package and record the applicable licenses or permissions. |
+| Third-party components | Match the notices to the package, including TES3MP, CrabNet, AutoHotkey, the Chat Host runtime, and fonts. The source-built candidate includes CrabNet's pinned license. |
 
-Record the reviewer, date, supporting permission or license, and the approved
-package and history scope here once reviewed.
+Record the reviewer, date, supporting permission or license, and exact
+ZIP SHA-256 when the .21 review is complete.
+
+## Historical .20 release and repository visibility
+
+Preserve the original .20 tag, versioned Windows ZIP, and checksum as shipped.
+The .20 source tag and the existing public .20 ZIP each contain 142 Expansion
+Pack files, including the original [asset notice](https://github.com/IAmShawn98/tes3np/blob/a77a1fac99845be4954323220f46535079b390b1/patches/expansion-pack/LICENSE.txt),
+alongside the legacy client. The unversioned legacy feed assets are the
+compatibility bridge for installing the approved .21 ZIP.
+
+Making the source repository public would expose retained source history and
+tags. Review what that visibility change exposes separately from the contents
+of the .21 release ZIP.
