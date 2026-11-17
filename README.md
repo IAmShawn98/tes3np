@@ -28,7 +28,9 @@ Requires **Windows 10 or 11 (64-bit)** and [**Morrowind GOTY**](https://en.uesp.
 2. Run `tes3np.exe`. If prompted, select your Morrowind GOTY folder.
 3. Open **Manage Characters** to save a character, or click **Start New Adventure** to log in manually.
 
-If Game Chat isn’t working, check whether [Microsoft WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) is installed. See the [player guide](docs/USER-GUIDE.md) for Game Chat setup, Expansion Pack installation, and moving your characters to another PC.
+If Game Chat isn’t working, check whether [Microsoft WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) is installed. It comes with Windows 11 and is already installed on most Windows 10 PCs.
+
+See the [player guide](docs/USER-GUIDE.md) for Game Chat setup, Expansion Pack installation, and moving your characters to another PC.
 
 ## Update
 
