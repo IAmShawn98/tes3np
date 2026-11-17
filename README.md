@@ -16,9 +16,7 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 
 ## Download
 
-The recommended way to download TES3NP is to open the [**TES3NP website**](https://iamshawn98.github.io/tes3np/) and click **Download for Windows**.
-
-You can also download the Windows ZIP from [**GitHub Releases**](https://github.com/IAmShawn98/tes3np/releases).
+Download the Windows ZIP from [**GitHub Releases**](https://github.com/IAmShawn98/tes3np/releases).
 
 ## Quick Start
 

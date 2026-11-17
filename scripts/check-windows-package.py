@@ -60,10 +60,11 @@ def check_console_client(archive: zipfile.ZipFile, root: Path, executable: bytes
 
     source_dir = "licenses/TES3MP/markerless-source/"
     for name in ("README.md", "build-markerless.ps1", "Restore-Markerless-Console.ps1",
-                 "tes3mp-0.8.1-markerless-experimental.patch", "tes3mp-release-console.patch"):
+                 "tes3mp-0.8.1-markerless-experimental.patch", "tes3mp-release-console.patch",
+                 "CrabNet-LICENSE.txt"):
         expected = (root / "research/markerless" / name).read_bytes().replace(b"\r\n", b"\n")
         if archive.read(members[(source_dir + name).casefold()]).replace(b"\r\n", b"\n") != expected:
-            raise ValueError(f"Packaged markerless source instructions or patch differ: {name}")
+            raise ValueError(f"Packaged markerless source material or notice differs: {name}")
 
     manifest = json.loads(archive.read(members[(source_dir + "client-files.json").casefold()]).decode("utf-8-sig"))
     listed = set()

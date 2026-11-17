@@ -2,7 +2,7 @@
 
 ## Install and update
 
-1. Download the Windows ZIP from the [TES3NP website](https://iamshawn98.github.io/tes3np/) or [GitHub Releases](https://github.com/IAmShawn98/tes3np/releases).
+1. Download the Windows ZIP from [GitHub Releases](https://github.com/IAmShawn98/tes3np/releases).
 2. On Windows 10 or 11 x64, extract the entire ZIP to a writable folder such as `Documents\TES3NP`. Keep `tes3np.exe` with the other extracted files.
 3. Run `tes3np.exe` as a standard user. When prompted for the game, select your Morrowind GOTY folder. It must contain `Data Files\Morrowind.esm` and both expansions, Tribunal and Bloodmoon.
 4. Open **Manage Characters** to save a profile, or use **Start New Adventure** to log in manually.
