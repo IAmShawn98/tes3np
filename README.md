@@ -36,8 +36,6 @@ The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 
 ## Update
 
-During the v0.1.21-alpha rollout, use the updater in your existing v0.1.20-alpha launcher to upgrade in place.
-
 Click the version number in the bottom left corner to check for updates. You can review the release notes before downloading and installing. Keep your `%APPDATA%\tes3np` folder so your characters and preferences carry over. If all you care about is your character list, simply click **Export Data** in **Manage Characters** and that should be good enough.
 
 ## Bug Reporting
