@@ -20,6 +20,20 @@ Status: PENDING_CLEAN_MACHINE
   package's AutoHotkey runtime. PowerShell did not print numeric exit codes
   on the retest.
 
+## November 17 developer rebuild with Chat Host notices
+
+- Source commit `cdca0fe7a9fe25d1ca038fecc99effdd04d74613`.
+- ZIP `dist/tes3np-windows.zip` with SHA-256
+  `0bdffb81715bdc4e66e0f46eab2a5b9aa6f7e62f05566597c11e5a1b26ed87b6`.
+- The Windows build, compiled `--check`, and ZIP verification with
+  `--require-console-client` passed. This package check includes the
+  required Chat Host license and notice files.
+- The packaged source-built client printed `--help` with its matching
+  DLLs. The tester confirmed the TES3NP launcher opened.
+- The Chat Host built with the existing WindowsBase `MSB3277` warning.
+  Game Chat runtime and Morrowind launch verification for this build
+  remain pending.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
