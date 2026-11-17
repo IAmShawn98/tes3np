@@ -160,48 +160,11 @@ notification is used.
 
 ## Validation before release
 
-Test on Windows with AutoHotkey v2:
-
-1. Fresh startup and startup with a saved default; tray access after quick launch.
-2. Add, edit, save, cancel, remove confirmation and the 10-character limit. Test all ten species in alphabetical order plus the final **Original Character** option. A readable PNG/JPG/JPEG/BMP (≤10 MB) of any reasonable dimensions must open the separate race chooser and be silently center-cropped and resized to a 512 × 512 PNG on character Save. Confirm the stored PNG dimensions and transparency, and that both non-square landscapes and portraits retain a centered subject without distortion. No resize notification should appear. The editor's main dropdown must switch from `Original Character` to the **actual selected race** immediately after the popup, with `Species: <race> | Change portrait` visible below it; reopening the editor must keep the race displayed while retaining the OC image. Clicking Change portrait must reopen the picker even though the main dropdown now shows a race. The Character Book must remain visible, enabled and foregrounded on Confirm, Cancel, X and Escape (never minimize or drop behind the launcher). The cosmetic species prompt must never override the selected OC portrait on the actual login card. Save and test the same character from Play, quick launch and sequential login, then reopen the editor to confirm persistence. Test rejection (corrupt or unsupported image, too-large file or decoded dimensions), picker/race-dialog cancel restoring the previous selection, changing back to stock species, editing an existing OC through the clickable `Species: ... | Change portrait` hint, new-character Save, restart, and missing-file fallback. Preserve auto-reconnect, expansion-pack settings, old character compatibility and real race through the portable backup round-trip (the v1 INI export does not carry image bytes).
-3. The first saved character must be automatically favorited and appear as the
-   main-page quick-launch target, including after restart. Clicking that
-   character's checked tick must not remove the only favorite. On the **first**
-   switch attempt, a Yes/No explanation must appear with No as the default:
-   No must leave both the old tick and persistent selection unchanged; Yes
-   must move the checkmark to exactly one new character and immediately
-   update the main-page quick-launch label. Both Yes and No acknowledge the
-   explanation, so later switches happen without a repeated popup, even after
-   restarting or restoring a backup. The Characters description uses the
-   existing compact 390x95 block at (70,80), with the 24-pixel-spaced list
-   beginning at y=180; do not add another text control or blank spacer.
-   Verify restart persistence, a legacy list/portable backup with Selected=0,
-   importing an existing selected character, deleting a nonfavorite,
-   deleting the favorite with survivors, removing the final character, and
-   per-row Play without altering the favorite.
-4. Login timings, terminal-only startup, process loss and reconnect on/off. Confirm each saved species uses its corresponding bundled ICO, and each Original Character uses its private local portrait. Verify a missing OC picture falls back to the species icon and consecutive logins switch portraits correctly. Test the production four-step gold-bordered card, split heading and centered favicon/name, animated ellipses, blue active exclamations, green completed checks and three-second dismissal after password input. Verify focus and minimized/inactive hiding, manual sequential launches up to four simultaneous clients, and a one-second saved LoadDelay.
-5. Confirm Manage Characters has no scheduler, Launch All & Close, or developer-preview controls; test the approved UI using a real per-character login. Verify no timer or automated game launch occurs while TES3NP is idle.
-6. Installed Macros: on the right Character Book page, verify the exact
-   empty-state text, and the same parchment-painted selectable buttons and
-   labels as the left character list. The legacy ListView may remain hidden
-   to preserve selection and process logic, but its opaque Windows table must
-   never be visible. With zero, one, and five macros, controls follow the last
-   row without large empty gaps; with six or more, Previous/Next page through
-   all installed entries. Verify selected gold outline, active Run/Stop/Remove
-   and Edit Keys, status updates, script/ZIP/EXE imports, and persistence after
-   reopening/restarting. Editing characters must hide these controls until
-   Save/Cancel; linked app removal never uninstalls it, and launcher exit does
-   not terminate linked apps. The main menu has no standalone Macros entry.
-   On first opening Manage Characters after launcher startup, verify that
-   the character editor and macro panel are initialized in the correct order:
-   no MacroList.GetNext() call may run on the zero integer placeholder.
-   Verify close/reopen and editor Save/Cancel restore the panel cleanly.
-7. Hover/press states, minimizing/restoring, dialogs and shutdown without artifacts or errors.
-7. Saved settings survive replacement of the application folder.
-
-Static checks alone do not validate Windows GUI behavior, game login acceptance or daily-point awards.
-
-Patching release checks are listed in [PATCHING.md](PATCHING.md). Menu availability uses freshly verified runtime state, not a stored completion flag alone. The patch worker owns file mutations; the GUI only reads its progress/result files. Progress uses the existing buffered loading card with measured percentages.
+Use the [Windows acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md)
+for interactive testing on the extracted build. Record the tested ZIP and
+outcomes there or in the corresponding release evidence. The automated
+source, packaging, and updater checks are available through the local
+regression runner below.
 
 ## Collaboration tooling
 

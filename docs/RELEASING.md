@@ -80,130 +80,20 @@ before advancing the matching channel manifest. The launcher stays on the
 installed build's channel, including after a Beta is promoted to Live.
 Players switch channels by installing a build from the channel they want.
 
-## October 29 provenance investigation for the previously supplied client
+## Previously supplied markerless client
 
-**Do not publish the modified markerless TES3MP executable yet.** The current
-build verifies its SHA-256 and bundles the upstream license, but this repository
-does not establish the exact corresponding source tree, modification diff, and
-reproducible build instructions for that *modified* executable. A link to
-unmodified upstream TES3MP is not enough by itself to document the changes.
+The legacy `patches/markerless/tes3mp.exe` is distinct from the source-built
+console candidate. Its exact corresponding source, build procedure and
+modification authorship remain unverified. The May 2023 Nerevarine
+Prophecies Discord post describes disabling remote map markers. Upstream
+TES3MP 0.8.1 and the public example patches document the baseline and
+possible implementation. The legacy binary still needs its own review
+before redistribution.
 
-Confirmed upstream download provenance (user supplied, October 29, 2026):
-the official Morrowind Multiplayer Steam group announcement of May 1,
-2022 links the **regular TES3MP 0.8.1 Windows client/server ZIP** to
-`https://github.com/TES3MP/TES3MP/releases/download/tes3mp-0.8.1/tes3mp.Win64.release.0.8.1.zip`.
-This is the normal, non-VR upstream distribution and is consistent with
-the official TES3MP runtime downloaded by the TES3NP build. It does
-**not** identify the author or corresponding source of the separately
-supplied `patches/markerless/tes3mp.exe` modification; the upstream
-link alone does not clear that blocker.
-Announcement:
-`https://steamcommunity.com/groups/mwmulti/announcements/detail/3208261824668407228`.
-
-Maintainer communication (reported by project owner, October 29, 2026):
-the owner believes **jiub created the markerless executable**, is in
-direct communication with him, and reports that jiub supports the TES3NP
-project. Treat authorship as **reported, not independently confirmed**.
-Project support is valuable but does not by itself document corresponding
-GPL source or establish every third-party asset permission. Next action:
-request the May 2023 markerless code patch/source revision, toolchain,
-and build instructions from jiub; confirm the binary provenance and any
-redistribution conditions in writing. Do not interpret this report as
-legal clearance.
-
-Discord post attribution and purpose (user-provided screenshot, October 29,
-2026): in NP Discord `#posted-fixes`, **jiub** posted at **May 2, 2023,
-3:30 AM** under “Frequent Crashes/Crashes Near Multiple Players”.
-The post states that player map markers on the minimap may cause crashes
-and links a build of **TES3MP 0.8.1 that completely disables player map
-markers**, reportedly improving stability. The screenshot's original link is
-`https://www.dropbox.com/s/9x7stbzq2vi6oco/tes3mp.exe?dl=0`,
-different from the newer `/scl/fi/` URL supplied by the tester.
-The screenshot identifies **jiub as the poster, not necessarily the
-programmer/compiler**. The screenshot is evidence of the stated intended
-change, not proof of the bundled binary's exact bytes or source provenance.
-Before marking this gate complete, obtain the modification's source patch
-and build instructions from its author or NP maintainers and verify the
-distributed executable against that provenance.
-
-Markerless binary distribution provenance (reported by tester on October 29, 2026):
-the `tes3mp.exe` used by the launcher was downloaded from the
-Nerevarine Prophecies Discord channel `#posted-fixes`, at
-`https://www.dropbox.com/scl/fi/3kef7phv9q0rkzlm066oy/tes3mp.exe?rlkey=ahaa4wrcnidmvd52v0qh3h87y&e=1&dl=0`.
-This identifies a **distribution channel/link**, not the modification
-author, original source revision, or corresponding build procedure.
-We could not directly verify the Dropbox file content or compare its
-hash to the vendored executable in this investigation. Request the
-original Discord post attribution, version/date, and source/build
-information from the poster or NP maintainers before clearing the
-modified-client GPL source gate.
-
-Further fork history investigation (October 29, 2026): the head commit
-`9d121f13b113e797df965d5425bd06ec515c0578` is dated
-**March 7, 2026**, with changes to Windows CI build scripting and
-RakNet discovery, not the two markerless functions. Its preceding
-commit `ea209fd6` is also dated March 7, 2026 and changes player
-cell-handling behavior. Thus the fork contains other technical changes
-and is not evidence of a May 2023 jiub build merely because of its
-`markerless for now` comments. We attempted comparing the fork's
-`surf_tes3mp` branch directly to an `0.8.1` tag using GitHub's
-compare endpoint, but it returned 404 because that ref is not exposed
-in the fork. A complete, verified fork-to-upstream diff remains undone.
-Official TES3MP 0.8.1 contains Windows MSVC2019 build pipeline details
-in its `.gitlab-ci.yml`, providing a baseline for a possible
-independently built replacement, but no replacement has been compiled.
-
-Verified source comparison against the official `TES3MP/TES3MP`
-`0.8.1` tag (October 29, 2026): upstream
-`GUIController::updatePlayersMarkers` normally iterates and redraws map
-marker widgets; upstream `DedicatedPlayer::updateMarker` normally
-updates the player's marker collection. The `Skooma-Breath/surf_tes3mp`
-fork prepends an unconditional `return;` to each, leaving the old code
-unreachable. This matches the *function* described by the May 2023
-Discord fix, but **does not establish binary correspondence**, complete
-patch equivalence, authorship, or build provenance.
-
-Public code inspection, October 29, 2026: the
-`Skooma-Breath/surf_tes3mp` fork has **two distinct early-return edits**
-labeled `return; // markerless for now`:
-`apps/openmw/mwmp/GUIController.cpp` in
-`GUIController::updatePlayersMarkers`, and
-`apps/openmw/mwmp/DedicatedPlayer.cpp` in
-`DedicatedPlayer::updateMarker`. These disable two player-marker update
-paths and are technically consistent with jiub's stated minimap-crash
-workaround. They are a plausible *example implementation*, **not verified**
-as jiub's source or as the source corresponding to our executable. We
-have not established the fork's author, change date, base revision,
-compiler flags or binary hash equivalence.
-
-Source research lead (unverified): a public fork at
-`https://github.com/Skooma-Breath/surf_tes3mp` contains
-`apps/openmw/mwmp/GUIController.cpp` with a comment saying
-`return; // markerless for now`. That proves a markerless-oriented change
-exists in a public source tree; it **does not establish** that the bundled
-executable was built from that fork or any specific revision. Do not cite
-the fork as the binary's corresponding source without provenance or
-rebuilding and validating the exact changes.
-
-Before public redistribution, obtain from the person or project that made the
-markerless binary:
-
-1. Exact source revision and complete modifications corresponding to the
-   distributed `patches/markerless/tes3mp.exe`.
-2. Build toolchain, dependencies, configuration, and commands sufficient to
-   rebuild that modified client; record any reproducibility limits honestly.
-3. Applicable copyright/license notices and distribution permissions for all
-   bundled materials, including NP Expansion Pack assets and original artwork.
-4. A clear source-offer/access method distributed with the binary, reviewed
-   against TES3MP's GPLv3 plus additional permitted terms. Get qualified
-   legal review if necessary.
-
-**Do not solve this blocker by removing notices, relabeling the binary,
-claiming it is unmodified, or silently substituting another binary.**
-
-The lone `WindowsBase` MSB3277 build warning originates from WebView2's
-WPF reference in a Windows Forms .NET 8 project. The currently compiled chat
-host works in existing tests; this warning is not the gating issue.
+The [original provenance investigation](https://github.com/IAmShawn98/tes3np/blob/aebc384e384a71daa4080fa8e69fbbcd9bcf1a82/docs/RELEASING.md#october-29-provenance-investigation-for-the-previously-supplied-client)
+records the supplied download, attribution, source comparison and limitations.
+The known `WindowsBase` MSB3277 warning comes from the WebView2 dependency in
+the WinForms Chat Host. Existing Windows tests compiled and ran it.
 
 ## Source-built markerless console candidate
 
@@ -239,6 +129,24 @@ until three reviewed evidence files exist:
 The check looks for documentation and review markers, not independent legal
 proof. Passing it still requires the repository owner's explicit release
 approval. Do not invent or pre-fill approvals.
+
+## Player-facing release notes
+
+Use `RELEASE_NOTES.md` for changes since the last publicly shipped version.
+Keep internal build details, diagnostics, tests, and closed development
+experiments in `CHANGELOG.md` and the project history. Include changes players
+can observe. Verify each fix against the released baseline and the candidate.
+
+Use `## vX.Y.Z-channel — unreleased` and a line identifying the public
+comparison version. Include only applicable categories in this order:
+**New Features**, **Improvements**, **Bug Fixes**, **Removed Features**.
+Give each distinct change one plain-language bullet with a bold feature
+or area label and its outcome. Remove duplication and unverified claims.
+Set the release date at publication and preserve historical published notes.
+
+The launcher renders plain headings and bullet points. Validate word wrapping
+and scrolling at supported Windows display scales. The publish workflow uses
+the matching section of `RELEASE_NOTES.md`.
 
 ## Single-repository updater contract
 
@@ -328,8 +236,8 @@ schema 1 `tes3np-update.json` and `tes3np-windows.zip.sha256`.
   `CHANGELOG.md` and `RELEASE_NOTES.md` entries.
 - Run `python scripts/project.py check` with all payload files present and
   `powershell -NoProfile -File scripts/check-powershell.ps1` on Windows.
-- Check the affected GUI/game paths in `DEVELOPMENT.md` and patch paths in
-  `PATCHING.md`. Record Windows, AutoHotkey and TES3MP versions tested.
+- Use the [Windows acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md)
+  for GUI, game, upgrade and recovery testing.
 - Inspect the automatic validation results. A passing compile and package
   check does not certify live login, gameplay or imported macros.
 - Record the candidate ZIP hash, Windows results, corresponding source

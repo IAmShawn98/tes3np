@@ -5,10 +5,9 @@ on:
   push:
     branches:
       - main
-      - feature/safe-auto-updater
 # Alpha development keeps automatic source/PowerShell/C# checks via checks.yml.
 # Full Windows packaging is intentionally manual on alpha to conserve Actions
-# minutes and artifact storage; main and updater feature retain their triggers.
+# minutes and artifact storage.
 
 permissions:
   contents: read
@@ -21,13 +20,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validate complete source and payload
-        run: python scripts/project.py check
-      - name: Parse PowerShell helpers
-        shell: powershell
-        run: ./scripts/check-powershell.ps1
-      - name: Guard Chat Host persistence and Happy Hour contracts
-        run: python scripts/check-chat-architecture.py
       - name: Test launcher updater validation
         shell: pwsh
         run: ./scripts/test-update-client.ps1
@@ -39,7 +31,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/build-windows.ps1
-      - name: Verify final packaged Windows ZIP
+      - name: Verify Windows ZIP in dist before upload
         run: python scripts/check-windows-package.py dist/tes3np-windows.zip
       - name: Generate and verify update metadata
         shell: pwsh

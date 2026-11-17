@@ -10,7 +10,7 @@ The active worker, scripts/import-expansion-pack.ps1, stages the selected archiv
 
 ## Retired bundled installer
 
-The former **Install / Repair**, **Verify**, and **Restore Backup** panel was retired on 2026-11-02. Its callbacks and legacy worker are absent. On November 5, the release manifest was reduced to the separately packaged markerless TES3MP client. Historical v0.1 Expansion Pack art may still be present in the repository checkout, but is not staged, embedded, validated, shipped, or copied into a player's game. The only supported installer is the current user-selected ZIP/folder importer.
+The former **Install / Repair**, **Verify**, and **Restore Backup** panel was retired on 2026-11-02. Its callbacks and legacy worker are absent. On November 5, the release manifest was reduced to the separately packaged markerless TES3MP client. Historical v0.1 Expansion Pack art remains in older Git trees. The current build and importer use the active package and installed data. The only supported installer is the current user-selected ZIP/folder importer.
 
 Do not treat the old bundled manifest as a current installed-version check. The local enable/disable control reads the active OpenMW configuration, while the server's response remains the definitive compatibility test.
 
@@ -20,11 +20,9 @@ The current importer stores its completed backup journal and original changed fi
 
 Progress and results are written atomically to the import job directory and displayed through the existing launcher loading overlay. Errors retain a bounded step description. Persistent Windows sharing locks, insufficient disk space, invalid archives or unsafe paths fail without intentionally replacing unrelated data.
 
-## Windows validation (without GitHub Actions)
+## Windows validation
 
-1. Run the existing local source/build preflight, including PowerShell parsing, Python source and chat checks and the synthetic ZIP/folder import fixture.
-2. Confirm the launcher has no Install / Repair, Verify, Restore Backup panel or legacy tray entry. The Morrowind discovery prompt and Expansion Pack enable/disable control must still work.
-3. Import a synthetic ZIP and folder into a disposable game installation; compare existing files, unrelated mods and config entries, backup journals and rollback outcomes. Never use the working v0.2 install as a disposable test.
-4. Open the real launcher and check Manage Characters, first-character favorite, macros, game-client selection, Enhanced Readability, portable backups, Game Chat, image scrolling, Happy Hour and normal launching.
-5. Run local updater transaction fixtures and test restoring a packaged update on a separate disposable launcher copy. Do not require GitHub Actions.
-6. Server-login verification and any full release/license review remain separate; this source pass does not establish either.
+The local build runs the synthetic ZIP/folder importer and installed-only
+toggle fixtures. Use the [Windows acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md)
+to exercise the actual client, game configuration and recovery on a
+disposable copy.

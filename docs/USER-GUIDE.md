@@ -1,67 +1,91 @@
-# Using tes3np
+# Using TES3NP
 
-## Launching characters
+## Install and update
 
-- **Play** beside a character launches it without changing your saved default.
-- Tick one character to make it your default. **Launch <character>** uses that choice.
-- **Start New Adventure** launches once and lets you enter your character information in-game.
+1. Download the Windows ZIP from the [TES3NP website](https://iamshawn98.github.io/tes3np/) or [GitHub Releases](https://github.com/IAmShawn98/tes3np/releases).
+2. On Windows 10 or 11 x64, extract the entire ZIP to a writable folder such as `Documents\TES3NP`. Keep `tes3np.exe` with the other extracted files.
+3. Run `tes3np.exe` as a standard user. When prompted for the game, select your Morrowind GOTY folder. It must contain `Data Files\Morrowind.esm` and both expansions, Tribunal and Bloodmoon.
+4. Open **Manage Characters** to save a profile, or use **Start New Adventure** to log in manually.
 
-**Wipe Character Data** appears when at least one character exists. It asks for confirmation before removing all saved character credentials and the favorite selection, and stops active automation. It does not delete in-game characters or the executable setting. Export first if you need a backup. With no characters, Add character moves beneath the introductory description and Import Data becomes available.
+TES3NP includes TES3MP and the AutoHotkey runtime. Game Chat uses Microsoft WebView2 Runtime. Gameplay is available without Game Chat.
 
-Up to 10 characters can be saved. Remove asks for confirmation. The first character is automatically marked as the favorite; later additions do not silently change that choice.
+Click the version number in the launcher to review and install updates. Keep
+`%APPDATA%\tes3np` when replacing or moving the launcher folder so your saved
+characters and settings carry over.
 
-With no saved characters, the launcher opens normally. Once setup is complete, use the saved favorite or an individual character's Play control to start a session.
+## Characters, login, and recovery
 
-Closing the character page returns to the main launcher.
-
-Use the tray menu to **Open Launcher** or **Stop game recovery**. Quitting the launcher stops automation and leaves any running game open.
+- Save up to ten characters and run up to four game clients at once. Your first saved character becomes your favorite. Use the tick box to change the favorite and the main-page launch button to play it. A character's **Play** button launches it without changing your favorite.
+- The login window shows progress as TES3NP enters the character name and password. Avoid typing during this step. You can edit each character's login delays if the game needs more time.
+- In a character's editor, enable **Auto reconnect on crash** to let TES3NP retry after a recognized crash. Closing the game normally leaves it closed. The tray menu offers **Stop game recovery**.
+- **Wipe Character Data** removes saved credentials and favorite selection from the launcher after confirmation. Your in-game characters remain on the server.
 
 ## Moving to another computer
 
-**Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays and the ticked favorite. For older launcher versions, it also includes the executable path when available. The backup contains readable passwords, so keep it private.
+**Export Data** in Manage Characters saves an INI backup of characters,
+passwords, login delays, and the favorite. The backup stores readable
+passwords. Keep it private.
 
-With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing character settings and encrypts passwords for the destination Windows account. Game client selection stays local to each PC. Configure it under **Launcher Settings → TES3MP Setup**.
+With an empty character list, use **Import Data** to restore the backup.
+TES3NP validates it before applying changes and encrypts passwords for the
+current Windows account. Set up your game client and custom dependencies on
+the destination computer.
 
-## Login and recovery
+## Optional Expansion Pack
 
-Login uses foreground keyboard input and each character's configured delays. Avoid typing during credential entry. These delays do not verify the contents of login screens or prove that the server accepted the login or awarded daily points.
+The launcher can run without the pack. Close running game clients before
+using the **Expansion Pack** button to enable or disable it for future sessions.
 
-The launcher shows a login-progress window with the selected character's icon and steps for loading the name screen, entering the name, loading the password screen and entering the password. It closes shortly after completing those steps. The launcher continues monitoring until the saved character-loading delay elapses.
+When a pack is missing or a server rejects the load order, follow the prompt
+to download the current ZIP from the official Nerevarine Prophecies Discord
+channel. Sign in to Discord if asked. Use the ZIP link or **Download ZIP /
+Retry**. If the embedded view is unavailable, use its link to the official
+channel. Return to TES3NP and follow the prompt to select the downloaded ZIP
+or extracted folder. You can also use **Upload Expansion** with a package you
+already downloaded. An import modifies the selected game data and OpenMW
+configuration and backs up the files it changes.
 
-The controller checks its tracked process and visible SDL game window every second. A terminal window does not qualify. Game-window startup allows 30 seconds. If the game closes or crashes, launch it again from TES3NP. Only the launched process is monitored.
+If the server still rejects the load order, use **Copy Diagnostic Info** in
+the mismatch dialog. The report includes configuration flags and error counts.
+See [Expansion Pack import and recovery](PATCHING.md) for backup locations.
 
-**Our Wiki** opens https://wiki.nerevarineprophecies.com/Main_Page. **Macros** opens the local ZIP macro manager. Import `.ahk` files directly or ZIP packages, choose their main `.ahk` script, then run, stop or remove them. See [Macro packages](MACRO-PACKAGES.md) for the ZIP format and requirements. Imported scripts can execute code; only run packages you trust.
+## Custom TES3MP client and macros
 
-## Saved data
+Open **Launcher Settings → TES3MP Setup → Choose a Custom EXE** and select
+your `tes3mp.exe`. Choose **Use My Custom Exe** to use the included dependencies,
+or **Choose Folder With Extra Files** if your build needs its own. Use
+**Use Included TES3MP** to switch back and **Use Custom Setup** to reactivate
+your saved configuration. The launcher stages the custom runtime separately
+from your Morrowind installation.
 
-Settings are stored in `%APPDATA%\tes3np\settings.ini`, separate from the extracted application. Passwords are encrypted with Windows DPAPI under the current Windows account. Do not commit or share your settings file.
+The macro panel in **Manage Characters** accepts AutoHotkey scripts, ZIP
+packages, and links to installed Windows applications. Only run macros from
+sources you trust. See [Macro packages](MACRO-PACKAGES.md) for the format.
 
-Loading-overlay failures are recorded in `%APPDATA%\tes3np\render-errors.log`. Active Expansion Pack imports record progress, results and backup journals beneath `%APPDATA%\tes3np\expansion-imports`; older `patch-all.log` and `patch-errors.log` entries may remain from previous versions. Logs omit personal paths and credentials. Patch backups are stored separately under `patch-jobs`.
+## Game Chat and Happy Hour
 
-**Plugin mismatch report:** If the downloaded Expansion Pack does not solve the server rejection, click **Copy Diagnostic Info** and paste the report into Discord bug reports. The popup displays only **Diagnostic Info Copied!**. The report shows whether the installed load-order configuration points to the Expansion Pack, another mod or base-game master, or multiple issues. It includes aggregate counts, known status flags, and specific kinds of errors (but not private mod names or unfiltered logs). Missing or unreadable files appear as unavailable in the report, not as a clean result. It does not claim to verify the current server's Expansion Pack version or the exact offending mod when the server gives only a generic error.
+Sign in to Discord through **Game Chat** to fetch new messages and
+announcements. If a genuine Happy Hour announcement is still active and is
+already in the local chat archive, the launcher can show its countdown while
+you are signed out.
 
-**Expansion Pack:** The original upper-left **Expansion Pack: Enabled/Disabled** button controls future game load order; close all games before changing it. If the server rejects your plugin/load-order configuration, the **Your Plugins Don't Match the Servers** dialog checks the official Nerevarine Prophecies Discord channel for its newest available ZIP attachment. Future ZIP uploads in the same channel are picked up without hardcoding the current expansion version. Discord sign-in, permissions or markup changes can prevent discovery; the dialog also provides the direct channel link. Click the ZIP to open its actual Discord attachment in your default browser, where the file can be downloaded. If the browser download is cancelled or fails, click the ZIP filename again or use the dialog's **Download ZIP / Retry** button; both can request another download without restarting TES3NP. The mismatch prompt stays open during downloads. Once Discord finds the latest ZIP, its download area switches to a launcher-owned clickable filename while the embedded Discord view is hidden. Both this filename and **Download ZIP / Retry** open the signed ZIP using a separate Windows URL-handler process, so you can retry without restarting TES3NP. No persistent download-status text is shown. If a current Expansion Pack still doesn't fix the rejection, select **Copy Diagnostic Info** and paste the resulting structured report into the server's Discord bug-reports channel. It includes only basic launcher/configuration flags, counts, and fixed error indicators—not raw logs, player/mod names, computer paths, login information or authentication tokens. If optional configuration or log inspection fails, the button still copies a limited privacy-safe report and says so. If another program keeps the clipboard busy after three attempts, the dialog identifies it as a clipboard problem rather than falsely reporting a collection error. Once the download completes, return to TES3NP and select **OK** to locate the ZIP and run the existing safe import worker. The embedded Discord view stays on the channel rather than attempting to download the large file itself. The Discord embed shares Game Chat's login and does not install anything automatically. If the embed cannot load, use the dialog's link to open the channel in Discord. Cancel closes the mismatch dialog.
+## Troubleshooting and saved data
 
-Game Chat diagnostics are in `%APPDATA%\\tes3np\\chat-host.log`. Its
-message archive lives under `%APPDATA%\\tes3np\\Logs\\`, and its Discord
-browser profile is in `%APPDATA%\\tes3np\\chat-webview2\\`.
-Happy Hour announcements appear directly in the small banner attached to
-the launcher, with no extra activation popup. If an authenticated Discord
-session previously saved a **genuine, still-active** announcement to the local
-chat archive, its banner remains available even while you're signed out.
-Signing in is required only to fetch new announcements or live chat. With no
-matching local announcement, nothing is displayed until Game Chat can retrieve
-one. An expired announcement also keeps the banner hidden. The obsolete
-`happy-hour-last-seen.txt` marker from earlier test builds is no longer used.
+| Symptom | What to check |
+| --- | --- |
+| Game folder is missing or on another drive | Select the Morrowind install containing `Data Files\Morrowind.esm`, `Tribunal.esm`, and `Bloodmoon.esm`. |
+| Custom client crashes | Check its dependency folder or try **Use Included TES3MP**. |
+| Chat does not load | Check WebView2 Runtime and Discord sign-in. |
+| Login types credentials too early or too late | Adjust the character's saved login delays. |
+| Windows denies file writes | Move TES3NP to a writable folder. Optional Expansion Pack imports also need permission to modify the selected game data and configuration. |
+| Settings appear missing after an update | Check `%APPDATA%\tes3np` before resetting anything. Back up saved data first. |
 
-**Resetting chat:** Back up the Roaming data directory first. Closing the
-launcher and clearing the intended chat data resets the archive and stored
-Discord session. The old Local AppData notification marker from pre-fix
-development builds is not sufficient to restore an event or a fresh profile.
-Do not delete all TES3NP Roaming data unless you also intend to remove saved
-character settings and other launcher preferences. The built-in **Reset Launcher
-AppData** command requires confirmation, stops Chat Host and launcher recovery,
-and closes tes3np after removing data. Restart it afterward to create a clean
-profile. If Windows cannot delete the folder, the launcher reports the failure
-instead of claiming the reset succeeded.
+Use **Launcher Settings → Launcher Data → Copy Launcher Logs** when reporting
+an issue. Review logs and screenshots before sharing. Keep character exports,
+`settings.ini`, and the raw Discord archive private.
 
+Game Chat logs to `%APPDATA%\tes3np\chat-host.log`. The Discord session lives
+under `chat-webview2`, and the archive is under `Logs`. Close TES3NP and back
+up its data before clearing individual chat files. **Reset Launcher AppData**
+removes launcher data, including saved characters and preferences, after
+confirmation. Restart TES3NP afterward to create a fresh profile.

@@ -67,8 +67,8 @@ Private state is distinct from shareable diagnostics. Do not scrub
 `journal.json` or backup files: some require real local paths or Discord
 content to recover safely. The user-facing importer `result.ini` retains an
 availability indicator, not an absolute backup path. See
-[Diagnostic privacy audit](DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md) for scope
-and pending Windows acceptance.
+[historical diagnostic privacy audit](https://github.com/IAmShawn98/tes3np/blob/aebc384e384a71daa4080fa8e69fbbcd9bcf1a82/docs/DIAGNOSTIC-PRIVACY-AUDIT-2026-11-04.md)
+and the [Windows acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
 
 ## Embedded Game Chat and Happy Hour contract
 
