@@ -2,7 +2,8 @@
 param(
     [switch]$Run,
     [string]$TestAccount = 'TES3NPTest',
-    [string]$CandidateZip
+    [string]$CandidateZip,
+    [string]$ShareExistingBundle
 )
 
 $ErrorActionPreference = 'Stop'
@@ -110,6 +111,46 @@ LegacyBridgeOrigin()
     [IO.Compression.ZipFile]::CreateFromDirectory($starter, $OutputZip)
 }
 
+function Publish-LegacyBridgeBundle([string]$Source) {
+    $files = [ordered]@{}
+    foreach ($name in 'starter.zip', 'tes3np-windows.zip', 'tes3np-update.json', 'expected-launcher-sha256.txt', 'tes3np-windows.zip.sha256') {
+        $file = Join-Path $Source $name
+        if (![IO.File]::Exists($file)) { throw "The prepared bundle is missing $name in $Source." }
+        $files[$name] = $file
+    }
+    $files['Run-TES3NP-Update-Test.ps1'] = $PSCommandPath
+
+    $publicDocuments = [Environment]::GetFolderPath('CommonDocuments')
+    $id = [guid]::NewGuid().ToString('N')
+    $pending = Join-Path $publicDocuments ('.tes3np-bridge-share-' + $id)
+    $destination = Join-Path $publicDocuments ('TES3NP Update Test ' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + $id.Substring(0, 8))
+    [IO.Directory]::CreateDirectory($pending) | Out-Null
+    try {
+        # Create files under Public Documents so they inherit its permissions.
+        # Moving an existing bundle from a user's TEMP folder may retain its ACL.
+        foreach ($name in $files.Keys) {
+            $inputFile = [IO.File]::OpenRead($files[$name])
+            try {
+                $outputFile = [IO.File]::Create((Join-Path $pending $name))
+                try { $inputFile.CopyTo($outputFile) }
+                finally { $outputFile.Dispose() }
+            }
+            finally { $inputFile.Dispose() }
+        }
+        [IO.Directory]::Move($pending, $destination)
+    }
+    finally {
+        if ([IO.Directory]::Exists($pending)) {
+            Remove-Item -LiteralPath $pending -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $runner = Join-Path $destination 'Run-TES3NP-Update-Test.ps1'
+    Write-Host "Prepared the private update bridge in $destination"
+    Write-Host "On $TestAccount, run the following command:"
+    Write-Host ('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $runner + '" -Run -TestAccount "' + $TestAccount + '"')
+}
+
 function New-LegacyBridgeBundle {
     $repo = Split-Path -Parent $PSScriptRoot
     $scratch = Join-Path $env:TEMP ('tes3np-legacy-bridge-' + [guid]::NewGuid().ToString('N'))
@@ -144,15 +185,7 @@ function New-LegacyBridgeBundle {
         $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
         [IO.File]::WriteAllText((Join-Path $bundle 'expected-launcher-sha256.txt'), $hash, $utf8)
         New-LegacyBridgeStarter $repo $scratch (Join-Path $bundle 'starter.zip')
-        Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $bundle 'Run-TES3NP-Update-Test.ps1')
-
-        $publicDocuments = [Environment]::GetFolderPath('CommonDocuments')
-        $destination = Join-Path $publicDocuments ('TES3NP Update Test ' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-        Move-Item -LiteralPath $bundle -Destination $destination
-        $runner = Join-Path $destination 'Run-TES3NP-Update-Test.ps1'
-        Write-Host "Prepared the private v0.1.20-alpha to v$($metadata.version) bridge in $destination"
-        Write-Host "On $TestAccount, run the following command:"
-        Write-Host ('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $runner + '" -Run -TestAccount "' + $TestAccount + '"')
+        Publish-LegacyBridgeBundle $bundle
     }
     finally {
         Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
@@ -284,4 +317,5 @@ function Invoke-InteractiveBridgeTest {
 }
 
 if ($Run) { Invoke-InteractiveBridgeTest }
+elseif ($ShareExistingBundle) { Publish-LegacyBridgeBundle $ShareExistingBundle }
 else { New-LegacyBridgeBundle }
