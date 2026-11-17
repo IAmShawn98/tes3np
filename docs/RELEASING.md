@@ -8,9 +8,10 @@ https://iamshawn98.github.io/tes3np/.
 
 `IAmShawn98/tes3np-releases` currently serves the temporary site and the
 public `latest-alpha` bridge used by installed v0.1.20-alpha launchers.
-Keep the old route and its versioned .20 download reachable during the
-transition. Publishing v0.1.21-alpha, making `tes3np` public, updating the
-legacy feed, and retiring the old repository require owner approval.
+Keep the old route and its versioned .20 download reachable until
+v0.1.22-alpha is publicly released and its update feed is verified.
+Publishing v0.1.21-alpha, making `tes3np` public, updating the legacy feed,
+and retiring the old repository require owner approval.
 
 Never commit character exports or live `%APPDATA%\\tes3np` data.
 Require branch protection and the validation workflows before publishing.
@@ -224,9 +225,12 @@ schema 1 `tes3np-update.json` and `tes3np-windows.zip.sha256`.
    Windows profile, open the stock public .20 launcher and use its normal
    update button. Verify it restarts as .21, preserves profiles and
    preferences, and can use the new alpha feed.
-4. Keep the bridge reachable for returning .20 installs. They need a
-   manual download after the legacy repository goes away. Coordinate
-   the old site's transition and repository retirement with the owner.
+4. Keep the bridge public and serving v0.1.21-alpha through the
+   v0.1.22-alpha release. Verify the public v0.1.22-alpha ZIP and alpha feed
+   in `IAmShawn98/tes3np` before retiring `IAmShawn98/tes3np-releases`.
+   Coordinate the old site's transition and repository retirement with the
+   owner. After retirement, players still on .20 can download the current
+   release manually from `IAmShawn98/tes3np`.
 
 [Binaries and manifest on the legacy release](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha)
 
