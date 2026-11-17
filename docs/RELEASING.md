@@ -51,19 +51,34 @@ Validate the final combined candidate on the second PC. Live discovery
 and download through the legacy feed and reachability of the new alpha
 feed remain pending.
 
-## Versioning
+## Release channels and promotion
 
-TES3NP versions use three numeric components followed by the release channel.
+| Channel | Base tag | Hotfix tags | GitHub Release | Launcher feed |
+| --- | --- | --- | --- | --- |
+| Alpha | `v0.1.21-alpha` | `v0.1.21-alpha.1`, `v0.1.21-alpha.2` | Prerelease | `alpha.json` |
+| Beta | `v2.0.0-beta` | `v2.0.0-beta.1`, `v2.0.0-beta.2` | Prerelease | `beta.json` |
+| Live | `v1.0.0-live` | `v1.0.0-live.1`, `v1.0.0-live.2` | Stable release | `live.json` |
 
-- `0.x.y-alpha` — active development; features and behavior may change.
-- `0.x.y-beta` — feature-complete enough for broader testing.
-- `1.0.0-live` — first stable public release. Publish Live builds as
-  stable GitHub Releases.
+- **Alpha** is the experimental track. Publish Alpha builds from their own
+  branches. Alpha builds stay Alpha, and Alpha branches are never promoted
+  or merged into Beta or Live.
+- **Beta** is the public testing track for the next Live version. Develop
+  that version on a dedicated branch and publish its Beta builds while the
+  current Live release continues to receive its own updates. When the Beta
+  is approved, merge the entire tested branch into `main`, set the Live
+  version, and build and validate a new Live ZIP from the merged source.
+  For example, the `v2.0.0-beta` series leads to `v2.0.0-live`.
+- **Live** is the stable release track. Mark the current Live release as
+  Latest on GitHub. The website recommends the current approved download.
+  When the first Live build is available, point its **Download for Windows**
+  button at Live and keep GitHub Releases as the direct download option.
 
 The canonical application version is `AppConfig.Version` in `src/state.ahk`.
-Git tags and GitHub Releases use the same version prefixed with `v`, for example
-`v0.1.21-alpha` or `v1.0.0-live`. Append `.1`, `.2` and so on for
-hotfixes, for example `v1.0.0-live.1` and `v1.0.0-live.2`.
+Git tags and GitHub Releases add a leading `v`. Published hotfixes get a
+new numbered tag, ZIP and checksum. Verify the public ZIP and checksum
+before advancing the matching channel manifest. The launcher stays on the
+installed build's channel, including after a Beta is promoted to Live.
+Players switch channels by installing a build from the channel they want.
 
 ## October 29 provenance investigation for the previously supplied client
 
@@ -240,7 +255,12 @@ the download address and release notes from the exact tag and validates
 the filename, size and SHA-256 before staging. Generate with
 `-DisableUpdates` to prepare a manifest with automatic updates disabled.
 
-## Publish a reviewed alpha candidate
+## Publish the v0.1.21-alpha cutover candidate
+
+The staged **Publish Alpha** action runs from `main` for this cutover.
+Future Alpha publication from isolated branches and Beta and Live
+publication have yet to be wired into the workflow.
+
 
 1. Merge the reviewed alpha source into `main` before producing the final
    candidate. Record the full source SHA. On Windows, build from that commit
