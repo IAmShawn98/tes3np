@@ -13,15 +13,19 @@ try {
         ["0.1.21-alpha", "0.1.21-alpha.1", "hotfix"],
         ["0.1.21-alpha.9", "0.1.21-alpha.10", "hotfix"],
         ["0.1.21-beta.9", "0.1.21-beta.10", "hotfix"],
+        ["1.0.0-live", "1.0.0-live.1", "hotfix"],
+        ["1.0.0-live.9", "1.0.0-live.10", "hotfix"],
+        ["1.0.0.1", "1.0.0-live.2", "hotfix"],
         ["0.1.21.9", "0.1.21.10", "hotfix"],
         ["0.1.21-alpha.20", "0.1.22-alpha", "update"],
         ["0.1.21-beta.20", "0.1.22-beta.1", "update"],
+        ["1.0.0-live.20", "1.0.1-live", "update"],
         ["0.1.21.20", "0.1.22", "update"],
         ["0.1.22", "0.1.21.21", ""],
         ["0.1.21-alpha.10", "0.1.21-alpha.9", ""],
         ["0.1.21", "0.1.21", ""],
         ["0.1.21-alpha", "0.1.21-beta", ""],
-        ["0.1.21-beta", "0.1.22", ""]
+        ["0.1.21-beta", "1.0.0-live", ""]
     ] {
         AssertUpdateMetadata(GetLauncherUpdateKind(candidate[1], candidate[2]) == candidate[3],
             "Unexpected update kind for " candidate[1] " -> " candidate[2])
@@ -31,8 +35,9 @@ try {
     AssertUpdateMetadata(GetUpdateManifestUrl("0.1.21-alpha") == feed "alpha.json", "Wrong alpha feed")
     AssertUpdateMetadata(GetUpdateManifestUrl("0.1.21-beta.10") == feed "beta.json", "Wrong beta feed")
     AssertUpdateMetadata(GetUpdateManifestUrl("0.1.21.10") == feed "live.json", "Wrong live feed")
-    AssertUpdateMetadata(GetTes3npReleasePage("0.1.21.10") ==
-        "https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21.10", "Wrong release page")
+    AssertUpdateMetadata(GetUpdateManifestUrl("1.0.0-live.1") == feed "live.json", "Wrong suffixed live feed")
+    AssertUpdateMetadata(GetTes3npReleasePage("1.0.0-live.1") ==
+        "https://github.com/IAmShawn98/tes3np/releases/tag/v1.0.0-live.1", "Wrong live hotfix release page")
 
     ; The PowerShell generator supplies a real v2 manifest with a fake ZIP.
     text := FileRead(A_Args[1], "UTF-8")

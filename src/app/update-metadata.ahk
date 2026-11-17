@@ -2,7 +2,7 @@ ParseTes3npVersion(version)
 {
     component := "(0|[1-9][0-9]{0,8})"
     hotfix := "([1-9][0-9]{0,8})"
-    pattern := "\A" component "\." component "\." component "(?:-(alpha|beta)(?:\." hotfix ")?|\." hotfix ")?\z"
+    pattern := "\A" component "\." component "\." component "(?:-(alpha|beta|live)(?:\." hotfix ")?|\." hotfix ")?\z"
     if !RegExMatch(version, pattern, &parts)
         throw Error("Invalid TES3NP version.")
     return {Channel: parts[4] = "" ? "live" : parts[4],

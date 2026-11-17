@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory)][ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')][string]$Version,
+    [Parameter(Mandatory)][ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')][string]$Version,
     [Parameter(Mandatory)][string]$OutputPath
 )
 

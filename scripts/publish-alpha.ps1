@@ -109,7 +109,14 @@ if (Test-Path -LiteralPath $feedFile) {
 }
 
 if ($release.isDraft) {
-    gh release edit $Tag --repo $repo --draft=false --prerelease --latest=false
+    $playerNotes = Get-Content -LiteralPath 'RELEASE_NOTES.md' -Raw -Encoding UTF8
+    $tagPattern = [regex]::Escape($Tag)
+    $section = [regex]::Match($playerNotes, "(?ms)^##[ \t]+$tagPattern(?=[ \t]|\r?$)[^\r\n]*\r?\n(.*?)(?=^##[ \t]|\z)")
+    $notes = $section.Groups[1].Value.Trim()
+    if (!$notes) { throw "No RELEASE_NOTES.md content found for $Tag." }
+    $notesFile = Join-Path $work 'release-notes.md'
+    [IO.File]::WriteAllText($notesFile, "## $Tag`n`n$notes`n")
+    gh release edit $Tag --repo $repo --draft=false --prerelease --latest=false --notes-file $notesFile
 }
 $publishedTag = @(git ls-remote origin "refs/tags/$Tag" "refs/tags/$Tag^{}")
 if (!$publishedTag.Count -or ($publishedTag[-1] -split "`t")[0] -cne $revision) {
