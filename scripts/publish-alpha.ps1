@@ -12,10 +12,10 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 $ProgressPreference = 'SilentlyContinue'
 $repo = 'IAmShawn98/tes3np'
-$revision = $env:GITHUB_SHA
+$mainRevision = $env:GITHUB_SHA
 if ($env:GITHUB_REPOSITORY -cne $repo -or $env:GITHUB_REF -cne 'refs/heads/main' -or
-    (git rev-parse HEAD) -cne $revision -or
-    (git ls-remote origin refs/heads/main) -cne "$revision`trefs/heads/main") {
+    (git rev-parse HEAD) -cne $mainRevision -or
+    (git ls-remote origin refs/heads/main) -cne "$mainRevision`trefs/heads/main") {
     throw 'Dispatch Publish Alpha from the current main commit in IAmShawn98/tes3np.'
 }
 if ((gh api "repos/$repo" --jq '.visibility') -cne 'public') {
@@ -33,10 +33,25 @@ $feedDirectory = Join-Path $work 'feed'
 
 $release = gh release view $Tag --repo $repo --json tagName,targetCommitish,isDraft,isPrerelease,assets |
     ConvertFrom-Json
-if ($release.tagName -cne $Tag -or $release.targetCommitish -cne $revision -or
+$revision = $release.targetCommitish
+if ($release.tagName -cne $Tag -or $revision -cnotmatch '\A[0-9a-f]{40}\z' -or
     !$release.isPrerelease -or $release.assets.Count -ne 2 -or
     $packageName -cnotin $release.assets.name -or $checksumName -cnotin $release.assets.name) {
-    throw "Stage $Tag as a prerelease draft for $revision with only the versioned ZIP and checksum."
+    throw "Stage $Tag as a prerelease draft for the full reviewed commit SHA with only the versioned ZIP and checksum."
+}
+
+if ((git merge-base $revision $mainRevision) -cne $revision) {
+    throw 'The draft targets a source commit outside main.'
+}
+# Windows test evidence is recorded after building the exact candidate.
+$evidencePaths = @(
+    'docs/MODIFIED-TES3MP-SOURCE-PROVENANCE.md',
+    'docs/ASSET-DISTRIBUTION-APPROVAL.md',
+    'docs/CLEAN-WINDOWS-TEST-RESULTS.md'
+)
+$changed = git diff --name-only $revision $mainRevision
+if ($changed | Where-Object { $_ -cnotin $evidencePaths }) {
+    throw 'Source changed after the candidate build. Build and validate a candidate from the new source.'
 }
 
 $remoteTag = @(git ls-remote origin "refs/tags/$Tag" "refs/tags/$Tag^{}")
@@ -52,9 +67,18 @@ if ($hash -ine $CandidateSha256 -or
 }
 python scripts/check-windows-package.py $packagePath --require-console-client
 
-# Generate metadata from the reviewed bytes and checked-out source.
-& ./scripts/generate-update-metadata.ps1 -ChannelFeed -PackagePath $packagePath -ManifestPath $manifestPath
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+# Generate metadata from the reviewed bytes and the source revision that built them.
+$sourceDir = Join-Path $work 'source'
+git worktree add --detach $sourceDir $revision
+Push-Location -LiteralPath $sourceDir
+try {
+    & ./scripts/generate-update-metadata.ps1 -ChannelFeed -PackagePath $packagePath -ManifestPath $manifestPath
+} finally {
+    Pop-Location
+}
+$manifestText = (Get-Content -LiteralPath $manifestPath -Raw).Replace("`r`n", "`n")
+[IO.File]::WriteAllText($manifestPath, $manifestText)
+$manifest = $manifestText | ConvertFrom-Json
 if ($manifest.releaseId -cne $Tag -or $manifest.channel -cne 'alpha' -or $manifest.sourceRevision -cne $revision) {
     throw 'The generated alpha manifest does not match the release tag and commit.'
 }

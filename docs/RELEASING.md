@@ -250,7 +250,9 @@ the filename, size and SHA-256 before staging. Generate with
    `python scripts/check-windows-package.py dist/tes3np-windows.zip --require-console-client`.
    Retain the exact ZIP tested on clean Windows. Copy it to the versioned
    filename and use the channel metadata generator above to obtain its
-   matching checksum.
+   matching checksum. Commit the three evidence files to `main` after
+   review. Only those files may differ between the candidate's source
+   commit and the workflow's checkout.
 2. Prepare a prerelease **draft** in `IAmShawn98/tes3np` with the numbered
    tag, the full reviewed source SHA as its target, the matching section
    of `RELEASE_NOTES.md`, and only the versioned ZIP and checksum.
