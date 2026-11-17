@@ -16,7 +16,9 @@ hashes are captured in `client-files.json` when the package is built.
 Both TES3NP patches passed `git apply --check` against the affected files at
 the pinned TES3MP source revision. The package checker validates the pinned EXE
 hash, console subsystem, DLL hashes, build instructions, patches, and CrabNet
-license when run with `--require-console-client`.
+license when run with `--require-console-client`. The November 17 developer
+ZIP passed this verification and the bundled client printed `--help` with
+its matching DLLs.
 
 The old `patches/markerless/tes3mp.exe` in Git and in the published .20 ZIP
 has SHA-256 `0066f76fa8898180dfdf2897152b8c33b252fecbd64d206ac9b94d5c79dc9b81`.
