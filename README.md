@@ -2,7 +2,7 @@
 
 A robust game launcher for the Morrowind private server [Nerevarine Prophecies](https://wiki.nerevarineprophecies.com/Main_Page).
 
-![tes3np launcher](https://raw.githubusercontent.com/IAmShawn98/tes3np-releases/main/images/Launcher-v0.1.20.png)
+![TES3NP v0.1.21-alpha launcher and live game chat](https://github.com/IAmShawn98/tes3np/blob/website/assets/launcher.webp?raw=true)
 
 ## Features
 
@@ -17,7 +17,9 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 
 ## Download
 
-Download `tes3np-v0.1.21-alpha-windows.zip` from [**Releases**](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha).
+Open the [**TES3NP website**](https://iamshawn98.github.io/tes3np/) and click **Download for Windows**.
+
+You can also get `tes3np-v0.1.21-alpha-windows.zip` directly from [**GitHub Releases**](https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha).
 
 ## Requirements
 
@@ -35,6 +37,8 @@ The Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.
 3. Open **Manage Characters** to save a character, or choose **Start New Adventure** to log in manually.
 
 ## Update
+
+During the v0.1.21-alpha rollout, use the updater in your existing v0.1.20-alpha launcher to upgrade in place.
 
 Click the version number in the bottom left corner to check for updates. You can review the release notes before downloading and installing. Keep your `%APPDATA%\tes3np` folder so your characters and preferences carry over. If all you care about is your character list, simply click **Export Data** in **Manage Characters** and that should be good enough.
 
