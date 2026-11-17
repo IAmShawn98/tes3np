@@ -15,9 +15,12 @@ import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 
+from render_user_guide import GUIDE_FILE, render_user_guide
+
 REQUIRED_FILES = (
     "tes3np.exe",
     "RELEASE_NOTES.md",
+    GUIDE_FILE,
     "runtime/AutoHotkey64.exe",
     "licenses/AutoHotkey/REDISTRIBUTION-NOTICE.txt",
     "client/tes3mp.exe",
@@ -38,7 +41,7 @@ MINIMUM_SIZE = {
     "chat-host/tes3np.ChatHost.exe": 100_000,
 }
 RUNTIME_ROOTS = {"client", "chat-host", "licenses", "runtime"}
-ROOT_FILES = {"tes3np.exe", "release_notes.md"}
+ROOT_FILES = {"tes3np.exe", "release_notes.md", GUIDE_FILE.casefold()}
 
 
 def check_console_client(archive: zipfile.ZipFile, root: Path, executable: bytes,
@@ -121,6 +124,11 @@ def check_package(path: Path, require_console_client: bool = False) -> None:
         notes = archive.read(members["release_notes.md"]).decode("utf-8-sig")
         if not version or not re.search(rf"^##[ \t]+v{re.escape(version[1])}(?=\s|$)", notes, re.MULTILINE):
             raise ValueError("Packaged release notes do not contain the launcher version")
+
+        guide_source = (root / "docs/USER-GUIDE.md").read_text(encoding="utf-8-sig")
+        expected_guide = render_user_guide(guide_source).encode("utf-8")
+        if archive.read(members[GUIDE_FILE.casefold()]) != expected_guide:
+            raise ValueError("Packaged user guide differs from docs/USER-GUIDE.md")
 
         executable = archive.read(members["client/tes3mp.exe"])
         has_console_manifest = "licenses/tes3mp/markerless-source/client-files.json" in members
