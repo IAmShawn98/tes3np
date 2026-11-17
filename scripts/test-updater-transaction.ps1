@@ -15,6 +15,8 @@ function New-Fixture {
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         Set-Content -LiteralPath $target -Value 'TEST PAYLOAD'
     }
+    Set-Content -LiteralPath (Join-Path $install 'User Guide.html') -Value '<h1>Old guide</h1>'
+    Set-Content -LiteralPath (Join-Path $stage 'User Guide.html') -Value '<h1>New guide</h1>'
     $existingChat=Join-Path $install 'chat-host'
     foreach ($rootFolder in @($stage, $install)) {
         $assets = Join-Path $rootFolder 'chat-host/assets'
@@ -49,7 +51,10 @@ try {
     if (Test-Path -LiteralPath ($f[0] + '.tes3np-recovery')) {
         throw 'The rollback backup was created inside the install directory.'
     }
-    Write-Host 'PASS: successful transaction preserves unrelated files.'
+    if ((Get-Content -LiteralPath (Join-Path $f[0] 'User Guide.html') -Raw).Trim() -cne '<h1>New guide</h1>') {
+        throw 'Update did not install the new user guide beside the launcher.'
+    }
+    Write-Host 'PASS: successful transaction replaces the user guide and preserves unrelated files.'
 
     # Simulate an existing v0.1.20-alpha directory upgrading to the new
     # self-contained v0.1.21 layout. Never modify a real player profile.
@@ -114,7 +119,10 @@ try {
         (Test-Path (Join-Path $f[0] 'chat-host/assets/assets'))) {
         throw 'Rollback did not restore the original Chat Host asset path and contents.'
     }
-    Write-Host 'PASS: failure after installation restores known-good launcher.'
+    if ((Get-Content -LiteralPath (Join-Path $f[0] 'User Guide.html') -Raw).Trim() -cne '<h1>Old guide</h1>') {
+        throw 'Rollback did not restore the previous user guide.'
+    }
+    Write-Host 'PASS: failure after installation restores the launcher and previous user guide.'
     $f = New-Fixture
     $conflict = Join-Path $f[0] 'owned.txt'
     Remove-Item -LiteralPath $conflict

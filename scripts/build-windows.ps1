@@ -735,6 +735,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     Copy-Item (Join-Path $projectRoot 'chat-host\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force
     # Keep the installed version's release notes available offline.
     Copy-Item (Join-Path $projectRoot 'RELEASE_NOTES.md') (Join-Path $package 'RELEASE_NOTES.md') -Force
+    Step 'Generating the offline player guide'
+    & python (Join-Path $PSScriptRoot 'render_user_guide.py') (Join-Path $projectRoot 'docs\USER-GUIDE.md') (Join-Path $package 'User Guide.html')
+    if ($LASTEXITCODE -ne 0) { throw 'Offline player guide generation failed.' }
     Step 'Packaging standalone executable'
     [IO.Compression.ZipFile]::CreateFromDirectory($package, $zip, [IO.Compression.CompressionLevel]::Optimal, $false)
     Step 'Validating final downloadable Windows ZIP'
