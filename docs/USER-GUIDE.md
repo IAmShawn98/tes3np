@@ -18,7 +18,7 @@ characters and settings carry over.
 - Save up to ten characters and run up to four game clients at once. Your first saved character becomes your favorite. Use the tick box to change the favorite and the main-page launch button to play it. A character's **Play** button launches it without changing your favorite.
 - The login window shows progress as TES3NP enters the character name and password. Avoid typing during this step. You can edit each character's login delays if the game needs more time.
 - In a character's editor, enable **Auto reconnect on crash** to let TES3NP retry after a recognized crash. Closing the game normally leaves it closed. The tray menu offers **Stop game recovery**.
-- **Wipe Character Data** removes saved credentials and favorite selection from the launcher after confirmation. Your in-game characters remain on the server.
+- **Wipe Character List** removes saved credentials and favorite selection from the launcher after confirmation. Your in-game characters remain on the server.
 
 ## Moving to another computer
 
@@ -38,10 +38,11 @@ using the **Expansion Pack** button to enable or disable it for future sessions.
 
 When a pack is missing or a server rejects the load order, follow the prompt
 to download the current ZIP from the official Nerevarine Prophecies Discord
-channel. Sign in to Discord if asked. Use the ZIP link or **Download ZIP /
-Retry**. If the embedded view is unavailable, use its link to the official
-channel. Return to TES3NP and follow the prompt to select the downloaded ZIP
-or extracted folder. You can also use **Upload Expansion** with a package you
+channel. Sign in to Discord if asked. In the download dialog, click the ZIP
+filename. **Connect / Retry** retries discovery or downloading. If the
+embedded view is unavailable, use its link to the official channel. For a
+manual import, choose **Install ZIP** or **Repair / Install ZIP** and select
+the downloaded ZIP or extracted folder. You can also use **Upload Expansion** with a package you
 already downloaded. An import modifies the selected game data and OpenMW
 configuration and backs up the files it changes.
 

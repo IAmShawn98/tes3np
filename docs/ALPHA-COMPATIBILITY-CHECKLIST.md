@@ -65,10 +65,12 @@ to the builds tested.
   disabled reconnect, and normal game or console exit. Check the one
   recovery attempt and retained login/profile data.
 - [ ] Run AHK, ZIP, and linked EXE macros. Test zero, one, five, and more
-  than five entries, pagination, wheel and drag, Edit Keys, editor/cancel
+  than five entries, wheel and drag scrolling, inline rename, editor/cancel
   transitions, persistence, and Run/Stop/Remove. Check layout and controls at
-  both scale extremes. Removing or closing TES3NP must leave a separately
-  linked application intact.
+  both scale extremes. Test single-script and multi-script ZIPs, a manifest
+  with a nested entry script, Unicode and spaced paths, and rejection of
+  malformed or unsafe archives before any write outside staging. Removing
+  a linked app entry or closing TES3NP must leave that app intact.
 - [ ] Switch between the included and custom game clients with optional
   dependencies. Replace a custom EXE with different bytes of the same size
   and timestamp to test cache invalidation. Interrupt a staged custom-client

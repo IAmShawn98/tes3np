@@ -6,21 +6,19 @@
 | --- | --- |
 | `tes3np.ahk` | Explicit include order and application startup |
 | `src/state.ahk` | Shared state, AppConfig defaults and paths initialized before startup |
-| `src/app/bootstrap.ahk` | Startup choice, tray menu, icons and cleanup |
+| `src/app/bootstrap.ahk` | Startup, tray menu, icons and cleanup |
 | `src/ui/renderer.ahk` | Native buffered drawing and GDI resource lifetime |
 | `src/ui/windows.ahk` | Construction hiding and window reveal |
 | `src/ui/front-page.ahk` | Main-page layout, descriptions and menu scrolling |
 | `src/ui/controls.ahk` | Themed control builders, pointer states and event routing |
 | `src/ui/actions.ahk` | Wiki and front-page actions |
-| `src/ui/characters.ahk` | Character book, add/edit form and launch-all explanation |
+| `src/ui/characters.ahk` | Character book, favorite selection and profile editor |
 | `src/ui/macros.ahk` | Local macro library, import workflow and tracked script processes |
-| `src/ui/macro-bindings.ahk` | Declared macro actions, binding prompt and per-package saved keys |
 | `src/ui/patcher.ahk` | Setup gate, startup verification, patch UI and asynchronous progress |
 | `scripts/import-expansion-pack.ps1` | Active ZIP/folder importer with verified file plans, backup and rollback; retired bundled Install/Repair removed |
-| `patches/` | Supplied markerless client and EP with SHA-256 file manifest |
+| `patches/` | Legacy markerless client and its SHA-256 manifest |
 | `src/game/expansion-mismatch.ahk` | Fresh TES3MP client log watcher and server plugin rejection dialog |
-| `src/ui/expansion-upload.ahk` | Local ZIP/ESP picker and shared patch-worker UI bridge |
-| `scripts/import-expansion-pack.ps1` | Safe user-supplied expansion ZIP/ESP staging, verified backup, install and rollback |
+| `src/ui/expansion-upload.ahk` | Native ZIP/folder picker and import worker startup |
 | `scripts/import-macro.ps1` | Bounded ZIP validation and extraction |
 | `src/ui/loading.ahk` | Frame covers and loading feedback for actual interface work |
 | `src/ui/login-progress.ahk` | Nonactivating game login step card; presentation timer and cleanup |

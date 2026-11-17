@@ -1,10 +1,10 @@
 # Releases and GitHub setup
 
-`IAmShawn98/tes3np` holds the launcher source, numbered GitHub Releases,
-and the channel feeds on `update-feed`. The permanent GitHub Pages site
-uses the root of the `website` branch at https://iamshawn98.github.io/tes3np/.
-The original v0.1.20-alpha Windows ZIP and checksum are already preserved
-in this repository's numbered prerelease.
+`IAmShawn98/tes3np` holds the launcher source and numbered GitHub Releases,
+including the original v0.1.20-alpha Windows ZIP and checksum. The first
+approved Alpha publication creates the `update-feed` branch. The permanent
+GitHub Pages source is staged at the root of the `website` branch for
+https://iamshawn98.github.io/tes3np/.
 
 `IAmShawn98/tes3np-releases` currently serves the temporary site and the
 public `latest-alpha` bridge used by installed v0.1.20-alpha launchers.

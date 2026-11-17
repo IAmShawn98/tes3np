@@ -18,7 +18,6 @@ later declarations; state must be initialized before startup.
 | `src/ui/loading.ahk` | Frame covers and loading feedback |
 | `src/ui/characters.ahk` | Character book, editor and selection |
 | `src/ui/macros.ahk` | Embedded Installed Macros in Character Book; script/ZIP import, linked apps and process tracking |
-| `src/ui/macro-bindings.ahk` | Declarations and saved macro keys |
 | `src/ui/patcher.ahk` | Shared Morrowind discovery, Expansion Pack toggle, active import progress/exit guards |
 | `src/ui/expansion-upload.ahk` | Native ZIP/folder selection and active import startup |
 | `scripts/import-expansion-pack.ps1` | Validated current-package import, backups, rollback and results |
@@ -267,7 +266,7 @@ supplies new-profile defaults. `%APPDATA%\tes3np` remains the data root.
 
 `src/game/expansion-mismatch.ahk` is called from the **existing** `ClientTick` watchdog. It records client log lengths before each launch, reads only fresh `tes3mp-client*.log` content in the configured OpenMW user directory (including relocated Documents), and handles the exact server plugin/load-order rejection message. It stops only the failed PID and displays the owned Upload Expansion / Cancel dialog. It does not impersonate the server, assume a new pack exists, or establish checksum compatibility without a real connection.
 
-`src/ui/expansion-upload.ahk` owns the file picker. Its PowerShell worker runs through the existing `PatchJob` progress loop and owns all game/config writes. `scripts/import-expansion-pack.ps1` accepts downloaded ZIP/ESP files, validates paths and extensions, stages and verifies bytes, and journals overwritten files for rollback. Never install downloaded code/executables from these archives or replace the launcher/markerless TES3MP client. The manually imported Expansion Pack is not compared against any old v0.1 payload; the current manifest tracks only the bundled markerless TES3MP client. No old Expansion Pack asset is a runtime or release dependency. The former Install / Repair UI and PowerShell worker have been retired. Windows tests are required to confirm native popup timing and the active upload dialog.
+`src/ui/expansion-upload.ahk` owns the file picker. Its PowerShell worker runs through the existing `PatchJob` progress loop and owns all game/config writes. `scripts/import-expansion-pack.ps1` accepts a downloaded ZIP or extracted folder, validates paths and extensions, stages and verifies bytes, and journals overwritten files for rollback. Never install downloaded code/executables from these archives or replace the launcher/markerless TES3MP client. The manually imported Expansion Pack is not compared against any old v0.1 payload; the current manifest tracks only the bundled markerless TES3MP client. No old Expansion Pack asset is a runtime or release dependency. The former Install / Repair UI and PowerShell worker have been retired. Windows tests are required to confirm native popup timing and the active upload dialog.
 
 ## Current Expansion Pack import worker contract
 
