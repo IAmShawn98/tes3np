@@ -14,7 +14,8 @@ to the builds tested.
   and toggle, exact Windows package checks, and updater metadata and rollback
   fixtures. Use PowerShell 7 for the updater transaction fixtures.
 - [ ] Check `--check-owned-menu-scaling`, including its font cleanup. The
-  earlier exit 221 needs a passing retest on the candidate.
+  November 17 preflight exited 217. Capture stdout and stderr on the next
+  run. See the [Windows evidence record](CLEAN-WINDOWS-TEST-RESULTS.md).
 - [ ] Complete the three evidence records and gate in
   [RELEASING.md](RELEASING.md#release-evidence-gate). Record Windows
   acceptance against the ZIP hash selected for release.

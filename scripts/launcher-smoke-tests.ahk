@@ -434,7 +434,7 @@ CheckOwnedMenuScaling()
         ; GDI can batch deletions. Check handle lifetime after the batch has completed.
         if !DllCall("gdi32\GdiFlush", "Int")
         {
-            FileAppend("FAIL: GDI batch failed while releasing generated menu fonts." Chr(10), "*")
+            try FileAppend("FAIL: GDI batch failed while releasing generated menu fonts." Chr(10), "**")
             ExitApp(221)
         }
         for font in fonts
@@ -443,15 +443,17 @@ CheckOwnedMenuScaling()
             if DllCall("gdi32\GetObjectW", "Ptr", font,
                 "Int", fontDefinition.Size, "Ptr", fontDefinition, "Int")
             {
-                FileAppend("FAIL: generated menu font data is still readable after destruction and GDI flush." Chr(10), "*")
+                try FileAppend("FAIL: generated menu font data is still readable after destruction and GDI flush." Chr(10), "**")
                 ExitApp(221)
             }
         }
-        FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
+        ; A compiled GUI launch can lack console streams. Preserve the real result.
+        try FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
     }
     catch Error as err
     {
-        FileAppend("FAIL: owned menu scale/position - " Type(err) Chr(10), "*")
+        try FileAppend("FAIL: owned menu scale/position - " Type(err) " in " err.What
+            " at line " err.Line ": " SanitizeDiagnosticText(err.Message) Chr(10), "**")
         ExitApp(217)
     }
     ExitApp(0)
