@@ -34,6 +34,17 @@ Status: PENDING_CLEAN_MACHINE
 - The tester confirmed that the Game Chat window worked and Morrowind
   launched from TES3NP on this build.
 
+## November 17 fresh Windows 11 profile
+
+The tester reported extracting the .21 distribution ZIP in a fresh
+Windows 11 user account. TES3NP opened, Discord sign-in worked, the
+tester added a character in the launcher, and the character logged
+into Morrowind successfully.
+
+These results cover a fresh Windows profile. The Windows installation,
+account privileges, and Morrowind folder picker were not identified in
+the report.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
