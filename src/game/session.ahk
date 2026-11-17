@@ -391,7 +391,7 @@ ClientTick()
             {
                 message := "TES3MP closed before a game window opened. Exit code: " codeText "."
                 if exitCode = 0xC0000135 || exitCode = 0xC0000139 || exitCode = 0xC000007B
-                    message .= Chr(10) Chr(10) "For a custom EXE, add the DLLs from the same build in Game Client Settings."
+                    message .= Chr(10) Chr(10) "For a custom EXE, choose the folder with matching DLLs in TES3MP Setup."
                 else if exitCode = 0
                     message .= "`n`nCheck that Morrowind GOTY (or Morrowind with Tribunal and Bloodmoon) is installed "
                         . "and that the active OpenMW configuration points to its Data Files folder and loads all three master files."
@@ -523,7 +523,7 @@ ClientTick()
         failedToStart := Client.Phase = "launch" || Client.Phase = "window"
         EndClientMonitoring("Client launch or login failed")
         if failedToStart
-            MsgBox("TES3MP could not start. Check the selected executable and its dependencies in Game Client Settings.",
+            MsgBox("TES3MP could not start. Check the selected executable and its dependencies in TES3MP Setup.",
                 "TES3MP Startup Failed", "Icon!")
     }
 }

@@ -1362,7 +1362,7 @@ expect(
     and 'AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),' in settings_ui
     and '"Close Settings", CloseLauncherSettingsV016.Bind(settings))' in settings_ui
     and '"Create Desktop Shortcut"' not in settings_ui
-    and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "Game Client Settings", OpenClientSelectionSettings)' in settings_ui
+    and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)' in settings_ui
     and 'AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_ui
     and 'if !A_IsCompiled || !FileExist(A_ScriptDir "\\client\\tes3mp.exe")' in shortcut_offer
     and 'IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""' in shortcut_offer
@@ -1574,10 +1574,10 @@ expect(
 )
 expect(
     "Client, dependency and Morrowind use scaled native changelog cards; remaining dialogs follow owners",
-    'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)' in settings_ui
+    'CreateGoldNativePrompt(ownerHwnd, "tes3np — TES3MP Setup", 680, initialHeight)' in settings_ui
     and 'initialHeight := saved ? 460 : 412' in settings_ui
     and 'ShowGoldNativePrompt(menu)' in settings_ui
-    and 'options := CreateGoldNativePrompt(menu, "Set Up Your Custom Client", ' in settings_ui
+    and 'options := CreateGoldNativePrompt(menu, "Set Up Your Custom EXE", ' in settings_ui
     and 'ShowGoldNativePrompt(options)' in settings_ui
     and 'CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)' in patcher
     and 'ShowGoldNativePrompt(prompt)' in patcher
@@ -1619,7 +1619,7 @@ expect(
     and 'textOffset := FitGameClientPromptCopyV016(menu, details, detailsY, 190)' in settings_ui
     and 'customize := AddStyledButton(menu, 30, 190 + textOffset, 620, 40,' in settings_ui
     and 'textOffset := FitGameClientPromptCopyV016(options, details, detailsY, 198)' in settings_ui
-    and 'skip := AddStyledButton(options, 30, 246 + textOffset, 580, 38, "Use Just My Custom Exe",' in settings_ui
+    and 'skip := AddStyledButton(options, 30, 246 + textOffset, 580, 38, "Use My Custom Exe",' in settings_ui
     and 'offset := Max(0, detailsY + paddedHeight + 12 - buttonY)' in settings_ui
     and 'initialHeight := saved ? 460 : 412' in settings_ui
     and 'reactivate.Visible := saved' in settings_ui
@@ -1754,8 +1754,8 @@ expect(
 )
 expect(
     "Client identity and clickable controls use TES3MP and Windows pointer",
-    '"Using the included TES3MP client"' in settings_ui
-    and '"Use Included TES3MP Client"' in settings_ui
+    '"Using the included TES3MP setup"' in settings_ui
+    and '"Use Included TES3MP"' in settings_ui
     and 'Original TES3NP runtime' not in settings_ui
     and 'SetLauncherHandCursor()' in native_renderer
     and 'OnMessage(0x0020, HandleNativeClickableCursor)' in native_renderer,

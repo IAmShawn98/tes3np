@@ -20,7 +20,7 @@ Use the tray menu to **Open Launcher** or **Stop game recovery**. Quitting the l
 
 **Export Data** at the lower-right of the character book saves a portable INI backup containing characters, passwords, login delays and the ticked favorite. For older launcher versions, it also includes the executable path when available. The backup contains readable passwords, so keep it private.
 
-With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing character settings and encrypts passwords for the destination Windows account. Game client selection stays local to each PC. Configure it under **Launcher Settings → Game Client Settings**.
+With an empty character list, this button becomes **Import Data**. Select a backup created by Export Data. Import validates it before replacing character settings and encrypts passwords for the destination Windows account. Game client selection stays local to each PC. Configure it under **Launcher Settings → TES3MP Setup**.
 
 ## Login and recovery
 
