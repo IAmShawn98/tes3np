@@ -1,22 +1,16 @@
 # Releases and GitHub setup
 
-TES3NP has **two established repositories**:
+`IAmShawn98/tes3np` holds the launcher source, numbered GitHub Releases,
+and the channel feeds on `update-feed`. The permanent GitHub Pages site
+uses the root of the `website` branch at https://iamshawn98.github.io/tes3np/.
+The original v0.1.20-alpha Windows ZIP and checksum are already preserved
+in this repository's numbered prerelease.
 
-- Private development: `IAmShawn98/tes3np`, including the current
-  `Update/v0.1.21-alpha` development branch. Changes, CI checks and
-  candidate packages belong here.
-- Public distribution: `IAmShawn98/tes3np-releases`, containing the
-  previously published alpha builds, release notes and the update feed.
-  Never write here, tag a release, or publish binaries without explicit
-  owner approval.
-
-The public release repository currently documents a prior
-`v0.1.20-alpha` Windows download. **v0.1.21-alpha is an upgrade from
-earlier public alphas, not the first TES3NP release.** The public updater
-expects asset names `tes3np-windows.zip`,
-`tes3np-windows.zip.sha256`, and `tes3np-update.json`; the manual
-download uses a versioned Windows ZIP. Preserve compatibility with
-existing installations and update discovery before publication.
+`IAmShawn98/tes3np-releases` currently serves the temporary site and the
+public `latest-alpha` bridge used by installed v0.1.20-alpha launchers.
+Keep the old route and its versioned .20 download reachable during the
+transition. Publishing v0.1.21-alpha, making `tes3np` public, updating the
+legacy feed, and retiring the old repository require owner approval.
 
 Never commit character exports or live `%APPDATA%\\tes3np` data.
 Require branch protection and the validation workflows before publishing.
@@ -70,7 +64,7 @@ The canonical application version is `AppConfig.Version` in `src/state.ahk`.
 Git tags and GitHub Releases use the same version prefixed with `v`, for example
 `v0.1.0-alpha`.
 
-## Current alpha release blockers (October 29, 2026)
+## October 29 provenance investigation for the previously supplied client
 
 **Do not publish the modified markerless TES3MP executable yet.** The current
 build verifies its SHA-256 and bundles the upstream license, but this repository
@@ -195,15 +189,18 @@ The lone `WindowsBase` MSB3277 build warning originates from WebView2's
 WPF reference in a Windows Forms .NET 8 project. The currently compiled chat
 host works in existing tests; this warning is not the gating issue.
 
-## Experimental independent markerless source prototype
+## Source-built markerless console candidate
 
-A minimal, **unbuilt and untested** patch for official TES3MP `0.8.1`
-now exists at `research/markerless/tes3mp-0.8.1-markerless-experimental.patch`
-with isolated checkout instructions in `research/markerless/README.md`.
-It bypasses the two player-marker update functions identified during
-research. This is a potential independently compiled alternative, **not**
-proof of jiub's exact corresponding source and not a release-ready binary.
-The current bundled markerless executable must not be silently replaced.
+The independent TES3MP 0.8.1 console client was built and playtested.
+See `research/markerless/README.md` for the pinned source revisions,
+patches and build procedure, and `console-candidate.json` in that
+directory for its approved test EXE hash and DLL requirements. The
+release package checker verifies the EXE and the staged DLL manifest
+against the packaged source materials. Capture those results for the
+exact release ZIP in the formal provenance evidence. The previously
+supplied binary remains tracked at `patches/markerless/tes3mp.exe`.
+Before changing repository visibility, review that file and retained
+asset history as well as the contents of the Windows package.
 
 ## Release evidence gate
 
@@ -244,26 +241,74 @@ the download address and release notes from the exact tag and validates
 the filename, size and SHA-256 before staging. Generate with
 `-DisableUpdates` to prepare a manifest with automatic updates disabled.
 
-Publish only after the release evidence and owner approval are recorded.
-Verify the deployed ZIP and checksum before updating the channel manifest.
-After confirming the new manifest and download, remove the superseded ZIP
-and checksum for that channel and feature build while retaining its notes.
-Keep the latest approved ZIP for each older feature build. Existing `v0.1.20-alpha` launchers can receive the first channel-aware alpha
-through the old `latest-alpha` endpoint using its schema 1 manifest and
-`tes3np-windows.zip` asset. Keep that bridge available for returning users
-once the candidate and legacy handoff have been approved.
+## Publish a reviewed alpha candidate
+
+1. Merge the reviewed alpha source into `main` before producing the final
+   candidate. Record the full source SHA. On Windows, build from that commit
+   with both `TES3NP_MARKERLESS_CONSOLE_EXE` and
+   `TES3NP_MARKERLESS_CONSOLE_DLLS` set. Run
+   `python scripts/check-windows-package.py dist/tes3np-windows.zip --require-console-client`.
+   Retain the exact ZIP tested on clean Windows. Copy it to the versioned
+   filename and use the channel metadata generator above to obtain its
+   matching checksum.
+2. Prepare a prerelease **draft** in `IAmShawn98/tes3np` with the numbered
+   tag, the full reviewed source SHA as its target, the matching section
+   of `RELEASE_NOTES.md`, and only the versioned ZIP and checksum.
+3. After owner approval and the visibility change, run **Publish Alpha**
+   from the current `main` with the draft tag and reviewed ZIP SHA-256.
+   The workflow validates the package and evidence, publishes the draft,
+   confirms that the tag resolves to the reviewed commit, and checks the
+   public downloads before creating or updating `update-feed:alpha.json`.
+   If the release publishes but feed verification fails, resolve the
+   failure and rerun against the same commit and ZIP. Keep the versioned
+   release assets and their names stable during the retry.
+4. With the approved cutover, enable Pages from `website:/(root)`. Using
+   a signed-out session, verify the homepage, all eight slides and the
+   download button, README link, and numbered Releases download.
+5. After a later hotfix's feed and download are verified, remove the
+   superseded ZIP and checksum for that channel and feature build while
+   retaining its notes. Keep the latest approved ZIP per feature build.
+
+## Publish the one-time v0.1.20-alpha bridge
+
+Do this after the numbered v0.1.21-alpha release and alpha feed are
+verified and the owner has approved the bridge. Use the exact public
+v0.1.21-alpha ZIP after verifying its SHA-256 against the reviewed ZIP.
+From the same source checkout, copy the bytes to `tes3np-windows.zip`
+and run the metadata generator without `-ChannelFeed` to produce the
+schema 1 `tes3np-update.json` and `tes3np-windows.zip.sha256`.
+
+1. Check that the current legacy manifest still offers v0.1.20-alpha
+   (or is already the exact approved v0.1.21-alpha manifest on a retry).
+   Keep the versioned .20 ZIP and its checksum available for the old site
+   and stock-client tests.
+2. On `IAmShawn98/tes3np-releases`, replace the two unversioned
+   `latest-alpha` assets `tes3np-windows.zip` and
+   `tes3np-windows.zip.sha256`. Download both from their signed-out URLs
+   and compare the SHA-256 and checksum contents with the schema 1 manifest
+   before replacing `tes3np-update.json`. If either verification fails,
+   restore the original .20 pair and retry. Launchers check the size and
+   hash, so a partial replacement is rejected.
+3. Replace `tes3np-update.json` last and fetch it from the public URL.
+   Verify schema 1, version, filename, size and SHA-256. In a disposable
+   Windows profile, open the stock public .20 launcher and use its normal
+   update button. Verify it restarts as .21, preserves profiles and
+   preferences, and can use the new alpha feed.
+4. Keep the bridge reachable for returning .20 installs. They need a
+   manual download after the legacy repository goes away. Coordinate
+   the old site's transition and repository retirement with the owner.
+
+[Binaries and manifest on the legacy release](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha)
 
 ## Release checklist
 
-1. Update `AppConfig.Version` in `src/state.ahk` and add the matching version to `CHANGELOG.md`.
-2. Run `python scripts/project.py check` with all payload files present.
-3. Run `powershell -NoProfile -File scripts/check-powershell.ps1` on Windows.
-4. Complete affected GUI/game checks in `DEVELOPMENT.md` and patch checks in
-   `PATCHING.md`. Record Windows, AutoHotkey and TES3MP versions tested.
-5. Confirm the automatic `Build Windows launcher` workflow succeeds and inspect its package.
-6. Tag the reviewed commit, create a GitHub Release and attach the Windows package.
-   Describe changes, validation and known limitations. Publish after review.
-
-Packaging checks source, hashes and ZIP integrity. CI compiles and validates the
-launcher but does not certify live TES3MP login, gameplay or imported macro behavior.
-Development versions remain prereleases until runtime validation is complete.
+- Verify `AppConfig.Version` in `src/state.ahk` and its matching
+  `CHANGELOG.md` and `RELEASE_NOTES.md` entries.
+- Run `python scripts/project.py check` with all payload files present and
+  `powershell -NoProfile -File scripts/check-powershell.ps1` on Windows.
+- Check the affected GUI/game paths in `DEVELOPMENT.md` and patch paths in
+  `PATCHING.md`. Record Windows, AutoHotkey and TES3MP versions tested.
+- Inspect the automatic validation results. A passing compile and package
+  check does not certify live login, gameplay or imported macros.
+- Record the candidate ZIP hash, Windows results, corresponding source
+  details and distribution review before requesting owner approval.
