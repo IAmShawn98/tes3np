@@ -87,4 +87,4 @@ Changes since the last public release, v0.1.20-alpha.
 
 #### Removed Features
 
-- **Scheduled Events:** I decided to remove Scheduled Events because it wasn't up to the quality standards of the current alpha release. I'm probably either going to fix it and re-release it in the next patch, or retool certain features into other parts of the launcher. We shall see.
+- **Scheduled Events:** I decided to remove Scheduled Events because it both wasn't ready and doesn't align with how I currently envision the overall launcher operating. Pieces of this feature will return in future updates in some way.
