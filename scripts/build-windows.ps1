@@ -701,7 +701,7 @@ if A_Args.Length && A_Args[1] = "--check-resources"
         $sourceFolder = Join-Path $licenseFolder 'markerless-source'
         $null = New-Item -ItemType Directory -Path $sourceFolder -Force
         foreach ($name in @('README.md', 'build-markerless.ps1', 'Restore-Markerless-Console.ps1',
-            'tes3mp-0.8.1-markerless-experimental.patch', 'tes3mp-release-console.patch')) {
+            'tes3mp-0.8.1-markerless-experimental.patch', 'tes3mp-release-console.patch', 'CrabNet-LICENSE.txt')) {
             Copy-Item -LiteralPath (Join-Path $markerlessResearch $name) -Destination $sourceFolder
         }
         $consolePayload | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $sourceFolder 'client-files.json') -Encoding UTF8

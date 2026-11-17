@@ -11,6 +11,8 @@ Clean-install and upgrade acceptance remain separate release checks.
   https://github.com/TES3MP/TES3MP/tree/68954091c54d0596037c4fb54d2812313b7582a1
 - CrabNet source, commit `19e66190e83f53bcdcbcd6513238ed2e54878a21`:
   https://github.com/TES3MP/CrabNet/tree/19e66190e83f53bcdcbcd6513238ed2e54878a21
+- [`CrabNet-LICENSE.txt`](CrabNet-LICENSE.txt) retains the license and
+  notices for the statically linked network library from that revision.
 - The included `tes3mp-0.8.1-markerless-experimental.patch` disables the two
   remote-player marker update functions. `tes3mp-release-console.patch` selects
   the Windows console subsystem and the normal C runtime entry point.

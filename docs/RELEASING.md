@@ -193,9 +193,9 @@ publication have yet to be wired into the workflow.
    If the release publishes but feed verification fails, resolve the
    failure and rerun against the same commit and ZIP. Keep the versioned
    release assets and their names stable during the retry.
-4. With the approved cutover, enable Pages from `website:/(root)`. Using
-   a signed-out session, verify the homepage, all eight slides and the
-   download button, README link, and numbered Releases download.
+4. In a signed-out session, verify the README's GitHub Releases link and
+   download the numbered Windows ZIP from that release. The Pages site
+   is a separate rollout.
 5. After a later hotfix's feed and download are verified, remove the
    superseded ZIP and checksum for that channel and feature build while
    retaining its notes. Keep the latest approved ZIP per feature build.
@@ -208,6 +208,13 @@ v0.1.21-alpha ZIP after verifying its SHA-256 against the reviewed ZIP.
 From the same source checkout, copy the bytes to `tes3np-windows.zip`
 and run the metadata generator without `-ChannelFeed` to produce the
 schema 1 `tes3np-update.json` and `tes3np-windows.zip.sha256`.
+
+The November 17 baseline check downloaded the public .20 manifest,
+checksum, and ZIP without signing in. The schema 1 manifest, checksum, and
+65,779,100-byte ZIP agreed on SHA-256
+`61fca7ba2390f5e1bd5f633ec06b43756a45a1e632a70d759ea5932c4bd9538e`.
+The ZIP passed integrity checks. The stock Windows update through the .21
+public bridge still needs to be tested after it goes live.
 
 1. Check that the current legacy manifest still offers v0.1.20-alpha
    (or is already the exact approved v0.1.21-alpha manifest on a retry).
