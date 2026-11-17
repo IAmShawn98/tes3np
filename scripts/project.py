@@ -314,12 +314,12 @@ def check(allow_missing_payload: bool = False) -> None:
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
     client_contract = (
-        'AddStyledButton(menu, 30, 190, 620, 40, "Set Up Custom EXE", (*) => ConfigureCustomClientV016(menu))' in refinements
-        and 'AddStyledButton(menu, 30, 238, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in refinements
-        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Original TES3MP Client", (*) => RestoreBundledClientV016(menu))' in refinements
+        'AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Set Up a Custom Client", (*) => ConfigureCustomClientV016(menu))' in refinements
+        and 'AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Saved Custom Client", (*) => ActivateSavedCustomClientV016(menu))' in refinements
+        and 'AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP Client", (*) => RestoreBundledClientV016(menu))' in refinements
         and 'reactivate.Visible := saved' in refinements
         and 'reactivate.Enabled := saved' in refinements
-        and 'restoreY := saved ? 286 : 238' in refinements
+        and 'restoreY := (saved ? 286 : 238) + textOffset' in refinements
         and 'initialHeight := saved ? 460 : 412' in refinements
         and 'RefreshGameClientSettingsLayoutV016(menu)' in refinements
         and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in refinements

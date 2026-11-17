@@ -1577,7 +1577,7 @@ expect(
     'CreateGoldNativePrompt(ownerHwnd, "tes3np — Game Client Settings", 680, initialHeight)' in settings_ui
     and 'initialHeight := saved ? 460 : 412' in settings_ui
     and 'ShowGoldNativePrompt(menu)' in settings_ui
-    and 'options := CreateGoldNativePrompt(menu, "Optional Client Dependencies", ' in settings_ui
+    and 'options := CreateGoldNativePrompt(menu, "Set Up Your Custom Client", ' in settings_ui
     and 'ShowGoldNativePrompt(options)' in settings_ui
     and 'CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)' in patcher
     and 'ShowGoldNativePrompt(prompt)' in patcher
@@ -1615,13 +1615,17 @@ expect(
 )
 expect(
     "Game Client text clears buttons and available actions dictate card height",
-    'menu.Add("Text", "x30 y115 w620 h65 BackgroundTrans +Wrap",' in settings_ui
-    and 'customize := AddStyledButton(menu, 30, 190, 620, 40,' in settings_ui
+    'details := menu.Add("Text", "x30 y" detailsY " w620 BackgroundTrans +Wrap",' in settings_ui
+    and 'textOffset := FitGameClientPromptCopyV016(menu, details, detailsY, 190)' in settings_ui
+    and 'customize := AddStyledButton(menu, 30, 190 + textOffset, 620, 40,' in settings_ui
+    and 'textOffset := FitGameClientPromptCopyV016(options, details, detailsY, 198)' in settings_ui
+    and 'skip := AddStyledButton(options, 30, 246 + textOffset, 580, 38, "Use Just My Custom Exe",' in settings_ui
+    and 'offset := Max(0, detailsY + paddedHeight + 12 - buttonY)' in settings_ui
     and 'initialHeight := saved ? 460 : 412' in settings_ui
     and 'reactivate.Visible := saved' in settings_ui
-    and 'restoreY := saved ? 286 : 238' in settings_ui
-    and 'statusY := saved ? 339 : 291' in settings_ui
-    and 'closeY := saved ? 399 : 351' in settings_ui
+    and 'restoreY := (saved ? 286 : 238) + textOffset' in settings_ui
+    and 'statusY := (saved ? 339 : 291) + textOffset' in settings_ui
+    and 'closeY := (saved ? 399 : 351) + textOffset' in settings_ui
     and 'RefreshGameClientSettingsLayoutV016(menu)' in settings_ui
     and 'menu.NativePromptBackground.Move(' in settings_ui
     and 'panel.NativePromptBackground := panel.Add("Text",' in gold_prompts,
@@ -1750,8 +1754,8 @@ expect(
 )
 expect(
     "Client identity and clickable controls use TES3MP and Windows pointer",
-    '"Original TES3MP runtime"' in settings_ui
-    and '"Use Original TES3MP Client"' in settings_ui
+    '"Using the included TES3MP client"' in settings_ui
+    and '"Use Included TES3MP Client"' in settings_ui
     and 'Original TES3NP runtime' not in settings_ui
     and 'SetLauncherHandCursor()' in native_renderer
     and 'OnMessage(0x0020, HandleNativeClickableCursor)' in native_renderer,

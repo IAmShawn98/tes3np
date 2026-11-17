@@ -19,9 +19,9 @@ If the server rejects a plugin/load-order mismatch, the existing **Plugins Don't
 
 **Important:** The optional Expansion Pack modifies the selected Morrowind data directory and OpenMW configuration. The custom game client setting does not: it assembles an isolated merged runtime in AppData.
 
-## Optional custom TES3MP executable
+## Optional custom TES3MP client
 
-Open **Launcher Settings → Game Client Settings → Set Up Custom EXE**. Choose a file named `tes3mp.exe`, then either select a folder containing its additional dependencies/resources or choose **Use Bundled Dependencies Only**. TES3NP keeps the supplied files in managed overrides, and never changes the original bundled `client` directory. You can restore the original client and reactivate saved custom files later.
+Open **Launcher Settings → Game Client Settings → Set Up a Custom Client** and select your `tes3mp.exe`. If it came with its own DLLs or other files, select **Choose Folder With Extra Files**. Select **Use Just My Custom Exe** to run your EXE with the files included with TES3NP. You can switch back with **Use Included TES3MP Client** and return to your saved setup with **Use Saved Custom Client**.
 
 ## Chat and prerequisites
 
