@@ -134,6 +134,7 @@ PaintButton(wParam, lParam, *)
             return PaintLoadingPanel(handle, target, width, height)
         isLabel := face.HasOwnProp("IsLabel")
         isChatTab := face.HasOwnProp("IsChatTab")
+        isDiscordAccount := face.HasOwnProp("IsDiscordAccount")
         labelText := ""
         if !face.HasOwnProp("IsTick")
         {
@@ -166,7 +167,7 @@ PaintButton(wParam, lParam, *)
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
         DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
         DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
-        if isChatTab
+        if isChatTab || isDiscordAccount
             PaintLauncherBackgroundSlice(graphics, face.X, face.Y, (A_ScreenDPI / 96) * LauncherScale / 100)
         else if face.Book
         {
@@ -185,11 +186,15 @@ PaintButton(wParam, lParam, *)
         shift := face.State = "down" ? 2 : 0
         if !isLabel
             PaintButtonArtwork(graphics, face, width, height, shift)
+        avatarSize := isDiscordAccount && face.HasOwnProp("DiscordAvatar") && face.DiscordAvatar ? Max(0, height - 6) : 0
+        if avatarSize
+            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", face.DiscordAvatar,
+                "Int", width - avatarSize - 3, "Int", 3 + shift, "Int", avatarSize, "Int", avatarSize)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
         oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
-        fittedFont := !isLabel && !isChatTab && labelText != "" && font
+        fittedFont := !isLabel && !isChatTab && !avatarSize && labelText != "" && font
             ? FitButtonLabelFont(dc, font, labelText, Max(1, width - 4), Max(1, height - 2)) : 0
         if fittedFont
             DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
@@ -199,6 +204,11 @@ PaintButton(wParam, lParam, *)
         NumPut("Int", 2, "Int", shift, "Int", width - 2, "Int", height + shift, bounds)
         if isChatTab
             PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)
+        else if avatarSize
+        {
+            NumPut("Int", 6, "Int", shift, "Int", width - avatarSize - 9, "Int", height + shift, bounds)
+            DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", 0x8826)
+        }
         else if face.HasOwnProp("IsTick")
         {
             pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", 0x17304B, "Ptr")

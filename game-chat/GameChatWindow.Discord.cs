@@ -210,7 +210,7 @@ internal sealed partial class GameChatWindow
 
     async Task CheckDiscordAuthentication()
     {
-        if (web.CoreWebView2 == null || closingChat || checkingDiscordAuthentication) return;
+        if (web.CoreWebView2 == null || closingChat || signingOutDiscord || checkingDiscordAuthentication) return;
         checkingDiscordAuthentication = true;
         try
         {
@@ -220,6 +220,7 @@ internal sealed partial class GameChatWindow
             bool onLogin = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
                 || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
             if (onLogin) {
+                SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
                 SuspendHappyHourUntilDiscordReturns("sign-in URL");
                 ShowDiscordSignIn();
                 await StyleDiscordLogin();
@@ -233,15 +234,17 @@ internal sealed partial class GameChatWindow
                 "const t = document.body?.innerText || ''; " +
                 "if (/Discord App Detected|Discord App Launched/i.test(t)) return 'app-prompt'; " +
                 "return 'pending'; })()").WaitAsync(TimeSpan.FromSeconds(4));
-            if (closingChat || IsDisposed || web.CoreWebView2 == null ||
+            if (closingChat || IsDisposed || signingOutDiscord || web.CoreWebView2 == null ||
                 navigationId != discordNavigationId || discordNavigationInProgress ||
                 !string.Equals(url, core.Source, StringComparison.OrdinalIgnoreCase)) return;
             if (state == "\"login\"") {
+                SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
                 SuspendHappyHourUntilDiscordReturns("Discord login form");
                 ShowDiscordSignIn();
                 return;
             }
             if (state == "\"app-prompt\"") {
+                SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
                 SuspendHappyHourUntilDiscordReturns("Discord desktop-app prompt");
                 ShowDiscordSignIn();
                 Log("Discord desktop-app prompt detected; navigating to browser sign-in");
@@ -263,7 +266,9 @@ internal sealed partial class GameChatWindow
                     return;
                 }
             }
-            if (!onChannel || state == "\"loading\"") return;
+            if (state == "\"loading\"") return;
+            _ = RefreshDiscordAccount(core, navigationId, url);
+            if (!onChannel) return;
             if (channelReloadAfterSignInPending)
             {
                 // The first channel document after login can mount without a feed.
@@ -273,6 +278,7 @@ internal sealed partial class GameChatWindow
                 return;
             }
             if (state != "\"chat\"") return;
+            SetDiscordAccountStatus(DiscordAccountStatus.SignedIn);
             if (!discordChannelReady) {
                 discordChannelReady = true;
                 Log("CHAT | Authenticated Discord Game Chat ready; starting live history discovery");

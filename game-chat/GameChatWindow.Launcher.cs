@@ -50,6 +50,8 @@ internal sealed partial class GameChatWindow
                 case 13: StartExpansionAutoDownload(m.LParam); break;
                 case 14: Close(); break;
                 case 15: CheckExpansionDownloadSilently(m.LParam); break;
+                case 16: OpenDiscordAccountSignIn(); break;
+                case 17: _ = SignOutDiscord(); break;
             }
             return;
         }

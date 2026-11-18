@@ -113,6 +113,7 @@ internal sealed partial class GameChatWindow : Form
             if (!docked) DockToLauncher();
             if (docked && !nativeMode) EnforceChatClip();
             await CheckDiscordAuthentication();
+            PublishDiscordAccount();
             await RefreshNativeMessages();
             if (closingChat || IsDisposed) return;
             PositionChatWindows();

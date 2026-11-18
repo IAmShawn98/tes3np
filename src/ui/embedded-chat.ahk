@@ -3,6 +3,10 @@ global EmbeddedChatPid := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
+global LauncherDiscordAccount := 0
+global LauncherDiscordStatus := 0
+global LauncherDiscordAvatar := 0
+global LauncherDiscordAvatarStream := 0
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -76,6 +80,7 @@ StartEmbeddedInGameChat()
 StopEmbeddedInGameChat()
 {
     global EmbeddedChatPid
+    ReleaseLauncherDiscordAvatar()
     pid := EmbeddedChatPid
     if !pid
         return
@@ -85,6 +90,127 @@ StopEmbeddedInGameChat()
     if ProcessExist(pid)
         try ProcessClose(pid)
     EmbeddedChatPid := 0
+}
+
+CreateLauncherDiscordAccount()
+{
+    global LauncherGui, LauncherDiscordAccount, ButtonFaces
+    LauncherDiscordAccount := AddStyledButton(LauncherGui, 794, 2, 164, 36, "Checking Discord…", OpenLauncherDiscordAccount)
+    ButtonFaces[LauncherDiscordAccount.Hwnd].IsDiscordAccount := true
+    LauncherDiscordAccount.Enabled := false
+    ; Run before the Expansion handler, which acknowledges its own COPYDATA.
+    OnMessage(0x004A, ReceiveLauncherDiscordAccount, -1)
+    OnMessage(0x833A, LauncherDiscordSignOutFailed)
+}
+
+IsLauncherDiscordMessage(sender, hwnd)
+{
+    global LauncherGui, EmbeddedChatPid
+    if !sender || !EmbeddedChatPid || !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+        return false
+    pid := 0
+    DllCall("user32\GetWindowThreadProcessId", "Ptr", sender, "UInt*", &pid, "UInt")
+    return pid = EmbeddedChatPid
+}
+
+ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
+{
+    global LauncherDiscordAccount, LauncherDiscordStatus, ButtonFaces
+    global LauncherDiscordAvatar, LauncherDiscordAvatarStream
+    if !data || NumGet(data, 0, "Ptr") != 0x8339
+        return
+    if !IsObject(LauncherDiscordAccount) || !IsLauncherDiscordMessage(sender, hwnd)
+        return 0
+    size := NumGet(data, A_PtrSize, "UInt")
+    payload := NumGet(data, A_PtrSize = 8 ? 16 : 8, "Ptr")
+    if !payload || size < 8 || size > 33032
+        return 0
+    status := NumGet(payload, 0, "UInt")
+    nameSize := NumGet(payload, 4, "UInt")
+    if status < 1 || status > 3 || nameSize > 256 || Mod(nameSize, 2) || nameSize + 8 > size
+        return 0
+    imageSize := size - nameSize - 8
+    if imageSize > 32768 || (status != 2 && (nameSize || imageSize))
+        return 0
+
+    Critical("On")
+    name := nameSize ? StrGet(payload + 8, nameSize // 2, "UTF-16") : ""
+    name := Trim(RegExReplace(name, "\p{Cc}+"))
+    ReleaseLauncherDiscordAvatar()
+    if imageSize >= 24
+    {
+        png := payload + 8 + nameSize
+        if NumGet(png, 0, "UInt") = 0x474E5089 && NumGet(png, 4, "UInt") = 0x0A1A0A0D
+            && NumGet(png, 16, "UInt") = 0x40000000 && NumGet(png, 20, "UInt") = 0x40000000
+        {
+            stream := DllCall("shlwapi\SHCreateMemStream", "Ptr", png, "UInt", imageSize, "Ptr")
+            if stream
+            {
+                image := 0
+                if !DllCall("gdiplus\GdipCreateBitmapFromStream", "Ptr", stream, "Ptr*", &image)
+                {
+                    LauncherDiscordAvatar := image
+                    LauncherDiscordAvatarStream := stream
+                }
+                else ObjRelease(stream)
+            }
+        }
+    }
+
+    LauncherDiscordStatus := status
+    handle := LauncherDiscordAccount.Hwnd
+    ButtonFaces[handle].DiscordAvatar := LauncherDiscordAvatar
+    LauncherDiscordAccount.Enabled := status != 3
+    label := status = 1 ? "Sign in to Discord" : status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
+    SetPaintedLabelText(LauncherDiscordAccount, label)
+    return 1
+}
+
+ReleaseLauncherDiscordAvatar()
+{
+    global LauncherDiscordAccount, LauncherDiscordAvatar, LauncherDiscordAvatarStream, ButtonFaces
+    if IsObject(LauncherDiscordAccount) && ButtonFaces.Has(LauncherDiscordAccount.Hwnd)
+        ButtonFaces[LauncherDiscordAccount.Hwnd].DiscordAvatar := 0
+    if LauncherDiscordAvatar
+        DllCall("gdiplus\GdipDisposeImage", "Ptr", LauncherDiscordAvatar)
+    if LauncherDiscordAvatarStream
+        ObjRelease(LauncherDiscordAvatarStream)
+    LauncherDiscordAvatar := 0
+    LauncherDiscordAvatarStream := 0
+}
+
+OpenLauncherDiscordAccount(*)
+{
+    global LauncherDiscordAccount, LauncherDiscordStatus
+    if LauncherDiscordStatus = 1
+    {
+        SendLauncherDiscordAccountCommand(16)
+        return
+    }
+    if LauncherDiscordStatus != 2
+        return
+    dropdown := Menu()
+    dropdown.Add("Sign out", (*) => SendLauncherDiscordAccountCommand(17))
+    rect := Buffer(16, 0)
+    DllCall("user32\GetWindowRect", "Ptr", LauncherDiscordAccount.Hwnd, "Ptr", rect)
+    bottom := NumGet(rect, 12, "Int")
+    avatarLeft := NumGet(rect, 8, "Int") - (bottom - NumGet(rect, 4, "Int"))
+    oldMode := A_CoordModeMenu
+    CoordMode("Menu", "Screen")
+    try dropdown.Show(avatarLeft, bottom)
+    finally CoordMode("Menu", oldMode)
+}
+
+SendLauncherDiscordAccountCommand(command)
+{
+    if !SendLauncherChatCommand(command)
+        MsgBox("Discord is unavailable in the launcher. Reopen the launcher and try again.", "Discord account", "Icon!")
+}
+
+LauncherDiscordSignOutFailed(wParam, sender, msg, hwnd)
+{
+    if IsLauncherDiscordMessage(sender, hwnd)
+        SetTimer(() => MsgBox("Couldn't sign out of Discord. Try again.", "Discord account", "Icon!"), -1)
 }
 
 SendLauncherChatCommand(command, targetHwnd := 0)
