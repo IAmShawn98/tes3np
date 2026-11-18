@@ -588,11 +588,12 @@ ExpansionPackInLoadOrder(config)
     return false
 }
 
-ExpansionPackIsEnabled()
+ExpansionPackIsEnabled(config := "")
 {
-    ; The button describes the configured load order, which also determines
-    ; whether its next click enables or disables the pack.
-    return ExpansionPackInLoadOrder(PatchConfigurationPath())
+    if config = ""
+        config := PatchConfigurationPath()
+    return ExpansionPackInLoadOrder(config)
+        && ExpansionPackInstalled(FindMorrowindFolder(config), config)
 }
 
 RefreshExpansionPackToggle()
@@ -602,7 +603,11 @@ RefreshExpansionPackToggle()
     {
         try
         {
-            LauncherExpansionToggle.Text := "Expansion Pack: " (ExpansionPackIsEnabled() ? "Enabled" : "Disabled")
+            config := PatchConfigurationPath()
+            status := "Disabled"
+            if ExpansionPackInLoadOrder(config)
+                status := ExpansionPackIsEnabled(config) ? "Enabled" : "Unverified"
+            LauncherExpansionToggle.Text := "Expansion Pack: " status
             DllCall("InvalidateRect", "Ptr", LauncherExpansionToggle.Hwnd, "Ptr", 0, "Int", 1)
         }
     }
@@ -636,6 +641,12 @@ ApplyExpansionPackToggle(checked := false)
     }
     if checked && !enable
         return
+    if !enable && !ExpansionPackInstalled(morrowind, cfg)
+    {
+        if MsgBox("The Expansion Pack is in the OpenMW load order, but its installed file could not be verified."
+            . "`n`nDisable this load-order entry?", "Expansion Pack", "YesNo Icon?") != "Yes"
+            return
+    }
     if enable && !checked && FileExist(cfg) && ExpansionPackEspPaths(morrowind, cfg).Length
         && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
         return
