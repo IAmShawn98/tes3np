@@ -82,14 +82,19 @@ The report identifies evidence pointing to Expansion Pack configuration, another
 
 ## Embedded Chat Host changes
 
-Treat `chat-host/Program.cs` as a separate WinForms process owned by the
-AutoHotkey launcher, not as an independent application with its own data
-conventions. Read `docs/ARCHITECTURE.md` and `src/ui/embedded-chat.ahk`
-before editing it.
+`game-chat/Program.cs` starts the WinForms process owned by the AutoHotkey
+launcher. The `GameChatWindow.*.cs` files group its feed, history, archive,
+Discord session, Happy Hour, downloads, and launcher integration. Read
+`docs/ARCHITECTURE.md` and `src/ui/embedded-chat.ahk` before changing ownership
+or launcher messages.
 
-Edit `chat-host/web/message-feed.html` for the visible message layout, colors,
-and scrolling. The build embeds this page in the Chat Host. `chat-host/chat.css`
-styles the Discord page that supplies the messages.
+Edit `game-chat/web/message-feed.html` for visible message layout, colors, and
+scrolling. `web/extract-feed.js` reads the Discord DOM, and `DiscordFeedReader.cs`
+turns that data into C# message rows. `web/discord-sign-in.js` styles the sign-in
+form. The build embeds the files under `web/`. The editable `game-chat/chat.css`
+styles the Discord source page, and the Windows package keeps the installed
+`chat-host/tes3np.ChatHost.exe`, `chat.css`, and `chat.ini` paths for existing
+updaters and user settings.
 
 Persist personal Chat Host state only through `ChatDataRoot`, which matches
 the launcher's `%APPDATA%\\tes3np`. The message index and export remain in
@@ -121,7 +126,7 @@ Before committing a Chat Host change:
 1. Read the existing state/auth/archive and launcher ownership contracts.
 2. Run `python scripts/check-chat-architecture.py`.
 3. On Windows, compile with
-   `dotnet build chat-host/tes3np.ChatHost.csproj -c Release -r win-x64 --no-self-contained`.
+   `dotnet build game-chat/tes3np.GameChat.csproj -c Release -r win-x64 --no-self-contained`.
 4. Run `Build tes3np.bat` and exercise fresh sign-in **without restarting**,
    signed-out active archive, signed-out empty archive, logout/relogin while a
    banner is active, expired event, and current event paths.

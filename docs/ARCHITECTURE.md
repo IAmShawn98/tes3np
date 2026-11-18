@@ -74,7 +74,7 @@ and the [Windows acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
 The AutoHotkey launcher remains authoritative for the application lifecycle,
 window ownership, user settings, and diagnostics. `src/ui/embedded-chat.ahk`
 starts/stops the separate Windows Forms/WebView2 companion
-(`chat-host/Program.cs`). The Chat Host owns its own docked window and chat
+(`game-chat/Program.cs`). Game Chat owns its own docked window and chat
 content; it communicates chat visibility through the existing window messages
 `0x8331` (launcher commands) and `0x8332` (Chat Host state). Do not add a
 second Chat Host process, popup ownership controller, or competing chat timer.
@@ -202,7 +202,7 @@ testing is required to confirm this post-login paint sequence. This sequence
 changes neither the persisted browser profile nor the Happy Hour archive.
 
 **Validation:** `scripts/check-chat-architecture.py` guards these contracts
-and the normal CI checks now compile `chat-host/tes3np.ChatHost.csproj`.
+and the normal CI checks compile `game-chat/tes3np.GameChat.csproj`.
 Static checks do not establish successful Discord authentication, WebView2
 rendering, Happy Hour recognition, or Windows window positioning. Verify those
 behaviors in an actual launcher build. Expired-announcement preview mode has

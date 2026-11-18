@@ -80,9 +80,9 @@ if exist "%PACKAGE%\licenses\TES3MP\LICENSE" (
     if errorlevel 1 goto :failed
 )
 
-set "BUILD_STAGE=Copying packaged Chat Host into source folder"
+set "BUILD_STAGE=Copying packaged Game Chat into source folder"
 if not exist "%PACKAGE%\chat-host\tes3np.ChatHost.exe" (
-    echo WebView2 chat host was not packaged.
+    echo Game Chat was not packaged.
     goto :failed
 )
 if not exist "%~dp0chat-host" mkdir "%~dp0chat-host"

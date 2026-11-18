@@ -169,7 +169,7 @@ try {
     Step 'Preflight compiling Chat Host before downloading tools'
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if (!$dotnet) { throw 'Building embedded chat requires .NET 8 SDK. Install the .NET 8 SDK and rerun the build.' }
-    $hostProject = Join-Path $projectRoot 'chat-host\tes3np.ChatHost.csproj'
+    $hostProject = Join-Path $projectRoot 'game-chat\tes3np.GameChat.csproj'
     & dotnet build $hostProject -c Release -r win-x64 --no-self-contained
     if ($LASTEXITCODE -ne 0) { throw 'Chat Host preflight compilation failed. Previous build artifacts were not removed.' }
     Step 'Starting Windows launcher build'
@@ -721,7 +721,8 @@ $sourceNotice
 Bethesda Morrowind game data is not bundled and must be supplied by users.
 "@ | Set-Content -LiteralPath (Join-Path $licenseFolder 'REDISTRIBUTION-NOTICE.txt') -Encoding UTF8
     Step 'Verified complete bundled TES3MP runtime and included license notices'
-    Step 'Publishing embedded WebView2 chat host'
+    Step 'Publishing Game Chat'
+    # Older packaged updaters validate this installed path before copying files.
     $hostOutput = Join-Path $package 'chat-host'
     & dotnet publish $hostProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o $hostOutput
     if ($LASTEXITCODE -ne 0 -or !(Test-Path (Join-Path $hostOutput 'tes3np.ChatHost.exe'))) {
@@ -731,8 +732,8 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
         throw 'Published Discord sign-in emblem is missing.'
     }
     # Keep editable CSS and layout files beside the published chat host.
-    Copy-Item (Join-Path $projectRoot 'chat-host\chat.css') (Join-Path $hostOutput 'chat.css') -Force
-    Copy-Item (Join-Path $projectRoot 'chat-host\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force
+    Copy-Item (Join-Path $projectRoot 'game-chat\chat.css') (Join-Path $hostOutput 'chat.css') -Force
+    Copy-Item (Join-Path $projectRoot 'game-chat\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force
     # Keep the installed version's release notes available offline.
     Copy-Item (Join-Path $projectRoot 'RELEASE_NOTES.md') (Join-Path $package 'RELEASE_NOTES.md') -Force
     Step 'Generating the offline player guide'

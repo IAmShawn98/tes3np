@@ -6,9 +6,23 @@ The Windows CI job also builds the Chat Host to catch compiler errors.
 from pathlib import Path
 import sys
 
+from game_chat_source import read_game_chat_sources
+
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
-message_page = (ROOT / "chat-host" / "web" / "message-feed.html").read_text(encoding="utf-8-sig")
+chat_root = ROOT / "game-chat"
+chat_web = chat_root / "web"
+source = read_game_chat_sources(ROOT)
+feed_extractor = (chat_web / "extract-feed.js").read_text(encoding="utf-8-sig")
+discord_sign_in = (chat_web / "discord-sign-in.js").read_text(encoding="utf-8-sig")
+expansion_browser = (chat_web / "expansion-downloads.js").read_text(encoding="utf-8-sig")
+sign_in_card = (chat_root / "DiscordSignInCard.cs").read_text(encoding="utf-8-sig")
+chat_renderer = (chat_root / "GameChatWindow.Renderer.cs").read_text(encoding="utf-8-sig")
+chat_window = (chat_root / "GameChatWindow.cs").read_text(encoding="utf-8-sig")
+chat_history = (chat_root / "GameChatWindow.History.cs").read_text(encoding="utf-8-sig")
+chat_expansion = (chat_root / "GameChatWindow.Expansion.cs").read_text(encoding="utf-8-sig")
+happy_hour = (chat_root / "GameChatWindow.HappyHour.cs").read_text(encoding="utf-8-sig")
+happy_hour_banner = (chat_root / "GameChatWindow.HappyHourBanner.cs").read_text(encoding="utf-8-sig")
+message_page = (chat_web / "message-feed.html").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
 bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
 controls = (ROOT / "src" / "ui" / "controls.ahk").read_text(encoding="utf-8-sig")
@@ -29,7 +43,7 @@ launcher_smoke_tests = (ROOT / "scripts" / "launcher-smoke-tests.ahk").read_text
 display_settings = (ROOT / "src" / "ui" / "launcher-settings.ahk").read_text(encoding="utf-8-sig")
 launcher_layout = (ROOT / "src" / "ui" / "launcher-layout.ahk").read_text(encoding="utf-8-sig")
 update_check = (ROOT / "src" / "app" / "update-check.ahk").read_text(encoding="utf-8-sig")
-chat_project = (ROOT / "chat-host" / "tes3np.ChatHost.csproj").read_text(encoding="utf-8-sig")
+chat_project = (chat_root / "tes3np.GameChat.csproj").read_text(encoding="utf-8-sig")
 errors = []
 
 
@@ -110,6 +124,17 @@ expect(
                  'else if (!chatOpen) lastChatActivity = DateTime.Now;', 'chatOpen = show;',
                  'else ShowWindow(Handle, 0);'),
 )
+expect(
+    "History and Expansion callbacks ignore stale navigation or a replaced download request",
+    in_order(chat_history, "ulong navigationId = discordNavigationId;",
+             "await web.CoreWebView2.ExecuteScriptAsync(script).WaitAsync(TimeSpan.FromSeconds(5));",
+             "navigationId != discordNavigationId) return;", 'if (result.Contains("no-message-list")')
+    and in_order(chat_expansion, "ulong requestGeneration = expansionPromptGeneration;",
+                 "await core.ExecuteScriptAsync(", "if (!IsCurrentExpansionPrompt(requestGeneration, navigationId)) return;",
+                 "CompletePendingExpansionPrompt();")
+    and "requestGeneration == expansionPromptGeneration" in chat_expansion
+    and "navigationId == discordNavigationId && !discordNavigationInProgress" in chat_expansion,
+)
 
 expect(
     "AHK must establish the Roaming AppData root",
@@ -149,13 +174,14 @@ expect(
 )
 expect(
     "Activation text must belong to the Discord bot, not quoted player chat",
-    'sourceAuthor.Contains("Yagrum", StringComparison.OrdinalIgnoreCase)' in source
-    and 'entry.Value.User.Contains("Yagrum", StringComparison.OrdinalIgnoreCase)' in source,
+    'bool isHappyHour = IsHappyHourAuthor(sourceAuthor) &&' in source
+    and 'if (IsHappyHourAuthor(entry.Value.User) &&' in happy_hour
+    and 'user.Contains("Yagrum", StringComparison.OrdinalIgnoreCase)' in happy_hour,
 )
 expect(
     "A newer verified image must not be superseded by older text",
     "foreach (ulong imageId in verifiedHappyHourImageIds)" in source
-    and "foreach (var entry in archivedChat.Reverse()) {\n                if (entry.Key <= latest) break;" in source,
+    and "foreach (var entry in archivedChat.Reverse()) {\n            if (entry.Key <= latest) break;" in source,
 )
 expect(
     "Only the authentic Discord-backed Happy Hour banner remains",
@@ -170,14 +196,10 @@ expect(
     and "Form? happyHourAlert" not in source,
 )
 happy_hour_refresh = section_between(
-    source,
-    "void RefreshHappyHourBanner()",
-    "\n        [DllImport(\"user32.dll\")] static extern bool IsWindowVisible",
+    happy_hour_banner, "void RefreshHappyHourBanner()", "void ShowHappyHourBannerForMessage("
 )
 happy_hour_clock = section_between(
-    source,
-    "void RefreshHappyHourBannerClock()",
-    "\n        void RefreshHappyHourBanner()",
+    happy_hour_banner, "void RefreshHappyHourBannerClock()", "void RefreshHappyHourBanner()"
 )
 expect(
     "Happy Hour countdown updates during any open launcher menu without stealing focus",
@@ -197,8 +219,8 @@ expect(
 expect(
     "Banner presentation is independent of Discord authentication",
     "if (activationId == 0 || closingChat || IsDisposed) return;" in source
-    and "void RefreshHappyHourBanner()\n        {\n            if (happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner))" in source
-    and "void DetectLatestHappyHour()\n        {\n            if (closingChat || IsDisposed) return;" in source,
+    and "void RefreshHappyHourBanner()\n    {\n        if (happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner))" in source
+    and "void DetectLatestHappyHour()\n    {\n        if (closingChat || IsDisposed) return;" in source,
 )
 expect(
     "Only authenticated Discord can fetch or page new messages",
@@ -208,7 +230,7 @@ expect(
 )
 expect(
     "Offline startup consults real archived messages, not login or marker state",
-    "// Load it immediately, whether this browser is signed in or not.\n                DetectLatestHappyHour();" in source
+    "// Load it immediately, whether this browser is signed in or not.\n        DetectLatestHappyHour();" in source
     and "ulong latest = LatestArchivedHappyHourId();" in source
     and "LegacyHappyHourSeenFile" not in source,
 )
@@ -239,7 +261,7 @@ expect(
 expect(
     "Recent cached Happy Hour does not suppress searches for newer activations",
     'checking for a newer Discord activation' in source
-    and 'initialBackfillComplete = false;\n                initialBackfillStarted = DateTime.MinValue;\n                initialBackfillAttempts = 0;' in source
+    and 'initialBackfillComplete = false;\n            initialBackfillStarted = DateTime.MinValue;\n            initialBackfillAttempts = 0;' in source
     and 'initialBackfillComplete = true;\n                    Log("HAPPY HOUR | Verified cached activation:' not in source
     and 'skipping historical Discord pagination' not in source
     and 'bool verifiedLatest = candidateId > 0 &&' in source
@@ -266,9 +288,9 @@ expect(
     "Task<string?>? chatArchiveSave;" in source
     and "chatLogLoaded = indexArchiveRead && textArchiveRead;" in source
     and "if (!pending.IsCompleted) return;" in source
-    and "chatArchiveDirty = true;\n                    nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(5);" in source
-    and "historyWatch.Tick += (_, _) =>" in source
-    and "if (chatArchiveDirty && !chatLogLoaded) EnsureChatLogLoaded();\n                FlushPendingChatArchive();" in source
+    and "chatArchiveDirty = true;\n                nextChatArchiveSave = DateTimeOffset.UtcNow.AddSeconds(5);" in source
+    and "historyWatch.Tick += MaintainHistory;" in source
+    and "if (chatArchiveDirty && !chatLogLoaded) EnsureChatLogLoaded();\n        FlushPendingChatArchive();" in source
     and in_order(source, "Task<string?> QueueChatArchiveSave(", "}).ToArray();",
                  "return Task.Run(async () =>", "SaveChatArchive(records, indexPath, textPath);")
     and "finally { refreshingNativeFeed = false; }" in source,
@@ -297,7 +319,7 @@ expect(
     and "bool keepChatVisible = discordSignInRequested &&" in source
     and 'path is "/quest-home" or "/quests" or "/shop" or "/store"' in source
     and in_order(
-        section_between(source, "        async Task CheckDiscordAuthentication()", "        async Task StyleDiscordLogin()"),
+        section_between(source, "async Task CheckDiscordAuthentication()", "static readonly Lazy<string> DiscordSignInScript"),
         "IsDiscordAppRoute(url)",
         "RestoreGameChatAfterSignIn();",
         "core.Navigate(Channel);",
@@ -305,14 +327,13 @@ expect(
         "discordChannelReady = true;",
     )
     and in_order(
-        section_between(source, "        void RestoreGameChatAfterSignIn()", "        async Task UpdateViewMode()"),
+        section_between(source, "void RestoreGameChatAfterSignIn()", "async Task UpdateViewMode()"),
         "web.Visible = false;",
         "web.Parent = chatViewport;",
         "ShowConnectingChat();",
     ),
 )
 
-sign_in_card = section_between(source, "sealed class DiscordSignInCard : Form", "void PositionDiscordSignIn(")
 show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")
 sign_in_layout = section_between(source, "static Size GetDiscordSignInSize(", "void DismissDiscordSignIn()")
 chat_layout = section_between(source, "void PositionChatWindows()", "void DockToLauncher()")
@@ -332,11 +353,11 @@ expect(
 # Chat Host has a separate real WebView2 renderer, its parent, a native
 # loading-text control and a textured custom scrollbar. All four must change
 # state together on the first successful Discord feed.
-loading = section_between(source, "        void ShowConnectingChat()", "        void ShowDiscordSignIn()")
+loading = section_between(chat_renderer, "void ShowConnectingChat()", "\n    }")
 feed_transition = section_between(
-    source,
-    "                bool enteringNativeMode = !nativeMode;",
-    '                    Log("Native message view activated");',
+    chat_renderer,
+    "bool enteringNativeMode = !nativeMode;",
+    'Log("Native message view activated");',
 )
 expect(
     "Game Chat remains fully on its monitor when the launcher is near an edge",
@@ -359,10 +380,10 @@ expect(
     and "Math.Min(width, Math.Max(1, work.Width - 24))" in sign_in_layout
     and "Math.Min(height, Math.Max(1, work.Height - 24))" in sign_in_layout
     and in_order(show_sign_in, "web.Parent = popup.BrowserPanel;", "web.ZoomFactor = 1;", "PositionChatWindows();")
-    and "[data-tes3np-login-shell]:has([data-tes3np-login])" in source
-    and "position:fixed !important; inset:10px 0 6px !important;" in source
-    and "@media (max-height:480px)" in source
-    and "overflow-y:auto !important;" in source,
+    and "[data-tes3np-login-shell]:has([data-tes3np-login])" in discord_sign_in
+    and "position:fixed !important; inset:10px 0 6px !important;" in discord_sign_in
+    and "@media (max-height:480px)" in discord_sign_in
+    and "overflow-y:auto !important;" in discord_sign_in,
 )
 expect(
     "First login exposes native Connecting status, not a stale scrollbar",
@@ -404,14 +425,14 @@ expect(
     "Game Chat retains Discord author colors and keeps the Yagrum relay styling",
     '.user{color:inherit;' in message_page
     and '.user.yagrum{color:#dbb243}' in message_page
-    and "user.toLowerCase() === 'yagrum'" in source
-    and "?.querySelector('[class*=\"botTag_\"]')" in source
+    and "user.toLowerCase() === 'yagrum'" in feed_extractor
+    and "?.querySelector('[class*=\"botTag_\"]')" in feed_extractor
     and 'isYagrum = entry.Value.IsYagrum' in source
     and 'authorColor = entry.Value.AuthorColor' in source
-    and 'existing.AuthorColor != authorColor' in source
+    and 'existing.AuthorColor != message.AuthorColor' in source
     and "name.className=m.isYagrum?'user yagrum':'user'" in message_page
     and "if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))" in message_page
-    and in_order(source, "const theme = document.getElementById('tes3np-chat-style')?.sheet;",
+    and in_order(feed_extractor, "const theme = document.getElementById('tes3np-chat-style')?.sheet;",
                  "if (restoreTheme) theme.disabled = true;", "const style = getComputedStyle(author);",
                  "if (restoreTheme) theme.disabled = false;", "contentNode?.innerText?.trim()"),
 )
@@ -420,8 +441,10 @@ expect(
     "nextMessagePageReload = DateTime.UtcNow.AddSeconds(8);" in renderer_recovery
     and "DateTime.UtcNow < nextMessagePageReload" in renderer_recovery
     and "NavigateToString(MessagePage.Value);" in renderer_recovery
-    and 'GetManifestResourceStream("tes3np.ChatHost.Web.MessageFeed.html")' in source
-    and '<EmbeddedResource Include="web\\message-feed.html" LogicalName="tes3np.ChatHost.Web.MessageFeed.html" />' in chat_project
+    and 'GameChatWeb.Page("message-feed.html")' in chat_renderer
+    and 'GetManifestResourceStream(resourceName)' in source
+    and 'tes3np.GameChat.Web.%(Filename)%(Extension)' in chat_project
+    and '<AssemblyName>tes3np.ChatHost</AssemblyName>' in chat_project
     and 'RecoverMessagePage("page unavailable");' in source
     and 'RecoverMessagePage("page did not confirm message rows");' in source
     and "if (!docked) DockToLauncher();" in section_between(
@@ -429,7 +452,7 @@ expect(
 )
 expect(
     "Real textured scrollbar is the only scrollbar, with no stale frame-painted duplicate",
-    'goldScrollbar.Paint += (_, e) =>' in source
+    'goldScrollbar.Paint += PaintChatScrollbar;' in source
     and 'g.DrawString("▲"' not in source
     and 'g.DrawString("▼"' not in source
     and 'int sx = w - 35;' not in source,
@@ -439,7 +462,7 @@ expect(
     "Happy Hour banner must track launcher movement without a timer delay",
     "void PositionHappyHourBanner()" in source
     and "SetWindowPos(banner.Handle, IntPtr.Zero, x, y, width, height," in source
-    and "PositionHappyHourBanner();\n                if (repositionQueued) return;" in source
+    and "PositionHappyHourBanner();\n            if (repositionQueued) return;" in source
     and "SetWinEventHook(0x800B, 0x800B" in source,
 )
 mismatch = (ROOT / "src" / "game" / "expansion-mismatch.ahk").read_text(encoding="utf-8-sig")
@@ -604,7 +627,7 @@ expect(
     and 'TES3MPExpansionStartPreflightDiscovery(ExpansionMismatchDialog, 6)' in mismatch
     and 'Sign into Discord through Game Chat to check the official download.' not in mismatch
     and 'SetTimer(TES3MPExpansionContinuePreflight.Bind' not in mismatch
-    and 'history:recent.map(item=>item.url)' in source
+    and 'history:recent.map(item=>item.url)' in expansion_browser
     and 'ExpansionZipChecksum.ReadDownloaded(partial)' in source
     and 'if !packCurrent && TES3MPAllowsExpansionAutoUpdate(' in mismatch
     and 'case 15: CheckExpansionDownloadSilently(m.LParam); break;' in source
@@ -932,8 +955,8 @@ expect(
     and 'await browser.EnsureCoreWebView2Async(env);' in source
     and 'case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;' in source
     and 'case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;' in source
-    and source.count("new ChatHost(") == 1
-    and in_order(source, "new ChatHost(new IntPtr(owner), baseWidth)", "Application.Run(chat);")
+    and source.count("new GameChatWindow(") == 1
+    and in_order(source, "new GameChatWindow(new IntPtr(owner), baseWidth)", "Application.Run(chat);")
     and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1,
 )
 expect(
@@ -946,47 +969,47 @@ expect(
 )
 expect(
     "Only genuine ZIP attachment URL is presented without Discord grid changes",
-    'const string ExpansionDownloadsFocusScript = """' in source
-    and "document.querySelector('[data-list-id=\"chat-messages\"]')" in source
-    and r"cdn\.discordapp\.com" in source
-    and r"media\.discordapp\.net" in source
-    and r"location.pathname.replace(/\/+$/,'')" in source
-    and "link.href=file.url;" in source
-    and "link.textContent=file.filename;" in source
-    and "new MutationObserver(changes=>{" in source
+    'GameChatWeb.Page("expansion-downloads.js")' in source
+    and "document.querySelector('[data-list-id=\"chat-messages\"]')" in expansion_browser
+    and r"cdn\.discordapp\.com" in expansion_browser
+    and r"media\.discordapp\.net" in expansion_browser
+    and r"location.pathname.replace(/\/+$/,'')" in expansion_browser
+    and "link.href=file.url;" in expansion_browser
+    and "link.textContent=file.filename;" in expansion_browser
+    and "new MutationObserver(changes=>{" in expansion_browser
     and "await browser.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(" in source
-    and "grid-template-columns: minmax(0, 1fr) !important" not in source,
+    and "grid-template-columns: minmax(0, 1fr) !important" not in expansion_browser,
 )
 
 expect(
     "Future expansion ZIP selection is ordered by Discord message snowflakes",
-    "const channel='/channels/509601787901116437/1555049936800718928';" in source
-    and "function snowflake(message)" in source
-    and r"chat-messages-\d+-(\d{15,22})" in source
-    and "BigInt(row[1])" in source
-    and "BigInt(single[1])" in source
-    and "item.id>best.id" in source
-    and "item.id===best.id && item.order>=best.order" in source
-    and "const files=readCandidates(feed);" in source
-    and "remember(files);" in source
-    and "link.href=file.url;" in source
-    and "phase='present'" in source
-    and "goToPresent(scroller)" in source
-    and "const maxBackfills=12, maxLoadingRetries=30, maxPresentRetries=18;" in source
-    and "presentRetries<=maxPresentRetries" in source
-    and "attributes:true,attributeFilter:['href']" in source
-    and "new MutationObserver(changes=>{" in source
-    and "lastFileKey===key" in source
-    and "grid-template-columns:" not in source,
+    "const channel='/channels/509601787901116437/1555049936800718928';" in expansion_browser
+    and "function snowflake(message)" in expansion_browser
+    and r"chat-messages-\d+-(\d{15,22})" in expansion_browser
+    and "BigInt(row[1])" in expansion_browser
+    and "BigInt(single[1])" in expansion_browser
+    and "item.id>best.id" in expansion_browser
+    and "item.id===best.id && item.order>=best.order" in expansion_browser
+    and "const files=readCandidates(feed);" in expansion_browser
+    and "remember(files);" in expansion_browser
+    and "link.href=file.url;" in expansion_browser
+    and "phase='present'" in expansion_browser
+    and "goToPresent(scroller)" in expansion_browser
+    and "const maxBackfills=12, maxLoadingRetries=30, maxPresentRetries=18;" in expansion_browser
+    and "presentRetries<=maxPresentRetries" in expansion_browser
+    and "attributes:true,attributeFilter:['href']" in expansion_browser
+    and "new MutationObserver(changes=>{" in expansion_browser
+    and "lastFileKey===key" in expansion_browser
+    and "grid-template-columns:" not in expansion_browser,
 )
 
 expect(
     "ZIP click is handed to default Windows browser without navigating embedded Discord",
-    "link.addEventListener('click',event=>" in source
-    and "event.preventDefault();" in source
-    and "event.stopPropagation();" in source
-    and "chrome.webview.postMessage({type:'expansion-download',url});" in source
-    and "status.textContent='';" in source
+    "link.addEventListener('click',event=>" in expansion_browser
+    and "event.preventDefault();" in expansion_browser
+    and "event.stopPropagation();" in expansion_browser
+    and "chrome.webview.postMessage({type:'expansion-download',url});" in expansion_browser
+    and "status.textContent='';" in expansion_browser
     and "type==\"expansion-download\"" in source
     and "IsOfficialExpansionDownloadUrl(link)" in source
     and "Uri.TryCreate(value, UriKind.Absolute, out var uri)" in source
@@ -1034,7 +1057,7 @@ expect(
     and 'PostMessage(owner,0x8335,popupSlot,IntPtr.Zero)' not in source
     and 'ExpansionMismatchRefreshPending' not in mismatch
     and 'ShowNativeExpansionDownloadCard(' not in source
-    and 'setTimeout(()=>{scheduled=false;refresh();},150);' in source,
+    and 'setTimeout(()=>{scheduled=false;refresh();},150);' in expansion_browser,
 )
 
 expect(
@@ -1067,7 +1090,7 @@ expect(
     and 'FileGetSize(config) > 1048576' in mismatch
     and 'file.Length - 65536' in mismatch
     and 'statusControl.Text := ""' in mismatch
-    and "status.textContent='';" in source
+    and "status.textContent='';" in expansion_browser
     and 'Starting Download...' not in mismatch
     and 'Starting Download...' not in source
     and 'SAFE PLUGIN MISMATCH' not in mismatch
@@ -1316,7 +1339,7 @@ expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
     and "PositionHappyHourBanner();" in chat_layout
-    and "PositionChatWindows();" in section_between(source, "watch.Tick +=", "historyWatch.Tick +=")
+    and "PositionChatWindows();" in section_between(chat_window, "async void RefreshChatAsync(", "\n    }")
     and "bounds.Top - 48" in source,
 )
 
@@ -1332,8 +1355,8 @@ expect(
     "Jiub Happy Hour face must follow banner close, hide and restore",
     'banner.FormClosed += (_, _) => {' in source
     and 'if (!happyHourBanner.Visible) {' in source
-    and 'happyHourBanner.Show();\n                        // The verified banner is visible again after a launcher restore.\n                        NotifyLauncherHappyHourFace(true);' in source
-    and 'happyHourBanner.Hide();\n                    // Keep Jiub\'s appearance in sync when the banner is hidden.\n                    NotifyLauncherHappyHourFace(false);' in source,
+    and 'happyHourBanner.Show();\n                    // The verified banner is visible again after a launcher restore.\n                    NotifyLauncherHappyHourFace(true);' in source
+    and 'happyHourBanner.Hide();\n                // Keep Jiub\'s appearance in sync when the banner is hidden.\n                NotifyLauncherHappyHourFace(false);' in source,
 )
 expect(
     "Jiub picture must be a bundled native launcher control, without a floating window",
@@ -1795,7 +1818,7 @@ expect(
     and in_order(sign_in_layout, 'pendingExpansionPrompt == 0',
                  'DockBounds(ownerBounds, work, size, size.Width)',
                  'work.Left + (work.Width - size.Width) / 2')
-    and 'Discord Integration!' in source
+    and 'Discord Integration!' in discord_sign_in
     and 'Sign In Required' in source
     and 'CopyToPublishDirectory="PreserveNewest"' in chat_project
     and "assets\\DiscordInt.png" in chat_project,
@@ -1820,23 +1843,23 @@ expect(
 )
 expect(
     "Discord login cancellation follows actual passkey row without overlapping password",
-    "anchor.insertAdjacentElement('afterend', later);" in source
-    and "form.appendChild(later);" not in source
-    and "/sign in with a passkey/i.test(el.textContent || '')" in source
-    and "parent.querySelector('input,button[type=submit]')" in source
-    and "later.type = 'button';" in source
-    and "chrome.webview.postMessage('tes3np-sign-in-later');" in source
+    "anchor.insertAdjacentElement('afterend', later);" in discord_sign_in
+    and "form.appendChild(later);" not in discord_sign_in
+    and "/sign in with a passkey/i.test(el.textContent || '')" in discord_sign_in
+    and "parent.querySelector('input,button[type=submit]')" in discord_sign_in
+    and "later.type = 'button';" in discord_sign_in
+    and "chrome.webview.postMessage('tes3np-sign-in-later');" in discord_sign_in
     and 'args.TryGetWebMessageAsString() == "tes3np-sign-in-later"' in source
-    and 'requestAnimationFrame(resetIfUntouched);' in source
-    and "position:static !important;" in source
-    and "min-height:44px !important" in source
+    and 'requestAnimationFrame(resetIfUntouched);' in discord_sign_in
+    and "position:static !important;" in discord_sign_in
+    and "min-height:44px !important" in discord_sign_in
     and 'RowCount = 3,' in source
     and 'shell.Controls.Add(later, 0, 3);' not in source,
 )
 expect(
     "Discord Integration heading has no line or underline",
-    "border:0 !important; box-shadow:none !important;" in source
-    and "text-decoration:none !important;" in source
+    "border:0 !important; box-shadow:none !important;" in discord_sign_in
+    and "text-decoration:none !important;" in discord_sign_in
     and "border-bottom:1px solid #70532c !important;" not in source,
 )
 expect(
@@ -2112,8 +2135,11 @@ expect(
     "EnsureEmbeddedChatHostCurrent(host)" in embedded_chat
     and "RunWait(" not in host_freshness
     and "dotnet publish" not in host_freshness.replace("RunWait(dotnet publish)", "")
-    and 'for pattern in ["\\*.cs", "\\tes3np.ChatHost.csproj", "\\web\\*.*"]' in host_freshness
+    and 'for pattern in ["\\*.cs", "\\tes3np.GameChat.csproj", "\\web\\*.*"]' in host_freshness
     and 'hostTime < A_LoopFileTimeModified' in host_freshness
+    and 'sourceDir := A_ScriptDir "\\game-chat"' in host_freshness
+    and "$hostProject = Join-Path $projectRoot 'game-chat\\tes3np.GameChat.csproj'" in windows_build
+    and "$hostOutput = Join-Path $package 'chat-host'" in windows_build
     and "startup will not block on compilation" in host_freshness,
 )
 expect(
@@ -2155,10 +2181,10 @@ expect(
     "WinForms first show stays compositor-cloaked until initial dock and saved visibility are ready",
     'const int DWMWA_CLOAK = 13;' in source
     and 'protected override void OnHandleCreated(EventArgs e)' in source
-    and 'if (startupPresentationPending)\n                SetStartupWindowCloak(true);' in source
+    and 'if (startupPresentationPending)\n            SetStartupWindowCloak(true);' in source
     and 'DwmSetWindowAttribute(Handle, DWMWA_CLOAK, ref value, sizeof(int))' in source
-    and 'SetChatOpen(chatDisplayMode == "Always Shown");\n            // The owner, layout and saved visibility are now authoritative.' in source
-    and 'startupPresentationPending = false;\n                SetStartupWindowCloak(false);' in source
+    and 'SetChatOpen(chatDisplayMode == "Always Shown");\n        // The owner, layout and saved visibility are now authoritative.' in source
+    and 'startupPresentationPending = false;\n            SetStartupWindowCloak(false);' in source
     and in_order(
         source, 'SetChatOpen(chatDisplayMode == "Always Shown");', 'SetStartupWindowCloak(false);',
     ),

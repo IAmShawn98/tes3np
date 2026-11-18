@@ -9,6 +9,8 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
+from game_chat_source import game_chat_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_SUFFIXES = {".ahk", ".ps1", ".py", ".md", ".yml", ".json"}
 SKIP_DIRS = {".git", ".venv", ".vscode", ".idea", "__pycache__", "dist", "build", "bin", "obj"}
@@ -224,7 +226,7 @@ def check(allow_missing_payload: bool = False) -> None:
         "SaveScheduledEventShutdownTime",
     )
     executable_secondary_sources = [
-        ROOT / "chat-host/Program.cs",
+        *game_chat_sources(ROOT),
         *sorted((ROOT / "scripts").glob("*.ps1")),
     ]
     for secondary in executable_secondary_sources:
@@ -270,7 +272,7 @@ def check(allow_missing_payload: bool = False) -> None:
         errors.append("Expansion Pack dialog must always open, support retries, and clear pending authentication.")
     if 'Open Expansion Pack Downloads' not in bootstrap:
         errors.append("Expansion Pack downloads need a persistent reopen entry in the tray.")
-    if 'case 12: RetryAuthenticatedExpansionPrompt' not in (ROOT / "chat-host/Program.cs").read_text(encoding="utf-8-sig"):
+    if 'case 12: RetryAuthenticatedExpansionPrompt' not in (ROOT / "game-chat/GameChatWindow.Launcher.cs").read_text(encoding="utf-8-sig"):
         errors.append("Game Chat retry command must remain available after a pending auth request.")
     if not all(token in session for token in ("MismatchExitGraceUntil", "MismatchWindowGraceUntil")):
         errors.append("Game exit/window loss must allow a bounded fresh-log mismatch capture.")

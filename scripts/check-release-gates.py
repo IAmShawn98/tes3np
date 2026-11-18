@@ -7,6 +7,8 @@ Run: python scripts/check-release-gates.py
 from pathlib import Path
 import sys
 
+from game_chat_source import read_game_chat_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -14,7 +16,7 @@ def main() -> int:
     # The retired testing mode must never return in a public build.
     # Current events are authenticated by their original Discord timestamp,
     # and expiration must be enforced at detection, display, and timer ticks.
-    chat_source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
+    chat_source = read_game_chat_sources(ROOT)
     if any(name in chat_source for name in (
         "PreviewExpiredHappyHourForTesting", "ShowExpiredHappyHourForAlphaTest",
     )):

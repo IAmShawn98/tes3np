@@ -1,6 +1,8 @@
 """Source-level guard for private diagnostic sinks. No user logs are read."""
 from pathlib import Path
 
+from game_chat_source import read_game_chat_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -17,7 +19,7 @@ diag = read("src/app/diagnostics.ahk")
 bootstrap = read("src/app/bootstrap.ahk")
 session = read("src/game/session.ahk")
 settings = read("src/ui/v016-refinements.ahk")
-chat = read("chat-host/Program.cs")
+chat = read_game_chat_sources(ROOT)
 patcher = read("src/ui/patcher.ahk")
 loading = read("src/ui/loading.ahk")
 updater = read("scripts/tes3np-updater.ps1")
