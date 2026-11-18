@@ -44,6 +44,34 @@ into Morrowind successfully.
 Clean-machine validation is pending. Account privileges and the Morrowind
 folder picker are unverified for this run.
 
+## November 17 clean Windows 11 Dell test
+
+- Dell Latitude 7420, fresh Windows 11 Pro 26H2 x64, build `26300.9974`.
+  The tester used their everyday Windows account. Account privileges and
+  display scale were not recorded.
+- The expected package is the rebuild at `cdca0fe7a9fe25d1ca038fecc99effdd04d74613`,
+  listed above. The Dell ZIP hash output was not included in the report.
+- **PASS reported:** First launch, desktop shortcut creation, Discord sign-in
+  and live Game Chat, and missing-Morrowind setup. Steam GOTY was detected
+  after installation.
+- **PASS reported:** Official Expansion Pack download and import. The saved
+  ESP existed and its SHA-256 matched the import record.
+- **FAIL:** After a successful import the button showed Disabled, while the
+  next click disabled the entry in OpenMW. After disabling it, enabling
+  again offered another install even though the pack was on disk.
+- **FAIL on clean baseline:** The bundled TES3MP client exited before the
+  game window with `0xC0000135`, including on a direct `--help` probe. The
+  probe subsequently printed help and exited zero after the Visual C++ x64
+  runtime troubleshooting step. The client still printed current-directory
+  errors in the Unicode extraction path. The tester reported that the game
+  window opened after removing the accented character from the folder name.
+  Reaching the NP world is still unverified for this run.
+- The launcher logged a WebView2 detection warning even though live chat
+  worked. The tester reported a Discord sign-in window scaling issue and a
+  Windows Security removal followed by successful restore. The detection
+  name and affected file were not confirmed in Protection History.
+- **SKIP:** Standard-user coverage and public updater flow are pending.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).

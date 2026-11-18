@@ -17,6 +17,8 @@ RunLauncherChecks(args)
                 ExitApp(226)
             if !CheckFirstRunOpenMWConfiguration()
                 ExitApp(228)
+            if !CheckExpansionPackToggleState()
+                ExitApp(229)
             CheckCrashRecoveryProfiles()
         case "--check-expansion-ui":
             CheckExpansionProgressBindings()
@@ -108,6 +110,62 @@ CheckFirstRunOpenMWConfiguration()
     }
     finally
         try DirDelete(root, true)
+    return true
+}
+
+CheckExpansionPackToggleState()
+{
+    global DataFile, LauncherExpansionToggle
+    previousSettings := DataFile
+    previousToggle := IsSet(LauncherExpansionToggle) ? LauncherExpansionToggle : 0
+    root := A_Temp "\tes3np-expansion-check-" NewLauncherFileId()
+    game := root "\Morrowind Caf" Chr(0xE9)
+    data := game "\Data Files"
+    config := root "\openmw.cfg"
+    esp := data "\NP Expansion Pack.esp"
+    panel := Gui()
+    try
+    {
+        DirCreate(data)
+        DataFile := root "\settings.ini"
+        FileOpen(DataFile, "w", "UTF-16").Close()
+        LauncherExpansionToggle := panel.AddButton(, "Expansion Pack")
+        IniWrite(config, DataFile, "Patch", "ConfigFile")
+
+        FileAppend("content=NP Expansion Pack.esp`r`n", config, "UTF-8-RAW")
+        RefreshExpansionPackToggle()
+        if LauncherExpansionToggle.Text != "Expansion Pack: Enabled"
+            throw Error("The toggle label must follow the entry its next click would disable.")
+
+        FileAppend("abc", esp, "UTF-8-RAW")
+        expectedHash := "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        if SHA256File(esp) != expectedHash
+            throw Error("Raw SHA-256 did not match for a file in a spaced Unicode path.")
+        IniWrite(game "\.\Data Files\NP Expansion Pack.esp", DataFile, "ExpansionPack", "VerifiedEspPath")
+        IniWrite(expectedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
+        FileDelete(config)
+        FileAppend("content=Morrowind.esm`r`n", config, "UTF-8-RAW")
+        RefreshExpansionPackToggle()
+        if LauncherExpansionToggle.Text != "Expansion Pack: Disabled"
+            || !ExpansionPackInstalled(game "\", config)
+            throw Error("Disabling the load order must leave the already verified, installed pack available.")
+
+        FileAppend("changed", esp, "UTF-8-RAW")
+        if ExpansionPackInstalled(game, config)
+            throw Error("A changed ESP must not pass the installed pack verification.")
+    }
+    catch Error as err
+    {
+        try FileAppend(err.Message "`n", "**")
+        return false
+    }
+    finally
+    {
+        DataFile := previousSettings
+        LauncherExpansionToggle := previousToggle
+        panel.Destroy()
+        try DirDelete(root, true)
+    }
     return true
 }
 
