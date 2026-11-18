@@ -1874,11 +1874,11 @@ expect(
     and "face.Control.Move(" not in font_update,
 )
 launcher_scale_apply = section_between(
-    launcher_layout, "ApplyLauncherScaleToWindow(center := false)", "\n}",
+    launcher_layout, "ApplyLauncherScaleToWindow()\n{", "\n}",
 )
 expect(
     "Declined display previews restore saved state and visible settings controls",
-    "ApplyLauncherScaleToWindow(true)" in display_settings
+    "ApplyLauncherScaleToWindow()" in display_settings
     and "ApplyAccessibilityTextSize()" in display_settings
     and "ApplyEnhancedReadability()" in display_settings
     and 'scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)' in display_settings
@@ -1894,11 +1894,18 @@ expect(
         "LauncherCachedLayoutCount := LauncherControlLayout.Count",
     ),
 )
+display_refresh = section_between(display_settings, "\nRefreshLauncherDisplay(message, settings)", "\nSaveLauncherDisplaySettings(")
 expect(
-    "Display previews stage the live launcher without a captured screenshot at the old size",
-    in_order(display_settings, "cloaked := SetPageCompositorCloak(LauncherGui, true)",
-             "ApplyLauncherScaleToWindow(true)", "RevealPaintedPage(LauncherGui)")
-    and "BeginInterfaceUpdate(" not in display_settings,
+    "Display previews use live loading feedback before and throughout resize",
+    in_order(display_refresh, "CreateLoadingCard(LauncherGui,", "SetLoadingCardProgress(loading.Panel, message,",
+             "settings.Hide()", "ApplyLauncherScaleToWindow()", "PositionOwnedMenuAtParent(loading.Card, LauncherGui)",
+             '"Updating interface text..."', '"Updating readability..."', "finally DestroyLoadingCard(loading)")
+    and 'RefreshLauncherDisplay("Restoring display settings...", settings)' in display_settings
+    and '"Resetting display settings..."' in display_settings
+    and "SetPageCompositorCloak(" not in display_refresh
+    and "CaptureInterfaceFrame(" not in display_refresh
+    and "WinGetPos(" not in launcher_scale_apply
+    and "WinMove(" not in launcher_scale_apply,
 )
 update_dialogs = (ROOT / "src" / "ui" / "update-dialogs.ahk").read_text(encoding="utf-8-sig")
 update_notes = (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
@@ -1908,7 +1915,13 @@ expect(
     and update_dialogs.count("ShowGoldNativePrompt(") == 3
     and "ScaleOwnedMenuContent(panel, scale)" in update_dialogs
     and "AddUpdateNotesViewport(panel, notes, scale)" in update_dialogs
-    and "BuildStyledReleaseNoteRows(notes, noteRows[1], px(674), scale)" in update_notes
+    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), scale)" in update_notes
+    and "ReleaseNoteLineHeight(sample)" in update_notes
+    and "GetTextMetricsW" in update_notes
+    and "if y + rowHeight > bottomY" in update_notes
+    and "sectionGap := Max(1, px(4))" in update_notes
+    and 'Kind: "space"' not in update_notes
+    and "96 / A_ScreenDPI" not in update_notes
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
@@ -1955,7 +1968,7 @@ expect(
     "DwmFlush" not in loading_ui.replace("DwmFlush synchronously", "")
     and "previousCritical := A_IsCritical" in loading_ui
     and "finally Critical(previousCritical)" in loading_ui
-    and "finally\n        if cloaked\n            RevealPaintedPage(LauncherGui)" in display_settings,
+    and "finally DestroyLoadingCard(loading)" in display_refresh,
 )
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",

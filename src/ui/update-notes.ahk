@@ -54,7 +54,7 @@ ReleaseNoteFits(control, text, maxWidth)
     ; Measure in the label's font so wrapping follows the rendered width.
     if text = ""
         return true
-    hFont := SendMessage(0x31, 0, 0, , "ahk_id " control.Hwnd) ; WM_GETFONT
+    hFont := DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr") ; WM_GETFONT
     dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
     if !dc
         return false
@@ -106,30 +106,31 @@ WrapReleaseNoteLines(line, control, maxWidth)
 BuildStyledReleaseNoteRows(content, measureRow, maxWidth, scale)
 {
     rows := []
+    paragraphBreak := false
     for entry in StrSplit(StrReplace(content, "`r", ""), "`n") {
         line := Trim(entry)
         if line = "" {
-            if rows.Length && rows[rows.Length].Kind != "space"
-                rows.Push({Text: "", Kind: "space"})
+            paragraphBreak := true
             continue
         }
         kind := "body"
         if RegExMatch(line, "^#{1,6}\s+") {
             line := RegExReplace(line, "^#{1,6}\s+", "")
-            if rows.Length && rows[rows.Length].Kind != "space"
-                rows.Push({Text: "", Kind: "space"})
             kind := "heading"
         } else if RegExMatch(line, "^[-*+]\s+") {
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
             line := StrReplace(line, "**", "")
         }
         measureRow.SetFont(UpdateNoteFont(kind, scale), "Segoe UI")
-        for part in WrapReleaseNoteLines(line, measureRow, maxWidth)
-            rows.Push({Text: part, Kind: kind})
+        for index, part in WrapReleaseNoteLines(line, measureRow, maxWidth) {
+            gapBefore := index = 1 && rows.Length > 0 && (paragraphBreak || kind != rows[rows.Length].Kind)
+            rows.Push({Text: part, Kind: kind, GapBefore: gapBefore})
+        }
+        paragraphBreak := false
     }
     measureRow.SetFont(UpdateNoteFont("body", scale), "Segoe UI")
     if !rows.Length
-        rows.Push({Text: "No release notes available.", Kind: "body"})
+        rows.Push({Text: "No release notes available.", Kind: "body", GapBefore: false})
     return rows
 }
 
@@ -165,7 +166,7 @@ UpdateNotesDragMove(drag, page, refresh)
     cursor := Buffer(8, 0)
     DllCall("user32\GetCursorPos", "Ptr", cursor)
     mouseY := NumGet(cursor, 4, "Int")
-    maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
+    maxOffset := page.MaxOffset
     ; Mouse coordinates are physical pixels; use the actual on-screen track size.
     travel := Max(1, drag.TrackPixels - drag.ThumbPixels)
     page.Offset := 1 + Round((mouseY - drag.StartY) * (maxOffset - 1) / travel) + drag.StartOffset - 1
@@ -174,7 +175,7 @@ UpdateNotesDragMove(drag, page, refresh)
 
 StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, msg, hwnd)
 {
-    if page.Lines.Length <= page.Visible
+    if page.MaxOffset <= 1
         return
     ; Hit-test the thumb by screen position because the press can reach its parent.
     if DllCall("user32\GetAncestor", "Ptr", hwnd, "UInt", 2, "Ptr") != panel.Hwnd
@@ -209,9 +210,29 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
 
 UpdateNoteFont(kind, scale)
 {
-    points := (kind = "heading" ? 11 : 10) * scale
-    size := Max(1, Round(Max(7, points) * 96 / A_ScreenDPI))
+    points := (kind = "heading" ? 12 : 11) * scale
+    size := Max(8, Round(points))
     return "s" size (kind = "heading" ? " Bold cE7BE70" : " Norm cF4E9D6")
+}
+
+ReleaseNoteLineHeight(control)
+{
+    hwnd := control.Hwnd
+    font := DllCall("SendMessageW", "Ptr", hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+    dc := DllCall("user32\GetDC", "Ptr", hwnd, "Ptr")
+    if !dc
+        throw OSError()
+    previous := font ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr") : 0
+    try {
+        metrics := Buffer(60, 0) ; TEXTMETRICW
+        if !DllCall("gdi32\GetTextMetricsW", "Ptr", dc, "Ptr", metrics, "Int")
+            throw OSError()
+        return NumGet(metrics, 0, "Int") ; tmHeight
+    } finally {
+        if previous
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous)
+        DllCall("user32\ReleaseDC", "Ptr", hwnd, "Ptr", dc)
+    }
 }
 
 AddUpdateNotesViewport(panel, notes, scale)
@@ -219,39 +240,71 @@ AddUpdateNotesViewport(panel, notes, scale)
     px := (value) => Round(value * scale)
     viewport := panel.Add("Text", "x" px(28) " y" px(158) " w" px(744) " h" px(367) " BackgroundC5A45C")
     panel.Add("Text", "x" px(30) " y" px(160) " w" px(740) " h" px(363) " Background171008")
-    page := {Offset: 1, Lines: [], Visible: 13}
-    noteRows := []
-    rowStyles := []
+    ; Measure the actual Windows font before allocating rows. Launcher scale
+    ; sizes the card, and Windows DPI governs how many complete lines fit.
+    firstY := px(170), bottomY := px(516)
+    left := px(42), width := px(686)
     panel.SetFont(UpdateNoteFont("body", scale), "Segoe UI")
-    Loop page.Visible {
-        noteRows.Push(panel.Add("Text", "x" px(42) " y" px(176 + (A_Index - 1) * 26)
-            " w" px(686) " h" px(24) " Background171008 +0x80", ""))
+    sample := panel.Add("Text", "Hidden x" left " y" firstY " w" width " h1 Background171008 +0x80", "")
+    bodyHeight := ReleaseNoteLineHeight(sample)
+    sample.SetFont(UpdateNoteFont("heading", scale), "Segoe UI")
+    rowHeight := Max(bodyHeight, ReleaseNoteLineHeight(sample)) + 1
+    lineGap := Max(1, px(2)), sectionGap := Max(1, px(4))
+    stride := rowHeight + lineGap
+    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), scale)
+    capacity := Max(1, (bottomY - firstY + lineGap) // stride)
+    ; Find the first row of the last page so the final notes fill the viewport.
+    lastOffset := lines.Length
+    used := rowHeight
+    while lastOffset > 1 {
+        nextHeight := used + stride + (lines[lastOffset].GapBefore ? sectionGap : 0)
+        if nextHeight > bottomY - firstY
+            break
+        used := nextHeight
+        lastOffset -= 1
+    }
+    page := {Offset: 1, Lines: lines, MaxOffset: lastOffset}
+    noteRows := [sample]
+    rowStyles := ["body"]
+    Loop Min(capacity, lines.Length) - 1 {
+        noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
-    ; Leave an extra pixel gutter for font rasterization and scroll safety.
-    page.Lines := BuildStyledReleaseNoteRows(notes, noteRows[1], px(674), scale)
     trackY := px(188), trackHeight := px(309)
     thumbX := px(750), thumbWidth := px(8)
     track := panel.Add("Text", "x" px(746) " y" trackY " w" px(16) " h" trackHeight " Background704C27")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth " h" px(32) " +0x100 BackgroundC69951")
     drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
     refresh(*) {
-        maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
-        page.Offset := Min(maxOffset, Max(1, page.Offset))
+        page.Offset := Min(page.MaxOffset, Max(1, page.Offset))
+        y := firstY
         for index, row in noteRows {
             rowIndex := index + page.Offset - 1
-            entry := rowIndex <= page.Lines.Length ? page.Lines[rowIndex] : {Text: "", Kind: "body"}
+            if rowIndex > page.Lines.Length {
+                row.Visible := false
+                continue
+            }
+            entry := page.Lines[rowIndex]
+            if index > 1 && entry.GapBefore
+                y += sectionGap
+            if y + rowHeight > bottomY {
+                row.Visible := false
+                continue
+            }
             if rowStyles[index] != entry.Kind {
                 row.SetFont(UpdateNoteFont(entry.Kind, scale), "Segoe UI")
                 rowStyles[index] := entry.Kind
             }
+            row.Move(left, y, width, rowHeight)
             row.Text := entry.Text
+            row.Visible := true
+            y += stride
         }
-        thumbHeight := Max(px(22), Round(trackHeight * Min(1, page.Visible / Max(1, page.Lines.Length))))
-        thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1))
+        thumbHeight := Max(px(22), Round(trackHeight * Min(1, capacity / page.Lines.Length)))
+        thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1) / Max(1, page.MaxOffset - 1))
         thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
-        track.Visible := page.Lines.Length > page.Visible
-        thumb.Visible := page.Lines.Length > page.Visible
+        track.Visible := page.MaxOffset > 1
+        thumb.Visible := page.MaxOffset > 1
     }
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     up := AddStyledButton(panel, px(744), px(163), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
