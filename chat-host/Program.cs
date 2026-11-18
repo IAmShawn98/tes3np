@@ -1056,8 +1056,12 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif
 </style></head><body><div id="feed"></div><script>
 const feed=document.getElementById('feed');
 let userHasScrolled=false;
-feed.addEventListener('wheel',e=>{userHasScrolled=true;if(e.deltaY>0)chrome.webview.postMessage({type:'history-stop'});},{passive:true});
-feed.addEventListener('pointerdown',()=>{userHasScrolled=true;});
+feed.addEventListener('wheel',e=>{
+  if(!e.deltaY)return;
+  userHasScrolled=true;
+  chrome.webview.postMessage({type:'interaction',stopHistory:e.deltaY>0});
+},{passive:true});
+feed.addEventListener('pointerdown',()=>{userHasScrolled=true;chrome.webview.postMessage({type:'interaction'});});
 function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});}
 feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
@@ -1154,8 +1158,15 @@ metrics();
                     {
                         using var doc = System.Text.Json.JsonDocument.Parse(args.WebMessageAsJson);
                         var root = doc.RootElement;
-                        if (root.GetProperty("type").GetString() == "history-stop") { historyCatchupActive = false; return; }
-                        if (root.GetProperty("type").GetString() != "scroll") return;
+                        var type = root.GetProperty("type").GetString();
+                        if (type == "interaction")
+                        {
+                            if (chatOpen) lastChatActivity = DateTime.Now;
+                            if (root.TryGetProperty("stopHistory", out var stop) && stop.ValueKind == System.Text.Json.JsonValueKind.True)
+                                historyCatchupActive = false;
+                            return;
+                        }
+                        if (type != "scroll") return;
                         browserScrollTop = (int)Math.Round(root.GetProperty("top").GetDouble());
                         browserScrollHeight = (int)Math.Round(root.GetProperty("height").GetDouble());
                         browserClientHeight = (int)Math.Round(root.GetProperty("client").GetDouble());
@@ -1948,7 +1959,7 @@ metrics();
             // The live Discord source has one scroll position. During the
             // targeted HH search, reserve it for unattended pagination;
             // keep user scrolling entirely within the native chat renderer.
-            if (!initialBackfillComplete || (!userScrolledChat && !forceTop)) return;
+            if (!chatOpen || !initialBackfillComplete || (!userScrolledChat && !forceTop)) return;
             bool nearTop = forceTop || ChatFirstLine() <= Math.Max(900, browserClientHeight * 3);
             if (userScrolledChat && nearTop) historyCatchupActive = true;
             bool canRequest = (nearTop || historyCatchupActive) && !loadingHistory && IsHandleCreated &&
@@ -3117,7 +3128,8 @@ metrics();
             // perform its default wheel scrolling. Scroll its text explicitly.
             void ScrollWheelMessages(MouseEventArgs e)
             {
-                if (!messageBrowserReady || e.Delta == 0) return;
+                if (!chatOpen || !messageBrowserReady || e.Delta == 0) return;
+                lastChatActivity = DateTime.Now;
                 int notches = Math.Max(1, Math.Abs(e.Delta) / 120);
                 int lines = 3 * notches * (e.Delta > 0 ? -1 : 1);
                 if (e.Delta < 0) historyCatchupActive = false;
@@ -3131,7 +3143,8 @@ metrics();
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
-                if (!messageBrowserReady) return;
+                if (!chatOpen || !messageBrowserReady || e.Button != MouseButtons.Left) return;
+                lastChatActivity = DateTime.Now;
                 int y = ChatUnits(e.Y);
                 int height = ChatUnits(goldScrollbar.Height);
                 if (y < 27 || y >= height - 27)
@@ -3151,8 +3164,13 @@ metrics();
             };
             goldScrollbar.MouseMove += (_, e) =>
             {
-                if (dragOffset < 0 || e.Button != MouseButtons.Left) return;
+                if (!chatOpen || !goldScrollbar.Capture || dragOffset < 0 || e.Button != MouseButtons.Left) return;
+                lastChatActivity = DateTime.Now;
                 ScrollChatToThumb(ChatUnits(e.Y), dragOffset);
+            };
+            goldScrollbar.MouseCaptureChanged += (_, _) =>
+            {
+                if (!goldScrollbar.Capture) dragOffset = -1;
             };
             goldScrollbar.MouseUp += (_, _) =>
             {
@@ -3302,6 +3320,7 @@ metrics();
                 if (pendingExpansionPrompt == 0 && !discordLoginVisible && !connectingChat &&
                     chatDisplayMode == "Automatic" && chatOpen &&
                     DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
+                    !goldScrollbar.Capture &&
                     !Bounds.Contains(Cursor.Position))
                     SetChatOpen(false);
                 if (nativeMode && goldScrollbar.Visible)
@@ -3406,6 +3425,17 @@ metrics();
             waitingForLiveFeedAfterHistory = false;
         }
 
+        static bool IsGameChatRoute(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            string path = uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
+            if (string.Equals(path, Channel, StringComparison.OrdinalIgnoreCase)) return true;
+            // Older-message paging can anchor the same channel at a message ID.
+            return path.StartsWith(Channel + "/", StringComparison.OrdinalIgnoreCase) &&
+                ulong.TryParse(path.AsSpan(Channel.Length + 1), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out ulong id) && id != 0;
+        }
+
         static bool IsDiscordAppRoute(string url)
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
@@ -3455,7 +3485,7 @@ metrics();
                     core.Navigate("https://discord.com/login");
                     return;
                 }
-                bool onChannel = string.Equals(url.TrimEnd('/'), Channel, StringComparison.OrdinalIgnoreCase);
+                bool onChannel = IsGameChatRoute(url);
                 if (!onChannel)
                     SuspendHappyHourUntilDiscordReturns("navigated away from Game Chat");
                 // Discord can return the login browser to Home, Quests or Shop.
@@ -4127,8 +4157,7 @@ metrics();
                 try
                 {
                     string before = core.Source ?? "";
-                    if (string.Equals(before.TrimEnd('/'), Channel,
-                        StringComparison.OrdinalIgnoreCase))
+                    if (IsGameChatRoute(before))
                     {
                         string live = await core.ExecuteScriptAsync(
                             "(() => !!document.querySelector('[data-list-id=chat-messages]'))()");
@@ -4193,7 +4222,7 @@ metrics();
                             ToggleGameChatDiscordSignIn();
                             break;
                         }
-                        if (!discordChannelReady && !connectingChat)
+                        if (!discordChannelReady && !connectingChat && !nativeMode)
                         {
                             discordSignInRequested = !discordSignInRequested;
                             break;
@@ -4204,7 +4233,6 @@ metrics();
                             Log("EXPANSION | Pending download cancelled using Game Chat tab.");
                         }
                         SetChatOpen(!chatOpen);
-                        if (chatDisplayMode == "Automatic" && chatOpen) lastChatActivity = DateTime.Now;
                         break;
                     case 2: SetChatDisplayMode("Automatic"); break;
                     case 3: SetChatDisplayMode("Always Shown"); break;
@@ -4252,13 +4280,16 @@ metrics();
             if (discordLoginVisible)
             {
                 // Never display a stretched/empty chat pane behind login.
-                chatOpen = false;
-                if (IsHandleCreated) ShowWindow(Handle, 0);
-                NotifyLauncherChatState();
-                return;
+                show = false;
             }
+            if (!show)
+            {
+                goldScrollbar.Capture = false;
+                historyCatchupActive = false;
+            }
+            else if (!chatOpen) lastChatActivity = DateTime.Now;
             chatOpen = show;
-            PositionChatWindows();
+            if (!discordLoginVisible) PositionChatWindows();
             if (IsHandleCreated)
             {
                 // SW_SHOW (5) activates this owned popup and steals foreground
