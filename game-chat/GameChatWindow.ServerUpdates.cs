@@ -11,7 +11,7 @@ internal sealed partial class GameChatWindow
     const string ServerUpdatesDateFormat = "MMMM d, yyyy";
     const string ServerUpdatesRtfHeader = @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Georgia;}}" +
         @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
-        @"\red222\green107\blue82;\red184\green169\blue142;\red219\green178\blue67;}\f0\fs21";
+        @"\red184\green169\blue142;}\f0\fs21";
     static readonly Lazy<string> ExtractServerUpdates = GameChatWeb.Page("extract-server-updates.js");
 
     sealed class ServerUpdatesWindow : Form
@@ -38,7 +38,7 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    sealed record ServerUpdate(string Id, string? Author, ServerUpdateBlock[]? Blocks);
+    sealed record ServerUpdate(string Id, ServerUpdateBlock[]? Blocks);
     sealed record ServerUpdateBlock(string? Style, int Number, ServerUpdateRun[]? Runs);
     sealed record ServerUpdateRun(string? Text, bool Bold);
 
@@ -133,20 +133,14 @@ internal sealed partial class GameChatWindow
             rtf.Append(@"\pard\qc\sb170\sa170\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
             AppendServerUpdatesRtfText(rtf, when.ToString(ServerUpdatesDateFormat).AsSpan());
             rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
-            if (!string.IsNullOrWhiteSpace(entry.Value.Author))
-            {
-                rtf.Append(@"\pard\sb55\sa55\fs21 ");
-                string author = entry.Value.Author[..Math.Min(entry.Value.Author.Length, 64)];
-                rtf.Append(string.Equals(author, "Jiub", StringComparison.OrdinalIgnoreCase) ? @"{\cf4\b " : @"{\cf6\b ");
-                AppendServerUpdatesRtfText(rtf, author.AsSpan());
-                rtf.Append(@"}\par ");
-            }
-
             int remaining = ServerUpdateBodyLimit;
             foreach (var block in entry.Value.Blocks!.Take(120))
             {
                 if (remaining == 0) break;
                 if (block?.Runs is not { Length: > 0 }) continue;
+                bool heading = block.Style == "heading" ||
+                    (string.IsNullOrEmpty(block.Style) &&
+                     block.Runs.All(run => string.IsNullOrWhiteSpace(run?.Text) || run.Bold));
                 rtf.Append(@"\pard\cf1\fs21\sa70 ");
                 if (block.Style == "bullet" || block.Style == "number")
                 {
@@ -155,12 +149,12 @@ internal sealed partial class GameChatWindow
                     else rtf.Append(Math.Clamp(block.Number, 1, 999)).Append('.');
                     rtf.Append(@"\tab ");
                 }
-                if (block.Style == "heading") rtf.Append(@"\sb55 ");
+                if (heading) rtf.Append(@"\sb45\fs23 ");
                 foreach (var run in block.Runs.Take(240))
                 {
                     if (remaining == 0) break;
                     if (string.IsNullOrEmpty(run?.Text)) continue;
-                    bool bold = run.Bold || block.Style == "heading";
+                    bool bold = run.Bold || heading;
                     if (bold) rtf.Append(@"{\b ");
                     int length = Math.Min(run.Text.Length, remaining);
                     AppendServerUpdatesRtfText(rtf, run.Text.AsSpan(0, length));
@@ -198,7 +192,7 @@ internal sealed partial class GameChatWindow
 
     static string ServerUpdatesStatus(string text)
     {
-        var rtf = new StringBuilder(ServerUpdatesRtfHeader).Append(@"\pard\cf5 ");
+        var rtf = new StringBuilder(ServerUpdatesRtfHeader).Append(@"\pard\cf4 ");
         AppendServerUpdatesRtfText(rtf, text.AsSpan());
         return rtf.Append('}').ToString();
     }
