@@ -24,6 +24,7 @@ internal sealed partial class GameChatWindow
     bool discordLoginVisible;
 
     bool discordSignInRequested;
+    bool discordSignInFromHeader;
 
     DateTime discordSignInAttemptExpires;
 
@@ -374,8 +375,8 @@ internal sealed partial class GameChatWindow
         catch (Exception ex) { Log("Discord login theme: " + ex.GetType().Name); }
     }
 
-    // Game Chat sign-in follows its dock. Expansion authentication uses the
-    // same sized card, centered in the launcher's monitor work area.
+    // Use the dock for Game Chat and a centered card for the launcher
+    // header and Expansion Pack authentication.
     static Size GetDiscordSignInSize(Rectangle work, double ownerFit)
     {
         // Full-size sign-in uses its original bounds. Honor compact
@@ -394,7 +395,7 @@ internal sealed partial class GameChatWindow
         // can leave room for it even when the launcher is below 100%.
         double ownerFit = Math.Min(1, (ownerBounds.Right - ownerBounds.Left) / (double)launcherBaseWidth);
         var size = GetDiscordSignInSize(work, ownerFit);
-        Rectangle target = pendingExpansionPrompt == 0
+        Rectangle target = pendingExpansionPrompt == 0 && !discordSignInFromHeader
             ? DockBounds(ownerBounds, work, size, size.Width)
             : new Rectangle(work.Left + (work.Width - size.Width) / 2,
                 work.Top + (work.Height - size.Height) / 2, size.Width, size.Height);
@@ -406,6 +407,7 @@ internal sealed partial class GameChatWindow
         if (discordSignInWindow is { IsDisposed: false } popup)
             popup.Hide();
         discordSignInRequested = false;
+        discordSignInFromHeader = false;
         if (discordAccountStatus == DiscordAccountStatus.Checking && discordSignInAttemptExpires != default)
         {
             SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
@@ -418,12 +420,13 @@ internal sealed partial class GameChatWindow
     {
         // Game Chat toggles its own login; Expansion authentication remains
         // a distinct user flow with its own cancellation behavior.
-        if (pendingExpansionPrompt == 0 &&
+        if (pendingExpansionPrompt == 0 && !discordSignInFromHeader &&
             discordSignInWindow is { IsDisposed: false, Visible: true })
         {
             DismissDiscordSignIn();
             return;
         }
+        discordSignInFromHeader = false;
         RevealDiscordSignInWindow();
     }
 
@@ -508,6 +511,7 @@ internal sealed partial class GameChatWindow
             (pendingExpansionPrompt == 0 || showChatAfterDiscordSignIn) &&
             chatDisplayMode != "Always Hidden";
         discordSignInRequested = false;
+        discordSignInFromHeader = false;
         discordLoginVisible = false;
         // Reparenting and hiding WebView2 during the OAuth handoff can leave
         // its renderer unresponsive. Keep the same browser and HWND alive.

@@ -239,6 +239,7 @@ internal sealed partial class GameChatWindow
     void OpenDiscordAccountSignIn()
     {
         if (signingOutDiscord || discordAccountStatus == DiscordAccountStatus.SignedIn) return;
+        discordSignInFromHeader = true;
         discordSignInRequested = true;
         if (web.CoreWebView2 is not { } core) return;
         if (discordLoginVisible)
