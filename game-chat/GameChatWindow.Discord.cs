@@ -25,6 +25,7 @@ internal sealed partial class GameChatWindow
 
     bool discordSignInRequested;
     bool discordSignInFromHeader;
+    bool useHeaderSignInPrompt => discordSignInFromHeader && pendingExpansionPrompt == 0;
 
     DateTime discordSignInAttemptExpires;
 
@@ -370,7 +371,9 @@ internal sealed partial class GameChatWindow
                         .WaitAsync(TimeSpan.FromSeconds(2));
                 }
             }
-            await web.CoreWebView2.ExecuteScriptAsync(DiscordSignInScript.Value).WaitAsync(TimeSpan.FromSeconds(2));
+            string prompt = useHeaderSignInPrompt ? "true" : "false";
+            await web.CoreWebView2.ExecuteScriptAsync($"{DiscordSignInScript.Value}({prompt})")
+                .WaitAsync(TimeSpan.FromSeconds(2));
         }
         catch (Exception ex) { Log("Discord login theme: " + ex.GetType().Name); }
     }
@@ -391,6 +394,7 @@ internal sealed partial class GameChatWindow
     {
         if (discordSignInWindow is not { IsDisposed: false } popup) return;
         if (popup.UpdateParkedLayout()) return;
+        popup.SetSignInPrompt(useHeaderSignInPrompt);
         // The card's original size is in screen pixels. Windows scaling
         // can leave room for it even when the launcher is below 100%.
         double ownerFit = Math.Min(1, (ownerBounds.Right - ownerBounds.Left) / (double)launcherBaseWidth);
@@ -435,6 +439,7 @@ internal sealed partial class GameChatWindow
         discordSignInRequested = true;
         if (discordSignInWindow is not { IsDisposed: false } popup) return;
         PositionChatWindows();
+        _ = StyleDiscordLogin();
         if (!popup.Visible) popup.Show();
         if (web.CoreWebView2 != null)
             _ = web.CoreWebView2.ExecuteScriptAsync(

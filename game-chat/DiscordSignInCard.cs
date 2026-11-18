@@ -34,6 +34,7 @@ internal sealed class DiscordSignInCard : Form
     readonly Font closeFont = new("Segoe UI", 14, FontStyle.Bold);
     bool layoutApplied;
     bool parked;
+    bool headerPrompt;
 
     protected override bool ShowWithoutActivation => parked;
 
@@ -90,6 +91,17 @@ internal sealed class DiscordSignInCard : Form
         if (!parked) return;
         Hide();
         parked = false;
+    }
+
+    public void SetSignInPrompt(bool fromHeader)
+    {
+        if (headerPrompt == fromHeader) return;
+        headerPrompt = fromHeader;
+        heading.Text = fromHeader ? "Sign In to Discord" : "Sign In Required";
+        help.Text = fromHeader ? "Connect your Discord account to the TES3NP launcher."
+            : "Connect your Discord account to access this feature.";
+        Text = "tes3np - " + heading.Text;
+        layoutApplied = false;
     }
 
     public void ApplyLayout(Rectangle bounds)

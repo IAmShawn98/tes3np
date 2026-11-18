@@ -1,4 +1,4 @@
-(() => {
+(fromHeader => {
   if (location.pathname !== '/login') return;
   const password = document.querySelector('input[type=password]');
   const form = password?.closest('form');
@@ -99,14 +99,15 @@
   if (!benefit) {
     benefit = document.createElement('p');
     benefit.setAttribute('data-tes3np-login-benefit', '');
-    benefit.textContent = "The feature you're trying to access requires Discord integration to function. Connecting to Discord unlocks realtime in-game chat, offline happy hour notifications, automatic expansion pack installation, and more!";
   }
   const title = form.querySelector('[data-tes3np-login-heading]');
   if (title) {
     title.textContent = 'Discord Integration!';
     title.insertAdjacentElement('afterend', benefit);
   }
-  benefit.textContent = "The feature you're trying to access requires Discord integration to function. Connecting to Discord unlocks realtime in-game chat, offline happy hour notifications, automatic expansion pack installation, and more!";
+  benefit.textContent = fromHeader
+    ? 'Discord integration enables live Game Chat, offline Happy Hour notifications, and automatic Expansion Pack installation.'
+    : "The feature you're trying to access requires Discord integration to function. Connecting to Discord unlocks realtime in-game chat, offline happy hour notifications, automatic expansion pack installation, and more!";
   let logo = form.querySelector('[data-tes3np-integration-logo]');
   if (!logo) {
     logo = document.createElement('img');
@@ -290,4 +291,4 @@
     setTimeout(resetIfUntouched, 180);
     setTimeout(resetIfUntouched, 500);
   }
-})()
+})
