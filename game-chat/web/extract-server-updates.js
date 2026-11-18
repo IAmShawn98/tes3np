@@ -39,6 +39,16 @@
       if (node.nodeType !== 1) return;
       const tag = node.tagName;
       const classes = node.getAttribute('class') || '';
+      // The DOM can contain hidden list separators that the Discord UI never paints.
+      if (node.hasAttribute('hidden') || /visually[-_]?hidden|hidden[-_]?visually|screen[-_]?reader[-_]?only|\bsr-only\b/i.test(classes))
+        return;
+      if (!node.firstElementChild && node.textContent.trim() === ',') {
+        const css = window.getComputedStyle(node);
+        const bounds = node.getBoundingClientRect();
+        if (css.display === 'none' || css.visibility === 'hidden' || css.visibility === 'collapse' ||
+            css.opacity === '0' || (bounds.width <= 1 && bounds.height <= 1))
+          return;
+      }
       if (tag === 'BR') {
         flush();
         return;
