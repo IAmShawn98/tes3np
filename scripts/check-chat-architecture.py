@@ -2122,16 +2122,15 @@ expect(
     and "scale := (A_ScreenDPI / 96) * LauncherScale / 100" in front_layout,
 )
 expect(
-    "Game Chat uses the shared styled button and rotates the artwork and caption",
+    "Game Chat uses the same upright artwork and hover renderer as other buttons",
     '#Include src\\ui\\embedded-chat.ahk' in entry_script
     and "CreateLauncherChatToggle()" in bootstrap
     and 'AddStyledButton(LauncherGui, 3, 294, 45, 112, "Game Chat", ToggleLauncherChat)' in embedded_chat
     and 'ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true' in embedded_chat
     and 'UpdateLauncherChatHover' not in controls
+    and 'PaintButtonArtwork(graphics, face, height, width, shift)' not in native_renderer
     and in_order(section_between(native_renderer, 'PaintButton(wParam,', '\nPaintButtonArtwork('),
-                 'GdipTranslateWorldTransform', 'GdipRotateWorldTransform',
-                 'PaintButtonArtwork(graphics, face, height, width, shift)',
-                 'PaintButtonArtwork(graphics, face, width, height, shift)',
+                 'if !isLabel\n            PaintButtonArtwork(graphics, face, width, height, shift)',
                  'PaintLauncherChatCaption(dc, width, height, labelText, textColor, shift)')
     and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
     and "fontHeight := -Max(9, Round(21 * paintScale))" in embedded_chat
