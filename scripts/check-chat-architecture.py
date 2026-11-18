@@ -383,6 +383,16 @@ expect(
 )
 renderer_recovery = section_between(source, "void NavigateMessagePage()", "void ScrollHtml(")
 expect(
+    "Game Chat renders only the Yagrum bot's name in gold and inherits the message color for everyone else",
+    '.user{color:inherit;' in source
+    and '.user.yagrum{color:#dbb243}' in source
+    and "user.toLowerCase() === 'yagrum'" in source
+    and "?.querySelector('[class*=\"botTag_\"]')" in source
+    and 'isYagrum = entry.Value.IsYagrum' in source
+    and "name.className=m.isYagrum?'user yagrum':'user'" in source
+    and "getComputedStyle(usernameEl).color" not in source,
+)
+expect(
     "Stalled native rendering retries the local document without restarting Discord or redocking the chat",
     "nextMessagePageReload = DateTime.UtcNow.AddSeconds(8);" in renderer_recovery
     and "DateTime.UtcNow < nextMessagePageReload" in renderer_recovery
