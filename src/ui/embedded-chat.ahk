@@ -62,6 +62,7 @@ StartEmbeddedInGameChat()
     if !FileExist(host)
     {
         try LogLauncherEvent("CHAT | Embedded host executable not installed.")
+        ShowLauncherDiscordLoginIfLoading()
         return
     }
     if EmbeddedChatPid && ProcessExist(EmbeddedChatPid)
@@ -69,12 +70,15 @@ StartEmbeddedInGameChat()
     try
     {
         Run('"' host '" ' LauncherGui.Hwnd ' ' LauncherBaseWidth, A_ScriptDir, , &EmbeddedChatPid)
+        ; Keep sign-in available if startup never receives a Discord account state.
+        SetTimer(ShowLauncherDiscordLoginIfLoading, -60000)
         LogLauncherEvent("CHAT | Started WebView2 host (PID " EmbeddedChatPid ").")
     }
     catch as err
     {
         EmbeddedChatPid := 0
         try LogLauncherEvent("CHAT | Failed to start WebView2 host (" Type(err) ").")
+        ShowLauncherDiscordLoginIfLoading()
     }
 }
 
@@ -96,7 +100,7 @@ StopEmbeddedInGameChat()
 CreateLauncherDiscordAccount()
 {
     global LauncherGui, LauncherDiscordName, LauncherDiscordPortrait, ButtonFaces
-    LauncherDiscordName := AddStyledButton(LauncherGui, 794, 2, 122, 36, "Log In", OpenLauncherDiscordAccount)
+    LauncherDiscordName := AddStyledButton(LauncherGui, 794, 2, 122, 36, "Loading Profile...", OpenLauncherDiscordAccount)
     ButtonFaces[LauncherDiscordName.Hwnd].IsDiscordName := true
     LauncherDiscordPortrait := AddStyledButton(LauncherGui, 922, 2, 36, 36, "Log In to Discord", OpenLauncherDiscordAccount)
     ButtonFaces[LauncherDiscordPortrait.Hwnd].IsDiscordPortrait := true
@@ -117,8 +121,7 @@ IsLauncherDiscordMessage(sender, hwnd)
 
 ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
 {
-    global LauncherDiscordName, LauncherDiscordPortrait, LauncherDiscordStatus
-    global LauncherDiscordAvatar, LauncherDiscordAvatarStream
+    global LauncherDiscordPortrait, LauncherDiscordAvatar, LauncherDiscordAvatarStream
     if !data || NumGet(data, 0, "Ptr") != 0x8339
         return
     if !IsObject(LauncherDiscordPortrait) || !IsLauncherDiscordMessage(sender, hwnd)
@@ -159,13 +162,33 @@ ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
         }
     }
 
+    SetTimer(ShowLauncherDiscordLoginIfLoading, 0)
+    UpdateLauncherDiscordAccountDisplay(status, name)
+    return 1
+}
+
+ShowLauncherDiscordLoginIfLoading()
+{
+    global LauncherDiscordStatus
+    previousCritical := A_IsCritical
+    Critical("On")
+    try
+    {
+        if LauncherDiscordStatus = 0
+            UpdateLauncherDiscordAccountDisplay(1)
+    }
+    finally Critical(previousCritical)
+}
+
+UpdateLauncherDiscordAccountDisplay(status, name := "")
+{
+    global LauncherDiscordName, LauncherDiscordPortrait, LauncherDiscordStatus
     LauncherDiscordStatus := status
     LauncherDiscordName.Enabled := status = 1
     LauncherDiscordPortrait.Enabled := status != 3
     label := status = 1 ? "Log In" : status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
     SetPaintedLabelText(LauncherDiscordName, label)
     SetPaintedLabelText(LauncherDiscordPortrait, status = 1 ? "Log In to Discord" : "Discord account")
-    return 1
 }
 
 ReleaseLauncherDiscordAvatar()

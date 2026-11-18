@@ -112,7 +112,7 @@ PaintButton(wParam, lParam, *)
     Critical("On")
     try
     {
-        global ButtonFaces, ButtonPaint, EnhancedReadability, LauncherScale
+        global ButtonFaces, ButtonPaint, EnhancedReadability, LauncherScale, LauncherDiscordStatus
         if ButtonPaint.Disposed
             return
         handle := NumGet(lParam, A_PtrSize = 8 ? 24 : 20, "Ptr")
@@ -194,7 +194,8 @@ PaintButton(wParam, lParam, *)
         font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
         oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
-        fittedFont := !isLabel && !isChatTab && !isDiscordName && !isDiscordPortrait && labelText != "" && font
+        fitLabel := isDiscordName ? LauncherDiscordStatus = 0 : !isLabel && !isChatTab && !isDiscordPortrait
+        fittedFont := fitLabel && labelText != "" && font
             ? FitButtonLabelFont(dc, font, labelText, Max(1, width - 4), Max(1, height - 2)) : 0
         if fittedFont
             DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
