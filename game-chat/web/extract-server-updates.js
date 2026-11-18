@@ -15,17 +15,74 @@
 
   const bodySelector = '[id^="message-content-"], [class*="messageContent_"], ' +
     '[class*="embedTitle_"], [class*="embedDescription_"], [class*="embedFieldName_"], [class*="embedFieldValue_"]';
+  function readBlocks(roots) {
+    const blocks = [];
+    let runs = [], style = '', number = 0, remaining = 3800;
+    const flush = () => {
+      if (runs.some(run => run.Text.trim())) blocks.push({ Style: style, Number: number, Runs: runs });
+      runs = [];
+    };
+    const append = (text, bold) => {
+      text = text.slice(0, remaining);
+      if (!text) return;
+      remaining -= text.length;
+      const previous = runs.at(-1);
+      if (previous?.Bold === bold) previous.Text += text;
+      else runs.push({ Text: text, Bold: bold });
+    };
+    const visit = (node, bold = false) => {
+      if (remaining <= 0) return;
+      if (node.nodeType === 3) {
+        append(node.textContent, bold);
+        return;
+      }
+      if (node.nodeType !== 1) return;
+      const tag = node.tagName;
+      const classes = node.getAttribute('class') || '';
+      if (tag === 'BR') {
+        flush();
+        return;
+      }
+      if (tag === 'IMG') {
+        if (classes.includes('emoji')) append(node.alt || '', bold);
+        return;
+      }
+      const previousStyle = style, previousNumber = number;
+      const heading = /^H[1-6]$/.test(tag) || classes.includes('embedTitle_') || classes.includes('embedFieldName_');
+      const block = heading || ['P', 'DIV', 'LI', 'UL', 'OL', 'PRE', 'BLOCKQUOTE'].includes(tag);
+      if (block) flush();
+      if (heading) style = 'heading';
+      if (tag === 'LI') {
+        const parent = node.parentElement;
+        style = parent?.tagName === 'OL' ? 'number' : 'bullet';
+        if (style === 'number') number = [...parent.children].indexOf(node) + (Number(parent.getAttribute('start')) || 1);
+      }
+      for (const child of node.childNodes) visit(child, bold || tag === 'STRONG' || tag === 'B');
+      if (block) {
+        flush();
+        style = previousStyle;
+        number = previousNumber;
+      }
+    };
+    for (const root of roots) {
+      visit(root);
+      flush();
+    }
+    return blocks;
+  }
+
   const updates = [];
   const rows = list.querySelectorAll('[id^="chat-messages-"]');
   if (!rows.length) return null;
+  let author = '';
   for (const row of rows) {
     const id = row.id.match(/^chat-messages-\d+-(\d+)$/)?.[1];
     if (!id) continue;
-    const parts = [...row.querySelectorAll(bodySelector)]
-      .filter(node => !node.parentElement?.closest(bodySelector))
-      .map(node => (node.innerText || node.textContent || '').trim())
-      .filter(Boolean);
-    if (parts.length) updates.push({ Id: id, Body: [...new Set(parts)].join('\n').slice(0, 3801) });
+    author = row.querySelector('[class*="username_"]')?.textContent.trim().slice(0, 64) || author;
+    const roots = [...row.querySelectorAll(bodySelector)]
+      .filter(node => !node.parentElement?.closest(bodySelector));
+    const blocks = readBlocks(roots);
+    if (blocks.length) updates.push({ Id: id, Author: author, Blocks: blocks });
   }
   return updates.slice(-12);
 })()
