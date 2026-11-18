@@ -59,7 +59,8 @@ SetLauncherHandCursor()
 
 HandleNativeClickableCursor(wParam, lParam, msg, hwnd)
 {
-    ; Standard AHK Buttons/SysLinks are not in the GDI painter's map.
+    global LauncherChatToggle
+    ; Native buttons, links and the custom chat tab use the shared hand cursor.
     if !wParam || !DllCall("IsWindow", "Ptr", wParam)
         || !DllCall("IsWindowEnabled", "Ptr", wParam)
         || !DllCall("IsWindowVisible", "Ptr", wParam)
@@ -69,6 +70,7 @@ HandleNativeClickableCursor(wParam, lParam, msg, hwnd)
         return
     className := StrGet(classBuffer, "UTF-16")
     if className = "Button" || className = "SysLink"
+        || (className = "Static" && IsObject(LauncherChatToggle) && wParam = LauncherChatToggle.Hwnd)
     {
         SetLauncherHandCursor()
         return 1
