@@ -258,4 +258,18 @@ if ($menuTest.ExitCode -ne 0) {
     throw "Owned menu placement/scale test failed with code $($menuTest.ExitCode)."
 }
 Write-Host 'PASS: owner-moved menu stays centered and control sizes match launcher percent.'
+Write-Host 'Testing login card Z-order with disposable game and covering windows.'
+$loginCardOut = Join-Path $work 'login-card-stdout.txt'
+$loginCardErr = Join-Path $work 'login-card-stderr.txt'
+$loginCardArgs = '/ErrorStdOut "' + $launcher + '" --check-game-login-card'
+$loginCardTest = Start-Process -FilePath $base -WorkingDirectory $projectRoot -ArgumentList $loginCardArgs -PassThru -RedirectStandardOutput $loginCardOut -RedirectStandardError $loginCardErr
+if (!$loginCardTest.WaitForExit(30000)) {
+    try { Stop-Process -Id $loginCardTest.Id -Force -ErrorAction SilentlyContinue } catch {}
+    throw 'Login card Z-order smoke test timed out.'
+}
+if (Test-Path $loginCardOut) { Get-Content $loginCardOut | ForEach-Object { Write-Host $_ } }
+if (Test-Path $loginCardErr) { Get-Content $loginCardErr | ForEach-Object { Write-Host $_ } }
+if ($loginCardTest.ExitCode -ne 0) {
+    throw "Login card Z-order smoke test failed with code $($loginCardTest.ExitCode)."
+}
 Write-Host 'PASS: complete launcher parsed and compiled; Expansion Pack UI functions resolved.'

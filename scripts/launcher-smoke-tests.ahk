@@ -32,6 +32,8 @@ RunLauncherChecks(args)
             CheckCachedCharacterReturn()
         case "--check-owned-menu-scaling":
             CheckOwnedMenuScaling()
+        case "--check-game-login-card":
+            ExitApp(CheckGameLoginCardStacking() ? 0 : 231)
     }
 }
 
@@ -59,6 +61,56 @@ CheckGameLoginProgressFit()
             return false
     }
     return !IsObject(FitGameLoginProgress({X: 0, Y: 0, Width: 0, Height: 100}, game, 1))
+}
+
+CheckGameLoginCardStacking()
+{
+    ; Disposable windows test the production placement against real Windows
+    ; Z-order without launching a game or activating the card.
+    game := Gui("-Caption +ToolWindow -DPIScale", "Game window fixture")
+    cover := Gui("-Caption +ToolWindow -DPIScale", "Overlapping window fixture")
+    card := Gui("-Caption +ToolWindow -DPIScale +E0x08000020", "Login card fixture")
+    try
+    {
+        game.Show("NA x60 y60 w320 h320")
+        cover.Show("NA x45 y45 w180 h180")
+        card.Show("Hide x80 y80 w100 h120")
+        for topOfBand in [0, -1, -2] ; Normal, topmost, then normal again.
+        {
+            if !DllCall("SetWindowPos", "Ptr", game.Hwnd, "Ptr", topOfBand,
+                "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13, "Int")
+                return false
+            layout := {X: 75 + A_Index * 5, Y: 80, Width: 100, Height: 120}
+            foreground := DllCall("GetForegroundWindow", "Ptr")
+            if !PositionGameLoginProgress(card.Hwnd, game.Hwnd, layout, A_Index = 1, true)
+                || DllCall("GetWindow", "Ptr", game.Hwnd, "UInt", 3, "Ptr") != card.Hwnd
+                || !DllCall("IsWindowVisible", "Ptr", card.Hwnd)
+                || DllCall("GetForegroundWindow", "Ptr") != foreground
+                return false
+            ; Raise the covering window in the same band. The card should
+            ; stay above the game and below the covering window.
+            if !DllCall("SetWindowPos", "Ptr", cover.Hwnd, "Ptr", topOfBand,
+                "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13, "Int")
+                return false
+            if !PositionGameLoginProgress(card.Hwnd, game.Hwnd, layout, false, false)
+                || DllCall("GetWindow", "Ptr", game.Hwnd, "UInt", 3, "Ptr") != card.Hwnd
+                || DllCall("GetWindow", "Ptr", card.Hwnd, "UInt", 3, "Ptr") != cover.Hwnd
+                || ((WinGetExStyle("ahk_id " card.Hwnd) & 0x8) != 0) != (topOfBand = -1)
+                || DllCall("GetForegroundWindow", "Ptr") != foreground
+                return false
+            WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
+            if x != layout.X || y != layout.Y || width != layout.Width || height != layout.Height
+                return false
+        }
+    }
+    finally
+    {
+        card.Destroy()
+        cover.Destroy()
+        game.Destroy()
+    }
+    FileAppend("PASS: login card stays with the unfocused game in normal and topmost Z-order`n", "*")
+    return true
 }
 
 CheckExpansionRecoveryLaunchGate()
