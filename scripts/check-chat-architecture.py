@@ -4,6 +4,7 @@ These checks enforce cross-process architectural contracts, not C# syntax.
 The Windows CI job also builds the Chat Host to catch compiler errors.
 """
 from pathlib import Path
+import re
 import sys
 
 from game_chat_source import read_game_chat_sources
@@ -379,6 +380,15 @@ expect(
     and 'new IntPtr(7), IntPtr.Zero); // SB_BOTTOM' in source
     and in_order(section_between(source, "async Task SignOutDiscord()", "\n}"),
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
+)
+quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
+updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
+expect(
+    "Launcher info cards keep their original paint style and a gap above Latest Updates",
+    'control := LauncherGui.Add("Custom", "ClassStatic x" x' in front_layout
+    and quest_bounds is not None and updates_bounds is not None
+    and all((int(quest_bounds[1]) * percent + 50) // 100 + (int(quest_bounds[2]) * percent + 50) // 100
+            < (int(updates_bounds[1]) * percent + 50) // 100 for percent in range(50, 101)),
 )
 
 show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")
