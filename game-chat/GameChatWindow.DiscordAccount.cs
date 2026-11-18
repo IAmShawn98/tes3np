@@ -32,10 +32,15 @@ internal sealed partial class GameChatWindow
 
     void SetDiscordAccountStatus(DiscordAccountStatus status)
     {
+        if (status == DiscordAccountStatus.SignedOut)
+        {
+            discordSignInAttemptExpires = default;
+            channelRetryAt = null;
+        }
         if (status == discordAccountStatus) return;
         discordAccountStatus = status;
         if (status == DiscordAccountStatus.SignedIn)
-            discordProfileDisplayDeadline = DateTime.UtcNow.AddSeconds(25);
+            discordProfileDisplayDeadline = DateTime.UtcNow.AddSeconds(6);
         if (status == DiscordAccountStatus.SignedOut)
         {
             CloseDiscordAccountBrowser();
@@ -53,7 +58,7 @@ internal sealed partial class GameChatWindow
         if (!IsDiscordAppRoute(url) || readingDiscordAccount || signingOutDiscord ||
             DateTime.UtcNow < nextDiscordAccountCheck) return;
         readingDiscordAccount = true;
-        nextDiscordAccountCheck = DateTime.UtcNow.AddSeconds(discordAccount == null ? 2 : 15);
+        nextDiscordAccountCheck = DateTime.UtcNow.AddSeconds(discordAccount?.Avatar == null ? 2 : 15);
         try
         {
             DiscordAccount? current;
@@ -62,33 +67,41 @@ internal sealed partial class GameChatWindow
             if (closingChat || signingOutDiscord || discordNavigationInProgress ||
                 navigationId != discordNavigationId || !string.Equals(url, core.Source, StringComparison.OrdinalIgnoreCase))
                 return;
-            if (current?.Avatar == null && (discordAccount?.Avatar == null ||
-                (current != null && current.Name != discordAccount.Name)))
-            {
-                int revision = discordAccountRevision;
-                var desktop = await ReadDesktopDiscordAccount();
-                if (closingChat || signingOutDiscord || revision != discordAccountRevision ||
-                    !IsDiscordAppRoute(core.Source ?? "")) return;
-                current = desktop ?? current;
-            }
-            if (current == null) return;
-            // A compact read may omit the picture after a complete desktop read.
-            if (current.Avatar == null && current.Name == discordAccount?.Name)
-                current = current with { Avatar = discordAccount.Avatar };
-            SetDiscordAccountStatus(DiscordAccountStatus.SignedIn);
-            if (current != discordAccount)
-            {
-                discordAccount = current;
-                discordAvatarPng = null;
-                discordAccountDirty = true;
-                discordAccountRevision++;
-                Log("Discord profile details synchronized" + (current.Avatar == null ? " (name only)." : "."));
-            }
-            if (discordAvatarPng == null && current.Avatar is { } avatar)
-                _ = ReadDiscordAvatar(avatar, discordAccountRevision);
+            if (current != null) ApplyDiscordAccount(current);
+            // Keep polling the primary view while a slower desktop lookup is in flight.
+            if (discordAccount?.Avatar == null && discordAccountBrowser == null &&
+                DateTime.UtcNow >= nextDesktopDiscordAccountCheck)
+                _ = RefreshDesktopDiscordAccount(core, discordAccountRevision);
         }
         catch (Exception ex) { if (!closingChat) Log("Discord account display: " + ex.GetType().Name); }
         finally { readingDiscordAccount = false; }
+    }
+
+    async Task RefreshDesktopDiscordAccount(CoreWebView2 core, int revision)
+    {
+        var desktop = await ReadDesktopDiscordAccount();
+        if (desktop == null || closingChat || signingOutDiscord || revision != discordAccountRevision ||
+            !IsDiscordAppRoute(core.Source ?? "")) return;
+        ApplyDiscordAccount(desktop);
+    }
+
+    void ApplyDiscordAccount(DiscordAccount current)
+    {
+        // A compact read may omit the picture after a complete desktop read.
+        if (current.Avatar == null && current.Name == discordAccount?.Name)
+            current = current with { Avatar = discordAccount.Avatar };
+        SetDiscordAccountStatus(DiscordAccountStatus.SignedIn);
+        if (current != discordAccount)
+        {
+            discordAccount = current;
+            discordAvatarPng = null;
+            discordAccountDirty = true;
+            discordAccountRevision++;
+            Log("Discord profile details synchronized" + (current.Avatar == null ? " (name only)." : "."));
+        }
+        if (discordAvatarPng == null && current.Avatar is { } avatar)
+            _ = ReadDiscordAvatar(avatar, discordAccountRevision);
+        PublishDiscordAccount();
     }
 
     static async Task<DiscordAccount?> ReadDiscordAccountPanel(CoreWebView2 core)
@@ -188,6 +201,7 @@ internal sealed partial class GameChatWindow
             if (png.Length > 32_768) return;
             discordAvatarPng = png.ToArray();
             discordAccountDirty = true;
+            PublishDiscordAccount();
         }
         catch (Exception ex) { if (!closingChat) Log("Discord avatar display: " + ex.GetType().Name); }
     }
@@ -198,8 +212,8 @@ internal sealed partial class GameChatWindow
         // WM_COPYDATA carries a state, UTF-16 display name and optional 64px PNG.
         // Keep the name and image in memory and acknowledge delivery before reuse.
         bool signedIn = discordAccountStatus == DiscordAccountStatus.SignedIn;
-        // Let the launcher switch from its Log In display directly to the profile.
-        // A failed lookup must still expose the account menu for signing out.
+        // Give fast avatars a short window to arrive alongside the name.
+        // Publish partial details afterward and refresh when the avatar arrives.
         if (signedIn && (discordAccount == null || discordAvatarPng == null) &&
             DateTime.UtcNow < discordProfileDisplayDeadline) return;
         byte[] name = Encoding.Unicode.GetBytes(signedIn ? discordAccount?.Name ?? "" : "");
