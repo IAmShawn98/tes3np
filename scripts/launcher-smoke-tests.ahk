@@ -131,11 +131,14 @@ CheckExpansionPackToggleState()
         FileOpen(DataFile, "w", "UTF-16").Close()
         LauncherExpansionToggle := panel.AddButton(, "Expansion Pack")
         IniWrite(config, DataFile, "Patch", "ConfigFile")
+        IniWrite(game "\", DataFile, "Patch", "MorrowindFolder")
+        for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+            FileAppend("fixture", data "\" master, "UTF-8-RAW")
 
         FileAppend("content=NP Expansion Pack.esp`r`n", config, "UTF-8-RAW")
         RefreshExpansionPackToggle()
-        if LauncherExpansionToggle.Text != "Expansion Pack: Enabled"
-            throw Error("The toggle label must follow the entry its next click would disable.")
+        if LauncherExpansionToggle.Text != "Expansion Pack: Unverified" || ExpansionPackIsEnabled()
+            throw Error("A load-order entry alone cannot enable the pack.")
 
         FileAppend("abc", esp, "UTF-8-RAW")
         expectedHash := "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
@@ -143,6 +146,10 @@ CheckExpansionPackToggleState()
             throw Error("Raw SHA-256 did not match for a file in a spaced Unicode path.")
         IniWrite(game "\.\Data Files\NP Expansion Pack.esp", DataFile, "ExpansionPack", "VerifiedEspPath")
         IniWrite(expectedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
+        RefreshExpansionPackToggle()
+        if LauncherExpansionToggle.Text != "Expansion Pack: Enabled" || !ExpansionPackIsEnabled()
+            throw Error("A verified ESP in the load order must show as enabled.")
+
         FileDelete(config)
         FileAppend("content=Morrowind.esm`r`n", config, "UTF-8-RAW")
         RefreshExpansionPackToggle()
@@ -151,7 +158,10 @@ CheckExpansionPackToggleState()
             throw Error("Disabling the load order must leave the already verified, installed pack available.")
 
         FileAppend("changed", esp, "UTF-8-RAW")
-        if ExpansionPackInstalled(game, config)
+        FileAppend("content=NP Expansion Pack.esp`r`n", config, "UTF-8-RAW")
+        RefreshExpansionPackToggle()
+        if ExpansionPackInstalled(game, config) || ExpansionPackIsEnabled()
+            || LauncherExpansionToggle.Text != "Expansion Pack: Unverified"
             throw Error("A changed ESP must not pass the installed pack verification.")
     }
     catch Error as err

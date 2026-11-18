@@ -293,14 +293,19 @@ expect(
     ),
 )
 
+sign_in_card = section_between(source, "sealed class DiscordSignInCard : Form", "void PositionDiscordSignIn(")
+show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")
+sign_in_layout = section_between(source, "void PositionDiscordSignIn(", "void DismissDiscordSignIn()")
+chat_layout = section_between(source, "void PositionChatWindows()", "void DockToLauncher()")
+dock_bounds = section_between(source, "static Rectangle DockBounds(", "void PositionChatWindows()")
 expect(
-    "Discord login uses an owned dedicated window and keeps Game Chat at its normal size",
-    "Form? discordSignInWindow;" in source
+    "Discord login uses an owned dedicated window and keeps Game Chat at its normal proportions",
+    "DiscordSignInCard? discordSignInWindow;" in source
     and "void RevealDiscordSignInWindow()" in source
-    and "web.Parent = browserPanel;" in source
-    and "SetNativeWindowOwner(popup.Handle, owner);" in source
+    and in_order(show_sign_in, "web.Parent = popup.BrowserPanel;", "PositionChatWindows();",
+                 "SetNativeWindowOwner(popup.Handle, owner);", "popup.Show();")
     and "web.Parent = chatViewport;" in source
-    and "int windowHeight = chatHeight;" in source
+    and "FitPopupScale(launcherScale, chatWidth, chatHeight, work)" in chat_layout
     and "discordLoginVisible ? Math.Max(chatHeight, 780)" not in source
     and "web.Parent = this;" not in source,
 )
@@ -316,12 +321,14 @@ feed_transition = section_between(
 )
 expect(
     "Game Chat remains fully on its monitor when the launcher is near an edge",
-    "int leftX = bounds.Left - panelWidth;" in source
-    and "int rightX = bounds.Right;" in source
-    and "if (leftX >= work.Left)" in source
-    and "else if (rightX + panelWidth <= work.Right)" in source
-    and "x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - panelWidth));" in source
-    and "MoveWindow(Handle, x, y, panelWidth, windowHeight, true);" in source
+    "leftSpace >= dockWidth" in dock_bounds
+    and "rightSpace < dockWidth && leftSpace >= rightSpace" in dock_bounds
+    and "Math.Clamp(x, work.Left, work.Right - size.Width)" in dock_bounds
+    and "Math.Clamp(y, work.Top, work.Bottom - size.Height)" in dock_bounds
+    and in_order(chat_layout, "Screen.FromHandle(owner).WorkingArea",
+                 "FitPopupScale(launcherScale, chatWidth, chatHeight, work)",
+                 "DockBounds(bounds, work, size, size.Width)",
+                 "MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);")
     and "MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);" not in source,
 )
 expect(
@@ -437,9 +444,14 @@ expect(
     and '"Expansion Downloads", ToggleLauncherExpansionDownloads' not in bootstrap,
 )
 expansion_toggle_action = section_between(patcher, "ApplyExpansionPackToggle(checked := false)", "\nShowExpansionInstallPrompt(")
+unverified_disable = section_between(
+    expansion_toggle_action, "if !enable && !ExpansionPackInstalled(morrowind, cfg)\n    {",
+    "\n    if enable && !checked",
+)
 expect(
     "Normal Expansion Pack toggles skip confirmation and show one success message after verifying the change",
-    "YesNo" not in expansion_toggle_action
+    expansion_toggle_action.count("YesNo") == unverified_disable.count("YesNo") == 1
+    and "Disable this load-order entry?" in unverified_disable
     and in_order(
         expansion_toggle_action,
         "exitCode := RunWait(command,",
@@ -850,8 +862,8 @@ expect(
     and 'await browser.EnsureCoreWebView2Async(env);' in source
     and 'case 6: ShowEmbeddedExpansionDownloads(m.LParam); break;' in source
     and 'case 7: CloseEmbeddedExpansionDownloads(m.LParam); break;' in source
-    and source.count("new ChatHost(new IntPtr(owner))") == 1
-    and "Application.Run(chat);" in source
+    and source.count("new ChatHost(") == 1
+    and in_order(source, "new ChatHost(new IntPtr(owner), baseWidth)", "Application.Run(chat);")
     and source.count('Path.Combine(ChatDataRoot, "chat-webview2")') == 1,
 )
 expect(
@@ -1233,7 +1245,8 @@ expect(
 expect(
     "Banner must stay owned by launcher and retain movement polling fallback",
     "SetNativeWindowOwner(banner.Handle, owner);" in source
-    and "void PositionChatWindows()\n        {\n            // The existing chat polling is a safety net" in source
+    and "PositionHappyHourBanner();" in chat_layout
+    and "PositionChatWindows();" in section_between(source, "watch.Tick +=", "historyWatch.Tick +=")
     and "bounds.Top - 48" in source,
 )
 
@@ -1605,13 +1618,14 @@ expect(
 )
 expect(
     "Discord sign-in uses a borderless gold card with in-window close and original toggle",
-    'FormBorderStyle = FormBorderStyle.None,' in source
-    and 'Padding = new Padding(2),' in source
-    and 'closeButton.Click += (_, _) => DismissDiscordSignIn();' in source
-    and 'closeButton.BringToFront();' in source
+    'FormBorderStyle = FormBorderStyle.None;' in sign_in_card
+    and 'BackColor = Color.FromArgb(197, 164, 92);' in sign_in_card
+    and 'Padding = new Padding(Pixels(2, scale));' in sign_in_card
+    and 'close.Click += (_, _) => dismiss();' in sign_in_card
+    and 'close.BringToFront();' in sign_in_card
+    and 'new DiscordSignInCard(DismissDiscordSignIn)' in show_sign_in
     and 'ToggleGameChatDiscordSignIn();' in source
-    and 'FormBorderStyle = FormBorderStyle.FixedDialog,' not in section_between(
-        source, "void ShowDiscordSignIn()", "\n        void RestoreGameChatAfterSignIn()"),
+    and 'FormBorderStyle.FixedDialog' not in sign_in_card,
 )
 expect(
     "Game Client text clears buttons and available actions dictate card height",
@@ -1697,8 +1711,10 @@ expect(
 )
 expect(
     "Discord sign-in emblem is published and Game Chat positioning remains separate",
-    'PositionGameChatDiscordSignIn()' in source
-    and 'pendingExpansionPrompt != 0' in source
+    'PositionDiscordSignIn(bounds, work, launcherScale, size.Width);' in chat_layout
+    and in_order(sign_in_layout, 'pendingExpansionPrompt == 0',
+                 'DockBounds(ownerBounds, work, size, dockWidth)',
+                 'work.Left + (work.Width - size.Width) / 2')
     and 'Discord Integration!' in source
     and 'Sign In Required' in source
     and 'CopyToPublishDirectory="PreserveNewest"' in chat_project
@@ -1786,11 +1802,14 @@ expect(
 )
 expect(
     "Expansion Pack Enabled requires real nonempty ESP and current load-order entry",
-    "ExpansionPackInLoadOrder(config)" in section_between(
-        patcher, "ExpansionPackIsEnabled()", "\n}")
-    and "ExpansionPackInstalled(FindMorrowindFolder(config), config)" in patcher
+    in_order(section_between(patcher, "ExpansionPackIsEnabled(", "RefreshExpansionPackToggle()"),
+             "ExpansionPackInLoadOrder(config)",
+             "ExpansionPackInstalled(FindMorrowindFolder(config), config)")
+    and 'ExpansionPackIsEnabled(config) ? "Enabled" : "Unverified"' in patcher
     and "enable := !ExpansionPackInLoadOrder(cfg)" in patcher
-    and "FileGetSize(esp) > 0" in patcher,
+    and "FileGetSize(esp) > 0" in patcher
+    and "SHA256File(esp) = verifiedHash" in patcher
+    and "CheckExpansionPackToggleState()" in launcher_smoke_tests,
 )
 expect(
     "Unfinished Discord recovery never suppresses a new game login",
