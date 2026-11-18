@@ -95,7 +95,7 @@ ShowLauncherWindow(reuseCached := false, *)
                 RepaintMenuButtons()
                 return
             }
-            LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding under the existing frame cover.")
+            LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding launcher controls.")
         }
     }
     ; Apply the saved scale before first paint to avoid flashing the default window size.
@@ -103,7 +103,6 @@ ShowLauncherWindow(reuseCached := false, *)
     {
         LauncherGui.Show("Hide w960 h716")
         ApplyLauncherScaleToWindow()
-        CenterLauncherWithoutResizing()
         LauncherCachedScale := LauncherScale
         LauncherCachedLayoutCount := LauncherControlLayout.Count
         LauncherGui.Show()
@@ -114,7 +113,7 @@ ShowLauncherWindow(reuseCached := false, *)
     ; old size can expose a second copy when the new window grows behind it.
     LauncherGui.Show()
     cloaked := SetPageCompositorCloak(LauncherGui, true)
-    try ApplyLauncherScaleToWindow(true)
+    try ApplyLauncherScaleToWindow()
     finally
         if cloaked
             RevealPaintedPage(LauncherGui)
@@ -135,18 +134,7 @@ GetAutomaticLauncherScale()
     return Max(50, Min(100, percent))
 }
 
-CenterLauncherWithoutResizing()
-{
-    global LauncherGui
-    MouseGetPos(&mouseX, &mouseY)
-    monitor := MonitorFromPoint(mouseX, mouseY)
-    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    WinGetPos(,, &width, &height, "ahk_id " LauncherGui.Hwnd)
-    x := left + Max(0, ((right - left) - width) // 2), y := top + Max(0, ((bottom - top) - height) // 2)
-    WinMove(x, y,,, "ahk_id " LauncherGui.Hwnd)
-}
-
-ApplyLauncherScaleToWindow(center := false)
+ApplyLauncherScaleToWindow()
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
     global LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
@@ -164,12 +152,11 @@ ApplyLauncherScaleToWindow(center := false)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
     x := left + Max(0, ((right - left) - width) // 2)
     y := top + Max(0, ((bottom - top) - height) // 2)
-    DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010)
+    if !DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010, "Int")
+        throw OSError()
     ApplyLauncherControlScale()
 
     ; Refresh the cache for settings previews and rollbacks.
     LauncherCachedScale := LauncherScale
     LauncherCachedLayoutCount := LauncherControlLayout.Count
-    if center
-        CenterLauncherWithoutResizing()
 }

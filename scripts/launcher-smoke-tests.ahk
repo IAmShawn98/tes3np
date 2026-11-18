@@ -515,6 +515,7 @@ CheckOwnedMenuScaling()
                 ExitApp(221)
             }
         }
+        CheckDisplaySettingsAndReleaseNotes()
         ; A compiled GUI launch can lack console streams. Preserve the real result.
         try FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
     }
@@ -525,6 +526,88 @@ CheckOwnedMenuScaling()
         ExitApp(217)
     }
     ExitApp(0)
+}
+
+; The owned-menu probe already runs on Windows in CI. Use its disposable owner
+; to exercise the real display refresh and release-note rows at both extremes.
+CheckDisplaySettingsAndReleaseNotes()
+{
+    global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, ButtonFaces
+    LauncherHeading := 0
+    control := LauncherGui.Add("Text", "x20 y30 w200 h50", "Display layout smoke")
+    CaptureLauncherControlLayout()
+    settings := Gui("-Caption +Owner" LauncherGui.Hwnd)
+    InitButtonPainter()
+    try
+    {
+        for percent in [50, 100, 0, 0]
+        {
+            LauncherScaleMode := percent ? "Manual" : "Auto"
+            if percent
+                LauncherScale := percent
+            settings.Show("w280 h170")
+            DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+            faceCount := ButtonFaces.Count
+            RefreshLauncherDisplay(percent ? "Applying display settings..." : "Resetting display settings...", settings)
+            control.GetPos(&x, &y, &width, &height)
+            if Abs(width - Round(200 * LauncherScale / 100)) > 1 || Abs(y - Round(30 * LauncherScale / 100)) > 1
+                throw Error("Display refresh did not resize the launcher controls.")
+            if !DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd, "Int")
+                || DllCall("IsWindowVisible", "Ptr", settings.Hwnd, "Int") || ButtonFaces.Count != faceCount
+                throw Error("Display refresh did not restore the live launcher or release its loading card.")
+        }
+    }
+    finally
+    {
+        DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
+        settings.Destroy()
+    }
+    longWord := ""
+    Loop 180
+        longWord .= "M"
+    notes := "First paragraph.`n`n`n### Section heading`n`n- First bullet.`n" longWord
+    for percent in [50, 100]
+    {
+        LauncherScale := percent
+        scale := GetOwnedMenuScale()
+        panel := CreateGoldNativePrompt(LauncherGui, "Release notes smoke", 800, 600)
+        unregister := 0
+        try
+        {
+            ScaleOwnedMenuContent(panel, scale)
+            unregister := AddUpdateNotesViewport(panel, notes, scale)
+            ShowGoldNativePrompt(panel)
+            paragraphY := 0, headingY := 0, bulletY := 0, rowHeight := 0
+            for row in panel
+            {
+                if !row.Visible || row.Text = ""
+                    continue
+                row.GetPos(, &top, &width, &height)
+                if row.Text = "First paragraph."
+                    paragraphY := top, rowHeight := height
+                else if row.Text = "Section heading"
+                    headingY := top
+                else if row.Text = "• First bullet."
+                    bulletY := top
+                if top >= Round(170 * scale) && top < Round(516 * scale) && width = Round(686 * scale)
+                {
+                    if height < ReleaseNoteLineHeight(row) || top + height > Round(516 * scale)
+                        || !ReleaseNoteFits(row, row.Text, width)
+                        throw Error("A release note does not fit inside its row.")
+                }
+            }
+            spacing := Max(1, Round(2 * scale)) + Max(1, Round(4 * scale))
+            if !paragraphY || headingY - paragraphY != rowHeight + spacing || bulletY - headingY != rowHeight + spacing
+                throw Error("Release notes contain a missing heading, bullet, or extra section space.")
+        }
+        finally
+        {
+            if IsObject(unregister)
+                unregister()
+            CloseGoldNativePrompt(panel)
+        }
+    }
+    try FileAppend("PASS: live display refresh and reset, loading cleanup, and readable release-note rows at 50 and 100 percent" Chr(10), "*")
 }
 
 ; Exercise the update handshake without launching the UI or writing AppData.

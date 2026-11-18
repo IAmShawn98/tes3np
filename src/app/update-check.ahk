@@ -31,7 +31,7 @@ ScaleLauncherVersionLabel(scale)
     global LauncherVersionLabel
 
     if IsObject(LauncherVersionLabel)
-        LauncherVersionLabel.SetFont("s" Max(7, Round(9 * scale)), "Segoe UI")
+        LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")

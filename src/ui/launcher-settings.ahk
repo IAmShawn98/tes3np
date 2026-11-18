@@ -72,7 +72,7 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
+PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, reset := false)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
     global V016ReadabilityState, V016FollowWindowsState
@@ -98,17 +98,17 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     FollowWindowsAccessibility := followWindows.Value = 1
     DetectWindowsAccessibility()
     ApplyWindowsAccessibilityPreferences()
-    ; Launcher Settings disables the owner while open. Preview temporarily hides
-    ; that window, so re-enable the launcher before showing its preview/update UI.
-    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
-    settings.Hide()
+    operation := "preview"
     try
     {
-        RefreshLauncherDisplay()
+        message := reset ? "Resetting display settings..." : "Applying display settings..."
+        RefreshLauncherDisplay(message, settings)
+        DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
         LauncherGui.Opt("+OwnDialogs")
         result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
         if result = "Yes"
         {
+            operation := "save"
             SaveLauncherDisplaySettings(pendingScale, AccessibilityTextSize,
                 requestedReadability, requestedReduceMotion, FollowWindowsAccessibility)
             saved := true
@@ -117,7 +117,7 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     catch Error as err
     {
         saveFailed := true
-        LogLauncherEvent("UI | Display settings preview or save failed (" Type(err) ").")
+        LogLauncherEvent("UI | Display settings " operation " failed (" Type(err) ", line " err.Line ").")
     }
     if saved
     {
@@ -126,7 +126,10 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
     LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability, ReduceMotion := oldReduceMotion, FollowWindowsAccessibility := oldFollowWindows
-    try RefreshLauncherDisplay()
+    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+    try RefreshLauncherDisplay("Restoring display settings...", settings)
+    catch Error as err
+        LogLauncherEvent("UI | Display settings restore failed (" Type(err) ", line " err.Line ").")
     ; A declined preview must restore the visible selectors as well as the
     ; launcher geometry. Otherwise Reset/Preview can leave controls showing
     ; defaults until the next login even though the old state was restored.
@@ -153,19 +156,35 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
 }
 
-RefreshLauncherDisplay()
+RefreshLauncherDisplay(message, settings)
 {
     global LauncherGui
-    cloaked := SetPageCompositorCloak(LauncherGui, true)
+    bounds := Buffer(16, 0)
+    if !DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds, "Int")
+        throw OSError()
+    x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
+    width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
+    loading := CreateLoadingCard(LauncherGui, x, y, width, height, message)
     try
     {
-        ApplyLauncherScaleToWindow(true)
+        ; The card is already painted before the settings controls leave view.
+        SetLoadingCardProgress(loading.Panel, message, 0.15)
+        settings.Hide()
+        ApplyLauncherScaleToWindow()
+        if !DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds, "Int")
+            throw OSError()
+        x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
+        width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
+        DllCall("SetWindowPos", "Ptr", loading.Dim.Hwnd, "Ptr", 0,
+            "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0014)
+        PositionOwnedMenuAtParent(loading.Card, LauncherGui)
+        SetLoadingCardProgress(loading.Panel, "Updating interface text...", 0.55)
         ApplyAccessibilityTextSize()
+        SetLoadingCardProgress(loading.Panel, "Updating readability...", 0.85)
         ApplyEnhancedReadability()
+        DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
     }
-    finally
-        if cloaked
-            RevealPaintedPage(LauncherGui)
+    finally DestroyLoadingCard(loading)
 }
 
 SaveLauncherDisplaySettings(scale, textSize, readability, reduceMotion, followWindows)

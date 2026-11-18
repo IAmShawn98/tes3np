@@ -262,8 +262,11 @@ FitButtonLabelFont(dc, font, text, maxWidth, maxHeight)
         return 0
     width := NumGet(extent, 0, "Int"), height := NumGet(extent, 4, "Int")
     ratio := Min(maxWidth / Max(1, width), maxHeight / Max(1, height))
-    if ratio >= 1
-        return 0
+    return ratio < 1 ? CopyLabelFontAtScale(font, ratio) : 0
+}
+
+CopyLabelFontAtScale(font, ratio)
+{
     definition := Buffer(92, 0) ; LOGFONTW
     if DllCall("gdi32\GetObjectW", "Ptr", font, "Int", definition.Size, "Ptr", definition, "Int") < 92
         return 0
@@ -273,6 +276,39 @@ FitButtonLabelFont(dc, font, text, maxWidth, maxHeight)
     NumPut("Int", (height < 0 ? -1 : 1) * Max(1, Floor(Abs(height) * ratio)), definition, 0)
     NumPut("Int", 0, definition, 4)
     return DllCall("gdi32\CreateFontIndirectW", "Ptr", definition, "Ptr")
+}
+
+FitWrappedLabelFont(dc, font, text, bounds)
+{
+    if !font
+        return 0
+    measured := Buffer(16, 0)
+    candidate := 0
+    try
+    {
+        Loop 10
+        {
+            Loop 4
+                NumPut("Int", NumGet(bounds, (A_Index - 1) * 4, "Int"), measured, (A_Index - 1) * 4)
+            DllCall("user32\DrawTextW", "Ptr", dc, "WStr", text, "Int", -1, "Ptr", measured, "UInt", 0xC10)
+            if NumGet(measured, 8, "Int") <= NumGet(bounds, 8, "Int")
+                && NumGet(measured, 12, "Int") <= NumGet(bounds, 12, "Int")
+                return candidate
+            if A_Index = 10
+                break
+            DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+            if candidate
+                DllCall("DeleteObject", "Ptr", candidate)
+            candidate := CopyLabelFontAtScale(font, 1 - A_Index * 0.055)
+            if !candidate
+                return 0
+            DllCall("SelectObject", "Ptr", dc, "Ptr", candidate, "Ptr")
+        }
+    }
+    finally DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+    if candidate
+        DllCall("DeleteObject", "Ptr", candidate)
+    return 0
 }
 
 KeepButtonBackground(wParam, lParam, msg, hwnd)
@@ -464,15 +500,21 @@ PaintInfoCard(handle, target, width, height)
     DllCall("SetBkMode", "Ptr", dc, "Int", 1)
     rect := Buffer(16, 0)
     NumPut("Int", Round(18 * scale), "Int", Round(82 * scale), "Int", width - Round(18 * scale), "Int", height - Round(16 * scale), rect)
+    label := face.Control.Text
+    fittedFont := FitWrappedLabelFont(dc, font, label, rect)
+    if fittedFont
+        DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
     shadowRect := Buffer(16, 0)
     Loop 4
         NumPut("Int", NumGet(rect, (A_Index - 1) * 4, "Int") + Max(1, Round(scale)), shadowRect, (A_Index - 1) * 4)
     DllCall("SetTextColor", "Ptr", dc, "UInt", 0x080808)
-    DllCall("DrawTextW", "Ptr", dc, "WStr", face.Control.Text, "Int", -1, "Ptr", shadowRect, "UInt", 0x810)
+    DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", shadowRect, "UInt", 0x810)
     DllCall("SetTextColor", "Ptr", dc, "UInt", 0xC5E2F2)
-    DllCall("DrawTextW", "Ptr", dc, "WStr", face.Control.Text, "Int", -1, "Ptr", rect, "UInt", 0x810)
+    DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", 0x810)
     DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0x00CC0020)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
+    if fittedFont
+        DllCall("DeleteObject", "Ptr", fittedFont)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
     DllCall("DeleteObject", "Ptr", bitmap)
     DllCall("DeleteDC", "Ptr", dc)

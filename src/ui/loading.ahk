@@ -223,9 +223,7 @@ ReleaseCapturedInterfaceFrame(frame)
     {
         if IsObject(frame.Panel)
         {
-            try DestroyBookControl(frame.Panel)
-            try frame.Card.Destroy()
-            try frame.Dim.Destroy()
+            DestroyLoadingCard(frame)
         }
         try frame.Gui.Hide()
         ; Detach before deletion: the native Static control does not own our bitmap.
@@ -238,7 +236,7 @@ ReleaseCapturedInterfaceFrame(frame)
 ; Keep the proven screenshot cover unmodified. Native windows supply dimming
 ; and the status card, so bitmap alpha cannot erase the card text or progress bar.
 
-CreateLoadingCard(owner, x, y, width, height)
+CreateLoadingCard(owner, x, y, width, height, message := unset)
 {
     global ButtonFaces, InterfaceLoadingText
     dim := 0, card := 0, panel := 0
@@ -256,7 +254,7 @@ CreateLoadingCard(owner, x, y, width, height)
         cw := Round(320 * scale)
         ch := Round(68 * scale)
         card.SetFont("s" Round(11 * scale * 96 / A_ScreenDPI) " cC5A45C", "Georgia")
-        panel := card.Add("Custom", "ClassStatic x0 y0 w" cw " h" ch, InterfaceLoadingText)
+        panel := card.Add("Custom", "ClassStatic x0 y0 w" cw " h" ch, IsSet(message) ? message : InterfaceLoadingText)
         ButtonFaces[panel.Hwnd] := {Control: panel, Label: panel, Gui: card, Window: card.Hwnd, IsLabel: true,
             IsLoading: true, Progress: 0, State: "normal", Action: 0}
         AttachButtonPainter(panel.Hwnd)
@@ -280,6 +278,21 @@ CreateLoadingCard(owner, x, y, width, height)
             try dim.Destroy()
         throw err
     }
+}
+
+DestroyLoadingCard(loading)
+{
+    try DestroyBookControl(loading.Panel)
+    try loading.Card.Destroy()
+    try loading.Dim.Destroy()
+}
+
+SetLoadingCardProgress(panel, message, progress)
+{
+    global ButtonFaces
+    panel.Text := message
+    ButtonFaces[panel.Hwnd].Progress := progress
+    PaintButtonNow(panel.Hwnd)
 }
 
 ReportLoadingFailure(err)
@@ -356,15 +369,14 @@ UpdateExpansionLoadingProgress(frame, label, percent)
 
 SetInterfaceLoadingText(message)
 {
-    global InterfaceLoadingText, InterfaceFrameCover, InterfaceUpdating, InterfaceCompletedSteps, InterfaceTotalSteps, ButtonFaces
+    global InterfaceLoadingText, InterfaceFrameCover, InterfaceUpdating, InterfaceCompletedSteps, InterfaceTotalSteps
     InterfaceLoadingText := message
     if InterfaceUpdating && !InStr(message, "Waiting for Jiub")
         InterfaceCompletedSteps += 1
     if IsObject(InterfaceFrameCover) && IsObject(InterfaceFrameCover.Panel)
     {
-        InterfaceFrameCover.Panel.Text := message
-        ButtonFaces[InterfaceFrameCover.Panel.Hwnd].Progress := message = "Waiting for Jiub" ? 1 : Min(0.99, InterfaceCompletedSteps / InterfaceTotalSteps)
-        PaintButtonNow(InterfaceFrameCover.Panel.Hwnd)
+        progress := message = "Waiting for Jiub" ? 1 : Min(0.99, InterfaceCompletedSteps / InterfaceTotalSteps)
+        SetLoadingCardProgress(InterfaceFrameCover.Panel, message, progress)
     }
 }
 
