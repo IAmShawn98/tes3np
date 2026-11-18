@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Web.WebView2.WinForms;
 using static GameChatNative;
 
@@ -11,6 +10,9 @@ internal sealed partial class GameChatWindow
     const string ServerUpdatesChannel = "https://discord.com/channels/509601787901116437/510245417657827363";
     const uint ServerUpdatesData = 0x833B;
     const int ServerUpdateBodyLimit = 3800;
+    const string ServerUpdatesRtfHeader = @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Georgia;}}" +
+        @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
+        @"\red222\green107\blue82;\red184\green169\blue142;\red219\green178\blue67;}\f0\fs21";
     static readonly Lazy<string> ExtractServerUpdates = GameChatWeb.Page("extract-server-updates.js");
 
     sealed class ServerUpdatesWindow : Form
@@ -37,7 +39,9 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    sealed record ServerUpdate(string Id, string Body);
+    sealed record ServerUpdate(string Id, string? Author, ServerUpdateBlock[]? Blocks);
+    sealed record ServerUpdateBlock(string? Style, int Number, ServerUpdateRun[]? Runs);
+    sealed record ServerUpdateRun(string? Text, bool Bold);
 
     ServerUpdatesWindow? serverUpdatesWindow;
     DateTime nextServerUpdatesCheck;
@@ -115,27 +119,104 @@ internal sealed partial class GameChatWindow
 
     static string FormatServerUpdates(ServerUpdate[] updates)
     {
-        var recent = new SortedDictionary<ulong, string>();
+        var recent = new SortedDictionary<ulong, ServerUpdate>();
         foreach (var update in updates)
         {
-            if (update == null || !ulong.TryParse(update.Id, out ulong id) || id == 0 || string.IsNullOrWhiteSpace(update.Body))
+            if (update?.Blocks is not { Length: > 0 } || !ulong.TryParse(update.Id, out ulong id) || id == 0)
                 continue;
-            string body = Regex.Replace(update.Body.Replace("\r\n", "\n").Replace('\r', '\n'),
-                @"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "").Trim().Replace("\n", "\r\n");
-            if (body.Length > ServerUpdateBodyLimit)
-                body = body[..ServerUpdateBodyLimit].TrimEnd() + "…";
-            if (body.Length != 0) recent[id] = body;
+            recent[id] = update;
         }
-        if (recent.Count == 0) return "No server updates to display.";
-        return string.Join("\r\n\r\n", recent.Reverse().Take(8).Select(update =>
-            $"{DiscordTimestamp(update.Key).ToLocalTime():MMM d, yyyy • h:mm tt}\r\n{update.Value}"));
+        if (recent.Count == 0) return ServerUpdatesStatus("No server updates to display.");
+
+        var rtf = new StringBuilder(ServerUpdatesRtfHeader);
+        DateOnly? previous = null;
+        foreach (var entry in recent.TakeLast(8))
+        {
+            var when = DiscordTimestamp(entry.Key).ToLocalTime();
+            var date = DateOnly.FromDateTime(when.DateTime);
+            if (previous != date)
+            {
+                rtf.Append(@"\pard\qc\sb170\sa170\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
+                AppendServerUpdatesRtfText(rtf, when.ToString("MMMM d, yyyy").AsSpan());
+                rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
+                previous = date;
+            }
+            rtf.Append(@"\pard\sb55\sa55\fs21 ");
+            if (!string.IsNullOrWhiteSpace(entry.Value.Author))
+            {
+                string author = entry.Value.Author[..Math.Min(entry.Value.Author.Length, 64)];
+                rtf.Append(string.Equals(author, "Jiub", StringComparison.OrdinalIgnoreCase) ? @"{\cf4\b " : @"{\cf6\b ");
+                AppendServerUpdatesRtfText(rtf, author.AsSpan());
+                rtf.Append("}  ");
+            }
+            rtf.Append(@"\cf5\fs17 ");
+            AppendServerUpdatesRtfText(rtf, when.ToString("h:mm tt").AsSpan());
+            rtf.Append(@"\par ");
+
+            int remaining = ServerUpdateBodyLimit;
+            foreach (var block in entry.Value.Blocks!.Take(120))
+            {
+                if (remaining == 0) break;
+                if (block?.Runs is not { Length: > 0 }) continue;
+                rtf.Append(@"\pard\cf1\fs21\sa70 ");
+                if (block.Style == "bullet" || block.Style == "number")
+                {
+                    rtf.Append(@"\li230\fi-225\tx230 ");
+                    if (block.Style == "bullet") rtf.Append(@"\u8226?");
+                    else rtf.Append(Math.Clamp(block.Number, 1, 999)).Append('.');
+                    rtf.Append(@"\tab ");
+                }
+                if (block.Style == "heading") rtf.Append(@"\sb55 ");
+                foreach (var run in block.Runs.Take(240))
+                {
+                    if (remaining == 0) break;
+                    if (string.IsNullOrEmpty(run?.Text)) continue;
+                    bool bold = run.Bold || block.Style == "heading";
+                    if (bold) rtf.Append(@"{\b ");
+                    int length = Math.Min(run.Text.Length, remaining);
+                    AppendServerUpdatesRtfText(rtf, run.Text.AsSpan(0, length));
+                    if (bold) rtf.Append('}');
+                    remaining -= length;
+                }
+                rtf.Append(@"\par ");
+            }
+            rtf.Append(@"\pard\sa100\par ");
+        }
+        return rtf.Append('}').ToString();
+    }
+
+    static string ServerUpdatesStatus(string text)
+    {
+        var rtf = new StringBuilder(ServerUpdatesRtfHeader).Append(@"\pard\cf5 ");
+        AppendServerUpdatesRtfText(rtf, text.AsSpan());
+        return rtf.Append('}').ToString();
+    }
+
+    static void AppendServerUpdatesRtfText(StringBuilder rtf, ReadOnlySpan<char> text)
+    {
+        foreach (char ch in text)
+        {
+            switch (ch)
+            {
+                case '\\':
+                case '{':
+                case '}': rtf.Append('\\').Append(ch); break;
+                case '\n': rtf.Append(@"\line "); break;
+                case '\t': rtf.Append(@"\tab "); break;
+                default:
+                    if (char.IsControl(ch)) break;
+                    if (ch <= '\x7e') rtf.Append(ch);
+                    else rtf.Append(@"\u").Append(((short)ch).ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('?');
+                    break;
+            }
+        }
     }
 
     void PublishServerUpdates(string text)
     {
         if (!ServerUpdatesAuthenticated || !IsHandleCreated || !IsWindow(owner) || text == publishedServerUpdates)
             return;
-        byte[] bytes = Encoding.Unicode.GetBytes(text);
+        byte[] bytes = Encoding.ASCII.GetBytes(text + "\0");
         var pin = GCHandle.Alloc(bytes, GCHandleType.Pinned);
         try
         {
@@ -155,7 +236,7 @@ internal sealed partial class GameChatWindow
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         previous?.Dispose();
-        PublishServerUpdates("Server updates are unavailable.");
+        PublishServerUpdates(ServerUpdatesStatus("Server updates are unavailable."));
         nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(30);
     }
 

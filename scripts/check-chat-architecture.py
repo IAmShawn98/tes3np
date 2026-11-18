@@ -369,7 +369,8 @@ expect(
     and "source != serverUpdatesWindow" in server_updates
     and "SetLauncherServerUpdatesVisible(status = 2)" in embedded_chat
     and "if LauncherDiscordStatus != 2" in embedded_chat
-    and 'ServerUpdatesFeed.Value := ""' in embedded_chat
+    and 'ServerUpdatesFeed.Visible := false' in embedded_chat
+    and '"UInt", 0x000C, "Ptr", 0, "WStr", ""' in embedded_chat
     and in_order(section_between(source, "async Task SignOutDiscord()", "\n}"),
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )
