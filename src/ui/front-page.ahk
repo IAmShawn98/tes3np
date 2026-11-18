@@ -12,9 +12,8 @@ BuildFrontPage()
     ; Static Happy Hour dust is behind buttons/text and shares this HWND.
     ; The existing banner signal toggles visibility alongside Jiub's face.
     CreateHappyHourDust()
-    ; Reserve the upper-left corner for the Expansion Pack toggle. The old
-    ; full-width drag strip intercepted mouse clicks in that button area.
-    DragStrip := LauncherGui.Add("Text", "x205 y0 w755 h48 BackgroundTrans +0x100")
+    ; Leave both corner controls outside the draggable area.
+    DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 BackgroundTrans +0x100")
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
