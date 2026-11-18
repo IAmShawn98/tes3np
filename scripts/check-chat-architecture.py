@@ -1902,7 +1902,8 @@ expect(
 )
 login_card_fit = section_between(login_progress, "FitGameLoginProgress(area,", "GetGameLoginProgressLayout(hwnd)")
 login_card_layout = section_between(login_progress, "GetGameLoginProgressLayout(hwnd)", "GameLoginProgressFontSize(")
-login_card_present = section_between(login_progress, "PresentGameLoginProgress(layout)", "UpdateGameLoginProgress(*)")
+login_card_present = section_between(login_progress, "PresentGameLoginProgress(layout)", "CanShowGameLoginProgress(gameHwnd)")
+login_card_focus = section_between(login_progress, "CanShowGameLoginProgress(gameHwnd)", "UpdateGameLoginProgress(*)")
 expect(
     "Game login progress retains its normal DPI layout when it fits and follows the visible TES3MP client",
     "Min(normalScale, area.Width / 420, area.Height / 481)" in login_card_fit
@@ -1919,6 +1920,18 @@ expect(
     and 'row.Symbol.SetFont("s" GameLoginProgressFontSize(14, scale)' in login_progress
     and 'marker.Symbol.SetFont("s" GameLoginProgressFontSize(17, scale)' in login_progress
     and "CheckGameLoginProgressFit()" in launcher_smoke_tests,
+)
+expect(
+    "An open login card tracks the visible game through Windows Start and taskbar focus changes",
+    in_order(login_card_focus, 'DllCall("GetForegroundWindow", "Ptr")',
+             "if foregroundHwnd = gameHwnd", "if !LoginProgressShown", "if !foregroundHwnd",
+             'processName = "StartMenuExperienceHost.exe"', 'processName = "explorer.exe"',
+             'className = "Shell_TrayWnd" || className = "Shell_SecondaryTrayWnd"')
+    and in_order(login_cleanup, 'DllCall("IsWindowVisible", "Ptr", hwnd)',
+                 "WinGetMinMax(target) = -1 || !CanShowGameLoginProgress(hwnd)",
+                 "layout := GetGameLoginProgressLayout(hwnd)", "PresentGameLoginProgress(layout)")
+    and 'LoginProgressGui.Show("NA x"' in login_card_present
+    and "WinActivate(" not in login_progress,
 )
 font_update = section_between(
     display_settings, "\nApplyAccessibilityTextSize(suspendRedraw := true)\n{", "\nApplyEnhancedReadability()\n{"
