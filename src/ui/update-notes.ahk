@@ -103,7 +103,7 @@ WrapReleaseNoteLines(line, control, maxWidth)
 
 ; Render plain category headings and bullet points, as shown in RELEASE_NOTES.md.
 ; Each on-screen row is measured in the real control font before scrolling.
-BuildStyledReleaseNoteRows(content, measureRow, maxWidth, scale)
+BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
 {
     rows := []
     paragraphBreak := false
@@ -121,14 +121,14 @@ BuildStyledReleaseNoteRows(content, measureRow, maxWidth, scale)
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
             line := StrReplace(line, "**", "")
         }
-        measureRow.SetFont(UpdateNoteFont(kind, scale), "Segoe UI")
+        measureRow.SetFont(UpdateNoteFont(kind), "Segoe UI")
         for index, part in WrapReleaseNoteLines(line, measureRow, maxWidth) {
             gapBefore := index = 1 && rows.Length > 0 && (paragraphBreak || kind != rows[rows.Length].Kind)
             rows.Push({Text: part, Kind: kind, GapBefore: gapBefore})
         }
         paragraphBreak := false
     }
-    measureRow.SetFont(UpdateNoteFont("body", scale), "Segoe UI")
+    measureRow.SetFont(UpdateNoteFont("body"), "Segoe UI")
     if !rows.Length
         rows.Push({Text: "No release notes available.", Kind: "body", GapBefore: false})
     return rows
@@ -208,11 +208,9 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     return 0
 }
 
-UpdateNoteFont(kind, scale)
+UpdateNoteFont(kind)
 {
-    points := (kind = "heading" ? 12 : 11) * scale
-    size := Max(8, Round(points))
-    return "s" size (kind = "heading" ? " Bold cE7BE70" : " Norm cF4E9D6")
+    return kind = "heading" ? "s12 Bold cE7BE70" : "s11 Norm cF4E9D6"
 }
 
 ReleaseNoteLineHeight(control)
@@ -241,17 +239,17 @@ AddUpdateNotesViewport(panel, notes, scale)
     viewport := panel.Add("Text", "x" px(28) " y" px(158) " w" px(744) " h" px(367) " BackgroundC5A45C")
     panel.Add("Text", "x" px(30) " y" px(160) " w" px(740) " h" px(363) " Background171008")
     ; Measure the actual Windows font before allocating rows. Launcher scale
-    ; sizes the card, and Windows DPI governs how many complete lines fit.
+    ; sizes the card, and the text keeps its normal size and wraps as needed.
     firstY := px(170), bottomY := px(516)
     left := px(42), width := px(686)
-    panel.SetFont(UpdateNoteFont("body", scale), "Segoe UI")
+    panel.SetFont(UpdateNoteFont("body"), "Segoe UI")
     sample := panel.Add("Text", "Hidden x" left " y" firstY " w" width " h1 Background171008 +0x80", "")
     bodyHeight := ReleaseNoteLineHeight(sample)
-    sample.SetFont(UpdateNoteFont("heading", scale), "Segoe UI")
+    sample.SetFont(UpdateNoteFont("heading"), "Segoe UI")
     rowHeight := Max(bodyHeight, ReleaseNoteLineHeight(sample)) + 1
     lineGap := Max(1, px(2)), sectionGap := Max(1, px(4))
     stride := rowHeight + lineGap
-    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), scale)
+    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)))
     capacity := Max(1, (bottomY - firstY + lineGap) // stride)
     ; Find the first row of the last page so the final notes fill the viewport.
     lastOffset := lines.Length
@@ -292,7 +290,7 @@ AddUpdateNotesViewport(panel, notes, scale)
                 continue
             }
             if rowStyles[index] != entry.Kind {
-                row.SetFont(UpdateNoteFont(entry.Kind, scale), "Segoe UI")
+                row.SetFont(UpdateNoteFont(entry.Kind), "Segoe UI")
                 rowStyles[index] := entry.Kind
             }
             row.Move(left, y, width, rowHeight)
@@ -310,7 +308,7 @@ AddUpdateNotesViewport(panel, notes, scale)
     up := AddStyledButton(panel, px(744), px(163), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, px(744), px(500), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
-        arrow.SetFont(UpdateNoteFont("heading", scale), "Segoe UI")
+        arrow.SetFont(UpdateNoteFont("heading"), "Segoe UI")
     refresh()
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
