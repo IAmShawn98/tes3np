@@ -103,7 +103,6 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     {
         message := reset ? "Resetting display settings..." : "Applying display settings..."
         RefreshLauncherDisplay(message, settings)
-        DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
         LauncherGui.Opt("+OwnDialogs")
         result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
         if result = "Yes"
@@ -126,7 +125,6 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
     LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability, ReduceMotion := oldReduceMotion, FollowWindowsAccessibility := oldFollowWindows
-    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
     try RefreshLauncherDisplay("Restoring display settings...", settings)
     catch Error as err
         LogLauncherEvent("UI | Display settings restore failed (" Type(err) ", line " err.Line ").")
@@ -159,19 +157,30 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
 RefreshLauncherDisplay(message, settings)
 {
     global LauncherGui
+    launcherHwnd := LauncherGui.Hwnd
+    ; Read the real bounds even if Windows has already minimized the owner.
+    if DllCall("IsIconic", "Ptr", launcherHwnd, "Int")
+        DllCall("ShowWindow", "Ptr", launcherHwnd, "Int", 9) ; SW_RESTORE
     bounds := Buffer(16, 0)
-    if !DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds, "Int")
+    if !DllCall("GetWindowRect", "Ptr", launcherHwnd, "Ptr", bounds, "Int")
         throw OSError()
     x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
     width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
     loading := CreateLoadingCard(LauncherGui, x, y, width, height, message)
     try
     {
-        ; The card is already painted before the settings controls leave view.
+        ; Paint the loading card, then return foreground to the launcher before
+        ; hiding its active owned Settings window. It must be enabled to take focus.
         SetLoadingCardProgress(loading.Panel, message, 0.15)
+        DllCall("EnableWindow", "Ptr", launcherHwnd, "Int", 1)
+        if !DllCall("IsWindowVisible", "Ptr", launcherHwnd, "Int")
+            DllCall("ShowWindow", "Ptr", launcherHwnd, "Int", 4) ; SW_SHOWNOACTIVATE
+        WinActivate("ahk_id " launcherHwnd)
         settings.Hide()
-        ApplyLauncherScaleToWindow()
-        if !DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds, "Int")
+        ; WM_SETREDRAW would temporarily remove the visible window style.
+        ; The live loading card already covers this repaint.
+        ApplyLauncherScaleToWindow(false)
+        if !DllCall("GetWindowRect", "Ptr", launcherHwnd, "Ptr", bounds, "Int")
             throw OSError()
         x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
         width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
@@ -179,10 +188,10 @@ RefreshLauncherDisplay(message, settings)
             "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0014)
         PositionOwnedMenuAtParent(loading.Card, LauncherGui)
         SetLoadingCardProgress(loading.Panel, "Updating interface text...", 0.55)
-        ApplyAccessibilityTextSize()
+        ApplyAccessibilityTextSize(false)
         SetLoadingCardProgress(loading.Panel, "Updating readability...", 0.85)
         ApplyEnhancedReadability()
-        DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+        DllCall("RedrawWindow", "Ptr", launcherHwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
     }
     finally DestroyLoadingCard(loading)
 }
@@ -216,7 +225,7 @@ AccessibilityFontSize(baseSize)
     multiplier := AccessibilityTextSize = "Extra Large" ? 1.35 : AccessibilityTextSize = "Large" ? 1.18 : 1.0
     return Round(baseSize * multiplier)
 }
-ApplyAccessibilityTextSize()
+ApplyAccessibilityTextSize(suspendRedraw := true)
 {
     global LauncherGui, ButtonFaces, LauncherScale
     if !IsObject(LauncherGui)
@@ -225,7 +234,8 @@ ApplyAccessibilityTextSize()
     ; positions. ApplyLauncherControlScale already moves every captured control
     ; from its immutable baseline, including at 50/60/70/80/90 percent.
     scale := LauncherScale / 100
-    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+    if suspendRedraw
+        DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
         for handle, face in ButtonFaces
@@ -238,7 +248,9 @@ ApplyAccessibilityTextSize()
             face.Control.SetFont("s" Max(5, Round(size * scale)) " Bold", "Segoe UI")
         }
     }
-    finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+    finally
+        if suspendRedraw
+            DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }

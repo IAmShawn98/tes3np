@@ -1898,7 +1898,7 @@ expect(
     and 'ProcessClose(' not in login_cleanup,
 )
 font_update = section_between(
-    display_settings, "\nApplyAccessibilityTextSize()\n{", "\nApplyEnhancedReadability()\n{"
+    display_settings, "\nApplyAccessibilityTextSize(suspendRedraw := true)\n{", "\nApplyEnhancedReadability()\n{"
 )
 expect(
     "The first menu button leaves the original Game Launcher heading outside its paint surface",
@@ -1916,12 +1916,12 @@ expect(
     and "face.Control.Move(" not in font_update,
 )
 launcher_scale_apply = section_between(
-    launcher_layout, "ApplyLauncherScaleToWindow()\n{", "\n}",
+    launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true)\n{", "\n}",
 )
 expect(
     "Declined display previews restore saved state and visible settings controls",
-    "ApplyLauncherScaleToWindow()" in display_settings
-    and "ApplyAccessibilityTextSize()" in display_settings
+    "ApplyLauncherScaleToWindow(false)" in display_settings
+    and "ApplyAccessibilityTextSize(false)" in display_settings
     and "ApplyEnhancedReadability()" in display_settings
     and 'scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)' in display_settings
     and 'textList.Choose(oldText = "Large" ? 2' in display_settings
@@ -1931,7 +1931,7 @@ expect(
     and "CloseLauncherSettingsV016(settings)" in display_settings
     and in_order(
         launcher_scale_apply,
-        "ApplyLauncherControlScale()",
+        "ApplyLauncherControlScale(suspendRedraw)",
         "LauncherCachedScale := LauncherScale",
         "LauncherCachedLayoutCount := LauncherControlLayout.Count",
     ),
@@ -1940,14 +1940,29 @@ display_refresh = section_between(display_settings, "\nRefreshLauncherDisplay(me
 expect(
     "Display previews use live loading feedback before and throughout resize",
     in_order(display_refresh, "CreateLoadingCard(LauncherGui,", "SetLoadingCardProgress(loading.Panel, message,",
-             "settings.Hide()", "ApplyLauncherScaleToWindow()", "PositionOwnedMenuAtParent(loading.Card, LauncherGui)",
-             '"Updating interface text..."', '"Updating readability..."', "finally DestroyLoadingCard(loading)")
+             'DllCall("EnableWindow", "Ptr", launcherHwnd, "Int", 1)', 'WinActivate("ahk_id " launcherHwnd)',
+             "settings.Hide()", "ApplyLauncherScaleToWindow(false)", "PositionOwnedMenuAtParent(loading.Card, LauncherGui)",
+             '"Updating interface text..."', "ApplyAccessibilityTextSize(false)",
+             '"Updating readability..."', "finally DestroyLoadingCard(loading)")
     and 'RefreshLauncherDisplay("Restoring display settings...", settings)' in display_settings
     and '"Resetting display settings..."' in display_settings
     and "SetPageCompositorCloak(" not in display_refresh
     and "CaptureInterfaceFrame(" not in display_refresh
     and "WinGetPos(" not in launcher_scale_apply
     and "WinMove(" not in launcher_scale_apply,
+)
+control_scale = section_between(launcher_layout, "ApplyLauncherControlScale(suspendRedraw", "ShowLauncherWindow(")
+expect(
+    "Preview and revert keep the main window visible and return focus to Settings only after repaint",
+    in_order(display_refresh, 'DllCall("IsIconic", "Ptr", launcherHwnd, "Int")',
+             'DllCall("ShowWindow", "Ptr", launcherHwnd, "Int", 9)', 'DllCall("GetWindowRect", "Ptr", launcherHwnd,')
+    and 'if suspendRedraw\n        DllCall("SendMessageW"' in control_scale
+    and 'if suspendRedraw\n        DllCall("SendMessageW"' in font_update
+    and in_order(display_settings, 'RefreshLauncherDisplay("Restoring display settings...", settings)',
+                 'PositionOwnedMenuAtParent(settings, LauncherGui)', "settings.Show()",
+                 'DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)')
+    and 'DllCall("IsIconic", "Ptr", LauncherGui.Hwnd, "Int")' in launcher_smoke_tests
+    and '"Restoring display settings..."' in launcher_smoke_tests,
 )
 update_dialogs = (ROOT / "src" / "ui" / "update-dialogs.ahk").read_text(encoding="utf-8-sig")
 update_notes = (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
