@@ -202,8 +202,9 @@ CreateLauncherServerUpdates()
 {
     global LauncherGui, LauncherUpdatesSlot
     ; The host paints the heading, feed, and gold scrollbar inside this one HWND.
+    ; Start below the Quest card's painted bounds, including its bottom fade.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
-        "x100 y274 w220 h366 +0x06000000 Background0A0908 Hidden")
+        "x100 y298 w220 h342 +0x06000000 Background0A0908 Hidden")
 }
 
 SetLauncherServerUpdatesVisible(visible)
@@ -213,7 +214,7 @@ SetLauncherServerUpdatesVisible(visible)
         return
     if visible
     {
-        ; Keep the slot above the overlapping bottom edge of the Quest card.
+        ; Raise the hosted panel above the launcher backdrop before showing it.
         DllCall("SetWindowPos", "Ptr", LauncherUpdatesSlot.Hwnd, "Ptr", 0,
             "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
         LauncherUpdatesSlot.Visible := true
