@@ -32,8 +32,8 @@ internal sealed partial class GameChatWindow
             if (GetParent(handle) != target)
                 throw new InvalidOperationException("Latest Updates could not attach to the launcher.");
             PositionServerUpdatesPanel();
-            panel.SetDocument(serverUpdatesDocument ?? ServerUpdatesStatus("Loading server updates…"));
             RedrawServerUpdatesPanel(panel);
+            panel.SetDocument(serverUpdatesDocument ?? ServerUpdatesStatus("Loading server updates…"));
         }
         catch (Exception ex)
         {
@@ -235,14 +235,19 @@ internal sealed partial class GameChatWindow
         void ScrollToNewestUpdate()
         {
             var handle = feed.Handle;
-            SendMessageW(handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
-            if (dateDividers.Count > 0)
+            if (dateDividers.Count == 0)
+                SendMessageW(handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
+            else
             {
-                int firstVisibleLine = (int)SendMessageW(handle, 0x00CE, IntPtr.Zero, IntPtr.Zero); // EM_GETFIRSTVISIBLELINE
-                int newestDateLine = feed.GetLineFromCharIndex(dateDividers[^1].Offset);
-                // The newest entry can fill more than a viewport. Its beginning should still be visible on arrival.
-                if (newestDateLine >= 0 && newestDateLine < firstVisibleLine)
-                    SendMessageW(handle, 0x00B6, IntPtr.Zero, new IntPtr(newestDateLine - firstVisibleLine)); // EM_LINESCROLL
+                int start = dateDividers[^1].Offset;
+                // Bring the date into view, then align to its rendered position so the
+                // author and opening lines remain below it even when the entry wraps.
+                feed.Select(start, 0);
+                feed.ScrollToCaret();
+                var scroll = new POINT();
+                SendMessageW(handle, 0x04DD, IntPtr.Zero, ref scroll); // EM_GETSCROLLPOS
+                int dateTop = feed.GetPositionFromCharIndex(start).Y;
+                ScrollToPixel(Math.Max(0, scroll.Y + dateTop - Px(2)));
             }
             newestLandingPosition = ReadScroll().Position;
             RefreshScrollDisplay();
