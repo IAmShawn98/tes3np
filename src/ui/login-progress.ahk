@@ -422,6 +422,35 @@ PresentGameLoginProgress(layout)
     }
 }
 
+CanShowGameLoginProgress(gameHwnd)
+{
+    global LoginProgressShown
+    foregroundHwnd := DllCall("GetForegroundWindow", "Ptr")
+    if foregroundHwnd = gameHwnd
+        return true
+    ; Keep a visible card through the Win key or taskbar focus handoff.
+    ; A game behind another app must first regain focus to show it again.
+    if !LoginProgressShown
+        return false
+    if !foregroundHwnd
+        return true
+    foreground := "ahk_id " foregroundHwnd
+    try
+    {
+        processName := WinGetProcessName(foreground)
+        if processName = "StartMenuExperienceHost.exe" || processName = "ShellExperienceHost.exe"
+            return true
+        if processName = "explorer.exe"
+        {
+            className := WinGetClass(foreground)
+            return className = "Shell_TrayWnd" || className = "Shell_SecondaryTrayWnd"
+        }
+    }
+    catch Error
+        return false ; The foreground window may close while Windows transfers focus.
+    return false
+}
+
 UpdateGameLoginProgress(*)
 {
     global Client, LoginProgressMode, LoginProgressCloseAt
@@ -467,14 +496,14 @@ UpdateGameLoginProgress(*)
     {
         hwnd := LoginProgressMode = "login" ? Client.HWND : LoginProgressHwnd
         pid := LoginProgressMode = "login" ? Client.PID : LoginProgressPid
-        if !hwnd || !pid || !ProcessExist(pid) || !DllCall("IsWindow", "Ptr", hwnd)
+        if !hwnd || !pid || !ProcessExist(pid) || !DllCall("IsWindowVisible", "Ptr", hwnd)
         {
             HideGameLoginProgress()
             return
         }
         target := "ahk_id " hwnd
         if WinGetPID(target) != pid || !InStr(WinGetClass(target), "SDL")
-            || WinGetMinMax(target) = -1 || !WinActive(target)
+            || WinGetMinMax(target) = -1 || !CanShowGameLoginProgress(hwnd)
         {
             HideGameLoginProgress()
             return
