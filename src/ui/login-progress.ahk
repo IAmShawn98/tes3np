@@ -224,7 +224,7 @@ CreateGameLoginProgress(layout)
     p := (value) => Round(value * layout.Scale)
     fontSize := (points) => GameLoginProgressFontSize(points, layout.Scale)
     ; Nonactivating, click-through window: preserve TES3MP mouse and keyboard.
-    window := Gui("-Caption +AlwaysOnTop +ToolWindow -DPIScale +E0x08000020", "tes3np Login Progress")
+    window := Gui("-Caption +ToolWindow -DPIScale +E0x08000020", "tes3np Login Progress")
     ; Register the window before adding controls so partial setup is disposable.
     LoginProgressGui := window
     window.ProgressScale := layout.Scale
@@ -282,7 +282,7 @@ CreateGameLoginProgress(layout)
             " w" p(28) " h" p(27) " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressSummaryDots.Push({Circle: circle, Symbol: symbol, Color: "", SymbolText: ""})
     }
-    window.Show("Hide w" layout.Width " h" layout.Height)
+    window.Show("Hide x" layout.X " y" layout.Y " w" layout.Width " h" layout.Height)
 }
 
 RenderGameLoginProgress()
@@ -386,7 +386,37 @@ RenderGameLoginProgress()
         DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
 }
 
-PresentGameLoginProgress(layout)
+PositionGameLoginProgress(cardHwnd, gameHwnd, layout, show, moved)
+{
+    exStyle := -20 ; GWL_EXSTYLE
+    topmost := 0x0008 ; WS_EX_TOPMOST
+    above := DllCall("GetWindow", "Ptr", gameHwnd, "UInt", 3, "Ptr") ; GW_HWNDPREV
+    gameTopmost := (DllCall("GetWindowLongW", "Ptr", gameHwnd, "Int", exStyle, "UInt") & topmost) != 0
+    cardTopmost := (DllCall("GetWindowLongW", "Ptr", cardHwnd, "Int", exStyle, "UInt") & topmost) != 0
+    flags := 0x0010 ; SWP_NOACTIVATE
+    if above = cardHwnd && cardTopmost = gameTopmost
+    {
+        if !show && !moved
+            return true
+        flags |= 0x0004 ; SWP_NOZORDER
+    }
+    else if !gameTopmost && (!above || (DllCall("GetWindowLongW", "Ptr", above, "Int", exStyle, "UInt") & topmost))
+    {
+        ; At the top of the normal band, stay below the taskbar and other
+        ; topmost windows. Inserting after one of them would promote the card.
+        above := cardTopmost ? -2 : 0 ; HWND_NOTOPMOST or HWND_TOP
+    }
+    else if !above
+        above := -1 ; HWND_TOPMOST, when the game is itself the topmost window.
+    if show
+        flags |= 0x0040 ; SWP_SHOWWINDOW
+    else if !moved
+        flags |= 0x0003 ; SWP_NOMOVE | SWP_NOSIZE
+    return DllCall("SetWindowPos", "Ptr", cardHwnd, "Ptr", above,
+        "Int", layout.X, "Int", layout.Y, "Int", layout.Width, "Int", layout.Height, "UInt", flags, "Int") != 0
+}
+
+PresentGameLoginProgress(gameHwnd, layout)
 {
     global LoginProgressGui, LoginProgressMode, LoginProgressShown, LoginProgressLastX, LoginProgressLastY
     previousCritical := Critical("On")
@@ -403,16 +433,13 @@ PresentGameLoginProgress(layout)
             LoginProgressShown := false
         }
         RenderGameLoginProgress()
-        if !LoginProgressShown
+        moved := layout.X != LoginProgressLastX || layout.Y != LoginProgressLastY
+        if PositionGameLoginProgress(LoginProgressGui.Hwnd, gameHwnd, layout, !LoginProgressShown, moved)
         {
-            LoginProgressGui.Show("NA x" layout.X " y" layout.Y " w" layout.Width " h" layout.Height)
             LoginProgressShown := true
+            LoginProgressLastX := layout.X
+            LoginProgressLastY := layout.Y
         }
-        else if layout.X != LoginProgressLastX || layout.Y != LoginProgressLastY
-            DllCall("SetWindowPos", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0,
-                "Int", layout.X, "Int", layout.Y, "Int", 0, "Int", 0, "UInt", 0x15)
-        LoginProgressLastX := layout.X
-        LoginProgressLastY := layout.Y
     }
     finally
     {
@@ -420,35 +447,6 @@ PresentGameLoginProgress(layout)
             try previous.Destroy()
         Critical(previousCritical)
     }
-}
-
-CanShowGameLoginProgress(gameHwnd)
-{
-    global LoginProgressShown
-    foregroundHwnd := DllCall("GetForegroundWindow", "Ptr")
-    if foregroundHwnd = gameHwnd
-        return true
-    ; Keep a visible card through the Win key or taskbar focus handoff.
-    ; A game behind another app must first regain focus to show it again.
-    if !LoginProgressShown
-        return false
-    if !foregroundHwnd
-        return true
-    foreground := "ahk_id " foregroundHwnd
-    try
-    {
-        processName := WinGetProcessName(foreground)
-        if processName = "StartMenuExperienceHost.exe" || processName = "ShellExperienceHost.exe"
-            return true
-        if processName = "explorer.exe"
-        {
-            className := WinGetClass(foreground)
-            return className = "Shell_TrayWnd" || className = "Shell_SecondaryTrayWnd"
-        }
-    }
-    catch Error
-        return false ; The foreground window may close while Windows transfers focus.
-    return false
 }
 
 UpdateGameLoginProgress(*)
@@ -464,7 +462,7 @@ UpdateGameLoginProgress(*)
         return
     }
     ; If the login never reaches its expected visual-completion callback,
-    ; avoid leaving an always-on-top card covering a playable game forever.
+    ; avoid leaving the card covering part of a playable game forever.
     ; Never stop the client or alter credentials from a UI timeout.
     if LoginProgressMode = "login" && LoginProgressHardDeadline
         && A_TickCount >= LoginProgressHardDeadline
@@ -474,7 +472,7 @@ UpdateGameLoginProgress(*)
         return
     }
     ; Independently monitor the game process so an externally closed TES3MP
-    ; console cannot strand its always-on-top login card while ClientTick
+    ; console cannot strand its login card while ClientTick
     ; gathers any final plugin-mismatch log lines.
     abandoned := (LoginProgressMode = "login" && !Client.Enabled)
         || (LoginProgressMode = "login" && Client.PID && !ProcessExist(Client.PID))
@@ -502,8 +500,11 @@ UpdateGameLoginProgress(*)
             return
         }
         target := "ahk_id " hwnd
+        ; A game on another virtual desktop can still have WS_VISIBLE.
+        cloaked := 0
+        try DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", hwnd, "UInt", 14, "UInt*", &cloaked, "UInt", 4, "Int")
         if WinGetPID(target) != pid || !InStr(WinGetClass(target), "SDL")
-            || WinGetMinMax(target) = -1 || !CanShowGameLoginProgress(hwnd)
+            || WinGetMinMax(target) = -1 || cloaked
         {
             HideGameLoginProgress()
             return
@@ -514,7 +515,7 @@ UpdateGameLoginProgress(*)
             HideGameLoginProgress()
             return
         }
-        PresentGameLoginProgress(layout)
+        PresentGameLoginProgress(hwnd, layout)
     }
     catch Error as err
     {
