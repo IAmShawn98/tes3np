@@ -332,6 +332,14 @@ expect(
     and "MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);" not in source,
 )
 expect(
+    "Chat sizing excludes Windows DPI, fits usable side space and protects the login viewport",
+    "OwnerLayoutScale(bounds.Right - bounds.Left, launcherBaseWidth, GetDpiForWindow(owner))" in chat_layout
+    and "sideWidth / (double)chatWidth" in chat_layout
+    and "FitPopupScale(Math.Max(0.72, launcherScale)," in sign_in_layout
+    and "[data-tes3np-login-shell]:has([data-tes3np-login])" in source
+    and "position:fixed !important; inset:0 !important;" in source,
+)
+expect(
     "First login exposes native Connecting status, not a stale scrollbar",
     'nativeMessages.Text = "Connecting to live chat...";' in loading
     and 'frameSurface.Visible = true;' in loading
@@ -1711,9 +1719,9 @@ expect(
 )
 expect(
     "Discord sign-in emblem is published and Game Chat positioning remains separate",
-    'PositionDiscordSignIn(bounds, work, launcherScale, size.Width);' in chat_layout
+    'PositionDiscordSignIn(bounds, work, launcherScale);' in chat_layout
     and in_order(sign_in_layout, 'pendingExpansionPrompt == 0',
-                 'DockBounds(ownerBounds, work, size, dockWidth)',
+                 'DockBounds(ownerBounds, work, size, size.Width)',
                  'work.Left + (work.Width - size.Width) / 2')
     and 'Discord Integration!' in source
     and 'Sign In Required' in source
@@ -1862,7 +1870,7 @@ expect(
     "Display text changes never restore unscaled themed-button geometry",
     "size := AccessibilityFontSize(10)" in font_update
     and "scale := LauncherScale / 100" in font_update
-    and 'Max(7, Round(size * scale))' in font_update
+    and 'Max(5, Round(size * scale))' in font_update
     and "face.Control.Move(" not in font_update,
 )
 launcher_scale_apply = section_between(
@@ -1885,6 +1893,23 @@ expect(
         "LauncherCachedScale := LauncherScale",
         "LauncherCachedLayoutCount := LauncherControlLayout.Count",
     ),
+)
+expect(
+    "Display previews stage the live launcher without a captured screenshot at the old size",
+    in_order(display_settings, "cloaked := SetPageCompositorCloak(LauncherGui, true)",
+             "ApplyLauncherScaleToWindow(true)", "RevealPaintedPage(LauncherGui)")
+    and "BeginInterfaceUpdate(" not in display_settings,
+)
+update_dialogs = (ROOT / "src" / "ui" / "update-dialogs.ahk").read_text(encoding="utf-8-sig")
+update_notes = (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Update cards scale their native controls, scrollable notes and thumb travel together",
+    update_dialogs.count("CreateGoldNativePrompt(0,") == 3
+    and update_dialogs.count("ShowGoldNativePrompt(") == 3
+    and "ScaleOwnedMenuContent(panel, scale)" in update_dialogs
+    and "AddUpdateNotesViewport(panel, notes, scale)" in update_dialogs
+    and "BuildStyledReleaseNoteRows(notes, noteRows[1], px(674), scale)" in update_notes
+    and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
 expect(
@@ -1930,7 +1955,7 @@ expect(
     "DwmFlush" not in loading_ui.replace("DwmFlush synchronously", "")
     and "previousCritical := A_IsCritical" in loading_ui
     and "finally Critical(previousCritical)" in loading_ui
-    and "finally EndInterfaceUpdate()" in display_settings,
+    and "finally\n        if cloaked\n            RevealPaintedPage(LauncherGui)" in display_settings,
 )
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",

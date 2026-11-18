@@ -11,6 +11,7 @@ internal static class Program
     const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+    [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr hwnd);
     [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr hwnd);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
@@ -3446,6 +3447,11 @@ metrics();
                       if (!form) return;
                       const firstPresentation = !form.hasAttribute('data-tes3np-login');
                       form.setAttribute('data-tes3np-login', '');
+                      // Discord's responsive wrappers can become containing blocks
+                      // for the fixed form. Keep the actual form and React handlers
+                      // mounted, but let its box follow the browser viewport.
+                      for (let shell = form.parentElement; shell && shell !== document.body; shell = shell.parentElement)
+                        shell.setAttribute('data-tes3np-login-shell', '');
                       let style = document.getElementById('tes3np-login-theme');
                       if (!style) {
                         style = document.createElement('style');
@@ -3595,20 +3601,30 @@ metrics();
                         later.remove();
                       }
                       style.textContent = `
-                        html,body,#app-mount { background:#090807 !important; }
-                        html,body { margin:0 !important; padding:0 !important;
-                          overflow:hidden !important; height:100% !important; }
-                        #app-mount { overflow:hidden !important; height:100% !important; }
+                        html:has([data-tes3np-login]), body:has([data-tes3np-login]) {
+                          margin:0 !important; padding:0 !important;
+                          background:#090807 !important; overflow:hidden !important; }
+                        [data-tes3np-login-shell]:has([data-tes3np-login]) {
+                          width:100% !important; min-width:0 !important; max-width:none !important;
+                          transform:none !important; translate:none !important;
+                          rotate:none !important; scale:none !important;
+                          perspective:none !important; filter:none !important;
+                          backdrop-filter:none !important; contain:none !important;
+                          container-type:normal !important; content-visibility:visible !important;
+                          will-change:auto !important; clip-path:none !important;
+                          overflow:visible !important;
+                        }
                         [data-tes3np-login] > * { margin-top:0 !important; margin-bottom:0 !important; }
                         [data-tes3np-login] div:empty { display:none !important; }
                         [data-tes3np-login] {
-                          position:fixed !important; top:10px !important;
-                          left:0 !important; right:0 !important;
-                          width:100% !important; max-width:none !important;
+                          position:fixed !important; inset:0 !important;
+                          width:auto !important; min-width:0 !important; max-width:none !important;
+                          height:auto !important; min-height:0 !important; max-height:none !important;
+                          transform:none !important; translate:none !important;
                           margin:0 !important; padding:6px 12px 20px !important;
-                          max-height:calc(100vh - 16px) !important;
                           overflow-y:auto !important; overflow-x:hidden !important;
-                          scrollbar-width:none !important;
+                          overscroll-behavior:contain !important;
+                          scrollbar-width:thin !important; scrollbar-color:#997644 #15100a !important;
                           background:#090807 !important; border:0 !important;
                           box-shadow:none !important; z-index:1000 !important;
                           display:flex !important; flex-direction:column !important;
@@ -3618,7 +3634,8 @@ metrics();
                         [data-tes3np-login] * { box-sizing:border-box !important; }
                         [data-tes3np-integration-logo] {
                           display:block !important; width:175px !important;
-                          height:135px !important; object-fit:contain !important;
+                          height:135px !important; max-width:100% !important;
+                          max-height:26vh !important; object-fit:contain !important;
                           margin:8px auto 4px !important; padding:0 !important;
                         }
                         [data-tes3np-login-benefit] {
@@ -3631,7 +3648,6 @@ metrics();
                           text-align:center !important;
                           white-space:normal !important;
                         }
-                        [data-tes3np-login]::-webkit-scrollbar { display:none !important; }
                         [data-tes3np-login] > div { min-height:0 !important; }
                         [data-tes3np-login] > div:empty { display:none !important; }
                         [data-tes3np-login] [class*="marginBottom"],
@@ -3734,7 +3750,7 @@ metrics();
         }
         sealed class DiscordSignInCard : Form
         {
-            public const int BaseWidth = 520, BaseHeight = 750;
+            public const int BaseWidth = 480, BaseHeight = 660;
             readonly TableLayoutPanel shell = new()
             {
                 Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
@@ -3836,14 +3852,15 @@ metrics();
 
         // Game Chat sign-in follows its dock. Expansion authentication uses the
         // same sized card, centered in the launcher's monitor work area.
-        void PositionDiscordSignIn(RECT ownerBounds, Rectangle work, double launcherScale, int dockWidth)
+        void PositionDiscordSignIn(RECT ownerBounds, Rectangle work, double launcherScale)
         {
             if (discordSignInWindow is not { IsDisposed: false } popup) return;
-            double scale = FitPopupScale(launcherScale,
+            // Keep native and browser login targets comfortably clickable at 50%.
+            double scale = FitPopupScale(Math.Max(0.72, launcherScale),
                 DiscordSignInCard.BaseWidth, DiscordSignInCard.BaseHeight, work, 12);
             var size = new Size(Pixels(DiscordSignInCard.BaseWidth, scale), Pixels(DiscordSignInCard.BaseHeight, scale));
             Rectangle target = pendingExpansionPrompt == 0
-                ? DockBounds(ownerBounds, work, size, dockWidth)
+                ? DockBounds(ownerBounds, work, size, size.Width)
                 : new Rectangle(work.Left + (work.Width - size.Width) / 2,
                     work.Top + (work.Height - size.Height) / 2, size.Width, size.Height);
             popup.ApplyLayout(target, scale, web);
@@ -4150,6 +4167,9 @@ metrics();
             }
             NotifyLauncherChatState();
         }
+        static double OwnerLayoutScale(int ownerWidth, int baseWidth, uint dpi) =>
+            Math.Clamp(ownerWidth * 96d / (baseWidth * (dpi == 0 ? 96d : dpi)), 0.5, 1.0);
+
         static double FitPopupScale(double requested, int width, int height, Rectangle work, int margin = 0) =>
             Math.Min(requested, Math.Min(Math.Max(1, work.Width - margin * 2) / (double)width,
                 Math.Max(1, work.Height - margin * 2) / (double)height));
@@ -4177,11 +4197,14 @@ metrics();
                 bounds.Right <= bounds.Left || IsIconic(owner)) return;
             var work = Screen.FromHandle(owner).WorkingArea;
             if (work.Width <= 0 || work.Height <= 0) return;
-            double launcherScale = (bounds.Right - bounds.Left) / (double)launcherBaseWidth;
+            double launcherScale = OwnerLayoutScale(bounds.Right - bounds.Left, launcherBaseWidth, GetDpiForWindow(owner));
             double scale = FitPopupScale(launcherScale, chatWidth, chatHeight, work);
+            int sideWidth = Math.Max(bounds.Left - work.Left, work.Right - bounds.Right);
+            if (sideWidth >= Math.Min(220, Pixels(chatWidth, 0.5)))
+                scale = Math.Min(scale, sideWidth / (double)chatWidth);
             UpdateChatScale(scale);
             var size = new Size(ChatPixels(chatWidth), ChatPixels(chatHeight));
-            PositionDiscordSignIn(bounds, work, launcherScale, size.Width);
+            PositionDiscordSignIn(bounds, work, launcherScale);
             var target = DockBounds(bounds, work, size, size.Width);
             if (chatOpen && Bounds != target)
                 MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);

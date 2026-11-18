@@ -40,12 +40,12 @@ ApplyLauncherControlScale()
             if !DllCall("IsWindow", "Ptr", hwnd) || face.Window != LauncherGui.Hwnd
                 continue
             if face.HasOwnProp("IsInfo")
-                face.Control.SetFont("s" Max(7, Round(10 * scale)) " Norm", "Palatino Linotype")
+                face.Control.SetFont("s" Max(5, Round(10 * scale)) " Norm", "Palatino Linotype")
             else if !face.HasOwnProp("IsLabel")
-                face.Control.SetFont("s" Max(7, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
+                face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
         }
         if IsObject(LauncherHeading)
-            LauncherHeading.SetFont("s" Max(12, Round(19 * scale)) " Norm c241408", LauncherMorrowindFont)
+            LauncherHeading.SetFont("s" Round(19 * scale) " Norm c241408", LauncherMorrowindFont)
         ScaleLauncherVersionLabel(scale)
     }
     finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
@@ -110,38 +110,14 @@ ShowLauncherWindow(reuseCached := false, *)
         RepaintMenuButtons()
         return
     }
-    ; Preserve the current window size while an existing layout is repaired.
+    ; Stage the existing window while changing its bounds. A screenshot of the
+    ; old size can expose a second copy when the new window grows behind it.
     LauncherGui.Show()
-    ; Cover the repaint with the previous frame while the layout is rebuilt.
-    startedAt := A_TickCount
-    BeginInterfaceUpdate(LauncherGui, "Waiting for Jiub...", false)
-    coverMs := A_TickCount - startedAt
-    scaleMs := 0, windowMs := 0, controlsMs := 0, centerMs := 0
-    try
-    {
-        stepAt := A_TickCount
-        if LauncherScaleMode = "Auto"
-            LauncherScale := GetAutomaticLauncherScale()
-        scaleMs := A_TickCount - stepAt
-        stepAt := A_TickCount
-        ApplyLauncherScaleToWindow()
-        windowMs := A_TickCount - stepAt
-        stepAt := A_TickCount
-        ApplyLauncherControlScale()
-        controlsMs := A_TickCount - stepAt
-        stepAt := A_TickCount
-        CenterLauncherWithoutResizing()
-        centerMs := A_TickCount - stepAt
-    }
+    cloaked := SetPageCompositorCloak(LauncherGui, true)
+    try ApplyLauncherScaleToWindow(true)
     finally
-    {
-        EndInterfaceUpdate()
-        LauncherCachedScale := LauncherScale
-        LauncherCachedLayoutCount := LauncherControlLayout.Count
-        totalMs := A_TickCount - startedAt
-        if totalMs >= 250
-            LogLauncherEvent("UI | Launcher transition " totalMs "ms | Cover " coverMs "ms | Scale " scaleMs "ms | Window " windowMs "ms | Controls " controlsMs "ms | Center " centerMs "ms | Final paint " (totalMs - coverMs - scaleMs - windowMs - controlsMs - centerMs) "ms.")
-    }
+        if cloaked
+            RevealPaintedPage(LauncherGui)
 }
 
 GetAutomaticLauncherScale()

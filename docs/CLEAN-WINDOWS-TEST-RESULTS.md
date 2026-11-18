@@ -87,10 +87,15 @@ folder picker are unverified for this run.
 - **PASS:** The launcher checked for an Expansion Pack update, reused the
   verified local pack, and showed Enabled plus the success confirmation.
   The tester then reported successful login into the NP world.
-- **Pending:** A full disable/re-enable cycle and live Game Chat/Discord
-  scaling on this ZIP were not reported. This build used the fallback
-  markerless client. Repeat final clean-machine login acceptance with the
-  intended source-built console client and a standard Windows user.
+- **FAIL:** The follow-up screenshots show the Discord form collapsing at
+  the smallest launcher preset, oversized chat and sign-in at larger sizes,
+  and the release notes exceeding the launcher bounds at 50%. Some launcher
+  labels clipped, and resetting appearance exposed both launcher frames.
+  Repeat the visual checks with the sizing corrections.
+- **Pending:** A full disable/re-enable cycle was not confirmed on this
+  ZIP. This build used the fallback markerless client. Repeat final
+  clean-machine login acceptance with the intended source-built console
+  client and a standard Windows user.
 
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
