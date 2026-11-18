@@ -114,7 +114,7 @@ SendLauncherChatCommand(command, targetHwnd := 0)
 CreateLauncherChatToggle()
 {
     global LauncherGui, LauncherChatToggle, LauncherChatMenu, ButtonFaces
-    LauncherChatToggle := AddStyledButton(LauncherGui, 3, 294, 45, 112, "Game Chat", ToggleLauncherChat)
+    LauncherChatToggle := AddStyledButton(LauncherGui, 0, 294, 45, 112, "Game Chat", ToggleLauncherChat)
     ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true
 
     ; Chat Host reports visibility and Expansion Pack download state.
@@ -131,9 +131,24 @@ CreateLauncherChatToggle()
     OnMessage(0x0204, LauncherChatRightClick)
 }
 
-PaintLauncherChatCaption(dc, w, h, label, labelColor, shift)
+PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
 {
     global LauncherScale, LauncherChatOpen
+    ; The outer line covers the artwork's transparent edge. Keep both lines
+    ; one pixel wide so the original double frame stays sharp at smaller sizes.
+    frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x00FFFFFF, "Ptr")
+    if frame
+    {
+        try
+        {
+            rect := Buffer(16, 0)
+            NumPut("Int", 0, "Int", 0, "Int", w, "Int", h, rect)
+            DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
+            NumPut("Int", 2, "Int", 2, "Int", w - 2, "Int", h - 2, rect)
+            DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
+        }
+        finally DllCall("gdi32\DeleteObject", "Ptr", frame)
+    }
     ; Scale the rotated caption and arrow with the tab.
     paintScale := LauncherScale / 100
     fontHeight := -Max(9, Round(21 * paintScale))

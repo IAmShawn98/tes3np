@@ -2125,13 +2125,15 @@ expect(
     "Game Chat uses the same upright artwork and hover renderer as other buttons",
     '#Include src\\ui\\embedded-chat.ahk' in entry_script
     and "CreateLauncherChatToggle()" in bootstrap
-    and 'AddStyledButton(LauncherGui, 3, 294, 45, 112, "Game Chat", ToggleLauncherChat)' in embedded_chat
+    and 'AddStyledButton(LauncherGui, 0, 294, 45, 112, "Game Chat", ToggleLauncherChat)' in embedded_chat
     and 'ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true' in embedded_chat
     and 'UpdateLauncherChatHover' not in controls
     and 'PaintButtonArtwork(graphics, face, height, width, shift)' not in native_renderer
     and in_order(section_between(native_renderer, 'PaintButton(wParam,', '\nPaintButtonArtwork('),
                  'if !isLabel\n            PaintButtonArtwork(graphics, face, width, height, shift)',
-                 'PaintLauncherChatCaption(dc, width, height, labelText, textColor, shift)')
+                 'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)')
+    and section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(').count(
+        'DllCall("user32\\FrameRect"') == 2
     and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
     and "fontHeight := -Max(9, Round(21 * paintScale))" in embedded_chat
     and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat

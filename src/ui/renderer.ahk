@@ -198,7 +198,7 @@ PaintButton(wParam, lParam, *)
         bounds := Buffer(16, 0)
         NumPut("Int", 2, "Int", shift, "Int", width - 2, "Int", height + shift, bounds)
         if isChatTab
-            PaintLauncherChatCaption(dc, width, height, labelText, textColor, shift)
+            PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)
         else if face.HasOwnProp("IsTick")
         {
             pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", 0x17304B, "Ptr")
