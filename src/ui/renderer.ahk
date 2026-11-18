@@ -92,14 +92,15 @@ InitButtonPainter()
         DllCall("FreeLibrary", "Ptr", module)
         throw Error("Could not initialize the graphics library.")
     }
-    artwork := 0, parchment := 0, book := 0, background := 0, quest := 0, together := 0
+    artwork := 0, parchment := 0, book := 0, background := 0, quest := 0, together := 0, discordLogo := 0
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\controls\button.png", "Ptr*", &artwork)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\controls\scroll-panel.png", "Ptr*", &parchment)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\backgrounds\character-book.png", "Ptr*", &book)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\backgrounds\launcher.png", "Ptr*", &background)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\quest.png", "Ptr*", &quest)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\together.png", "Ptr*", &together)
-    ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book}
+    DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\icons\discord.png", "Ptr*", &discordLogo)
+    ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book, DiscordLogo: discordLogo}
     OnMessage(0x002B, PaintButton)
     OnMessage(0x0014, KeepButtonBackground)
     OnMessage(0x0020, HandleNativeClickableCursor)
@@ -134,7 +135,8 @@ PaintButton(wParam, lParam, *)
             return PaintLoadingPanel(handle, target, width, height)
         isLabel := face.HasOwnProp("IsLabel")
         isChatTab := face.HasOwnProp("IsChatTab")
-        isDiscordAccount := face.HasOwnProp("IsDiscordAccount")
+        isDiscordName := face.HasOwnProp("IsDiscordName")
+        isDiscordPortrait := face.HasOwnProp("IsDiscordPortrait")
         labelText := ""
         if !face.HasOwnProp("IsTick")
         {
@@ -167,7 +169,7 @@ PaintButton(wParam, lParam, *)
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
         DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
         DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
-        if isChatTab || isDiscordAccount
+        if isChatTab || isDiscordName || isDiscordPortrait
             PaintLauncherBackgroundSlice(graphics, face.X, face.Y, (A_ScreenDPI / 96) * LauncherScale / 100)
         else if face.Book
         {
@@ -184,17 +186,15 @@ PaintButton(wParam, lParam, *)
         else
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))
         shift := face.State = "down" ? 2 : 0
-        if !isLabel
+        if isDiscordPortrait
+            PaintLauncherDiscordPortrait(graphics, face, width, height)
+        else if !isDiscordName && !isLabel
             PaintButtonArtwork(graphics, face, width, height, shift)
-        avatarSize := isDiscordAccount && face.HasOwnProp("DiscordAvatar") && face.DiscordAvatar ? Max(0, height - 6) : 0
-        if avatarSize
-            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", face.DiscordAvatar,
-                "Int", width - avatarSize - 3, "Int", 3 + shift, "Int", avatarSize, "Int", avatarSize)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
         oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
-        fittedFont := !isLabel && !isChatTab && !avatarSize && labelText != "" && font
+        fittedFont := !isLabel && !isChatTab && !isDiscordName && !isDiscordPortrait && labelText != "" && font
             ? FitButtonLabelFont(dc, font, labelText, Max(1, width - 4), Max(1, height - 2)) : 0
         if fittedFont
             DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
@@ -204,12 +204,17 @@ PaintButton(wParam, lParam, *)
         NumPut("Int", 2, "Int", shift, "Int", width - 2, "Int", height + shift, bounds)
         if isChatTab
             PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)
-        else if avatarSize
+        else if isDiscordName
         {
-            NumPut("Int", 6, "Int", shift, "Int", width - avatarSize - 9, "Int", height + shift, bounds)
+            ; A shadow keeps the right-aligned name legible on the stone artwork.
+            DllCall("SetTextColor", "Ptr", dc, "UInt", 0)
+            NumPut("Int", 3, "Int", shift + 1, "Int", width - 1, "Int", height + shift + 1, bounds)
+            DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", 0x8826)
+            DllCall("SetTextColor", "Ptr", dc, "UInt", face.State = "hover" && face.Control.Enabled ? 0x75D3FF : textColor)
+            NumPut("Int", 2, "Int", shift, "Int", width - 2, "Int", height + shift, bounds)
             DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", 0x8826)
         }
-        else if face.HasOwnProp("IsTick")
+        else if !isDiscordPortrait && face.HasOwnProp("IsTick")
         {
             pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", 0x17304B, "Ptr")
             oldPen := DllCall("SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
@@ -231,7 +236,7 @@ PaintButton(wParam, lParam, *)
             DllCall("SelectObject", "Ptr", dc, "Ptr", oldPen)
             DllCall("DeleteObject", "Ptr", pen)
         }
-        else
+        else if !isDiscordPortrait
             DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x8825)
         DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", visibleHeight, "Ptr", dc, "Int", 0, "Int", paintTop, "UInt", 0xCC0020)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
@@ -404,8 +409,9 @@ DisposeButtonPainter(*)
                 DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", ButtonPaintCallback, "UPtr", 1)
         CallbackFree(ButtonPaintCallback)
     }
-    for image in [ButtonPaint.Artwork, ButtonPaint.Parchment, ButtonPaint.Book, ButtonPaint.Background]
-        DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+    for image in [ButtonPaint.Artwork, ButtonPaint.Parchment, ButtonPaint.Book, ButtonPaint.Background, ButtonPaint.DiscordLogo]
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
     for heading in ButtonPaint.Headings
         DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.Headings[heading])
     DllCall("gdiplus\GdiplusShutdown", "Ptr", ButtonPaint.Token)

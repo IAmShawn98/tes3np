@@ -2130,7 +2130,7 @@ expect(
     and 'UpdateLauncherChatHover' not in controls
     and 'PaintButtonArtwork(graphics, face, height, width, shift)' not in native_renderer
     and in_order(section_between(native_renderer, 'PaintButton(wParam,', '\nPaintButtonArtwork('),
-                 'if !isLabel\n            PaintButtonArtwork(graphics, face, width, height, shift)',
+                 'PaintButtonArtwork(graphics, face, width, height, shift)',
                  'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)')
     and section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(').count(
         'DllCall("user32\\FrameRect"') == 2

@@ -17,6 +17,7 @@ required = (
     "assets/fonts/MysticCards.ttf", "assets/fonts/MysticCardsFontLicense.txt",
     "assets/happy-hour/jiub-happy-hour.png", "assets/happy-hour/pixie-dust.png",
     "assets/headings/quest.png", "assets/headings/together.png", "assets/icons/tes3np.ico",
+    "assets/icons/discord.png",
     "scripts/import-macro.ps1", "scripts/toggle-expansion-pack.ps1",
     "scripts/import-expansion-pack.ps1", "scripts/select-expansion-package.ps1",
     "scripts/tes3np-updater.ps1", "scripts/fetch-release-notes.ps1",
