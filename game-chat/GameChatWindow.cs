@@ -97,6 +97,7 @@ internal sealed partial class GameChatWindow : Form
         }
         CloseEmbeddedExpansionDownloads();
         CloseDiscordAccountBrowser();
+        ResetServerUpdates();
         discordSignInWindow?.Dispose();
         borderTexture?.Dispose();
         scrollbarTexture?.Dispose();
@@ -115,6 +116,7 @@ internal sealed partial class GameChatWindow : Form
             if (docked && !nativeMode) EnforceChatClip();
             await CheckDiscordAuthentication();
             PublishDiscordAccount();
+            _ = RefreshServerUpdates();
             await RefreshNativeMessages();
             if (closingChat || IsDisposed) return;
             PositionChatWindows();

@@ -78,6 +78,7 @@ BuildLauncherWindow()
     CreateLauncherUpdateButton()
     CreateLauncherChatToggle()
     CreateLauncherDiscordAccount()
+    CreateLauncherServerUpdates()
     ; Include Jiub in the layout snapshot so it scales with the other controls.
     CreateHappyHourJiub()
     CaptureLauncherControlLayout()
