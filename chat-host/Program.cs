@@ -1045,7 +1045,8 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif
 #feed::-webkit-scrollbar{display:none}
 .msg{margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid #29231b;overflow-wrap:anywhere}
 .msg-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:3px;line-height:1.3}
-.user{color:#dbb243;font-size:17px;font-weight:bold}
+.user{color:inherit;font-size:17px;font-weight:bold}
+.user.yagrum{color:#dbb243}
 .time{color:#b8a98e;font:13px Georgia,serif;white-space:nowrap}
 .body{display:block;white-space:pre-wrap;line-height:1.42}
 .preview{display:block;max-width:100%;height:auto;margin:7px 0 3px;object-fit:contain}
@@ -1080,12 +1081,12 @@ window.setMessages=function(messages,prepended=false,requireViewport=false){
   for(let i=messages.length-1;i>=0;i--){
     const m=messages[i];
     let row=existing.get(m.id);
-    const signature=JSON.stringify([m.user,m.body,m.color,m.images,m.timestamp]);
+    const signature=JSON.stringify([m.user,m.body,m.isYagrum,m.images,m.timestamp]);
     if(!row||row.dataset.signature!==signature){
       const replacement=document.createElement('div');
       replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
       const header=document.createElement('div');header.className='msg-header';
-      if(m.user){const name=document.createElement('span');name.className='user';name.style.color=/^#[0-9a-f]{6}$/i.test(m.color)?m.color:'#dbb243';name.textContent=m.user;header.appendChild(name);}
+      if(m.user){const name=document.createElement('span');name.className=m.isYagrum?'user yagrum':'user';name.textContent=m.user;header.appendChild(name);}
       const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();header.appendChild(time);
       replacement.appendChild(header);
       const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
@@ -1250,7 +1251,10 @@ metrics();
                 // Preserve the native chat layout's original user field,
                 // but retain the source author when authenticating bot images.
                 const sourceAuthor = user || lastVisibleAuthor;
-                const color = usernameEl ? getComputedStyle(usernameEl).color : '';
+                // Reserve gold for the bot's own name, including when a
+                // player chooses the same Discord display name.
+                const isYagrum = user.toLowerCase() === 'yagrum' &&
+                  !!usernameEl?.closest('h3, [class*="header_"]')?.querySelector('[class*="botTag_"]');
                 const contentNode = el.querySelector('[class*="messageContent_"]') ||
                                     el.querySelector('[class*="markup_"]');
                 const body = contentNode?.innerText?.trim() ||
@@ -1286,11 +1290,11 @@ metrics();
                       uniqueImages.set(key, url);
                   } catch {}
                 }
-                return {id:el.id,user,sourceAuthor,body,matchText,color,images:[...uniqueImages.values()].slice(0,4)};
+                return {id:el.id,user,sourceAuthor,body,matchText,isYagrum,images:[...uniqueImages.values()].slice(0,4)};
               }).filter(x => x.body || x.images.length));
             })();
             """;
-        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, string Color, string[] Images)> history = new();
+        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, bool IsYagrum, string[] Images)> history = new();
         // Discord snowflakes encode their original creation time in UTC.
         static DateTimeOffset DiscordTimestamp(ulong id) =>
             DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
@@ -1937,23 +1941,6 @@ metrics();
             }
             _ = LoadOlderMessages();
         }
-        static string ParseHtmlColor(string color)
-        {
-            // CSS computed color arrives as rgb(r, g, b) or rgba(r, g, b, a).
-            // Avoid regex here: a malformed pattern must not block the entire chat feed.
-            if (string.IsNullOrWhiteSpace(color)) return "#DBB243";
-            int open = color.IndexOf('('), close = color.IndexOf(')', open + 1);
-            if (open < 0 || close <= open) return "#DBB243";
-            string prefix = color.Substring(0, open).Trim();
-            if (!prefix.Equals("rgb", StringComparison.OrdinalIgnoreCase) &&
-                !prefix.Equals("rgba", StringComparison.OrdinalIgnoreCase)) return "#DBB243";
-            string[] parts = color.Substring(open + 1, close - open - 1).Split(',');
-            if (parts.Length < 3 ||
-                !byte.TryParse(parts[0].Trim(), out byte red) ||
-                !byte.TryParse(parts[1].Trim(), out byte green) ||
-                !byte.TryParse(parts[2].Trim(), out byte blue)) return "#DBB243";
-            return $"#{red:X2}{green:X2}{blue:X2}";
-        }
         // A Happy Hour exists only within one hour of its authentic Discord
         // activation message. Expired announcements are never displayed.
         ulong lastHappyHourMessageId;
@@ -2478,7 +2465,8 @@ metrics();
                     // Discord textContent contains the full styled announcement.
                     string archivalBody = isHappyHour && !IsHappyHourAnnouncement(body)
                         ? matchText : body;
-                    string color = msg.TryGetProperty("color", out var cv) ? cv.GetString() ?? "" : "";
+                    bool isYagrum = msg.TryGetProperty("isYagrum", out var botFlag) &&
+                        botFlag.ValueKind == System.Text.Json.JsonValueKind.True;
                     string[] images = msg.TryGetProperty("images", out var imageValues) &&
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
@@ -2540,10 +2528,10 @@ metrics();
                              DateTime.UtcNow >= retryTime))
                             _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
-                        existing.User != user || existing.Body != body || existing.Color != color ||
+                        existing.User != user || existing.Body != body || existing.IsYagrum != isYagrum ||
                         !existing.Images.SequenceEqual(images))
                     {
-                        history[key] = (user, body, color, images);
+                        history[key] = (user, body, isYagrum, images);
                         changed = true;
                     }
                 }
@@ -2578,7 +2566,7 @@ metrics();
                     timestamp = DiscordTimestamp(entry.Key).ToString("O"),
                     user = entry.Value.User,
                     body = entry.Value.Body,
-                    color = ParseHtmlColor(entry.Value.Color),
+                    isYagrum = entry.Value.IsYagrum,
                     images = entry.Value.Images
                 }).ToArray();
                 string payload = System.Text.Json.JsonSerializer.Serialize(browserMessages);
