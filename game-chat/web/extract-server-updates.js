@@ -101,6 +101,14 @@
     return blocks;
   }
 
+  function trimBlockEdges({ Runs: runs }) {
+    // Keep inline formatting and spacing while removing blank lines at block edges.
+    while (!runs[0].Text.trim()) runs.shift();
+    while (!runs.at(-1).Text.trim()) runs.pop();
+    runs[0].Text = runs[0].Text.trimStart();
+    runs.at(-1).Text = runs.at(-1).Text.trimEnd();
+  }
+
   const updates = [];
   const rows = list.querySelectorAll('[id^="chat-messages-"]');
   if (!rows.length) return null;
@@ -111,7 +119,10 @@
       .filter(node => !node.parentElement?.closest(bodySelector));
     const blocks = readBlocks(roots);
     removeUpdateIntro(blocks);
-    if (blocks.length) updates.push({ Id: id, Blocks: blocks });
+    if (blocks.length) {
+      for (const block of blocks) trimBlockEdges(block);
+      updates.push({ Id: id, Blocks: blocks });
+    }
   }
   return updates.slice(-12);
 })()

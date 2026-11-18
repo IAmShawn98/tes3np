@@ -384,7 +384,7 @@ expect(
 )
 expect(
     "Game Updates dismissal hides the panel until a newer Discord post arrives",
-    'PanelScale, "Game Updates");' in updates_panel
+    'PanelScale, "Game Updates", headerRightPadding:' in updates_panel
     and "host.DismissServerUpdates();" in updates_panel
     and "latestServerUpdateId > dismissedServerUpdateId" in server_updates
     and "dismissedServerUpdateId = ReadServerUpdatesDismissal();" in server_updates
@@ -395,15 +395,15 @@ expect(
     and "OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)" in embedded_chat,
 )
 expect(
-    "Game Updates repaints on launcher restore and shows the date of a scrolled entry",
+    "Game Updates repaints on restore and lands on the newest inline date",
     'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
     and "RedrawServerUpdatesPanel(attached);" in updates_panel
     and "RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185)" in updates_panel
-    and "FindServerUpdatesDateDividers(feed.Text)" in updates_panel
-    and "feed.GetCharIndexFromPosition(new Point(2, 2))" in updates_panel
+    and "FindNewestServerUpdatesDateDivider(feed.Text)" in updates_panel
+    and "dateBand" not in updates_panel
     and in_order(section_between(updates_panel, "void ScrollToNewestUpdate()", "ReadScroll()\n        {"),
-                 "dateDividers[^1].Offset", "feed.Select(start, 0);", "feed.ScrollToCaret();",
+                 "newestDateOffset is int start", "feed.Select(start, 0);", "feed.ScrollToCaret();",
                  "feed.GetPositionFromCharIndex(start).Y", "ScrollToPixel(Math.Max(0, scroll.Y + dateTop - Px(2)))"),
 )
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
