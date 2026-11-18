@@ -19,6 +19,7 @@ sign_in_card = (chat_root / "DiscordSignInCard.cs").read_text(encoding="utf-8-si
 chat_renderer = (chat_root / "GameChatWindow.Renderer.cs").read_text(encoding="utf-8-sig")
 chat_window = (chat_root / "GameChatWindow.cs").read_text(encoding="utf-8-sig")
 server_updates = (chat_root / "GameChatWindow.ServerUpdates.cs").read_text(encoding="utf-8-sig")
+updates_panel = (chat_root / "GameChatWindow.ServerUpdatesPanel.cs").read_text(encoding="utf-8-sig")
 chat_history = (chat_root / "GameChatWindow.History.cs").read_text(encoding="utf-8-sig")
 chat_expansion = (chat_root / "GameChatWindow.Expansion.cs").read_text(encoding="utf-8-sig")
 happy_hour = (chat_root / "GameChatWindow.HappyHour.cs").read_text(encoding="utf-8-sig")
@@ -94,8 +95,10 @@ expect(
 )
 
 expect(
-    "Unused Win32 native scrollbar declarations must remain removed",
-    all(name not in source for name in ("GetScrollInfo", "ShowScrollBar", "SCROLLINFO")),
+    "Only the RichEdit updates panel uses native scrollbar metrics",
+    all(name not in source.replace(updates_panel, "", 1) for name in ("GetScrollInfo", "SCROLLINFO"))
+    and "ShowScrollBar" not in source
+    and "GetScrollInfo(feed.Handle, 1, ref info)" in updates_panel,
 )
 expect(
     "Obsolete browser message-feed variable must remain removed",
@@ -367,10 +370,13 @@ expect(
     and "EnsureCoreWebView2Async(environment)" in server_updates
     and "510245417657827363" in server_updates
     and "source != serverUpdatesWindow" in server_updates
-    and "SetLauncherServerUpdatesVisible(status = 2)" in embedded_chat
-    and "if LauncherDiscordStatus != 2" in embedded_chat
-    and 'ServerUpdatesFeed.Visible := false' in embedded_chat
-    and '"UInt", 0x000C, "Ptr", 0, "WStr", ""' in embedded_chat
+    and "SetLauncherServerUpdatesVisible(LauncherDiscordStatus = 2)" in embedded_chat
+    and 'LauncherUpdatesSlot.Visible := false' in embedded_chat
+    and "GetParent(target) != owner" in source
+    and "CloseServerUpdatesPanel();" in server_updates
+    and "host.PaintGoldScrollbar(e.Graphics, height, PanelScale, top, thumb);" in source
+    and "recent.TakeLast(8)" in server_updates
+    and 'new IntPtr(7), IntPtr.Zero); // SB_BOTTOM' in source
     and in_order(section_between(source, "async Task SignOutDiscord()", "\n}"),
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )

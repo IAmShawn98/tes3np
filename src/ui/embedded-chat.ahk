@@ -8,11 +8,7 @@ global LauncherDiscordPortrait := 0
 global LauncherDiscordStatus := 0
 global LauncherDiscordAvatar := 0
 global LauncherDiscordAvatarStream := 0
-global ServerUpdatesFrame := 0
-global ServerUpdatesTrim := 0
-global ServerUpdatesHeading := 0
-global ServerUpdatesFeed := 0
-global ServerUpdatesShown := false
+global LauncherUpdatesSlot := 0
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -128,12 +124,7 @@ IsLauncherDiscordMessage(sender, hwnd)
 ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
 {
     global LauncherDiscordPortrait, LauncherDiscordAvatar, LauncherDiscordAvatarStream
-    if !data
-        return
-    kind := NumGet(data, 0, "Ptr")
-    if kind = 0x833B
-        return ReceiveLauncherServerUpdates(sender, data, hwnd)
-    if kind != 0x8339
+    if !data || NumGet(data, 0, "Ptr") != 0x8339
         return
     if !IsObject(LauncherDiscordPortrait) || !IsLauncherDiscordMessage(sender, hwnd)
         return 0
@@ -203,125 +194,52 @@ UpdateLauncherDiscordAccountDisplay(status, name := "")
         label := status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
     SetPaintedLabelText(LauncherDiscordName, label)
     SetPaintedLabelText(LauncherDiscordPortrait, status <= 1 ? "Log In to Discord" : "Discord account")
-    SetLauncherServerUpdatesVisible(status = 2)
+    ; Resize/show the cross-process child after acknowledging WM_COPYDATA.
+    SetTimer(RefreshLauncherServerUpdatesVisibility, -1)
 }
 
 CreateLauncherServerUpdates()
 {
-    global LauncherGui, ServerUpdatesFrame, ServerUpdatesTrim, ServerUpdatesHeading, ServerUpdatesFeed, ServerUpdatesShown
-    ServerUpdatesShown := false
-    static richEditModule := DllCall("LoadLibraryW", "WStr", "Msftedit.dll", "Ptr")
-    if !richEditModule
-        return
-    ServerUpdatesFrame := LauncherGui.Add("Text", "x100 y274 w220 h366 Background74552E Hidden")
-    ServerUpdatesTrim := LauncherGui.Add("Text", "x101 y275 w218 h364 BackgroundCAA666 Hidden")
-    ServerUpdatesHeading := LauncherGui.Add("Text",
-        "x104 y278 w212 h25 Center +0x200 Background100C09 Hidden", "Latest Updates")
-    ; WS_VSCROLL | ES_READONLY | ES_AUTOVSCROLL | ES_MULTILINE.
-    ServerUpdatesFeed := LauncherGui.Add("Custom",
-        "ClassRICHEDIT50W x104 y304 w212 h332 +0x200844 +Tabstop Hidden")
-    DllCall("SendMessageW", "Ptr", ServerUpdatesFeed.Hwnd, "UInt", 0x0443, "Ptr", 0, "Ptr", 0x08090A)
-    ScaleLauncherServerUpdates(1)
-}
-
-ScaleLauncherServerUpdates(scale)
-{
-    global ServerUpdatesHeading, ServerUpdatesFeed
-    if !IsObject(ServerUpdatesHeading)
-        return
-    ServerUpdatesHeading.SetFont("s" Max(6, Round(13 * scale)) " Norm cE4C47C", "Georgia")
-    hwnd := ServerUpdatesFeed.Hwnd
-    DllCall("SendMessageW", "Ptr", hwnd, "UInt", 0x04E1, "Ptr", Round(AccessibilityFontSize(10) * scale * 10), "Ptr", 100)
-    rect := Buffer(16, 0)
-    if DllCall("GetClientRect", "Ptr", hwnd, "Ptr", rect)
-    {
-        margin := Max(2, Round(8 * scale * A_ScreenDPI / 96))
-        NumPut("Int", margin, "Int", margin, "Int", NumGet(rect, 8, "Int") - margin,
-            "Int", NumGet(rect, 12, "Int") - margin, rect)
-        DllCall("SendMessageW", "Ptr", hwnd, "UInt", 0x00B3, "Ptr", 0, "Ptr", rect)
-    }
-}
-
-SetLauncherServerUpdatesRtf(payload)
-{
-    global ServerUpdatesFeed
-    settings := Buffer(8, 0)
-    ; EM_SETTEXTEX loads the host's null-terminated ASCII RTF into the native control.
-    NumPut("UInt", 1252, settings, 4)
-    return DllCall("SendMessageW", "Ptr", ServerUpdatesFeed.Hwnd, "UInt", 0x0461, "Ptr", settings, "Ptr", payload)
+    global LauncherGui, LauncherUpdatesSlot
+    ; The host paints the heading, feed, and gold scrollbar inside this one HWND.
+    LauncherUpdatesSlot := LauncherGui.Add("Text",
+        "x100 y274 w220 h366 +0x06000000 Background0A0908 Hidden")
 }
 
 SetLauncherServerUpdatesVisible(visible)
 {
-    global ServerUpdatesFrame, ServerUpdatesTrim, ServerUpdatesHeading, ServerUpdatesFeed, ServerUpdatesShown
-    if !IsObject(ServerUpdatesFeed) || !DllCall("IsWindow", "Ptr", ServerUpdatesFeed.Hwnd)
+    global LauncherUpdatesSlot
+    if !IsObject(LauncherUpdatesSlot) || !DllCall("IsWindow", "Ptr", LauncherUpdatesSlot.Hwnd)
         return
     if visible
     {
-        if !ServerUpdatesShown
-        {
-            loading := "{\rtf1\ansi{\fonttbl{\f0 Georgia;}}{\colortbl;\red184\green169\blue142;}\f0\fs21\cf1 Loading server updates...}"
-            payload := Buffer(StrPut(loading, "CP1252"))
-            StrPut(loading, payload, "CP1252")
-            SetLauncherServerUpdatesRtf(payload)
-        }
-        ServerUpdatesFrame.Visible := true
-        ServerUpdatesTrim.Visible := true
-        ServerUpdatesHeading.Visible := true
-        ServerUpdatesFeed.Visible := true
+        ; Keep the slot above the overlapping bottom edge of the Quest card.
+        DllCall("SetWindowPos", "Ptr", LauncherUpdatesSlot.Hwnd, "Ptr", 0,
+            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
+        LauncherUpdatesSlot.Visible := true
+        CheckServerUpdatesHost()
     }
     else
-    {
-        ServerUpdatesFeed.Visible := false
-        ServerUpdatesHeading.Visible := false
-        ServerUpdatesTrim.Visible := false
-        ServerUpdatesFrame.Visible := false
-        DllCall("SendMessageW", "Ptr", ServerUpdatesFeed.Hwnd, "UInt", 0x000C, "Ptr", 0, "WStr", "")
-    }
-    ServerUpdatesShown := visible
+        LauncherUpdatesSlot.Visible := false
     SetTimer(CheckServerUpdatesHost, visible ? 1500 : 0)
+}
+
+RefreshLauncherServerUpdatesVisibility()
+{
+    global LauncherDiscordStatus
+    SetLauncherServerUpdatesVisible(LauncherDiscordStatus = 2)
 }
 
 CheckServerUpdatesHost()
 {
-    global EmbeddedChatPid
-    if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
-        SetLauncherServerUpdatesVisible(false)
-}
-
-ReceiveLauncherServerUpdates(sender, data, hwnd)
-{
-    global LauncherDiscordStatus, ServerUpdatesFeed
-    if !IsObject(ServerUpdatesFeed) || !IsLauncherDiscordMessage(sender, hwnd)
-        return 0
-    size := NumGet(data, A_PtrSize, "UInt")
-    payload := NumGet(data, A_PtrSize = 8 ? 16 : 8, "Ptr")
-    if !payload || size < 7 || size > 524288 || NumGet(payload + size - 1, "UChar") != 0
-        return 0
-    Critical("On")
-    if LauncherDiscordStatus != 2
-        return 0
-    if StrGet(payload, 5, "CP1252") != "{\rtf"
-        return 0
-    feed := ServerUpdatesFeed.Hwnd
-    scrollInfo := Buffer(28, 0)
-    NumPut("UInt", 28, "UInt", 7, scrollInfo)
-    follow := !DllCall("GetScrollInfo", "Ptr", feed, "Int", 1, "Ptr", scrollInfo)
-        || NumGet(scrollInfo, 20, "Int") + NumGet(scrollInfo, 16, "UInt") >= NumGet(scrollInfo, 12, "Int") - 12
-    position := Buffer(8, 0)
-    if !follow
-        DllCall("SendMessageW", "Ptr", feed, "UInt", 0x04DD, "Ptr", 0, "Ptr", position)
-    if !SetLauncherServerUpdatesRtf(payload)
-        return 0
-    if follow
+    global EmbeddedChatPid, LauncherUpdatesSlot, LauncherDiscordStatus
+    if LauncherDiscordStatus != 2 || !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
     {
-        ; EM_SETSEL moves the caret to the end and EM_SCROLLCARET reveals it.
-        DllCall("SendMessageW", "Ptr", feed, "UInt", 0x00B1, "Ptr", 0x7FFFFFFF, "Ptr", 0x7FFFFFFF)
-        DllCall("SendMessageW", "Ptr", feed, "UInt", 0x00B7, "Ptr", 0, "Ptr", 0)
+        SetLauncherServerUpdatesVisible(false)
+        return
     }
-    else
-        DllCall("SendMessageW", "Ptr", feed, "UInt", 0x04DE, "Ptr", 0, "Ptr", position)
-    return 1
+    if IsObject(LauncherUpdatesSlot) && !DllCall("GetWindow", "Ptr", LauncherUpdatesSlot.Hwnd, "UInt", 5, "Ptr")
+        SendLauncherChatCommand(18, LauncherUpdatesSlot.Hwnd)
 }
 
 ReleaseLauncherDiscordAvatar()
