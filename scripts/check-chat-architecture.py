@@ -265,10 +265,11 @@ expect(
     and in_order(embedded_chat, "SendLauncherChatCommand(14)", "ProcessWaitClose(pid, 5)", "ProcessClose(pid)"),
 )
 expect(
-    "Fresh authentication initializes the native renderer before hiding it",
+    "Fresh authentication starts the native renderer with a bounded navigation wait",
     "await InitMessageBrowser(env);" in source
     and "rendererNavigation.Task.WaitAsync(TimeSpan.FromSeconds(8))" in source
-    and "messageBrowserReady = true;" in source,
+    and "messageBrowserReady = e.IsSuccess;" in source
+    and "e.NavigationId != messagePageNavigationId" in source,
 )
 expect(
     "First login reloads Discord channel once without launcher restart",
@@ -346,27 +347,44 @@ expect(
     and 'messageClip.Visible = true;' in loading
     and 'nativeMessages.Visible = true;' in loading
     and 'nativeMessages.BringToFront();' in loading
-    and 'messageBrowser.Visible = false;' in loading
+    and 'messageBrowser.Visible = true;' in loading
     and 'goldScrollbar.Visible = false;' in loading
     and 'ShowConnectingChat();' in source
     and 'else ShowConnectingChat();' in source
     and 'chatViewport.Visible = !nativeMode && !connectingChat;' in source,
 )
 expect(
-    "First authenticated feed renders into a real-sized parent before swapping views",
+    "First authenticated feed keeps its loading state until the current renderer confirms visible message rows",
     'messageClip.Visible = true;' in feed_transition
     and 'messageBrowser.Visible = true;' in feed_transition
-    and 'nativeMessages.BringToFront();' in feed_transition
     and in_order(
         feed_transition,
         'nativeMessages.BringToFront();',
-        'await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(',
+        'messageClip.PerformLayout();',
+        'await messageBrowser.CoreWebView2.ExecuteScriptAsync(script)',
+        'pageNavigationId != messagePageNavigationId || feedNavigationId != discordNavigationId',
+        'if (chatOpen && !requireViewport)',
+        'if (rendered != "true")',
+        'nativeMode = true;',
+        'nativeMessages.Visible = false;',
+        'frameSurface.Invalidate(true);',
+        'frameSurface.Update();',
+        'goldScrollbar.Update();',
     )
-    and 'nativeMode = true;\n                    connectingChat = false;' in feed_transition
-    and 'nativeMessages.Visible = false;' in feed_transition
-    and 'goldScrollbar.Visible = true;' in feed_transition
-    and 'FitWebView();' in feed_transition
-    and 'goldScrollbar.Update();' in feed_transition,
+    and '.WaitAsync(TimeSpan.FromSeconds(4))' in feed_transition
+    and "(!feed.clientWidth || !feed.clientHeight)" in source
+    and "return feed.querySelectorAll('.msg').length===messages.length;" in source,
+)
+renderer_recovery = section_between(source, "void NavigateMessagePage()", "void ScrollHtml(")
+expect(
+    "Stalled native rendering retries the local document without restarting Discord or redocking the chat",
+    "nextMessagePageReload = DateTime.UtcNow.AddSeconds(8);" in renderer_recovery
+    and "DateTime.UtcNow < nextMessagePageReload" in renderer_recovery
+    and "NavigateToString(MessagePage);" in renderer_recovery
+    and 'RecoverMessagePage("page unavailable");' in source
+    and 'RecoverMessagePage("page did not confirm message rows");' in source
+    and "if (!docked) DockToLauncher();" in section_between(
+        source, "void RestoreGameChatAfterSignIn()", "async Task UpdateViewMode()"),
 )
 expect(
     "Real textured scrollbar is the only scrollbar, with no stale frame-painted duplicate",

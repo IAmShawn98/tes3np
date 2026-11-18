@@ -5,7 +5,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-inset-native-frame-20261008";
+    const string ChatBuild = "chat-feed-ready-20261117";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     // Same NP Discord guild as Game Chat, but a different channel and raw WebView2.
     const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";
@@ -1034,7 +1034,9 @@ internal static class Program
             DetectUrls = false, TabStop = false, ShortcutsEnabled = false
         };
         readonly WebView2 messageBrowser = new() { Dock = DockStyle.Fill, Visible = true };
-        bool messageBrowserReady;
+        bool messageBrowserReady, messageViewportReady;
+        ulong messagePageNavigationId;
+        DateTime nextMessagePageReload;
         int browserScrollTop, browserScrollHeight = 1, browserClientHeight = 1;
         const string MessagePage = """
 <!doctype html><html><head><meta charset="utf-8"><style>
@@ -1058,7 +1060,8 @@ feed.addEventListener('pointerdown',()=>{userHasScrolled=true;});
 function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});}
 feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
-window.setMessages=function(messages,prepended=false){
+window.setMessages=function(messages,prepended=false,requireViewport=false){
+  if(!messages.length || (requireViewport && (!feed.clientWidth || !feed.clientHeight)))return false;
   // Reconcile by message ID. Never tear down existing rows on a new message:
   // doing so resets image layout and can jump the scroll position.
   const existing=new Map([...feed.children].map(el=>[el.dataset.id,el]));
@@ -1072,7 +1075,7 @@ window.setMessages=function(messages,prepended=false){
   // Date headings are derived from Discord message IDs and rebuilt each pass.
   for(const el of [...feed.querySelectorAll('.date-separator')])el.remove();
   const wanted=new Set(messages.map(m=>m.id));
-  for(const [id,row] of existing)if(!wanted.has(id))row.remove();
+  for(const [id,row] of existing)if(!wanted.has(id)){row.remove();existing.delete(id);}
   let next=null;
   for(let i=messages.length-1;i>=0;i--){
     const m=messages[i];
@@ -1097,11 +1100,12 @@ window.setMessages=function(messages,prepended=false){
       row=replacement;
     }
     if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
+    existing.set(m.id,row);
     next=row;
   }
   let previousDate='';
   for(const m of messages){
-    const row=[...feed.children].find(el=>el.dataset.id===m.id);
+    const row=existing.get(m.id);
     if(!row)continue;
     const date=new Date(m.timestamp).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
     if(date!==previousDate){
@@ -1113,7 +1117,7 @@ window.setMessages=function(messages,prepended=false){
     }
   }
   if(userHasScrolled && anchorId && !pinnedAtOldest){
-    const kept=[...feed.children].find(el=>el.dataset.id===anchorId);
+    const kept=existing.get(anchorId);
     if(kept)feed.scrollTop+=kept.getBoundingClientRect().top-anchorY;
   }
   // Follow live chat only if the user was already at the bottom.
@@ -1122,6 +1126,7 @@ window.setMessages=function(messages,prepended=false){
   else if(prepended && pinnedAtOldest)feed.scrollTop=0;
   else if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
   metrics();
+  return feed.querySelectorAll('.msg').length===messages.length;
 };
 window.scrollChat=function(delta){userHasScrolled=true;feed.scrollTop+=delta;metrics();};
 window.scrollFraction=function(f){userHasScrolled=true;feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
@@ -1153,22 +1158,25 @@ metrics();
                     }
                     catch (Exception ex) { Log("HTML scroll telemetry error: " + ex.GetType().Name); }
                 };
-                // A fresh Discord login temporarily hides frameSurface.
-                // Finish navigating the separate native renderer BEFORE we
-                // hide its parent, rather than leave it awaiting a visible
-                // HWND until the next launcher restart.
+                // Start the local message document before the Discord login.
+                // A hidden host may defer WebView2 work until its dock is shown,
+                // so startup waits only briefly and the live feed can retry.
                 var rendererNavigation = new TaskCompletionSource<bool>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
-                messageBrowser.NavigationCompleted += (_, e) => {
-                    if (e.IsSuccess) {
-                        messageBrowserReady = true;
-                        Log("HTML message renderer ready");
-                    }
+                messageBrowser.NavigationStarting += (_, e) =>
+                {
+                    messagePageNavigationId = e.NavigationId;
+                    messageBrowserReady = messageViewportReady = false;
+                };
+                messageBrowser.NavigationCompleted += (_, e) =>
+                {
+                    if (e.NavigationId != messagePageNavigationId) return;
+                    messageBrowserReady = e.IsSuccess;
+                    if (e.IsSuccess) Log("HTML message renderer ready");
                     else Log("HTML message renderer navigation failed: " + e.WebErrorStatus);
                     rendererNavigation.TrySetResult(e.IsSuccess);
                 };
-                Log("HTML message renderer navigating");
-                messageBrowser.NavigateToString(MessagePage);
+                NavigateMessagePage();
                 try
                 {
                     if (!await rendererNavigation.Task.WaitAsync(TimeSpan.FromSeconds(8)))
@@ -1183,6 +1191,23 @@ metrics();
             }
             catch (Exception ex) { Log("HTML renderer initialization failed: " + ex.GetType().Name); }
         }
+        void NavigateMessagePage()
+        {
+            nextMessagePageReload = DateTime.UtcNow.AddSeconds(8);
+            messageBrowserReady = messageViewportReady = false;
+            messageBrowser.NavigateToString(MessagePage);
+        }
+
+        void RecoverMessagePage(string reason)
+        {
+            if (closingChat || IsDisposed || discordLoginVisible || !discordChannelReady ||
+                messageBrowser.CoreWebView2 == null || DateTime.UtcNow < nextMessagePageReload) return;
+            Log("CHAT | Reloading local message renderer (" + reason + ")");
+            ShowConnectingChat();
+            try { NavigateMessagePage(); }
+            catch (Exception ex) { Log("CHAT | Local renderer reload failed: " + ex.GetType().Name); }
+        }
+
         void ScrollHtml(int pixels)
         {
             if (messageBrowserReady && messageBrowser.CoreWebView2 != null)
@@ -2374,8 +2399,12 @@ metrics();
             refreshingNativeFeed = true;
             try
             {
-                string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed);
-                if (closingChat || IsDisposed || !discordChannelReady) return;
+                ulong feedNavigationId = discordNavigationId;
+                string raw = await web.CoreWebView2.ExecuteScriptAsync(ExtractFeed)
+                    .WaitAsync(TimeSpan.FromSeconds(4));
+                if (closingChat || IsDisposed || discordLoginVisible || !discordChannelReady ||
+                    discordNavigationInProgress || feedNavigationId != discordNavigationId) return;
+                bool needsVisibleUpdate = chatOpen && !messageViewportReady;
                 string json = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "[]";
                 if (waitingForLiveFeedAfterHistory &&
                     string.Equals(web.CoreWebView2.Source?.TrimEnd('/'), Channel,
@@ -2390,7 +2419,7 @@ metrics();
                         Log("CHAT | Hidden source ready for live notifications after history search");
                     }
                 }
-                if (json == lastFeed && !imagesNeedRedraw && nativeMode) {
+                if (json == lastFeed && !imagesNeedRedraw && nativeMode && !needsVisibleUpdate) {
                     DetectLatestHappyHour();
                     return;
                 }
@@ -2522,9 +2551,13 @@ metrics();
                 // Match only genuine archived Discord messages; the snowflake
                 // timestamp supplies the real one-hour remaining time.
                 DetectLatestHappyHour();
-                if (!changed && !redrawImages && nativeMode) return;
+                if (!changed && !redrawImages && nativeMode && !needsVisibleUpdate) return;
                 bool prepended = history.Count > 0 && history.First().Key < previousFirst;
-                if (!messageBrowserReady || messageBrowser.CoreWebView2 == null) return;
+                if (!messageBrowserReady || messageBrowser.CoreWebView2 == null)
+                {
+                    RecoverMessagePage("page unavailable");
+                    return;
+                }
                 // A hidden WebView2 reports stale/zero scroll metrics. Give the
                 // first authenticated renderer a real-sized parent before DOM
                 // reconciliation, keeping the native loading text in front
@@ -2549,8 +2582,44 @@ metrics();
                     images = entry.Value.Images
                 }).ToArray();
                 string payload = System.Text.Json.JsonSerializer.Serialize(browserMessages);
-                await messageBrowser.CoreWebView2.ExecuteScriptAsync("window.setMessages(" + payload + "," + (prepended ? "true" : "false") + ")");
+                bool requireViewport = chatOpen;
+                ulong pageNavigationId = messagePageNavigationId;
+                string script = "typeof window.setMessages === 'function' && window.setMessages(" +
+                    payload + "," + (prepended ? "true" : "false") + "," + (requireViewport ? "true" : "false") + ")";
+                string rendered;
+                try
+                {
+                    rendered = await messageBrowser.CoreWebView2.ExecuteScriptAsync(script)
+                        .WaitAsync(TimeSpan.FromSeconds(4));
+                }
+                catch (Exception ex)
+                {
+                    imagesNeedRedraw = true;
+                    if (pageNavigationId == messagePageNavigationId && feedNavigationId == discordNavigationId)
+                        RecoverMessagePage("render attempt failed: " + ex.GetType().Name);
+                    return;
+                }
                 if (closingChat || IsDisposed || discordLoginVisible || !discordChannelReady) return;
+                if (pageNavigationId != messagePageNavigationId || feedNavigationId != discordNavigationId ||
+                    discordNavigationInProgress)
+                {
+                    imagesNeedRedraw = true;
+                    return;
+                }
+                if (chatOpen && !requireViewport)
+                {
+                    // The dock was opened while the hidden renderer was busy.
+                    // Check its actual visible viewport on the next pass.
+                    imagesNeedRedraw = true;
+                    return;
+                }
+                if (rendered != "true")
+                {
+                    imagesNeedRedraw = true;
+                    RecoverMessagePage("page did not confirm message rows");
+                    return;
+                }
+                messageViewportReady = requireViewport && chatOpen;
                 if (enteringNativeMode)
                 {
                     nativeMode = true;
@@ -2563,16 +2632,16 @@ metrics();
                     // together only after the first successful message update.
                     messageClip.Visible = true;
                     messageBrowser.Visible = true;
-                    nativeMessages.Visible = false;
-                    messageBrowser.BringToFront();
-                    messageClip.BringToFront();
                     goldScrollbar.Visible = true;
-                    goldScrollbar.BringToFront();
                     frameSurface.Visible = true;
                     FitWebView();
                     messageClip.PerformLayout();
-                    frameSurface.Invalidate();
-                    goldScrollbar.Invalidate();
+                    messageBrowser.BringToFront();
+                    nativeMessages.Visible = false;
+                    messageClip.BringToFront();
+                    goldScrollbar.BringToFront();
+                    frameSurface.Invalidate(true);
+                    frameSurface.Update();
                     goldScrollbar.Update();
                     Log("Native message view activated");
                 }
@@ -3168,10 +3237,8 @@ metrics();
                         if (e.Uri.StartsWith("https://discord.com/", StringComparison.OrdinalIgnoreCase))
                             web.CoreWebView2.Navigate(e.Uri);
                     };
-                    // Initialize the local HTML renderer while its WinForms
-                    // parent is still visible. Hiding it for Discord sign-in
-                    // before initialization could leave the native chat blank
-                    // until the entire launcher was restarted.
+                    // Give the local document a head start. Its readiness is
+                    // confirmed separately after sign-in and after resizing.
                     await InitMessageBrowser(env);
                     if (closingChat || IsDisposed) return;
                     if (freshDiscordProfile) ShowDiscordSignIn();
@@ -3361,7 +3428,7 @@ metrics();
                     "if (document.querySelector('input[type=password]')) return 'login'; " +
                     "const t = document.body?.innerText || ''; " +
                     "if (/Discord App Detected|Discord App Launched/i.test(t)) return 'app-prompt'; " +
-                    "return 'pending'; })()");
+                    "return 'pending'; })()").WaitAsync(TimeSpan.FromSeconds(4));
                 if (closingChat || IsDisposed || web.CoreWebView2 == null ||
                     navigationId != discordNavigationId || discordNavigationInProgress ||
                     !string.Equals(url, core.Source, StringComparison.OrdinalIgnoreCase)) return;
@@ -3731,14 +3798,16 @@ metrics();
         {
             if (closingChat || IsDisposed || discordLoginVisible) return;
             connectingChat = true;
-            nativeMode = false;
+            nativeMode = messageViewportReady = false;
             // Make the loading state visible on the existing custom frame.
             // Do not display the old mock scrollbar while the real HTML feed
             // is still mounting after the Discord OAuth handoff.
             nativeMessages.Text = "Connecting to live chat...";
             frameSurface.Visible = true;
             messageClip.Visible = true;
-            messageBrowser.Visible = false;
+            // Keep the WebView2 sized and visible behind the native status so
+            // its compositor can start when the chat dock is shown.
+            messageBrowser.Visible = true;
             nativeMessages.Visible = true;
             nativeMessages.BringToFront();
             goldScrollbar.Visible = false;
@@ -3945,9 +4014,8 @@ metrics();
         {
             if (!discordLoginVisible) return;
             Log("Discord chat detected: restoring custom Game Chat");
-            // DockToLauncher() reapplies the saved display mode and normally
-            // hides Automatic chat; preserve the panel the user opened to
-            // complete this sign-in instead of making it disappear.
+            // Preserve the open request made while signing in. The existing
+            // Game Chat window remains owned by the launcher throughout.
             bool keepChatVisible = discordSignInRequested &&
                 (pendingExpansionPrompt == 0 || showChatAfterDiscordSignIn) &&
                 chatDisplayMode != "Always Hidden";
@@ -3966,8 +4034,8 @@ metrics();
             // Discord finishes its one authenticated channel reload.
             ShowConnectingChat();
             Text = "tes3np Chat Host";
-            DockToLauncher();
-            if (keepChatVisible) {
+            if (!docked) DockToLauncher();
+            if (keepChatVisible || chatDisplayMode == "Always Shown") {
                 lastChatActivity = DateTime.Now;
                 SetChatOpen(true);
             }
@@ -4162,7 +4230,14 @@ metrics();
                 // SW_SHOW (5) activates this owned popup and steals foreground
                 // focus from parchment menus and native dialogs. Automatic
                 // message notifications must only reveal chat, never activate it.
-                if (show) ShowWindow(Handle, 4); // SW_SHOWNOACTIVATE
+                if (show)
+                {
+                    ShowWindow(Handle, 4); // SW_SHOWNOACTIVATE
+                    FitWebView();
+                    messageClip.PerformLayout();
+                    frameSurface.Invalidate(true);
+                    frameSurface.Update();
+                }
                 else ShowWindow(Handle, 0);
             }
             NotifyLauncherChatState();
