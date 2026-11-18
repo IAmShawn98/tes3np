@@ -7,6 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="web\message-feed.html" LogicalName="tes3np.ChatHost.Web.MessageFeed.html" />
+  </ItemGroup>
   <ItemGroup><Content Include="border-texture.b64;scrollbar-texture.b64" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="assets\DiscordInt.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3595.46" GeneratePathProperty="true" /></ItemGroup>

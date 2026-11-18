@@ -8,6 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "chat-host" / "Program.cs").read_text(encoding="utf-8-sig")
+message_page = (ROOT / "chat-host" / "web" / "message-feed.html").read_text(encoding="utf-8-sig")
 app_state = (ROOT / "src" / "state.ahk").read_text(encoding="utf-8-sig")
 bootstrap = (ROOT / "src" / "app" / "bootstrap.ahk").read_text(encoding="utf-8-sig")
 controls = (ROOT / "src" / "ui" / "controls.ahk").read_text(encoding="utf-8-sig")
@@ -89,8 +90,8 @@ expect(
     "Live message feed scrolling remains wired to custom scrollbar",
     "void ScrollChatToThumb(int y, int dragOffset)" in source
     and "readonly BufferedScrollbar goldScrollbar = new()" in source
-    and "new ResizeObserver(metrics).observe(feed);" in source
-    and "feed.addEventListener('scroll',metrics);" in source,
+    and "new ResizeObserver(metrics).observe(feed);" in message_page
+    and "feed.addEventListener('scroll',metrics);" in message_page,
 )
 expect(
     "Game Chat can reopen from older-message anchors and keeps scrolling activity from expiring the panel",
@@ -99,7 +100,7 @@ expect(
     and 'path.StartsWith(Channel + "/", StringComparison.OrdinalIgnoreCase)' in source
     and 'ulong.TryParse(path.AsSpan(Channel.Length + 1), System.Globalization.NumberStyles.None,' in source
     and 'if (!discordChannelReady && !connectingChat && !nativeMode)' in source
-    and "{type:'interaction',stopHistory:e.deltaY>0}" in source
+    and "{type:'interaction',stopHistory:e.deltaY>0}" in message_page
     and 'if (chatOpen) lastChatActivity = DateTime.Now;' in source
     and '!goldScrollbar.Capture &&' in source
     and 'goldScrollbar.MouseCaptureChanged +=' in source
@@ -395,21 +396,21 @@ expect(
         'goldScrollbar.Update();',
     )
     and '.WaitAsync(TimeSpan.FromSeconds(4))' in feed_transition
-    and "(!feed.clientWidth || !feed.clientHeight)" in source
-    and "return feed.querySelectorAll('.msg').length===messages.length;" in source,
+    and "(!feed.clientWidth || !feed.clientHeight)" in message_page
+    and "return feed.querySelectorAll('.msg').length===messages.length;" in message_page,
 )
 renderer_recovery = section_between(source, "void NavigateMessagePage()", "void ScrollHtml(")
 expect(
     "Game Chat retains Discord author colors and keeps the Yagrum relay styling",
-    '.user{color:inherit;' in source
-    and '.user.yagrum{color:#dbb243}' in source
+    '.user{color:inherit;' in message_page
+    and '.user.yagrum{color:#dbb243}' in message_page
     and "user.toLowerCase() === 'yagrum'" in source
     and "?.querySelector('[class*=\"botTag_\"]')" in source
     and 'isYagrum = entry.Value.IsYagrum' in source
     and 'authorColor = entry.Value.AuthorColor' in source
     and 'existing.AuthorColor != authorColor' in source
-    and "name.className=m.isYagrum?'user yagrum':'user'" in source
-    and "if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))" in source
+    and "name.className=m.isYagrum?'user yagrum':'user'" in message_page
+    and "if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))" in message_page
     and in_order(source, "const theme = document.getElementById('tes3np-chat-style')?.sheet;",
                  "if (restoreTheme) theme.disabled = true;", "const style = getComputedStyle(author);",
                  "if (restoreTheme) theme.disabled = false;", "contentNode?.innerText?.trim()"),
@@ -418,7 +419,9 @@ expect(
     "Stalled native rendering retries the local document without restarting Discord or redocking the chat",
     "nextMessagePageReload = DateTime.UtcNow.AddSeconds(8);" in renderer_recovery
     and "DateTime.UtcNow < nextMessagePageReload" in renderer_recovery
-    and "NavigateToString(MessagePage);" in renderer_recovery
+    and "NavigateToString(MessagePage.Value);" in renderer_recovery
+    and 'GetManifestResourceStream("tes3np.ChatHost.Web.MessageFeed.html")' in source
+    and '<EmbeddedResource Include="web\\message-feed.html" LogicalName="tes3np.ChatHost.Web.MessageFeed.html" />' in chat_project
     and 'RecoverMessagePage("page unavailable");' in source
     and 'RecoverMessagePage("page did not confirm message rows");' in source
     and "if (!docked) DockToLauncher();" in section_between(
@@ -2109,6 +2112,8 @@ expect(
     "EnsureEmbeddedChatHostCurrent(host)" in embedded_chat
     and "RunWait(" not in host_freshness
     and "dotnet publish" not in host_freshness.replace("RunWait(dotnet publish)", "")
+    and 'for pattern in ["\\*.cs", "\\tes3np.ChatHost.csproj", "\\web\\*.*"]' in host_freshness
+    and 'hostTime < A_LoopFileTimeModified' in host_freshness
     and "startup will not block on compilation" in host_freshness,
 )
 expect(
