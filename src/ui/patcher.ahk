@@ -178,14 +178,8 @@ PrepareExpansionOpenMWConfiguration(config, morrowind)
 
 UpdatePatchProgress(label, percent)
 {
-    global PatchFrame, ButtonFaces
-    text := label " (" percent "%)"
-    if IsObject(PatchFrame) && IsObject(PatchFrame.Panel)
-    {
-        PatchFrame.Panel.Text := text
-        ButtonFaces[PatchFrame.Panel.Hwnd].Progress := Max(0, Min(1, percent / 100))
-        PaintButtonNow(PatchFrame.Panel.Hwnd)
-    }
+    global PatchFrame
+    return UpdateExpansionLoadingProgress(PatchFrame, label " (" percent "%)", percent)
 }
 
 CheckPatchWorker()
