@@ -20,13 +20,14 @@ CaptureLauncherControlLayout()
     }
 }
 
-ApplyLauncherControlScale()
+ApplyLauncherControlScale(suspendRedraw := true)
 {
     global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherMorrowindFont
     if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
         return
     scale := LauncherScale / 100
-    DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+    if suspendRedraw
+        DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
         for hwnd, item in LauncherControlLayout
@@ -48,7 +49,9 @@ ApplyLauncherControlScale()
             LauncherHeading.SetFont("s" Round(19 * scale) " Norm c241408", LauncherMorrowindFont)
         ScaleLauncherVersionLabel(scale)
     }
-    finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+    finally
+        if suspendRedraw
+            DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
 }
@@ -134,7 +137,7 @@ GetAutomaticLauncherScale()
     return Max(50, Min(100, percent))
 }
 
-ApplyLauncherScaleToWindow()
+ApplyLauncherScaleToWindow(suspendRedraw := true)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
     global LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
@@ -154,7 +157,7 @@ ApplyLauncherScaleToWindow()
     y := top + Max(0, ((bottom - top) - height) // 2)
     if !DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010, "Int")
         throw OSError()
-    ApplyLauncherControlScale()
+    ApplyLauncherControlScale(suspendRedraw)
 
     ; Refresh the cache for settings previews and rollbacks.
     LauncherCachedScale := LauncherScale

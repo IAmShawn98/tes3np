@@ -540,19 +540,26 @@ CheckDisplaySettingsAndReleaseNotes()
     InitButtonPainter()
     try
     {
-        for percent in [50, 100, 0, 0]
+        for step, percent in [50, 100, 0, 0]
         {
             LauncherScaleMode := percent ? "Manual" : "Auto"
             if percent
                 LauncherScale := percent
-            settings.Show("w280 h170")
-            DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+            if step != 2
+            {
+                settings.Show("w280 h170")
+                DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+            }
             faceCount := ButtonFaces.Count
-            RefreshLauncherDisplay(percent ? "Applying display settings..." : "Resetting display settings...", settings)
+            message := step = 2 ? "Restoring display settings..."
+                : percent ? "Applying display settings..." : "Resetting display settings..."
+            RefreshLauncherDisplay(message, settings)
             control.GetPos(&x, &y, &width, &height)
             if Abs(width - Round(200 * LauncherScale / 100)) > 1 || Abs(y - Round(30 * LauncherScale / 100)) > 1
                 throw Error("Display refresh did not resize the launcher controls.")
             if !DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd, "Int")
+                || !DllCall("IsWindowEnabled", "Ptr", LauncherGui.Hwnd, "Int")
+                || DllCall("IsIconic", "Ptr", LauncherGui.Hwnd, "Int")
                 || DllCall("IsWindowVisible", "Ptr", settings.Hwnd, "Int") || ButtonFaces.Count != faceCount
                 throw Error("Display refresh did not restore the live launcher or release its loading card.")
         }
