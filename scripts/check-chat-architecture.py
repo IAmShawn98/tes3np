@@ -311,19 +311,22 @@ expect(
     and "messageBrowserReady = e.IsSuccess;" in source
     and "e.NavigationId != messagePageNavigationId" in source,
 )
+discord_auth = section_between(source, "async Task CheckDiscordAuthentication()", "static readonly Lazy<string> DiscordSignInScript")
+discord_recovery = section_between(source, "void RetryStalledDiscordChannel(", "async Task CheckDiscordAuthentication()")
 expect(
-    "First login reloads Discord channel once without launcher restart",
-    "channelReloadAfterSignInPending = true;" in source
-    and "channelReloadAfterSignInPending = false;" in source
-    and "web.CoreWebView2.Reload();" in source
+    "First login waits for actual message rows and only retries a stalled channel once",
+    "channelRetryAt = DateTime.UtcNow.AddSeconds(8);" in source
+    and "web.CoreWebView2.DOMContentLoaded +=" in source
+    and ".some(row => /^chat-messages-[0-9]+-[0-9]+$/.test(row.id))" in discord_auth
+    and in_order(discord_recovery, "DateTime.UtcNow < retryAt", "channelRetryAt = null;", "core.Reload();")
     and "bool keepChatVisible = discordSignInRequested &&" in source
     and 'path is "/quest-home" or "/quests" or "/shop" or "/store"' in source
     and in_order(
-        section_between(source, "async Task CheckDiscordAuthentication()", "static readonly Lazy<string> DiscordSignInScript"),
+        discord_auth,
         "IsDiscordAppRoute(url)",
         "RestoreGameChatAfterSignIn();",
         "core.Navigate(Channel);",
-        "web.CoreWebView2.Reload();",
+        'if (!onChannel || state != "\\"chat\\"")',
         "discordChannelReady = true;",
     )
     and in_order(
@@ -332,6 +335,16 @@ expect(
         "web.Parent = chatViewport;",
         "ShowConnectingChat();",
     ),
+)
+
+expect(
+    "Discord credential submission updates the launcher using profile-checking state",
+    'AddScriptToExecuteOnDocumentCreatedAsync(DiscordSignInProgressScript.Value)' in source
+    and in_order(source, 'case "tes3np-sign-in-started":',
+                 "SetDiscordAccountStatus(DiscordAccountStatus.Checking);", "PublishDiscordAccount();",
+                 'case "tes3np-sign-in-rejected":', "SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);")
+    and 'status = 0 ? "Loading Profile..." : "Log In"' in embedded_chat
+    and 'status != 2 && (nameSize || imageSize)' in embedded_chat,
 )
 
 show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")
@@ -1849,7 +1862,7 @@ expect(
     and "parent.querySelector('input,button[type=submit]')" in discord_sign_in
     and "later.type = 'button';" in discord_sign_in
     and "chrome.webview.postMessage('tes3np-sign-in-later');" in discord_sign_in
-    and 'args.TryGetWebMessageAsString() == "tes3np-sign-in-later"' in source
+    and in_order(source, "switch (args.TryGetWebMessageAsString())", 'case "tes3np-sign-in-later":', "DismissDiscordSignIn();")
     and 'requestAnimationFrame(resetIfUntouched);' in discord_sign_in
     and "position:static !important;" in discord_sign_in
     and "min-height:44px !important" in discord_sign_in

@@ -25,6 +25,8 @@ internal sealed partial class GameChatWindow
 
     bool discordSignInRequested;
 
+    DateTime discordSignInAttemptExpires;
+
     bool checkingDiscordAuthentication;
 
     ulong discordNavigationId;
@@ -42,10 +44,8 @@ internal sealed partial class GameChatWindow
     // to display Happy Hour, even if Discord is signed out.
     bool discordChannelReady;
 
-    // Discord's initial sign-in often hands off to a partly mounted
-    // channel SPA. Reload that channel exactly once after login so native
-    // Game Chat receives a fully initialized post-auth feed.
-    bool channelReloadAfterSignInPending;
+    // Retry the first authenticated channel load once if its feed stalls.
+    DateTime? channelRetryAt;
 
     readonly string cssFile = Path.Combine(AppContext.BaseDirectory, "chat.css");
 
@@ -106,23 +106,18 @@ internal sealed partial class GameChatWindow
             await web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                 "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
                 "; const install=()=>{if(!document.head)return;let s=document.getElementById('tes3np-chat-style');if(!s){s=document.createElement('style');s.id='tes3np-chat-style';document.head.appendChild(s)}s.textContent=css;if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f)}};install();document.addEventListener('DOMContentLoaded',install);new MutationObserver(()=>{if(!document.getElementById('tes3np-chat-style')||(document.body&&!document.getElementById('tes3np-frame')))install()}).observe(document,{childList:true,subtree:true});})()");
-            // The Not Now control lives inside Discord's own scrolling form,
-            // but its click is handled by the existing native Chat Host.
-            web.CoreWebView2.WebMessageReceived += (_, args) =>
-            {
-                try
-                {
-                    if (discordLoginVisible &&
-                        args.Source.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase) &&
-                        args.TryGetWebMessageAsString() == "tes3np-sign-in-later")
-                        DismissDiscordSignIn();
-                }
-                catch (Exception ex) { Log("Discord cancellation: " + ex.GetType().Name); }
-            };
+            await web.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(DiscordSignInProgressScript.Value);
+            web.CoreWebView2.WebMessageReceived += (_, args) => HandleDiscordSignInMessage(args);
             web.CoreWebView2.NavigationStarting += (_, e) =>
             {
                 discordNavigationId = e.NavigationId;
                 discordNavigationInProgress = true;
+            };
+            web.CoreWebView2.DOMContentLoaded += async (_, e) =>
+            {
+                if (e.NavigationId != discordNavigationId) return;
+                discordNavigationInProgress = false;
+                await CheckDiscordAuthentication();
             };
             web.CoreWebView2.NavigationCompleted += async (_, e) =>
             {
@@ -208,6 +203,53 @@ internal sealed partial class GameChatWindow
             path is "/quest-home" or "/quests" or "/shop" or "/store";
     }
 
+    static bool IsDiscordSignInRoute(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps &&
+        uri.Host == "discord.com" && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
+        uri.AbsolutePath.TrimEnd('/') is "/login" or "/register";
+
+    void HandleDiscordSignInMessage(CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        var core = web.CoreWebView2;
+        if (closingChat || !discordLoginVisible || signingOutDiscord || core == null ||
+            !IsDiscordSignInRoute(args.Source) || !IsDiscordSignInRoute(core.Source)) return;
+        try
+        {
+            switch (args.TryGetWebMessageAsString())
+            {
+                case "tes3np-sign-in-started":
+                    discordSignInRequested = true;
+                    discordSignInAttemptExpires = DateTime.UtcNow.AddSeconds(30);
+                    SetDiscordAccountStatus(DiscordAccountStatus.Checking);
+                    Log("CHAT | Discord sign-in submitted");
+                    PublishDiscordAccount();
+                    break;
+                case "tes3np-sign-in-rejected":
+                    if (discordSignInAttemptExpires == default) break;
+                    SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
+                    PublishDiscordAccount();
+                    break;
+                case "tes3np-sign-in-later":
+                    DismissDiscordSignIn();
+                    break;
+            }
+        }
+        catch (Exception ex) { Log("Discord sign-in event: " + ex.GetType().Name); }
+    }
+
+    void RetryStalledDiscordChannel(CoreWebView2 core)
+    {
+        if (channelRetryAt is not { } retryAt || DateTime.UtcNow < retryAt) return;
+        channelRetryAt = null;
+        Log("CHAT | First Discord feed stalled; retrying the channel");
+        try
+        {
+            if (IsGameChatRoute(core.Source ?? "")) core.Reload();
+            else core.Navigate(Channel);
+        }
+        catch (Exception ex) { Log("Discord channel retry: " + ex.GetType().Name); }
+    }
+
     async Task CheckDiscordAuthentication()
     {
         if (web.CoreWebView2 == null || closingChat || signingOutDiscord || checkingDiscordAuthentication) return;
@@ -217,19 +259,23 @@ internal sealed partial class GameChatWindow
             var core = web.CoreWebView2;
             string url = core.Source ?? "";
             ulong navigationId = discordNavigationId;
-            bool onLogin = url.StartsWith("https://discord.com/login", StringComparison.OrdinalIgnoreCase)
-                || url.StartsWith("https://discord.com/register", StringComparison.OrdinalIgnoreCase);
-            if (onLogin) {
-                SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
+            if (IsDiscordSignInRoute(url)) {
+                if (DateTime.UtcNow >= discordSignInAttemptExpires)
+                    SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
                 SuspendHappyHourUntilDiscordReturns("sign-in URL");
                 ShowDiscordSignIn();
                 await StyleDiscordLogin();
                 return;
             }
-            if (discordNavigationInProgress) return;
+            if (discordNavigationInProgress)
+            {
+                RetryStalledDiscordChannel(core);
+                return;
+            }
             string state = await core.ExecuteScriptAsync(
                 "(() => { if (document.readyState === 'loading') return 'loading'; " +
-                "if (document.querySelector('[data-list-id=chat-messages]')) return 'chat'; " +
+                "if ([...document.querySelectorAll('[data-list-id=chat-messages] [id^=chat-messages-]')]" +
+                ".some(row => /^chat-messages-[0-9]+-[0-9]+$/.test(row.id))) return 'chat'; " +
                 "if (document.querySelector('input[type=password]')) return 'login'; " +
                 "const t = document.body?.innerText || ''; " +
                 "if (/Discord App Detected|Discord App Launched/i.test(t)) return 'app-prompt'; " +
@@ -266,18 +312,14 @@ internal sealed partial class GameChatWindow
                     return;
                 }
             }
-            if (state == "\"loading\"") return;
-            _ = RefreshDiscordAccount(core, navigationId, url);
-            if (!onChannel) return;
-            if (channelReloadAfterSignInPending)
+            if (state != "\"loading\"")
+                _ = RefreshDiscordAccount(core, navigationId, url);
+            if (!onChannel || state != "\"chat\"")
             {
-                // The first channel document after login can mount without a feed.
-                channelReloadAfterSignInPending = false;
-                Log("CHAT | First sign-in complete; reloading channel once to finish feed initialization");
-                web.CoreWebView2.Reload();
+                RetryStalledDiscordChannel(core);
                 return;
             }
-            if (state != "\"chat\"") return;
+            channelRetryAt = null;
             SetDiscordAccountStatus(DiscordAccountStatus.SignedIn);
             if (!discordChannelReady) {
                 discordChannelReady = true;
@@ -291,11 +333,18 @@ internal sealed partial class GameChatWindow
             }
             CompletePendingExpansionPrompt();
         }
-        catch (Exception ex) { Log("Discord auth check: " + ex.GetType().Name); }
+        catch (Exception ex)
+        {
+            Log("Discord auth check: " + ex.GetType().Name);
+            if (!closingChat && !IsDisposed && !signingOutDiscord && web.CoreWebView2 is { } core &&
+                !IsDiscordSignInRoute(core.Source ?? ""))
+                RetryStalledDiscordChannel(core);
+        }
         finally { checkingDiscordAuthentication = false; }
     }
 
     static readonly Lazy<string> DiscordSignInScript = GameChatWeb.Page("discord-sign-in.js");
+    static readonly Lazy<string> DiscordSignInProgressScript = GameChatWeb.Page("discord-sign-in-progress.js");
 
     // Keep Discord's own inputs and authentication handlers intact.
     async Task StyleDiscordLogin()
@@ -312,14 +361,15 @@ internal sealed partial class GameChatWindow
                 discordIntegrationLogoDataUrl ??= "data:image/png;base64," +
                     Convert.ToBase64String(File.ReadAllBytes(logoFile));
                 if (await web.CoreWebView2.ExecuteScriptAsync(
-                    "Boolean(window.__tes3npIntegrationLogo)") != "true")
+                    "Boolean(window.__tes3npIntegrationLogo)").WaitAsync(TimeSpan.FromSeconds(2)) != "true")
                 {
                     await web.CoreWebView2.ExecuteScriptAsync(
                         "window.__tes3npIntegrationLogo = " +
-                        System.Text.Json.JsonSerializer.Serialize(discordIntegrationLogoDataUrl) + ";");
+                        System.Text.Json.JsonSerializer.Serialize(discordIntegrationLogoDataUrl) + ";")
+                        .WaitAsync(TimeSpan.FromSeconds(2));
                 }
             }
-            await web.CoreWebView2.ExecuteScriptAsync(DiscordSignInScript.Value);
+            await web.CoreWebView2.ExecuteScriptAsync(DiscordSignInScript.Value).WaitAsync(TimeSpan.FromSeconds(2));
         }
         catch (Exception ex) { Log("Discord login theme: " + ex.GetType().Name); }
     }
@@ -355,6 +405,11 @@ internal sealed partial class GameChatWindow
         if (discordSignInWindow is { IsDisposed: false } popup)
             popup.Hide();
         discordSignInRequested = false;
+        if (discordAccountStatus == DiscordAccountStatus.Checking && discordSignInAttemptExpires != default)
+        {
+            SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
+            PublishDiscordAccount();
+        }
         CancelPendingExpansionPrompt();
     }
 
@@ -392,7 +447,6 @@ internal sealed partial class GameChatWindow
         // a clearly named native window, never create another login session.
         if (discordLoginVisible) return;
         connectingChat = false;
-        channelReloadAfterSignInPending = true;
         showChatAfterDiscordSignIn = chatOpen || chatDisplayMode == "Always Shown" || freshDiscordProfile;
         discordLoginVisible = true;
         nativeMode = false;
@@ -436,6 +490,13 @@ internal sealed partial class GameChatWindow
     {
         if (!discordLoginVisible) return;
         Log("Discord chat detected: restoring custom Game Chat");
+        discordSignInAttemptExpires = default;
+        if (discordAccountStatus == DiscordAccountStatus.SignedOut)
+        {
+            SetDiscordAccountStatus(DiscordAccountStatus.Checking);
+            PublishDiscordAccount();
+        }
+        channelRetryAt = DateTime.UtcNow.AddSeconds(8);
         // Preserve the open request made while signing in. The existing
         // Game Chat window remains owned by the launcher throughout.
         bool keepChatVisible = discordSignInRequested &&
@@ -452,8 +513,7 @@ internal sealed partial class GameChatWindow
             discordSignInWindow = null;
             popup.Dispose();
         }
-        // Keep the panel open with a fresh "Connecting..." state while
-        // Discord finishes its one authenticated channel reload.
+        // Keep the panel open while the authenticated feed mounts.
         ShowConnectingChat();
         Text = "tes3np Chat Host";
         if (!docked) DockToLauncher();
@@ -462,9 +522,6 @@ internal sealed partial class GameChatWindow
             SetChatOpen(true);
         }
         PositionChatWindows();
-        // The post-auth channel reload is performed by
-        // CheckDiscordAuthentication exactly once. Its normal polling
-        // path will populate the now-initialized native renderer.
     }
 
     async Task UpdateViewMode()

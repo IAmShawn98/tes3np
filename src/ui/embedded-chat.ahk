@@ -132,7 +132,7 @@ ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
         return 0
     status := NumGet(payload, 0, "UInt")
     nameSize := NumGet(payload, 4, "UInt")
-    if status < 1 || status > 3 || nameSize > 256 || Mod(nameSize, 2) || nameSize + 8 > size
+    if status > 3 || nameSize > 256 || Mod(nameSize, 2) || nameSize + 8 > size
         return 0
     imageSize := size - nameSize - 8
     if imageSize > 32768 || (status != 2 && (nameSize || imageSize))
@@ -162,7 +162,7 @@ ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
         }
     }
 
-    SetTimer(ShowLauncherDiscordLoginIfLoading, 0)
+    SetTimer(ShowLauncherDiscordLoginIfLoading, status = 0 ? -60000 : 0)
     UpdateLauncherDiscordAccountDisplay(status, name)
     return 1
 }
@@ -184,11 +184,14 @@ UpdateLauncherDiscordAccountDisplay(status, name := "")
 {
     global LauncherDiscordName, LauncherDiscordPortrait, LauncherDiscordStatus
     LauncherDiscordStatus := status
-    LauncherDiscordName.Enabled := status = 1
+    LauncherDiscordName.Enabled := status <= 1
     LauncherDiscordPortrait.Enabled := status != 3
-    label := status = 1 ? "Log In" : status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
+    if status <= 1
+        label := status = 0 ? "Loading Profile..." : "Log In"
+    else
+        label := status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
     SetPaintedLabelText(LauncherDiscordName, label)
-    SetPaintedLabelText(LauncherDiscordPortrait, status = 1 ? "Log In to Discord" : "Discord account")
+    SetPaintedLabelText(LauncherDiscordPortrait, status <= 1 ? "Log In to Discord" : "Discord account")
 }
 
 ReleaseLauncherDiscordAvatar()
