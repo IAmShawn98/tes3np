@@ -1404,11 +1404,11 @@ expect(
     'SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)' in bootstrap
     and bootstrap.count("SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)") == 1
     and "SetTimer(CheckFirstRunMorrowind" not in bootstrap
-    and 'AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),' in settings_ui
+    and 'AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30),' in settings_ui
     and '"Close Settings", CloseLauncherSettingsV016.Bind(settings))' in settings_ui
     and '"Create Desktop Shortcut"' not in settings_ui
-    and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)' in settings_ui
-    and 'AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_ui
+    and 'AddStyledButton(settings, V016S(266), V016S(435) + copyExtra, V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)' in settings_ui
+    and 'AddStyledButton(settings, V016S(32), V016S(435) + copyExtra, V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))' in settings_ui
     and 'if !A_IsCompiled || !FileExist(A_ScriptDir "\\client\\tes3mp.exe")' in shortcut_offer
     and 'IniRead(DataFile, "Launcher", "DesktopShortcutChoice", "") != ""' in shortcut_offer
     and 'answer := MsgBox("Would you like a desktop shortcut for Nerevarine Prophecies?"' in shortcut_offer
@@ -1445,7 +1445,7 @@ characters_close = section_between(
 )
 expect(
     "Settings transparency is applied while hidden and launcher owns foreground before close",
-    'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
+    'settings.Show("Hide w" V016S(512) " h" (V016S(590) + settings.ParchmentExtra))' in settings_open
     and in_order(
         settings_open,
         'settings.Show("Hide w"',
@@ -1595,10 +1595,20 @@ expect(
     "Launcher Settings follows moved owner and current scale without losing parchment",
     'return Max(0.45, Min(GetOwnedMenuScale(), fit))' in settings_ui
     and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in settings_open
-    and 'settings.Show("Hide w" V016S(512) " h" V016S(590))' in settings_open
+    and 'settings.Show("Hide w" V016S(512) " h" (V016S(590) + settings.ParchmentExtra))' in settings_open
     and 'SetPageColorKey(settings, 0x010101)' in settings_open
     and 'staged := SetPageCompositorCloak(settings, true)' in settings_open
     and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in display_settings,
+)
+expect(
+    "Launcher Settings reserves its original geometry and reflows overflowing help text",
+    'label.GetPos(, , , &measuredHeight)' in settings_ui
+    and 'return Max(0, measuredHeight - reserved)' in settings_ui
+    and 'if extra <= settings.ParchmentExtra' in settings_ui
+    and 'settings.Parchment.Value := A_ScriptDir' in settings_ui
+    and 'AddV016SettingsCopy(settings, 32, V016S(196), 448, 40,' in settings_open
+    and 'AddV016SettingsCopy(settings, 32, V016S(269) + copyExtra, 448, 30,' in settings_open
+    and 'AddV016SettingsCopy(settings, 42, V016S(166), 428, 65,' in settings_ui,
 )
 expect(
     "Fresh and cached Character Book resize and position without rebuilding book state",
@@ -1889,6 +1899,14 @@ expect(
 )
 font_update = section_between(
     display_settings, "\nApplyAccessibilityTextSize()\n{", "\nApplyEnhancedReadability()\n{"
+)
+expect(
+    "The first menu button leaves the original Game Launcher heading outside its paint surface",
+    'y414 w300 h34 Center BackgroundTrans", "Game Launcher"' in front_layout
+    and 'AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters, A_Index = 1 ? 10 : 0)' in front_layout
+    and '(y - 11 + topPadding)' in controls
+    and 'paintTop := height - visibleHeight' in native_renderer
+    and '"Int", visibleHeight, "Ptr", dc, "Int", 0, "Int", paintTop' in native_renderer,
 )
 expect(
     "Display text changes never restore unscaled themed-button geometry",

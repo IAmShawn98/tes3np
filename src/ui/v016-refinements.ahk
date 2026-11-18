@@ -43,6 +43,28 @@ V016Font(value)
     return Max(7, Round(value * V016SettingsScale))
 }
 
+AddV016SettingsCopy(settings, x, y, width, reservedHeight, text)
+{
+    ; Let the native control measure the wrapped text with the current
+    ; font and DPI. Reuse the default space unless the copy needs more.
+    label := settings.Add("Text", "x" V016S(x) " y" y " w" V016S(width) " BackgroundTrans +Wrap", text)
+    label.GetPos(, , , &measuredHeight)
+    reserved := V016S(reservedHeight)
+    if measuredHeight < reserved
+        label.Move(, , , reserved)
+    return Max(0, measuredHeight - reserved)
+}
+
+GrowV016SettingsParchment(settings, extra)
+{
+    if extra <= settings.ParchmentExtra
+        return false
+    settings.ParchmentExtra := extra
+    settings.Parchment.Move(, , , V016S(650) + extra)
+    settings.Parchment.Value := A_ScriptDir "\\assets\\controls\\scroll-panel.png"
+    return true
+}
+
 GetV016SettingsFitScale()
 {
     global LauncherGui
@@ -154,7 +176,8 @@ OpenLauncherSettingsV016(*)
     V016ReadabilityState := settings.SavedReadability
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
+    settings.Parchment := settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
+    settings.ParchmentExtra := 0
 
     settings.SetFont("s" V016Font(19) " Norm c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(70) " y" V016S(121) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
@@ -169,36 +192,40 @@ OpenLauncherSettingsV016(*)
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(164) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(196) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    copyExtra := AddV016SettingsCopy(settings, 32, V016S(196), 448, 40,
+        "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(242) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
+    settings.Add("Text", "x" V016S(32) " y" (V016S(242) + copyExtra) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
     settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(237) " w" V016S(296) " Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x" V016S(184) " y" (V016S(237) + copyExtra) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(269) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    copyExtra += AddV016SettingsCopy(settings, 32, V016S(269) + copyExtra, 448, 30,
+        "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     readabilityPrefix := V016ReadabilityState ? "☑" : "■"
-    readability := settings.Add("Text", "x" V016S(32) " y" V016S(305) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
+    readability := settings.Add("Text", "x" V016S(32) " y" (V016S(305) + copyExtra) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
     settings.ReadabilityControl := readability
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(70) " y" V016S(335) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
+    copyExtra += AddV016SettingsCopy(settings, 70, V016S(335) + copyExtra, 410, 42,
+        "Improves readability by providing stronger contrast and brighter button text.")
+    GrowV016SettingsParchment(settings, copyExtra)
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
     reduceMotionBox := {Value: settings.SavedReduceMotion}
 
-    AddStyledButton(settings, V016S(32), V016S(387), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(266), V016S(387), V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(32), V016S(435), V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)
+    AddStyledButton(settings, V016S(32), V016S(387) + copyExtra, V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(266), V016S(387) + copyExtra, V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(32), V016S(435) + copyExtra, V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))
+    AddStyledButton(settings, V016S(266), V016S(435) + copyExtra, V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)
     ; Restore the original full-width Close Settings button exactly as it
     ; appeared before the desktop-shortcut button divided this row.
-    AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30),
+    AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30),
         "Close Settings", CloseLauncherSettingsV016.Bind(settings))
 
     ; Keep both parchment views in the same GUI. The common backdrop is never
@@ -220,7 +247,7 @@ OpenLauncherSettingsV016(*)
     staged := SetPageCompositorCloak(settings, true)
     try
     {
-        settings.Show("Hide w" V016S(512) " h" V016S(590))
+        settings.Show("Hide w" V016S(512) " h" (V016S(590) + settings.ParchmentExtra))
         ; Anchor after sizing, while still DWM-cloaked, to the actual current
         ; launcher HWND instead of Windows' stale/default page position.
         PositionOwnedMenuAtParent(settings, LauncherGui)
@@ -354,18 +381,20 @@ OpenAppDataSettingsV016(settings, *)
         ; The original 10pt Morrowind font was difficult to read at default
         ; scale. Use larger lettering and concise copy within the same panel.
         settings.SetFont("s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
-        settings.Add("Text", "x" V016S(42) " y" V016S(166) " w" V016S(428) " h" V016S(65) " BackgroundTrans",
+        copyExtra := AddV016SettingsCopy(settings, 42, V016S(166), 428, 65,
             "Characters and preferences are saved in AppData. Export characters before resetting.")
-        AddStyledButton(settings, V016S(32), V016S(243), V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
-        AddStyledButton(settings, V016S(32), V016S(284), V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
-        settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(284), V016S(214), V016S(30),
+        AddStyledButton(settings, V016S(32), V016S(243) + copyExtra, V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
+        AddStyledButton(settings, V016S(32), V016S(284) + copyExtra, V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
+        settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(284) + copyExtra, V016S(214), V016S(30),
             "Report A Bug", OpenBugReportPage.Bind(settings))
         settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-        settings.Add("Text", "x" V016S(32) " y" V016S(351) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
-        AddStyledButton(settings, V016S(32), V016S(385), V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
-        AddStyledButton(settings, V016S(32), V016S(426), V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
-        AddStyledButton(settings, V016S(266), V016S(426), V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
-        AddStyledButton(settings, V016S(32), V016S(483), V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
+        settings.Add("Text", "x" V016S(32) " y" (V016S(351) + copyExtra) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
+        AddStyledButton(settings, V016S(32), V016S(385) + copyExtra, V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
+        AddStyledButton(settings, V016S(32), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
+        AddStyledButton(settings, V016S(266), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
+        AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
+        if GrowV016SettingsParchment(settings, copyExtra)
+            settings.Show("NA h" (V016S(590) + settings.ParchmentExtra))
         for control in settings
             if !before.Has(control.Hwnd)
                 V016SettingsDataControls.Push(control)

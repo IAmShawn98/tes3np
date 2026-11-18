@@ -31,7 +31,7 @@ BuildFrontPage()
     global MenuRows
     MenuRows := []
     Loop 4
-        MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters))
+        MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters, A_Index = 1 ? 10 : 0))
     UpdateCharacterMenuLabel()
 }
 
