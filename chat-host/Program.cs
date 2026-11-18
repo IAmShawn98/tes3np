@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Runtime.InteropServices;
 using Microsoft.Web.WebView2.WinForms;
 using Microsoft.Web.WebView2.Core;
@@ -116,8 +117,10 @@ internal static class Program
             return;
         }
         if (args.Length < 1 || !long.TryParse(args[0], out long owner)) return;
+        int baseWidth = args.Length > 1 && int.TryParse(args[1], out int width) && width > 0
+            ? width : 960;
         ApplicationConfiguration.Initialize();
-        var chat = new ChatHost(new IntPtr(owner));
+        var chat = new ChatHost(new IntPtr(owner), baseWidth);
         Application.Run(chat);
         chat.WaitForChatArchiveOnExit();
     }
@@ -180,8 +183,9 @@ internal static class Program
     void ScrollChatToThumb(int y, int dragOffset)
     {
         if (!messageBrowserReady) return;
-        int track = Math.Max(1, goldScrollbar.Height-54);
-        ChatThumbY(goldScrollbar.Height, out int thumbHeight);
+        int height = ChatUnits(goldScrollbar.Height);
+        int track = Math.Max(1, height - 54);
+        ChatThumbY(height, out int thumbHeight);
         double fraction = (double)Math.Clamp(y-dragOffset-27,0,Math.Max(1,track-thumbHeight)) /
             Math.Max(1,track-thumbHeight);
         _ = messageBrowser.CoreWebView2.ExecuteScriptAsync(
@@ -196,6 +200,7 @@ internal static class Program
 
 
         readonly IntPtr owner;
+        readonly int launcherBaseWidth;
         readonly WebView2 web = new() { Dock = DockStyle.None };
         // The download browser lives in the EXISTING ChatHost but is a native
         // child of the AutoHotkey mismatch dialog, not another owned popup.
@@ -1025,7 +1030,6 @@ internal static class Program
             ReadOnly = true, BorderStyle = BorderStyle.None, ScrollBars = RichTextBoxScrollBars.None,
             BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
             ForeColor = System.Drawing.Color.FromArgb(237, 231, 220),
-            Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular),
             DetectUrls = false, TabStop = false, ShortcutsEnabled = false
         };
         readonly WebView2 messageBrowser = new() { Dock = DockStyle.Fill, Visible = true };
@@ -1194,7 +1198,7 @@ metrics();
         bool checkingDiscordAuthentication;
         ulong discordNavigationId;
         bool discordNavigationInProgress;
-        Form? discordSignInWindow;
+        DiscordSignInCard? discordSignInWindow;
         bool showChatAfterDiscordSignIn;
         string? discordIntegrationLogoDataUrl;
         // Authentication gates live Discord fetching/paging ONLY. A genuine
@@ -2593,7 +2597,7 @@ metrics();
             if (discordLoginVisible || !web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
             // Native clipping remains effective when WebView2 recreates its
             // composition surface after Discord finishes loading.
-            var region = CreateRectRgn(0, HeaderCrop, web.Width, web.Height);
+            var region = CreateRectRgn(0, ChatPixels(HeaderCrop), web.Width, web.Height);
             if (region == IntPtr.Zero) return;
             if (SetWindowRgn(web.Handle, region, true) == 0)
             {
@@ -2604,6 +2608,45 @@ metrics();
         }
         // Clip the Discord header outside the visible child window.
         const int HeaderCrop = 48;
+        double chatScale = 1;
+        Font? loadingFont;
+
+        static int Pixels(int value, double scale) =>
+            Math.Max(1, (int)Math.Round(value * scale, MidpointRounding.AwayFromZero));
+        int ChatPixels(int value) => Pixels(value, chatScale);
+        int ChatUnits(int pixels) => (int)Math.Floor(pixels / chatScale);
+
+        static Font PixelFont(string family, float points, FontStyle style, double scale = 1) =>
+            new(family, (float)(points * (96d / 72) * scale), style, GraphicsUnit.Pixel);
+
+        static void SetPopupFont(Control control, ref Font? ownedFont, Font font)
+        {
+            Font? previous = ownedFont;
+            ownedFont = font;
+            control.Font = font;
+            previous?.Dispose();
+        }
+
+        static void SetBrowserScale(WebView2 browser, double scale)
+        {
+            // WebView2 already accounts for Windows DPI. Apply only the
+            // remaining zoom needed to match the native popup's geometry.
+            double zoom = scale * 96 / browser.DeviceDpi;
+            if (Math.Abs(browser.ZoomFactor - zoom) > 0.005)
+                browser.ZoomFactor = zoom;
+        }
+
+        void UpdateChatScale(double scale)
+        {
+            if (chatScale == scale && loadingFont != null) return;
+            chatScale = scale;
+            SetPopupFont(nativeMessages, ref loadingFont, PixelFont("Georgia", 10, FontStyle.Regular, scale));
+            SetBrowserScale(messageBrowser, scale);
+            FitWebView();
+            goldScrollbar.Invalidate();
+            Invalidate();
+        }
+
         void FitWebView()
         {
             if (discordLoginVisible)
@@ -2612,11 +2655,14 @@ metrics();
                 return;
             }
             frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
-            messageClip.SetBounds(23, 60, Math.Max(1, ClientSize.Width - 60), Math.Max(1, ClientSize.Height - 78));
+            messageClip.SetBounds(ChatPixels(23), ChatPixels(60),
+                Math.Max(1, ClientSize.Width - ChatPixels(60)), Math.Max(1, ClientSize.Height - ChatPixels(78)));
             nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
             messageBrowser.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - 37), 56, 20, Math.Max(1, ClientSize.Height - 74));
-            chatViewport.SetBounds(14, 49, Math.Max(1, ClientSize.Width - 28), Math.Max(1, ClientSize.Height - 63));
+            goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - ChatPixels(37)), ChatPixels(56),
+                ChatPixels(20), Math.Max(1, ClientSize.Height - ChatPixels(74)));
+            chatViewport.SetBounds(ChatPixels(14), ChatPixels(49),
+                Math.Max(1, ClientSize.Width - ChatPixels(28)), Math.Max(1, ClientSize.Height - ChatPixels(63)));
             frameSurface.Invalidate();
             chatViewport.SendToBack();
             if (nativeMessages.Visible) messageClip.BringToFront();
@@ -2625,7 +2671,9 @@ metrics();
             // fetching, while only the native status panel is presented.
             chatViewport.Visible = !nativeMode && !connectingChat;
 
-            web.SetBounds(0, -HeaderCrop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + HeaderCrop);
+            int crop = ChatPixels(HeaderCrop);
+            web.SetBounds(0, -crop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + crop);
+            SetBrowserScale(web, chatScale);
             EnforceChatClip();
         }
         readonly string chatModeFile = Path.Combine(ChatDataRoot, "chat-display-mode.txt");
@@ -2788,9 +2836,11 @@ metrics();
             }
             catch { }
         }
-        public ChatHost(IntPtr owner)
+        public ChatHost(IntPtr owner, int launcherBaseWidth)
         {
             this.owner = owner;
+            this.launcherBaseWidth = launcherBaseWidth;
+            AutoScaleMode = AutoScaleMode.None;
             Text = "tes3np Chat Host";
             try
             {
@@ -2807,8 +2857,9 @@ metrics();
             Paint += (_, e) =>
             {
                 var g = e.Graphics;
-                int w = ClientSize.Width, h = ClientSize.Height;
+                int w = ChatUnits(ClientSize.Width), h = ChatUnits(ClientSize.Height);
                 g.Clear(System.Drawing.Color.FromArgb(9, 8, 7));
+                g.ScaleTransform((float)chatScale, (float)chatScale);
                 // Layered weathered-metal rim, dark recess, and engraved highlight.
                 using var rim = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(91, 65, 31));
                 using var metal = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(168, 131, 70));
@@ -2816,7 +2867,7 @@ metrics();
                 using var shadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(37, 26, 15), 3);
                 using var titleFill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(16, 12, 9));
                 using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
-                using var titleFont = new System.Drawing.Font("Georgia", 14, System.Drawing.FontStyle.Bold);
+                using var titleFont = PixelFont("Georgia", 14, FontStyle.Bold);
                 g.FillRectangle(rim, 0, 0, w, h);
                 // Recreate the reference's densely mottled bronze stone rather
                 // than overlaying speckles on the old horizontal wood texture.
@@ -2858,9 +2909,10 @@ metrics();
             frameSurface.Paint += (_, e) =>
             {
                 var g = e.Graphics;
-                int w = frameSurface.Width, h = frameSurface.Height;
+                int w = ChatUnits(frameSurface.Width), h = ChatUnits(frameSurface.Height);
                 if (w < 80 || h < 100) return;
                 g.Clear(System.Drawing.Color.FromArgb(13, 11, 9));
+                g.ScaleTransform((float)chatScale, (float)chatScale);
                 using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(151, 113, 58));
                 using var bright = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(211, 177, 110));
                 using var dark = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(57, 39, 21));
@@ -2918,7 +2970,7 @@ metrics();
                 g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
                 g.FillRectangle(black, 13, 52, w - 26, h - 65);
                 g.DrawLine(goldPen, 12, 51, w - 13, 51);
-                using var headingFont = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Regular);
+                using var headingFont = PixelFont("Georgia", 13, FontStyle.Regular);
                 var titleSize = g.MeasureString("Live Game Chat", headingFont);
                 g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 43);
                 using var centeredTitle = new System.Drawing.StringFormat
@@ -2944,10 +2996,10 @@ metrics();
             goldScrollbar.Paint += (_, e) =>
             {
                 var g = e.Graphics;
-                int h = goldScrollbar.ClientSize.Height, w = 20;
-                g.FillRectangle(System.Drawing.Brushes.Black, 0, 0, goldScrollbar.Width, h);
-                g.TranslateTransform(goldScrollbar.Width - w, 0);
+                int h = ChatUnits(goldScrollbar.ClientSize.Height), w = 20;
+                g.Clear(System.Drawing.Color.Black);
                 if (h < 65 || scrollbarTexture == null) return;
+                g.ScaleTransform((float)chatScale, (float)chatScale);
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
                 var image = scrollbarTexture;
                 // Keep the Morrowind arrow caps, but draw one continuous recessed
@@ -2998,18 +3050,20 @@ metrics();
             int dragOffset = -1;
             goldScrollbar.MouseDown += (_, e) =>
             {
-                if (!messageBrowserReady || e.X < goldScrollbar.Width - 20) return;
-                if (e.Y < 27 || e.Y >= goldScrollbar.Height - 27)
+                if (!messageBrowserReady) return;
+                int y = ChatUnits(e.Y);
+                int height = ChatUnits(goldScrollbar.Height);
+                if (y < 27 || y >= height - 27)
                 {
-                    ScrollHtml(e.Y < 27 ? -66 : 66);
+                    ScrollHtml(y < 27 ? -66 : 66);
                 }
                 else
                 {
-                    int thumbY = ChatThumbY(goldScrollbar.Height, out int thumbHeight);
-                    dragOffset = e.Y >= thumbY && e.Y < thumbY + thumbHeight
-                        ? e.Y - thumbY : thumbHeight / 2;
+                    int thumbY = ChatThumbY(height, out int thumbHeight);
+                    dragOffset = y >= thumbY && y < thumbY + thumbHeight
+                        ? y - thumbY : thumbHeight / 2;
                     goldScrollbar.Capture = true;
-                    ScrollChatToThumb(e.Y, dragOffset);
+                    ScrollChatToThumb(y, dragOffset);
                 }
                 goldScrollbar.Invalidate();
                 RequestOlderMessages();
@@ -3017,7 +3071,7 @@ metrics();
             goldScrollbar.MouseMove += (_, e) =>
             {
                 if (dragOffset < 0 || e.Button != MouseButtons.Left) return;
-                ScrollChatToThumb(e.Y, dragOffset);
+                ScrollChatToThumb(ChatUnits(e.Y), dragOffset);
             };
             goldScrollbar.MouseUp += (_, _) =>
             {
@@ -3026,20 +3080,16 @@ metrics();
                 // HTML scrolling ends when mouse capture is released.
                 goldScrollbar.Invalidate();
             };
-            messageClip.SetBounds(23, 60, Math.Max(1, frameSurface.Width - 60), Math.Max(1, frameSurface.Height - 78));
-            nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
-            goldScrollbar.SetBounds(Math.Max(0, frameSurface.Width - 37), 56, 20, Math.Max(1, frameSurface.Height - 74));
             // Keep the native scrollbar hidden until the first actual feed.
             goldScrollbar.Visible = false;
             nativeMessages.Visible = true;
             nativeMessages.Text = "Connecting to live chat...";
-            nativeMessages.Font = new System.Drawing.Font("Georgia", 10, System.Drawing.FontStyle.Regular);
             messageClip.BringToFront();
             goldScrollbar.BringToFront();
             Controls.Add(frameSurface);
             // Browser is inset; native host draws its own border outside the browser rectangle.
             Resize += (_, _) => FitWebView();
-            FitWebView();
+            UpdateChatScale(1);
             Log("Host launched; owner=" + owner);
             Width = 266; Height = 342;
             LoadLayout();
@@ -3154,6 +3204,7 @@ metrics();
                 discordSignInWindow?.Dispose();
                 borderTexture?.Dispose();
                 scrollbarTexture?.Dispose();
+                loadingFont?.Dispose();
             };
             watch.Tick += async (_, _) =>
             {
@@ -3176,7 +3227,7 @@ metrics();
                     SetChatOpen(false);
                 if (nativeMode && goldScrollbar.Visible)
                 {
-                    int thumbY = ChatThumbY(goldScrollbar.Height, out int thumbHeight);
+                    int thumbY = ChatThumbY(ChatUnits(goldScrollbar.Height), out int thumbHeight);
                     if (thumbY != lastThumbY || thumbHeight != lastThumbHeight)
                         goldScrollbar.Invalidate();
                 }
@@ -3681,32 +3732,123 @@ metrics();
             frameSurface.Invalidate();
             Log("CHAT | Waiting for authenticated message feed");
         }
-        // Only the Game Chat-triggered sign-in follows the normal dock.
-        // Expansion and all other authentication requests remain centered.
-        void PositionGameChatDiscordSignIn()
+        sealed class DiscordSignInCard : Form
         {
-            if (!discordSignInRequested || pendingExpansionPrompt != 0 ||
-                !IsWindow(owner) || discordSignInWindow is not { IsDisposed: false } popup ||
-                !GetWindowRect(owner, out var bounds)) return;
-            var work = Screen.FromHandle(owner).WorkingArea;
-            int popupWidth = popup.Width, popupHeight = popup.Height;
-            int normalChatWidth = Math.Min(chatWidth, work.Width);
-            int leftX = bounds.Left - normalChatWidth;
-            int rightX = bounds.Right;
-            int x;
-            if (leftX >= work.Left)
-                x = bounds.Left - popupWidth;
-            else if (rightX + normalChatWidth <= work.Right)
-                x = rightX;
-            else
-                x = bounds.Left - work.Left >= work.Right - bounds.Right
-                    ? bounds.Left - popupWidth : rightX;
-            x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - popupWidth));
-            int y = bounds.Top + (bounds.Bottom - bounds.Top - popupHeight) / 2;
-            y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - popupHeight));
-            var target = new System.Drawing.Point(x, y);
-            if (popup.Location != target) popup.Location = target;
+            public const int BaseWidth = 520, BaseHeight = 750;
+            readonly TableLayoutPanel shell = new()
+            {
+                Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
+                BackColor = Color.FromArgb(27, 20, 11)
+            };
+            readonly Label heading = new()
+            {
+                Text = "Sign In Required", Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = Color.FromArgb(226, 191, 119)
+            };
+            readonly Label help = new()
+            {
+                Text = "Connect your Discord account to access this feature.",
+                Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = Color.FromArgb(237, 225, 201)
+            };
+            readonly Button close = new()
+            {
+                Text = "×", FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(27, 20, 11),
+                ForeColor = Color.FromArgb(226, 191, 119),
+                Cursor = Cursors.Hand, TabStop = false
+            };
+            public Panel BrowserPanel { get; } = new() { Dock = DockStyle.Fill, BackColor = Color.Black };
+            Font? headingFont, helpFont, closeFont;
+            double lastScale;
+
+            public DiscordSignInCard(Action dismiss)
+            {
+                Text = "tes3np - Sign In Required";
+                AutoScaleMode = AutoScaleMode.None;
+                FormBorderStyle = FormBorderStyle.None;
+                StartPosition = FormStartPosition.Manual;
+                BackColor = Color.FromArgb(197, 164, 92);
+                ForeColor = Color.FromArgb(237, 225, 201);
+                MaximizeBox = false;
+                MinimizeBox = false;
+                ShowInTaskbar = false;
+                shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                shell.RowStyles.Add(new RowStyle(SizeType.Absolute));
+                shell.RowStyles.Add(new RowStyle(SizeType.Absolute));
+                shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                shell.Controls.Add(heading, 0, 0);
+                shell.Controls.Add(help, 0, 1);
+                shell.Controls.Add(BrowserPanel, 0, 2);
+                Controls.Add(shell);
+                close.FlatAppearance.BorderSize = 0;
+                close.Click += (_, _) => dismiss();
+                Controls.Add(close);
+                close.BringToFront();
+            }
+
+            public void ApplyLayout(Rectangle bounds, double scale, WebView2 browser)
+            {
+                if (lastScale == scale && Bounds == bounds) return;
+                if (lastScale == scale && Size == bounds.Size)
+                {
+                    Location = bounds.Location;
+                    return;
+                }
+                SuspendLayout();
+                shell.SuspendLayout();
+                try
+                {
+                    if (lastScale != scale)
+                    {
+                        lastScale = scale;
+                        Padding = new Padding(Pixels(2, scale));
+                        shell.Padding = new Padding(Pixels(12, scale));
+                        heading.Margin = help.Margin = BrowserPanel.Margin = new Padding(Pixels(3, scale));
+                        shell.RowStyles[0].Height = Pixels(45, scale);
+                        shell.RowStyles[1].Height = Pixels(50, scale);
+                        SetPopupFont(heading, ref headingFont, PixelFont("Georgia", 16, FontStyle.Bold, scale));
+                        SetPopupFont(help, ref helpFont, PixelFont("Segoe UI", 9, FontStyle.Regular, scale));
+                        SetPopupFont(close, ref closeFont, PixelFont("Segoe UI", 14, FontStyle.Bold, scale));
+                        SetBrowserScale(browser, scale);
+                    }
+                    Bounds = bounds;
+                    int buttonSize = Pixels(29, scale);
+                    close.SetBounds(bounds.Width - Pixels(39, scale), Pixels(6, scale), buttonSize, buttonSize);
+                }
+                finally
+                {
+                    shell.ResumeLayout(true);
+                    ResumeLayout(true);
+                }
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                base.Dispose(disposing);
+                if (!disposing) return;
+                headingFont?.Dispose();
+                helpFont?.Dispose();
+                closeFont?.Dispose();
+            }
         }
+
+        // Game Chat sign-in follows its dock. Expansion authentication uses the
+        // same sized card, centered in the launcher's monitor work area.
+        void PositionDiscordSignIn(RECT ownerBounds, Rectangle work, double launcherScale, int dockWidth)
+        {
+            if (discordSignInWindow is not { IsDisposed: false } popup) return;
+            double scale = FitPopupScale(launcherScale,
+                DiscordSignInCard.BaseWidth, DiscordSignInCard.BaseHeight, work, 12);
+            var size = new Size(Pixels(DiscordSignInCard.BaseWidth, scale), Pixels(DiscordSignInCard.BaseHeight, scale));
+            Rectangle target = pendingExpansionPrompt == 0
+                ? DockBounds(ownerBounds, work, size, dockWidth)
+                : new Rectangle(work.Left + (work.Width - size.Width) / 2,
+                    work.Top + (work.Height - size.Height) / 2, size.Width, size.Height);
+            popup.ApplyLayout(target, scale, web);
+        }
+
         void DismissDiscordSignIn()
         {
             if (discordSignInWindow is { IsDisposed: false } popup)
@@ -3730,7 +3872,7 @@ metrics();
         {
             discordSignInRequested = true;
             if (discordSignInWindow is not { IsDisposed: false } popup) return;
-            PositionGameChatDiscordSignIn();
+            PositionChatWindows();
             if (!popup.Visible) popup.Show();
             if (web.CoreWebView2 != null)
                 _ = web.CoreWebView2.ExecuteScriptAsync(
@@ -3759,81 +3901,25 @@ metrics();
             if (web.IsHandleCreated) SetWindowRgn(web.Handle, IntPtr.Zero, true);
             SetChatOpen(false);
 
-            var area = Screen.FromHandle(owner).WorkingArea;
-            int width = Math.Max(360, Math.Min(520, area.Width - 24));
-            int height = Math.Max(440, Math.Min(750, area.Height - 24));
-            var popup = new Form
+            var popup = new DiscordSignInCard(DismissDiscordSignIn);
+            popup.FormClosing += (_, e) =>
             {
-                Text = "tes3np - Sign In Required",
-                // Titlebar-free, gold-bordered native card like the launcher
-                // changelog panels. Keep explicit close controls below.
-                FormBorderStyle = FormBorderStyle.None,
-                Padding = new Padding(2),
-                StartPosition = FormStartPosition.Manual,
-                Location = new System.Drawing.Point(
-                    area.Left + (area.Width - width) / 2,
-                    area.Top + (area.Height - height) / 2),
-                ClientSize = new System.Drawing.Size(width, height),
-                BackColor = System.Drawing.Color.FromArgb(197, 164, 92),
-                ForeColor = System.Drawing.Color.FromArgb(237, 225, 201),
-                MaximizeBox = false,
-                MinimizeBox = false,
-                ShowInTaskbar = false
-            };
-            var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
-                Padding = new Padding(12),
-                BackColor = System.Drawing.Color.FromArgb(27, 20, 11) };
-            shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
-            shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            var heading = new Label { Text = "Sign In Required", Dock = DockStyle.Fill,
-                TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
-                ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
-                Font = new System.Drawing.Font("Georgia", 16, System.Drawing.FontStyle.Bold) };
-            var help = new Label { Text = "Connect your Discord account to access this feature.",
-                Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
-                ForeColor = System.Drawing.Color.FromArgb(237, 225, 201) };
-            var browserPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
-            popup.FormClosing += (_, e) => {
-                if (!closingChat) {
+                if (!closingChat)
+                {
                     e.Cancel = true;
                     DismissDiscordSignIn();
                 }
             };
-            shell.Controls.Add(heading, 0, 0);
-            shell.Controls.Add(help, 0, 1);
-            shell.Controls.Add(browserPanel, 0, 2);
-            popup.Controls.Add(shell);
-            // Without a Windows caption there must still be an obvious,
-            // accessible way to close the sign-in before authenticating.
-            // The Game Chat tab and in-page Not Now control remain alternatives.
-            var closeButton = new Button {
-                Text = "×",
-                Location = new System.Drawing.Point(width - 39, 6),
-                Size = new System.Drawing.Size(29, 29),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = System.Drawing.Color.FromArgb(27, 20, 11),
-                ForeColor = System.Drawing.Color.FromArgb(226, 191, 119),
-                Font = new System.Drawing.Font("Segoe UI", 14, System.Drawing.FontStyle.Bold),
-                Cursor = Cursors.Hand,
-                TabStop = false
-            };
-            closeButton.FlatAppearance.BorderSize = 0;
-            closeButton.Click += (_, _) => DismissDiscordSignIn();
-            popup.Controls.Add(closeButton);
-            closeButton.BringToFront();
             discordSignInWindow = popup;
-            PositionGameChatDiscordSignIn();
             web.Dock = DockStyle.Fill;
-            web.Parent = browserPanel;
+            web.Parent = popup.BrowserPanel;
+            PositionChatWindows();
             web.Visible = true;
             // Keep the authentication WebView2 alive for background channel /
             // Happy Hour discovery without interrupting a clean first launch.
             // The same popup becomes visible on a user-initiated action.
-            if (discordSignInRequested) popup.Show();
             SetNativeWindowOwner(popup.Handle, owner);
+            if (discordSignInRequested) popup.Show();
             Log(discordSignInRequested
                 ? "Discord login: user-requested sign-in window opened"
                 : "Discord login: ready but deferred until requested");
@@ -3906,15 +3992,6 @@ metrics();
             if (pendingExpansionPrompt != 0) return;
             pendingExpansionPrompt = mode;
             restoreChatAfterExpansionPrompt = !chatOpen;
-            // Keep the existing centered behavior for Expansion Pack auth
-            // even if Game Chat previously positioned this reusable popup.
-            if (discordSignInWindow is { IsDisposed: false } popup)
-            {
-                var area = Screen.FromHandle(owner).WorkingArea;
-                popup.Location = new System.Drawing.Point(
-                    area.Left + (area.Width - popup.Width) / 2,
-                    area.Top + (area.Height - popup.Height) / 2);
-            }
             if (!discordChannelReady) discordSignInRequested = true;
             if (discordLoginVisible) RevealDiscordSignInWindow();
             // The previous channelReady flag may be stale after a sign-out.
@@ -4062,6 +4139,7 @@ metrics();
                 return;
             }
             chatOpen = show;
+            PositionChatWindows();
             if (IsHandleCreated)
             {
                 // SW_SHOW (5) activates this owned popup and steals foreground
@@ -4070,48 +4148,43 @@ metrics();
                 if (show) ShowWindow(Handle, 4); // SW_SHOWNOACTIVATE
                 else ShowWindow(Handle, 0);
             }
-            PositionChatWindows();
             NotifyLauncherChatState();
         }
+        static double FitPopupScale(double requested, int width, int height, Rectangle work, int margin = 0) =>
+            Math.Min(requested, Math.Min(Math.Max(1, work.Width - margin * 2) / (double)width,
+                Math.Max(1, work.Height - margin * 2) / (double)height));
+
+        static Rectangle DockBounds(RECT ownerBounds, Rectangle work, Size size, int dockWidth)
+        {
+            // Prefer the left dock, choose the right when it fits, otherwise
+            // use the side with more room and keep the whole popup onscreen.
+            int leftSpace = ownerBounds.Left - work.Left;
+            int rightSpace = work.Right - ownerBounds.Right;
+            bool dockLeft = leftSpace >= dockWidth ||
+                (rightSpace < dockWidth && leftSpace >= rightSpace);
+            int x = dockLeft ? ownerBounds.Left - size.Width : ownerBounds.Right;
+            int y = ownerBounds.Top + (ownerBounds.Bottom - ownerBounds.Top - size.Height) / 2;
+            return new Rectangle(Math.Clamp(x, work.Left, work.Right - size.Width),
+                Math.Clamp(y, work.Top, work.Bottom - size.Height), size.Width, size.Height);
+        }
+
         void PositionChatWindows()
         {
-            // The existing chat polling is a safety net for missed native
-            // movement events, regardless of whether the hook installed.
-            // The native helper is a no-op if the banner is already aligned.
+            // Native owner movement covers scale previews and their rollback.
+            // Chat polling also repairs placement if the native hook is unavailable.
             PositionHappyHourBanner();
-            if (discordLoginVisible && discordSignInRequested && pendingExpansionPrompt == 0)
-                PositionGameChatDiscordSignIn();
-            if (!IsWindow(owner) || !GetWindowRect(owner, out var bounds)) return;
-            // Discord authentication has its own window; the docked Game Chat
-            // always retains its normal height, even when signed out.
-            int windowHeight = chatHeight;
+            if (!IsWindow(owner) || !GetWindowRect(owner, out var bounds) ||
+                bounds.Right <= bounds.Left || IsIconic(owner)) return;
             var work = Screen.FromHandle(owner).WorkingArea;
-            windowHeight = Math.Min(windowHeight, work.Height);
-            int y = bounds.Top + (bounds.Bottom - bounds.Top - windowHeight) / 2;
-            y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - windowHeight));
-            // The approved dock is to the left of TES3NP when space permits.
-            // If the launcher is near a monitor edge, the old negative X
-            // left Game Chat clipped/offscreen. Choose the right when it fits,
-            // otherwise clamp the complete panel to the monitor working area.
-            int panelWidth = Math.Min(chatWidth, work.Width);
-            int leftX = bounds.Left - panelWidth;
-            int rightX = bounds.Right;
-            int x;
-            if (leftX >= work.Left)
-                x = leftX;
-            else if (rightX + panelWidth <= work.Right)
-                x = rightX;
-            else
-            {
-                // A maximized or very wide launcher leaves no full-width
-                // outside dock: favor the side with more visible space.
-                int leftSpace = Math.Max(0, bounds.Left - work.Left);
-                int rightSpace = Math.Max(0, work.Right - bounds.Right);
-                x = leftSpace >= rightSpace ? work.Left : work.Right - panelWidth;
-            }
-            x = Math.Clamp(x, work.Left, Math.Max(work.Left, work.Right - panelWidth));
-            if (chatOpen)
-                MoveWindow(Handle, x, y, panelWidth, windowHeight, true);
+            if (work.Width <= 0 || work.Height <= 0) return;
+            double launcherScale = (bounds.Right - bounds.Left) / (double)launcherBaseWidth;
+            double scale = FitPopupScale(launcherScale, chatWidth, chatHeight, work);
+            UpdateChatScale(scale);
+            var size = new Size(ChatPixels(chatWidth), ChatPixels(chatHeight));
+            PositionDiscordSignIn(bounds, work, launcherScale, size.Width);
+            var target = DockBounds(bounds, work, size, size.Width);
+            if (chatOpen && Bounds != target)
+                MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);
         }
         void DockToLauncher()
         {
