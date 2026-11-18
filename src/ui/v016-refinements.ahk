@@ -313,7 +313,7 @@ ApplyV016LauncherSettings(settings, scaleList, textList, readabilityValue, reduc
     global V016ReadabilityState, V016FollowWindowsState
     readabilityValue.Value := V016ReadabilityState
     followWindowsValue.Value := V016FollowWindowsState
-    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Applying launcher settings...")
+    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue)
 }
 
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue, *)
@@ -327,7 +327,7 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
     V016ReadabilityState := 0, V016FollowWindowsState := 1
     readability.Text := V016CheckLabel(0, "Enhanced readability")
     readabilityValue.Value := 0, reduceMotionBox.Value := 0, followWindowsValue.Value := 1
-    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Resetting launcher settings...")
+    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue)
 }
 
 OpenAppDataSettingsV016(settings, *)

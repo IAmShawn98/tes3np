@@ -72,7 +72,7 @@ ScaleChoiceIndex(scale)
     return Max(1, Min(6, ((scale - 50) // 10) + 1))
 }
 
-PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, loadingMessage, *)
+PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, *)
 {
     global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
     global V016ReadabilityState, V016FollowWindowsState
@@ -104,7 +104,7 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     settings.Hide()
     try
     {
-        RefreshLauncherDisplay(loadingMessage)
+        RefreshLauncherDisplay()
         LauncherGui.Opt("+OwnDialogs")
         result := MsgBox("Do these display settings look good?`n`nChoose Yes to keep them. Choose No to return to your previous settings.", "tes3np — Confirm Display Settings", "YesNo Icon?")
         if result = "Yes"
@@ -126,7 +126,7 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
     LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability, ReduceMotion := oldReduceMotion, FollowWindowsAccessibility := oldFollowWindows
-    try RefreshLauncherDisplay("Restoring previous display settings...")
+    try RefreshLauncherDisplay()
     ; A declined preview must restore the visible selectors as well as the
     ; launcher geometry. Otherwise Reset/Preview can leave controls showing
     ; defaults until the next login even though the old state was restored.
@@ -153,20 +153,19 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
 }
 
-RefreshLauncherDisplay(message)
+RefreshLauncherDisplay()
 {
     global LauncherGui
+    cloaked := SetPageCompositorCloak(LauncherGui, true)
     try
     {
-        BeginInterfaceUpdate(LauncherGui, message, true, 8)
-        SetInterfaceLoadingText("Adjusting launcher size...")
         ApplyLauncherScaleToWindow(true)
-        SetInterfaceLoadingText("Updating interface text...")
         ApplyAccessibilityTextSize()
-        SetInterfaceLoadingText("Updating readability...")
         ApplyEnhancedReadability()
     }
-    finally EndInterfaceUpdate()
+    finally
+        if cloaked
+            RevealPaintedPage(LauncherGui)
 }
 
 SaveLauncherDisplaySettings(scale, textSize, readability, reduceMotion, followWindows)
@@ -217,7 +216,7 @@ ApplyAccessibilityTextSize()
             size := AccessibilityFontSize(10)
             if face.HasOwnProp("BaseWidth") && face.BaseWidth < 180
                 size := Min(size, 11)
-            face.Control.SetFont("s" Max(7, Round(size * scale)) " Bold", "Segoe UI")
+            face.Control.SetFont("s" Max(5, Round(size * scale)) " Bold", "Segoe UI")
         }
     }
     finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)

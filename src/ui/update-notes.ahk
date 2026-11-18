@@ -103,7 +103,7 @@ WrapReleaseNoteLines(line, control, maxWidth)
 
 ; Render plain category headings and bullet points, as shown in RELEASE_NOTES.md.
 ; Each on-screen row is measured in the real control font before scrolling.
-BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
+BuildStyledReleaseNoteRows(content, measureRow, maxWidth, scale)
 {
     rows := []
     for entry in StrSplit(StrReplace(content, "`r", ""), "`n") {
@@ -123,11 +123,11 @@ BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
             line := StrReplace(line, "**", "")
         }
-        measureRow.SetFont(kind = "heading" ? "s11 Bold cE7BE70" : "s10 cF4E9D6", "Segoe UI")
+        measureRow.SetFont(UpdateNoteFont(kind, scale), "Segoe UI")
         for part in WrapReleaseNoteLines(line, measureRow, maxWidth)
             rows.Push({Text: part, Kind: kind})
     }
-    measureRow.SetFont("s10 cF4E9D6", "Segoe UI")
+    measureRow.SetFont(UpdateNoteFont("body", scale), "Segoe UI")
     if !rows.Length
         rows.Push({Text: "No release notes available.", Kind: "body"})
     return rows
@@ -207,23 +207,33 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     return 0
 }
 
-AddUpdateNotesViewport(panel, notes)
+UpdateNoteFont(kind, scale)
 {
-    panel.SetFont("s10 cEDE1C9", "Segoe UI")
-    viewport := panel.Add("Text", "x28 y158 w744 h367 BackgroundC5A45C")
-    panel.Add("Text", "x30 y160 w740 h363 Background171008")
+    points := (kind = "heading" ? 11 : 10) * scale
+    size := Max(1, Round(Max(7, points) * 96 / A_ScreenDPI))
+    return "s" size (kind = "heading" ? " Bold cE7BE70" : " Norm cF4E9D6")
+}
+
+AddUpdateNotesViewport(panel, notes, scale)
+{
+    px := (value) => Round(value * scale)
+    viewport := panel.Add("Text", "x" px(28) " y" px(158) " w" px(744) " h" px(367) " BackgroundC5A45C")
+    panel.Add("Text", "x" px(30) " y" px(160) " w" px(740) " h" px(363) " Background171008")
     page := {Offset: 1, Lines: [], Visible: 13}
     noteRows := []
     rowStyles := []
+    panel.SetFont(UpdateNoteFont("body", scale), "Segoe UI")
     Loop page.Visible {
-        panel.SetFont("s10 cF4E9D6", "Segoe UI")
-        noteRows.Push(panel.Add("Text", "x42 y" (176 + (A_Index - 1) * 26) " w686 h24 Background171008 +0x80", ""))
+        noteRows.Push(panel.Add("Text", "x" px(42) " y" px(176 + (A_Index - 1) * 26)
+            " w" px(686) " h" px(24) " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
     ; Leave an extra pixel gutter for font rasterization and scroll safety.
-    page.Lines := BuildStyledReleaseNoteRows(notes, noteRows[1], 674)
-    track := panel.Add("Text", "x746 y188 w16 h309 Background704C27")
-    thumb := panel.Add("Text", "x750 y188 w8 h32 +0x100 BackgroundC69951")
+    page.Lines := BuildStyledReleaseNoteRows(notes, noteRows[1], px(674), scale)
+    trackY := px(188), trackHeight := px(309)
+    thumbX := px(750), thumbWidth := px(8)
+    track := panel.Add("Text", "x" px(746) " y" trackY " w" px(16) " h" trackHeight " Background704C27")
+    thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth " h" px(32) " +0x100 BackgroundC69951")
     drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
     refresh(*) {
         maxOffset := Max(1, page.Lines.Length - page.Visible + 1)
@@ -232,19 +242,22 @@ AddUpdateNotesViewport(panel, notes)
             rowIndex := index + page.Offset - 1
             entry := rowIndex <= page.Lines.Length ? page.Lines[rowIndex] : {Text: "", Kind: "body"}
             if rowStyles[index] != entry.Kind {
-                row.SetFont(entry.Kind = "heading" ? "s11 Bold cE7BE70" : "s10 cF4E9D6", "Segoe UI")
+                row.SetFont(UpdateNoteFont(entry.Kind, scale), "Segoe UI")
                 rowStyles[index] := entry.Kind
             }
             row.Text := entry.Text
         }
-        thumbHeight := Max(22, Round(309 * Min(1, page.Visible / Max(1, page.Lines.Length))))
-        thumb.Move(750, 188 + Round((309 - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1)), 8, thumbHeight)
+        thumbHeight := Max(px(22), Round(trackHeight * Min(1, page.Visible / Max(1, page.Lines.Length))))
+        thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1) / Max(1, maxOffset - 1))
+        thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
         track.Visible := page.Lines.Length > page.Visible
         thumb.Visible := page.Lines.Length > page.Visible
     }
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
-    AddStyledButton(panel, 744, 163, 20, 22, "↑", (*) => (page.Offset -= 1, refresh()))
-    AddStyledButton(panel, 744, 500, 20, 22, "↓", (*) => (page.Offset += 1, refresh()))
+    up := AddStyledButton(panel, px(744), px(163), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
+    down := AddStyledButton(panel, px(744), px(500), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
+    for arrow in [up, down]
+        arrow.SetFont(UpdateNoteFont("heading", scale), "Segoe UI")
     refresh()
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)

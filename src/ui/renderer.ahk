@@ -210,6 +210,10 @@ PaintButton(wParam, lParam, *)
         font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
         oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
+        fittedFont := !isLabel && labelText != "" && font
+            ? FitButtonLabelFont(dc, font, labelText, Max(1, width - 4), Max(1, height - 2)) : 0
+        if fittedFont
+            DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
         textColor := face.HasOwnProp("TextColor") ? face.TextColor : isLabel ? 0x142338 : EnhancedReadability ? 0xFFFFFF : 0xCDEBFF
         DllCall("SetTextColor", "Ptr", dc, "UInt", textColor)
         bounds := Buffer(16, 0)
@@ -237,15 +241,38 @@ PaintButton(wParam, lParam, *)
             DllCall("DeleteObject", "Ptr", pen)
         }
         else
-            DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x825)
+            DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x8825)
         DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
+        if fittedFont
+            DllCall("DeleteObject", "Ptr", fittedFont)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
         DllCall("DeleteObject", "Ptr", bitmap)
         DllCall("DeleteDC", "Ptr", dc)
         return true
     }
     finally Critical(previousCritical)
+}
+
+FitButtonLabelFont(dc, font, text, maxWidth, maxHeight)
+{
+    extent := Buffer(8, 0)
+    if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", text,
+        "Int", StrLen(text), "Ptr", extent)
+        return 0
+    width := NumGet(extent, 0, "Int"), height := NumGet(extent, 4, "Int")
+    ratio := Min(maxWidth / Max(1, width), maxHeight / Max(1, height))
+    if ratio >= 1
+        return 0
+    definition := Buffer(92, 0) ; LOGFONTW
+    if DllCall("gdi32\GetObjectW", "Ptr", font, "Int", definition.Size, "Ptr", definition, "Int") < 92
+        return 0
+    height := NumGet(definition, 0, "Int")
+    if !height
+        return 0
+    NumPut("Int", (height < 0 ? -1 : 1) * Max(1, Floor(Abs(height) * ratio)), definition, 0)
+    NumPut("Int", 0, definition, 4)
+    return DllCall("gdi32\CreateFontIndirectW", "Ptr", definition, "Ptr")
 }
 
 KeepButtonBackground(wParam, lParam, msg, hwnd)
