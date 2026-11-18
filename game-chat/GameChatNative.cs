@@ -43,6 +43,10 @@ internal static class GameChatNative
 
     [DllImport("user32.dll")] internal static extern bool ShowWindow(IntPtr hwnd, int command);
 
+    [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")] internal static extern bool SetForegroundWindow(IntPtr hwnd);
+
     [DllImport("dwmapi.dll")] internal static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     internal const int DWMWA_CLOAK = 13;
