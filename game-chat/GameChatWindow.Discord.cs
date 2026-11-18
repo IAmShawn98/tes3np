@@ -244,8 +244,8 @@ internal sealed partial class GameChatWindow
         Log("CHAT | First Discord feed stalled; retrying the channel");
         try
         {
-            if (IsGameChatRoute(core.Source ?? "")) core.Reload();
-            else core.Navigate(Channel);
+            core.Stop();
+            core.Navigate(Channel);
         }
         catch (Exception ex) { Log("Discord channel retry: " + ex.GetType().Name); }
     }
@@ -389,6 +389,7 @@ internal sealed partial class GameChatWindow
     void PositionDiscordSignIn(RECT ownerBounds, Rectangle work)
     {
         if (discordSignInWindow is not { IsDisposed: false } popup) return;
+        if (popup.UpdateParkedLayout()) return;
         // The card's original size is in screen pixels. Windows scaling
         // can leave room for it even when the launcher is below 100%.
         double ownerFit = Math.Min(1, (ownerBounds.Right - ownerBounds.Left) / (double)launcherBaseWidth);
@@ -459,20 +460,24 @@ internal sealed partial class GameChatWindow
         if (web.IsHandleCreated) SetWindowRgn(web.Handle, IntPtr.Zero, true);
         SetChatOpen(false);
 
-        var popup = new DiscordSignInCard(DismissDiscordSignIn);
-        popup.FormClosing += (_, e) =>
+        var popup = discordSignInWindow;
+        if (popup is null || popup.IsDisposed)
         {
-            if (!closingChat)
+            popup = new DiscordSignInCard(DismissDiscordSignIn);
+            popup.FormClosing += (_, e) =>
             {
-                e.Cancel = true;
-                DismissDiscordSignIn();
-            }
-        };
-        discordSignInWindow = popup;
+                if (!closingChat)
+                {
+                    e.Cancel = true;
+                    DismissDiscordSignIn();
+                }
+            };
+            discordSignInWindow = popup;
+        }
+        popup.PrepareSignIn();
         web.Dock = DockStyle.Fill;
-        web.Parent = popup.BrowserPanel;
-        // The same WebView serves the hidden chat source. Restore normal
-        // browser text sizing when it moves into the sign-in card.
+        if (web.Parent != popup.BrowserPanel) web.Parent = popup.BrowserPanel;
+        // Restore the sign-in form's normal browser text sizing.
         web.ZoomFactor = 1;
         PositionChatWindows();
         web.Visible = true;
@@ -504,14 +509,12 @@ internal sealed partial class GameChatWindow
             chatDisplayMode != "Always Hidden";
         discordSignInRequested = false;
         discordLoginVisible = false;
-        web.Visible = false;
-        web.Dock = DockStyle.None;
-        web.Parent = chatViewport;
+        // Reparenting and hiding WebView2 during the OAuth handoff can leave
+        // its renderer unresponsive. Keep the same browser and HWND alive.
         if (discordSignInWindow is { IsDisposed: false } popup)
         {
-            popup.Hide();
-            discordSignInWindow = null;
-            popup.Dispose();
+            popup.Park(owner);
+            Log("CHAT | Discord browser retained after sign-in");
         }
         // Keep the panel open while the authenticated feed mounts.
         ShowConnectingChat();

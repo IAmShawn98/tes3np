@@ -212,7 +212,7 @@ internal sealed partial class GameChatWindow
             nativeMode = true;
             connectingChat = false;
             if (chatOpen) lastChatActivity = DateTime.Now;
-            web.Visible = false;
+            if (web.Parent == chatViewport) web.Visible = false;
             chatViewport.Visible = false;
             // Sign-in hides the renderer's parent AND the real scrollbar.
             // Show the correctly sized WebView and textured scrollbar

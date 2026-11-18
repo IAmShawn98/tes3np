@@ -1,4 +1,5 @@
 using System.Drawing;
+using static GameChatNative;
 
 internal sealed class DiscordSignInCard : Form
 {
@@ -32,6 +33,9 @@ internal sealed class DiscordSignInCard : Form
     readonly Font headingFont = new("Georgia", 16, FontStyle.Bold);
     readonly Font closeFont = new("Segoe UI", 14, FontStyle.Bold);
     bool layoutApplied;
+    bool parked;
+
+    protected override bool ShowWithoutActivation => parked;
 
     public DiscordSignInCard(Action dismiss)
     {
@@ -59,6 +63,33 @@ internal sealed class DiscordSignInCard : Form
         close.Click += (_, _) => dismiss();
         Controls.Add(close);
         close.BringToFront();
+    }
+
+    public void Park(IntPtr launcher)
+    {
+        bool returnFocus = GetForegroundWindow() == Handle;
+        parked = true;
+        UpdateParkedLayout();
+        if (!Visible) Show();
+        if (returnFocus) SetForegroundWindow(launcher);
+    }
+
+    public bool UpdateParkedLayout()
+    {
+        if (!parked) return false;
+        var desktop = SystemInformation.VirtualScreen;
+        int dpi = Math.Max(96, DeviceDpi);
+        // Keep a desktop-size Discord viewport alive in its original HWND.
+        // Outside the virtual screen it cannot cover the launcher or take input.
+        ApplyLayout(new Rectangle(desktop.Right + 32, desktop.Top, 1280 * dpi / 96, 900 * dpi / 96));
+        return true;
+    }
+
+    public void PrepareSignIn()
+    {
+        if (!parked) return;
+        Hide();
+        parked = false;
     }
 
     public void ApplyLayout(Rectangle bounds)

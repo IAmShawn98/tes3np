@@ -99,7 +99,8 @@ internal sealed partial class GameChatWindow
 
     void EnforceChatClip()
     {
-        if (discordLoginVisible || !web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
+        if (discordLoginVisible || web.Parent != chatViewport ||
+            !web.IsHandleCreated || chatViewport.ClientSize.Width < 1) return;
         // Native clipping remains effective when WebView2 recreates its
         // composition surface after Discord finishes loading.
         var region = CreateRectRgn(0, ChatPixels(HeaderCrop), web.Width, web.Height);
@@ -169,10 +170,11 @@ internal sealed partial class GameChatWindow
         chatViewport.SendToBack();
         if (nativeMessages.Visible) messageClip.BringToFront();
         goldScrollbar.BringToFront();
-        // During first-feed loading the hidden Discord source continues
-        // fetching, while only the native status panel is presented.
-        chatViewport.Visible = !nativeMode && !connectingChat;
+        // The original viewport is only used on a saved-session startup.
+        // After an interactive login the source stays in its detached card.
+        chatViewport.Visible = web.Parent == chatViewport && !nativeMode && !connectingChat;
 
+        if (web.Parent != chatViewport) return;
         int crop = ChatPixels(HeaderCrop);
         web.SetBounds(0, -crop, chatViewport.ClientSize.Width, chatViewport.ClientSize.Height + crop);
         SetBrowserScale(web, chatScale);

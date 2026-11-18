@@ -318,7 +318,8 @@ expect(
     "channelRetryAt = DateTime.UtcNow.AddSeconds(8);" in source
     and "web.CoreWebView2.DOMContentLoaded +=" in source
     and ".some(row => /^chat-messages-[0-9]+-[0-9]+$/.test(row.id))" in discord_auth
-    and in_order(discord_recovery, "DateTime.UtcNow < retryAt", "channelRetryAt = null;", "core.Reload();")
+    and in_order(discord_recovery, "DateTime.UtcNow < retryAt", "channelRetryAt = null;",
+                 "core.Stop();", "core.Navigate(Channel);")
     and "bool keepChatVisible = discordSignInRequested &&" in source
     and 'path is "/quest-home" or "/quests" or "/shop" or "/store"' in source
     and in_order(
@@ -331,10 +332,20 @@ expect(
     )
     and in_order(
         section_between(source, "void RestoreGameChatAfterSignIn()", "async Task UpdateViewMode()"),
-        "web.Visible = false;",
-        "web.Parent = chatViewport;",
+        "discordLoginVisible = false;",
+        "popup.Park(owner);",
         "ShowConnectingChat();",
     ),
+)
+expect(
+    "The authenticated Discord browser keeps its original window after sign-in",
+    "protected override bool ShowWithoutActivation => parked;" in sign_in_card
+    and "desktop.Right + 32" in sign_in_card
+    and "if (popup.UpdateParkedLayout()) return;" in source
+    and "popup.PrepareSignIn();" in source
+    and "if (web.Parent != chatViewport) return;" in source
+    and "if (web.Parent == chatViewport) web.Visible = false;" in chat_renderer
+    and "web.Parent = chatViewport;" not in source,
 )
 
 discord_sign_in_handler = section_between(
@@ -360,7 +371,7 @@ expect(
     and "void RevealDiscordSignInWindow()" in source
     and in_order(show_sign_in, "web.Parent = popup.BrowserPanel;", "PositionChatWindows();",
                  "SetNativeWindowOwner(popup.Handle, owner);", "popup.Show();")
-    and "web.Parent = chatViewport;" in source
+    and "chatViewport.Controls.Add(web);" in source
     and "FitPopupScale(launcherScale, chatWidth, chatHeight, work)" in chat_layout
     and "discordLoginVisible ? Math.Max(chatHeight, 780)" not in source
     and "web.Parent = this;" not in source,
@@ -412,7 +423,7 @@ expect(
     and 'goldScrollbar.Visible = false;' in loading
     and 'ShowConnectingChat();' in source
     and 'else ShowConnectingChat();' in source
-    and 'chatViewport.Visible = !nativeMode && !connectingChat;' in source,
+    and 'chatViewport.Visible = web.Parent == chatViewport && !nativeMode && !connectingChat;' in source,
 )
 expect(
     "First authenticated feed keeps its loading state until the current renderer confirms visible message rows",
