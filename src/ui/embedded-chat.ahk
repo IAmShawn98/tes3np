@@ -144,13 +144,13 @@ PaintLauncherChatCaption(dc, w, h, label, labelColor, shift)
         "UInt", 0, "Str", "Segoe UI", "Ptr")
     oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
     ; Positive 90-degree escapement runs text upward from the baseline.
-    DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.53) + shift,
-        "Int", Round(h * 0.87), "Str", label, "Int", StrLen(label))
+    DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.53),
+        "Int", Round(h * 0.87) + shift, "Str", label, "Int", StrLen(label))
     DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
     DllCall("gdi32\DeleteObject", "Ptr", font)
     pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
     oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
-    cx := Round(w * 0.32) + shift, cy := Round(h * 0.50)
+    cx := Round(w * 0.32), cy := Round(h * 0.50) + shift
     direction := LauncherChatOpen ? -1 : 1
     arrowHalf := Max(4, Round(9 * paintScale))
     arrowHeight := Max(4, Round(10 * paintScale))

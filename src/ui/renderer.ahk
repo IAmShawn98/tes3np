@@ -183,14 +183,7 @@ PaintButton(wParam, lParam, *)
         else
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))
         shift := face.State = "down" ? 2 : 0
-        if isChatTab
-        {
-            ; Map the horizontal face's positive X axis upward along the tab.
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", graphics, "Float", 0, "Float", height, "Int", 0)
-            DllCall("gdiplus\GdipRotateWorldTransform", "Ptr", graphics, "Float", -90, "Int", 0)
-            PaintButtonArtwork(graphics, face, height, width, shift)
-        }
-        else if !isLabel
+        if !isLabel
             PaintButtonArtwork(graphics, face, width, height, shift)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
