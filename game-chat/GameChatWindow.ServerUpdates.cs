@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.WinForms;
@@ -8,7 +7,6 @@ using static GameChatNative;
 internal sealed partial class GameChatWindow
 {
     const string ServerUpdatesChannel = "https://discord.com/channels/509601787901116437/510245417657827363";
-    const uint ServerUpdatesData = 0x833B;
     const int ServerUpdateBodyLimit = 3800;
     const string ServerUpdatesRtfHeader = @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Georgia;}}" +
         @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
@@ -47,7 +45,6 @@ internal sealed partial class GameChatWindow
     DateTime nextServerUpdatesCheck;
     DateTime serverUpdatesReadyBy;
     bool readingServerUpdates;
-    string? publishedServerUpdates;
 
     bool ServerUpdatesAuthenticated => !closingChat && !IsDisposed && discordAccountStatus == DiscordAccountStatus.SignedIn;
 
@@ -96,9 +93,9 @@ internal sealed partial class GameChatWindow
                 if (updates != null)
                 {
                     string text = FormatServerUpdates(updates);
-                    PublishServerUpdates(text);
+                    UpdateServerUpdatesDocument(text);
                     serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
-                    nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(publishedServerUpdates == text ? 5 : 1);
+                    nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(5);
                     return;
                 }
             }
@@ -141,17 +138,14 @@ internal sealed partial class GameChatWindow
                 rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
                 previous = date;
             }
-            rtf.Append(@"\pard\sb55\sa55\fs21 ");
             if (!string.IsNullOrWhiteSpace(entry.Value.Author))
             {
+                rtf.Append(@"\pard\sb55\sa55\fs21 ");
                 string author = entry.Value.Author[..Math.Min(entry.Value.Author.Length, 64)];
                 rtf.Append(string.Equals(author, "Jiub", StringComparison.OrdinalIgnoreCase) ? @"{\cf4\b " : @"{\cf6\b ");
                 AppendServerUpdatesRtfText(rtf, author.AsSpan());
-                rtf.Append("}  ");
+                rtf.Append(@"}\par ");
             }
-            rtf.Append(@"\cf5\fs17 ");
-            AppendServerUpdatesRtfText(rtf, when.ToString("h:mm tt").AsSpan());
-            rtf.Append(@"\par ");
 
             int remaining = ServerUpdateBodyLimit;
             foreach (var block in entry.Value.Blocks!.Take(120))
@@ -212,31 +206,13 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    void PublishServerUpdates(string text)
-    {
-        if (!ServerUpdatesAuthenticated || !IsHandleCreated || !IsWindow(owner) || text == publishedServerUpdates)
-            return;
-        byte[] bytes = Encoding.ASCII.GetBytes(text + "\0");
-        var pin = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-        try
-        {
-            var data = new COPYDATASTRUCT
-            {
-                dwData = new IntPtr(ServerUpdatesData), cbData = bytes.Length, lpData = pin.AddrOfPinnedObject()
-            };
-            var sent = SendCopyDataTimeout(owner, 0x004A, Handle, ref data, 0x0003, 200, out var result);
-            if (sent != IntPtr.Zero && result != IntPtr.Zero) publishedServerUpdates = text;
-        }
-        finally { pin.Free(); }
-    }
-
     void RecoverServerUpdates(string reason)
     {
         Log("SERVER UPDATES | " + reason);
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         previous?.Dispose();
-        PublishServerUpdates(ServerUpdatesStatus("Server updates are unavailable."));
+        UpdateServerUpdatesDocument(ServerUpdatesStatus("Server updates are unavailable."));
         nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(30);
     }
 
@@ -245,7 +221,8 @@ internal sealed partial class GameChatWindow
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         nextServerUpdatesCheck = DateTime.MinValue;
-        publishedServerUpdates = null;
+        serverUpdatesDocument = null;
+        CloseServerUpdatesPanel();
         previous?.Dispose();
     }
 }

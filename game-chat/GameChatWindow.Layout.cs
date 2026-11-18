@@ -36,12 +36,14 @@ internal sealed partial class GameChatWindow
 
     int ChatVisibleLines() => Math.Max(1, browserClientHeight);
 
-    int ChatThumbY(int height, out int thumbHeight)
+    int ChatThumbY(int height, out int thumbHeight) =>
+        GoldScrollbarThumbY(height, ChatLineCount(), ChatVisibleLines(), browserScrollTop, out thumbHeight);
+
+    static int GoldScrollbarThumbY(int height, int total, int visible, int top, out int thumbHeight)
     {
         int track = Math.Max(1, height - 54);
-        int total = ChatLineCount(), visible = ChatVisibleLines();
         thumbHeight = Math.Clamp((int)((long)track * Math.Min(total, visible) / total), Math.Min(20, track), track);
-        return 27 + (int)((long)Math.Clamp(browserScrollTop, 0, Math.Max(0, total-visible))
+        return 27 + (int)((long)Math.Clamp(top, 0, Math.Max(0, total-visible))
             * (track-thumbHeight) / Math.Max(1,total-visible));
     }
 

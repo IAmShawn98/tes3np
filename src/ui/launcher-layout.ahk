@@ -47,7 +47,6 @@ ApplyLauncherControlScale(suspendRedraw := true)
         }
         if IsObject(LauncherHeading)
             LauncherHeading.SetFont("s" Round(19 * scale) " Norm c241408", LauncherMorrowindFont)
-        ScaleLauncherServerUpdates(scale)
         ScaleLauncherVersionLabel(scale)
     }
     finally

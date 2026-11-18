@@ -163,11 +163,17 @@ internal sealed partial class GameChatWindow
 
     void PaintChatScrollbar(object? sender, PaintEventArgs e)
     {
-        var g = e.Graphics;
-        int h = ChatUnits(goldScrollbar.ClientSize.Height), w = 20;
-        g.Clear(System.Drawing.Color.Black);
+        int height = ChatUnits(goldScrollbar.ClientSize.Height);
+        lastThumbY = ChatThumbY(height, out lastThumbHeight);
+        PaintGoldScrollbar(e.Graphics, height, chatScale, lastThumbY, lastThumbHeight);
+    }
+
+    void PaintGoldScrollbar(Graphics g, int h, double scale, int thumbY, int thumbHeight)
+    {
+        const int w = 20;
+        g.Clear(Color.Black);
         if (h < 65 || scrollbarTexture == null) return;
-        g.ScaleTransform((float)chatScale, (float)chatScale);
+        g.ScaleTransform((float)scale, (float)scale);
         g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         var image = scrollbarTexture;
         // Keep the Morrowind arrow caps, but draw one continuous recessed
@@ -183,9 +189,6 @@ internal sealed partial class GameChatWindow
             g.DrawRectangle(goldEdge, 2, 27, 15, trackHeight - 1);
         using (var innerShadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(53, 42, 25)))
             g.DrawRectangle(innerShadow, 4, 29, 11, Math.Max(1, trackHeight - 5));
-        int thumbY = ChatThumbY(h, out int thumbHeight);
-        lastThumbY = thumbY;
-        lastThumbHeight = thumbHeight;
         // A narrow, square-edged thumb matching the reference image.
         using (var thumbFill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(188, 166, 111)))
             g.FillRectangle(thumbFill, 5, thumbY, 10, thumbHeight);
