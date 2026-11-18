@@ -826,24 +826,27 @@ progress_painter = section_between(
     'UpdateExpansionLoadingProgress(frame, label, percent)\\n{'.replace('\\n', '\n'),
     '\\nSetInterfaceLoadingText('.replace('\\n', '\n'),
 )
+install_progress = section_between(patcher, "UpdatePatchProgress(label, percent)\n{", "\nCheckPatchWorker()")
 expect(
-    "Expansion download progress avoids full native caption invalidation and never repaints Cancel",
+    "Expansion download and install update buffered progress only when the label or percentage changes",
     'TES3MPExpansionCallNativeUi("UpdateExpansionLoadingProgress", frame, label, percent)' in mismatch
+    and 'return UpdateExpansionLoadingProgress(PatchFrame, label " (" percent "%)", percent)' in install_progress
     and 'global ButtonFaces' not in auto_progress_helpers
     and 'global ButtonFaces' in progress_painter
-    and 'ButtonFaces[panelHwnd].DownloadText := frame.Panel.Text' in loading_ui
-    and 'face.DownloadText := label' in progress_painter
-    and 'face.ProgressHeaderOnly := true' in progress_painter
-    and 'finally face.ProgressHeaderOnly := false' in progress_painter
-    and 'PaintButtonNow(hwnd)' in progress_painter
-    and 'PaintButtonNow(protectedButton)' not in progress_painter
+    and 'ButtonFaces[panelHwnd].ProgressText := frame.Panel.Text' in loading_ui
     and in_order(
         progress_painter,
-        'face.ProgressHeaderOnly := true',
+        'face.ProgressText == label && face.Progress = progress\n        return false',
+        'face.ProgressText := label',
+        'face.Progress := progress',
+        'face.ProgressHeaderOnly := face.HasOwnProp("ProtectedButtonHwnd")',
         'PaintButtonNow(hwnd)',
         'finally face.ProgressHeaderOnly := false',
     )
-    and 'frame.Panel.Text := label' in progress_painter.split('else')[-1],
+    and "Panel.Text :=" not in install_progress + progress_painter
+    and 'PaintButtonNow(protectedButton)' not in progress_painter
+    and '|| UpdatePatchProgress("Installing", 37)' in launcher_smoke_tests
+    and '|| probePanel.Text != "Initial caption"' in launcher_smoke_tests,
 )
 protected_loading_paint = section_between(
     native_renderer,
@@ -875,7 +878,7 @@ expect(
 )
 expect(
     "Protected download progress blits only header pixels while ordinary loading cards still repaint fully",
-    'paintFace.HasOwnProp("DownloadText") ? paintFace.DownloadText : paintFace.Control.Text' in protected_loading_paint
+    'paintFace.HasOwnProp("ProgressText") ? paintFace.ProgressText : paintFace.Control.Text' in protected_loading_paint
     and 'paintFace.HasOwnProp("ProgressHeaderOnly") && paintFace.ProgressHeaderOnly' in protected_loading_paint
     and 'Min(height, Round(68 * scale)) : height' in protected_loading_paint
     and 'width, "Int", blitHeight' in protected_loading_paint

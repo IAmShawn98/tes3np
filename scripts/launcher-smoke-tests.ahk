@@ -251,7 +251,7 @@ CheckCrashRecoveryProfiles()
 ; resolve its actual UI functions without starting any window or game.
 CheckExpansionProgressBindings()
 {
-    global ButtonFaces
+    global ButtonFaces, PatchFrame
     for index, name in ["CaptureInterfaceFrame", "AddStyledButton",
         "DestroyBookControl", "ReleaseCapturedInterfaceFrame",
         "PaintButtonNow", "UpdateExpansionLoadingProgress",
@@ -263,24 +263,29 @@ CheckExpansionProgressBindings()
         if !HasMethod(callback, "Call")
             ExitApp(120 + index)
     }
-    ; Execute the progress painting routine against a disposable in-memory
-    ; panel. No visible window or game files are involved. This exercises the
-    ; exact callback path that had previously warned only on a real click.
+    ; The real installer callback must leave the Static window caption
+    ; alone and ignore duplicate worker polls. The probe needs no window.
     try
     {
-        probePanel := {Hwnd: 0, Text: ""}
-        probeFrame := {Panel: probePanel}
+        probePanel := {Hwnd: 0, Text: "Initial caption"}
+        PatchFrame := {Panel: probePanel}
         ButtonFaces[0] := {Progress: 0}
-        painterName := "UpdateExpansionLoadingProgress"
-        painter := %painterName%
-        painter.Call(probeFrame, "Expansion progress probe", 37)
-        if Abs(ButtonFaces[0].Progress - 0.37) > 0.0001
-            || probePanel.Text != "Expansion progress probe"
+        if !UpdatePatchProgress("Installing", 37)
+            || UpdatePatchProgress("Installing", 37)
+            || !UpdatePatchProgress("Verifying", 37)
+            || !UpdatePatchProgress("Verifying", 45)
+            || Abs(ButtonFaces[0].Progress - 0.45) > 0.0001
+            || ButtonFaces[0].ProgressText != "Verifying (45%)"
+            || probePanel.Text != "Initial caption"
             ExitApp(93)
-        ButtonFaces.Delete(0)
     }
     catch
         ExitApp(94)
+    finally
+    {
+        ButtonFaces.Delete(0)
+        PatchFrame := 0
+    }
     ExitApp(0)
 }
 

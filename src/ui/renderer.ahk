@@ -415,7 +415,7 @@ PaintLoadingPanel(handle, target, width, height)
     rect := Buffer(16, 0)
     NumPut("Int", 8, "Int", Round(8 * scale), "Int", width - 8, "Int", Round(42 * scale), rect)
     paintFace := ButtonFaces[handle]
-    loadingText := paintFace.HasOwnProp("DownloadText") ? paintFace.DownloadText : paintFace.Control.Text
+    loadingText := paintFace.HasOwnProp("ProgressText") ? paintFace.ProgressText : paintFace.Control.Text
     DllCall("DrawTextW", "Ptr", dc, "WStr", loadingText, "Int", -1, "Ptr", rect, "UInt", 0x825)
     ; The automatic ZIP downloader keeps its Cancel button inside this ONE
     ; full-height native panel. PaintButtonNow uses GetDC + BitBlt, so simply
