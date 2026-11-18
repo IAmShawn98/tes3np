@@ -206,8 +206,7 @@ ResetThemedPointerState()
 UpdateButtonHover()
 {
     global ButtonFaces, HoverButton, PressedButton, KeyboardFocusButton
-    MouseGetPos(&x, &y, &window, &pointerControl, 2)
-    UpdateLauncherChatHover(window, pointerControl)
+    MouseGetPos(&x, &y, &window)
     nextHover := 0
     stale := []
     if window

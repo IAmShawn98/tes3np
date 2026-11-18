@@ -1880,7 +1880,7 @@ expect(
     and 'OnMessage(0x0020, HandleNativeClickableCursor)' in native_renderer
     and in_order(section_between(native_renderer, 'HandleNativeClickableCursor(wParam,', 'InitButtonPainter()'),
                  'DllCall("IsWindowEnabled", "Ptr", wParam)', 'DllCall("IsWindowVisible", "Ptr", wParam)',
-                 'className = "Static" && IsObject(LauncherChatToggle) && wParam = LauncherChatToggle.Hwnd',
+                 'className = "Button" || className = "SysLink"',
                  'SetLauncherHandCursor()'),
 )
 
@@ -2122,9 +2122,18 @@ expect(
     and "scale := (A_ScreenDPI / 96) * LauncherScale / 100" in front_layout,
 )
 expect(
-    "Game Chat toggle caption and arrow shrink with launcher tab",
+    "Game Chat uses the shared styled button and rotates the artwork and caption",
     '#Include src\\ui\\embedded-chat.ahk' in entry_script
     and "CreateLauncherChatToggle()" in bootstrap
+    and 'AddStyledButton(LauncherGui, 3, 294, 45, 112, "Game Chat", ToggleLauncherChat)' in embedded_chat
+    and 'ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true' in embedded_chat
+    and 'UpdateLauncherChatHover' not in controls
+    and in_order(section_between(native_renderer, 'PaintButton(wParam,', '\nPaintButtonArtwork('),
+                 'GdipTranslateWorldTransform', 'GdipRotateWorldTransform',
+                 'PaintButtonArtwork(graphics, face, height, width, shift)',
+                 'PaintButtonArtwork(graphics, face, width, height, shift)',
+                 'PaintLauncherChatCaption(dc, width, height, labelText, textColor, shift)')
+    and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
     and "fontHeight := -Max(9, Round(21 * paintScale))" in embedded_chat
     and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat
     and "arrowHeight := Max(4, Round(10 * paintScale))" in embedded_chat,
