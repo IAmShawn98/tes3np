@@ -337,10 +337,13 @@ expect(
     ),
 )
 
+discord_sign_in_handler = section_between(
+    source, "void HandleDiscordSignInMessage(", "void RetryStalledDiscordChannel("
+)
 expect(
     "Discord credential submission updates the launcher using profile-checking state",
     'AddScriptToExecuteOnDocumentCreatedAsync(DiscordSignInProgressScript.Value)' in source
-    and in_order(source, 'case "tes3np-sign-in-started":',
+    and in_order(discord_sign_in_handler, 'case "tes3np-sign-in-started":',
                  "SetDiscordAccountStatus(DiscordAccountStatus.Checking);", "PublishDiscordAccount();",
                  'case "tes3np-sign-in-rejected":', "SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);")
     and 'status = 0 ? "Loading Profile..." : "Log In"' in embedded_chat
@@ -1862,7 +1865,8 @@ expect(
     and "parent.querySelector('input,button[type=submit]')" in discord_sign_in
     and "later.type = 'button';" in discord_sign_in
     and "chrome.webview.postMessage('tes3np-sign-in-later');" in discord_sign_in
-    and in_order(source, "switch (args.TryGetWebMessageAsString())", 'case "tes3np-sign-in-later":', "DismissDiscordSignIn();")
+    and in_order(discord_sign_in_handler, "switch (args.TryGetWebMessageAsString())",
+                 'case "tes3np-sign-in-later":', "DismissDiscordSignIn();")
     and 'requestAnimationFrame(resetIfUntouched);' in discord_sign_in
     and "position:static !important;" in discord_sign_in
     and "min-height:44px !important" in discord_sign_in
