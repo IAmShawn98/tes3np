@@ -95,6 +95,7 @@ internal sealed partial class GameChatWindow
         readonly BufferedScrollbar scrollbar = new();
         List<(int Offset, string Label)> dateDividers = [];
         string? visibleDate;
+        int? newestLandingPosition;
         int dragOffset = -1;
 
         internal LatestUpdatesPanel(GameChatWindow host)
@@ -167,8 +168,8 @@ internal sealed partial class GameChatWindow
             int nativeBar = GetSystemMetricsForDpi(2, dpi == 0 ? 96 : dpi);
             feed.SetBounds(0, 0, width + nativeBar, height);
             feed.ZoomFactor = (float)Math.Clamp(PanelScale * 96 / (dpi == 0 ? 96 : dpi), 0.25, 3);
-            if (previous.Position >= previous.Maximum - Px(12))
-                ScrollToBottom();
+            if (ShouldFollowNewest(previous.Position, previous.Maximum))
+                ScrollToNewestUpdate();
             else
                 ScrollToPixel(previous.Position);
         }
@@ -216,18 +217,34 @@ internal sealed partial class GameChatWindow
         internal void SetDocument(string document)
         {
             var before = ReadScroll();
-            bool follow = before.Position >= before.Maximum - Px(12);
+            bool follow = ShouldFollowNewest(before.Position, before.Maximum);
             feed.Rtf = document;
             dateDividers = FindServerUpdatesDateDividers(feed.Text);
             if (follow)
-                ScrollToBottom();
+                ScrollToNewestUpdate();
             else
+            {
+                newestLandingPosition = null;
                 ScrollToPixel(before.Position);
+            }
         }
 
-        void ScrollToBottom()
+        bool ShouldFollowNewest(int position, int maximum) =>
+            position == newestLandingPosition || position >= maximum - Px(12);
+
+        void ScrollToNewestUpdate()
         {
-            SendMessageW(feed.Handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
+            var handle = feed.Handle;
+            SendMessageW(handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
+            if (dateDividers.Count > 0)
+            {
+                int firstVisibleLine = (int)SendMessageW(handle, 0x00CE, IntPtr.Zero, IntPtr.Zero); // EM_GETFIRSTVISIBLELINE
+                int newestDateLine = feed.GetLineFromCharIndex(dateDividers[^1].Offset);
+                // The newest entry can fill more than a viewport. Its beginning should still be visible on arrival.
+                if (newestDateLine >= 0 && newestDateLine < firstVisibleLine)
+                    SendMessageW(handle, 0x00B6, IntPtr.Zero, new IntPtr(newestDateLine - firstVisibleLine)); // EM_LINESCROLL
+            }
+            newestLandingPosition = ReadScroll().Position;
             RefreshScrollDisplay();
         }
 
