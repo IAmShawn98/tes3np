@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Globalization;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.WinForms;
 using static GameChatNative;
@@ -8,11 +7,7 @@ using static GameChatNative;
 internal sealed partial class GameChatWindow
 {
     const string ServerUpdatesChannel = "https://discord.com/channels/509601787901116437/510245417657827363";
-    const int ServerUpdateBodyLimit = 3800;
     const string ServerUpdatesDateFormat = "MMMM d, yyyy";
-    const string ServerUpdatesRtfHeader = @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Georgia;}}" +
-        @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
-        @"\red184\green169\blue142;}\f0\fs21";
     static readonly Lazy<string> ExtractServerUpdates = GameChatWeb.Page("extract-server-updates.js");
 
     sealed class ServerUpdatesWindow : Form
@@ -28,7 +23,47 @@ internal sealed partial class GameChatWindow
             PositionOffScreen();
         }
 
-        protected override bool ShowWithoutActivation => true;
+        internal bool PickerOpen { get; private set; }
+        internal event Action? PickerClosed;
+        protected override bool ShowWithoutActivation => !PickerOpen;
+
+        internal void ShowReactionPicker(IntPtr launcher, Rectangle updatePanel)
+        {
+            if (PickerOpen) return;
+            PickerOpen = true;
+            Text = "Add a reaction";
+            FormBorderStyle = FormBorderStyle.FixedToolWindow;
+            SetNativeWindowOwner(Handle, launcher);
+            var screen = Screen.FromHandle(launcher).WorkingArea;
+            int dpi = Math.Max(96, DeviceDpi);
+            int width = Math.Min(720 * dpi / 96, screen.Width);
+            int height = Math.Min(640 * dpi / 96, screen.Height);
+            int x = updatePanel.Right + width <= screen.Right ? updatePanel.Right : updatePanel.Left - width;
+            Bounds = new Rectangle(Math.Clamp(x, screen.Left, screen.Right - width),
+                Math.Clamp(updatePanel.Top, screen.Top, screen.Bottom - height), width, height);
+            Activate();
+            Browser.Focus();
+        }
+
+        internal void CloseReactionPicker()
+        {
+            if (!PickerOpen) return;
+            PickerOpen = false;
+            // Move off-screen before switching back to a borderless source window.
+            PositionOffScreen();
+            FormBorderStyle = FormBorderStyle.None;
+            PickerClosed?.Invoke();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (PickerOpen && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                CloseReactionPicker();
+            }
+            base.OnFormClosing(e);
+        }
 
         internal void PositionOffScreen()
         {
@@ -39,7 +74,8 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    sealed record ServerUpdate(string Id, ServerUpdateBlock[]? Blocks);
+    sealed record ServerUpdate(string Id, ServerUpdateBlock[]? Blocks, ServerUpdateReaction[]? Reactions);
+    sealed record ServerUpdateReaction(string Key, string Name, string? Image, int Count, bool Mine);
     sealed record ServerUpdateBlock(string? Style, int Number, ServerUpdateRun[]? Runs);
     sealed record ServerUpdateRun(string? Text, bool Bold);
 
@@ -78,13 +114,15 @@ internal sealed partial class GameChatWindow
         {
             Log("SERVER UPDATES | Save dismissal: " + ex.GetType().Name);
         }
+        serverUpdatesWindow?.CloseReactionPicker();
         CloseServerUpdatesPanel();
         PublishServerUpdatesVisibility();
     }
 
     async Task RefreshServerUpdates()
     {
-        if (!ServerUpdatesAuthenticated || discordAccountDirty || readingServerUpdates || DateTime.UtcNow < nextServerUpdatesCheck ||
+        if (!ServerUpdatesAuthenticated || discordAccountDirty || readingServerUpdates || workingServerUpdateReaction ||
+            DateTime.UtcNow < nextServerUpdatesCheck ||
             discordEnvironment is not { } environment) return;
         readingServerUpdates = true;
         nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(1);
@@ -96,6 +134,8 @@ internal sealed partial class GameChatWindow
                 // Keep the updates channel in the same launcher-only profile, separate
                 // from the live chat DOM and from the chat dock's visibility.
                 source = serverUpdatesWindow = new ServerUpdatesWindow();
+                var pickerWindow = source;
+                source.PickerClosed += () => RestoreServerUpdatesChannel(pickerWindow);
                 SetNativeWindowOwner(source.Handle, owner);
                 source.Show();
                 await source.Browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
@@ -108,28 +148,32 @@ internal sealed partial class GameChatWindow
                 core.DownloadStarting += (_, e) => e.Cancel = true;
                 core.NavigationStarting += (_, e) =>
                 {
-                    e.Cancel = !Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) ||
-                        uri.Scheme != Uri.UriSchemeHttps || uri.Host != "discord.com" ||
-                        !uri.IsDefaultPort || uri.UserInfo.Length != 0;
+                    e.Cancel = !IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri);
                 };
                 serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                 core.Navigate(ServerUpdatesChannel);
+                return;
+            }
+            if (source.PickerOpen)
+            {
+                await TrackServerUpdatePicker(source);
                 return;
             }
             source.PositionOffScreen();
             var channel = source.Browser.CoreWebView2;
             if (IsServerUpdatesRoute(channel.Source))
             {
-                string result = await channel.ExecuteScriptAsync(ExtractServerUpdates.Value).WaitAsync(TimeSpan.FromSeconds(3));
+                string result = await channel.ExecuteScriptAsync(ExtractServerUpdates.Value + "(null)").WaitAsync(TimeSpan.FromSeconds(3));
                 if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed ||
                     !IsServerUpdatesRoute(channel.Source)) return;
                 var updates = JsonSerializer.Deserialize<ServerUpdate[]>(result);
                 if (updates != null)
                 {
-                    string text = FormatServerUpdates(updates, out ulong newestId);
+                    string text = FormatServerUpdates(updates, out ulong newestId, out var displayed);
                     if (newestId >= latestServerUpdateId)
                     {
                         latestServerUpdateId = newestId;
+                        displayedServerUpdates = displayed;
                         UpdateServerUpdatesDocument(text);
                         PublishServerUpdatesVisibility();
                     }
@@ -153,7 +197,7 @@ internal sealed partial class GameChatWindow
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length == 0 && uri.IsDefaultPort &&
         string.Equals(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'), ServerUpdatesChannel, StringComparison.OrdinalIgnoreCase);
 
-    static string FormatServerUpdates(ServerUpdate[] updates, out ulong newestId)
+    static string FormatServerUpdates(ServerUpdate[] updates, out ulong newestId, out ServerUpdate[] displayed)
     {
         var recent = new SortedDictionary<ulong, ServerUpdate>();
         foreach (var update in updates)
@@ -163,102 +207,23 @@ internal sealed partial class GameChatWindow
             recent[id] = update;
         }
         newestId = recent.Count == 0 ? 0 : recent.Last().Key;
-        if (newestId == 0) return ServerUpdatesStatus("No server updates to display.");
+        displayed = recent.TakeLast(8).Select(entry => entry.Value).ToArray();
+        if (displayed.Length == 0) return ServerUpdatesStatus("No server updates to display.");
 
-        var rtf = new StringBuilder(ServerUpdatesRtfHeader);
-        bool firstEntry = true;
-        foreach (var entry in recent.TakeLast(8))
+        return JsonSerializer.Serialize(new
         {
-            var when = DiscordTimestamp(entry.Key).ToLocalTime();
-            rtf.Append(firstEntry ? @"\pard\qc" : @"\pard\qc\sb85");
-            rtf.Append(@"\sa0\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
-            AppendServerUpdatesRtfText(rtf, when.ToString(ServerUpdatesDateFormat).AsSpan());
-            rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
-            firstEntry = false;
-            bool firstBlock = true;
-            int remaining = ServerUpdateBodyLimit;
-            foreach (var block in entry.Value.Blocks!.Take(120))
+            posts = displayed.Select(post => new
             {
-                if (remaining == 0) break;
-                if (block?.Runs is not { Length: > 0 }) continue;
-                bool heading = block.Style == "heading" ||
-                    (string.IsNullOrEmpty(block.Style) &&
-                     block.Runs.All(run => string.IsNullOrWhiteSpace(run?.Text) || run.Bold));
-                rtf.Append(@"\pard\cf1\fs21\sa70 ");
-                if (block.Style == "bullet" || block.Style == "number")
-                {
-                    rtf.Append(@"\li230\fi-225\tx230 ");
-                    if (block.Style == "bullet") rtf.Append(@"\u8226?");
-                    else rtf.Append(Math.Clamp(block.Number, 1, 999)).Append('.');
-                    rtf.Append(@"\tab ");
-                }
-                if (heading) rtf.Append(firstBlock ? @"\fs23 " : @"\sb45\fs23 ");
-                foreach (var run in block.Runs.Take(240))
-                {
-                    if (remaining == 0) break;
-                    if (string.IsNullOrEmpty(run?.Text)) continue;
-                    bool bold = run.Bold || heading;
-                    if (bold) rtf.Append(@"{\b ");
-                    int length = Math.Min(run.Text.Length, remaining);
-                    AppendServerUpdatesRtfText(rtf, run.Text.AsSpan(0, length));
-                    if (bold) rtf.Append('}');
-                    remaining -= length;
-                }
-                rtf.Append(@"\par ");
-                firstBlock = false;
-            }
-        }
-        return rtf.Append('}').ToString();
+                id = post.Id,
+                date = DiscordTimestamp(ulong.Parse(post.Id, CultureInfo.InvariantCulture)).ToLocalTime()
+                    .ToString(ServerUpdatesDateFormat),
+                blocks = post.Blocks!.Take(120),
+                reactions = post.Reactions?.Take(25)
+            })
+        });
     }
 
-    static int? FindNewestServerUpdatesDateDivider(string text)
-    {
-        const string strokes = "───";
-        int? newest = null;
-        using var lines = new StringReader(text);
-        int offset = 0;
-        while (lines.ReadLine() is { } line)
-        {
-            var content = line.AsSpan().Trim();
-            if (content.Length > 6 && content.StartsWith(strokes) && content.EndsWith(strokes))
-            {
-                var label = content[3..^3].Trim();
-                if (DateTime.TryParseExact(label, ServerUpdatesDateFormat, null,
-                        System.Globalization.DateTimeStyles.None, out _))
-                    newest = offset;
-            }
-            // RichEdit character positions count each paragraph break once.
-            offset += line.Length + 1;
-        }
-        return newest;
-    }
-
-    static string ServerUpdatesStatus(string text)
-    {
-        var rtf = new StringBuilder(ServerUpdatesRtfHeader).Append(@"\pard\cf4 ");
-        AppendServerUpdatesRtfText(rtf, text.AsSpan());
-        return rtf.Append('}').ToString();
-    }
-
-    static void AppendServerUpdatesRtfText(StringBuilder rtf, ReadOnlySpan<char> text)
-    {
-        foreach (char ch in text)
-        {
-            switch (ch)
-            {
-                case '\\':
-                case '{':
-                case '}': rtf.Append('\\').Append(ch); break;
-                case '\n': rtf.Append(@"\line "); break;
-                case '\t': rtf.Append(@"\tab "); break;
-                default:
-                    if (char.IsControl(ch)) break;
-                    if (ch <= '\x7e') rtf.Append(ch);
-                    else rtf.Append(@"\u").Append(((short)ch).ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('?');
-                    break;
-            }
-        }
-    }
+    static string ServerUpdatesStatus(string text) => JsonSerializer.Serialize(new { status = text });
 
     void RecoverServerUpdates(string reason)
     {
@@ -277,6 +242,8 @@ internal sealed partial class GameChatWindow
         nextServerUpdatesCheck = DateTime.MinValue;
         latestServerUpdateId = 0;
         serverUpdatesDocument = null;
+        displayedServerUpdates = [];
+        serverUpdatePickerSeen = false;
         CloseServerUpdatesPanel();
         PublishServerUpdatesVisibility();
         previous?.Dispose();

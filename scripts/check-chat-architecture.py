@@ -96,10 +96,10 @@ expect(
 )
 
 expect(
-    "Only the RichEdit updates panel uses native scrollbar metrics",
-    all(name not in source.replace(updates_panel, "", 1) for name in ("GetScrollInfo", "SCROLLINFO"))
-    and "ShowScrollBar" not in source
-    and "GetScrollInfo(feed.Handle, 1, ref info)" in updates_panel,
+    "Game Updates uses browser scroll metrics for its gold scrollbar",
+    all(name not in source for name in ("GetScrollInfo", "SCROLLINFO", "ShowScrollBar"))
+    and 'scrollTotal = Math.Max(1, message.GetProperty("height").GetInt32());' in updates_panel
+    and 'ScrollBy("to", (int)Math.Round(metrics.Maximum * fraction));' in updates_panel,
 )
 expect(
     "Obsolete browser message-feed variable must remain removed",
@@ -378,7 +378,7 @@ expect(
     and "host.PaintGoldScrollbar(e.Graphics, height, PanelScale, top, thumb);" in source
     and "host.PaintGameChatFrame(e.Graphics," in updates_panel
     and "recent.TakeLast(8)" in server_updates
-    and 'new IntPtr(7), IntPtr.Zero); // SB_BOTTOM' in source
+    and 'GameChatWeb.Page("server-updates.html")' in updates_panel
     and in_order(section_between(source, "async Task SignOutDiscord()", "\n}"),
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )
@@ -400,11 +400,16 @@ expect(
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
     and "RedrawServerUpdatesPanel(attached);" in updates_panel
     and "RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185)" in updates_panel
-    and "FindNewestServerUpdatesDateDivider(feed.Text)" in updates_panel
-    and "dateBand" not in updates_panel
-    and in_order(section_between(updates_panel, "void ScrollToNewestUpdate()", "ReadScroll()\n        {"),
-                 "newestDateOffset is int start", "feed.Select(start, 0);", "feed.ScrollToCaret();",
-                 "feed.GetPositionFromCharIndex(start).Y", "ScrollToPixel(Math.Max(0, scroll.Y + dateTop - Px(2)))"),
+    and "posts.at(-1).offsetTop" in (chat_root / "web/server-updates.html").read_text(encoding="utf-8")
+    and "dateBand" not in updates_panel,
+)
+expect(
+    "Game Updates sends only post-scoped reaction actions to the signed-in Discord source",
+    'message.GetProperty("type").GetString() is not ("toggle" or "picker")' in updates_panel
+    and 'args.Source != "about:blank"' in updates_panel
+    and 'post.Reactions?.Any(reaction => reaction.Key == request.Key)' in source
+    and 'source.ShowReactionPicker(owner, panel.RectangleToScreen(panel.ClientRectangle))' in source
+    and '!IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri)' in server_updates,
 )
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)

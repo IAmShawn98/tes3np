@@ -1,5 +1,8 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 using static GameChatNative;
 
 internal sealed partial class GameChatWindow
@@ -8,6 +11,7 @@ internal sealed partial class GameChatWindow
     LatestUpdatesPanel? serverUpdatesPanel;
     string? serverUpdatesDocument;
     bool serverUpdatesVisibilityPublished;
+    static readonly Lazy<string> ServerUpdatesPage = GameChatWeb.Page("server-updates.html");
 
     void PublishServerUpdatesVisibility()
     {
@@ -95,11 +99,11 @@ internal sealed partial class GameChatWindow
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
         readonly Panel viewport = new() { BackColor = FeedBackground };
-        readonly RichTextBox feed = new()
+        readonly WebView2 feed = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = FeedBackground };
+        readonly Label feedStatus = new()
         {
-            BackColor = FeedBackground, ForeColor = Color.FromArgb(241, 238, 232),
-            ReadOnly = true, BorderStyle = BorderStyle.None, DetectUrls = false,
-            ScrollBars = RichTextBoxScrollBars.ForcedVertical, TabStop = true
+            Dock = DockStyle.Fill, BackColor = FeedBackground, ForeColor = Color.FromArgb(217, 196, 156),
+            Text = "Loading server updates…"
         };
         readonly BufferedScrollbar scrollbar = new();
         readonly Button dismiss = new()
@@ -108,8 +112,9 @@ internal sealed partial class GameChatWindow
             BackColor = FeedBackground, ForeColor = Color.FromArgb(226, 191, 119), Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
-        int? newestDateOffset;
-        int? newestLandingPosition;
+        string? document;
+        bool feedStarted, feedReady;
+        int scrollPosition, scrollTotal = 1, scrollPage = 1;
         int dragOffset = -1;
 
         internal LatestUpdatesPanel(GameChatWindow host)
@@ -118,13 +123,14 @@ internal sealed partial class GameChatWindow
             DoubleBuffered = true;
             ResizeRedraw = true;
             viewport.Controls.Add(feed);
+            viewport.Controls.Add(feedStatus);
+            feedStatus.BringToFront();
             Controls.Add(viewport);
             Controls.Add(scrollbar);
             Controls.Add(dismiss);
             dismiss.FlatAppearance.BorderColor = Color.FromArgb(151, 113, 58);
             dismiss.FlatAppearance.MouseOverBackColor = Color.FromArgb(57, 39, 21);
             dismiss.Click += (_, _) => host.DismissServerUpdates();
-            feed.VScroll += (_, _) => scrollbar.Invalidate();
             scrollbar.Paint += (_, e) =>
             {
                 int height = Units(scrollbar.ClientSize.Height);
@@ -171,74 +177,113 @@ internal sealed partial class GameChatWindow
         {
             base.OnResize(e);
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
-            var previous = ReadScroll();
             int top = Px(56), bottom = Px(14), left = Px(18);
             dismiss.SetBounds(ClientSize.Width - Px(37), Px(18), Px(22), Px(24));
             int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
             scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
             viewport.SetBounds(left, top, width, scrollHeight);
-            // Keep RichEdit's scrollbar range, with its native scroller outside the clipped viewport.
-            uint dpi = GetDpiForWindow(feed.Handle);
-            int nativeBar = GetSystemMetricsForDpi(2, dpi == 0 ? 96 : dpi);
-            feed.SetBounds(0, 0, width + nativeBar, scrollHeight);
-            feed.ZoomFactor = (float)Math.Clamp(PanelScale * 96 / (dpi == 0 ? 96 : dpi), 0.25, 3);
-            if (ShouldFollowNewest(previous.Position, previous.Maximum))
-                ScrollToNewestUpdate();
-            else
-                ScrollToPixel(previous.Position);
+            SetFeedScale();
         }
 
         protected override void OnPaint(PaintEventArgs e) =>
             host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
                 PanelScale, "Game Updates", headerRightPadding: Units(ClientSize.Width - dismiss.Left) + 4);
 
-        internal void SetDocument(string document)
+        void SetFeedScale()
         {
-            var before = ReadScroll();
-            bool follow = ShouldFollowNewest(before.Position, before.Maximum);
-            feed.Rtf = document;
-            newestDateOffset = FindNewestServerUpdatesDateDivider(feed.Text);
-            if (follow)
-                ScrollToNewestUpdate();
-            else
+            if (feed.CoreWebView2 != null)
+                feed.ZoomFactor = Math.Clamp(PanelScale * 96 / Math.Max(96, DeviceDpi), 0.25, 3);
+        }
+
+        internal void SetDocument(string value)
+        {
+            document = value;
+            if (feedReady)
+                PostDocument();
+            else if (!feedStarted)
+                _ = InitializeFeed();
+        }
+
+        async Task InitializeFeed()
+        {
+            if (host.discordEnvironment is not { } environment) return;
+            feedStarted = true;
+            try
             {
-                newestLandingPosition = null;
-                ScrollToPixel(before.Position);
+                await feed.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
+                if (IsDisposed) return;
+                var core = feed.CoreWebView2;
+                core.Settings.AreDefaultContextMenusEnabled = false;
+                core.Settings.AreDevToolsEnabled = false;
+                core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+                core.NavigationStarting += (_, e) => e.Cancel = e.Uri != "about:blank";
+                core.NewWindowRequested += (_, e) => e.Handled = true;
+                core.DownloadStarting += (_, e) => e.Cancel = true;
+                core.WebMessageReceived += HandleFeedMessage;
+                core.NavigationCompleted += (_, e) =>
+                {
+                    if (IsDisposed) return;
+                    if (!e.IsSuccess)
+                    {
+                        feedStatus.Text = "Game Updates could not open.";
+                        return;
+                    }
+                    feedReady = true;
+                    SetFeedScale();
+                    PostDocument();
+                    feedStatus.Visible = false;
+                };
+                core.NavigateToString(ServerUpdatesPage.Value);
+            }
+            catch (Exception ex)
+            {
+                if (IsDisposed) return;
+                feedStatus.Text = "Game Updates could not open.";
+                host.Log("SERVER UPDATES | Feed renderer: " + ex.GetType().Name);
             }
         }
 
-        bool ShouldFollowNewest(int position, int maximum) =>
-            position == newestLandingPosition || position >= maximum - Px(12);
-
-        void ScrollToNewestUpdate()
+        void PostDocument()
         {
-            var handle = feed.Handle;
-            if (newestDateOffset is int start)
+            if (document != null)
+                feed.CoreWebView2.PostWebMessageAsJson(document);
+        }
+
+        async void HandleFeedMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
+        {
+            if (!feedReady || IsDisposed || args.Source != "about:blank") return;
+            try
             {
-                // Bring the date into view, then align to its rendered position so the
-                // opening lines remain below it even when the entry wraps.
-                feed.Select(start, 0);
-                feed.ScrollToCaret();
-                var scroll = new POINT();
-                SendMessageW(handle, 0x04DD, IntPtr.Zero, ref scroll); // EM_GETSCROLLPOS
-                int dateTop = feed.GetPositionFromCharIndex(start).Y;
-                ScrollToPixel(Math.Max(0, scroll.Y + dateTop - Px(2)));
+                using var data = JsonDocument.Parse(args.WebMessageAsJson);
+                var message = data.RootElement;
+                if (message.GetProperty("type").GetString() is "scroll")
+                {
+                    scrollTotal = Math.Max(1, message.GetProperty("height").GetInt32());
+                    scrollPage = Math.Clamp(message.GetProperty("page").GetInt32(), 1, scrollTotal);
+                    scrollPosition = Math.Clamp(message.GetProperty("top").GetInt32(), 0, scrollTotal - scrollPage);
+                    scrollbar.Invalidate();
+                    return;
+                }
+                if (message.GetProperty("type").GetString() is not ("toggle" or "picker")) return;
+                var request = new ServerUpdateAction(message.GetProperty("type").GetString()!,
+                    message.GetProperty("id").GetString() ?? "",
+                    message.TryGetProperty("key", out var key) ? key.GetString() : null);
+                string? error = await host.ActOnServerUpdate(this, request);
+                if (!IsDisposed && feedReady)
+                    feed.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                    {
+                        result = true, id = request.Id, key = request.Key, status = error
+                    }));
             }
-            else
-                SendMessageW(handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
-            newestLandingPosition = ReadScroll().Position;
-            scrollbar.Invalidate();
+            catch (Exception ex)
+            {
+                if (!IsDisposed) host.Log("SERVER UPDATES | Feed action: " + ex.GetType().Name);
+            }
         }
 
-        (int Total, int Page, int Position, int Maximum) ReadScroll()
-        {
-            var info = new SCROLLINFO { Size = 28, Mask = 7 };
-            if (!GetScrollInfo(feed.Handle, 1, ref info)) return (1, 1, 0, 0);
-            int total = Math.Max(1, info.Max - info.Min + 1);
-            int page = Math.Clamp((int)info.Page, 1, total);
-            return (total, page, Math.Max(0, info.Pos - info.Min), total - page);
-        }
+        (int Total, int Page, int Position, int Maximum) ReadScroll() =>
+            (scrollTotal, scrollPage, scrollPosition, scrollTotal - scrollPage);
 
         void ScrollToThumb(int y)
         {
@@ -246,32 +291,15 @@ internal sealed partial class GameChatWindow
             int height = Units(scrollbar.Height);
             GoldScrollbarThumbY(height, metrics.Total, metrics.Page, metrics.Position, out int thumb);
             double fraction = Math.Clamp((y - dragOffset - 27d) / Math.Max(1, height - 54 - thumb), 0d, 1d);
-            ScrollToPixel((int)Math.Round(metrics.Maximum * fraction));
+            ScrollBy("to", (int)Math.Round(metrics.Maximum * fraction));
         }
 
-        void ScrollLines(bool up, int lines)
+        void ScrollLines(bool up, int lines) => ScrollBy("by", lines * (up ? -18 : 18));
+
+        void ScrollBy(string scroll, int pixels)
         {
-            for (int i = 0; i < lines; i++)
-                SendMessageW(feed.Handle, 0x0115, new IntPtr(up ? 0 : 1), IntPtr.Zero);
-            scrollbar.Invalidate();
+            if (feedReady)
+                feed.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { scroll, pixels }));
         }
-
-        void ScrollToPixel(int y)
-        {
-            var point = new POINT { Y = y };
-            SendMessageW(feed.Handle, 0x04DE, IntPtr.Zero, ref point);
-            scrollbar.Invalidate();
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        struct SCROLLINFO { internal uint Size, Mask; internal int Min, Max; internal uint Page; internal int Pos, TrackPos; }
-
-        [StructLayout(LayoutKind.Sequential)]
-        struct POINT { internal int X, Y; }
-
-        [DllImport("user32.dll")] static extern bool GetScrollInfo(IntPtr hwnd, int bar, ref SCROLLINFO info);
-        [DllImport("user32.dll")] static extern int GetSystemMetricsForDpi(int index, uint dpi);
-        [DllImport("user32.dll")] static extern IntPtr SendMessageW(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-        [DllImport("user32.dll")] static extern IntPtr SendMessageW(IntPtr hwnd, uint message, IntPtr wParam, ref POINT lParam);
     }
 }

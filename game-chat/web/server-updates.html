@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https://cdn.discordapp.com/emojis/ https://media.discordapp.net/emojis/ https://discord.com/assets/; base-uri 'none'; form-action 'none'">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow: hidden; background: #0a0908; color: #f1eee8; }
+  body { font: 14px/1.25 Georgia, serif; }
+  main { height: 100vh; position: relative; overflow: auto; scrollbar-width: none; padding: 2px 2px 3px; }
+  main::-webkit-scrollbar { display: none; }
+  main:focus { outline: 0; }
+  article + article { margin-top: 8px; }
+  .date { display: flex; align-items: center; gap: 5px; color: #d9c49c; font-size: 12px; margin-bottom: 2px; }
+  .date::before, .date::after { content: ''; flex: 1; border-top: 1px solid #655237; }
+  p, h2 { margin: 0 0 3px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  h2 { font: bold 15px/1.2 Georgia, serif; }
+  h2:not(:first-of-type) { margin-top: 4px; }
+  .point { display: grid; grid-template-columns: 12px minmax(0, 1fr); }
+  .numbered { grid-template-columns: max-content minmax(0, 1fr); column-gap: 5px; }
+  .reactions { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0 2px; }
+  button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    border: 1px solid #51412c; border-radius: 6px; background: #241e17; color: #d9c49c;
+    padding: 2px 5px; min-height: 24px; min-width: 25px; font: 12px/1 system-ui, sans-serif; cursor: pointer;
+  }
+  button:hover, button:focus-visible { border-color: #c3a673; }
+  button[aria-pressed="true"] { background: #3e3020; border-color: #c3a673; color: #fff0cc; }
+  button[aria-disabled="true"] { opacity: .65; cursor: wait; }
+  .emoji { font: 15px/1 'Segoe UI Emoji', sans-serif; }
+  img.emoji { width: 16px; height: 16px; object-fit: contain; }
+  .status { color: #b8a98e; }
+</style>
+</head>
+<body>
+<main aria-label="Game Updates" tabindex="0"></main>
+<script>
+  const main = document.querySelector('main');
+  const bridge = window.chrome.webview;
+  let landing = null;
+  let pending = null;
+
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function reportScroll() {
+    bridge.postMessage({ type: 'scroll', top: Math.round(main.scrollTop),
+      height: main.scrollHeight, page: main.clientHeight });
+  }
+
+  function emojiImage(source) {
+    try {
+      const url = new URL(source);
+      if (url.origin === 'https://discord.com' && /^\/assets\/[a-z\d.-]+\.svg$/i.test(url.pathname)) return url.href;
+      if ((url.origin === 'https://cdn.discordapp.com' || url.origin === 'https://media.discordapp.net') &&
+        /^\/emojis\/\d+\.(?:png|gif|webp|avif)$/i.test(url.pathname)) return url.href;
+    } catch { }
+    return null;
+  }
+
+  function reactionButton(post, reaction) {
+    const button = element('button');
+    button.type = 'button';
+    const key = reaction?.Key ?? '';
+    button.dataset.key = key;
+    const pressing = pending?.id === post.id && pending.key === key;
+    if (pressing) button.setAttribute('aria-disabled', 'true');
+    if (reaction) {
+      const label = `${reaction.Name}, ${reaction.Count} ${reaction.Count === 1 ? 'reaction' : 'reactions'}`;
+      button.setAttribute('aria-label', label);
+      button.setAttribute('aria-pressed', String(reaction.Mine));
+      button.title = `${reaction.Mine ? 'Remove' : 'React with'} ${reaction.Name}`;
+      const source = emojiImage(reaction.Image);
+      if (source) {
+        const image = element('img', 'emoji');
+        image.alt = reaction.Name;
+        image.referrerPolicy = 'no-referrer';
+        image.src = source;
+        image.addEventListener('error', () => image.replaceWith(element('span', 'emoji', reaction.Name)), { once: true });
+        button.append(image);
+      } else button.append(element('span', 'emoji', reaction.Name));
+      button.append(element('span', '', String(reaction.Count)));
+    } else {
+      button.setAttribute('aria-label', 'Add Reaction');
+      button.title = 'Add Reaction';
+      button.append(element('span', 'emoji', '☺'), element('span', '', '+'));
+    }
+    button.addEventListener('click', () => {
+      if (pending) return;
+      pending = { id: post.id, key };
+      button.setAttribute('aria-disabled', 'true');
+      const status = button.closest('article').querySelector('.status');
+      status.textContent = '';
+      bridge.postMessage({ type: reaction ? 'toggle' : 'picker', id: post.id, key: reaction?.Key ?? null });
+    });
+    return button;
+  }
+
+  function postElement(post) {
+    const article = element('article');
+    article.dataset.id = post.id;
+    article.append(element('div', 'date', post.date));
+    for (const block of post.blocks) {
+      if (!block?.Runs?.length) continue;
+      const heading = block.Style === 'heading' || (!block.Style && block.Runs.every(run => !run?.Text?.trim() || run.Bold));
+      const bullet = block.Style === 'bullet', numbered = block.Style === 'number';
+      const line = element(heading ? 'h2' : 'p', numbered ? 'point numbered' : bullet ? 'point' : '');
+      const text = bullet || numbered ? element('span') : line;
+      if (text !== line) line.append(element('span', '', bullet ? '•' : block.Number + '.'), text);
+      for (const run of block.Runs) {
+        if (run?.Text) text.append(element(run.Bold ? 'strong' : 'span', '', run.Text));
+      }
+      article.append(line);
+    }
+    const reactions = element('div', 'reactions');
+    for (const reaction of post.reactions || []) reactions.append(reactionButton(post, reaction));
+    reactions.append(reactionButton(post));
+    article.append(reactions);
+    const status = element('div', 'status');
+    status.setAttribute('role', 'status');
+    article.append(status);
+    return article;
+  }
+
+  function render(data) {
+    const top = main.scrollTop;
+    const follow = landing == null || Math.abs(top - landing) <= 2 || main.scrollHeight - main.clientHeight - top <= 2;
+    const articles = [...main.querySelectorAll('article')];
+    const anchor = articles.find(article => article.offsetTop + article.offsetHeight > top);
+    const shift = top - (anchor?.offsetTop ?? 0);
+    const focused = document.activeElement.closest('article');
+    const focusKey = document.activeElement.dataset.key;
+    const statuses = new Map(articles.map(article => [article.dataset.id, article.querySelector('.status').textContent]));
+    if (!data.posts?.length) {
+      main.replaceChildren(element('p', 'status', data.status));
+      landing = null;
+    } else {
+      const posts = data.posts.map(postElement);
+      const articleById = new Map(posts.map(article => [article.dataset.id, article]));
+      for (const [id, status] of statuses) {
+        if (status && articleById.has(id)) articleById.get(id).querySelector('.status').textContent = status;
+      }
+      main.replaceChildren(...posts);
+      landing = Math.max(0, Math.min(posts.at(-1).offsetTop - 2, main.scrollHeight - main.clientHeight));
+      const remembered = articleById.get(anchor?.dataset.id);
+      main.scrollTop = follow ? landing : remembered ? remembered.offsetTop + shift : top;
+      const restored = articleById.get(focused?.dataset.id);
+      if (restored && focusKey != null) {
+        [...restored.querySelectorAll('button')].find(button => button.dataset.key === focusKey)?.focus({ preventScroll: true });
+      }
+    }
+    reportScroll();
+  }
+
+  bridge.addEventListener('message', ({ data }) => {
+    if (data.scroll === 'by' || data.scroll === 'to') {
+      main.scrollTop = data.scroll === 'by' ? main.scrollTop + data.pixels : data.pixels;
+      reportScroll();
+    } else if (data.result) {
+      pending = null;
+      const post = [...main.querySelectorAll('article')].find(article => article.dataset.id === data.id);
+      if (post) {
+        post.querySelector('[aria-disabled="true"]')?.removeAttribute('aria-disabled');
+        post.querySelector('.status').textContent = data.status || '';
+      }
+      reportScroll();
+    } else render(data);
+  });
+  main.addEventListener('scroll', reportScroll);
+  new ResizeObserver(reportScroll).observe(main);
+</script>
+</body>
+</html>

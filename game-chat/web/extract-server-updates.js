@@ -1,6 +1,58 @@
-(() => {
+((request = null) => {
   const list = document.querySelector('[data-list-id="chat-messages"]');
   if (!list || document.readyState === 'loading') return null;
+
+  const pickerSelector = '[class^="emojiPicker_"], [class*=" emojiPicker_"], [aria-label="Emoji Picker" i]';
+  const rows = list.querySelectorAll('[id^="chat-messages-"]');
+  const messageId = row => row.id.match(/^chat-messages-510245417657827363-(\d+)$/)?.[1];
+
+  function reactionsFor(row) {
+    const reactions = [];
+    const buttons = row.querySelectorAll('[class^="reaction_"], [class*=" reaction_"]');
+    for (const button of buttons) {
+      const count = button.querySelector('[class*="reactionCount_"]');
+      const image = button.querySelector('img[alt]');
+      const name = image?.alt || button.getAttribute('data-emoji-name');
+      const total = Number(count?.textContent.replace(/[\s,]/g, ''));
+      if (!name || !Number.isSafeInteger(total) || total < 1) continue;
+      const imageUrl = image?.getAttribute('src') || '';
+      const custom = imageUrl.match(/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/emojis\/(\d+)\.(?:png|gif|webp|avif)(?:\?.*)?$/i);
+      const standardImage = /^(?:https:\/\/discord\.com)?\/assets\/[a-z\d.-]+\.svg(?:\?.*)?$/i.test(imageUrl);
+      const burst = button.className.includes('burstReaction') || button.className.includes('shakeReaction');
+      const key = (custom?.[1] || name) + (burst ? ':burst' : '');
+      const source = custom ? imageUrl : standardImage ? new URL(imageUrl, 'https://discord.com').href : null;
+      const control = button.matches('button, [role="button"]') ? button :
+        button.querySelector('button, [role="button"]') ?? button;
+      reactions.push({ button: control, value: { Key: key, Name: name, Image: source, Count: total,
+        Mine: control.getAttribute('aria-pressed') === 'true' || button.className.includes('reactionMe_') } });
+    }
+    return reactions;
+  }
+
+  if (request) {
+    if (request.Kind === 'picker-state') return !!document.querySelector(pickerSelector);
+    const row = [...rows].find(item => messageId(item) === request.Id);
+    if (!row) return 'missing';
+    if (request.Kind === 'toggle') {
+      const reaction = reactionsFor(row).find(item => item.value.Key === request.Key);
+      if (!reaction || reaction.button.disabled || reaction.button.getAttribute('aria-disabled') === 'true')
+        return 'unavailable';
+      reaction.button.click();
+      return 'clicked';
+    }
+    if (request.Kind === 'picker') {
+      if (document.querySelector(pickerSelector)) return 'clicked';
+      row.scrollIntoView({ block: 'center' });
+      const message = row.querySelector('[class^="message_"], [class*=" message_"]') ?? row;
+      message.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      const add = row.querySelector('[class^="reactionBtn_"], [class*=" reactionBtn_"], ' +
+        '[class*="addReactButton_"], [aria-label="Add Reaction" i], [data-list-item-id$="___add-reaction"]');
+      if (!add || add.disabled || add.getAttribute('aria-disabled') === 'true') return 'unavailable';
+      add.click();
+      return 'clicked';
+    }
+    return 'unavailable';
+  }
 
   // Discord can restore its last-read position. Read the live end of the channel.
   const chat = list.closest('[class*="chat_"], main') ?? list.parentElement;
@@ -110,10 +162,9 @@
   }
 
   const updates = [];
-  const rows = list.querySelectorAll('[id^="chat-messages-"]');
   if (!rows.length) return null;
   for (const row of rows) {
-    const id = row.id.match(/^chat-messages-\d+-(\d+)$/)?.[1];
+    const id = messageId(row);
     if (!id) continue;
     const roots = [...row.querySelectorAll(bodySelector)]
       .filter(node => !node.parentElement?.closest(bodySelector));
@@ -121,8 +172,8 @@
     removeUpdateIntro(blocks);
     if (blocks.length) {
       for (const block of blocks) trimBlockEdges(block);
-      updates.push({ Id: id, Blocks: blocks });
+      updates.push({ Id: id, Blocks: blocks, Reactions: reactionsFor(row).map(item => item.value) });
     }
   }
   return updates.slice(-12);
-})()
+})
