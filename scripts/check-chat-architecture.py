@@ -1851,7 +1851,11 @@ expect(
     and '"Use Included TES3MP"' in settings_ui
     and 'Original TES3NP runtime' not in settings_ui
     and 'SetLauncherHandCursor()' in native_renderer
-    and 'OnMessage(0x0020, HandleNativeClickableCursor)' in native_renderer,
+    and 'OnMessage(0x0020, HandleNativeClickableCursor)' in native_renderer
+    and in_order(section_between(native_renderer, 'HandleNativeClickableCursor(wParam,', 'InitButtonPainter()'),
+                 'DllCall("IsWindowEnabled", "Ptr", wParam)', 'DllCall("IsWindowVisible", "Ptr", wParam)',
+                 'className = "Static" && IsObject(LauncherChatToggle) && wParam = LauncherChatToggle.Hwnd',
+                 'SetLauncherHandCursor()'),
 )
 
 # The seven second-PC regression reports must have explicit source-side
