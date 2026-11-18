@@ -3,6 +3,7 @@ global EmbeddedChatPid := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
+global LauncherChatHovered := false
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -135,9 +136,24 @@ CreateLauncherChatToggle()
     OnMessage(0x0204, LauncherChatRightClick)
 }
 
+UpdateLauncherChatHover(pointerWindow, pointerControl)
+{
+    global LauncherGui, LauncherChatToggle, LauncherChatHovered
+    if !IsObject(LauncherChatToggle)
+        return
+    hwnd := LauncherChatToggle.Hwnd
+    hovered := pointerWindow = LauncherGui.Hwnd && pointerControl = hwnd
+        && LauncherChatToggle.Visible && LauncherChatToggle.Enabled
+        && DllCall("user32\IsWindowEnabled", "Ptr", pointerWindow)
+    if hovered = LauncherChatHovered
+        return
+    LauncherChatHovered := hovered
+    DllCall("user32\InvalidateRect", "Ptr", hwnd, "Ptr", 0, "Int", 0)
+}
+
 PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
 {
-    global LauncherChatToggle, LauncherScale, LauncherChatOpen
+    global LauncherChatToggle, LauncherScale, LauncherChatOpen, LauncherChatHovered
     if !IsObject(LauncherChatToggle) || hwnd != LauncherChatToggle.Hwnd
         return
     ; Paint the rotated caption directly to avoid clipping inside the static control.
@@ -150,10 +166,14 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         rect := Buffer(16, 0)
         DllCall("user32\GetClientRect", "Ptr", hwnd, "Ptr", rect)
         w := NumGet(rect, 8, "Int"), h := NumGet(rect, 12, "Int")
-        gold := DllCall("gdi32\CreateSolidBrush", "UInt", 0x003A7CA7, "Ptr")
+        hovered := LauncherChatHovered
+        fillColor := hovered ? 0x0074C4EB : 0x003A7CA7
+        frameColor := hovered ? 0x00C3F1FF : 0x0078C7ED
+        labelColor := hovered ? 0x000F2335 : 0x00FFFFFF
+        gold := DllCall("gdi32\CreateSolidBrush", "UInt", fillColor, "Ptr")
         DllCall("user32\FillRect", "Ptr", dc, "Ptr", rect, "Ptr", gold)
         DllCall("gdi32\DeleteObject", "Ptr", gold)
-        frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x0078C7ED, "Ptr")
+        frame := DllCall("gdi32\CreateSolidBrush", "UInt", frameColor, "Ptr")
         DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
         NumPut("Int", 2, rect, 0)
         NumPut("Int", 2, rect, 4)
@@ -162,7 +182,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
         DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
         DllCall("gdi32\DeleteObject", "Ptr", frame)
         DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
-        DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", 0x00FFFFFF)
+        DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", labelColor)
         ; Scale the rotated caption and arrow with the tab.
         paintScale := LauncherScale / 100
         fontHeight := -Max(9, Round(21 * paintScale))
@@ -177,7 +197,7 @@ PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
             "Int", Round(h * 0.87), "Str", "Game Chat", "Int", 9)
         DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
         DllCall("gdi32\DeleteObject", "Ptr", font)
-        pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", 0x00FFFFFF, "Ptr")
+        pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
         oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
         cx := Round(w * 0.32), cy := Round(h * 0.50)
         direction := LauncherChatOpen ? -1 : 1
