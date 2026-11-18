@@ -72,6 +72,26 @@ folder picker are unverified for this run.
   name and affected file were not confirmed in Protection History.
 - **SKIP:** Standard-user coverage and public updater flow are pending.
 
+## November 17 Dell retest after the Expansion Pack and chat fixes
+
+- Build source `191012e76667afee45b4e36a69779c558f62e9d7`. The Windows
+  build, Expansion Pack import and toggle fixtures, compiled launcher
+  `--check`, and final ZIP integrity check passed. Chat Host published with
+  the existing WindowsBase `MSB3277` warning.
+- `tes3np-windows.zip` SHA-256
+  `4ccea0f543176bc8a0809edd44989ab5fb37d81d6afa9b424eb453a2b107a9c7`
+  matched on the development PC and the Dell after USB transfer.
+- The tester opened the verified package on the same Dell and Windows
+  profile, with Steam GOTY and the previous runtime troubleshooting already
+  in place. The extraction folder used an ASCII name.
+- **PASS:** The launcher checked for an Expansion Pack update, reused the
+  verified local pack, and showed Enabled plus the success confirmation.
+  The tester then reported successful login into the NP world.
+- **Pending:** A full disable/re-enable cycle and live Game Chat/Discord
+  scaling on this ZIP were not reported. This build used the fallback
+  markerless client. Repeat final clean-machine login acceptance with the
+  intended source-built console client and a standard Windows user.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
