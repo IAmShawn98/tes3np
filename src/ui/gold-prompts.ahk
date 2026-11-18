@@ -62,11 +62,12 @@ CreateGoldNativePrompt(owner, title, width, height)
     }
 }
 
-ShowGoldNativePrompt(panel)
+ShowGoldNativePrompt(panel, scale := unset)
 {
     if !IsObject(panel) || !panel.HasOwnProp("NativePromptBackdrop")
         return
-    scale := GetOwnedMenuScale()
+    if !IsSet(scale)
+        scale := GetOwnedMenuScale()
     ScaleOwnedMenuContent(panel, scale)
     ShowCenteredGoldPrompt(panel, panel.NativePromptBackdrop,
         Round(panel.NativePromptWidth * scale), Round(panel.NativePromptHeight * scale))

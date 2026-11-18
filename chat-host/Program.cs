@@ -5,7 +5,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal static class Program
 {
-    const string ChatBuild = "chat-feed-ready-20261117";
+    const string ChatBuild = "chat-responsive-layout-20261117";
     const string Channel = "https://discord.com/channels/509601787901116437/1384271857842130994";
     // Same NP Discord guild as Game Chat, but a different channel and raw WebView2.
     const string ExpansionChannel = "https://discord.com/channels/509601787901116437/1555049936800718928";
@@ -2686,17 +2686,6 @@ metrics();
         int ChatPixels(int value) => Pixels(value, chatScale);
         int ChatUnits(int pixels) => (int)Math.Floor(pixels / chatScale);
 
-        static Font PixelFont(string family, float points, FontStyle style, double scale = 1) =>
-            new(family, (float)(points * (96d / 72) * scale), style, GraphicsUnit.Pixel);
-
-        static void SetPopupFont(Control control, ref Font? ownedFont, Font font)
-        {
-            Font? previous = ownedFont;
-            ownedFont = font;
-            control.Font = font;
-            previous?.Dispose();
-        }
-
         static void SetBrowserScale(WebView2 browser, double scale)
         {
             // WebView2 already accounts for Windows DPI. Apply only the
@@ -2710,8 +2699,11 @@ metrics();
         {
             if (chatScale == scale && loadingFont != null) return;
             chatScale = scale;
-            SetPopupFont(nativeMessages, ref loadingFont, PixelFont("Georgia", 10, FontStyle.Regular, scale));
-            SetBrowserScale(messageBrowser, scale);
+            if (loadingFont == null)
+            {
+                loadingFont = new Font("Georgia", 10, FontStyle.Regular);
+                nativeMessages.Font = loadingFont;
+            }
             FitWebView();
             goldScrollbar.Invalidate();
             Invalidate();
@@ -2937,7 +2929,7 @@ metrics();
                 using var shadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(37, 26, 15), 3);
                 using var titleFill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(16, 12, 9));
                 using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
-                using var titleFont = PixelFont("Georgia", 14, FontStyle.Bold);
+                using var titleFont = new Font("Georgia", 14, FontStyle.Bold);
                 g.FillRectangle(rim, 0, 0, w, h);
                 // Recreate the reference's densely mottled bronze stone rather
                 // than overlaying speckles on the old horizontal wood texture.
@@ -3040,7 +3032,7 @@ metrics();
                 g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
                 g.FillRectangle(black, 13, 52, w - 26, h - 65);
                 g.DrawLine(goldPen, 12, 51, w - 13, 51);
-                using var headingFont = PixelFont("Georgia", 13, FontStyle.Regular);
+                using var headingFont = new Font("Georgia", 13, FontStyle.Regular);
                 var titleSize = g.MeasureString("Live Game Chat", headingFont);
                 g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 43);
                 using var centeredTitle = new System.Drawing.StringFormat
@@ -3684,7 +3676,7 @@ metrics();
                         [data-tes3np-login] > * { margin-top:0 !important; margin-bottom:0 !important; }
                         [data-tes3np-login] div:empty { display:none !important; }
                         [data-tes3np-login] {
-                          position:fixed !important; inset:0 !important;
+                          position:fixed !important; inset:10px 0 6px !important;
                           width:auto !important; min-width:0 !important; max-width:none !important;
                           height:auto !important; min-height:0 !important; max-height:none !important;
                           transform:none !important; translate:none !important;
@@ -3702,7 +3694,7 @@ metrics();
                         [data-tes3np-integration-logo] {
                           display:block !important; width:175px !important;
                           height:135px !important; max-width:100% !important;
-                          max-height:26vh !important; object-fit:contain !important;
+                          object-fit:contain !important;
                           margin:8px auto 4px !important; padding:0 !important;
                         }
                         [data-tes3np-login-benefit] {
@@ -3770,6 +3762,16 @@ metrics();
                         [data-tes3np-not-now]:hover {
                           background:#b33030 !important;
                         }
+                        @media (max-width:360px) {
+                          [data-tes3np-login] { padding-inline:8px !important; }
+                        }
+                        @media (max-height:480px) {
+                          [data-tes3np-login] { inset:0 !important; }
+                          [data-tes3np-integration-logo] {
+                            max-height:28vh !important;
+                            margin-block:4px 2px !important;
+                          }
+                        }
                       `;
                       if (firstPresentation) {
                         const reset = () => {
@@ -3819,11 +3821,12 @@ metrics();
         }
         sealed class DiscordSignInCard : Form
         {
-            public const int BaseWidth = 480, BaseHeight = 660;
+            public const int BaseWidth = 520, BaseHeight = 750;
+            public const int MinimumWidth = 360, MinimumHeight = 440;
             readonly TableLayoutPanel shell = new()
             {
                 Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
-                BackColor = Color.FromArgb(27, 20, 11)
+                Padding = new Padding(12), BackColor = Color.FromArgb(27, 20, 11)
             };
             readonly Label heading = new()
             {
@@ -3845,8 +3848,9 @@ metrics();
                 Cursor = Cursors.Hand, TabStop = false
             };
             public Panel BrowserPanel { get; } = new() { Dock = DockStyle.Fill, BackColor = Color.Black };
-            Font? headingFont, helpFont, closeFont;
-            double lastScale;
+            readonly Font headingFont = new("Georgia", 16, FontStyle.Bold);
+            readonly Font closeFont = new("Segoe UI", 14, FontStyle.Bold);
+            bool layoutApplied;
 
             public DiscordSignInCard(Action dismiss)
             {
@@ -3859,9 +3863,12 @@ metrics();
                 MaximizeBox = false;
                 MinimizeBox = false;
                 ShowInTaskbar = false;
+                Padding = new Padding(2);
+                heading.Font = headingFont;
+                close.Font = closeFont;
                 shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-                shell.RowStyles.Add(new RowStyle(SizeType.Absolute));
-                shell.RowStyles.Add(new RowStyle(SizeType.Absolute));
+                shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+                shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
                 shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
                 shell.Controls.Add(heading, 0, 0);
                 shell.Controls.Add(help, 0, 1);
@@ -3873,10 +3880,10 @@ metrics();
                 close.BringToFront();
             }
 
-            public void ApplyLayout(Rectangle bounds, double scale, WebView2 browser)
+            public void ApplyLayout(Rectangle bounds)
             {
-                if (lastScale == scale && Bounds == bounds) return;
-                if (lastScale == scale && Size == bounds.Size)
+                if (layoutApplied && Bounds == bounds) return;
+                if (layoutApplied && Size == bounds.Size)
                 {
                     Location = bounds.Location;
                     return;
@@ -3885,22 +3892,18 @@ metrics();
                 shell.SuspendLayout();
                 try
                 {
-                    if (lastScale != scale)
-                    {
-                        lastScale = scale;
-                        Padding = new Padding(Pixels(2, scale));
-                        shell.Padding = new Padding(Pixels(12, scale));
-                        heading.Margin = help.Margin = BrowserPanel.Margin = new Padding(Pixels(3, scale));
-                        shell.RowStyles[0].Height = Pixels(45, scale);
-                        shell.RowStyles[1].Height = Pixels(50, scale);
-                        SetPopupFont(heading, ref headingFont, PixelFont("Georgia", 16, FontStyle.Bold, scale));
-                        SetPopupFont(help, ref helpFont, PixelFont("Segoe UI", 9, FontStyle.Regular, scale));
-                        SetPopupFont(close, ref closeFont, PixelFont("Segoe UI", 14, FontStyle.Bold, scale));
-                        SetBrowserScale(browser, scale);
-                    }
+                    // Preserve the default header rows. Add height when the
+                    // Windows-sized help text needs to wrap in a narrow card.
+                    int textWidth = Math.Max(1, bounds.Width -
+                        Padding.Horizontal - shell.Padding.Horizontal - help.Margin.Horizontal);
+                    var promptSize = TextRenderer.MeasureText(help.Text, help.Font,
+                        new Size(textWidth, bounds.Height), TextFormatFlags.WordBreak);
+                    shell.RowStyles[0].Height = Math.Max(45, heading.Font.Height + heading.Margin.Vertical);
+                    shell.RowStyles[1].Height = Math.Max(50, promptSize.Height + help.Margin.Vertical);
                     Bounds = bounds;
-                    int buttonSize = Pixels(29, scale);
-                    close.SetBounds(bounds.Width - Pixels(39, scale), Pixels(6, scale), buttonSize, buttonSize);
+                    int closeSize = Math.Max(29, close.Font.Height);
+                    close.SetBounds(bounds.Width - closeSize - 10, 6, closeSize, closeSize);
+                    layoutApplied = true;
                 }
                 finally
                 {
@@ -3913,26 +3916,35 @@ metrics();
             {
                 base.Dispose(disposing);
                 if (!disposing) return;
-                headingFont?.Dispose();
-                helpFont?.Dispose();
-                closeFont?.Dispose();
+                headingFont.Dispose();
+                closeFont.Dispose();
             }
         }
 
         // Game Chat sign-in follows its dock. Expansion authentication uses the
         // same sized card, centered in the launcher's monitor work area.
-        void PositionDiscordSignIn(RECT ownerBounds, Rectangle work, double launcherScale)
+        static Size GetDiscordSignInSize(Rectangle work, double ownerFit)
+        {
+            // Full-size sign-in uses its original bounds. Honor compact
+            // launcher presets and actual monitor limits through reflow.
+            int width = Math.Max(DiscordSignInCard.MinimumWidth, Pixels(DiscordSignInCard.BaseWidth, ownerFit));
+            int height = Math.Max(DiscordSignInCard.MinimumHeight, Pixels(DiscordSignInCard.BaseHeight, ownerFit));
+            return new Size(Math.Min(width, Math.Max(1, work.Width - 24)),
+                Math.Min(height, Math.Max(1, work.Height - 24)));
+        }
+
+        void PositionDiscordSignIn(RECT ownerBounds, Rectangle work)
         {
             if (discordSignInWindow is not { IsDisposed: false } popup) return;
-            // Keep native and browser login targets comfortably clickable at 50%.
-            double scale = FitPopupScale(Math.Max(0.72, launcherScale),
-                DiscordSignInCard.BaseWidth, DiscordSignInCard.BaseHeight, work, 12);
-            var size = new Size(Pixels(DiscordSignInCard.BaseWidth, scale), Pixels(DiscordSignInCard.BaseHeight, scale));
+            // The card's original size is in screen pixels. Windows scaling
+            // can leave room for it even when the launcher is below 100%.
+            double ownerFit = Math.Min(1, (ownerBounds.Right - ownerBounds.Left) / (double)launcherBaseWidth);
+            var size = GetDiscordSignInSize(work, ownerFit);
             Rectangle target = pendingExpansionPrompt == 0
                 ? DockBounds(ownerBounds, work, size, size.Width)
                 : new Rectangle(work.Left + (work.Width - size.Width) / 2,
                     work.Top + (work.Height - size.Height) / 2, size.Width, size.Height);
-            popup.ApplyLayout(target, scale, web);
+            popup.ApplyLayout(target);
         }
 
         void DismissDiscordSignIn()
@@ -3999,6 +4011,9 @@ metrics();
             discordSignInWindow = popup;
             web.Dock = DockStyle.Fill;
             web.Parent = popup.BrowserPanel;
+            // The same WebView serves the hidden chat source. Restore normal
+            // browser text sizing when it moves into the sign-in card.
+            web.ZoomFactor = 1;
             PositionChatWindows();
             web.Visible = true;
             // Keep the authentication WebView2 alive for background channel /
@@ -4279,7 +4294,7 @@ metrics();
                 scale = Math.Min(scale, sideWidth / (double)chatWidth);
             UpdateChatScale(scale);
             var size = new Size(ChatPixels(chatWidth), ChatPixels(chatHeight));
-            PositionDiscordSignIn(bounds, work, launcherScale);
+            PositionDiscordSignIn(bounds, work);
             var target = DockBounds(bounds, work, size, size.Width);
             if (chatOpen && Bounds != target)
                 MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);

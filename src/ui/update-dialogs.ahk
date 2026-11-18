@@ -14,7 +14,7 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
         window.OnEvent("Escape", (*) => DestroyScaledMenu(window))
         window.OnEvent("Close", (*) => DestroyScaledMenu(window))
         hwnd := window.Hwnd
-        ShowGoldNativePrompt(window)
+        ShowGoldNativePrompt(window, GetUpdatePromptFitScale(window))
         WinWaitClose("ahk_id " hwnd)
     } finally {
         CloseGoldNativePrompt(window)
@@ -48,11 +48,11 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         AddStyledButton(preview, 590, 582, 178, 34, "Release Notes", (*) => Run(GetTes3npReleasePage(latestVersion)))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
-        scale := GetOwnedMenuScale()
+        scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes, scale)
         hwnd := preview.Hwnd
-        ShowGoldNativePrompt(preview)
+        ShowGoldNativePrompt(preview, scale)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(closeNotes)
@@ -90,11 +90,11 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => DestroyScaledMenu(panel))
         panel.OnEvent("Close", (*) => DestroyScaledMenu(panel))
         panel.OnEvent("Escape", (*) => DestroyScaledMenu(panel))
-        scale := GetOwnedMenuScale()
+        scale := GetUpdatePromptFitScale(panel)
         ScaleOwnedMenuContent(panel, scale)
         closeNotes := AddUpdateNotesViewport(panel, notes, scale)
         hwnd := panel.Hwnd
-        ShowGoldNativePrompt(panel)
+        ShowGoldNativePrompt(panel, scale)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(closeNotes)
@@ -103,4 +103,13 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     }
     if state.Retry
         SetTimer(CheckForUpdates, -100)
+}
+
+GetUpdatePromptFitScale(panel)
+{
+    ; The backdrop uses screen pixels and matches the launcher. Keep the
+    ; original dialog layout whenever it fits, with a margin at each edge.
+    panel.NativePromptBackdrop.GetClientPos(, , &width, &height)
+    return Max(0.5, Min(1.0, (width - 32) / panel.NativePromptWidth,
+        (height - 32) / panel.NativePromptHeight))
 }

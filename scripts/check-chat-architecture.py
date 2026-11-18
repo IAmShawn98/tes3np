@@ -296,7 +296,7 @@ expect(
 
 sign_in_card = section_between(source, "sealed class DiscordSignInCard : Form", "void PositionDiscordSignIn(")
 show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")
-sign_in_layout = section_between(source, "void PositionDiscordSignIn(", "void DismissDiscordSignIn()")
+sign_in_layout = section_between(source, "static Size GetDiscordSignInSize(", "void DismissDiscordSignIn()")
 chat_layout = section_between(source, "void PositionChatWindows()", "void DockToLauncher()")
 dock_bounds = section_between(source, "static Rectangle DockBounds(", "void PositionChatWindows()")
 expect(
@@ -333,12 +333,18 @@ expect(
     and "MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);" not in source,
 )
 expect(
-    "Chat sizing excludes Windows DPI, fits usable side space and protects the login viewport",
+    "Chat geometry fits the available space while visible browser text keeps its normal zoom",
     "OwnerLayoutScale(bounds.Right - bounds.Left, launcherBaseWidth, GetDpiForWindow(owner))" in chat_layout
     and "sideWidth / (double)chatWidth" in chat_layout
-    and "FitPopupScale(Math.Max(0.72, launcherScale)," in sign_in_layout
+    and "SetBrowserScale(messageBrowser" not in source
+    and "BaseWidth = 520, BaseHeight = 750" in sign_in_card
+    and "Math.Min(width, Math.Max(1, work.Width - 24))" in sign_in_layout
+    and "Math.Min(height, Math.Max(1, work.Height - 24))" in sign_in_layout
+    and in_order(show_sign_in, "web.Parent = popup.BrowserPanel;", "web.ZoomFactor = 1;", "PositionChatWindows();")
     and "[data-tes3np-login-shell]:has([data-tes3np-login])" in source
-    and "position:fixed !important; inset:0 !important;" in source,
+    and "position:fixed !important; inset:10px 0 6px !important;" in source
+    and "@media (max-height:480px)" in source
+    and "overflow-y:auto !important;" in source,
 )
 expect(
     "First login exposes native Connecting status, not a stale scrollbar",
@@ -1646,7 +1652,7 @@ expect(
     "Discord sign-in uses a borderless gold card with in-window close and original toggle",
     'FormBorderStyle = FormBorderStyle.None;' in sign_in_card
     and 'BackColor = Color.FromArgb(197, 164, 92);' in sign_in_card
-    and 'Padding = new Padding(Pixels(2, scale));' in sign_in_card
+    and 'Padding = new Padding(2);' in sign_in_card
     and 'close.Click += (_, _) => dismiss();' in sign_in_card
     and 'close.BringToFront();' in sign_in_card
     and 'new DiscordSignInCard(DismissDiscordSignIn)' in show_sign_in
@@ -1737,7 +1743,7 @@ expect(
 )
 expect(
     "Discord sign-in emblem is published and Game Chat positioning remains separate",
-    'PositionDiscordSignIn(bounds, work, launcherScale);' in chat_layout
+    'PositionDiscordSignIn(bounds, work);' in chat_layout
     and in_order(sign_in_layout, 'pendingExpansionPrompt == 0',
                  'DockBounds(ownerBounds, work, size, size.Width)',
                  'work.Left + (work.Width - size.Width) / 2')
@@ -1933,7 +1939,11 @@ expect(
     and update_dialogs.count("ShowGoldNativePrompt(") == 3
     and "ScaleOwnedMenuContent(panel, scale)" in update_dialogs
     and "AddUpdateNotesViewport(panel, notes, scale)" in update_dialogs
-    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), scale)" in update_notes
+    and "scale := GetUpdatePromptFitScale(panel)" in update_dialogs
+    and "(width - 32) / panel.NativePromptWidth" in update_dialogs
+    and "(height - 32) / panel.NativePromptHeight" in update_dialogs
+    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)))" in update_notes
+    and 'return kind = "heading" ? "s12 Bold cE7BE70" : "s11 Norm cF4E9D6"' in update_notes
     and "ReleaseNoteLineHeight(sample)" in update_notes
     and "GetTextMetricsW" in update_notes
     and "if y + rowHeight > bottomY" in update_notes
