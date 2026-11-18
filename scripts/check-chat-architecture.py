@@ -390,8 +390,9 @@ expect(
     and "RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185)" in updates_panel
     and "FindServerUpdatesDateDividers(feed.Text)" in updates_panel
     and "feed.GetCharIndexFromPosition(new Point(2, 2))" in updates_panel
-    and "feed.GetLineFromCharIndex(dateDividers[^1].Offset)" in updates_panel
-    and "new IntPtr(newestDateLine - firstVisibleLine)" in updates_panel,
+    and in_order(section_between(updates_panel, "void ScrollToNewestUpdate()", "ReadScroll()\n        {"),
+                 "dateDividers[^1].Offset", "feed.Select(start, 0);", "feed.ScrollToCaret();",
+                 "feed.GetPositionFromCharIndex(start).Y", "ScrollToPixel(Math.Max(0, scroll.Y + dateTop - Px(2)))"),
 )
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
