@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <!-- Existing updater versions require the installed Chat Host executable name. -->
+    <AssemblyName>tes3np.ChatHost</AssemblyName>
+    <Product>TES3NP Game Chat</Product>
+    <AssemblyTitle>TES3NP Game Chat</AssemblyTitle>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
@@ -8,7 +12,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="web\message-feed.html" LogicalName="tes3np.ChatHost.Web.MessageFeed.html" />
+    <EmbeddedResource Include="web\*" LogicalName="tes3np.GameChat.Web.%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup><Content Include="border-texture.b64;scrollbar-texture.b64" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="assets\DiscordInt.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>

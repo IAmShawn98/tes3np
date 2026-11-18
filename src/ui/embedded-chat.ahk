@@ -7,13 +7,13 @@ global LauncherChatOpen := false
 EnsureEmbeddedChatHostCurrent(host)
 {
     ; Check freshness without blocking the launcher on a build or network restore.
-    sourceDir := A_ScriptDir "\chat-host"
+    sourceDir := A_ScriptDir "\game-chat"
     if !FileExist(sourceDir "\Program.cs")
         return
     try
     {
         hostTime := FileExist(host) ? FileGetTime(host, "M") : "0"
-        for pattern in ["\*.cs", "\tes3np.ChatHost.csproj", "\web\*.*"]
+        for pattern in ["\*.cs", "\tes3np.GameChat.csproj", "\web\*.*"]
         {
             Loop Files sourceDir pattern, "F"
             {

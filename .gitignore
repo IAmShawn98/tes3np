@@ -23,3 +23,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 Desktop.ini
+# Game Chat build output and the legacy installed runtime directory.
+game-chat/bin/
+game-chat/obj/
+chat-host/
