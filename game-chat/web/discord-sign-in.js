@@ -106,7 +106,7 @@
     title.insertAdjacentElement('afterend', benefit);
   }
   benefit.textContent = fromHeader
-    ? 'Discord integration enables live Game Chat, offline Happy Hour notifications, and automatic Expansion Pack installation.'
+    ? 'Discord integration enables live Game Chat, offline Happy Hour notifications, automated expansion pack installation, and more!'
     : "The feature you're trying to access requires Discord integration to function. Connecting to Discord unlocks realtime in-game chat, offline happy hour notifications, automatic expansion pack installation, and more!";
   let logo = form.querySelector('[data-tes3np-integration-logo]');
   if (!logo) {
