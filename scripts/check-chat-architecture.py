@@ -376,10 +376,20 @@ expect(
     and "GetParent(target) != owner" in source
     and "CloseServerUpdatesPanel();" in server_updates
     and "host.PaintGoldScrollbar(e.Graphics, height, PanelScale, top, thumb);" in source
+    and "host.PaintGameChatFrame(e.Graphics," in updates_panel
     and "recent.TakeLast(8)" in server_updates
     and 'new IntPtr(7), IntPtr.Zero); // SB_BOTTOM' in source
     and in_order(section_between(source, "async Task SignOutDiscord()", "\n}"),
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
+)
+expect(
+    "Latest Updates repaints on launcher restore and shows the date of a scrolled entry",
+    'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
+    and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
+    and "RedrawServerUpdatesPanel(attached);" in updates_panel
+    and "RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185)" in updates_panel
+    and "FindServerUpdatesDateDividers(feed.Text)" in updates_panel
+    and "feed.GetCharIndexFromPosition(new Point(2, 2))" in updates_panel,
 )
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)

@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using static GameChatNative;
 
@@ -11,8 +10,14 @@ internal sealed partial class GameChatWindow
 
     void AttachServerUpdatesPanel(IntPtr target)
     {
-        if (!ServerUpdatesAuthenticated || !IsWindow(target) || GetParent(target) != owner) return;
-        if (target == serverUpdatesParent && serverUpdatesPanel is { IsDisposed: false }) return;
+        if (!ServerUpdatesAuthenticated || !IsWindow(target) || GetParent(target) != owner || IsIconic(owner)) return;
+        if (target == serverUpdatesParent && serverUpdatesPanel is { IsDisposed: false, IsHandleCreated: true } attached &&
+            IsWindow(attached.Handle) && GetParent(attached.Handle) == target)
+        {
+            PositionServerUpdatesPanel();
+            RedrawServerUpdatesPanel(attached);
+            return;
+        }
         CloseServerUpdatesPanel();
         try
         {
@@ -20,13 +25,15 @@ internal sealed partial class GameChatWindow
             var panel = serverUpdatesPanel = new LatestUpdatesPanel(this);
             var handle = panel.Handle;
             const int WS_CLIPSIBLINGS = 0x04000000;
-            SetWindowLong(handle, GWL_STYLE, (GetWindowLong(handle, GWL_STYLE) | WS_CHILD | WS_CLIPSIBLINGS) & ~WS_POPUP);
+            const int WS_CLIPCHILDREN = 0x02000000;
+            SetWindowLong(handle, GWL_STYLE,
+                (GetWindowLong(handle, GWL_STYLE) | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN) & ~WS_POPUP);
             SetParent(handle, target);
             if (GetParent(handle) != target)
                 throw new InvalidOperationException("Latest Updates could not attach to the launcher.");
             PositionServerUpdatesPanel();
             panel.SetDocument(serverUpdatesDocument ?? ServerUpdatesStatus("Loading server updates…"));
-            ShowWindow(handle, 4); // SW_SHOWNOACTIVATE
+            RedrawServerUpdatesPanel(panel);
         }
         catch (Exception ex)
         {
@@ -34,6 +41,15 @@ internal sealed partial class GameChatWindow
             CloseServerUpdatesPanel();
         }
     }
+
+    static void RedrawServerUpdatesPanel(LatestUpdatesPanel panel)
+    {
+        ShowWindow(panel.Handle, 4); // SW_SHOWNOACTIVATE
+        // RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW.
+        RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185);
+    }
+
+    [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
 
     void PositionServerUpdatesPanel()
     {
@@ -69,6 +85,7 @@ internal sealed partial class GameChatWindow
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
         readonly Panel viewport = new() { BackColor = FeedBackground };
+        readonly BufferedScrollbar dateBand = new() { BackColor = FeedBackground, TabStop = false };
         readonly RichTextBox feed = new()
         {
             BackColor = FeedBackground, ForeColor = Color.FromArgb(241, 238, 232),
@@ -76,6 +93,8 @@ internal sealed partial class GameChatWindow
             ScrollBars = RichTextBoxScrollBars.ForcedVertical, TabStop = true
         };
         readonly BufferedScrollbar scrollbar = new();
+        List<(int Offset, string Label)> dateDividers = [];
+        string? visibleDate;
         int dragOffset = -1;
 
         internal LatestUpdatesPanel(GameChatWindow host)
@@ -86,7 +105,9 @@ internal sealed partial class GameChatWindow
             viewport.Controls.Add(feed);
             Controls.Add(viewport);
             Controls.Add(scrollbar);
-            feed.VScroll += (_, _) => scrollbar.Invalidate();
+            Controls.Add(dateBand);
+            dateBand.Paint += PaintVisibleDate;
+            feed.VScroll += (_, _) => RefreshScrollDisplay();
             scrollbar.Paint += (_, e) =>
             {
                 int height = Units(scrollbar.ClientSize.Height);
@@ -134,11 +155,13 @@ internal sealed partial class GameChatWindow
             base.OnResize(e);
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
             var previous = ReadScroll();
-            int top = Px(40), bottom = Px(8), left = Px(9);
-            int height = Math.Max(1, ClientSize.Height - top - bottom);
-            scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(26)), top, Px(20), height);
+            int top = Px(56), bottom = Px(14), left = Px(18), dateHeight = Px(21);
+            int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
+            scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
-            viewport.SetBounds(left, top, width, height);
+            dateBand.SetBounds(left, top, width, dateHeight);
+            int height = Math.Max(1, scrollHeight - dateHeight);
+            viewport.SetBounds(left, top + dateHeight, width, height);
             // Keep RichEdit's scrollbar range, with its native scroller outside the clipped viewport.
             uint dpi = GetDpiForWindow(feed.Handle);
             int nativeBar = GetSystemMetricsForDpi(2, dpi == 0 ? 96 : dpi);
@@ -150,29 +173,44 @@ internal sealed partial class GameChatWindow
                 ScrollToPixel(previous.Position);
         }
 
-        protected override void OnPaint(PaintEventArgs e)
+        protected override void OnPaint(PaintEventArgs e) =>
+            host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
+                PanelScale, "Latest Updates");
+
+        void PaintVisibleDate(object? sender, PaintEventArgs e)
         {
-            var graphics = e.Graphics;
-            graphics.Clear(Color.FromArgb(164, 128, 69));
-            if (host.borderTexture is { } texture)
+            e.Graphics.Clear(FeedBackground);
+            if (visibleDate == null) return;
+            using var font = new Font("Georgia", Px(13), FontStyle.Regular, GraphicsUnit.Pixel);
+            const TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
+            int textWidth = TextRenderer.MeasureText(e.Graphics, visibleDate, font, Size.Empty, flags).Width;
+            int side = Math.Max(0, (dateBand.Width - textWidth) / 2 - Px(7));
+            int y = dateBand.Height / 2;
+            using var divider = new Pen(Color.FromArgb(101, 82, 55));
+            e.Graphics.DrawLine(divider, 0, y, side, y);
+            e.Graphics.DrawLine(divider, dateBand.Width - side, y, dateBand.Width, y);
+            TextRenderer.DrawText(e.Graphics, visibleDate, font, dateBand.ClientRectangle,
+                Color.FromArgb(217, 196, 156), flags);
+        }
+
+        void RefreshScrollDisplay()
+        {
+            scrollbar.Invalidate();
+            string? date = null;
+            int first = feed.GetCharIndexFromPosition(new Point(2, 2));
+            for (int i = dateDividers.Count - 1; i >= 0; i--)
             {
-                using var tiled = new TextureBrush(texture, WrapMode.Tile);
-                graphics.FillRectangle(tiled, ClientRectangle);
+                var marker = dateDividers[i];
+                if (marker.Offset > first) continue;
+                // An inline date above the viewport should still label the entry being read.
+                if (marker.Offset < first || feed.GetPositionFromCharIndex(marker.Offset).Y < 0)
+                    date = marker.Label;
+                break;
             }
-            int edge = Px(3);
-            var inside = Rectangle.Inflate(ClientRectangle, -edge, -edge);
-            if (inside.Width <= 0 || inside.Height <= 0) return;
-            using var ink = new SolidBrush(FeedBackground);
-            graphics.FillRectangle(ink, inside);
-            using var trim = new Pen(Color.FromArgb(128, 101, 54));
-            graphics.DrawRectangle(trim, inside.X, inside.Y, inside.Width - 1, inside.Height - 1);
-            graphics.DrawLine(trim, inside.Left + 1, Px(35), inside.Right - 1, Px(35));
-            using var title = new Font("Georgia", Px(18), FontStyle.Regular, GraphicsUnit.Pixel);
-            TextRenderer.DrawText(graphics, "Latest Updates", title,
-                new Rectangle(inside.Left + Px(6), Px(5), Math.Max(1, inside.Width - Px(12)), Px(28)),
-                Color.FromArgb(226, 191, 119),
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
-                TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
+            if (date == visibleDate) return;
+            visibleDate = date;
+            dateBand.Invalidate();
         }
 
         internal void SetDocument(string document)
@@ -180,6 +218,7 @@ internal sealed partial class GameChatWindow
             var before = ReadScroll();
             bool follow = before.Position >= before.Maximum - Px(12);
             feed.Rtf = document;
+            dateDividers = FindServerUpdatesDateDividers(feed.Text);
             if (follow)
                 ScrollToBottom();
             else
@@ -189,7 +228,7 @@ internal sealed partial class GameChatWindow
         void ScrollToBottom()
         {
             SendMessageW(feed.Handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
-            scrollbar.Invalidate();
+            RefreshScrollDisplay();
         }
 
         (int Total, int Page, int Position, int Maximum) ReadScroll()
@@ -214,14 +253,14 @@ internal sealed partial class GameChatWindow
         {
             for (int i = 0; i < lines; i++)
                 SendMessageW(feed.Handle, 0x0115, new IntPtr(up ? 0 : 1), IntPtr.Zero);
-            scrollbar.Invalidate();
+            RefreshScrollDisplay();
         }
 
         void ScrollToPixel(int y)
         {
             var point = new POINT { Y = y };
             SendMessageW(feed.Handle, 0x04DE, IntPtr.Zero, ref point);
-            scrollbar.Invalidate();
+            RefreshScrollDisplay();
         }
 
         [StructLayout(LayoutKind.Sequential)]

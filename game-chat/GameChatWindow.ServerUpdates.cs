@@ -8,6 +8,7 @@ internal sealed partial class GameChatWindow
 {
     const string ServerUpdatesChannel = "https://discord.com/channels/509601787901116437/510245417657827363";
     const int ServerUpdateBodyLimit = 3800;
+    const string ServerUpdatesDateFormat = "MMMM d, yyyy";
     const string ServerUpdatesRtfHeader = @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Georgia;}}" +
         @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
         @"\red222\green107\blue82;\red184\green169\blue142;\red219\green178\blue67;}\f0\fs21";
@@ -126,18 +127,12 @@ internal sealed partial class GameChatWindow
         if (recent.Count == 0) return ServerUpdatesStatus("No server updates to display.");
 
         var rtf = new StringBuilder(ServerUpdatesRtfHeader);
-        DateOnly? previous = null;
         foreach (var entry in recent.TakeLast(8))
         {
             var when = DiscordTimestamp(entry.Key).ToLocalTime();
-            var date = DateOnly.FromDateTime(when.DateTime);
-            if (previous != date)
-            {
-                rtf.Append(@"\pard\qc\sb170\sa170\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
-                AppendServerUpdatesRtfText(rtf, when.ToString("MMMM d, yyyy").AsSpan());
-                rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
-                previous = date;
-            }
+            rtf.Append(@"\pard\qc\sb170\sa170\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
+            AppendServerUpdatesRtfText(rtf, when.ToString(ServerUpdatesDateFormat).AsSpan());
+            rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
             if (!string.IsNullOrWhiteSpace(entry.Value.Author))
             {
                 rtf.Append(@"\pard\sb55\sa55\fs21 ");
@@ -177,6 +172,28 @@ internal sealed partial class GameChatWindow
             rtf.Append(@"\pard\sa100\par ");
         }
         return rtf.Append('}').ToString();
+    }
+
+    static List<(int Offset, string Label)> FindServerUpdatesDateDividers(string text)
+    {
+        const string strokes = "───";
+        List<(int Offset, string Label)> dates = [];
+        using var lines = new StringReader(text);
+        int offset = 0;
+        while (lines.ReadLine() is { } line)
+        {
+            var content = line.AsSpan().Trim();
+            if (content.Length > 6 && content.StartsWith(strokes) && content.EndsWith(strokes))
+            {
+                var label = content[3..^3].Trim();
+                if (DateTime.TryParseExact(label, ServerUpdatesDateFormat, null,
+                        System.Globalization.DateTimeStyles.None, out _))
+                    dates.Add((offset, label.ToString()));
+            }
+            // RichEdit character positions count each paragraph break once.
+            offset += line.Length + 1;
+        }
+        return dates;
     }
 
     static string ServerUpdatesStatus(string text)

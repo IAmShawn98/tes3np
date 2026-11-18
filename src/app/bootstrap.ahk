@@ -98,6 +98,7 @@ RegisterLauncherEventHandlers()
     OnMessage(0x0008, HandleThemedButtonFocus)
     OnMessage(0x0215, HandleCaptureLost)
     LauncherGui.OnEvent("Close", QuitLauncher)
+    LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)
     OnExit(GuardPatchExit)
     OnExit(CleanupLauncher)
 }
