@@ -7,10 +7,19 @@ internal sealed partial class GameChatWindow
     IntPtr serverUpdatesParent;
     LatestUpdatesPanel? serverUpdatesPanel;
     string? serverUpdatesDocument;
+    bool serverUpdatesVisibilityPublished;
+
+    void PublishServerUpdatesVisibility()
+    {
+        bool visible = CanShowServerUpdates;
+        if (visible == serverUpdatesVisibilityPublished || !IsHandleCreated || !IsWindow(owner)) return;
+        if (PostMessage(owner, 0x833B, new IntPtr(visible ? 1 : 0), Handle))
+            serverUpdatesVisibilityPublished = visible;
+    }
 
     void AttachServerUpdatesPanel(IntPtr target)
     {
-        if (!ServerUpdatesAuthenticated || !IsWindow(target) || GetParent(target) != owner || IsIconic(owner)) return;
+        if (!CanShowServerUpdates || !IsWindow(target) || GetParent(target) != owner || IsIconic(owner)) return;
         if (target == serverUpdatesParent && serverUpdatesPanel is { IsDisposed: false, IsHandleCreated: true } attached &&
             IsWindow(attached.Handle) && GetParent(attached.Handle) == target)
         {
@@ -30,7 +39,7 @@ internal sealed partial class GameChatWindow
                 (GetWindowLong(handle, GWL_STYLE) | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN) & ~WS_POPUP);
             SetParent(handle, target);
             if (GetParent(handle) != target)
-                throw new InvalidOperationException("Latest Updates could not attach to the launcher.");
+                throw new InvalidOperationException("Game Updates could not attach to the launcher.");
             PositionServerUpdatesPanel();
             RedrawServerUpdatesPanel(panel);
             panel.SetDocument(serverUpdatesDocument ?? ServerUpdatesStatus("Loading server updates…"));
@@ -53,8 +62,9 @@ internal sealed partial class GameChatWindow
 
     void PositionServerUpdatesPanel()
     {
+        PublishServerUpdatesVisibility();
         if (serverUpdatesPanel is not { IsDisposed: false } panel) return;
-        if (!IsWindow(serverUpdatesParent) || !ServerUpdatesAuthenticated)
+        if (!IsWindow(serverUpdatesParent) || !CanShowServerUpdates)
         {
             CloseServerUpdatesPanel();
             return;
@@ -93,6 +103,12 @@ internal sealed partial class GameChatWindow
             ScrollBars = RichTextBoxScrollBars.ForcedVertical, TabStop = true
         };
         readonly BufferedScrollbar scrollbar = new();
+        readonly Button dismiss = new()
+        {
+            Text = "×", AccessibleName = "Dismiss Game Updates", FlatStyle = FlatStyle.Flat,
+            BackColor = FeedBackground, ForeColor = Color.FromArgb(226, 191, 119), Cursor = Cursors.Hand,
+            UseVisualStyleBackColor = false
+        };
         List<(int Offset, string Label)> dateDividers = [];
         string? visibleDate;
         int? newestLandingPosition;
@@ -107,6 +123,10 @@ internal sealed partial class GameChatWindow
             Controls.Add(viewport);
             Controls.Add(scrollbar);
             Controls.Add(dateBand);
+            Controls.Add(dismiss);
+            dismiss.FlatAppearance.BorderColor = Color.FromArgb(151, 113, 58);
+            dismiss.FlatAppearance.MouseOverBackColor = Color.FromArgb(57, 39, 21);
+            dismiss.Click += (_, _) => host.DismissServerUpdates();
             dateBand.Paint += PaintVisibleDate;
             feed.VScroll += (_, _) => RefreshScrollDisplay();
             scrollbar.Paint += (_, e) =>
@@ -156,7 +176,8 @@ internal sealed partial class GameChatWindow
             base.OnResize(e);
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
             var previous = ReadScroll();
-            int top = Px(56), bottom = Px(14), left = Px(18), dateHeight = Px(21);
+            int top = Px(56), bottom = Px(14), left = Px(18), dateHeight = Px(16);
+            dismiss.SetBounds(ClientSize.Width - Px(37), Px(18), Px(22), Px(24));
             int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
             scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
@@ -176,7 +197,7 @@ internal sealed partial class GameChatWindow
 
         protected override void OnPaint(PaintEventArgs e) =>
             host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
-                PanelScale, "Latest Updates");
+                PanelScale, "Game Updates");
 
         void PaintVisibleDate(object? sender, PaintEventArgs e)
         {
@@ -241,7 +262,7 @@ internal sealed partial class GameChatWindow
             {
                 int start = dateDividers[^1].Offset;
                 // Bring the date into view, then align to its rendered position so the
-                // author and opening lines remain below it even when the entry wraps.
+                // opening lines remain below it even when the entry wraps.
                 feed.Select(start, 0);
                 feed.ScrollToCaret();
                 var scroll = new POINT();

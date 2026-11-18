@@ -371,7 +371,7 @@ expect(
     and "EnsureCoreWebView2Async(environment)" in server_updates
     and "510245417657827363" in server_updates
     and "source != serverUpdatesWindow" in server_updates
-    and "SetLauncherServerUpdatesVisible(LauncherDiscordStatus = 2)" in embedded_chat
+    and "SetLauncherServerUpdatesVisible(visible != 0 && LauncherDiscordStatus = 2)" in embedded_chat
     and 'LauncherUpdatesSlot.Visible := false' in embedded_chat
     and "GetParent(target) != owner" in source
     and "CloseServerUpdatesPanel();" in server_updates
@@ -383,7 +383,19 @@ expect(
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )
 expect(
-    "Latest Updates repaints on launcher restore and shows the date of a scrolled entry",
+    "Game Updates dismissal hides the panel until a newer Discord post arrives",
+    'PanelScale, "Game Updates");' in updates_panel
+    and "host.DismissServerUpdates();" in updates_panel
+    and "latestServerUpdateId > dismissedServerUpdateId" in server_updates
+    and "dismissedServerUpdateId = ReadServerUpdatesDismissal();" in server_updates
+    and in_order(section_between(server_updates, "void DismissServerUpdates()", "async Task RefreshServerUpdates()"),
+                 "dismissedServerUpdateId = latestServerUpdateId;", "WriteChatArchiveAtomically(",
+                 "CloseServerUpdatesPanel();", "PublishServerUpdatesVisibility();")
+    and "PostMessage(owner, 0x833B," in updates_panel
+    and "OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)" in embedded_chat,
+)
+expect(
+    "Game Updates repaints on launcher restore and shows the date of a scrolled entry",
     'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
     and "RedrawServerUpdatesPanel(attached);" in updates_panel
@@ -397,7 +409,7 @@ expect(
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
 expect(
-    "Launcher info cards keep their original paint style and a gap above Latest Updates",
+    "Launcher info cards keep their original paint style and a gap above Game Updates",
     'control := LauncherGui.Add("Custom", "ClassStatic x" x' in front_layout
     and quest_bounds is not None and updates_bounds is not None
     and all((int(quest_bounds[1]) * percent + 50) // 100 + (int(quest_bounds[2]) * percent + 50) // 100

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.WinForms;
@@ -46,8 +47,40 @@ internal sealed partial class GameChatWindow
     DateTime nextServerUpdatesCheck;
     DateTime serverUpdatesReadyBy;
     bool readingServerUpdates;
+    ulong latestServerUpdateId;
+    ulong dismissedServerUpdateId = ReadServerUpdatesDismissal();
 
     bool ServerUpdatesAuthenticated => !closingChat && !IsDisposed && discordAccountStatus == DiscordAccountStatus.SignedIn;
+    bool CanShowServerUpdates => ServerUpdatesAuthenticated && latestServerUpdateId > dismissedServerUpdateId;
+    static string ServerUpdatesDismissalPath => Path.Combine(ChatDataRoot, "game-updates-dismissed.txt");
+
+    static ulong ReadServerUpdatesDismissal()
+    {
+        try
+        {
+            return ulong.TryParse(File.ReadAllText(ServerUpdatesDismissalPath), NumberStyles.None,
+                CultureInfo.InvariantCulture, out ulong id) ? id : 0;
+        }
+        catch (IOException) { return 0; }
+        catch (UnauthorizedAccessException) { return 0; }
+    }
+
+    void DismissServerUpdates()
+    {
+        if (!CanShowServerUpdates) return;
+        dismissedServerUpdateId = latestServerUpdateId;
+        try
+        {
+            WriteChatArchiveAtomically(ServerUpdatesDismissalPath,
+                dismissedServerUpdateId.ToString(CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log("SERVER UPDATES | Save dismissal: " + ex.GetType().Name);
+        }
+        CloseServerUpdatesPanel();
+        PublishServerUpdatesVisibility();
+    }
 
     async Task RefreshServerUpdates()
     {
@@ -93,8 +126,13 @@ internal sealed partial class GameChatWindow
                 var updates = JsonSerializer.Deserialize<ServerUpdate[]>(result);
                 if (updates != null)
                 {
-                    string text = FormatServerUpdates(updates);
-                    UpdateServerUpdatesDocument(text);
+                    string text = FormatServerUpdates(updates, out ulong newestId);
+                    if (newestId >= latestServerUpdateId)
+                    {
+                        latestServerUpdateId = newestId;
+                        UpdateServerUpdatesDocument(text);
+                        PublishServerUpdatesVisibility();
+                    }
                     serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                     nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(5);
                     return;
@@ -115,7 +153,7 @@ internal sealed partial class GameChatWindow
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length == 0 && uri.IsDefaultPort &&
         string.Equals(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'), ServerUpdatesChannel, StringComparison.OrdinalIgnoreCase);
 
-    static string FormatServerUpdates(ServerUpdate[] updates)
+    static string FormatServerUpdates(ServerUpdate[] updates, out ulong newestId)
     {
         var recent = new SortedDictionary<ulong, ServerUpdate>();
         foreach (var update in updates)
@@ -124,15 +162,20 @@ internal sealed partial class GameChatWindow
                 continue;
             recent[id] = update;
         }
-        if (recent.Count == 0) return ServerUpdatesStatus("No server updates to display.");
+        newestId = recent.Count == 0 ? 0 : recent.Last().Key;
+        if (newestId == 0) return ServerUpdatesStatus("No server updates to display.");
 
         var rtf = new StringBuilder(ServerUpdatesRtfHeader);
+        bool firstEntry = true;
         foreach (var entry in recent.TakeLast(8))
         {
             var when = DiscordTimestamp(entry.Key).ToLocalTime();
-            rtf.Append(@"\pard\qc\sb170\sa170\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
+            rtf.Append(firstEntry ? @"\pard\qc" : @"\pard\qc\sb100");
+            rtf.Append(@"\sa35\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
             AppendServerUpdatesRtfText(rtf, when.ToString(ServerUpdatesDateFormat).AsSpan());
             rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
+            firstEntry = false;
+            bool firstBlock = true;
             int remaining = ServerUpdateBodyLimit;
             foreach (var block in entry.Value.Blocks!.Take(120))
             {
@@ -149,7 +192,7 @@ internal sealed partial class GameChatWindow
                     else rtf.Append(Math.Clamp(block.Number, 1, 999)).Append('.');
                     rtf.Append(@"\tab ");
                 }
-                if (heading) rtf.Append(@"\sb45\fs23 ");
+                if (heading) rtf.Append(firstBlock ? @"\fs23 " : @"\sb45\fs23 ");
                 foreach (var run in block.Runs.Take(240))
                 {
                     if (remaining == 0) break;
@@ -162,8 +205,8 @@ internal sealed partial class GameChatWindow
                     remaining -= length;
                 }
                 rtf.Append(@"\par ");
+                firstBlock = false;
             }
-            rtf.Append(@"\pard\sa100\par ");
         }
         return rtf.Append('}').ToString();
     }
@@ -232,8 +275,10 @@ internal sealed partial class GameChatWindow
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         nextServerUpdatesCheck = DateTime.MinValue;
+        latestServerUpdateId = 0;
         serverUpdatesDocument = null;
         CloseServerUpdatesPanel();
+        PublishServerUpdatesVisibility();
         previous?.Dispose();
     }
 }

@@ -205,6 +205,7 @@ CreateLauncherServerUpdates()
     ; Start below the Quest card's painted bounds, including its bottom fade.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
         "x100 y298 w220 h342 +0x06000000 Background0A0908 Hidden")
+    OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)
 }
 
 SetLauncherServerUpdatesVisible(visible)
@@ -225,7 +226,15 @@ SetLauncherServerUpdatesVisible(visible)
 RefreshLauncherServerUpdatesVisibility()
 {
     global LauncherDiscordStatus
-    SetLauncherServerUpdatesVisible(LauncherDiscordStatus = 2)
+    if LauncherDiscordStatus != 2
+        SetLauncherServerUpdatesVisible(false)
+}
+
+ReceiveLauncherServerUpdatesVisibility(visible, sender, msg, hwnd)
+{
+    global LauncherDiscordStatus
+    if IsLauncherDiscordMessage(sender, hwnd)
+        SetLauncherServerUpdatesVisible(visible != 0 && LauncherDiscordStatus = 2)
 }
 
 LauncherServerUpdatesResized(gui, minMax, *)
