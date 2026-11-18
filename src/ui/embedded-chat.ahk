@@ -214,11 +214,8 @@ SetLauncherServerUpdatesVisible(visible)
         return
     if visible
     {
-        ; Raise the hosted panel above the launcher backdrop before showing it.
-        DllCall("SetWindowPos", "Ptr", LauncherUpdatesSlot.Hwnd, "Ptr", 0,
-            "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
         LauncherUpdatesSlot.Visible := true
-        CheckServerUpdatesHost()
+        RepaintLauncherServerUpdates()
     }
     else
         LauncherUpdatesSlot.Visible := false
@@ -229,6 +226,24 @@ RefreshLauncherServerUpdatesVisibility()
 {
     global LauncherDiscordStatus
     SetLauncherServerUpdatesVisible(LauncherDiscordStatus = 2)
+}
+
+LauncherServerUpdatesResized(gui, minMax, *)
+{
+    if minMax >= 0
+        SetTimer(RepaintLauncherServerUpdates, -50)
+}
+
+RepaintLauncherServerUpdates()
+{
+    global LauncherGui, LauncherDiscordStatus, LauncherUpdatesSlot
+    if LauncherDiscordStatus != 2 || !IsObject(LauncherUpdatesSlot) || !LauncherUpdatesSlot.Visible
+        || DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
+        return
+    ; Reassert the slot after the launcher's backdrop completes its restore paint.
+    DllCall("SetWindowPos", "Ptr", LauncherUpdatesSlot.Hwnd, "Ptr", 0,
+        "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
+    SendLauncherChatCommand(18, LauncherUpdatesSlot.Hwnd)
 }
 
 CheckServerUpdatesHost()
