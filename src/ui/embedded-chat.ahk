@@ -8,6 +8,9 @@ global LauncherDiscordPortrait := 0
 global LauncherDiscordStatus := 0
 global LauncherDiscordAvatar := 0
 global LauncherDiscordAvatarStream := 0
+global ServerUpdatesFrame := 0
+global ServerUpdatesHeading := 0
+global ServerUpdatesFeed := 0
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -85,6 +88,7 @@ StartEmbeddedInGameChat()
 StopEmbeddedInGameChat()
 {
     global EmbeddedChatPid
+    SetLauncherServerUpdatesVisible(false)
     ReleaseLauncherDiscordAvatar()
     pid := EmbeddedChatPid
     if !pid
@@ -122,7 +126,12 @@ IsLauncherDiscordMessage(sender, hwnd)
 ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
 {
     global LauncherDiscordPortrait, LauncherDiscordAvatar, LauncherDiscordAvatarStream
-    if !data || NumGet(data, 0, "Ptr") != 0x8339
+    if !data
+        return
+    kind := NumGet(data, 0, "Ptr")
+    if kind = 0x833B
+        return ReceiveLauncherServerUpdates(sender, data, hwnd)
+    if kind != 0x8339
         return
     if !IsObject(LauncherDiscordPortrait) || !IsLauncherDiscordMessage(sender, hwnd)
         return 0
@@ -192,6 +201,83 @@ UpdateLauncherDiscordAccountDisplay(status, name := "")
         label := status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
     SetPaintedLabelText(LauncherDiscordName, label)
     SetPaintedLabelText(LauncherDiscordPortrait, status <= 1 ? "Log In to Discord" : "Discord account")
+    SetLauncherServerUpdatesVisible(status = 2)
+}
+
+CreateLauncherServerUpdates()
+{
+    global LauncherGui, ServerUpdatesFrame, ServerUpdatesHeading, ServerUpdatesFeed
+    ServerUpdatesFrame := LauncherGui.Add("Text", "x100 y274 w220 h366 Background80613C Hidden")
+    ServerUpdatesHeading := LauncherGui.Add("Text",
+        "x102 y276 w216 h26 Center +0x200 Background2C2115 Hidden", "Server Updates from Jiub")
+    ServerUpdatesFeed := LauncherGui.Add("Edit",
+        "x102 y303 w216 h335 Multi ReadOnly VScroll -HScroll -E0x200 Background171008 Hidden")
+    ScaleLauncherServerUpdates(1)
+}
+
+ScaleLauncherServerUpdates(scale)
+{
+    global ServerUpdatesHeading, ServerUpdatesFeed
+    if !IsObject(ServerUpdatesHeading)
+        return
+    ServerUpdatesHeading.SetFont("s" Max(6, Round(12 * scale)) " Bold cE4C47C", "Palatino Linotype")
+    ServerUpdatesFeed.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale)) " Norm cF2E2C5", "Palatino Linotype")
+    margin := Max(2, Round(9 * scale * A_ScreenDPI / 96))
+    ; EM_SETMARGINS gives the read-only feed space on both sides.
+    DllCall("SendMessageW", "Ptr", ServerUpdatesFeed.Hwnd, "UInt", 0x00D3, "Ptr", 3, "Ptr", margin | (margin << 16))
+}
+
+SetLauncherServerUpdatesVisible(visible)
+{
+    global ServerUpdatesFrame, ServerUpdatesHeading, ServerUpdatesFeed
+    if !IsObject(ServerUpdatesFeed) || !DllCall("IsWindow", "Ptr", ServerUpdatesFeed.Hwnd)
+        return
+    if visible
+    {
+        if ServerUpdatesFeed.Value = ""
+            ServerUpdatesFeed.Value := "Loading server updates…"
+        ServerUpdatesFrame.Visible := true
+        ServerUpdatesHeading.Visible := true
+        ServerUpdatesFeed.Visible := true
+    }
+    else
+    {
+        ServerUpdatesFeed.Visible := false
+        ServerUpdatesHeading.Visible := false
+        ServerUpdatesFrame.Visible := false
+        ServerUpdatesFeed.Value := ""
+    }
+    SetTimer(CheckServerUpdatesHost, visible ? 1500 : 0)
+}
+
+CheckServerUpdatesHost()
+{
+    global EmbeddedChatPid
+    if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
+        SetLauncherServerUpdatesVisible(false)
+}
+
+ReceiveLauncherServerUpdates(sender, data, hwnd)
+{
+    global LauncherDiscordStatus, ServerUpdatesFeed
+    if !IsObject(ServerUpdatesFeed) || !IsLauncherDiscordMessage(sender, hwnd)
+        return 0
+    size := NumGet(data, A_PtrSize, "UInt")
+    payload := NumGet(data, A_PtrSize = 8 ? 16 : 8, "Ptr")
+    if !payload || size < 2 || size > 65536 || Mod(size, 2)
+        return 0
+    Critical("On")
+    if LauncherDiscordStatus != 2
+        return 0
+    text := StrGet(payload, size // 2, "UTF-16")
+    if ServerUpdatesFeed.Value != text
+    {
+        ServerUpdatesFeed.Value := text
+        ; EM_SETSEL followed by EM_SCROLLCARET starts a changed feed at the newest post.
+        DllCall("SendMessageW", "Ptr", ServerUpdatesFeed.Hwnd, "UInt", 0x00B1, "Ptr", 0, "Ptr", 0)
+        DllCall("SendMessageW", "Ptr", ServerUpdatesFeed.Hwnd, "UInt", 0x00B7, "Ptr", 0, "Ptr", 0)
+    }
+    return 1
 }
 
 ReleaseLauncherDiscordAvatar()

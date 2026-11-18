@@ -18,6 +18,7 @@ expansion_browser = (chat_web / "expansion-downloads.js").read_text(encoding="ut
 sign_in_card = (chat_root / "DiscordSignInCard.cs").read_text(encoding="utf-8-sig")
 chat_renderer = (chat_root / "GameChatWindow.Renderer.cs").read_text(encoding="utf-8-sig")
 chat_window = (chat_root / "GameChatWindow.cs").read_text(encoding="utf-8-sig")
+server_updates = (chat_root / "GameChatWindow.ServerUpdates.cs").read_text(encoding="utf-8-sig")
 chat_history = (chat_root / "GameChatWindow.History.cs").read_text(encoding="utf-8-sig")
 chat_expansion = (chat_root / "GameChatWindow.Expansion.cs").read_text(encoding="utf-8-sig")
 happy_hour = (chat_root / "GameChatWindow.HappyHour.cs").read_text(encoding="utf-8-sig")
@@ -359,6 +360,18 @@ expect(
                  'case "tes3np-sign-in-rejected":', "SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);")
     and 'status = 0 ? "Loading Profile..." : "Log In"' in embedded_chat
     and 'status != 2 && (nameSize || imageSize)' in embedded_chat,
+)
+expect(
+    "Server Updates uses the launcher Discord session and clears on sign-out",
+    "discordAccountStatus == DiscordAccountStatus.SignedIn" in server_updates
+    and "EnsureCoreWebView2Async(environment)" in server_updates
+    and "510245417657827363" in server_updates
+    and "source != serverUpdatesWindow" in server_updates
+    and "SetLauncherServerUpdatesVisible(status = 2)" in embedded_chat
+    and "if LauncherDiscordStatus != 2" in embedded_chat
+    and 'ServerUpdatesFeed.Value := ""' in embedded_chat
+    and in_order(section_between(source, "async Task SignOutDiscord()", "\n}"),
+                 "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )
 
 show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")

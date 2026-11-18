@@ -41,6 +41,8 @@ internal sealed partial class GameChatWindow
         discordAccountStatus = status;
         if (status == DiscordAccountStatus.SignedIn)
             discordProfileDisplayDeadline = DateTime.UtcNow.AddSeconds(6);
+        else if (status != DiscordAccountStatus.SigningOut)
+            ResetServerUpdates();
         if (status == DiscordAccountStatus.SignedOut)
         {
             CloseDiscordAccountBrowser();
@@ -264,6 +266,7 @@ internal sealed partial class GameChatWindow
         discordAccountRevision++;
         CloseDiscordAccountBrowser();
         PublishDiscordAccount();
+        ResetServerUpdates();
         SuspendHappyHourUntilDiscordReturns("signed out in the launcher");
         DismissDiscordSignIn();
         CloseEmbeddedExpansionDownloads();
