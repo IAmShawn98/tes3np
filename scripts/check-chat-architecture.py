@@ -383,14 +383,19 @@ expect(
 )
 renderer_recovery = section_between(source, "void NavigateMessagePage()", "void ScrollHtml(")
 expect(
-    "Game Chat renders only the Yagrum bot's name in gold and inherits the message color for everyone else",
+    "Game Chat retains Discord author colors and keeps the Yagrum relay styling",
     '.user{color:inherit;' in source
     and '.user.yagrum{color:#dbb243}' in source
     and "user.toLowerCase() === 'yagrum'" in source
     and "?.querySelector('[class*=\"botTag_\"]')" in source
     and 'isYagrum = entry.Value.IsYagrum' in source
+    and 'authorColor = entry.Value.AuthorColor' in source
+    and 'existing.AuthorColor != authorColor' in source
     and "name.className=m.isYagrum?'user yagrum':'user'" in source
-    and "getComputedStyle(usernameEl).color" not in source,
+    and "if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))" in source
+    and in_order(source, "const theme = document.getElementById('tes3np-chat-style')?.sheet;",
+                 "if (restoreTheme) theme.disabled = true;", "const style = getComputedStyle(author);",
+                 "if (restoreTheme) theme.disabled = false;", "contentNode?.innerText?.trim()"),
 )
 expect(
     "Stalled native rendering retries the local document without restarting Discord or redocking the chat",

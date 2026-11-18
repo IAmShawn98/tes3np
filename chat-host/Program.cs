@@ -1081,12 +1081,18 @@ window.setMessages=function(messages,prepended=false,requireViewport=false){
   for(let i=messages.length-1;i>=0;i--){
     const m=messages[i];
     let row=existing.get(m.id);
-    const signature=JSON.stringify([m.user,m.body,m.isYagrum,m.images,m.timestamp]);
+    const signature=JSON.stringify([m.user,m.body,m.isYagrum,m.authorColor,m.images,m.timestamp]);
     if(!row||row.dataset.signature!==signature){
       const replacement=document.createElement('div');
       replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
       const header=document.createElement('div');header.className='msg-header';
-      if(m.user){const name=document.createElement('span');name.className=m.isYagrum?'user yagrum':'user';name.textContent=m.user;header.appendChild(name);}
+      if(m.user){
+        const name=document.createElement('span');
+        name.className=m.isYagrum?'user yagrum':'user';
+        if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))name.style.color=m.authorColor;
+        name.textContent=m.user;
+        header.appendChild(name);
+      }
       const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();header.appendChild(time);
       replacement.appendChild(header);
       const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
@@ -1242,9 +1248,30 @@ metrics();
               if (!list) return '[]';
               const rows = [...list.querySelectorAll('[id^="chat-messages-"]')]
                 .filter(el => /^chat-messages-[0-9]+-[0-9]+$/.test(el.id));
+              const authors = rows.map(el => el.querySelector('[class*="username_"]'));
+              // Read Discord's own palette before the compact theme recolors
+              // usernames. Restore the stylesheet before reading message text.
+              const theme = document.getElementById('tes3np-chat-style')?.sheet;
+              const restoreTheme = theme && !theme.disabled;
+              let authorColors;
+              if (restoreTheme) theme.disabled = true;
+              try {
+                authorColors = authors.map(author => {
+                  if (!author) return '';
+                  const style = getComputedStyle(author);
+                  const color = style.getPropertyValue('--custom-display-name-styles-main-color').trim() ||
+                    style.getPropertyValue('--custom-gradient-color-1').trim() || style.color;
+                  // A transparent text fill from a visual effect would hide
+                  // the name without that effect. Use the chat color instead.
+                  const transparent = color === 'transparent' || /^rgba\(.*,\s*0\s*\)$/.test(color) || /\/\s*0\s*\)$/.test(color);
+                  return transparent ? '' : color;
+                });
+              } finally {
+                if (restoreTheme) theme.disabled = false;
+              }
               let lastVisibleAuthor = '';
-              return JSON.stringify(rows.map(el => {
-                const usernameEl = el.querySelector('[class*="username_"]');
+              return JSON.stringify(rows.map((el, index) => {
+                const usernameEl = authors[index];
                 const user = usernameEl?.textContent?.trim() || '';
                 if (user) lastVisibleAuthor = user;
                 // Discord groups consecutive posts under one username.
@@ -1290,11 +1317,11 @@ metrics();
                       uniqueImages.set(key, url);
                   } catch {}
                 }
-                return {id:el.id,user,sourceAuthor,body,matchText,isYagrum,images:[...uniqueImages.values()].slice(0,4)};
+                return {id:el.id,user,sourceAuthor,body,matchText,isYagrum,authorColor:authorColors[index],images:[...uniqueImages.values()].slice(0,4)};
               }).filter(x => x.body || x.images.length));
             })();
             """;
-        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, bool IsYagrum, string[] Images)> history = new();
+        readonly System.Collections.Generic.SortedDictionary<ulong, (string User, string Body, bool IsYagrum, string AuthorColor, string[] Images)> history = new();
         // Discord snowflakes encode their original creation time in UTC.
         static DateTimeOffset DiscordTimestamp(ulong id) =>
             DateTimeOffset.FromUnixTimeMilliseconds((long)(id >> 22) + 1420070400000L);
@@ -2467,6 +2494,8 @@ metrics();
                         ? matchText : body;
                     bool isYagrum = msg.TryGetProperty("isYagrum", out var botFlag) &&
                         botFlag.ValueKind == System.Text.Json.JsonValueKind.True;
+                    string authorColor = msg.TryGetProperty("authorColor", out var colorValue) &&
+                        colorValue.ValueKind == System.Text.Json.JsonValueKind.String ? colorValue.GetString() ?? "" : "";
                     string[] images = msg.TryGetProperty("images", out var imageValues) &&
                         imageValues.ValueKind == System.Text.Json.JsonValueKind.Array
                         ? imageValues.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
@@ -2529,9 +2558,10 @@ metrics();
                             _ = FetchChatImage(imageUrl);
                     if (!history.TryGetValue(key, out var existing) ||
                         existing.User != user || existing.Body != body || existing.IsYagrum != isYagrum ||
+                        existing.AuthorColor != authorColor ||
                         !existing.Images.SequenceEqual(images))
                     {
-                        history[key] = (user, body, isYagrum, images);
+                        history[key] = (user, body, isYagrum, authorColor, images);
                         changed = true;
                     }
                 }
@@ -2567,6 +2597,7 @@ metrics();
                     user = entry.Value.User,
                     body = entry.Value.Body,
                     isYagrum = entry.Value.IsYagrum,
+                    authorColor = entry.Value.AuthorColor,
                     images = entry.Value.Images
                 }).ToArray();
                 string payload = System.Text.Json.JsonSerializer.Serialize(browserMessages);
