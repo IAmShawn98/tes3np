@@ -7,8 +7,6 @@ global LoginProgressSpecies := ""
 global LoginProgressPortraitFile := ""
 global LoginProgressSummaryDots := []
 global LoginProgressStageStarted := 0
-global LoginProgressWidth := 0
-global LoginProgressHeight := 0
 global LoginProgressMode := ""
 global LoginProgressStage := 1
 global LoginProgressName := ""
@@ -173,21 +171,63 @@ GetCharacterLoginIconPath(species, portraitFile := "")
     return A_ScriptDir "\assets\icons\tes3np.ico"
 }
 
-CreateGameLoginProgress()
+FitGameLoginProgress(area, gameWindow, normalScale)
+{
+    if area.Width < 1 || area.Height < 1
+        return 0
+    scale := Min(normalScale, area.Width / 420, area.Height / 481)
+    width := Round(420 * scale), height := Round(481 * scale)
+    if width < 1 || height < 1
+        return 0
+    ; Keep the original anchor when the standard card fits. A constrained
+    ; card centers within the visible game client instead.
+    anchor := scale < normalScale ? area : gameWindow
+    x := anchor.X + Round((anchor.Width - width) / 2)
+    y := anchor.Y + Round((anchor.Height - height) / 2)
+    return {Scale: scale, Width: width, Height: height,
+        X: Max(area.X, Min(area.X + area.Width - width, x)),
+        Y: Max(area.Y, Min(area.Y + area.Height - height, y))}
+}
+
+GetGameLoginProgressLayout(hwnd)
+{
+    target := "ahk_id " hwnd
+    WinGetPos(&x, &y, &width, &height, target)
+    gameWindow := {X: x, Y: y, Width: width, Height: height}
+    WinGetClientPos(&x, &y, &width, &height, target)
+    ; A windowed game can straddle a monitor edge. Fit within the visible
+    ; client on its monitor, leaving fullscreen placement unchanged.
+    info := Buffer(40, 0) ; MONITORINFO
+    NumPut("UInt", info.Size, info)
+    monitor := DllCall("MonitorFromWindow", "Ptr", hwnd, "UInt", 2, "Ptr")
+    if monitor && DllCall("GetMonitorInfoW", "Ptr", monitor, "Ptr", info, "Int")
+    {
+        right := Min(x + width, NumGet(info, 12, "Int"))
+        bottom := Min(y + height, NumGet(info, 16, "Int"))
+        x := Max(x, NumGet(info, 4, "Int")), y := Max(y, NumGet(info, 8, "Int"))
+        width := right - x, height := bottom - y
+    }
+    return FitGameLoginProgress({X: x, Y: y, Width: width, Height: height}, gameWindow, A_ScreenDPI / 96)
+}
+
+GameLoginProgressFontSize(points, scale)
+{
+    normalScale := A_ScreenDPI / 96
+    return scale >= normalScale ? points : Max(1, Floor(points * scale / normalScale))
+}
+
+CreateGameLoginProgress(layout)
 {
     global LoginProgressGui, LoginProgressRows
-    global LoginProgressFooter, LoginProgressWidth, LoginProgressHeight
+    global LoginProgressFooter
     global LoginProgressCharacterName, LoginProgressSummaryDots, LoginProgressSpecies, LoginProgressPortraitFile
-    if IsObject(LoginProgressGui)
-        return
-    scale := A_ScreenDPI / 96
-    p := (value) => Round(value * scale)
-    LoginProgressWidth := p(420)
-    LoginProgressHeight := p(481)
+    p := (value) => Round(value * layout.Scale)
+    fontSize := (points) => GameLoginProgressFontSize(points, layout.Scale)
     ; Nonactivating, click-through window: preserve TES3MP mouse and keyboard.
     window := Gui("-Caption +AlwaysOnTop +ToolWindow -DPIScale +E0x08000020", "tes3np Login Progress")
     ; Register the window before adding controls so partial setup is disposable.
     LoginProgressGui := window
+    window.ProgressScale := layout.Scale
     window.BackColor := "28241F"
 
     ; Four 4px gold strips are always visible in the production card.
@@ -195,7 +235,7 @@ CreateGameLoginProgress()
     for line in [[0, 0, 420, 4], [0, 477, 420, 4], [0, 0, 4, 481], [416, 0, 4, 481]]
         window.Add("Text", "x" p(line[1]) " y" p(line[2])
             " w" p(line[3]) " h" p(line[4]) " BackgroundD1AE67", "")
-    window.SetFont("s15 Bold cF2E4D0", "Georgia")
+    window.SetFont("s" fontSize(15) " Bold cF2E4D0", "Georgia")
     window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
         " h" p(38) " Center BackgroundTrans +0x4000", "Logging in...")
     portraitPath := GetCharacterLoginIconPath(LoginProgressSpecies, LoginProgressPortraitFile)
@@ -204,7 +244,7 @@ CreateGameLoginProgress()
     if RegExMatch(portraitPath, "i)\.ico$")
         pictureOptions .= " Icon1"
     window.Add("Picture", pictureOptions, portraitPath)
-    window.SetFont("s13 Bold cF2E4D0", "Georgia")
+    window.SetFont("s" fontSize(13) " Bold cF2E4D0", "Georgia")
     LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" p(143)
         " w" p(372) " h" p(30) " Center BackgroundTrans", "")
     window.Add("Text", "x" p(27) " y" p(181) " w" p(366) " h" p(2) " Background806B51", "")
@@ -214,35 +254,35 @@ CreateGameLoginProgress()
     for index, labelText in steps
     {
         y := p(197 + (index - 1) * 46)
-        window.SetFont("s11 cC8BFB4", "Segoe UI")
+        window.SetFont("s" fontSize(11) " cC8BFB4", "Segoe UI")
         label := window.Add("Text", "x" p(30) " y" y " w" p(360)
             " h" p(22) " Center BackgroundTrans", labelText)
-        window.SetFont("s13 cFFFFFF", "Segoe UI Symbol")
+        window.SetFont("s" fontSize(13) " cFFFFFF", "Segoe UI Symbol")
         dot := window.Add("Text", "x" p(195) " y" (y + p(23))
             " w" p(30) " h" p(21) " Center BackgroundTrans", "●")
-        window.SetFont("s12 Bold c173C2A", "Segoe UI Symbol")
+        window.SetFont("s" fontSize(12) " Bold c173C2A", "Segoe UI Symbol")
         symbol := window.Add("Text", "x" p(195) " y" (y + p(23))
             " w" p(30) " h" p(21) " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressRows.Push({Dot: dot, Label: label, Symbol: symbol,
             BaseText: labelText, SymbolText: "", DotColor: "", LabelColor: ""})
     }
     window.Add("Text", "x" p(27) " y" p(391) " w" p(366) " h" p(2) " Background806B51", "")
-    window.SetFont("s10 Bold cD3B687", "Segoe UI")
+    window.SetFont("s" fontSize(10) " Bold cD3B687", "Segoe UI")
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" p(403)
         " w" p(372) " h" p(25) " Center BackgroundTrans +0x4000", "")
     LoginProgressSummaryDots := []
     Loop 4
     {
         x := p(135 + (A_Index - 1) * 42)
-        window.SetFont("s18 cFFFFFF", "Segoe UI Symbol")
+        window.SetFont("s" fontSize(18) " cFFFFFF", "Segoe UI Symbol")
         circle := window.Add("Text", "x" x " y" p(440)
             " w" p(28) " h" p(27) " Center BackgroundTrans +0x4000", "●")
-        window.SetFont("s15 Bold c173C2A", "Segoe UI Symbol")
+        window.SetFont("s" fontSize(15) " Bold c173C2A", "Segoe UI Symbol")
         symbol := window.Add("Text", "x" x " y" p(442)
             " w" p(28) " h" p(27) " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressSummaryDots.Push({Circle: circle, Symbol: symbol, Color: "", SymbolText: ""})
     }
-    window.Show("Hide w" LoginProgressWidth " h" LoginProgressHeight)
+    window.Show("Hide w" layout.Width " h" layout.Height)
 }
 
 RenderGameLoginProgress()
@@ -250,6 +290,7 @@ RenderGameLoginProgress()
     global LoginProgressGui, LoginProgressCharacterName, LoginProgressRows
     global LoginProgressFooter, LoginProgressSummaryDots, LoginProgressName
     global LoginProgressMode, LoginProgressStage, LoginProgressStageStarted
+    scale := LoginProgressGui.ProgressScale
     dirty := false
     if LoginProgressCharacterName.Text != LoginProgressName
     {
@@ -289,9 +330,9 @@ RenderGameLoginProgress()
         {
             row.Symbol.Text := symbol
             if symbol = "✔"
-                row.Symbol.SetFont("s12 Bold c173C2A", "Segoe UI Symbol")
+                row.Symbol.SetFont("s" GameLoginProgressFontSize(12, scale) " Bold c173C2A", "Segoe UI Symbol")
             else if symbol = "!"
-                row.Symbol.SetFont("s14 Bold c173C2A", "Segoe UI")
+                row.Symbol.SetFont("s" GameLoginProgressFontSize(14, scale) " Bold c173C2A", "Segoe UI")
             row.SymbolText := symbol
             dirty := true
         }
@@ -317,9 +358,9 @@ RenderGameLoginProgress()
         {
             marker.Symbol.Text := symbol
             if symbol = "✔"
-                marker.Symbol.SetFont("s15 Bold c173C2A", "Segoe UI Symbol")
+                marker.Symbol.SetFont("s" GameLoginProgressFontSize(15, scale) " Bold c173C2A", "Segoe UI Symbol")
             else if symbol = "!"
-                marker.Symbol.SetFont("s17 Bold c173C2A", "Segoe UI")
+                marker.Symbol.SetFont("s" GameLoginProgressFontSize(17, scale) " Bold c173C2A", "Segoe UI")
             marker.SymbolText := symbol
             dirty := true
         }
@@ -345,12 +386,47 @@ RenderGameLoginProgress()
         DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
 }
 
+PresentGameLoginProgress(layout)
+{
+    global LoginProgressGui, LoginProgressMode, LoginProgressShown, LoginProgressLastX, LoginProgressLastY
+    previousCritical := Critical("On")
+    previous := LoginProgressGui
+    try
+    {
+        if LoginProgressMode = ""
+            return
+        if !IsObject(previous) || previous.ProgressScale != layout.Scale
+        {
+            ; Construct the new size while hidden and paint current state.
+            ; Keep the same login stage, generation, and dismissal deadline.
+            CreateGameLoginProgress(layout)
+            LoginProgressShown := false
+        }
+        RenderGameLoginProgress()
+        if !LoginProgressShown
+        {
+            LoginProgressGui.Show("NA x" layout.X " y" layout.Y " w" layout.Width " h" layout.Height)
+            LoginProgressShown := true
+        }
+        else if layout.X != LoginProgressLastX || layout.Y != LoginProgressLastY
+            DllCall("SetWindowPos", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0,
+                "Int", layout.X, "Int", layout.Y, "Int", 0, "Int", 0, "UInt", 0x15)
+        LoginProgressLastX := layout.X
+        LoginProgressLastY := layout.Y
+    }
+    finally
+    {
+        if IsObject(previous) && previous != LoginProgressGui
+            try previous.Destroy()
+        Critical(previousCritical)
+    }
+}
+
 UpdateGameLoginProgress(*)
 {
-    global Client, LoginProgressMode, LoginProgressCloseAt, LoginProgressGui
+    global Client, LoginProgressMode, LoginProgressCloseAt
     global LoginProgressDisabled, LoginProgressPid, LoginProgressHwnd
-    global LoginProgressShown, LoginProgressLastX, LoginProgressLastY
-    global LoginProgressWidth, LoginProgressHeight, LoginProgressHardDeadline
+    global LoginProgressHardDeadline
     if LoginProgressMode = ""
     {
         ; A stale native overlay must never survive a completed dismissal.
@@ -403,21 +479,13 @@ UpdateGameLoginProgress(*)
             HideGameLoginProgress()
             return
         }
-        CreateGameLoginProgress()
-        RenderGameLoginProgress()
-        WinGetPos(&gx, &gy, &gw, &gh, target)
-        x := gx + Round((gw - LoginProgressWidth) / 2)
-        y := gy + Round((gh - LoginProgressHeight) / 2)
-        if !LoginProgressShown
+        layout := GetGameLoginProgressLayout(hwnd)
+        if !IsObject(layout)
         {
-            LoginProgressGui.Show("NA x" x " y" y " w" LoginProgressWidth " h" LoginProgressHeight)
-            LoginProgressShown := true
+            HideGameLoginProgress()
+            return
         }
-        else if x != LoginProgressLastX || y != LoginProgressLastY
-            DllCall("SetWindowPos", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0,
-                "Int", x, "Int", y, "Int", 0, "Int", 0, "UInt", 0x15)
-        LoginProgressLastX := x
-        LoginProgressLastY := y
+        PresentGameLoginProgress(layout)
     }
     catch Error as err
     {
