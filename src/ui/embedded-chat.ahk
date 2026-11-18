@@ -3,7 +3,6 @@ global EmbeddedChatPid := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
-global LauncherChatHovered := false
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -114,13 +113,9 @@ SendLauncherChatCommand(command, targetHwnd := 0)
 
 CreateLauncherChatToggle()
 {
-    global LauncherGui, LauncherChatToggle, LauncherChatMenu
-    LauncherGui.SetFont("s11 Bold cFFFFFF", "Segoe UI")
-    LauncherChatToggle := LauncherGui.Add("Text",
-        "x3 y294 w45 h112 +0x100 BackgroundA77C3A", "")
-    OnMessage(0x000F, PaintLauncherChatToggle)
-    ; The themed-button handlers can intercept WM_COMMAND, so use the control's Click event.
-    LauncherChatToggle.OnEvent("Click", ToggleLauncherChat)
+    global LauncherGui, LauncherChatToggle, LauncherChatMenu, ButtonFaces
+    LauncherChatToggle := AddStyledButton(LauncherGui, 3, 294, 45, 112, "Game Chat", ToggleLauncherChat)
+    ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true
 
     ; Chat Host reports visibility and Expansion Pack download state.
     OnMessage(0x8332, LauncherChatStateChanged)
@@ -136,83 +131,36 @@ CreateLauncherChatToggle()
     OnMessage(0x0204, LauncherChatRightClick)
 }
 
-UpdateLauncherChatHover(pointerWindow, pointerControl)
+PaintLauncherChatCaption(dc, w, h, label, labelColor, shift)
 {
-    global LauncherGui, LauncherChatToggle, LauncherChatHovered
-    if !IsObject(LauncherChatToggle)
-        return
-    hwnd := LauncherChatToggle.Hwnd
-    hovered := pointerWindow = LauncherGui.Hwnd && pointerControl = hwnd
-        && LauncherChatToggle.Visible && LauncherChatToggle.Enabled
-        && DllCall("user32\IsWindowEnabled", "Ptr", pointerWindow)
-    if hovered = LauncherChatHovered
-        return
-    LauncherChatHovered := hovered
-    DllCall("user32\InvalidateRect", "Ptr", hwnd, "Ptr", 0, "Int", 0)
-}
-
-PaintLauncherChatToggle(wParam, lParam, msg, hwnd)
-{
-    global LauncherChatToggle, LauncherScale, LauncherChatOpen, LauncherChatHovered
-    if !IsObject(LauncherChatToggle) || hwnd != LauncherChatToggle.Hwnd
-        return
-    ; Paint the rotated caption directly to avoid clipping inside the static control.
-    ps := Buffer(A_PtrSize = 8 ? 72 : 64, 0)
-    dc := DllCall("user32\BeginPaint", "Ptr", hwnd, "Ptr", ps, "Ptr")
-    if !dc
-        return
-    try
-    {
-        rect := Buffer(16, 0)
-        DllCall("user32\GetClientRect", "Ptr", hwnd, "Ptr", rect)
-        w := NumGet(rect, 8, "Int"), h := NumGet(rect, 12, "Int")
-        hovered := LauncherChatHovered
-        fillColor := hovered ? 0x0074C4EB : 0x003A7CA7
-        frameColor := hovered ? 0x00C3F1FF : 0x0078C7ED
-        labelColor := hovered ? 0x000F2335 : 0x00FFFFFF
-        gold := DllCall("gdi32\CreateSolidBrush", "UInt", fillColor, "Ptr")
-        DllCall("user32\FillRect", "Ptr", dc, "Ptr", rect, "Ptr", gold)
-        DllCall("gdi32\DeleteObject", "Ptr", gold)
-        frame := DllCall("gdi32\CreateSolidBrush", "UInt", frameColor, "Ptr")
-        DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
-        NumPut("Int", 2, rect, 0)
-        NumPut("Int", 2, rect, 4)
-        NumPut("Int", w - 2, rect, 8)
-        NumPut("Int", h - 2, rect, 12)
-        DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
-        DllCall("gdi32\DeleteObject", "Ptr", frame)
-        DllCall("gdi32\SetBkMode", "Ptr", dc, "Int", 1)
-        DllCall("gdi32\SetTextColor", "Ptr", dc, "UInt", labelColor)
-        ; Scale the rotated caption and arrow with the tab.
-        paintScale := LauncherScale / 100
-        fontHeight := -Max(9, Round(21 * paintScale))
-        font := DllCall("gdi32\CreateFontW",
-            "Int", fontHeight, "Int", 0, "Int", 900, "Int", 900,
-            "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
-            "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
-            "UInt", 0, "Str", "Segoe UI", "Ptr")
-        oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
-        ; Positive 90-degree escapement runs text upward from the baseline.
-        DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.53),
-            "Int", Round(h * 0.87), "Str", "Game Chat", "Int", 9)
-        DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
-        DllCall("gdi32\DeleteObject", "Ptr", font)
-        pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
-        oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
-        cx := Round(w * 0.32), cy := Round(h * 0.50)
-        direction := LauncherChatOpen ? -1 : 1
-        arrowHalf := Max(4, Round(9 * paintScale))
-        arrowHeight := Max(4, Round(10 * paintScale))
-        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * arrowHalf, "Int", cy, "Ptr", 0)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - arrowHeight)
-        DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy, "Ptr", 0)
-        DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy + arrowHeight)
-        DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldPen, "Ptr")
-        DllCall("gdi32\DeleteObject", "Ptr", pen)
-    }
-    finally DllCall("user32\EndPaint", "Ptr", hwnd, "Ptr", ps)
-    return 0
+    global LauncherScale, LauncherChatOpen
+    ; Scale the rotated caption and arrow with the tab.
+    paintScale := LauncherScale / 100
+    fontHeight := -Max(9, Round(21 * paintScale))
+    font := DllCall("gdi32\CreateFontW",
+        "Int", fontHeight, "Int", 0, "Int", 900, "Int", 900,
+        "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
+        "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
+        "UInt", 0, "Str", "Segoe UI", "Ptr")
+    oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+    ; Positive 90-degree escapement runs text upward from the baseline.
+    DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.53) + shift,
+        "Int", Round(h * 0.87), "Str", label, "Int", StrLen(label))
+    DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
+    DllCall("gdi32\DeleteObject", "Ptr", font)
+    pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
+    oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
+    cx := Round(w * 0.32) + shift, cy := Round(h * 0.50)
+    direction := LauncherChatOpen ? -1 : 1
+    arrowHalf := Max(4, Round(9 * paintScale))
+    arrowHeight := Max(4, Round(10 * paintScale))
+    DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * arrowHalf, "Int", cy, "Ptr", 0)
+    DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy)
+    DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - arrowHeight)
+    DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy, "Ptr", 0)
+    DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy + arrowHeight)
+    DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldPen, "Ptr")
+    DllCall("gdi32\DeleteObject", "Ptr", pen)
 }
 
 ToggleLauncherChat(*)
@@ -228,7 +176,7 @@ LauncherChatStateChanged(wParam, lParam, msg, hwnd)
         return
     LauncherChatOpen := (wParam != 0)
     if IsObject(LauncherChatToggle)
-        DllCall("user32\InvalidateRect", "Ptr", LauncherChatToggle.Hwnd, "Ptr", 0, "Int", 1)
+        DllCall("user32\InvalidateRect", "Ptr", LauncherChatToggle.Hwnd, "Ptr", 0, "Int", 0)
     return 0
 }
 

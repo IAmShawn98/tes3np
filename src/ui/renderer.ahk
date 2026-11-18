@@ -59,8 +59,7 @@ SetLauncherHandCursor()
 
 HandleNativeClickableCursor(wParam, lParam, msg, hwnd)
 {
-    global LauncherChatToggle
-    ; Native buttons, links and the custom chat tab use the shared hand cursor.
+    ; Native buttons and links use the same hand cursor as painted buttons.
     if !wParam || !DllCall("IsWindow", "Ptr", wParam)
         || !DllCall("IsWindowEnabled", "Ptr", wParam)
         || !DllCall("IsWindowVisible", "Ptr", wParam)
@@ -70,7 +69,6 @@ HandleNativeClickableCursor(wParam, lParam, msg, hwnd)
         return
     className := StrGet(classBuffer, "UTF-16")
     if className = "Button" || className = "SysLink"
-        || (className = "Static" && IsObject(LauncherChatToggle) && wParam = LauncherChatToggle.Hwnd)
     {
         SetLauncherHandCursor()
         return 1
@@ -113,7 +111,7 @@ PaintButton(wParam, lParam, *)
     Critical("On")
     try
     {
-        global ButtonFaces, ButtonPaint, EnhancedReadability
+        global ButtonFaces, ButtonPaint, EnhancedReadability, LauncherScale
         if ButtonPaint.Disposed
             return
         handle := NumGet(lParam, A_PtrSize = 8 ? 24 : 20, "Ptr")
@@ -135,6 +133,7 @@ PaintButton(wParam, lParam, *)
         if face.HasOwnProp("IsLoading")
             return PaintLoadingPanel(handle, target, width, height)
         isLabel := face.HasOwnProp("IsLabel")
+        isChatTab := face.HasOwnProp("IsChatTab")
         labelText := ""
         if !face.HasOwnProp("IsTick")
         {
@@ -167,7 +166,9 @@ PaintButton(wParam, lParam, *)
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
         DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
         DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
-        if face.Book
+        if isChatTab
+            PaintLauncherBackgroundSlice(graphics, face.X, face.Y, (A_ScreenDPI / 96) * LauncherScale / 100)
+        else if face.Book
         {
             face.Control.GetPos(&logicalX, &logicalY, &logicalWidth, &logicalHeight)
             dpiScale := width / logicalWidth
@@ -182,43 +183,20 @@ PaintButton(wParam, lParam, *)
         else
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))
         shift := face.State = "down" ? 2 : 0
-        if !isLabel
+        if isChatTab
         {
-            if face.Book
-                DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height, "Int", 44, "Int", 171, "Int", 2086, "Int", 390, "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
-            else
-                DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height)
-            overlay := EnhancedReadability ? (face.State = "down" ? 0xE0100803 : face.State = "hover" ? 0xB06A4518 : 0xC0180C04) : (face.State = "down" ? 0xA02B190A : face.State = "hover" ? 0x802B190A : 0x602B190A)
-            selectedMacro := face.HasOwnProp("MacroSelected") && face.MacroSelected
-            if selectedMacro
-                overlay := 0xA0583719
-            brush := 0
-            DllCall("gdiplus\GdipCreateSolidFill", "UInt", overlay, "Ptr*", &brush)
-            DllCall("gdiplus\GdipFillRectangleI", "Ptr", graphics, "Ptr", brush, "Int", face.Book ? 1 : Round(5 * scale), "Int", (face.Book ? 1 : Round(12 * scale)) + shift, "Int", face.Book ? width - 2 : Round(210 * scale), "Int", face.Book ? height - 4 : Round(24 * scale))
-            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
-            if selectedMacro
-            {
-                selectionPen := 0
-                DllCall("gdiplus\GdipCreatePen1", "UInt", 0xFFE6C17B,
-                    "Float", 1.4, "Int", 2, "Ptr*", &selectionPen)
-                DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics,
-                    "Ptr", selectionPen, "Int", 1, "Int", 1 + shift,
-                    "Int", width - 3, "Int", height - 4)
-                DllCall("gdiplus\GdipDeletePen", "Ptr", selectionPen)
-            }
-            if EnhancedReadability && face.State = "hover"
-            {
-                pen := 0
-                DllCall("gdiplus\GdipCreatePen1", "UInt", 0xFFE9C875, "Float", 2.0, "Int", 2, "Ptr*", &pen)
-                DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics, "Ptr", pen, "Int", 1, "Int", 1 + shift, "Int", width - 3, "Int", height - 4)
-                DllCall("gdiplus\GdipDeletePen", "Ptr", pen)
-            }
+            ; Map the horizontal face's positive X axis upward along the tab.
+            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", graphics, "Float", 0, "Float", height, "Int", 0)
+            DllCall("gdiplus\GdipRotateWorldTransform", "Ptr", graphics, "Float", -90, "Int", 0)
+            PaintButtonArtwork(graphics, face, height, width, shift)
         }
+        else if !isLabel
+            PaintButtonArtwork(graphics, face, width, height, shift)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
         oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
-        fittedFont := !isLabel && labelText != "" && font
+        fittedFont := !isLabel && !isChatTab && labelText != "" && font
             ? FitButtonLabelFont(dc, font, labelText, Max(1, width - 4), Max(1, height - 2)) : 0
         if fittedFont
             DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
@@ -226,7 +204,9 @@ PaintButton(wParam, lParam, *)
         DllCall("SetTextColor", "Ptr", dc, "UInt", textColor)
         bounds := Buffer(16, 0)
         NumPut("Int", 2, "Int", shift, "Int", width - 2, "Int", height + shift, bounds)
-        if face.HasOwnProp("IsTick")
+        if isChatTab
+            PaintLauncherChatCaption(dc, width, height, labelText, textColor, shift)
+        else if face.HasOwnProp("IsTick")
         {
             pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", 0x17304B, "Ptr")
             oldPen := DllCall("SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
@@ -260,6 +240,41 @@ PaintButton(wParam, lParam, *)
         return true
     }
     finally Critical(previousCritical)
+}
+
+PaintButtonArtwork(graphics, face, width, height, shift)
+{
+    global ButtonPaint, EnhancedReadability
+    scale := width / 220
+    if face.Book
+        DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height, "Int", 44, "Int", 171, "Int", 2086, "Int", 390, "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
+    else
+        DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height)
+    overlay := EnhancedReadability ? (face.State = "down" ? 0xE0100803 : face.State = "hover" ? 0xB06A4518 : 0xC0180C04) : (face.State = "down" ? 0xA02B190A : face.State = "hover" ? 0x802B190A : 0x602B190A)
+    selectedMacro := face.HasOwnProp("MacroSelected") && face.MacroSelected
+    if selectedMacro
+        overlay := 0xA0583719
+    brush := 0
+    DllCall("gdiplus\GdipCreateSolidFill", "UInt", overlay, "Ptr*", &brush)
+    DllCall("gdiplus\GdipFillRectangleI", "Ptr", graphics, "Ptr", brush, "Int", face.Book ? 1 : Round(5 * scale), "Int", (face.Book ? 1 : Round(12 * scale)) + shift, "Int", face.Book ? width - 2 : Round(210 * scale), "Int", face.Book ? height - 4 : Round(24 * scale))
+    DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+    if selectedMacro
+    {
+        selectionPen := 0
+        DllCall("gdiplus\GdipCreatePen1", "UInt", 0xFFE6C17B,
+            "Float", 1.4, "Int", 2, "Ptr*", &selectionPen)
+        DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics,
+            "Ptr", selectionPen, "Int", 1, "Int", 1 + shift,
+            "Int", width - 3, "Int", height - 4)
+        DllCall("gdiplus\GdipDeletePen", "Ptr", selectionPen)
+    }
+    if EnhancedReadability && face.State = "hover"
+    {
+        pen := 0
+        DllCall("gdiplus\GdipCreatePen1", "UInt", 0xFFE9C875, "Float", 2.0, "Int", 2, "Ptr*", &pen)
+        DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics, "Ptr", pen, "Int", 1, "Int", 1 + shift, "Int", width - 3, "Int", height - 4)
+        DllCall("gdiplus\GdipDeletePen", "Ptr", pen)
+    }
 }
 
 FitButtonLabelFont(dc, font, text, maxWidth, maxHeight)
@@ -468,6 +483,12 @@ FillLoadingRect(dc, left, top, right, bottom, color)
     DllCall("DeleteObject", "Ptr", brush)
 }
 
+PaintLauncherBackgroundSlice(graphics, x, y, scale)
+{
+    global ButtonPaint
+    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Background, "Int", Round(-x * scale), "Int", Round((-4 - y) * scale), "Int", Round(960 * scale), "Int", Round(720 * scale))
+}
+
 ; Info cards deliberately retain their original artwork-integrated renderer.
 ; Accessibility contrast applies only to interactive controls, never these cards.
 PaintInfoCard(handle, target, width, height)
@@ -483,7 +504,7 @@ PaintInfoCard(handle, target, width, height)
     scale := width / face.BaseWidth
     DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
     DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
-    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Background, "Int", Round(-face.X * scale), "Int", Round((-4 - face.Y) * scale), "Int", Round(960 * scale), "Int", Round(720 * scale))
+    PaintLauncherBackgroundSlice(graphics, face.X, face.Y, scale)
     tile := Max(1, Round(4 * scale))
     y := 0
     while y < height
