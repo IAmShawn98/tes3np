@@ -3,7 +3,8 @@ global EmbeddedChatPid := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
-global LauncherDiscordAccount := 0
+global LauncherDiscordName := 0
+global LauncherDiscordPortrait := 0
 global LauncherDiscordStatus := 0
 global LauncherDiscordAvatar := 0
 global LauncherDiscordAvatarStream := 0
@@ -94,10 +95,13 @@ StopEmbeddedInGameChat()
 
 CreateLauncherDiscordAccount()
 {
-    global LauncherGui, LauncherDiscordAccount, ButtonFaces
-    LauncherDiscordAccount := AddStyledButton(LauncherGui, 794, 2, 164, 36, "Checking Discord…", OpenLauncherDiscordAccount)
-    ButtonFaces[LauncherDiscordAccount.Hwnd].IsDiscordAccount := true
-    LauncherDiscordAccount.Enabled := false
+    global LauncherGui, LauncherDiscordName, LauncherDiscordPortrait, ButtonFaces
+    LauncherDiscordName := AddStyledButton(LauncherGui, 794, 2, 122, 36, "Checking Discord…", OpenLauncherDiscordAccount)
+    ButtonFaces[LauncherDiscordName.Hwnd].IsDiscordName := true
+    LauncherDiscordName.Enabled := false
+    LauncherDiscordPortrait := AddStyledButton(LauncherGui, 922, 2, 36, 36, "Discord account", OpenLauncherDiscordAccount)
+    ButtonFaces[LauncherDiscordPortrait.Hwnd].IsDiscordPortrait := true
+    LauncherDiscordPortrait.Enabled := false
     ; Run before the Expansion handler, which acknowledges its own COPYDATA.
     OnMessage(0x004A, ReceiveLauncherDiscordAccount, -1)
     OnMessage(0x833A, LauncherDiscordSignOutFailed)
@@ -115,11 +119,11 @@ IsLauncherDiscordMessage(sender, hwnd)
 
 ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
 {
-    global LauncherDiscordAccount, LauncherDiscordStatus, ButtonFaces
+    global LauncherDiscordName, LauncherDiscordPortrait, LauncherDiscordStatus
     global LauncherDiscordAvatar, LauncherDiscordAvatarStream
     if !data || NumGet(data, 0, "Ptr") != 0x8339
         return
-    if !IsObject(LauncherDiscordAccount) || !IsLauncherDiscordMessage(sender, hwnd)
+    if !IsObject(LauncherDiscordPortrait) || !IsLauncherDiscordMessage(sender, hwnd)
         return 0
     size := NumGet(data, A_PtrSize, "UInt")
     payload := NumGet(data, A_PtrSize = 8 ? 16 : 8, "Ptr")
@@ -158,19 +162,17 @@ ReceiveLauncherDiscordAccount(sender, data, msg, hwnd)
     }
 
     LauncherDiscordStatus := status
-    handle := LauncherDiscordAccount.Hwnd
-    ButtonFaces[handle].DiscordAvatar := LauncherDiscordAvatar
-    LauncherDiscordAccount.Enabled := status != 3
-    label := status = 1 ? "Sign in to Discord" : status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
-    SetPaintedLabelText(LauncherDiscordAccount, label)
+    LauncherDiscordName.Enabled := status = 1
+    LauncherDiscordPortrait.Enabled := status != 3
+    label := status = 1 ? "Log In" : status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
+    SetPaintedLabelText(LauncherDiscordName, label)
+    SetPaintedLabelText(LauncherDiscordPortrait, status = 1 ? "Log In to Discord" : "Discord account")
     return 1
 }
 
 ReleaseLauncherDiscordAvatar()
 {
-    global LauncherDiscordAccount, LauncherDiscordAvatar, LauncherDiscordAvatarStream, ButtonFaces
-    if IsObject(LauncherDiscordAccount) && ButtonFaces.Has(LauncherDiscordAccount.Hwnd)
-        ButtonFaces[LauncherDiscordAccount.Hwnd].DiscordAvatar := 0
+    global LauncherDiscordAvatar, LauncherDiscordAvatarStream
     if LauncherDiscordAvatar
         DllCall("gdiplus\GdipDisposeImage", "Ptr", LauncherDiscordAvatar)
     if LauncherDiscordAvatarStream
@@ -179,9 +181,44 @@ ReleaseLauncherDiscordAvatar()
     LauncherDiscordAvatarStream := 0
 }
 
+PaintLauncherDiscordPortrait(graphics, face, width, height)
+{
+    global ButtonPaint, LauncherDiscordAvatar, LauncherDiscordStatus
+    signedIn := LauncherDiscordStatus = 2
+    image := signedIn ? LauncherDiscordAvatar : ButtonPaint.DiscordLogo
+    size := Max(1, Min(width, height) - 4)
+    x := (width - size) // 2
+    y := (height - size) // 2
+    if image
+        DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", image,
+            "Int", x, "Int", y, "Int", size, "Int", size)
+    else if signedIn
+    {
+        ; Keep the account menu visible while the signed-in avatar loads.
+        brush := 0
+        if !DllCall("gdiplus\GdipCreateSolidFill", "UInt", 0xFFF4E2BE, "Ptr*", &brush)
+        {
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", graphics, "Ptr", brush,
+                "Int", x + Round(size * 0.33), "Int", y + Round(size * 0.12), "Int", Round(size * 0.34), "Int", Round(size * 0.34))
+            DllCall("gdiplus\GdipFillEllipseI", "Ptr", graphics, "Ptr", brush,
+                "Int", x + Round(size * 0.18), "Int", y + Round(size * 0.53), "Int", Round(size * 0.64), "Int", Round(size * 0.40))
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+        }
+    }
+    if face.State = "normal" || !face.Control.Enabled
+        return
+    pen := 0
+    if !DllCall("gdiplus\GdipCreatePen1", "UInt", 0xFFF2D88E, "Float", 1.0, "Int", 2, "Ptr*", &pen)
+    {
+        DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics, "Ptr", pen,
+            "Int", x - 1, "Int", y - 1, "Int", size + 1, "Int", size + 1)
+        DllCall("gdiplus\GdipDeletePen", "Ptr", pen)
+    }
+}
+
 OpenLauncherDiscordAccount(*)
 {
-    global LauncherDiscordAccount, LauncherDiscordStatus
+    global LauncherDiscordPortrait, LauncherDiscordStatus
     if LauncherDiscordStatus = 1
     {
         SendLauncherDiscordAccountCommand(16)
@@ -192,12 +229,10 @@ OpenLauncherDiscordAccount(*)
     dropdown := Menu()
     dropdown.Add("Sign out", (*) => SendLauncherDiscordAccountCommand(17))
     rect := Buffer(16, 0)
-    DllCall("user32\GetWindowRect", "Ptr", LauncherDiscordAccount.Hwnd, "Ptr", rect)
-    bottom := NumGet(rect, 12, "Int")
-    avatarLeft := NumGet(rect, 8, "Int") - (bottom - NumGet(rect, 4, "Int"))
+    DllCall("user32\GetWindowRect", "Ptr", LauncherDiscordPortrait.Hwnd, "Ptr", rect)
     oldMode := A_CoordModeMenu
     CoordMode("Menu", "Screen")
-    try dropdown.Show(avatarLeft, bottom)
+    try dropdown.Show(NumGet(rect, 0, "Int"), NumGet(rect, 12, "Int"))
     finally CoordMode("Menu", oldMode)
 }
 
