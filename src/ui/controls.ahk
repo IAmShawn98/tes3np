@@ -253,8 +253,13 @@ PressButton(wParam, lParam, msg, hwnd)
     global ButtonFaces, PressedButton, HoverButton
     if !ButtonFaces.Has(hwnd) || !DllCall("IsWindow", "Ptr", hwnd) || ButtonFaces[hwnd].HasOwnProp("IsLabel") || !ButtonFaces[hwnd].Control.Enabled
         return
-    DllCall("SetFocus", "Ptr", hwnd)
-    SetTimer(SyncKeyboardFocus, -1)
+    ; The side panel toggle stays reachable by Tab, but a mouse click should
+    ; leave focus where it was so the toggle stops looking hovered on exit.
+    if !ButtonFaces[hwnd].HasOwnProp("IsChatTab")
+    {
+        DllCall("SetFocus", "Ptr", hwnd)
+        SetTimer(SyncKeyboardFocus, -1)
+    }
     PressedButton := hwnd
     HoverButton := hwnd
     DllCall("SetCapture", "Ptr", hwnd)
