@@ -2,26 +2,49 @@
 
 SHA256File(path)
 {
-    ; Windows certutil avoids nested PowerShell quoting and requires no extra software.
-    temporary := A_Temp "\tes3np-client-hash-" A_TickCount "-" DllCall("GetCurrentProcessId") ".txt"
-    command := A_ComSpec ' /D /C certutil -hashfile "' path '" SHA256 > "' temporary '"'
+    ; Hash in-process so verifying a file cannot yield to a second launcher
+    ; callback or share a temporary command-output file with that callback.
+    algorithm := 0, hash := 0, file := 0
     try
     {
-        if RunWait(command, , "Hide") = 0 && FileExist(temporary)
-        {
-            output := FileRead(temporary, "UTF-8")
-            if RegExMatch(output, "i)\b([0-9a-f]{64})\b", &match)
-                return StrLower(match[1])
-        }
+        file := FileOpen(path, "r")
+        file.Pos := 0
+        if DllCall("bcrypt\BCryptOpenAlgorithmProvider", "Ptr*", &algorithm,
+            "WStr", "SHA256", "Ptr", 0, "UInt", 0, "Int") != 0
+            return ""
+        if DllCall("bcrypt\BCryptCreateHash", "Ptr", algorithm, "Ptr*", &hash,
+            "Ptr", 0, "UInt", 0, "Ptr", 0, "UInt", 0, "UInt", 0, "Int") != 0
+            return ""
+
+        chunk := Buffer(65536)
+        while count := file.RawRead(chunk, chunk.Size)
+            if DllCall("bcrypt\BCryptHashData", "Ptr", hash, "Ptr", chunk.Ptr,
+                "UInt", count, "UInt", 0, "Int") != 0
+                return ""
+        if file.Pos != file.Length
+            return ""
+
+        digest := Buffer(32)
+        if DllCall("bcrypt\BCryptFinishHash", "Ptr", hash, "Ptr", digest.Ptr,
+            "UInt", digest.Size, "UInt", 0, "Int") != 0
+            return ""
+
+        text := ""
+        Loop digest.Size
+            text .= Format("{:02x}", NumGet(digest, A_Index - 1, "UChar"))
+        return text
     }
-    catch
-    {
-    }
+    catch Error
+        return ""
     finally
     {
-        try FileDelete(temporary)
+        if hash
+            DllCall("bcrypt\BCryptDestroyHash", "Ptr", hash, "Int")
+        if algorithm
+            DllCall("bcrypt\BCryptCloseAlgorithmProvider", "Ptr", algorithm, "UInt", 0, "Int")
+        if IsObject(file)
+            file.Close()
     }
-    return ""
 }
 
 PrepareMarkerlessClientRuntime()

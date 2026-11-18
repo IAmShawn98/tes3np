@@ -367,10 +367,10 @@ LogPatchDiagnostic(message)
 ExpansionPackInstalled(morrowind, config)
 {
     global DataFile
-    ; A leftover ESP and a stale content= line cannot prove an active pack.
+    ; Verify the local import record before enabling a pack already on disk.
     ; Trust only an imported ESP whose saved location and SHA-256 still match.
     ; This is local installation evidence, not server compatibility proof.
-    verifiedPath := IniRead(DataFile, "ExpansionPack", "VerifiedEspPath", "")
+    verifiedPath := ExpansionPackFullPath(IniRead(DataFile, "ExpansionPack", "VerifiedEspPath", ""))
     verifiedHash := StrLower(IniRead(DataFile, "ExpansionPack", "VerifiedEspSHA256", ""))
     if verifiedPath = "" || !RegExMatch(verifiedHash, "i)^[0-9a-f]{64}$")
         return false
@@ -378,8 +378,7 @@ ExpansionPackInstalled(morrowind, config)
     {
         try
         {
-            if StrLower(esp) = StrLower(verifiedPath)
-                && FileExist(esp) && FileGetSize(esp) > 0
+            if ExpansionPackFullPath(esp) = verifiedPath && FileGetSize(esp) > 0
                 && SHA256File(esp) = verifiedHash
                 return true
         }
@@ -387,11 +386,24 @@ ExpansionPackInstalled(morrowind, config)
     return false
 }
 
+ExpansionPackFullPath(path)
+{
+    if path = ""
+        return ""
+    length := DllCall("GetFullPathNameW", "WStr", path, "UInt", 0, "Ptr", 0, "Ptr", 0, "UInt")
+    if !length
+        return ""
+    fullPath := Buffer(length * 2)
+    written := DllCall("GetFullPathNameW", "WStr", path, "UInt", length,
+        "Ptr", fullPath.Ptr, "Ptr", 0, "UInt")
+    return written && written < length ? StrGet(fullPath.Ptr, written, "UTF-16") : ""
+}
+
 ExpansionPackEspPaths(morrowind, config)
 {
     folders := []
     if morrowind != "" && DirExist(morrowind)
-        folders.Push(morrowind "\Data Files")
+        folders.Push(RTrim(morrowind, "\/") "\Data Files")
     if FileExist(config)
     {
         try
@@ -578,9 +590,9 @@ ExpansionPackInLoadOrder(config)
 
 ExpansionPackIsEnabled()
 {
-    config := PatchConfigurationPath()
-    return ExpansionPackInLoadOrder(config)
-        && ExpansionPackInstalled(FindMorrowindFolder(config), config)
+    ; The button describes the configured load order, which also determines
+    ; whether its next click enables or disables the pack.
+    return ExpansionPackInLoadOrder(PatchConfigurationPath())
 }
 
 RefreshExpansionPackToggle()
