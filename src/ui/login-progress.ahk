@@ -15,8 +15,7 @@ global LoginProgressHwnd := 0
 global LoginProgressCloseAt := 0
 global LoginProgressDisabled := false
 global LoginProgressShown := false
-global LoginProgressLastX := -1
-global LoginProgressLastY := -1
+global LoginProgressTracking := 0
 global LoginProgressGeneration := 0
 global LoginProgressHardDeadline := 0
 
@@ -106,7 +105,8 @@ DismissCompletedLoginProgress(generation)
 
 HideGameLoginProgress()
 {
-    global LoginProgressGui, LoginProgressShown, LoginProgressLastX, LoginProgressLastY
+    global LoginProgressGui, LoginProgressShown
+    LoginProgressShown := false
     ; The cached visibility flag can become stale if the game disappears
     ; while the nonactivating overlay is being repainted. Always hide the
     ; actual native window, even if LoginProgressShown was already cleared.
@@ -120,9 +120,6 @@ HideGameLoginProgress()
                 DllCall("ShowWindow", "Ptr", hwnd, "Int", 0)
         }
     }
-    LoginProgressShown := false
-    LoginProgressLastX := -1
-    LoginProgressLastY := -1
 }
 
 DismissGameLoginProgress()
@@ -133,6 +130,7 @@ DismissGameLoginProgress()
     LoginProgressCloseAt := 0
     LoginProgressPid := 0
     LoginProgressHwnd := 0
+    StopGameLoginProgressTracking()
     HideGameLoginProgress()
 }
 
@@ -189,12 +187,15 @@ FitGameLoginProgress(area, gameWindow, normalScale)
         Y: Max(area.Y, Min(area.Y + area.Height - height, y))}
 }
 
-GetGameLoginProgressLayout(hwnd)
+GetGameLoginProgressWindow(hwnd)
 {
-    target := "ahk_id " hwnd
-    WinGetPos(&x, &y, &width, &height, target)
-    gameWindow := {X: x, Y: y, Width: width, Height: height}
-    WinGetClientPos(&x, &y, &width, &height, target)
+    WinGetPos(&x, &y, &width, &height, "ahk_id " hwnd)
+    return {X: x, Y: y, Width: width, Height: height}
+}
+
+GetGameLoginProgressLayout(hwnd, gameWindow)
+{
+    WinGetClientPos(&x, &y, &width, &height, "ahk_id " hwnd)
     ; A windowed game can straddle a monitor edge. Fit within the visible
     ; client on its monitor, leaving fullscreen placement unchanged.
     info := Buffer(40, 0) ; MONITORINFO
@@ -207,7 +208,84 @@ GetGameLoginProgressLayout(hwnd)
         x := Max(x, NumGet(info, 4, "Int")), y := Max(y, NumGet(info, 8, "Int"))
         width := right - x, height := bottom - y
     }
-    return FitGameLoginProgress({X: x, Y: y, Width: width, Height: height}, gameWindow, A_ScreenDPI / 96)
+    layout := FitGameLoginProgress({X: x, Y: y, Width: width, Height: height}, gameWindow, A_ScreenDPI / 96)
+    if IsObject(layout)
+        layout.GameWindow := gameWindow
+    return layout
+}
+
+TranslateGameLoginProgress(layout, gameWindow)
+{
+    anchor := layout.GameWindow
+    if gameWindow.Width != anchor.Width || gameWindow.Height != anchor.Height
+        return 0
+    return {X: gameWindow.X + (layout.X - anchor.X), Y: gameWindow.Y + (layout.Y - anchor.Y),
+        Width: layout.Width, Height: layout.Height, Scale: layout.Scale, GameWindow: gameWindow}
+}
+
+TrackGameLoginProgressWindow(hwnd)
+{
+    global LoginProgressTracking
+    static callback := 0
+    if IsObject(LoginProgressTracking) && LoginProgressTracking.Hwnd = hwnd
+        return
+    StopGameLoginProgressTracking()
+    pid := 0
+    threadId := DllCall("GetWindowThreadProcessId", "Ptr", hwnd, "UInt*", &pid, "UInt")
+    if !threadId || !pid
+        return
+    tracking := {Hwnd: hwnd, ThreadId: threadId, Hook: 0}
+    LoginProgressTracking := tracking
+    try
+    {
+        ; One callback for the lifetime of the launcher. Only the validated
+        ; game's thread is subscribed, and the hook runs in our message loop.
+        if !callback
+            callback := CallbackCreate(OnGameLoginProgressLocationChange)
+        locationChange := 0x800B ; EVENT_OBJECT_LOCATIONCHANGE
+        tracking.Hook := DllCall("SetWinEventHook", "UInt", locationChange, "UInt", locationChange,
+            "Ptr", 0, "Ptr", callback, "UInt", pid, "UInt", threadId, "UInt", 0, "Ptr") ; WINEVENT_OUTOFCONTEXT
+    }
+}
+
+StopGameLoginProgressTracking()
+{
+    global LoginProgressTracking
+    tracking := LoginProgressTracking
+    LoginProgressTracking := 0
+    if IsObject(tracking) && tracking.Hook
+        DllCall("UnhookWinEvent", "Ptr", tracking.Hook, "Int")
+}
+
+GameLoginProgressIsDragging(tracking, hwnd)
+{
+    if !IsObject(tracking) || tracking.Hwnd != hwnd
+        return false
+    info := Buffer(8 + 6 * A_PtrSize + 16, 0) ; GUITHREADINFO
+    NumPut("UInt", info.Size, info)
+    return DllCall("GetGUIThreadInfo", "UInt", tracking.ThreadId, "Ptr", info, "Int")
+        && (NumGet(info, 4, "UInt") & 0x2) && NumGet(info, 8 + 4 * A_PtrSize, "Ptr") = hwnd
+}
+
+OnGameLoginProgressLocationChange(hook, event, hwnd, objectId, childId, threadId, eventTime)
+{
+    Critical("On")
+    global LoginProgressTracking, LoginProgressShown, LoginProgressGui
+    tracking := LoginProgressTracking
+    if !LoginProgressShown || !IsObject(tracking) || tracking.Hook != hook
+        || event != 0x800B || tracking.Hwnd != hwnd || objectId || childId
+        || DllCall("IsIconic", "Ptr", hwnd) || !DllCall("IsWindowVisible", "Ptr", hwnd)
+        return
+    ; Read the current rectangle even if several move events were queued.
+    ; The fast path keeps the painted card and its original game offset.
+    try
+    {
+        previous := LoginProgressGui.ProgressLayout
+        layout := TranslateGameLoginProgress(previous, GetGameLoginProgressWindow(hwnd))
+        if IsObject(layout) && (layout.X != previous.X || layout.Y != previous.Y)
+            && PositionGameLoginProgress(LoginProgressGui.Hwnd, hwnd, layout, false, true)
+            LoginProgressGui.ProgressLayout := layout
+    }
 }
 
 GameLoginProgressFontSize(points, scale)
@@ -410,15 +488,15 @@ PositionGameLoginProgress(cardHwnd, gameHwnd, layout, show, moved)
         above := -1 ; HWND_TOPMOST, when the game is itself the topmost window.
     if show
         flags |= 0x0040 ; SWP_SHOWWINDOW
-    else if !moved
-        flags |= 0x0003 ; SWP_NOMOVE | SWP_NOSIZE
+    else
+        flags |= moved ? 0x0001 : 0x0003 ; SWP_NOSIZE, and SWP_NOMOVE if stationary.
     return DllCall("SetWindowPos", "Ptr", cardHwnd, "Ptr", above,
         "Int", layout.X, "Int", layout.Y, "Int", layout.Width, "Int", layout.Height, "UInt", flags, "Int") != 0
 }
 
 PresentGameLoginProgress(gameHwnd, layout)
 {
-    global LoginProgressGui, LoginProgressMode, LoginProgressShown, LoginProgressLastX, LoginProgressLastY
+    global LoginProgressGui, LoginProgressMode, LoginProgressShown
     previousCritical := Critical("On")
     previous := LoginProgressGui
     try
@@ -433,12 +511,12 @@ PresentGameLoginProgress(gameHwnd, layout)
             LoginProgressShown := false
         }
         RenderGameLoginProgress()
-        moved := layout.X != LoginProgressLastX || layout.Y != LoginProgressLastY
+        moved := !LoginProgressShown || layout.X != previous.ProgressLayout.X || layout.Y != previous.ProgressLayout.Y
         if PositionGameLoginProgress(LoginProgressGui.Hwnd, gameHwnd, layout, !LoginProgressShown, moved)
         {
+            LoginProgressGui.ProgressLayout := layout
             LoginProgressShown := true
-            LoginProgressLastX := layout.X
-            LoginProgressLastY := layout.Y
+            TrackGameLoginProgressWindow(gameHwnd)
         }
     }
     finally
@@ -453,7 +531,7 @@ UpdateGameLoginProgress(*)
 {
     global Client, LoginProgressMode, LoginProgressCloseAt
     global LoginProgressDisabled, LoginProgressPid, LoginProgressHwnd
-    global LoginProgressHardDeadline
+    global LoginProgressHardDeadline, LoginProgressGui, LoginProgressShown, LoginProgressTracking
     if LoginProgressMode = ""
     {
         ; A stale native overlay must never survive a completed dismissal.
@@ -509,13 +587,26 @@ UpdateGameLoginProgress(*)
             HideGameLoginProgress()
             return
         }
-        layout := GetGameLoginProgressLayout(hwnd)
-        if !IsObject(layout)
+        ; Do not let the timer overwrite a newer position from a move callback.
+        previousCritical := Critical("On")
+        try
         {
-            HideGameLoginProgress()
-            return
+            gameWindow := GetGameLoginProgressWindow(hwnd)
+            layout := 0
+            ; Preserve the card's offset across monitor edges during a drag.
+            ; A true resize or the end of the move resumes normal fitting.
+            if LoginProgressShown && GameLoginProgressIsDragging(LoginProgressTracking, hwnd)
+                layout := TranslateGameLoginProgress(LoginProgressGui.ProgressLayout, gameWindow)
+            if !IsObject(layout)
+                layout := GetGameLoginProgressLayout(hwnd, gameWindow)
+            if !IsObject(layout)
+            {
+                HideGameLoginProgress()
+                return
+            }
+            PresentGameLoginProgress(hwnd, layout)
         }
-        PresentGameLoginProgress(hwnd, layout)
+        finally Critical(previousCritical)
     }
     catch Error as err
     {

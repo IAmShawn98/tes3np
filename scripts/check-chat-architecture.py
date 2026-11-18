@@ -1900,18 +1900,19 @@ expect(
     and 'DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)' in login_progress
     and 'ProcessClose(' not in login_cleanup,
 )
-login_card_fit = section_between(login_progress, "FitGameLoginProgress(area,", "GetGameLoginProgressLayout(hwnd)")
-login_card_layout = section_between(login_progress, "GetGameLoginProgressLayout(hwnd)", "GameLoginProgressFontSize(")
+login_card_fit = section_between(login_progress, "FitGameLoginProgress(area,", "GetGameLoginProgressWindow(hwnd)")
+login_card_layout = section_between(login_progress, "GetGameLoginProgressLayout(hwnd, gameWindow)", "TranslateGameLoginProgress(layout, gameWindow)")
+login_card_move = section_between(login_progress, "OnGameLoginProgressLocationChange(hook,", "GameLoginProgressFontSize(")
 login_card_present = section_between(login_progress, "PresentGameLoginProgress(gameHwnd, layout)", "UpdateGameLoginProgress(*)")
 login_card_position = section_between(login_progress, "PositionGameLoginProgress(cardHwnd,", "PresentGameLoginProgress(gameHwnd, layout)")
 expect(
     "Game login progress retains its normal DPI layout when it fits and follows the visible TES3MP client",
     "Min(normalScale, area.Width / 420, area.Height / 481)" in login_card_fit
     and "anchor := scale < normalScale ? area : gameWindow" in login_card_fit
-    and 'WinGetClientPos(&x, &y, &width, &height, target)' in login_card_layout
+    and 'WinGetClientPos(&x, &y, &width, &height, "ahk_id " hwnd)' in login_card_layout
     and 'DllCall("GetMonitorInfoW"' in login_card_layout
     and "A_ScreenDPI / 96)" in login_card_layout
-    and "layout := GetGameLoginProgressLayout(hwnd)" in login_cleanup
+    and "layout := GetGameLoginProgressLayout(hwnd, gameWindow)" in login_cleanup
     and "PresentGameLoginProgress(hwnd, layout)" in login_cleanup
     and "previous.ProgressScale != layout.Scale" in login_card_present
     and "DismissGameLoginProgress(" not in login_card_present
@@ -1928,11 +1929,24 @@ expect(
              "flags := 0x0010 ; SWP_NOACTIVATE", "if above = cardHwnd && cardTopmost = gameTopmost",
              'DllCall("SetWindowPos", "Ptr", cardHwnd, "Ptr", above')
     and in_order(login_cleanup, 'DllCall("IsWindowVisible", "Ptr", hwnd)', 'DwmGetWindowAttribute',
-                 "WinGetMinMax(target) = -1 || cloaked", "layout := GetGameLoginProgressLayout(hwnd)",
+                 "WinGetMinMax(target) = -1 || cloaked", "layout := GetGameLoginProgressLayout(hwnd, gameWindow)",
                  "PresentGameLoginProgress(hwnd, layout)")
     and "GetForegroundWindow" not in login_progress
     and "WinActive(" not in login_progress
     and "WinActivate(" not in login_progress,
+)
+expect(
+    "The painted login card translates in response to its game's window movement and releases the event hook on dismissal",
+    'DllCall("SetWinEventHook", "UInt", locationChange, "UInt", locationChange,' in login_progress
+    and '"UInt", pid, "UInt", threadId, "UInt", 0, "Ptr") ; WINEVENT_OUTOFCONTEXT' in login_progress
+    and "tracking.Hwnd != hwnd || objectId || childId" in login_card_move
+    and "TranslateGameLoginProgress(previous, GetGameLoginProgressWindow(hwnd))" in login_card_move
+    and "PositionGameLoginProgress(LoginProgressGui.Hwnd, hwnd, layout, false, true)" in login_card_move
+    and "CreateGameLoginProgress(" not in login_card_move
+    and "GameLoginProgressIsDragging(LoginProgressTracking, hwnd)" in login_cleanup
+    and 'DllCall("UnhookWinEvent", "Ptr", tracking.Hook, "Int")' in login_progress
+    and "StopGameLoginProgressTracking()" in section_between(login_progress, "\nDismissGameLoginProgress()", "\n}")
+    and "CheckGameLoginCardMoveTracking(game, card, layout)" in launcher_smoke_tests,
 )
 font_update = section_between(
     display_settings, "\nApplyAccessibilityTextSize(suspendRedraw := true)\n{", "\nApplyEnhancedReadability()\n{"

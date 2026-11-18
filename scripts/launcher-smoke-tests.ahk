@@ -46,6 +46,16 @@ CheckGameLoginProgressFit()
         || normal.X != -1065 || normal.Y != 110
         return false
 
+    normal.GameWindow := game
+    dragged := {X: 240, Y: -123, Width: game.Width, Height: game.Height}
+    moved := TranslateGameLoginProgress(normal, dragged)
+    returned := TranslateGameLoginProgress(moved, game)
+    if moved.X != 475 || moved.Y != -33 || moved.Scale != normal.Scale
+        || moved.Width != normal.Width || moved.Height != normal.Height
+        || returned.X != normal.X || returned.Y != normal.Y
+        || IsObject(TranslateGameLoginProgress(moved, {X: 240, Y: -123, Width: 320, Height: game.Height}))
+        return false
+
     ; Both dimensions can limit the fit, including partially visible games
     ; on a monitor to the left of the primary display.
     for area in [{X: 30, Y: 50, Width: 640, Height: 360},
@@ -102,6 +112,8 @@ CheckGameLoginCardStacking()
             if x != layout.X || y != layout.Y || width != layout.Width || height != layout.Height
                 return false
         }
+        if !CheckGameLoginCardMoveTracking(game, card, layout)
+            return false
     }
     finally
     {
@@ -109,8 +121,46 @@ CheckGameLoginCardStacking()
         cover.Destroy()
         game.Destroy()
     }
-    FileAppend("PASS: login card stays with the unfocused game in normal and topmost Z-order`n", "*")
+    FileAppend("PASS: login card stays with the game during focus and position changes`n", "*")
     return true
+}
+
+CheckGameLoginCardMoveTracking(game, card, layout)
+{
+    global LoginProgressGui, LoginProgressShown, LoginProgressTracking
+    original := GetGameLoginProgressWindow(game.Hwnd)
+    layout.GameWindow := original
+    layout.Scale := 1
+    card.ProgressLayout := layout
+    LoginProgressGui := card
+    LoginProgressShown := true
+    try
+    {
+        TrackGameLoginProgressWindow(game.Hwnd)
+        if !IsObject(LoginProgressTracking) || !LoginProgressTracking.Hook
+            return false
+        for offset in [28, -11, 43]
+        {
+            ; Move the fixture without running the login timer. Only the
+            ; queued native window event can move the card to the new spot.
+            if !DllCall("SetWindowPos", "Ptr", game.Hwnd, "Ptr", 0,
+                "Int", original.X + offset, "Int", original.Y + offset, "Int", 0, "Int", 0, "UInt", 0x15, "Int")
+                return false
+            deadline := A_TickCount + 1000
+            while card.ProgressLayout.GameWindow.X != original.X + offset && A_TickCount < deadline
+                Sleep(10)
+            WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
+            if x != layout.X + offset || y != layout.Y + offset || width != layout.Width || height != layout.Height
+                return false
+        }
+    }
+    finally
+    {
+        StopGameLoginProgressTracking()
+        LoginProgressShown := false
+        LoginProgressGui := 0
+    }
+    return !IsObject(LoginProgressTracking)
 }
 
 CheckExpansionRecoveryLaunchGate()
