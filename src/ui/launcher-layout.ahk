@@ -22,7 +22,7 @@ CaptureLauncherControlLayout()
 
 ApplyLauncherControlScale()
 {
-    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherMorrowindFont
+    global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherMorrowindFont, MenuRows
     if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
         return
     scale := LauncherScale / 100
@@ -45,12 +45,34 @@ ApplyLauncherControlScale()
                 face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
         }
         if IsObject(LauncherHeading)
+        {
             LauncherHeading.SetFont("s" Round(19 * scale) " Norm c241408", LauncherMorrowindFont)
+            if IsSet(MenuRows) && MenuRows.Length
+                ClipLauncherButtonAboveHeading(MenuRows[1].Hwnd, LauncherHeading.Hwnd)
+        }
         ScaleLauncherVersionLabel(scale)
     }
     finally DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
+}
+
+ClipLauncherButtonAboveHeading(button, heading)
+{
+    ; The first button's artwork starts below its native window's top padding.
+    ; Keep that padding from painting across the title at its original height.
+    buttonRect := Buffer(16, 0), headingRect := Buffer(16, 0)
+    if !DllCall("GetWindowRect", "Ptr", button, "Ptr", buttonRect, "Int")
+        || !DllCall("GetWindowRect", "Ptr", heading, "Ptr", headingRect, "Int")
+        return
+    top := NumGet(buttonRect, 4, "Int")
+    width := NumGet(buttonRect, 8, "Int") - NumGet(buttonRect, 0, "Int")
+    height := NumGet(buttonRect, 12, "Int") - top
+    trim := Min(height - 1, Max(0, NumGet(headingRect, 12, "Int") - top))
+    region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", trim, "Int", width, "Int", height, "Ptr")
+    ; Windows owns the region after a successful SetWindowRgn.
+    if region && !DllCall("SetWindowRgn", "Ptr", button, "Ptr", region, "Int", 0, "Int")
+        DllCall("gdi32\DeleteObject", "Ptr", region)
 }
 
 ShowLauncherWindow(reuseCached := false, *)
