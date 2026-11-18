@@ -85,7 +85,7 @@ internal sealed partial class GameChatWindow
             chatScale, "Live Game Chat");
     }
 
-    void PaintGameChatFrame(Graphics g, int w, int h, double scale, string title)
+    void PaintGameChatFrame(Graphics g, int w, int h, double scale, string title, int headerRightPadding = 13)
     {
         if (w < 80 || h < 100) return;
         g.Clear(System.Drawing.Color.FromArgb(13, 11, 9));
@@ -149,15 +149,22 @@ internal sealed partial class GameChatWindow
         g.DrawLine(goldPen, 12, 51, w - 13, 51);
         using var headingFont = new Font("Georgia", 13, FontStyle.Regular);
         var titleSize = g.MeasureString(title, headingFont);
-        g.FillRectangle(black, (w - titleSize.Width) / 2 - 14, 8, titleSize.Width + 28, 43);
+        float availableWidth = Math.Max(1, w - 13 - headerRightPadding);
+        float textWidth = Math.Max(1, availableWidth - 12);
+        using var fittedFont = titleSize.Width > textWidth
+            ? new Font(headingFont.FontFamily, headingFont.Size * textWidth / titleSize.Width, headingFont.Style)
+            : null;
+        if (fittedFont != null) titleSize = g.MeasureString(title, fittedFont);
+        float titleWidth = Math.Min(availableWidth, titleSize.Width + 28);
+        float titleCenter = 13 + availableWidth / 2;
+        var titleBounds = new RectangleF(titleCenter - titleWidth / 2, 8, titleWidth, 43);
+        g.FillRectangle(black, titleBounds);
         using var centeredTitle = new System.Drawing.StringFormat
         {
             Alignment = System.Drawing.StringAlignment.Center,
             LineAlignment = System.Drawing.StringAlignment.Center
         };
-        g.DrawString(title, headingFont, bright,
-            new System.Drawing.RectangleF((w - titleSize.Width) / 2 - 14, 8,
-                titleSize.Width + 28, 43), centeredTitle);
+        g.DrawString(title, fittedFont ?? headingFont, bright, titleBounds, centeredTitle);
         // The real goldScrollbar is the only scrollbar. Drawing a
         // second fake track and thumb on this background left stale
         // artwork visible while the control was hidden during sign-in.

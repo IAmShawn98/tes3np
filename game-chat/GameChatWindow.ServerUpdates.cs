@@ -170,8 +170,8 @@ internal sealed partial class GameChatWindow
         foreach (var entry in recent.TakeLast(8))
         {
             var when = DiscordTimestamp(entry.Key).ToLocalTime();
-            rtf.Append(firstEntry ? @"\pard\qc" : @"\pard\qc\sb100");
-            rtf.Append(@"\sa35\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
+            rtf.Append(firstEntry ? @"\pard\qc" : @"\pard\qc\sb85");
+            rtf.Append(@"\sa0\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
             AppendServerUpdatesRtfText(rtf, when.ToString(ServerUpdatesDateFormat).AsSpan());
             rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
             firstEntry = false;
@@ -211,10 +211,10 @@ internal sealed partial class GameChatWindow
         return rtf.Append('}').ToString();
     }
 
-    static List<(int Offset, string Label)> FindServerUpdatesDateDividers(string text)
+    static int? FindNewestServerUpdatesDateDivider(string text)
     {
         const string strokes = "───";
-        List<(int Offset, string Label)> dates = [];
+        int? newest = null;
         using var lines = new StringReader(text);
         int offset = 0;
         while (lines.ReadLine() is { } line)
@@ -225,12 +225,12 @@ internal sealed partial class GameChatWindow
                 var label = content[3..^3].Trim();
                 if (DateTime.TryParseExact(label, ServerUpdatesDateFormat, null,
                         System.Globalization.DateTimeStyles.None, out _))
-                    dates.Add((offset, label.ToString()));
+                    newest = offset;
             }
             // RichEdit character positions count each paragraph break once.
             offset += line.Length + 1;
         }
-        return dates;
+        return newest;
     }
 
     static string ServerUpdatesStatus(string text)

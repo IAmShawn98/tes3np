@@ -95,7 +95,6 @@ internal sealed partial class GameChatWindow
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
         readonly Panel viewport = new() { BackColor = FeedBackground };
-        readonly BufferedScrollbar dateBand = new() { BackColor = FeedBackground, TabStop = false };
         readonly RichTextBox feed = new()
         {
             BackColor = FeedBackground, ForeColor = Color.FromArgb(241, 238, 232),
@@ -109,8 +108,7 @@ internal sealed partial class GameChatWindow
             BackColor = FeedBackground, ForeColor = Color.FromArgb(226, 191, 119), Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
-        List<(int Offset, string Label)> dateDividers = [];
-        string? visibleDate;
+        int? newestDateOffset;
         int? newestLandingPosition;
         int dragOffset = -1;
 
@@ -122,13 +120,11 @@ internal sealed partial class GameChatWindow
             viewport.Controls.Add(feed);
             Controls.Add(viewport);
             Controls.Add(scrollbar);
-            Controls.Add(dateBand);
             Controls.Add(dismiss);
             dismiss.FlatAppearance.BorderColor = Color.FromArgb(151, 113, 58);
             dismiss.FlatAppearance.MouseOverBackColor = Color.FromArgb(57, 39, 21);
             dismiss.Click += (_, _) => host.DismissServerUpdates();
-            dateBand.Paint += PaintVisibleDate;
-            feed.VScroll += (_, _) => RefreshScrollDisplay();
+            feed.VScroll += (_, _) => scrollbar.Invalidate();
             scrollbar.Paint += (_, e) =>
             {
                 int height = Units(scrollbar.ClientSize.Height);
@@ -176,18 +172,16 @@ internal sealed partial class GameChatWindow
             base.OnResize(e);
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
             var previous = ReadScroll();
-            int top = Px(56), bottom = Px(14), left = Px(18), dateHeight = Px(16);
+            int top = Px(56), bottom = Px(14), left = Px(18);
             dismiss.SetBounds(ClientSize.Width - Px(37), Px(18), Px(22), Px(24));
             int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
             scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
-            dateBand.SetBounds(left, top, width, dateHeight);
-            int height = Math.Max(1, scrollHeight - dateHeight);
-            viewport.SetBounds(left, top + dateHeight, width, height);
+            viewport.SetBounds(left, top, width, scrollHeight);
             // Keep RichEdit's scrollbar range, with its native scroller outside the clipped viewport.
             uint dpi = GetDpiForWindow(feed.Handle);
             int nativeBar = GetSystemMetricsForDpi(2, dpi == 0 ? 96 : dpi);
-            feed.SetBounds(0, 0, width + nativeBar, height);
+            feed.SetBounds(0, 0, width + nativeBar, scrollHeight);
             feed.ZoomFactor = (float)Math.Clamp(PanelScale * 96 / (dpi == 0 ? 96 : dpi), 0.25, 3);
             if (ShouldFollowNewest(previous.Position, previous.Maximum))
                 ScrollToNewestUpdate();
@@ -197,50 +191,14 @@ internal sealed partial class GameChatWindow
 
         protected override void OnPaint(PaintEventArgs e) =>
             host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
-                PanelScale, "Game Updates");
-
-        void PaintVisibleDate(object? sender, PaintEventArgs e)
-        {
-            e.Graphics.Clear(FeedBackground);
-            if (visibleDate == null) return;
-            using var font = new Font("Georgia", Px(13), FontStyle.Regular, GraphicsUnit.Pixel);
-            const TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
-                TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
-            int textWidth = TextRenderer.MeasureText(e.Graphics, visibleDate, font, Size.Empty, flags).Width;
-            int side = Math.Max(0, (dateBand.Width - textWidth) / 2 - Px(7));
-            int y = dateBand.Height / 2;
-            using var divider = new Pen(Color.FromArgb(101, 82, 55));
-            e.Graphics.DrawLine(divider, 0, y, side, y);
-            e.Graphics.DrawLine(divider, dateBand.Width - side, y, dateBand.Width, y);
-            TextRenderer.DrawText(e.Graphics, visibleDate, font, dateBand.ClientRectangle,
-                Color.FromArgb(217, 196, 156), flags);
-        }
-
-        void RefreshScrollDisplay()
-        {
-            scrollbar.Invalidate();
-            string? date = null;
-            int first = feed.GetCharIndexFromPosition(new Point(2, 2));
-            for (int i = dateDividers.Count - 1; i >= 0; i--)
-            {
-                var marker = dateDividers[i];
-                if (marker.Offset > first) continue;
-                // An inline date above the viewport should still label the entry being read.
-                if (marker.Offset < first || feed.GetPositionFromCharIndex(marker.Offset).Y < 0)
-                    date = marker.Label;
-                break;
-            }
-            if (date == visibleDate) return;
-            visibleDate = date;
-            dateBand.Invalidate();
-        }
+                PanelScale, "Game Updates", headerRightPadding: Units(ClientSize.Width - dismiss.Left) + 4);
 
         internal void SetDocument(string document)
         {
             var before = ReadScroll();
             bool follow = ShouldFollowNewest(before.Position, before.Maximum);
             feed.Rtf = document;
-            dateDividers = FindServerUpdatesDateDividers(feed.Text);
+            newestDateOffset = FindNewestServerUpdatesDateDivider(feed.Text);
             if (follow)
                 ScrollToNewestUpdate();
             else
@@ -256,11 +214,8 @@ internal sealed partial class GameChatWindow
         void ScrollToNewestUpdate()
         {
             var handle = feed.Handle;
-            if (dateDividers.Count == 0)
-                SendMessageW(handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
-            else
+            if (newestDateOffset is int start)
             {
-                int start = dateDividers[^1].Offset;
                 // Bring the date into view, then align to its rendered position so the
                 // opening lines remain below it even when the entry wraps.
                 feed.Select(start, 0);
@@ -270,8 +225,10 @@ internal sealed partial class GameChatWindow
                 int dateTop = feed.GetPositionFromCharIndex(start).Y;
                 ScrollToPixel(Math.Max(0, scroll.Y + dateTop - Px(2)));
             }
+            else
+                SendMessageW(handle, 0x0115, new IntPtr(7), IntPtr.Zero); // SB_BOTTOM
             newestLandingPosition = ReadScroll().Position;
-            RefreshScrollDisplay();
+            scrollbar.Invalidate();
         }
 
         (int Total, int Page, int Position, int Maximum) ReadScroll()
@@ -296,14 +253,14 @@ internal sealed partial class GameChatWindow
         {
             for (int i = 0; i < lines; i++)
                 SendMessageW(feed.Handle, 0x0115, new IntPtr(up ? 0 : 1), IntPtr.Zero);
-            RefreshScrollDisplay();
+            scrollbar.Invalidate();
         }
 
         void ScrollToPixel(int y)
         {
             var point = new POINT { Y = y };
             SendMessageW(feed.Handle, 0x04DE, IntPtr.Zero, ref point);
-            RefreshScrollDisplay();
+            scrollbar.Invalidate();
         }
 
         [StructLayout(LayoutKind.Sequential)]
