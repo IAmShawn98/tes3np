@@ -28,6 +28,7 @@ internal sealed partial class GameChatWindow
                     }
                     if (!discordChannelReady && !connectingChat && !nativeMode)
                     {
+                        discordSignInFromHeader = false;
                         discordSignInRequested = !discordSignInRequested;
                         break;
                     }

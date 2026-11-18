@@ -1840,11 +1840,13 @@ expect(
     and 'legally purchased copy of Morrowind' in patcher,
 )
 expect(
-    "Discord sign-in emblem is published and Game Chat positioning remains separate",
+    "The Discord header uses the centered sign-in card and Game Chat uses its dock",
     'PositionDiscordSignIn(bounds, work);' in chat_layout
-    and in_order(sign_in_layout, 'pendingExpansionPrompt == 0',
+    and in_order(sign_in_layout, 'pendingExpansionPrompt == 0 && !discordSignInFromHeader',
                  'DockBounds(ownerBounds, work, size, size.Width)',
                  'work.Left + (work.Width - size.Width) / 2')
+    and in_order(section_between(source, "void OpenDiscordAccountSignIn()", "async Task SignOutDiscord()"),
+                 "discordSignInFromHeader = true;", "RevealDiscordSignInWindow();")
     and 'Discord Integration!' in discord_sign_in
     and 'Sign In Required' in source
     and 'CopyToPublishDirectory="PreserveNewest"' in chat_project
