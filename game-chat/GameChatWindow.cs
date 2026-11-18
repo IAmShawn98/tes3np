@@ -96,6 +96,7 @@ internal sealed partial class GameChatWindow : Form
             launcherLocationHook = IntPtr.Zero;
         }
         CloseEmbeddedExpansionDownloads();
+        CloseDiscordAccountBrowser();
         discordSignInWindow?.Dispose();
         borderTexture?.Dispose();
         scrollbarTexture?.Dispose();
