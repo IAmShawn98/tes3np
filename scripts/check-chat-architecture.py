@@ -1900,6 +1900,26 @@ expect(
     and 'DllCall("RedrawWindow", "Ptr", LoginProgressGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)' in login_progress
     and 'ProcessClose(' not in login_cleanup,
 )
+login_card_fit = section_between(login_progress, "FitGameLoginProgress(area,", "GetGameLoginProgressLayout(hwnd)")
+login_card_layout = section_between(login_progress, "GetGameLoginProgressLayout(hwnd)", "GameLoginProgressFontSize(")
+login_card_present = section_between(login_progress, "PresentGameLoginProgress(layout)", "UpdateGameLoginProgress(*)")
+expect(
+    "Game login progress retains its normal DPI layout when it fits and follows the visible TES3MP client",
+    "Min(normalScale, area.Width / 420, area.Height / 481)" in login_card_fit
+    and "anchor := scale < normalScale ? area : gameWindow" in login_card_fit
+    and 'WinGetClientPos(&x, &y, &width, &height, target)' in login_card_layout
+    and 'DllCall("GetMonitorInfoW"' in login_card_layout
+    and "A_ScreenDPI / 96)" in login_card_layout
+    and "layout := GetGameLoginProgressLayout(hwnd)" in login_cleanup
+    and "PresentGameLoginProgress(layout)" in login_cleanup
+    and "previous.ProgressScale != layout.Scale" in login_card_present
+    and "DismissGameLoginProgress(" not in login_card_present
+    and in_order(login_card_present, "CreateGameLoginProgress(layout)", "RenderGameLoginProgress()",
+                 'LoginProgressGui.Show("NA x"', "try previous.Destroy()")
+    and 'row.Symbol.SetFont("s" GameLoginProgressFontSize(14, scale)' in login_progress
+    and 'marker.Symbol.SetFont("s" GameLoginProgressFontSize(17, scale)' in login_progress
+    and "CheckGameLoginProgressFit()" in launcher_smoke_tests,
+)
 font_update = section_between(
     display_settings, "\nApplyAccessibilityTextSize(suspendRedraw := true)\n{", "\nApplyEnhancedReadability()\n{"
 )

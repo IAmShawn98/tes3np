@@ -19,6 +19,8 @@ RunLauncherChecks(args)
                 ExitApp(228)
             if !CheckExpansionPackToggleState()
                 ExitApp(229)
+            if !CheckGameLoginProgressFit()
+                ExitApp(230)
             CheckCrashRecoveryProfiles()
         case "--check-expansion-ui":
             CheckExpansionProgressBindings()
@@ -31,6 +33,32 @@ RunLauncherChecks(args)
         case "--check-owned-menu-scaling":
             CheckOwnedMenuScaling()
     }
+}
+
+CheckGameLoginProgressFit()
+{
+    game := {X: -1300, Y: 20, Width: 1100, Height: 902}
+    client := {X: -1292, Y: 51, Width: 1084, Height: 863}
+    normal := FitGameLoginProgress(client, game, 1.5)
+    if normal.Scale != 1.5 || normal.Width != 630 || normal.Height != 722
+        || normal.X != -1065 || normal.Y != 110
+        return false
+
+    ; Both dimensions can limit the fit, including partially visible games
+    ; on a monitor to the left of the primary display.
+    for area in [{X: 30, Y: 50, Width: 640, Height: 360},
+        {X: -320, Y: 40, Width: 275, Height: 500},
+        {X: 1, Y: 7, Width: 320, Height: 240}]
+    {
+        fitted := FitGameLoginProgress(area, game, 1.5)
+        if !IsObject(fitted) || fitted.Scale >= 1.5
+            || fitted.X < area.X || fitted.Y < area.Y
+            || fitted.X + fitted.Width > area.X + area.Width
+            || fitted.Y + fitted.Height > area.Y + area.Height
+            || (fitted.Width != area.Width && fitted.Height != area.Height)
+            return false
+    }
+    return !IsObject(FitGameLoginProgress({X: 0, Y: 0, Width: 0, Height: 100}, game, 1))
 }
 
 CheckExpansionRecoveryLaunchGate()
