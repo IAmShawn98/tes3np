@@ -152,6 +152,12 @@ PaintButton(wParam, lParam, *)
             }
         }
         scale := width / 220
+        visibleHeight := height
+        ; Paint the original full-height artwork and caption, then copy only
+        ; the portion owned by the shorter first-button window.
+        if face.HasOwnProp("TopPadding") && face.TopPadding
+            height := Max(visibleHeight, Round(face.BaseHeight * scale))
+        paintTop := height - visibleHeight
         dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
         bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
         oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
@@ -242,7 +248,7 @@ PaintButton(wParam, lParam, *)
         }
         else
             DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1, "Ptr", bounds, "UInt", isLabel ? 0x8820 : 0x8825)
-        DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+        DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", width, "Int", visibleHeight, "Ptr", dc, "Int", 0, "Int", paintTop, "UInt", 0xCC0020)
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
         if fittedFont
             DllCall("DeleteObject", "Ptr", fittedFont)

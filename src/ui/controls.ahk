@@ -12,14 +12,16 @@ DragLauncher(wParam, lParam, msg, hwnd)
     return 0
 }
 
-AddLauncherButton(y, name, action)
+AddLauncherButton(y, name, action, topPadding := 0)
 {
     global LauncherGui, ButtonFaces
     InitButtonPainter()
     LauncherGui.SetFont("s10 Bold", "Segoe UI")
-    button := LauncherGui.Add("Custom", "ClassButton x370 y" (y - 11) " w220 h48 +0xB +Tabstop", name)
+    ; Only the first row needs its transparent top padding removed to clear the heading.
+    button := LauncherGui.Add("Custom", "ClassButton x370 y" (y - 11 + topPadding)
+        " w220 h" (48 - topPadding) " +0xB +Tabstop", name)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
-    face := {Control: button, Label: button, Action: action, Y: y, Gui: LauncherGui, Window: LauncherGui.Hwnd, Book: false, State: "normal", BaseX: 370, BaseWidth: 220, BaseHeight: 48}
+    face := {Control: button, Label: button, Action: action, Y: y, Gui: LauncherGui, Window: LauncherGui.Hwnd, Book: false, State: "normal", BaseX: 370, BaseWidth: 220, BaseHeight: 48, TopPadding: topPadding}
     ButtonFaces[button.Hwnd] := face
     AttachButtonPainter(button.Hwnd)
     return button
