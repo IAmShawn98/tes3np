@@ -87,6 +87,10 @@ AutoHotkey launcher, not as an independent application with its own data
 conventions. Read `docs/ARCHITECTURE.md` and `src/ui/embedded-chat.ahk`
 before editing it.
 
+Edit `chat-host/web/message-feed.html` for the visible message layout, colors,
+and scrolling. The build embeds this page in the Chat Host. `chat-host/chat.css`
+styles the Discord page that supplies the messages.
+
 Persist personal Chat Host state only through `ChatDataRoot`, which matches
 the launcher's `%APPDATA%\\tes3np`. The message index and export remain in
 its `Logs` subfolder; the WebView2 profile stays in `chat-webview2`.

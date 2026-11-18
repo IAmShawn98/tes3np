@@ -7,15 +7,23 @@ global LauncherChatOpen := false
 EnsureEmbeddedChatHostCurrent(host)
 {
     ; Check freshness without blocking the launcher on a build or network restore.
-    source := A_ScriptDir "\chat-host\Program.cs"
-    if !FileExist(source)
+    sourceDir := A_ScriptDir "\chat-host"
+    if !FileExist(sourceDir "\Program.cs")
         return
     try
     {
-        sourceTime := FileGetTime(source, "M")
         hostTime := FileExist(host) ? FileGetTime(host, "M") : "0"
-        if hostTime < sourceTime
-            LogLauncherEvent("CHAT | ChatHost source is newer than the executable. Use the Windows build script to update; startup will not block on compilation.")
+        for pattern in ["\*.cs", "\tes3np.ChatHost.csproj", "\web\*.*"]
+        {
+            Loop Files sourceDir pattern, "F"
+            {
+                if hostTime < A_LoopFileTimeModified
+                {
+                    LogLauncherEvent("CHAT | ChatHost source is newer than the executable. Use the Windows build script to update; startup will not block on compilation.")
+                    return
+                }
+            }
+        }
     }
     catch as err
         try LogLauncherEvent("CHAT | ChatHost freshness check failed (" Type(err) ").")

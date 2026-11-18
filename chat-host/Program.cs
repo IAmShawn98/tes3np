@@ -1038,113 +1038,13 @@ internal static class Program
         ulong messagePageNavigationId;
         DateTime nextMessagePageReload;
         int browserScrollTop, browserScrollHeight = 1, browserClientHeight = 1;
-        const string MessagePage = """
-<!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif;overflow:hidden}
-#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:10px 9px;overflow-anchor:none}
-#feed::-webkit-scrollbar{display:none}
-.msg{margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid #29231b;overflow-wrap:anywhere}
-.msg-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:3px;line-height:1.3}
-.user{color:inherit;font-size:17px;font-weight:bold}
-.user.yagrum{color:#dbb243}
-.time{color:#b8a98e;font:13px Georgia,serif;white-space:nowrap}
-.body{display:block;white-space:pre-wrap;line-height:1.42}
-.preview{display:block;max-width:100%;height:auto;margin:7px 0 3px;object-fit:contain}
-.placeholder{font-size:14px;color:#c9b68c}
-.date-separator{display:flex;align-items:center;gap:9px;color:#d9c49c;font:14px Georgia,serif;margin:16px 0 13px;white-space:nowrap}
-.date-separator:before,.date-separator:after{content:"";height:1px;background:#655237;flex:1}
-</style></head><body><div id="feed"></div><script>
-const feed=document.getElementById('feed');
-let userHasScrolled=false;
-feed.addEventListener('wheel',e=>{
-  if(!e.deltaY)return;
-  userHasScrolled=true;
-  chrome.webview.postMessage({type:'interaction',stopHistory:e.deltaY>0});
-},{passive:true});
-feed.addEventListener('pointerdown',()=>{userHasScrolled=true;chrome.webview.postMessage({type:'interaction'});});
-function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});}
-feed.addEventListener('scroll',metrics);
-new ResizeObserver(metrics).observe(feed);
-window.setMessages=function(messages,prepended=false,requireViewport=false){
-  if(!messages.length || (requireViewport && (!feed.clientWidth || !feed.clientHeight)))return false;
-  // Reconcile by message ID. Never tear down existing rows on a new message:
-  // doing so resets image layout and can jump the scroll position.
-  const existing=new Map([...feed.children].map(el=>[el.dataset.id,el]));
-  const wasAtBottom=feed.children.length>0 &&
-    feed.scrollHeight>feed.clientHeight &&
-    feed.scrollHeight-feed.clientHeight-feed.scrollTop<=24;
-  const anchor=[...feed.children].find(el=>el.getBoundingClientRect().bottom>feed.getBoundingClientRect().top);
-  const anchorId=anchor?.dataset.id;
-  const anchorY=anchor?.getBoundingClientRect().top;
-  const pinnedAtOldest=userHasScrolled && feed.scrollTop<=3;
-  // Date headings are derived from Discord message IDs and rebuilt each pass.
-  for(const el of [...feed.querySelectorAll('.date-separator')])el.remove();
-  const wanted=new Set(messages.map(m=>m.id));
-  for(const [id,row] of existing)if(!wanted.has(id)){row.remove();existing.delete(id);}
-  let next=null;
-  for(let i=messages.length-1;i>=0;i--){
-    const m=messages[i];
-    let row=existing.get(m.id);
-    const signature=JSON.stringify([m.user,m.body,m.isYagrum,m.authorColor,m.images,m.timestamp]);
-    if(!row||row.dataset.signature!==signature){
-      const replacement=document.createElement('div');
-      replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
-      const header=document.createElement('div');header.className='msg-header';
-      if(m.user){
-        const name=document.createElement('span');
-        name.className=m.isYagrum?'user yagrum':'user';
-        if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))name.style.color=m.authorColor;
-        name.textContent=m.user;
-        header.appendChild(name);
-      }
-      const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();header.appendChild(time);
-      replacement.appendChild(header);
-      const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
-      for(const url of m.images){
-        if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
-        const img=document.createElement('img');img.className='preview';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=url;
-        img.addEventListener('load',metrics);
-        img.addEventListener('error',()=>{img.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder',textContent:'[Image unavailable]'}));metrics();});
-        replacement.appendChild(img);
-      }
-      if(row)row.replaceWith(replacement);
-      row=replacement;
-    }
-    if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
-    existing.set(m.id,row);
-    next=row;
-  }
-  let previousDate='';
-  for(const m of messages){
-    const row=existing.get(m.id);
-    if(!row)continue;
-    const date=new Date(m.timestamp).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
-    if(date!==previousDate){
-      const divider=document.createElement('div');
-      divider.className='date-separator';
-      divider.textContent=date;
-      feed.insertBefore(divider,row);
-      previousDate=date;
-    }
-  }
-  if(userHasScrolled && anchorId && !pinnedAtOldest){
-    const kept=existing.get(anchorId);
-    if(kept)feed.scrollTop+=kept.getBoundingClientRect().top-anchorY;
-  }
-  // Follow live chat only if the user was already at the bottom.
-  // Prepending history must never force either end of the scrollbar.
-  if(!userHasScrolled)feed.scrollTop=feed.scrollHeight;
-  else if(prepended && pinnedAtOldest)feed.scrollTop=0;
-  else if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
-  metrics();
-  return feed.querySelectorAll('.msg').length===messages.length;
-};
-window.scrollChat=function(delta){userHasScrolled=true;feed.scrollTop+=delta;metrics();};
-window.scrollFraction=function(f){userHasScrolled=true;feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
-window.scrollToLatest=function(){if(!userHasScrolled){feed.scrollTop=feed.scrollHeight;metrics();}};
-metrics();
-</script></body></html>
-""";
+        static readonly Lazy<string> MessagePage = new(() =>
+        {
+            using var stream = typeof(ChatHost).Assembly.GetManifestResourceStream("tes3np.ChatHost.Web.MessageFeed.html")
+                ?? throw new InvalidOperationException("Embedded Game Chat message page is missing.");
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        });
         async Task InitMessageBrowser(CoreWebView2Environment env)
         {
             try
@@ -1213,7 +1113,7 @@ metrics();
         {
             nextMessagePageReload = DateTime.UtcNow.AddSeconds(8);
             messageBrowserReady = messageViewportReady = false;
-            messageBrowser.NavigateToString(MessagePage);
+            messageBrowser.NavigateToString(MessagePage.Value);
         }
 
         void RecoverMessagePage(string reason)
