@@ -25,12 +25,13 @@ WebView2RuntimeAvailable()
 {
     ; WebView2 Evergreen stores its version per-user or per-machine.
     ; Do not require developer tools or trigger an installer on startup.
-    clientKey := "SOFTWARE\Microsoft\EdgeUpdate\Clients\{F1E7A3F5-28A5-4FBC-9A6A-6F7F8D17E7F0}"
-    for root in ["HKCU\", "HKLM\"]
+    clientKey := "Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+    for path in ["HKCU\SOFTWARE\" clientKey, "HKLM\SOFTWARE\WOW6432Node\" clientKey,
+        "HKLM\SOFTWARE\" clientKey]
     {
         try
         {
-            value := RegRead(root clientKey, "pv", "")
+            value := RegRead(path, "pv", "")
             if value != "" && value != "0.0.0.0"
                 return true
         }
@@ -40,7 +41,7 @@ WebView2RuntimeAvailable()
 
 StartEmbeddedInGameChat()
 {
-    global EmbeddedChatPid, LauncherGui
+    global EmbeddedChatPid, LauncherGui, LauncherBaseWidth
     host := A_ScriptDir "\chat-host\tes3np.ChatHost.exe"
     EnsureEmbeddedChatHostCurrent(host)
     if !WebView2RuntimeAvailable()
@@ -54,7 +55,7 @@ StartEmbeddedInGameChat()
         return
     try
     {
-        Run('"' host '" ' LauncherGui.Hwnd, A_ScriptDir, , &EmbeddedChatPid)
+        Run('"' host '" ' LauncherGui.Hwnd ' ' LauncherBaseWidth, A_ScriptDir, , &EmbeddedChatPid)
         LogLauncherEvent("CHAT | Started WebView2 host (PID " EmbeddedChatPid ").")
     }
     catch as err

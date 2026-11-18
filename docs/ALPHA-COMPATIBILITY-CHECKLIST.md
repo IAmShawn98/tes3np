@@ -93,7 +93,13 @@ to the builds tested.
   successful reimport. Confirm the retired Install/Repair controls and
   embedded v0.1 payload are absent.
 - [ ] Test clean Discord sign-in, live chat, artwork, images, scrolling,
-  first-login loading, and modal-window behavior. Verify genuine Happy Hour
+  first-login loading, and modal-window behavior. With each popup visible,
+  change between Automatic, 50%, 80%, and 100% and reject one preview.
+  Check the sign-in title, instructions, close button, logo, fields and
+  sign-in actions. Check the chat frame and header, loading text, feed text,
+  images, scrollbar arrows and thumb drag at each size. Confirm the popup
+  stays on the monitor and the scale restores on a rejected preview.
+  Verify genuine Happy Hour
   detection in live and saved chat, signed-out display while active, and
   removal at expiry.
 - [ ] Inspect fresh launcher, chat, updater, and import diagnostic exports.
