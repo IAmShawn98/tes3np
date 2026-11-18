@@ -96,12 +96,10 @@ StopEmbeddedInGameChat()
 CreateLauncherDiscordAccount()
 {
     global LauncherGui, LauncherDiscordName, LauncherDiscordPortrait, ButtonFaces
-    LauncherDiscordName := AddStyledButton(LauncherGui, 794, 2, 122, 36, "Checking Discord…", OpenLauncherDiscordAccount)
+    LauncherDiscordName := AddStyledButton(LauncherGui, 794, 2, 122, 36, "Log In", OpenLauncherDiscordAccount)
     ButtonFaces[LauncherDiscordName.Hwnd].IsDiscordName := true
-    LauncherDiscordName.Enabled := false
-    LauncherDiscordPortrait := AddStyledButton(LauncherGui, 922, 2, 36, 36, "Discord account", OpenLauncherDiscordAccount)
+    LauncherDiscordPortrait := AddStyledButton(LauncherGui, 922, 2, 36, 36, "Log In to Discord", OpenLauncherDiscordAccount)
     ButtonFaces[LauncherDiscordPortrait.Hwnd].IsDiscordPortrait := true
-    LauncherDiscordPortrait.Enabled := false
     ; Run before the Expansion handler, which acknowledges its own COPYDATA.
     OnMessage(0x004A, ReceiveLauncherDiscordAccount, -1)
     OnMessage(0x833A, LauncherDiscordSignOutFailed)
@@ -219,7 +217,7 @@ PaintLauncherDiscordPortrait(graphics, face, width, height)
 OpenLauncherDiscordAccount(*)
 {
     global LauncherDiscordPortrait, LauncherDiscordStatus
-    if LauncherDiscordStatus = 1
+    if LauncherDiscordStatus <= 1
     {
         SendLauncherDiscordAccountCommand(16)
         return
