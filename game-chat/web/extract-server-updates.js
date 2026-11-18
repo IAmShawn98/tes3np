@@ -15,6 +15,26 @@
 
   const bodySelector = '[id^="message-content-"], [class*="messageContent_"], ' +
     '[class*="embedTitle_"], [class*="embedDescription_"], [class*="embedFieldName_"], [class*="embedFieldValue_"]';
+  const updateIntro = /^\s*(?:\d{1,4}[/.\-]\d{1,2}[/.\-]\d{1,4}\s*[-–—:]?\s*)?server\s+update\s+notes[ \t]*:?[ \t]*(?:\r?\n|$)/i;
+
+  function removeUpdateIntro(blocks) {
+    // An intro can cross formatting runs or wrap at a Discord line break.
+    const opening = blocks.slice(0, 3).map(block => block.Runs.map(run => run.Text).join('')).join('\n');
+    let remaining = opening.match(updateIntro)?.[0].length || 0;
+    while (remaining > 0 && blocks.length) {
+      const block = blocks[0];
+      for (const run of block.Runs) {
+        const count = Math.min(remaining, run.Text.length);
+        run.Text = run.Text.slice(count);
+        remaining -= count;
+      }
+      block.Runs = block.Runs.filter(run => run.Text.length > 0);
+      if (block.Runs.some(run => run.Text.trim())) return;
+      blocks.shift();
+      remaining--; // The separator added between blocks in "opening".
+    }
+  }
+
   function readBlocks(roots) {
     const blocks = [];
     let runs = [], style = '', number = 0, remaining = 3800;
@@ -84,15 +104,14 @@
   const updates = [];
   const rows = list.querySelectorAll('[id^="chat-messages-"]');
   if (!rows.length) return null;
-  let author = '';
   for (const row of rows) {
     const id = row.id.match(/^chat-messages-\d+-(\d+)$/)?.[1];
     if (!id) continue;
-    author = row.querySelector('[class*="username_"]')?.textContent.trim().slice(0, 64) || author;
     const roots = [...row.querySelectorAll(bodySelector)]
       .filter(node => !node.parentElement?.closest(bodySelector));
     const blocks = readBlocks(roots);
-    if (blocks.length) updates.push({ Id: id, Author: author, Blocks: blocks });
+    removeUpdateIntro(blocks);
+    if (blocks.length) updates.push({ Id: id, Blocks: blocks });
   }
   return updates.slice(-12);
 })()
