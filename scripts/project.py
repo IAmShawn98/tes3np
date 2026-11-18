@@ -313,6 +313,16 @@ def check(allow_missing_payload: bool = False) -> None:
     client_settings = (ROOT / "src/data/settings.ahk").read_text(encoding="utf-8-sig")
     client_detection = (ROOT / "src/app/client-detection.ahk").read_text(encoding="utf-8-sig")
     portable_backup = (ROOT / "src/data/backup.ahk").read_text(encoding="utf-8-sig")
+    # Settings rows move when compact layouts need more room for wrapped text.
+    settings_page = refinements.partition("\nOpenLauncherSettingsV016(*)\n{")[2].partition("\n}")[0]
+    if not re.search(
+        r'^[ \t]*AddStyledButton\(\s*settings,[^"\r\n]*,\s*"TES3MP Setup",'
+        r'\s*OpenClientSelectionSettings\)[ \t]*$',
+        settings_page,
+        re.MULTILINE,
+    ):
+        errors.append("Launcher Settings must wire the TES3MP Setup button to its live callback.")
+
     client_contract = (
         'AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Choose a Custom EXE", (*) => ConfigureCustomClientV016(menu))' in refinements
         and 'AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Custom Setup", (*) => ActivateSavedCustomClientV016(menu))' in refinements
@@ -325,7 +335,6 @@ def check(allow_missing_payload: bool = False) -> None:
         and 'IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")' in refinements
         and 'IniWrite("Bundled", DataFile, "Launch", "ClientMode")' in refinements
         and "InstallCustomClientOverrides(source, folder)" in refinements
-        and 'AddStyledButton(settings, V016S(266), V016S(435), V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)' in refinements
         and 'OpenClientSelectionSettings(*)' in refinements
         and 'mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")' in client_settings
         and 'if mode = "CustomOverrides"' in client_settings
