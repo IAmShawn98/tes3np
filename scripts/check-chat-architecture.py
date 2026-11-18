@@ -92,6 +92,23 @@ expect(
     and "new ResizeObserver(metrics).observe(feed);" in source
     and "feed.addEventListener('scroll',metrics);" in source,
 )
+expect(
+    "Game Chat can reopen from older-message anchors and keeps scrolling activity from expiring the panel",
+    'bool onChannel = IsGameChatRoute(url);' in source
+    and 'if (IsGameChatRoute(before))' in source
+    and 'path.StartsWith(Channel + "/", StringComparison.OrdinalIgnoreCase)' in source
+    and 'ulong.TryParse(path.AsSpan(Channel.Length + 1), System.Globalization.NumberStyles.None,' in source
+    and 'if (!discordChannelReady && !connectingChat && !nativeMode)' in source
+    and "{type:'interaction',stopHistory:e.deltaY>0}" in source
+    and 'if (chatOpen) lastChatActivity = DateTime.Now;' in source
+    and '!goldScrollbar.Capture &&' in source
+    and 'goldScrollbar.MouseCaptureChanged +=' in source
+    and 'if (!chatOpen || !initialBackfillComplete || (!userScrolledChat && !forceTop)) return;' in source
+    and in_order(section_between(source, 'void SetChatOpen(bool show)', 'static double OwnerLayoutScale'),
+                 'goldScrollbar.Capture = false;', 'historyCatchupActive = false;',
+                 'else if (!chatOpen) lastChatActivity = DateTime.Now;', 'chatOpen = show;',
+                 'else ShowWindow(Handle, 0);'),
+)
 
 expect(
     "AHK must establish the Roaming AppData root",
