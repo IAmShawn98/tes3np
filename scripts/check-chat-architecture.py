@@ -371,8 +371,6 @@ expect(
     and "EnsureCoreWebView2Async(environment)" in server_updates
     and "510245417657827363" in server_updates
     and "source != serverUpdatesWindow" in server_updates
-    and "SetLauncherServerUpdatesVisible(visible != 0 && LauncherDiscordStatus = 2)" in embedded_chat
-    and 'LauncherUpdatesSlot.Visible := false' in embedded_chat
     and "GetParent(target) != owner" in source
     and "CloseServerUpdatesPanel();" in server_updates
     and "host.PaintGoldScrollbar(e.Graphics, height, PanelScale, top, thumb);" in source
@@ -383,15 +381,21 @@ expect(
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )
 expect(
-    "Game Updates dismissal hides the panel until a newer Discord post arrives",
-    "dismiss.Click += (_, _) => host.DismissServerUpdates();" in updates_panel
-    and "latestServerUpdateId > dismissedServerUpdateId" in server_updates
-    and "dismissedServerUpdateId = ReadServerUpdatesDismissal();" in server_updates
-    and in_order(section_between(server_updates, "void DismissServerUpdates()", "async Task RefreshServerUpdates()"),
-                 "dismissedServerUpdateId = latestServerUpdateId;", "WriteChatArchiveAtomically(",
-                 "CloseServerUpdatesPanel();", "PublishServerUpdatesVisibility();")
-    and "PostMessage(owner, 0x833B," in updates_panel
-    and "OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)" in embedded_chat,
+    "Game Updates keeps its header visible and only opens the feed on a signed-in request",
+    "toggle.Click += (_, _) => host.ToggleServerUpdatesBody();" in updates_panel
+    and "ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated && serverUpdatesBodyRequested" in server_updates
+    and in_order(section_between(server_updates, "void ToggleServerUpdatesBody()", "async Task RefreshServerUpdates()"),
+                 "if (!ServerUpdatesAuthenticated)", "OpenDiscordAccountSignIn();", "return;",
+                 "serverUpdatesBodyRequested = !serverUpdatesBodyRequested;", "PositionServerUpdatesPanel();")
+    and in_order(section_between(server_updates, "void ResetServerUpdates()", "\n}"),
+                 "serverUpdatesBodyRequested = false;", "PositionServerUpdatesPanel();", "serverUpdatesPanel?.ResetDocument();")
+    and in_order(chat_window, "PositionServerUpdatesPanel();", "await CheckDiscordAuthentication();")
+    and "PostMessage(owner, 0x833B, IntPtr.Zero, Handle)" in updates_panel
+    and "OnMessage(0x833B, ReceiveLauncherServerUpdatesAnchorRequest)" in embedded_chat
+    and "panel.SetLauncherBounds(bounds, ServerUpdatesBodyExpanded);" in updates_panel
+    and in_order(section_between(updates_panel, "internal void SetLauncherBounds(", "protected override void OnResize("),
+                 "viewport.Hide();", "scrollbar.Hide();", "FrameHeaderBottom(HeaderScale) + FrameFooterHeight",
+                 "Bounds = bounds;", "viewport.Show();", "scrollbar.Show();"),
 )
 expect(
     "Game Updates tracks its launcher anchor as an owned top-level window",
@@ -411,7 +415,7 @@ expect(
 )
 expect(
     "Game Updates sends only post-scoped reaction actions to the signed-in Discord source",
-    'if (!feedVisible || type is not ("toggle" or "picker")) return;' in updates_panel
+    'if (!bodyExpanded || !feedVisible || type is not ("toggle" or "picker")) return;' in updates_panel
     and 'args.Source != ServerUpdatesPageUri' in updates_panel
     and 'post.Reactions?.Any(reaction => reaction.Key == request.Key)' in source
     and 'await host.ShowServerUpdatePicker(this, request.Id)' in updates_panel

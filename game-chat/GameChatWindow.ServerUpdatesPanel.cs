@@ -11,21 +11,13 @@ internal sealed partial class GameChatWindow
     IntPtr serverUpdatesAnchor;
     LatestUpdatesPanel? serverUpdatesPanel;
     string? serverUpdatesDocument;
-    bool serverUpdatesVisibilityPublished;
+    DateTime nextServerUpdatesAnchorRequest;
     const string ServerUpdatesPageUri = "https://tes3np-game-updates.invalid/index.html";
     static readonly Lazy<string> ServerUpdatesPage = GameChatWeb.Page("server-updates.html");
 
-    void PublishServerUpdatesVisibility()
-    {
-        bool visible = CanShowServerUpdates;
-        if (visible == serverUpdatesVisibilityPublished || !IsHandleCreated || !IsWindow(owner)) return;
-        if (PostMessage(owner, 0x833B, new IntPtr(visible ? 1 : 0), Handle))
-            serverUpdatesVisibilityPublished = visible;
-    }
-
     void AttachServerUpdatesPanel(IntPtr target)
     {
-        if (!CanShowServerUpdates || !IsWindow(target) || GetParent(target) != owner) return;
+        if (closingChat || !IsWindow(target) || GetParent(target) != owner) return;
         if (target == serverUpdatesAnchor && serverUpdatesPanel is { IsDisposed: false })
         {
             PositionServerUpdatesPanel();
@@ -48,16 +40,24 @@ internal sealed partial class GameChatWindow
 
     void PositionServerUpdatesPanel()
     {
-        PublishServerUpdatesVisibility();
-        if (serverUpdatesPanel is not { IsDisposed: false } panel) return;
-        if (!IsWindow(serverUpdatesAnchor) || !CanShowServerUpdates)
+        if (closingChat || IsDisposed || !IsWindow(owner)) return;
+        if (serverUpdatesPanel is not { IsDisposed: false } panel)
+        {
+            if (IsHandleCreated && DateTime.UtcNow >= nextServerUpdatesAnchorRequest)
+            {
+                nextServerUpdatesAnchorRequest = DateTime.UtcNow.AddSeconds(1);
+                PostMessage(owner, 0x833B, IntPtr.Zero, Handle);
+            }
+            return;
+        }
+        if (!IsWindow(serverUpdatesAnchor))
         {
             CloseServerUpdatesPanel();
             return;
         }
         // Windows hides and restores owned windows with a minimized owner.
         if (IsIconic(owner)) return;
-        if (!IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor))
+        if (!IsWindowVisible(owner))
         {
             if (panel.Visible) panel.Hide();
             return;
@@ -65,7 +65,7 @@ internal sealed partial class GameChatWindow
         if (!GetWindowRect(serverUpdatesAnchor, out var rect)) return;
         var bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         if (bounds.Width < 1 || bounds.Height < 1) return;
-        if (panel.Bounds != bounds) panel.Bounds = bounds;
+        panel.SetLauncherBounds(bounds, ServerUpdatesBodyExpanded);
         if (!panel.Visible)
         {
             _ = panel.Handle; // Set the owner before the first visible frame.
@@ -93,18 +93,18 @@ internal sealed partial class GameChatWindow
     {
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
-        readonly Panel viewport = new() { BackColor = FeedBackground };
+        readonly Panel viewport = new() { BackColor = FeedBackground, Visible = false };
         readonly WebView2 feed = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = FeedBackground };
-        readonly BufferedScrollbar scrollbar = new();
-        readonly Button dismiss = new()
+        readonly BufferedScrollbar scrollbar = new() { Visible = false };
+        readonly Button toggle = new()
         {
-            AccessibleName = "Dismiss Game Updates", FlatStyle = FlatStyle.Flat,
+            AccessibleName = "Show Game Updates", FlatStyle = FlatStyle.Flat,
             BackColor = FeedBackground, ForeColor = Color.FromArgb(226, 191, 119), Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
         string? document;
         string? initializingDocument;
-        bool feedConfigured, feedInitializing, feedVisible;
+        bool bodyExpanded, feedConfigured, feedInitializing, feedVisible;
         TaskCompletionSource<bool>? feedLoad;
         DateTime nextFeedRetry;
         int scrollPosition, scrollTotal = 1, scrollPage = 1;
@@ -127,12 +127,12 @@ internal sealed partial class GameChatWindow
             fallbackFeed.VScroll += (_, _) => scrollbar.Invalidate();
             Controls.Add(viewport);
             Controls.Add(scrollbar);
-            Controls.Add(dismiss);
-            dismiss.FlatAppearance.BorderColor = Color.FromArgb(194, 153, 83);
-            dismiss.FlatAppearance.MouseOverBackColor = Color.FromArgb(57, 39, 21);
-            dismiss.FlatAppearance.MouseDownBackColor = Color.FromArgb(87, 61, 30);
-            dismiss.Paint += PaintDismissButton;
-            dismiss.Click += (_, _) => host.DismissServerUpdates();
+            Controls.Add(toggle);
+            toggle.FlatAppearance.BorderColor = Color.FromArgb(194, 153, 83);
+            toggle.FlatAppearance.MouseOverBackColor = Color.FromArgb(57, 39, 21);
+            toggle.FlatAppearance.MouseDownBackColor = Color.FromArgb(87, 61, 30);
+            toggle.Paint += PaintToggleButton;
+            toggle.Click += (_, _) => host.ToggleServerUpdatesBody();
             scrollbar.Paint += (_, e) =>
             {
                 int height = Units(scrollbar.ClientSize.Height);
@@ -201,12 +201,38 @@ internal sealed partial class GameChatWindow
             }
         }
 
-        double PanelScale => Math.Max(0.25, ClientSize.Width / 220d);
+        static double ScaleForWidth(int width) => Math.Max(0.25, width / 220d);
+        double PanelScale => ScaleForWidth(ClientSize.Width);
         // The launcher slot already includes desktop DPI. Use the chat header's
-        // scale for the title and dismiss button, independently of the feed.
+        // scale for the title and toggle button, independently of the feed.
         float HeaderScale => 96f / Math.Max(96, DeviceDpi);
         int Px(double value) => Math.Max(1, (int)Math.Round(value * PanelScale));
         int Units(int value) => (int)Math.Round(value / PanelScale);
+
+        internal void SetLauncherBounds(Rectangle bounds, bool expand)
+        {
+            bool changed = bodyExpanded != expand;
+            bodyExpanded = expand;
+            if (!bodyExpanded)
+            {
+                if (changed)
+                {
+                    viewport.Hide();
+                    scrollbar.Hide();
+                }
+                bounds.Height = Pixels(FrameHeaderBottom(HeaderScale) + FrameFooterHeight, ScaleForWidth(bounds.Width));
+            }
+            if (Bounds != bounds) Bounds = bounds;
+            if (!changed) return;
+
+            if (bodyExpanded)
+            {
+                viewport.Show();
+                scrollbar.Show();
+            }
+            toggle.AccessibleName = bodyExpanded ? "Hide Game Updates" : "Show Game Updates";
+            toggle.Invalidate();
+        }
 
         protected override void OnResize(EventArgs e)
         {
@@ -214,9 +240,10 @@ internal sealed partial class GameChatWindow
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
             int headerBottom = FrameHeaderBottom(HeaderScale);
             int top = Px(headerBottom + 5), bottom = Px(14), left = Px(18);
-            int dismissSize = Px(24 * HeaderScale);
-            int dismissTop = Px((FrameHeaderTop + headerBottom) / 2d) - dismissSize / 2;
-            dismiss.SetBounds(ClientSize.Width - Px(17) - dismissSize, dismissTop, dismissSize, dismissSize);
+            int toggleSize = Px(24 * HeaderScale);
+            int toggleTop = Px((FrameHeaderTop + headerBottom) / 2d) - toggleSize / 2;
+            toggle.SetBounds(ClientSize.Width - Px(17) - toggleSize, toggleTop, toggleSize, toggleSize);
+            if (!bodyExpanded) return;
             int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
             scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
@@ -227,22 +254,23 @@ internal sealed partial class GameChatWindow
 
         protected override void OnPaint(PaintEventArgs e) =>
             host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
-                PanelScale, "Game Updates", headerSidePadding: Units(ClientSize.Width - dismiss.Left) + 4,
+                PanelScale, "Game Updates", headerSidePadding: Units(ClientSize.Width - toggle.Left) + 4,
                 headerScale: HeaderScale);
 
-        void PaintDismissButton(object? sender, PaintEventArgs e)
+        void PaintToggleButton(object? sender, PaintEventArgs e)
         {
-            float size = Math.Min(dismiss.ClientSize.Width, dismiss.ClientSize.Height);
-            float x = dismiss.ClientSize.Width / 2f, y = dismiss.ClientSize.Height / 2f;
-            float radius = size / 4f;
-            using var pen = new Pen(dismiss.ForeColor, Math.Max(1.2f, size / 12f))
+            float size = Math.Min(toggle.ClientSize.Width, toggle.ClientSize.Height);
+            float x = toggle.ClientSize.Width / 2f, y = toggle.ClientSize.Height / 2f;
+            float radius = size / 4f, rise = size / 7f;
+            if (bodyExpanded) rise = -rise;
+            using var pen = new Pen(toggle.ForeColor, Math.Max(1.2f, size / 12f))
             {
                 StartCap = LineCap.Round,
-                EndCap = LineCap.Round
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
             };
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            e.Graphics.DrawLine(pen, x - radius, y - radius, x + radius, y + radius);
-            e.Graphics.DrawLine(pen, x - radius, y + radius, x + radius, y - radius);
+            e.Graphics.DrawLines(pen, new PointF[] { new(x - radius, y - rise), new(x, y + rise), new(x + radius, y - rise) });
         }
 
         void SetFeedScale()
@@ -261,9 +289,19 @@ internal sealed partial class GameChatWindow
             EnsureFeed();
         }
 
+        internal void ResetDocument()
+        {
+            feedLoad?.TrySetResult(false);
+            feedVisible = false;
+            nextFeedRetry = DateTime.MinValue;
+            fallbackClip.Visible = true;
+            SetDocument(ServerUpdatesStatus("Loading server updates…"));
+        }
+
         internal void EnsureFeed()
         {
-            if (Visible && document != null && !feedVisible && !feedInitializing && DateTime.UtcNow >= nextFeedRetry)
+            if (bodyExpanded && Visible && document != null && !feedVisible && !feedInitializing &&
+                DateTime.UtcNow >= nextFeedRetry)
                 _ = InitializeFeed();
         }
 
@@ -276,7 +314,7 @@ internal sealed partial class GameChatWindow
             try
             {
                 await feed.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
-                if (IsDisposed) return;
+                if (IsDisposed || load.Task.IsCompleted) return;
                 var core = feed.CoreWebView2;
                 if (!feedConfigured)
                 {
@@ -374,7 +412,7 @@ internal sealed partial class GameChatWindow
                     scrollbar.Invalidate();
                     return;
                 }
-                if (!feedVisible || type is not ("toggle" or "picker")) return;
+                if (!bodyExpanded || !feedVisible || type is not ("toggle" or "picker")) return;
                 var request = new ServerUpdateAction(type,
                     message.GetProperty("id").GetString() ?? "",
                     message.TryGetProperty("key", out var key) ? key.GetString() : null,

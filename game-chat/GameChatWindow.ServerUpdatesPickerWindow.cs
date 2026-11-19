@@ -14,7 +14,7 @@ internal sealed partial class GameChatWindow
     async Task<string?> ShowServerUpdatePicker(LatestUpdatesPanel panel, string postId)
     {
         await Task.Yield();
-        if (panel != serverUpdatesPanel || !CanShowServerUpdates || discordEnvironment == null ||
+        if (panel != serverUpdatesPanel || !ServerUpdatesBodyExpanded || !CanShowServerUpdates || discordEnvironment == null ||
             !ulong.TryParse(postId, NumberStyles.None, CultureInfo.InvariantCulture, out ulong messageId) || messageId == 0 ||
             !displayedServerUpdates.Any(post => post.Id == postId))
             return "This update is no longer available.";

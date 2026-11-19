@@ -86,7 +86,6 @@ StartEmbeddedInGameChat()
 StopEmbeddedInGameChat()
 {
     global EmbeddedChatPid
-    SetLauncherServerUpdatesVisible(false)
     ReleaseLauncherDiscordAvatar()
     pid := EmbeddedChatPid
     if !pid
@@ -194,47 +193,22 @@ UpdateLauncherDiscordAccountDisplay(status, name := "")
         label := status = 3 ? "Signing out…" : name != "" ? name : "Discord account"
     SetPaintedLabelText(LauncherDiscordName, label)
     SetPaintedLabelText(LauncherDiscordPortrait, status <= 1 ? "Log In to Discord" : "Discord account")
-    ; Resize/show the cross-process child after acknowledging WM_COPYDATA.
-    SetTimer(RefreshLauncherServerUpdatesVisibility, -1)
 }
 
 CreateLauncherServerUpdates()
 {
     global LauncherGui, LauncherUpdatesSlot
-    ; This transparent control gives the host a position for its Game Updates window.
+    ; Keep the sizing anchor hidden. The host draws the panel, including its collapsed header.
     ; Align the header below the Quest copy, over the fading backdrop.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
         "x100 y250 w220 h342 BackgroundTrans Hidden")
-    OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)
+    OnMessage(0x833B, ReceiveLauncherServerUpdatesAnchorRequest)
 }
 
-SetLauncherServerUpdatesVisible(visible)
+ReceiveLauncherServerUpdatesAnchorRequest(wParam, sender, msg, hwnd)
 {
-    global LauncherUpdatesSlot
-    if !IsObject(LauncherUpdatesSlot) || !DllCall("IsWindow", "Ptr", LauncherUpdatesSlot.Hwnd)
-        return
-    if visible
-    {
-        LauncherUpdatesSlot.Visible := true
-        RepaintLauncherServerUpdates()
-    }
-    else
-        LauncherUpdatesSlot.Visible := false
-    SetTimer(CheckServerUpdatesHost, visible ? 1500 : 0)
-}
-
-RefreshLauncherServerUpdatesVisibility()
-{
-    global LauncherDiscordStatus
-    if LauncherDiscordStatus != 2
-        SetLauncherServerUpdatesVisible(false)
-}
-
-ReceiveLauncherServerUpdatesVisibility(visible, sender, msg, hwnd)
-{
-    global LauncherDiscordStatus
     if IsLauncherDiscordMessage(sender, hwnd)
-        SetLauncherServerUpdatesVisible(visible != 0 && LauncherDiscordStatus = 2)
+        SetTimer(RepaintLauncherServerUpdates, -1)
 }
 
 LauncherServerUpdatesResized(gui, minMax, *)
@@ -245,22 +219,10 @@ LauncherServerUpdatesResized(gui, minMax, *)
 
 RepaintLauncherServerUpdates()
 {
-    global LauncherGui, LauncherDiscordStatus, LauncherUpdatesSlot
-    if LauncherDiscordStatus != 2 || !IsObject(LauncherUpdatesSlot) || !LauncherUpdatesSlot.Visible
-        || DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
+    global EmbeddedChatPid, LauncherGui, LauncherUpdatesSlot
+    if !EmbeddedChatPid || !IsObject(LauncherUpdatesSlot) || DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
         return
     SendLauncherChatCommand(18, LauncherUpdatesSlot.Hwnd)
-}
-
-CheckServerUpdatesHost()
-{
-    global EmbeddedChatPid, LauncherDiscordStatus
-    if LauncherDiscordStatus != 2 || !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
-    {
-        SetLauncherServerUpdatesVisible(false)
-        return
-    }
-    RepaintLauncherServerUpdates()
 }
 
 ReleaseLauncherDiscordAvatar()
