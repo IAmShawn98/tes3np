@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -11,6 +12,7 @@ internal sealed partial class GameChatWindow
     LatestUpdatesPanel? serverUpdatesPanel;
     string? serverUpdatesDocument;
     bool serverUpdatesVisibilityPublished;
+    const string ServerUpdatesPageUri = "https://tes3np-game-updates.invalid/index.html";
     static readonly Lazy<string> ServerUpdatesPage = GameChatWeb.Page("server-updates.html");
 
     void PublishServerUpdatesVisibility()
@@ -77,6 +79,7 @@ internal sealed partial class GameChatWindow
         int width = Math.Max(1, rect.Right - rect.Left), height = Math.Max(1, rect.Bottom - rect.Top);
         if (panel.Width != width || panel.Height != height)
             MoveWindow(panel.Handle, 0, 0, width, height, true);
+        if (!IsIconic(owner)) panel.EnsureFeed();
     }
 
     void UpdateServerUpdatesDocument(string document)
@@ -94,17 +97,12 @@ internal sealed partial class GameChatWindow
         panel?.Dispose();
     }
 
-    sealed class LatestUpdatesPanel : Panel
+    sealed partial class LatestUpdatesPanel : Panel
     {
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
         readonly Panel viewport = new() { BackColor = FeedBackground };
         readonly WebView2 feed = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = FeedBackground };
-        readonly Label feedStatus = new()
-        {
-            Dock = DockStyle.Fill, BackColor = FeedBackground, ForeColor = Color.FromArgb(217, 196, 156),
-            Text = "Loading server updates…"
-        };
         readonly BufferedScrollbar scrollbar = new();
         readonly Button dismiss = new()
         {
@@ -113,7 +111,10 @@ internal sealed partial class GameChatWindow
             UseVisualStyleBackColor = false
         };
         string? document;
-        bool feedStarted, feedReady;
+        string? initializingDocument;
+        bool feedConfigured, feedInitializing, feedVisible;
+        TaskCompletionSource<bool>? feedLoad;
+        DateTime nextFeedRetry;
         int scrollPosition, scrollTotal = 1, scrollPage = 1;
         int dragOffset = -1;
 
@@ -123,8 +124,10 @@ internal sealed partial class GameChatWindow
             DoubleBuffered = true;
             ResizeRedraw = true;
             viewport.Controls.Add(feed);
-            viewport.Controls.Add(feedStatus);
-            feedStatus.BringToFront();
+            viewport.Controls.Add(fallbackClip);
+            fallbackClip.Controls.Add(fallbackFeed);
+            fallbackClip.BringToFront();
+            fallbackFeed.VScroll += (_, _) => scrollbar.Invalidate();
             Controls.Add(viewport);
             Controls.Add(scrollbar);
             Controls.Add(dismiss);
@@ -183,7 +186,8 @@ internal sealed partial class GameChatWindow
             scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
             viewport.SetBounds(left, top, width, scrollHeight);
-            SetFeedScale();
+            LayoutFallback(width, scrollHeight);
+            if (feedVisible) SetFeedScale();
         }
 
         protected override void OnPaint(PaintEventArgs e) =>
@@ -199,79 +203,133 @@ internal sealed partial class GameChatWindow
         internal void SetDocument(string value)
         {
             document = value;
-            if (feedReady)
-                PostDocument();
-            else if (!feedStarted)
+            if (feedVisible)
+                SendFeed(value);
+            else
+                UpdateFallback(value);
+            EnsureFeed();
+        }
+
+        internal void EnsureFeed()
+        {
+            if (document != null && !feedVisible && !feedInitializing && DateTime.UtcNow >= nextFeedRetry &&
+                !IsIconic(host.owner))
                 _ = InitializeFeed();
         }
 
         async Task InitializeFeed()
         {
             if (host.discordEnvironment is not { } environment) return;
-            feedStarted = true;
+            feedInitializing = true;
+            var load = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            feedLoad = load;
             try
             {
                 await feed.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
                 if (IsDisposed) return;
                 var core = feed.CoreWebView2;
-                core.Settings.AreDefaultContextMenusEnabled = false;
-                core.Settings.AreDevToolsEnabled = false;
-                core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-                core.NavigationStarting += (_, e) => e.Cancel = e.Uri != "about:blank";
-                core.NewWindowRequested += (_, e) => e.Handled = true;
-                core.DownloadStarting += (_, e) => e.Cancel = true;
-                core.WebMessageReceived += HandleFeedMessage;
-                core.NavigationCompleted += (_, e) =>
+                if (!feedConfigured)
                 {
-                    if (IsDisposed) return;
-                    if (!e.IsSuccess)
+                    byte[] html = Encoding.UTF8.GetBytes(ServerUpdatesPage.Value);
+                    core.AddWebResourceRequestedFilter(ServerUpdatesPageUri, CoreWebView2WebResourceContext.Document,
+                        CoreWebView2WebResourceRequestSourceKinds.Document);
+                    core.WebResourceRequested += (_, e) =>
                     {
-                        feedStatus.Text = "Game Updates could not open.";
-                        return;
-                    }
-                    feedReady = true;
-                    SetFeedScale();
-                    PostDocument();
-                    feedStatus.Visible = false;
-                };
-                core.NavigateToString(ServerUpdatesPage.Value);
+                        if (e.Request.Uri == ServerUpdatesPageUri)
+                            e.Response = environment.CreateWebResourceResponse(new MemoryStream(html, false), 200,
+                                "OK", "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store");
+                    };
+                    core.Settings.AreDefaultContextMenusEnabled = false;
+                    core.Settings.AreDevToolsEnabled = false;
+                    core.NavigationStarting += (_, e) => e.Cancel = e.Uri != ServerUpdatesPageUri;
+                    core.NewWindowRequested += (_, e) => e.Handled = true;
+                    core.DownloadStarting += (_, e) => e.Cancel = true;
+                    core.WebMessageReceived += HandleFeedMessage;
+                    core.NavigationCompleted += (_, e) =>
+                    {
+                        if (IsDisposed || e.IsSuccess) return;
+                        FallBack("navigation " + e.WebErrorStatus);
+                    };
+                    core.ProcessFailed += (_, e) => FallBack("WebView2 " + e.ProcessFailedKind);
+                    feedConfigured = true;
+                }
+                SetFeedScale();
+                core.Navigate(ServerUpdatesPageUri);
+                await load.Task.WaitAsync(TimeSpan.FromSeconds(8));
             }
             catch (Exception ex)
             {
-                if (IsDisposed) return;
-                feedStatus.Text = "Game Updates could not open.";
-                host.Log("SERVER UPDATES | Feed renderer: " + ex.GetType().Name);
+                if (!IsDisposed) FallBack(ex.GetType().Name + " 0x" + ex.HResult.ToString("X8"));
+            }
+            finally
+            {
+                feedLoad = null;
+                initializingDocument = null;
+                feedInitializing = false;
             }
         }
 
-        void PostDocument()
+        void FallBack(string reason)
         {
-            if (document != null)
-                feed.CoreWebView2.PostWebMessageAsJson(document);
+            if (IsDisposed) return;
+            feedVisible = false;
+            feedLoad?.TrySetResult(false);
+            nextFeedRetry = DateTime.UtcNow.AddSeconds(15);
+            fallbackClip.Visible = true;
+            LayoutFallback(viewport.Width, viewport.Height);
+            if (document != null) UpdateFallback(document);
+            scrollbar.Invalidate();
+            host.Log("SERVER UPDATES | Reaction view: " + reason);
+        }
+
+        void SendFeed(string message)
+        {
+            try { feed.CoreWebView2.PostWebMessageAsJson(message); }
+            catch (Exception ex)
+            {
+                feedLoad?.TrySetResult(false);
+                FallBack(ex.GetType().Name + " 0x" + ex.HResult.ToString("X8"));
+            }
         }
 
         async void HandleFeedMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            if (!feedReady || IsDisposed || args.Source != "about:blank") return;
+            if (IsDisposed || args.Source != ServerUpdatesPageUri) return;
             try
             {
                 using var data = JsonDocument.Parse(args.WebMessageAsJson);
                 var message = data.RootElement;
-                if (message.GetProperty("type").GetString() is "scroll")
+                string? type = message.GetProperty("type").GetString();
+                if (type == "ready")
+                {
+                    if (document != null && (feedLoad != null || feedVisible))
+                    {
+                        initializingDocument = document;
+                        SendFeed(document);
+                    }
+                    return;
+                }
+                if (type is "scroll" or "rendered")
                 {
                     scrollTotal = Math.Max(1, message.GetProperty("height").GetInt32());
                     scrollPage = Math.Clamp(message.GetProperty("page").GetInt32(), 1, scrollTotal);
                     scrollPosition = Math.Clamp(message.GetProperty("top").GetInt32(), 0, scrollTotal - scrollPage);
+                    if (type == "rendered" && feedLoad?.TrySetResult(true) == true)
+                    {
+                        feedVisible = true;
+                        fallbackClip.Visible = false;
+                        if (document != null && document != initializingDocument) SendFeed(document);
+                    }
                     scrollbar.Invalidate();
                     return;
                 }
-                if (message.GetProperty("type").GetString() is not ("toggle" or "picker")) return;
-                var request = new ServerUpdateAction(message.GetProperty("type").GetString()!,
+                if (!feedVisible || type is not ("toggle" or "picker")) return;
+                var request = new ServerUpdateAction(type,
                     message.GetProperty("id").GetString() ?? "",
                     message.TryGetProperty("key", out var key) ? key.GetString() : null);
                 string? error = await host.ActOnServerUpdate(this, request);
-                if (!IsDisposed && feedReady)
-                    feed.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                if (!IsDisposed && feedVisible)
+                    SendFeed(JsonSerializer.Serialize(new
                     {
                         result = true, id = request.Id, key = request.Key, status = error
                     }));
@@ -282,8 +340,9 @@ internal sealed partial class GameChatWindow
             }
         }
 
-        (int Total, int Page, int Position, int Maximum) ReadScroll() =>
-            (scrollTotal, scrollPage, scrollPosition, scrollTotal - scrollPage);
+        (int Total, int Page, int Position, int Maximum) ReadScroll() => feedVisible
+            ? (scrollTotal, scrollPage, scrollPosition, scrollTotal - scrollPage)
+            : ReadFallbackScroll();
 
         void ScrollToThumb(int y)
         {
@@ -298,8 +357,10 @@ internal sealed partial class GameChatWindow
 
         void ScrollBy(string scroll, int pixels)
         {
-            if (feedReady)
-                feed.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { scroll, pixels }));
+            if (feedVisible)
+                SendFeed(JsonSerializer.Serialize(new { scroll, pixels }));
+            else
+                ScrollFallback(scroll, pixels);
         }
     }
 }

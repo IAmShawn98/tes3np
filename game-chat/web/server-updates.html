@@ -48,8 +48,8 @@
     return node;
   }
 
-  function reportScroll() {
-    bridge.postMessage({ type: 'scroll', top: Math.round(main.scrollTop),
+  function reportScroll(type = 'scroll') {
+    bridge.postMessage({ type, top: Math.round(main.scrollTop),
       height: main.scrollHeight, page: main.clientHeight });
   }
 
@@ -154,7 +154,7 @@
         [...restored.querySelectorAll('button')].find(button => button.dataset.key === focusKey)?.focus({ preventScroll: true });
       }
     }
-    reportScroll();
+    reportScroll('rendered');
   }
 
   bridge.addEventListener('message', ({ data }) => {
@@ -171,8 +171,9 @@
       reportScroll();
     } else render(data);
   });
-  main.addEventListener('scroll', reportScroll);
-  new ResizeObserver(reportScroll).observe(main);
+  main.addEventListener('scroll', () => reportScroll());
+  new ResizeObserver(() => reportScroll()).observe(main);
+  bridge.postMessage({ type: 'ready' });
 </script>
 </body>
 </html>
