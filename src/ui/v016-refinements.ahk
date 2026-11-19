@@ -1,15 +1,33 @@
-; v0.1.16 test-branch UI refinements.
+; Live character-book and launcher-settings presentation.
 
 global V016CharacterLayoutApplied := false
 global V016SettingsGuiHwnd := 0
 global V016SettingsScale := 1.0
 global V016ReadabilityState := 0
 global V016FollowWindowsState := 0
-global V016DailyLoginControls := []
+
+; Shared book/settings visibility helper. Both the native control and
+; themed painted face must be hidden/shown together to prevent ghost buttons.
+SetBookControlVisible(control, visible)
+{
+    global ButtonFaces
+    try control.Visible := visible
+    try if ButtonFaces.Has(control.Hwnd)
+    {
+        face := ButtonFaces[control.Hwnd]
+        if face.HasOwnProp("Control") && IsObject(face.Control)
+            face.Control.Visible := visible
+        if face.HasOwnProp("Label") && IsObject(face.Label)
+            face.Label.Visible := visible
+    }
+    ; Avoid forcing one parent repaint per control; the page update handles it.
+}
 
 InitializeV016UiRefinements()
 {
-    SetTimer(ApplyV016CharacterLayout, 250)
+    ; Character layout is applied explicitly when the Character Book is built or
+    ; refreshed. Do not wake the launcher four times per second just to discover
+    ; that the layout has already been applied.
     OnMessage(0x84, HandleV016SettingsHitTest)
 }
 
@@ -22,7 +40,44 @@ V016S(value)
 V016Font(value)
 {
     global V016SettingsScale
-    return Max(6, Round(value * V016SettingsScale))
+    return Max(7, Round(value * V016SettingsScale))
+}
+
+AddV016SettingsCopy(settings, x, y, width, reservedHeight, text)
+{
+    ; Let the native control measure the wrapped text with the current
+    ; font and DPI. Reuse the default space unless the copy needs more.
+    label := settings.Add("Text", "x" V016S(x) " y" y " w" V016S(width) " BackgroundTrans +Wrap", text)
+    label.GetPos(, , , &measuredHeight)
+    reserved := V016S(reservedHeight)
+    if measuredHeight < reserved
+        label.Move(, , , reserved)
+    return Max(0, measuredHeight - reserved)
+}
+
+GrowV016SettingsParchment(settings, extra)
+{
+    if extra <= settings.ParchmentExtra
+        return false
+    settings.ParchmentExtra := extra
+    settings.Parchment.Move(, , , V016S(650) + extra)
+    settings.Parchment.Value := A_ScriptDir "\\assets\\controls\\scroll-panel.png"
+    return true
+}
+
+GetV016SettingsFitScale()
+{
+    global LauncherGui
+    ; Match the active launcher percentage, bounded by owner work-area fit.
+    ; The old independent "readability" fit left Settings at 100% even for
+    ; a 50% launcher. Keep the same proportional sizes for every page.
+    WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
+    monitor := MonitorFromPoint(x + w // 2, y + h // 2)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    dpi := A_ScreenDPI / 96
+    fit := Min(1.0, (right - left - 24) / (512 * dpi),
+        (bottom - top - 24) / (590 * dpi))
+    return Max(0.1, Min(GetOwnedMenuScale(), fit))
 }
 
 HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
@@ -31,8 +86,8 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
     if !V016SettingsGuiHwnd || hwnd != V016SettingsGuiHwnd || !DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd, "Int")
         return
     pt := Buffer(8, 0)
-    NumPut("Int", lParam & 0xFFFF, pt, 0)
-    NumPut("Int", (lParam >> 16) & 0xFFFF, pt, 4)
+    NumPut("Int", (lParam & 0xFFFF) << 48 >> 48, pt, 0)
+    NumPut("Int", ((lParam >> 16) & 0xFFFF) << 48 >> 48, pt, 4)
     DllCall("ScreenToClient", "Ptr", V016SettingsGuiHwnd, "Ptr", pt)
     localY := NumGet(pt, 4, "Int")
     if localY >= 0 && localY <= V016S(96)
@@ -41,56 +96,33 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 
 ApplyV016CharacterLayout(*)
 {
-    global CharacterPage, LaunchCharacterButton, ExecutableInput, V016CharacterLayoutApplied
+    global CharacterPage, V016CharacterLayoutApplied
+    global Profiles, AddCharacterButton, WipeCharacterButton
     if V016CharacterLayoutApplied || !IsObject(CharacterPage)
         return
-    try
-    {
-        LaunchCharacterButton.Visible := false
-        ExecutableInput.GetPos(, &executableY, , &executableHeight)
-        global LaunchSettingsControls
-        global ScheduledEvents
-        label := ScheduledEvents.Length ? "Scheduled Events (" ScheduledEvents.Length ")" : "Schedule Event"
-        dailyButton := AddStyledButton(CharacterPage, 70, 510, 370, 25, label, OpenScheduledEventsMenu)
-        ; Scheduled Events belongs to the character action stack, not Launch Settings.
-        ; Keep it independent so opening the add/edit form does not hide it.
-        global V016DailyLoginControls
-        V016DailyLoginControls := [dailyButton]
-        hasCharacters := Profiles.Length > 0
-        for control in V016DailyLoginControls
-            control.Visible := hasCharacters
-        ; Keep the character actions contiguous: Add Character, Scheduled Events, then Wipe Character List.
-        addY := Profiles.Length ? 505 : 185
-        AddCharacterButton.Move(70, addY, 370, 30)
-        ButtonFaces[AddCharacterButton.Hwnd].Y := addY
-        dailyButton.Move(70, 540, 370, 30)
-        ButtonFaces[dailyButton.Hwnd].Y := 540
-        WipeCharacterButton.Move(70, 575, 370, 30)
-        ButtonFaces[WipeCharacterButton.Hwnd].Y := 575
-        V016CharacterLayoutApplied := true
-    }
+
+
+    ; Keep Add Character immediately above Wipe Character List. Keep the Wipe
+    ; button directly beneath it, using the same styled-button mover as
+    ; RefreshProfiles so the painted and native button layers stay together.
+    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 164, 370, 30)
+    MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
+    V016CharacterLayoutApplied := true
 }
 
 global LauncherMorrowindFont := "Georgia"
 global LauncherMorrowindFontPath := ""
 global LauncherMorrowindFontLoaded := false
-global LauncherMagicCardsFnt := ""
-global LauncherMagicCardsTex := ""
-global LauncherMagicCardsData := false
 
 InitializeLauncherMorrowindFont()
 {
     global LauncherMorrowindFont, LauncherMorrowindFontPath, LauncherMorrowindFontLoaded
-    global LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
 
-    ; Do not substitute MysticCards/Georgia and call it the Morrowind journal font.
-    ; Vanilla Morrowind's journal uses its own Magic_Cards_Regular bitmap glyphs.
+    ; Windows controls use the bundled Mystic Cards TrueType face where
+    ; available, falling back to Georgia without probing proprietary bitmap assets.
     LauncherMorrowindFont := "Georgia"
     LauncherMorrowindFontPath := ""
     LauncherMorrowindFontLoaded := false
-    LauncherMagicCardsFnt := ""
-    LauncherMagicCardsTex := ""
-    LauncherMagicCardsData := false
 
     ; Standard Windows controls cannot use Morrowind's .fnt/.tex bitmap face.
     ; Load the bundled OpenMW-compatible TrueType face for native controls so
@@ -108,396 +140,19 @@ InitializeLauncherMorrowindFont()
             }
         }
     }
-
-    fontPair := FindVanillaMagicCardsFont()
-    if IsObject(fontPair)
-    {
-        LauncherMagicCardsFnt := fontPair.Fnt
-        LauncherMagicCardsTex := fontPair.Tex
-        LauncherMagicCardsData := LoadMagicCardsBitmapFont(fontPair.Fnt)
-        try LogLauncherEvent("UI | Vanilla journal font found: " fontPair.Fnt)
-        if IsObject(LauncherMagicCardsData)
-        {
-            try LogLauncherEvent("UI | Vanilla journal font parsed successfully. Glyphs: " LauncherMagicCardsData.Glyphs.Length ".")
-            atlas := MagicCardsCreateGlyphAtlas()
-            if IsObject(atlas)
-            {
-                try LogLauncherEvent("UI | Vanilla journal texture decoded: " atlas.Width "x" atlas.Height ".")
-            }
-            else
-            {
-                try LogLauncherEvent("UI | Vanilla journal texture decode failed; bitmap text will fall back.")
-            }
-        }
-        else
-            try LogLauncherEvent("UI | Vanilla journal font parser failed; using fallback text.")
-    }
-    else
-        try LogLauncherEvent("UI | Vanilla journal font not found; using fallback text.")
-}
-
-FindVanillaMagicCardsFont()
-{
-    global Profiles
-    candidates := []
-
-    ; TES3MP installations normally sit beside the game's Data Files directory.
-    try
-    {
-        executable := GetSharedExecutable()
-        if executable != ""
-        {
-            SplitPath(executable, , &exeDir)
-            candidates.Push(exeDir "\\Data Files\\Fonts")
-            candidates.Push(exeDir "\\data\\Fonts")
-            candidates.Push(exeDir "\\Fonts")
-        }
-    }
-
-    ; Also check the standard Steam/GOG-style Morrowind locations without
-    ; requiring the launcher to redistribute Bethesda's font assets.
-    candidates.Push(A_ProgramFiles "\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
-    if A_Is64bitOS
-        candidates.Push(EnvGet("ProgramFiles(x86)") "\\Steam\\steamapps\\common\\Morrowind\\Data Files\\Fonts")
-    candidates.Push(A_ProgramFiles "\\GOG Galaxy\\Games\\Morrowind\\Data Files\\Fonts")
-    if A_Is64bitOS
-        candidates.Push(EnvGet("ProgramFiles(x86)") "\\GOG Galaxy\\Games\\Morrowind\\Data Files\\Fonts")
-
-    for dir in candidates
-    {
-        fnt := dir "\\Magic_Cards_Regular.fnt"
-        if !FileExist(fnt)
-            fnt := dir "\\magic_cards_regular.fnt"
-        if !FileExist(fnt)
-            continue
-
-        ; The .fnt itself stores the exact texture basename used by Morrowind.
-        ; Read it instead of assuming a particular _0_Lod_A filename.
-        texName := ReadMagicCardsTextureName(fnt)
-        if texName = ""
-            continue
-        tex := dir "\\" texName
-        if !FileExist(tex) && !InStr(texName, ".")
-            tex .= ".tex"
-        if FileExist(tex)
-            return {Fnt: fnt, Tex: tex}
-    }
-    return false
-}
-
-
-ReadMagicCardsTextureName(fntPath)
-{
-    ; Morrowind bitmap font header:
-    ; float size, int 1, int 1, then a 284-byte NUL-terminated texture name.
-    try
-    {
-        file := FileOpen(fntPath, "r")
-        if !IsObject(file) || file.Length < 296
-            return ""
-        file.Pos := 12
-        nameBytes := Buffer(284, 0)
-        if file.RawRead(nameBytes, 284) < 1
-            return ""
-        name := StrGet(nameBytes, "CP0")
-        name := Trim(name, " `t`r`n`0")
-        if name = ""
-            return ""
-        SplitPath(name, &leaf)
-        return leaf
-    }
-    return ""
-}
-
-LoadMagicCardsBitmapFont(fntPath)
-{
-    ; Parse the complete 256-glyph metrics table. The renderer uses these exact
-    ; UV coordinates, widths, kerning and ascent values from vanilla Morrowind.
-    try
-    {
-        file := FileOpen(fntPath, "r")
-        if !IsObject(file) || file.Length < 296 + (256 * 56)
-            return false
-        sizeBuf := Buffer(4)
-        file.RawRead(sizeBuf, 4)
-        fontSize := NumGet(sizeBuf, 0, "Float")
-        file.Pos := 296
-        glyphs := []
-        Loop 256
-        {
-            g := Buffer(56)
-            if file.RawRead(g, 56) != 56
-                return false
-            glyphs.Push({
-                TopLeftX: NumGet(g, 4, "Float"), TopLeftY: NumGet(g, 8, "Float"),
-                TopRightX: NumGet(g, 12, "Float"), TopRightY: NumGet(g, 16, "Float"),
-                BottomLeftX: NumGet(g, 20, "Float"), BottomLeftY: NumGet(g, 24, "Float"),
-                BottomRightX: NumGet(g, 28, "Float"), BottomRightY: NumGet(g, 32, "Float"),
-                Width: NumGet(g, 36, "Float"),
-                Height: NumGet(g, 40, "Float"),
-                KerningLeft: NumGet(g, 44, "Float"),
-                KerningRight: NumGet(g, 48, "Float"),
-                Ascent: NumGet(g, 52, "Float")
-            })
-        }
-        return {FontSize: fontSize, Glyphs: glyphs}
-    }
-    return false
-}
-
-
-MagicCardsMeasureText(text, scale := 1.0)
-{
-    global LauncherMagicCardsData
-    if !IsObject(LauncherMagicCardsData)
-        return 0
-    width := 0.0
-    Loop Parse text
-    {
-        code := Ord(A_LoopField)
-        if code < 0 || code > 255
-            code := 63
-        glyph := LauncherMagicCardsData.Glyphs[code + 1]
-        width += (glyph.Width + glyph.KerningRight) * scale
-    }
-    return Round(width)
-}
-
-MagicCardsGlyphRun(text, x, y, height)
-{
-    ; Produce exact per-glyph layout from the vanilla metrics. Keeping this
-    ; independent of AHK's text controls prevents Windows font fallback from
-    ; changing the journal lettering.
-    global LauncherMagicCardsData
-    if !IsObject(LauncherMagicCardsData) || LauncherMagicCardsData.FontSize <= 0
-        return false
-    scale := height / LauncherMagicCardsData.FontSize
-    penX := x
-    run := []
-    Loop Parse text
-    {
-        code := Ord(A_LoopField)
-        if code < 0 || code > 255
-            code := 63
-        glyph := LauncherMagicCardsData.Glyphs[code + 1]
-        advance := (glyph.Width + glyph.KerningRight) * scale
-        run.Push({
-            Code: code,
-            X: penX + (glyph.KerningLeft * scale),
-            Y: y + ((LauncherMagicCardsData.FontSize - glyph.Ascent) * scale),
-            Height: height, Advance: advance,
-            TopLeftX: glyph.TopLeftX, TopLeftY: glyph.TopLeftY,
-            TopRightX: glyph.TopRightX, TopRightY: glyph.TopRightY,
-            BottomLeftX: glyph.BottomLeftX, BottomLeftY: glyph.BottomLeftY,
-            BottomRightX: glyph.BottomRightX, BottomRightY: glyph.BottomRightY
-        })
-        penX += advance
-    }
-    return run
-}
-
-
-MagicCardsCreateGlyphAtlas()
-{
-    ; Convert Morrowind's proprietary .tex atlas through the installed game's
-    ; own texture data. The decoder is intentionally local-only: Bethesda's
-    ; journal artwork is never bundled with tes3np.
-    global LauncherMagicCardsTex
-    if LauncherMagicCardsTex = "" || !FileExist(LauncherMagicCardsTex)
-        return false
-
-    file := FileOpen(LauncherMagicCardsTex, "r")
-    if !IsObject(file) || file.Length < 8
-        return false
-
-    ; Vanilla font TEX layout, matching OpenMW's Morrowind font loader:
-    ; int32 width, int32 height, immediately followed by width*height RGBA bytes.
-    header := Buffer(8, 0)
-    if file.RawRead(header, 8) != 8
-        return false
-    width := NumGet(header, 0, "Int")
-    height := NumGet(header, 4, "Int")
-    if width < 1 || height < 1 || width > 4096 || height > 4096
-        return false
-
-    pixelBytes := width * height * 4
-    pixels := Buffer(pixelBytes, 0)
-    bytesRead := file.RawRead(pixels, pixelBytes)
-    if bytesRead <= 0
-        return false
-    ; Morrowind/OpenMW tolerate a short atlas read; the zero-filled remainder
-    ; stays transparent rather than rejecting the entire font.
-
-    return {Width: width, Height: height, Pixels: pixels}
-}
-
-MagicCardsGlyphSourceRect(glyph, atlasWidth, atlasHeight)
-{
-    ; UVs in the vanilla .fnt are normalized texture coordinates.
-    left := Round(Min(glyph.TopLeftX, glyph.BottomLeftX) * atlasWidth)
-    right := Round(Max(glyph.TopRightX, glyph.BottomRightX) * atlasWidth)
-    top := Round(Min(glyph.TopLeftY, glyph.TopRightY) * atlasHeight)
-    bottom := Round(Max(glyph.BottomLeftY, glyph.BottomRightY) * atlasHeight)
-    return {X: left, Y: top, W: Max(1, right - left), H: Max(1, bottom - top)}
-}
-
-
-MagicCardsWrapText(text, maxWidth, fontHeight)
-{
-    global LauncherMagicCardsData
-    if !IsObject(LauncherMagicCardsData)
-        return [text]
-
-    scale := fontHeight / LauncherMagicCardsData.FontSize
-    words := StrSplit(text, " ")
-    lines := []
-    line := ""
-    for word in words
-    {
-        candidate := line = "" ? word : line " " word
-        if line != "" && MagicCardsMeasureText(candidate, scale) > maxWidth
-        {
-            lines.Push(line)
-            line := word
-        }
-        else
-            line := candidate
-    }
-    if line != ""
-        lines.Push(line)
-    return lines.Length ? lines : [""]
-}
-
-MagicCardsRenderText(text, width, height, fontHeight, color := 0xFF382314, center := false)
-{
-    ; Render the vanilla bitmap glyphs into a 32-bit DIB that an AHK Picture
-    ; control can display. No Windows font rasterizer is involved.
-    global LauncherMagicCardsData
-    if !IsObject(LauncherMagicCardsData)
-        return false
-    atlas := MagicCardsCreateGlyphAtlas()
-    if !IsObject(atlas)
-        return false
-
-    stride := width * 4
-    out := Buffer(stride * height, 0)
-    scale := fontHeight / LauncherMagicCardsData.FontSize
-    lines := MagicCardsWrapText(text, width, fontHeight)
-    lineHeight := Max(1, Round(fontHeight * 1.15))
-    run := []
-    lineY := 0
-    for line in lines
-    {
-        if lineY >= height
-            break
-        runWidth := MagicCardsMeasureText(line, scale)
-        penX := center ? Max(0, Floor((width - runWidth) / 2)) : 0
-        lineRun := MagicCardsGlyphRun(line, penX, lineY, fontHeight)
-        if IsObject(lineRun)
-            for item in lineRun
-                run.Push(item)
-        lineY += lineHeight
-    }
-
-    for item in run
-    {
-        glyph := LauncherMagicCardsData.Glyphs[item.Code + 1]
-        src := MagicCardsGlyphSourceRect(glyph, atlas.Width, atlas.Height)
-        scale := fontHeight / LauncherMagicCardsData.FontSize
-        dstW := Max(1, Round(glyph.Width * scale))
-        dstH := Max(1, Round(glyph.Height * scale))
-        Loop dstH
-        {
-            dy := A_Index - 1
-            py := item.Y + dy
-            if py < 0 || py >= height
-                continue
-            sy := src.Y + Min(src.H - 1, Floor(dy * src.H / dstH))
-            Loop dstW
-            {
-                dx := A_Index - 1
-                px := Round(item.X) + dx
-                if px < 0 || px >= width
-                    continue
-                sx := src.X + Min(src.W - 1, Floor(dx * src.W / dstW))
-                srcOff := (sy * atlas.Width + sx) * 4
-                alpha := NumGet(atlas.Pixels, srcOff + 3, "UChar")
-                if alpha = 0
-                    continue
-                dstOff := (py * width + px) * 4
-                ; Windows 32-bit DIB pixels are BGRA.
-                NumPut("UChar", color & 0xFF, out, dstOff)
-                NumPut("UChar", (color >> 8) & 0xFF, out, dstOff + 1)
-                NumPut("UChar", (color >> 16) & 0xFF, out, dstOff + 2)
-                NumPut("UChar", alpha, out, dstOff + 3)
-            }
-        }
-    }
-    return MagicCardsBufferToHBitmap(out, width, height)
-}
-
-MagicCardsBufferToHBitmap(pixels, width, height)
-{
-    bmi := Buffer(40, 0)
-    NumPut("UInt", 40, bmi, 0)
-    NumPut("Int", width, bmi, 4)
-    NumPut("Int", -height, bmi, 8)
-    NumPut("UShort", 1, bmi, 12)
-    NumPut("UShort", 32, bmi, 14)
-    hdc := DllCall("GetDC", "Ptr", 0, "Ptr")
-    bits := 0
-    hbm := DllCall("Gdi32.dll\CreateDIBSection", "Ptr", hdc, "Ptr", bmi, "UInt", 0, "Ptr*", &bits, "Ptr", 0, "UInt", 0, "Ptr")
-    DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
-    if !hbm || !bits
-        return false
-    DllCall("RtlMoveMemory", "Ptr", bits, "Ptr", pixels.Ptr, "UPtr", pixels.Size)
-    return hbm
-}
-
-AddMagicCardsText(gui, x, y, w, h, text, fontHeight, color := 0xFF382314, center := false)
-{
-    static failureLogged := false
-    hbm := MagicCardsRenderText(text, w, h, fontHeight, color, center)
-    if !hbm
-    {
-        if !failureLogged
-        {
-            failureLogged := true
-            try LogLauncherEvent("UI | Vanilla journal bitmap render failed; controls are using fallback text.")
-        }
-        return false
-    }
-    pic := gui.Add("Picture", "x" x " y" y " w" w " h" h " BackgroundTrans", "HBITMAP:*" hbm)
-    return pic
-}
-
-
-AddMagicCardsInteractiveLabel(gui, x, y, w, h, prefix, text, fontHeight, callback, color := 0xFF382314)
-{
-    ; Keep the clickable checkbox symbol native, but render its label with the
-    ; vanilla journal glyphs. The transparent hit target preserves interaction.
-    gui.SetFont("s" V016Font(13) " c382314", "Segoe UI Symbol")
-    symbol := gui.Add("Text", "x" x " y" y " w" V016S(30) " h" h " +0x100 BackgroundTrans", prefix)
-    label := AddMagicCardsText(gui, x + V016S(38), y, w - V016S(38), h, text, fontHeight, color)
-    hit := gui.Add("Text", "x" x " y" y " w" w " h" h " +0x100 BackgroundTrans", "")
-    hit.OnEvent("Click", callback)
-    return {Symbol: symbol, Label: label, Hit: hit}
 }
 
 ReleaseLauncherMorrowindFont()
 {
-    global LauncherMorrowindFontLoaded, LauncherMorrowindFontPath, LauncherMagicCardsFnt, LauncherMagicCardsTex, LauncherMagicCardsData
+    global LauncherMorrowindFontLoaded, LauncherMorrowindFontPath
     if LauncherMorrowindFontLoaded && LauncherMorrowindFontPath != ""
         try DllCall("Gdi32.dll\RemoveFontResourceExW", "Str", LauncherMorrowindFontPath, "UInt", 0x10, "Ptr", 0)
     LauncherMorrowindFontLoaded := false
-    LauncherMagicCardsFnt := ""
-    LauncherMagicCardsTex := ""
-    LauncherMagicCardsData := false
 }
 
 OpenLauncherSettingsV016(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, FollowWindowsAccessibility, LauncherMorrowindFont
+    global LauncherGui, LauncherRequestedScale, LauncherScaleMode, AccessibilityTextSize, FollowWindowsAccessibility, LauncherMorrowindFont, DataFile
     global V016SettingsGuiHwnd, V016SettingsScale, V016ReadabilityState, V016FollowWindowsState
 
     ; Launcher Settings is a single modal-style window. If it is already open,
@@ -509,81 +164,156 @@ OpenLauncherSettingsV016(*)
     }
     V016SettingsGuiHwnd := 0
 
-    ; Use the same resolved launcher scale (automatic or manual) as the main window.
-    ; AHK still handles monitor DPI; this factor handles tes3np's own 50-100% launcher scale.
-    V016SettingsScale := LauncherScale / 100
+    ; Match the existing launcher scale, with the monitor as an upper bound.
+    V016SettingsScale := GetV016SettingsFitScale()
 
     settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
     settings.BackColor := "010101"
-    V016SettingsGuiHwnd := settings.Hwnd
-    V016ReadabilityState := EnhancedReadability ? 1 : 0
+    settings.MenuButtonScale := V016SettingsScale
+    settings.SavedReadability := IniRead(DataFile, "Accessibility", "EnhancedReadability", "0") = "1" ? 1 : 0
+    settings.SavedReduceMotion := IniRead(DataFile, "Accessibility", "ReduceMotion", "0") = "1" ? 1 : 0
+    V016ReadabilityState := settings.SavedReadability
     V016FollowWindowsState := FollowWindowsAccessibility ? 1 : 0
 
-    settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
+    settings.Parchment := settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
+    settings.ParchmentExtra := 0
 
     settings.SetFont("s" V016Font(19) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(70) " y" V016S(76) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
+    settings.Add("Text", "x" V016S(70) " y" V016S(121) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(124) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
+    settings.Add("Text", "x" V016S(32) " y" V016S(169) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
     ; Native dropdowns cannot display the proprietary bitmap face directly.
     ; Keep their interactive chrome native, but use a neutral system font so
     ; they no longer inherit the old Georgia/MysticCards approximation.
     settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
-    choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
-    scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(119) " w" V016S(296) " Choose" choice, choices)
+    choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherRequestedScale) + 1
+    scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(164) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(151) " w" V016S(448) " h" V016S(40) " BackgroundTrans", "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
+    copyExtra := AddV016SettingsCopy(settings, 32, V016S(196), 448, 40,
+        "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(197) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
+    settings.Add("Text", "x" V016S(32) " y" (V016S(242) + copyExtra) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
     settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
-    textList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(192) " w" V016S(296) " Choose" textChoice, textChoices)
+    textList := settings.Add("DropDownList", "x" V016S(184) " y" (V016S(237) + copyExtra) " w" V016S(296) " Choose" textChoice, textChoices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(32) " y" V016S(224) " w" V016S(448) " h" V016S(30) " BackgroundTrans", "Choose how big or small the launcher interface is for you.")
+    copyExtra += AddV016SettingsCopy(settings, 32, V016S(269) + copyExtra, 448, 30,
+        "Choose how big or small the launcher interface is for you.")
 
     settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     readabilityPrefix := V016ReadabilityState ? "☑" : "■"
-    readability := settings.Add("Text", "x" V016S(32) " y" V016S(260) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
+    readability := settings.Add("Text", "x" V016S(32) " y" (V016S(305) + copyExtra) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
+    settings.ReadabilityControl := readability
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
-    settings.Add("Text", "x" V016S(70) " y" V016S(290) " w" V016S(410) " h" V016S(42) " BackgroundTrans", "Improves readability by providing stronger contrast and brighter button text.")
+    copyExtra += AddV016SettingsCopy(settings, 70, V016S(335) + copyExtra, 410, 42,
+        "Improves readability by providing stronger contrast and brighter button text.")
+    GrowV016SettingsParchment(settings, copyExtra)
 
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
-    reduceMotionBox := {Value: 0}
+    reduceMotionBox := {Value: settings.SavedReduceMotion}
 
-    AddStyledButton(settings, V016S(32), V016S(342), V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(266), V016S(342), V016S(214), V016S(30), "Reset Launcher Settings", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
-    AddStyledButton(settings, V016S(32), V016S(390), V016S(448), V016S(30), "Close", CloseLauncherSettingsV016.Bind(settings))
-    AddStyledButton(settings, V016S(32), V016S(486), V016S(448), V016S(30), "AppData Settings", OpenAppDataSettingsV016)
+    AddStyledButton(settings, V016S(32), V016S(387) + copyExtra, V016S(214), V016S(30), "Preview Changes", ApplyV016LauncherSettings.Bind(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(266), V016S(387) + copyExtra, V016S(214), V016S(30), "Reset Changes", ResetLauncherSettingsV016.Bind(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue))
+    AddStyledButton(settings, V016S(32), V016S(435) + copyExtra, V016S(214), V016S(30), "Launcher Data", OpenAppDataSettingsV016.Bind(settings))
+    AddStyledButton(settings, V016S(266), V016S(435) + copyExtra, V016S(214), V016S(30), "TES3MP Setup", OpenClientSelectionSettings)
+    ; Restore the original full-width Close Settings button exactly as it
+    ; appeared before the desktop-shortcut button divided this row.
+    AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30),
+        "Close Settings", CloseLauncherSettingsV016.Bind(settings))
 
-    settings.OnEvent("Escape", CloseLauncherSettingsV016.Bind(settings))
+    ; Keep both parchment views in the same GUI. The common backdrop is never
+    ; destroyed, and all data controls are created only once per settings window.
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    V016SettingsMainControls := []
+    for control in settings
+        V016SettingsMainControls.Push(control)
+    V016SettingsDataControls := []
+    V016SettingsDataActive := false
+
+    settings.OnEvent("Escape", HandleLauncherSettingsEscapeV016)
     settings.OnEvent("Close", CloseLauncherSettingsV016.Bind(settings))
-    settings.OnEvent("Size", (*) => 0)
-    settings.Show("w" V016S(512) " h" V016S(590))
-    DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
-    WinSetTransColor("010101", "ahk_id " settings.Hwnd)
-    FinishButtonDisplay()
+    V016SettingsGuiHwnd := settings.Hwnd
+    ; The transparency key must be applied to the hidden Settings GUI, but
+    ; that alone does not prevent DWM from presenting its unpainted native
+    ; controls on the first visible frame. Cloak before Show and uncloak only
+    ; after the completed parchment and themed controls have been painted.
+    staged := SetPageCompositorCloak(settings, true)
+    try
+    {
+        settings.Show("Hide w" V016S(512) " h" (V016S(590) + settings.ParchmentExtra))
+        ; Anchor after sizing, while still DWM-cloaked, to the actual current
+        ; launcher HWND instead of Windows' stale/default page position.
+        PositionOwnedMenuAtParent(settings, LauncherGui)
+        ; AHK's WinSetTransColor looks up visible/eligible windows even for
+        ; ahk_id; it cannot find our intentionally DWM-cloaked Settings HWND.
+        ; Apply the unchanged 010101 key directly to the live native handle.
+        if !SetPageColorKey(settings, 0x010101)
+            throw Error("Could not prepare Launcher Settings transparency.")
+        settings.Show()
+        DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 0)
+        ; The synchronous page reveal below already paints every child once.
+        ; Scanning/painting all themed buttons *before* that pass doubled the
+        ; work and caused multi-second click delays on complex pages.
+        if staged
+            RevealPaintedPage(settings)
+        else
+            FinishButtonDisplay()
+    }
+    catch as err
+    {
+        CloseLauncherSettingsV016(settings)
+        throw err
+    }
+    finally
+    {
+        if staged
+            try SetPageCompositorCloak(settings, false)
+    }
+}
+
+HandleLauncherSettingsEscapeV016(settings)
+{
+    if IsBugReportPageVisible(settings)
+        CloseBugReportPage(settings)
+    else
+        CloseLauncherSettingsV016(settings)
 }
 
 CloseLauncherSettingsV016(settings, *)
 {
     global LauncherGui, V016SettingsGuiHwnd
+    if settings.HasOwnProp("ReportControls")
+    {
+        if settings.ReportBusy
+            return true
+        StopBugReportRequest(settings)
+    }
     hwnd := 0
     try hwnd := settings.Hwnd
     if hwnd && V016SettingsGuiHwnd = hwnd
         V016SettingsGuiHwnd := 0
-    try settings.Destroy()
-    if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd, "Int")
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    V016SettingsDataActive := false
+    V016SettingsMainControls := []
+    V016SettingsDataControls := []
+    ; Hand foreground ownership back to the launcher BEFORE destroying the
+    ; owned Settings window. Otherwise Windows can activate whichever third-
+    ; party window was behind TES3NP (OBS in the recorded reproduction).
+    launcherValid := IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd, "Int")
+    if launcherValid
     {
         DllCall("EnableWindow", "Ptr", LauncherGui.Hwnd, "Int", 1)
-        WinActivate("ahk_id " LauncherGui.Hwnd)
+        try LauncherGui.Show("NA")
+        try WinActivate("ahk_id " LauncherGui.Hwnd)
     }
+    try settings.Destroy()
 }
 
 V016CheckLabel(state, label)
@@ -598,27 +328,6 @@ ToggleV016ReadabilityControl(control, *)
     UpdateV016ReadabilityLabel(control, V016ReadabilityState)
 }
 
-ToggleV016ReadabilityParts(*)
-{
-    global V016ReadabilityState
-    V016ReadabilityState := !V016ReadabilityState
-    ; Reopen settings to refresh the bitmap label and checkbox together.
-    ; The saved value is still applied only by Preview Changes.
-    try
-    {
-        global V016SettingsGuiHwnd
-        hwnd := V016SettingsGuiHwnd
-        if hwnd && DllCall("IsWindow", "Ptr", hwnd, "Int")
-        {
-            symbol := V016ReadabilityState ? "☑" : "■"
-            controls := WinGetControls("ahk_id " hwnd)
-            for ctl in controls
-                try if InStr(ControlGetText(ctl, "ahk_id " hwnd), "■") || InStr(ControlGetText(ctl, "ahk_id " hwnd), "☑")
-                    ControlSetText(symbol, ctl, "ahk_id " hwnd)
-        }
-    }
-}
-
 UpdateV016ReadabilityLabel(control, state)
 {
     if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd, "Int")
@@ -626,19 +335,12 @@ UpdateV016ReadabilityLabel(control, state)
     try control.Text := V016CheckLabel(state, "Enhanced readability")
 }
 
-ToggleV016FollowWindows(control, *)
-{
-    global V016FollowWindowsState
-    V016FollowWindowsState := !V016FollowWindowsState
-    control.Text := V016CheckLabel(V016FollowWindowsState, "Follow Windows accessibility settings")
-}
-
 ApplyV016LauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, *)
 {
     global V016ReadabilityState, V016FollowWindowsState
     readabilityValue.Value := V016ReadabilityState
     followWindowsValue.Value := V016FollowWindowsState
-    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Applying launcher settings...")
+    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue)
 }
 
 ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilityValue, reduceMotionBox, followWindowsValue, *)
@@ -646,100 +348,493 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
     global V016ReadabilityState, V016FollowWindowsState
     if MsgBox("Reset launcher settings to their defaults?", "tes3np — Reset Launcher Settings", "YesNo Icon?") != "Yes"
         return
+    ; Reset is still a reversible preview: the No path restores both saved
+    ; values and every displayed selector/checkbox from the prior state.
     scaleList.Choose(1), textList.Choose(1)
     V016ReadabilityState := 0, V016FollowWindowsState := 1
     readability.Text := V016CheckLabel(0, "Enhanced readability")
     readabilityValue.Value := 0, reduceMotionBox.Value := 0, followWindowsValue.Value := 1
-    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, "Resetting launcher settings...")
+    PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, true)
 }
 
-OpenAppDataSettingsV016(*)
+OpenAppDataSettingsV016(settings, *)
 {
-    global LauncherGui
-    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — AppData")
-    window.BackColor := "E2CEA2"
-    window.SetFont("s11 Bold c241408", "Segoe UI")
-    window.Add("Text", "x20 y18 w520 h26", "AppData")
-    window.SetFont("s9 c382314", "Segoe UI")
-    window.Add("Text", "x20 y48 w520 h92", "AppData stores the launcher's settings and all of your local characters you added to the launcher. Make sure before tampering with these files you export your character data under the 'Manage Characters' page. This way if something goes wrong you can fully restore all your set characters and preferences.")
-    openFolder := window.Add("Button", "x20 y150 w520 h34", "Open AppData Folder")
-    copyLauncher := window.Add("Button", "x20 y194 w255 h34", "Copy Launcher Log")
-    copyRender := window.Add("Button", "x285 y194 w255 h34", "Copy Render Errors Log")
-    copyPatch := window.Add("Button", "x20 y238 w255 h34", "Copy Patch Log")
-    copyPatchErrors := window.Add("Button", "x285 y238 w255 h34", "Copy Patch Errors Log")
-    reset := window.Add("Button", "x20 y292 w520 h34", "Reset AppData")
-    close := window.Add("Button", "x20 y336 w520 h34 Default", "Close")
-    openFolder.OnEvent("Click", OpenLauncherDataFolder)
-    copyLauncher.OnEvent("Click", CopyAppDataLog.Bind("launcher.log", true))
-    copyRender.OnEvent("Click", CopyAppDataLog.Bind("render-errors.log"))
-    copyPatch.OnEvent("Click", CopyAppDataLog.Bind("patch-all.log"))
-    copyPatchErrors.OnEvent("Click", CopyAppDataLog.Bind("patch-errors.log"))
-    reset.OnEvent("Click", ShowResetAppDataActions)
-    close.OnEvent("Click", (*) => window.Destroy())
-    window.OnEvent("Escape", (*) => window.Destroy())
-    window.Show("w560 h390")
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    global LauncherMorrowindFont
+    if !IsObject(settings) || !DllCall("IsWindow", "Ptr", settings.Hwnd)
+        return
+    if V016SettingsDataActive
+        return
+    ; Snapshot the current parchment and suspend redraw while controls change.
+    ; Quick cached transitions keep the old frame, without a loading card.
+    BeginInterfaceUpdate(settings, "Opening Launcher Data...", false)
+    try
+    {
+    ; Create the second view once. A return visit simply toggles visibility.
+    if V016SettingsDataControls.Length = 0
+    {
+        before := Map()
+        for control in settings
+            before[control.Hwnd] := true
+        settings.SetFont("s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(32) " y" V016S(126) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data & Diagnostics")
+        ; The original 10pt Morrowind font was difficult to read at default
+        ; scale. Use larger lettering and concise copy within the same panel.
+        settings.SetFont("s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
+        copyExtra := AddV016SettingsCopy(settings, 42, V016S(166), 428, 65,
+            "Characters and preferences are saved in AppData. Export characters before resetting.")
+        AddStyledButton(settings, V016S(32), V016S(243) + copyExtra, V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
+        AddStyledButton(settings, V016S(32), V016S(284) + copyExtra, V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
+        settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(284) + copyExtra, V016S(214), V016S(30),
+            "Report A Bug", OpenBugReportPage.Bind(settings))
+        settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+        settings.Add("Text", "x" V016S(32) " y" (V016S(351) + copyExtra) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
+        AddStyledButton(settings, V016S(32), V016S(385) + copyExtra, V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
+        AddStyledButton(settings, V016S(32), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
+        AddStyledButton(settings, V016S(266), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
+        AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
+        if GrowV016SettingsParchment(settings, copyExtra)
+            settings.Show("NA h" (V016S(590) + settings.ParchmentExtra))
+        for control in settings
+            if !before.Has(control.Hwnd)
+                V016SettingsDataControls.Push(control)
+    }
+    ; Hide only the main view; keep the shared parchment picture visible.
+    V016SettingsDataActive := true
+    for index, control in V016SettingsMainControls
+        if index > 1
+            SetBookControlVisible(control, false)
+    for control in V016SettingsDataControls
+        SetBookControlVisible(control, true)
+    ; EndInterfaceUpdate performs the single final redraw under the frame cover.
+    }
+    finally EndInterfaceUpdate()
 }
 
-CopyAppDataLog(filename, syncLauncher := false, *)
+CloseLauncherDataV016(settings, *)
+{
+    global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
+    if !V016SettingsDataActive || !DllCall("IsWindow", "Ptr", settings.Hwnd)
+        return
+    BeginInterfaceUpdate(settings, "Returning to Launcher Settings...", false)
+    try
+    {
+    for control in V016SettingsDataControls
+        SetBookControlVisible(control, false)
+    for index, control in V016SettingsMainControls
+        if index > 1
+            SetBookControlVisible(control, true)
+    V016SettingsDataActive := false
+    ; EndInterfaceUpdate performs the single final redraw under the frame cover.
+    }
+    finally EndInterfaceUpdate()
+}
+
+CopyExpansionPackLogs(*)
 {
     global AppDataDirectory
-    if syncLauncher
-        SyncPatchLogToLauncherLog()
+    ; Both logs are retained separately on disk. The clipboard gets a
+    ; clearly labeled combined report, including any missing-file notices.
+    report := ""
+    found := false
+    for filename in ["patch-all.log", "patch-errors.log"]
+    {
+        path := AppDataDirectory "\" filename
+        report .= "===== " filename " =====`r`n"
+        if FileExist(path)
+        {
+            try
+            {
+                content := FileRead(path, "UTF-8")
+                if Trim(content) != ""
+                {
+                    report .= SanitizeDiagnosticText(content) "`r`n`r`n"
+                    found := true
+                    continue
+                }
+            }
+            catch Error as err
+            {
+                report .= "Could not read file (" Type(err) ").`r`n`r`n"
+                continue
+            }
+        }
+        report .= "(No entries available)`r`n`r`n"
+    }
+    if !found
+    {
+        MsgBox("No Expansion Pack log entries are available yet.", "tes3np — Diagnostics")
+        return
+    }
+    A_Clipboard := SanitizeDiagnosticText(report)
+    MsgBox("Expansion Pack diagnostics copied. Review before sharing.", "tes3np — Diagnostics")
+}
+
+CopyAppDataLog(filename, *)
+{
+    global AppDataDirectory
     path := AppDataDirectory "\" filename
     if !FileExist(path)
     {
-        MsgBox(filename " does not exist yet.", "tes3np — AppData")
+        MsgBox("No " filename " has been created yet. This usually means there are no recorded events of that type.", "tes3np — Diagnostics")
         return
     }
-    try A_Clipboard := FileRead(path, "UTF-8")
-    catch as err
+    try
     {
-        MsgBox("Could not read " filename ".\n\n" err.Message, "tes3np — AppData")
+        content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))
+        if Trim(content) = ""
+        {
+            MsgBox("The diagnostic log is empty.", "tes3np — Diagnostics")
+            return
+        }
+        if filename = "launcher.log"
+        {
+            ; Put the most recent game exit at the top, but retain the full
+            ; original chronological log below for developer investigation.
+            recentExit := ""
+            for line in StrSplit(content, "`n", "`r")
+                if InStr(line, "GAME | EXIT |")
+                    recentExit := line
+            if recentExit != ""
+            {
+                ; Query only the Windows crash event around this specific exit,
+                ; never unrelated recent Application Error entries.
+                eventDetails := FindTes3mpWindowsCrash(recentExit)
+                content := "===== MOST RECENT TES3MP EXIT =====`r`n" SanitizeDiagnosticText(recentExit)
+                    . "`r`n`r`n===== WINDOWS TES3MP CRASH DETAILS =====`r`n" SanitizeDiagnosticText(eventDetails)
+                    . "`r`n`r`n===== COMPLETE LAUNCHER LOG =====`r`n" content
+            }
+
+        }
+        A_Clipboard := content
+    }
+    catch Error as err
+    {
+        MsgBox("Could not read " filename " (" Type(err) ").", "tes3np — Diagnostics", "Icon!")
         return
     }
-    MsgBox(filename " copied to the clipboard.", "tes3np — AppData")
+    MsgBox("Diagnostic log copied to your clipboard. Review before sharing.", "tes3np — Diagnostics")
 }
 
-ShowLauncherLogActions(*)
+FindTes3mpWindowsCrash(exitLine)
 {
-    choice := MsgBox("Yes: Open the launcher log`nNo: Copy the launcher log to the clipboard`nCancel: More options", "tes3np — Launcher Logs", "YesNoCancel Icon?")
-    if choice = "Yes"
-        return OpenLauncherLog()
-    if choice = "No"
-    {
-        global LauncherLogFile
-        SyncPatchLogToLauncherLog()
-        A_Clipboard := FileExist(LauncherLogFile) ? FileRead(LauncherLogFile, "UTF-8") : ""
-        MsgBox("Launcher log copied to the clipboard.", "tes3np")
-        return
+    ; Windows writes Event ID 1000 asynchronously. This query is performed
+    ; only on Copy Launcher Logs, not on the UI watchdog's timing-critical path.
+    if StrLen(exitLine) < 19
+        return "Crash event unavailable: missing exit timestamp."
+    timestamp := SubStr(exitLine, 1, 19)
+    query := A_Temp "\tes3np-crash-query-" ProcessExist() "-" A_TickCount
+    scriptPath := query ".ps1"
+    resultPath := query ".txt"
+    script := "
+    (
+param([string]$Stamp, [string]$OutputFile)
+try {
+    $target = [datetime]::ParseExact($Stamp, 'yyyy-MM-dd HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
+    $events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000; StartTime=$target.AddMinutes(-1); EndTime=$target.AddMinutes(2)} -ErrorAction Stop
+    $match = $events | Where-Object { $_.Message -match '(?i)(^|[^a-z0-9_-])tes3mp[.]exe([^a-z0-9_-]|$)' } | Sort-Object TimeCreated -Descending | Select-Object -First 1
+    if ($match) {
+        $lines = @('Windows Application Error (Event ID 1000)', 'Recorded: ' + $match.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), 'Source: ' + $match.ProviderName, 'TES3MP crash event detected.')
+        [IO.File]::WriteAllText($OutputFile, ($lines -join [Environment]::NewLine), [Text.Encoding]::UTF8)
+    } else {
+        [IO.File]::WriteAllText($OutputFile, 'No matching Windows Application Error (Event ID 1000) was found for this TES3MP exit. A normal exit or an exception handled by the process may not create one.', [Text.Encoding]::UTF8)
     }
-    if MsgBox("Delete the launcher log?", "tes3np — Launcher Logs", "YesNo Icon!") = "Yes"
-        ClearLauncherLog()
+} catch {
+    [IO.File]::WriteAllText($OutputFile, 'Windows crash details unavailable (Windows event query failed).', [Text.Encoding]::UTF8)
 }
-
-ShowDiagnosticActions(*)
-{
-    choice := MsgBox("Yes: Open the AppData folder`nNo: Copy diagnostic information`nCancel: Return", "tes3np — Diagnostic Information", "YesNoCancel Icon?")
-    if choice = "Yes"
-        OpenLauncherDataFolder()
-    else if choice = "No"
-        CopyLauncherDiagnostics()
+    )"
+    try
+    {
+        FileAppend(script, scriptPath, "UTF-8")
+        ; No shell interpolation: quote the time and paths as separate arguments.
+        command := '"' A_WinDir '\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' scriptPath '" "' timestamp '" "' resultPath '"'
+        RunWait(command, , "Hide")
+        if FileExist(resultPath)
+            return Trim(FileRead(resultPath, "UTF-8"))
+        return "Windows crash diagnostics could not be retrieved."
+    }
+    catch Error as err
+        return "Windows crash diagnostics unavailable (" Type(err) ")."
+    finally
+    {
+        try FileDelete(scriptPath)
+        try FileDelete(resultPath)
+    }
 }
 
 ShowResetAppDataActions(*)
 {
-    global AppDataDirectory
+    global AppDataDirectory, LauncherDataResetting, EmbeddedChatPid
     choice := MsgBox("Yes: Open the AppData folder`nNo: Reset AppData`nCancel: Return", "tes3np — Reset AppData", "YesNoCancel Icon?")
     if choice = "Yes"
         return OpenLauncherDataFolder()
-    if choice != "No"
+    if choice != "No" || !CanResetLauncherAppData()
         return
-    warning := "This will delete all information inside tes3np AppData, including your saved characters and launcher settings.`n`nYou should export your character data before doing this.`n`nAre you sure you want to continue?"
+    warning := "This will delete all information inside tes3np AppData, including your saved characters and launcher settings.`n`nYou should export your character data before doing this.`n`ntes3np will close after the reset.`n`nAre you sure you want to continue?"
     if MsgBox(warning, "tes3np — Reset AppData", "YesNo Icon!") != "Yes"
         return
-    if MsgBox("This cannot be undone. Permanently reset tes3np AppData now?", "tes3np — Final Confirmation", "YesNo Icon!") != "Yes"
+    if MsgBox("This cannot be undone. Permanently reset tes3np AppData and close now?", "tes3np — Final Confirmation", "YesNo Icon!") != "Yes"
         return
-    try DirDelete(AppDataDirectory, true)
+    if !CanResetLauncherAppData()
+        return
+    ; ChatHost continuously indexes Discord history. Stop this owned process
+    ; and game recovery BEFORE deleting the shared Roaming AppData root.
+    StopGameRecovery()
+    chatPid := EmbeddedChatPid
+    StopEmbeddedInGameChat()
+    ; ProcessClose requests termination but may return before Windows has
+    ; released WebView2 files. Never delete a profile while its writer lives.
+    if chatPid
+    {
+        try stillRunning := ProcessWaitClose(chatPid, 5)
+        catch as err
+        {
+            MsgBox("Could not confirm that Game Chat closed: " err.Message
+                "`n`nNo launcher data was deleted. Restart TES3NP before retrying.",
+                "tes3np — Reset AppData", "Icon!")
+            return
+        }
+        if stillRunning
+        {
+            MsgBox("Game Chat is still closing. No launcher data was deleted."
+                "`n`nRestart TES3NP before retrying the reset.",
+                "tes3np — Reset AppData", "Icon!")
+            return
+        }
+    }
+    ; A worker may have started while the confirmations or Chat Host wait yielded.
+    previousCritical := Critical("On")
+    errorMessage := ""
+    try
+    {
+        canReset := CanResetLauncherAppData(false)
+        if canReset
+        {
+            LauncherDataResetting := true
+            if DirExist(AppDataDirectory)
+                DirDelete(AppDataDirectory, true)
+        }
+    }
+    catch as err
+    {
+        LauncherDataResetting := false
+        errorMessage := "AppData reset failed: " err.Message "`n`nRestart tes3np before retrying."
+    }
+    finally Critical(previousCritical)
+    if errorMessage != ""
+    {
+        MsgBox(errorMessage, "tes3np — Reset AppData", "Icon!")
+        return
+    }
+    if !canReset
+    {
+        CanResetLauncherAppData()
+        return
+    }
+    ; Do not recreate AppData here, and do not leave background timers running:
+    ; CleanupLauncher's reset path skips its normal settings/log writes.
+    ExitApp()
+}
+
+CanResetLauncherAppData(showMessage := true)
+{
+    global ExpansionRecoveryPending, MacroImport
+    if PatchInProgress()
+        message := "Finish the current Expansion Pack operation before resetting launcher data."
+    else if ExpansionRecoveryPending
+        message := "An interrupted Expansion Pack import still needs its backups. Close any TES3MP/OpenMW clients and restart TES3NP to retry recovery before resetting launcher data."
+    else if IsObject(MacroImport)
+        message := "Finish the current macro import before resetting launcher data."
+    else
+        return true
+    if showMessage
+        MsgBox(message, "tes3np — Reset AppData", "Icon!")
+    return false
+}
+
+OpenClientSelectionSettings(*)
+{
+    global LauncherGui, DataFile, V016SettingsGuiHwnd
+    mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
+    saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
+    ; The Settings page owns this borderless native card, not the disabled
+    ; launcher. A compact card is sized from its actual visible actions.
+    ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
+    initialHeight := saved ? 460 : 412
+    menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — TES3MP Setup", 680, initialHeight)
+    menu.SetFont("s17 Bold cC5A45C", "Georgia")
+    heading := menu.Add("Text", "x30 y25 w620 BackgroundTrans +Wrap", "TES3MP Setup")
+    heading.GetPos(, , , &headingHeight)
+    activeY := Max(78, 25 + headingHeight + 8)
+    display := mode = "Bundled" ? "Using the included TES3MP setup" : "Using your custom TES3MP setup"
+    menu.SetFont("s11 Bold cE7BE70", "Segoe UI")
+    activeLabel := menu.Add("Text", "x30 y" activeY " w620 BackgroundTrans +Wrap", display)
+    activeLabel.GetPos(, , , &activeHeight)
+    detailsY := Max(115, activeY + activeHeight + 8)
+    menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    details := menu.Add("Text", "x30 y" detailsY " w620 BackgroundTrans +Wrap",
+        "Choose which copy of TES3MP opens when you launch the game. "
+        . "TES3NP comes with a setup that's ready to play.")
+    textOffset := FitGameClientPromptCopyV016(menu, details, detailsY, 190)
+    customize := AddStyledButton(menu, 30, 190 + textOffset, 620, 40, "Choose a Custom EXE", (*) => ConfigureCustomClientV016(menu))
+    reactivate := AddStyledButton(menu, 30, 238 + textOffset, 620, 40, "Use Custom Setup", (*) => ActivateSavedCustomClientV016(menu))
+    reactivate.Visible := saved
+    reactivate.Enabled := saved
+    restoreY := (saved ? 286 : 238) + textOffset
+    restore := AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP", (*) => RestoreBundledClientV016(menu))
+    menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    statusY := (saved ? 339 : 291) + textOffset
+    statusLabel := menu.Add("Text", "x30 y" statusY " w620 h48 BackgroundTrans +Wrap", "")
+    closeY := (saved ? 399 : 351) + textOffset
+    close := AddStyledButton(menu, 231, closeY, 218, 38, "Close", CloseGameClientSettingsV016.Bind(menu))
+    menu.ClientFeedback := {Active: activeLabel, Status: statusLabel, Reactivate: reactivate,
+        Restore: restore, Close: close, SavedVisible: saved, TextOffset: textOffset}
+    menu.OnEvent("Escape", CloseGameClientSettingsV016.Bind(menu))
+    menu.OnEvent("Close", CloseGameClientSettingsV016.Bind(menu))
+    ShowGoldNativePrompt(menu)
+}
+
+FitGameClientPromptCopyV016(panel, details, detailsY, buttonY)
+{
+    details.GetPos(, , , &textHeight)
+    ; Allow an extra line because scaled fonts and control widths round separately.
+    paddedHeight := textHeight + Ceil(24 * A_ScreenDPI / 96)
+    details.Move(, , , paddedHeight)
+    offset := Max(0, detailsY + paddedHeight + 12 - buttonY)
+    if offset
+    {
+        panel.NativePromptHeight += offset
+        panel.NativePromptBackground.Move(, , , panel.NativePromptHeight - 4)
+    }
+    return offset
+}
+
+; Reflow the card when a new saved client makes its extra action available.
+RefreshGameClientSettingsLayoutV016(menu)
+{
+    if !IsObject(menu) || !DllCall("IsWindow", "Ptr", menu.Hwnd)
+        return
+    saved := FileExist(GetCustomOverrideFolder() "\tes3mp.exe") ? true : false
+    state := menu.ClientFeedback
+    state.Reactivate.Enabled := saved
+    state.Reactivate.Visible := saved
+    if state.SavedVisible = saved
+        return
+    scale := menu.HasOwnProp("OwnedContentScale") ? menu.OwnedContentScale : 1.0
+    state.SavedVisible := saved
+    offset := state.TextOffset
+    moveY := (saved ? 286 : 238) + offset
+    MoveStyledButton(state.Restore, Round(30 * scale), Round(moveY * scale),
+        Round(620 * scale), Round(40 * scale))
+    state.Status.Move(Round(30 * scale), Round(((saved ? 339 : 291) + offset) * scale),
+        Round(620 * scale), Round(48 * scale))
+    MoveStyledButton(state.Close, Round(231 * scale), Round(((saved ? 399 : 351) + offset) * scale),
+        Round(218 * scale), Round(38 * scale))
+    menu.NativePromptHeight := (saved ? 460 : 412) + offset
+    menu.NativePromptBackground.Move(Round(2 * scale), Round(2 * scale),
+        Round(676 * scale), Round((menu.NativePromptHeight - 4) * scale))
+    ShowCenteredGoldPrompt(menu, menu.NativePromptBackdrop,
+        Round(680 * scale), Round(menu.NativePromptHeight * scale))
+    DllCall("RedrawWindow", "Ptr", menu.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0185)
+}
+
+RestoreBundledClientV016(menu, *)
+{
+    global DataFile
+    IniWrite("Bundled", DataFile, "Launch", "ClientMode")
+    LogLauncherEvent("GAME | Original bundled runtime restored as active client.")
+    UpdateGameClientFeedbackV016(menu, "Using the included TES3MP setup", "The included setup is ready to play.")
+}
+
+ActivateSavedCustomClientV016(menu, *)
+{
+    global DataFile
+    if !FileExist(GetCustomOverrideFolder() "\tes3mp.exe")
+        return
+    IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
+    LogLauncherEvent("GAME | Saved custom runtime overrides reactivated.")
+    UpdateGameClientFeedbackV016(menu, "Using your custom TES3MP setup", "Your custom setup is ready to play.")
+}
+
+ConfigureCustomClientV016(menu, *)
+{
+    source := FileSelect(1, , "Choose your custom tes3mp.exe", "Executable (*.exe)")
+    if source = ""
+        return
+    SplitPath(source, &name)
+    if StrLower(name) != "tes3mp.exe" || !FileExist(source)
+    {
+        MsgBox("Select a file named tes3mp.exe.", "TES3MP Setup", "Icon!")
+        return
+    }
+    ; Preserve the dependency workflow inside the same borderless,
+    ; changelog-style native card system as its parent TES3MP Setup.
+    options := CreateGoldNativePrompt(menu, "Set Up Your Custom EXE", 640, 382)
+    options.SetFont("s15 Bold cC5A45C", "Georgia")
+    heading := options.Add("Text", "x30 y22 w580 BackgroundTrans +Wrap", "Set Up Your Custom EXE")
+    heading.GetPos(, , , &headingHeight)
+    detailsY := Max(72, 22 + headingHeight + 8)
+    options.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    details := options.Add("Text", "x30 y" detailsY " w580 BackgroundTrans +Wrap",
+        "TES3NP will use the tes3mp.exe you selected. If it came with its own DLLs or other files, "
+        . "choose the folder that contains them. If you're only swapping the EXE, use the files that come with TES3NP.")
+    textOffset := FitGameClientPromptCopyV016(options, details, detailsY, 198)
+    add := AddStyledButton(options, 30, 198 + textOffset, 580, 38, "Choose Folder With Extra Files",
+        (*) => ChooseCustomDependencyFolderV016(menu, options, source))
+    skip := AddStyledButton(options, 30, 246 + textOffset, 580, 38, "Use My Custom Exe",
+        (*) => SaveCustomClientV016(menu, options, source, ""))
+    cancel := AddStyledButton(options, 188, 317 + textOffset, 264, 38, "Cancel",
+        (*) => CloseGoldNativePrompt(options))
+    options.OnEvent("Escape", (*) => CloseGoldNativePrompt(options))
+    options.OnEvent("Close", (*) => CloseGoldNativePrompt(options))
+    ShowGoldNativePrompt(options)
+}
+
+ChooseCustomDependencyFolderV016(menu, options, source, *)
+{
+    ; Use the modern Explorer-style picker, but select a folder rather than a file.
+    folder := FileSelect("D", , "Choose the folder with your custom EXE's extra files")
+    if folder != ""
+        SaveCustomClientV016(menu, options, source, folder)
+}
+
+SaveCustomClientV016(menu, options, source, folder, *)
+{
+    global DataFile, AppDataDirectory
+    if !PrepareMarkerlessClientRuntime() || !InstallCustomClientOverrides(source, folder)
+        return
     DirCreate(AppDataDirectory)
-    MsgBox("AppData has been reset. Restart tes3np before continuing.", "tes3np — AppData Settings")
+    IniWrite("CustomOverrides", DataFile, "Launch", "ClientMode")
+    LogLauncherEvent("GAME | Custom client configured | Additional dependencies: " (folder = "" ? "none" : "selected") ".")
+    CloseGoldNativePrompt(options)
+    UpdateGameClientFeedbackV016(menu, "Using your custom TES3MP setup", folder = ""
+        ? "Custom EXE saved with included files."
+        : "Custom EXE and extra files saved.")
+}
+
+UpdateGameClientFeedbackV016(menu, active, message)
+{
+    if !IsObject(menu) || !DllCall("IsWindow", "Ptr", menu.Hwnd)
+        return
+    menu.ClientFeedback.Active.Text := active
+    menu.ClientFeedback.Status.Text := message
+    RefreshGameClientSettingsLayoutV016(menu)
+    menu.Show()
+    WinActivate("ahk_id " menu.Hwnd)
+}
+
+CloseGameClientSettingsV016(menu, *)
+{
+    global V016SettingsGuiHwnd, LauncherGui
+    CloseGoldNativePrompt(menu)
+    if V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd)
+    {
+        WinShow("ahk_id " V016SettingsGuiHwnd)
+        WinActivate("ahk_id " V016SettingsGuiHwnd)
+    }
+    else if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
+    {
+        WinShow("ahk_id " LauncherGui.Hwnd)
+        WinActivate("ahk_id " LauncherGui.Hwnd)
+    }
 }

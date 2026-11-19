@@ -1,11 +1,45 @@
 ﻿; Profile persistence, shared executable settings and Windows password protection.
 
+; Morrowind playable species in alphabetical order. Empty means an existing
+; character has not chosen its species and keeps the original icon.
+CharacterSpeciesOptions()
+{
+    return ["Argonian", "Breton", "Dark Elf", "High Elf", "Imperial",
+        "Khajiit", "Nord", "Orc", "Redguard", "Wood Elf"]
+}
+
+NormalizeCharacterSpecies(value)
+{
+    value := Trim(value)
+    for species in CharacterSpeciesOptions()
+        if StrLower(species) = StrLower(value)
+            return species
+    return ""
+}
+
+; Custom portraits are private per-character images outside the install tree.
+; Persist only a generated basename (never an arbitrary user-selected path).
+NormalizeCustomPortraitFile(value)
+{
+    value := Trim(value)
+    return RegExMatch(value, "i)^[0-9a-f]{32}\.(png|jpg|jpeg|bmp)$") ? StrLower(value) : ""
+}
+
+GetCustomPortraitPath(filename)
+{
+    filename := NormalizeCustomPortraitFile(filename)
+    return filename = "" ? "" : AppDataDirectory "\portraits\" filename
+}
+
 LoadProfiles()
 {
     global Profiles, DataFile, SelectedProfile, MaxCharacters
     Profiles := []
     savedCount := IniRead(DataFile, "Profiles", "Count", "0")
     count := RegExMatch(savedCount, "^\d{1,6}$") ? Min(MaxCharacters, Integer(savedCount)) : 0
+    saved := IniRead(DataFile, "Profiles", "Selected", "0")
+    savedSlot := RegExMatch(saved, "^\d{1,6}$") ? Integer(saved) : 0
+    SelectedProfile := 0
     Loop count
     {
         section := "Character" A_Index
@@ -20,94 +54,106 @@ LoadProfiles()
                 password := ""
         }
         if name != ""
+        {
             Profiles.Push({Name: name, Password: password,
+                Species: NormalizeCharacterSpecies(IniRead(DataFile, section, "Species", "")),
+                PortraitFile: NormalizeCustomPortraitFile(IniRead(DataFile, section, "PortraitFile", "")),
                 UsernameDelay: ReadProfileDelay(section, "Username", AppConfig.UsernameDelay),
                 PasswordDelay: ReadProfileDelay(section, "PasswordDelay", AppConfig.PasswordDelay, "Password"),
                 LoadDelay: ReadProfileDelay(section, "Load", AppConfig.LoadDelay),
-                AutoReconnect: IniRead(DataFile, section, "AutoReconnect", "1") = "1"})
+                AutoReconnect: IniRead(DataFile, section, "AutoReconnect", "0") = "1"})
+            if A_Index = savedSlot
+                SelectedProfile := Profiles.Length
+        }
     }
-    saved := IniRead(DataFile, "Profiles", "Selected", "0")
-    SelectedProfile := RegExMatch(saved, "^\d+$") && Integer(saved) <= Profiles.Length ? Integer(saved) : 0
-
+    ; Migrate older lists without a favorite to their first character.
+    ; Write only the selection here: the launcher menu may not exist yet
+    ; during startup, so SaveDefaultProfile() must not run at this point.
+    if Profiles.Length && !SelectedProfile
+    {
+        SelectedProfile := 1
+        if count = Profiles.Length
+            try IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")
+    }
 }
 
 ReadProfileDelay(section, key, fallback, legacyKey := "")
 {
     global DataFile
     legacyKey := legacyKey = "" ? key : legacyKey
-    value := IniRead(DataFile, section, key, IniRead(DataFile, "Timing", legacyKey, fallback))
-    return RegExMatch(value, "^\d+$") ? Max(1, Min(300, Integer(value))) : fallback
+    value := IniRead(DataFile, section, key, "")
+    if value = ""
+        value := IniRead(DataFile, "Timing", legacyKey, fallback)
+    if !RegExMatch(value, "^\d+$")
+        return fallback
+    digits := LTrim(value, "0")
+    return StrLen(digits) > 3 ? 300 : Max(1, Min(300, Integer("0" digits)))
 }
 
 SaveProfiles()
 {
-    global Profiles, DataFile
+    global Profiles, SelectedProfile, DataFile, MaxCharacters
     DirCreate(AppDataDirectory)
-    GetSharedExecutable()
-    IniWrite(Profiles.Length, DataFile, "Profiles", "Count")
-    for index, profile in Profiles
+    temporary := DataFile ".save.tmp"
+    try
     {
-        section := "Character" index
-        SetInterfaceLoadingText("Saving character name " index "...")
-        IniWrite(profile.Name, DataFile, section, "Name")
-        SetInterfaceLoadingText("Saving protected password " index "...")
-        IniWrite(ProtectPassword(profile.Password), DataFile, section, "Password")
-        ; Executable is shared; remove obsolete per-character copies.
-        try IniDelete(DataFile, section, "Executable")
-        SetInterfaceLoadingText("Saving login timings " index "...")
-        IniWrite(profile.UsernameDelay, DataFile, section, "Username")
-        IniWrite(profile.PasswordDelay, DataFile, section, "PasswordDelay")
-        IniWrite(profile.LoadDelay, DataFile, section, "Load")
-        IniWrite(profile.AutoReconnect ? "1" : "0", DataFile, section, "AutoReconnect")
+        if FileExist(temporary)
+            FileDelete(temporary)
+        if FileExist(DataFile)
+            FileCopy(DataFile, temporary)
+        IniWrite(Profiles.Length, temporary, "Profiles", "Count")
+        IniWrite(SelectedProfile, temporary, "Profiles", "Selected")
+        for index, profile in Profiles
+        {
+            section := "Character" index
+            SetInterfaceLoadingText("Saving character name " index "...")
+            IniWrite(profile.Name, temporary, section, "Name")
+            IniWrite(NormalizeCharacterSpecies(profile.Species), temporary, section, "Species")
+            IniWrite(NormalizeCustomPortraitFile(profile.PortraitFile), temporary, section, "PortraitFile")
+            SetInterfaceLoadingText("Saving protected password " index "...")
+            IniWrite(ProtectPassword(profile.Password), temporary, section, "Password")
+            IniWrite(profile.AutoReconnect ? "1" : "0", temporary, section, "AutoReconnect")
+            for key in ["Executable", "UseExpansionPack"]
+                try IniDelete(temporary, section, key)
+            SetInterfaceLoadingText("Saving login timings " index "...")
+            IniWrite(profile.UsernameDelay, temporary, section, "Username")
+            IniWrite(profile.PasswordDelay, temporary, section, "PasswordDelay")
+            IniWrite(profile.LoadDelay, temporary, section, "Load")
+        }
+        Loop MaxCharacters - Profiles.Length
+            try IniDelete(temporary, "Character" (Profiles.Length + A_Index))
+        FileMove(temporary, DataFile, true)
     }
-    index := Profiles.Length + 1
-    while IniRead(DataFile, "Character" index, "Name", "") != ""
+    finally
     {
-        IniDelete(DataFile, "Character" index)
-        index += 1
+        if FileExist(temporary)
+            try FileDelete(temporary)
     }
-    SaveDefaultProfile()
 }
 
-SaveDefaultProfile()
+SaveDefaultProfile(index)
 {
     global SelectedProfile, DataFile
     DirCreate(AppDataDirectory)
-    IniWrite(SelectedProfile, DataFile, "Profiles", "Selected")
+    IniWrite(index, DataFile, "Profiles", "Selected")
+    SelectedProfile := index
     UpdateCharacterMenuLabel()
 }
 
 GetSharedExecutable()
 {
-    global DataFile, SelectedProfile
-    executable := IniRead(DataFile, "Launch", "Executable", "")
-    if executable != ""
-        return executable
-    ; Migrate the previously selected character's path before removing old fields.
-    if SelectedProfile
-        executable := IniRead(DataFile, "Character" SelectedProfile, "Executable", "")
-    if executable = ""
+    global DataFile
+    mode := IniRead(DataFile, "Launch", "ClientMode", "Bundled")
+    if mode = "CustomOverrides"
+        return GetMergedCustomClientExecutable()
+    if mode = "CustomExe"
     {
-        Loop 10
-        {
-            executable := IniRead(DataFile, "Character" A_Index, "Executable", "")
-            if executable != ""
-                break
-        }
+        source := Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
+        return source = "" ? "" : GetManagedCustomClientExecutable(source)
     }
-    if executable != ""
-    {
-        DirCreate(AppDataDirectory)
-        IniWrite(executable, DataFile, "Launch", "Executable")
-    }
-    return executable
-}
-
-SaveSharedExecutable(*)
-{
-    global ExecutableInput, DataFile
-    DirCreate(AppDataDirectory)
-    IniWrite(Trim(ExecutableInput.Value), DataFile, "Launch", "Executable")
+    if mode = "CustomRuntime" || mode = "Custom"
+        return Trim(IniRead(DataFile, "Launch", "CustomExecutable", ""))
+    return A_ScriptDir "\client\tes3mp.exe"
 }
 
 ProtectPassword(value, encrypt := true)
@@ -148,23 +194,19 @@ ProtectPassword(value, encrypt := true)
     finally DllCall("LocalFree", "Ptr", data)
 }
 
-HasSavedCharacters()
-{
-    global DataFile, MaxCharacters
-    count := IniRead(DataFile, "Profiles", "Count", "0")
-    if !RegExMatch(count, "^\d{1,6}$")
-        return false
-    Loop Min(Integer(count), MaxCharacters)
-    {
-        if Trim(IniRead(DataFile, "Character" A_Index, "Name", "")) != ""
-            return true
-    }
-    return false
-}
-
 NewCharacterProfile()
 {
-    return {Name: "", Password: "", UsernameDelay: AppConfig.UsernameDelay,
-        PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay,
-        AutoReconnect: true}
+    return {Name: "", Password: "", Species: "", PortraitFile: "", UsernameDelay: AppConfig.UsernameDelay,
+        PasswordDelay: AppConfig.PasswordDelay, LoadDelay: AppConfig.LoadDelay, AutoReconnect: false}
+}
+
+NewLauncherFileId()
+{
+    uuid := Buffer(16, 0)
+    if DllCall("ole32\CoCreateGuid", "Ptr", uuid, "Int") != 0
+        throw Error("Could not allocate a unique file identifier.")
+    id := ""
+    Loop 16
+        id .= Format("{:02x}", NumGet(uuid, A_Index - 1, "UChar"))
+    return id
 }

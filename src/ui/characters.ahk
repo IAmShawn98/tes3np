@@ -1,37 +1,108 @@
-﻿; Character book, profile editor and launch explanation dialog.
+﻿; Character book, profile editor and favorite-selection interactions.
+
+; Character Book is the launcher-owned second page, not an independent
+; unscaled 960x650 window. Dynamic editor/macro controls still use their
+; approved 100%-layout coordinates; convert them at the native boundary.
+GetCharacterBookScale()
+{
+    global CharacterPage
+    return IsObject(CharacterPage) && CharacterPage.HasOwnProp("OwnedContentScale")
+        ? CharacterPage.OwnedContentScale : 1.0
+}
+
+BookS(value)
+{
+    return Round(value * GetCharacterBookScale())
+}
+
+; Reuse the actual cached book and its editor/macro state. The common native
+; scaling routine moves both visible control rectangles and matching fonts;
+; reload the one parchment bitmap to fit the new Picture rectangle.
+ApplyCharacterBookScale(scale)
+{
+    global CharacterPage
+    if !IsObject(CharacterPage)
+        return
+    previous := GetCharacterBookScale()
+    if Abs(scale - previous) < 0.001
+        return
+    ScaleOwnedMenuContent(CharacterPage, scale)
+    if CharacterPage.HasOwnProp("BookBackground")
+        CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+}
 
 OpenCharacterPage(*)
 {
-    global CharacterPage, LauncherGui, LaunchSettingsHeading, LaunchSettingsControls, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, SessionStatus, AddCharacterButton, CharacterRows, ExecutableInput, BookDragStrip, CharacterLimitNotice, ButtonFaces
-    if IsObject(CharacterPage)
+    global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
+    if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
-        PrepareWindowDisplay(CharacterPage)
-        CharacterPage.Show()
-        RevealWindowDisplay(CharacterPage, true)
+        ; Cached book is already fully painted and layered with its correct
+        ; magenta transparency. Reapplying alpha=0 on every visit caused a
+        ; visible blank-to-opaque flash before RevealWindowDisplay().
+        ; The cached book already contains all the correct controls, but
+        ; the first re-Show can publish its empty background before Windows
+        ; repaints child HWNDs. Keep the existing bitmap/controls intact and
+        ; reveal only after the entire cached page has been repainted.
+        staged := SetPageCompositorCloak(CharacterPage, true)
+        try
+        {
+            bookScale := GetOwnedMenuScale()
+            ApplyCharacterBookScale(bookScale)
+            CharacterPage.Show("Hide w" Round(960 * bookScale)
+                " h" Round(650 * bookScale))
+            PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
+            CharacterPage.Show()
+            if staged
+                RevealPaintedPage(CharacterPage)
+        }
+        finally
+        {
+            if staged
+                SetPageCompositorCloak(CharacterPage, false)
+        }
+        RefreshMacroProcesses()
+        if MacroItems.Length
+            SetTimer(RefreshMacroProcesses, 1000)
         return
     }
     SetInterfaceLoadingText("Loading saved characters...")
     LoadProfiles()
     SetInterfaceLoadingText("Building character menu...")
+    ; A rebuilt book must start with fresh control collections. The previous
+    ; GUI's controls are destroyed with the window, but AHK arrays still retain
+    ; those object references unless explicitly cleared.
+    CharacterRows := []
+    global MacroPage, MacroList, MacroBookControls
+    MacroPage := 0
+    MacroList := 0
+    MacroBookControls := []
+    EditorControls := []
+    ; A rebuilt character book needs its canonical button layout reapplied.
+    V016CharacterLayoutApplied := false
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
-    CharacterPage.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
+    CharacterPage.BookBackground := CharacterPage.Add("Picture", "x0 y0 w960 h650",
+        A_ScriptDir "\assets\backgrounds\character-book.png")
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
     ; Use the same native Morrowind-style face as Launcher Settings. Keep
     ; interactive buttons in their existing button font for readability.
     CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
-    CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Your Characters")
-    LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans", "Launch Settings")
+    CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Manage Characters")
+    ; Retain a hidden heading for the character editor.
+    LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 475, 370, 30, "Add character", (*) => EditProfile(0))
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h165 BackgroundTrans", "")
-    CharacterDescriptionMagic := false
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30, "Add character", (*) => EditProfile(0))
+    ; The approved copy fits in a compact description block. Do not leave
+    ; a full extra paragraph of empty control space above the first row.
+    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
     Loop 10
     {
         CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
-        y := 220 + (index - 1) * 24
+        ; Start just below the instructions; retain all ten 24px-spaced
+        ; rows and their aligned painted buttons and hit targets.
+        y := 164 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -41,26 +112,14 @@ OpenCharacterPage(*)
         SetInterfaceLoadingText("Loading Edit button " index "...")
         edit := AddStyledButton(CharacterPage, 300, y, 60, 22, "Edit", EditVisibleProfile.Bind(index))
         SetInterfaceLoadingText("Loading Remove button " index "...")
-        remove := AddStyledButton(CharacterPage, 370, y, 70, 22, "Remove", RemoveVisibleProfile.Bind(index))
+        remove := AddStyledButton(CharacterPage, 365, y, 75, 22, "Remove", RemoveVisibleProfile.Bind(index))
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 435, 370, 25, "* You have reached the server character limit.")
+    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 429, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    executableLabel := CharacterPage.Add("Text", "x525 y110 w360 h22 BackgroundTrans", "TES3MP executable")
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
-    SetInterfaceLoadingText("Loading executable field...")
-    ExecutableInput := AddThemedEdit(CharacterPage, "x525 y137 w270", GetSharedExecutable())
-    ExecutableInput.OnEvent("Change", SaveSharedExecutable)
-    SetInterfaceLoadingText("Loading Browse button...")
-    ExecutableInput.GetPos(, &executableY, , &executableHeight)
-    browse := AddStyledButton(CharacterPage, 805, executableY, 80, executableHeight, "Browse", BrowseSharedExecutable)
-    LaunchSettingsControls := [executableLabel, ExecutableInput, browse]
-    SessionStatus := CharacterPage.Add("Text", "x70 y555 w370 h50 Hidden", "")
-    SetInterfaceLoadingText("Loading Launch button...")
-    LaunchCharacterButton := AddStyledButton(CharacterPage, 70, 510, 370, 30, "Launch character", LaunchProfile)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
     AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
@@ -68,16 +127,41 @@ OpenCharacterPage(*)
     CharacterPage.OnEvent("Escape", CloseCharacterPage)
     SetInterfaceLoadingText("Loading character editor... ")
     CreateProfileEditor()
+    ; HideProfileEditor restores the macro panel: create that panel first.
+    ; Otherwise MacroList is still its integer zero placeholder.
+    BuildMacroBookPanel()
     HideProfileEditor()
+    ; Apply the canonical Character Book positions once after controls exist;
+    ; this preserves the compact two-button action stack.
+    ApplyV016CharacterLayout()
     RefreshProfiles()
     PrepareWindowDisplay(CharacterPage)
-    CharacterPage.Show("w960 h650")
-    RevealWindowDisplay(CharacterPage, true)
+    staged := SetPageCompositorCloak(CharacterPage, true)
+    try
+    {
+        bookScale := GetOwnedMenuScale()
+        ApplyCharacterBookScale(bookScale)
+        CharacterPage.Show("Hide w" Round(960 * bookScale)
+            " h" Round(650 * bookScale))
+        PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
+        CharacterPage.Show()
+        ; Preserve the original magenta color key and custom button faces.
+        RevealWindowDisplay(CharacterPage, true, !staged)
+        if staged
+            RevealPaintedPage(CharacterPage)
+    }
+    finally
+    {
+        if staged
+            SetPageCompositorCloak(CharacterPage, false)
+    }
+    if MacroItems.Length
+        SetTimer(RefreshMacroProcesses, 1000)
 }
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionMagic, LaunchCharacterButton, AddCharacterButton, MaxCharacters, CharacterLimitNotice, V016DailyLoginControls
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -99,60 +183,58 @@ RefreshProfiles()
                 SetBookTick(controls.Tick, SelectedProfile = index)
             }
         }
-        descriptionText := Profiles.Length
-            ? "This is a list containing all of your registered Nerevarine Prophecies characters. From here you can add or delete up to 10 characters. Click on the checkbox before a characters name to favorite it. When you favorite a character, that sets you up for quick launching the game, and logging yourself in for schedualed events automatically. You can change your favorite character anytime."
-            : "This will be a list of all your Nerevarine Prophecies characters. From here, you will be able to launch your characters automatically with optional crash recovery and much more."
-        CharacterDescription.Text := descriptionText
-        ; Keep functional description text on the bundled Mystic Cards TTF. The
-        ; vanilla bitmap renderer is intentionally not used for long paragraphs.
-        if IsObject(CharacterDescriptionMagic)
-            CharacterDescriptionMagic.Visible := false
-        CharacterDescriptionMagic := false
+        descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
-        ; Keep the character action stack in one canonical layout. The v0.1.16
-        ; refinement creates Daily Login after this window is built, so refreshes
-        ; (including Import Data) must preserve that layout instead of restoring
-        ; the older button positions.
-        actionY := Profiles.Length ? 455 : 185
+        ; Use the same gap below Add character in both list states.
+        actionY := Profiles.Length ? 540 : 164
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        CharacterDescription.Move(70, 80, 390, Profiles.Length ? 165 : 90)
-        ; Individual characters already have Play buttons in their rows. Keep the
-        ; legacy full-width Launch Character button hidden; showing it here after
-        ; an import overlaps Daily Login and the action stack.
-        LaunchCharacterButton.Visible := false
+        ; Shrink the transparent hit area as well as the visible gap so it
+        ; cannot cover a character checkbox after a refresh or import.
+        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
         transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : 225
-        DataTransferButton.Move(transferX, transferY, Profiles.Length ? 110 : 370, 30)
-        ButtonFaces[DataTransferButton.Hwnd].X := transferX
-        ButtonFaces[DataTransferButton.Hwnd].Y := transferY
+        transferY := Profiles.Length ? 575 : actionY + 35
+        ; Preserve the original wide Import Data layout and compact Export Data
+        ; layout. MoveStyledButton updates both the native control and its painted
+        ; face; do not change position or dimensions independently.
+        ; Hide the existing painted face while the single transfer control moves.
+        ; Otherwise its old location can remain drawn as a second (ghost) button.
+        if ButtonFaces.Has(DataTransferButton.Hwnd)
+        {
+            transferFace := ButtonFaces[DataTransferButton.Hwnd]
+            try transferFace.Control.Visible := false
+            try transferFace.Label.Visible := false
+        }
+        MoveStyledButton(DataTransferButton, transferX, transferY, Profiles.Length ? 110 : 370, 30)
+        if ButtonFaces.Has(DataTransferButton.Hwnd)
+        {
+            transferFace := ButtonFaces[DataTransferButton.Hwnd]
+            try transferFace.Control.Visible := true
+            try transferFace.Label.Visible := true
+        }
+        ; EndInterfaceUpdate repaints the old and new button positions together.
         WipeCharacterButton.Visible := Profiles.Length > 0
         if Profiles.Length > 0
-        {
-            ; Daily Login sits directly below Add Character.
-            if IsObject(V016DailyLoginControls) && V016DailyLoginControls.Length
-            {
-                dailyButton := V016DailyLoginControls[1]
-                MoveStyledButton(dailyButton, 70, 490, 370, 30)
-            }
-            MoveStyledButton(WipeCharacterButton, 70, 525, 370, 30)
-        }
+            MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
         DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
-        if IsObject(V016DailyLoginControls)
-            for control in V016DailyLoginControls
-                control.Visible := Profiles.Length > 0
+        ; Changing the native control text does not update the separately painted
+        ; Morrowind button face. Keep both layers synchronized after Import Data.
+        if ButtonFaces.Has(DataTransferButton.Hwnd)
+            ButtonFaces[DataTransferButton.Hwnd].Text := DataTransferButton.Text
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
-        LaunchCharacterButton.Text := SelectedProfile ? "Launch " Profiles[SelectedProfile].Name : "Launch character"
-        LaunchCharacterButton.Enabled := SelectedProfile > 0
-        FinishButtonDisplay()
     }
     finally EndInterfaceUpdate()
 }
 
 MoveStyledButton(control, x, y, width, height)
 {
-    global ButtonFaces
+    global ButtonFaces, CharacterPage
+    if IsObject(CharacterPage) && control.Gui.Hwnd = CharacterPage.Hwnd
+    {
+        x := BookS(x), y := BookS(y)
+        width := BookS(width), height := BookS(height)
+    }
     control.Move(x, y, width, height)
     if ButtonFaces.Has(control.Hwnd)
     {
@@ -174,44 +256,69 @@ EditVisibleProfile(position, *)
     EditProfile((CharacterListPage - 1) * 10 + position)
 }
 
-ChangeCharacterPage(direction, *)
-{
-    global CharacterListPage
-    CharacterListPage += direction
-    RefreshProfiles()
-}
-
 ChooseProfile(position, control, *)
 {
-    global SelectedProfile, CharacterListPage
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage, DataFile
     index := (CharacterListPage - 1) * 10 + position
-    SelectedProfile := SelectedProfile = index ? 0 : index
-    SaveDefaultProfile()
+    if index < 1 || index > Profiles.Length || SelectedProfile = index
+        return
+    ; Explain favorite switching only once per launcher profile. Remember the
+    ; acknowledgment after either answer, but never change the favorite on No.
+    if SelectedProfile > 0 && IniRead(DataFile, "Launcher", "HideFavoriteSwitchExplanation", "0") != "1"
+    {
+        CharacterPage.Opt("+OwnDialogs")
+        prompt := "Clicking this checkbox will mark this as your main / favorite character. Doing so will set you up for auto launching on the launchers main page. You can change this anytime by simply clicking the checkbox on another character instead. Are you sure you want to favorite this character? (Yes/No)"
+        result := MsgBox(prompt, "Favorite character", 0x124)
+        DirCreate(AppDataDirectory)
+        IniWrite("1", DataFile, "Launcher", "HideFavoriteSwitchExplanation")
+        if result != "Yes"
+            return
+    }
+    try SaveDefaultProfile(index)
+    catch
+    {
+        MsgBox("Could not save your favorite character. Check launcher data permissions.", "tes3np", "Icon!")
+        return
+    }
     RefreshProfiles()
 }
 
 HideProfileEditor()
 {
-    global EditorControls, EditorScrolling, LaunchSettingsHeading, LaunchSettingsControls
-    EditorScrolling := false
+    global EditorControls, LaunchSettingsHeading
     for control in EditorControls
-        control.Visible := false
-    LaunchSettingsHeading.Text := "Launch Settings"
-    for control in LaunchSettingsControls
-        control.Visible := true
+        try control.Visible := false
+    try LaunchSettingsHeading.Visible := false
+    ShowMacroBookPanel()
 }
 
 CloseCharacterPage(*)
 {
     global CharacterPage
-    HideProfileEditor()
+    ; The visible parent is already painted behind this owned book. Use the
+    ; cached launcher's no-repaint return, then hide the book immediately.
+    ; A real scale/layout change still uses the existing protected rebuild.
+    startedAt := A_TickCount
+    ShowLauncherWindow(true)
+    preparedMs := A_TickCount - startedAt
     CharacterPage.Hide()
-    ShowLauncherWindow()
+    hiddenMs := A_TickCount - startedAt
+    ; Capture only slow transitions, with no character names or file paths.
+    ; The video showed a visibly persistent book after Close, so measure the
+    ; time spent preparing the parent separately from the actual Hide call.
+    if hiddenMs >= 150
+        LogLauncherEvent("UI | Character Book close " hiddenMs "ms | Parent " preparedMs "ms | Hide " (hiddenMs - preparedMs) "ms.")
+    ; Reset dormant controls only AFTER hiding, avoiding a visible flash of
+    ; the editor/list while navigating back to the launcher.
+    HideProfileEditor()
+    CloseMacroPage()
 }
 
 EditProfile(index, *)
 {
-    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorReconnectTick, LaunchSettingsHeading, LaunchSettingsControls
+    global Profiles, CharacterPage, MaxCharacters, EditorControls, EditorSpeciesDropDown, LaunchSettingsHeading
+    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorPreviousSpeciesChoice, EditorOriginalMode
+    global EditorReconnectTick
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -222,33 +329,41 @@ EditProfile(index, *)
     {
         profile := index ? Profiles[index] : NewCharacterProfile()
         LaunchSettingsHeading.Text := index ? "Editing " profile.Name : "Add New Character"
-        for control in LaunchSettingsControls
-            control.Visible := false
-        editor := CharacterPage
-        editor.SetFont("s10 c382314", "Segoe UI")
-        global EditorFields, EditorRows, EditorEntries, EditorOffset, EditorTrack, EditorThumb, EditorUpdating
-        EditorEntries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
+        LaunchSettingsHeading.Visible := true
+        HideMacroBookPanel()
+        CharacterPage.SetFont("s10 c382314", "Segoe UI")
+        global EditorFields
+        entries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
             ["UsernameDelay", "Username screen delay (sec)", profile.UsernameDelay],
             ["PasswordDelay", "Password screen delay (sec)", profile.PasswordDelay],
             ["LoadDelay", "Character loading delay (sec)", profile.LoadDelay]]
         EditorFields := Map()
-        for entry in EditorEntries
+        for entry in entries
             EditorFields[entry[1]] := {Value: entry[3]}
-        EditorUpdating := true
-        for row in EditorRows
-            row.Key := ""
-        EditorOffset := 0
-        SetBookTick(EditorReconnectTick, profile.AutoReconnect)
-        ScrollEditorRows(0)
+        EditorFields["AutoReconnect"] := profile.AutoReconnect
+        ; Legacy characters remain editable without an invented race.
+        species := profile.HasOwnProp("Species") ? NormalizeCharacterSpecies(profile.Species) : ""
+        speciesIndex := 1
+        for optionIndex, option in CharacterSpeciesOptions()
+            if option = species
+                speciesIndex := optionIndex + 1
+        EditorOriginalPortraitFile := profile.HasOwnProp("PortraitFile") ? NormalizeCustomPortraitFile(profile.PortraitFile) : ""
+        EditorOriginalPortraitSource := ""
+        EditorOriginalSpecies := species
+        EditorOriginalMode := EditorOriginalPortraitFile != ""
+        ; An OC portrait stays selected in its own state, while the visible
+        ; dropdown always shows the character's real species at a glance.
+        EditorSpeciesDropDown.Choose(speciesIndex)
+        EditorPreviousSpeciesChoice := speciesIndex
+        PopulateProfileEditorRows(entries)
+        SetBookTick(EditorReconnectTick, EditorFields["AutoReconnect"])
         global EditorSaveButton, ButtonFaces
         EditorSaveButton.Text := index ? "Save changes" : "Add character"
         ButtonFaces[EditorSaveButton.Hwnd].LoadingText := "Saving character..."
-        ButtonFaces[EditorSaveButton.Hwnd].Action := SaveProfileEditor.Bind(index, EditorFields, editor)
+        ButtonFaces[EditorSaveButton.Hwnd].Action := SaveProfileEditor.Bind(index, EditorFields)
         for control in EditorControls
             control.Visible := true
-        EditorTrack.Visible := false
-        EditorThumb.Visible := false
-        FinishButtonDisplay()
+        UpdateOriginalSpeciesHint()
     }
     finally EndInterfaceUpdate()
 }
@@ -257,13 +372,14 @@ EditProfile(index, *)
 
 CreateProfileEditor()
 {
-    global CharacterPage, EditorControls, EditorRows, EditorTrack, EditorThumb, EditorSaveButton, EditorReconnectTick
+    global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint, EditorReconnectTick
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
     {
         position := A_Index
-        y := 110 + (position - 1) * 54
+        ; Keep the five editable fields evenly spaced.
+        y := 100 + (position - 1) * 50
         SetInterfaceLoadingText("Loading setting label " position "...")
         label := AddBookLabel(CharacterPage, 525, y, 355, 22, "")
         SetInterfaceLoadingText("Loading setting field " position "...")
@@ -273,20 +389,298 @@ CreateProfileEditor()
         EditorControls.Push(label)
         EditorControls.Push(input)
     }
-    SetInterfaceLoadingText("Loading settings scrollbar...")
-    EditorTrack := CharacterPage.Add("Text", "x890 y210 w7 h213 Hidden Background704C27 +0x100")
-    EditorThumb := CharacterPage.Add("Text", "x890 y210 w7 h110 Hidden BackgroundC69951 +0x100")
-    SetInterfaceLoadingText("Loading auto reconnect setting...")
-    EditorReconnectTick := AddBookTick(CharacterPage, 525, 400, ToggleEditorReconnect)
-    reconnectLabel := AddBookLabel(CharacterPage, 550, 397, 330, 24, "Auto reconnect on close or crash")
+    SetInterfaceLoadingText("Loading species selector...")
+    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Species")
+    speciesOptions := ["Select species..."]
+    for item in CharacterSpeciesOptions()
+        speciesOptions.Push(item)
+    speciesOptions.Push("Original Character")
+    EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
+        "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
+    EditorSpeciesDropDown.OnEvent("Change", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
+    CharacterPage.SetFont("s9 c382314", "Segoe UI")
+    ; The old hint overlapped the DDL's collapsed native control (y376..~402),
+    ; so its text could remain invisible until the book was reconstructed.
+    EditorOCSpeciesHint := CharacterPage.Add("Text",
+        "x525 y407 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
+    ; A selected DDL item cannot trigger Change twice: allow editing an OC
+    ; by clicking the persistent species line without changing the layout.
+    EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
+    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
+    EditorReconnectTick := AddBookTick(CharacterPage, 525, 435, ToggleEditorReconnect)
+    reconnectLabel := AddBookLabel(CharacterPage, 551, 432, 329, 24, "Auto reconnect on crash")
+    reconnectLabel.Opt("+0x100")
+    reconnectLabel.OnEvent("Click", ToggleEditorReconnect)
     EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
     EditorSaveButton := AddStyledButton(CharacterPage, 635, 465, 140, 30, "Save changes", (*) => 0)
-    EditorControls.Push(EditorTrack)
-    EditorControls.Push(EditorThumb)
     EditorControls.Push(EditorSaveButton)
     dismiss := AddStyledButton(CharacterPage, 685, 507, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
+}
+
+ToggleEditorReconnect(*)
+{
+    global EditorReconnectTick, EditorFields
+    EditorFields["AutoReconnect"] := !EditorFields["AutoReconnect"]
+    SetBookTick(EditorReconnectTick, EditorFields["AutoReconnect"])
+}
+
+; Keep the existing race list intact. "Original Character" is the only
+; presentation-only entry; the real species is chosen in a separate dialog.
+UpdateOriginalSpeciesHint()
+{
+    global EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode
+    isOriginal := EditorOriginalMode
+    EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
+        ? "Species: " EditorOriginalSpecies "  |  Change portrait" : ""
+    EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
+    ; The race must be visible as soon as the dialog closes, even when the
+    ; cached Character Book is reused without reopening Manage Characters.
+    if IsObject(EditorOCSpeciesHint)
+    {
+        DllCall("RedrawWindow", "Ptr", EditorOCSpeciesHint.Hwnd, "Ptr", 0,
+            "Ptr", 0, "UInt", 0x105)
+    }
+}
+
+ChooseOriginalCharacterPortrait(control, replaceOC := false)
+{
+    global EditorPreviousSpeciesChoice, EditorOriginalPortraitSource
+    global EditorOriginalPortraitFile, EditorOriginalSpecies, EditorOriginalMode
+
+    if !replaceOC && control.Text != "Original Character"
+    {
+        EditorPreviousSpeciesChoice := control.Value
+        EditorOriginalPortraitSource := ""
+        EditorOriginalPortraitFile := ""
+        EditorOriginalSpecies := ""
+        EditorOriginalMode := false
+        UpdateOriginalSpeciesHint()
+        return
+    }
+
+    ; File picker cancellation or rejection leaves the previous selection
+    ; and any previously saved picture untouched.
+    oldChoice := EditorPreviousSpeciesChoice
+    source := FileSelect(1, , "Choose an original character portrait",
+        "Images (*.png; *.jpg; *.jpeg; *.bmp)")
+    if source = ""
+    {
+        control.Choose(oldChoice)
+        return
+    }
+    if !IsValidOriginalCharacterImage(source)
+    {
+        MsgBox("This image could not be used. Choose a readable PNG, JPG, JPEG, "
+            "or BMP image under 10 MB. Very large image dimensions are not supported.",
+            "Portrait rejected", "Icon!")
+        control.Choose(oldChoice)
+        return
+    }
+    species := PromptOriginalCharacterSpecies(EditorOriginalSpecies)
+    if species = ""
+    {
+        control.Choose(oldChoice)
+        return
+    }
+    EditorOriginalPortraitSource := source
+    EditorOriginalPortraitFile := ""
+    EditorOriginalSpecies := species
+    EditorOriginalMode := true
+    ; "Original Character" starts the picker, but the final dropdown must
+    ; display the chosen race. The independent OC flag determines which
+    ; image is saved/displayed, so choosing Dark Elf does not remove the OC.
+    for raceIndex, race in CharacterSpeciesOptions()
+        if race = species
+        {
+            selectedIndex := raceIndex + 1
+            control.Choose(selectedIndex)
+            EditorPreviousSpeciesChoice := selectedIndex
+            break
+        }
+    UpdateOriginalSpeciesHint()
+}
+
+IsValidOriginalCharacterImage(source)
+{
+    ; Accept common image sizes, not only 512x512. Decode with the same
+    ; already-initialized GDI+ engine used for the launcher artwork.
+    if !RegExMatch(source, "i)\.(png|jpg|jpeg|bmp)$")
+        return false
+    image := 0
+    try
+    {
+        if FileGetSize(source) > 10485760 || FileGetSize(source) < 1
+            return false
+        if DllCall("gdiplus\GdipLoadImageFromFile", "WStr", source,
+            "Ptr*", &image, "Int") != 0 || !image
+            return false
+        width := 0, height := 0
+        if DllCall("gdiplus\GdipGetImageWidth", "Ptr", image,
+            "UInt*", &width, "Int") != 0
+            || DllCall("gdiplus\GdipGetImageHeight", "Ptr", image,
+            "UInt*", &height, "Int") != 0
+            return false
+        ; Reject malicious/huge image dimensions before allocating a bitmap.
+        return width > 0 && height > 0 && width <= 16384 && height <= 16384
+            && width * height <= 67108864
+    }
+    catch
+        return false
+    finally
+    {
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+    }
+}
+
+; Open a native owned dialog after a valid image has been chosen. This species
+; is saved normally and shown beneath the Original Character dropdown entry.
+PromptOriginalCharacterSpecies(current := "")
+{
+    global CharacterPage
+    outcome := {Species: ""}
+    dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox",
+        "Original Character species")
+    dialog.BackColor := "E2CEA2"
+    dialog.SetFont("s10 c382314", "Segoe UI")
+    dialog.Add("Text", "x20 y17 w320 h40",
+        "Which Morrowind species is your original character?")
+    options := ["Select species..."]
+    for race in CharacterSpeciesOptions()
+        options.Push(race)
+    selected := dialog.Add("DropDownList", "x20 y65 w320 Choose1", options)
+    for i, race in CharacterSpeciesOptions()
+        if race = current
+            selected.Choose(i + 1)
+    confirm := dialog.Add("Button", "x148 y110 w90 h29 Default", "Confirm")
+    cancel := dialog.Add("Button", "x250 y110 w90 h29", "Cancel")
+    confirm.OnEvent("Click", ConfirmOriginalCharacterSpecies.Bind(dialog, selected, outcome))
+    cancel.OnEvent("Click", CloseOriginalCharacterSpeciesDialog.Bind(dialog))
+    dialog.OnEvent("Close", CloseOriginalCharacterSpeciesDialog.Bind(dialog))
+    dialog.OnEvent("Escape", CloseOriginalCharacterSpeciesDialog.Bind(dialog))
+    CharacterPage.Opt("+Disabled")
+    try
+    {
+        dialogScale := GetOwnedMenuScale()
+        ScaleOwnedMenuContent(dialog, dialogScale)
+        dialog.Show("Hide w" Round(360 * dialogScale) " h" Round(155 * dialogScale))
+        PositionOwnedMenuAtParent(dialog, CharacterPage)
+        dialog.Show()
+        WinWaitClose("ahk_id " dialog.Hwnd)
+    }
+    finally
+    {
+        ; Always restore the owner after the child popup has gone away.
+        ; Reuse the cached book (no rebuild, reload or resize).
+        CharacterPage.Opt("-Disabled")
+        DestroyScaledMenu(dialog)
+        if DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
+            CharacterPage.Show("Restore")
+    }
+    return outcome.Species
+}
+
+CloseOriginalCharacterSpeciesDialog(dialog, *)
+{
+    global CharacterPage
+    ; An owned modal must re-enable its owner BEFORE being hidden.
+    ; Otherwise Windows activates the launcher behind the Character Book,
+    ; making Manage Characters seem to minimize on confirmation.
+    CharacterPage.Opt("-Disabled")
+    dialog.Hide()
+}
+
+ConfirmOriginalCharacterSpecies(dialog, selected, outcome, *)
+{
+    species := NormalizeCharacterSpecies(selected.Text)
+    if species = ""
+    {
+        MsgBox("Choose your original character's actual species.", "Species required", "Icon!")
+        return
+    }
+    outcome.Species := species
+    CloseOriginalCharacterSpeciesDialog(dialog)
+}
+
+; Copy the accepted image only when Save/Add is confirmed. Original paths are
+; not stored in settings; a private, generated filename survives app updates.
+InstallOriginalCharacterPortrait(source)
+{
+    ; Save every new OC portrait as a centered, high-quality 512x512 PNG.
+    ; Cropping/resizing is silent; only unreadable files raise an error.
+    if !IsValidOriginalCharacterImage(source)
+        throw Error("The selected image is not readable or exceeds the image limits.")
+    filename := NewLauncherFileId() ".png"
+    target := GetCustomPortraitPath(filename)
+    DirCreate(AppDataDirectory "\portraits")
+    temporary := target ".tmp"
+
+    image := 0, resized := 0, graphics := 0
+    try
+    {
+        if DllCall("gdiplus\GdipLoadImageFromFile", "WStr", source,
+            "Ptr*", &image, "Int") != 0 || !image
+            throw Error("Could not open the selected image.")
+
+        width := 0, height := 0
+        if DllCall("gdiplus\GdipGetImageWidth", "Ptr", image,
+            "UInt*", &width, "Int") != 0
+            || DllCall("gdiplus\GdipGetImageHeight", "Ptr", image,
+            "UInt*", &height, "Int") != 0
+            throw Error("Could not read the image dimensions.")
+        if width < 1 || height < 1 || width > 16384 || height > 16384
+            || width * height > 67108864
+            throw Error("The image dimensions are not supported.")
+
+        ; 32bpp ARGB preserves transparent backgrounds, unlike a GDI bitmap.
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 512,
+            "Int", 512, "Int", 0, "Int", 0x26200A, "Ptr", 0,
+            "Ptr*", &resized, "Int") != 0 || !resized
+            throw Error("Could not allocate the portrait image.")
+        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", resized,
+            "Ptr*", &graphics, "Int") != 0 || !graphics
+            throw Error("Could not prepare the portrait image.")
+        DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
+        DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
+        DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0)
+        side := Min(width, height)
+        left := Floor((width - side) / 2)
+        top := Floor((height - side) / 2)
+        if DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics,
+            "Ptr", image, "Int", 0, "Int", 0, "Int", 512, "Int", 512,
+            "Int", left, "Int", top, "Int", side, "Int", side,
+            "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0, "Int") != 0
+            throw Error("Could not resize the portrait.")
+
+        ; Free the graphics context before encoding; GDI+ owns the bitmap.
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        pngEncoder := Buffer(16, 0)
+        if DllCall("ole32\CLSIDFromString",
+            "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}",
+            "Ptr", pngEncoder, "Int") != 0
+            throw Error("PNG encoding is unavailable.")
+        if DllCall("gdiplus\GdipSaveImageToFile", "Ptr", resized,
+            "WStr", temporary, "Ptr", pngEncoder, "Ptr", 0, "Int") != 0
+            throw Error("Could not save the resized portrait.")
+        FileMove(temporary, target)
+        return filename
+    }
+    finally
+    {
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if resized
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", resized)
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+        if FileExist(temporary)
+            try FileDelete(temporary)
+    }
 }
 
 CloseProfileEditor(*)
@@ -303,30 +697,18 @@ UpdateEditorField(position, control, *)
         EditorFields[EditorRows[position].Key].Value := control.Value
 }
 
-ToggleEditorReconnect(*)
+PopulateProfileEditorRows(entries)
 {
-    global EditorReconnectTick, ButtonFaces
-    SetBookTick(EditorReconnectTick, !ButtonFaces[EditorReconnectTick.Hwnd].Checked)
-}
-
-ScrollEditorRows(offset)
-{
-    global EditorOffset, EditorUpdating, EditorRows, EditorEntries, EditorFields, EditorThumb
-    ; These five rows already exist: scrolling only swaps their displayed values.
-    ; Redraw the changed fields locally instead of rebuilding or covering the book.
+    global EditorUpdating, EditorRows, EditorFields
     previousCritical := A_IsCritical
     Critical("On")
     changed := []
     EditorUpdating := true
     try
     {
-        EditorOffset := 0
-        first := 1
         for position, row in EditorRows
         {
-            entry := EditorEntries[first + position - 1]
-            if row.Key = entry[1]
-                continue
+            entry := entries[position]
             for control in [row.Label, row.Input]
             {
                 if DllCall("IsWindowVisible", "Ptr", control.Hwnd)
@@ -340,7 +722,6 @@ ScrollEditorRows(offset)
             row.Input.Opt(entry[1] = "Password" ? "Password" : "-Password")
             row.Input.Value := EditorFields[entry[1]].Value
         }
-        EditorThumb.Move(890, 210 + Round(EditorOffset / 54 * 103))
     }
     finally
     {
@@ -354,79 +735,10 @@ ScrollEditorRows(offset)
     }
 }
 
-ScrollEditorWheel(wParam)
+SaveProfileEditor(index, fields, *)
 {
-    global CharacterPage, EditorTrack, EditorOffset
-    if !IsObject(CharacterPage) || !IsSet(EditorTrack) || !EditorTrack.Visible
-        return false
-    MouseGetPos(&x, &y, &window)
-    if window != CharacterPage.Hwnd
-        return false
-    point := Buffer(8, 0)
-    NumPut("Int", x, "Int", y, point)
-    DllCall("ScreenToClient", "Ptr", CharacterPage.Hwnd, "Ptr", point)
-    scale := A_ScreenDPI / 96
-    x := NumGet(point, 0, "Int") / scale
-    y := NumGet(point, 4, "Int") / scale
-    if x < 520 || x > 905 || y < 200 || y > 445
-        return false
-    delta := (wParam >> 16) << 48 >> 48
-    ScrollEditorRows(EditorOffset + (delta > 0 ? -54 : 54))
-    return true
-}
-
-PressEditorScroll(hwnd)
-{
-    global EditorTrack, EditorThumb, EditorScrolling, EditorGrab, EditorOffset, CharacterPage
-    if !IsSet(EditorTrack) || !EditorTrack.Visible || (hwnd != EditorTrack.Hwnd && hwnd != EditorThumb.Hwnd)
-        return false
-    MouseGetPos(, &y)
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (y - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
-    EditorGrab := hwnd = EditorThumb.Hwnd ? localY - (210 + Round(EditorOffset / 54 * 103)) : 55
-    EditorScrolling := true
-    DllCall("SetCapture", "Ptr", hwnd)
-    DragEditorScroll()
-    return true
-}
-
-DragEditorScroll()
-{
-    global EditorScrolling, EditorGrab, CharacterPage
-    if !IsSet(EditorScrolling) || !EditorScrolling
-        return
-    MouseGetPos(, &y)
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (y - NumGet(origin, 4, "Int")) / (A_ScreenDPI / 96)
-    ScrollEditorRows(Round((localY - 210 - EditorGrab) / 103 * 54))
-}
-
-ReleaseEditorScroll()
-{
-    global EditorScrolling
-    if !IsSet(EditorScrolling) || !EditorScrolling
-        return false
-    EditorScrolling := false
-    DllCall("ReleaseCapture")
-    return true
-}
-
-BrowseSharedExecutable(*)
-{
-    global ExecutableInput
-    path := FileSelect(1, , "Select tes3mp.exe", "Applications (*.exe)")
-    if path != ""
-    {
-        ExecutableInput.Value := path
-        SaveSharedExecutable()
-    }
-}
-
-SaveProfileEditor(index, fields, editor, *)
-{
-    global Profiles, SelectedProfile, MaxCharacters, EditorReconnectTick, ButtonFaces
+    global Profiles, SelectedProfile, MaxCharacters, EditorSpeciesDropDown, CharacterListPage
+    global EditorOriginalSpecies, EditorOriginalPortraitFile, EditorOriginalPortraitSource, EditorOriginalMode
     if !index && Profiles.Length >= MaxCharacters
     {
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
@@ -438,94 +750,134 @@ SaveProfileEditor(index, fields, editor, *)
         MsgBox("Enter a player name and password.", "tes3np")
         return
     }
+    ; A modal file/species chooser may briefly affect native DDL text.
+    ; The accepted OC state is independent of that display-only value.
+    isOriginal := EditorOriginalMode
+    species := isOriginal ? NormalizeCharacterSpecies(EditorOriginalSpecies)
+        : NormalizeCharacterSpecies(EditorSpeciesDropDown.Text)
+    if !index && species = ""
+    {
+        MsgBox("Choose a species for the new character.", "tes3np")
+        return
+    }
+    if isOriginal && species = ""
+    {
+        MsgBox("Choose the actual species for this original character.", "tes3np")
+        return
+    }
     for key in ["UsernameDelay", "PasswordDelay", "LoadDelay"]
-        if !RegExMatch(fields[key].Value, "^\d+$") || Integer(fields[key].Value) < 1 || Integer(fields[key].Value) > 300
+        if !RegExMatch(fields[key].Value, "^\d{1,3}$") || Integer(fields[key].Value) < 1 || Integer(fields[key].Value) > 300
         {
             MsgBox("Each login delay must be between 1 and 300 seconds.", "tes3np")
             return
         }
-    profile := {Name: name, Password: fields["Password"].Value,
+    portraitFile := "", newPortrait := ""
+    if isOriginal
+    {
+        if EditorOriginalPortraitSource != ""
+        {
+            try
+            {
+                portraitFile := InstallOriginalCharacterPortrait(EditorOriginalPortraitSource)
+                newPortrait := portraitFile
+            }
+            catch Error as err
+            {
+                reason := SanitizeDiagnosticText(err.Message)
+                MsgBox("Portrait could not be saved. " (reason != "" ? reason : "Check the selected picture and folder permissions."), "tes3np", "Icon!")
+                return
+            }
+        }
+        else
+        {
+            portraitFile := NormalizeCustomPortraitFile(EditorOriginalPortraitFile)
+            if portraitFile = "" || !FileExist(GetCustomPortraitPath(portraitFile))
+            {
+                MsgBox("This character's custom portrait is missing. Click Change portrait "
+                    "to select a new image.", "tes3np", "Icon!")
+                return
+            }
+        }
+    }
+    profile := {Name: name, Password: fields["Password"].Value, Species: species, PortraitFile: portraitFile,
         UsernameDelay: Integer(fields["UsernameDelay"].Value), PasswordDelay: Integer(fields["PasswordDelay"].Value), LoadDelay: Integer(fields["LoadDelay"].Value),
-        AutoReconnect: ButtonFaces[EditorReconnectTick.Hwnd].Checked}
-    BeginInterfaceUpdate(0, "Saving character...", true)
+        AutoReconnect: fields["AutoReconnect"]}
+    previousProfiles := Profiles.Clone()
+    previousFavorite := SelectedProfile
+    previousPage := CharacterListPage
+    saved := false
     try
     {
+        BeginInterfaceUpdate(0, "Saving character...", true)
         if index
             Profiles[index] := profile
         else
         {
             Profiles.Push(profile)
-            global CharacterListPage
+            ; The first saved character becomes the favorite automatically.
+            ; No additional dialog is needed until the user picks another.
+            if Profiles.Length = 1 || SelectedProfile < 1
+                SelectedProfile := 1
             CharacterListPage := Ceil(Profiles.Length / 10)
         }
-        SaveProfiles()
+        try SaveProfiles()
+        catch
+        {
+            Profiles := previousProfiles
+            SelectedProfile := previousFavorite
+            CharacterListPage := previousPage
+            MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
+            return
+        }
+        saved := true
+        UpdateCharacterMenuLabel()
         HideProfileEditor()
         RefreshProfiles()
     }
-    finally EndInterfaceUpdate()
+    finally
+    {
+        if !saved && newPortrait != ""
+            try FileDelete(GetCustomPortraitPath(newPortrait))
+        EndInterfaceUpdate()
+    }
 }
 
 RemoveVisibleProfile(position, *)
 {
-    global Profiles, SelectedProfile, CharacterListPage, ProfileEditor, CharacterPage
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage
     index := (CharacterListPage - 1) * 10 + position
     if index < 1 || index > Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")
     if MsgBox("Are you sure you want to remove " Profiles[index].Name " from your character list?", "Remove character", 0x124) != "Yes"
         return
+    previousProfiles := Profiles.Clone()
+    previousFavorite := SelectedProfile
+    previousPage := CharacterListPage
     BeginInterfaceUpdate(0, "Removing character...", true)
     try
     {
         ; Close an open editor so its saved index cannot refer to a different character.
         HideProfileEditor()
         Profiles.RemoveAt(index)
-        SelectedProfile := SelectedProfile = index ? 0 : SelectedProfile > index ? SelectedProfile - 1 : SelectedProfile
-        SaveProfiles()
+        ; Keep exactly one favorite when the current favorite is removed.
+        ; Prefer its next row, or the final row when it was last.
+        SelectedProfile := SelectedProfile = index
+            ? (Profiles.Length ? Min(index, Profiles.Length) : 0)
+            : SelectedProfile > index ? SelectedProfile - 1 : SelectedProfile
+        try SaveProfiles()
+        catch
+        {
+            Profiles := previousProfiles
+            SelectedProfile := previousFavorite
+            CharacterListPage := previousPage
+            MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
+            return
+        }
+        UpdateCharacterMenuLabel()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()
-}
-
-ShowLaunchAllExplanation()
-{
-    global CharacterPage, DataFile
-    result := {Accepted: false}
-    dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox", "Launch All & Close")
-    dialog.BackColor := "E2CEA2"
-    dialog.SetFont("s10 c382314", "Segoe UI")
-    dialog.Add("Text", "x20 y20 w420 h125", "This option launches each character one by one, waits 10 seconds after loading, then closes that game client. It’s useful for collecting daily login points on characters you don’t usually play every day. The launcher stays open when the list is finished.")
-    remember := dialog.Add("Checkbox", "x20 y150 w420 h25", "Don't show me this again")
-    launch := dialog.Add("Button", "x225 y190 w100 h30 Default", "Launch all")
-    cancel := dialog.Add("Button", "x340 y190 w100 h30", "Cancel")
-    launch.OnEvent("Click", AcceptLaunchAllExplanation.Bind(dialog, remember, result))
-    cancel.OnEvent("Click", (*) => dialog.Hide())
-    dialog.OnEvent("Close", (*) => dialog.Hide())
-    dialog.OnEvent("Escape", (*) => dialog.Hide())
-    CharacterPage.Opt("+Disabled")
-    try
-    {
-        dialog.Show("w460 h240")
-        WinWaitClose("ahk_id " dialog.Hwnd)
-    }
-    finally
-    {
-        CharacterPage.Opt("-Disabled")
-        dialog.Destroy()
-    }
-    return result.Accepted
-}
-
-AcceptLaunchAllExplanation(dialog, remember, result, *)
-{
-    global DataFile
-    if remember.Value
-    {
-        DirCreate(AppDataDirectory)
-        IniWrite("1", DataFile, "Launcher", "HideLaunchAllExplanation")
-    }
-    result.Accepted := true
-    dialog.Hide()
 }
 
 AddThemedEdit(owner, options, value := "")
@@ -535,24 +887,33 @@ AddThemedEdit(owner, options, value := "")
 
 WipeCharacterData(*)
 {
-    global Profiles, SelectedProfile, CharacterListPage, CharacterPage, Client
+    global Profiles, SelectedProfile, CharacterListPage, CharacterPage
     if !Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")
-    if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active recovery or launch-all sequence. Your in-game characters will NOT be deleted. Export Data first if you want a backup.", "Wipe Character Data", 0x124) != "Yes"
+    if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active login recovery. Your in-game characters will NOT be deleted. Export Data first if you want a backup.", "Wipe Character Data", 0x124) != "Yes"
         return
+    previousProfiles := Profiles.Clone()
+    previousFavorite := SelectedProfile
+    previousPage := CharacterListPage
     BeginInterfaceUpdate(0, "Clearing saved character data...", true)
     try
     {
-        StopClient()
-        Client.Profile := 0
-        if Client.HasOwnProp("Queue")
-            Client.Queue := 0
+        StopGameRecovery()
         HideProfileEditor()
         Profiles := []
         SelectedProfile := 0
         CharacterListPage := 1
-        SaveProfiles()
+        try SaveProfiles()
+        catch
+        {
+            Profiles := previousProfiles
+            SelectedProfile := previousFavorite
+            CharacterListPage := previousPage
+            MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")
+            return
+        }
+        UpdateCharacterMenuLabel()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()

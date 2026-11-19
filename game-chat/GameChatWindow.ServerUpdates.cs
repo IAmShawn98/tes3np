@@ -1,0 +1,254 @@
+using System.Drawing;
+using System.Globalization;
+using System.Text.Json;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
+
+internal sealed partial class GameChatWindow
+{
+    const string ServerUpdatesChannel = "https://discord.com/channels/509601787901116437/510245417657827363";
+    const string ServerUpdatesDateFormat = "MMMM d, yyyy";
+    static readonly Lazy<string> ExtractServerUpdates = GameChatWeb.Page("extract-server-updates.js");
+
+    sealed class ServerUpdatesWindow : Form
+    {
+        internal WebView2 Browser { get; } = new() { Dock = DockStyle.Fill, TabStop = false };
+
+        internal ServerUpdatesWindow()
+        {
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.Manual;
+            FormBorderStyle = FormBorderStyle.None;
+            Controls.Add(Browser);
+            PositionOffScreen();
+        }
+
+        protected override bool ShowWithoutActivation => true;
+
+        internal void PositionOffScreen()
+        {
+            var desktop = SystemInformation.VirtualScreen;
+            int dpi = Math.Max(96, DeviceDpi);
+            var placement = new Rectangle(desktop.Right + 32, desktop.Top, 1200 * dpi / 96, 960 * dpi / 96);
+            if (Bounds != placement) Bounds = placement;
+        }
+    }
+
+    sealed record ServerUpdate(string Id, ServerUpdateBlock[]? Blocks, ServerUpdateReaction[]? Reactions);
+    sealed record ServerUpdateReaction(string Key, string Name, string? Image, int Count, bool Mine);
+    sealed record ServerUpdateBlock(string? Style, int Number, ServerUpdateRun[]? Runs);
+    sealed record ServerUpdateRun(string? Text, bool Bold);
+
+    ServerUpdatesWindow? serverUpdatesWindow;
+    DateTime nextServerUpdatesCheck;
+    DateTime serverUpdatesReadyBy;
+    TaskCompletionSource? activeServerUpdatesRead;
+    ulong latestServerUpdateId;
+    readonly record struct ServerUpdatesDisplay(bool Open, ulong LastReadyId);
+    ServerUpdatesDisplay serverUpdatesDisplay = ReadServerUpdatesDisplay();
+    bool serverUpdatesManuallyOpened;
+
+    bool ServerUpdatesAuthenticated => !closingChat && !IsDisposed && discordAccountStatus == DiscordAccountStatus.SignedIn;
+    bool ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated && (serverUpdatesManuallyOpened || serverUpdatesDisplay.Open);
+    // Reserve the open feed's space during the initial account check. Only the
+    // loading state is rendered until Discord verifies the session.
+    bool ServerUpdatesShellExpanded => ServerUpdatesBodyExpanded ||
+        (discordAccountStatus == DiscordAccountStatus.Checking && serverUpdatesDisplay.Open);
+    bool CanShowServerUpdates => ServerUpdatesAuthenticated && latestServerUpdateId != 0;
+
+    static string ServerUpdatesDismissalPath => Path.Combine(ChatDataRoot, "game-updates-dismissed.txt");
+
+    static ServerUpdatesDisplay ReadServerUpdatesDisplay()
+    {
+        try
+        {
+            string value = File.ReadAllText(ServerUpdatesDismissalPath).Trim();
+            if (value.StartsWith("open:", StringComparison.Ordinal) &&
+                ulong.TryParse(value.AsSpan(5), NumberStyles.None, CultureInfo.InvariantCulture, out ulong openId))
+                return new(true, openId);
+            // Older launchers saved only the ID through which the feed was hidden.
+            if (ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out ulong hiddenId))
+                return new(false, hiddenId);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return new(true, 0);
+    }
+
+    void SaveServerUpdatesDisplay(bool open, ulong lastReadyId)
+    {
+        serverUpdatesDisplay = new(open, lastReadyId);
+        try
+        {
+            string id = lastReadyId.ToString(CultureInfo.InvariantCulture);
+            WriteChatArchiveAtomically(ServerUpdatesDismissalPath, open ? "open:" + id : id);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log("SERVER UPDATES | Save display state: " + ex.GetType().Name);
+        }
+    }
+
+    void ToggleServerUpdatesBody()
+    {
+        if (!ServerUpdatesAuthenticated)
+        {
+            RequestDiscordSignIn(fromHeader: false);
+            return;
+        }
+
+        bool hide = ServerUpdatesBodyExpanded;
+        serverUpdatesManuallyOpened = !hide;
+        if (hide)
+        {
+            SaveServerUpdatesDisplay(false, Math.Max(serverUpdatesDisplay.LastReadyId, latestServerUpdateId));
+            StopServerUpdatePicker();
+        }
+        PositionServerUpdatesPanel();
+    }
+
+    async Task RefreshServerUpdates()
+    {
+        if (!ServerUpdatesAuthenticated || discordAccountDirty || activeServerUpdatesRead != null || workingServerUpdateReaction ||
+            DateTime.UtcNow < nextServerUpdatesCheck ||
+            discordEnvironment is not { } environment) return;
+        var read = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        activeServerUpdatesRead = read;
+        nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(1);
+        ServerUpdatesWindow? source = serverUpdatesWindow;
+        try
+        {
+            if (source == null)
+            {
+                // Keep the updates channel in the same launcher-only profile, separate
+                // from the live chat DOM and from the chat dock's visibility.
+                source = serverUpdatesWindow = new ServerUpdatesWindow();
+                source.Show();
+                serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
+                await source.Browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
+                if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed) return;
+                var core = source.Browser.CoreWebView2;
+                ConfigureServerUpdatesBrowser(core);
+                serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
+                core.Navigate(ServerUpdatesChannel);
+                return;
+            }
+            source.PositionOffScreen();
+            var channel = source.Browser.CoreWebView2;
+            if (IsServerUpdatesRoute(channel.Source))
+            {
+                string result = await channel.ExecuteScriptAsync(ExtractServerUpdates.Value + "(null)").WaitAsync(TimeSpan.FromSeconds(3));
+                if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed || workingServerUpdateReaction ||
+                    !IsServerUpdatesRoute(channel.Source)) return;
+                var updates = JsonSerializer.Deserialize<ServerUpdate[]>(result);
+                if (updates != null)
+                {
+                    string text = FormatServerUpdates(updates, out ulong newestId, out var displayed);
+                    if (newestId >= latestServerUpdateId)
+                    {
+                        bool wasExpanded = ServerUpdatesBodyExpanded;
+                        latestServerUpdateId = newestId;
+                        displayedServerUpdates = displayed;
+                        if (newestId > serverUpdatesDisplay.LastReadyId)
+                            SaveServerUpdatesDisplay(true, newestId);
+                        bool revealNewest = !wasExpanded && ServerUpdatesBodyExpanded;
+                        UpdateServerUpdatesDocument(text, revealNewest);
+                        if (revealNewest) PositionServerUpdatesPanel();
+                    }
+                    serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
+                    nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(5);
+                    return;
+                }
+            }
+            if (!workingServerUpdateReaction && DateTime.UtcNow >= serverUpdatesReadyBy)
+                RecoverServerUpdates("channel unavailable");
+        }
+        catch (Exception ex)
+        {
+            if (ServerUpdatesAuthenticated && source == serverUpdatesWindow && !workingServerUpdateReaction &&
+                DateTime.UtcNow >= serverUpdatesReadyBy)
+                RecoverServerUpdates(ex.GetType().Name);
+        }
+        finally
+        {
+            activeServerUpdatesRead = null;
+            read.TrySetResult();
+        }
+    }
+
+    static void ConfigureServerUpdatesBrowser(CoreWebView2 core)
+    {
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.IsWebMessageEnabled = false;
+        core.NewWindowRequested += (_, e) => e.Handled = true;
+        core.DownloadStarting += (_, e) => e.Cancel = true;
+        core.NavigationStarting += (_, e) =>
+        {
+            e.Cancel = !IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri);
+        };
+    }
+
+    static bool IsServerUpdatesRoute(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length == 0 && uri.IsDefaultPort &&
+        string.Equals(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'), ServerUpdatesChannel, StringComparison.OrdinalIgnoreCase);
+
+    static string FormatServerUpdates(ServerUpdate[] updates, out ulong newestId, out ServerUpdate[] displayed)
+    {
+        var recent = new SortedDictionary<ulong, ServerUpdate>();
+        foreach (var update in updates)
+        {
+            if (update?.Blocks is not { Length: > 0 } || !ulong.TryParse(update.Id, out ulong id) || id == 0)
+                continue;
+            recent[id] = update;
+        }
+        newestId = recent.Count == 0 ? 0 : recent.Last().Key;
+        displayed = recent.TakeLast(8).Select(entry => entry.Value).ToArray();
+        if (displayed.Length == 0) return ServerUpdatesStatus("No server updates to display.");
+
+        return JsonSerializer.Serialize(new
+        {
+            posts = displayed.Select(post => new
+            {
+                id = post.Id,
+                date = DiscordTimestamp(ulong.Parse(post.Id, CultureInfo.InvariantCulture)).ToLocalTime()
+                    .ToString(ServerUpdatesDateFormat),
+                blocks = post.Blocks!.Take(120),
+                reactions = post.Reactions?.Take(25)
+            })
+        });
+    }
+
+    static string ServerUpdatesStatus(string text) => JsonSerializer.Serialize(new { status = text });
+
+    void RecoverServerUpdates(string reason)
+    {
+        Log("SERVER UPDATES | " + reason);
+        var previous = serverUpdatesWindow;
+        serverUpdatesWindow = null;
+        previous?.Dispose();
+        // Keep the known posts and the reader's scroll position through a reconnect.
+        if (displayedServerUpdates.Length == 0)
+            UpdateServerUpdatesDocument(ServerUpdatesStatus("Server updates are unavailable."));
+        nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(displayedServerUpdates.Length == 0 ? 30 : 5);
+    }
+
+    void ResetServerUpdates()
+    {
+        StopServerUpdatePicker();
+        var previous = serverUpdatesWindow;
+        serverUpdatesWindow = null;
+        nextServerUpdatesCheck = DateTime.MinValue;
+        latestServerUpdateId = 0;
+        serverUpdatesDocument = null;
+        displayedServerUpdates = [];
+        serverUpdatesManuallyOpened = false;
+        if (closingChat)
+            CloseServerUpdatesPanel();
+        else
+        {
+            PositionServerUpdatesPanel();
+            serverUpdatesPanel?.ResetDocument();
+        }
+        previous?.Dispose();
+    }
+}

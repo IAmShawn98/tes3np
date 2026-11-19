@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+# Alpha development keeps automatic source/PowerShell/C# checks via checks.yml.
+# Full Windows packaging is intentionally manual on alpha to conserve Actions
+# minutes and artifact storage.
 
 permissions:
   contents: read
@@ -17,17 +20,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Normalize patch script final newline
-        shell: pwsh
-        run: |
-          $path = 'scripts/patch-tes3mp.ps1'
-          $text = [IO.File]::ReadAllText($path)
-          if (-not ($text.EndsWith("`n"))) { [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true))) }
-      - name: Validate complete source and payload
-        run: python scripts/project.py check
-      - name: Parse PowerShell helpers
-        shell: powershell
-        run: ./scripts/check-powershell.ps1
       - name: Test launcher updater validation
         shell: pwsh
         run: ./scripts/test-update-client.ps1
@@ -39,6 +31,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/build-windows.ps1
+      - name: Verify Windows ZIP in dist before upload
+        run: python scripts/check-windows-package.py dist/tes3np-windows.zip
       - name: Generate and verify update metadata
         shell: pwsh
         run: ./scripts/generate-update-metadata.ps1
@@ -53,3 +47,6 @@ jobs:
             dist/tes3np-windows.zip.sha256
             dist/tes3np-update.json
           if-no-files-found: error
+          # Development packages are reproducible. Do not accumulate 60+ MB
+          # artifacts for months when just the latest manual build is needed.
+          retention-days: 3

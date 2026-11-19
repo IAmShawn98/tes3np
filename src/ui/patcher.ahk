@@ -1,29 +1,50 @@
-﻿; Bundled NP setup. PowerShell performs transactional copying off the GUI thread.
-
-IsTES3MPSetupComplete()
-{
-    global SetupComplete
-    return SetupComplete
-}
+﻿; Shared Morrowind discovery, optional Expansion Pack toggle and import progress.
+; The retired bundled v0.1 Install / Repair GUI and worker are deliberately absent.
+global MorrowindPromptGui := 0
+global ExpansionInstallPromptGui := 0
+global ExpansionAutoFailurePromptGui := 0
 
 PatchInProgress()
 {
-    global PatchJob
-    return IsObject(PatchJob)
+    global PatchJob, ExpansionRecoveryRunning, ExpansionToggleRunning
+    return IsObject(PatchJob) || ExpansionRecoveryRunning || ExpansionToggleRunning
 }
 
-FindTES3MPFolder()
+RecoverExpansionImports()
 {
-    global DataFile
-    for folder in [A_ScriptDir, A_ScriptDir "\.."]
-        if FileExist(folder "\tes3mp.exe")
-            return folder
-    path := IniRead(DataFile, "Patch", "TesFolder", "")
-    if FileExist(path "\tes3mp.exe")
-        return path
-    executable := GetSharedExecutable()
-    SplitPath(executable, , &folder)
-    return FileExist(executable) ? folder : ""
+    global AppDataDirectory, BundledResourceRoot, ExpansionRecoveryRunning, ExpansionRecoveryPending
+    if PatchInProgress()
+        return false
+    history := AppDataDirectory "\expansion-imports"
+    if !DirExist(history)
+    {
+        ExpansionRecoveryPending := false
+        return true
+    }
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    worker := resourceRoot "\scripts\import-expansion-pack.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    ExpansionRecoveryRunning := true
+    try
+    {
+        code := 3
+        try code := RunWait('"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'
+            . worker '" -RecoverHistory "' history '"', , "Hide")
+        ExpansionRecoveryPending := code != 0 && code != 2
+    }
+    finally
+        ExpansionRecoveryRunning := false
+    if code = 0
+        return true
+    if code = 2
+    {
+        LogLauncherEvent("EXPANSION | Interrupted import rolled back.")
+        MsgBox("TES3NP restored the files from an interrupted Expansion Pack import.", "Expansion Pack", "Iconi")
+        return true
+    }
+    LogLauncherEvent("EXPANSION | Interrupted import recovery is pending.")
+    MsgBox("TES3NP could not finish checking or recovering an earlier Expansion Pack import. Close any TES3MP/OpenMW clients and restart TES3NP to retry. If recovery is still pending, keep the import backups.", "Expansion Pack", "Icon!")
+    return false
 }
 
 FindMorrowindFolder(config)
@@ -31,7 +52,10 @@ FindMorrowindFolder(config)
     global DataFile
     candidates := [IniRead(DataFile, "Patch", "MorrowindFolder", "")]
     if FileExist(config)
-        for line in StrSplit(FileRead(config, "UTF-8"), "`n", "`r")
+    {
+        configText := ""
+        try configText := FileRead(config, "UTF-8")
+        for line in StrSplit(configText, "`n", "`r")
             if RegExMatch(line, '^\s*data\s*=\s*"?(.+?)"?\s*$', &match)
             {
                 data := RTrim(StrReplace(match[1], "/", "\"), "\")
@@ -39,242 +63,145 @@ FindMorrowindFolder(config)
                 if StrLower(name) = "data files"
                     candidates.Push(parent)
             }
+    }
     for registry in ["HKLM\SOFTWARE\WOW6432Node\Bethesda Softworks\Morrowind", "HKLM\SOFTWARE\Bethesda Softworks\Morrowind"]
         try candidates.Push(RegRead(registry, "Installed Path"))
-    try
+    steamRoots := [EnvGet("ProgramFiles(x86)") "\Steam", EnvGet("ProgramFiles") "\Steam"]
+    try steamRoots.InsertAt(1, RegRead("HKCU\Software\Valve\Steam", "SteamPath"))
+    candidates.Push("C:\GOG Games\Morrowind")
+    for steamRoot in steamRoots
     {
-        steam := RegRead("HKCU\Software\Valve\Steam", "SteamPath")
-        candidates.Push(steam "\steamapps\common\Morrowind")
+        if !DirExist(steamRoot)
+            continue
+        candidates.Push(steamRoot "\steamapps\common\Morrowind")
+        libraryFile := steamRoot "\steamapps\libraryfolders.vdf"
+        if !FileExist(libraryFile)
+            continue
+        try
+        {
+            libraryText := FileRead(libraryFile, "UTF-8")
+            position := 1
+            while RegExMatch(libraryText, 'i)"path"\s*"([^"]+)"', &match, position)
+            {
+                libraryPath := StrReplace(match[1], "\\", "\")
+                candidates.Push(libraryPath "\steamapps\common\Morrowind")
+                position := match.Pos(0) + match.Len(0)
+            }
+        }
     }
-    candidates.Push(EnvGet("ProgramFiles(x86)") "\Steam\steamapps\common\Morrowind", "C:\GOG Games\Morrowind")
     for folder in candidates
         if folder != "" && FileExist(folder "\Data Files\Morrowind.esm")
+            && FileExist(folder "\Data Files\Tribunal.esm")
+            && FileExist(folder "\Data Files\Bloodmoon.esm")
             return folder
     return ""
 }
 
+DefaultOpenMWConfigurationPath() => A_MyDocuments "\My Games\OpenMW\openmw.cfg"
+
 PatchConfigurationPath()
 {
     global DataFile
-    return IniRead(DataFile, "Patch", "ConfigFile", A_MyDocuments "\My Games\OpenMW\openmw.cfg")
+    return IniRead(DataFile, "Patch", "ConfigFile", DefaultOpenMWConfigurationPath())
 }
 
-OpenPatcher(*)
+CreateVanillaOpenMWConfiguration(config, morrowind)
 {
-    if PatchInProgress()
+    if DirExist(config)
+        throw Error("The OpenMW configuration path is a folder.")
+    if FileExist(config)
         return
-    global PatchPage, PatchTesInput, PatchMorrowindInput, PatchConfigInput, PatchStatus
-    global LauncherGui
-    if !IsObject(PatchPage)
+    SplitPath(config, , &folder)
+    dataPath := StrReplace(RTrim(morrowind, "\/") "\Data Files", "\", "/")
+    dataPath := StrReplace(StrReplace(dataPath, "@", "@a"), "#", "@h")
+    contents := 'data="' dataPath '"`r`n'
+    for master in ["Morrowind", "Tribunal", "Bloodmoon"]
     {
-        PatchPage := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox", "tes3np — Patch Tes3mp")
-        PatchPage.BackColor := "E2CEA2"
-        PatchPage.SetFont("s16 Bold c382314", "Georgia")
-        PatchPage.Add("Text", "x20 y15 w720 h30", "Patch Tes3mp")
-        PatchPage.SetFont("s10 Norm c382314", "Segoe UI")
-        PatchPage.Add("Text", "x20 y55 w720 h70", "Install the supplied markerless client and NP Expansion Pack v0.1. Close the game and OpenMW Launcher first. Existing files are backed up before replacement. Use TES3MP 0.8.1 for 64-bit Windows and Morrowind GOTY.")
-        config := PatchConfigurationPath()
-        PatchPage.Add("Text", "x20 y130 w720 h22", "TES3MP folder (detected when tes3np is placed inside it)")
-        PatchTesInput := PatchPage.Add("Edit", "x20 y155 w620 h25", FindTES3MPFolder())
-        browseTes := PatchPage.Add("Button", "x650 y155 w90 h25", "Browse")
-        browseTes.OnEvent("Click", BrowsePatchFolder.Bind(PatchTesInput, "Choose the TES3MP folder"))
-        PatchPage.Add("Text", "x20 y190 w720 h22", "Morrowind installation folder (contains Data Files)")
-        PatchMorrowindInput := PatchPage.Add("Edit", "x20 y215 w620 h25", FindMorrowindFolder(config))
-        browseMorrowind := PatchPage.Add("Button", "x650 y215 w90 h25", "Browse")
-        browseMorrowind.OnEvent("Click", BrowsePatchFolder.Bind(PatchMorrowindInput, "Choose the Morrowind GOTY folder"))
-        PatchPage.Add("Text", "x20 y250 w720 h22", "OpenMW user configuration (EP is enabled at the bottom of this load order)")
-        PatchConfigInput := PatchPage.Add("Edit", "x20 y275 w620 h25", config)
-        browseConfig := PatchPage.Add("Button", "x650 y275 w90 h25", "Browse")
-        browseConfig.OnEvent("Click", BrowsePatchConfiguration)
-        license := PatchPage.Add("Button", "x20 y320 w140 h30", "Read EP License")
-        license.OnEvent("Click", (*) => Run(A_ScriptDir "\patches\expansion-pack\LICENSE.txt"))
-        PatchApplyButton := PatchPage.Add("Button", "x175 y320 w145 h30 Default", "Install / Repair")
-        PatchVerifyButton := PatchPage.Add("Button", "x335 y320 w100 h30", "Verify")
-        PatchRestoreButton := PatchPage.Add("Button", "x450 y320 w145 h30", "Restore Backup")
-        close := PatchPage.Add("Button", "x610 y320 w130 h30", "Close")
-        PatchApplyButton.OnEvent("Click", StartPatchAction.Bind("Apply"))
-        PatchVerifyButton.OnEvent("Click", StartPatchAction.Bind("Verify"))
-        PatchRestoreButton.OnEvent("Click", StartPatchAction.Bind("Restore"))
-        close.OnEvent("Click", ClosePatcher)
-        PatchPage.OnEvent("Close", ClosePatcher)
-        PatchPage.OnEvent("Escape", ClosePatcher)
-        PatchPage.Opt("+OwnDialogs")
-        PatchStatus := PatchPage.Add("Text", "x20 y370 w720 h75", "Choose the detected folders, read the license, then Install / Repair. The launcher connects directly to NP after setup.")
+        contents .= "fallback-archive=" master ".bsa`r`n"
+            . "content=" master ".esm`r`n"
     }
-    PatchPage.Show("w760 h465")
-}
 
-ClosePatcher(*)
-{
-    global PatchPage
-    if PatchInProgress()
-        return
-    PatchPage.Hide()
-    ShowLauncherWindow()
-}
-
-BrowsePatchFolder(control, title, *)
-{
-    folder := DirSelect(control.Value, 3, title)
-    if folder != ""
-        control.Value := folder
-}
-
-BrowsePatchConfiguration(*)
-{
-    global PatchConfigInput
-    path := FileSelect(1, PatchConfigInput.Value, "Choose the active OpenMW user configuration", "OpenMW configuration (*.cfg)")
-    if path != ""
-        PatchConfigInput.Value := path
-}
-
-StartPatchAction(action, *)
-{
-    global PatchTesInput, PatchMorrowindInput, PatchConfigInput, PatchPage, DataFile
-    if PatchInProgress()
-        return
-    tesFolder := Trim(PatchTesInput.Value)
-    if action != "Restore" && !CheckModifiedClientForPatch(tesFolder, action)
-        return
-    if action = "Restore" && MsgBox("Restore files replaced by the most recent patch? Files changed afterward will be protected and may prevent restore.", "Restore Backup", 0x124) != "Yes"
-        return
-    if action = "Apply" && MsgBox("Install the markerless client, copy the NP Expansion Pack into Morrowind, and enable NP Expansion Pack.esp last in the selected load order? Replaced files will be backed up.", "Patch Tes3mp", 0x124) != "Yes"
-        return
-    StartPatchWorker(action, tesFolder, Trim(PatchMorrowindInput.Value), Trim(PatchConfigInput.Value), PatchPage)
-}
-
-StartPatchWorker(action, tesFolder, morrowindFolder, configFile, sourceGui, startup := false)
-{
-    global PatchJob, PatchFrame, DataFile, Client, InterfaceLoadingText
-    if PatchInProgress()
-        return false
-    if action != "Verify" && Client.Enabled
-    {
-        MsgBox("Stop game recovery from the tray, then close TES3MP before patching.", "Patch Tes3mp")
-        return false
-    }
-    selectedField := "TES3MP folder"
+    ; Publish a complete first-run config without replacing one created by OpenMW.
+    temp := config "." NewLauncherFileId() ".tmp"
     try
     {
-        for entry in [["TES3MP folder", tesFolder], ["Morrowind folder", morrowindFolder], ["OpenMW configuration", configFile]]
-        {
-            selectedField := entry[1]
-            if entry[2] = ""
-                throw Error("This field is empty. Browse to its location.")
-            if RegExMatch(entry[2], '["\r\n]')
-                throw Error("The field contains a quote or line break. Choose the location using Browse.")
-        }
-        selectedField := "TES3MP folder"
-        tesFolder := FullPatchPath(tesFolder)
-        if !DirExist(tesFolder)
-            throw Error("The selected folder does not exist.")
-        if !FileExist(tesFolder "\tes3mp.exe")
-            throw Error("Missing tes3mp.exe. Choose the folder containing that executable, rather than the launcher folder.")
-        selectedField := "Morrowind folder"
-        morrowindFolder := FullPatchPath(morrowindFolder)
-        if !DirExist(morrowindFolder)
-            throw Error("The selected folder does not exist.")
-        if !DirExist(morrowindFolder "\Data Files")
-            throw Error("Missing Data Files folder. Choose the Morrowind installation folder, rather than Data Files itself.")
-        if action != "Restore"
-            for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
-                if !FileExist(morrowindFolder "\Data Files\" master)
-                    throw Error("Missing Data Files\" master ". This patch requires Morrowind GOTY with both expansions installed.")
-        selectedField := "OpenMW configuration"
-        configFile := FullPatchPath(configFile)
-        SplitPath(configFile, &filename)
-        if StrLower(filename) != "openmw.cfg"
-            throw Error("Choose openmw.cfg. settings.cfg and the configuration folder itself are different items.")
-        if DirExist(configFile)
-            throw Error("This is a folder; choose the openmw.cfg file inside the active configuration folder.")
+        DirCreate(folder)
+        FileAppend(contents, temp, "UTF-8-RAW")
+        FileMove(temp, config, false)
     }
     catch Error as err
     {
-        ReportPatchError("Validate selected locations", selectedField, err, startup)
-        return false
+        if !FileExist(config) || DirExist(config)
+            throw err
     }
-    jobFolder := AppDataDirectory "\patch-jobs\" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
-    backup := IniRead(DataFile, "Patch", "LastBackup", "")
-    if action != "Restore" && (StrLower(IniRead(DataFile, "Patch", "TesFolder", "")) != StrLower(tesFolder)
-        || StrLower(IniRead(DataFile, "Patch", "MorrowindFolder", "")) != StrLower(morrowindFolder)
-        || StrLower(IniRead(DataFile, "Patch", "ConfigFile", "")) != StrLower(configFile))
-        backup := ""
-    if action = "Restore" && !FileExist(backup "\journal.json")
+    finally
     {
-        MsgBox("No saved patch backup is available.", "Restore Backup")
-        return false
+        if FileExist(temp)
+            try FileDelete(temp)
     }
-    startStep := "Create patch backup folder"
-    try
-    {
-        DirCreate(jobFolder)
-        powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
-        helper := A_ScriptDir "\scripts\patch-tes3mp.ps1"
-        startStep := "Find patch worker"
-        if !FileExist(powershell)
-            throw Error("Windows PowerShell was not found. This installer requires Windows PowerShell 5.1.")
-        if !FileExist(helper)
-            throw Error("Missing scripts\patch-tes3mp.ps1. Extract the entire launcher ZIP.")
-        if !FileExist(A_ScriptDir "\patches\manifest.json")
-            throw Error("Missing patches\manifest.json. Extract the entire launcher ZIP, including patches.")
-        command := QuotePatchArgument(powershell) " -NoProfile -NonInteractive -ExecutionPolicy Bypass -File " QuotePatchArgument(helper) " -Action " action
-            . " -TesFolder " QuotePatchArgument(tesFolder) " -MorrowindFolder " QuotePatchArgument(morrowindFolder) " -ConfigFile " QuotePatchArgument(configFile)
-            . " -PayloadFolder " QuotePatchArgument(A_ScriptDir "\patches") " -JobFolder " QuotePatchArgument(jobFolder)
-        if backup != ""
-            command .= " -RestoreFolder " QuotePatchArgument(backup) " -PreviousBackup " QuotePatchArgument(backup)
-        startStep := "Show patch progress"
-        InterfaceLoadingText := "Waiting for Jiub..."
-        PatchFrame := CaptureInterfaceFrame(sourceGui, true)
-        sourceGui.Opt("+Disabled")
-        startStep := "Start Windows PowerShell patch worker"
-        Run(command, , "Hide", &pid)
-        processHandle := DllCall("OpenProcess", "UInt", 0x1000, "Int", false, "UInt", pid, "Ptr")
-        PatchJob := {PID: pid, Handle: processHandle, Folder: jobFolder, Action: action, TesFolder: tesFolder,
-            MorrowindFolder: morrowindFolder, ConfigFile: configFile, Source: sourceGui, Startup: startup}
-        SetTimer(CheckPatchWorker, 50)
-        return true
-    }
+}
+
+EnsureOpenMWConfiguration(config, morrowind)
+{
+    try CreateVanillaOpenMWConfiguration(config, morrowind)
     catch Error as err
     {
-        sourceGui.Opt("-Disabled")
-        ReleaseCapturedInterfaceFrame(PatchFrame)
-        PatchFrame := 0
-        ReportPatchError(startStep, "Patch worker", err, startup)
+        LogLauncherEvent("SETUP | Could not create the OpenMW configuration (" Type(err) ").")
+        MsgBox("TES3NP could not create the OpenMW configuration for Morrowind GOTY."
+            . "`n`nMake sure this location is writable, then try again.`n" config,
+            "Morrowind GOTY Setup", "Icon!")
         return false
     }
+    return true
+}
+
+PrepareExpansionOpenMWConfiguration(config, morrowind)
+{
+    if !FileExist(config) && config != DefaultOpenMWConfigurationPath()
+    {
+        if MsgBox("TES3NP could not find your saved OpenMW configuration.`n`n"
+            . "Choose the openmw.cfg that TES3MP uses to manage the Expansion Pack load order.",
+            "Locate OpenMW Configuration", "YesNo Icon?") != "Yes"
+            return ""
+        config := FileSelect(1, , "Locate your OpenMW configuration", "OpenMW configuration (*.cfg)")
+        if config = ""
+            return ""
+    }
+    SplitPath(config, &configName)
+    if StrLower(configName) != "openmw.cfg" || DirExist(config)
+    {
+        MsgBox("Choose the openmw.cfg file that TES3MP uses.", "Expansion Pack", "Icon!")
+        return ""
+    }
+    return EnsureOpenMWConfiguration(config, morrowind) ? config : ""
 }
 
 UpdatePatchProgress(label, percent)
 {
-    global PatchFrame, ButtonFaces, PatchStatus
-    text := label " (" percent "%)"
-    if IsSet(PatchStatus)
-        PatchStatus.Text := text
-    if IsObject(PatchFrame) && IsObject(PatchFrame.Panel)
-    {
-        PatchFrame.Panel.Text := text
-        ButtonFaces[PatchFrame.Panel.Hwnd].Progress := Max(0, Min(1, percent / 100))
-        PaintButtonNow(PatchFrame.Panel.Hwnd)
-    }
+    global PatchFrame
+    return UpdateExpansionLoadingProgress(PatchFrame, label " (" percent "%)", percent)
 }
 
 CheckPatchWorker()
 {
-    global PatchJob, PatchFrame, DataFile, SetupComplete, PatchStatus, ExecutableInput
+    global PatchJob, PatchFrame, DataFile, LauncherGui, ExpansionRecoveryPending
     if !IsObject(PatchJob)
         return
     job := PatchJob
     progress := job.Folder "\progress.ini"
     if FileExist(progress)
-    {
-        label := IniRead(progress, "Progress", "Label", "Checking setup")
-        value := IniRead(progress, "Progress", "Percent", "0")
-        UpdatePatchProgress(label, RegExMatch(value, "^\d+$") ? Integer(value) : 0)
-    }
-    if ProcessExist(job.PID)
+        try
+        {
+            label := IniRead(progress, "Progress", "Label", "Importing Expansion Pack")
+            value := IniRead(progress, "Progress", "Percent", "0")
+            UpdatePatchProgress(label, RegExMatch(value, "^\d+$") ? Integer(value) : 0)
+        }
+    running := job.Handle
+        ? DllCall("WaitForSingleObject", "Ptr", job.Handle, "UInt", 0, "UInt") = 258
+        : ProcessExist(job.PID)
+    if running
         return
     SetTimer(CheckPatchWorker, 0)
-    PatchJob := 0
     exitCode := "unknown"
     if job.Handle
     {
@@ -284,82 +211,105 @@ CheckPatchWorker()
         DllCall("CloseHandle", "Ptr", job.Handle)
     }
     result := job.Folder "\result.ini"
-    state := IniRead(result, "Result", "State", "error")
-    message := IniRead(result, "Result", "Message", "Step: Run patch worker | Reason: The worker exited without a result. Exit code: " exitCode ". Check that Windows PowerShell can run scripts/patch-tes3mp.ps1. Keep this attempt's backup files if copying had started.")
+    state := exitCode = 0 ? "success" : "error"
+    try state := IniRead(result, "Result", "State", state)
+    if state != "success" || (IsInteger(exitCode) && exitCode != 0)
+        state := "error"
+    ; If a worker stopped before confirming rollback, wait for recovery before launching.
+    if state = "error" && FileExist(job.Folder "\journal.json")
+    {
+        ExpansionRecoveryPending := true
+        try ExpansionRecoveryPending := IniRead(result, "Result", "Rollback", "") != "complete"
+    }
+    PatchJob := 0
+    fallback := state = "success"
+        ? "Expansion Pack import complete. Try connecting again."
+        : "The Expansion Pack import exited without a result. Exit code: " exitCode ". Keep this attempt's backup files if copying had started."
+    message := fallback
+    try message := IniRead(result, "Result", "Message", fallback)
     try
     {
-        SetupComplete := state = "success" && job.Action != "Restore"
-        DirCreate(AppDataDirectory)
-        IniWrite(SetupComplete ? "1" : "0", DataFile, "Patch", "Complete")
         if state = "success"
         {
-            for entry in [["TesFolder", job.TesFolder], ["MorrowindFolder", job.MorrowindFolder], ["ConfigFile", job.ConfigFile], ["LastBackup", IniRead(result, "Result", "Backup", "")]]
-                IniWrite(entry[2], DataFile, "Patch", entry[1])
-            if SetupComplete
+            ; Record the validated import location, without claiming server compatibility.
+            IniWrite(job.MorrowindFolder, DataFile, "Patch", "MorrowindFolder")
+            IniWrite(job.ConfigFile, DataFile, "Patch", "ConfigFile")
+            ; Record the installed file after the transactional import succeeded.
+            installedEsp := RTrim(job.MorrowindFolder, "\/") "\Data Files\NP Expansion Pack.esp"
+            installedHash := FileExist(installedEsp) ? SHA256File(installedEsp) : ""
+            if !RegExMatch(installedHash, "i)^[0-9a-f]{64}$")
+                throw Error("Could not verify the installed Expansion Pack ESP after import.")
+            IniWrite(installedEsp, DataFile, "ExpansionPack", "VerifiedEspPath")
+            IniWrite(installedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
+            checksum := ExpansionPackEspChecksum(installedEsp)
+            if job.HasOwnProp("OfficialPack") && checksum = job.OfficialPack.Checksum
             {
-                executable := job.TesFolder "\tes3mp.exe"
-                IniWrite(executable, DataFile, "Launch", "Executable")
-                if IsSet(ExecutableInput)
-                    ExecutableInput.Value := executable
+                try RememberExpansionPackVersion(checksum, job.OfficialPack.Version, job.OfficialPack.Attachment)
             }
+            else
+            {
+                try RememberExpansionPackVersion(checksum, IniRead(result, "Result", "ExpansionVersion", ""))
+            }
+            LogLauncherEvent("EXPANSION | User-supplied pack imported; live server compatibility not yet tested.")
         }
-        UpdateCharacterMenuLabel()
-        UpdatePatchProgress(state = "success" ? "Waiting for Jiub" : "Setup requires attention", state = "success" ? 100 : 0)
+        RefreshExpansionPackToggle()
+        UpdatePatchProgress(state = "success" ? "Waiting for Jiub" : "Expansion Pack needs attention", state = "success" ? 100 : 0)
     }
     catch Error as err
     {
-        SetupComplete := false
         state := "error"
-        message := PatchErrorDetails("Save completed setup", "Launcher settings", err)
+        message := PatchErrorDetails("Save completed import", "Launcher settings", err)
         LogPatchDiagnostic(message)
-        UpdateCharacterMenuLabel()
     }
     finally
     {
-        job.Source.Opt("-Disabled")
+        LauncherGui.Opt("-Disabled")
         ReleaseCapturedInterfaceFrame(PatchFrame)
         PatchFrame := 0
     }
-    if IsSet(PatchStatus)
-        PatchStatus.Text := message
+    message := SanitizeDiagnosticText(message)
+    if message = ""
+        message := "The Expansion Pack operation could not be completed."
     if state = "error"
-        LogPatchDiagnostic(message)
-    if job.Startup
-    {
-        FinishLauncherStartup()
-        if state != "success"
-            TrayTip("Setup needs attention. Open Patch Tes3mp to install or repair the files.", "tes3np")
-    }
+        LogLauncherEvent("EXPANSION | Import failed | " message)
+    ; The auto-downloaded ZIP is transient; the import journal and backups
+    ; remain intact for recovery. Never delete user-selected packages.
+    autoImport := job.AutoDownloadedZip != ""
+    if autoImport
+        try FileDelete(job.AutoDownloadedZip)
+    ; A finished worker no longer needs extraction or progress files.
+    try CleanupFinishedExpansionImport(job.Folder)
+    ; Automatic failures get actionable retry/manual/cancel choices in the
+    ; same gold-on-dark native card as the version/changelog dialogs.
+    ; A local, manually chosen import retains its previous detailed result.
+    if state = "error" && autoImport
+        ShowExpansionAutoFailureDialog(message, "Install")
     else
-        MsgBox(message, state = "needs_setup" ? "Setup needed" : "Patch Tes3mp", state = "error" ? "Icon!" : "Iconi")
-}
-
-BeginStartupPatchCheck()
-{
-    ; Startup deliberately does not inspect or verify game files. Verification only happens
-    ; after the user explicitly chooses Verify or Install / Repair from Patch Tes3mp.
-    FinishLauncherStartup()
-}
-
-FinishLauncherStartup()
-{
-    UpdateCharacterMenuLabel()
+        MsgBox(message, "Upload Expansion", state = "error" ? "Icon!" : "Iconi")
 }
 
 GuardPatchExit(*)
 {
     if PatchInProgress()
     {
-        MsgBox("Please wait for the current patch operation to finish before closing tes3np.", "Patch Tes3mp")
+        MsgBox("Please wait for the current Expansion Pack operation to finish before closing tes3np.", "Patch Tes3mp")
         return 1
     }
 }
 
-CanUseNPLauncher()
+CanUseNPLauncher(showMessage := true)
 {
-    if PatchInProgress() || !IsTES3MPSetupComplete()
+    global ExpansionRecoveryPending
+    if PatchInProgress()
     {
-        MsgBox("Complete Patch Tes3mp setup before launching characters or macros.", "tes3np")
+        if showMessage
+            MsgBox("Finish the current Expansion Pack operation before launching.", "tes3np")
+        return false
+    }
+    if ExpansionRecoveryPending
+    {
+        if showMessage
+            MsgBox("An Expansion Pack import still needs recovery. Close any TES3MP/OpenMW clients and restart TES3NP to retry.", "Expansion Pack", "Icon!")
         return false
     }
     return true
@@ -367,53 +317,24 @@ CanUseNPLauncher()
 
 CleanupPatcher()
 {
-    global PatchPage, PatchFrame
+    global PatchFrame, PatchJob
     SetTimer(CheckPatchWorker, 0)
+    if IsObject(PatchJob) && PatchJob.Handle
+        DllCall("CloseHandle", "Ptr", PatchJob.Handle)
+    PatchJob := 0
     ReleaseCapturedInterfaceFrame(PatchFrame)
     PatchFrame := 0
-    if IsObject(PatchPage)
-        PatchPage.Destroy()
-}
-
-FullPatchPath(path)
-{
-    pathBuffer := Buffer(65536, 0)
-    length := DllCall("GetFullPathNameW", "WStr", path, "UInt", 32768, "Ptr", pathBuffer, "Ptr", 0, "UInt")
-    windowsError := A_LastError
-    if !length
-        throw Error("Windows could not resolve this path. Win32 error " windowsError ". " WindowsPatchError(windowsError))
-    if length >= 32768
-        throw Error("The resolved path exceeds the Windows path buffer (32768 characters).")
-    return StrGet(pathBuffer, "UTF-16")
-}
-
-QuotePatchArgument(value)
-{
-    return '"' RegExReplace(value, "(\\+)$", "$1$1") '"'
-}
-
-WindowsPatchError(code)
-{
-    textBuffer := Buffer(4096, 0)
-    length := DllCall("FormatMessageW", "UInt", 0x1200, "Ptr", 0, "UInt", code, "UInt", 0,
-        "Ptr", textBuffer, "UInt", 2048, "Ptr", 0, "UInt")
-    return length ? Trim(StrGet(textBuffer, "UTF-16"), "`r`n ") : "No Windows error description is available."
-}
-
-SanitizePatchDiagnostic(text)
-{
-    ; Keep detailed reasons while excluding personal paths from dialogs and logs.
-    text := RegExReplace(text, 'i)"[A-Z]:\\[^"\r\n]*"', "[path omitted]")
-    text := RegExReplace(text, "i)[A-Z]:\\[^`r`n]+", "[path omitted]")
-    return RegExReplace(text, "\\\\[^`r`n]+", "[network path omitted]")
 }
 
 PatchErrorDetails(step, field, err)
 {
-    reason := SanitizePatchDiagnostic(err.Message)
+    reason := SanitizeDiagnosticText(err.Message)
+    if reason = ""
+        reason := "The operation could not be completed."
     details := "Step: " step "`nField: " field "`nReason: " reason "`nError type: " Type(err)
-    if err.Extra != ""
-        details .= "`nDetail: " SanitizePatchDiagnostic(err.Extra)
+    extra := SanitizeDiagnosticText(err.Extra)
+    if extra != ""
+        details .= "`nDetail: " extra
     SplitPath(err.File, &sourceFile)
     if sourceFile != ""
         details .= "`nSource: " sourceFile " — line " err.Line
@@ -422,27 +343,653 @@ PatchErrorDetails(step, field, err)
 
 LogPatchDiagnostic(message)
 {
-    folder := AppDataDirectory
     try
     {
-        DirCreate(folder)
-        line := FormatTime(, "yyyy-MM-dd HH:mm:ss") " " StrReplace(StrReplace(SanitizePatchDiagnostic(message), "`r", ""), "`n", " | ") "`n"
-        for filename in ["patch-all.log", "patch-errors.log"]
-            FileAppend(line, folder "\" filename, "UTF-8")
+        DirCreate(AppDataDirectory)
+        path := AppDataDirectory "\patch-errors.log"
+        line := FormatTime(, "yyyy-MM-dd HH:mm:ss") " " SanitizeDiagnosticText(message)
+        FileAppend(StrReplace(StrReplace(line, "`r", ""), "`n", " | ") "`n", path, "UTF-8")
+        TrimDiagnosticLog(path)
     }
     catch
     {
-        ; An unwritable diagnostic log must not hide the original error dialog.
+        ; A failed diagnostic write must not hide the original error.
     }
 }
 
-ReportPatchError(step, field, err, startup := false)
+; Detect an installed NP Expansion Pack in Morrowind or a configured OpenMW data folder.
+ExpansionPackInstalled(morrowind, config)
 {
-    global PatchStatus
-    details := PatchErrorDetails(step, field, err)
-    LogPatchDiagnostic(details)
-    if IsSet(PatchStatus)
-        PatchStatus.Text := details
-    if !startup
-        MsgBox(details, "Patch Tes3mp — Error", "Icon!")
+    global DataFile
+    ; Verify the local import record before enabling a pack already on disk.
+    ; Trust only an imported ESP whose saved location and SHA-256 still match.
+    ; This is local installation evidence, not server compatibility proof.
+    verifiedPath := ExpansionPackFullPath(IniRead(DataFile, "ExpansionPack", "VerifiedEspPath", ""))
+    verifiedHash := StrLower(IniRead(DataFile, "ExpansionPack", "VerifiedEspSHA256", ""))
+    if verifiedPath = "" || !RegExMatch(verifiedHash, "i)^[0-9a-f]{64}$")
+        return false
+    for esp in ExpansionPackEspPaths(morrowind, config)
+    {
+        try
+        {
+            if ExpansionPackFullPath(esp) = verifiedPath && FileGetSize(esp) > 0
+                && SHA256File(esp) = verifiedHash
+                return true
+        }
+    }
+    return false
+}
+
+ExpansionPackFullPath(path)
+{
+    if path = ""
+        return ""
+    length := DllCall("GetFullPathNameW", "WStr", path, "UInt", 0, "Ptr", 0, "Ptr", 0, "UInt")
+    if !length
+        return ""
+    fullPath := Buffer(length * 2)
+    written := DllCall("GetFullPathNameW", "WStr", path, "UInt", length,
+        "Ptr", fullPath.Ptr, "Ptr", 0, "UInt")
+    return written && written < length ? StrGet(fullPath.Ptr, written, "UTF-16") : ""
+}
+
+ExpansionPackEspPaths(morrowind, config)
+{
+    folders := []
+    if morrowind != "" && DirExist(morrowind)
+        folders.Push(RTrim(morrowind, "\/") "\Data Files")
+    if FileExist(config)
+    {
+        try
+        {
+            for line in StrSplit(FileRead(config, "UTF-8"), "`n", "`r")
+            {
+                if RegExMatch(Trim(line), 'i)^data\s*=\s*(.+?)\s*$', &match)
+                {
+                    configured := Trim(Trim(match[1]), Chr(34))
+                    if configured != ""
+                        folders.Push(configured)
+                }
+            }
+        }
+        catch
+        {
+            ; Unreadable config is not evidence of installation.
+        }
+    }
+    candidates := Map()
+    candidates.CaseSense := "Off"
+    for folder in folders
+    {
+        esp := RTrim(StrReplace(folder, "/", "\"), "\") "\NP Expansion Pack.esp"
+        if FileExist(esp)
+            candidates[esp] := true
+    }
+    paths := []
+    for esp in candidates
+        paths.Push(esp)
+    return paths
+}
+
+ExpansionPackEspChecksum(path)
+{
+    try
+    {
+        file := FileOpen(path, "r")
+        try
+        {
+            if file.Length = 0
+                return ""
+            file.Pos := 0
+            chunk := Buffer(65536)
+            crc := 0
+            while count := file.RawRead(chunk, chunk.Size)
+                crc := DllCall("ntdll\RtlComputeCrc32", "UInt", crc, "Ptr", chunk.Ptr, "UInt", count, "UInt")
+            return Format("{:08X}", crc)
+        }
+        finally file.Close()
+    }
+    return ""
+}
+
+InstalledExpansionPackChecksum(config)
+{
+    ; Several configured paths can expose the same copy. Identify its
+    ; version only when every visible copy agrees.
+    checksum := ""
+    for path in ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    {
+        candidate := ExpansionPackEspChecksum(path)
+        if candidate = "" || (checksum != "" && candidate != checksum)
+            return ""
+        checksum := candidate
+    }
+    return checksum
+}
+
+RememberExpansionPackVersion(checksum, version, attachment := "")
+{
+    global DataFile
+    if !RegExMatch(checksum, "i)^[0-9a-f]{8}$") || !RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+        return
+    IniWrite(version, DataFile, "ExpansionPackVersions", checksum)
+    if RegExMatch(attachment, "^/attachments/\d+/(\d+)/", &match)
+        IniWrite(checksum, DataFile, "ExpansionPackChecksums", match[1])
+}
+
+KnownExpansionAttachmentChecksum(attachment)
+{
+    global DataFile
+    ; Key by the immutable Discord attachment ID. Signed URLs stay in memory.
+    if !RegExMatch(attachment, "^/attachments/\d+/(\d+)/", &match)
+        return ""
+    checksum := IniRead(DataFile, "ExpansionPackChecksums", match[1], "")
+    return RegExMatch(checksum, "i)^[0-9a-f]{8}$") ? checksum : ""
+}
+
+InstalledExpansionPackVersion(checksum)
+{
+    global DataFile
+    if RegExMatch(checksum, "i)^[0-9a-f]{8}$")
+    {
+        version := ""
+        try version := InstalledExpansionHeaderVersion(checksum)
+        if version != ""
+            return version
+
+        version := IniRead(DataFile, "ExpansionPackVersions", checksum, "")
+        if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+            return version
+
+        version := ""
+        try version := RecoverExpansionImportVersion(checksum)
+        if version != ""
+        {
+            try RememberExpansionPackVersion(checksum, version)
+            return version
+        }
+    }
+    return checksum != "" ? "Unrecognized copy" : "Could not verify"
+}
+
+InstalledExpansionHeaderVersion(checksum)
+{
+    config := PatchConfigurationPath()
+    version := ""
+    for path in ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    {
+        if ExpansionPackEspChecksum(path) != checksum
+            return ""
+        candidate := TES3MPReadExpansionHeaderVersion(path)
+        if candidate = "" || (version != "" && candidate != version)
+            return ""
+        version := candidate
+    }
+    return version
+}
+
+RecoverExpansionImportVersion(checksum)
+{
+    global AppDataDirectory, BundledResourceRoot
+    config := PatchConfigurationPath()
+    paths := ExpansionPackEspPaths(FindMorrowindFolder(config), config)
+    if !paths.Length || ExpansionPackEspChecksum(paths[1]) != checksum
+        return ""
+    history := AppDataDirectory "\expansion-imports"
+    if !DirExist(history)
+        return ""
+    hashes := ""
+    for path in paths
+    {
+        hash := SHA256File(path)
+        if !RegExMatch(hash, "i)^[0-9a-f]{64}$")
+            return ""
+        hashes .= (hashes = "" ? "" : ",") hash
+    }
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    worker := resourceRoot "\scripts\import-expansion-pack.ps1"
+    if !FileExist(worker)
+        return ""
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    output := A_Temp "\tes3np-expansion-version-" NewLauncherFileId() ".txt"
+    try
+    {
+        command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' worker '"'
+            . ' -ImportHistory "' history '" -InstalledEspSHA256 ' hashes ' -VersionResult "' output '"'
+        if RunWait(command, , "Hide") = 0 && FileExist(output)
+        {
+            version := Trim(FileRead(output, "UTF-8"))
+            if RegExMatch(version, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+                && InstalledExpansionPackChecksum(config) = checksum
+                return version
+        }
+    }
+    finally
+        try FileDelete(output)
+    return ""
+}
+
+ExpansionPackInLoadOrder(config)
+{
+    if !FileExist(config)
+        return false
+    try
+    {
+        for line in StrSplit(FileRead(config, "UTF-8"), Chr(10), Chr(13))
+            if RegExMatch(Trim(line), 'i)^content\s*=\s*"?NP Expansion Pack\.esp"?$')
+                return true
+    }
+    return false
+}
+
+ExpansionPackIsEnabled(config := "")
+{
+    if config = ""
+        config := PatchConfigurationPath()
+    return ExpansionPackInLoadOrder(config)
+        && ExpansionPackInstalled(FindMorrowindFolder(config), config)
+}
+
+RefreshExpansionPackToggle()
+{
+    global LauncherExpansionToggle
+    if IsObject(LauncherExpansionToggle)
+    {
+        try
+        {
+            config := PatchConfigurationPath()
+            status := "Disabled"
+            if ExpansionPackInLoadOrder(config)
+                status := ExpansionPackIsEnabled(config) ? "Enabled" : "Unverified"
+            LauncherExpansionToggle.Text := "Expansion Pack: " status
+            DllCall("InvalidateRect", "Ptr", LauncherExpansionToggle.Hwnd, "Ptr", 0, "Int", 1)
+        }
+    }
+}
+
+ToggleExpansionPack(*) => ApplyExpansionPackToggle()
+
+ApplyExpansionPackToggle(checked := false)
+{
+    global AppDataDirectory, DataFile, BundledResourceRoot, ExpansionToggleRunning, Client
+    if PatchInProgress()
+        return
+    if !RecoverExpansionImports()
+        return
+    if ProcessExist("tes3mp.exe") || ProcessExist("openmw.exe") || ProcessExist("openmw-launcher.exe")
+    {
+        MsgBox("Close all TES3MP/OpenMW clients before switching the Expansion Pack. Running games will not be interrupted.", "Expansion Pack")
+        return
+    }
+    cfg := PatchConfigurationPath()
+    enable := !ExpansionPackInLoadOrder(cfg)
+    morrowind := FindMorrowindFolder(cfg)
+    ; First show the same missing-game prompt used by setup and game launch.
+    ; The folder chooser is owned by that prompt; a valid selection resumes
+    ; the Expansion Pack toggle rather than silently ending the action.
+    if enable && morrowind = ""
+    {
+        LogLauncherEvent("EXPANSION | Morrowind GOTY not found; opening setup prompt.")
+        CheckFirstRunMorrowind(true)
+        return
+    }
+    if checked && !enable
+        return
+    if !enable && !ExpansionPackInstalled(morrowind, cfg)
+    {
+        if MsgBox("The Expansion Pack is in the OpenMW load order, but its installed file could not be verified."
+            . "`n`nDisable this load-order entry?", "Expansion Pack", "YesNo Icon?") != "Yes"
+            return
+    }
+    if enable && !checked && FileExist(cfg) && ExpansionPackEspPaths(morrowind, cfg).Length
+        && TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))
+        return
+    if enable && !ExpansionPackInstalled(morrowind, cfg)
+    {
+        ShowExpansionInstallPrompt()
+        return
+    }
+    originalConfig := cfg
+    cfg := PrepareExpansionOpenMWConfiguration(cfg, morrowind)
+    if cfg = ""
+        return
+    if cfg != originalConfig
+    {
+        IniWrite(cfg, DataFile, "Patch", "ConfigFile")
+        RefreshExpansionPackToggle()
+        if !ExpansionPackInLoadOrder(cfg)
+            ApplyExpansionPackToggle()
+        return
+    }
+    action := enable ? "Enable" : "Disable"
+    resourceRoot := IsSet(BundledResourceRoot) && DirExist(BundledResourceRoot) ? BundledResourceRoot : A_ScriptDir
+    script := resourceRoot "\scripts\toggle-expansion-pack.ps1"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    if !FileExist(script)
+    {
+        MsgBox("Expansion Pack toggle helper missing. Rebuild TES3NP.", "Expansion Pack", "Icon!")
+        return
+    }
+    backup := AppDataDirectory "\expansion-backups"
+    DirCreate(backup)
+    output := AppDataDirectory "\expansion-toggle-result-" NewLauncherFileId() ".txt"
+    command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script '" -Action ' action
+        . ' -MorrowindFolder "' morrowind '" -ConfigFile "' cfg '"'
+        . ' -BackupFolder "' backup '" -ResultFile "' output '"'
+    ; Preflight can yield to another launcher action. Claim the shared worker slot before writing.
+    previousCritical := Critical("On")
+    try
+    {
+        if Client.Enabled || !CanUseNPLauncher(false)
+            return
+        ExpansionToggleRunning := true
+    }
+    finally Critical(previousCritical)
+    try
+    {
+        ; RunWait yields to launcher callbacks while PowerShell edits the config.
+        exitCode := RunWait(command, , "Hide")
+        details := FileExist(output) ? SanitizeDiagnosticText(Trim(FileRead(output, "UTF-8"))) : ""
+        ; The worker result message alone is not proof of failure or success.
+        ; The user's screenshots showed 'Disable complete' incorrectly flagged
+        ; as an error. Inspect the actual on-disk OpenMW load order instead.
+        actualEnabled := ExpansionPackInLoadOrder(cfg)
+        if actualEnabled != enable
+        {
+            if details = ""
+                details := "The OpenMW configuration still has the previous Expansion Pack state. Worker exit code: " exitCode "."
+            LogLauncherEvent("EXPANSION | Toggle failed | Exit code: " exitCode ".")
+            MsgBox("Expansion Pack was not changed." Chr(10) Chr(10) SubStr(details, 1, 1200), "Expansion Pack", "Icon!")
+            RefreshExpansionPackToggle()
+            return
+        }
+        if exitCode
+            LogLauncherEvent("EXPANSION | Worker exit code " exitCode " but verified target configuration state.")
+        LogLauncherEvent("EXPANSION | " action " verified in openmw.cfg.")
+        PruneExpansionToggleBackups(backup)
+        RefreshExpansionPackToggle()
+        MsgBox("Expansion Pack " (enable ? "enabled" : "disabled") " successfully.", "Expansion Pack", "Iconi")
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("EXPANSION | Toggle exception type: " Type(err))
+        reason := SanitizeDiagnosticText(err.Message)
+        MsgBox(reason != "" ? reason : "Could not update the Expansion Pack.", "Expansion Pack", "Icon!")
+    }
+    finally
+    {
+        try FileDelete(output)
+        ExpansionToggleRunning := false
+    }
+}
+
+
+; Reuse the native gold card for the initial install and update choices.
+ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersion := "", comparisonUnavailable := false)
+{
+    global LauncherGui, ExpansionInstallPromptGui
+    if IsObject(ExpansionInstallPromptGui)
+    {
+        try
+        {
+            if DllCall("IsWindow", "Ptr", ExpansionInstallPromptGui.Hwnd)
+            {
+                if IsObject(onDecision)
+                    return false
+                WinActivate("ahk_id " ExpansionInstallPromptGui.Hwnd)
+                return
+            }
+        }
+        ExpansionInstallPromptGui := 0
+    }
+    prompt := CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)
+    prompt.ExpansionDecision := onDecision
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39,
+        IsObject(onDecision) ? "Update Expansion Pack" : "Install Expansion Pack")
+    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    if IsObject(onDecision)
+    {
+        extra += AddGoldPromptCopy(prompt, 30, 82 + extra, 620, 28,
+            comparisonUnavailable ? "Could not verify your installed pack. Install the official ZIP?"
+                : "Install the latest Expansion Pack from Discord?")
+        prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
+        extra += AddGoldPromptCopy(prompt, 30, 120 + extra, 620, 24, "Installed: " installedVersion)
+        extra += AddGoldPromptCopy(prompt, 30, 148 + extra, 620, 24, "Available: " updateVersion)
+        AddStyledButton(prompt, 30, 189 + extra, 165, 38, "Yes",
+            CloseExpansionInstallPrompt.Bind(prompt, "Download"))
+        AddStyledButton(prompt, 210, 189 + extra, 165, 38, "No",
+            CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+        AddStyledButton(prompt, 390, 189 + extra, 260, 38, "Manual Install",
+            CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
+    }
+    else
+    {
+        extra += AddGoldPromptCopy(prompt, 30, 89 + extra, 620, 81,
+            "Download and install the official Expansion Pack from Discord, or choose a ZIP or extracted folder you already downloaded.")
+        AddStyledButton(prompt, 30, 189 + extra, 226, 38, "Download and Install",
+            CloseExpansionInstallPrompt.Bind(prompt, "Download"))
+        AddStyledButton(prompt, 271, 189 + extra, 220, 38, "Choose ZIP or Folder",
+            CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
+        AddStyledButton(prompt, 506, 189 + extra, 144, 38, "Cancel",
+            CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+    }
+    GrowGoldNativePrompt(prompt, extra)
+    prompt.OnEvent("Close", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Escape", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
+    ExpansionInstallPromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+    return true
+}
+
+CloseExpansionInstallPrompt(prompt, action := "Cancel", *)
+{
+    global ExpansionInstallPromptGui
+    if !IsObject(ExpansionInstallPromptGui) || ExpansionInstallPromptGui != prompt
+        return
+    ExpansionInstallPromptGui := 0
+    onDecision := prompt.ExpansionDecision
+    CloseGoldNativePrompt(prompt)
+    if IsObject(onDecision)
+        onDecision.Call(action)
+    else if action = "Download"
+    {
+        LogLauncherEvent("EXPANSION | User approved automatic official package discovery.")
+        RequestDiscordExpansionPrompt(1)
+    }
+    else if action = "Upload"
+        UploadExpansionFromFile()
+}
+
+; A failed Discord transfer (or failed automatic import) must never trap the
+; user behind a generic Yes/No MessageBox or require restarting the launcher.
+; Retry uses the same authenticated download pipeline; local selection goes
+; through the existing verified ZIP/folder importer and backup/rollback path.
+ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
+{
+    global LauncherGui, ExpansionAutoFailurePromptGui
+    if IsObject(ExpansionAutoFailurePromptGui)
+    {
+        try
+        {
+            if DllCall("IsWindow", "Ptr", ExpansionAutoFailurePromptGui.Hwnd)
+            {
+                WinActivate("ahk_id " ExpansionAutoFailurePromptGui.Hwnd)
+                return
+            }
+        }
+        ExpansionAutoFailurePromptGui := 0
+    }
+    title := stage = "Check" ? "Check Expansion Pack" : stage = "Install"
+        ? "Expansion Pack Installation Failed" : "Expansion Pack Download Failed"
+    explanation := stage = "Check"
+        ? "Try the Discord check again or choose an official Expansion Pack ZIP or extracted folder from your computer."
+        : stage = "Install"
+        ? "Automatic installation could not be completed. Existing verified backups are preserved. Try the official download again, or choose your own Expansion Pack ZIP or extracted folder."
+        : "The automatic download could not be completed. You can try again, or choose an Expansion Pack ZIP or extracted folder already on your computer."
+    prompt := CreateGoldNativePrompt(LauncherGui, title, 700, 318)
+    prompt.ExpansionRetry := retry
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    extra := AddGoldPromptCopy(prompt, 30, 24, 640, 43, title)
+    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    extra += AddGoldPromptCopy(prompt, 30, 86 + extra, 640, 91, explanation)
+    ; Preserve an informative but bounded sanitized failure reason. Never
+    ; show signed CDN URLs or raw paths from a private transfer.
+    if reason != ""
+    {
+        shortReason := SubStr(SanitizeDiagnosticText(reason), 1, 180)
+        if shortReason != ""
+        {
+            prompt.SetFont("s9 Norm cD8C38C", "Segoe UI")
+            extra += AddGoldPromptCopy(prompt, 30, 186 + extra, 640, 47, shortReason)
+        }
+    }
+    AddStyledButton(prompt, 30, 254 + extra, 185, 38, "Try Again",
+        CloseExpansionAutoFailureDialog.Bind(prompt, "Retry"))
+    AddStyledButton(prompt, 230, 254 + extra, 270, 38, "Choose ZIP or Folder",
+        CloseExpansionAutoFailureDialog.Bind(prompt, "Local"))
+    AddStyledButton(prompt, 515, 254 + extra, 155, 38, "Cancel",
+        CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Close", CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Escape", CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    GrowGoldNativePrompt(prompt, extra)
+    ExpansionAutoFailurePromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+}
+
+CloseExpansionAutoFailureDialog(prompt, action := "Cancel", *)
+{
+    global ExpansionAutoFailurePromptGui
+    if !IsObject(ExpansionAutoFailurePromptGui) || ExpansionAutoFailurePromptGui != prompt
+        return
+    ExpansionAutoFailurePromptGui := 0
+    retry := prompt.ExpansionRetry
+    CloseGoldNativePrompt(prompt)
+    if action = "Retry" && IsObject(retry)
+        retry.Call()
+    else if action = "Retry"
+    {
+        LogLauncherEvent("EXPANSION | User requested retry of official automatic Expansion Pack download.")
+        RequestDiscordExpansionPrompt(1)
+    }
+    else if action = "Local"
+        UploadExpansionFromFile()
+}
+
+; First-run discovery is informational and never installs optional patches.
+; A missing Morrowind installation cannot be fixed by downloading TES3MP:
+; TES3NP already bundles its own client.
+CheckFirstRunMorrowind(resumeExpansion := false, *)
+{
+    global DataFile, LauncherGui, MorrowindPromptGui
+    ; "Not Now" defers the prompt until the next action that needs the game.
+    found := FindMorrowindFolder(PatchConfigurationPath())
+    if found != ""
+    {
+        IniWrite(found, DataFile, "Patch", "MorrowindFolder")
+        LogLauncherEvent("SETUP | Morrowind GOTY installation located.")
+        return
+    }
+    if IsObject(MorrowindPromptGui)
+    {
+        if resumeExpansion
+            MorrowindPromptGui.ResumeExpansionPack := true
+        try
+        {
+            if DllCall("IsWindow", "Ptr", MorrowindPromptGui.Hwnd)
+            {
+                WinActivate("ahk_id " MorrowindPromptGui.Hwnd)
+                return
+            }
+        }
+        MorrowindPromptGui := 0
+    }
+    ; Match the native, titlebarless gold-on-dark changelog cards. The
+    ; backdrop is owned by the launcher and remains alive during folder
+    ; selection and optional automatic Expansion Pack resumption.
+    prompt := CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)
+    prompt.ResumeExpansionPack := resumeExpansion
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    extra := AddGoldPromptCopy(prompt, 30, 26, 620, 40, "Morrowind Installation Not Found")
+    prompt.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    extra += AddGoldPromptCopy(prompt, 30, 85 + extra, 620, 135,
+        "TES3MP needs a legally purchased copy of Morrowind Game of the Year Edition (GOTY), or Morrowind with both Tribunal and Bloodmoon installed. Install the game if needed, then choose the folder that contains Data Files.")
+    choose := AddStyledButton(prompt, 30, 268 + extra, 392, 42, "Choose Morrowind Folder",
+        (*) => SelectFirstRunMorrowind(prompt))
+    later := AddStyledButton(prompt, 438, 268 + extra, 212, 42, "Not Now",
+        (*) => DismissFirstRunMorrowind(prompt))
+    prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
+    prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
+    GrowGoldNativePrompt(prompt, extra)
+    MorrowindPromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+}
+
+; Do not launch TES3MP until all three GOTY master files are present.
+EnsureMorrowindForGameLaunch()
+{
+    global DataFile
+    found := FindMorrowindFolder(PatchConfigurationPath())
+    if found != ""
+    {
+        IniWrite(found, DataFile, "Patch", "MorrowindFolder")
+        if IniRead(DataFile, "Launch", "ClientMode", "Bundled") = "Bundled"
+            return EnsureOpenMWConfiguration(DefaultOpenMWConfigurationPath(), found)
+        return true
+    }
+    LogLauncherEvent("GAME | BLOCKED | Morrowind GOTY data missing; opening setup prompt.")
+    CheckFirstRunMorrowind()
+    return false
+}
+
+SelectFirstRunMorrowind(prompt, *)
+{
+    global DataFile, MorrowindPromptGui
+    folder := FileSelect("D", , "Select Morrowind GOTY installation folder")
+    if folder = ""
+        return
+    folder := RTrim(folder, "\/")
+    SplitPath(folder, &folderName, &parent)
+    if StrLower(folderName) = "data files"
+        folder := parent
+    for master in ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
+    {
+        if !FileExist(folder "\Data Files\" master)
+        {
+            MsgBox("Could not find Data Files\" master ". Select the Morrowind GOTY folder (not an individual file).", "Morrowind folder", "Icon!")
+            return
+        }
+    }
+    IniWrite(folder, DataFile, "Patch", "MorrowindFolder")
+    LogLauncherEvent("SETUP | User selected a valid Morrowind GOTY installation.")
+    resumeExpansion := prompt.HasOwnProp("ResumeExpansionPack") && prompt.ResumeExpansionPack
+    pendingPackage := prompt.HasOwnProp("PendingExpansionPackage") ? prompt.PendingExpansionPackage : ""
+    pendingApproved := prompt.HasOwnProp("PendingExpansionApproved") && prompt.PendingExpansionApproved
+    MorrowindPromptGui := 0
+    CloseGoldNativePrompt(prompt)
+    if pendingPackage != ""
+        SetTimer(InstallSelectedExpansionPackage.Bind(pendingPackage, pendingApproved), -50)
+    else if resumeExpansion
+        SetTimer(ToggleExpansionPack, -50)
+    else
+        MsgBox("Morrowind folder saved. The Expansion Pack remains optional and disabled unless you enable it.", "TES3NP setup", "Iconi")
+}
+
+DismissFirstRunMorrowind(prompt, *)
+{
+    global MorrowindPromptGui
+    ; A deferred automatic ZIP belongs to the prompt until it is resumed
+    ; or dismissed. Clean it up on cancellation, not during active setup.
+    if prompt.HasOwnProp("PendingExpansionApproved") && prompt.PendingExpansionApproved
+        && prompt.HasOwnProp("PendingExpansionPackage")
+    {
+        package := prompt.PendingExpansionPackage
+        SplitPath(package, &name, &folder)
+        if StrLower(folder) = StrLower(A_AppData "\tes3np\expansion-downloads")
+            && RegExMatch(name, "i)^tes3np-[0-9a-f]{32}\.zip$")
+            try FileDelete(package)
+    }
+    ; Do not permanently suppress reminders for missing game files.
+    MorrowindPromptGui := 0
+    CloseGoldNativePrompt(prompt)
 }

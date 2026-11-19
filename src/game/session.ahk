@@ -1,4 +1,49 @@
-﻿; Single-client login, sequential launches and crash recovery.
+﻿; Serialized login and tracking of launched game clients.
+
+; Track successfully launched clients without retaining credentials or HWNDs.
+global TES3NPActiveGameHandles := []
+; Only opted-in characters retain a reconnect reference after login.
+global TES3NPCrashRecovery := Map()
+global GameRecoveryGeneration := 0
+
+CountTES3NPGameClients()
+{
+    global TES3NPActiveGameHandles, TES3NPCrashRecovery, Client
+    live := []
+    count := 0
+    for handle in TES3NPActiveGameHandles
+    {
+        running := DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 0, "UInt") = 258
+        if running
+            count += 1
+        if running || TES3NPCrashRecovery.Has(handle) || (Client.Enabled && Client.ProcessHandle = handle)
+            live.Push(handle)
+        else
+            DllCall("CloseHandle", "Ptr", handle)
+    }
+    TES3NPActiveGameHandles := live
+    return count
+}
+
+ReleaseTES3NPGameClients()
+{
+    global TES3NPActiveGameHandles
+    for handle in TES3NPActiveGameHandles
+        DllCall("CloseHandle", "Ptr", handle)
+    TES3NPActiveGameHandles := []
+}
+
+CanStartAnotherTES3NPGame()
+{
+    count := CountTES3NPGameClients()
+    if count >= 4
+    {
+        LogLauncherEvent("GAME | BLOCKED | Four TES3MP clients are already running.")
+        MsgBox("TES3NP allows up to four simultaneous TES3MP clients. Close one game client before launching another.", "Game client limit")
+        return false
+    }
+    return true
+}
 
 LaunchProfile(*)
 {
@@ -14,15 +59,17 @@ PlayVisibleProfile(position, *)
 
 ValidateLaunch(profile, executable)
 {
-    if !CanUseNPLauncher()
+    if !EnsureMorrowindForGameLaunch()
         return false
     SplitPath(executable, &filename)
     if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
     {
-        LogLauncherEvent("GAME | BLOCKED | TES3MP executable is missing or invalid.")
-        MsgBox("Select an existing tes3mp.exe on the characters page.", "tes3np")
+        LogLauncherEvent("GAME | BLOCKED | Selected TES3MP executable is missing or invalid.")
+        MsgBox("TES3MP executable not found:" Chr(10) executable Chr(10) Chr(10) "Open Launcher Settings to select a working client, or return to the bundled one.", "Missing TES3MP client", "Icon!")
         return false
     }
+    if !ValidateSelectedClientRuntime(executable)
+        return false
     if profile.Password = ""
     {
         LogLauncherEvent("GAME | BLOCKED | Character credentials require attention.")
@@ -39,171 +86,226 @@ LaunchProfileIndex(index)
     if Client.Enabled
     {
         LogLauncherEvent("GAME | BLOCKED | Launch requested while another monitored session is active.")
-        MsgBox("A game session is already running. Stop recovery from the tray before launching another.", "tes3np")
+        if Client.Phase = "launch" || Client.Phase = "window"
+            return
+        MsgBox("TES3NP is still completing a character login. Try the next character when that login finishes.", "tes3np")
         return
     }
-    if index < 1 || index > Profiles.Length
+    if index < 1 || index > Profiles.Length || !CanUseNPLauncher() || !CanStartAnotherTES3NPGame()
         return
+    profile := Profiles[index]
     executable := GetSharedExecutable()
-    if ValidateLaunch(Profiles[index], executable)
-        StartProfileSession(Profiles[index], executable)
+    if ValidateLaunch(profile, executable)
+        StartProfileSession(profile, executable)
 }
 
-LaunchAllCharacters(*)
+StartProfileSession(profile, executable, packChecked := false, packCurrent := false, recoveryGeneration := -1)
 {
-    LogLauncherEvent("GAME | SOURCE | LaunchAllCharacters invoked.")
-    global Client, Profiles, DataFile, CharacterPage
-    if Client.Enabled
+    global Client, TES3MPLastMismatchEvidence, DataFile, GameRecoveryGeneration
+    recovering := recoveryGeneration >= 0
+    if recovering
     {
-        LogLauncherEvent("GAME | BLOCKED | Launch-all requested while another monitored session is active.")
-        MsgBox("A game session is already running. Stop recovery from the tray before launching all characters.", "tes3np")
-        return
+        profile := FindCrashRecoveryProfile(profile)
+        if !IsObject(profile) || recoveryGeneration != GameRecoveryGeneration
+            return
     }
-    if Profiles.Length < 2
+    ; A file picker or prompt can yield to another launch request.
+    if Client.Enabled || !CanUseNPLauncher(!recovering) || !CanStartAnotherTES3NPGame()
         return
-    executable := GetSharedExecutable()
-    queue := []
-    for profile in Profiles
+    config := PatchConfigurationPath()
+    if !packChecked && ExpansionPackInLoadOrder(config)
+        && TES3MPCheckExpansionBeforeAction(config, ResumeProfileLaunch.Bind(profile, executable, recoveryGeneration))
+        return
+    previousCritical := Critical("On")
+    try
     {
-        if !ValidateLaunch(profile, executable)
+        if Client.Enabled || !CanUseNPLauncher(false)
+            || (recovering && recoveryGeneration != GameRecoveryGeneration)
             return
-        queue.Push(profile.Clone())
+        session := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
+            Profile: IsObject(profile) ? {Name: profile.Name, Password: profile.Password} : 0, Executable: executable,
+            UsernameDelay: IsObject(profile) ? profile.UsernameDelay : 0,
+            PasswordDelay: IsObject(profile) ? profile.PasswordDelay : 0,
+            LoadDelay: IsObject(profile) ? profile.LoadDelay : 0, ProcessHandle: 0,
+            ExpansionPackCurrent: packCurrent,
+            SavedProfile: IsObject(profile) && profile.AutoReconnect ? profile : 0, Recovering: recovering}
+        Client := session
     }
-    if IniRead(DataFile, "Launcher", "HideLaunchAllExplanation", "0") != "1"
-        if !ShowLaunchAllExplanation()
-            return
-    profile := queue.RemoveAt(1)
-    LogLauncherEvent("GAME | Batch launch requested. Characters: " (queue.Length + 1) ".")
-    StartProfileSession(profile, executable, queue)
-}
-
-StartProfileSession(profile, executable, queue := 0, scheduledDailyLogin := false)
-{
-    global Client
-    source := scheduledDailyLogin ? "Daily Login" : IsObject(queue) ? "Batch" : "Manual character"
-    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profile.Name ".")
-    batchText := IsObject(queue) ? " | Batch remaining after this character: " queue.Length : ""
-    LogLauncherEvent("GAME | Launch requested | Character: " profile.Name batchText ".")
-    Client := {PID: 0, HWND: 0, Phase: "launch", Deadline: 0, Enabled: true, LaunchIssued: false,
-        Profile: {Name: profile.Name, Password: profile.Password}, Executable: executable,
-        UsernameDelay: profile.UsernameDelay, PasswordDelay: profile.PasswordDelay,
-        LoadDelay: profile.LoadDelay, Queue: queue,
-        ScheduledDailyLogin: scheduledDailyLogin}
-    SetTimer(UpdateGameStatusTooltip, AppConfig.TooltipMs)
+    finally Critical(previousCritical)
+    ResetPendingExpansionPromptForNewLaunch()
+    ; Every login gets fresh mismatch evidence. Retain the previous result
+    ; only while its own failed-login dialog is available for Copy Info.
+    TES3MPLastMismatchEvidence := 0
+    source := recovering ? "Crash recovery" : (IsObject(profile) ? "Manual character" : "New Adventure")
+    profileName := IsObject(profile) ? profile.Name : "New Adventure"
+    LogLauncherEvent("GAME | SOURCE | StartProfileSession | Source: " source " | Character: " profileName ".")
+    LogLauncherEvent("GAME | Launch requested | Character: " profileName ".")
+    LogLauncherEvent("GAME | CLIENT | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled"))
+    if Client != session || !Client.Enabled
+        return
+    if IsObject(profile)
+    {
+        BeginGameLoginProgress(profile.Name, profile.HasOwnProp("Species") ? profile.Species : "",
+            profile.HasOwnProp("PortraitFile") ? profile.PortraitFile : "")
+        SetTimer(UpdateGameLoginProgress, AppConfig.TooltipMs)
+    }
     SetTimer(ClientTick, AppConfig.WatchdogMs)
     ClientTick()
 }
 
+ResumeProfileLaunch(profile, executable, recoveryGeneration, packCurrent := false)
+{
+    StartProfileSession(profile, executable, true, packCurrent, recoveryGeneration)
+}
+
+StopGameRecovery(*)
+{
+    global TES3NPCrashRecovery, GameRecoveryGeneration
+    GameRecoveryGeneration += 1
+    TES3NPCrashRecovery.Clear()
+    StopClient()
+}
+
 StopClient(*)
 {
-    global Client
+    global Client, LoginProgressMode, LoginProgressCloseAt, TES3NPCrashRecovery
     wasEnabled := Client.Enabled
     phase := Client.Phase
     Client.Enabled := false
     Client.Phase := "stopped"
-    SetTimer(ClientTick, 0)
-    SetTimer(UpdateGameStatusTooltip, 0)
-    ToolTip(, , , 1)
-    SetClientStatus("Recovery stopped. You can close the game normally.")
+    if !TES3NPCrashRecovery.Count
+        SetTimer(ClientTick, 0)
+    ; Saved LoadDelay may be only one second. Keep the already-completed
+    ; three-second visual alive when the successful manual watchdog ends.
+    keepProgress := Client.HasOwnProp("KeepLoginProgress") && Client.KeepLoginProgress
+        && LoginProgressMode = "complete" && A_TickCount < LoginProgressCloseAt
+    if !keepProgress
+    {
+        SetTimer(UpdateGameLoginProgress, 0)
+        ; Cancellation, crash, plugin rejection and manual Stop must tear
+        ; down the native always-on-top card, not merely clear its state.
+        DisposeGameLoginProgress()
+    }
+    Client.Profile := 0
+    if Client.HasOwnProp("SavedProfile")
+        Client.SavedProfile := 0
+    Client.ProcessHandle := 0
     if wasEnabled
         LogLauncherEvent("GAME | Recovery stopped | Previous phase: " phase ".")
-}
-
-SetClientStatus(text)
-{
-    global SessionStatus, Client
-    Client.Status := text
-    if IsSet(SessionStatus)
-        SessionStatus.Text := text
-    UpdateGameStatusTooltip()
-}
-
-UpdateGameStatusTooltip(*)
-{
-    global Client
-    static lastText := "", lastX := -1, lastY := -1
-    try
-    {
-        if !Client.Enabled || Client.Phase = "playing" || !Client.HWND || !Client.HasOwnProp("Status")
-            throw Error("No active game status")
-        target := "ahk_id " Client.HWND
-        if !WinActive(target) || WinGetPID(target) != Client.PID || !InStr(WinGetClass(target), "SDL")
-            throw Error("Game is not the active window")
-        if WinGetMinMax(target) = -1
-            throw Error("Game is minimized")
-        point := Buffer(8, 0)
-        loginEntry := Client.Phase = "username" || Client.Phase = "password"
-        clientRect := Buffer(16, 0)
-        if !DllCall("GetClientRect", "Ptr", Client.HWND, "Ptr", clientRect)
-            throw Error("Game dimensions unavailable")
-        width := NumGet(clientRect, 8, "Int"), height := NumGet(clientRect, 12, "Int")
-        localX := loginEntry ? Round(width / 2) : 16
-        localY := loginEntry ? Max(16, Round(height / 2 - 75)) : 16
-        NumPut("Int", localX, "Int", localY, point)
-        if !DllCall("ClientToScreen", "Ptr", Client.HWND, "Ptr", point)
-            throw Error("Game window is unavailable")
-        x := NumGet(point, 0, "Int"), y := NumGet(point, 4, "Int")
-        text := "tes3np — " Client.Status
-        if text != lastText || x != lastX || y != lastY
-        {
-            CoordMode("ToolTip", "Screen")
-            ToolTip(text, x, y, 1)
-            if loginEntry
-            {
-                tooltipWindow := WinExist("ahk_class tooltips_class32 ahk_pid " ProcessExist())
-                if tooltipWindow
-                {
-                    WinGetPos(, , &tooltipWidth, &tooltipHeight, "ahk_id " tooltipWindow)
-                    origin := Buffer(8, 0)
-                    DllCall("ClientToScreen", "Ptr", Client.HWND, "Ptr", origin)
-                    left := NumGet(origin, 0, "Int")
-                    tooltipX := Max(left, Min(x - Round(tooltipWidth / 2), left + width - tooltipWidth))
-                    DllCall("SetWindowPos", "Ptr", tooltipWindow, "Ptr", 0,
-                        "Int", tooltipX, "Int", y, "Int", 0, "Int", 0, "UInt", 0x15)
-                }
-            }
-            lastText := text, lastX := x, lastY := y
-        }
-    }
-    catch
-    {
-        ToolTip(, , , 1)
-        lastText := "", lastX := -1, lastY := -1
-    }
 }
 
 FindGameWindow(pid)
 {
     for hwnd in WinGetList("ahk_pid " pid)
     {
-        className := WinGetClass("ahk_id " hwnd)
-        if className = "ConsoleWindowClass" || InStr(className, "Terminal")
+        ; The window can disappear while the process is closing.
+        try className := WinGetClass("ahk_id " hwnd)
+        catch
             continue
-        if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
-            continue
-        if !InStr(className, "SDL")
+        if !InStr(className, "SDL") || !DllCall("IsWindowVisible", "Ptr", hwnd)
             continue
         return hwnd
     }
     return 0
 }
 
-RetryClient(reason)
+EndClientMonitoring(reason)
 {
     global Client
     profileName := IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure"
     LogLauncherEvent("GAME | STOP | Character: " profileName " | Reason: " reason ".")
-    if IsObject(Client.Queue)
-        Client.Queue := 0
     StopClient()
-    SetClientStatus(reason " — session stopped.")
+}
+
+FindCrashRecoveryProfile(profile)
+{
+    global Profiles
+    if !IsObject(profile)
+        return 0
+    ; Reopening the Character Book reloads profiles from disk. Match the
+    ; login rather than the object, and fail closed if it is ambiguous.
+    found := 0
+    for saved in Profiles
+    {
+        if saved == profile
+            return saved.AutoReconnect ? saved : 0
+        if saved.Name == profile.Name && saved.Password == profile.Password
+        {
+            if IsObject(found)
+                return 0
+            found := saved
+        }
+    }
+    return IsObject(found) && found.AutoReconnect ? found : 0
+}
+
+IsTES3MPCrashExit(exitCode)
+{
+    ; The legacy client may return other nonzero codes for startup failures.
+    ; Recognize Windows crash statuses, including typical unhandled C++ errors.
+    return exitCode = 0xC0000005 || exitCode = 0xC000001D || exitCode = 0xC0000094
+        || exitCode = 0xC00000FD || exitCode = 0xC0000374 || exitCode = 0xC0000409
+        || exitCode = 0xE06D7363
+}
+
+ReadTES3MPExitCode(handle)
+{
+    if handle
+    {
+        result := Buffer(4, 0)
+        if DllCall("GetExitCodeProcess", "Ptr", handle, "Ptr", result)
+            return NumGet(result, 0, "UInt")
+    }
+    return -1
+}
+
+CheckTES3MPCrashRecovery()
+{
+    global Client, TES3NPCrashRecovery, GameRecoveryGeneration
+    global ExpansionMismatchDialog, ExpansionInstallPromptGui, ExpansionAutoFailurePromptGui
+    static checking := false
+    if checking || !CanUseNPLauncher(false) || IsObject(ExpansionMismatchDialog)
+        || IsObject(ExpansionInstallPromptGui) || IsObject(ExpansionAutoFailurePromptGui)
+        return
+    checking := true
+    try
+    {
+        for handle, profile in TES3NPCrashRecovery
+        {
+            current := FindCrashRecoveryProfile(profile)
+            if IsObject(current)
+                && DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 0, "UInt") = 258
+                continue
+            generation := GameRecoveryGeneration
+            if !TES3NPCrashRecovery.Has(handle)
+                break
+            TES3NPCrashRecovery.Delete(handle)
+            exitCode := ReadTES3MPExitCode(handle)
+            CountTES3NPGameClients()
+            if IsObject(current) && IsTES3MPCrashExit(exitCode)
+            {
+                LogLauncherEvent("GAME | RECOVERY | Relaunch after TES3MP crash | Exit code: " Format("0x{:08X}", exitCode) ".")
+                executable := GetSharedExecutable()
+                if ValidateLaunch(current, executable)
+                    StartProfileSession(current, executable, false, false, generation)
+            }
+            break
+        }
+    }
+    finally checking := false
+    if !Client.Enabled && !TES3NPCrashRecovery.Count
+        SetTimer(ClientTick, 0)
 }
 
 ClientTick()
 {
-    global Client
+    global Client, DataFile, TES3NPActiveGameHandles, TES3NPCrashRecovery
     if !Client.Enabled
+    {
+        CheckTES3MPCrashRecovery()
         return
+    }
+    session := Client
     try
     {
         if Client.Phase = "launch"
@@ -214,57 +316,87 @@ ClientTick()
             if Client.LaunchIssued
                 return
             Client.LaunchIssued := true
+            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " (IsObject(Client.Profile) ? Client.Profile.Name : "New Adventure") " | Phase: " Client.Phase ".")
+            if !ValidateSelectedClientRuntime(Client.Executable)
+                throw Error("Selected TES3MP runtime is incomplete.")
+            ; Recheck the game files immediately before starting the process.
+            if !EnsureMorrowindForGameLaunch()
+            {
+                if Client = session
+                    StopClient()
+                return
+            }
+            if Client != session || !Client.Enabled
+                return
             SplitPath(Client.Executable, , &workingDirectory)
-            LogLauncherEvent("GAME | SOURCE | Executing TES3MP Run() | Character: " Client.Profile.Name " | Phase: " Client.Phase ".")
+            Client.LogWatch := CaptureTES3MPLogBaseline()
             Run('"' Client.Executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
             Client.PID := pid
+            ; Keep a handle for the lifetime of the launched process, including
+            ; after the login controller has stopped watching it.
+            handle := DllCall("OpenProcess", "UInt", 0x101001, "Int", 0, "UInt", pid, "Ptr")
+            if !handle
+                handle := DllCall("OpenProcess", "UInt", 0x101000, "Int", 0, "UInt", pid, "Ptr")
+            if handle
+            {
+                Client.ProcessHandle := handle
+                TES3NPActiveGameHandles.Push(handle)
+            }
             Client.Phase := "window"
             Client.Deadline := A_TickCount + AppConfig.GameWindowWaitMs
             LogLauncherEvent("GAME | TES3MP process started | PID: " pid ".")
         }
-        if Client.Phase = "closing"
+        ; Read only log output created after this launch. This is part of the
+        ; existing client watchdog, not a parallel reconnect or polling timer.
+        if Client.Phase != "launch" && CheckTES3MPPluginMismatch()
+            return
+        running := Client.ProcessHandle
+            ? DllCall("WaitForSingleObject", "Ptr", Client.ProcessHandle, "UInt", 0, "UInt") = 258
+            : ProcessExist(Client.PID)
+        if !running
         {
-            if ProcessExist(Client.PID)
+            ; A rejected client may exit before its last log writes are flushed.
+            ; Keep the existing watchdog alive briefly to capture only NEW
+            ; mismatch evidence, then stop normally if nothing appears.
+            if !Client.HasOwnProp("MismatchExitGraceUntil")
             {
-                if A_TickCount >= Client.Deadline
-                {
-                    try ProcessClose(Client.PID)
-                    Client.Deadline := A_TickCount + AppConfig.RetryMs
-                }
+                Client.MismatchExitGraceUntil := A_TickCount + 2000
                 return
             }
-            if Client.Queue.Length
+            if A_TickCount < Client.MismatchExitGraceUntil
+                return
+            codeText := "unavailable"
+            exitCode := ReadTES3MPExitCode(Client.ProcessHandle)
+            if exitCode != -1
             {
-                queue := Client.Queue
-                profile := queue.RemoveAt(1)
-                LogLauncherEvent("GAME | Batch advancing to next character | Remaining after next: " queue.Length ".")
-                StartProfileSession(profile, Client.Executable, queue, Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin)
+                codeText := Format("0x{:08X}", exitCode)
+                if exitCode = 0
+                    codeText .= " (normal exit)"
+                else if exitCode = 0xC0000005
+                    codeText .= " (access violation)"
+                else if exitCode = 0xC0000409
+                    codeText .= " (stack buffer overrun / fail-fast)"
+                else if exitCode = 0xC000001D
+                    codeText .= " (illegal instruction)"
             }
+            LogLauncherEvent("GAME | EXIT | Process ended | Phase: " Client.Phase " | Exit code: " codeText " | Mode: " IniRead(DataFile, "Launch", "ClientMode", "Bundled"))
+            retryCrash := !Client.Recovering && IsTES3MPCrashExit(exitCode) && IsObject(FindCrashRecoveryProfile(Client.SavedProfile))
+            if retryCrash
+                TES3NPCrashRecovery[Client.ProcessHandle] := Client.SavedProfile
             else
-            {
-                LogLauncherEvent("GAME | SUCCESS | All batch characters completed.")
-                scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
-                if scheduledDailyLogin
-                    MarkScheduledDailyLoginComplete()
-                StopClient()
-                SetClientStatus("All characters completed. Game clients closed.")
-            }
-            return
-        }
-        if !ProcessExist(Client.PID)
-        {
-            ; Only the explicit "closing" phase above is allowed to advance a
-            ; Daily Login queue. If TES3MP disappears during any other phase,
-            ; the user closed it (or it exited unexpectedly), so cancel the
-            ; entire monitored session instead of logging another character in.
-            LogLauncherEvent("GAME | Game process closed; session and queued launches cancelled.")
-            scheduledDailyLogin := Client.HasOwnProp("ScheduledDailyLogin") && Client.ScheduledDailyLogin
-            if IsObject(Client.Queue)
-                Client.Queue := 0
-            if scheduledDailyLogin
-                CancelScheduledDailyLoginForToday()
+                LogLauncherEvent("GAME | Game process closed; login recovery stopped.")
+            failedToStart := Client.Phase = "window" && !retryCrash
             StopClient()
-            SetClientStatus("Game closed.")
+            if failedToStart
+            {
+                message := "TES3MP closed before a game window opened. Exit code: " codeText "."
+                if exitCode = 0xC0000135 || exitCode = 0xC0000139 || exitCode = 0xC000007B
+                    message .= Chr(10) Chr(10) "For a custom EXE, choose the folder with matching DLLs in TES3MP Setup."
+                else if exitCode = 0
+                    message .= "`n`nCheck that Morrowind GOTY (or Morrowind with Tribunal and Bloodmoon) is installed "
+                        . "and that the active OpenMW configuration points to its Data Files folder and loads all three master files."
+                MsgBox(message, "TES3MP Startup Failed", "Icon!")
+            }
             return
         }
         hwnd := FindGameWindow(Client.PID)
@@ -277,100 +409,122 @@ ClientTick()
                 if !IsObject(Client.Profile)
                 {
                     Client.Phase := "playing"
-                    SetClientStatus("Game running. Create your character in-game.")
+                    Client.Deadline := A_TickCount + 15000
                     LogLauncherEvent("GAME | SUCCESS | Game session started for new adventure.")
                 }
                 else
                 {
                     Client.Phase := "username"
+                    SetGameLoginProgressStage(1)
                     Client.Deadline := A_TickCount + Client.UsernameDelay * 1000
-                    SetClientStatus("Waiting for username screen — " Client.UsernameDelay " seconds.")
                     LogLauncherEvent("GAME | Login stage | Waiting for username screen.")
                 }
             }
             else if A_TickCount >= Client.Deadline
-                RetryClient("Game window did not appear")
-            else
-                SetClientStatus("Waiting for the game window (console does not count).")
+            {
+                EndClientMonitoring("Game window did not appear")
+                MsgBox("TES3MP did not open a game window in time. Check for a TES3MP error window and close the client if it is still running.",
+                    "TES3MP Startup Timed Out", "Icon!")
+            }
             return
         }
         if !hwnd || hwnd != Client.HWND
         {
-            RetryClient("Game window lost")
+            ; The game can replace its SDL window with a plugin-error window.
+            ; Give the existing fresh-log checker time to catch that rejection.
+            if !Client.HasOwnProp("MismatchWindowGraceUntil") || !Client.MismatchWindowGraceUntil
+                Client.MismatchWindowGraceUntil := A_TickCount + 2000
+            if A_TickCount >= Client.MismatchWindowGraceUntil
+                EndClientMonitoring("Game window lost")
             return
         }
+        Client.MismatchWindowGraceUntil := 0
         if Client.Phase = "playing"
         {
+            ; A new-adventure launch needs a short connection-error watch, not
+            ; a permanent second login controller or continuous game monitoring.
+            if !IsObject(Client.Profile) && A_TickCount >= Client.Deadline
+            {
+                StopClient()
+                return
+            }
             if DllCall("IsHungAppWindow", "Ptr", hwnd)
-                RetryClient("Game window is unresponsive")
+                EndClientMonitoring("Game window is unresponsive")
             return
         }
-        remaining := Max(0, Ceil((Client.Deadline - A_TickCount) / 1000))
-        if remaining > 0
-        {
-            label := Client.Phase = "username" ? "Waiting for username screen" : Client.Phase = "password" ? "Waiting for password screen" : Client.Phase = "claim" ? "Collecting daily login points" : "Loading character"
-            SetClientStatus(label " — " remaining " seconds.")
+        if A_TickCount < Client.Deadline
             return
-        }
-        if Client.Phase = "claim"
-        {
-            Client.Phase := "closing"
-            Client.Deadline := A_TickCount + AppConfig.RetryMs
-            SetClientStatus("Closing " Client.Profile.Name " before the next character...")
-            LogLauncherEvent("GAME | Batch character claim wait completed; closing client.")
-            WinClose("ahk_id " hwnd)
-            return
-        }
-        if Client.Phase = "loading" && IsObject(Client.Queue)
-        {
-            Client.Phase := "claim"
-            Client.Deadline := A_TickCount + AppConfig.ClaimWaitMs
-            SetClientStatus("Waiting 10 seconds for " Client.Profile.Name " before closing.")
-            LogLauncherEvent("GAME | Login inputs completed | Batch character loaded; waiting for claim period.")
-            return
-        }
         if Client.Phase = "loading"
         {
             Client.Phase := "playing"
-            SetClientStatus("Login inputs completed.")
-            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name ".")
+            LogLauncherEvent("GAME | SUCCESS | Login completed | Character: " Client.Profile.Name " | Active clients: " CountTES3NPGameClients() ".")
+            ; Completed manual logins no longer hold the one-at-a-time login
+            ; watchdog. Keep the game running and allow another launch.
+            if Client.ProcessHandle && IsObject(FindCrashRecoveryProfile(Client.SavedProfile))
+                TES3NPCrashRecovery[Client.ProcessHandle] := Client.SavedProfile
+            Client.KeepLoginProgress := true
+            StopClient()
             return
         }
+        if Client != session || !Client.Enabled
+            return
         WinActivate("ahk_id " hwnd)
-        if !WinWaitActive("ahk_id " hwnd, , 2)
+        focused := WinWaitActive("ahk_id " hwnd, , 2)
+        if Client != session || !Client.Enabled
+            return
+        if !focused
             throw Error("Could not focus game window")
-        if Client.Phase = "username"
+        ; The tray stop action can run while WinWaitActive is waiting.
+        previousCritical := A_IsCritical
+        Critical("On")
+        try
         {
-            SetClientStatus("Entering username...")
-            LogLauncherEvent("GAME | Login stage | Entering username.")
-            SendText(Client.Profile.Name)
-            Send("{Enter}")
-            Client.Phase := "password"
-            Client.Deadline := A_TickCount + Client.PasswordDelay * 1000
-            SetClientStatus("Waiting for password screen — " Client.PasswordDelay " seconds.")
+            if Client != session || !Client.Enabled || Client.HWND != hwnd
+                return
+            if !WinActive("ahk_id " hwnd)
+                return
+            if Client.Phase = "username"
+            {
+                SetGameLoginProgressStage(2)
+                LogLauncherEvent("GAME | Login stage | Entering username.")
+                if !WinActive("ahk_id " hwnd) || WinGetPID("ahk_id " hwnd) != session.PID
+                    return
+                SendText(Client.Profile.Name)
+                Send("{Enter}")
+                SetGameLoginProgressStage(3)
+                Client.Phase := "password"
+                Client.Deadline := A_TickCount + Client.PasswordDelay * 1000
+            }
+            else if Client.Phase = "password"
+            {
+                SetGameLoginProgressStage(4)
+                LogLauncherEvent("GAME | Login stage | Entering password.")
+                if !WinActive("ahk_id " hwnd) || WinGetPID("ahk_id " hwnd) != session.PID
+                    return
+                SendText(Client.Profile.Password)
+                Send("{Enter}")
+                ; Finish only the visual. The saved LoadDelay and recovery continue.
+                CompleteGameLoginProgress(Client.Profile.Name, Client.PID, Client.HWND)
+                Client.Phase := "loading"
+                Client.Deadline := A_TickCount + Client.LoadDelay * 1000
+            }
         }
-        else if Client.Phase = "password"
-        {
-            SetClientStatus("Entering password...")
-            LogLauncherEvent("GAME | Login stage | Entering password. Password value not logged.")
-            SendText(Client.Profile.Password)
-            Send("{Enter}")
-            Client.Phase := "loading"
-            Client.Deadline := A_TickCount + Client.LoadDelay * 1000
-            SetClientStatus("Loading character — " Client.LoadDelay " seconds.")
-        }
-        else
-        {
-            Client.Phase := "playing"
-            SetClientStatus("Login inputs completed.")
-            LogLauncherEvent("GAME | SUCCESS | Login state completed.")
-        }
+        finally Critical(previousCritical)
     }
     catch Error as err
     {
-        Client.LaunchIssued := false
-        LogLauncherEvent("GAME | ERROR | Client launch/login exception: " err.Message ".")
-        RetryClient("Client launch or login failed")
+        if Client != session || !Client.Enabled
+            return
+        ; If Run() succeeded and a later launch/login step failed, do not leave
+        ; the TES3MP process orphaned after recovery monitoring stops.
+        if Client.ProcessHandle
+            DllCall("TerminateProcess", "Ptr", Client.ProcessHandle, "UInt", 0)
+        LogLauncherEvent("GAME | ERROR | Client launch/login exception type: " Type(err) ".")
+        failedToStart := Client.Phase = "launch" || Client.Phase = "window"
+        EndClientMonitoring("Client launch or login failed")
+        if failedToStart
+            MsgBox("TES3MP could not start. Check the selected executable and its dependencies in TES3MP Setup.",
+                "TES3MP Startup Failed", "Icon!")
     }
 }
 
@@ -378,38 +532,22 @@ StartNewAdventure(*)
 {
     if !CanUseNPLauncher()
         return
-    global Client, DataFile
+    global Client
     if Client.Enabled
     {
         LogLauncherEvent("GAME | BLOCKED | New Adventure requested while another monitored session is active.")
         MsgBox("A game session is already being monitored. Use the tray menu to stop recovery before starting another.", "tes3np")
         return
     }
-    executable := IniRead(DataFile, "Launch", "Executable", "")
-    SplitPath(executable, &filename)
-    if !FileExist(executable) || StrLower(filename) != "tes3mp.exe"
-        executable := FileSelect(1, , "Select tes3mp.exe to start your adventure", "Applications (*.exe)")
-    if executable = ""
+    if !CanStartAnotherTES3NPGame()
         return
-    SplitPath(executable, &filename)
-    if StrLower(filename) != "tes3mp.exe" || !FileExist(executable)
-    {
-        LogLauncherEvent("GAME | BLOCKED | New Adventure executable selection is invalid.")
-        MsgBox("Select an existing tes3mp.exe.", "tes3np")
+    if !EnsureMorrowindForGameLaunch()
         return
-    }
-    DirCreate(AppDataDirectory)
-    IniWrite(executable, DataFile, "Launch", "Executable")
-    SplitPath(executable, , &workingDirectory)
+    executable := GetSharedExecutable()
+    if !ValidateSelectedClientRuntime(executable)
+        return
+    ; Use the same tracked launch watchdog so a new-adventure connection
+    ; receives exactly the same fresh-log mismatch handling as saved profiles.
     LogLauncherEvent("GAME | New Adventure launch requested.")
-    try
-    {
-        Run('"' executable '" --connect=' AppConfig.Server, workingDirectory, , &pid)
-        LogLauncherEvent("GAME | SUCCESS | New Adventure TES3MP process started | PID: " pid ".")
-    }
-    catch Error as err
-    {
-        LogLauncherEvent("GAME | ERROR | Could not start New Adventure: " err.Message ".")
-        MsgBox("Could not launch TES3MP. Check the selected executable and try again.", "tes3np")
-    }
+    StartProfileSession(0, executable)
 }
