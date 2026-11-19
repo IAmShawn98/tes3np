@@ -7,6 +7,7 @@ Changes since the last public release, v0.1.20-alpha.
 ### New Features
 
 - **Game Chat:** Read live Nerevarine Prophecies Discord messages alongside the launcher.
+- **Game Updates:** Read server announcements in the launcher and react to posts when signed in to Discord.
 - **Bug reporting:** Send a report from **Launcher Data** with diagnostic logs and optional screenshots.
 - **Bundled TES3MP:** The Windows ZIP includes the TES3MP 0.8.1 client and its dependencies.
 - **Happy Hour notifications:** See an active Happy Hour and its remaining time on the launcher.
