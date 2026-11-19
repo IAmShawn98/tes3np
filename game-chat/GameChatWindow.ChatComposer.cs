@@ -55,8 +55,8 @@ internal sealed partial class GameChatWindow
             core.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "tes3np-composer-size",
-                width = clip.Width / chatScale,
-                height = clip.Height / chatScale
+                widthFraction = clip.Width / (double)browser.ClientSize.Width,
+                heightFraction = clip.Height / (double)browser.ClientSize.Height
             }));
         }
     }
@@ -130,9 +130,15 @@ internal sealed partial class GameChatWindow
                     using var message = JsonDocument.Parse(e.WebMessageAsJson);
                     if (!message.RootElement.TryGetProperty("type", out var type) || type.GetString() != "tes3np-composer" ||
                         !message.RootElement.TryGetProperty("state", out var state)) return;
+                    if (state.GetString() == "layout" &&
+                        TryReadComposerDimension(message.RootElement, "expectedWidth", out int expected) &&
+                        TryReadComposerDimension(message.RootElement, "barWidth", out int bar) &&
+                        TryReadComposerDimension(message.RootElement, "editorWidth", out int editor))
+                        Log($"CHAT | Discord composer fit: expected {expected}, bar {bar}, editor {editor}");
                     SetComposerStatus(state.GetString() switch
                     {
                         "ready" => null,
+                        "layout" => "Fitting Discord composer…",
                         "unavailable" => "Sending unavailable in this Discord channel.",
                         _ => "Opening Discord composer…"
                     });
@@ -151,6 +157,13 @@ internal sealed partial class GameChatWindow
             SetComposerStatus("Discord composer unavailable. Retrying…");
             Log("CHAT | Discord composer: " + ex.GetType().Name);
         }
+    }
+
+    static bool TryReadComposerDimension(JsonElement message, string field, out int value)
+    {
+        value = 0;
+        return message.TryGetProperty(field, out var dimension) &&
+            dimension.ValueKind == JsonValueKind.Number && dimension.TryGetInt32(out value);
     }
 
     void SetComposerStatus(string? status)
