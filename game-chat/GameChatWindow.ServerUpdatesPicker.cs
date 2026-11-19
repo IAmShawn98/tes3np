@@ -1,130 +1,134 @@
-using System.Drawing;
-using Microsoft.Web.WebView2.WinForms;
-using static GameChatNative;
+using System.Globalization;
+using System.Text.Json;
+using Microsoft.Web.WebView2.Core;
 
 internal sealed partial class GameChatWindow
 {
-    ServerUpdatePickerWindow? serverUpdatePicker;
+    sealed record PickerEmoji(string Key, string Name, string Text, string? Image, string ReactionKey, int Offset);
+    sealed record PickerPage(PickerEmoji[] Items, bool More);
+    sealed record PickerReply(PickerEmoji[]? Items = null, bool More = false, string? Error = null, bool Close = false);
 
-    sealed class ServerUpdatePickerWindow : Form
+    sealed class ServerUpdatePicker(string messageId, ServerUpdatesWindow source)
     {
-        readonly Label status = new()
-        {
-            Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
-            Text = "Opening Discord…", BackColor = Color.FromArgb(27, 25, 23), ForeColor = Color.Gainsboro
-        };
-
-        internal WebView2 Browser { get; } = new() { Dock = DockStyle.Fill };
-        internal string MessageId { get; }
-
-        internal ServerUpdatePickerWindow(string messageId, Rectangle anchor, int dpi)
-        {
-            MessageId = messageId;
-            Text = "Add a reaction";
-            FormBorderStyle = FormBorderStyle.SizableToolWindow;
-            StartPosition = FormStartPosition.Manual;
-            ShowInTaskbar = false;
-            Controls.Add(Browser);
-            Controls.Add(status);
-            status.BringToFront();
-
-            var screen = Screen.FromRectangle(anchor).WorkingArea;
-            int width = Math.Min(960 * dpi / 96, screen.Width);
-            int height = Math.Min(720 * dpi / 96, screen.Height);
-            int x = anchor.Right + width <= screen.Right ? anchor.Right : anchor.Left - width;
-            Bounds = new Rectangle(Math.Clamp(x, screen.Left, screen.Right - width),
-                Math.Clamp(anchor.Top, screen.Top, screen.Bottom - height), width, height);
-        }
-
-        internal void RevealBrowser()
-        {
-            status.Hide();
-            if (ActiveForm == this || ContainsFocus) Browser.Focus();
-        }
-
-        internal void ShowFailure(string text)
-        {
-            status.Text = text;
-            status.Show();
-            status.BringToFront();
-        }
+        internal string MessageId { get; } = messageId;
+        internal ServerUpdatesWindow Source { get; } = source;
+        internal Dictionary<string, PickerEmoji> Choices { get; } = new(StringComparer.Ordinal);
     }
 
-    bool IsCurrentServerUpdatePicker(ServerUpdatePickerWindow picker) =>
-        CanShowServerUpdates && picker == serverUpdatePicker && !picker.IsDisposed;
+    ServerUpdatePicker? serverUpdatePicker;
 
-    async Task<string?> OpenServerUpdatePicker(LatestUpdatesPanel panel, ServerUpdateAction request)
+    bool IsCurrentServerUpdatePicker(ServerUpdatePicker picker) =>
+        picker == serverUpdatePicker && IsCurrentServerUpdatesSource(picker.Source);
+
+    async Task<PickerReply> ActOnServerUpdatePicker(LatestUpdatesPanel panel, ServerUpdateAction request)
     {
-        // Leave the embedded renderer's WebView2 event before activating a different window.
         await Task.Yield();
-        if (panel != serverUpdatesPanel || !CanShowServerUpdates || discordEnvironment is not { } environment)
-            return "Discord is still loading.";
-
-        if (serverUpdatePicker is { IsDisposed: false } existing && existing.MessageId == request.Id)
+        if (panel != serverUpdatesPanel || !CanShowServerUpdates)
+            return new(Error: "Discord is still loading.");
+        if (request.Kind == "picker-close")
         {
-            existing.Activate();
-            return null;
+            if (serverUpdatePicker?.MessageId == request.Id) CloseServerUpdatePicker();
+            return new(Close: true);
+        }
+        if (workingServerUpdateReaction)
+            return new(Error: "Wait for the current reaction to finish.");
+        if (request.Kind == "picker")
+        {
+            if (!ulong.TryParse(request.Id, NumberStyles.None, CultureInfo.InvariantCulture, out _) ||
+                !displayedServerUpdates.Any(post => post.Id == request.Id) ||
+                serverUpdatesWindow is not { IsDisposed: false } source || source.Browser.CoreWebView2 == null)
+                return new(Error: "Discord is still loading.");
+            if (serverUpdatePicker != null) return new(Error: "Close the current emoji picker first.");
+            serverUpdatePicker = new ServerUpdatePicker(request.Id, source);
         }
 
-        CloseServerUpdatePicker();
-        var anchor = panel.RectangleToScreen(panel.ClientRectangle);
-        var picker = new ServerUpdatePickerWindow(request.Id, anchor, Math.Max(96, (int)GetDpiForWindow(owner)));
-        serverUpdatePicker = picker;
-        picker.FormClosed += (_, _) =>
-        {
-            if (serverUpdatePicker == picker) serverUpdatePicker = null;
-            if (ServerUpdatesAuthenticated) nextServerUpdatesCheck = DateTime.MinValue;
-        };
+        if (serverUpdatePicker is not { } picker || picker.MessageId != request.Id ||
+            !IsCurrentServerUpdatePicker(picker) || picker.Source.Browser.CoreWebView2 is not { } core)
+            return new(Error: "Reopen the emoji picker to continue.");
 
+        workingServerUpdateReaction = true;
         try
         {
-            // Keep the picker modeless, with its own top-level window and input focus.
-            picker.Show();
-            picker.Activate();
-            await picker.Browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
-            if (!IsCurrentServerUpdatePicker(picker)) return null;
-            var core = picker.Browser.CoreWebView2;
-            ConfigureServerUpdatesBrowser(core);
-            core.Navigate(ServerUpdatesChannel + "/" + request.Id);
-
-            var locate = request with { Kind = "picker-target" };
-            var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (DateTime.UtcNow < deadline)
+            if (activeServerUpdatesRead is { } activeRead) await activeRead.Task;
+            if (!IsCurrentServerUpdatePicker(picker)) return new(Close: true);
+            if (request.Kind == "picker")
             {
-                await Task.Delay(250);
-                if (!IsCurrentServerUpdatePicker(picker)) return null;
-                if (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source)) continue;
-                string located = await RunServerUpdateAction(core, locate);
-                if (!IsCurrentServerUpdatePicker(picker)) return null;
-                if (located != "\"ready\"") continue;
-
-                picker.RevealBrowser();
-                // Discord positions its popover against the real, visible viewport.
-                for (int attempt = 0; attempt < 3; attempt++)
+                string opened = await RunServerUpdateOnPost(picker.Source, core, request);
+                for (int attempt = 0; attempt < 2 && opened == "\"unavailable\"" && IsCurrentServerUpdatePicker(picker); attempt++)
                 {
-                    await Task.Delay(150);
-                    if (!IsCurrentServerUpdatePicker(picker) ||
-                        (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source))) return null;
-                    if (await RunServerUpdateAction(core, request) == "\"clicked\"") return null;
+                    await Task.Delay(175);
+                    if (IsCurrentServerUpdatePicker(picker)) opened = await RunServerUpdateAction(core, request);
                 }
-                return IsCurrentServerUpdatePicker(picker) ? "Use Add Reaction on the opened Discord post." : null;
+                if (opened == "\"clicked\"")
+                {
+                    for (int attempt = 0; attempt < 16; attempt++)
+                    {
+                        var page = await ReadPickerPage(picker, core, request);
+                        if (page != null && page.Items.Length > 0) return RememberPickerPage(picker, page);
+                        if (!IsCurrentServerUpdatePicker(picker)) return new(Close: true);
+                        await Task.Delay(175);
+                    }
+                }
+                if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
+                return new(Error: "Discord could not open the emoji list. Close this picker and try again.");
             }
 
-            picker.ShowFailure("Discord could not find the post. Close this window and try again.");
+            if (request.Kind == "picker-select")
+            {
+                if (request.Key == null || !picker.Choices.TryGetValue(request.Key, out var choice))
+                    return new(Error: "Choose an emoji from the current results.");
+                string positioned = await RunServerUpdateAction(core, request with { Kind = "picker-position", Offset = choice.Offset });
+                if (positioned != "\"changed\"") return new(Error: "The emoji list closed. Reopen it to continue.");
+                await Task.Delay(175);
+                if (!IsCurrentServerUpdatePicker(picker)) return new(Close: true);
+                if (await RunServerUpdateAction(core, request) != "\"clicked\"")
+                    return new(Error: "Discord could not select that emoji. Search for it and try again.");
+                await ReadBackServerUpdateReaction(picker.Source, core, request with { Key = choice.ReactionKey, Mine = true });
+                if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
+                return new(Close: true);
+            }
+
+            if (request.Kind == "picker-search" && (request.Query?.Length ?? 0) > 64)
+                return new(Error: "Use a shorter search.");
+            if (request.Kind is not ("picker-search" or "picker-more")) return new();
+            if (await RunServerUpdateAction(core, request) != "\"changed\"")
+                return new(Error: "Discord could not update the emoji list.");
+            await Task.Delay(request.Kind == "picker-search" ? 450 : 175);
+            var updated = await ReadPickerPage(picker, core, request);
+            if (updated == null) return new(Error: "Discord could not update the emoji list.");
+            if (request.Kind == "picker-search") picker.Choices.Clear();
+            return RememberPickerPage(picker, updated);
         }
         catch (Exception ex)
         {
-            if (!IsCurrentServerUpdatePicker(picker)) return null;
-            picker.ShowFailure("Discord could not open the reaction picker. Close this window and try again.");
-            Log("SERVER UPDATES | Emoji picker: " + ex.GetType().Name + " 0x" + ex.HResult.ToString("X8"));
+            if (IsCurrentServerUpdatePicker(picker))
+            {
+                Log("SERVER UPDATES | Emoji picker: " + ex.GetType().Name);
+                CloseServerUpdatePicker();
+            }
+            return new(Error: "Discord could not update the emoji list. Close this picker and try again.");
         }
-        return null;
+        finally { workingServerUpdateReaction = false; }
     }
 
-    void CloseServerUpdatePicker()
+    async Task<PickerPage?> ReadPickerPage(ServerUpdatePicker picker, CoreWebView2 core, ServerUpdateAction request)
+    {
+        if (!IsCurrentServerUpdatePicker(picker)) return null;
+        string result = await RunServerUpdateAction(core, request with { Kind = "picker-page" });
+        return IsCurrentServerUpdatePicker(picker) && result.Length > 0 && result[0] == '{'
+            ? JsonSerializer.Deserialize<PickerPage>(result) : null;
+    }
+
+    static PickerReply RememberPickerPage(ServerUpdatePicker picker, PickerPage page)
+    {
+        var newItems = page.Items.Where(item => picker.Choices.TryAdd(item.Key, item)).ToArray();
+        return new(Items: newItems, More: page.More);
+    }
+
+    void CloseServerUpdatePicker(bool resume = true)
     {
         var picker = serverUpdatePicker;
         serverUpdatePicker = null;
-        if (picker is { IsDisposed: false }) picker.Close();
+        if (resume && picker != null) RestoreServerUpdatesChannel(picker.Source, restartChannel: true);
     }
 }

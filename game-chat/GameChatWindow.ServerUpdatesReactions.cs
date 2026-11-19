@@ -4,7 +4,8 @@ using Microsoft.Web.WebView2.Core;
 
 internal sealed partial class GameChatWindow
 {
-    sealed record ServerUpdateAction(string Kind, string Id, string? Key, bool? Mine = null);
+    sealed record ServerUpdateAction(string Kind, string Id, string? Key, bool? Mine = null,
+        string? Query = null, int Offset = 0);
 
     ServerUpdate[] displayedServerUpdates = [];
     bool workingServerUpdateReaction;
@@ -35,30 +36,15 @@ internal sealed partial class GameChatWindow
             (request.Kind == "toggle" && (request.Mine == null ||
                 post.Reactions?.Any(reaction => reaction.Key == request.Key) != true)))
             return "This reaction has changed. Try again after the update refreshes.";
-        if (request.Kind == "picker") return await OpenServerUpdatePicker(panel, request);
         if (request.Kind != "toggle" || serverUpdatesWindow is not { IsDisposed: false } source ||
             source.Browser.CoreWebView2 is not { } core) return "Discord is still loading.";
-        if (workingServerUpdateReaction) return "Finish the open reaction first.";
+        if (workingServerUpdateReaction || serverUpdatePicker != null) return "Finish the open reaction first.";
 
         workingServerUpdateReaction = true;
-        string target = ServerUpdatesChannel + "/" + request.Id;
         try
         {
             if (activeServerUpdatesRead is { } activeRead) await activeRead.Task;
-            if (!IsCurrentServerUpdatesSource(source)) return null;
-            string result = IsServerUpdatesRoute(core.Source) ? await RunServerUpdateAction(core, request) : "null";
-            if (!IsCurrentServerUpdatesSource(source)) return null;
-            if (result is "null" or "\"missing\"")
-            {
-                core.Navigate(target);
-                for (int attempt = 0; attempt < 24 && (result is "null" or "\"missing\""); attempt++)
-                {
-                    await Task.Delay(250);
-                    if (!IsCurrentServerUpdatesSource(source)) return null;
-                    if (IsServerUpdatesRoute(core.Source) || IsServerUpdatesMessageRoute(core.Source))
-                        result = await RunServerUpdateAction(core, request);
-                }
-            }
+            string result = await RunServerUpdateOnPost(source, core, request);
             if (!IsCurrentServerUpdatesSource(source)) return null;
 
             if (result is not ("\"clicked\"" or "\"already\"")) return "Discord could not apply this reaction.";
@@ -75,6 +61,24 @@ internal sealed partial class GameChatWindow
             workingServerUpdateReaction = false;
             RestoreServerUpdatesChannel(source);
         }
+    }
+
+    async Task<string> RunServerUpdateOnPost(ServerUpdatesWindow source, CoreWebView2 core, ServerUpdateAction request)
+    {
+        if (!IsCurrentServerUpdatesSource(source)) return "null";
+        string result = IsServerUpdatesRoute(core.Source) || IsServerUpdatesMessageRoute(core.Source)
+            ? await RunServerUpdateAction(core, request) : "null";
+        if (!IsCurrentServerUpdatesSource(source) || result is not ("null" or "\"missing\"")) return result;
+
+        core.Navigate(ServerUpdatesChannel + "/" + request.Id);
+        for (int attempt = 0; attempt < 24 && (result is "null" or "\"missing\""); attempt++)
+        {
+            await Task.Delay(250);
+            if (!IsCurrentServerUpdatesSource(source)) return "null";
+            if (IsServerUpdatesRoute(core.Source) || IsServerUpdatesMessageRoute(core.Source))
+                result = await RunServerUpdateAction(core, request);
+        }
+        return result;
     }
 
     async Task ReadBackServerUpdateReaction(ServerUpdatesWindow source, CoreWebView2 core, ServerUpdateAction request)
@@ -109,14 +113,14 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    void RestoreServerUpdatesChannel(ServerUpdatesWindow source)
+    void RestoreServerUpdatesChannel(ServerUpdatesWindow source, bool restartChannel = false)
     {
         if (source != serverUpdatesWindow || source.IsDisposed || !ServerUpdatesAuthenticated) return;
         nextServerUpdatesCheck = DateTime.UtcNow.AddMilliseconds(500);
         serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
         try
         {
-            if (source.Browser.CoreWebView2 is { } core && IsServerUpdatesMessageRoute(core.Source))
+            if (source.Browser.CoreWebView2 is { } core && (restartChannel || IsServerUpdatesMessageRoute(core.Source)))
                 core.Navigate(ServerUpdatesChannel);
         }
         catch (Exception ex) { Log("SERVER UPDATES | Return to channel: " + ex.GetType().Name); }
