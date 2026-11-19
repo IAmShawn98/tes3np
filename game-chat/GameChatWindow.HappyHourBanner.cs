@@ -57,8 +57,8 @@ internal sealed partial class GameChatWindow
         return System.Drawing.Color.FromArgb(215, 170, 77);
     }
 
-    // Measure the ACTUAL rendered fonts so the rainbow title, green XP
-    // text and countdown never occupy overlapping or clipped rectangles.
+    // Measure the ACTUAL rendered fonts so the rainbow title, mastery bonus text
+    // and countdown never occupy overlapping or clipped rectangles.
     // The entire title plate grows to fit, without changing text sizes.
     // Paint the whole message on ONE surface. Separate WinForms labels
     // added layout padding, swallowed the '-' glyph and clipped words.
@@ -86,13 +86,13 @@ internal sealed partial class GameChatWindow
     {
         if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
         string heading = "HAPPY HOUR ACTIVE";
-        using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
+        using var masteryFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
         using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
         int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
             happyHourBannerRainbow.Font));
         width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
-        width += HappyHourRunWidth("Mastery Points Are Doubled!", greenFont);
-        width += HappyHourRunWidth(" ", greenFont);
+        width += HappyHourRunWidth("Mastery Points Are Doubled!", masteryFont);
+        width += HappyHourRunWidth(" ", masteryFont);
         width += HappyHourRunWidth(happyHourBannerClockText, timerFont);
         width += 8;
         happyHourBannerRainbow.SetBounds(0, 0, width, 32);
@@ -131,11 +131,11 @@ internal sealed partial class GameChatWindow
         // Literal spaces surrounding a visible hyphen, as requested:
         // HAPPY HOUR ACTIVE - Mastery Points Are Doubled! (60m 0s)
         DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
-        using var greenFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
+        using var masteryFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
         using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
-        DrawSegment("Mastery Points Are Doubled!", greenFont,
-            System.Drawing.Color.FromArgb(55, 216, 70));
-        DrawSegment(" ", greenFont, System.Drawing.Color.FromArgb(215, 170, 77));
+        DrawSegment("Mastery Points Are Doubled!", masteryFont,
+            System.Drawing.Color.Yellow);
+        DrawSegment(" ", masteryFont, System.Drawing.Color.FromArgb(215, 170, 77));
         DrawSegment(happyHourBannerClockText, timerFont, happyHourBannerClockColor);
     }
 
