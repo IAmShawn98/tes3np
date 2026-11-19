@@ -86,14 +86,15 @@ internal sealed partial class GameChatWindow
     }
 
     const int FrameHeaderTop = 8;
+    const int FrameFooterHeight = 14;
 
     static int FrameHeaderBottom(float headerScale) => FrameHeaderTop + (int)Math.Round(43 * headerScale);
 
     void PaintGameChatFrame(Graphics g, int w, int h, double scale, string title,
         int headerSidePadding = 13, float headerScale = 1)
     {
-        if (w < 80 || h < 100) return;
         int headerBottom = FrameHeaderBottom(headerScale);
+        if (w < 80 || h < headerBottom + FrameFooterHeight - 1) return;
         g.Clear(System.Drawing.Color.FromArgb(13, 11, 9));
         g.ScaleTransform((float)scale, (float)scale);
         using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(151, 113, 58));
@@ -151,7 +152,8 @@ internal sealed partial class GameChatWindow
         using var darkPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(45, 29, 14), 3);
         g.DrawRectangle(goldPen, 2, 2, w - 5, h - 5);
         g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
-        g.FillRectangle(black, 13, headerBottom + 1, w - 26, h - headerBottom - 14);
+        int bodyHeight = h - headerBottom - FrameFooterHeight;
+        if (bodyHeight > 0) g.FillRectangle(black, 13, headerBottom + 1, w - 26, bodyHeight);
         g.DrawLine(goldPen, 12, headerBottom, w - 13, headerBottom);
         using var headingFont = new Font("Georgia", 13 * headerScale, FontStyle.Regular);
         var titleSize = g.MeasureString(title, headingFont);

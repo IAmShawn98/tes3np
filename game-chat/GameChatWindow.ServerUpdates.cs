@@ -44,39 +44,23 @@ internal sealed partial class GameChatWindow
     DateTime serverUpdatesReadyBy;
     TaskCompletionSource? activeServerUpdatesRead;
     ulong latestServerUpdateId;
-    ulong dismissedServerUpdateId = ReadServerUpdatesDismissal();
+    bool serverUpdatesBodyRequested;
 
     bool ServerUpdatesAuthenticated => !closingChat && !IsDisposed && discordAccountStatus == DiscordAccountStatus.SignedIn;
-    bool CanShowServerUpdates => ServerUpdatesAuthenticated && latestServerUpdateId > dismissedServerUpdateId;
-    static string ServerUpdatesDismissalPath => Path.Combine(ChatDataRoot, "game-updates-dismissed.txt");
+    bool ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated && serverUpdatesBodyRequested;
+    bool CanShowServerUpdates => ServerUpdatesAuthenticated && latestServerUpdateId != 0;
 
-    static ulong ReadServerUpdatesDismissal()
+    void ToggleServerUpdatesBody()
     {
-        try
+        if (!ServerUpdatesAuthenticated)
         {
-            return ulong.TryParse(File.ReadAllText(ServerUpdatesDismissalPath), NumberStyles.None,
-                CultureInfo.InvariantCulture, out ulong id) ? id : 0;
+            OpenDiscordAccountSignIn();
+            return;
         }
-        catch (IOException) { return 0; }
-        catch (UnauthorizedAccessException) { return 0; }
-    }
 
-    void DismissServerUpdates()
-    {
-        if (!CanShowServerUpdates) return;
-        dismissedServerUpdateId = latestServerUpdateId;
-        try
-        {
-            WriteChatArchiveAtomically(ServerUpdatesDismissalPath,
-                dismissedServerUpdateId.ToString(CultureInfo.InvariantCulture));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            Log("SERVER UPDATES | Save dismissal: " + ex.GetType().Name);
-        }
-        StopServerUpdatePicker();
-        CloseServerUpdatesPanel();
-        PublishServerUpdatesVisibility();
+        serverUpdatesBodyRequested = !serverUpdatesBodyRequested;
+        if (!serverUpdatesBodyRequested) StopServerUpdatePicker();
+        PositionServerUpdatesPanel();
     }
 
     async Task RefreshServerUpdates()
@@ -121,7 +105,6 @@ internal sealed partial class GameChatWindow
                         latestServerUpdateId = newestId;
                         displayedServerUpdates = displayed;
                         UpdateServerUpdatesDocument(text);
-                        PublishServerUpdatesVisibility();
                     }
                     serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                     nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(5);
@@ -210,8 +193,14 @@ internal sealed partial class GameChatWindow
         latestServerUpdateId = 0;
         serverUpdatesDocument = null;
         displayedServerUpdates = [];
-        CloseServerUpdatesPanel();
-        PublishServerUpdatesVisibility();
+        serverUpdatesBodyRequested = false;
+        if (closingChat)
+            CloseServerUpdatesPanel();
+        else
+        {
+            PositionServerUpdatesPanel();
+            serverUpdatesPanel?.ResetDocument();
+        }
         previous?.Dispose();
     }
 }

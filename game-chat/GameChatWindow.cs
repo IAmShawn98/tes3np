@@ -111,12 +111,12 @@ internal sealed partial class GameChatWindow : Form
         refreshingChat = true;
         try
         {
+            PositionServerUpdatesPanel();
             try { LoadLayout(); await LoadCss(); } catch (Exception ex) { Log("Reload error: " + ex.GetType().Name); }
             if (!docked) DockToLauncher();
             if (docked && !nativeMode) EnforceChatClip();
             await CheckDiscordAuthentication();
             PublishDiscordAccount();
-            PositionServerUpdatesPanel();
             _ = RefreshServerUpdates();
             await RefreshNativeMessages();
             if (closingChat || IsDisposed) return;
