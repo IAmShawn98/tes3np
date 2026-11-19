@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -55,7 +54,9 @@ internal sealed partial class GameChatWindow
             CloseServerUpdatesPanel();
             return;
         }
-        if (IsIconic(owner) || !IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor))
+        // Windows hides and restores owned windows with a minimized owner.
+        if (IsIconic(owner)) return;
+        if (!IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor))
         {
             if (panel.Visible) panel.Hide();
             return;
@@ -64,30 +65,13 @@ internal sealed partial class GameChatWindow
         var bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         if (bounds.Width < 1 || bounds.Height < 1) return;
         if (panel.Bounds != bounds) panel.Bounds = bounds;
-        if (!panel.Visible) panel.Show();
-        KeepServerUpdatesAboveLauncher(panel.Handle);
+        if (!panel.Visible)
+        {
+            _ = panel.Handle; // Set the owner before the first visible frame.
+            panel.Show();
+        }
         panel.EnsureFeed();
     }
-
-    void KeepServerUpdatesAboveLauncher(IntPtr panel)
-    {
-        const uint GW_HWNDPREV = 3;
-        const int WS_EX_TOPMOST = 0x00000008;
-        const uint flags = 0x0001 | 0x0002 | 0x0010 | 0x0200; // NOSIZE, NOMOVE, NOACTIVATE, NOOWNERZORDER
-        // Match the launcher's position relative to other apps without sharing its HWND ownership.
-        bool launcherTopmost = (GetWindowLongEx(owner, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
-        bool panelTopmost = (GetWindowLongEx(panel, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
-        if (launcherTopmost != panelTopmost)
-            SetWindowPos(panel, new IntPtr(launcherTopmost ? -1 : -2), 0, 0, 0, 0, flags);
-
-        IntPtr previous = GetWindow(owner, GW_HWNDPREV);
-        if (previous == panel) return;
-        if (previous == IntPtr.Zero || (!launcherTopmost && (GetWindowLongEx(previous, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0))
-            previous = launcherTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST or HWND_TOP
-        SetWindowPos(panel, previous, 0, 0, 0, 0, flags);
-    }
-
-    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hwnd, uint command);
 
     void UpdateServerUpdatesDocument(string document)
     {
@@ -185,6 +169,13 @@ internal sealed partial class GameChatWindow
         }
 
         protected override bool ShowWithoutActivation => true;
+
+        protected override void CreateHandle()
+        {
+            base.CreateHandle();
+            // WinForms sets its taskbar owner during CreateHandle. Replace it after creation.
+            if (host != null && IsWindow(host.owner)) SetNativeWindowOwner(Handle, host.owner);
+        }
 
         protected override void WndProc(ref Message message)
         {
