@@ -15,9 +15,9 @@ existing Morrowind GOTY installation. No launcher source license has been select
 The repository owner should choose one before calling the project open source.
 Do not replace the EP license with the launcher's future source license.
 
-The login overlay resolves each saved character species to its matching
+The login overlay resolves each saved character race to its matching
 `assets/icons/species/<race-slug>.ico`. The `.png` siblings are the original
 full-resolution editable/raster masters; the runtime loads `.ico` files.
 Each pair must preserve transparency outside the gold crescent so the
 login-window background shows through. Rebuild the launcher after changing
-a species image; its standalone resources are embedded at build time.
+a race image; its standalone resources are embedded at build time.

@@ -352,7 +352,7 @@ EditProfile(index, *)
         EditorOriginalSpecies := species
         EditorOriginalMode := EditorOriginalPortraitFile != ""
         ; An OC portrait stays selected in its own state, while the visible
-        ; dropdown always shows the character's real species at a glance.
+        ; dropdown always shows the character's race at a glance.
         EditorSpeciesDropDown.Choose(speciesIndex)
         EditorPreviousSpeciesChoice := speciesIndex
         PopulateProfileEditorRows(entries)
@@ -389,10 +389,10 @@ CreateProfileEditor()
         EditorControls.Push(label)
         EditorControls.Push(input)
     }
-    SetInterfaceLoadingText("Loading species selector...")
+    SetInterfaceLoadingText("Loading race selector...")
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
-    speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Species")
-    speciesOptions := ["Select species..."]
+    speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Race")
+    speciesOptions := ["Select race..."]
     for item in CharacterSpeciesOptions()
         speciesOptions.Push(item)
     speciesOptions.Push("Original Character")
@@ -405,7 +405,7 @@ CreateProfileEditor()
     EditorOCSpeciesHint := CharacterPage.Add("Text",
         "x525 y407 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
-    ; by clicking the persistent species line without changing the layout.
+    ; by clicking the persistent race line without changing the layout.
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
     CharacterPage.SetFont("s10 c382314", "Segoe UI")
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
@@ -429,13 +429,13 @@ ToggleEditorReconnect(*)
 }
 
 ; Keep the existing race list intact. "Original Character" is the only
-; presentation-only entry; the real species is chosen in a separate dialog.
+; presentation-only entry; the race is chosen in a separate dialog.
 UpdateOriginalSpeciesHint()
 {
     global EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode
     isOriginal := EditorOriginalMode
     EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
-        ? "Species: " EditorOriginalSpecies "  |  Change portrait" : ""
+        ? "Race: " EditorOriginalSpecies "  |  Change portrait" : ""
     EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
     ; The race must be visible as soon as the dialog closes, even when the
     ; cached Character Book is reused without reopening Manage Characters.
@@ -537,19 +537,19 @@ IsValidOriginalCharacterImage(source)
     }
 }
 
-; Open a native owned dialog after a valid image has been chosen. This species
+; Open a native owned dialog after a valid image has been chosen. This race
 ; is saved normally and shown beneath the Original Character dropdown entry.
 PromptOriginalCharacterSpecies(current := "")
 {
     global CharacterPage
     outcome := {Species: ""}
     dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox",
-        "Original Character species")
+        "Original Character race")
     dialog.BackColor := "E2CEA2"
     dialog.SetFont("s10 c382314", "Segoe UI")
     dialog.Add("Text", "x20 y17 w320 h40",
-        "Which Morrowind species is your original character?")
-    options := ["Select species..."]
+        "What is your original character's race?")
+    options := ["Select race..."]
     for race in CharacterSpeciesOptions()
         options.Push(race)
     selected := dialog.Add("DropDownList", "x20 y65 w320 Choose1", options)
@@ -599,7 +599,7 @@ ConfirmOriginalCharacterSpecies(dialog, selected, outcome, *)
     species := NormalizeCharacterSpecies(selected.Text)
     if species = ""
     {
-        MsgBox("Choose your original character's actual species.", "Species required", "Icon!")
+        MsgBox("Choose your original character's actual race.", "Race required", "Icon!")
         return
     }
     outcome.Species := species
@@ -750,19 +750,19 @@ SaveProfileEditor(index, fields, *)
         MsgBox("Enter a player name and password.", "tes3np")
         return
     }
-    ; A modal file/species chooser may briefly affect native DDL text.
+    ; A modal file or race chooser may briefly affect native DDL text.
     ; The accepted OC state is independent of that display-only value.
     isOriginal := EditorOriginalMode
     species := isOriginal ? NormalizeCharacterSpecies(EditorOriginalSpecies)
         : NormalizeCharacterSpecies(EditorSpeciesDropDown.Text)
     if !index && species = ""
     {
-        MsgBox("Choose a species for the new character.", "tes3np")
+        MsgBox("Choose a race for the new character.", "tes3np")
         return
     }
     if isOriginal && species = ""
     {
-        MsgBox("Choose the actual species for this original character.", "tes3np")
+        MsgBox("Choose the actual race for this original character.", "tes3np")
         return
     }
     for key in ["UsernameDelay", "PasswordDelay", "LoadDelay"]

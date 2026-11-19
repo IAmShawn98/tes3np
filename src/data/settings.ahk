@@ -1,7 +1,7 @@
 ﻿; Profile persistence, shared executable settings and Windows password protection.
 
-; Morrowind playable species in alphabetical order. Empty means an existing
-; character has not chosen its species and keeps the original icon.
+; Morrowind playable races in alphabetical order. Empty means an existing
+; character has not chosen its race and keeps the original icon.
 CharacterSpeciesOptions()
 {
     return ["Argonian", "Breton", "Dark Elf", "High Elf", "Imperial",

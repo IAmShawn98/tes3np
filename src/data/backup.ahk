@@ -104,7 +104,7 @@ ImportLauncherData()
             rawSpecies := IniRead(path, section, "Species", "")
             species := NormalizeCharacterSpecies(rawSpecies)
             if rawSpecies != "" && species = ""
-                throw Error("Invalid character species")
+                throw Error("Invalid character race")
             if Trim(name) = "" || StrLen(name) > 256 || RegExMatch(name, "[\r\n]") || StrLen(password) > 4096 || RegExMatch(password, "[\r\n]")
                 throw Error("Invalid character")
             restored.Push({Name: name, Password: password, Species: species, PortraitFile: "",

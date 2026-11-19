@@ -53,12 +53,12 @@ to the builds tested.
   Yes and No, and later switches and restart preserve one favorite.
   Exercise old or empty selections, import/export, wiping local data,
   per-row Play, and normal preferences and login delays.
-- [ ] Verify the ten stock species and **Original Character**. Import
+- [ ] Verify the ten stock races and **Original Character**. Import
   supported portrait formats, inspect the centered 512 × 512 result, test
   invalid or oversized images, cancel and missing-file fallback. Verify the
   selected race is displayed, the portrait chooser keeps the book visible,
   and the custom portrait survives restart and appears on consecutive
-  logins. The portable INI preserves supported settings and species.
+  logins. The portable INI preserves supported settings and race selections.
 - [ ] Run saved character and manual login, including short saved delays,
   terminal-only startup and up to four clients. Verify the centered
   four-stage login card, correct icons, progress, three-second close, and

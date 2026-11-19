@@ -226,10 +226,10 @@ to the tracked PID qualifies as the game. Credentials use configured delays, not
 OCR. Never add a second watchdog.
 
 `AppConfig` centralizes endpoints, default delays and controller intervals.
-Existing characters retain saved delays. The sorted 10-race species selector
+Existing characters retain saved delays. The selector lists ten playable races and
 requires an explicit choice for new characters; existing profiles with no
-species remain editable and use the original login icon. Species is saved in
-each character's INI section and portable export/import. A selected species
+race remain editable and use the original login icon. The race is stored in each
+character's INI section and included in portable backups. A selected race
 maps to `assets/icons/species/<slug>.ico` (lowercase with hyphens) when that
 portrait exists; otherwise the original TES3NP icon remains. Bundled builds
 already include nested assets automatically. The separate `Original Character`
@@ -240,26 +240,26 @@ silently center-cropped to a square, resized with GDI+ high-quality bicubic
 interpolation and saved as a transparent-capable 512 x 512 PNG under
 `%APPDATA%\tes3np\portraits`. Unsupported/corrupt or excessively large
 images are rejected; valid images receive no resizing notification.
-After a valid image is selected, an owned species dropdown asks for the
-character's actual Morrowind species. Once confirmed, the **main species
+After a valid image is selected, an owned race dropdown asks for the
+character's actual Morrowind race. Once confirmed, the **main race
 dropdown displays that race** rather than remaining on "Original Character",
 and a clickable hint below identifies the private portrait and offers to
 change it. The chosen race is also saved as the ordinary `Species` INI key.
 Selecting a different stock race manually later removes the unsaved custom
-portrait choice, but returning from the OC species dialog does not.
-The selection and the portrait are independent: a species entered in
+portrait choice, but returning from the OC race dialog does not.
+The selection and the portrait are independent: a race entered in
 the OC dialog is descriptive metadata and must never overwrite the chosen
-picture with the standard species icon. The editor keeps explicit OC mode
-rather than relying on the transient native dropdown text. The species label
+picture with the standard race icon. The editor keeps explicit OC mode
+rather than relying on the transient native dropdown text. The race label
 is drawn below (not underneath) the dropdown, without reopening the book.
 Each character can independently select an OC portrait. The file gets a
 generated basename stored as `PortraitFile` only when Save completes; arbitrary
 source paths are never saved.
 Cancelled or rejected selections preserve previous settings. At login the
 existing presentation-only card uses the saved image when present, falling back
-to the species ICO if it is missing. Input timing and game recovery are unchanged.
+to the race ICO if it is missing. Input timing and game recovery are unchanged.
 Custom images are local data and are not bundled in the portable v1 INI export;
-restoring the backup keeps the real species and its stock icon. `NewCharacterProfile`
+restoring the backup keeps the real race and its stock icon. `NewCharacterProfile`
 supplies new-profile defaults. `%APPDATA%\tes3np` remains the data root.
 
 ## TES3MP plugin mismatch recovery
