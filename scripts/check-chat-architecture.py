@@ -419,6 +419,13 @@ expect(
     and 'type == "rendered" && feedLoad?.TrySetResult(true) == true' in updates_panel
     and 'fallbackFeed.Rtf = FormatUpdatesFallback(host.displayedServerUpdates, status);' in source,
 )
+expect(
+    "Game Updates preserves posts during reconnects and reads back reaction removals",
+    'if (displayedServerUpdates.Length == 0)\n            UpdateServerUpdatesDocument' in server_updates
+    and 'if (activeServerUpdatesRead is { } activeRead) await activeRead.Task;' in source
+    and 'await ReadBackServerUpdateReaction(source, core, request);' in source
+    and 'post with { Reactions = reactions }' in source,
+)
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
 expect(

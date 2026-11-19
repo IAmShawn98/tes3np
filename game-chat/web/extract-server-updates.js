@@ -18,13 +18,15 @@
       const imageUrl = image?.getAttribute('src') || '';
       const custom = imageUrl.match(/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/emojis\/(\d+)\.(?:png|gif|webp|avif)(?:\?.*)?$/i);
       const standardImage = /^(?:https:\/\/discord\.com)?\/assets\/[a-z\d.-]+\.svg(?:\?.*)?$/i.test(imageUrl);
-      const burst = button.className.includes('burstReaction') || button.className.includes('shakeReaction');
+      const classes = button.getAttribute('class') || '';
+      const burst = classes.includes('burstReaction') || classes.includes('shakeReaction');
       const key = (custom?.[1] || name) + (burst ? ':burst' : '');
       const source = custom ? imageUrl : standardImage ? new URL(imageUrl, 'https://discord.com').href : null;
       const control = button.matches('button, [role="button"]') ? button :
         button.querySelector('button, [role="button"]') ?? button;
       reactions.push({ button: control, value: { Key: key, Name: name, Image: source, Count: total,
-        Mine: control.getAttribute('aria-pressed') === 'true' || button.className.includes('reactionMe_') } });
+        Mine: control.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-pressed') === 'true' ||
+          classes.includes('reactionMe_') || (control.getAttribute('class') || '').includes('reactionMe_') } });
     }
     return reactions;
   }
@@ -33,8 +35,11 @@
     if (request.Kind === 'picker-state') return !!document.querySelector(pickerSelector);
     const row = [...rows].find(item => messageId(item) === request.Id);
     if (!row) return 'missing';
+    if (request.Kind === 'read-reactions') return reactionsFor(row).map(item => item.value);
     if (request.Kind === 'toggle') {
+      if (typeof request.Mine !== 'boolean') return 'unavailable';
       const reaction = reactionsFor(row).find(item => item.value.Key === request.Key);
+      if ((reaction?.value.Mine ?? false) === request.Mine) return 'already';
       if (!reaction || reaction.button.disabled || reaction.button.getAttribute('aria-disabled') === 'true')
         return 'unavailable';
       reaction.button.click();
