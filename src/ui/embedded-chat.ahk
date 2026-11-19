@@ -226,7 +226,7 @@ CreateLauncherServerUpdates()
     ; Keep the sizing anchor hidden. The host draws the panel, including its collapsed header.
     ; Align the header below the Quest copy, over the fading backdrop.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
-        "x100 y250 w220 h342 BackgroundTrans Hidden")
+        "x100 y235 w220 h342 BackgroundTrans Hidden")
     OnMessage(0x833B, ReceiveLauncherServerUpdatesHostMessage)
 }
 
