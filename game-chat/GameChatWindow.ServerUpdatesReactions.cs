@@ -4,8 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal sealed partial class GameChatWindow
 {
-    sealed record ServerUpdateAction(string Kind, string Id, string? Key, bool? Mine = null,
-        string? Query = null, int Offset = 0);
+    sealed record ServerUpdateAction(string Kind, string Id, string? Key = null, bool? Mine = null);
 
     ServerUpdate[] displayedServerUpdates = [];
     bool workingServerUpdateReaction;
@@ -38,7 +37,7 @@ internal sealed partial class GameChatWindow
             return "This reaction has changed. Try again after the update refreshes.";
         if (request.Kind != "toggle" || serverUpdatesWindow is not { IsDisposed: false } source ||
             source.Browser.CoreWebView2 is not { } core) return "Discord is still loading.";
-        if (workingServerUpdateReaction || serverUpdatePicker != null) return "Finish the open reaction first.";
+        if (workingServerUpdateReaction) return "Finish the open reaction first.";
 
         workingServerUpdateReaction = true;
         try

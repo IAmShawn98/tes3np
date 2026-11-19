@@ -413,22 +413,26 @@ expect(
     and '!IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri)' in server_updates,
 )
 expect(
-    "Game Updates picker runs on a native window thread and keeps its Discord source off-screen",
-    'new ServerUpdatePicker(request.Id, source)' in source
-    and 'picker.Choices.TryGetValue(request.Key, out var choice)' in source
-    and 'Kind = "picker-position", Offset = choice.Offset' in source
+    "Game Updates opens Discord's own picker in a separate process with the same sign-in profile",
+    'GameChatWindow.TryRunDiscordReactionPicker(args)' in source
+    and 'Process.Start(start)' in source
+    and 'RedirectStandardInput = true' in source
+    and 'picker.StandardInput.Close();' in source
+    and 'await picker.WaitForExitAsync();' in source
     and 'StopServerUpdatePicker();' in server_updates
     and 'parameters.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;' in updates_panel
-    and 'thread.SetApartmentState(ApartmentState.STA);' in source
-    and 'Application.Run(form);' in source
-    and 'GameChatWeb.Page("discord-emoji-shortcodes.json")' in source,
+    and 'Application.Run(picker);' in source
+    and 'CoreWebView2Environment.CreateAsync(null, DiscordUserDataFolder, options)' in source
+    and 'discordUsesCacheOptions ? "cache" : "default"' in source,
 )
 expect(
-    "Opening and closing the standard emoji catalog stays local until the user chooses an emoji",
-    'internal void LoadChoices()\n        {\n            search.Select();\n            LoadBundledChoices();' in source
-    and 'Request(discordCatalog ? "picker-select" : "picker-local", emoji.Key)' in source
-    and 'MatchesBundledEmoji(item, bundled)' in source
-    and 'restartChannel' not in source,
+    "Discord renders and manages the reaction picker for the selected update",
+    'core.Navigate(target);' in source
+    and 'RunServerUpdateAction(core, new("picker-target", postId))' in source
+    and 'RunServerUpdateAction(core, new("picker", postId))' in source
+    and not (chat_root / 'web/discord-emoji-shortcodes.json').exists()
+    and not (chat_root / 'web/emojibase-license.txt').exists()
+    and 'BundledEmojiCatalog' not in source,
 )
 expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",

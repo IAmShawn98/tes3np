@@ -2,7 +2,6 @@
   const list = document.querySelector('[data-list-id="chat-messages"]');
   if (!list || document.readyState === 'loading') return null;
 
-  const pickerSelector = '[class^="emojiPicker_"], [class*=" emojiPicker_"], [aria-label="Emoji Picker" i]';
   const rows = list.querySelectorAll('[id^="chat-messages-"]');
   const messageId = row => row.id.match(/^chat-messages-510245417657827363-(\d+)$/)?.[1];
 
@@ -37,44 +36,10 @@
     return reactions;
   }
 
-  const emojiItemSelector = '[class^="emojiItem_"], [class*=" emojiItem_"], ' +
-    '[data-type="emoji"], [role="gridcell"], button[data-emoji-id], button[data-name]';
-  function getPicker() {
-    return [...document.querySelectorAll(pickerSelector)].find(picker =>
-      picker.querySelector('input, ' + emojiItemSelector));
-  }
-
-  function pickerChoices(picker) {
-    const choices = new Map();
-    const candidates = picker.querySelectorAll(emojiItemSelector);
-    let scroller;
-    for (let parent = candidates[0]?.parentElement; parent && picker.contains(parent); parent = parent.parentElement) {
-      if (parent.scrollHeight > parent.clientHeight && /auto|scroll/.test(window.getComputedStyle(parent).overflowY)) {
-        scroller = parent;
-        break;
-      }
-    }
-    for (const candidate of candidates) {
-      const button = candidate.closest('button, [role="button"]') ??
-        candidate.querySelector('button, [role="button"]') ?? candidate;
-      if (!picker.contains(button) || button.disabled || button.getAttribute('aria-disabled') === 'true' ||
-          /emojiItemDisabled|emojiItemLocked/.test(button.getAttribute('class') || '')) continue;
-      const image = button.querySelector('img[alt]') ?? candidate.querySelector('img[alt]');
-      const name = button.getAttribute('data-name') || button.getAttribute('data-emoji-name') ||
-        candidate.getAttribute('data-name') || button.getAttribute('aria-label') || image?.alt;
-      if (!name || typeof button.click !== 'function') continue;
-      const source = emojiSource(image);
-      const reactionKey = source.id || image?.alt || name;
-      const key = source.id || button.getAttribute('data-emoji-id') || candidate.getAttribute('data-emoji-id') || name;
-      choices.set(key, { button, value: { Key: key, Name: name, Text: image?.alt || name,
-        Image: source.url, ReactionKey: reactionKey, Offset: Math.round(scroller?.scrollTop || 0) } });
-    }
-    return { choices, scroller };
-  }
-
   if (request) {
     const row = [...rows].find(item => messageId(item) === request.Id);
     if (!row) return 'missing';
+    if (request.Kind === 'picker-target') return 'ready';
     if (request.Kind === 'read-reactions') return reactionsFor(row).map(item => item.value);
     if (request.Kind === 'toggle') {
       if (typeof request.Mine !== 'boolean') return 'unavailable';
@@ -86,13 +51,6 @@
       return 'clicked';
     }
     if (request.Kind === 'picker') {
-      if (getPicker()) {
-        if (window.__tes3npPickerPost === request.Id) return 'clicked';
-        const oldTrigger = window.__tes3npPickerTrigger;
-        window.__tes3npPickerTrigger = null;
-        if (oldTrigger?.isConnected) oldTrigger.click();
-        return 'unavailable';
-      }
       row.scrollIntoView({ block: 'center' });
       const message = row.querySelector('[class^="message_"], [class*=" message_"]') ?? row;
       message.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -100,35 +58,6 @@
         '[class*="addReactButton_"], [aria-label="Add Reaction" i], [data-list-item-id$="___add-reaction"]');
       if (!add || add.disabled || add.getAttribute('aria-disabled') === 'true') return 'unavailable';
       add.click();
-      window.__tes3npPickerPost = request.Id;
-      window.__tes3npPickerTrigger = add;
-      return 'clicked';
-    }
-    if (window.__tes3npPickerPost !== request.Id) return 'missing';
-    const picker = getPicker();
-    if (!picker) return 'missing';
-    if (request.Kind === 'picker-search') {
-      const input = picker.querySelector('input[type="search"], input[role="searchbox"], input');
-      if (!input) return 'unavailable';
-      const { scroller } = pickerChoices(picker);
-      if (scroller) scroller.scrollTop = 0;
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, request.Query || '');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      return 'changed';
-    }
-    const { choices, scroller } = pickerChoices(picker);
-    if (request.Kind === 'picker-page')
-      return { Items: [...choices.values()].slice(0, 300).map(item => item.value),
-        More: !!scroller && scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 2 };
-    if (request.Kind === 'picker-more' || request.Kind === 'picker-position') {
-      if (scroller) scroller.scrollTop = request.Kind === 'picker-more'
-        ? scroller.scrollTop + Math.max(1, scroller.clientHeight * 0.8) : request.Offset;
-      return 'changed';
-    }
-    if (request.Kind === 'picker-select') {
-      const choice = choices.get(request.Key);
-      if (!choice) return 'unavailable';
-      choice.button.click();
       return 'clicked';
     }
     return 'unavailable';

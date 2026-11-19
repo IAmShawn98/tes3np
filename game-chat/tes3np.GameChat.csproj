@@ -30,7 +30,5 @@
           DestinationFolder="$(PublishDir)licenses/WindowsDesktop" />
     <Copy SourceFiles="$(PkgMicrosoft_Web_WebView2)/LICENSE.txt;$(PkgMicrosoft_Web_WebView2)/NOTICE.txt"
           DestinationFolder="$(PublishDir)licenses/WebView2" />
-    <Copy SourceFiles="$(MSBuildProjectDirectory)/web/emojibase-license.txt"
-          DestinationFolder="$(PublishDir)licenses/Emojibase" />
   </Target>
 </Project>

@@ -66,6 +66,10 @@ internal sealed partial class GameChatWindow
         Log("CSS reloaded");
     }
 
+    static string DiscordUserDataFolder => Path.Combine(ChatDataRoot, "chat-webview2");
+    const string DiscordCacheArguments = "--disk-cache-size=134217728";
+    bool discordUsesCacheOptions = true;
+
     async void StartDiscordAsync(object? sender, EventArgs e)
     {
         // Let WinForms finish showing the top-level host before parenting it.
@@ -76,11 +80,11 @@ internal sealed partial class GameChatWindow
         DetectLatestHappyHour();
         try
         {
-            string data = Path.Combine(ChatDataRoot, "chat-webview2");
+            string data = DiscordUserDataFolder;
             freshDiscordProfile = !Directory.Exists(data) || !Directory.EnumerateFileSystemEntries(data).Any();
             Directory.CreateDirectory(data);
             // Limit the HTTP disk cache without clearing the Discord profile.
-            var options = new CoreWebView2EnvironmentOptions("--disk-cache-size=134217728");
+            var options = new CoreWebView2EnvironmentOptions(DiscordCacheArguments);
             CoreWebView2Environment env;
             try
             {
@@ -93,6 +97,7 @@ internal sealed partial class GameChatWindow
                 // with the default options. Reuse that profile.
                 env = await CoreWebView2Environment.CreateAsync(null, data);
                 await web.EnsureCoreWebView2Async(env);
+                discordUsesCacheOptions = false;
             }
             discordEnvironment = env;
             if (expansionDownloadsWindow is { IsDisposed: false })
