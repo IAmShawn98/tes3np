@@ -675,16 +675,21 @@ mismatch_dialog = section_between(
 )
 expect(
     "Expansion Pack mismatch dialog opens without waiting for Discord",
-    'dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")' in mismatch_dialog
+    'dialog.Show(mode = "Preflight" ? "NA" : "")' in mismatch_dialog
     and 'RequestDiscordExpansionPrompt(installing ? 1 : 2)' in mismatch_dialog
     and in_order(
         mismatch_dialog,
-        'dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")',
+        'GetOwnedMenuFitScale(LauncherGui, 660 * dpi, 627 * dpi',
+        'ScaleOwnedMenuContent(dialog, scale)',
+        'dialog.Show("Hide w" Round(660 * scale) " h" Round(627 * scale))',
+        'PositionOwnedMenuAtParent(dialog, LauncherGui)',
+        'dialog.Show(mode = "Preflight" ? "NA" : "")',
         'RequestDiscordExpansionPrompt(installing ? 1 : 2)',
     )
     and 'ExpansionMismatchDialog.Show()' in mismatch_dialog
     and 'try WinActivate("ahk_id " dialog.Hwnd)' in mismatch_dialog
-    and 'AddStyledButton(dialog, 300, 574, 180, 38,' in mismatch_dialog
+    and 'nativeStatus := dialog.Add("Text", "x25 y508 w610 h44 cD8C38C BackgroundTrans +Wrap",' in mismatch_dialog
+    and 'AddStyledButton(dialog, 300, 580, 180, 38,' in mismatch_dialog
     and '"Repair / Install ZIP"' in mismatch_dialog
     and 'Open Expansion Pack Downloads' in bootstrap,
 )
@@ -796,9 +801,9 @@ expect(
     )
     and in_order(
         patcher,
-        'AddStyledButton(prompt, 30, 189, 165, 38, "Yes",',
-        'AddStyledButton(prompt, 210, 189, 165, 38, "No",',
-        'AddStyledButton(prompt, 390, 189, 260, 38, "Manual Install",',
+        'AddStyledButton(prompt, 30, 189 + extra, 165, 38, "Yes",',
+        'AddStyledButton(prompt, 210, 189 + extra, 165, 38, "No",',
+        'AddStyledButton(prompt, 390, 189 + extra, 260, 38, "Manual Install",',
     )
     and 'CloseExpansionInstallPrompt.Bind(prompt, "Upload")' in patcher
     and 'onDecision.Call(action)' in patcher
@@ -861,7 +866,7 @@ expect(
     and '!discordChannelReady || discordLoginVisible' in source
     and 'IsOfficialExpansionDownloadUrl(expansionPublishedZipUrl)' in source,
 )
-first_install_prompt = section_between(patcher, "    else\n    {\n        prompt.Add(\"Text\", \"x30 y89", '    prompt.OnEvent("Close", CloseExpansionInstallPrompt')
+first_install_prompt = section_between(patcher, "extra += AddGoldPromptCopy(prompt, 30, 89 + extra", '    prompt.OnEvent("Close", CloseExpansionInstallPrompt')
 expect(
     "First-enable download uses a gold card with automatic and local install options",
     'CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)' in patcher
@@ -882,9 +887,9 @@ expect(
     "All automatic download failures offer a native gold recovery card",
     'CreateGoldNativePrompt(LauncherGui, title, 700, 318)' in patcher
     and 'ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)' in patcher
-    and 'AddStyledButton(prompt, 30, 254, 185, 38, "Try Again",' in patcher
-    and 'AddStyledButton(prompt, 230, 254, 270, 38, "Choose ZIP or Folder",' in patcher
-    and 'AddStyledButton(prompt, 515, 254, 155, 38, "Cancel",' in patcher
+    and 'AddStyledButton(prompt, 30, 254 + extra, 185, 38, "Try Again",' in patcher
+    and 'AddStyledButton(prompt, 230, 254 + extra, 270, 38, "Choose ZIP or Folder",' in patcher
+    and 'AddStyledButton(prompt, 515, 254 + extra, 155, 38, "Cancel",' in patcher
     and 'CloseGoldNativePrompt(prompt)' in patcher
     and 'if action = "Retry"' in patcher
     and 'else if action = "Local"' in patcher
@@ -980,7 +985,7 @@ expect(
     and in_order(
         auto_install_view,
         'TES3MPExpansionCloakDialog(dialog, true)',
-        'dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")',
+        'dialog.Show(mode = "Preflight" ? "NA" : "")',
     )
     and 'if cloaked' in auto_install_view
     and 'if mode = "Update" || TES3MPExpansionBeginNativeProgress()' in auto_install_view

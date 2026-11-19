@@ -846,7 +846,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ExpansionMismatchDownloadSlot := downloadSlot
     ; This status is created before the download actions so both callbacks
     ; always reference a fully initialized control.
-    nativeStatus := dialog.Add("Text", "x25 y518 w610 h19 cD8C38C BackgroundTrans",
+    nativeStatus := dialog.Add("Text", "x25 y508 w610 h44 cD8C38C BackgroundTrans +Wrap",
         authConfirmed ? "Game Chat connected. Finding the latest official ZIP..."
             : "Sign in to Game Chat to download; existing ZIPs can still be installed.")
     ExpansionMismatchStatus := nativeStatus
@@ -859,20 +859,20 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
             ? TES3MPExpansionRequestAutoInstall(downloadSlot.Hwnd, nativeStatus)
             : TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "main-button")))
     ExpansionMismatchFileButton.Visible := false
-    AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry",
+    AddStyledButton(dialog, 25, 468, 210, 33, "Connect / Retry",
         (*) => (mode = "Install"
             ? TES3MPExpansionRequestAutoInstall(downloadSlot.Hwnd, nativeStatus)
             : TES3MPExpansionRequestDownload(downloadSlot.Hwnd, nativeStatus, "retry-button")))
     if !installing
-        AddStyledButton(dialog, 245, 475, 210, 33, "Copy Diagnostic Info",
+        AddStyledButton(dialog, 245, 468, 210, 33, "Copy Diagnostic Info",
             (*) => TES3MPCopyMismatchDiagnostics(nativeStatus))
     dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
-    dialog.Add("Link", "x25 y543 w610 h20",
+    dialog.Add("Link", "x25 y553 w610 h22",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
-    AddStyledButton(dialog, 300, 574, 180, 38,
+    AddStyledButton(dialog, 300, 580, 180, 38,
         mode = "Install" ? "Repair / Install ZIP" : "Install ZIP",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd, true))
-    AddStyledButton(dialog, 490, 574, 140, 38, "Cancel",
+    AddStyledButton(dialog, 490, 580, 140, 38, "Cancel",
         (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     dialog.OnEvent("Close", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
     dialog.OnEvent("Escape", (*) => CloseTES3MPExpansionMismatchDialog(dialog, downloadSlot.Hwnd))
@@ -884,7 +884,14 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
         dialog.Destroy()
         return
     }
-    dialog.Show(mode = "Preflight" ? "NA w660 h627" : "w660 h627")
+    ; GUI coordinates use AHK DPI scaling. Budget the physical title bar
+    ; and frame as well as the client area when fitting the owner's monitor.
+    dpi := A_ScreenDPI / 96
+    scale := GetOwnedMenuFitScale(LauncherGui, 660 * dpi, 627 * dpi, Ceil(24 * dpi), Ceil(64 * dpi))
+    ScaleOwnedMenuContent(dialog, scale)
+    dialog.Show("Hide w" Round(660 * scale) " h" Round(627 * scale))
+    PositionOwnedMenuAtParent(dialog, LauncherGui)
+    dialog.Show(mode = "Preflight" ? "NA" : "")
     ExpansionMismatchDialog := dialog
     ExpansionMismatchSlot := downloadSlot.Hwnd
     if mode = "Preflight"
@@ -963,7 +970,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
     ; Normal OK/Cancel closes just this dialog. We never recycle the
     ; embedded Discord controller during an ordinary ZIP download.
     SendLauncherChatCommand(7, slotHwnd)
-    try dialog.Destroy()
+    try DestroyScaledMenu(dialog)
     if import
         UploadExpansionFromFile()
 }

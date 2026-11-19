@@ -263,10 +263,10 @@ def check(allow_missing_payload: bool = False) -> None:
     session = (ROOT / "src/game/session.ahk").read_text(encoding="utf-8-sig")
     if not all(token in mismatch_ui for token in (
         'cloaked := (mode = "Install" || mode = "Update" || mode = "Preflight")',
-        'AddStyledButton(dialog, 25, 475, 210, 33, "Connect / Retry"',
+        'AddStyledButton(dialog, 25, 468, 210, 33, "Connect / Retry"',
         'ExpansionDiscordPromptPending := 0',
         'Sign in through Game Chat to view the latest official Expansion Pack ZIP',
-        'AddStyledButton(dialog, 300, 574, 180, 38,',
+        'AddStyledButton(dialog, 300, 580, 180, 38,',
         '"Repair / Install ZIP"',
     )):
         errors.append("Expansion Pack dialog must always open, support retries, and clear pending authentication.")

@@ -745,35 +745,36 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     prompt := CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)
     prompt.ExpansionDecision := onDecision
     prompt.SetFont("s17 Bold cC5A45C", "Georgia")
-    prompt.Add("Text", "x30 y27 w620 h39 BackgroundTrans",
+    extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39,
         IsObject(onDecision) ? "Update Expansion Pack" : "Install Expansion Pack")
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
     if IsObject(onDecision)
     {
-        prompt.Add("Text", "x30 y82 w620 h28 BackgroundTrans",
+        extra += AddGoldPromptCopy(prompt, 30, 82 + extra, 620, 28,
             comparisonUnavailable ? "Could not verify your installed pack. Install the official ZIP?"
                 : "Install the latest Expansion Pack from Discord?")
         prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
-        prompt.Add("Text", "x30 y120 w620 h24 BackgroundTrans", "Installed: " installedVersion)
-        prompt.Add("Text", "x30 y148 w620 h24 BackgroundTrans", "Available: " updateVersion)
-        AddStyledButton(prompt, 30, 189, 165, 38, "Yes",
+        extra += AddGoldPromptCopy(prompt, 30, 120 + extra, 620, 24, "Installed: " installedVersion)
+        extra += AddGoldPromptCopy(prompt, 30, 148 + extra, 620, 24, "Available: " updateVersion)
+        AddStyledButton(prompt, 30, 189 + extra, 165, 38, "Yes",
             CloseExpansionInstallPrompt.Bind(prompt, "Download"))
-        AddStyledButton(prompt, 210, 189, 165, 38, "No",
+        AddStyledButton(prompt, 210, 189 + extra, 165, 38, "No",
             CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
-        AddStyledButton(prompt, 390, 189, 260, 38, "Manual Install",
+        AddStyledButton(prompt, 390, 189 + extra, 260, 38, "Manual Install",
             CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
     }
     else
     {
-        prompt.Add("Text", "x30 y89 w620 h81 BackgroundTrans +Wrap",
+        extra += AddGoldPromptCopy(prompt, 30, 89 + extra, 620, 81,
             "Download and install the official Expansion Pack from Discord, or choose a ZIP or extracted folder you already downloaded.")
-        AddStyledButton(prompt, 30, 189, 226, 38, "Download and Install",
+        AddStyledButton(prompt, 30, 189 + extra, 226, 38, "Download and Install",
             CloseExpansionInstallPrompt.Bind(prompt, "Download"))
-        AddStyledButton(prompt, 271, 189, 220, 38, "Choose ZIP or Folder",
+        AddStyledButton(prompt, 271, 189 + extra, 220, 38, "Choose ZIP or Folder",
             CloseExpansionInstallPrompt.Bind(prompt, "Upload"))
-        AddStyledButton(prompt, 506, 189, 144, 38, "Cancel",
+        AddStyledButton(prompt, 506, 189 + extra, 144, 38, "Cancel",
             CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
     }
+    GrowGoldNativePrompt(prompt, extra)
     prompt.OnEvent("Close", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
     prompt.OnEvent("Escape", CloseExpansionInstallPrompt.Bind(prompt, "Cancel"))
     ExpansionInstallPromptGui := prompt
@@ -829,9 +830,9 @@ ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
     prompt := CreateGoldNativePrompt(LauncherGui, title, 700, 318)
     prompt.ExpansionRetry := retry
     prompt.SetFont("s17 Bold cC5A45C", "Georgia")
-    prompt.Add("Text", "x30 y24 w640 h43 BackgroundTrans", title)
+    extra := AddGoldPromptCopy(prompt, 30, 24, 640, 43, title)
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
-    prompt.Add("Text", "x30 y86 w640 h91 BackgroundTrans +Wrap", explanation)
+    extra += AddGoldPromptCopy(prompt, 30, 86 + extra, 640, 91, explanation)
     ; Preserve an informative but bounded sanitized failure reason. Never
     ; show signed CDN URLs or raw paths from a private transfer.
     if reason != ""
@@ -840,17 +841,18 @@ ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
         if shortReason != ""
         {
             prompt.SetFont("s9 Norm cD8C38C", "Segoe UI")
-            prompt.Add("Text", "x30 y186 w640 h47 BackgroundTrans +Wrap", shortReason)
+            extra += AddGoldPromptCopy(prompt, 30, 186 + extra, 640, 47, shortReason)
         }
     }
-    AddStyledButton(prompt, 30, 254, 185, 38, "Try Again",
+    AddStyledButton(prompt, 30, 254 + extra, 185, 38, "Try Again",
         CloseExpansionAutoFailureDialog.Bind(prompt, "Retry"))
-    AddStyledButton(prompt, 230, 254, 270, 38, "Choose ZIP or Folder",
+    AddStyledButton(prompt, 230, 254 + extra, 270, 38, "Choose ZIP or Folder",
         CloseExpansionAutoFailureDialog.Bind(prompt, "Local"))
-    AddStyledButton(prompt, 515, 254, 155, 38, "Cancel",
+    AddStyledButton(prompt, 515, 254 + extra, 155, 38, "Cancel",
         CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
     prompt.OnEvent("Close", CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
     prompt.OnEvent("Escape", CloseExpansionAutoFailureDialog.Bind(prompt, "Cancel"))
+    GrowGoldNativePrompt(prompt, extra)
     ExpansionAutoFailurePromptGui := prompt
     ShowGoldNativePrompt(prompt)
 }
@@ -908,16 +910,17 @@ CheckFirstRunMorrowind(resumeExpansion := false, *)
     prompt := CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)
     prompt.ResumeExpansionPack := resumeExpansion
     prompt.SetFont("s17 Bold cC5A45C", "Georgia")
-    prompt.Add("Text", "x30 y26 w620 h40 BackgroundTrans", "Morrowind Installation Not Found")
+    extra := AddGoldPromptCopy(prompt, 30, 26, 620, 40, "Morrowind Installation Not Found")
     prompt.SetFont("s10 Norm cEDE1C9", "Segoe UI")
-    prompt.Add("Text", "x30 y85 w620 h135 BackgroundTrans",
+    extra += AddGoldPromptCopy(prompt, 30, 85 + extra, 620, 135,
         "TES3MP needs a legally purchased copy of Morrowind Game of the Year Edition (GOTY), or Morrowind with both Tribunal and Bloodmoon installed. Install the game if needed, then choose the folder that contains Data Files.")
-    choose := AddStyledButton(prompt, 30, 268, 392, 42, "Choose Morrowind Folder",
+    choose := AddStyledButton(prompt, 30, 268 + extra, 392, 42, "Choose Morrowind Folder",
         (*) => SelectFirstRunMorrowind(prompt))
-    later := AddStyledButton(prompt, 438, 268, 212, 42, "Not Now",
+    later := AddStyledButton(prompt, 438, 268 + extra, 212, 42, "Not Now",
         (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Close", (*) => DismissFirstRunMorrowind(prompt))
     prompt.OnEvent("Escape", (*) => DismissFirstRunMorrowind(prompt))
+    GrowGoldNativePrompt(prompt, extra)
     MorrowindPromptGui := prompt
     ShowGoldNativePrompt(prompt)
 }

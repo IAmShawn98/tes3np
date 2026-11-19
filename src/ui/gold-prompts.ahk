@@ -35,8 +35,11 @@ ShowCenteredGoldPrompt(dialog, backdrop, width, height)
     top := NumGet(rect, 4, "Int")
     dw := NumGet(rect, 8, "Int") - left
     dh := NumGet(rect, 12, "Int") - top
-    dialog.Show("w" width " h" height " x" (left + Round((dw - width) / 2))
-        " y" (top + Round((dh - height) / 2)))
+    monitor := MonitorFromPoint(left + dw // 2, top + dh // 2)
+    MonitorGetWorkArea(monitor, &workLeft, &workTop, &workRight, &workBottom)
+    x := Max(workLeft, Min(workRight - width, left + Round((dw - width) / 2)))
+    y := Max(workTop, Min(workBottom - height, top + Round((dh - height) / 2)))
+    dialog.Show("w" width " h" height " x" x " y" y)
 }
 
 CreateGoldNativePrompt(owner, title, width, height)
@@ -62,12 +65,31 @@ CreateGoldNativePrompt(owner, title, width, height)
     }
 }
 
+AddGoldPromptCopy(panel, x, y, width, reservedHeight, text)
+{
+    label := panel.Add("Text", "x" x " y" y " w" width " BackgroundTrans +Wrap", text)
+    label.GetPos(, , , &measuredHeight)
+    ; Leave a little room for independent font and control rounding when scaled.
+    height := Max(reservedHeight, measuredHeight + 4)
+    label.Move(, , , height)
+    return height - reservedHeight
+}
+
+GrowGoldNativePrompt(panel, extraHeight)
+{
+    if extraHeight <= 0
+        return
+    panel.NativePromptHeight += extraHeight
+    panel.NativePromptBackground.Move(, , , panel.NativePromptHeight - 4)
+}
+
 ShowGoldNativePrompt(panel, scale := unset)
 {
     if !IsObject(panel) || !panel.HasOwnProp("NativePromptBackdrop")
         return
     if !IsSet(scale)
-        scale := GetOwnedMenuScale()
+        scale := Min(GetOwnedMenuScale(), GetOwnedMenuFitScale(panel.NativePromptBackdrop,
+            panel.NativePromptWidth, panel.NativePromptHeight))
     ScaleOwnedMenuContent(panel, scale)
     ShowCenteredGoldPrompt(panel, panel.NativePromptBackdrop,
         Round(panel.NativePromptWidth * scale), Round(panel.NativePromptHeight * scale))

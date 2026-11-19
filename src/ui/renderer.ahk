@@ -443,7 +443,22 @@ PaintLoadingPanel(handle, target, width, height)
     NumPut("Int", 8, "Int", Round(8 * scale), "Int", width - 8, "Int", Round(42 * scale), rect)
     paintFace := ButtonFaces[handle]
     loadingText := paintFace.HasOwnProp("ProgressText") ? paintFace.ProgressText : paintFace.Control.Text
-    DllCall("DrawTextW", "Ptr", dc, "WStr", loadingText, "Int", -1, "Ptr", rect, "UInt", 0x825)
+    fittedFont := 0
+    if paintFace.HasOwnProp("ProgressText")
+    {
+        fittedFont := FitWrappedLabelFont(dc, font, loadingText, rect)
+        if fittedFont
+            DllCall("SelectObject", "Ptr", dc, "Ptr", fittedFont, "Ptr")
+        measured := Buffer(16, 0)
+        NumPut("Int", 8, "Int", Round(8 * scale), "Int", width - 8, "Int", Round(42 * scale), measured)
+        textHeight := DllCall("DrawTextW", "Ptr", dc, "WStr", loadingText, "Int", -1,
+            "Ptr", measured, "UInt", 0xC10) ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX
+        top := NumGet(rect, 4, "Int")
+        NumPut("Int", top + Max(0, (NumGet(rect, 12, "Int") - top - textHeight) // 2), rect, 4)
+        DllCall("DrawTextW", "Ptr", dc, "WStr", loadingText, "Int", -1, "Ptr", rect, "UInt", 0x811)
+    }
+    else
+        DllCall("DrawTextW", "Ptr", dc, "WStr", loadingText, "Int", -1, "Ptr", rect, "UInt", 0x825)
     ; The automatic ZIP downloader keeps its Cancel button inside this ONE
     ; full-height native panel. PaintButtonNow uses GetDC + BitBlt, so simply
     ; setting WS_CLIPSIBLINGS on two sibling HWNDs does not protect the
@@ -479,6 +494,8 @@ PaintLoadingPanel(handle, target, width, height)
         if savedTargetClip
             DllCall("RestoreDC", "Ptr", target, "Int", savedTargetClip)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldFont)
+    if fittedFont
+        DllCall("DeleteObject", "Ptr", fittedFont)
     DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
     DllCall("DeleteObject", "Ptr", bitmap)
     DllCall("DeleteDC", "Ptr", dc)
