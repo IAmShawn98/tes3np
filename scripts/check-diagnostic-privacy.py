@@ -17,6 +17,7 @@ def expect(condition, message):
 
 diag = read("src/app/diagnostics.ahk")
 bootstrap = read("src/app/bootstrap.ahk")
+embedded_chat = read("src/ui/embedded-chat.ahk")
 session = read("src/game/session.ahk")
 settings = read("src/ui/v016-refinements.ahk")
 chat = read_game_chat_sources(ROOT)
@@ -61,11 +62,16 @@ expect('SanitizeExistingDiagnosticLogs()' in diag,
        "legacy diagnostic files must be cleaned on launch")
 expect('"game-chat.log"' not in diag and '"game-chat-index.json"' not in diag,
        "private Discord archive must not be modified by log cleanup")
-start = bootstrap.find("    LoadProfiles()")
-scrub = bootstrap.find("    SanitizeExistingDiagnosticLogs()", start)
-chatstart = bootstrap.find("    SetTimer(StartEmbeddedInGameChat", scrub)
-expect(0 <= start < scrub < chatstart,
+startup = bootstrap.partition("\nStartLauncher()\n{")[2].partition("\n}")[0]
+presentation = embedded_chat.partition("\nShowLauncherWithGameUpdates()\n{")[2].partition("\n}")[0]
+start = startup.find("    LoadProfiles()")
+scrub = startup.find("    SanitizeExistingDiagnosticLogs()")
+chatstart = startup.find("    ShowLauncherWithGameUpdates()")
+expect(0 <= start < scrub < chatstart and "StartEmbeddedInGameChat" not in startup[:scrub],
        "privacy scrub must follow profile loading and precede ChatHost")
+expect("        StartEmbeddedInGameChat()" in presentation
+       and "        SetTimer(StartEmbeddedInGameChat," in presentation,
+       "both launcher presentation paths must start ChatHost after the privacy scrub")
 expect('content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))' in settings
        and 'report .= SanitizeDiagnosticText(content)' in settings
        and 'A_Clipboard := SanitizeDiagnosticText(report)' in settings,
