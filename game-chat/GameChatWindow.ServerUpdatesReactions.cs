@@ -8,7 +8,6 @@ internal sealed partial class GameChatWindow
 
     ServerUpdate[] displayedServerUpdates = [];
     bool workingServerUpdateReaction;
-    bool serverUpdatePickerSeen;
 
     static bool IsServerUpdatesMessageRoute(string? url)
     {
@@ -29,15 +28,17 @@ internal sealed partial class GameChatWindow
 
     async Task<string?> ActOnServerUpdate(LatestUpdatesPanel panel, ServerUpdateAction request)
     {
-        if (panel != serverUpdatesPanel || !CanShowServerUpdates ||
-            serverUpdatesWindow is not { IsDisposed: false } source || source.Browser.CoreWebView2 is not { } core)
+        if (panel != serverUpdatesPanel || !CanShowServerUpdates)
             return "Discord is still loading.";
         var post = displayedServerUpdates.FirstOrDefault(post => post.Id == request.Id);
         if (post == null || !ulong.TryParse(request.Id, NumberStyles.None, CultureInfo.InvariantCulture, out _) ||
             (request.Kind == "toggle" && (request.Mine == null ||
                 post.Reactions?.Any(reaction => reaction.Key == request.Key) != true)))
             return "This reaction has changed. Try again after the update refreshes.";
-        if (workingServerUpdateReaction || source.PickerOpen) return "Finish the open reaction first.";
+        if (request.Kind == "picker") return await OpenServerUpdatePicker(panel, request);
+        if (request.Kind != "toggle" || serverUpdatesWindow is not { IsDisposed: false } source ||
+            source.Browser.CoreWebView2 is not { } core) return "Discord is still loading.";
+        if (workingServerUpdateReaction) return "Finish the open reaction first.";
 
         workingServerUpdateReaction = true;
         string target = ServerUpdatesChannel + "/" + request.Id;
@@ -60,22 +61,6 @@ internal sealed partial class GameChatWindow
             }
             if (!IsCurrentServerUpdatesSource(source)) return null;
 
-            if (request.Kind == "picker" && result == "\"unavailable\"")
-            {
-                await Task.Delay(200);
-                if (!IsCurrentServerUpdatesSource(source)) return null;
-                if (IsServerUpdatesRoute(core.Source) || IsServerUpdatesMessageRoute(core.Source))
-                    result = await RunServerUpdateAction(core, request);
-            }
-            if (request.Kind == "picker" && (result is "\"clicked\"" or "\"unavailable\""))
-            {
-                // If Discord only exposes the control on hover, the focused post is open
-                // and the user can use its native Add Reaction button there.
-                source.ShowReactionPicker(owner, panel.RectangleToScreen(panel.ClientRectangle));
-                serverUpdatePickerSeen = false;
-                return result == "\"unavailable\"" ? "Use Add Reaction on the opened Discord post." : null;
-            }
-
             if (result is not ("\"clicked\"" or "\"already\"")) return "Discord could not apply this reaction.";
             await ReadBackServerUpdateReaction(source, core, request);
             return null;
@@ -88,10 +73,7 @@ internal sealed partial class GameChatWindow
         finally
         {
             workingServerUpdateReaction = false;
-            if (!source.PickerOpen)
-                RestoreServerUpdatesChannel(source);
-            else if (IsCurrentServerUpdatesSource(source))
-                nextServerUpdatesCheck = DateTime.MinValue;
+            RestoreServerUpdatesChannel(source);
         }
     }
 
@@ -127,24 +109,9 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    async Task TrackServerUpdatePicker(ServerUpdatesWindow source)
-    {
-        var core = source.Browser.CoreWebView2;
-        if (core == null || (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source)))
-        {
-            source.CloseReactionPicker();
-            return;
-        }
-        string state = await RunServerUpdateAction(core, new("picker-state", "", null));
-        if (!IsCurrentServerUpdatesSource(source) || !source.PickerOpen) return;
-        if (state == "true") serverUpdatePickerSeen = true;
-        else if (state == "false" && serverUpdatePickerSeen) source.CloseReactionPicker();
-    }
-
     void RestoreServerUpdatesChannel(ServerUpdatesWindow source)
     {
         if (source != serverUpdatesWindow || source.IsDisposed || !ServerUpdatesAuthenticated) return;
-        serverUpdatePickerSeen = false;
         nextServerUpdatesCheck = DateTime.UtcNow.AddMilliseconds(500);
         serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
         try

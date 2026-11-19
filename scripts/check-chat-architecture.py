@@ -408,8 +408,18 @@ expect(
     'if (!feedVisible || type is not ("toggle" or "picker")) return;' in updates_panel
     and 'args.Source != ServerUpdatesPageUri' in updates_panel
     and 'post.Reactions?.Any(reaction => reaction.Key == request.Key)' in source
-    and 'source.ShowReactionPicker(owner, panel.RectangleToScreen(panel.ClientRectangle))' in source
+    and 'return await OpenServerUpdatePicker(panel, request);' in source
     and '!IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri)' in server_updates,
+)
+expect(
+    "Discord's emoji picker uses a visible, modeless browser separate from the updates reader",
+    in_order(section_between(source, 'async Task<string?> OpenServerUpdatePicker(', 'void CloseServerUpdatePicker()'),
+             'await Task.Yield();', 'picker.Show();', 'EnsureCoreWebView2Async(environment)',
+             'core.Navigate(ServerUpdatesChannel + "/" + request.Id);', 'picker.RevealBrowser();',
+             'await RunServerUpdateAction(core, request)')
+    and 'CloseServerUpdatePicker();' in server_updates
+    and 'TrackServerUpdatePicker' not in source
+    and 'ShowDialog' not in section_between(source, 'async Task<string?> OpenServerUpdatePicker(', 'void CloseServerUpdatePicker()'),
 )
 expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",

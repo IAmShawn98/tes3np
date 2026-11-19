@@ -32,9 +32,9 @@
   }
 
   if (request) {
-    if (request.Kind === 'picker-state') return !!document.querySelector(pickerSelector);
     const row = [...rows].find(item => messageId(item) === request.Id);
     if (!row) return 'missing';
+    if (request.Kind === 'picker-target') return 'ready';
     if (request.Kind === 'read-reactions') return reactionsFor(row).map(item => item.value);
     if (request.Kind === 'toggle') {
       if (typeof request.Mine !== 'boolean') return 'unavailable';
