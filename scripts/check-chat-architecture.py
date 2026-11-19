@@ -381,14 +381,21 @@ expect(
                  "PublishDiscordAccount();", "ResetServerUpdates();", "ClearBrowsingDataAsync("),
 )
 expect(
-    "Game Updates keeps its header visible and only opens the feed on a signed-in request",
+    "Game Updates keeps its header visible and opens the feed for a newer post or a signed-in request",
     "toggle.Click += (_, _) => host.ToggleServerUpdatesBody();" in updates_panel
-    and "ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated && serverUpdatesBodyRequested" in server_updates
+    and "ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated &&" in server_updates
+    and "(serverUpdatesManuallyOpened || latestServerUpdateId > serverUpdatesHiddenThroughId)" in server_updates
+    and "serverUpdatesHiddenThroughId = ReadServerUpdatesHiddenThrough();" in server_updates
     and in_order(section_between(server_updates, "void ToggleServerUpdatesBody()", "async Task RefreshServerUpdates()"),
                  "if (!ServerUpdatesAuthenticated)", "OpenDiscordAccountSignIn();", "return;",
-                 "serverUpdatesBodyRequested = !serverUpdatesBodyRequested;", "PositionServerUpdatesPanel();")
+                 "serverUpdatesManuallyOpened = !hide;",
+                 "serverUpdatesHiddenThroughId = Math.Max(serverUpdatesHiddenThroughId, latestServerUpdateId);",
+                 "WriteChatArchiveAtomically(ServerUpdatesDismissalPath,", "PositionServerUpdatesPanel();")
+    and in_order(section_between(server_updates, "async Task RefreshServerUpdates()", "static void ConfigureServerUpdatesBrowser("),
+                 "latestServerUpdateId = newestId;", "UpdateServerUpdatesDocument(text, revealNewest);",
+                 "if (revealNewest) PositionServerUpdatesPanel();")
     and in_order(section_between(server_updates, "void ResetServerUpdates()", "\n}"),
-                 "serverUpdatesBodyRequested = false;", "PositionServerUpdatesPanel();", "serverUpdatesPanel?.ResetDocument();")
+                 "serverUpdatesManuallyOpened = false;", "PositionServerUpdatesPanel();", "serverUpdatesPanel?.ResetDocument();")
     and in_order(chat_window, "PositionServerUpdatesPanel();", "await CheckDiscordAuthentication();")
     and "PostMessage(owner, 0x833B, IntPtr.Zero, Handle)" in updates_panel
     and "OnMessage(0x833B, ReceiveLauncherServerUpdatesAnchorRequest)" in embedded_chat

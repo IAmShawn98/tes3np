@@ -162,7 +162,10 @@
   }
 
   bridge.addEventListener('message', ({ data }) => {
-    if (data.scroll === 'by' || data.scroll === 'to') {
+    if (data.scroll === 'newest') {
+      main.scrollTop = landing ?? 0;
+      reportScroll();
+    } else if (data.scroll === 'by' || data.scroll === 'to') {
       main.scrollTop = data.scroll === 'by' ? main.scrollTop + data.pixels : data.pixels;
       reportScroll();
     } else if (data.result) {

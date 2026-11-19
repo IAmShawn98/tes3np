@@ -44,11 +44,26 @@ internal sealed partial class GameChatWindow
     DateTime serverUpdatesReadyBy;
     TaskCompletionSource? activeServerUpdatesRead;
     ulong latestServerUpdateId;
-    bool serverUpdatesBodyRequested;
+    ulong serverUpdatesHiddenThroughId = ReadServerUpdatesHiddenThrough();
+    bool serverUpdatesManuallyOpened;
 
     bool ServerUpdatesAuthenticated => !closingChat && !IsDisposed && discordAccountStatus == DiscordAccountStatus.SignedIn;
-    bool ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated && serverUpdatesBodyRequested;
+    bool ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated &&
+        (serverUpdatesManuallyOpened || latestServerUpdateId > serverUpdatesHiddenThroughId);
     bool CanShowServerUpdates => ServerUpdatesAuthenticated && latestServerUpdateId != 0;
+
+    static string ServerUpdatesDismissalPath => Path.Combine(ChatDataRoot, "game-updates-dismissed.txt");
+
+    static ulong ReadServerUpdatesHiddenThrough()
+    {
+        try
+        {
+            return ulong.TryParse(File.ReadAllText(ServerUpdatesDismissalPath), NumberStyles.None,
+                CultureInfo.InvariantCulture, out ulong id) ? id : 0;
+        }
+        catch (IOException) { return 0; }
+        catch (UnauthorizedAccessException) { return 0; }
+    }
 
     void ToggleServerUpdatesBody()
     {
@@ -58,8 +73,22 @@ internal sealed partial class GameChatWindow
             return;
         }
 
-        serverUpdatesBodyRequested = !serverUpdatesBodyRequested;
-        if (!serverUpdatesBodyRequested) StopServerUpdatePicker();
+        bool hide = ServerUpdatesBodyExpanded;
+        serverUpdatesManuallyOpened = !hide;
+        if (hide)
+        {
+            serverUpdatesHiddenThroughId = Math.Max(serverUpdatesHiddenThroughId, latestServerUpdateId);
+            try
+            {
+                WriteChatArchiveAtomically(ServerUpdatesDismissalPath,
+                    serverUpdatesHiddenThroughId.ToString(CultureInfo.InvariantCulture));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log("SERVER UPDATES | Save collapsed update ID: " + ex.GetType().Name);
+            }
+            StopServerUpdatePicker();
+        }
         PositionServerUpdatesPanel();
     }
 
@@ -102,9 +131,12 @@ internal sealed partial class GameChatWindow
                     string text = FormatServerUpdates(updates, out ulong newestId, out var displayed);
                     if (newestId >= latestServerUpdateId)
                     {
+                        bool wasExpanded = ServerUpdatesBodyExpanded;
                         latestServerUpdateId = newestId;
                         displayedServerUpdates = displayed;
-                        UpdateServerUpdatesDocument(text);
+                        bool revealNewest = !wasExpanded && ServerUpdatesBodyExpanded;
+                        UpdateServerUpdatesDocument(text, revealNewest);
+                        if (revealNewest) PositionServerUpdatesPanel();
                     }
                     serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                     nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(5);
@@ -193,7 +225,7 @@ internal sealed partial class GameChatWindow
         latestServerUpdateId = 0;
         serverUpdatesDocument = null;
         displayedServerUpdates = [];
-        serverUpdatesBodyRequested = false;
+        serverUpdatesManuallyOpened = false;
         if (closingChat)
             CloseServerUpdatesPanel();
         else
