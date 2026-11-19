@@ -326,7 +326,9 @@ internal sealed partial class GameChatWindow
                 if (!feedVisible || type is not ("toggle" or "picker")) return;
                 var request = new ServerUpdateAction(type,
                     message.GetProperty("id").GetString() ?? "",
-                    message.TryGetProperty("key", out var key) ? key.GetString() : null);
+                    message.TryGetProperty("key", out var key) ? key.GetString() : null,
+                    message.TryGetProperty("mine", out var mine) && mine.ValueKind is JsonValueKind.True or JsonValueKind.False
+                        ? mine.GetBoolean() : null);
                 string? error = await host.ActOnServerUpdate(this, request);
                 if (!IsDisposed && feedVisible)
                     SendFeed(JsonSerializer.Serialize(new

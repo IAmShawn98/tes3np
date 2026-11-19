@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 
 internal sealed partial class GameChatWindow
 {
-    sealed record ServerUpdateAction(string Kind, string Id, string? Key);
+    sealed record ServerUpdateAction(string Kind, string Id, string? Key, bool? Mine = null);
 
     ServerUpdate[] displayedServerUpdates = [];
     bool workingServerUpdateReaction;
@@ -34,7 +34,8 @@ internal sealed partial class GameChatWindow
             return "Discord is still loading.";
         var post = displayedServerUpdates.FirstOrDefault(post => post.Id == request.Id);
         if (post == null || !ulong.TryParse(request.Id, NumberStyles.None, CultureInfo.InvariantCulture, out _) ||
-            (request.Kind == "toggle" && post.Reactions?.Any(reaction => reaction.Key == request.Key) != true))
+            (request.Kind == "toggle" && (request.Mine == null ||
+                post.Reactions?.Any(reaction => reaction.Key == request.Key) != true)))
             return "This reaction has changed. Try again after the update refreshes.";
         if (workingServerUpdateReaction || source.PickerOpen) return "Finish the open reaction first.";
 
@@ -42,6 +43,8 @@ internal sealed partial class GameChatWindow
         string target = ServerUpdatesChannel + "/" + request.Id;
         try
         {
+            if (activeServerUpdatesRead is { } activeRead) await activeRead.Task;
+            if (!IsCurrentServerUpdatesSource(source)) return null;
             string result = IsServerUpdatesRoute(core.Source) ? await RunServerUpdateAction(core, request) : "null";
             if (!IsCurrentServerUpdatesSource(source)) return null;
             if (result is "null" or "\"missing\"")
@@ -73,8 +76,8 @@ internal sealed partial class GameChatWindow
                 return result == "\"unavailable\"" ? "Use Add Reaction on the opened Discord post." : null;
             }
 
-            if (result != "\"clicked\"") return "Discord could not apply this reaction.";
-            if (IsServerUpdatesMessageRoute(core.Source)) await Task.Delay(350);
+            if (result is not ("\"clicked\"" or "\"already\"")) return "Discord could not apply this reaction.";
+            await ReadBackServerUpdateReaction(source, core, request);
             return null;
         }
         catch (Exception ex)
@@ -85,10 +88,42 @@ internal sealed partial class GameChatWindow
         finally
         {
             workingServerUpdateReaction = false;
-            if (IsCurrentServerUpdatesSource(source) && !source.PickerOpen)
+            if (!source.PickerOpen)
                 RestoreServerUpdatesChannel(source);
             else if (IsCurrentServerUpdatesSource(source))
                 nextServerUpdatesCheck = DateTime.MinValue;
+        }
+    }
+
+    async Task ReadBackServerUpdateReaction(ServerUpdatesWindow source, CoreWebView2 core, ServerUpdateAction request)
+    {
+        try
+        {
+            var read = request with { Kind = "read-reactions" };
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                await Task.Delay(150);
+                if (!IsCurrentServerUpdatesSource(source) ||
+                    (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source))) return;
+                string result = await RunServerUpdateAction(core, read);
+                if (!IsCurrentServerUpdatesSource(source)) return;
+                if (result.Length == 0 || result[0] != '[') continue;
+                var reactions = JsonSerializer.Deserialize<ServerUpdateReaction[]>(result);
+                var updated = reactions?.FirstOrDefault(reaction => reaction.Key == request.Key);
+                if (reactions == null || (updated?.Mine ?? false) != request.Mine) continue;
+
+                // An empty reaction list is valid when the last person removes their emoji.
+                var posts = displayedServerUpdates.Select(post => post.Id == request.Id ? post with { Reactions = reactions } : post);
+                string text = FormatServerUpdates(posts.ToArray(), out _, out var displayed);
+                displayedServerUpdates = displayed;
+                UpdateServerUpdatesDocument(text);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            // The regular channel refresh can still confirm an action already sent to Discord.
+            if (IsCurrentServerUpdatesSource(source)) Log("SERVER UPDATES | Reaction refresh: " + ex.GetType().Name);
         }
     }
 

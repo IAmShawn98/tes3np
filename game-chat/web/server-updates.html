@@ -96,7 +96,8 @@
       button.setAttribute('aria-disabled', 'true');
       const status = button.closest('article').querySelector('.status');
       status.textContent = '';
-      bridge.postMessage({ type: reaction ? 'toggle' : 'picker', id: post.id, key: reaction?.Key ?? null });
+      bridge.postMessage({ type: reaction ? 'toggle' : 'picker', id: post.id, key: reaction?.Key ?? null,
+        mine: reaction ? !reaction.Mine : null });
     });
     return button;
   }

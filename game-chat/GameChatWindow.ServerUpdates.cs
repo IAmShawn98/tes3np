@@ -82,7 +82,7 @@ internal sealed partial class GameChatWindow
     ServerUpdatesWindow? serverUpdatesWindow;
     DateTime nextServerUpdatesCheck;
     DateTime serverUpdatesReadyBy;
-    bool readingServerUpdates;
+    TaskCompletionSource? activeServerUpdatesRead;
     ulong latestServerUpdateId;
     ulong dismissedServerUpdateId = ReadServerUpdatesDismissal();
 
@@ -121,10 +121,11 @@ internal sealed partial class GameChatWindow
 
     async Task RefreshServerUpdates()
     {
-        if (!ServerUpdatesAuthenticated || discordAccountDirty || readingServerUpdates || workingServerUpdateReaction ||
+        if (!ServerUpdatesAuthenticated || discordAccountDirty || activeServerUpdatesRead != null || workingServerUpdateReaction ||
             DateTime.UtcNow < nextServerUpdatesCheck ||
             discordEnvironment is not { } environment) return;
-        readingServerUpdates = true;
+        var read = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        activeServerUpdatesRead = read;
         nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(1);
         ServerUpdatesWindow? source = serverUpdatesWindow;
         try
@@ -138,6 +139,7 @@ internal sealed partial class GameChatWindow
                 source.PickerClosed += () => RestoreServerUpdatesChannel(pickerWindow);
                 SetNativeWindowOwner(source.Handle, owner);
                 source.Show();
+                serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                 await source.Browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
                 if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed) return;
                 var core = source.Browser.CoreWebView2;
@@ -164,7 +166,7 @@ internal sealed partial class GameChatWindow
             if (IsServerUpdatesRoute(channel.Source))
             {
                 string result = await channel.ExecuteScriptAsync(ExtractServerUpdates.Value + "(null)").WaitAsync(TimeSpan.FromSeconds(3));
-                if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed ||
+                if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed || workingServerUpdateReaction ||
                     !IsServerUpdatesRoute(channel.Source)) return;
                 var updates = JsonSerializer.Deserialize<ServerUpdate[]>(result);
                 if (updates != null)
@@ -182,15 +184,20 @@ internal sealed partial class GameChatWindow
                     return;
                 }
             }
-            if (DateTime.UtcNow >= serverUpdatesReadyBy)
+            if (!workingServerUpdateReaction && DateTime.UtcNow >= serverUpdatesReadyBy)
                 RecoverServerUpdates("channel unavailable");
         }
         catch (Exception ex)
         {
-            if (ServerUpdatesAuthenticated && source == serverUpdatesWindow)
+            if (ServerUpdatesAuthenticated && source == serverUpdatesWindow && !workingServerUpdateReaction &&
+                DateTime.UtcNow >= serverUpdatesReadyBy)
                 RecoverServerUpdates(ex.GetType().Name);
         }
-        finally { readingServerUpdates = false; }
+        finally
+        {
+            activeServerUpdatesRead = null;
+            read.TrySetResult();
+        }
     }
 
     static bool IsServerUpdatesRoute(string? url) =>
@@ -231,8 +238,11 @@ internal sealed partial class GameChatWindow
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         previous?.Dispose();
-        UpdateServerUpdatesDocument(ServerUpdatesStatus("Server updates are unavailable."));
-        nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(30);
+        serverUpdatePickerSeen = false;
+        // Keep the known posts and the reader's scroll position through a reconnect.
+        if (displayedServerUpdates.Length == 0)
+            UpdateServerUpdatesDocument(ServerUpdatesStatus("Server updates are unavailable."));
+        nextServerUpdatesCheck = DateTime.UtcNow.AddSeconds(displayedServerUpdates.Length == 0 ? 30 : 5);
     }
 
     void ResetServerUpdates()
