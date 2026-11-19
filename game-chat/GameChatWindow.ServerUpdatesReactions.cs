@@ -113,14 +113,14 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    void RestoreServerUpdatesChannel(ServerUpdatesWindow source, bool restartChannel = false)
+    void RestoreServerUpdatesChannel(ServerUpdatesWindow source)
     {
         if (source != serverUpdatesWindow || source.IsDisposed || !ServerUpdatesAuthenticated) return;
         nextServerUpdatesCheck = DateTime.UtcNow.AddMilliseconds(500);
         serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
         try
         {
-            if (source.Browser.CoreWebView2 is { } core && (restartChannel || IsServerUpdatesMessageRoute(core.Source)))
+            if (source.Browser.CoreWebView2 is { } core && IsServerUpdatesMessageRoute(core.Source))
                 core.Navigate(ServerUpdatesChannel);
         }
         catch (Exception ex) { Log("SERVER UPDATES | Return to channel: " + ex.GetType().Name); }

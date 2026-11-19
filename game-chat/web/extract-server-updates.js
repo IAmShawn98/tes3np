@@ -86,7 +86,13 @@
       return 'clicked';
     }
     if (request.Kind === 'picker') {
-      if (getPicker()) return window.__tes3npPickerPost === request.Id ? 'clicked' : 'unavailable';
+      if (getPicker()) {
+        if (window.__tes3npPickerPost === request.Id) return 'clicked';
+        const oldTrigger = window.__tes3npPickerTrigger;
+        window.__tes3npPickerTrigger = null;
+        if (oldTrigger?.isConnected) oldTrigger.click();
+        return 'unavailable';
+      }
       row.scrollIntoView({ block: 'center' });
       const message = row.querySelector('[class^="message_"], [class*=" message_"]') ?? row;
       message.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -95,6 +101,7 @@
       if (!add || add.disabled || add.getAttribute('aria-disabled') === 'true') return 'unavailable';
       add.click();
       window.__tes3npPickerPost = request.Id;
+      window.__tes3npPickerTrigger = add;
       return 'clicked';
     }
     if (window.__tes3npPickerPost !== request.Id) return 'missing';

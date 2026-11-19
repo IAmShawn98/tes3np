@@ -6,6 +6,17 @@ internal sealed partial class GameChatWindow
 {
     static readonly Lazy<Dictionary<string, string>> PickerGlyphs = new(() =>
         JsonSerializer.Deserialize<Dictionary<string, string>>(GameChatWeb.Page("discord-emoji-shortcodes.json").Value) ?? []);
+    sealed record BundledEmoji(string Glyph, string[] Aliases);
+    static readonly string[] PickerCommonAliases = ["thumbsup", "heart", "fire", "joy", "rofl", "eyes", "tada", "wave", "clap", "100"];
+    static readonly Lazy<BundledEmoji[]> BundledEmojiCatalog = new(() => PickerGlyphs.Value
+        .GroupBy(item => item.Value, StringComparer.Ordinal)
+        .Select(group => new BundledEmoji(group.Key, group.Select(item => item.Key).OrderBy(alias => alias.Length).ToArray()))
+        .OrderBy(item =>
+        {
+            int priority = Array.FindIndex(PickerCommonAliases, alias => item.Aliases.Contains(alias));
+            return priority >= 0 ? priority : PickerCommonAliases.Length;
+        })
+        .ThenBy(item => item.Aliases[0], StringComparer.Ordinal).ToArray());
     NativeServerUpdatePicker? nativeServerUpdatePicker;
 
     async Task<string?> ShowServerUpdatePicker(LatestUpdatesPanel panel, string postId)
@@ -33,8 +44,13 @@ internal sealed partial class GameChatWindow
             picker.Start((kind, key, query) => PostToHost(async () =>
             {
                 if (nativeServerUpdatePicker != picker) return;
-                if (kind == "picker-close") { StopServerUpdatePicker(); return; }
-                bool trace = kind is "picker" or "picker-select";
+                if (kind == "picker-close")
+                {
+                    StopServerUpdatePicker();
+                    Log("SERVER UPDATES | Picker closed");
+                    return;
+                }
+                bool trace = kind is "picker" or "picker-select" or "picker-local";
                 if (trace) Log("SERVER UPDATES | Picker action started: " + kind);
                 PickerReply result;
                 try { result = await ActOnServerUpdatePicker(panel, new(kind, postId, key, Query: query)); }
@@ -81,6 +97,9 @@ internal sealed partial class GameChatWindow
     {
         readonly TaskCompletionSource<EmojiPickerForm?> formReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
         int stopped;
+        IntPtr windowHandle;
+
+        internal bool HasForeground(IntPtr hwnd) => hwnd != IntPtr.Zero && hwnd == Volatile.Read(ref windowHandle);
 
         internal void Start(Action<string, string?, string?> action, Action<Exception> reportError)
         {
@@ -92,6 +111,7 @@ internal sealed partial class GameChatWindow
                     using var form = new EmojiPickerForm(anchor, dpi, action);
                     form.Shown += (_, _) =>
                     {
+                        Interlocked.Exchange(ref windowHandle, form.Handle);
                         formReady.TrySetResult(form);
                         if (Volatile.Read(ref stopped) != 0) form.Close();
                         else form.LoadChoices();
@@ -101,6 +121,7 @@ internal sealed partial class GameChatWindow
                 catch (Exception ex) { reportError(ex); }
                 finally
                 {
+                    Interlocked.Exchange(ref windowHandle, IntPtr.Zero);
                     formReady.TrySetResult(null);
                     action("picker-close", null, null);
                 }
@@ -138,12 +159,15 @@ internal sealed partial class GameChatWindow
         readonly Label detail = new() { Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft,
             Text = "Loading emoji…", ForeColor = Gold };
         readonly Button more = new() { Dock = DockStyle.Fill, Text = "More emoji", Visible = false };
+        readonly Button catalogButton = new() { Dock = DockStyle.Fill, Text = "Discord emoji" };
         readonly System.Windows.Forms.Timer debounce = new() { Interval = 220 };
         readonly Font glyphFont = new("Segoe UI Emoji", 20, FontStyle.Regular);
         readonly CancellationTokenSource icons = new();
         readonly int cellSize, iconSize;
         string currentQuery = "";
-        bool pending, resourcesDisposed;
+        BundledEmoji[] localChoices = [];
+        int localOffset;
+        bool pending, resourcesDisposed, discordCatalog;
 
         internal EmojiPickerForm(Rectangle anchor, int dpi, Action<string, string?, string?> dispatch)
         {
@@ -164,12 +188,18 @@ internal sealed partial class GameChatWindow
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, Scale(27)));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, Scale(31)));
-            layout.Controls.Add(search, 0, 0);
+            var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = Padding.Empty };
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, Scale(115)));
+            filters.Controls.Add(search, 0, 0);
+            filters.Controls.Add(catalogButton, 1, 0);
+            layout.Controls.Add(filters, 0, 0);
             layout.Controls.Add(grid, 0, 1);
             layout.Controls.Add(detail, 0, 2);
             layout.Controls.Add(more, 0, 3);
             Controls.Add(layout);
             StyleButton(more);
+            StyleButton(catalogButton);
 
             var screen = Screen.FromRectangle(anchor).WorkingArea;
             int width = Math.Min(430 * dpi / 96, screen.Width);
@@ -180,12 +210,13 @@ internal sealed partial class GameChatWindow
 
             search.TextChanged += (_, _) => { debounce.Stop(); debounce.Start(); };
             debounce.Tick += (_, _) => { debounce.Stop(); SearchIfChanged(); };
-            more.Click += (_, _) => Request("picker-more");
+            more.Click += (_, _) => LoadMore();
+            catalogButton.Click += (_, _) => ToggleCatalog();
             grid.Scroll += (_, _) =>
             {
                 var vertical = grid.VerticalScroll;
                 if (more.Visible && vertical.Visible && vertical.Value + vertical.LargeChange >= vertical.Maximum - cellSize)
-                    Request("picker-more");
+                    if (discordCatalog) Request("picker-more");
             };
             KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; Close(); } };
         }
@@ -193,7 +224,47 @@ internal sealed partial class GameChatWindow
         internal void LoadChoices()
         {
             search.Select();
-            Request("picker");
+            LoadBundledChoices();
+        }
+
+        void ToggleCatalog()
+        {
+            if (pending) return;
+            discordCatalog = !discordCatalog;
+            catalogButton.Text = discordCatalog ? "Standard emoji" : "Discord emoji";
+            currentQuery = "";
+            ClearChoices();
+            more.Visible = false;
+            if (discordCatalog) Request("picker");
+            else Request("picker-leave");
+        }
+
+        void LoadBundledChoices()
+        {
+            currentQuery = search.Text.Trim();
+            string alias = currentQuery.Trim(':').Replace(' ', '_').Replace('-', '_');
+            localChoices = BundledEmojiCatalog.Value.Where(item => alias.Length == 0 ||
+                item.Glyph.Contains(alias, StringComparison.Ordinal) ||
+                item.Aliases.Any(name => name.Contains(alias, StringComparison.OrdinalIgnoreCase))).ToArray();
+            ClearChoices();
+            localOffset = 0;
+            LoadMore();
+            detail.Text = localChoices.Length == 0 ? "No emoji found." : "";
+        }
+
+        void LoadMore()
+        {
+            if (discordCatalog) { Request("picker-more"); return; }
+            const int pageSize = 72;
+            grid.SuspendLayout();
+            try
+            {
+                foreach (var item in localChoices.Skip(localOffset).Take(pageSize))
+                    AddChoice(new(item.Glyph, item.Aliases[0], item.Glyph, null, item.Glyph, 0));
+                localOffset += pageSize;
+            }
+            finally { grid.ResumeLayout(true); }
+            more.Visible = localOffset < localChoices.Length;
         }
 
         void Request(string kind, string? key = null, string? query = null)
@@ -208,6 +279,7 @@ internal sealed partial class GameChatWindow
         {
             string query = search.Text.Trim();
             if (pending || query == currentQuery) return;
+            if (!discordCatalog) { LoadBundledChoices(); return; }
             currentQuery = query;
             Request("picker-search", query: query);
         }
@@ -215,6 +287,7 @@ internal sealed partial class GameChatWindow
         internal void ApplyReply(string kind, PickerReply reply)
         {
             pending = false;
+            if (kind == "picker-leave") { LoadBundledChoices(); return; }
             if (reply.Items is { } items)
             {
                 grid.SuspendLayout();
@@ -246,7 +319,7 @@ internal sealed partial class GameChatWindow
             StyleButton(button);
             button.MouseEnter += (_, _) => { if (!pending) detail.Text = emoji.Name; };
             button.Enter += (_, _) => { if (!pending) detail.Text = emoji.Name; };
-            button.Click += (_, _) => Request("picker-select", emoji.Key);
+            button.Click += (_, _) => Request(discordCatalog ? "picker-select" : "picker-local", emoji.Key);
             grid.Controls.Add(button);
             if (emoji.Image != null && ulong.TryParse(emoji.Key, out ulong id))
                 _ = LoadCustomIcon(button, id, icons.Token);

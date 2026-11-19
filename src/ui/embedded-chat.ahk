@@ -201,10 +201,10 @@ UpdateLauncherDiscordAccountDisplay(status, name := "")
 CreateLauncherServerUpdates()
 {
     global LauncherGui, LauncherUpdatesSlot
-    ; The host paints the heading, feed, and gold scrollbar inside this one HWND.
+    ; This transparent control gives the host a position for its Game Updates window.
     ; Start below the Quest card's painted bounds, including its bottom fade.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
-        "x100 y298 w220 h342 +0x06000000 Background0A0908 Hidden")
+        "x100 y298 w220 h342 BackgroundTrans Hidden")
     OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)
 }
 
@@ -249,22 +249,18 @@ RepaintLauncherServerUpdates()
     if LauncherDiscordStatus != 2 || !IsObject(LauncherUpdatesSlot) || !LauncherUpdatesSlot.Visible
         || DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
         return
-    ; Reassert the slot after the launcher's backdrop completes its restore paint.
-    DllCall("SetWindowPos", "Ptr", LauncherUpdatesSlot.Hwnd, "Ptr", 0,
-        "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)
     SendLauncherChatCommand(18, LauncherUpdatesSlot.Hwnd)
 }
 
 CheckServerUpdatesHost()
 {
-    global EmbeddedChatPid, LauncherUpdatesSlot, LauncherDiscordStatus
+    global EmbeddedChatPid, LauncherDiscordStatus
     if LauncherDiscordStatus != 2 || !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid)
     {
         SetLauncherServerUpdatesVisible(false)
         return
     }
-    if IsObject(LauncherUpdatesSlot) && !DllCall("GetWindow", "Ptr", LauncherUpdatesSlot.Hwnd, "UInt", 5, "Ptr")
-        SendLauncherChatCommand(18, LauncherUpdatesSlot.Hwnd)
+    RepaintLauncherServerUpdates()
 }
 
 ReleaseLauncherDiscordAvatar()
