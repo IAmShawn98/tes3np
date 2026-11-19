@@ -92,6 +92,8 @@ internal static class GameChatNative
 
     [DllImport("user32.dll")] internal static extern bool IsIconic(IntPtr hWnd);
 
+    [DllImport("user32.dll")] internal static extern short GetAsyncKeyState(int virtualKey);
+
     [DllImport("gdi32.dll")] internal static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
 
     [DllImport("gdi32.dll")] internal static extern bool DeleteObject(IntPtr handle);
