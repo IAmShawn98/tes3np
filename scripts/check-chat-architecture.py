@@ -1736,18 +1736,18 @@ expect(
 launcher_return = section_between(
     launcher_layout,
     "ShowLauncherWindow(reuseCached := false, *)",
-    "\nGetAutomaticLauncherScale()",
+    "\nGetLauncherScaleForWorkArea(",
 )
 expect(
     "Owned Character Book uses already-painted visible parent without global repaint before Hide",
-    'if reuseCached && LauncherCachedScale > 0' in launcher_return
+    'placement := GetLauncherPlacement()' in launcher_return
+    and 'if placement.Scale = LauncherCachedScale' in launcher_return
     and 'DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)' in launcher_return
     and 'LauncherControlLayout.Count = LauncherCachedLayoutCount' in launcher_return
-    and 'desiredCachedScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale' in launcher_return
-    and 'if desiredCachedScale = LauncherCachedScale\n            return' in launcher_return
+    and 'if reuseCached\n            return' in launcher_return
     and in_order(
         launcher_return,
-        'if reuseCached && LauncherCachedScale > 0',
+        'if reuseCached',
         'RepaintMenuButtons()',
     )
     and 'ShowLauncherWindow(true)\n    preparedMs := A_TickCount - startedAt\n    CharacterPage.Hide()' in characters_close
@@ -1864,7 +1864,7 @@ expect(
 )
 expect(
     "Launcher Settings follows moved owner and current scale without losing parchment",
-    'return Max(0.45, Min(GetOwnedMenuScale(), fit))' in settings_ui
+    'return Max(0.1, Min(GetOwnedMenuScale(), fit))' in settings_ui
     and 'PositionOwnedMenuAtParent(settings, LauncherGui)' in settings_open
     and 'settings.Show("Hide w" V016S(512) " h" (V016S(590) + settings.ParchmentExtra))' in settings_open
     and 'SetPageColorKey(settings, 0x010101)' in settings_open
@@ -2227,6 +2227,9 @@ expect(
 font_update = section_between(
     display_settings, "\nApplyAccessibilityTextSize(suspendRedraw := true)\n{", "\nApplyEnhancedReadability()\n{"
 )
+launcher_button_font = section_between(
+    display_settings, "\nApplyLauncherButtonFont(face, scale)\n{", "\nApplyAccessibilityTextSize("
+)
 expect(
     "The first menu button leaves the original Game Launcher heading outside its paint surface",
     'y414 w300 h34 Center BackgroundTrans", "Game Launcher"' in front_layout
@@ -2237,20 +2240,22 @@ expect(
 )
 expect(
     "Display text changes never restore unscaled themed-button geometry",
-    "size := AccessibilityFontSize(10)" in font_update
+    "size := AccessibilityFontSize(10)" in launcher_button_font
     and "scale := LauncherScale / 100" in font_update
-    and 'Max(5, Round(size * scale))' in font_update
+    and 'Max(5, Round(size * scale))' in launcher_button_font
+    and "ApplyLauncherButtonFont(face, scale)" in font_update
+    and "ApplyLauncherButtonFont(face, scale)" in launcher_layout
     and "face.Control.Move(" not in font_update,
 )
 launcher_scale_apply = section_between(
-    launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true)\n{", "\n}",
+    launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true, placement := unset)\n{", "\n}",
 )
 expect(
     "Declined display previews restore saved state and visible settings controls",
     "ApplyLauncherScaleToWindow(false)" in display_settings
     and "ApplyAccessibilityTextSize(false)" in display_settings
     and "ApplyEnhancedReadability()" in display_settings
-    and 'scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)' in display_settings
+    and 'scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldRequestedScale) + 1)' in display_settings
     and 'textList.Choose(oldText = "Large" ? 2' in display_settings
     and "V016ReadabilityState := readability.Value" in display_settings
     and "V016FollowWindowsState := followWindows.Value" in display_settings
@@ -2325,7 +2330,7 @@ expect(
     "Settings match launcher scale, fit owner monitor and keep accessibility controls",
     "V016SettingsScale := GetV016SettingsFitScale()" in settings_ui
     and "fit := Min(1.0, (right - left - 24) / (512 * dpi)," in settings_ui
-    and "return Max(0.45, Min(GetOwnedMenuScale(), fit))" in settings_ui
+    and "return Max(0.1, Min(GetOwnedMenuScale(), fit))" in settings_ui
     and "return Max(7, Round(value * V016SettingsScale))" in settings_ui
     and "settings.ReadabilityControl := readability" in settings_ui
     and "reduceMotionBox := {Value: settings.SavedReduceMotion}" in settings_ui,
@@ -2377,8 +2382,8 @@ expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
     '#Include src\\ui\\launcher-layout.ahk' in entry_script
     and 'LauncherGui.Show("Hide w960 h716")' in launcher_return
-    and "if LauncherCachedScale > 0 && DllCall" in launcher_return
-    and "LauncherCachedScale := LauncherScale" in launcher_return,
+    and "if placement.Scale = LauncherCachedScale && DllCall" in launcher_return
+    and "LauncherCachedScale := LauncherScale" in launcher_scale_apply,
 )
 expect(
     "Themed click recovery verifies the child under the actual pointer",

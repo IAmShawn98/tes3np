@@ -4,6 +4,7 @@
 
 global LauncherScale := 100
 global LauncherScaleMode := "Auto"
+global LauncherRequestedScale := 100
 global AccessibilityTextSize := "Normal"
 global EnhancedReadability := false
 global ReduceMotion := false
@@ -14,7 +15,8 @@ global WindowsAnimationsDisabled := false
 
 LoadLauncherScale()
 {
-    global DataFile, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
+    global DataFile, LauncherScale, LauncherScaleMode, LauncherRequestedScale
+    global AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
     saved := IniRead(DataFile, "Launcher", "Scale", "Auto")
     AccessibilityTextSize := IniRead(DataFile, "Accessibility", "TextSize", "Normal")
     EnhancedReadability := IniRead(DataFile, "Accessibility", "EnhancedReadability", "0") = "1"
@@ -24,21 +26,14 @@ LoadLauncherScale()
         AccessibilityTextSize := "Normal"
     DetectWindowsAccessibility()
     ApplyWindowsAccessibilityPreferences()
-    if saved = "Auto" || saved = ""
-    {
-        LauncherScaleMode := "Auto"
-        LauncherScale := GetAutomaticLauncherScale()
-        return
-    }
     if !RegExMatch(saved, "^(?:50|60|70|80|90|100)$")
     {
-        ; Invalid saved percentages must not display as a manual setting.
         LauncherScaleMode := "Auto"
-        LauncherScale := GetAutomaticLauncherScale()
+        LauncherScale := LauncherRequestedScale := 100
         return
     }
     LauncherScaleMode := "Manual"
-    LauncherScale := Integer(saved)
+    LauncherScale := LauncherRequestedScale := Integer(saved)
 }
 
 DetectWindowsAccessibility()
@@ -74,9 +69,11 @@ ScaleChoiceIndex(scale)
 
 PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotionBox, followWindows, reset := false)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
+    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherRequestedScale
+    global AccessibilityTextSize, EnhancedReadability, ReduceMotion, FollowWindowsAccessibility
     global V016ReadabilityState, V016FollowWindowsState
-    oldScale := LauncherScale, oldMode := LauncherScaleMode, oldText := AccessibilityTextSize
+    oldScale := LauncherScale, oldRequestedScale := LauncherRequestedScale, oldMode := LauncherScaleMode
+    oldText := AccessibilityTextSize
     oldReadability := EnhancedReadability, oldReduceMotion := ReduceMotion, oldFollowWindows := FollowWindowsAccessibility
     oldReadabilityChoice := settings.SavedReadability
     oldMotionChoice := settings.SavedReduceMotion
@@ -84,11 +81,12 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     saved := false
     if scaleList.Value = 1
     {
-        LauncherScaleMode := "Auto", LauncherScale := GetAutomaticLauncherScale(), pendingScale := "Auto"
+        LauncherScaleMode := "Auto", pendingScale := "Auto"
     }
     else
     {
-        LauncherScaleMode := "Manual", LauncherScale := Integer(StrReplace(scaleList.Text, "%")), pendingScale := LauncherScale
+        LauncherScaleMode := "Manual"
+        LauncherRequestedScale := Integer(StrReplace(scaleList.Text, "%")), pendingScale := LauncherRequestedScale
     }
     AccessibilityTextSize := textList.Text
     requestedReadability := readability.Value = 1
@@ -123,7 +121,8 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
         CloseLauncherSettingsV016(settings)
         return
     }
-    LauncherScale := oldScale, LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
+    LauncherScale := oldScale, LauncherRequestedScale := oldRequestedScale
+    LauncherScaleMode := oldMode, AccessibilityTextSize := oldText
     EnhancedReadability := oldReadability, ReduceMotion := oldReduceMotion, FollowWindowsAccessibility := oldFollowWindows
     try RefreshLauncherDisplay("Restoring display settings...", settings)
     catch Error as err
@@ -131,7 +130,7 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     ; A declined preview must restore the visible selectors as well as the
     ; launcher geometry. Otherwise Reset/Preview can leave controls showing
     ; defaults until the next login even though the old state was restored.
-    scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldScale) + 1)
+    scaleList.Choose(oldMode = "Auto" ? 1 : ScaleChoiceIndex(oldRequestedScale) + 1)
     textList.Choose(oldText = "Large" ? 2 : oldText = "Extra Large" ? 3 : 1)
     readability.Value := oldReadabilityChoice
     reduceMotionBox.Value := oldMotionChoice
@@ -225,6 +224,15 @@ AccessibilityFontSize(baseSize)
     multiplier := AccessibilityTextSize = "Extra Large" ? 1.35 : AccessibilityTextSize = "Large" ? 1.18 : 1.0
     return Round(baseSize * multiplier)
 }
+
+ApplyLauncherButtonFont(face, scale)
+{
+    size := AccessibilityFontSize(10)
+    if face.HasOwnProp("BaseWidth") && face.BaseWidth < 180
+        size := Min(size, 11)
+    face.Control.SetFont("s" Max(5, Round(size * scale)) " Bold", "Segoe UI")
+}
+
 ApplyAccessibilityTextSize(suspendRedraw := true)
 {
     global LauncherGui, ButtonFaces, LauncherScale
@@ -234,6 +242,7 @@ ApplyAccessibilityTextSize(suspendRedraw := true)
     ; positions. ApplyLauncherControlScale already moves every captured control
     ; from its immutable baseline, including at 50/60/70/80/90 percent.
     scale := LauncherScale / 100
+    suspendRedraw := suspendRedraw && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
     if suspendRedraw
         DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
@@ -242,10 +251,7 @@ ApplyAccessibilityTextSize(suspendRedraw := true)
         {
             if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
                 continue
-            size := AccessibilityFontSize(10)
-            if face.HasOwnProp("BaseWidth") && face.BaseWidth < 180
-                size := Min(size, 11)
-            face.Control.SetFont("s" Max(5, Round(size * scale)) " Bold", "Segoe UI")
+            ApplyLauncherButtonFont(face, scale)
         }
     }
     finally

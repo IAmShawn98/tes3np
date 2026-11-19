@@ -82,10 +82,11 @@ Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes
 Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
-Require-Source 'row\.SetFont\(entry\.Kind = "heading"' 'gold category headings' $notesSource
-Require-Source 'ShowCenteredGoldPrompt\(panel, backdrop, 800, 600\)' 'larger status modal' $dialogSource
+Require-Source 'return kind = "heading" \? "s12 Bold cE7BE70"' 'gold category headings' $notesSource
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Version Status", 800, 600\)' 'version status uses the gold modal' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, notes, scale\)' 'version status passes the actual modal scale to release notes' $dialogSource
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
-Require-Source 'BuildStyledReleaseNoteRows\(notes, noteRows\[1\], 674\)' 'font-measured changelog wrapping' $notesSource
+Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\)\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
 Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry

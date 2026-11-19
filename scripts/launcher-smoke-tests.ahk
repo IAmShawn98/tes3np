@@ -523,12 +523,14 @@ CheckPageCompositor()
 ; themed controls or synchronously rebuild the parent menu.
 CheckCachedCharacterReturn()
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherCachedScale, LauncherControlLayout, LauncherCachedLayoutCount, ButtonFaces
+    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherRequestedScale
+    global LauncherCachedScale, LauncherControlLayout, LauncherCachedLayoutCount, ButtonFaces
     LauncherGui := Gui("-Caption -Border", "Cached return smoke")
     LauncherGui.Show("w560 h350")
-    LauncherScale := 100
+    LauncherRequestedScale := 100
     LauncherScaleMode := "Manual"
     LauncherCachedScale := 100
+    LauncherScale := LauncherCachedScale := GetLauncherPlacement().Scale
     LauncherControlLayout := Map()
     LauncherCachedLayoutCount := 0
     ; If ShowLauncherWindow accidentally invokes RepaintMenuButtons, its
@@ -667,7 +669,12 @@ CheckOwnedMenuScaling()
 ; to exercise the real display refresh and release-note rows at both extremes.
 CheckDisplaySettingsAndReleaseNotes()
 {
-    global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, ButtonFaces
+    global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
+    if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100
+        || GetLauncherScaleForWorkArea(1280, 680, 1.5) != 60
+        || GetLauncherScaleForWorkArea(1280, 680, 1.5, 100) != 63
+        || GetLauncherScaleForWorkArea(640, 440, 2.0, 50) != 30
+        throw Error("Launcher scale did not fit the work area at the requested DPI.")
     LauncherHeading := 0
     control := LauncherGui.Add("Text", "x20 y30 w200 h50", "Display layout smoke")
     CaptureLauncherControlLayout()
@@ -679,7 +686,7 @@ CheckDisplaySettingsAndReleaseNotes()
         {
             LauncherScaleMode := percent ? "Manual" : "Auto"
             if percent
-                LauncherScale := percent
+                LauncherRequestedScale := percent
             if step != 2
             {
                 settings.Show("w280 h170")

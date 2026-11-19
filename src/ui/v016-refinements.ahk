@@ -77,7 +77,7 @@ GetV016SettingsFitScale()
     dpi := A_ScreenDPI / 96
     fit := Min(1.0, (right - left - 24) / (512 * dpi),
         (bottom - top - 24) / (590 * dpi))
-    return Max(0.45, Min(GetOwnedMenuScale(), fit))
+    return Max(0.1, Min(GetOwnedMenuScale(), fit))
 }
 
 HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
@@ -152,7 +152,7 @@ ReleaseLauncherMorrowindFont()
 
 OpenLauncherSettingsV016(*)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, AccessibilityTextSize, FollowWindowsAccessibility, LauncherMorrowindFont, DataFile
+    global LauncherGui, LauncherRequestedScale, LauncherScaleMode, AccessibilityTextSize, FollowWindowsAccessibility, LauncherMorrowindFont, DataFile
     global V016SettingsGuiHwnd, V016SettingsScale, V016ReadabilityState, V016FollowWindowsState
 
     ; Launcher Settings is a single modal-style window. If it is already open,
@@ -189,7 +189,7 @@ OpenLauncherSettingsV016(*)
     ; they no longer inherit the old Georgia/MysticCards approximation.
     settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
-    choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherScale) + 1
+    choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherRequestedScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(164) " w" V016S(296) " Choose" choice, choices)
     settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
     copyExtra := AddV016SettingsCopy(settings, 32, V016S(196), 448, 40,

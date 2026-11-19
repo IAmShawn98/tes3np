@@ -87,7 +87,7 @@ PositionOwnedMenuAtParent(menu, owner)
 GetOwnedMenuScale()
 {
     global LauncherScale
-    return Max(0.5, Min(1.0, LauncherScale / 100))
+    return Max(0.1, Min(1.0, LauncherScale / 100))
 }
 
 GetOwnedMenuFitScale(owner, width, height, horizontalMargin := 24, verticalMargin := 24)
