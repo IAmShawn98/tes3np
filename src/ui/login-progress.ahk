@@ -151,7 +151,7 @@ DisposeGameLoginProgress()
 GetCharacterLoginIconPath(species, portraitFile := "")
 {
     ; Per-character images live in roaming AppData and can be replaced
-    ; independently from the bundled species ICOs. Missing files fall back.
+    ; independently from the bundled race ICOs. Missing files fall back.
     customPath := GetCustomPortraitPath(portraitFile)
     if customPath != "" && FileExist(customPath)
         return customPath

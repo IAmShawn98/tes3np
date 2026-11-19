@@ -7,7 +7,7 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 ## Features
 
 - **Character Management and Auto Login** — Save up to ten characters, log in up to four at once, and set a favorite for quick login.
-- **Character Portraits** — Use the built-in species icons or add a custom portrait for a character's login screen.
+- **Character Portraits** — Use the built-in race icons or add a custom portrait for a character's login screen.
 - **Data Backups** — Export saved character details and login delays to move them to another PC.
 - **Expansion Pack Support** — Install or update the official pack through Discord, or import a ZIP or extracted folder.
 - **Macro Integration** — Run AutoHotkey scripts, ZIP macro packages, or linked Windows apps from **Manage Characters**.
@@ -55,8 +55,8 @@ Changes since the last public release, v0.1.20-alpha.
 - **Plugin mismatch recovery:** If your plugins don't match the server's, the launcher helps you download the Expansion Pack and troubleshoot the problem.
 - **TES3MP Setup:** Choose a custom TES3MP executable without replacing the bundled client.
 - **Login Progress:** See your character's login steps in a dedicated progress window.
-- **Species:** Select your character's species in **Manage Characters** to show its matching icon during login.
-- **Original Character:** Choose **Original Character** in the **Species** selector to use a custom portrait.
+- **Race:** Select your character's race in **Manage Characters** to show its matching icon during login.
+- **Original Character:** Choose **Original Character** in the **Race** selector to use a custom portrait.
 
 #### Improvements
 

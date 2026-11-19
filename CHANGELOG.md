@@ -14,8 +14,8 @@ Changes since the last public release, v0.1.20-alpha.
 - **Plugin mismatch recovery:** If your plugins don't match the server's, the launcher helps you download the Expansion Pack and troubleshoot the problem.
 - **TES3MP Setup:** Choose a custom TES3MP executable without replacing the bundled client.
 - **Login Progress:** See your character's login steps in a dedicated progress window.
-- **Species:** Select your character's species in **Manage Characters** to show its matching icon during login.
-- **Original Character:** Choose **Original Character** in the **Species** selector to use a custom portrait.
+- **Race:** Select your character's race in **Manage Characters** to show its matching icon during login.
+- **Original Character:** Choose **Original Character** in the **Race** selector to use a custom portrait.
 
 ### Improvements
 

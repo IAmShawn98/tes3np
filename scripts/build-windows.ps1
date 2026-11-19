@@ -608,7 +608,7 @@ RunLauncherChecks(A_Args)
         }
     }
     Step 'Verified both extracted Expansion Pack helpers and source SHA-256 hashes'
-    # Check the optional species icons that the launcher actually uses.
+    # Check the optional race icons that the launcher actually uses.
     $speciesFolder = Join-Path $projectRoot 'assets\icons\species'
     if (Test-Path -LiteralPath $speciesFolder -PathType Container) {
         foreach ($icon in (Get-ChildItem -LiteralPath $speciesFolder -File -Filter '*.ico')) {
@@ -616,7 +616,7 @@ RunLauncherChecks(A_Args)
                     'khajiit','nord','orc','redguard','wood-elf')) { continue }
             $path = Join-Path $resourceRoot ('assets\icons\species\' + $icon.Name)
             if (!(Test-Path -LiteralPath $path -PathType Leaf)) {
-                throw "Missing extracted species portrait: $($icon.Name)"
+                throw "Missing extracted race portrait: $($icon.Name)"
             }
         }
     }
@@ -628,7 +628,7 @@ RunLauncherChecks(A_Args)
     $runtimeSpecies = Join-Path $resourceRoot 'assets\icons\species'
     if (Test-Path -LiteralPath $runtimeSpecies) {
         if (@(Get-ChildItem -LiteralPath $runtimeSpecies -File -Filter '*.png').Count -gt 0) {
-            throw 'Unused species PNG source masters were embedded in the runtime.'
+            throw 'Unused race portrait PNG masters were embedded in the runtime.'
         }
     }
     Step 'Verified editable PNG icon masters are excluded from standalone resources'
