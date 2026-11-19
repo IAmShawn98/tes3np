@@ -96,10 +96,10 @@ expect(
 )
 
 expect(
-    "Game Updates uses browser scroll metrics for its gold scrollbar",
-    all(name not in source for name in ("GetScrollInfo", "SCROLLINFO", "ShowScrollBar"))
-    and 'scrollTotal = Math.Max(1, message.GetProperty("height").GetInt32());' in updates_panel
-    and 'ScrollBy("to", (int)Math.Round(metrics.Maximum * fraction));' in updates_panel,
+    "Game Updates shares its gold scrollbar with the native fallback",
+    'scrollTotal = Math.Max(1, message.GetProperty("height").GetInt32());' in updates_panel
+    and 'ScrollBy("to", (int)Math.Round(metrics.Maximum * fraction));' in updates_panel
+    and 'ReadFallbackScroll();' in updates_panel and 'ShowScrollBar' not in source,
 )
 expect(
     "Obsolete browser message-feed variable must remain removed",
@@ -405,11 +405,19 @@ expect(
 )
 expect(
     "Game Updates sends only post-scoped reaction actions to the signed-in Discord source",
-    'message.GetProperty("type").GetString() is not ("toggle" or "picker")' in updates_panel
-    and 'args.Source != "about:blank"' in updates_panel
+    'if (!feedVisible || type is not ("toggle" or "picker")) return;' in updates_panel
+    and 'args.Source != ServerUpdatesPageUri' in updates_panel
     and 'post.Reactions?.Any(reaction => reaction.Key == request.Key)' in source
     and 'source.ShowReactionPicker(owner, panel.RectangleToScreen(panel.ClientRectangle))' in source
     and '!IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri)' in server_updates,
+)
+expect(
+    "Game Updates keeps native posts visible until the embedded reaction view renders",
+    'core.Navigate(ServerUpdatesPageUri);' in updates_panel
+    and 'e.Cancel = e.Uri != ServerUpdatesPageUri' in updates_panel
+    and 'environment.CreateWebResourceResponse(new MemoryStream(html, false)' in updates_panel
+    and 'type == "rendered" && feedLoad?.TrySetResult(true) == true' in updates_panel
+    and 'fallbackFeed.Rtf = FormatUpdatesFallback(host.displayedServerUpdates, status);' in source,
 )
 quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
