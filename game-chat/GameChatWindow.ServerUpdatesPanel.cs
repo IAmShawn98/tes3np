@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -12,6 +13,37 @@ internal sealed partial class GameChatWindow
     LatestUpdatesPanel? serverUpdatesPanel;
     string? serverUpdatesDocument;
     DateTime nextServerUpdatesAnchorRequest;
+    PointF serverUpdatesOffset = ReadServerUpdatesOffset();
+    static string ServerUpdatesPositionPath => Path.Combine(ChatDataRoot, "game-updates-position.txt");
+
+    static PointF ReadServerUpdatesOffset()
+    {
+        try
+        {
+            string[] coordinates = File.ReadAllText(ServerUpdatesPositionPath).Split(',');
+            if (coordinates.Length == 2 &&
+                float.TryParse(coordinates[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) &&
+                float.TryParse(coordinates[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) &&
+                float.IsFinite(x) && float.IsFinite(y))
+                return new PointF(x, y);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return PointF.Empty;
+    }
+
+    void SaveServerUpdatesOffset(PointF offset)
+    {
+        if (serverUpdatesOffset == offset) return;
+        serverUpdatesOffset = offset;
+        try
+        {
+            WriteChatArchiveAtomically(ServerUpdatesPositionPath, FormattableString.Invariant($"{offset.X:R},{offset.Y:R}"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log("SERVER UPDATES | Save position: " + ex.GetType().Name);
+        }
+    }
     const string ServerUpdatesPageUri = "https://tes3np-game-updates.invalid/index.html";
     static readonly Lazy<string> ServerUpdatesPage = GameChatWeb.Page("server-updates.html");
 
@@ -95,9 +127,9 @@ internal sealed partial class GameChatWindow
     {
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
-        readonly Panel viewport = new() { BackColor = FeedBackground, Visible = false };
+        readonly Panel viewport = new() { BackColor = FeedBackground, Visible = false, Cursor = Cursors.Default };
         readonly WebView2 feed = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = FeedBackground };
-        readonly BufferedScrollbar scrollbar = new() { Visible = false };
+        readonly BufferedScrollbar scrollbar = new() { Visible = false, Cursor = Cursors.Default };
         readonly Button toggle = new()
         {
             AccessibleName = "Show Game Updates", FlatStyle = FlatStyle.Flat,
@@ -111,6 +143,10 @@ internal sealed partial class GameChatWindow
         DateTime nextFeedRetry;
         int scrollPosition, scrollTotal = 1, scrollPage = 1;
         int dragOffset = -1;
+        readonly System.Windows.Forms.Timer headerDragTimer = new() { Interval = 16 };
+        Rectangle launcherAnchor;
+        Point headerPressPosition, headerGrabOffset;
+        bool headerMoved;
 
         internal LatestUpdatesPanel(GameChatWindow host)
         {
@@ -122,6 +158,7 @@ internal sealed partial class GameChatWindow
             ShowInTaskbar = false;
             DoubleBuffered = true;
             ResizeRedraw = true;
+            headerDragTimer.Tick += TrackHeaderDrag;
             viewport.Controls.Add(feed);
             viewport.Controls.Add(fallbackClip);
             fallbackClip.Controls.Add(fallbackFeed);
@@ -213,6 +250,7 @@ internal sealed partial class GameChatWindow
 
         internal void SetLauncherBounds(Rectangle bounds, bool expand)
         {
+            launcherAnchor = bounds;
             bool changed = bodyExpanded != expand;
             bodyExpanded = expand;
             if (!bodyExpanded)
@@ -224,6 +262,16 @@ internal sealed partial class GameChatWindow
                 }
                 bounds.Height = Pixels(FrameHeaderBottom(HeaderScale) + FrameFooterHeight, ScaleForWidth(bounds.Width));
             }
+            PointF offset = host.serverUpdatesOffset;
+            if (headerDragTimer.Enabled)
+                bounds.Location = Location;
+            else if (!offset.IsEmpty)
+            {
+                double scale = ScaleForWidth(bounds.Width);
+                bounds.X = OffsetCoordinate(bounds.X, offset.X, scale, bounds.Width);
+                bounds.Y = OffsetCoordinate(bounds.Y, offset.Y, scale, bounds.Height);
+                bounds.Location = ClampToWorkArea(bounds, Screen.FromRectangle(bounds).WorkingArea);
+            }
             if (Bounds != bounds) Bounds = bounds;
             if (!changed) return;
 
@@ -234,6 +282,112 @@ internal sealed partial class GameChatWindow
             }
             toggle.AccessibleName = bodyExpanded ? "Hide Game Updates" : "Show Game Updates";
             toggle.Invalidate();
+        }
+
+        static int OffsetCoordinate(int origin, float offset, double scale, int extent) =>
+            (int)Math.Clamp(Math.Round(origin + offset * scale), int.MinValue, int.MaxValue - extent);
+
+        static Point ClampToWorkArea(Rectangle bounds, Rectangle work) => new(
+            Math.Clamp(bounds.Left, work.Left, Math.Max(work.Left, work.Right - bounds.Width)),
+            Math.Clamp(bounds.Top, work.Top, Math.Max(work.Top, work.Bottom - bounds.Height)));
+
+        bool IsDraggableHeader(Point point) => ClientRectangle.Contains(point) &&
+            point.Y < Px(FrameHeaderBottom(HeaderScale)) && !toggle.Bounds.Contains(point);
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left || launcherAnchor.IsEmpty || !IsDraggableHeader(e.Location))
+                return;
+
+            headerPressPosition = PointToScreen(e.Location);
+            headerGrabOffset = e.Location;
+            headerMoved = false;
+            Capture = true;
+            headerDragTimer.Start();
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            Cursor cursor = headerDragTimer.Enabled || IsDraggableHeader(e.Location) ? Cursors.SizeAll : Cursors.Default;
+            if (Cursor != cursor) Cursor = cursor;
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            if (!headerDragTimer.Enabled) Cursor = Cursors.Default;
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && headerDragTimer.Enabled)
+            {
+                MoveHeaderDrag(PointToScreen(e.Location));
+                FinishHeaderDrag();
+            }
+            base.OnMouseUp(e);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            if (!Capture) FinishHeaderDrag();
+        }
+
+        void TrackHeaderDrag(object? sender, EventArgs e)
+        {
+            if (!Visible || IsIconic(host.owner))
+            {
+                FinishHeaderDrag();
+                return;
+            }
+
+            // The no-activation window may stop receiving mouse messages when
+            // a fast drag takes the pointer outside its current bounds.
+            MoveHeaderDrag(Cursor.Position);
+            int primaryButton = SystemInformation.MouseButtonsSwapped ? 0x02 : 0x01;
+            if ((GetAsyncKeyState(primaryButton) & 0x8000) == 0) FinishHeaderDrag();
+        }
+
+        void MoveHeaderDrag(Point cursor)
+        {
+            if (!headerMoved)
+            {
+                Size threshold = SystemInformation.DragSize;
+                var clickArea = new Rectangle(headerPressPosition.X - threshold.Width / 2,
+                    headerPressPosition.Y - threshold.Height / 2, threshold.Width, threshold.Height);
+                if (clickArea.Contains(cursor)) return;
+                headerMoved = true;
+            }
+
+            var requested = new Rectangle(cursor.X - headerGrabOffset.X, cursor.Y - headerGrabOffset.Y, Width, Height);
+            Point location = ClampToWorkArea(requested, Screen.FromPoint(cursor).WorkingArea);
+            if (Location != location) Location = location;
+        }
+
+        void FinishHeaderDrag()
+        {
+            if (!headerDragTimer.Enabled) return;
+            headerDragTimer.Stop();
+            if (Capture) Capture = false;
+            Cursor = Cursors.Default;
+            if (!headerMoved) return;
+
+            double scale = ScaleForWidth(launcherAnchor.Width);
+            host.SaveServerUpdatesOffset(new PointF(
+                (float)((Left - launcherAnchor.Left) / scale), (float)((Top - launcherAnchor.Top) / scale)));
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                FinishHeaderDrag();
+                headerDragTimer.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         protected override void OnResize(EventArgs e)
