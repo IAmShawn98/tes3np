@@ -58,13 +58,14 @@ Pack files, including the original [asset notice](https://github.com/IAmShawn98/
 alongside the legacy client. The unversioned legacy feed assets are the
 compatibility bridge for installing the approved .21 ZIP.
 
-Making the source repository public would expose retained source history and
-tags. Review what that visibility change exposes separately from the contents
-of the .21 release ZIP.
+The maintainer confirmed that previous released versions are public and
+that permission to make the development repository public has been obtained.
+The confirmed cutover keeps `IAmShawn98/tes3np` private during preparation
+and makes it public immediately before the approved .21 publication. This
+visibility change includes retained source history and tags.
 
-The staged publisher requires the development repository to be public.
-The launcher and metadata generator also use that repository for the
-numbered downloads, release notes, and alpha feed. Keeping development
-history private would require a separate public release destination,
-updated endpoints, and a rebuilt and retested candidate. Using a separate
-destination leaves the ZIP's own artwork and source review open.
+Publish the numbered .21 release and alpha feed from
+`IAmShawn98/tes3np`. Keep `IAmShawn98/tes3np-releases` public during the
+one-time .20-to-.21 bridge. Retire the legacy repository after the public
+.22 release and its update feed have been verified. The release ZIP has
+its own package and source review above.
