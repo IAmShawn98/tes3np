@@ -1,8 +1,8 @@
 using System.Drawing;
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
-using static GameChatNative;
 
 internal sealed partial class GameChatWindow
 {
@@ -23,47 +23,7 @@ internal sealed partial class GameChatWindow
             PositionOffScreen();
         }
 
-        internal bool PickerOpen { get; private set; }
-        internal event Action? PickerClosed;
-        protected override bool ShowWithoutActivation => !PickerOpen;
-
-        internal void ShowReactionPicker(IntPtr launcher, Rectangle updatePanel)
-        {
-            if (PickerOpen) return;
-            PickerOpen = true;
-            Text = "Add a reaction";
-            FormBorderStyle = FormBorderStyle.FixedToolWindow;
-            SetNativeWindowOwner(Handle, launcher);
-            var screen = Screen.FromHandle(launcher).WorkingArea;
-            int dpi = Math.Max(96, DeviceDpi);
-            int width = Math.Min(720 * dpi / 96, screen.Width);
-            int height = Math.Min(640 * dpi / 96, screen.Height);
-            int x = updatePanel.Right + width <= screen.Right ? updatePanel.Right : updatePanel.Left - width;
-            Bounds = new Rectangle(Math.Clamp(x, screen.Left, screen.Right - width),
-                Math.Clamp(updatePanel.Top, screen.Top, screen.Bottom - height), width, height);
-            Activate();
-            Browser.Focus();
-        }
-
-        internal void CloseReactionPicker()
-        {
-            if (!PickerOpen) return;
-            PickerOpen = false;
-            // Move off-screen before switching back to a borderless source window.
-            PositionOffScreen();
-            FormBorderStyle = FormBorderStyle.None;
-            PickerClosed?.Invoke();
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (PickerOpen && e.CloseReason == CloseReason.UserClosing)
-            {
-                e.Cancel = true;
-                CloseReactionPicker();
-            }
-            base.OnFormClosing(e);
-        }
+        protected override bool ShowWithoutActivation => true;
 
         internal void PositionOffScreen()
         {
@@ -114,7 +74,7 @@ internal sealed partial class GameChatWindow
         {
             Log("SERVER UPDATES | Save dismissal: " + ex.GetType().Name);
         }
-        serverUpdatesWindow?.CloseReactionPicker();
+        CloseServerUpdatePicker();
         CloseServerUpdatesPanel();
         PublishServerUpdatesVisibility();
     }
@@ -135,30 +95,14 @@ internal sealed partial class GameChatWindow
                 // Keep the updates channel in the same launcher-only profile, separate
                 // from the live chat DOM and from the chat dock's visibility.
                 source = serverUpdatesWindow = new ServerUpdatesWindow();
-                var pickerWindow = source;
-                source.PickerClosed += () => RestoreServerUpdatesChannel(pickerWindow);
-                SetNativeWindowOwner(source.Handle, owner);
                 source.Show();
                 serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                 await source.Browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
                 if (!ServerUpdatesAuthenticated || source != serverUpdatesWindow || source.IsDisposed) return;
                 var core = source.Browser.CoreWebView2;
-                core.Settings.AreDevToolsEnabled = false;
-                core.Settings.AreDefaultContextMenusEnabled = false;
-                core.Settings.IsWebMessageEnabled = false;
-                core.NewWindowRequested += (_, e) => e.Handled = true;
-                core.DownloadStarting += (_, e) => e.Cancel = true;
-                core.NavigationStarting += (_, e) =>
-                {
-                    e.Cancel = !IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri);
-                };
+                ConfigureServerUpdatesBrowser(core);
                 serverUpdatesReadyBy = DateTime.UtcNow.AddSeconds(15);
                 core.Navigate(ServerUpdatesChannel);
-                return;
-            }
-            if (source.PickerOpen)
-            {
-                await TrackServerUpdatePicker(source);
                 return;
             }
             source.PositionOffScreen();
@@ -200,6 +144,19 @@ internal sealed partial class GameChatWindow
         }
     }
 
+    static void ConfigureServerUpdatesBrowser(CoreWebView2 core)
+    {
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.IsWebMessageEnabled = false;
+        core.NewWindowRequested += (_, e) => e.Handled = true;
+        core.DownloadStarting += (_, e) => e.Cancel = true;
+        core.NavigationStarting += (_, e) =>
+        {
+            e.Cancel = !IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri);
+        };
+    }
+
     static bool IsServerUpdatesRoute(string? url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length == 0 && uri.IsDefaultPort &&
         string.Equals(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'), ServerUpdatesChannel, StringComparison.OrdinalIgnoreCase);
@@ -238,7 +195,6 @@ internal sealed partial class GameChatWindow
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         previous?.Dispose();
-        serverUpdatePickerSeen = false;
         // Keep the known posts and the reader's scroll position through a reconnect.
         if (displayedServerUpdates.Length == 0)
             UpdateServerUpdatesDocument(ServerUpdatesStatus("Server updates are unavailable."));
@@ -247,13 +203,13 @@ internal sealed partial class GameChatWindow
 
     void ResetServerUpdates()
     {
+        CloseServerUpdatePicker();
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         nextServerUpdatesCheck = DateTime.MinValue;
         latestServerUpdateId = 0;
         serverUpdatesDocument = null;
         displayedServerUpdates = [];
-        serverUpdatePickerSeen = false;
         CloseServerUpdatesPanel();
         PublishServerUpdatesVisibility();
         previous?.Dispose();
