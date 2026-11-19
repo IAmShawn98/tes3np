@@ -395,15 +395,18 @@ expect(
     and "OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)" in embedded_chat,
 )
 expect(
-    "Game Updates tracks its launcher anchor without cross-process parenting",
+    "Game Updates tracks its launcher anchor as an owned top-level window",
     'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
     and "GetWindowRect(serverUpdatesAnchor, out var rect)" in updates_panel
-    and "KeepServerUpdatesAboveLauncher(panel.Handle);" in updates_panel
-    and "previous = GetWindow(owner, GW_HWNDPREV);" in updates_panel
+    and in_order(section_between(updates_panel, "protected override void CreateHandle()", "protected override void WndProc("),
+                 "base.CreateHandle();", "SetNativeWindowOwner(Handle, host.owner);")
+    and in_order(section_between(updates_panel, "void PositionServerUpdatesPanel()", "void UpdateServerUpdatesDocument("),
+                 "_ = panel.Handle;", "panel.Show();")
+    and "if (IsIconic(owner)) return;" in updates_panel
+    and "SetWindowPos(" not in updates_panel
     and "GetForegroundWindow()" not in updates_panel
     and "SetParent(" not in updates_panel
-    and "SetNativeWindowOwner(" not in updates_panel
     and "posts.at(-1).offsetTop" in (chat_root / "web/server-updates.html").read_text(encoding="utf-8")
     and "dateBand" not in updates_panel,
 )
