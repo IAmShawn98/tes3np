@@ -26,7 +26,7 @@ The older binary's exact source, build process, and modification authorship
 are still unverified. Its retained copy is part of the
 [historical repository visibility review](ASSET-DISTRIBUTION-APPROVAL.md#historical-20-release-and-repository-visibility).
 
-## v0.1.21-alpha release candidate
+## November 19 initial v0.1.21-alpha release candidate
 
 - Source commit: `c2d8ed4a59c536e9b39a7fa065cf2ef0bf49290a`.
 - Package: `tes3np-v0.1.21-alpha-windows.zip`, 140,035,216 bytes.
@@ -42,3 +42,14 @@ are still unverified. Its retained copy is part of the
   their upstream repositories. The bundled CrabNet license source matched
   the pinned upstream license after line-ending normalization. The
   package's source recipe and notices identify the corresponding source.
+
+## November 19 final v0.1.21-alpha release candidate
+
+- Source commit: `00f0c93fb4581a2c79d9502137297d77acdde4f9`.
+- Package: `tes3np-v0.1.21-alpha-windows.zip`, 140,035,207 bytes.
+- ZIP SHA-256: `ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`.
+- The Windows build verified and staged the approved console EXE and 45
+  matching DLLs. The packaged client printed `--help` with those DLLs.
+- The final versioned ZIP passed `--require-console-client`, which verifies
+  the pinned EXE hash and console subsystem, the packaged EXE and DLL
+  hashes, and the source recipe, patches, and notices.

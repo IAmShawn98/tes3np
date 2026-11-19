@@ -173,6 +173,24 @@ folder picker are unverified for this run.
   metadata and independent file hash agreed.
 - **Pending:** Second-PC acceptance of this exact release ZIP.
 
+## November 19 developer build with final Race wording
+
+- Source commit `00f0c93fb4581a2c79d9502137297d77acdde4f9`.
+- Candidate `tes3np-v0.1.21-alpha-windows.zip`, 140,035,207 bytes, with SHA-256
+  `ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`.
+- **PASS:** Windows build, compiled launcher `--check`, and compiled menu
+  smoke at 50% and 100%. The source, Chat Host architecture, diagnostic
+  privacy, Expansion Pack fixtures, and native picker COM checks passed.
+  Chat Host built with the existing WindowsBase `MSB3277` warning.
+- **PASS:** The versioned ZIP passed `--require-console-client`. The
+  packaged client printed `--help` with the 45 matching DLLs during the
+  build. Generated update metadata and the independent file hash agreed.
+- **PASS reported:** The maintainer tested the packaged launcher and
+  confirmed the Race wording was updated throughout the areas checked.
+- **Pending:** Standard-user acceptance and the upgrade and rollback
+  checks on the exact final ZIP. The earlier second-PC report covers
+  the `96e95f5` ZIP identified above.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).

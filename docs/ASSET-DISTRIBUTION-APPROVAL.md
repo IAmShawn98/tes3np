@@ -38,6 +38,14 @@ recreated for TES3NP using the original Morrowind launcher as its reference.
 The maintainer approved retaining that artwork and described both TES3NP and
 Nerevarine Prophecies as noncommercial projects.
 
+## November 19 final candidate package verification
+
+The Windows package check passed for `tes3np-v0.1.21-alpha-windows.zip` from
+`00f0c93fb4581a2c79d9502137297d77acdde4f9`, with SHA-256
+`ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`. Package
+validation covered the source-built client and bundled notices. The maintainer's approval of the recreated artwork and
+the remaining rights review are recorded above.
+
 ## Published guidance for adapted Morrowind artwork
 
 The [Morrowind GOTY PC manual](https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/22320/manuals/mwgoty_pcmanual.pdf)
