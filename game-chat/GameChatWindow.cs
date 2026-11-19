@@ -96,6 +96,11 @@ internal sealed partial class GameChatWindow : Form
             UnhookWinEvent(launcherLocationHook);
             launcherLocationHook = IntPtr.Zero;
         }
+        if (launcherForegroundHook != IntPtr.Zero)
+        {
+            UnhookWinEvent(launcherForegroundHook);
+            launcherForegroundHook = IntPtr.Zero;
+        }
         CloseEmbeddedExpansionDownloads();
         CloseDiscordAccountBrowser();
         ResetServerUpdates();

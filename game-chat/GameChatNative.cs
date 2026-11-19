@@ -12,6 +12,8 @@ internal static class GameChatNative
 
     [DllImport("user32.dll")] internal static extern IntPtr GetParent(IntPtr hwnd);
 
+    [DllImport("user32.dll")] internal static extern IntPtr GetWindow(IntPtr hwnd, uint relationship);
+
     [StructLayout(LayoutKind.Sequential)] internal struct RECT { public int Left, Top, Right, Bottom; }
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]

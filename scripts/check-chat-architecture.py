@@ -428,13 +428,23 @@ expect(
     and in_order(section_between(updates_panel, "protected override void CreateHandle()", "protected override void WndProc("),
                  "base.CreateHandle();", "SetNativeWindowOwner(Handle, host.owner);")
     and in_order(section_between(updates_panel, "void PositionServerUpdatesPanel()", "void UpdateServerUpdatesDocument("),
-                 "_ = panel.Handle;", "panel.Show();")
+                 "_ = panel.Handle;", "panel.Show();", "KeepServerUpdatesInLauncherStack();")
     and "if (IsIconic(owner)) return;" in updates_panel
-    and "SetWindowPos(" not in updates_panel
     and "GetForegroundWindow()" not in updates_panel
     and "SetParent(" not in updates_panel
     and "posts.at(-1).offsetTop" in (chat_root / "web/server-updates.html").read_text(encoding="utf-8")
     and "dateBand" not in updates_panel,
+)
+updates_stack = section_between(updates_panel, "void KeepServerUpdatesInLauncherStack()", "void UpdateServerUpdatesDocument(")
+expect(
+    "Game Updates lowers itself below windows between it and the launcher without activation",
+    "SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND" in source
+    and "UnhookWinEvent(launcherForegroundHook);" in chat_window
+    and "SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOOWNERZORDER" in updates_stack
+    and in_order(updates_stack, "GetWindow(window, GW_OWNER)", "SetNativeWindowOwner(window, owner);",
+                 "GetWindow(owner, GW_HWNDPREV)", "GetWindow(window, GW_HWNDNEXT)",
+                 "if (below != insertAfter) continue;", "SetWindowPos(window, insertAfter,")
+    and "SetForegroundWindow(" not in updates_panel,
 )
 expect(
     "Game Updates sends only post-scoped reaction actions to the signed-in Discord source",
