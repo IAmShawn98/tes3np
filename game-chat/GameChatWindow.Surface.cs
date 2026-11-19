@@ -85,9 +85,15 @@ internal sealed partial class GameChatWindow
             chatScale, "Live Game Chat");
     }
 
-    void PaintGameChatFrame(Graphics g, int w, int h, double scale, string title, int headerRightPadding = 13)
+    const int FrameHeaderTop = 8;
+
+    static int FrameHeaderBottom(float headerScale) => FrameHeaderTop + (int)Math.Round(43 * headerScale);
+
+    void PaintGameChatFrame(Graphics g, int w, int h, double scale, string title,
+        int headerSidePadding = 13, float headerScale = 1)
     {
         if (w < 80 || h < 100) return;
+        int headerBottom = FrameHeaderBottom(headerScale);
         g.Clear(System.Drawing.Color.FromArgb(13, 11, 9));
         g.ScaleTransform((float)scale, (float)scale);
         using var bronze = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(151, 113, 58));
@@ -110,7 +116,7 @@ internal sealed partial class GameChatWindow
         // border/header bitmaps. Those contain horizontal trim lines
         // which repeat as broken stripes when tiled vertically.
         using (var headerBase = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(143, 109, 60)))
-            g.FillRectangle(headerBase, 13, 13, w - 26, 39);
+            g.FillRectangle(headerBase, 13, 13, w - 26, headerBottom - 12);
         var headerNoise = new Random(4108);
         using (var darkMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(112, 83, 45)))
         using (var lightMottle = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(184, 151, 92)))
@@ -119,7 +125,7 @@ internal sealed partial class GameChatWindow
             for (int n = 0; n < w * 10; n++)
             {
                 int x = headerNoise.Next(13, Math.Max(14, w - 13));
-                int y = headerNoise.Next(13, 52);
+                int y = headerNoise.Next(13, headerBottom + 1);
                 g.FillRectangle(n % 5 == 0 ? lightMottle : (n % 3 == 0 ? midMottle : darkMottle),
                     x, y, headerNoise.Next(1, 4), headerNoise.Next(1, 3));
             }
@@ -128,8 +134,8 @@ internal sealed partial class GameChatWindow
         using (var headerShade = new System.Drawing.Pen(System.Drawing.Color.FromArgb(56, 39, 20)))
         {
             g.DrawLine(headerGold, 13, 14, w - 14, 14);
-            g.DrawLine(headerShade, 13, 48, w - 14, 48);
-            g.DrawLine(headerGold, 13, 51, w - 14, 51);
+            g.DrawLine(headerShade, 13, headerBottom - 3, w - 14, headerBottom - 3);
+            g.DrawLine(headerGold, 13, headerBottom, w - 14, headerBottom);
         }
         // Preserve the actual Morrowind border artwork across the Chat header.
         // The old full-frame random flecks obscured the texture with flat colors.
@@ -138,26 +144,26 @@ internal sealed partial class GameChatWindow
         for (int n = 0; n < w * 9; n++)
         {
             int x = random.Next(w), y = random.Next(h);
-            if (y < 53) continue;
+            if (y < headerBottom + 2) continue;
             g.FillRectangle(n % 3 == 0 ? bright : dark, x, y, random.Next(1, 4), 1);
         }
         using var goldPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(224, 190, 119), 2);
         using var darkPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(45, 29, 14), 3);
         g.DrawRectangle(goldPen, 2, 2, w - 5, h - 5);
         g.DrawRectangle(darkPen, 8, 8, w - 17, h - 17);
-        g.FillRectangle(black, 13, 52, w - 26, h - 65);
-        g.DrawLine(goldPen, 12, 51, w - 13, 51);
-        using var headingFont = new Font("Georgia", 13, FontStyle.Regular);
+        g.FillRectangle(black, 13, headerBottom + 1, w - 26, h - headerBottom - 14);
+        g.DrawLine(goldPen, 12, headerBottom, w - 13, headerBottom);
+        using var headingFont = new Font("Georgia", 13 * headerScale, FontStyle.Regular);
         var titleSize = g.MeasureString(title, headingFont);
-        float availableWidth = Math.Max(1, w - 13 - headerRightPadding);
-        float textWidth = Math.Max(1, availableWidth - 12);
+        float availableWidth = Math.Max(1, w - 2 * headerSidePadding);
+        float textWidth = Math.Max(1, availableWidth - 12 * headerScale);
         using var fittedFont = titleSize.Width > textWidth
             ? new Font(headingFont.FontFamily, headingFont.Size * textWidth / titleSize.Width, headingFont.Style)
             : null;
         if (fittedFont != null) titleSize = g.MeasureString(title, fittedFont);
-        float titleWidth = Math.Min(availableWidth, titleSize.Width + 28);
-        float titleCenter = 13 + availableWidth / 2;
-        var titleBounds = new RectangleF(titleCenter - titleWidth / 2, 8, titleWidth, 43);
+        float titleWidth = Math.Min(availableWidth, titleSize.Width + 28 * headerScale);
+        var titleBounds = new RectangleF((w - titleWidth) / 2, FrameHeaderTop,
+            titleWidth, headerBottom - FrameHeaderTop);
         g.FillRectangle(black, titleBounds);
         using var centeredTitle = new System.Drawing.StringFormat
         {

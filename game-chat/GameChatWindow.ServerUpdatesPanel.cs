@@ -199,15 +199,21 @@ internal sealed partial class GameChatWindow
         }
 
         double PanelScale => Math.Max(0.25, ClientSize.Width / 220d);
-        int Px(int value) => Math.Max(1, (int)Math.Round(value * PanelScale));
+        // The launcher slot already includes desktop DPI. Use the chat header's
+        // scale for the title and dismiss button, independently of the feed.
+        float HeaderScale => 96f / Math.Max(96, DeviceDpi);
+        int Px(double value) => Math.Max(1, (int)Math.Round(value * PanelScale));
         int Units(int value) => (int)Math.Round(value / PanelScale);
 
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
-            int top = Px(56), bottom = Px(14), left = Px(18);
-            dismiss.SetBounds(ClientSize.Width - Px(37), Px(18), Px(22), Px(24));
+            int headerBottom = FrameHeaderBottom(HeaderScale);
+            int top = Px(headerBottom + 5), bottom = Px(14), left = Px(18);
+            int dismissSize = Px(22 * HeaderScale);
+            int dismissTop = Px((FrameHeaderTop + headerBottom) / 2d) - dismissSize / 2;
+            dismiss.SetBounds(ClientSize.Width - Px(17) - dismissSize, dismissTop, dismissSize, dismissSize);
             int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
             scrollbar.SetBounds(Math.Max(left, ClientSize.Width - Px(34)), top, Px(20), scrollHeight);
             int width = Math.Max(1, scrollbar.Left - left - Px(3));
@@ -218,7 +224,8 @@ internal sealed partial class GameChatWindow
 
         protected override void OnPaint(PaintEventArgs e) =>
             host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
-                PanelScale, "Game Updates", headerRightPadding: Units(ClientSize.Width - dismiss.Left) + 4);
+                PanelScale, "Game Updates", headerSidePadding: Units(ClientSize.Width - dismiss.Left) + 4,
+                headerScale: HeaderScale);
 
         void SetFeedScale()
         {
