@@ -142,9 +142,22 @@ folder picker are unverified for this run.
 - **PASS on ASCII path:** A fresh extraction of the same verified ZIP to a
   path with spaces and ASCII-only characters printed the normal help text
   with no directory warnings in the captured output and exited `0`.
-- Both transcripts show the launcher start command. Launcher visibility,
-  Windows account privileges, Expansion Pack toggling and in-game login
-  remain unconfirmed for this run.
+## November 19 fresh-device launcher acceptance
+
+- Tested the `96e95f5` ZIP identified above on the second PC. The tester
+  confirmed that TES3NP opened from a fresh extraction in an ASCII path
+  and reported that the launcher features they exercised worked.
+- **PASS in the diagnostic log:** First startup, the missing-Morrowind setup
+  prompt, three saved-character logins using the bundled client, manual
+  New Adventure startup, and a normal process exit.
+- **PASS in the diagnostic log:** Official Expansion Pack discovery, local
+  package import, and a subsequent pre-launch pack check followed by a
+  successful bundled-client login.
+- **Pending:** The startup update availability check was unavailable. The
+  `update-feed` branch was absent when checked. The stock public .20-to-.21
+  update still needs a live test after the approved publication and bridge.
+- Windows account privilege and DPI details were not captured for this run.
+  The final ZIP from the reviewed release source still needs its own evidence.
 
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
