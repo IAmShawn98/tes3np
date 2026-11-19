@@ -8,7 +8,7 @@ using static GameChatNative;
 
 internal sealed partial class GameChatWindow
 {
-    IntPtr serverUpdatesParent;
+    IntPtr serverUpdatesAnchor;
     LatestUpdatesPanel? serverUpdatesPanel;
     string? serverUpdatesDocument;
     bool serverUpdatesVisibilityPublished;
@@ -25,62 +25,58 @@ internal sealed partial class GameChatWindow
 
     void AttachServerUpdatesPanel(IntPtr target)
     {
-        if (!CanShowServerUpdates || !IsWindow(target) || GetParent(target) != owner || IsIconic(owner)) return;
-        if (target == serverUpdatesParent && serverUpdatesPanel is { IsDisposed: false, IsHandleCreated: true } attached &&
-            IsWindow(attached.Handle) && GetParent(attached.Handle) == target)
+        if (!CanShowServerUpdates || !IsWindow(target) || GetParent(target) != owner) return;
+        if (target == serverUpdatesAnchor && serverUpdatesPanel is { IsDisposed: false })
         {
             PositionServerUpdatesPanel();
-            RedrawServerUpdatesPanel(attached);
             return;
         }
         CloseServerUpdatesPanel();
         try
         {
-            serverUpdatesParent = target;
+            serverUpdatesAnchor = target;
             var panel = serverUpdatesPanel = new LatestUpdatesPanel(this);
-            var handle = panel.Handle;
-            const int WS_CLIPSIBLINGS = 0x04000000;
-            const int WS_CLIPCHILDREN = 0x02000000;
-            SetWindowLong(handle, GWL_STYLE,
-                (GetWindowLong(handle, GWL_STYLE) | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN) & ~WS_POPUP);
-            SetParent(handle, target);
-            if (GetParent(handle) != target)
-                throw new InvalidOperationException("Game Updates could not attach to the launcher.");
             PositionServerUpdatesPanel();
-            RedrawServerUpdatesPanel(panel);
             panel.SetDocument(serverUpdatesDocument ?? ServerUpdatesStatus("Loading server updates…"));
         }
         catch (Exception ex)
         {
-            Log("SERVER UPDATES | Panel attachment: " + ex.GetType().Name);
+            Log("SERVER UPDATES | Panel setup: " + ex.GetType().Name);
             CloseServerUpdatesPanel();
         }
     }
-
-    static void RedrawServerUpdatesPanel(LatestUpdatesPanel panel)
-    {
-        ShowWindow(panel.Handle, 4); // SW_SHOWNOACTIVATE
-        // RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW.
-        RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185);
-    }
-
-    [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
 
     void PositionServerUpdatesPanel()
     {
         PublishServerUpdatesVisibility();
         if (serverUpdatesPanel is not { IsDisposed: false } panel) return;
-        if (!IsWindow(serverUpdatesParent) || !CanShowServerUpdates)
+        if (!IsWindow(serverUpdatesAnchor) || !CanShowServerUpdates)
         {
             CloseServerUpdatesPanel();
             return;
         }
-        if (!GetClientRect(serverUpdatesParent, out var rect)) return;
-        int width = Math.Max(1, rect.Right - rect.Left), height = Math.Max(1, rect.Bottom - rect.Top);
-        if (panel.Width != width || panel.Height != height)
-            MoveWindow(panel.Handle, 0, 0, width, height, true);
-        if (!IsIconic(owner)) panel.EnsureFeed();
+        var foreground = GetForegroundWindow();
+        bool launcherActive = foreground == owner;
+        bool pickerActive = nativeServerUpdatePicker?.HasForeground(foreground) == true;
+        bool chatActive = IsHandleCreated && foreground == Handle;
+        if (IsIconic(owner) || !IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor) ||
+            (!launcherActive && !pickerActive && !chatActive && foreground != panel.Handle))
+        {
+            if (panel.Visible) panel.Hide();
+            return;
+        }
+        if (!GetWindowRect(serverUpdatesAnchor, out var rect)) return;
+        var bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        if (bounds.Width < 1 || bounds.Height < 1) return;
+        if (panel.Bounds != bounds) panel.Bounds = bounds;
+        if (!panel.Visible) panel.Show();
+        // The frame travels with the launcher without joining its input or paint queue.
+        if (launcherActive && GetWindow(owner, 3) != panel.Handle) // GW_HWNDPREV
+            SetWindowPos(panel.Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+        panel.EnsureFeed();
     }
+
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hwnd, uint command);
 
     void UpdateServerUpdatesDocument(string document)
     {
@@ -93,11 +89,11 @@ internal sealed partial class GameChatWindow
     {
         var panel = serverUpdatesPanel;
         serverUpdatesPanel = null;
-        serverUpdatesParent = IntPtr.Zero;
+        serverUpdatesAnchor = IntPtr.Zero;
         panel?.Dispose();
     }
 
-    sealed partial class LatestUpdatesPanel : Panel
+    sealed partial class LatestUpdatesPanel : Form
     {
         static readonly Color FeedBackground = Color.FromArgb(10, 9, 8);
         readonly GameChatWindow host;
@@ -121,6 +117,11 @@ internal sealed partial class GameChatWindow
         internal LatestUpdatesPanel(GameChatWindow host)
         {
             this.host = host;
+            Text = "TES3NP Game Updates";
+            FormBorderStyle = FormBorderStyle.None;
+            StartPosition = FormStartPosition.Manual;
+            AutoScaleMode = AutoScaleMode.None;
+            ShowInTaskbar = false;
             DoubleBuffered = true;
             ResizeRedraw = true;
             viewport.Controls.Add(feed);
@@ -172,6 +173,29 @@ internal sealed partial class GameChatWindow
             };
         }
 
+        protected override bool ShowWithoutActivation => true;
+
+        protected override void WndProc(ref Message message)
+        {
+            if (message.Msg == 0x0021) // WM_MOUSEACTIVATE
+            {
+                message.Result = new IntPtr(3); // MA_NOACTIVATE: deliver the click without activating.
+                return;
+            }
+            base.WndProc(ref message);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                const int WS_EX_NOACTIVATE = 0x08000000;
+                var parameters = base.CreateParams;
+                parameters.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+                return parameters;
+            }
+        }
+
         double PanelScale => Math.Max(0.25, ClientSize.Width / 220d);
         int Px(int value) => Math.Max(1, (int)Math.Round(value * PanelScale));
         int Units(int value) => (int)Math.Round(value / PanelScale);
@@ -212,8 +236,7 @@ internal sealed partial class GameChatWindow
 
         internal void EnsureFeed()
         {
-            if (document != null && !feedVisible && !feedInitializing && DateTime.UtcNow >= nextFeedRetry &&
-                !IsIconic(host.owner))
+            if (Visible && document != null && !feedVisible && !feedInitializing && DateTime.UtcNow >= nextFeedRetry)
                 _ = InitializeFeed();
         }
 

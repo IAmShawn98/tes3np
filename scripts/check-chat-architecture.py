@@ -395,11 +395,12 @@ expect(
     and "OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)" in embedded_chat,
 )
 expect(
-    "Game Updates repaints on restore and lands on the newest inline date",
+    "Game Updates tracks its launcher anchor without cross-process parenting",
     'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
-    and "RedrawServerUpdatesPanel(attached);" in updates_panel
-    and "RedrawWindow(panel.Handle, IntPtr.Zero, IntPtr.Zero, 0x0185)" in updates_panel
+    and "GetWindowRect(serverUpdatesAnchor, out var rect)" in updates_panel
+    and "SetParent(" not in updates_panel
+    and "SetNativeWindowOwner(" not in updates_panel
     and "posts.at(-1).offsetTop" in (chat_root / "web/server-updates.html").read_text(encoding="utf-8")
     and "dateBand" not in updates_panel,
 )
@@ -417,10 +418,17 @@ expect(
     and 'picker.Choices.TryGetValue(request.Key, out var choice)' in source
     and 'Kind = "picker-position", Offset = choice.Offset' in source
     and 'StopServerUpdatePicker();' in server_updates
-    and 'parameters.ExStyle |= WS_EX_NOACTIVATE;' in server_updates
+    and 'parameters.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;' in updates_panel
     and 'thread.SetApartmentState(ApartmentState.STA);' in source
     and 'Application.Run(form);' in source
     and 'GameChatWeb.Page("discord-emoji-shortcodes.json")' in source,
+)
+expect(
+    "Opening and closing the standard emoji catalog stays local until the user chooses an emoji",
+    'internal void LoadChoices()\n        {\n            search.Select();\n            LoadBundledChoices();' in source
+    and 'Request(discordCatalog ? "picker-select" : "picker-local", emoji.Key)' in source
+    and 'MatchesBundledEmoji(item, bundled)' in source
+    and 'restartChannel' not in source,
 )
 expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",

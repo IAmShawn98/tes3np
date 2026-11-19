@@ -209,7 +209,11 @@ internal sealed partial class GameChatWindow
                 BeginInvoke((Action)(() =>
                 {
                     repositionQueued = false;
-                    if (!closingChat && !IsDisposed) PositionChatWindows();
+                    if (!closingChat && !IsDisposed)
+                    {
+                        PositionChatWindows();
+                        PositionServerUpdatesPanel();
+                    }
                 }));
             }
             catch (InvalidOperationException) { repositionQueued = false; }

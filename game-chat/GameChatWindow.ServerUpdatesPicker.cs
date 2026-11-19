@@ -16,7 +16,7 @@ internal sealed partial class GameChatWindow
     }
 
     ServerUpdatePicker? serverUpdatePicker;
-    (ServerUpdatesWindow Source, bool Restart)? pickerSourceToResume;
+    ServerUpdatesWindow? pickerSourceToResume;
 
     bool IsCurrentServerUpdatePicker(ServerUpdatePicker picker) =>
         picker == serverUpdatePicker && IsCurrentServerUpdatesSource(picker.Source);
@@ -26,14 +26,18 @@ internal sealed partial class GameChatWindow
         await Task.Yield();
         if (panel != serverUpdatesPanel || !CanShowServerUpdates)
             return new(Error: "Discord is still loading.");
-        if (request.Kind == "picker-close")
+        if (request.Kind == "picker-leave")
         {
             if (serverUpdatePicker?.MessageId == request.Id) CloseServerUpdatePicker();
-            return new(Close: true);
+            return new();
         }
         if (workingServerUpdateReaction)
             return new(Error: "Wait for the current reaction to finish.");
-        if (request.Kind == "picker")
+        var bundled = request.Kind == "picker-local"
+            ? BundledEmojiCatalog.Value.FirstOrDefault(item => item.Glyph == request.Key) : null;
+        if (request.Kind == "picker-local" && bundled == null)
+            return new(Error: "Choose an emoji from the picker.");
+        if (request.Kind == "picker" || bundled != null)
         {
             if (!ulong.TryParse(request.Id, NumberStyles.None, CultureInfo.InvariantCulture, out _) ||
                 !displayedServerUpdates.Any(post => post.Id == request.Id) ||
@@ -52,16 +56,18 @@ internal sealed partial class GameChatWindow
         {
             if (activeServerUpdatesRead is { } activeRead) await activeRead.Task;
             if (!IsCurrentServerUpdatePicker(picker)) return new(Close: true);
-            if (request.Kind == "picker")
+            if (request.Kind == "picker" || bundled != null)
             {
-                string opened = await RunServerUpdateOnPost(picker.Source, core, request);
+                var open = request with { Kind = "picker" };
+                string opened = await RunServerUpdateOnPost(picker.Source, core, open);
                 for (int attempt = 0; attempt < 2 && opened == "\"unavailable\"" && IsCurrentServerUpdatePicker(picker); attempt++)
                 {
                     await Task.Delay(175);
-                    if (IsCurrentServerUpdatePicker(picker)) opened = await RunServerUpdateAction(core, request);
+                    if (IsCurrentServerUpdatePicker(picker)) opened = await RunServerUpdateAction(core, open);
                 }
                 if (opened == "\"clicked\"")
                 {
+                    if (bundled != null) return await SelectBundledEmoji(picker, core, request, bundled);
                     for (int attempt = 0; attempt < 16; attempt++)
                     {
                         var page = await ReadPickerPage(picker, core, request);
@@ -71,7 +77,8 @@ internal sealed partial class GameChatWindow
                     }
                 }
                 if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
-                return new(Error: "Discord could not open the emoji list. Close this picker and try again.");
+                return new(Error: bundled == null ? "Discord emoji are temporarily unavailable."
+                    : "Discord could not open the reaction menu for this post.");
             }
 
             if (request.Kind == "picker-select")
@@ -85,7 +92,7 @@ internal sealed partial class GameChatWindow
                 if (await RunServerUpdateAction(core, request) != "\"clicked\"")
                     return new(Error: "Discord could not select that emoji. Search for it and try again.");
                 await ReadBackServerUpdateReaction(picker.Source, core, request with { Key = choice.ReactionKey, Mine = true });
-                if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker(restartChannel: false);
+                if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
                 return new(Close: true);
             }
 
@@ -112,13 +119,47 @@ internal sealed partial class GameChatWindow
         finally
         {
             workingServerUpdateReaction = false;
-            if (pickerSourceToResume is { } pending)
+            if (pickerSourceToResume is { } source)
             {
                 pickerSourceToResume = null;
-                RestoreServerUpdatesChannel(pending.Source, pending.Restart);
+                RestoreServerUpdatesChannel(source);
             }
         }
     }
+
+    async Task<PickerReply> SelectBundledEmoji(ServerUpdatePicker picker, CoreWebView2 core,
+        ServerUpdateAction request, BundledEmoji bundled)
+    {
+        // Discord can build the native search control after the reaction menu opens.
+        for (int attempt = 0; attempt < 12 && IsCurrentServerUpdatePicker(picker); attempt++)
+        {
+            var page = await ReadPickerPage(picker, core, request);
+            if (page != null) break;
+            await Task.Delay(175);
+        }
+        foreach (string alias in bundled.Aliases.Take(4))
+        {
+            if (!IsCurrentServerUpdatePicker(picker)) return new(Close: true);
+            string searched = await RunServerUpdateAction(core, request with { Kind = "picker-search", Query = alias });
+            if (searched != "\"changed\"") continue;
+            await Task.Delay(450);
+            var page = await ReadPickerPage(picker, core, request);
+            var choice = page?.Items.FirstOrDefault(item => MatchesBundledEmoji(item, bundled));
+            if (choice == null || !IsCurrentServerUpdatePicker(picker)) continue;
+            string clicked = await RunServerUpdateAction(core, request with { Kind = "picker-select", Key = choice.Key });
+            if (clicked != "\"clicked\"") continue;
+            await ReadBackServerUpdateReaction(picker.Source, core, request with { Key = choice.ReactionKey, Mine = true });
+            if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
+            return new(Close: true);
+        }
+        if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
+        return new(Error: "Discord did not offer that emoji for this post.");
+    }
+
+    static bool MatchesBundledEmoji(PickerEmoji choice, BundledEmoji bundled) =>
+        !ulong.TryParse(choice.Key, NumberStyles.None, CultureInfo.InvariantCulture, out _) &&
+        DisplayPickerGlyph(choice).Replace("\uFE0F", "", StringComparison.Ordinal) ==
+            bundled.Glyph.Replace("\uFE0F", "", StringComparison.Ordinal);
 
     async Task<PickerPage?> ReadPickerPage(ServerUpdatePicker picker, CoreWebView2 core, ServerUpdateAction request)
     {
@@ -134,13 +175,13 @@ internal sealed partial class GameChatWindow
         return new(Items: newItems, More: page.More);
     }
 
-    void CloseServerUpdatePicker(bool resume = true, bool restartChannel = true)
+    void CloseServerUpdatePicker(bool resume = true)
     {
         var picker = serverUpdatePicker;
         serverUpdatePicker = null;
         if (!resume) pickerSourceToResume = null;
         if (!resume || picker == null) return;
-        if (workingServerUpdateReaction) pickerSourceToResume = (picker.Source, restartChannel);
-        else RestoreServerUpdatesChannel(picker.Source, restartChannel);
+        if (workingServerUpdateReaction) pickerSourceToResume = picker.Source;
+        else RestoreServerUpdatesChannel(picker.Source);
     }
 }

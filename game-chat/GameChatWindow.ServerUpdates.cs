@@ -25,17 +25,6 @@ internal sealed partial class GameChatWindow
 
         protected override bool ShowWithoutActivation => true;
 
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                const int WS_EX_NOACTIVATE = 0x08000000;
-                var parameters = base.CreateParams;
-                parameters.ExStyle |= WS_EX_NOACTIVATE;
-                return parameters;
-            }
-        }
-
         internal void PositionOffScreen()
         {
             var desktop = SystemInformation.VirtualScreen;
