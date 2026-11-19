@@ -90,13 +90,22 @@ GetOwnedMenuScale()
     return Max(0.5, Min(1.0, LauncherScale / 100))
 }
 
+GetOwnedMenuFitScale(owner, width, height, horizontalMargin := 24, verticalMargin := 24)
+{
+    WinGetPos(&x, &y, &w, &h, "ahk_id " owner.Hwnd)
+    monitor := MonitorFromPoint(x + w // 2, y + h // 2)
+    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+    return Max(0.1, Min(1.0, (right - left - horizontalMargin) / width,
+        (bottom - top - verticalMargin) / height))
+}
+
 ; Scale child bounds and fonts together to keep text aligned with hit targets.
 ; Keep generated fonts alive while the controls use them.
 ScaleOwnedMenuContent(gui, scale)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
         return
-    scale := Max(0.5, Min(1.0, scale))
+    scale := Max(0.1, Min(1.0, scale))
     previous := gui.HasOwnProp("OwnedContentScale") ? gui.OwnedContentScale : 1.0
     if Abs(previous - scale) < 0.001
         return
@@ -108,7 +117,9 @@ ScaleOwnedMenuContent(gui, scale)
     ownedFonts := previousFonts.Clone()
     gui.OwnedGeneratedFonts := ownedFonts
     ; Suppress intermediate parent paints while button geometry/fonts change.
-    DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+    visible := DllCall("IsWindowVisible", "Ptr", gui.Hwnd)
+    if visible
+        DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
     {
         for control in gui
@@ -157,8 +168,9 @@ ScaleOwnedMenuContent(gui, scale)
     }
     finally
     {
-        DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B,
-            "Ptr", 1, "Ptr", 0)
+        if visible
+            DllCall("SendMessageW", "Ptr", gui.Hwnd, "UInt", 0x000B,
+                "Ptr", 1, "Ptr", 0)
     }
     for font in previousFonts
         if retainedFonts.Has(font)
