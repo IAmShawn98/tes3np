@@ -121,14 +121,36 @@ internal sealed partial class GameChatWindow
                     if (browser == chatComposerBrowser) CloseChatComposer();
                 }));
             };
-            core.WebMessageReceived += (_, e) =>
+            bool sendInProgress = false;
+            core.WebMessageReceived += async (_, e) =>
             {
                 if (browser != chatComposerBrowser || !IsComposerRoute(e.Source) || !IsComposerRoute(core.Source) ||
                     discordAccountStatus != DiscordAccountStatus.SignedIn) return;
                 try
                 {
                     using var message = JsonDocument.Parse(e.WebMessageAsJson);
-                    if (!message.RootElement.TryGetProperty("type", out var type) || type.GetString() != "tes3np-composer" ||
+                    if (!message.RootElement.TryGetProperty("type", out var type)) return;
+                    if (type.GetString() == "tes3np-composer-send")
+                    {
+                        if (sendInProgress || !composerNavigationReady || !chatOpen) return;
+                        sendInProgress = true;
+                        try
+                        {
+                            // Use the same key input as Enter in the focused Discord editor.
+                            await core.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent",
+                                """{"type":"keyDown","key":"Enter","code":"Enter","windowsVirtualKeyCode":13,"text":"\r"}""");
+                            if (browser == chatComposerBrowser && IsComposerRoute(core.Source))
+                                await core.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent",
+                                    """{"type":"keyUp","key":"Enter","code":"Enter","windowsVirtualKeyCode":13}""");
+                        }
+                        catch (Exception ex)
+                        {
+                            Log("CHAT | Discord composer send button: " + ex.GetType().Name);
+                        }
+                        finally { sendInProgress = false; }
+                        return;
+                    }
+                    if (type.GetString() != "tes3np-composer" ||
                         !message.RootElement.TryGetProperty("state", out var state)) return;
                     if (state.GetString() == "layout" &&
                         TryReadComposerDimension(message.RootElement, "expectedWidth", out int expected) &&

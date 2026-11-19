@@ -18,34 +18,50 @@
         visibility: visible !important; position: fixed !important; z-index: 2147483647 !important;
         inset: 0 auto auto 0 !important; box-sizing: border-box !important;
         width: var(--tes3np-compose-width) !important; height: var(--tes3np-compose-height) !important;
-        display: flex !important; align-items: center !important; margin: 0 !important; padding: 0 7px !important;
+        display: flex !important; flex-direction: row !important; align-items: center !important; gap: 6px !important;
+        margin: 0 !important; padding: 0 5px 0 7px !important;
         overflow: hidden !important; color: #f1e4ca !important; background: #17120e !important;
         border: 1px solid #907343 !important; border-radius: 3px !important;
       }
-      [${areaMarker}] [class*="scrollableContainer_"], [${areaMarker}] [class*="inner_"] {
-        background: transparent !important; border: 0 !important; margin: 0 !important; min-width: 0 !important;
-        width: 100% !important; padding: 0 !important;
-      }
       [${editorWrapperMarker}] {
+        position: relative !important; display: flex !important; flex-direction: row !important; align-items: center !important;
         box-sizing: border-box !important; width: 100% !important; inline-size: 100% !important;
         min-width: 0 !important; min-inline-size: 0 !important; max-width: none !important; max-inline-size: none !important;
+        height: auto !important; min-height: 0 !important; max-height: 100% !important;
+        margin: 0 !important; padding: 0 !important; border: 0 !important;
+        overflow: visible !important; background: transparent !important;
         flex: 1 1 0% !important;
       }
       [${areaMarker}] [class*="attachWrapper_"], [${areaMarker}] [class*="upload_"],
-      [${areaMarker}] [class*="buttons_"] > :not(:where([${sendMarker}], :has([${sendMarker}]))),
+      [${areaMarker}] [class*="buttons_"]:not([${editorWrapperMarker}]),
       [${areaMarker}] :is(button, [role="button"]):not([${sendMarker}]) { display: none !important; }
       [${editorMarker}] {
+        position: relative !important; display: block !important; flex: 1 1 0% !important;
         background: transparent !important; color: #f1e4ca !important; caret-color: #e0b971 !important;
-        font: 14px/1.4 Georgia, serif !important; padding: 2px 0 !important;
+        font: 14px/20px Georgia, serif !important; padding: 2px 0 !important; margin: 0 !important;
+        border: 0 !important;
         box-sizing: border-box !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
-        min-height: 1.4em !important; max-height: calc(var(--tes3np-compose-height) - 8px) !important;
+        height: auto !important; min-height: 24px !important; max-height: calc(var(--tes3np-compose-height) - 6px) !important;
         overflow: auto !important; scrollbar-width: thin;
       }
-      [${areaMarker}] [class*="placeholder_"] {
-        color: #ad9773 !important; font: 14px/1.4 Georgia, serif !important;
-        padding: 2px 0 !important;
+      [${areaMarker}] :is([class*="placeholder_"], [data-slate-placeholder="true"]:not([class*="placeholder_"] *)) {
+        position: absolute !important; inset: 2px 0 auto !important; transform: none !important;
+        margin: 0 !important; padding: 0 !important; pointer-events: none !important;
+        color: #ad9773 !important; font: 14px/20px Georgia, serif !important;
+        overflow: hidden !important; white-space: nowrap !important; text-overflow: ellipsis !important;
       }
-      [${sendMarker}] { color: #e5c68d !important; }
+      [${sendMarker}] {
+        box-sizing: border-box !important; display: grid !important; place-items: center !important;
+        flex: 0 0 28px !important; height: 26px !important; margin: 0 !important; padding: 0 !important;
+        color: #e5c68d !important; background: #2a2014 !important;
+        border: 1px solid #907343 !important; border-radius: 3px !important; cursor: pointer !important;
+      }
+      [${sendMarker}]::before {
+        content: ''; width: 16px; height: 14px; background: currentColor;
+        clip-path: polygon(0 0, 100% 50%, 0 100%, 0 59%, 65% 50%, 0 41%);
+      }
+      [${sendMarker}]:hover, [${sendMarker}]:focus-visible { color: #fff0c9 !important; background: #47341f !important; }
+      [${sendMarker}]:focus-visible { outline: 1px solid #e5c68d !important; outline-offset: 1px !important; }
       [${areaMarker}]:focus-within { border-color: #d5b477 !important; }
     `;
     root.append(style);
@@ -54,8 +70,21 @@
     const heightProperties = ['height', 'min-height', 'max-height', 'block-size', 'min-block-size', 'max-block-size'];
     const layoutObserver = new ResizeObserver(queueSearch);
     let widthFraction = 0, heightFraction = 0;
-    let boundArea, boundEditor, boundSend, ancestors = [], editorWrappers = [], savedSizing = [];
+    let boundArea, boundEditor, ancestors = [], editorWrappers = [], savedSizing = [];
     let previousState = '', queued = false;
+
+    const sendButton = document.createElement('button');
+    sendButton.type = 'button';
+    sendButton.setAttribute(sendMarker, '');
+    sendButton.setAttribute('aria-label', 'Send message');
+    sendButton.title = 'Send message';
+    sendButton.addEventListener('click', event => {
+      if (!event.isTrusted || previousState !== 'ready' || !boundEditor?.isConnected ||
+          location.origin + location.pathname.replace(/\/$/, '') !== channel) return;
+      boundEditor.focus({ preventScroll: true });
+      if (document.activeElement === boundEditor)
+        chrome.webview.postMessage({ type: 'tes3np-composer-send' });
+    });
 
     function publish(state, layout) {
       if (previousState === state) return;
@@ -66,6 +95,7 @@
     function setArea(area) {
       if (boundArea === area) return;
       if (boundArea) {
+        sendButton.remove();
         layoutObserver.unobserve(boundArea);
         boundArea.removeAttribute(areaMarker);
         for (const [name, value, priority] of savedSizing) {
@@ -100,7 +130,6 @@
             node.getClientRects().length)
         : undefined;
       const area = editor?.closest('[class*="channelTextArea_"], [class*="channelTextArea-"]') ?? editor?.closest('form');
-      const send = area?.querySelector('button[aria-label*="send message" i], [role="button"][aria-label*="send message" i], button[title*="send message" i], button[class*="sendButton_"]');
 
       const areaChanged = boundArea !== area;
       setArea(area);
@@ -121,12 +150,8 @@
           editorWrappers.push(node);
         }
       }
-      if (boundSend !== send) {
-        boundSend?.removeAttribute(sendMarker);
-        boundSend = send;
-        send?.setAttribute(sendMarker, '');
-      }
       if (area) {
+        if (sendButton.parentElement !== area) area.append(sendButton);
         root.style.setProperty('--tes3np-compose-width', width + 'px');
         root.style.setProperty('--tes3np-compose-height', height + 'px');
         // Set both physical and logical sizes so Discord's width, min-size
@@ -136,10 +161,13 @@
 
         const bar = area.getBoundingClientRect();
         const text = editor.getBoundingClientRect();
+        const send = sendButton.getBoundingClientRect();
         if (Math.abs(bar.width - width) <= 2 && bar.height >= height - 2 &&
             Math.abs(bar.left) <= 2 && Math.abs(bar.top) <= 2 &&
             text.width >= Math.min(60, width / 2) && text.height >= 10 &&
-            text.left >= bar.left - 2 && text.right <= bar.right + 2)
+            text.left >= bar.left && text.right <= send.left &&
+            text.top >= bar.top && text.bottom <= bar.bottom &&
+            send.width > 0 && send.right <= bar.right && send.top >= bar.top && send.bottom <= bar.bottom)
           publish('ready');
         else publish('layout', {
           expectedWidth: width, barWidth: Math.round(bar.width), editorWidth: Math.round(text.width)
