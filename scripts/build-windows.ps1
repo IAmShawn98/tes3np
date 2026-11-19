@@ -20,12 +20,15 @@ function GetTes3npSha256([string]$FilePath) {
     }
 }
 
-function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, [int]$TimeoutMs) {
+function Invoke-BuildProcess(
+    [string]$Executable, [string]$Arguments, [string]$Label, [int]$TimeoutMs,
+    [string]$WorkingDirectory = $projectRoot, [switch]$ShowOutput
+) {
     Step "Starting $Label"
     $start = New-Object Diagnostics.ProcessStartInfo
-    $start.FileName = $Compiler
+    $start.FileName = $Executable
     $start.Arguments = $Arguments
-    $start.WorkingDirectory = $projectRoot
+    $start.WorkingDirectory = $WorkingDirectory
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true
@@ -41,14 +44,13 @@ function Invoke-Compiler([string]$Compiler, [string]$Arguments, [string]$Label, 
         if (!$output.Wait(2000) -or !$errors.Wait(2000)) {
             throw "$Label closed without completing its output."
         }
-        $compilerExitCode = $process.ExitCode
-        Step "$Label exited with code $compilerExitCode"
-        if ($compilerExitCode -ne 0) {
-            Step 'COMPILER DIAGNOSTICS'
+        $exitCode = $process.ExitCode
+        if ($ShowOutput -or $exitCode -ne 0) {
             if ($output.Result) { Write-Host $output.Result }
             if ($errors.Result) { Write-Host $errors.Result }
         }
-        return $compilerExitCode
+        Step "$Label exited with code $exitCode"
+        return $exitCode
     } finally {
         $process.Dispose()
     }
@@ -445,7 +447,7 @@ try {
     $smokeSource = Join-Path $buildRoot 'compiler-smoke.ahk'; $smokeExe = Join-Path $buildRoot 'compiler-smoke.exe'
     Set-Content $smokeSource "#Requires AutoHotkey v2.0`nExitApp(0)`n" -Encoding UTF8
     $smokeArgs = '/in "' + $smokeSource + '" /out "' + $smokeExe + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $smokeCode = Invoke-Compiler $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
+    $smokeCode = Invoke-BuildProcess $compiler $smokeArgs 'Ahk2Exe smoke compilation' 45000
     if ($smokeCode -ne 0 -or !(Test-Path $smokeExe)) { throw 'Ahk2Exe smoke compilation failed.' }
 
     # The compiled launcher cannot run user .ahk files by itself. Package the
@@ -558,7 +560,7 @@ RunLauncherChecks(A_Args)
     }
     $source = $stageEntry; $executable = Join-Path $package 'tes3np.exe'
     $arguments = '/in "' + $source + '" /out "' + $executable + '" /icon "' + (Join-Path $projectRoot 'assets\icons\tes3np.ico') + '" /base "' + $base + '" /compress 0 /silent verbose'
-    $compileCode = Invoke-Compiler $compiler $arguments 'Current branch tes3np compilation' 120000
+    $compileCode = Invoke-BuildProcess $compiler $arguments 'Current branch tes3np compilation' 120000
     if ($compileCode -ne 0 -or !(Test-Path $executable)) { throw 'Launcher compilation failed.' }
     Step 'Starting compiled launcher --check (30 second timeout)'
     $check = Start-Process $executable -ArgumentList '--check' -PassThru
@@ -636,25 +638,9 @@ RunLauncherChecks(A_Args)
         throw 'Patch payload was embedded into the launcher instead of kept separate.'
     }
     Step 'Verified no Expansion Pack or markerless client was embedded in launcher resources'
-    Step 'Testing compiled launcher menu scaling and release notes'
-    $menuOut = Join-Path $tools 'compiled-menu-smoke.stdout.txt'
-    $menuErr = Join-Path $tools 'compiled-menu-smoke.stderr.txt'
-    $menuProbe = Start-Process -FilePath $executable -WorkingDirectory $package `
-        -ArgumentList '--check-owned-menu-scaling' -PassThru `
-        -RedirectStandardOutput $menuOut -RedirectStandardError $menuErr
-    try {
-        if (!$menuProbe.WaitForExit(30000)) {
-            try { $menuProbe.Kill() } catch {}
-            throw 'Compiled menu smoke test timed out after 30 seconds.'
-        }
-        Get-Content -LiteralPath $menuOut, $menuErr | ForEach-Object { Write-Host $_ }
-        if ($menuProbe.ExitCode -ne 0) {
-            throw "Compiled menu smoke test failed with code $($menuProbe.ExitCode)."
-        }
-        Step 'Compiled menu smoke test exited with code 0'
-    } finally {
-        $menuProbe.Dispose()
-    }
+    $menuCode = Invoke-BuildProcess $executable '--check-owned-menu-scaling' 'Compiled menu smoke test' 30000 `
+        -WorkingDirectory $package -ShowOutput
+    if ($menuCode -ne 0) { throw "Compiled menu smoke test failed with code $menuCode." }
     # Package the pinned official non-VR runtime so startup can run offline.
     Step 'Using prechecked official TES3MP 0.8.1 Win64 release archive'
     if (!$reuseTes3mp) {
