@@ -98,14 +98,53 @@ internal sealed partial class GameChatWindow
         var bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         if (bounds.Width < 1 || bounds.Height < 1) return;
         panel.SetLauncherBounds(bounds, ServerUpdatesShellExpanded);
-        if (!panel.Visible)
+        bool showing = !panel.Visible;
+        if (showing)
         {
             _ = panel.Handle; // Set the owner before the first visible frame.
             panel.Show();
+        }
+        KeepServerUpdatesInLauncherStack();
+        if (showing)
+        {
             panel.Update();
             PostMessage(owner, 0x833B, new IntPtr(1), Handle);
         }
         panel.EnsureFeed();
+    }
+
+    void KeepServerUpdatesInLauncherStack()
+    {
+        if (closingChat || serverUpdatesPanel is not { IsHandleCreated: true, IsDisposed: false, Visible: true } panel ||
+            !IsWindow(owner) || !IsWindowVisible(owner) || IsIconic(owner)) return;
+
+        const uint GW_HWNDNEXT = 2, GW_HWNDPREV = 3, GW_OWNER = 4;
+        const int WS_EX_TOPMOST = 0x0008;
+        const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOACTIVATE = 0x0010, SWP_NOOWNERZORDER = 0x0200;
+        const uint stackOnly = SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOOWNERZORDER;
+        IntPtr window = panel.Handle;
+        if (GetWindow(window, GW_OWNER) != owner)
+            SetNativeWindowOwner(window, owner);
+        if ((GetWindowLongEx(window, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0 &&
+            (GetWindowLongEx(owner, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0)
+            SetWindowPos(window, new IntPtr(-2), 0, 0, 0, 0, stackOnly); // HWND_NOTOPMOST
+
+        // Ownership permits other windows between the launcher and its popup.
+        // Only lower the popup when the window above the launcher is actually
+        // below the popup. Never raise the launcher or promote the popup.
+        IntPtr insertAfter = GetWindow(owner, GW_HWNDPREV);
+        if (insertAfter == IntPtr.Zero || insertAfter == window ||
+            (GetWindowLongEx(insertAfter, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0) return;
+
+        var visited = new HashSet<IntPtr>();
+        for (IntPtr below = GetWindow(window, GW_HWNDNEXT);
+             below != IntPtr.Zero && below != owner && visited.Add(below); below = GetWindow(below, GW_HWNDNEXT))
+        {
+            if (below != insertAfter) continue;
+            if (IsWindow(insertAfter))
+                SetWindowPos(window, insertAfter, 0, 0, 0, 0, stackOnly);
+            return;
+        }
     }
 
     void UpdateServerUpdatesDocument(string document, bool revealNewest = false)

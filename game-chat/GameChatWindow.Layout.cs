@@ -186,17 +186,24 @@ internal sealed partial class GameChatWindow
     WinEventCallback? launcherLocationCallback;
 
     IntPtr launcherLocationHook;
+    IntPtr launcherForegroundHook;
 
     bool repositionQueued;
 
     void WatchLauncherMovement()
     {
-        if (launcherLocationHook != IntPtr.Zero || !IsWindow(owner)) return;
+        if (launcherLocationHook != IntPtr.Zero || launcherForegroundHook != IntPtr.Zero || !IsWindow(owner)) return;
+        const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
         uint threadId = GetWindowThreadProcessId(owner, out uint processId);
         launcherLocationCallback = (hook, eventType, hwnd, objectId, childId, eventThread, eventTime) =>
         {
-            if (hwnd != owner || objectId != 0 || childId != 0 ||
-                closingChat || IsDisposed || !IsHandleCreated) return;
+            if (closingChat || IsDisposed || !IsHandleCreated || objectId != 0 || childId != 0) return;
+            if (eventType == EVENT_SYSTEM_FOREGROUND)
+            {
+                KeepServerUpdatesInLauncherStack();
+                return;
+            }
+            if (hwnd != owner) return;
             // Keep the Happy Hour banner aligned on EVERY owner movement
             // event, even if a chat reposition is already queued.
             // Native SetWindowPos runs immediately; BeginInvoke below is
@@ -224,6 +231,8 @@ internal sealed partial class GameChatWindow
             launcherLocationCallback, processId, threadId, 0);
         if (launcherLocationHook == IntPtr.Zero)
             Log("Launcher movement hook unavailable; using polling fallback.");
+        launcherForegroundHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero,
+            launcherLocationCallback, 0, 0, 0);
     }
 
     bool docked;
