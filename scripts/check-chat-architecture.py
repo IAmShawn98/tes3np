@@ -384,8 +384,7 @@ expect(
 )
 expect(
     "Game Updates dismissal hides the panel until a newer Discord post arrives",
-    'PanelScale, "Game Updates", headerRightPadding:' in updates_panel
-    and "host.DismissServerUpdates();" in updates_panel
+    "dismiss.Click += (_, _) => host.DismissServerUpdates();" in updates_panel
     and "latestServerUpdateId > dismissedServerUpdateId" in server_updates
     and "dismissedServerUpdateId = ReadServerUpdatesDismissal();" in server_updates
     and in_order(section_between(server_updates, "void DismissServerUpdates()", "async Task RefreshServerUpdates()"),
