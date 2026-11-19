@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -97,7 +98,7 @@ internal sealed partial class GameChatWindow
         readonly BufferedScrollbar scrollbar = new();
         readonly Button dismiss = new()
         {
-            Text = "×", AccessibleName = "Dismiss Game Updates", FlatStyle = FlatStyle.Flat,
+            AccessibleName = "Dismiss Game Updates", FlatStyle = FlatStyle.Flat,
             BackColor = FeedBackground, ForeColor = Color.FromArgb(226, 191, 119), Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
@@ -127,8 +128,10 @@ internal sealed partial class GameChatWindow
             Controls.Add(viewport);
             Controls.Add(scrollbar);
             Controls.Add(dismiss);
-            dismiss.FlatAppearance.BorderColor = Color.FromArgb(151, 113, 58);
+            dismiss.FlatAppearance.BorderColor = Color.FromArgb(194, 153, 83);
             dismiss.FlatAppearance.MouseOverBackColor = Color.FromArgb(57, 39, 21);
+            dismiss.FlatAppearance.MouseDownBackColor = Color.FromArgb(87, 61, 30);
+            dismiss.Paint += PaintDismissButton;
             dismiss.Click += (_, _) => host.DismissServerUpdates();
             scrollbar.Paint += (_, e) =>
             {
@@ -211,7 +214,7 @@ internal sealed partial class GameChatWindow
             if (feed is null || ClientSize.Width < 1 || ClientSize.Height < 1) return;
             int headerBottom = FrameHeaderBottom(HeaderScale);
             int top = Px(headerBottom + 5), bottom = Px(14), left = Px(18);
-            int dismissSize = Px(22 * HeaderScale);
+            int dismissSize = Px(24 * HeaderScale);
             int dismissTop = Px((FrameHeaderTop + headerBottom) / 2d) - dismissSize / 2;
             dismiss.SetBounds(ClientSize.Width - Px(17) - dismissSize, dismissTop, dismissSize, dismissSize);
             int scrollHeight = Math.Max(1, ClientSize.Height - top - bottom);
@@ -226,6 +229,21 @@ internal sealed partial class GameChatWindow
             host.PaintGameChatFrame(e.Graphics, Units(ClientSize.Width), Units(ClientSize.Height),
                 PanelScale, "Game Updates", headerSidePadding: Units(ClientSize.Width - dismiss.Left) + 4,
                 headerScale: HeaderScale);
+
+        void PaintDismissButton(object? sender, PaintEventArgs e)
+        {
+            float size = Math.Min(dismiss.ClientSize.Width, dismiss.ClientSize.Height);
+            float x = dismiss.ClientSize.Width / 2f, y = dismiss.ClientSize.Height / 2f;
+            float radius = size / 4f;
+            using var pen = new Pen(dismiss.ForeColor, Math.Max(1.2f, size / 12f))
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.DrawLine(pen, x - radius, y - radius, x + radius, y + radius);
+            e.Graphics.DrawLine(pen, x - radius, y + radius, x + radius, y - radius);
+        }
 
         void SetFeedScale()
         {
