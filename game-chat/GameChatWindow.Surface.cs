@@ -16,6 +16,7 @@ internal sealed partial class GameChatWindow
         messageClip.Controls.Add(messageBrowser);
         nativeMessages.BringToFront();
         frameSurface.Controls.Add(messageClip);
+        InitializeChatComposer();
         frameSurface.Controls.Add(goldScrollbar);
         goldScrollbar.Paint += PaintChatScrollbar;
         AttachScrollbarInput();
