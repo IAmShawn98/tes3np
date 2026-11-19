@@ -384,25 +384,41 @@ expect(
     "Game Updates keeps its header visible and opens the feed for a newer post or a signed-in request",
     "toggle.Click += (_, _) => host.ToggleServerUpdatesBody();" in updates_panel
     and "ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated &&" in server_updates
-    and "(serverUpdatesManuallyOpened || latestServerUpdateId > serverUpdatesHiddenThroughId)" in server_updates
-    and "serverUpdatesHiddenThroughId = ReadServerUpdatesHiddenThrough();" in server_updates
+    and "(serverUpdatesManuallyOpened || serverUpdatesDisplay.Open)" in server_updates
+    and "serverUpdatesDisplay = ReadServerUpdatesDisplay();" in server_updates
     and in_order(section_between(server_updates, "void ToggleServerUpdatesBody()", "async Task RefreshServerUpdates()"),
                  "if (!ServerUpdatesAuthenticated)", "OpenDiscordAccountSignIn();", "return;",
                  "serverUpdatesManuallyOpened = !hide;",
-                 "serverUpdatesHiddenThroughId = Math.Max(serverUpdatesHiddenThroughId, latestServerUpdateId);",
-                 "WriteChatArchiveAtomically(ServerUpdatesDismissalPath,", "PositionServerUpdatesPanel();")
+                 "SaveServerUpdatesDisplay(false, Math.Max(serverUpdatesDisplay.LastReadyId, latestServerUpdateId));",
+                 "PositionServerUpdatesPanel();")
+    and "WriteChatArchiveAtomically(ServerUpdatesDismissalPath, open ? \"open:\" + id : id);" in server_updates
     and in_order(section_between(server_updates, "async Task RefreshServerUpdates()", "static void ConfigureServerUpdatesBrowser("),
-                 "latestServerUpdateId = newestId;", "UpdateServerUpdatesDocument(text, revealNewest);",
+                 "latestServerUpdateId = newestId;", "if (newestId > serverUpdatesDisplay.LastReadyId)",
+                 "SaveServerUpdatesDisplay(true, newestId);", "UpdateServerUpdatesDocument(text, revealNewest);",
                  "if (revealNewest) PositionServerUpdatesPanel();")
     and in_order(section_between(server_updates, "void ResetServerUpdates()", "\n}"),
                  "serverUpdatesManuallyOpened = false;", "PositionServerUpdatesPanel();", "serverUpdatesPanel?.ResetDocument();")
     and in_order(chat_window, "PositionServerUpdatesPanel();", "await CheckDiscordAuthentication();")
     and "PostMessage(owner, 0x833B, IntPtr.Zero, Handle)" in updates_panel
-    and "OnMessage(0x833B, ReceiveLauncherServerUpdatesAnchorRequest)" in embedded_chat
-    and "panel.SetLauncherBounds(bounds, ServerUpdatesBodyExpanded);" in updates_panel
+    and "OnMessage(0x833B, ReceiveLauncherServerUpdatesHostMessage)" in embedded_chat
     and in_order(section_between(updates_panel, "internal void SetLauncherBounds(", "protected override void OnResize("),
                  "viewport.Hide();", "scrollbar.Hide();", "FrameHeaderBottom(HeaderScale) + FrameFooterHeight",
                  "Bounds = bounds;", "viewport.Show();", "scrollbar.Show();"),
+)
+expect(
+    "Game Updates paints with the launcher's first frame independently of Discord sign-in",
+    "ShowLauncherWithGameUpdates()" in bootstrap
+    and in_order(section_between(embedded_chat, "ShowLauncherWithGameUpdates()", "StartEmbeddedInGameChat()\n{"),
+                 "SetPageCompositorCloak(LauncherGui, true)", "StartEmbeddedInGameChat()",
+                 "while !LauncherUpdatesFirstPaintReady", "A_TickCount - start < 800",
+                 "finally RevealPaintedPage(LauncherGui)")
+    and in_order(chat_window, "Shown += (_, _) => PositionServerUpdatesPanel();", "Shown += StartDiscordAsync;")
+    and in_order(section_between(updates_panel, "var panel = serverUpdatesPanel = new LatestUpdatesPanel(this);", "catch (Exception ex)"),
+                 "panel.SetDocument(", "PositionServerUpdatesPanel();")
+    and in_order(section_between(updates_panel, "void PositionServerUpdatesPanel()", "void UpdateServerUpdatesDocument("),
+                 "panel.SetLauncherBounds(bounds, ServerUpdatesShellExpanded);", "panel.Show();", "panel.Update();",
+                 "PostMessage(owner, 0x833B, new IntPtr(1), Handle);")
+    and "(discordAccountStatus == DiscordAccountStatus.Checking && serverUpdatesDisplay.Open)" in server_updates,
 )
 expect(
     "Game Updates tracks its launcher anchor as an owned top-level window",

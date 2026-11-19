@@ -9,6 +9,7 @@ global LauncherDiscordStatus := 0
 global LauncherDiscordAvatar := 0
 global LauncherDiscordAvatarStream := 0
 global LauncherUpdatesSlot := 0
+global LauncherUpdatesFirstPaintReady := false
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -51,6 +52,30 @@ WebView2RuntimeAvailable()
         }
     }
     return false
+}
+
+ShowLauncherWithGameUpdates()
+{
+    global EmbeddedChatPid, LauncherGui, LauncherUpdatesFirstPaintReady
+    if !SetPageCompositorCloak(LauncherGui, true)
+    {
+        ShowLauncherWindow()
+        SetTimer(StartEmbeddedInGameChat, -1)
+        return
+    }
+
+    try
+    {
+        ShowLauncherWindow()
+        StartEmbeddedInGameChat()
+        ; The hosted frame inherits the launcher's cloak. Only wait for native
+        ; painting, with a short fallback for unavailable or slow Chat Hosts.
+        start := A_TickCount
+        while !LauncherUpdatesFirstPaintReady && EmbeddedChatPid
+            && ProcessExist(EmbeddedChatPid) && A_TickCount - start < 800
+            Sleep(10)
+    }
+    finally RevealPaintedPage(LauncherGui)
 }
 
 StartEmbeddedInGameChat()
@@ -202,12 +227,17 @@ CreateLauncherServerUpdates()
     ; Align the header below the Quest copy, over the fading backdrop.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
         "x100 y250 w220 h342 BackgroundTrans Hidden")
-    OnMessage(0x833B, ReceiveLauncherServerUpdatesAnchorRequest)
+    OnMessage(0x833B, ReceiveLauncherServerUpdatesHostMessage)
 }
 
-ReceiveLauncherServerUpdatesAnchorRequest(wParam, sender, msg, hwnd)
+ReceiveLauncherServerUpdatesHostMessage(wParam, sender, msg, hwnd)
 {
-    if IsLauncherDiscordMessage(sender, hwnd)
+    global LauncherUpdatesFirstPaintReady
+    if !IsLauncherDiscordMessage(sender, hwnd)
+        return
+    if wParam = 1
+        LauncherUpdatesFirstPaintReady := true
+    else if wParam = 0
         SetTimer(RepaintLauncherServerUpdates, -1)
 }
 

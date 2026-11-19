@@ -25,10 +25,8 @@ StartLauncher()
     BuildLauncherWindow()
     RegisterLauncherEventHandlers()
     SetTimer(HoverTimer, 30)
-    ShowLauncherWindow()
+    ShowLauncherWithGameUpdates()
 
-    ; Start chat after the launcher is visible so it can attach to the painted window.
-    SetTimer(StartEmbeddedInGameChat, -75)
     SetTimer(CleanupStaleLauncherData, -1000)
     SetTimer(CheckForUpdateAvailability, -250)
     SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)

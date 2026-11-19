@@ -28,8 +28,8 @@ internal sealed partial class GameChatWindow
         {
             serverUpdatesAnchor = target;
             var panel = serverUpdatesPanel = new LatestUpdatesPanel(this);
-            PositionServerUpdatesPanel();
             panel.SetDocument(serverUpdatesDocument ?? ServerUpdatesStatus("Loading server updates…"));
+            PositionServerUpdatesPanel();
         }
         catch (Exception ex)
         {
@@ -65,11 +65,13 @@ internal sealed partial class GameChatWindow
         if (!GetWindowRect(serverUpdatesAnchor, out var rect)) return;
         var bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         if (bounds.Width < 1 || bounds.Height < 1) return;
-        panel.SetLauncherBounds(bounds, ServerUpdatesBodyExpanded);
+        panel.SetLauncherBounds(bounds, ServerUpdatesShellExpanded);
         if (!panel.Visible)
         {
             _ = panel.Handle; // Set the owner before the first visible frame.
             panel.Show();
+            panel.Update();
+            PostMessage(owner, 0x833B, new IntPtr(1), Handle);
         }
         panel.EnsureFeed();
     }
