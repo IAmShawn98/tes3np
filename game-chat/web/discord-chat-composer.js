@@ -20,6 +20,7 @@
         width: var(--tes3np-compose-width) !important; height: var(--tes3np-compose-height) !important;
         display: flex !important; flex-direction: row !important; align-items: center !important; gap: 6px !important;
         margin: 0 !important; padding: 0 5px 0 7px !important;
+        --tes3np-compose-font: 18px/24px Georgia, serif;
         overflow: hidden !important; color: #f1e4ca !important; background: #17120e !important;
         border: 1px solid #907343 !important; border-radius: 3px !important;
       }
@@ -38,26 +39,26 @@
       [${editorMarker}] {
         position: relative !important; display: block !important; flex: 1 1 0% !important;
         background: transparent !important; color: #f1e4ca !important; caret-color: #e0b971 !important;
-        font: 14px/20px Georgia, serif !important; padding: 2px 0 !important; margin: 0 !important;
+        font: var(--tes3np-compose-font) !important; padding: 2px 0 !important; margin: 0 !important;
         border: 0 !important;
         box-sizing: border-box !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
-        height: auto !important; min-height: 24px !important; max-height: calc(var(--tes3np-compose-height) - 6px) !important;
+        height: auto !important; min-height: 28px !important; max-height: calc(var(--tes3np-compose-height) - 6px) !important;
         overflow: auto !important; scrollbar-width: thin;
       }
       [${areaMarker}] :is([class*="placeholder_"], [data-slate-placeholder="true"]:not([class*="placeholder_"] *)) {
         position: absolute !important; inset: 2px 0 auto !important; transform: none !important;
         margin: 0 !important; padding: 0 !important; pointer-events: none !important;
-        color: #ad9773 !important; font: 14px/20px Georgia, serif !important;
+        color: #ad9773 !important; font: var(--tes3np-compose-font) !important;
         overflow: hidden !important; white-space: nowrap !important; text-overflow: ellipsis !important;
       }
       [${sendMarker}] {
         box-sizing: border-box !important; display: grid !important; place-items: center !important;
-        flex: 0 0 28px !important; height: 26px !important; margin: 0 !important; padding: 0 !important;
+        flex: 0 0 32px !important; height: 30px !important; margin: 0 !important; padding: 0 !important;
         color: #e5c68d !important; background: #2a2014 !important;
         border: 1px solid #907343 !important; border-radius: 3px !important; cursor: pointer !important;
       }
       [${sendMarker}]::before {
-        content: ''; width: 16px; height: 14px; background: currentColor;
+        content: ''; width: 20px; height: 17px; background: currentColor;
         clip-path: polygon(0 0, 100% 50%, 0 100%, 0 59%, 65% 50%, 0 41%);
       }
       [${sendMarker}]:hover, [${sendMarker}]:focus-visible { color: #fff0c9 !important; background: #47341f !important; }
