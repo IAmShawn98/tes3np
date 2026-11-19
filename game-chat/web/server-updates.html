@@ -31,12 +31,26 @@
   .emoji { font: 15px/1 'Segoe UI Emoji', sans-serif; }
   img.emoji { width: 16px; height: 16px; object-fit: contain; }
   .status { color: #b8a98e; }
+#jump-latest {
+  position: fixed; z-index: 1; bottom: 7px; left: 50%; transform: translateX(-50%);
+  box-sizing: border-box; display: grid; place-items: center; width: 25px; height: 25px; padding: 0;
+  border: 1px solid #9d8050; border-radius: 5px; background: #241e17; color: #f0d8a4; cursor: pointer;
+}
+#jump-latest[hidden] { display: none; }
+#jump-latest:hover, #jump-latest:focus-visible { border-color: #d5b778; background: #3e3020; }
+#jump-latest::before {
+  content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: translateY(-2px) rotate(45deg);
+}
 </style>
 </head>
 <body>
 <main aria-label="Game Updates" tabindex="0"></main>
+<button id="jump-latest" type="button" title="Jump to latest update" aria-label="Jump to latest update" hidden></button>
 <script>
   const main = document.querySelector('main');
+  const jumpLatest = document.getElementById('jump-latest');
+  const jumpThreshold = 96;
   const bridge = window.chrome.webview;
   let landing = null;
   let pending = null;
@@ -49,6 +63,7 @@
   }
 
   function reportScroll(type = 'scroll') {
+    jumpLatest.hidden = landing == null || landing - main.scrollTop < jumpThreshold;
     bridge.postMessage({ type, top: Math.round(main.scrollTop),
       height: main.scrollHeight, page: main.clientHeight });
   }
@@ -131,6 +146,22 @@
     return article;
   }
 
+  function measureLatest(post = main.lastElementChild) {
+    if (post?.tagName !== 'ARTICLE') return null;
+    return Math.max(0, Math.min(post.offsetTop - 2, main.scrollHeight - main.clientHeight));
+  }
+
+  function jumpToNewest() {
+    landing = measureLatest();
+    main.scrollTop = landing ?? 0;
+    reportScroll();
+  }
+
+  jumpLatest.addEventListener('click', () => {
+    main.focus({ preventScroll: true });
+    jumpToNewest();
+  });
+
   function render(data) {
     const top = main.scrollTop;
     const follow = landing == null || Math.abs(top - landing) <= 2 || main.scrollHeight - main.clientHeight - top <= 2;
@@ -150,7 +181,7 @@
         if (status && articleById.has(id)) articleById.get(id).querySelector('.status').textContent = status;
       }
       main.replaceChildren(...posts);
-      landing = Math.max(0, Math.min(posts.at(-1).offsetTop - 2, main.scrollHeight - main.clientHeight));
+      landing = measureLatest(posts.at(-1));
       const remembered = articleById.get(anchor?.dataset.id);
       main.scrollTop = follow ? landing : remembered ? remembered.offsetTop + shift : top;
       const restored = articleById.get(focused?.dataset.id);
@@ -163,8 +194,7 @@
 
   bridge.addEventListener('message', ({ data }) => {
     if (data.scroll === 'newest') {
-      main.scrollTop = landing ?? 0;
-      reportScroll();
+      jumpToNewest();
     } else if (data.scroll === 'by' || data.scroll === 'to') {
       main.scrollTop = data.scroll === 'by' ? main.scrollTop + data.pixels : data.pixels;
       reportScroll();
@@ -179,7 +209,10 @@
     } else render(data);
   });
   main.addEventListener('scroll', () => reportScroll());
-  new ResizeObserver(() => reportScroll()).observe(main);
+  new ResizeObserver(() => {
+    landing = measureLatest();
+    reportScroll();
+  }).observe(main);
   bridge.postMessage({ type: 'ready' });
 </script>
 </body>

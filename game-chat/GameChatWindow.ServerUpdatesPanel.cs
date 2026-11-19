@@ -201,8 +201,18 @@ internal sealed partial class GameChatWindow
             viewport.Controls.Add(feed);
             viewport.Controls.Add(fallbackClip);
             fallbackClip.Controls.Add(fallbackFeed);
+            fallbackClip.Controls.Add(fallbackJumpLatest);
+            fallbackJumpLatest.BringToFront();
             fallbackClip.BringToFront();
-            fallbackFeed.VScroll += (_, _) => scrollbar.Invalidate();
+            fallbackJumpLatest.FlatAppearance.BorderColor = Color.FromArgb(157, 128, 80);
+            fallbackJumpLatest.FlatAppearance.MouseOverBackColor = Color.FromArgb(62, 48, 32);
+            fallbackJumpLatest.Paint += (_, e) => PaintUpdatesChevron(fallbackJumpLatest, e, false);
+            fallbackJumpLatest.Click += (_, _) => LandOnFallbackNewest();
+            fallbackFeed.VScroll += (_, _) =>
+            {
+                scrollbar.Invalidate();
+                UpdateFallbackJumpVisibility();
+            };
             Controls.Add(viewport);
             Controls.Add(scrollbar);
             Controls.Add(toggle);
@@ -452,13 +462,15 @@ internal sealed partial class GameChatWindow
                 PanelScale, "Game Updates", headerSidePadding: Units(ClientSize.Width - toggle.Left) + 4,
                 headerScale: HeaderScale);
 
-        void PaintToggleButton(object? sender, PaintEventArgs e)
+        void PaintToggleButton(object? sender, PaintEventArgs e) => PaintUpdatesChevron(toggle, e, bodyExpanded);
+
+        static void PaintUpdatesChevron(Button button, PaintEventArgs e, bool up)
         {
-            float size = Math.Min(toggle.ClientSize.Width, toggle.ClientSize.Height);
-            float x = toggle.ClientSize.Width / 2f, y = toggle.ClientSize.Height / 2f;
+            float size = Math.Min(button.ClientSize.Width, button.ClientSize.Height);
+            float x = button.ClientSize.Width / 2f, y = button.ClientSize.Height / 2f;
             float radius = size / 4f, rise = size / 7f;
-            if (bodyExpanded) rise = -rise;
-            using var pen = new Pen(toggle.ForeColor, Math.Max(1.2f, size / 12f))
+            if (up) rise = -rise;
+            using var pen = new Pen(button.ForeColor, Math.Max(1.2f, size / 12f))
             {
                 StartCap = LineCap.Round,
                 EndCap = LineCap.Round,

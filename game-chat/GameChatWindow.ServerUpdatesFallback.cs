@@ -130,7 +130,13 @@ internal sealed partial class GameChatWindow
             BackColor = FeedBackground, ReadOnly = true, BorderStyle = BorderStyle.None,
             DetectUrls = false, ScrollBars = RichTextBoxScrollBars.ForcedVertical
         };
-        int? fallbackLanding;
+        readonly Button fallbackJumpLatest = new()
+        {
+            AccessibleName = "Jump to latest update", FlatStyle = FlatStyle.Flat, Visible = false,
+            BackColor = Color.FromArgb(36, 30, 23), ForeColor = Color.FromArgb(240, 216, 164),
+            Cursor = Cursors.Hand, UseVisualStyleBackColor = false
+        };
+        int? fallbackLanding, fallbackLatestStart;
 
         void LayoutFallback(int width, int height)
         {
@@ -140,7 +146,11 @@ internal sealed partial class GameChatWindow
             int nativeBar = GetSystemMetricsForDpi(2, dpi == 0 ? 96 : dpi);
             fallbackFeed.SetBounds(0, 0, width + nativeBar, height);
             fallbackFeed.ZoomFactor = (float)Math.Clamp(PanelScale * 96 / (dpi == 0 ? 96 : dpi), 0.25, 3);
+            int size = Px(25);
+            fallbackJumpLatest.SetBounds(Math.Max(0, (width - size) / 2),
+                Math.Max(0, height - size - Px(7)), size, size);
             if (FallbackFollowsNewest(before.Position, before.Maximum)) LandOnFallbackNewest();
+            UpdateFallbackJumpVisibility();
         }
 
         void UpdateFallback(string value, bool revealNewest = false)
@@ -149,17 +159,32 @@ internal sealed partial class GameChatWindow
             string? status = payload.RootElement.TryGetProperty("status", out var text) ? text.GetString() : null;
             var before = ReadFallbackScroll();
             bool follow = revealNewest || FallbackFollowsNewest(before.Position, before.Maximum);
+            fallbackLatestStart = null;
             fallbackFeed.Rtf = FormatUpdatesFallback(host.displayedServerUpdates, status);
+            fallbackLatestStart = FindNewestServerUpdatesDateDivider(fallbackFeed.Text);
             if (follow) LandOnFallbackNewest();
             else ScrollFallback("to", before.Position);
+            UpdateFallbackJumpVisibility();
         }
 
         bool FallbackFollowsNewest(int position, int maximum) =>
             position == fallbackLanding || position >= maximum - Px(12);
 
+        void UpdateFallbackJumpVisibility()
+        {
+            bool show = false;
+            if (bodyExpanded && !feedVisible && fallbackLatestStart is int start)
+            {
+                var metrics = ReadFallbackScroll();
+                int distance = Math.Min(metrics.Maximum - metrics.Position, fallbackFeed.GetPositionFromCharIndex(start).Y - Px(2));
+                show = distance >= Px(96);
+            }
+            fallbackJumpLatest.Visible = show;
+        }
+
         void LandOnFallbackNewest()
         {
-            if (FindNewestServerUpdatesDateDivider(fallbackFeed.Text) is not int start) return;
+            if (fallbackLatestStart is not int start) return;
             fallbackFeed.Select(start, 0);
             fallbackFeed.ScrollToCaret();
             var scroll = new FallbackPoint();
@@ -186,6 +211,7 @@ internal sealed partial class GameChatWindow
             scroll.Y = Math.Max(0, scroll.Y + pixels);
             SendMessageW(fallbackFeed.Handle, 0x04DE, IntPtr.Zero, ref scroll); // EM_SETSCROLLPOS
             scrollbar.Invalidate();
+            UpdateFallbackJumpVisibility();
         }
 
         [StructLayout(LayoutKind.Sequential)]
