@@ -12,16 +12,44 @@ html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif
 .placeholder{font-size:14px;color:#c9b68c}
 .date-separator{display:flex;align-items:center;gap:9px;color:#d9c49c;font:14px Georgia,serif;margin:16px 0 13px;white-space:nowrap}
 .date-separator:before,.date-separator:after{content:"";height:1px;background:#655237;flex:1}
-</style></head><body><div id="feed"></div><script>
+#jump-latest {
+  position: fixed; z-index: 1; bottom: 7px; left: 50%; transform: translateX(-50%);
+  box-sizing: border-box; display: grid; place-items: center; width: 25px; height: 25px; padding: 0;
+  border: 1px solid #9d8050; border-radius: 5px; background: #241e17; color: #f0d8a4; cursor: pointer;
+}
+#jump-latest[hidden] { display: none; }
+#jump-latest:hover, #jump-latest:focus-visible { border-color: #d5b778; background: #3e3020; }
+#jump-latest::before {
+  content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: translateY(-2px) rotate(45deg);
+}
+</style></head><body><div id="feed" role="region" aria-label="Live Game Chat" tabindex="0"></div>
+<button id="jump-latest" type="button" title="Jump to latest message" aria-label="Jump to latest message" hidden></button>
+<script>
 const feed=document.getElementById('feed');
+const jumpLatest=document.getElementById('jump-latest');
+const jumpThreshold=96;
 let userHasScrolled=false;
-feed.addEventListener('wheel',e=>{
-  if(!e.deltaY)return;
+function noteScroll(stopHistory=false){
   userHasScrolled=true;
-  chrome.webview.postMessage({type:'interaction',stopHistory:e.deltaY>0});
-},{passive:true});
-feed.addEventListener('pointerdown',()=>{userHasScrolled=true;chrome.webview.postMessage({type:'interaction'});});
-function metrics(){chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});}
+  chrome.webview.postMessage({type:'interaction',stopHistory});
+}
+feed.addEventListener('wheel',e=>{if(e.deltaY)noteScroll(e.deltaY>0);},{passive:true});
+feed.addEventListener('pointerdown',()=>noteScroll());
+feed.addEventListener('keydown',e=>{
+  if(['ArrowUp','PageUp','Home','ArrowDown','PageDown','End',' '].includes(e.key))
+    noteScroll(['ArrowDown','PageDown','End'].includes(e.key)||(e.key===' '&&!e.shiftKey));
+});
+function metrics(){
+  jumpLatest.hidden=feed.scrollHeight-feed.clientHeight-feed.scrollTop<jumpThreshold;
+  chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});
+}
+jumpLatest.addEventListener('click',()=>{
+  userHasScrolled=false;
+  chrome.webview.postMessage({type:'interaction',stopHistory:true});
+  feed.focus({preventScroll:true});
+  window.scrollToLatest();
+});
 feed.addEventListener('scroll',metrics);
 new ResizeObserver(metrics).observe(feed);
 window.setMessages=function(messages,prepended=false,requireViewport=false){

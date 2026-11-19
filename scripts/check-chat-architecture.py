@@ -119,7 +119,8 @@ expect(
     and 'path.StartsWith(Channel + "/", StringComparison.OrdinalIgnoreCase)' in source
     and 'ulong.TryParse(path.AsSpan(Channel.Length + 1), System.Globalization.NumberStyles.None,' in source
     and 'if (!discordChannelReady && !connectingChat && !nativeMode)' in source
-    and "{type:'interaction',stopHistory:e.deltaY>0}" in message_page
+    and "noteScroll(e.deltaY>0)" in message_page
+    and "{type:'interaction',stopHistory}" in message_page
     and 'if (chatOpen) lastChatActivity = DateTime.Now;' in source
     and '!goldScrollbar.Capture &&' in source
     and 'goldScrollbar.MouseCaptureChanged +=' in source
@@ -432,7 +433,7 @@ expect(
     and "if (IsIconic(owner)) return;" in updates_panel
     and "GetForegroundWindow()" not in updates_panel
     and "SetParent(" not in updates_panel
-    and "posts.at(-1).offsetTop" in (chat_root / "web/server-updates.html").read_text(encoding="utf-8")
+    and "landing = measureLatest(posts.at(-1));" in (chat_web / "server-updates.html").read_text(encoding="utf-8")
     and "dateBand" not in updates_panel,
 )
 updates_stack = section_between(updates_panel, "void KeepServerUpdatesInLauncherStack()", "void UpdateServerUpdatesDocument(")
