@@ -16,6 +16,7 @@ internal sealed partial class GameChatWindow
     }
 
     ServerUpdatePicker? serverUpdatePicker;
+    (ServerUpdatesWindow Source, bool Restart)? pickerSourceToResume;
 
     bool IsCurrentServerUpdatePicker(ServerUpdatePicker picker) =>
         picker == serverUpdatePicker && IsCurrentServerUpdatesSource(picker.Source);
@@ -84,7 +85,7 @@ internal sealed partial class GameChatWindow
                 if (await RunServerUpdateAction(core, request) != "\"clicked\"")
                     return new(Error: "Discord could not select that emoji. Search for it and try again.");
                 await ReadBackServerUpdateReaction(picker.Source, core, request with { Key = choice.ReactionKey, Mine = true });
-                if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker();
+                if (IsCurrentServerUpdatePicker(picker)) CloseServerUpdatePicker(restartChannel: false);
                 return new(Close: true);
             }
 
@@ -108,7 +109,15 @@ internal sealed partial class GameChatWindow
             }
             return new(Error: "Discord could not update the emoji list. Close this picker and try again.");
         }
-        finally { workingServerUpdateReaction = false; }
+        finally
+        {
+            workingServerUpdateReaction = false;
+            if (pickerSourceToResume is { } pending)
+            {
+                pickerSourceToResume = null;
+                RestoreServerUpdatesChannel(pending.Source, pending.Restart);
+            }
+        }
     }
 
     async Task<PickerPage?> ReadPickerPage(ServerUpdatePicker picker, CoreWebView2 core, ServerUpdateAction request)
@@ -125,10 +134,13 @@ internal sealed partial class GameChatWindow
         return new(Items: newItems, More: page.More);
     }
 
-    void CloseServerUpdatePicker(bool resume = true)
+    void CloseServerUpdatePicker(bool resume = true, bool restartChannel = true)
     {
         var picker = serverUpdatePicker;
         serverUpdatePicker = null;
-        if (resume && picker != null) RestoreServerUpdatesChannel(picker.Source, restartChannel: true);
+        if (!resume) pickerSourceToResume = null;
+        if (!resume || picker == null) return;
+        if (workingServerUpdateReaction) pickerSourceToResume = (picker.Source, restartChannel);
+        else RestoreServerUpdatesChannel(picker.Source, restartChannel);
     }
 }
