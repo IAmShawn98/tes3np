@@ -465,13 +465,15 @@ expect(
     and 'await ReadBackServerUpdateReaction(source, core, request);' in source
     and 'post with { Reactions = reactions }' in source,
 )
-quest_bounds = re.search(r'AddInfoCard\(\d+, (\d+), \d+, (\d+), "Quest"', front_layout)
+quest_body = re.search(r'AddInfoCard\(\d+, (\d+), \d+, \d+, "Quest", "[^"]*", (\d+)\)', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
 expect(
-    "Launcher info cards keep their original paint style and a gap above Game Updates",
+    "Launcher info cards keep their original paint style and the Quest copy clears Game Updates",
     'control := LauncherGui.Add("Custom", "ClassStatic x" x' in front_layout
-    and quest_bounds is not None and updates_bounds is not None
-    and all((int(quest_bounds[1]) * percent + 50) // 100 + (int(quest_bounds[2]) * percent + 50) // 100
+    and "BodyBottom: bodyBottom" in front_layout
+    and "Round(face.BodyBottom * scale)" in native_renderer
+    and quest_body is not None and updates_bounds is not None
+    and all((int(quest_body[1]) * percent + 50) // 100 + (int(quest_body[2]) * percent + 50) // 100 + 1
             < (int(updates_bounds[1]) * percent + 50) // 100 for percent in range(50, 101)),
 )
 

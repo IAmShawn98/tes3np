@@ -16,7 +16,8 @@ BuildFrontPage()
     DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 BackgroundTrans +0x100")
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
-    AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!")
+    ; Keep the Quest copy clear of the updates panel over the bottom of the backdrop.
+    AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 166)
     AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of other fetchers in the most content-complete, feature-rich server ever. Shape your build through the mastery system, conquer creature camps and bosses, and enjoy fishing, crafting, housing, and events. The road to godhood is never a lonely one!")
     ; Match the native Morrowind-style typography used by Launcher Settings
     ; and Characters. A slightly larger, darker regular face keeps the
@@ -34,14 +35,14 @@ BuildFrontPage()
     UpdateCharacterMenuLabel()
 }
 
-AddInfoCard(x, y, width, height, heading, text)
+AddInfoCard(x, y, width, height, heading, text, bodyBottom := 0)
 {
     global LauncherGui, ButtonFaces
     InitButtonPainter()
     control := LauncherGui.Add("Custom", "ClassStatic x" x " y" y " w" width " h" height, text)
     ButtonFaces[control.Hwnd] := {Control: control, Label: control, Gui: LauncherGui,
         Window: LauncherGui.Hwnd, IsLabel: true, IsInfo: true, X: x, Y: y,
-        BaseWidth: width, BaseHeight: height,
+        BaseWidth: width, BaseHeight: height, BodyBottom: bodyBottom,
         Heading: heading, State: "normal", Action: 0}
     AttachButtonPainter(control.Hwnd)
     return control

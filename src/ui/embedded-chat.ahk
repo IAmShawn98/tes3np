@@ -202,9 +202,9 @@ CreateLauncherServerUpdates()
 {
     global LauncherGui, LauncherUpdatesSlot
     ; This transparent control gives the host a position for its Game Updates window.
-    ; Start below the Quest card's painted bounds, including its bottom fade.
+    ; Align the header below the Quest copy, over the fading backdrop.
     LauncherUpdatesSlot := LauncherGui.Add("Text",
-        "x100 y298 w220 h342 BackgroundTrans Hidden")
+        "x100 y250 w220 h342 BackgroundTrans Hidden")
     OnMessage(0x833B, ReceiveLauncherServerUpdatesVisibility)
 }
 
