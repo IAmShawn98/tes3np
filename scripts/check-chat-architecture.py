@@ -405,21 +405,20 @@ expect(
 )
 expect(
     "Game Updates sends only post-scoped reaction actions to the signed-in Discord source",
-    'if (!feedVisible || type is not ("toggle" or "picker")) return;' in updates_panel
+    'if (!feedVisible || type is not ("toggle" or "picker" or "picker-search" or "picker-more" or "picker-select" or "picker-close")) return;' in updates_panel
     and 'args.Source != ServerUpdatesPageUri' in updates_panel
     and 'post.Reactions?.Any(reaction => reaction.Key == request.Key)' in source
-    and 'return await OpenServerUpdatePicker(panel, request);' in source
+    and 'await host.ActOnServerUpdatePicker(this, request);' in updates_panel
     and '!IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri)' in server_updates,
 )
 expect(
-    "Discord's emoji picker uses a visible, modeless browser separate from the updates reader",
-    in_order(section_between(source, 'async Task<string?> OpenServerUpdatePicker(', 'void CloseServerUpdatePicker()'),
-             'await Task.Yield();', 'picker.Show();', 'EnsureCoreWebView2Async(environment)',
-             'core.Navigate(ServerUpdatesChannel + "/" + request.Id);', 'picker.RevealBrowser();',
-             'await RunServerUpdateAction(core, request)')
+    "Game Updates browses and selects emoji inside the existing feed",
+    'new ServerUpdatePicker(request.Id, source)' in source
+    and 'picker.Choices.TryGetValue(request.Key, out var choice)' in source
+    and 'Kind = "picker-position", Offset = choice.Offset' in source
     and 'CloseServerUpdatePicker();' in server_updates
-    and 'TrackServerUpdatePicker' not in source
-    and 'ShowDialog' not in section_between(source, 'async Task<string?> OpenServerUpdatePicker(', 'void CloseServerUpdatePicker()'),
+    and 'ServerUpdatePickerWindow' not in source
+    and 'id="emoji-search"' in (chat_root / "web/server-updates.html").read_text(encoding="utf-8"),
 )
 expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",

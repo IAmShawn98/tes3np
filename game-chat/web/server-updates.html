@@ -31,15 +31,39 @@
   .emoji { font: 15px/1 'Segoe UI Emoji', sans-serif; }
   img.emoji { width: 16px; height: 16px; object-fit: contain; }
   .status { color: #b8a98e; }
+  #emoji-picker { position: fixed; inset: 3px; display: flex; flex-direction: column; gap: 5px;
+    padding: 5px; border: 1px solid #816a42; background: #17120d; }
+  #emoji-picker[hidden] { display: none; }
+  .picker-head { display: flex; align-items: center; justify-content: space-between; color: #d9c49c; }
+  #emoji-search { width: 100%; min-height: 25px; padding: 4px; color: #f1eee8; background: #0a0908;
+    border: 1px solid #816a42; font: 12px system-ui, sans-serif; }
+  #emoji-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(24px, 1fr));
+    align-content: start; align-items: start; gap: 3px; flex: 1; min-height: 0; overflow-y: auto;
+    scrollbar-color: #9b8359 #241e17; scrollbar-width: thin; }
+  #emoji-grid button { min-width: 0; overflow: hidden; padding: 2px; }
+  #emoji-status:empty { display: none; }
 </style>
 </head>
 <body>
 <main aria-label="Game Updates" tabindex="0"></main>
+<section id="emoji-picker" aria-label="Add a reaction" hidden>
+  <div class="picker-head"><strong>Add a reaction</strong><button type="button" id="emoji-close" aria-label="Close emoji picker">×</button></div>
+  <input type="search" id="emoji-search" aria-label="Search emoji" placeholder="Search emoji" maxlength="64">
+  <div id="emoji-grid" aria-label="Emoji results"></div>
+  <div id="emoji-status" class="status" role="status"></div>
+  <button type="button" id="emoji-more" hidden>More emoji</button>
+</section>
 <script>
   const main = document.querySelector('main');
   const bridge = window.chrome.webview;
   let landing = null;
   let pending = null;
+  let pickerState = null;
+  const picker = document.querySelector('#emoji-picker');
+  const search = document.querySelector('#emoji-search');
+  const grid = document.querySelector('#emoji-grid');
+  const pickerStatus = document.querySelector('#emoji-status');
+  const more = document.querySelector('#emoji-more');
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -63,6 +87,96 @@
     return null;
   }
 
+  function emojiElement(label, fallback, source) {
+    const url = emojiImage(source);
+    if (!url) return element('span', 'emoji', fallback);
+    const image = element('img', 'emoji');
+    image.alt = label;
+    image.referrerPolicy = 'no-referrer';
+    image.src = url;
+    image.addEventListener('error', () => image.replaceWith(element('span', 'emoji', fallback)), { once: true });
+    return image;
+  }
+
+  function sendPicker(type, fields = {}) {
+    if (!pickerState || pickerState.busy) return;
+    pickerState.busy = type;
+    if (type !== 'picker-close') pickerStatus.textContent = type === 'picker-select' ? 'Adding reaction…' : 'Loading emoji…';
+    bridge.postMessage({ type, id: pickerState.id, ...fields });
+  }
+
+  function openPicker(id) {
+    if (pickerState || pending) return;
+    pickerState = { id, busy: null, closing: false, query: '', timer: null };
+    search.value = '';
+    grid.replaceChildren();
+    more.hidden = true;
+    picker.hidden = false;
+    main.inert = true;
+    search.focus();
+    sendPicker('picker');
+  }
+
+  function closePicker() {
+    if (!pickerState) return;
+    pickerState.closing = true;
+    clearTimeout(pickerState.timer);
+    picker.hidden = true;
+    main.inert = false;
+    sendPicker('picker-close');
+  }
+
+  function submitEmojiSearch() {
+    if (!pickerState || pickerState.busy || pickerState.closing || pickerState.query === search.value.trim()) return;
+    pickerState.query = search.value.trim();
+    sendPicker('picker-search', { query: pickerState.query });
+  }
+
+  function receivePicker(id, reply) {
+    if (!pickerState || pickerState.id !== id) return;
+    const previous = pickerState.busy;
+    pickerState.busy = null;
+    if (reply.Close) {
+      clearTimeout(pickerState.timer);
+      pickerState = null;
+      picker.hidden = true;
+      main.inert = false;
+      const post = [...main.querySelectorAll('article')].find(article => article.dataset.id === id);
+      (post?.querySelector('[aria-label="Add Reaction"]') || main).focus({ preventScroll: true });
+      return;
+    }
+    if (pickerState.closing) { sendPicker('picker-close'); return; }
+    if (reply.Items) {
+      if (previous === 'picker-search') grid.replaceChildren();
+      for (const emoji of reply.Items) {
+        const option = element('button');
+        option.type = 'button';
+        option.title = emoji.Name;
+        option.setAttribute('aria-label', emoji.Name);
+        option.append(emojiElement(emoji.Name, emoji.Text, emoji.Image));
+        option.addEventListener('click', () => sendPicker('picker-select', { key: emoji.Key }));
+        grid.append(option);
+      }
+      more.hidden = !reply.More;
+    }
+    pickerStatus.textContent = reply.Error || (reply.Items && !grid.childElementCount ? 'No emoji found.' : '');
+    if (search.value.trim() !== pickerState.query) submitEmojiSearch();
+  }
+
+  search.addEventListener('input', () => {
+    if (!pickerState) return;
+    clearTimeout(pickerState.timer);
+    pickerState.timer = setTimeout(submitEmojiSearch, 200);
+  });
+  document.querySelector('#emoji-close').addEventListener('click', closePicker);
+  picker.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); closePicker(); }
+  });
+  more.addEventListener('click', () => sendPicker('picker-more'));
+  grid.addEventListener('scroll', () => {
+    if (!more.hidden && grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 12) sendPicker('picker-more');
+  });
+
   function reactionButton(post, reaction) {
     const button = element('button');
     button.type = 'button';
@@ -75,15 +189,7 @@
       button.setAttribute('aria-label', label);
       button.setAttribute('aria-pressed', String(reaction.Mine));
       button.title = `${reaction.Mine ? 'Remove' : 'React with'} ${reaction.Name}`;
-      const source = emojiImage(reaction.Image);
-      if (source) {
-        const image = element('img', 'emoji');
-        image.alt = reaction.Name;
-        image.referrerPolicy = 'no-referrer';
-        image.src = source;
-        image.addEventListener('error', () => image.replaceWith(element('span', 'emoji', reaction.Name)), { once: true });
-        button.append(image);
-      } else button.append(element('span', 'emoji', reaction.Name));
+      button.append(emojiElement(reaction.Name, reaction.Name, reaction.Image));
       button.append(element('span', '', String(reaction.Count)));
     } else {
       button.setAttribute('aria-label', 'Add Reaction');
@@ -91,13 +197,13 @@
       button.append(element('span', 'emoji', '☺'), element('span', '', '+'));
     }
     button.addEventListener('click', () => {
-      if (pending) return;
+      if (pending || pickerState) return;
+      if (!reaction) { openPicker(post.id); return; }
       pending = { id: post.id, key };
       button.setAttribute('aria-disabled', 'true');
       const status = button.closest('article').querySelector('.status');
       status.textContent = '';
-      bridge.postMessage({ type: reaction ? 'toggle' : 'picker', id: post.id, key: reaction?.Key ?? null,
-        mine: reaction ? !reaction.Mine : null });
+      bridge.postMessage({ type: 'toggle', id: post.id, key: reaction.Key, mine: !reaction.Mine });
     });
     return button;
   }
@@ -159,7 +265,12 @@
   }
 
   bridge.addEventListener('message', ({ data }) => {
-    if (data.scroll === 'by' || data.scroll === 'to') {
+    if (data.picker) receivePicker(data.id, data.picker);
+    else if (data.scroll === 'by' || data.scroll === 'to') {
+      if (!picker.hidden) {
+        if (data.scroll === 'by') grid.scrollTop += data.pixels;
+        return;
+      }
       main.scrollTop = data.scroll === 'by' ? main.scrollTop + data.pixels : data.pixels;
       reportScroll();
     } else if (data.result) {

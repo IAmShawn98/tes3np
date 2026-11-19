@@ -6,6 +6,15 @@
   const rows = list.querySelectorAll('[id^="chat-messages-"]');
   const messageId = row => row.id.match(/^chat-messages-510245417657827363-(\d+)$/)?.[1];
 
+  function emojiSource(image) {
+    const url = image?.getAttribute('src') || '';
+    const custom = url.match(/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/emojis\/(\d+)\.(?:png|gif|webp|avif)(?:\?.*)?$/i);
+    if (custom) return { id: custom[1], url };
+    if (/^(?:https:\/\/discord\.com)?\/assets\/[a-z\d.-]+\.svg(?:\?.*)?$/i.test(url))
+      return { id: null, url: new URL(url, 'https://discord.com').href };
+    return { id: null, url: null };
+  }
+
   function reactionsFor(row) {
     const reactions = [];
     const buttons = row.querySelectorAll('[class^="reaction_"], [class*=" reaction_"]');
@@ -15,26 +24,57 @@
       const name = image?.alt || button.getAttribute('data-emoji-name');
       const total = Number(count?.textContent.replace(/[\s,]/g, ''));
       if (!name || !Number.isSafeInteger(total) || total < 1) continue;
-      const imageUrl = image?.getAttribute('src') || '';
-      const custom = imageUrl.match(/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/emojis\/(\d+)\.(?:png|gif|webp|avif)(?:\?.*)?$/i);
-      const standardImage = /^(?:https:\/\/discord\.com)?\/assets\/[a-z\d.-]+\.svg(?:\?.*)?$/i.test(imageUrl);
+      const source = emojiSource(image);
       const classes = button.getAttribute('class') || '';
       const burst = classes.includes('burstReaction') || classes.includes('shakeReaction');
-      const key = (custom?.[1] || name) + (burst ? ':burst' : '');
-      const source = custom ? imageUrl : standardImage ? new URL(imageUrl, 'https://discord.com').href : null;
+      const key = (source.id || name) + (burst ? ':burst' : '');
       const control = button.matches('button, [role="button"]') ? button :
         button.querySelector('button, [role="button"]') ?? button;
-      reactions.push({ button: control, value: { Key: key, Name: name, Image: source, Count: total,
+      reactions.push({ button: control, value: { Key: key, Name: name, Image: source.url, Count: total,
         Mine: control.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-pressed') === 'true' ||
           classes.includes('reactionMe_') || (control.getAttribute('class') || '').includes('reactionMe_') } });
     }
     return reactions;
   }
 
+  const emojiItemSelector = '[class^="emojiItem_"], [class*=" emojiItem_"], ' +
+    '[data-type="emoji"], [role="gridcell"], button[data-emoji-id], button[data-name]';
+  function getPicker() {
+    return [...document.querySelectorAll(pickerSelector)].find(picker =>
+      picker.querySelector('input, ' + emojiItemSelector));
+  }
+
+  function pickerChoices(picker) {
+    const choices = new Map();
+    const candidates = picker.querySelectorAll(emojiItemSelector);
+    let scroller;
+    for (let parent = candidates[0]?.parentElement; parent && picker.contains(parent); parent = parent.parentElement) {
+      if (parent.scrollHeight > parent.clientHeight && /auto|scroll/.test(window.getComputedStyle(parent).overflowY)) {
+        scroller = parent;
+        break;
+      }
+    }
+    for (const candidate of candidates) {
+      const button = candidate.closest('button, [role="button"]') ??
+        candidate.querySelector('button, [role="button"]') ?? candidate;
+      if (!picker.contains(button) || button.disabled || button.getAttribute('aria-disabled') === 'true' ||
+          /emojiItemDisabled|emojiItemLocked/.test(button.getAttribute('class') || '')) continue;
+      const image = button.querySelector('img[alt]') ?? candidate.querySelector('img[alt]');
+      const name = button.getAttribute('data-name') || button.getAttribute('data-emoji-name') ||
+        candidate.getAttribute('data-name') || button.getAttribute('aria-label') || image?.alt;
+      if (!name || typeof button.click !== 'function') continue;
+      const source = emojiSource(image);
+      const reactionKey = source.id || image?.alt || name;
+      const key = source.id || button.getAttribute('data-emoji-id') || candidate.getAttribute('data-emoji-id') || name;
+      choices.set(key, { button, value: { Key: key, Name: name, Text: image?.alt || name,
+        Image: source.url, ReactionKey: reactionKey, Offset: Math.round(scroller?.scrollTop || 0) } });
+    }
+    return { choices, scroller };
+  }
+
   if (request) {
     const row = [...rows].find(item => messageId(item) === request.Id);
     if (!row) return 'missing';
-    if (request.Kind === 'picker-target') return 'ready';
     if (request.Kind === 'read-reactions') return reactionsFor(row).map(item => item.value);
     if (request.Kind === 'toggle') {
       if (typeof request.Mine !== 'boolean') return 'unavailable';
@@ -46,7 +86,7 @@
       return 'clicked';
     }
     if (request.Kind === 'picker') {
-      if (document.querySelector(pickerSelector)) return 'clicked';
+      if (getPicker()) return window.__tes3npPickerPost === request.Id ? 'clicked' : 'unavailable';
       row.scrollIntoView({ block: 'center' });
       const message = row.querySelector('[class^="message_"], [class*=" message_"]') ?? row;
       message.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -54,6 +94,34 @@
         '[class*="addReactButton_"], [aria-label="Add Reaction" i], [data-list-item-id$="___add-reaction"]');
       if (!add || add.disabled || add.getAttribute('aria-disabled') === 'true') return 'unavailable';
       add.click();
+      window.__tes3npPickerPost = request.Id;
+      return 'clicked';
+    }
+    if (window.__tes3npPickerPost !== request.Id) return 'missing';
+    const picker = getPicker();
+    if (!picker) return 'missing';
+    if (request.Kind === 'picker-search') {
+      const input = picker.querySelector('input[type="search"], input[role="searchbox"], input');
+      if (!input) return 'unavailable';
+      const { scroller } = pickerChoices(picker);
+      if (scroller) scroller.scrollTop = 0;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, request.Query || '');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return 'changed';
+    }
+    const { choices, scroller } = pickerChoices(picker);
+    if (request.Kind === 'picker-page')
+      return { Items: [...choices.values()].slice(0, 300).map(item => item.value),
+        More: !!scroller && scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 2 };
+    if (request.Kind === 'picker-more' || request.Kind === 'picker-position') {
+      if (scroller) scroller.scrollTop = request.Kind === 'picker-more'
+        ? scroller.scrollTop + Math.max(1, scroller.clientHeight * 0.8) : request.Offset;
+      return 'changed';
+    }
+    if (request.Kind === 'picker-select') {
+      const choice = choices.get(request.Key);
+      if (!choice) return 'unavailable';
+      choice.button.click();
       return 'clicked';
     }
     return 'unavailable';
