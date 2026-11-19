@@ -201,10 +201,8 @@ TES3MPExpansionCloakDialog(dialog, cloak)
         return false
 }
 
-; This game module is included before the shared UI modules. Resolve these
-; already-defined application functions by name at invocation, avoiding
-; AutoHotkey v2 interpreting an early direct identifier as an unset local.
-; No second UI renderer or installer is created.
+; The standalone diagnostic fixture includes this module without the
+; launcher UI. Resolve UI functions only when a launcher action calls them.
 TES3MPExpansionCallNativeUi(name, args*)
 {
     ; AHK v2 removed Func(name). A double-deref resolves a global function
@@ -887,10 +885,11 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ; GUI coordinates use AHK DPI scaling. Budget the physical title bar
     ; and frame as well as the client area when fitting the owner's monitor.
     dpi := A_ScreenDPI / 96
-    scale := GetOwnedMenuFitScale(LauncherGui, 660 * dpi, 627 * dpi, Ceil(24 * dpi), Ceil(64 * dpi))
-    ScaleOwnedMenuContent(dialog, scale)
+    scale := TES3MPExpansionCallNativeUi("GetOwnedMenuFitScale", LauncherGui,
+        660 * dpi, 627 * dpi, Ceil(24 * dpi), Ceil(64 * dpi))
+    TES3MPExpansionCallNativeUi("ScaleOwnedMenuContent", dialog, scale)
     dialog.Show("Hide w" Round(660 * scale) " h" Round(627 * scale))
-    PositionOwnedMenuAtParent(dialog, LauncherGui)
+    TES3MPExpansionCallNativeUi("PositionOwnedMenuAtParent", dialog, LauncherGui)
     dialog.Show(mode = "Preflight" ? "NA" : "")
     ExpansionMismatchDialog := dialog
     ExpansionMismatchSlot := downloadSlot.Hwnd
@@ -970,7 +969,7 @@ CloseTES3MPExpansionMismatchDialog(dialog, slotHwnd, import := false)
     ; Normal OK/Cancel closes just this dialog. We never recycle the
     ; embedded Discord controller during an ordinary ZIP download.
     SendLauncherChatCommand(7, slotHwnd)
-    try DestroyScaledMenu(dialog)
+    try TES3MPExpansionCallNativeUi("DestroyScaledMenu", dialog)
     if import
         UploadExpansionFromFile()
 }

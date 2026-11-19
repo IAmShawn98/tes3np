@@ -679,10 +679,10 @@ expect(
     and 'RequestDiscordExpansionPrompt(installing ? 1 : 2)' in mismatch_dialog
     and in_order(
         mismatch_dialog,
-        'GetOwnedMenuFitScale(LauncherGui, 660 * dpi, 627 * dpi',
-        'ScaleOwnedMenuContent(dialog, scale)',
+        'TES3MPExpansionCallNativeUi("GetOwnedMenuFitScale", LauncherGui,',
+        'TES3MPExpansionCallNativeUi("ScaleOwnedMenuContent", dialog, scale)',
         'dialog.Show("Hide w" Round(660 * scale) " h" Round(627 * scale))',
-        'PositionOwnedMenuAtParent(dialog, LauncherGui)',
+        'TES3MPExpansionCallNativeUi("PositionOwnedMenuAtParent", dialog, LauncherGui)',
         'dialog.Show(mode = "Preflight" ? "NA" : "")',
         'RequestDiscordExpansionPrompt(installing ? 1 : 2)',
     )
@@ -692,6 +692,13 @@ expect(
     and 'AddStyledButton(dialog, 300, 580, 180, 38,' in mismatch_dialog
     and '"Repair / Install ZIP"' in mismatch_dialog
     and 'Open Expansion Pack Downloads' in bootstrap,
+)
+expect(
+    "Expansion dialog layout and cleanup resolve launcher UI helpers only at runtime",
+    'TES3MPExpansionCallNativeUi("DestroyScaledMenu", dialog)' in mismatch
+    and not any(f"{helper}(" in mismatch for helper in (
+        "GetOwnedMenuFitScale", "ScaleOwnedMenuContent", "PositionOwnedMenuAtParent", "DestroyScaledMenu"
+    )),
 )
 expect(
     "Discord-backed Expansion Pack ZIP remains authenticated and retryable",
