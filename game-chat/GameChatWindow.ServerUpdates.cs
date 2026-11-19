@@ -92,7 +92,7 @@ internal sealed partial class GameChatWindow
     {
         if (!ServerUpdatesAuthenticated)
         {
-            OpenDiscordAccountSignIn();
+            RequestDiscordSignIn(fromHeader: false);
             return;
         }
 
