@@ -16,6 +16,23 @@ selected for release.
 Record the reviewer, date, supporting permission or license, and exact
 ZIP SHA-256 when the .21 review is complete.
 
+## November 19 review of the tested candidate
+
+The developer build and second-PC test used source commit
+`96e95f5776e0b8f3ff1ba83a385563db3e0711d9` and ZIP SHA-256
+`c8465dc09601236f04752422c78a37a0f8d9d632eb1d110004a9b9d42cc2b394`.
+The [Windows evidence](CLEAN-WINDOWS-TEST-RESULTS.md) records package
+verification, the source-built client and matching DLLs, and the clean
+device's launcher and game tests. Repeat package verification on the final
+ZIP from the reviewed release source.
+
+| Material | Evidence available | Still to record |
+| --- | --- | --- |
+| Launcher artwork and documentation images | [Asset inventory](ASSETS.md) identifies approved artwork and portrait masters. The standalone resource generator lists the embedded artwork. The Chat Host has its own sign-in image. | Origin and permission for the background and its component art, Character Book, UI artwork, Happy Hour artwork, headings, portraits, sign-in image and any documentation images shipped in the final ZIP. |
+| Mystic Cards font | [Bundled notice](../assets/fonts/MysticCardsFontLicense.txt) identifies the OpenMW and Pelagiad authors and SIL OFL 1.1. The build embeds both font and notice. | Confirm the final package contains that font and corresponding notice. |
+| Discord symbol | The [asset inventory](ASSETS.md) identifies the Discord brand kit as its source. | Review the shipped account icon and sign-in artwork against [Discord's brand guidelines](https://discord.com/branding). |
+| Client and runtime components | The tested build passed ZIP validation with the pinned console EXE and 45 DLLs, TES3MP, CrabNet and AutoHotkey notices, and the Chat Host runtime notices. | Verify the same materials and corresponding-source access against the final ZIP. |
+
 ## Historical .20 release and repository visibility
 
 Preserve the original .20 tag, versioned Windows ZIP, and checksum as shipped.
