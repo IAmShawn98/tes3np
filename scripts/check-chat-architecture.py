@@ -435,6 +435,16 @@ expect(
     and 'BundledEmojiCatalog' not in source,
 )
 expect(
+    "The Discord reaction window reveals only the measured native picker and restores it after focus changes",
+    'GameChatWeb.Page("discord-reaction-picker.js")' in source
+    and 'core.AddScriptToExecuteOnDocumentCreatedAsync(PickerPresentationScript.Value)' in source
+    and in_order(section_between(source, 'bool PresentPicker(PickerViewport view)', 'async void WatchPicker('),
+                 'ReactionPickerCrop(view, browserSize)', 'SetWindowRgn(browser.Handle, region, true)',
+                 'browser.Location = new Point(-crop.Left, -crop.Top);', 'status.Hide();')
+    and 'Deactivate += (_, _) => { if (shownPicker) lostFocus = true; };' in source
+    and 'if (await OpenAndPresent(core) || IsDisposed) return;' in source,
+)
+expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",
     'core.Navigate(ServerUpdatesPageUri);' in updates_panel
     and 'e.Cancel = e.Uri != ServerUpdatesPageUri' in updates_panel

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using static GameChatNative;
@@ -95,49 +96,97 @@ internal sealed partial class GameChatWindow
         return true;
     }
 
+    sealed record PickerViewport(double Left, double Top, double Right, double Bottom, double ViewWidth, double ViewHeight);
+    sealed record PickerViewState(PickerViewport? Picker, bool Dismissed);
+
+    static Rectangle ReactionPickerCrop(PickerViewport view, Size browserSize)
+    {
+        if (!double.IsFinite(view.ViewWidth) || !double.IsFinite(view.ViewHeight) ||
+            view.ViewWidth <= 0 || view.ViewHeight <= 0 ||
+            !double.IsFinite(view.Left) || !double.IsFinite(view.Top) ||
+            !double.IsFinite(view.Right) || !double.IsFinite(view.Bottom) ||
+            browserSize.Width <= 0 || browserSize.Height <= 0) return Rectangle.Empty;
+
+        int left = (int)Math.Floor(Math.Clamp(view.Left / view.ViewWidth, 0, 1) * browserSize.Width);
+        int top = (int)Math.Floor(Math.Clamp(view.Top / view.ViewHeight, 0, 1) * browserSize.Height);
+        int right = (int)Math.Ceiling(Math.Clamp(view.Right / view.ViewWidth, 0, 1) * browserSize.Width);
+        int bottom = (int)Math.Ceiling(Math.Clamp(view.Bottom / view.ViewHeight, 0, 1) * browserSize.Height);
+        return right > left && bottom > top ? Rectangle.FromLTRB(left, top, right, bottom) : Rectangle.Empty;
+    }
+
     sealed class DiscordReactionPickerForm : Form
     {
-        readonly WebView2 browser = new()
-        {
-            Dock = DockStyle.Fill, DefaultBackgroundColor = Color.FromArgb(31, 31, 34)
-        };
+        static readonly Lazy<string> PickerPresentationScript = GameChatWeb.Page("discord-reaction-picker.js");
+        static readonly Color PickerBackground = Color.FromArgb(35, 36, 40);
+        readonly Panel viewport = new() { Dock = DockStyle.Fill, BackColor = PickerBackground };
+        readonly WebView2 browser = new() { DefaultBackgroundColor = PickerBackground };
         readonly Label status = new()
         {
-            Dock = DockStyle.Fill, BackColor = Color.FromArgb(31, 31, 34), ForeColor = Color.WhiteSmoke,
-            TextAlign = ContentAlignment.MiddleCenter, Text = "Opening Discord…"
+            Dock = DockStyle.Fill, BackColor = PickerBackground, ForeColor = Color.WhiteSmoke,
+            TextAlign = ContentAlignment.MiddleCenter, Text = "Opening Discord emoji picker…"
         };
+        readonly System.Windows.Forms.Timer pickerWatch = new() { Interval = 275 };
         readonly string postId;
         readonly bool useCacheOptions;
+        readonly Rectangle anchor;
+        Size browserSize;
+        Rectangle lastCrop;
+        DateTime focusedAt;
+        bool checkingPicker, shownPicker, lostFocus;
+        int missingChecks;
 
         internal DiscordReactionPickerForm(string postId, bool useCacheOptions, Rectangle anchor)
         {
             this.postId = postId;
             this.useCacheOptions = useCacheOptions;
+            this.anchor = anchor;
             Text = "Add a reaction - Discord";
-            FormBorderStyle = FormBorderStyle.SizableToolWindow;
+            FormBorderStyle = FormBorderStyle.FixedToolWindow;
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
-            Controls.Add(browser);
+            viewport.Controls.Add(browser);
+            Controls.Add(viewport);
             Controls.Add(status);
             status.BringToFront();
 
-            var workArea = Screen.FromRectangle(anchor).WorkingArea;
             int dpi = Math.Max(96, DeviceDpi);
-            int width = Math.Min(920 * dpi / 96, workArea.Width);
-            int height = Math.Min(720 * dpi / 96, workArea.Height);
-            int x = anchor.Right + width <= workArea.Right ? anchor.Right : anchor.Left - width;
-            Bounds = new Rectangle(Math.Clamp(x, workArea.Left, workArea.Right - width),
-                Math.Clamp(anchor.Top, workArea.Top, workArea.Bottom - height), width, height);
+            PlacePicker(new Size(340 * dpi / 96, 115 * dpi / 96), true);
             Shown += LoadPicker;
+            Deactivate += (_, _) => { if (shownPicker) lostFocus = true; };
+            Activated += (_, _) => focusedAt = DateTime.UtcNow;
+            pickerWatch.Tick += WatchPicker;
+            FormClosed += (_, _) => pickerWatch.Dispose();
+        }
+
+        void PlacePicker(Size client, bool besidePanel)
+        {
+            var workArea = Screen.FromRectangle(besidePanel ? anchor : Bounds).WorkingArea;
+            var outer = SizeFromClientSize(client);
+            outer.Width = Math.Min(outer.Width, workArea.Width);
+            outer.Height = Math.Min(outer.Height, workArea.Height);
+            int x = besidePanel
+                ? (anchor.Right + outer.Width <= workArea.Right ? anchor.Right : anchor.Left - outer.Width)
+                : Left;
+            int y = besidePanel ? anchor.Top : Top;
+            var bounds = new Rectangle(Math.Clamp(x, workArea.Left, workArea.Right - outer.Width),
+                Math.Clamp(y, workArea.Top, workArea.Bottom - outer.Height), outer.Width, outer.Height);
+            if (Bounds != bounds) Bounds = bounds;
         }
 
         async void LoadPicker(object? sender, EventArgs args)
         {
             _ = WatchLauncherLifetime(Handle);
-            bool postVisible = false;
             try
             {
-                // Do not create a second sign-in profile. Match the running host's WebView2 options.
+                // The native menu needs a normal Discord viewport for its internal layout.
+                // That viewport stays the same size when the visible form shrinks to the menu.
+                var workArea = Screen.FromRectangle(anchor).WorkingArea;
+                int dpi = Math.Max(96, DeviceDpi);
+                var chrome = SizeFromClientSize(Size.Empty);
+                browserSize = new Size(Math.Min(920 * dpi / 96, Math.Max(1, workArea.Width - chrome.Width)),
+                    Math.Min(720 * dpi / 96, Math.Max(1, workArea.Height - chrome.Height)));
+                browser.Size = browserSize;
+
                 var options = useCacheOptions ? new CoreWebView2EnvironmentOptions(DiscordCacheArguments) : null;
                 var environment = await CoreWebView2Environment.CreateAsync(null, DiscordUserDataFolder, options)
                     .WaitAsync(TimeSpan.FromSeconds(10));
@@ -147,6 +196,8 @@ internal sealed partial class GameChatWindow
 
                 var core = browser.CoreWebView2;
                 ConfigureServerUpdatesBrowser(core);
+                await core.AddScriptToExecuteOnDocumentCreatedAsync(PickerPresentationScript.Value);
+                if (IsDisposed) return;
                 string target = ServerUpdatesChannel + "/" + postId;
                 core.Navigate(target);
                 var deadline = DateTime.UtcNow.AddSeconds(12);
@@ -158,36 +209,120 @@ internal sealed partial class GameChatWindow
                     if (await RunServerUpdateAction(core, new("picker-target", postId)) != "\"ready\"") continue;
                     if (IsDisposed) return;
 
-                    status.Hide();
-                    postVisible = true;
-                    if (ContainsFocus) browser.Focus();
-                    for (int attempt = 0; attempt < 3; attempt++)
-                    {
-                        if (await RunServerUpdateAction(core, new("picker", postId)) == "\"clicked\"") return;
-                        await Task.Delay(175);
-                        if (IsDisposed) return;
-                    }
-                    ShowManualHelp();
+                    if (await OpenAndPresent(core)) pickerWatch.Start();
+                    else if (!IsDisposed) SetPickerStatus("Discord could not open the emoji menu. Close this window and try again.");
                     return;
                 }
-                status.Text = "Discord could not locate this update. Close this window and try again.";
+                SetPickerStatus("Discord could not locate this update. Close this window and try again.");
             }
             catch (Exception ex)
             {
-                if (IsDisposed) return;
-                if (postVisible) { ShowManualHelp(); return; }
-                status.Text = $"Discord could not open the reaction picker (0x{ex.HResult:X8}).";
-                status.Show();
-                status.BringToFront();
+                if (!IsDisposed) SetPickerStatus($"Discord could not open the reaction picker (0x{ex.HResult:X8}).");
             }
         }
 
-        void ShowManualHelp()
+        static async Task<PickerViewState?> ReadPickerView(CoreWebView2 core)
         {
-            status.Text = "Use Add Reaction on the Discord post.";
-            status.Dock = DockStyle.Bottom;
-            status.Height = 30 * DeviceDpi / 96;
+            string result = await core.ExecuteScriptAsync("window.tes3npReactionPickerView?.()")
+                .WaitAsync(TimeSpan.FromSeconds(3));
+            return JsonSerializer.Deserialize<PickerViewState>(result);
+        }
+
+        async Task<bool> OpenAndPresent(CoreWebView2 core)
+        {
+            if (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source)) return false;
+            if (IsPickerWindowActive()) browser.Focus();
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                if (IsDisposed) return false;
+                if (await RunServerUpdateAction(core, new("picker", postId)) == "\"clicked\"") break;
+                if (attempt == 2) return false;
+                await Task.Delay(175);
+            }
+            for (int attempt = 0; attempt < 16; attempt++)
+            {
+                if (IsDisposed) return false;
+                var state = await ReadPickerView(core);
+                if (IsDisposed) return false;
+                if (state?.Picker is { } view && PresentPicker(view)) return true;
+                await Task.Delay(150);
+            }
+            return false;
+        }
+
+        bool PresentPicker(PickerViewport view)
+        {
+            Rectangle crop = ReactionPickerCrop(view, browserSize);
+            if (crop.IsEmpty) return false;
+            if (crop != lastCrop)
+            {
+                // Clip the browser host HWND as well as its parent panel. The full
+                // channel is never revealed while the native menu is being cropped.
+                var region = CreateRectRgn(crop.Left, crop.Top, crop.Right, crop.Bottom);
+                if (region == IntPtr.Zero) return false;
+                if (SetWindowRgn(browser.Handle, region, true) == 0)
+                {
+                    DeleteObject(region);
+                    return false;
+                }
+                browser.Location = new Point(-crop.Left, -crop.Top);
+                PlacePicker(crop.Size, !shownPicker);
+                lastCrop = crop;
+            }
+            shownPicker = true;
+            missingChecks = 0;
+            status.Hide();
+            return true;
+        }
+
+        async void WatchPicker(object? sender, EventArgs args)
+        {
+            if (IsDisposed || checkingPicker || !IsPickerWindowActive() || browser.CoreWebView2 is not { } core) return;
+            checkingPicker = true;
+            try
+            {
+                var state = await ReadPickerView(core);
+                if (IsDisposed) return;
+                if (state?.Picker is { } view && PresentPicker(view))
+                {
+                    // Give Discord time to finish its focus transition before
+                    // treating a later disappearance as an intentional close.
+                    if (IsPickerWindowActive() && DateTime.UtcNow - focusedAt > TimeSpan.FromMilliseconds(750))
+                        lostFocus = false;
+                    return;
+                }
+                if (state?.Dismissed == true) { Close(); return; }
+                if (++missingChecks < 2) return;
+                if (!IsPickerWindowActive())
+                {
+                    lostFocus = true;
+                    SetPickerStatus("The emoji picker will reopen when you return.");
+                    return;
+                }
+                if (!lostFocus) { Close(); return; }
+
+                lostFocus = false;
+                SetPickerStatus("Reopening Discord emoji picker…");
+                if (await OpenAndPresent(core) || IsDisposed) return;
+                pickerWatch.Stop();
+                SetPickerStatus("Discord could not reopen the emoji menu. Close this window and try again.");
+            }
+            catch (Exception ex)
+            {
+                if (IsDisposed || !IsPickerWindowActive()) return;
+                pickerWatch.Stop();
+                SetPickerStatus($"Discord could not display the emoji picker (0x{ex.HResult:X8}).");
+            }
+            finally { checkingPicker = false; }
+        }
+
+        bool IsPickerWindowActive() => IsHandleCreated && GetForegroundWindow() == Handle;
+
+        void SetPickerStatus(string text)
+        {
+            status.Text = text;
             status.Show();
+            status.BringToFront();
         }
 
         static Task WatchLauncherLifetime(IntPtr window) => Task.Run(async () =>
