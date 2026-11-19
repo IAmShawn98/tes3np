@@ -399,6 +399,9 @@ expect(
     'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
     and "GetWindowRect(serverUpdatesAnchor, out var rect)" in updates_panel
+    and "KeepServerUpdatesAboveLauncher(panel.Handle);" in updates_panel
+    and "previous = GetWindow(owner, GW_HWNDPREV);" in updates_panel
+    and "GetForegroundWindow()" not in updates_panel
     and "SetParent(" not in updates_panel
     and "SetNativeWindowOwner(" not in updates_panel
     and "posts.at(-1).offsetTop" in (chat_root / "web/server-updates.html").read_text(encoding="utf-8")
@@ -441,8 +444,9 @@ expect(
     and in_order(section_between(source, 'bool PresentPicker(PickerViewport view)', 'async void WatchPicker('),
                  'ReactionPickerCrop(view, browserSize)', 'SetWindowRgn(browser.Handle, region, true)',
                  'browser.Location = new Point(-crop.Left, -crop.Top);', 'status.Hide();')
-    and 'Deactivate += (_, _) => { if (shownPicker) lostFocus = true; };' in source
-    and 'if (await OpenAndPresent(core) || IsDisposed) return;' in source,
+    and 'Deactivate += (_, _) => { if (shownPicker || openingPicker) lostFocus = true; };' in source
+    and 'window.tes3npPrepareReactionPicker?.() ?? false' in source
+    and 'PickerOpenResult.NeedsFocus' in source,
 )
 expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",

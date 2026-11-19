@@ -55,12 +55,7 @@ internal sealed partial class GameChatWindow
             CloseServerUpdatesPanel();
             return;
         }
-        var foreground = GetForegroundWindow();
-        bool launcherActive = foreground == owner;
-        bool pickerActive = IsServerUpdatePickerForeground(foreground);
-        bool chatActive = IsHandleCreated && foreground == Handle;
-        if (IsIconic(owner) || !IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor) ||
-            (!launcherActive && !pickerActive && !chatActive && foreground != panel.Handle))
+        if (IsIconic(owner) || !IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor))
         {
             if (panel.Visible) panel.Hide();
             return;
@@ -70,10 +65,26 @@ internal sealed partial class GameChatWindow
         if (bounds.Width < 1 || bounds.Height < 1) return;
         if (panel.Bounds != bounds) panel.Bounds = bounds;
         if (!panel.Visible) panel.Show();
-        // The frame travels with the launcher without joining its input or paint queue.
-        if (launcherActive && GetWindow(owner, 3) != panel.Handle) // GW_HWNDPREV
-            SetWindowPos(panel.Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
+        KeepServerUpdatesAboveLauncher(panel.Handle);
         panel.EnsureFeed();
+    }
+
+    void KeepServerUpdatesAboveLauncher(IntPtr panel)
+    {
+        const uint GW_HWNDPREV = 3;
+        const int WS_EX_TOPMOST = 0x00000008;
+        const uint flags = 0x0001 | 0x0002 | 0x0010 | 0x0200; // NOSIZE, NOMOVE, NOACTIVATE, NOOWNERZORDER
+        // Match the launcher's position relative to other apps without sharing its HWND ownership.
+        bool launcherTopmost = (GetWindowLongEx(owner, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+        bool panelTopmost = (GetWindowLongEx(panel, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+        if (launcherTopmost != panelTopmost)
+            SetWindowPos(panel, new IntPtr(launcherTopmost ? -1 : -2), 0, 0, 0, 0, flags);
+
+        IntPtr previous = GetWindow(owner, GW_HWNDPREV);
+        if (previous == panel) return;
+        if (previous == IntPtr.Zero || (!launcherTopmost && (GetWindowLongEx(previous, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0))
+            previous = launcherTopmost ? new IntPtr(-1) : IntPtr.Zero; // HWND_TOPMOST or HWND_TOP
+        SetWindowPos(panel, previous, 0, 0, 0, 0, flags);
     }
 
     [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hwnd, uint command);
