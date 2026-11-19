@@ -74,11 +74,11 @@ internal sealed partial class GameChatWindow
         panel.EnsureFeed();
     }
 
-    void UpdateServerUpdatesDocument(string document)
+    void UpdateServerUpdatesDocument(string document, bool revealNewest = false)
     {
         if (!ServerUpdatesAuthenticated || document == serverUpdatesDocument) return;
         serverUpdatesDocument = document;
-        serverUpdatesPanel?.SetDocument(document);
+        serverUpdatesPanel?.SetDocument(document, revealNewest);
     }
 
     void CloseServerUpdatesPanel()
@@ -279,13 +279,15 @@ internal sealed partial class GameChatWindow
                 feed.ZoomFactor = Math.Clamp(PanelScale * 96 / Math.Max(96, DeviceDpi), 0.25, 3);
         }
 
-        internal void SetDocument(string value)
+        internal void SetDocument(string value, bool revealNewest = false)
         {
             document = value;
             if (feedVisible)
                 SendFeed(value);
             else
-                UpdateFallback(value);
+                UpdateFallback(value, revealNewest);
+            if (revealNewest && feedVisible)
+                SendFeed("""{"scroll":"newest"}""");
             EnsureFeed();
         }
 

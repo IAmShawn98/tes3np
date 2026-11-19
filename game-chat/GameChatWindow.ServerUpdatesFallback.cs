@@ -143,12 +143,12 @@ internal sealed partial class GameChatWindow
             if (FallbackFollowsNewest(before.Position, before.Maximum)) LandOnFallbackNewest();
         }
 
-        void UpdateFallback(string value)
+        void UpdateFallback(string value, bool revealNewest = false)
         {
             using var payload = JsonDocument.Parse(value);
             string? status = payload.RootElement.TryGetProperty("status", out var text) ? text.GetString() : null;
             var before = ReadFallbackScroll();
-            bool follow = FallbackFollowsNewest(before.Position, before.Maximum);
+            bool follow = revealNewest || FallbackFollowsNewest(before.Position, before.Maximum);
             fallbackFeed.Rtf = FormatUpdatesFallback(host.displayedServerUpdates, status);
             if (follow) LandOnFallbackNewest();
             else ScrollFallback("to", before.Position);
