@@ -1,0 +1,705 @@
+# Import an NP-supplied ESP or ZIP after TES3MP rejects the installed plugins.
+# This operates on the selected Morrowind Data Files and active OpenMW config,
+# never on the bundled launcher/client or user credentials.
+[CmdletBinding(DefaultParameterSetName='Import')]
+param(
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$Package,
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$MorrowindFolder,
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$ConfigFile,
+    [Parameter(Mandatory=$true, ParameterSetName='Import')][string]$JobFolder,
+    [Parameter(Mandatory=$true, ParameterSetName='Recover')][string]$RecoverHistory,
+    [Parameter(Mandatory=$true, ParameterSetName='Identify')][string]$ImportHistory,
+    [Parameter(Mandatory=$true, ParameterSetName='Identify')]
+    [ValidatePattern('^[a-fA-F0-9]{64}(?:,[a-fA-F0-9]{64})*$')][string]$InstalledEspSHA256,
+    [Parameter(Mandatory=$true, ParameterSetName='Identify')][string]$VersionResult
+)
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+# Only retry Windows sharing/byte-range lock violations (32/33). Every
+# operation receives explicit typed file paths: do not invoke caller-created
+# scriptblocks across PowerShell function scopes.
+function InvokeFileOperation([string]$Kind, [string]$Source, [string]$Destination, [string]$Operation, [string]$PreviousHash = '') {
+    if ([string]::IsNullOrWhiteSpace($Source)) {
+        throw ('Import file source was empty while ' + $Operation + '.')
+    }
+    if ($Kind -in @('copy','replace','move') -and [string]::IsNullOrWhiteSpace($Destination)) {
+        throw ('Import file destination was empty while ' + $Operation + '.')
+    }
+    for ($attempt = 1; $attempt -le 6; $attempt++) {
+        if ($attempt -gt 1 -and $PreviousHash) { AssertExpectedTarget $Destination $PreviousHash }
+        try {
+            switch ($Kind) {
+                'hash' {
+                    $hasher = [Security.Cryptography.SHA256]::Create()
+                    try {
+                        $stream = [IO.File]::OpenRead($Source)
+                        try {
+                            return [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-','').ToLowerInvariant()
+                        } finally { $stream.Dispose() }
+                    } finally { $hasher.Dispose() }
+                }
+                'copy' { [IO.File]::Copy($Source, $Destination, $false); return }
+                # Windows PowerShell 5.1 coerces $null to "" for .NET string
+                # parameters. File.Replace interprets "" as an illegal backup
+                # filename; [NullString]::Value passes actual CLR null.
+                'replace' { [IO.File]::Replace($Source, $Destination, [NullString]::Value); return }
+                'move' { [IO.File]::Move($Source, $Destination); return }
+                'zipopen' { return [IO.Compression.ZipFile]::OpenRead($Source) }
+                default { throw 'Unknown Expansion Pack file operation.' }
+            }
+        }
+        catch {
+            $cause = $_.Exception.GetBaseException()
+            $code = [int]($cause.HResult -band 65535)
+            # Only copy operations target our disposable stage, backup or
+            # replacement temp. Delete partial outputs, never installed files.
+            if ($Kind -eq 'copy' -and [IO.File]::Exists($Destination)) {
+                try { [IO.File]::Delete($Destination) } catch {}
+            }
+            if ($cause -isnot [IO.IOException] -or $code -notin @(32,33)) {
+                throw ('Expansion Pack failed while ' + $Operation + ': ' + $cause.Message)
+            }
+            if ($attempt -eq 6) {
+                throw ('Windows kept a file locked while ' + $Operation +
+                    ' (lock error ' + $code + ', six attempts). ' +
+                    'Close applications or file scanners using the Expansion Pack and try again.')
+            }
+            Start-Sleep -Milliseconds (@(150,300,550,850,1300)[$attempt - 1])
+        }
+    }
+}
+function Sha256([string]$Path) {
+    return (InvokeFileOperation 'hash' $Path '' ('hashing file during ' + $script:ImportActivity))
+}
+function CopyWithRetry([string]$Source, [string]$Target, [string]$Operation) {
+    if ([IO.File]::Exists($Target)) { throw 'Temporary import copy destination already exists.' }
+    InvokeFileOperation 'copy' $Source $Target $Operation
+}
+# The launcher polls progress.ini twice every 50 ms (AHK IniRead). Never
+# truncate a file that it may be reading: publish a complete UTF-16 INI by
+# atomic same-directory rename/replace, retrying transient sharing locks.
+# This also avoids presenting a partially written progress/status record.
+function WriteJobIni([string]$Name, [string]$Body) {
+    if ($Name -notin @('progress.ini', 'result.ini')) { throw 'Unexpected import status filename.' }
+    WriteJobFile $Name $Body ([Text.Encoding]::Unicode)
+}
+function WriteJobFile([string]$Name, [string]$Body, [Text.Encoding]$Encoding) {
+    $target = Join-Path $JobFolder $Name
+    $temp = Join-Path $JobFolder ('.' + $Name + '-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        [IO.File]::WriteAllText($temp, $Body, $Encoding)
+        if ([IO.File]::Exists($target)) {
+            InvokeFileOperation 'replace' $temp $target ('publishing import ' + $Name)
+        } else {
+            InvokeFileOperation 'move' $temp $target ('publishing import ' + $Name)
+        }
+    }
+    finally {
+        if ([IO.File]::Exists($temp)) {
+            try { [IO.File]::Delete($temp) } catch {}
+        }
+    }
+}
+function Progress([string]$Text, [int]$Percent) {
+    $clean = $Text.Replace([Environment]::NewLine, ' ').Replace('=', '-')
+    $body = '[Progress]' + [Environment]::NewLine + 'Label=' + $clean + [Environment]::NewLine +
+        'Percent=' + $Percent + [Environment]::NewLine
+    WriteJobIni 'progress.ini' $body
+}
+# result.ini is read by the launcher and may be included in support reports.
+# Preserve precise fixed worker errors, not sensitive exception file paths.
+function CleanImportMessage([string]$Message) {
+    $safe = [regex]::Replace($Message, '(?i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]', '')
+    $safe = [regex]::Replace($safe, '(?i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=][^|\r\n]*', '')
+    $safe = [regex]::Replace($safe, '(?i)\b(?:https?|wss?)://[^\s|]+', '')
+    # Quoted paths are removed as a unit to retain the surrounding error reason.
+    $safe = [regex]::Replace($safe, '(?i)["''](?:[A-Z]:[\\/]|\\\\)[^"'']*["'']', '')
+    $safe = [regex]::Replace($safe, '(?i)\b[A-Z]:[\\/][^|;\r\n]+', '')
+    $safe = [regex]::Replace($safe, '(?i)\\\\[^|;\r\n]+', '')
+    $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '')
+    $safe = [regex]::Replace($safe, '\b(?:\d{1,3}\.){3}\d{1,3}\b', '')
+    $safe = [regex]::Replace($safe, '\b\d{16,21}\b', '')
+    $user = [Environment]::UserName
+    if ($user -and $user.Length -ge 3) {
+        $safe = [regex]::Replace($safe, '(?i)(?<![\p{L}\p{N}_])' + [regex]::Escape($user) + '(?![\p{L}\p{N}_])', '')
+    }
+    $safe = [regex]::Replace($safe, '[\r\n=]+', ' ')
+    $safe = [regex]::Replace($safe, '\s{2,}', ' ').Trim()
+    if (!$safe) { return 'The Expansion Pack operation could not be completed.' }
+    return $safe
+}
+function Result([string]$State, [string]$Message, [string]$Backup = '', [bool]$RollbackComplete = $false, [string]$ExpansionVersion = '') {
+    $clean = CleanImportMessage $Message
+    # Backup locations belong in the private rollback journal, not the result
+    # shared with the UI or support. Preserve the pre-existing Backup key.
+    $backupStatus = if ($Backup -and [IO.File]::Exists((Join-Path $Backup 'journal.json'))) { 'available' } else { '' }
+    $body = '[Result]' + [Environment]::NewLine + 'State=' + $State + [Environment]::NewLine +
+        'Message=' + $clean + [Environment]::NewLine + 'Backup=' + $backupStatus + [Environment]::NewLine
+    if ($RollbackComplete) { $body += 'Rollback=complete' + [Environment]::NewLine }
+    if ($State -eq 'success' -and $ExpansionVersion) {
+        $body += 'ExpansionVersion=' + $ExpansionVersion + [Environment]::NewLine
+    }
+    WriteJobIni 'result.ini' $body
+}
+function AssertPlain([string]$Path) {
+    $cursor = [IO.Path]::GetFullPath($Path)
+    while ($cursor) {
+        if (Test-Path -LiteralPath $cursor) {
+            $attributes = [IO.File]::GetAttributes($cursor)
+            if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'Linked folders or files cannot be modified by the Expansion Pack importer.'
+            }
+        }
+        $parent = [IO.Path]::GetDirectoryName($cursor)
+        if (!$parent -or $parent -eq $cursor) { break }
+        $cursor = $parent
+    }
+}
+function GetExpansionPackageVersion([string]$Source) {
+    $path = $Source.TrimEnd([char[]]'\/')
+    # Import records contain the archive filename or the selected extracted
+    # folder. Selecting Data Files can leave the version on its parent.
+    $segments = $path -split '[\\/]'
+    $name = $segments[-1]
+    if ($name -ieq 'Data Files' -and $segments.Count -gt 1) { $name = $segments[-2] }
+    if ($name -match '^NP[ _.-]+Expansion[ _.-]+Pack[ _.-]+(v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3})(?: \(\d+\))?(?:\.zip)?$') {
+        return $Matches[1].ToLowerInvariant()
+    }
+    return ''
+}
+
+function FindExpansionImportVersion([string]$History, [string[]]$Hashes) {
+    if (![IO.Directory]::Exists($History)) { return '' }
+    AssertPlain $History
+    $version = ''
+    $identified = @{}
+    $jobs = Get-ChildItem -LiteralPath $History -Directory |
+        Where-Object { $_.Name -match '^(?:[0-9a-f]{32}|\d{14}-\d+)$' } |
+        Sort-Object -Property LastWriteTimeUtc -Descending |
+        Select-Object -First 80
+    foreach ($job in $jobs) {
+        try {
+            $journal = Get-Item -LiteralPath (Join-Path $job.FullName 'journal.json') -ErrorAction SilentlyContinue
+            if (!$journal -or $journal.Length -gt 12MB) { continue }
+            AssertPlain $journal.FullName
+            $record = [IO.File]::ReadAllText($journal.FullName) | ConvertFrom-Json
+            if ($record.Completed -isnot [bool] -or !$record.Completed) { continue }
+            $sourceVersion = GetExpansionPackageVersion ([string]$record.Package)
+            if (!$sourceVersion) { continue }
+            foreach ($item in $record.Files) {
+                if (($item.Target -split '[\\/]')[-1] -ine 'NP Expansion Pack.esp' -or
+                    $item.InstalledHash -notin $Hashes) {
+                    continue
+                }
+                if ($version -and $version -ne $sourceVersion) { return '' }
+                $version = $sourceVersion
+                $identified[$item.InstalledHash] = $true
+            }
+        } catch {
+            # An unrelated old, corrupt or unparseable record cannot supply a version.
+        }
+    }
+    foreach ($hash in $Hashes) {
+        if (!$identified.ContainsKey($hash)) { return '' }
+    }
+    return $version
+}
+
+if ($PSCmdlet.ParameterSetName -eq 'Identify') {
+    # Only the version goes back to the launcher. Keep paths and hashes in the
+    # existing private journals and never open the original package.
+    $knownVersion = FindExpansionImportVersion $ImportHistory ($InstalledEspSHA256 -split ',')
+    if ($knownVersion) {
+        [IO.File]::WriteAllText($VersionResult, $knownVersion, [Text.Encoding]::ASCII)
+    }
+    exit 0
+}
+
+function AssertGameClosed {
+    if (Get-Process -Name 'tes3mp','openmw','openmw-launcher' -ErrorAction SilentlyContinue) {
+        throw 'Close all TES3MP/OpenMW clients before importing the Expansion Pack.'
+    }
+}
+# Package content has no arbitrary 128 MB/1 GB ceiling. Keep extraction
+# bounded by actual free disk space, with a small reserve for metadata.
+# Never disable hash checks, archive path validation, or transaction rollback.
+function AssertSpace([string]$Destination, [long]$BytesNeeded) {
+    if ($BytesNeeded -lt 0) { throw 'Expansion Pack declares an invalid file size.' }
+    $rootPath = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Destination))
+    try {
+        $drive = [IO.DriveInfo]::new($rootPath)
+        $free = [long]$drive.AvailableFreeSpace
+    } catch {
+        throw 'Could not determine available disk space for Expansion Pack installation.'
+    }
+    $reserve = [long]67108864 # 64 MiB for filesystem metadata/temporary files.
+    if ($BytesNeeded -gt $free - $reserve) {
+        $requiredGiB = [Math]::Round(([double]$BytesNeeded + $reserve) / 1073741824, 2)
+        $freeGiB = [Math]::Round(([double]$free) / 1073741824, 2)
+        throw ('Not enough free disk space for Expansion Pack: need approximately ' +
+            $requiredGiB + ' GiB on ' + $rootPath + ' (available: ' + $freeGiB + ' GiB).')
+    }
+}
+function AssertExpectedTarget([string]$Target, [string]$PreviousHash) {
+    AssertPlain $Target
+    $present = [IO.File]::Exists($Target)
+    if (($PreviousHash -eq '' -and $present) -or
+        ($PreviousHash -ne '' -and (!$present -or (Sha256 $Target) -ne $PreviousHash))) {
+        throw 'A game file changed during the Expansion Pack import.'
+    }
+}
+function ReplaceVerified([string]$Source, [string]$Target, [string]$Expected, [string]$PreviousHash) {
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Target)) | Out-Null
+    $temp = $Target + '.tes3np-import-' + [guid]::NewGuid().ToString('N')
+    try {
+        CopyWithRetry $Source $temp ("preparing replacement during " + $script:ImportActivity)
+        if ((Sha256 $temp) -ne $Expected) { throw 'A staged file did not pass SHA-256 verification.' }
+        AssertExpectedTarget $Target $PreviousHash
+        if ($PreviousHash -ne '') {
+            # The import journal already holds a verified persistent backup.
+            # Avoid a redundant .NET File.Replace temporary backup that also
+            # has to be deleted while antivirus/indexing may be scanning it.
+            InvokeFileOperation 'replace' $temp $Target ("replacing file during " + $script:ImportActivity) $PreviousHash
+        } else {
+            InvokeFileOperation 'move' $temp $Target ("installing new file during " + $script:ImportActivity)
+        }
+    } finally {
+        if ([IO.File]::Exists($temp)) {
+            try { [IO.File]::Delete($temp) } catch {}
+        }
+    }
+}
+function AllowedAsset([string]$Relative) {
+    if ($Relative -ieq 'NP Expansion Pack.esp') { return $true }
+    $extension = [IO.Path]::GetExtension($Relative).ToLowerInvariant()
+    # The updated official pack contains Sound/tes3mp_np/mnts/contact.wav.
+    # Restrict Sound to the NP namespace and audio formats only.
+    if ($Relative -match '^Sound/tes3mp_np/[^:]+$') {
+        return $extension -in @('.wav','.ogg','.mp3')
+    }
+    # Existing artwork allowlist and unchanged ZIP/folder safety checks.
+    if ($Relative -notmatch '^(Icons|Meshes|Textures)/tes3mp_np/[^:]+$') { return $false }
+    return $extension -in @('.tga','.dds','.nif','.kf','.png','.jpg','.jpeg','.bmp','.wav','.ogg','.mp3','.txt','.xml','.bsa')
+}
+
+function ReadRecoveryEntries($Record) {
+    if ($Record.Completed -isnot [bool] -or $Record.Files -isnot [array] -or
+        !$Record.Files.Count -or $Record.Files.Count -gt 10001) {
+        throw 'Invalid Expansion Pack recovery journal.'
+    }
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $dataRoot = ''
+    $configSeen = $false
+    for ($i = 0; $i -lt $Record.Files.Count; $i++) {
+        $item = $Record.Files[$i]
+        if ($item.Existed -isnot [bool] -or $item.Target -isnot [string] -or
+            $item.OriginalHash -isnot [string] -or $item.InstalledHash -isnot [string] -or
+            $item.Target -notmatch '^(?:[a-z]:[\\/]|\\\\[^.\\?][^\\]*\\[^\\]+\\)' -or
+            $item.InstalledHash -notmatch '^[0-9a-f]{64}$' -or
+            ($item.Existed -and $item.OriginalHash -notmatch '^[0-9a-f]{64}$') -or
+            (!$item.Existed -and $item.OriginalHash -cne '')) {
+            throw 'Invalid Expansion Pack recovery entry.'
+        }
+        $target = [IO.Path]::GetFullPath($item.Target)
+        if ($target.Substring([IO.Path]::GetPathRoot($target).Length).Contains(':') -or !$seen.Add($target)) {
+            throw 'Invalid or duplicate Expansion Pack recovery target.'
+        }
+        AssertPlain $target
+        if ([IO.Path]::GetFileName($target) -ieq 'openmw.cfg') {
+            if ($configSeen -or !$item.Existed) { throw 'Invalid OpenMW recovery target.' }
+            $configSeen = $true
+        } elseif ($target -match '^(.*?\\Data Files)\\(.+)$' -and (AllowedAsset $Matches[2].Replace('\','/'))) {
+            if ($dataRoot -and $dataRoot -ine $Matches[1]) { throw 'Recovery targets multiple Morrowind data folders.' }
+            $dataRoot = $Matches[1]
+        } else {
+            throw 'Recovery target is outside the allowed Expansion Pack files.'
+        }
+        # Derive the backup path from the job and entry index.
+        $backup = Join-Path $JobFolder ('backup\' + $i)
+        [pscustomobject]@{Target=$target; Existed=$item.Existed; Backup=$backup
+            OriginalHash=$item.OriginalHash; InstalledHash=$item.InstalledHash}
+    }
+    if ($dataRoot) {
+        foreach ($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')) {
+            if (![IO.File]::Exists((Join-Path $dataRoot $master))) {
+                throw 'Cannot verify the Morrowind folder for Expansion Pack recovery.'
+            }
+        }
+    }
+}
+
+function UndoInterruptedImport($Record, $NewerTargets) {
+    $entries = @(ReadRecoveryEntries $Record)
+    $restore = [Collections.Generic.List[object]]::new()
+    $conflict = $false
+    foreach ($item in $entries) {
+        if ($NewerTargets.Contains($item.Target)) { continue }
+        if ([IO.Directory]::Exists($item.Target)) { $conflict = $true; continue }
+        $current = if ([IO.File]::Exists($item.Target)) { Sha256 $item.Target } else { '' }
+        if ($current -eq $item.OriginalHash) { continue }
+        if ($current -ne $item.InstalledHash) { $conflict = $true; continue }
+        if ($item.Existed) {
+            AssertPlain $item.Backup
+            if (![IO.File]::Exists($item.Backup) -or (Sha256 $item.Backup) -ne $item.OriginalHash) {
+                throw 'An Expansion Pack recovery backup is missing or invalid.'
+            }
+        }
+        $restore.Add($item)
+    }
+    for ($i = $restore.Count - 1; $i -ge 0; $i--) {
+        AssertGameClosed
+        $item = $restore[$i]
+        if ($item.Existed) {
+            ReplaceVerified $item.Backup $item.Target $item.OriginalHash $item.InstalledHash
+        } else {
+            AssertExpectedTarget $item.Target $item.InstalledHash
+            [IO.File]::Delete($item.Target)
+        }
+    }
+    if ($conflict) { throw 'A game file changed after the Expansion Pack import was interrupted.' }
+}
+
+if ($PSCmdlet.ParameterSetName -eq 'Recover') {
+    $script:ImportActivity = 'recovering an interrupted Expansion Pack import'
+    $recovered = $false
+    $pending = $false
+    try {
+        if (![IO.Directory]::Exists($RecoverHistory)) { exit 0 }
+        AssertPlain $RecoverHistory
+        $newerTargets = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        $jobs = Get-ChildItem -LiteralPath $RecoverHistory -Directory | Sort-Object CreationTimeUtc -Descending
+        foreach ($job in $jobs) {
+            if ($job.Name -notmatch '^(?:[0-9a-f]{32}|\d{14}-\d+)$') { continue }
+            $JobFolder = $job.FullName
+            $lock = Join-Path $JobFolder '.import.lock'
+            $journal = Join-Path $JobFolder 'journal.json'
+            if (![IO.File]::Exists($lock) -and ![IO.File]::Exists($journal)) { continue }
+            $jobLock = $null
+            try {
+                AssertPlain $lock
+                $jobLock = [IO.File]::Open($lock, [IO.FileMode]::OpenOrCreate,
+                    [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+                if (![IO.File]::Exists($journal)) { continue }
+                $result = Join-Path $JobFolder 'result.ini'
+                AssertPlain $result
+                if ([IO.File]::Exists($result) -and
+                    [IO.File]::ReadAllText($result) -match '(?m)^Rollback=complete\r?$') { continue }
+                AssertPlain $journal
+                if ((Get-Item -LiteralPath $journal).Length -gt 12MB) { throw 'Recovery journal is too large.' }
+                $record = [IO.File]::ReadAllText($journal) | ConvertFrom-Json
+                if ($record.Completed -is [bool] -and $record.Completed) {
+                    # A later successful import may have installed the same bytes.
+                    foreach ($item in $record.Files) {
+                        $null = $newerTargets.Add([IO.Path]::GetFullPath($item.Target))
+                    }
+                    continue
+                }
+                AssertGameClosed
+                UndoInterruptedImport $record $newerTargets
+                Result 'error' 'The interrupted Expansion Pack import was rolled back. You can import the pack again.' '' $true
+                $recovered = $true
+            } catch {
+                $pending = $true
+                # Resolve the newest uncertain job before touching older records.
+                break
+            } finally {
+                if ($jobLock) { $jobLock.Dispose() }
+            }
+        }
+    } catch { $pending = $true }
+    if ($pending) { exit 3 }
+    if ($recovered) { exit 2 }
+    exit 0
+}
+
+[IO.Directory]::CreateDirectory($JobFolder) | Out-Null
+$backups = @()
+$changed = @()
+$rollbackReady = $false
+$staged = $null
+$script:ImportActivity = 'package inspection'
+$jobLock = $null
+$jobReady = $false
+try {
+    AssertPlain $JobFolder
+    $jobLock = [IO.File]::Open((Join-Path $JobFolder '.import.lock'),
+        [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    foreach ($name in @('stage', 'backup', 'journal.json', 'result.ini')) {
+        if (Test-Path -LiteralPath (Join-Path $JobFolder $name)) {
+            throw 'This Expansion Pack import job already contains data. Start a new import.'
+        }
+    }
+    $jobReady = $true
+    Progress 'Checking Expansion Pack download' 5
+    AssertGameClosed
+    if (![IO.File]::Exists($Package) -and ![IO.Directory]::Exists($Package)) {
+        throw 'Select an existing Expansion Pack ZIP, ESP or extracted folder.'
+    }
+    AssertPlain $Package
+    if ([IO.Path]::GetFileName($ConfigFile) -ine 'openmw.cfg' -or ![IO.File]::Exists($ConfigFile)) {
+        throw 'Select your active OpenMW openmw.cfg before importing.'
+    }
+    AssertPlain $ConfigFile
+    $data = Join-Path $MorrowindFolder 'Data Files'
+    AssertPlain $data
+    foreach ($master in @('Morrowind.esm','Tribunal.esm','Bloodmoon.esm')) {
+        if (![IO.File]::Exists((Join-Path $data $master))) { throw ('Required Morrowind GOTY master missing: ' + $master) }
+    }
+    $staged = Join-Path $JobFolder 'stage'
+    [IO.Directory]::CreateDirectory($staged) | Out-Null
+    $assets = @()
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $packageVersion = GetExpansionPackageVersion $Package
+    $extension = [IO.Path]::GetExtension($Package).ToLowerInvariant()
+    if ([IO.Directory]::Exists($Package)) {
+        # Accept a selected Data Files folder, its parent, or a ZIP wrapper
+        # folder that contains Data Files. Use the ZIP allowlist and limits.
+        $root = [IO.DirectoryInfo]::new([IO.Path]::GetFullPath($Package))
+        $folderPrefix = $root.FullName.TrimEnd('\') + '\'
+        $folderIsDataFiles = $root.Name -ieq 'Data Files'
+        $total = [long]0
+        $entryCount = 0
+        foreach ($item in Get-ChildItem -LiteralPath $root.FullName -Recurse -Force -ErrorAction Stop) {
+            $entryCount++
+            if ($entryCount -gt 10000) { throw 'The extracted Expansion Pack folder contains too many entries.' }
+            # Never follow junctions, symbolic links, or reparse-point files.
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'Linked files or folders are not supported in an extracted Expansion Pack.'
+            }
+            if ($item.PSIsContainer) { continue }
+            AssertPlain $item.FullName
+            if (!$item.FullName.StartsWith($folderPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                throw 'An extracted Expansion Pack file is outside the selected folder.'
+            }
+            $raw = $item.FullName.Substring($folderPrefix.Length).Replace('\','/')
+            $relative = ''
+            if ($folderIsDataFiles) { $relative = $raw }
+            elseif ($raw -match '(?i)(^|/)Data Files/(.+)$') { $relative = $Matches[2] }
+            elseif (AllowedAsset $raw) { $relative = $raw }
+            if (!$relative) { continue } # Ignore readmes/licenses outside Data Files.
+            if (!(AllowedAsset $relative)) {
+                throw ('Unexpected file in Expansion Pack Data Files: ' + $relative)
+            }
+            if (!$seen.Add($relative)) { throw ('Duplicate Expansion Pack asset in folder: ' + $relative) }
+            if ($item.Length -lt 0 -or $total -gt ([long]::MaxValue - $item.Length)) {
+                throw 'Extracted Expansion Pack has invalid or overflowing file sizes.'
+            }
+            $total += $item.Length
+            AssertSpace $staged ([long]$item.Length)
+            $target = Join-Path $staged ($relative.Replace('/', '\'))
+            AssertPlain $target
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+            $script:ImportActivity = "staging extracted asset $($assets.Count + 1)"
+            CopyWithRetry $item.FullName $target ("copying extracted asset " + ($assets.Count + 1))
+            if ((Get-Item -LiteralPath $target).Length -ne $item.Length -or (Sha256 $target) -ne (Sha256 $item.FullName)) {
+                throw 'A staged Expansion Pack file did not pass verification.'
+            }
+            $assets += [pscustomobject]@{Relative=$relative; Source=$target}
+        }
+    }
+    elseif ($extension -eq '.esp') {
+        if ([IO.Path]::GetFileName($Package) -ine 'NP Expansion Pack.esp') {
+            throw 'The chosen ESP must be named NP Expansion Pack.esp.'
+        }
+        AssertSpace $staged ([long](Get-Item -LiteralPath $Package).Length)
+        $target = Join-Path $staged 'NP Expansion Pack.esp'
+        $script:ImportActivity = 'staging selected ESP'
+        CopyWithRetry $Package $target 'copying selected ESP'
+        $assets = @([pscustomobject]@{Relative='NP Expansion Pack.esp'; Source=$target})
+    }
+    elseif ($extension -eq '.zip') {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = InvokeFileOperation 'zipopen' $Package '' 'opening downloaded ZIP'
+        try {
+            if ($archive.Entries.Count -gt 10000) { throw 'The ZIP contains too many entries.' }
+            $total = [long]0
+            foreach ($entry in $archive.Entries) {
+                $raw = $entry.FullName
+                $unsafePath = $raw.Contains('\') -or $raw.StartsWith('/') -or $raw.Contains(':') -or $raw -match '(^|/)\.\.(/|$)' -or $raw -match '[\x00-\x1F]'
+                if ($unsafePath) {
+                    throw 'The ZIP contains an unsafe file path.'
+                }
+                if ($raw.EndsWith('/')) { continue }
+                # Block Unix symlinks even if the archive was made outside Windows.
+                if ((($entry.ExternalAttributes -shr 16) -band 61440) -eq 40960) {
+                    throw 'ZIP symbolic links are not supported.'
+                }
+                $relative = ''
+                if ($raw -match '(?i)(^|/)Data Files/(.+)$') { $relative = $Matches[2] }
+                elseif (AllowedAsset $raw) { $relative = $raw }
+                if (!$relative) { continue } # Ignore ZIP readmes and licenses outside Data Files.
+                if (!(AllowedAsset $relative)) {
+                    throw ('Unexpected file in Expansion Pack Data Files: ' + $relative)
+                }
+                if (!$seen.Add($relative)) { throw ('Duplicate Expansion Pack asset in ZIP: ' + $relative) }
+                if ($entry.Length -lt 0 -or $total -gt ([long]::MaxValue - $entry.Length)) {
+                    throw 'Expansion Pack ZIP has invalid or overflowing file sizes.'
+                }
+                $total += $entry.Length
+                AssertSpace $staged ([long]$entry.Length)
+                $script:ImportActivity = "staging ZIP asset $($assets.Count + 1)"
+                $target = Join-Path $staged ($relative.Replace('/', '\'))
+                AssertPlain $target
+                [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+                $read = $entry.Open()
+                try {
+                    $write = [IO.File]::Create($target)
+                    try {
+                        $buffer = New-Object byte[] 65536
+                        $copied = [long]0
+                        while (($count = $read.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                            $copied += $count
+                            if ($copied -gt $entry.Length) {
+                                throw 'Extracted ZIP file exceeded its declared size or safety limit.'
+                            }
+                            $write.Write($buffer, 0, $count)
+                        }
+                    } finally { $write.Dispose() }
+                } finally { $read.Dispose() }
+                if ((Get-Item -LiteralPath $target).Length -ne $entry.Length) { throw 'ZIP extraction size did not match its declared size.' }
+                $assets += [pscustomobject]@{Relative=$relative; Source=$target}
+            }
+        } finally { $archive.Dispose() }
+    } else { throw 'Only an extracted folder, .zip, or NP Expansion Pack.esp is supported.' }
+    $expansion = $assets | Where-Object { $_.Relative -ieq 'NP Expansion Pack.esp' } | Select-Object -First 1
+    if (!$expansion) {
+        throw 'The selected package is missing NP Expansion Pack.esp in its Data Files.'
+    }
+    if ((Get-Item -LiteralPath $expansion.Source).Length -eq 0) {
+        throw 'NP Expansion Pack.esp is empty. Select a complete Expansion Pack package.'
+    }
+    Progress 'Preparing verified game file replacements' 35
+    $plan = @()
+    $script:ImportActivity = 'preparing install plan'
+    foreach ($asset in $assets) {
+        $target = Join-Path $data ($asset.Relative.Replace('/', '\'))
+        AssertPlain $target
+        $plan += [pscustomobject]@{Source=$asset.Source; Target=$target; Hash=(Sha256 $asset.Source)}
+    }
+    $configHash = Sha256 $ConfigFile
+    $original = [IO.File]::ReadAllText($ConfigFile)
+    AssertExpectedTarget $ConfigFile $configHash
+    if ($original -match '(?m)^\s*config\s*=') { throw 'Nested OpenMW configs are not supported. Select your active user openmw.cfg.' }
+    $lines = @($original -split '\r?\n' | Where-Object { $_ -notmatch '^\s*content\s*=\s*"?NP Expansion Pack\.esp"?\s*$' })
+    $hasData = $false
+    foreach ($line in $lines) {
+        if ($line -match '^\s*data\s*=\s*(.+?)\s*$') {
+            $current = $Matches[1].Trim('"').Replace('/','\')
+            try {
+                if ([IO.Path]::GetFullPath($current).TrimEnd('\') -ieq [IO.Path]::GetFullPath($data).TrimEnd('\')) {
+                    $hasData = $true
+                }
+            } catch {}
+        }
+    }
+    if (!$hasData) { $lines += ('data="' + $data.Replace('\','/') + '"') }
+    $lines += 'content=NP Expansion Pack.esp'
+    $updated = ($lines -join [Environment]::NewLine).TrimEnd() + [Environment]::NewLine
+    if ($updated -cne $original) {
+        $preparedConfig = Join-Path $JobFolder 'prepared-openmw.cfg'
+        [IO.File]::WriteAllText($preparedConfig, $updated, ([Text.UTF8Encoding]::new($false)))
+        $plan += [pscustomobject]@{Source=$preparedConfig; Target=$ConfigFile; Hash=(Sha256 $preparedConfig)}
+    }
+    $script:ImportActivity = 'checking existing files'
+    $needed = @($plan | Where-Object { ![IO.File]::Exists($_.Target) -or (Sha256 $_.Target) -ne $_.Hash })
+    if (!$needed.Count) {
+        AssertExpectedTarget $ConfigFile $configHash
+        try { Result 'success' 'Selected Expansion Pack files are already installed. Try connecting again.' $JobFolder -ExpansionVersion $packageVersion } catch {}
+        try { Progress 'Expansion files already match the download' 100 } catch {}
+        exit 0
+    }
+    Progress 'Backing up existing game files' 45
+    $i = 0
+    foreach ($item in $needed) {
+        $script:ImportActivity = "backing up file $($i + 1) of $($needed.Count)"
+        $existing = [IO.File]::Exists($item.Target)
+        $backup = Join-Path $JobFolder ('backup\' + $i)
+        $before = ''
+        if ($existing) {
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
+            $before = Sha256 $item.Target
+            AssertSpace $JobFolder ([long](Get-Item -LiteralPath $item.Target).Length)
+            CopyWithRetry $item.Target $backup ("backing up file " + ($i + 1) + " of " + $needed.Count)
+            if ((Sha256 $backup) -ne $before) { throw 'Backup verification failed.' }
+        }
+        if ($item.Target -ieq $ConfigFile -and $before -ne $configHash) {
+            throw 'OpenMW settings changed while TES3NP was preparing the import.'
+        }
+        $backups += [pscustomobject]@{Target=$item.Target; Existed=$existing; Backup=$backup; OriginalHash=$before; InstalledHash=$item.Hash}
+        $i++
+    }
+    $record = [pscustomobject]@{Completed=$false; Package=$Package; Files=$backups}
+    WriteJobFile 'journal.json' ($record | ConvertTo-Json -Depth 5) ([Text.UTF8Encoding]::new($false))
+    $rollbackReady = $true
+    for ($i=0; $i -lt $needed.Count; $i++) {
+        AssertGameClosed
+        $item = $needed[$i]
+        $script:ImportActivity = "installing file $($i + 1) of $($needed.Count)"
+        Progress ('Installing ' + [IO.Path]::GetFileName($item.Target)) ([int](50 + 45 * $i / $needed.Count))
+        AssertSpace $item.Target ([long](Get-Item -LiteralPath $item.Source).Length)
+        # File.Replace/File.Move are atomic. A locked target that rejects an
+        # attempted replacement has not changed and must NOT be rolled back:
+        # the same lock would prevent restoring its verified backup.
+        # Record successful replacements only, so rollback touches files we
+        # actually changed if a later step fails.
+        $backupEntry = $backups[$i]
+        ReplaceVerified $item.Source $item.Target $item.Hash $backupEntry.OriginalHash
+        $changed += $backupEntry
+    }
+    $script:ImportActivity = 'verifying installed files'
+    foreach ($item in $plan) {
+        if (![IO.File]::Exists($item.Target) -or (Sha256 $item.Target) -ne $item.Hash) {
+            throw 'Installed Expansion Pack verification failed.'
+        }
+    }
+    $record.Completed = $true
+    WriteJobFile 'journal.json' ($record | ConvertTo-Json -Depth 5) ([Text.UTF8Encoding]::new($false))
+    # Once the verified install is committed, a status file write cannot undo it.
+    try {
+        Result 'success' 'Expansion files installed and backed up. Try joining Nerevarine Prophecies again; only the server can confirm compatibility.' $JobFolder -ExpansionVersion $packageVersion
+    } catch {}
+    try { Progress 'Expansion import complete' 100 } catch {}
+    exit 0
+}
+catch {
+    if (!$jobReady) { exit 1 }
+    # Attach the current operation before sanitizing the worker error.
+    $reason = $_.Exception.GetBaseException().Message + ' [step: ' + $script:ImportActivity + ']'
+    $failedRollback = $false
+    if ($rollbackReady) {
+        for ($i = $changed.Count - 1; $i -ge 0; $i--) {
+            $script:ImportActivity = "rolling back file $($i + 1) of $($changed.Count)"
+            $item = $changed[$i]
+            try {
+                if ($item.Existed) {
+                    ReplaceVerified $item.Backup $item.Target $item.OriginalHash $item.InstalledHash
+                } elseif ([IO.File]::Exists($item.Target)) {
+                    AssertExpectedTarget $item.Target $item.InstalledHash
+                    [IO.File]::Delete($item.Target)
+                }
+            } catch { $failedRollback = $true }
+        }
+    }
+    if ($rollbackReady) {
+        $reason += $(if ($failedRollback) { ' Rollback was incomplete: retain the import job backup.' } else { ' This import was rolled back.' })
+    }
+    Result 'error' $reason '' (!$failedRollback)
+    try { Progress 'Expansion import failed' 100 } catch {}
+    exit 1
+}
+finally {
+    # Preserve the job's backup/journal, but do not retain a second full
+    # copy of the Expansion Pack in its disposable staging directory.
+    if ($staged -and [IO.Directory]::Exists($staged)) {
+        try { [IO.Directory]::Delete($staged, $true) }
+        catch {
+            try {
+                [IO.File]::WriteAllText((Join-Path $JobFolder 'stage-cleanup-warning.txt'),
+                    'Temporary Expansion Pack staging cleanup was incomplete.',
+                    [Text.Encoding]::ASCII)
+            } catch {}
+        }
+    }
+    if ($jobLock) { $jobLock.Dispose() }
+}

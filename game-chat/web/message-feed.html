@@ -1,0 +1,133 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#0a0908;color:#f1eee8;font:18px/1.38 Georgia,serif;overflow:hidden}
+#feed{height:100vh;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:10px 9px;overflow-anchor:none}
+#feed::-webkit-scrollbar{display:none}
+.msg{margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid #29231b;overflow-wrap:anywhere}
+.msg-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:3px;line-height:1.3}
+.user{color:inherit;font-size:17px;font-weight:bold}
+.user.yagrum{color:#dbb243}
+.time{color:#b8a98e;font:13px Georgia,serif;white-space:nowrap}
+.body{display:block;white-space:pre-wrap;line-height:1.42}
+.preview{display:block;max-width:100%;height:auto;margin:7px 0 3px;object-fit:contain}
+.placeholder{font-size:14px;color:#c9b68c}
+.date-separator{display:flex;align-items:center;gap:9px;color:#d9c49c;font:14px Georgia,serif;margin:16px 0 13px;white-space:nowrap}
+.date-separator:before,.date-separator:after{content:"";height:1px;background:#655237;flex:1}
+#jump-latest {
+  position: fixed; z-index: 1; bottom: 7px; left: 50%; transform: translateX(-50%);
+  box-sizing: border-box; display: grid; place-items: center; width: 25px; height: 25px; padding: 0;
+  border: 1px solid #9d8050; border-radius: 5px; background: #241e17; color: #f0d8a4; cursor: pointer;
+}
+#jump-latest[hidden] { display: none; }
+#jump-latest:hover, #jump-latest:focus-visible { border-color: #d5b778; background: #3e3020; }
+#jump-latest::before {
+  content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: translateY(-2px) rotate(45deg);
+}
+</style></head><body><div id="feed" role="region" aria-label="Live Game Chat" tabindex="0"></div>
+<button id="jump-latest" type="button" title="Jump to latest message" aria-label="Jump to latest message" hidden></button>
+<script>
+const feed=document.getElementById('feed');
+const jumpLatest=document.getElementById('jump-latest');
+const jumpThreshold=96;
+let userHasScrolled=false;
+function noteScroll(stopHistory=false){
+  userHasScrolled=true;
+  chrome.webview.postMessage({type:'interaction',stopHistory});
+}
+feed.addEventListener('wheel',e=>{if(e.deltaY)noteScroll(e.deltaY>0);},{passive:true});
+feed.addEventListener('pointerdown',()=>noteScroll());
+feed.addEventListener('keydown',e=>{
+  if(['ArrowUp','PageUp','Home','ArrowDown','PageDown','End',' '].includes(e.key))
+    noteScroll(['ArrowDown','PageDown','End'].includes(e.key)||(e.key===' '&&!e.shiftKey));
+});
+function metrics(){
+  jumpLatest.hidden=feed.scrollHeight-feed.clientHeight-feed.scrollTop<jumpThreshold;
+  chrome.webview.postMessage({type:'scroll',top:feed.scrollTop,height:feed.scrollHeight,client:feed.clientHeight,userScrolled:userHasScrolled});
+}
+jumpLatest.addEventListener('click',()=>{
+  userHasScrolled=false;
+  chrome.webview.postMessage({type:'interaction',stopHistory:true});
+  feed.focus({preventScroll:true});
+  window.scrollToLatest();
+});
+feed.addEventListener('scroll',metrics);
+new ResizeObserver(metrics).observe(feed);
+window.setMessages=function(messages,prepended=false,requireViewport=false){
+  if(!messages.length || (requireViewport && (!feed.clientWidth || !feed.clientHeight)))return false;
+  // Reconcile by message ID. Never tear down existing rows on a new message:
+  // doing so resets image layout and can jump the scroll position.
+  const existing=new Map([...feed.children].map(el=>[el.dataset.id,el]));
+  const wasAtBottom=feed.children.length>0 &&
+    feed.scrollHeight>feed.clientHeight &&
+    feed.scrollHeight-feed.clientHeight-feed.scrollTop<=24;
+  const anchor=[...feed.children].find(el=>el.getBoundingClientRect().bottom>feed.getBoundingClientRect().top);
+  const anchorId=anchor?.dataset.id;
+  const anchorY=anchor?.getBoundingClientRect().top;
+  const pinnedAtOldest=userHasScrolled && feed.scrollTop<=3;
+  // Date headings are derived from Discord message IDs and rebuilt each pass.
+  for(const el of [...feed.querySelectorAll('.date-separator')])el.remove();
+  const wanted=new Set(messages.map(m=>m.id));
+  for(const [id,row] of existing)if(!wanted.has(id)){row.remove();existing.delete(id);}
+  let next=null;
+  for(let i=messages.length-1;i>=0;i--){
+    const m=messages[i];
+    let row=existing.get(m.id);
+    const signature=JSON.stringify([m.user,m.body,m.isYagrum,m.authorColor,m.images,m.timestamp]);
+    if(!row||row.dataset.signature!==signature){
+      const replacement=document.createElement('div');
+      replacement.className='msg';replacement.dataset.id=m.id;replacement.dataset.signature=signature;
+      const header=document.createElement('div');header.className='msg-header';
+      if(m.user){
+        const name=document.createElement('span');
+        name.className=m.isYagrum?'user yagrum':'user';
+        if(!m.isYagrum && m.authorColor && CSS.supports('color',m.authorColor))name.style.color=m.authorColor;
+        name.textContent=m.user;
+        header.appendChild(name);
+      }
+      const time=document.createElement('span');time.className='time';time.textContent=new Date(m.timestamp).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=new Date(m.timestamp).toLocaleString();header.appendChild(time);
+      replacement.appendChild(header);
+      const body=document.createElement('span');body.className='body';body.textContent=m.body;replacement.appendChild(body);
+      for(const url of m.images){
+        if(!/^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(url))continue;
+        const img=document.createElement('img');img.className='preview';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=url;
+        img.addEventListener('load',metrics);
+        img.addEventListener('error',()=>{img.replaceWith(Object.assign(document.createElement('span'),{className:'placeholder',textContent:'[Image unavailable]'}));metrics();});
+        replacement.appendChild(img);
+      }
+      if(row)row.replaceWith(replacement);
+      row=replacement;
+    }
+    if(row.parentElement!==feed || row.nextElementSibling!==next)feed.insertBefore(row,next);
+    existing.set(m.id,row);
+    next=row;
+  }
+  let previousDate='';
+  for(const m of messages){
+    const row=existing.get(m.id);
+    if(!row)continue;
+    const date=new Date(m.timestamp).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+    if(date!==previousDate){
+      const divider=document.createElement('div');
+      divider.className='date-separator';
+      divider.textContent=date;
+      feed.insertBefore(divider,row);
+      previousDate=date;
+    }
+  }
+  if(userHasScrolled && anchorId && !pinnedAtOldest){
+    const kept=existing.get(anchorId);
+    if(kept)feed.scrollTop+=kept.getBoundingClientRect().top-anchorY;
+  }
+  // Follow live chat only if the user was already at the bottom.
+  // Prepending history must never force either end of the scrollbar.
+  if(!userHasScrolled)feed.scrollTop=feed.scrollHeight;
+  else if(prepended && pinnedAtOldest)feed.scrollTop=0;
+  else if(wasAtBottom&&!prepended)feed.scrollTop=feed.scrollHeight;
+  metrics();
+  return feed.querySelectorAll('.msg').length===messages.length;
+};
+window.scrollChat=function(delta){userHasScrolled=true;feed.scrollTop+=delta;metrics();};
+window.scrollFraction=function(f){userHasScrolled=true;feed.scrollTop=Math.max(0,feed.scrollHeight-feed.clientHeight)*f;metrics();};
+window.scrollToLatest=function(){if(!userHasScrolled){feed.scrollTop=feed.scrollHeight;metrics();}};
+metrics();
+</script></body></html>

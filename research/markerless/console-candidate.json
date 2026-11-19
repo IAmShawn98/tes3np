@@ -1,0 +1,14 @@
+{
+  "executableSha256": "9028acd49dd6d87df54daa1fd4c3ea393e5e80f3680d0b4ef01d364a0d28d50b",
+  "dllCount": 45,
+  "requiredDlls": [
+    "liblz4.dll",
+    "OpenThreads.dll",
+    "osg.dll",
+    "osgDB.dll",
+    "osgGA.dll",
+    "osgParticle.dll",
+    "osgViewer.dll",
+    "osgPlugins-3.6.5/osgdb_osg.dll"
+  ]
+}

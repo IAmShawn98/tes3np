@@ -1,180 +1,248 @@
-; Public-alpha diagnostics and lightweight launcher logging.
+; Launcher logging, log retention, and diagnostic privacy.
 
 global LauncherLogFile := AppDataDirectory "\launcher.log"
-global PatchLogMirrorOffset := -1
+
+GetDiagnosticLogNames()
+{
+    return ["launcher.log", "chat-host.log", "patch-all.log",
+        "patch-errors.log", "render-errors.log"]
+}
+
+ReadBugReportLog()
+{
+    global AppDataDirectory
+    ; Keep the existing report attachment budget. Reserve a tail for each
+    ; supplemental log and give the remaining space to the launcher log.
+    report := ""
+    for filename in GetDiagnosticLogNames()
+    {
+        if filename = "launcher.log"
+            continue
+        content := ReadBugReportDiagnosticTail(AppDataDirectory "\" filename, 16 * 1024)
+        if content != ""
+            report .= "`n`n===== " filename " =====`n" content
+    }
+    launcherHeader := "===== launcher.log =====`n"
+    launcherBudget := 96 * 1024 - (StrPut(launcherHeader report, "UTF-8") - 1)
+    launcher := ReadBugReportDiagnosticTail(AppDataDirectory "\launcher.log", launcherBudget)
+    return launcher = "" ? LTrim(report, "`n") : launcherHeader launcher report
+}
+
+ReadBugReportDiagnosticTail(path, byteLimit)
+{
+    try
+    {
+        if InStr(FileGetAttrib(path), "L")
+            return ""
+        file := FileOpen(path, "r", "UTF-8")
+        try
+        {
+            start := file.Length - byteLimit
+            if start > 0
+            {
+                ; Start after a complete line boundary, even if the byte
+                ; offset is inside a UTF-8 character.
+                file.Pos := start - 1
+                while !file.AtEOF && file.ReadUChar() != 10
+                    continue
+            }
+            content := SanitizeDiagnosticText(file.Read(byteLimit))
+        }
+        finally file.Close()
+    }
+    catch
+        return ""
+
+    if StrPut(content, "UTF-8") - 1 <= byteLimit
+        return content
+    ; The sanitizer can insert spaces around separators. Cap the resulting
+    ; attachment by UTF-8 bytes while keeping the newest complete lines.
+    lines := StrSplit(content, "`n")
+    tail := ""
+    Loop lines.Length
+    {
+        line := lines[lines.Length - A_Index + 1]
+        length := StrPut(line, "UTF-8") - 1 + (tail = "" ? 0 : 1)
+        if length > byteLimit
+            break
+        tail := line (tail = "" ? "" : "`n" tail)
+        byteLimit -= length
+    }
+    return tail
+}
+
+TrimStoredDiagnosticLogs()
+{
+    for filename in GetDiagnosticLogNames()
+        TrimDiagnosticLog(AppDataDirectory "\" filename)
+}
 
 LogLauncherEvent(message)
 {
     global LauncherLogFile
+    static firstWriteChecked := false
     try
     {
+        safe := SanitizeDiagnosticText(message)
+        if safe = ""
+            return
         DirCreate(AppDataDirectory)
-        FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " message "`n", LauncherLogFile, "UTF-8")
+        ; A prior privacy migration could leave an older log without a final
+        ; newline. Check once on startup so the first new event never joins it.
+        separator := ""
+        if !firstWriteChecked
+        {
+            firstWriteChecked := true
+            if FileExist(LauncherLogFile)
+            {
+                previous := FileOpen(LauncherLogFile, "r", "UTF-8")
+                if IsObject(previous)
+                {
+                    if previous.Length > 0
+                    {
+                        previous.Pos := previous.Length - 1
+                        lastCharacter := previous.Read(1)
+                        if lastCharacter != "`n" && lastCharacter != "`r"
+                            separator := "`n"
+                    }
+                    previous.Close()
+                }
+            }
+        }
+        FileAppend(separator FormatTime(, "yyyy-MM-dd HH:mm:ss") " | " StrReplace(StrReplace(safe, "`r", " "), "`n", " ") "`n", LauncherLogFile, "UTF-8")
+        TrimDiagnosticLog(LauncherLogFile)
     }
 }
 
-; The PowerShell patch worker owns patch-all.log. Mirror only new worker events into
-; launcher.log so public-alpha reports have one useful timeline without changing the
-; worker's existing dedicated diagnostic logs.
-SyncPatchLogToLauncherLog(includeExisting := false)
+; Keep recent complete UTF-8 events in the same file used by Copy Logs.
+TrimDiagnosticLog(path)
 {
-    global PatchLogMirrorOffset, LauncherLogFile
-    patchLog := AppDataDirectory "\patch-all.log"
-    if !FileExist(patchLog)
-    {
-        PatchLogMirrorOffset := 0
-        return
-    }
+    temporary := path ".trim.tmp"
     try
     {
-        file := FileOpen(patchLog, "r", "UTF-8")
-        if !IsObject(file)
-            return
-        size := file.Length
-        if PatchLogMirrorOffset < 0
+        if !FileExist(path) || FileGetSize(path) <= 2 * 1024 * 1024
+            return false
+        if InStr(FileGetAttrib(path), "L")
+            return false
+        file := FileOpen(path, "r", "UTF-8")
+        try
         {
-            PatchLogMirrorOffset := includeExisting ? 0 : size
-            file.Close()
-            return
-        }
-        if size < PatchLogMirrorOffset
-            PatchLogMirrorOffset := 0
-        if size = PatchLogMirrorOffset
-        {
-            file.Close()
-            return
-        }
-        file.Pos := PatchLogMirrorOffset
-        newText := file.Read()
-        PatchLogMirrorOffset := file.Pos
-        file.Close()
-        for rawLine in StrSplit(newText, "`n", "`r")
-        {
-            line := Trim(rawLine)
-            if line = ""
+            file.Pos := file.Length - 1024 * 1024
+            ; Find the first complete line by bytes, even inside a UTF-8 character.
+            while !file.AtEOF && file.ReadUChar() != 10
                 continue
-            ; patch-all.log already begins with its own timestamp. Keep it as worker
-            ; detail while launcher.log supplies the unified event timestamp.
-            if RegExMatch(line, "^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s+(.*)$", &match)
-                line := match[1]
-            LogLauncherEvent("PATCH | " SanitizeDiagnosticText(line))
+            tail := file.Read()
         }
+        finally file.Close()
+        output := FileOpen(temporary, "w", "UTF-8")
+        try output.Write(tail)
+        finally output.Close()
+        FileMove(temporary, path, true)
+        return true
     }
     catch
     {
-        ; Mirroring is best-effort and must never interfere with patching.
+        try FileDelete(temporary)
+        return false
     }
-}
-
-InitializePatchLogMirror()
-{
-    global PatchLogMirrorOffset
-    PatchLogMirrorOffset := -1
-    SyncPatchLogToLauncherLog(false)
 }
 
 SanitizeDiagnosticText(text)
 {
-    appData := EnvGet("APPDATA")
-    localAppData := EnvGet("LOCALAPPDATA")
-    userProfile := EnvGet("USERPROFILE")
-    if localAppData != ""
-        text := StrReplace(text, localAppData, "%LOCALAPPDATA%", false)
-    if appData != ""
-        text := StrReplace(text, appData, "%APPDATA%", false)
-    if userProfile != ""
-        text := StrReplace(text, userProfile, "%USERPROFILE%", false)
-    return text
+    ; Shareable diagnostics keep event context but never expose private values.
+    ; Older placeholder-style entries are also cleaned up when copied or migrated.
+    global Profiles
+    windowsUser := EnvGet("USERNAME")
+    ; Repair older migration boundaries where the next timestamp was joined
+    ; directly after a completed log sentence, before filtering or exporting.
+    text := RegExReplace(text, "\.(?=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \| )", ".`n")
+    text := RegExReplace(text, "i)\[(?:credential|user|identity|secret|url|path|network path|email|IP|identifier|Discord ID) omitted\]", "")
+    for profile in Profiles
+    {
+        if IsObject(profile) && profile.HasOwnProp("Password") && profile.Password != ""
+            text := StrReplace(text, profile.Password, "", false)
+    }
+    clean := ""
+    for line in StrSplit(text, "`n", "`r")
+    {
+        outputLine := ""
+        for item in StrSplit(line, "|")
+        {
+            item := Trim(item)
+            ; Clear older privacy notes when migrating existing diagnostics.
+            item := StrReplace(item, "Executable path omitted.", "")
+            item := StrReplace(item, "Password value not logged.", "")
+            item := StrReplace(item, "; local Windows event description omitted for privacy.", ".")
+            ; Drop complete private identity/credential fields, including labels.
+            item := RegExReplace(item, "i)\b(?:Account|User|Windows\s+User(?:name)?|Password|Token|Secret|Authorization|Cookie|Api[-_]?Key)\s*[:=].*$", "")
+            item := RegExReplace(item, "i)%(?:LOCALAPPDATA|APPDATA|USERPROFILE)%(?:[\\/].*)?$", "")
+            item := RegExReplace(item, "i)\b(?:https?|wss?)://\S+", "")
+            item := RegExReplace(item, "i)\b[A-Z]:[\\/].*$", "")
+            item := RegExReplace(item, "\\\\.*$", "")
+            item := RegExReplace(item, "i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "")
+            item := RegExReplace(item, "\b(?:\d{1,3}\.){3}\d{1,3}\b", "")
+            item := RegExReplace(item, "\b\d{16,21}\b", "")
+            ; Remove a standalone Windows account name in non-character fields.
+            ; The "Character:" field is public gameplay information.
+            if StrLen(windowsUser) >= 3 && !RegExMatch(item, "i)^Character\s*:")
+                item := RegExReplace(item, "i)(?<![\p{L}\p{N}_])\Q" windowsUser "\E(?![\p{L}\p{N}_])", "")
+            item := RegExReplace(item, "[ \t]{2,}", " ")
+            ; A removed value should not leave "Path:", "URL:", or extra pipes.
+            item := RegExReplace(item, "i)\b(?:Executable(?:\s+path)?|Source\s+path|Destination|Install|Stage|Path|Folder|File|URL|Mail|Email)\s*[:=]\s*$", "")
+            item := Trim(item, " `t:=")
+            if item != ""
+                outputLine .= (outputLine = "" ? "" : " | ") item
+        }
+        if outputLine != ""
+            clean .= (clean = "" ? "" : "`n") outputLine
+    }
+    return clean
 }
 
-OpenTroubleshooting(*)
+; Scrub older shareable diagnostics in place, keeping private app data separate.
+SanitizeExistingDiagnosticLogs()
 {
-    global LauncherGui, LauncherLogFile
-    window := Gui("+Owner" LauncherGui.Hwnd " -MinimizeBox -MaximizeBox", "tes3np — Troubleshooting")
-    window.BackColor := "E2CEA2"
-    window.SetFont("s11 Bold c241408", "Segoe UI")
-    window.Add("Text", "x20 y18 w360 h26", "Troubleshooting & Diagnostics")
-    window.SetFont("s9 c382314", "Segoe UI")
-    window.Add("Text", "x20 y48 w360 h42", "Tools for reporting launcher problems during the public alpha. Diagnostics never include passwords and personal user paths are sanitized.")
-    openData := window.Add("Button", "x20 y102 w175 h34", "Open AppData Folder")
-    openLog := window.Add("Button", "x205 y102 w175 h34", "Open Launcher Log")
-    copyInfo := window.Add("Button", "x20 y146 w360 h34", "Copy Diagnostic Information")
-    clearLog := window.Add("Button", "x20 y190 w175 h34", "Clear Launcher Log")
-    close := window.Add("Button", "x205 y190 w175 h34 Default", "Close")
-    openData.OnEvent("Click", OpenLauncherDataFolder)
-    openLog.OnEvent("Click", OpenLauncherLog)
-    copyInfo.OnEvent("Click", CopyLauncherDiagnostics)
-    clearLog.OnEvent("Click", ClearLauncherLog)
-    close.OnEvent("Click", (*) => window.Destroy())
-    window.OnEvent("Escape", (*) => window.Destroy())
-    window.Show("w400 h244")
+    global AppDataDirectory, DataFile
+    if IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "4"
+        return
+    complete := true
+    filenames := GetDiagnosticLogNames()
+    ; The legacy crash-query output needs privacy cleanup alongside the logs.
+    filenames.Push("tes3mp-crash-query.txt")
+    for filename in filenames
+    {
+        path := AppDataDirectory "\" filename
+        if !FileExist(path)
+            continue
+        temporary := path ".privacy.tmp"
+        try
+        {
+            original := FileRead(path, "UTF-8")
+            safe := SanitizeDiagnosticText(original)
+            ; A persisted diagnostic log must terminate its final event before
+            ; a future append. Clipboard-only cleanup can omit the final EOL.
+            if safe != ""
+                safe := RTrim(safe, "`r`n") "`n"
+            if original = safe
+                continue
+            try FileDelete(temporary)
+            FileAppend(safe, temporary, "UTF-8")
+            FileMove(temporary, path, true)
+        }
+        catch
+        {
+            complete := false
+            try FileDelete(temporary)
+        }
+    }
+    if complete
+    {
+        try IniWrite("4", DataFile, "Diagnostics", "PrivacyScrubVersion")
+    }
 }
 
 OpenLauncherDataFolder(*)
 {
     DirCreate(AppDataDirectory)
     Run('explorer.exe "' AppDataDirectory '"')
-}
-
-OpenLauncherLog(*)
-{
-    global LauncherLogFile
-    SyncPatchLogToLauncherLog()
-    DirCreate(AppDataDirectory)
-    if !FileExist(LauncherLogFile)
-        FileAppend("tes3np launcher log`n", LauncherLogFile, "UTF-8")
-    Run(LauncherLogFile)
-}
-
-ClearLauncherLog(*)
-{
-    global LauncherLogFile
-    if MsgBox("Clear the launcher log?", "tes3np — Clear Log", "YesNo Icon?") != "Yes"
-        return
-    SyncPatchLogToLauncherLog()
-    try FileDelete(LauncherLogFile)
-    LogLauncherEvent("Launcher log cleared by user.")
-    MsgBox("Launcher log cleared.", "tes3np")
-}
-
-CopyLauncherDiagnostics(*)
-{
-    SyncPatchLogToLauncherLog()
-    A_Clipboard := BuildLauncherDiagnostics()
-    LogLauncherEvent("Diagnostic information copied to clipboard.")
-    MsgBox("Diagnostic information copied to the clipboard.`n`nYou can paste it into Discord or a bug report.", "tes3np — Diagnostics")
-}
-
-SanitizeDiagnosticPath(path)
-{
-    return SanitizeDiagnosticText(path)
-}
-
-BuildLauncherDiagnostics()
-{
-    global AppConfig, AppDataDirectory, DataFile, LauncherScale, LauncherScaleMode
-    global AccessibilityTextSize, EnhancedReadability, ReduceMotion, SetupComplete
-    installPath := SanitizeDiagnosticPath(A_ScriptDir)
-    appDataPath := SanitizeDiagnosticPath(AppDataDirectory)
-    scaleText := LauncherScaleMode = "Auto" ? "Automatic (" LauncherScale "%)" : LauncherScale "%"
-    dpiPercent := Round((A_ScreenDPI / 96) * 100)
-    patchComplete := SetupComplete ? "Yes" : "No"
-    settingsPresent := FileExist(DataFile) ? "Yes" : "No"
-    reportTime := FormatTime(, "yyyy-MM-dd HH:mm:ss")
-    reportId := FormatTime(, "yyyyMMdd-HHmmss") "-" Format("{:04X}", Random(0, 65535))
-    return "tes3np Diagnostics`r`n"
-        . "Diagnostic ID: " reportId "`r`n"
-        . "Generated: " reportTime " local time`r`n"
-        . "Launcher version: v" AppConfig.Version "`r`n"
-        . "AutoHotkey: " A_AhkVersion "`r`n"
-        . "Windows: " A_OSVersion " (" (A_Is64bitOS ? "64-bit" : "32-bit") ")`r`n"
-        . "Screen: " A_ScreenWidth "x" A_ScreenHeight " @ " dpiPercent "% DPI`r`n"
-        . "Launcher size: " scaleText "`r`n"
-        . "Interface text: " AccessibilityTextSize "`r`n"
-        . "Enhanced readability: " (EnhancedReadability ? "On" : "Off") "`r`n"
-        . "Reduce motion: " (ReduceMotion ? "On" : "Off") "`r`n"
-        . "Patch setup complete: " patchComplete "`r`n"
-        . "Settings file present: " settingsPresent "`r`n"
-        . "Install path: " installPath "`r`n"
-        . "AppData path: " appDataPath
 }

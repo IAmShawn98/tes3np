@@ -1,74 +1,581 @@
 ; Local macro packages. Import extracts files; only Run executes a chosen script.
 
-OpenMacros(*)
+BuildMacroBookPanel()
 {
-    if !CanUseNPLauncher()
-        return
-    global MacroPage, MacroList, MacroDetails, MacroStatus, MacroImportButton
-    global MacroRunButton, MacroStopButton, MacroRemoveButton, MacroBindingsButton, LauncherGui
-    if !IsObject(MacroPage)
+    global CharacterPage, LauncherMorrowindFont, ButtonFaces
+    global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
+    global MacroImportButton, MacroBookControls, MacroBookRows, MacroNameEdit
+    global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
+    MacroPage := CharacterPage
+    MacroBookControls := []
+    MacroBookRows := []
+    MacroScrollOffset := 0
+    MacroScrollDragging := false
+    MacroScrollGrab := 0
+    CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
+    heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
+    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
+        "Upload, run, or stop macros here. Click the pencil to rename a macro.")
+    MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
+        "No macros installed yet.")
+    ; The hidden ListView retains every imported item and all existing handlers.
+    ; Four rows are the viewport, not a limit on the number of macros.
+    MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 Hidden -Multi",
+        ["Name", "Status", "Type"])
+    MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
+    MacroBookControls.Push(heading, explanation, MacroEmptyNotice, MacroList)
+    Loop 4
     {
-        MacroPage := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox", "tes3np — Macros")
-        MacroPage.BackColor := "E2CEA2"
-        MacroPage.SetFont("s16 Bold c382314", "Georgia")
-        MacroPage.Add("Text", "x20 y15 w660 h30", "Your Macros")
-        MacroPage.SetFont("s10 Norm c382314", "Segoe UI")
-        MacroPage.Add("Text", "x20 y55 w660 h45", "Import an .ahk file or ZIP, select its script, and run it here. Packages stay saved on this computer. Only run macros from people you trust.")
-        MacroList := MacroPage.Add("ListView", "x20 y110 w660 h220 -Multi BackgroundF0E3C5", ["Macro", "Status", "Script"])
-        MacroList.ModifyCol(1, 240), MacroList.ModifyCol(2, 100), MacroList.ModifyCol(3, 290)
-        MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
-        MacroList.OnEvent("DoubleClick", RunSelectedMacro)
-        MacroDetails := MacroPage.Add("Text", "x20 y340 w660 h55", "No macros installed. Import an .ahk file or ZIP to get started.")
-        MacroImportButton := MacroPage.Add("Button", "x20 y405 w130 h32", "Import Macro")
-        MacroRunButton := MacroPage.Add("Button", "x160 y405 w80 h32 Disabled", "Run")
-        MacroStopButton := MacroPage.Add("Button", "x250 y405 w80 h32 Disabled", "Stop")
-        MacroRemoveButton := MacroPage.Add("Button", "x470 y405 w90 h32 Disabled", "Remove")
-        MacroBindingsButton := MacroPage.Add("Button", "x340 y405 w120 h32 Disabled", "Edit Bindings")
-        MacroBindingsButton.OnEvent("Click", EditSelectedMacroBindings)
-        close := MacroPage.Add("Button", "x570 y405 w110 h32", "Close")
-        MacroStatus := MacroPage.Add("Text", "x20 y450 w660 h40", "Ready.")
-        MacroImportButton.OnEvent("Click", ImportMacroPackage)
-        MacroRunButton.OnEvent("Click", RunSelectedMacro)
-        MacroStopButton.OnEvent("Click", StopSelectedMacro)
-        MacroRemoveButton.OnEvent("Click", RemoveSelectedMacro)
-        close.OnEvent("Click", CloseMacroPage)
-        MacroPage.OnEvent("Close", CloseMacroPage)
-        MacroPage.OnEvent("Escape", CloseMacroPage)
-        MacroPage.Opt("+OwnDialogs")
-        LoadMacroPackages()
+        position := A_Index
+        ; Leave an 8-pixel gap after each row's bottom button.
+        ; Previous 60px pitch overlapped the next row's "Ready" label.
+        ; Preserve 8px between macro rows and remove the unused space
+        ; above the first status by moving the populated list up 12px.
+        y := 140 + (position - 1) * 70
+        CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
+        status := CharacterPage.Add("Text",
+            "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
+        CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
+        tick := AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))
+        name := AddBookLabel(CharacterPage, 551, y + 19, 125, 22, "")
+        ButtonFaces[name.Hwnd].UseControlPosition := true
+        rename := AddStyledButton(CharacterPage, 680, y + 19, 21, 22,
+            Chr(0x270E), EditMacroBookRow.Bind(position))
+        ButtonFaces[rename.Hwnd].UseControlPosition := true
+        rename.SetFont("s10 Bold", "Segoe UI Symbol")
+        run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
+            "Run", RunMacroBookRow.Bind(position))
+        stop := AddStyledButton(CharacterPage, 663, y + 42, 103, 20,
+            "Stop", StopMacroBookRow.Bind(position))
+        remove := AddStyledButton(CharacterPage, 775, y + 42, 105, 20,
+            "Remove", RemoveMacroBookRow.Bind(position))
+        MacroBookRows.Push({Tick: tick, Status: status, StatusError: false,
+            Name: name, Rename: rename, Y: y + 19, NameWidth: 125, NameScale: 0,
+            Run: run, Stop: stop, Remove: remove})
+        MacroBookControls.Push(tick, status, name, rename, run, stop, remove)
     }
-    MacroPage.Show("w700 h505")
-    SetTimer(RefreshMacroProcesses, 1000)
+    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y159 w125 h22 Hidden Limit100 -Multi")
+    MacroNameEdit.EditingItem := 0
+    MacroNameEdit.ErrorText := ""
+    ; The scrollbar uses the existing character-book styling.
+    MacroScrollTrack := CharacterPage.Add("Text",
+        "x887 y140 w8 h272 Background704C27 +0x100 Hidden")
+    MacroScrollThumb := CharacterPage.Add("Text",
+        "x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden")
+    ; The macro itself owns all hotkeys; keep Upload full-width and tight
+    ; against the last visible macro row without extra action slots.
+    MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
+        "Upload Macro", ImportMacroPackage)
+    ; Progress and failure feedback for imports appears under Upload.
+    CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
+    MacroStatus := CharacterPage.Add("Text",
+        "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")
+    MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
+        MacroImportButton, MacroStatus)
+    LoadMacroPackages()
+    ShowMacroBookPanel()
+}
+
+ShowMacroBookPanel()
+{
+    global MacroBookControls, MacroList, MacroNameEdit
+    ; The editor's hide path may run before the book has built its controls.
+    if !IsObject(MacroList)
+        return
+    MacroNameEdit.EditingItem := 0
+    MacroNameEdit.ErrorText := ""
+    for control in MacroBookControls
+        if control != MacroList
+            control.Visible := true
+    ; Retain the legacy ListView only as an invisible selection model.
+    MacroList.Visible := false
+    RefreshMacroButtons()
+}
+
+HideMacroBookPanel()
+{
+    global MacroBookControls, MacroNameEdit
+    if IsObject(MacroNameEdit)
+    {
+        MacroNameEdit.EditingItem := 0
+        MacroNameEdit.Visible := false
+    }
+    ReleaseMacroScroll()
+    for control in MacroBookControls
+        try control.Visible := false
+}
+
+MacroProcessRunning(item)
+{
+    return item.ProcessHandle
+        && DllCall("WaitForSingleObject", "Ptr", item.ProcessHandle, "UInt", 0, "UInt") = 258
+}
+
+MacroItemDisplayState(item)
+{
+    if item.Kind = "App" && !ValidMacroApplication(item)
+        return {Text: "Application missing", Error: true}
+    if item.Kind != "App" && !ValidMacroEntry(item.Folder, item.Entry)
+        return {Text: "Script missing", Error: true}
+    if item.HasOwnProp("LastError") && item.LastError != ""
+        return {Text: item.LastError, Error: true}
+    if MacroProcessRunning(item)
+        return {Text: "Running", Error: false}
+    return {Text: "Ready", Error: false}
+}
+
+RefreshMacroBookRows()
+{
+    global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
+    global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
+    global MacroImportButton, CharacterPage, InterfaceUpdating, MacroNameEdit
+    global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
+    if !IsObject(MacroList) || !MacroBookRows.Length
+        return
+    count := MacroItems.Length
+    maximum := Max(0, count - MacroBookRows.Length)
+    MacroScrollOffset := Max(0, Min(MacroScrollOffset, maximum))
+    shown := !LaunchSettingsHeading.Visible
+    selectedIndex := MacroList.GetNext()
+    busy := IsObject(MacroImport)
+    editVisible := false
+    MacroList.Visible := false
+    for position, itemRow in MacroBookRows
+    {
+        index := MacroScrollOffset + position
+        visible := shown && index <= count
+        for control in [itemRow.Tick, itemRow.Status, itemRow.Rename,
+            itemRow.Run, itemRow.Stop, itemRow.Remove]
+            if control.Visible != visible
+                control.Visible := visible
+        if !visible
+        {
+            if itemRow.Name.Visible
+                itemRow.Name.Visible := false
+            continue
+        }
+        item := MacroItems[index]
+        editing := IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = item
+        RefreshMacroNameRow(itemRow, item.Name, editing)
+        editVisible := editVisible || editing
+        selected := index = selectedIndex
+        if ButtonFaces[itemRow.Tick.Hwnd].Checked != selected
+            SetBookTick(itemRow.Tick, selected)
+        state := editing && MacroNameEdit.ErrorText != ""
+            ? {Text: MacroNameEdit.ErrorText, Error: true} : MacroItemDisplayState(item)
+        if itemRow.Status.Text != state.Text
+            itemRow.Status.Text := state.Text
+        if itemRow.StatusError != state.Error
+        {
+            itemRow.Status.SetFont(state.Error ? "s" Max(7, BookS(9)) " cB22222"
+                : "s" Max(7, BookS(9)) " c241408", LauncherMorrowindFont)
+            itemRow.StatusError := state.Error
+        }
+        running := MacroProcessRunning(item)
+        missing := !ValidMacroApplication(item)
+            || (item.Kind != "App" && !ValidMacroEntry(item.Folder, item.Entry))
+        canRun := !missing && !running && !busy
+        canStop := !!running
+        canRemove := !running && !busy
+        if itemRow.Run.Enabled != canRun
+            itemRow.Run.Enabled := canRun
+        if itemRow.Stop.Enabled != canStop
+            itemRow.Stop.Enabled := canStop
+        if itemRow.Remove.Enabled != canRemove
+            itemRow.Remove.Enabled := canRemove
+    }
+    if MacroNameEdit.Visible != editVisible
+        MacroNameEdit.Visible := editVisible
+    MacroEmptyNotice.Visible := shown && count = 0
+    scrollable := shown && maximum > 0
+    if MacroScrollTrack.Visible != scrollable
+        MacroScrollTrack.Visible := scrollable
+    if MacroScrollThumb.Visible != scrollable
+        MacroScrollThumb.Visible := scrollable
+    if scrollable
+    {
+        thumbHeight := Max(25, Round(272 * MacroBookRows.Length / count))
+        travel := 272 - thumbHeight
+        thumbY := 140 + Round(MacroScrollOffset / maximum * travel)
+        MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
+    }
+    ; Keep empty-state content close to the introduction, then follow
+    ; populated rows without putting Upload inside the scroll viewport.
+    ; For 0/1/2/3/4+ entries, y is 188/214/284/354/424.
+    ; Match row pitch so Upload stays 12px clear of final action row.
+    visibleCount := Min(count, MacroBookRows.Length)
+    desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70
+    MacroImportButton.GetPos(, &oldUploadY)
+    if oldUploadY != BookS(desiredUploadY)
+    {
+        ; Move the themed hit target and painted face together. Hide while
+        ; relocating to avoid leaving stale button artwork on parchment.
+        wasVisible := MacroImportButton.Visible
+        if wasVisible
+            MacroImportButton.Visible := false
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)
+        MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))
+        if wasVisible
+        {
+            MacroImportButton.Visible := true
+            if !InterfaceUpdating
+                DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,
+                    "Ptr", 0, "Ptr", 0, "UInt", 0x385)
+        }
+    }
+    ; Only import failures/progress use the message area below Upload.
+    ; Regular Ready/Running/Missing appears above each macro's name.
+    feedback := MacroStatus.Text
+    showFeedback := busy || RegExMatch(feedback,
+        "i)^(Import failed:|The script could not be imported)")
+    if MacroStatus.Visible != (shown && showFeedback)
+        MacroStatus.Visible := shown && showFeedback
+}
+
+SelectMacroBookRow(position, *)
+{
+    global MacroList, MacroScrollOffset, MacroItems
+    index := MacroScrollOffset + position
+    if index < 1 || index > MacroItems.Length
+        return
+    MacroList.Modify(index, "Select Focus")
+    RefreshMacroButtons()
+}
+
+RefreshMacroNameRow(row, name, editing)
+{
+    global MacroNameEdit
+    scale := GetCharacterBookScale()
+    if !(row.Name.Text == name) || row.NameScale != scale
+    {
+        ; Measure the current font so the pencil follows short names, and
+        ; reserve room for Save on long names at every launcher scale.
+        handle := row.Name.Hwnd
+        dc := DllCall("GetDC", "Ptr", handle, "Ptr")
+        if dc
+        {
+            font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x0031, "Ptr", 0, "Ptr", 0, "Ptr")
+            oldFont := font ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr") : 0
+            size := Buffer(8, 0)
+            try
+                if DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", name,
+                    "Int", StrLen(name), "Ptr", size, "Int")
+                    row.NameWidth := Min(274, Max(90, Ceil(NumGet(size, 0, "Int") / (scale * A_ScreenDPI / 96)) + 4))
+            finally
+            {
+                if oldFont
+                    DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
+                DllCall("ReleaseDC", "Ptr", handle, "Ptr", dc)
+            }
+        }
+        row.NameScale := scale
+        row.Name.Move(, , BookS(row.NameWidth))
+        ; WM_SETREDRAW must only be used on a visible control.
+        if !(row.Name.Text == name)
+        {
+            if row.Name.Visible
+                SetPaintedLabelText(row.Name, name)
+            else
+                row.Name.Text := name
+        }
+    }
+    x := 555 + row.NameWidth
+    if editing
+    {
+        MacroNameEdit.GetPos(, &fieldY, &fieldWidth)
+        if fieldY != BookS(row.Y) || fieldWidth != BookS(x - 555)
+            MacroNameEdit.Move(BookS(551), BookS(row.Y), BookS(x - 555), BookS(22))
+    }
+    row.Rename.GetPos(&buttonX, , &buttonWidth)
+    width := editing ? 49 : 21
+    if buttonX != BookS(x) || buttonWidth != BookS(width)
+        MoveStyledButton(row.Rename, x, row.Y, width, 22)
+    caption := editing ? "Save" : Chr(0x270E)
+    if row.Rename.Text != caption
+        SetPaintedLabelText(row.Rename, caption)
+    if row.Name.Visible = editing
+        row.Name.Visible := !editing
+}
+
+EditMacroBookRow(position, *)
+{
+    global MacroPage, MacroScrollOffset, MacroItems, MacroNameEdit
+    index := MacroScrollOffset + position
+    if index < 1 || index > MacroItems.Length
+        return
+    item := MacroItems[index]
+    if IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = item
+    {
+        SaveMacroName()
+        return
+    }
+    BeginInterfaceUpdate(MacroPage)
+    try
+    {
+        MacroNameEdit.EditingItem := item
+        MacroNameEdit.ErrorText := ""
+        MacroNameEdit.Value := item.Name
+        SelectMacroBookRow(position)
+    }
+    finally EndInterfaceUpdate()
+    MacroNameEdit.Focus()
+    DllCall("SendMessageW", "Ptr", MacroNameEdit.Hwnd, "UInt", 0x00B1, "Ptr", 0, "Ptr", -1)
+}
+
+SaveMacroName()
+{
+    previousCritical := Critical("On")
+    try
+        CommitMacroName()
+    finally Critical(previousCritical)
+}
+
+CommitMacroName()
+{
+    global MacroList, MacroItems, MacroNameEdit
+    item := MacroNameEdit.EditingItem
+    if !IsObject(item)
+        return
+    index := 0
+    for row, candidate in MacroItems
+        if candidate = item
+        {
+            index := row
+            break
+        }
+    if !index
+        return FinishMacroNameEdit()
+
+    name := Trim(MacroNameEdit.Value)
+    if name = "" || StrLen(name) > 100
+    {
+        MacroNameEdit.ErrorText := "Enter a name (1–100 characters)."
+        RefreshMacroButtons()
+        MacroNameEdit.Focus()
+        return
+    }
+    if name == item.Name
+        return FinishMacroNameEdit()
+    metadata := item.Folder "\.tes3np-package.ini"
+    try
+    {
+        if !FileExist(metadata)
+            throw Error("Macro package metadata is missing.")
+        ; The INI reader strips the outer quotes, preserving quotes in the name.
+        IniWrite(Chr(34) name Chr(34), metadata, "Macro", "Name")
+    }
+    catch
+    {
+        MacroNameEdit.ErrorText := "Could not save the macro name."
+        RefreshMacroButtons()
+        MacroNameEdit.Focus()
+        return
+    }
+    item.Name := name
+    MacroList.Modify(index, , name)
+    FinishMacroNameEdit()
+}
+
+FinishMacroNameEdit()
+{
+    global MacroPage, MacroNameEdit
+    BeginInterfaceUpdate(MacroPage)
+    try
+    {
+        MacroNameEdit.EditingItem := 0
+        MacroNameEdit.ErrorText := ""
+        RefreshMacroButtons()
+    }
+    finally EndInterfaceUpdate()
+}
+
+MacroNameEditorFocused()
+{
+    global MacroPage, MacroNameEdit
+    return IsObject(MacroNameEdit) && IsObject(MacroNameEdit.EditingItem)
+        && IsObject(MacroPage) && MacroNameEdit.Visible && WinActive("ahk_id " MacroPage.Hwnd)
+        && MacroNameEdit.Focused
+}
+
+; Restrict macro editing shortcuts to the focused name field.
+#HotIf MacroNameEditorFocused()
+Enter::SaveMacroName()
+NumpadEnter::SaveMacroName()
+Escape::FinishMacroNameEdit()
+#HotIf
+
+; Row actions update the existing ListView selection before delegating to
+; the tested macro execution, stop and removal callbacks.
+RunMacroBookRow(position, *)
+{
+    SelectMacroBookRow(position)
+    RunSelectedMacro()
+}
+
+StopMacroBookRow(position, *)
+{
+    SelectMacroBookRow(position)
+    StopSelectedMacro()
+}
+
+RemoveMacroBookRow(position, *)
+{
+    SelectMacroBookRow(position)
+    RemoveSelectedMacro()
+}
+
+ScrollMacroBook(offset)
+{
+    global MacroScrollOffset, MacroItems, MacroBookRows
+    if !IsObject(MacroBookRows) || !MacroBookRows.Length
+        return
+    nextOffset := Max(0, Min(Max(0, MacroItems.Length - MacroBookRows.Length), offset))
+    if nextOffset = MacroScrollOffset
+        return
+    MacroScrollOffset := nextOffset
+    RefreshMacroButtons()
+}
+
+ScrollMacroWheel(wParam)
+{
+    global CharacterPage, LaunchSettingsHeading, MacroScrollTrack, MacroItems
+    global MacroBookRows, MacroScrollOffset
+    if !IsObject(CharacterPage) || !IsObject(MacroScrollTrack)
+        || !MacroScrollTrack.Visible || LaunchSettingsHeading.Visible
+        || MacroItems.Length <= MacroBookRows.Length
+        return false
+    MouseGetPos(&x, &y, &window)
+    if window != CharacterPage.Hwnd
+        return false
+    origin := Buffer(8, 0)
+    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
+    scale := (A_ScreenDPI / 96) * GetCharacterBookScale()
+    x := (x - NumGet(origin, 0, "Int")) / scale
+    y := (y - NumGet(origin, 4, "Int")) / scale
+    if x < 520 || x > 900 || y < 150 || y > 396
+        return false
+    delta := (wParam >> 16) << 48 >> 48
+    if delta
+        ScrollMacroBook(MacroScrollOffset + (delta > 0 ? -3 : 3))
+    return true
+}
+
+PressMacroScroll(hwnd)
+{
+    global CharacterPage, MacroScrollTrack, MacroScrollThumb
+    global MacroScrollDragging, MacroScrollGrab
+    if !IsObject(MacroScrollTrack) || !MacroScrollTrack.Visible
+        || (hwnd != MacroScrollTrack.Hwnd && hwnd != MacroScrollThumb.Hwnd)
+        return false
+    MouseGetPos(, &pointerY)
+    origin := Buffer(8, 0)
+    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
+    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
+    MacroScrollThumb.GetPos(, &thumbY, , &thumbHeight)
+    thumbY /= GetCharacterBookScale()
+    thumbHeight /= GetCharacterBookScale()
+    MacroScrollGrab := hwnd = MacroScrollThumb.Hwnd
+        ? localY - thumbY : thumbHeight / 2
+    MacroScrollDragging := true
+    DllCall("SetCapture", "Ptr", hwnd)
+    DragMacroScroll()
+    return true
+}
+
+DragMacroScroll()
+{
+    global CharacterPage, MacroScrollDragging, MacroScrollGrab
+    global MacroItems, MacroBookRows, MacroScrollThumb
+    if !MacroScrollDragging
+        return
+    MouseGetPos(, &pointerY)
+    origin := Buffer(8, 0)
+    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
+    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
+    MacroScrollThumb.GetPos(, , , &thumbHeight)
+    thumbHeight /= GetCharacterBookScale()
+    travel := Max(1, 272 - thumbHeight)
+    maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
+    ScrollMacroBook(Round((localY - 140 - MacroScrollGrab) / travel * maximum))
+}
+
+ReleaseMacroScroll()
+{
+    global MacroScrollDragging
+    if !MacroScrollDragging
+        return false
+    MacroScrollDragging := false
+    DllCall("ReleaseCapture")
+    return true
 }
 
 CloseMacroPage(*)
 {
-    global MacroPage
-    MacroPage.Hide()
-    ShowLauncherWindow()
+    ReleaseMacroScroll()
+    SetTimer(RefreshMacroProcesses, 0)
 }
+
 
 LoadMacroPackages()
 {
-    global MacroRoot, MacroItems, MacroList
+    global MacroRoot, MacroItems, MacroList, MacroScrollOffset
+    MacroScrollOffset := 0
     DirCreate(MacroRoot)
+    ; Transfer process handles when the character book is rebuilt.
+    tracked := Map()
+    tracked.CaseSense := "Off"
+    for item in MacroItems
+        if MacroProcessRunning(item)
+            tracked[item.Folder] := item.ProcessHandle
+        else if item.ProcessHandle
+            DllCall("CloseHandle", "Ptr", item.ProcessHandle)
     MacroItems := []
     MacroList.Delete()
     Loop Files MacroRoot "\*", "D"
     {
+        if IsMacroImportFolderName(A_LoopFileName) || InStr(A_LoopFileAttrib, "L")
+            continue
         folder := A_LoopFileFullPath
         metadata := folder "\.tes3np-package.ini"
         if !FileExist(metadata)
             continue
+        kind := IniRead(metadata, "Macro", "Kind", "Macro")
         entry := IniRead(metadata, "Macro", "Entry", "")
-        if !ValidMacroEntry(folder, entry)
+        target := kind = "App" ? IniRead(metadata, "Macro", "Target", "") : ""
+        if kind != "App" && (kind != "Macro" || !ValidMacroEntry(folder, entry))
             continue
         name := IniRead(metadata, "Macro", "Name", "Macro")
         description := IniRead(metadata, "Macro", "Description", "")
-        MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: 0})
-        MacroList.Add(, name, "Ready", entry)
+        handle := tracked.Has(folder) ? tracked.Delete(folder) : 0
+        item := {Folder: folder, Entry: entry, Name: name, Description: description,
+            Kind: kind, Target: target, ProcessHandle: handle}
+        MacroItems.Push(item)
+        MacroList.Add(, name, kind = "App" && !ValidMacroApplication(item) ? "Missing"
+            : (handle ? "Running" : "Ready"), MacroTypeLabel(item))
     }
+    for folder, handle in tracked
+        DllCall("CloseHandle", "Ptr", handle)
+    ; Make the first installed tool immediately available for Run.
+    if MacroItems.Length
+        MacroList.Modify(1, "Select Focus")
     RefreshMacroButtons()
+}
+
+MacroTypeLabel(item)
+{
+    return item.Kind = "App" ? "App" : "Macro"
+}
+
+ValidMacroApplication(item)
+{
+    if item.Kind != "App"
+        return true
+    if item.Target = "" || !RegExMatch(item.Target, "i)\.exe$")
+        return false
+    attributes := FileExist(item.Target)
+    return attributes != "" && !InStr(attributes, "D")
 }
 
 ValidMacroEntry(folder, entry)
@@ -84,16 +591,12 @@ ValidMacroEntry(folder, entry)
 
 RefreshMacroButtons(*)
 {
-    global MacroList, MacroItems, MacroRunButton, MacroStopButton, MacroRemoveButton, MacroDetails, MacroImport, MacroBindingsButton
-    row := MacroList.GetNext()
-    selected := row > 0 && row <= MacroItems.Length
-    running := selected && MacroItems[row].PID && ProcessExist(MacroItems[row].PID)
-    busy := IsObject(MacroImport)
-    MacroRunButton.Enabled := selected && !running && !busy
-    MacroBindingsButton.Enabled := selected && !running && !busy && ReadMacroBindings(MacroItems[row]).Length > 0
-    MacroStopButton.Enabled := running
-    MacroRemoveButton.Enabled := selected && !running && !busy
-    MacroDetails.Text := selected ? (MacroItems[row].Description != "" ? MacroItems[row].Description : "Script: " MacroItems[row].Entry) : (MacroItems.Length ? "Select a macro to run, stop, or remove it." : "No macros installed. Import an .ahk file or ZIP to get started.")
+    global MacroList
+    ; The selected macro and its row are driven by the existing invisible
+    ; ListView, without restoring either crossed-out footer control.
+    if !IsObject(MacroList)
+        return
+    RefreshMacroBookRows()
 }
 
 ImportMacroPackage(*)
@@ -101,17 +604,25 @@ ImportMacroPackage(*)
     global MacroImport, MacroImportButton, MacroStatus, MacroRoot
     if IsObject(MacroImport)
         return
-    archive := FileSelect(1, , "Import macro", "AutoHotkey scripts or ZIPs (*.ahk;*.zip)")
-    if archive = ""
+    archive := FileSelect(1, , "Upload Macro",
+        "AutoHotkey scripts, ZIPs and applications (*.ahk;*.zip;*.exe)")
+    if archive = "" || IsObject(MacroImport)
         return
+    MacroStatus.Text := ""
+    RefreshMacroButtons()
     if RegExMatch(archive, "i)\.ahk$")
     {
         ImportMacroScript(archive)
         return
     }
+    if RegExMatch(archive, "i)\.exe$")
+    {
+        ImportMacroApplication(archive)
+        return
+    }
     if !RegExMatch(archive, "i)\.zip$")
     {
-        MsgBox("Choose an .ahk script or a ZIP containing scripts. Other archive formats are not supported yet.", "Import Macro")
+        MsgBox("Choose an .ahk script, ZIP containing scripts, or installed .exe.", "Upload Macro")
         return
     }
     try
@@ -130,24 +641,48 @@ ImportMacroPackage(*)
         MsgBox("This file is not a ZIP archive. Create a ZIP containing your .ahk script.", "Import Macro")
         return
     }
-    staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    staging := ""
     try
     {
+        staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
         DirCreate(staging)
         helper := A_ScriptDir "\scripts\import-macro.ps1"
         powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
         Run('"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' helper '" -Archive "' archive '" -Destination "' staging '"', , "Hide", &pid)
-        MacroImport := {PID: pid, Folder: staging, Archive: archive, Started: A_TickCount}
-        MacroImportButton.Enabled := false
-        MacroStatus.Text := "Extracting and checking macro package..."
-        RefreshMacroButtons()
-        SetTimer(CheckMacroImport, 200)
     }
     catch
     {
-        if DirExist(staging)
-            DirDelete(staging, true)
+        if staging != ""
+            DeleteLauncherStagingTree(staging)
         MsgBox("Could not start ZIP import. Windows PowerShell is required.", "Import Macro")
+        return
+    }
+    handle := DllCall("OpenProcess", "UInt", 0x100001, "Int", 0, "UInt", pid, "Ptr")
+    MacroImport := {PID: pid, ProcessHandle: handle, Folder: staging, Archive: archive, Started: A_TickCount}
+    SetTimer(CheckMacroImport, 200)
+    try
+    {
+        MacroImportButton.Enabled := false
+        MacroStatus.Text := "Extracting and checking macro package..."
+        RefreshMacroButtons()
+    }
+}
+
+StopMacroImportWorker(pending)
+{
+    handle := pending.ProcessHandle
+    if !handle
+        return !ProcessExist(pending.PID)
+    try
+    {
+        if MacroProcessRunning(pending)
+            DllCall("TerminateProcess", "Ptr", handle, "UInt", 1)
+        return DllCall("WaitForSingleObject", "Ptr", handle, "UInt", 1000, "UInt") = 0
+    }
+    finally
+    {
+        DllCall("CloseHandle", "Ptr", handle)
+        pending.ProcessHandle := 0
     }
 }
 
@@ -156,19 +691,21 @@ CheckMacroImport()
     global MacroImport, MacroImportButton, MacroStatus
     if !IsObject(MacroImport)
         return
-    if ProcessExist(MacroImport.PID)
-    {
-        if A_TickCount - MacroImport.Started < 120000
-            return
-        try ProcessClose(MacroImport.PID)
-    }
-    SetTimer(CheckMacroImport, 0)
     pending := MacroImport
-    MacroImport := 0
+    timedOut := pending.ProcessHandle ? MacroProcessRunning(pending) : ProcessExist(pending.PID)
+    if timedOut && A_TickCount - pending.Started < 120000
+        return
+    SetTimer(CheckMacroImport, 0)
+    workerClosed := false
     try
     {
+        workerClosed := StopMacroImportWorker(pending)
+        if timedOut
+            throw Error("ZIP extraction timed out after 120 seconds.")
+        if !workerClosed
+            throw Error("Could not confirm the ZIP extractor closed.")
         if !FileExist(pending.Folder "\.import-success") || FileExist(pending.Folder "\.import-error")
-            {
+        {
             detail := FileExist(pending.Folder "\.import-error") ? SubStr(FileRead(pending.Folder "\.import-error", "UTF-8"), 1, 200) : "ZIP extraction helper did not complete. Check that scripts/import-macro.ps1 is present and PowerShell can run."
             throw Error(detail)
         }
@@ -176,14 +713,17 @@ CheckMacroImport()
     }
     catch Error as err
     {
-        if DirExist(pending.Folder)
-            DirDelete(pending.Folder, true)
-        detail := RegExReplace(err.Message, "i)[A-Z]:\\[^`r`n]+", "[path omitted]")
+        if workerClosed
+            DeleteLauncherStagingTree(pending.Folder)
+        detail := SanitizeDiagnosticText(err.Message)
+        if detail = ""
+            detail := "The macro ZIP could not be imported."
         MacroStatus.Text := "Import failed: " detail
         MsgBox("The ZIP could not be imported.`n`n" detail, "Import Macro")
     }
     finally
     {
+        MacroImport := 0
         MacroImportButton.Enabled := true
         RefreshMacroButtons()
     }
@@ -191,7 +731,7 @@ CheckMacroImport()
 
 FinishMacroImport(pending)
 {
-    global MacroStatus, MacroRoot
+    global MacroRoot
     scripts := []
     Loop Files pending.Folder "\*.ahk", "R"
         scripts.Push(SubStr(A_LoopFileFullPath, StrLen(pending.Folder) + 2))
@@ -206,8 +746,7 @@ FinishMacroImport(pending)
         entry := scripts.Length = 1 ? scripts[1] : ChooseMacroScript(scripts)
     if entry = ""
     {
-        DirDelete(pending.Folder, true)
-        MacroStatus.Text := "Import canceled."
+        DeleteLauncherStagingTree(pending.Folder)
         return
     }
     SplitPath(pending.Archive, , , , &defaultName)
@@ -220,23 +759,72 @@ FinishMacroImport(pending)
     IniWrite(name, metadata, "Macro", "Name")
     IniWrite(SubStr(description, 1, 500), metadata, "Macro", "Description")
     IniWrite(entry, metadata, "Macro", "Entry")
-    FileDelete(pending.Folder "\.import-success")
+    if FileExist(pending.Folder "\.import-success")
+        FileDelete(pending.Folder "\.import-success")
     ; Immutable unique install folders allow ZIPs with the same display name.
-    destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    destination := MacroRoot "\package-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
     DirMove(pending.Folder, destination)
     AddImportedMacro(destination, name, description, entry)
-    imported := {Folder: destination, Entry: entry, Name: name}
-    if ReadMacroBindings(imported).Length
-        ShowMacroBindings(imported)
-    MacroStatus.Text := "Imported " name ". Select it and click Run."
 }
 
-AddImportedMacro(folder, name, description, entry)
+AddImportedMacro(folder, name, description, entry, kind := "Macro", target := "")
 {
-    global MacroItems, MacroList
-    MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description, PID: 0})
-    row := MacroList.Add(, name, "Ready", entry)
-    MacroList.Modify(row, "Select Focus Vis")
+    global MacroPage, MacroItems, MacroList, MacroScrollOffset
+    try
+    {
+        try
+        {
+            BeginInterfaceUpdate(MacroPage, "Updating macro list...")
+            row := MacroList.Add(, name, "Ready", kind = "App" ? "App" : "Macro")
+            MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
+                Kind: kind, Target: target, ProcessHandle: 0})
+            MacroList.Modify(row, "Select Focus")
+            MacroScrollOffset := Max(0, row - 4)
+            RefreshMacroButtons()
+        }
+        finally EndInterfaceUpdate()
+    }
+    catch
+    {
+        try LoadMacroPackages()
+        LogLauncherEvent("MACRO | Package saved. Installed macro list refresh needed recovery.")
+    }
+}
+
+; An installed EXE is linked by path. Copying only its EXE would break apps
+; with side-by-side resources and would make launcher removal destructive.
+ImportMacroApplication(source)
+{
+    global MacroRoot
+    if !ValidMacroApplication({Kind: "App", Target: source})
+        return
+    SplitPath(source, &filename, , , &name)
+    name := SubStr(Trim(name), 1, 100)
+    if name = ""
+        name := filename
+    staging := ""
+    try
+    {
+        id := FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
+        staging := MacroRoot "\import-" id
+        folder := MacroRoot "\app-" id
+        DirCreate(staging)
+        manifest := staging "\.tes3np-package.ini"
+        IniWrite(name, manifest, "Macro", "Name")
+        IniWrite("App", manifest, "Macro", "Kind")
+        IniWrite(filename, manifest, "Macro", "Entry")
+        IniWrite(source, manifest, "Macro", "Target")
+        IniWrite("Linked local application", manifest, "Macro", "Description")
+        DirMove(staging, folder)
+    }
+    catch
+    {
+        if staging != ""
+            DeleteLauncherStagingTree(staging)
+        MsgBox("Could not register that application.", "Upload Macro")
+        return
+    }
+    AddImportedMacro(folder, name, "Linked local application", filename, "App", source)
 }
 
 ChooseMacroScript(scripts)
@@ -257,13 +845,17 @@ ChooseMacroScript(scripts)
     MacroPage.Opt("+Disabled")
     try
     {
-        chooser.Show("w500 h165")
+        chooserScale := GetOwnedMenuScale()
+        ScaleOwnedMenuContent(chooser, chooserScale)
+        chooser.Show("Hide w" Round(500 * chooserScale) " h" Round(165 * chooserScale))
+        PositionOwnedMenuAtParent(chooser, MacroPage)
+        chooser.Show()
         WinWaitClose("ahk_id " chooser.Hwnd)
     }
     finally
     {
         MacroPage.Opt("-Disabled")
-        chooser.Destroy()
+        DestroyScaledMenu(chooser)
     }
     return result.Entry
 }
@@ -276,137 +868,193 @@ AcceptMacroScript(chooser, list, scripts, result, *)
 
 RunSelectedMacro(*)
 {
-    global MacroItems, MacroList, MacroStatus, MacroImport
+    global MacroItems, MacroList, MacroImport
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length || IsObject(MacroImport)
         return
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if MacroProcessRunning(macro)
         return
-    if MsgBox("Run " macro.Name "? Imported macros execute code on your computer. Only run a package you trust.", "Run macro", 0x124) != "Yes"
-        return
-    if ReadMacroBindings(macro).Length && !MacroBindingsReady(macro)
-        if !ShowMacroBindings(macro)
-            return
-    interpreter := A_IsCompiled ? A_ScriptDir "\runtime\AutoHotkey64.exe" : A_AhkPath
-    if !FileExist(interpreter)
+    if !ValidMacroApplication(macro)
+        || (macro.Kind != "App" && !ValidMacroEntry(macro.Folder, macro.Entry))
     {
-        interpreter := FileSelect(1, , "Choose AutoHotkey executable for this macro", "AutoHotkey (*.exe)")
-        if interpreter = ""
-            return
+        RefreshMacroButtons()
+        return
     }
+    if MsgBox("Run " macro.Name "? This tool executes code on your computer. Only run files you trust.", "Run macro / app", 0x124) != "Yes"
+        return
     try
     {
-        entry := macro.Folder "\" macro.Entry
-        if !ValidMacroEntry(macro.Folder, macro.Entry)
-            throw Error("Script no longer exists")
-        SplitPath(entry, , &workingDirectory)
-        ; Child scripts inherit the configuration path. Restore the launcher environment.
-        previousBindings := EnvGet("TES3NP_BINDINGS")
-        try
+        if macro.Kind = "App"
         {
-            EnvSet("TES3NP_BINDINGS", ReadMacroBindings(macro).Length ? MacroBindingsPath(macro) : "")
-            Run('"' interpreter '" "' entry '"', workingDirectory, , &pid)
+            if !ValidMacroApplication(macro)
+                throw Error("App executable is missing")
+            SplitPath(macro.Target, , &directory)
+            Run('"' macro.Target '"', directory, , &pid)
         }
-        finally EnvSet("TES3NP_BINDINGS", previousBindings)
-        macro.PID := pid
-        MacroList.Modify(row, , macro.Name, "Running", macro.Entry)
-        MacroStatus.Text := "Started " macro.Name ". Its own hotkeys and controls remain active."
+        else
+        {
+            interpreter := A_IsCompiled ? A_ScriptDir "\runtime\AutoHotkey64.exe" : A_AhkPath
+            if !FileExist(interpreter)
+                throw Error("Bundled AutoHotkey macro runtime missing")
+            entry := macro.Folder "\" macro.Entry
+            if !ValidMacroEntry(macro.Folder, macro.Entry)
+                throw Error("Script no longer exists")
+            SplitPath(entry, , &directory)
+            ; Macro-specific shortcuts and settings belong to the script.
+            Run('"' interpreter '" "' entry '"', directory, , &pid)
+        }
+        if macro.ProcessHandle
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
+        ; SYNCHRONIZE and PROCESS_TERMINATE bind Stop to this exact process.
+        macro.ProcessHandle := DllCall("OpenProcess", "UInt", 0x100001, "Int", 0, "UInt", pid, "Ptr")
+        if !macro.ProcessHandle
+        {
+            if ProcessExist(pid)
+            {
+                macro.LastError := "Process tracking unavailable"
+                RefreshMacroButtons()
+                return
+            }
+            macro.LastError := ""
+            RefreshMacroButtons()
+            return
+        }
+        macro.LastError := ""
+        MacroList.Modify(row, , macro.Name, "Running", MacroTypeLabel(macro))
         RefreshMacroButtons()
     }
-    catch
-        MsgBox("Could not run this macro. Check its script and AutoHotkey version.", "Run macro")
+    catch Error as err
+    {
+        ; A missing package runtime is a launcher installation problem, not
+        ; a request for an arbitrary interpreter selected by the user.
+        missingRuntime := InStr(err.Message, "Bundled AutoHotkey macro runtime missing") > 0
+        macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"
+        RefreshMacroButtons()
+        MsgBox(missingRuntime
+            ? "TES3NP's bundled AutoHotkey runtime is missing.`n`nRebuild or re-extract the complete TES3NP Windows package, keeping the runtime folder beside tes3np.exe."
+            : "Could not run this tool. Check its installation.",
+            "Run macro / app", "Icon!")
+    }
 }
+
 
 StopSelectedMacro(*)
 {
-    global MacroItems, MacroList, MacroStatus
+    global MacroItems, MacroList
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length
         return
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if MacroProcessRunning(macro)
     {
-        try ProcessClose(macro.PID)
+        if !DllCall("TerminateProcess", "Ptr", macro.ProcessHandle, "UInt", 0)
+        {
+            macro.LastError := "Could not stop"
+            RefreshMacroButtons()
+            return
+        }
     }
+    macro.LastError := ""
     RefreshMacroProcesses()
-    MacroStatus.Text := "Stopped " macro.Name "."
 }
 
 RefreshMacroProcesses()
 {
     global MacroItems, MacroList
+    if !IsObject(MacroList)
+        return
     for row, macro in MacroItems
-        if macro.PID && !ProcessExist(macro.PID)
+        if macro.ProcessHandle && !MacroProcessRunning(macro)
         {
-            macro.PID := 0
-            MacroList.Modify(row, , macro.Name, "Ready", macro.Entry)
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
+            macro.ProcessHandle := 0
+            MacroList.Modify(row, , macro.Name,
+                ValidMacroApplication(macro) ? "Ready" : "Missing", MacroTypeLabel(macro))
         }
     RefreshMacroButtons()
 }
 
 RemoveSelectedMacro(*)
 {
-    global MacroItems, MacroList, MacroStatus
+    global MacroPage, MacroItems, MacroList, MacroScrollOffset, MacroNameEdit
     row := MacroList.GetNext()
     if !row || row > MacroItems.Length
         return
     macro := MacroItems[row]
-    if macro.PID && ProcessExist(macro.PID)
+    if MacroProcessRunning(macro)
         return
-    if MsgBox("Remove " macro.Name " from your installed macros? The original ZIP is kept.", "Remove macro", 0x124) != "Yes"
+    if MsgBox("Remove " macro.Name " from Installed Macros? This does not uninstall linked applications.", "Remove macro / app", 0x124) != "Yes"
         return
     try
-    {
         DirDelete(macro.Folder, true)
+    catch
+    {
+        MsgBox("Could not remove this macro package. Check that its files are not in use.", "Remove macro")
+        return
+    }
+    BeginInterfaceUpdate(MacroPage, "Updating macro list...")
+    try
+    {
+        if IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = macro
+            MacroNameEdit.EditingItem := 0
+        if macro.ProcessHandle
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
         MacroItems.RemoveAt(row)
         MacroList.Delete(row)
-        MacroStatus.Text := "Macro removed."
+        if MacroItems.Length
+            MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
+        MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))
         RefreshMacroButtons()
     }
-    catch
-        MsgBox("Could not remove this macro package. Check that its files are not in use.", "Remove macro")
+    finally EndInterfaceUpdate()
 }
 
 CleanupMacros()
 {
-    global MacroPage, MacroImport, MacroItems
+    global MacroImport, MacroItems
     SetTimer(CheckMacroImport, 0)
     SetTimer(RefreshMacroProcesses, 0)
     if IsObject(MacroImport)
     {
-        if ProcessExist(MacroImport.PID)
-            try ProcessClose(MacroImport.PID)
-        if DirExist(MacroImport.Folder)
-            try DirDelete(MacroImport.Folder, true)
+        try
+            if StopMacroImportWorker(MacroImport)
+                DeleteLauncherStagingTree(MacroImport.Folder)
+        MacroImport := 0
     }
-    ; Imported macros are owned sessions; stop only their tracked processes.
+    ; Macro scripts remain launcher-owned; linked apps should remain running
+    ; if the user closes TES3NP instead of being forcibly terminated.
     for macro in MacroItems
-        if macro.PID && ProcessExist(macro.PID)
-            try ProcessClose(macro.PID)
-    if IsObject(MacroPage)
-        MacroPage.Destroy()
+    {
+        if macro.Kind != "App" && MacroProcessRunning(macro)
+            DllCall("TerminateProcess", "Ptr", macro.ProcessHandle, "UInt", 0)
+        if macro.ProcessHandle
+        {
+            DllCall("CloseHandle", "Ptr", macro.ProcessHandle)
+            macro.ProcessHandle := 0
+        }
+    }
 }
 
 ; Single scripts need no archive or manifest. Supporting files belong in a ZIP.
 ImportMacroScript(source)
 {
     global MacroRoot, MacroStatus
-    staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" A_TickCount
+    staging := ""
     try
     {
+        staging := MacroRoot "\import-" FormatTime(, "yyyyMMddHHmmss") "-" NewLauncherFileId()
         DirCreate(staging)
         SplitPath(source, &filename)
         FileCopy(source, staging "\" filename)
-        FileAppend("OK", staging "\.import-success")
         FinishMacroImport({Folder: staging, Archive: source})
-        RefreshMacroButtons()
     }
     catch
     {
-        if DirExist(staging)
-            try DirDelete(staging, true)
+        if staging != ""
+            DeleteLauncherStagingTree(staging)
         MacroStatus.Text := "The script could not be imported."
+        RefreshMacroButtons()
         MsgBox("Could not copy this AutoHotkey script. Check that the file is readable.", "Import Macro")
     }
 }

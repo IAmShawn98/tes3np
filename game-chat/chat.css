@@ -1,0 +1,119 @@
+/* TES3NP chat appearance - edit and save; launcher reloads automatically. */
+:root,html,body,#app-mount { background:rgba(0,0,0,.78)!important;color:#ead7ae!important; }
+[class*="guilds_"],[class*="sidebar_"],[class*="sidebarList_"],
+[class*="membersWrap_"],[class*="members_"],[class*="panels_"],
+[class*="form_"],[class*="channelTextArea_"],[class*="toolbar_"],
+[class*="notice_"],[class*="titleWrapper_"],[class*="upperContainer_"],
+[class*="chatHeaderBar_"],[class*="jumpToPresentBar_"],[class*="newMessagesBar_"],
+[class*="typing_"],[class*="avatar_"],[class*="botTag_"],
+[class*="buttons_"],[class*="channelName_"],[class*="chatHeader_"],
+[class*="searchBar_"],[class*="topic_"],[class*="titleContainer_"],
+[class*="threadSidebar_"],[class*="sidebarRegion_"],[class*="pageHeader_"],
+[class*="welcomeMessage_"],[class*="messageToolbar_"],
+[class*="buttonContainer_"] {display:none!important}
+[class*="base_"],[class*="content_"],[class*="chat_"],
+[class*="chatContent_"],[class*="messagesWrapper_"],[class*="scroller_"] {
+ width:100%!important;max-width:100%!important;min-width:0!important;
+ margin:0!important;padding-left:0!important;padding-right:0!important;
+ background:rgba(0,0,0,.78)!important;border:0!important
+}
+[data-list-id="chat-messages"] {padding:4px 0 8px!important}
+[class*="message_"] {min-height:0!important;padding:5px 8px!important;margin:0!important;background:transparent!important}
+[class*="messageContent_"],[class*="markup_"] {
+ font:13px/1.4 Georgia,"Palatino Linotype",serif!important;
+ color:#ead7ae!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important
+}
+[class*="username_"] {font:bold 12px Georgia,serif!important;color:#d9b978!important}
+[class*="timestamp_"],[class*="divider_"],[class*="repliedMessage_"],
+[class*="messageAccessories_"],[class*="reaction_"] {display:none!important}
+::-webkit-scrollbar{width:6px!important}
+::-webkit-scrollbar-track{background:#241b12!important}
+::-webkit-scrollbar-thumb{background:#94744a!important;border-radius:3px!important}
+
+/* Hide remaining Discord channel-header action icons. */
+[class*="chat_"] [class*="title_"],
+[class*="chat_"] [class*="children_"],
+[class*="chat_"] [class*="iconWrapper_"],
+[class*="chat_"] [class*="toolbar_"],
+[class*="chat_"] [class*="headerBar_"],
+[class*="chat_"] [class*="subtitleContainer_"],
+[class*="chat_"] [class*="container_"][role="toolbar"],
+[class*="chat_"] header {display:none!important}
+
+/* Keep the chat artwork visible beneath a smoky black overlay. */
+html,body,#app-mount,[class*="app_"],[class*="bg_"],
+[class*="layer_"],[class*="container_"],[class*="chat_"],
+[class*="chatContent_"],[class*="messagesWrapper_"],[class*="scroller_"] {
+ background-color:transparent!important;
+ background-image:none!important;
+}
+html,body,#app-mount {background:rgba(0,0,0,.78)!important}
+[class*="message_"],[class*="messageListItem_"] {background:transparent!important}
+/* The two visible controls are in the channel header, not the message feed. */
+[class*="chat_"] [class*="title_"] button,
+[class*="chat_"] [class*="title_"] svg,
+[class*="chat_"] [class*="toolbar_"] button,
+[class*="chat_"] [class*="toolbar_"] svg,
+[class*="chat_"] [class*="iconWrapper_"],
+button[aria-label*="Notification"],button[aria-label*="Thread"],
+button[aria-label*="Pinned"],button[aria-label*="Member"],
+[aria-label="Threads"],[aria-label="Notification Settings"],
+[aria-label="Show Member List"] {display:none!important}
+
+/* Discord's current channel controls may be icon buttons outside the old toolbar classes. */
+#app-mount [class*="chat_"] [class*="header_"] button,
+#app-mount [class*="chat_"] [class*="title_"] button,
+#app-mount [class*="chat_"] [class*="toolbar_"] button,
+#app-mount [class*="chat_"] [class*="children_"] button,
+#app-mount [class*="chat_"] [class*="iconWrapper_"],
+#app-mount [class*="chat_"] [class*="clickable_"][role="button"] {
+ display:none!important;
+}
+
+/* Morrowind in-game chat visual reference */
+:root,html,body,#app-mount {background:#080706!important;color:#f0e8db!important}
+[class*="messageContent_"],[class*="markup_"] {
+font-family:Verdana,Tahoma,Arial,sans-serif!important;
+font-size:14px!important;font-weight:700!important;line-height:1.32!important;
+color:#eee9e2!important;text-shadow:1px 1px 2px #000!important;
+}
+[class*="username_"] {font-family:Verdana,Tahoma,Arial,sans-serif!important;font-size:14px!important;font-weight:800!important;color:#d3aa32!important;text-shadow:1px 1px 2px #000!important}
+[class*="message_"] {padding:2px 9px!important}
+[data-list-id="chat-messages"] {padding:7px 3px!important}
+::-webkit-scrollbar {width:16px!important}
+::-webkit-scrollbar-track {background:#18130c!important;border:2px ridge #ad8a4b!important}
+::-webkit-scrollbar-thumb {background:linear-gradient(90deg,#6f522a,#b99a5b,#74562b)!important;border:2px ridge #d2b276!important;border-radius:0!important}
+
+/* In-game chat uses tight compact rows, not Discord's roomy typography. */
+[class*="messageContent_"],[class*="markup_"] {
+ font-family:Tahoma,Verdana,Arial,sans-serif!important;
+ font-size:12px!important;
+ font-weight:700!important;
+ line-height:1.25!important;
+ letter-spacing:0!important;
+ color:#f0eeea!important;
+}
+[class*="username_"] {
+ font-family:Tahoma,Verdana,Arial,sans-serif!important;
+ font-size:12px!important;
+ font-weight:800!important;
+}
+[class*="message_"] {padding:1px 7px!important}
+[data-list-id="chat-messages"] {padding:4px 2px!important}
+[class*="messageContent_"] {margin-top:0!important}
+
+/* Classic Morrowind-style inset scrollbar and arrow caps. */
+::-webkit-scrollbar {width:19px!important;background:#080705!important}
+::-webkit-scrollbar-track {background:#17120b!important;border:2px solid #967648!important;box-shadow:inset 1px 1px 0 #322412!important}
+::-webkit-scrollbar-thumb {background:linear-gradient(90deg,#58401e 0%,#c7a971 40%,#9b7840 85%,#4c351a 100%)!important;border:2px solid #d3b783!important;border-radius:0!important;min-height:24px!important}
+::-webkit-scrollbar-button:single-button {height:19px!important;display:block!important;background:#2a1e10!important;border:2px solid #b79a60!important;box-shadow:inset 1px 1px 0 #e0c78d!important}
+::-webkit-scrollbar-button:single-button:vertical:decrement {background-image:linear-gradient(135deg,transparent 45%,#e6cf96 46%,#e6cf96 55%,transparent 56%)!important}
+::-webkit-scrollbar-button:single-button:vertical:increment {background-image:linear-gradient(315deg,transparent 45%,#e6cf96 46%,#e6cf96 55%,transparent 56%)!important}
+[class*="message_"] {padding:0 6px!important}
+[class*="markup_"],[class*="messageContent_"] {font-size:12px!important;line-height:1.23!important;font-weight:700!important}
+
+
+/* Keep first message clear of the title/viewport boundary. */
+[data-list-id="chat-messages"] {padding-top:15px!important;padding-bottom:12px!important}
+[class*="scrollerInner_"] {padding-top:10px!important}
+

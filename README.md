@@ -16,9 +16,7 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 
 ## Download
 
-The recommended way to download TES3NP is to open the [**TES3NP website**](https://iamshawn98.github.io/tes3np/) and click **Download for Windows**.
-
-You can also download the Windows ZIP from [**GitHub Releases**](https://github.com/IAmShawn98/tes3np/releases).
+Download the Windows ZIP from [**GitHub Releases**](https://github.com/IAmShawn98/tes3np/releases).
 
 ## Quick Start
 
@@ -30,7 +28,7 @@ Requires **Windows 10 or 11 (64-bit)** and [**Morrowind GOTY**](https://en.uesp.
 
 If Game Chat isn’t working, check whether [Microsoft WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) is installed. It comes with Windows 11 and is already installed on most Windows 10 PCs.
 
-See [player guide](https://github.com/IAmShawn98/tes3np/blob/Update/v0.1.21-alpha/docs/USER-GUIDE.md) for a more in-depth user guide.
+See [player guide](docs/USER-GUIDE.md) for a more in-depth user guide.
 
 ## Update
 

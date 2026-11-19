@@ -16,16 +16,48 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Normalize patch script final newline
-        shell: pwsh
-        run: |
-          $path = 'scripts/patch-tes3mp.ps1'
-          $text = [IO.File]::ReadAllText($path)
-          if (-not ($text.EndsWith("`n"))) {
-            [IO.File]::WriteAllText($path, $text + "`n", (New-Object Text.UTF8Encoding($true)))
-          }
       - name: Check source and available patch payload
         run: python scripts/project.py check --allow-missing-payload
       - name: Parse workers with Windows PowerShell 5.1
         shell: powershell
         run: ./scripts/check-powershell.ps1
+      - name: Guard Chat Host persistence and Happy Hour contracts
+        run: python scripts/check-chat-architecture.py
+      - name: Check diagnostic privacy contracts
+        run: python scripts/check-diagnostic-privacy.py
+      - name: Test launcher updater validation
+        shell: pwsh
+        run: ./scripts/test-update-client.ps1
+      - name: Test updater metadata validation
+        shell: pwsh
+        run: ./scripts/test-update-metadata.ps1
+      - name: Test updater transaction and rollback
+        shell: pwsh
+        run: ./scripts/test-updater-transaction.ps1
+      - name: Test Expansion Pack import
+        shell: powershell
+        run: ./scripts/test-import-expansion-folder.ps1
+      - name: Test Expansion Pack toggle
+        shell: powershell
+        run: ./scripts/test-expansion-toggle.ps1
+      - name: Compile AutoHotkey launcher with verified official tools
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/check-ahk-compile.ps1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile Windows Game Chat
+        run: dotnet build game-chat/tes3np.GameChat.csproj -c Release -r win-x64 --no-self-contained
+      - name: Test Game Chat archive persistence
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'game-chat/bin/Release/net8.0-windows/win-x64/tes3np.ChatHost.exe'
+          $probe = Start-Process -FilePath $exe.Path -ArgumentList '--check-chat-archive' -PassThru
+          if (!$probe.WaitForExit(30000)) {
+            $probe.Kill()
+            throw 'Game Chat archive fixture timed out.'
+          }
+          if ($probe.ExitCode -ne 0) { throw "Game Chat archive fixture failed with exit code $($probe.ExitCode)." }
+          Write-Host 'PASS: Game Chat archive order, format, and retry after a sharing violation.'

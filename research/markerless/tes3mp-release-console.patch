@@ -1,0 +1,13 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -707,8 +707,8 @@
+     endif()
+ 
+     if (BUILD_OPENMW)
+-        # Release builds don't use the debug console
+-        set_target_properties(tes3mp PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
++        # Keep the native connection and startup console for the Release client.
++        set_target_properties(tes3mp PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:CONSOLE /ENTRY:mainCRTStartup")
+         set_target_properties(tes3mp PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+     endif()
+ 
