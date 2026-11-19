@@ -526,11 +526,28 @@ expect(
     and in_order(show_sign_in, "web.Parent = popup.BrowserPanel;", "PositionChatWindows();",
                  "SetNativeWindowOwner(popup.Handle, owner);", "popup.Show();")
     and "chatViewport.Controls.Add(web);" in source
-    and "FitPopupScale(launcherScale, chatWidth, chatHeight, work)" in chat_layout
+    and "FitPopupScale(launcherScale, chatWidth, dockHeight, work)" in chat_layout
     and "discordLoginVisible ? Math.Max(chatHeight, 780)" not in source
     and "web.Parent = this;" not in source,
 )
 
+composer = (chat_root / "GameChatWindow.ChatComposer.cs").read_text(encoding="utf-8-sig")
+composer_page = (chat_web / "discord-chat-composer.js").read_text(encoding="utf-8-sig")
+expect(
+    "Live Game Chat uses Discord's own signed-in, channel-scoped composer",
+    'GameChatWeb.Page("discord-chat-composer.js")' in composer
+    and 'discordAccountStatus != DiscordAccountStatus.SignedIn' in composer
+    and 'browser.EnsureCoreWebView2Async(environment)' in composer
+    and 'e.Cancel = !IsComposerRoute(e.Uri);' in composer
+    and 'IsComposerRoute(e.Source)' in composer
+    and 'core.Navigate(Channel);' in composer
+    and 'SetWindowRgn(browser.Handle, region, true)' in composer
+    and 'CloseChatComposer();' in show_sign_in
+    and 'if (status != DiscordAccountStatus.SignedIn) CloseChatComposer();' in source
+    and 'contenteditable="true"' in composer_page
+    and 'channelTextArea_' in composer_page
+    and not any(token in composer_page for token in ('fetch(', 'dispatchEvent(', '.click(', 'requestSubmit(')),
+)
 # Chat Host has a separate real WebView2 renderer, its parent, a native
 # loading-text control and a textured custom scrollbar. All four must change
 # state together on the first successful Discord feed.
@@ -547,7 +564,7 @@ expect(
     and "Math.Clamp(x, work.Left, work.Right - size.Width)" in dock_bounds
     and "Math.Clamp(y, work.Top, work.Bottom - size.Height)" in dock_bounds
     and in_order(chat_layout, "Screen.FromHandle(owner).WorkingArea",
-                 "FitPopupScale(launcherScale, chatWidth, chatHeight, work)",
+                 "FitPopupScale(launcherScale, chatWidth, dockHeight, work)",
                  "DockBounds(bounds, work, size, size.Width)",
                  "MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);")
     and "MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);" not in source,

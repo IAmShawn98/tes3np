@@ -463,6 +463,7 @@ internal sealed partial class GameChatWindow
         connectingChat = false;
         showChatAfterDiscordSignIn = chatOpen || chatDisplayMode == "Always Shown" || freshDiscordProfile;
         discordLoginVisible = true;
+        CloseChatComposer();
         nativeMode = false;
         nativeMessages.Visible = false;
         messageBrowser.Visible = false;

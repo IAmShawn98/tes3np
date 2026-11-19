@@ -103,6 +103,7 @@ internal sealed partial class GameChatWindow : Form
         }
         CloseEmbeddedExpansionDownloads();
         CloseDiscordAccountBrowser();
+        CloseChatComposer();
         ResetServerUpdates();
         discordSignInWindow?.Dispose();
         borderTexture?.Dispose();
@@ -127,10 +128,11 @@ internal sealed partial class GameChatWindow : Form
             await RefreshNativeMessages();
             if (closingChat || IsDisposed) return;
             PositionChatWindows();
+            _ = EnsureChatComposer();
             if (pendingExpansionPrompt == 0 && !discordLoginVisible && !connectingChat &&
                 chatDisplayMode == "Automatic" && chatOpen &&
                 DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
-                !goldScrollbar.Capture &&
+                !goldScrollbar.Capture && !ChatComposerHasFocus &&
                 !Bounds.Contains(Cursor.Position))
                 SetChatOpen(false);
             if (nativeMode && goldScrollbar.Visible)

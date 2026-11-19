@@ -160,12 +160,14 @@ internal sealed partial class GameChatWindow
             return;
         }
         frameSurface.SetBounds(0, 0, ClientSize.Width, ClientSize.Height);
+        int composerSpace = nativeMode ? ChatPixels(ChatComposerSpace) : 0;
         messageClip.SetBounds(ChatPixels(23), ChatPixels(60),
-            Math.Max(1, ClientSize.Width - ChatPixels(60)), Math.Max(1, ClientSize.Height - ChatPixels(78)));
+            Math.Max(1, ClientSize.Width - ChatPixels(60)), Math.Max(1, ClientSize.Height - ChatPixels(78) - composerSpace));
         nativeMessages.SetBounds(0, 0, messageClip.Width, messageClip.Height);
         messageBrowser.SetBounds(0, 0, messageClip.Width, messageClip.Height);
         goldScrollbar.SetBounds(Math.Max(0, ClientSize.Width - ChatPixels(37)), ChatPixels(56),
-            ChatPixels(20), Math.Max(1, ClientSize.Height - ChatPixels(74)));
+            ChatPixels(20), Math.Max(1, ClientSize.Height - ChatPixels(74) - composerSpace));
+        FitChatComposer();
         chatViewport.SetBounds(ChatPixels(14), ChatPixels(49),
             Math.Max(1, ClientSize.Width - ChatPixels(28)), Math.Max(1, ClientSize.Height - ChatPixels(63)));
         frameSurface.Invalidate();
@@ -308,12 +310,13 @@ internal sealed partial class GameChatWindow
         var work = Screen.FromHandle(owner).WorkingArea;
         if (work.Width <= 0 || work.Height <= 0) return;
         double launcherScale = OwnerLayoutScale(bounds.Right - bounds.Left, launcherBaseWidth, GetDpiForWindow(owner));
-        double scale = FitPopupScale(launcherScale, chatWidth, chatHeight, work);
+        int dockHeight = chatHeight + (nativeMode ? ChatComposerSpace : 0);
+        double scale = FitPopupScale(launcherScale, chatWidth, dockHeight, work);
         int sideWidth = Math.Max(bounds.Left - work.Left, work.Right - bounds.Right);
         if (sideWidth >= Math.Min(220, Pixels(chatWidth, 0.5)))
             scale = Math.Min(scale, sideWidth / (double)chatWidth);
         UpdateChatScale(scale);
-        var size = new Size(ChatPixels(chatWidth), ChatPixels(chatHeight));
+        var size = new Size(ChatPixels(chatWidth), ChatPixels(dockHeight));
         PositionDiscordSignIn(bounds, work);
         var target = DockBounds(bounds, work, size, size.Width);
         if (chatOpen && Bounds != target)
