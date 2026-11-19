@@ -514,6 +514,17 @@ if A_Args.Length && A_Args[1] = "--check-resources"
     ExitApp(0)
 '@
     $entryText = [regex]::Replace($entryText, $markerLine, $resourceSetup)
+    # The compiled UI probes use the painter before normal launcher startup.
+    $launcherChecksLine = '(?m)^RunLauncherChecks\(A_Args\)(?=\r?$)'
+    if ([regex]::Matches($entryText, $launcherChecksLine).Count -ne 1) {
+        throw 'Expected exactly one launcher check dispatch in tes3np.ahk.'
+    }
+    $resourceProbeSetup = @'
+if A_Args.Length && (A_Args[1] = "--check-owned-menu-scaling" || A_Args[1] = "--check-expansion-window")
+    PrepareBundledResources()
+RunLauncherChecks(A_Args)
+'@
+    $entryText = [regex]::Replace($entryText, $launcherChecksLine, $resourceProbeSetup)
     [IO.File]::WriteAllText($stageEntry, $entryText)
     Get-ChildItem (Join-Path $stageRoot 'src') -Filter '*.ahk' -Recurse | Where-Object { $_.Name -ne 'bundled-resources.generated.ahk' } | ForEach-Object {
         $text = [IO.File]::ReadAllText($_.FullName)
@@ -625,6 +636,25 @@ if A_Args.Length && A_Args[1] = "--check-resources"
         throw 'Patch payload was embedded into the launcher instead of kept separate.'
     }
     Step 'Verified no Expansion Pack or markerless client was embedded in launcher resources'
+    Step 'Testing compiled launcher menu scaling and release notes'
+    $menuOut = Join-Path $tools 'compiled-menu-smoke.stdout.txt'
+    $menuErr = Join-Path $tools 'compiled-menu-smoke.stderr.txt'
+    $menuProbe = Start-Process -FilePath $executable -WorkingDirectory $package `
+        -ArgumentList '--check-owned-menu-scaling' -PassThru `
+        -RedirectStandardOutput $menuOut -RedirectStandardError $menuErr
+    try {
+        if (!$menuProbe.WaitForExit(30000)) {
+            try { $menuProbe.Kill() } catch {}
+            throw 'Compiled menu smoke test timed out after 30 seconds.'
+        }
+        Get-Content -LiteralPath $menuOut, $menuErr | ForEach-Object { Write-Host $_ }
+        if ($menuProbe.ExitCode -ne 0) {
+            throw "Compiled menu smoke test failed with code $($menuProbe.ExitCode)."
+        }
+        Step 'Compiled menu smoke test exited with code 0'
+    } finally {
+        $menuProbe.Dispose()
+    }
     # Package the pinned official non-VR runtime so startup can run offline.
     Step 'Using prechecked official TES3MP 0.8.1 Win64 release archive'
     if (!$reuseTes3mp) {
