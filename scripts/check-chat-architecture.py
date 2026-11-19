@@ -388,7 +388,7 @@ expect(
     and "(serverUpdatesManuallyOpened || serverUpdatesDisplay.Open)" in server_updates
     and "serverUpdatesDisplay = ReadServerUpdatesDisplay();" in server_updates
     and in_order(section_between(server_updates, "void ToggleServerUpdatesBody()", "async Task RefreshServerUpdates()"),
-                 "if (!ServerUpdatesAuthenticated)", "OpenDiscordAccountSignIn();", "return;",
+                 "if (!ServerUpdatesAuthenticated)", "RequestDiscordSignIn(fromHeader: false);", "return;",
                  "serverUpdatesManuallyOpened = !hide;",
                  "SaveServerUpdatesDisplay(false, Math.Max(serverUpdatesDisplay.LastReadyId, latestServerUpdateId));",
                  "PositionServerUpdatesPanel();")
@@ -2016,8 +2016,9 @@ expect(
     and in_order(sign_in_layout, 'pendingExpansionPrompt == 0 && !discordSignInFromHeader',
                  'DockBounds(ownerBounds, work, size, size.Width)',
                  'work.Left + (work.Width - size.Width) / 2')
-    and in_order(section_between(source, "void OpenDiscordAccountSignIn()", "async Task SignOutDiscord()"),
-                 "discordSignInFromHeader = true;", "RevealDiscordSignInWindow();")
+    and "case 16: RequestDiscordSignIn(fromHeader: true);" in source
+    and in_order(section_between(source, "void RequestDiscordSignIn(bool fromHeader)", "async Task SignOutDiscord()"),
+                 "discordSignInFromHeader = fromHeader;", "RevealDiscordSignInWindow();")
     and 'Discord Integration!' in discord_sign_in
     and 'Sign In Required' in source
     and 'CopyToPublishDirectory="PreserveNewest"' in chat_project
