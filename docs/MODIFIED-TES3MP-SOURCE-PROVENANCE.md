@@ -1,6 +1,6 @@
 # Modified TES3MP source provenance
 
-Status: PENDING_FINAL_ZIP
+Status: VERIFIED_SOURCE_AND_BUILD
 
 The v0.1.21-alpha release is intended to use the source-built TES3MP 0.8.1
 Windows x64 console client. The recorded SHA-256 of the previously playtested
@@ -26,6 +26,19 @@ The older binary's exact source, build process, and modification authorship
 are still unverified. Its retained copy is part of the
 [historical repository visibility review](ASSET-DISTRIBUTION-APPROVAL.md#historical-20-release-and-repository-visibility).
 
-Complete this record using the exact Windows release ZIP. Record the source
-commit, ZIP SHA-256, package-check output, packaged EXE and DLL manifest,
-and the corresponding source and notices made available to recipients.
+## v0.1.21-alpha release candidate
+
+- Source commit: `c2d8ed4a59c536e9b39a7fa065cf2ef0bf49290a`.
+- Package: `tes3np-v0.1.21-alpha-windows.zip`, 140,035,216 bytes.
+- ZIP SHA-256: `f3f17d41ff0c9450196be366d5270d4e1bc8a2b373424d19dd76ba4b85b8c4f3`.
+- The Windows build staged the recorded console EXE and 45 matching DLLs.
+  The packaged client printed `--help`. The package checker passed with
+  `--require-console-client` against the versioned ZIP.
+- This package check verified the pinned EXE hash, PE console subsystem,
+  each EXE and DLL hash in the bundled `client-files.json`, and the
+  build recipe, patches, and CrabNet license in
+  `licenses/TES3MP/markerless-source/`.
+- The pinned TES3MP and CrabNet source license files were retrieved from
+  their upstream repositories. The bundled CrabNet license source matched
+  the pinned upstream license after line-ending normalization. The
+  package's source recipe and notices identify the corresponding source.
