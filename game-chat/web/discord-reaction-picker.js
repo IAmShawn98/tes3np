@@ -47,8 +47,11 @@
       html[${loading}]::after { content: ''; position: fixed; inset: 0; z-index: 2147483647;
         background: #232428; pointer-events: none; }
       html[${isolated}], html[${isolated}] body { background: #232428 !important; }
-      html[${isolated}] body :not([${marker}], [${marker}] *) { visibility: hidden !important; }
+      html[${isolated}] body :not(:where([${marker}], [${marker}] *)) { visibility: hidden !important; }
       html[${isolated}] [${marker}] { visibility: visible !important; }
+      /* Discord's server icons reference SVG masks defined outside the picker. */
+      html[${isolated}] svg :is(defs, mask, clipPath),
+      html[${isolated}] svg :is(defs, mask, clipPath) * { visibility: visible !important; }
     `;
     document.head.append(style);
   }
