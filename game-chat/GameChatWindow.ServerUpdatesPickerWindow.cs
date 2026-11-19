@@ -49,13 +49,10 @@ internal sealed partial class GameChatWindow
         }
     }
 
-    bool IsServerUpdatePickerForeground(IntPtr window) =>
-        window != IntPtr.Zero && serverUpdatePickerProcess is { } picker &&
-        GetWindowThreadProcessId(window, out uint processId) != 0 && processId == (uint)picker.Id;
-
     async Task ObserveServerUpdatePickerExit(Process picker)
     {
-        try { await picker.WaitForExitAsync(); }
+        int result = 0;
+        try { await picker.WaitForExitAsync(); result = picker.ExitCode; }
         catch (InvalidOperationException) { }
         finally
         {
@@ -63,7 +60,7 @@ internal sealed partial class GameChatWindow
             {
                 serverUpdatePickerProcess = null;
                 nextServerUpdatesCheck = DateTime.MinValue;
-                if (!closingChat) Log("SERVER UPDATES | Discord picker closed");
+                if (!closingChat) Log("SERVER UPDATES | Picker closed" + (result == 0 ? "" : " with status " + result));
             }
             picker.Dispose();
         }
@@ -98,6 +95,7 @@ internal sealed partial class GameChatWindow
 
     sealed record PickerViewport(double Left, double Top, double Right, double Bottom, double ViewWidth, double ViewHeight);
     sealed record PickerViewState(PickerViewport? Picker, bool Dismissed);
+    enum PickerOpenResult { Opened = 0, NeedsFocus = 1, PageUnavailable = 31, PreparationFailed, TriggerMissing, MenuMissing, InvalidCrop }
 
     static Rectangle ReactionPickerCrop(PickerViewport view, Size browserSize)
     {
@@ -132,7 +130,7 @@ internal sealed partial class GameChatWindow
         Size browserSize;
         Rectangle lastCrop;
         DateTime focusedAt;
-        bool checkingPicker, shownPicker, lostFocus;
+        bool checkingPicker, shownPicker, openingPicker, lostFocus;
         int missingChecks;
 
         internal DiscordReactionPickerForm(string postId, bool useCacheOptions, Rectangle anchor)
@@ -152,7 +150,7 @@ internal sealed partial class GameChatWindow
             int dpi = Math.Max(96, DeviceDpi);
             PlacePicker(new Size(340 * dpi / 96, 115 * dpi / 96), true);
             Shown += LoadPicker;
-            Deactivate += (_, _) => { if (shownPicker) lostFocus = true; };
+            Deactivate += (_, _) => { if (shownPicker || openingPicker) lostFocus = true; };
             Activated += (_, _) => focusedAt = DateTime.UtcNow;
             pickerWatch.Tick += WatchPicker;
             FormClosed += (_, _) => pickerWatch.Dispose();
@@ -209,11 +207,19 @@ internal sealed partial class GameChatWindow
                     if (await RunServerUpdateAction(core, new("picker-target", postId)) != "\"ready\"") continue;
                     if (IsDisposed) return;
 
-                    if (await OpenAndPresent(core)) pickerWatch.Start();
-                    else if (!IsDisposed) SetPickerStatus("Discord could not open the emoji menu. Close this window and try again.");
+                    PickerOpenResult result = await OpenAndPresent(core);
+                    if (IsDisposed) return;
+                    if (result == PickerOpenResult.Opened) pickerWatch.Start();
+                    else if (result == PickerOpenResult.NeedsFocus)
+                    {
+                        lostFocus = true;
+                        SetPickerStatus("Click this window to open Discord’s emoji menu.");
+                        pickerWatch.Start();
+                    }
+                    else ShowPickerFailure(result);
                     return;
                 }
-                SetPickerStatus("Discord could not locate this update. Close this window and try again.");
+                ShowPickerFailure(PickerOpenResult.PageUnavailable);
             }
             catch (Exception ex)
             {
@@ -228,26 +234,49 @@ internal sealed partial class GameChatWindow
             return JsonSerializer.Deserialize<PickerViewState>(result);
         }
 
-        async Task<bool> OpenAndPresent(CoreWebView2 core)
+        async Task<PickerOpenResult> OpenAndPresent(CoreWebView2 core)
         {
-            if (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source)) return false;
-            if (IsPickerWindowActive()) browser.Focus();
-            for (int attempt = 0; attempt < 3; attempt++)
+            if (IsDisposed || !IsPickerWindowActive()) return PickerOpenResult.NeedsFocus;
+            if (!IsServerUpdatesRoute(core.Source) && !IsServerUpdatesMessageRoute(core.Source))
+                return PickerOpenResult.PageUnavailable;
+            openingPicker = true;
+            try
             {
-                if (IsDisposed) return false;
-                if (await RunServerUpdateAction(core, new("picker", postId)) == "\"clicked\"") break;
-                if (attempt == 2) return false;
-                await Task.Delay(175);
+                var existing = await ReadPickerView(core);
+                if (IsDisposed || !IsPickerWindowActive()) return PickerOpenResult.NeedsFocus;
+                if (existing?.Picker is { } ready && PresentPicker(ready)) return PickerOpenResult.Opened;
+
+                string prepared = await core.ExecuteScriptAsync("window.tes3npPrepareReactionPicker?.() ?? false")
+                    .WaitAsync(TimeSpan.FromSeconds(3));
+                if (IsDisposed || !IsPickerWindowActive()) return PickerOpenResult.NeedsFocus;
+                if (prepared != "true") return PickerOpenResult.PreparationFailed;
+
+                // Let Discord receive focus only after its channel has an opaque cover.
+                status.Hide();
+                browser.Focus();
+                for (int attempt = 0; attempt < 5; attempt++)
+                {
+                    if (IsDisposed || !IsPickerWindowActive()) return PickerOpenResult.NeedsFocus;
+                    if (await RunServerUpdateAction(core, new("picker", postId)) == "\"clicked\"") break;
+                    if (attempt == 4) return PickerOpenResult.TriggerMissing;
+                    await Task.Delay(200);
+                }
+                bool measured = false;
+                for (int attempt = 0; attempt < 24; attempt++)
+                {
+                    if (IsDisposed || !IsPickerWindowActive()) return PickerOpenResult.NeedsFocus;
+                    var state = await ReadPickerView(core);
+                    if (IsDisposed || !IsPickerWindowActive()) return PickerOpenResult.NeedsFocus;
+                    if (state?.Picker is { } view)
+                    {
+                        measured = true;
+                        if (PresentPicker(view)) return PickerOpenResult.Opened;
+                    }
+                    await Task.Delay(150);
+                }
+                return measured ? PickerOpenResult.InvalidCrop : PickerOpenResult.MenuMissing;
             }
-            for (int attempt = 0; attempt < 16; attempt++)
-            {
-                if (IsDisposed) return false;
-                var state = await ReadPickerView(core);
-                if (IsDisposed) return false;
-                if (state?.Picker is { } view && PresentPicker(view)) return true;
-                await Task.Delay(150);
-            }
-            return false;
+            finally { openingPicker = false; }
         }
 
         bool PresentPicker(PickerViewport view)
@@ -259,12 +288,7 @@ internal sealed partial class GameChatWindow
                 // Clip the browser host HWND as well as its parent panel. The full
                 // channel is never revealed while the native menu is being cropped.
                 var region = CreateRectRgn(crop.Left, crop.Top, crop.Right, crop.Bottom);
-                if (region == IntPtr.Zero) return false;
-                if (SetWindowRgn(browser.Handle, region, true) == 0)
-                {
-                    DeleteObject(region);
-                    return false;
-                }
+                if (region != IntPtr.Zero && SetWindowRgn(browser.Handle, region, true) == 0) DeleteObject(region);
                 browser.Location = new Point(-crop.Left, -crop.Top);
                 PlacePicker(crop.Size, !shownPicker);
                 lastCrop = crop;
@@ -303,9 +327,16 @@ internal sealed partial class GameChatWindow
 
                 lostFocus = false;
                 SetPickerStatus("Reopening Discord emoji picker…");
-                if (await OpenAndPresent(core) || IsDisposed) return;
+                PickerOpenResult result = await OpenAndPresent(core);
+                if (IsDisposed || result == PickerOpenResult.Opened) return;
+                if (result == PickerOpenResult.NeedsFocus)
+                {
+                    lostFocus = true;
+                    SetPickerStatus("Click this window to reopen Discord’s emoji menu.");
+                    return;
+                }
                 pickerWatch.Stop();
-                SetPickerStatus("Discord could not reopen the emoji menu. Close this window and try again.");
+                ShowPickerFailure(result);
             }
             catch (Exception ex)
             {
@@ -317,6 +348,19 @@ internal sealed partial class GameChatWindow
         }
 
         bool IsPickerWindowActive() => IsHandleCreated && GetForegroundWindow() == Handle;
+
+        void ShowPickerFailure(PickerOpenResult result)
+        {
+            Environment.ExitCode = (int)result;
+            SetPickerStatus(result switch
+            {
+                PickerOpenResult.PageUnavailable => "Discord could not locate this update.",
+                PickerOpenResult.PreparationFailed => "The Discord emoji window could not be prepared.",
+                PickerOpenResult.TriggerMissing => "Discord did not offer Add Reaction for this update.",
+                PickerOpenResult.InvalidCrop => "Discord opened the emoji menu, but its bounds could not be displayed.",
+                _ => "Discord’s Add Reaction button was found, but the emoji menu did not appear."
+            });
+        }
 
         void SetPickerStatus(string text)
         {
