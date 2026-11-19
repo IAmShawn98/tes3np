@@ -159,6 +159,20 @@ folder picker are unverified for this run.
 - Windows account privilege and DPI details were not captured for this run.
   The final ZIP from the reviewed release source still needs its own evidence.
 
+## November 19 build from reviewed main
+
+- Source commit `c2d8ed4a59c536e9b39a7fa065cf2ef0bf49290a`.
+- Candidate `tes3np-v0.1.21-alpha-windows.zip`, 140,035,216 bytes, with SHA-256
+  `f3f17d41ff0c9450196be366d5270d4e1bc8a2b373424d19dd76ba4b85b8c4f3`.
+- **PASS:** Full developer Windows regression, including compiled launcher
+  checks, compiled menu smoke with exit code `0`, release-note layout at 50%
+  and 100%, and updater transaction and rollback fixtures.
+- **PASS:** The versioned ZIP passed package validation with
+  `--require-console-client`. The staged client used the tested executable
+  and 45 DLLs and printed `--help` during the build. The generated channel
+  metadata and independent file hash agreed.
+- **Pending:** Second-PC acceptance of this exact release ZIP.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
