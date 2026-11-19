@@ -20,6 +20,7 @@ bootstrap = read("src/app/bootstrap.ahk")
 embedded_chat = read("src/ui/embedded-chat.ahk")
 session = read("src/game/session.ahk")
 settings = read("src/ui/v016-refinements.ahk")
+bug_report = read("src/ui/bug-report.ahk")
 chat = read_game_chat_sources(ROOT)
 patcher = read("src/ui/patcher.ahk")
 loading = read("src/ui/loading.ahk")
@@ -37,6 +38,11 @@ expect(not any(line.lstrip().startswith("//") for line in diag.splitlines()),
        "C-style comments in AutoHotkey diagnostic source would break Ahk2Exe")
 expect('SanitizeDiagnosticText(message)' in diag,
        "launcher logger must sanitize before appending")
+report_logs = diag.partition("\nReadBugReportLog()\n{")[2].partition("\nTrimStoredDiagnosticLogs()")[0]
+expect("for filename in GetDiagnosticLogNames()" in report_logs
+       and "content := SanitizeDiagnosticText(file.Read(byteLimit))" in report_logs
+       and "BugReportJsonString(ReadBugReportLog())" in bug_report,
+       "bug reports must attach only the sanitized allowlisted diagnostics")
 expect('StrReplace(text, profile.Password' in diag,
        "saved passwords must be excluded from diagnostics")
 expect('StrReplace(text, profile.Name' not in diag,

@@ -8,6 +8,69 @@ GetDiagnosticLogNames()
         "patch-errors.log", "render-errors.log"]
 }
 
+ReadBugReportLog()
+{
+    global AppDataDirectory
+    ; Keep the existing report attachment budget. Reserve a tail for each
+    ; supplemental log and give the remaining space to the launcher log.
+    report := ""
+    for filename in GetDiagnosticLogNames()
+    {
+        if filename = "launcher.log"
+            continue
+        content := ReadBugReportDiagnosticTail(AppDataDirectory "\" filename, 16 * 1024)
+        if content != ""
+            report .= "`n`n===== " filename " =====`n" content
+    }
+    launcherHeader := "===== launcher.log =====`n"
+    launcherBudget := 96 * 1024 - (StrPut(launcherHeader report, "UTF-8") - 1)
+    launcher := ReadBugReportDiagnosticTail(AppDataDirectory "\launcher.log", launcherBudget)
+    return launcher = "" ? LTrim(report, "`n") : launcherHeader launcher report
+}
+
+ReadBugReportDiagnosticTail(path, byteLimit)
+{
+    try
+    {
+        if InStr(FileGetAttrib(path), "L")
+            return ""
+        file := FileOpen(path, "r", "UTF-8")
+        try
+        {
+            start := file.Length - byteLimit
+            if start > 0
+            {
+                ; Start after a complete line boundary, even if the byte
+                ; offset is inside a UTF-8 character.
+                file.Pos := start - 1
+                while !file.AtEOF && file.ReadUChar() != 10
+                    continue
+            }
+            content := SanitizeDiagnosticText(file.Read(byteLimit))
+        }
+        finally file.Close()
+    }
+    catch
+        return ""
+
+    if StrPut(content, "UTF-8") - 1 <= byteLimit
+        return content
+    ; The sanitizer can insert spaces around separators. Cap the resulting
+    ; attachment by UTF-8 bytes while keeping the newest complete lines.
+    lines := StrSplit(content, "`n")
+    tail := ""
+    Loop lines.Length
+    {
+        line := lines[lines.Length - A_Index + 1]
+        length := StrPut(line, "UTF-8") - 1 + (tail = "" ? 0 : 1)
+        if length > byteLimit
+            break
+        tail := line (tail = "" ? "" : "`n" tail)
+        byteLimit -= length
+    }
+    return tail
+}
+
 TrimStoredDiagnosticLogs()
 {
     for filename in GetDiagnosticLogNames()

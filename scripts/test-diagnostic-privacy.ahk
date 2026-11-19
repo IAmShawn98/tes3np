@@ -80,6 +80,21 @@ try
     PrivacyFixtureAssert(IniRead(DataFile, "Diagnostics", "PrivacyScrubVersion", "") = "4",
         "one-time migration checkpoint written")
 
+    FileAppend("CHAT HOST | Picker opened. | Token: fixture-only-token`n", AppDataDirectory "\chat-host.log", "UTF-8")
+    FileAppend("EXPANSION | Installer ran.`n", AppDataDirectory "\patch-all.log", "UTF-8")
+    FileAppend("RENDER | Frame painted.`n", AppDataDirectory "\render-errors.log", "UTF-8")
+    FileAppend("unlisted log must stay private", AppDataDirectory "\unlisted.log", "UTF-8")
+    report := ReadBugReportLog()
+    PrivacyFixtureAssert(InStr(report, "===== launcher.log =====") = 1
+        && InStr(report, "===== chat-host.log =====`nGAME")
+        && InStr(report, "CHAT HOST | Picker opened.")
+        && InStr(report, "===== patch-all.log =====`nEXPANSION | Installer ran.")
+        && InStr(report, "===== render-errors.log =====`nRENDER | Frame painted."),
+        "bug report combines the available diagnostic logs under source headings")
+    PrivacyFixtureAssert(!InStr(report, "patch-errors.log") && !InStr(report, "fixture-only-token")
+        && !InStr(report, "unlisted log must stay private") && !InStr(report, "genuine Happy Hour announcement"),
+        "bug report skips missing logs and keeps secrets and other files out")
+
     largeLog := AppDataDirectory "\large-fixture.log"
     stream := FileOpen(largeLog, "w", "UTF-8")
     try
@@ -101,6 +116,36 @@ try
         && InStr(tail, "Latest diagnostic event " Chr(0x00E9) "`n"),
         "log trimming keeps complete UTF-8 events")
     PrivacyFixtureAssert(!FileExist(largeLog ".trim.tmp"), "diagnostic staging file removed")
+
+    pipeLog := AppDataDirectory "\dense-report-fixture.log"
+    Loop 24
+        FileAppend("PART|FIELD|OK`n", pipeLog, "UTF-8")
+    FileAppend("LATEST|EVENT`n", pipeLog, "UTF-8")
+    tail := ReadBugReportDiagnosticTail(pipeLog, 160)
+    PrivacyFixtureAssert(StrPut(tail, "UTF-8") - 1 <= 160
+        && InStr(tail, "PART | FIELD | OK") = 1 && InStr(tail, "LATEST | EVENT"),
+        "UTF-8 bound still holds after the sanitizer expands separators")
+
+    originalDataRoot := AppDataDirectory
+    reportRoot := AppDataDirectory "\report-size"
+    DirCreate(reportRoot)
+    for filename in GetDiagnosticLogNames()
+        FileCopy(largeLog, reportRoot "\" filename)
+    try
+    {
+        AppDataDirectory := reportRoot
+        report := ReadBugReportLog()
+        PrivacyFixtureAssert(StrPut(report, "UTF-8") - 1 <= 96 * 1024,
+            "combined bug report preserves the transport budget in UTF-8 bytes")
+        for filename in GetDiagnosticLogNames()
+            PrivacyFixtureAssert(InStr(report, "===== " filename " =====`nOld diagnostic event "),
+                "large diagnostics retain complete recent lines for " filename)
+        recent := "Latest diagnostic event " Chr(0x00E9)
+        StrReplace(report, recent, "", , &recentCount)
+        PrivacyFixtureAssert(recentCount = GetDiagnosticLogNames().Length,
+            "each bounded diagnostic section includes its latest entry")
+    }
+    finally AppDataDirectory := originalDataRoot
 
     cache := AppDataDirectory "\client-cache"
     old := DateAdd(A_Now, -60, "Days")

@@ -51,7 +51,7 @@ BuildBugReportPage(settings)
     }
     settings.SetFont("s" V016Font(10) " Norm c382314", "Segoe UI")
     note := settings.Add("Text", "x" V016S(32) " y" V016S(426) " w" V016S(448)
-        " h" V016S(19) " BackgroundTrans", "A recent launcher log is attached automatically.")
+        " h" V016S(19) " BackgroundTrans", "Recent diagnostic logs are attached automatically.")
     settings.ReportStatus := settings.Add("Text", "x" V016S(32) " y" V016S(448)
         " w" V016S(448) " h" V016S(32) " BackgroundTrans")
     settings.ReportSend := AddStyledButton(settings, V016S(32), V016S(483), V016S(214), V016S(30),
@@ -340,28 +340,6 @@ SetBugReportBusy(settings, busy, status)
     settings.ReportCancel.Enabled := !busy
     settings.ReportStatus.Text := status
     UpdateBugReportScreenshotButtons(settings)
-}
-
-ReadBugReportLog()
-{
-    global LauncherLogFile
-    try
-    {
-        file := FileOpen(LauncherLogFile, "r", "UTF-8")
-        try
-        {
-            if file.Length > 96 * 1024
-            {
-                file.Pos := file.Length - 96 * 1024
-                while !file.AtEOF && file.ReadUChar() != 10
-                    continue
-            }
-            return SanitizeDiagnosticText(file.Read())
-        }
-        finally file.Close()
-    }
-    catch
-        return ""
 }
 
 ReadBugReportScreenshot(path, remaining)
