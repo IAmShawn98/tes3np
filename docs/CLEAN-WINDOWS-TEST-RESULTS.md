@@ -114,6 +114,20 @@ folder picker are unverified for this run.
   extracted launcher. Packaged owned-menu smoke and clean-machine results
   for this ZIP are pending.
 
+## November 19 developer retest with the compiled menu probe
+
+- Source commit `96e95f5776e0b8f3ff1ba83a385563db3e0711d9`.
+- ZIP `dist/tes3np-windows.zip` with SHA-256
+  `c8465dc09601236f04752422c78a37a0f8d9d632eb1d110004a9b9d42cc2b394`.
+- **PASS:** The compiled launcher menu probe exited `0` and reported 50–100%
+  menu scaling, owner tracking, work-area bounds and font release. The display
+  refresh and release-note row checks passed at 50% and 100%.
+- **PASS:** Full Windows build, compiled `--check`, ZIP integrity, packaged
+  source-built TES3MP console client `--help`, and offline updater fixtures,
+  including twelve transaction and rollback scenarios. The existing
+  WindowsBase `MSB3277` warning remained.
+- Clean Windows standard-user acceptance for this ZIP is pending.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
