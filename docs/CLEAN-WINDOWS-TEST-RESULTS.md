@@ -97,6 +97,23 @@ folder picker are unverified for this run.
   clean-machine login acceptance with the intended source-built console
   client and a standard Windows user.
 
+## November 19 developer regression with the source-built console client
+
+- Source commit `19a67990312dba136b8b7bce7d2ab00a4d8707b1`.
+- ZIP `dist/tes3np-windows.zip` with SHA-256
+  `20a8ccd7209fdeb8020c0ee29105ba14e177fbdd57b1021425d28e4647b044e7`.
+- The complete Windows build and compiled launcher `--check` passed. Source,
+  Chat Host architecture, diagnostic privacy, Expansion Pack import and toggle
+  fixtures, and native picker COM smoke checks passed.
+- The source-built console client was staged with 45 matching DLLs and printed
+  `--help` from the package. ZIP verification with `--require-console-client`
+  passed. Chat Host compiled and published with the existing WindowsBase
+  `MSB3277` warning.
+- Updater source, metadata and tamper checks passed, along with twelve isolated
+  transaction and rollback scenarios. The transcript ends after starting the
+  extracted launcher. Packaged owned-menu smoke and clean-machine results
+  for this ZIP are pending.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
