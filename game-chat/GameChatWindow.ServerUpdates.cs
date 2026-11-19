@@ -44,25 +44,48 @@ internal sealed partial class GameChatWindow
     DateTime serverUpdatesReadyBy;
     TaskCompletionSource? activeServerUpdatesRead;
     ulong latestServerUpdateId;
-    ulong serverUpdatesHiddenThroughId = ReadServerUpdatesHiddenThrough();
+    readonly record struct ServerUpdatesDisplay(bool Open, ulong LastReadyId);
+    ServerUpdatesDisplay serverUpdatesDisplay = ReadServerUpdatesDisplay();
     bool serverUpdatesManuallyOpened;
 
     bool ServerUpdatesAuthenticated => !closingChat && !IsDisposed && discordAccountStatus == DiscordAccountStatus.SignedIn;
-    bool ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated &&
-        (serverUpdatesManuallyOpened || latestServerUpdateId > serverUpdatesHiddenThroughId);
+    bool ServerUpdatesBodyExpanded => ServerUpdatesAuthenticated && (serverUpdatesManuallyOpened || serverUpdatesDisplay.Open);
+    // Reserve the open feed's space during the initial account check. Only the
+    // loading state is rendered until Discord verifies the session.
+    bool ServerUpdatesShellExpanded => ServerUpdatesBodyExpanded ||
+        (discordAccountStatus == DiscordAccountStatus.Checking && serverUpdatesDisplay.Open);
     bool CanShowServerUpdates => ServerUpdatesAuthenticated && latestServerUpdateId != 0;
 
     static string ServerUpdatesDismissalPath => Path.Combine(ChatDataRoot, "game-updates-dismissed.txt");
 
-    static ulong ReadServerUpdatesHiddenThrough()
+    static ServerUpdatesDisplay ReadServerUpdatesDisplay()
     {
         try
         {
-            return ulong.TryParse(File.ReadAllText(ServerUpdatesDismissalPath), NumberStyles.None,
-                CultureInfo.InvariantCulture, out ulong id) ? id : 0;
+            string value = File.ReadAllText(ServerUpdatesDismissalPath).Trim();
+            if (value.StartsWith("open:", StringComparison.Ordinal) &&
+                ulong.TryParse(value.AsSpan(5), NumberStyles.None, CultureInfo.InvariantCulture, out ulong openId))
+                return new(true, openId);
+            // Older launchers saved only the ID through which the feed was hidden.
+            if (ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out ulong hiddenId))
+                return new(false, hiddenId);
         }
-        catch (IOException) { return 0; }
-        catch (UnauthorizedAccessException) { return 0; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return new(true, 0);
+    }
+
+    void SaveServerUpdatesDisplay(bool open, ulong lastReadyId)
+    {
+        serverUpdatesDisplay = new(open, lastReadyId);
+        try
+        {
+            string id = lastReadyId.ToString(CultureInfo.InvariantCulture);
+            WriteChatArchiveAtomically(ServerUpdatesDismissalPath, open ? "open:" + id : id);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log("SERVER UPDATES | Save display state: " + ex.GetType().Name);
+        }
     }
 
     void ToggleServerUpdatesBody()
@@ -77,16 +100,7 @@ internal sealed partial class GameChatWindow
         serverUpdatesManuallyOpened = !hide;
         if (hide)
         {
-            serverUpdatesHiddenThroughId = Math.Max(serverUpdatesHiddenThroughId, latestServerUpdateId);
-            try
-            {
-                WriteChatArchiveAtomically(ServerUpdatesDismissalPath,
-                    serverUpdatesHiddenThroughId.ToString(CultureInfo.InvariantCulture));
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Log("SERVER UPDATES | Save collapsed update ID: " + ex.GetType().Name);
-            }
+            SaveServerUpdatesDisplay(false, Math.Max(serverUpdatesDisplay.LastReadyId, latestServerUpdateId));
             StopServerUpdatePicker();
         }
         PositionServerUpdatesPanel();
@@ -134,6 +148,8 @@ internal sealed partial class GameChatWindow
                         bool wasExpanded = ServerUpdatesBodyExpanded;
                         latestServerUpdateId = newestId;
                         displayedServerUpdates = displayed;
+                        if (newestId > serverUpdatesDisplay.LastReadyId)
+                            SaveServerUpdatesDisplay(true, newestId);
                         bool revealNewest = !wasExpanded && ServerUpdatesBodyExpanded;
                         UpdateServerUpdatesDocument(text, revealNewest);
                         if (revealNewest) PositionServerUpdatesPanel();

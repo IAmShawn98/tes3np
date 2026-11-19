@@ -71,6 +71,7 @@ internal sealed partial class GameChatWindow : Form
         Log("Host launched; owner=" + owner);
         Width = 266; Height = 342;
         LoadLayout();
+        Shown += (_, _) => PositionServerUpdatesPanel();
         Shown += StartDiscordAsync;
         FormClosing += CloseGameChat;
         watch.Tick += RefreshChatAsync;
