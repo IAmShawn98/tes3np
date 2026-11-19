@@ -138,9 +138,11 @@ folder picker are unverified for this run.
 - At the pinned TES3MP revision, `components/files/windowspath.cpp` reads
   the EXE path with `GetModuleFileNameW` and passes the encoded path to
   `SetCurrentDirectoryA`. The launcher already passes the executable's
-  directory as the working directory. Actual gameplay from the accented
-  path and an ASCII-path comparison are pending.
-- The transcript shows the launcher start command. Launcher visibility,
+  directory as the working directory.
+- **PASS on ASCII path:** A fresh extraction of the same verified ZIP to a
+  path with spaces and ASCII-only characters printed the normal help text
+  with no directory warnings in the captured output and exited `0`.
+- Both transcripts show the launcher start command. Launcher visibility,
   Windows account privileges, Expansion Pack toggling and in-game login
   remain unconfirmed for this run.
 
