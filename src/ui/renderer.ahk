@@ -556,7 +556,7 @@ PaintInfoCard(handle, target, width, height)
     DllCall("SetBkMode", "Ptr", dc, "Int", 1)
     rect := Buffer(16, 0)
     bodyBottom := face.BodyBottom > 0 ? Round(face.BodyBottom * scale) : height - Round(16 * scale)
-    NumPut("Int", Round(18 * scale), "Int", Round(82 * scale), "Int", width - Round(18 * scale), "Int", bodyBottom, rect)
+    NumPut("Int", Round(18 * scale), "Int", Round(67 * scale), "Int", width - Round(18 * scale), "Int", bodyBottom, rect)
     label := face.Control.Text
     fittedFont := FitWrappedLabelFont(dc, font, label, rect)
     if fittedFont
