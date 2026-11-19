@@ -128,6 +128,22 @@ folder picker are unverified for this run.
   WindowsBase `MSB3277` warning remained.
 - Clean Windows standard-user acceptance for this ZIP is pending.
 
+## November 19 second-PC console probe
+
+- The transferred ZIP for `96e95f5` matched SHA-256
+  `c8465dc09601236f04752422c78a37a0f8d9d632eb1d110004a9b9d42cc2b394`.
+- The bundled client ran from an extraction path with spaces and an accented
+  character. `tes3mp.exe --help` printed the command options and exited `0`
+  after three `Error 3 when changing current directory` warnings.
+- At the pinned TES3MP revision, `components/files/windowspath.cpp` reads
+  the EXE path with `GetModuleFileNameW` and passes the encoded path to
+  `SetCurrentDirectoryA`. The launcher already passes the executable's
+  directory as the working directory. Actual gameplay from the accented
+  path and an ASCII-path comparison are pending.
+- The transcript shows the launcher start command. Launcher visibility,
+  Windows account privileges, Expansion Pack toggling and in-game login
+  remain unconfirmed for this run.
+
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
 from the reviewed release source. Use the [acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md).
