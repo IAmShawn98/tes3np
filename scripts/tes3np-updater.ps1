@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][string]$InstallDir,
     [string]$StageDir,
     [string]$StateFile,
@@ -49,9 +49,82 @@ function Write-UpdaterLog([string]$Message) {
         # Never interrupt update/rollback when diagnostics are unavailable.
     }
 }
-function Show-ProgressWindow{if($TestMode){return};Add-Type -AssemblyName System.Windows.Forms;Add-Type -AssemblyName System.Drawing;$script:ProgressForm=New-Object Windows.Forms.Form;$ProgressForm.Text='tes3np — Updating';$ProgressForm.StartPosition='CenterScreen';$ProgressForm.FormBorderStyle='FixedDialog';$ProgressForm.MaximizeBox=$false;$ProgressForm.MinimizeBox=$false;$ProgressForm.ControlBox=$false;$ProgressForm.TopMost=$true;$ProgressForm.ClientSize=New-Object Drawing.Size(430,170);$title=New-Object Windows.Forms.Label;$title.Text='Updating tes3np...';$title.Font=New-Object Drawing.Font('Segoe UI',14,[Drawing.FontStyle]::Bold);$title.AutoSize=$true;$title.Location=New-Object Drawing.Point(24,20);$ProgressForm.Controls.Add($title);$message=New-Object Windows.Forms.Label;$message.Text="Installing v$Version. The launcher will restart automatically when finished.`r`nPlease don't reopen tes3np manually.";$message.Font=New-Object Drawing.Font('Segoe UI',9);$message.AutoSize=$true;$message.Location=New-Object Drawing.Point(26,55);$ProgressForm.Controls.Add($message);$script:ProgressStatus=New-Object Windows.Forms.Label;$ProgressStatus.Text='Preparing update...';$ProgressStatus.Font=New-Object Drawing.Font('Segoe UI',9,[Drawing.FontStyle]::Bold);$ProgressStatus.AutoSize=$true;$ProgressStatus.Location=New-Object Drawing.Point(26,104);$ProgressForm.Controls.Add($ProgressStatus);$script:ProgressBar=New-Object Windows.Forms.ProgressBar;$ProgressBar.Location=New-Object Drawing.Point(28,130);$ProgressBar.Size=New-Object Drawing.Size(374,18);$ProgressBar.Minimum=0;$ProgressBar.Maximum=100;$ProgressBar.Value=5;$ProgressForm.Controls.Add($ProgressBar);$ProgressForm.Show();[Windows.Forms.Application]::DoEvents()}
-function Update-Progress([string]$Text,[int]$Percent){if($TestMode -or -not $ProgressForm){return};$ProgressStatus.Text=$Text;$ProgressBar.Value=[Math]::Max(0,[Math]::Min(100,$Percent));[Windows.Forms.Application]::DoEvents()}
-function Close-ProgressWindow{if($ProgressForm){try{$ProgressForm.Close();$ProgressForm.Dispose()}catch{};$script:ProgressForm=$null}}
+function Show-ProgressWindow {
+    if ($TestMode) { return }
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    $form = New-Object Windows.Forms.Form
+    $script:ProgressForm = $form
+    $form.Text = 'tes3np — Updating'
+    $form.StartPosition = 'CenterScreen'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.ControlBox = $false
+    $form.TopMost = $true
+
+    $workArea = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $clientWidth = [Math]::Min(430, [Math]::Max(140, $workArea.Width - 32))
+    $textWidth = $clientWidth - 48
+    $layout = New-Object Windows.Forms.TableLayoutPanel
+    $layout.AutoSize = $true
+    $layout.AutoSizeMode = 'GrowAndShrink'
+    $layout.Dock = 'Top'
+    $layout.Padding = [Windows.Forms.Padding]::new(24, 18, 24, 18)
+    $layout.MinimumSize = [Drawing.Size]::new($clientWidth, 0)
+    $layout.ColumnCount = 1
+    $layout.RowCount = 4
+    [void]$layout.ColumnStyles.Add([Windows.Forms.ColumnStyle]::new(
+        [Windows.Forms.SizeType]::Absolute, $textWidth))
+
+    $title = New-Object Windows.Forms.Label
+    $title.Text = 'Updating tes3np...'
+    $title.Font = [Drawing.Font]::new('Segoe UI', 14, [Drawing.FontStyle]::Bold)
+    $message = New-Object Windows.Forms.Label
+    $message.Text = "Installing v$Version. The launcher will restart automatically when finished.`r`nPlease don't reopen tes3np manually."
+    $message.Font = [Drawing.Font]::new('Segoe UI', 9)
+    $script:ProgressStatus = New-Object Windows.Forms.Label
+    $ProgressStatus.Text = 'Preparing update...'
+    $ProgressStatus.Font = [Drawing.Font]::new('Segoe UI', 9, [Drawing.FontStyle]::Bold)
+
+    foreach ($label in @($title, $message, $ProgressStatus)) {
+        $label.AutoSize = $true
+        $label.MaximumSize = [Drawing.Size]::new($textWidth, 0)
+        $label.Margin = [Windows.Forms.Padding]::new(0, 0, 0, 10)
+        $layout.Controls.Add($label)
+    }
+    $script:ProgressBar = New-Object Windows.Forms.ProgressBar
+    $ProgressBar.Dock = 'Top'
+    $ProgressBar.Height = 18
+    $ProgressBar.Value = 5
+    $ProgressBar.Margin = [Windows.Forms.Padding]::new(0)
+    $layout.Controls.Add($ProgressBar)
+
+    $form.Controls.Add($layout)
+    $form.ClientSize = [Drawing.Size]::new($clientWidth, 170)
+    $form.AutoSize = $true
+    $form.AutoSizeMode = 'GrowAndShrink'
+    $form.Show()
+    [Windows.Forms.Application]::DoEvents()
+}
+
+function Update-Progress([string]$Text, [int]$Percent) {
+    if ($TestMode -or -not $ProgressForm) { return }
+    $ProgressStatus.Text = $Text
+    $ProgressBar.Value = [Math]::Max(0, [Math]::Min(100, $Percent))
+    [Windows.Forms.Application]::DoEvents()
+}
+
+function Close-ProgressWindow {
+    if (!$ProgressForm) { return }
+    try { $ProgressForm.Close() } catch {}
+    try { $ProgressForm.Dispose() } catch {}
+    $script:ProgressForm = $null
+    $script:ProgressStatus = $null
+    $script:ProgressBar = $null
+}
+
 function Set-State([string]$State){$dir=Split-Path -Parent $StateFile;if($dir -and -not(Test-Path -LiteralPath $dir)){New-Item -ItemType Directory -Path $dir -Force|Out-Null};@('[Update]',"State=$State","Version=$Version","UpdatedUtc=$([DateTime]::UtcNow.ToString('o'))")|Set-Content -LiteralPath $StateFile -Encoding UTF8;Write-UpdaterLog("STATE | $State")}
 function Test-LauncherConfirmation {
     try {

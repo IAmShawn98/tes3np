@@ -74,11 +74,12 @@ internal sealed partial class GameChatWindow
         {
             Log("Chat image unavailable (" + (Uri.TryCreate(url, UriKind.Absolute, out var failedUri)
                 ? failedUri.Host : "invalid URL") + "): " + ex.GetType().Name);
-            failedImages[url] = DateTime.UtcNow.AddMinutes(2);
         }
         finally
         {
-            if (!imageCache.ContainsKey(url) && !failedImages.ContainsKey(url))
+            if (imageCache.ContainsKey(url))
+                failedImages.Remove(url);
+            else if (!closingChat && !IsDisposed)
                 failedImages[url] = DateTime.UtcNow.AddMinutes(2);
             pendingImages.Remove(url);
             imagesNeedRedraw = true;
@@ -88,9 +89,6 @@ internal sealed partial class GameChatWindow
     void LoadChatImages(string[] images)
     {
         foreach (string imageUrl in images)
-            if (!imageCache.ContainsKey(imageUrl) &&
-                (!failedImages.TryGetValue(imageUrl, out var retryTime) ||
-                 DateTime.UtcNow >= retryTime))
-                _ = FetchChatImage(imageUrl);
+            _ = FetchChatImage(imageUrl);
     }
 }

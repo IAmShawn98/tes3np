@@ -26,6 +26,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
     if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
         return
     scale := LauncherScale / 100
+    suspendRedraw := suspendRedraw && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
     if suspendRedraw
         DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
     try
@@ -43,10 +44,10 @@ ApplyLauncherControlScale(suspendRedraw := true)
             if face.HasOwnProp("IsInfo")
                 face.Control.SetFont("s" Max(5, Round(10 * scale)) " Norm", "Palatino Linotype")
             else if !face.HasOwnProp("IsLabel")
-                face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale)) " Bold", "Segoe UI")
+                ApplyLauncherButtonFont(face, scale)
         }
         if IsObject(LauncherHeading)
-            LauncherHeading.SetFont("s" Round(19 * scale) " Norm c241408", LauncherMorrowindFont)
+            LauncherHeading.SetFont("s" Max(1, Round(19 * scale)) " Norm c241408", LauncherMorrowindFont)
         ScaleLauncherVersionLabel(scale)
     }
     finally
@@ -58,105 +59,109 @@ ApplyLauncherControlScale(suspendRedraw := true)
 
 ShowLauncherWindow(reuseCached := false, *)
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
-    ; The Character Book can close immediately when its parent is already painted at the requested scale.
-    if reuseCached && LauncherCachedScale > 0
-        && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+    global LauncherGui, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
+    if DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
+        DllCall("ShowWindow", "Ptr", LauncherGui.Hwnd, "Int", 9) ; SW_RESTORE
+    placement := GetLauncherPlacement()
+    if placement.Scale = LauncherCachedScale && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
         && LauncherControlLayout.Count = LauncherCachedLayoutCount
     {
-        desiredCachedScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
-        if desiredCachedScale = LauncherCachedScale
+        ; The Character Book closes without repainting an already-painted launcher.
+        if reuseCached
             return
-    }
-    ; Validate control positions before showing a cached layout.
-    if LauncherCachedScale > 0 && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
-        && LauncherControlLayout.Count = LauncherCachedLayoutCount
-    {
-        desiredScale := LauncherScaleMode = "Auto" ? GetAutomaticLauncherScale() : LauncherScale
-        if desiredScale = LauncherCachedScale
+        healthy := true
+        ratio := placement.Scale / 100
+        for hwnd, item in LauncherControlLayout
         {
-            healthy := true
-            for hwnd, item in LauncherControlLayout
+            if !DllCall("IsWindow", "Ptr", hwnd)
             {
-                if !DllCall("IsWindow", "Ptr", hwnd)
-                {
-                    healthy := false
-                    break
-                }
-                item.Control.GetPos(&x, &y, &w, &h)
-                ratio := desiredScale / 100
-                if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
-                    || Abs(w - Round(item.Width * ratio)) > 2 || Abs(h - Round(item.Height * ratio)) > 2
-                {
-                    healthy := false
-                    break
-                }
+                healthy := false
+                break
             }
-            if healthy
+            item.Control.GetPos(&x, &y, &w, &h)
+            if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
+                || Abs(w - Round(item.Width * ratio)) > 2 || Abs(h - Round(item.Height * ratio)) > 2
             {
-                LauncherGui.Show()
-                RepaintMenuButtons()
-                return
+                healthy := false
+                break
             }
-            LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding launcher controls.")
         }
+        if healthy
+        {
+            LauncherGui.Show()
+            RepaintMenuButtons()
+            return
+        }
+        LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding launcher controls.")
     }
     ; Apply the saved scale before first paint to avoid flashing the default window size.
     if !LauncherCachedScale
     {
         LauncherGui.Show("Hide w960 h716")
-        ApplyLauncherScaleToWindow()
-        LauncherCachedScale := LauncherScale
-        LauncherCachedLayoutCount := LauncherControlLayout.Count
+        ApplyLauncherScaleToWindow(true, placement)
         LauncherGui.Show()
         RepaintMenuButtons()
         return
     }
-    ; Stage the existing window while changing its bounds. A screenshot of the
-    ; old size can expose a second copy when the new window grows behind it.
+    ; Stage the existing window while changing its bounds.
     LauncherGui.Show()
     cloaked := SetPageCompositorCloak(LauncherGui, true)
-    try ApplyLauncherScaleToWindow()
+    try ApplyLauncherScaleToWindow(true, placement)
     finally
         if cloaked
             RevealPaintedPage(LauncherGui)
 }
 
-GetAutomaticLauncherScale()
+GetLauncherScaleForWorkArea(workWidth, workHeight, dpiFactor, requestedScale := 0)
 {
     global LauncherBaseWidth, LauncherBaseHeight
-    MouseGetPos(&mouseX, &mouseY)
-    monitor := MonitorFromPoint(mouseX, mouseY)
-    MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    dpiFactor := A_ScreenDPI / 96
-    requiredWidth := LauncherBaseWidth * dpiFactor, requiredHeight := LauncherBaseHeight * dpiFactor
-    fit := Min(1.0, (right - left) / requiredWidth, (bottom - top) / requiredHeight)
-    if fit < 1
-        fit := Max(0.5, fit * 0.96)
-    percent := Floor((fit * 100) / 10) * 10
-    return Max(50, Min(100, percent))
+    fit := Min(1.0, workWidth / (LauncherBaseWidth * dpiFactor), workHeight / (LauncherBaseHeight * dpiFactor))
+    fittedPercent := Max(1, Floor(fit * 100))
+    if requestedScale
+        return Min(requestedScale, fittedPercent)
+    if fit >= 1 || fittedPercent < 50
+        return fittedPercent
+    ; Preserve Auto's ten-point presets and its padding when a preset fits.
+    return Max(50, Floor(fit * 9.6) * 10)
 }
 
-ApplyLauncherScaleToWindow(suspendRedraw := true)
+GetLauncherPlacement()
 {
-    global LauncherGui, LauncherScale, LauncherScaleMode, LauncherBaseWidth, LauncherBaseHeight
-    global LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
-
-    if LauncherScaleMode = "Auto"
-        LauncherScale := GetAutomaticLauncherScale()
-
-    ; Resize the window and its controls together so artwork and hit targets stay aligned.
-    dpiFactor := A_ScreenDPI / 96
-    scale := LauncherScale / 100
-    width := Round(LauncherBaseWidth * dpiFactor * scale)
-    height := Round(LauncherBaseHeight * dpiFactor * scale)
-    MouseGetPos(&mouseX, &mouseY)
-    monitor := MonitorFromPoint(mouseX, mouseY)
+    global LauncherGui, LauncherScaleMode, LauncherRequestedScale, LauncherBaseWidth, LauncherBaseHeight
+    global LauncherCachedScale
+    rect := Buffer(16, 0)
+    hasPosition := LauncherCachedScale > 0 && !DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
+        && DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", rect)
+    if hasPosition
+    {
+        centerX := (NumGet(rect, 0, "Int") + NumGet(rect, 8, "Int")) / 2
+        centerY := (NumGet(rect, 4, "Int") + NumGet(rect, 12, "Int")) / 2
+    }
+    else
+        MouseGetPos(&centerX, &centerY)
+    monitor := MonitorFromPoint(centerX, centerY)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    x := left + Max(0, ((right - left) - width) // 2)
-    y := top + Max(0, ((bottom - top) - height) // 2)
-    if !DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0004 | 0x0010, "Int")
+    if !hasPosition
+        centerX := (left + right) / 2, centerY := (top + bottom) / 2
+    dpiFactor := A_ScreenDPI / 96
+    requested := LauncherScaleMode = "Auto" ? 0 : LauncherRequestedScale
+    percent := GetLauncherScaleForWorkArea(right - left, bottom - top, dpiFactor, requested)
+    width := Round(LauncherBaseWidth * dpiFactor * percent / 100)
+    height := Round(LauncherBaseHeight * dpiFactor * percent / 100)
+    x := Max(left, Min(right - width, Round(centerX - width / 2)))
+    y := Max(top, Min(bottom - height, Round(centerY - height / 2)))
+    return {Scale: percent, X: x, Y: y, Width: width, Height: height}
+}
+
+ApplyLauncherScaleToWindow(suspendRedraw := true, placement := unset)
+{
+    global LauncherGui, LauncherScale, LauncherCachedScale, LauncherCachedLayoutCount, LauncherControlLayout
+    if !IsSet(placement)
+        placement := GetLauncherPlacement()
+    if !DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Int", placement.X, "Int", placement.Y,
+        "Int", placement.Width, "Int", placement.Height, "UInt", 0x0004 | 0x0010, "Int")
         throw OSError()
+    LauncherScale := placement.Scale
     ApplyLauncherControlScale(suspendRedraw)
 
     ; Refresh the cache for settings previews and rollbacks.
