@@ -33,6 +33,18 @@ ZIP from the reviewed release source.
 | Discord symbol | The [asset inventory](ASSETS.md) identifies the Discord brand kit as its source. | Review the shipped account icon and sign-in artwork against [Discord's brand guidelines](https://discord.com/branding). |
 | Client and runtime components | The tested build passed ZIP validation with the pinned console EXE and 45 DLLs, TES3MP, CrabNet and AutoHotkey notices, and the Chat Host runtime notices. | Verify the same materials and corresponding-source access against the final ZIP. |
 
+## Published guidance for adapted Morrowind artwork
+
+The [Morrowind GOTY PC manual](https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/22320/manuals/mwgoty_pcmanual.pdf)
+identifies the Morrowind name and logo as ZeniMax marks and points to the
+game's license for the packaged materials. The [ZeniMax trademark and
+brand guidelines](https://documents.bethesda.net/en/legal-information)
+distinguish plain-text references to game titles from use of visual
+brand assets and direct uses outside their guidance to an authorized
+ZeniMax contact. Bethesda's [fan video policy](https://bethesda.net/en-US/news/bethesda-video-policy)
+covers fan videos. No permission specific to bundling the adapted launcher
+background in the TES3NP Windows ZIP was identified in these sources.
+
 ## Historical .20 release and repository visibility
 
 Preserve the original .20 tag, versioned Windows ZIP, and checksum as shipped.
@@ -44,3 +56,10 @@ compatibility bridge for installing the approved .21 ZIP.
 Making the source repository public would expose retained source history and
 tags. Review what that visibility change exposes separately from the contents
 of the .21 release ZIP.
+
+The staged publisher requires the development repository to be public.
+The launcher and metadata generator also use that repository for the
+numbered downloads, release notes, and alpha feed. Keeping development
+history private would require a separate public release destination,
+updated endpoints, and a rebuilt and retested candidate. Using a separate
+destination leaves the ZIP's own artwork and source review open.
