@@ -25,6 +25,17 @@ internal sealed partial class GameChatWindow
 
         protected override bool ShowWithoutActivation => true;
 
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                const int WS_EX_NOACTIVATE = 0x08000000;
+                var parameters = base.CreateParams;
+                parameters.ExStyle |= WS_EX_NOACTIVATE;
+                return parameters;
+            }
+        }
+
         internal void PositionOffScreen()
         {
             var desktop = SystemInformation.VirtualScreen;
@@ -74,7 +85,7 @@ internal sealed partial class GameChatWindow
         {
             Log("SERVER UPDATES | Save dismissal: " + ex.GetType().Name);
         }
-        CloseServerUpdatePicker();
+        StopServerUpdatePicker();
         CloseServerUpdatesPanel();
         PublishServerUpdatesVisibility();
     }
@@ -204,7 +215,7 @@ internal sealed partial class GameChatWindow
 
     void ResetServerUpdates()
     {
-        CloseServerUpdatePicker(resume: false);
+        StopServerUpdatePicker(resume: false);
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         nextServerUpdatesCheck = DateTime.MinValue;

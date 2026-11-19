@@ -405,20 +405,22 @@ expect(
 )
 expect(
     "Game Updates sends only post-scoped reaction actions to the signed-in Discord source",
-    'if (!feedVisible || type is not ("toggle" or "picker" or "picker-search" or "picker-more" or "picker-select" or "picker-close")) return;' in updates_panel
+    'if (!feedVisible || type is not ("toggle" or "picker")) return;' in updates_panel
     and 'args.Source != ServerUpdatesPageUri' in updates_panel
     and 'post.Reactions?.Any(reaction => reaction.Key == request.Key)' in source
-    and 'await host.ActOnServerUpdatePicker(this, request);' in updates_panel
+    and 'await host.ShowServerUpdatePicker(this, request.Id)' in updates_panel
     and '!IsServerUpdatesRoute(e.Uri) && !IsServerUpdatesMessageRoute(e.Uri)' in server_updates,
 )
 expect(
-    "Game Updates browses and selects emoji inside the existing feed",
+    "Game Updates picker runs on a native window thread and keeps its Discord source off-screen",
     'new ServerUpdatePicker(request.Id, source)' in source
     and 'picker.Choices.TryGetValue(request.Key, out var choice)' in source
     and 'Kind = "picker-position", Offset = choice.Offset' in source
-    and 'CloseServerUpdatePicker();' in server_updates
-    and 'ServerUpdatePickerWindow' not in source
-    and 'id="emoji-search"' in (chat_root / "web/server-updates.html").read_text(encoding="utf-8"),
+    and 'StopServerUpdatePicker();' in server_updates
+    and 'parameters.ExStyle |= WS_EX_NOACTIVATE;' in server_updates
+    and 'thread.SetApartmentState(ApartmentState.STA);' in source
+    and 'Application.Run(form);' in source
+    and 'GameChatWeb.Page("discord-emoji-shortcodes.json")' in source,
 )
 expect(
     "Game Updates keeps native posts visible until the embedded reaction view renders",

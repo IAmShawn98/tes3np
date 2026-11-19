@@ -273,7 +273,7 @@ internal sealed partial class GameChatWindow
         {
             if (IsDisposed) return;
             feedVisible = false;
-            if (host.serverUpdatesPanel == this) host.CloseServerUpdatePicker();
+            if (host.serverUpdatesPanel == this) host.StopServerUpdatePicker();
             feedLoad?.TrySetResult(false);
             nextFeedRetry = DateTime.UtcNow.AddSeconds(15);
             fallbackClip.Visible = true;
@@ -324,20 +324,14 @@ internal sealed partial class GameChatWindow
                     scrollbar.Invalidate();
                     return;
                 }
-                if (!feedVisible || type is not ("toggle" or "picker" or "picker-search" or "picker-more" or "picker-select" or "picker-close")) return;
+                if (!feedVisible || type is not ("toggle" or "picker")) return;
                 var request = new ServerUpdateAction(type,
                     message.GetProperty("id").GetString() ?? "",
                     message.TryGetProperty("key", out var key) ? key.GetString() : null,
                     message.TryGetProperty("mine", out var mine) && mine.ValueKind is JsonValueKind.True or JsonValueKind.False
-                        ? mine.GetBoolean() : null,
-                    message.TryGetProperty("query", out var query) ? query.GetString() : null);
-                if (type != "toggle")
-                {
-                    var picker = await host.ActOnServerUpdatePicker(this, request);
-                    if (!IsDisposed && feedVisible) SendFeed(JsonSerializer.Serialize(new { picker, id = request.Id }));
-                    return;
-                }
-                string? error = await host.ActOnServerUpdate(this, request);
+                        ? mine.GetBoolean() : null);
+                string? error = type == "picker" ? await host.ShowServerUpdatePicker(this, request.Id)
+                    : await host.ActOnServerUpdate(this, request);
                 if (!IsDisposed && feedVisible)
                     SendFeed(JsonSerializer.Serialize(new
                     {
