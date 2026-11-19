@@ -57,7 +57,7 @@ internal sealed partial class GameChatWindow
         }
         var foreground = GetForegroundWindow();
         bool launcherActive = foreground == owner;
-        bool pickerActive = nativeServerUpdatePicker?.HasForeground(foreground) == true;
+        bool pickerActive = IsServerUpdatePickerForeground(foreground);
         bool chatActive = IsHandleCreated && foreground == Handle;
         if (IsIconic(owner) || !IsWindowVisible(owner) || !IsWindowVisible(serverUpdatesAnchor) ||
             (!launcherActive && !pickerActive && !chatActive && foreground != panel.Handle))

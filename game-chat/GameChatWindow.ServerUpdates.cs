@@ -82,7 +82,6 @@ internal sealed partial class GameChatWindow
     async Task RefreshServerUpdates()
     {
         if (!ServerUpdatesAuthenticated || discordAccountDirty || activeServerUpdatesRead != null || workingServerUpdateReaction ||
-            serverUpdatePicker != null ||
             DateTime.UtcNow < nextServerUpdatesCheck ||
             discordEnvironment is not { } environment) return;
         var read = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -204,7 +203,7 @@ internal sealed partial class GameChatWindow
 
     void ResetServerUpdates()
     {
-        StopServerUpdatePicker(resume: false);
+        StopServerUpdatePicker();
         var previous = serverUpdatesWindow;
         serverUpdatesWindow = null;
         nextServerUpdatesCheck = DateTime.MinValue;
