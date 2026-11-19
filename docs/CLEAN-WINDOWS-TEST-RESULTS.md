@@ -187,9 +187,27 @@ folder picker are unverified for this run.
   build. Generated update metadata and the independent file hash agreed.
 - **PASS reported:** The maintainer tested the packaged launcher and
   confirmed the Race wording was updated throughout the areas checked.
-- **Pending:** Standard-user acceptance and the upgrade and rollback
-  checks on the exact final ZIP. The earlier second-PC report covers
-  the `96e95f5` ZIP identified above.
+## November 19 second-PC acceptance of the final candidate
+
+- Windows 11 Pro x64, version `10.0.26300`. The SHA-256 of
+  `tes3np-v0.1.21-alpha-windows.zip` matched the final `00f0c93` candidate
+  above and the uploaded draft asset. The tester launched from the freshly
+  extracted files after moving the folder to Documents.
+- **PASS reported:** The maintainer found the launcher functionality and
+  visual presentation satisfactory in the areas exercised.
+- **PASS in the diagnostics:** Launcher startup and WebView2 Chat Host
+  process startup, the missing-Morrowind setup prompt, and bundled-client
+  saved-character login. New Adventure started a bundled client, which
+  later exited normally with code `0`.
+- **PASS in the diagnostics:** Official Expansion Pack discovery, local
+  ZIP import, the pre-launch match against the official pack, and disabling
+  the pack in `openmw.cfg`. The log records an automatic transfer request.
+- **Pending:** The startup and manual update checks returned an error.
+  The `update-feed` branch was absent during this private-draft test.
+  Live feed verification remains pending at cutover.
+- Windows account privilege, initial profile state, and display scale
+  were not recorded for this run. Isolated upgrade and rollback coverage
+  for the final candidate is still pending.
 
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
