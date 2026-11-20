@@ -126,7 +126,7 @@ $entries = @($entries | Sort-Object -Property @{
 $featureNotes = @()
 $hotfixNotes = @()
 foreach ($entry in $entries) {
-    $part = "### v$($entry.Info.Version) — $($entry.Date)" + [Environment]::NewLine +
+    $part = "### v$($entry.Info.Version) " + [char]0x2014 + " $($entry.Date)" + [Environment]::NewLine +
         [Environment]::NewLine + $entry.Body
     if ($entry.Info.Hotfix -gt 0) { $hotfixNotes += $part }
     else { $featureNotes += $part }
