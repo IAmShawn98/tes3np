@@ -40,7 +40,8 @@ if ($hasStart) {
     $original = $body.Substring(0, $suffix.Index).TrimEnd()
 }
 if (!$original.StartsWith("## $baseTag$nl", [StringComparison]::Ordinal) -or
-    $original.Contains($startMarker) -or $original.Contains($endMarker)) {
+    $original.Contains($startMarker) -or $original.Contains($endMarker) -or
+    $original.Contains('### Published Hotfixes')) {
     throw 'Original release content is missing or contains unexpected history markers.'
 }
 
@@ -62,7 +63,7 @@ $updatedBody = $original + $nl + $nl + $index + $nl
 
 if ($body -ceq $updatedBody.TrimEnd()) {
     Write-Host "Published Hotfixes already up to date on $baseTag."
-    exit 0
+    return
 }
 
 $tempFile = [IO.Path]::Combine([IO.Path]::GetTempPath(),
