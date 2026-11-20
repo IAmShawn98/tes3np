@@ -49,6 +49,47 @@ ReadPublishedVersionNotes(version)
     }
 }
 
+
+; Build separate original-release and dated-hotfix tabs from actual GitHub
+; publications. Missing history is never presented as if it were complete.
+ReadPublishedUpdateHistory(installedVersion, latestVersion)
+{
+    global BundledResourceRoot
+    script := (A_IsCompiled ? BundledResourceRoot : A_ScriptDir) "\scripts\fetch-release-notes.ps1"
+    unavailable := "Published release history is unavailable. See GitHub Releases for complete details."
+    result := {Release: unavailable, Hotfix: unavailable}
+    if !FileExist(script)
+        return result
+    prefix := A_Temp "\tes3np-history-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount
+    featureFile := prefix "-releases.txt"
+    hotfixFile := prefix "-hotfixes.txt"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script
+        . '" -InstalledVersion "' installedVersion '" -LatestVersion "' latestVersion
+        . '" -ReleaseOutputPath "' featureFile '" -HotfixOutputPath "' hotfixFile '"'
+    try
+    {
+        if RunWait(command, A_ScriptDir, "Hide") != 0 || !FileExist(featureFile) || !FileExist(hotfixFile)
+            return result
+        result.Release := FileRead(featureFile, "UTF-8")
+        result.Hotfix := FileRead(hotfixFile, "UTF-8")
+        return result
+    }
+    catch Error
+        return result
+    finally
+    {
+        try FileDelete(featureFile)
+        try FileDelete(hotfixFile)
+    }
+}
+
+GetTes3npOriginalVersion(version)
+{
+    info := ParseTes3npVersion(version)
+    return info.Feature[1] "." info.Feature[2] "." info.Feature[3] "-" info.Channel
+}
+
 ReleaseNoteFits(control, text, maxWidth)
 {
     ; Measure in the label's font so wrapping follows the rendered width.
@@ -233,7 +274,7 @@ ReleaseNoteLineHeight(control)
     }
 }
 
-AddUpdateNotesViewport(panel, notes, scale)
+AddUpdateNotesViewport(panel, notes, scale, switcher := 0)
 {
     px := (value) => Round(value * scale)
     viewport := panel.Add("Text", "x" px(28) " y" px(158) " w" px(744) " h" px(367) " BackgroundC5A45C")
@@ -264,7 +305,8 @@ AddUpdateNotesViewport(panel, notes, scale)
     page := {Offset: 1, Lines: lines, MaxOffset: lastOffset}
     noteRows := [sample]
     rowStyles := ["body"]
-    Loop Min(capacity, lines.Length) - 1 {
+    ; Allocate the whole viewport so switching from short to long notes fills it.
+    Loop capacity - 1 {
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
@@ -304,6 +346,25 @@ AddUpdateNotesViewport(panel, notes, scale)
         track.Visible := page.MaxOffset > 1
         thumb.Visible := page.MaxOffset > 1
     }
+    updateNotes(newNotes)
+    {
+        page.Lines := BuildStyledReleaseNoteRows(newNotes, sample, width - Max(2, px(10)))
+        page.Offset := 1
+        lastOffset := page.Lines.Length
+        used := rowHeight
+        while lastOffset > 1
+        {
+            nextHeight := used + stride + (page.Lines[lastOffset].GapBefore ? sectionGap : 0)
+            if nextHeight > bottomY - firstY
+                break
+            used := nextHeight
+            lastOffset -= 1
+        }
+        page.MaxOffset := lastOffset
+        refresh()
+    }
+    if IsObject(switcher)
+        switcher.Update := updateNotes
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     up := AddStyledButton(panel, px(744), px(163), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, px(744), px(500), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
