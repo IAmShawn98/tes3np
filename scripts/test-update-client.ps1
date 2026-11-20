@@ -205,5 +205,62 @@ Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable 
 Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the viewport' $notesSource
 
 
+
+# Synthetic publication timeline. Drafts and already installed changes are
+# excluded; skipped release notes are grouped by feature and dated hotfix.
+& {
+    $nl = [Environment]::NewLine
+    $releases = @(
+        @{ tag_name='v0.1.22-alpha.3'; draft=$true; published_at='2026-11-28T00:00:00Z'; body='DRAFT MUST NOT LEAK' },
+        @{ tag_name='v0.1.22-alpha.2'; draft=$false; published_at='2026-11-27T02:00:00Z'; body=(@('## v0.1.22-alpha.2','','### Bug Fixes','- **Launcher:** Fixed newer bug.') -join $nl) },
+        @{ tag_name='v0.1.22-alpha.1'; draft=$false; published_at='2026-11-25T02:00:00Z'; body=(@('## v0.1.22-alpha.1','','### Bug Fixes','- **Launcher:** Fixed older bug.') -join $nl) },
+        @{ tag_name='v0.1.22-alpha'; draft=$false; published_at='2026-11-23T02:00:00Z'; body=(@('## v0.1.22-alpha','','### New Features','- **Launcher:** Added newer feature.') -join $nl) },
+        @{ tag_name='v0.1.21-alpha.1'; draft=$false; published_at='2026-11-21T02:00:00Z'; body=(@('## v0.1.21-alpha.1','','### Bug Fixes','- **Launcher:** Fixed intermediate bug.') -join $nl) },
+        @{ tag_name='v0.1.21-alpha'; draft=$false; published_at='2026-11-20T02:00:00Z'; body=(@('## v0.1.21-alpha','','### Improvements','- **Launcher:** Improved intermediate version.') -join $nl) },
+        @{ tag_name='v0.1.20-alpha.1'; draft=$false; published_at='2026-11-19T02:00:00Z'; body=(@('## v0.1.20-alpha.1','','### Bug Fixes','- **Launcher:** Fixed an early bug.') -join $nl) },
+        @{ tag_name='v0.1.20-alpha'; draft=$false; published_at='2026-11-17T02:00:00Z'; body=(@('## v0.1.20-alpha','','### Improvements','- **Launcher:** Original installed notes.') -join $nl) }
+    )
+    function Invoke-RestMethod($Uri, $Headers, $TimeoutSec) {
+        if ($Uri -cne 'https://api.github.com/repos/IAmShawn98/tes3np/releases?per_page=100&page=1') {
+            throw 'Unexpected release history URL.'
+        }
+        return $releases
+    }
+    $helper = Join-Path $PSScriptRoot 'fetch-release-notes.ps1'
+    $featureFile = [IO.Path]::GetTempFileName()
+    $hotfixFile = [IO.Path]::GetTempFileName()
+    try {
+        & $helper -InstalledVersion '0.1.20-alpha' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
+        if ($LASTEXITCODE -ne 0) { throw 'Published release history fixture failed.' }
+        $features = [IO.File]::ReadAllText($featureFile)
+        $hotfixes = [IO.File]::ReadAllText($hotfixFile)
+        if ($features -notmatch 'v0\.1\.22-alpha' -or $features -notmatch 'v0\.1\.21-alpha' -or
+            $features -match 'v0\.1\.20-alpha' -or $features -match 'DRAFT' -or
+            $hotfixes -notmatch 'v0\.1\.22-alpha\.2 — November 27, 2026' -or
+            $hotfixes -notmatch 'v0\.1\.20-alpha\.1' -or $hotfixes -match 'DRAFT') {
+            throw 'Skipped history does not match the published, uninstalled changes.'
+        }
+        & $helper -InstalledVersion '0.1.22-alpha.1' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
+        if ($LASTEXITCODE -ne 0) { throw 'Hotfix-only history fixture failed.' }
+        $features = [IO.File]::ReadAllText($featureFile)
+        $hotfixes = [IO.File]::ReadAllText($hotfixFile)
+        if ($features -notmatch 'No new feature releases' -or
+            $hotfixes -notmatch 'v0\.1\.22-alpha\.2' -or
+            $hotfixes -match 'v0\.1\.22-alpha\.1' -or
+            $hotfixes -match 'Original installed notes') {
+            throw 'Hotfix preview included an old changelog or already installed fix.'
+        }
+        $releases = @($releases | Where-Object { $_.tag_name -cne 'v0.1.22-alpha.2' })
+        Remove-Item -LiteralPath $featureFile,$hotfixFile -ErrorAction SilentlyContinue
+        & $helper -InstalledVersion '0.1.22-alpha.1' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
+        if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $featureFile) -or (Test-Path -LiteralPath $hotfixFile)) {
+            throw 'Unpublished latest version must not produce history.'
+        }
+    } finally {
+        Remove-Item -LiteralPath $featureFile,$hotfixFile -ErrorAction SilentlyContinue
+    }
+}
+Write-Host 'PASS: publication-only, missed-version, hotfix-only and missing-target note fixtures.'
+
 Write-Host 'All launcher updater validation checks passed.'
 exit 0
