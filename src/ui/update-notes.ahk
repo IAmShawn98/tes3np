@@ -290,6 +290,9 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0)
     bodyHeight := ReleaseNoteLineHeight(sample)
     sample.SetFont(UpdateNoteFont("heading"), "Segoe UI")
     rowHeight := Max(bodyHeight, ReleaseNoteLineHeight(sample)) + 1
+    ; The measurement row becomes the first displayed row. Restore its body
+    ; style after measuring the heading font, including on empty history tabs.
+    sample.SetFont(UpdateNoteFont("body"), "Segoe UI")
     lineGap := Max(1, px(2)), sectionGap := Max(1, px(4))
     stride := rowHeight + lineGap
     lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)))
