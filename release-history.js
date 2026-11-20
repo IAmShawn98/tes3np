@@ -266,7 +266,7 @@
 
     const previous = published.filter((release) => {
       const info = parseTag(release.tag_name);
-      return info && info.hotfix === 0 && compareFeature(info, latest) < 0;
+      return info && info.hotfix === 0 && info.baseTag !== latest.baseTag && compareFeature(info, latest) < 0;
     }).sort((a, b) => compareFeature(parseTag(b.tag_name), parseTag(a.tag_name))).slice(0, 4);
 
     byId('release-notes-body').replaceChildren(...original.childNodes);
