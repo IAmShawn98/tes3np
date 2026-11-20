@@ -195,6 +195,23 @@ Write-Host 'PASS: matching player-facing notes, ordered categories, and release 
             throw 'The older unsuffixed live tag did not return its release notes.'
         }
 
+        # GitHub links published hotfixes from the base release, but that
+        # link index must not duplicate the launcher's Hotfix History tab.
+        $baseNotes = '### New Features' + [char]10 + '- **Launcher:** Original features.'
+        $indexedBody = '## v0.1.21-alpha' + [char]10 + [char]10 + $baseNotes +
+            [char]10 + [char]10 + '<!-- TES3NP HOTFIX HISTORY START -->' +
+            [char]10 + '### Published Hotfixes' + [char]10 + [char]10 +
+            '- [v0.1.21-alpha.1](https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha.1)' +
+            [char]10 + '<!-- TES3NP HOTFIX HISTORY END -->'
+        $responses['v0.1.21-alpha'] = @{
+            tag_name = 'v0.1.21-alpha'
+            body = $indexedBody
+        }
+        & $helper -Version '0.1.21-alpha' -OutputPath $output
+        if ([IO.File]::ReadAllText($output) -cne $baseNotes) {
+            throw 'The launcher displayed GitHub hotfix index inside original release notes.'
+        }
+
         $responses['v0.1.22-alpha.10'].body = "## v0.1.23-alpha`n`nWrong version."
         Remove-Item -LiteralPath $output
         & $helper -Version '0.1.22-alpha.10' -OutputPath $output
