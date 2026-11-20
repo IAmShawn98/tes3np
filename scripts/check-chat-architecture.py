@@ -861,8 +861,28 @@ expect(
     and 'ShowUnverifiedExistingExpansionPackPrompt(cfg)' in patcher
     and '"Verify Existing"' in patcher and '"Disable Entry"' in patcher
     and 'SetTimer(() => ApplyExpansionPackToggle(false, true), -1)' in patcher
-    and 'reviewOnly ? "Done"' in patcher
+    and 'CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Verified", 680, 328)' in patcher
     and 'RestoreExistingExpansionPackVerification(config, crc, "v0.2c")' in launcher_smoke_tests,
+)
+
+found_pack_dialog = section_between(
+    patcher,
+    "ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false, reviewOnly := false)\n{",
+    "\nCloseExistingExpansionPackFoundPrompt(prompt, proceed := false, *)\n{",
+)
+expect(
+    "Verified existing Expansion Pack dialog has neutral copy, safe controls and bottom padding",
+    'CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Verified", 680, 328)' in found_pack_dialog
+    and '"The installed Expansion Pack matches the latest official version. No download or reinstallation is necessary."' in found_pack_dialog
+    and '"Your Expansion Pack is already enabled."' in found_pack_dialog
+    and '"Would you like to enable it now?"' in found_pack_dialog
+    and 'if alreadyEnabled\n    {' in found_pack_dialog
+    and 'AddStyledButton(prompt, 240, 256 + extra, 200, 40, "OK",' in found_pack_dialog
+    and 'AddStyledButton(prompt, 88, 256 + extra, 303, 40, "Enable Expansion Pack",' in found_pack_dialog
+    and 'AddStyledButton(prompt, 409, 256 + extra, 183, 40, "Not Now",' in found_pack_dialog
+    and found_pack_dialog.count('"Not Now"') == 1
+    and 'GrowGoldNativePrompt(prompt, extra)' in found_pack_dialog
+    and 256 + 40 + 24 <= 328,
 )
 
 expect(
