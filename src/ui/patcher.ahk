@@ -364,7 +364,8 @@ ExpansionPackInstalled(morrowind, config)
 {
     global DataFile
     ; Verify the local import record before enabling a pack already on disk.
-    ; Trust only an imported ESP whose saved location and SHA-256 still match.
+    ; Trust only a recorded ESP whose saved location and SHA-256 still match.
+    ; The record comes from a completed import or fresh official ZIP check.
     ; This is local installation evidence, not server compatibility proof.
     verifiedPath := ExpansionPackFullPath(IniRead(DataFile, "ExpansionPack", "VerifiedEspPath", ""))
     verifiedHash := StrLower(IniRead(DataFile, "ExpansionPack", "VerifiedEspSHA256", ""))
