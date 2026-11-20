@@ -1,34 +1,45 @@
 :root {
   color-scheme: dark;
-  --background: #0d1117;
-  --surface: #151b23;
-  --border: #30363d;
-  --text: #e6edf3;
-  --secondary: #a4aeb9;
-  --link: #58a6ff;
-  --gold: #e8c479;
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --background: #15110e;
+  --surface: #2b2118;
+  --border: #59452d;
+  --text: #cfc3af;
+  --gold: #e0bc7b;
+  font: 16px/1.6 "Source Sans 3", system-ui, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; color: var(--text); background: var(--background); }
-a { color: var(--link); text-underline-offset: .19em; }
-a:hover { color: #8bc2ff; }
+a { color: var(--gold); text-underline-offset: .17em; }
+a:hover { color: #f6d598; }
 button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
-:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 
-main > :not(.jumbotron), footer { width: min(100% - 40px, 944px); margin-inline: auto; }
+.page-body > *, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
 
 main { padding-bottom: 14px; }
-h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.page-body {
+  display: flow-root;
+  padding-top: 24px;
+  background-image: linear-gradient(#17120ec2, #15110efb 600px, var(--background) 900px),
+    url("./assets/jumbotron-stone.webp");
+}
+h2 {
+  margin: 0 0 13px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+  color: var(--gold);
+  font: 700 clamp(27px, 4vw, 37px)/1.05 "Cormorant Garamond", Georgia, serif;
+}
+.page-body strong { color: #eadfc9; }
 p { margin: 0 0 16px; }
 .jumbotron {
   --art-inset: max(0px, calc(50% - 42rem));
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  margin-block: 0 24px;
+  margin-block: 0;
   padding: clamp(12px, 2vw, 22px) 20px clamp(14px, 2vw, 24px);
   border-bottom: 1px solid #927444;
   background-color: #080705;
@@ -111,8 +122,11 @@ p { margin: 0 0 16px; }
 .intro a { color: #efd099; }
 .intro a:hover { color: #fff0d1; }
 section { margin-block: 30px; scroll-margin-top: 16px; }
-ul, ol { padding-inline-start: 1.45em; margin: 0 0 16px; }
-li + li { margin-top: .4em; }
+ul, ol { padding-inline-start: 1.35em; margin: 0 0 14px; }
+ul { list-style: disc outside; }
+ol { list-style: decimal outside; }
+li + li { margin-top: .44em; }
+li::marker { color: #b79560; }
 
 .download-row { display: flex; flex-direction: column; align-items: center; gap: 9px; }
 .download {
@@ -133,20 +147,21 @@ li + li { margin-top: .4em; }
 .jumbotron a:focus-visible { outline-color: #e0bc7b; }
 .release { color: #bfae91; font-size: .8125rem; }
 
-.gallery { margin: 0; }
+.gallery { margin-block: 0; }
 .slides {
   display: grid;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #000;
+  border: 1px solid #9a7644;
+  border-radius: 5px;
+  background: #080705;
+  box-shadow: 0 8px 22px #08050372;
   touch-action: pan-y;
 }
 .slide {
   grid-area: 1 / 1;
   min-width: 0;
-  background: #080c12;
+  background: #080705;
   opacity: 1;
   mix-blend-mode: plus-lighter;
   transition: opacity 1250ms ease-in-out;
@@ -179,8 +194,8 @@ li + li { margin-top: .4em; }
   flex: 0 1 19rem;
   min-width: 0;
   text-align: center;
-  font-size: .875rem;
-  line-height: 1.3;
+  color: var(--gold);
+  font: 700 clamp(16px, 2.5vw, 21px)/1.1 "Cormorant Garamond", Georgia, serif;
 }
 .gallery-button {
   display: grid;
@@ -190,11 +205,11 @@ li + li { margin-top: .4em; }
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
-  color: var(--secondary);
+  color: var(--gold);
 }
-.gallery-button:hover { background: var(--surface); color: var(--text); }
+.gallery-button:hover { background: var(--surface); }
 .gallery-button:focus-visible { outline-offset: -2px; }
 .previous::before, .next::before {
   content: "";
@@ -233,14 +248,13 @@ li + li { margin-top: .4em; }
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid #775d39;
 }
 
-code { background: #212830; border-radius: 5px; padding: .17em .36em; overflow-wrap: anywhere; }
-footer { border-top: 1px solid var(--border); padding-block: 18px 28px; color: var(--secondary); font-size: .875rem; }
+code { background: #2c2117; color: #f0d5a3; padding: .08em .33em; font-size: .87em; overflow-wrap: anywhere; }
+footer { border-top: 1px solid var(--border); padding-block: 15px 28px; font-size: .875rem; }
 @media (max-width: 520px) {
-  main > :not(.jumbotron), footer { width: calc(100% - 28px); }
+  .page-body > *, footer { width: calc(100% - 28px); }
   .jumbotron { background-size: min(18vw, 76px) 112%, min(18vw, 76px) 112%, auto, auto; }
   .jumbotron::before, .jumbotron::after { opacity: .26; }
 }
