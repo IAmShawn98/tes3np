@@ -1,5 +1,5 @@
 # Release validation status
 
 - TES3MP source: VERIFIED_SOURCE_AND_BUILD
-- Asset distribution: PENDING_RIGHTS_REVIEW
+- Asset distribution: MAINTAINER_APPROVED
 - Windows testing: CLEAN_MACHINE_TESTED
