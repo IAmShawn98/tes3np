@@ -917,22 +917,37 @@ ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false, review
     global LauncherGui, ExpansionFoundPromptGui
     if IsObject(ExpansionFoundPromptGui)
         return false
-    prompt := CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Found", 680, 245)
+    ; A review-only check means the pack was already enabled before recovery.
+    alreadyEnabled := alreadyEnabled || reviewOnly
+    ; Keep controls inside the gold frame at all scale factors. Any extra
+    ; wrapped text increases both the button offset and the dialog height.
+    prompt := CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Verified", 680, 328)
     prompt.ExpansionFoundContinue := onContinue
     prompt.SetFont("s17 Bold cC5A45C", "Georgia")
-    extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39, "Existing Expansion Pack Found")
+    extra := AddGoldPromptCopy(prompt, 30, 27, 620, 43, "Existing Expansion Pack Verified")
     prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
-    extra += AddGoldPromptCopy(prompt, 30, 78 + extra, 620, 72,
-        "I found your existing Expansion Pack and verified it against the latest official Discord ZIP. No download or reinstall is needed.")
-    extra += AddGoldPromptCopy(prompt, 30, 158 + extra, 620, 36,
-        reviewOnly ? "Your existing Expansion Pack is verified and already enabled."
-            : alreadyEnabled ? "The pack is already enabled. Continue to your game?"
-            : "Your Expansion Pack is ready. Would you like to enable it?")
-    AddStyledButton(prompt, 30, 207 + extra, 370, 38,
-        reviewOnly ? "Done" : alreadyEnabled ? "Continue to Game" : "Enable Expansion Pack",
-        CloseExistingExpansionPackFoundPrompt.Bind(prompt, true))
-    AddStyledButton(prompt, 417, 207 + extra, 233, 38, "Not Now",
-        CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
+    extra += AddGoldPromptCopy(prompt, 30, 91 + extra, 620, 76,
+        "The installed Expansion Pack matches the latest official version. No download or reinstallation is necessary.")
+    prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
+    extra += AddGoldPromptCopy(prompt, 30, 182 + extra, 620, 42,
+        alreadyEnabled ? "Your Expansion Pack is already enabled."
+            : "Would you like to enable it now?")
+    if alreadyEnabled
+    {
+        ; Verification and trust recovery are complete: no redundant
+        ; Not Now choice. OK retains the original continuation (game start
+        ; or refreshing the enabled status).
+        AddStyledButton(prompt, 240, 256 + extra, 200, 40, "OK",
+            CloseExistingExpansionPackFoundPrompt.Bind(prompt, true))
+    }
+    else
+    {
+        ; The pack is installed but not yet enabled; this is a real choice.
+        AddStyledButton(prompt, 88, 256 + extra, 303, 40, "Enable Expansion Pack",
+            CloseExistingExpansionPackFoundPrompt.Bind(prompt, true))
+        AddStyledButton(prompt, 409, 256 + extra, 183, 40, "Not Now",
+            CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
+    }
     GrowGoldNativePrompt(prompt, extra)
     prompt.OnEvent("Close", CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
     prompt.OnEvent("Escape", CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
