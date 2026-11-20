@@ -318,6 +318,28 @@ CheckExpansionPackToggleState()
         if ExpansionPackInstalled(game, config) || ExpansionPackIsEnabled(config)
             || RestoreExistingExpansionPackVerification(config, crc, "v0.2c")
             throw Error("A modified ESP must invalidate the recovered trust and official comparison.")
+
+        ; Reusing an official checksum must not override a conflicting version
+        ; declared by the installed plugin's TES3/HEDR description.
+        FileDelete(esp)
+        header := Buffer(336, 0)
+        NumPut("UInt", 0x33534554, "UInt", 320, header, 0) ; TES3 record
+        NumPut("UInt", 0x4D524F46, "UInt", 4, header, 16) ; FORM
+        NumPut("UInt", 0x52444548, "UInt", 300, header, 28) ; HEDR
+        StrPut("NP Expansion Pack v0.2a", header.Ptr + 76, 256, "CP0")
+        headerFile := FileOpen(esp, "w")
+        try headerFile.RawWrite(header)
+        finally headerFile.Close()
+        IniDelete(DataFile, "ExpansionPack", "VerifiedEspPath")
+        IniDelete(DataFile, "ExpansionPack", "VerifiedEspSHA256")
+        headerCrc := ExpansionPackEspChecksum(esp)
+        if TES3MPReadExpansionHeaderVersion(esp) != "v0.2a"
+            throw Error("The test ESP must expose its declared version.")
+        if RestoreExistingExpansionPackVerification(config, headerCrc, "v0.2c")
+            throw Error("An official attachment with a different version must not restore trust.")
+        if !RestoreExistingExpansionPackVerification(config, headerCrc, "v0.2a")
+            || !ExpansionPackInstalled(game, config)
+            throw Error("An installed ESP with matching checksum and version must be recoverable.")
     }
     catch Error as err
     {
