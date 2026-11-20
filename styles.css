@@ -1,6 +1,9 @@
 :root {
   color-scheme: dark;
-  --background: #15110e;
+  --background: #080705;
+  --frame-width: clamp(58px, 9vw, 126px);
+  --frame-bottom: clamp(54px, 8.5vw, 120px);
+  --frame-gutter: clamp(36px, 6.7vw, 92px);
   --surface: #2b2118;
   --border: #59452d;
   --text: #cfc3af;
@@ -9,22 +12,37 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; color: var(--text); background: var(--background); }
+body {
+  position: relative;
+  min-height: 100vh;
+  margin: 0;
+  padding-bottom: calc(var(--frame-bottom) + 12px);
+  color: var(--text);
+  background-color: var(--background);
+  background-image: linear-gradient(#0a08064d, #0a08064d), url("./assets/jumbotron-stone.webp");
+  background-position: center top;
+}
+body::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-style: solid;
+  border-width: 0 var(--frame-width) var(--frame-bottom);
+  border-color: transparent;
+  border-image: url("./assets/page-frame.webp") 0 224 212 224 stretch round;
+  pointer-events: none;
+}
 a { color: var(--gold); text-underline-offset: .17em; }
 a:hover { color: #f6d598; }
 button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 
-.page-body > *, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
+.page-body > *, footer { width: min(calc(100% - var(--frame-gutter) * 2), 944px); margin-inline: auto; }
 
 main { padding-bottom: 14px; }
-.page-body {
-  display: flow-root;
-  padding-top: 24px;
-  background-image: linear-gradient(#17120ec2, #15110efb 600px, var(--background) 900px),
-    url("./assets/jumbotron-stone.webp");
-}
+.page-body { display: flow-root; padding-top: 24px; }
 h2 {
   margin: 0 0 13px;
   padding-bottom: 7px;
@@ -40,17 +58,9 @@ p { margin: 0 0 16px; }
   isolation: isolate;
   overflow: hidden;
   margin-block: 0;
-  padding: clamp(12px, 2vw, 22px) 20px clamp(14px, 2vw, 24px);
+  padding: clamp(12px, 2vw, 22px) var(--frame-gutter) clamp(14px, 2vw, 24px);
   border-bottom: 1px solid #927444;
-  background-color: #080705;
-  background-image:
-    url("./assets/jumbotron-left-pillar.webp"),
-    url("./assets/jumbotron-right-pillar.webp"),
-    radial-gradient(ellipse 46rem 120% at 50% 12%, #231b11f5, #0d0a07e8 55%, #0a08064d),
-    url("./assets/jumbotron-stone.webp");
-  background-position: left center, right center, center, center;
-  background-size: auto 112%, auto 112%, auto, auto;
-  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background: radial-gradient(ellipse 46rem 120% at 50% 12%, #231b11f5, #0d0a07e8 55%, transparent);
   color: #ece0c9;
   font: 400 1rem/1.5 "Source Sans 3", system-ui, sans-serif;
   text-align: center;
@@ -254,7 +264,5 @@ li::marker { color: #b79560; }
 code { background: #2c2117; color: #f0d5a3; padding: .08em .33em; font-size: .87em; overflow-wrap: anywhere; }
 footer { border-top: 1px solid var(--border); padding-block: 15px 28px; font-size: .875rem; }
 @media (max-width: 520px) {
-  .page-body > *, footer { width: calc(100% - 28px); }
-  .jumbotron { background-size: min(18vw, 76px) 112%, min(18vw, 76px) 112%, auto, auto; }
   .jumbotron::before, .jumbotron::after { opacity: .26; }
 }
