@@ -43,14 +43,20 @@ if ($release.tagName -cne $Tag -or $revision -cnotmatch '\A[0-9a-f]{40}\z' -or
 if ((git merge-base $revision $mainRevision) -cne $revision) {
     throw 'The draft targets a source commit outside main.'
 }
-# Review documents and publishing tools are outside the packaged source.
+# These documentation and publish-tool paths are outside the packaged source.
 $reviewPaths = @(
+    'README.md',
     'docs/RELEASE-REVIEW.md',
     'docs/RELEASING.md',
-    'docs/ALPHA-COMPATIBILITY-CHECKLIST.md',
+    'docs/DEVELOPMENT.md',
+    'docs/PATCHING.md',
     'scripts/check-release-gates.py',
     'scripts/publish-alpha.ps1',
-    # Older candidates may predate consolidation of the review documents.
+    # Older candidates may contain documentation that has since been retired.
+    'CHANGELOG.md',
+    'docs/ALPHA-COMPATIBILITY-CHECKLIST.md',
+    'docs/ARCHITECTURE.md',
+    'docs/ASSETS.md',
     'docs/MODIFIED-TES3MP-SOURCE-PROVENANCE.md',
     'docs/ASSET-DISTRIBUTION-APPROVAL.md',
     'docs/CLEAN-WINDOWS-TEST-RESULTS.md'

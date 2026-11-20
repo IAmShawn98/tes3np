@@ -1,248 +1,101 @@
-# Releases and GitHub setup
+# Releasing TES3NP
 
-`IAmShawn98/tes3np` holds the launcher source and numbered GitHub Releases,
-including the original v0.1.20-alpha Windows ZIP and checksum. The first
-approved Alpha publication creates the `update-feed` branch. The permanent
-GitHub Pages source is staged at the root of the `website` branch for
-https://iamshawn98.github.io/tes3np/.
+Publish numbered releases in `IAmShawn98/tes3np`. GitHub Pages uses the
+`website` branch. Keep branch protection and validation workflows in place.
+Keep personal AppData and character exports out of Git.
 
-`IAmShawn98/tes3np-releases` currently serves the temporary site and the
-public `latest-alpha` bridge used by installed v0.1.20-alpha launchers.
-Preserve the original .20 tag, versioned Windows ZIP, and checksum as shipped.
-Keep the old route and its versioned .20 download reachable until
-v0.1.22-alpha is publicly released and its update feed is verified.
-Publishing v0.1.21-alpha, making `tes3np` public, updating the legacy feed,
-and retiring the old repository require owner approval.
+## Channels and files
 
-Never commit character exports or live `%APPDATA%\\tes3np` data.
-Require branch protection and the validation workflows before publishing.
+| Channel | Example tag and hotfix | Release type | Feed on `update-feed` |
+| --- | --- | --- | --- |
+| Alpha | `v0.1.21-alpha`, `v0.1.21-alpha.1` | Prerelease | `alpha.json` |
+| Beta | `v2.0.0-beta`, `v2.0.0-beta.1` | Prerelease | `beta.json` |
+| Live | `v2.0.0-live`, `v2.0.0-live.1` | Stable | `live.json` |
 
-## Upgrade compatibility gate: v0.1.20-alpha → v0.1.21-alpha
+The installed build follows its own channel. Keep experimental Alpha work
+separate. An approved Beta may merge into `main` for a newly built Live
+candidate. The current **Publish Alpha** workflow publishes the `.21` cutover
+from `main`.
 
-Use an **isolated test installation and disposable Windows user profile**
-with a copy of non-sensitive test profiles. Do not overwrite actual
-player credentials. Capture the existing installation layout, the
-update feed asset names, and a SHA-256 of each installed package.
+Use `AppConfig.Version` in `src/state.ahk` for the application version and
+prefix Git tags with `v`. Each release gets a ZIP named
+`tes3np-v<version>-windows.zip` and its `.sha256` file. Generate the matching
+schema 2 manifest and checksum with `scripts/generate-update-metadata.ps1`
+using `-ChannelFeed -PackagePath <zip> -ManifestPath <manifest>`.
 
-1. Install the actual public v0.1.20-alpha package in a writable folder.
-   Record whether the old install is nested in a TES3MP directory.
-2. Preserve a non-sensitive test character, its settings and launch
-   delays, and a custom-client configuration.
-3. Attempt upgrade using the candidate package through the update
-   transaction (or an offline staged test). Validate the existing
-   install layout against the staging safety checks; do not force an
-   unrecognized ZIP nesting.
-4. Confirm character data, login delays, custom overrides,
-   chat preferences and desktop shortcut decision survive.
-   Old scheduler INI sections, if present, must remain inert and must not
-   trigger scheduled actions or be imported into portable backups.
-5. Exercise both successful update and deliberate simulated
-   `after-backup` / `after-install` failure; verify rollback restores
-   working files and unrelated files remain untouched.
-6. Verify update metadata version comparison, expected asset filenames,
-   ZIP checksum, and restart behavior without pointing live users to
-   a development package.
-7. Test fresh-install behavior separately from upgrading an existing
-   v0.1.20-alpha profile. Neither test replaces a clean Windows 10/11
-   machine verification.
+## Windows acceptance
 
-The development-PC offline bridge test passed using the updater shipped
-in the public v0.1.20-alpha ZIP. The channel-aware v0.1.21-alpha candidate
-restarted and retained the test character and launcher settings.
-Validate the final combined candidate on the second PC. Live discovery
-and download through the legacy feed and reachability of the new alpha
-feed remain pending.
+Use the exact release ZIP in disposable Windows profiles and a copy of game
+data. Record the source commit, ZIP hash, OS, DPI, privileges, and outcomes
+in [RELEASE-REVIEW.md](RELEASE-REVIEW.md). Record skipped checks explicitly.
 
-## Release channels and promotion
-
-| Channel | Base tag | Hotfix tags | GitHub Release | Launcher feed |
-| --- | --- | --- | --- | --- |
-| Alpha | `v0.1.21-alpha` | `v0.1.21-alpha.1`, `v0.1.21-alpha.2` | Prerelease | `alpha.json` |
-| Beta | `v2.0.0-beta` | `v2.0.0-beta.1`, `v2.0.0-beta.2` | Prerelease | `beta.json` |
-| Live | `v1.0.0-live` | `v1.0.0-live.1`, `v1.0.0-live.2` | Stable release | `live.json` |
-
-- **Alpha** is the experimental track. Publish Alpha builds from their own
-  branches. Alpha builds stay Alpha, and Alpha branches are never promoted
-  or merged into Beta or Live.
-- **Beta** is the public testing track for the next Live version. Develop
-  that version on a dedicated branch and publish its Beta builds while the
-  current Live release continues to receive its own updates. When the Beta
-  is approved, merge the entire tested branch into `main`, set the Live
-  version, and build and validate a new Live ZIP from the merged source.
-  For example, the `v2.0.0-beta` series leads to `v2.0.0-live`.
-- **Live** is the stable release track. Mark the current Live release as
-  Latest on GitHub. The website recommends the current approved download.
-  When the first Live build is available, point its **Download for Windows**
-  button at Live and keep GitHub Releases as the direct download option.
-
-The canonical application version is `AppConfig.Version` in `src/state.ahk`.
-Git tags and GitHub Releases add a leading `v`. Published hotfixes get a
-new numbered tag, ZIP and checksum. Verify the public ZIP and checksum
-before advancing the matching channel manifest. The launcher stays on the
-installed build's channel, including after a Beta is promoted to Live.
-Players switch channels by installing a build from the channel they want.
-
-## Previously supplied markerless client
-
-The legacy `patches/markerless/tes3mp.exe` is distinct from the source-built
-console candidate. Its exact corresponding source, build procedure and
-modification authorship remain unverified. The May 2023 Nerevarine
-Prophecies Discord post describes disabling remote map markers. Upstream
-TES3MP 0.8.1 and the public example patches document the baseline and
-possible implementation. This binary is part of the historical .20 release.
-
-The [original provenance investigation](https://github.com/IAmShawn98/tes3np/blob/aebc384e384a71daa4080fa8e69fbbcd9bcf1a82/docs/RELEASING.md#october-29-provenance-investigation-for-the-previously-supplied-client)
-records the supplied download, attribution, source comparison and limitations.
-The known `WindowsBase` MSB3277 warning comes from the WebView2 dependency in
-the WinForms Chat Host. Existing Windows tests compiled and ran it.
-
-## Source-built markerless console candidate
-
-The independent TES3MP 0.8.1 console client was built and playtested.
-See `research/markerless/README.md` for the pinned source revisions,
-patches and build procedure, and `console-candidate.json` in that
-directory for its approved test EXE hash and DLL requirements. The
-release package checker verifies the EXE and the staged DLL manifest
-against the packaged source materials. Capture those results for the
-exact release ZIP in the formal provenance evidence. See the
-[release review](RELEASE-REVIEW.md#repository-visibility-and-legacy-updates)
-for the separate repository visibility review.
+- **Build:** Run `scripts/run-local-regression.ps1` and the packaged
+  `--check-owned-menu-scaling` check. Check source, PowerShell, Chat Host,
+  Expansion Pack, ZIP integrity, updater metadata, and rollback.
+- **First use and UI:** Test a standard account on clean Windows 10 and 11 x64,
+  writable paths with spaces and Unicode, missing WebView2 or GOTY, shortcut
+  choices, and a moved installation. Exercise
+  50–100% launcher scale and Windows DPI at 100%, 125%, and 150%, including
+  owner movement, modal prompts, and cached page reopen.
+- **Characters and macros:** Exercise add/edit/favorite, portable backups,
+  stock and custom portraits, normal exit and crash recovery, manual and
+  saved login, up to four clients, bundled/custom client, and AHK/ZIP/EXE macros.
+- **Expansion Pack:** Test first setup, toggling, signed-in and signed-out
+  download/retry/cancel, ZIP and folder imports, mismatch diagnostics,
+  unrelated files and mods, and failed-write recovery.
+- **Game Chat:** Test first sign-in, sign-out, live chat and updates,
+  and genuine active and expired Happy Hour announcements, including
+  signed-out display from the local archive. Inspect shared diagnostics
+  and bug reports for private data.
+- **Upgrade:** Use an isolated `.20` installation and a disposable Windows
+  account. Verify restart into `.21` and preservation of character data,
+  delays, custom overrides, chat preferences, and shortcut choices.
+  Exercise failure after backup and after installation in the fixtures.
 
 ## Release evidence gate
 
-Record the selected source commit, Windows ZIP SHA-256, and review results
-in [RELEASE-REVIEW.md](RELEASE-REVIEW.md). Update the status for each item
-after its review is complete.
-
-- `TES3MP source: VERIFIED_SOURCE_AND_BUILD` covers the modified executable
-  hash, corresponding source and build instructions, and license notices.
-- `Asset distribution: ASSET_RIGHTS_REVIEWED` covers redistribution scope
-  and third-party notices for the exact release ZIP.
-- `Windows testing: CLEAN_MACHINE_TESTED` covers the fresh Windows tests,
-  including OS, prerequisites, account privileges, and regression results.
-
-Run `python scripts/check-release-gates.py` before publication. The owner
-approves the release after checking the recorded evidence.
+Complete the source, distribution, and Windows checks in
+[RELEASE-REVIEW.md](RELEASE-REVIEW.md). Run `python scripts/check-release-gates.py`
+before publication and obtain the repository owner's approval.
 
 ## Player-facing release notes
 
-Use `RELEASE_NOTES.md` for changes since the last publicly shipped version.
-Keep internal build details, diagnostics, tests, and closed development
-experiments in `CHANGELOG.md` and the project history. Include changes players
-can observe. Verify each fix against the released baseline and the candidate.
+Use [RELEASE_NOTES.md](../RELEASE_NOTES.md) for player-visible changes since
+the previous public release. Retain published entries. Use a version heading
+and order the applicable categories as New Features, Improvements, Bug
+Fixes, and Removed Features. The launcher and publisher use this file.
 
-Use `## vX.Y.Z-channel — unreleased` and a line identifying the public
-comparison version. Include only applicable categories in this order:
-**New Features**, **Improvements**, **Bug Fixes**, **Removed Features**.
-Give each distinct change one plain-language bullet with a bold feature
-or area label and its outcome. Remove duplication and unverified claims.
-Set the release date at publication and preserve historical published notes.
+## Publish Alpha
 
-The launcher renders plain headings and bullet points. Validate word wrapping
-and scrolling at supported Windows display scales. The publish workflow uses
-the matching section of `RELEASE_NOTES.md`.
-
-## Single-repository updater contract
-
-The new launcher reads `alpha.json`, `beta.json` or `live.json` from the
-`update-feed` branch of the development repository. The installed version
-determines the channel. Version numbers are compared numerically within the
-installed channel. Older unsuffixed Live versions remain readable.
-
-To generate a schema 2 candidate manifest and checksum after packaging,
-copy the validated ZIP to `tes3np-v<version>-windows.zip` and pass that
-path to `scripts/generate-update-metadata.ps1 -ChannelFeed -PackagePath`.
-Use `-ManifestPath` for the candidate manifest path. The launcher derives
-the download address and release notes from the exact tag and validates
-the filename, size and SHA-256 before staging. Generate with
-`-DisableUpdates` to prepare a manifest with automatic updates disabled.
-
-## Publish the v0.1.21-alpha cutover candidate
-
-The staged **Publish Alpha** action runs from `main` for this cutover.
-Future Alpha publication from isolated branches and Beta and Live
-publication have yet to be wired into the workflow.
-
-
-1. Merge the reviewed alpha source into `main` before producing the final
-   candidate. Record the full source SHA. On Windows, build from that commit
-   with both `TES3NP_MARKERLESS_CONSOLE_EXE` and
-   `TES3NP_MARKERLESS_CONSOLE_DLLS` set. Run
-   `python scripts/check-windows-package.py dist/tes3np-windows.zip --require-console-client`.
-   Retain the exact ZIP tested on clean Windows. Copy it to the versioned
-   filename and use the channel metadata generator above to obtain its
-   matching checksum. Commit `docs/RELEASE-REVIEW.md` to `main` after
-   review. The publish script permits changes to the release review
-   documents and publishing tools after the candidate build.
-2. Prepare a prerelease **draft** in `IAmShawn98/tes3np` with the numbered
-   tag, the full reviewed source SHA as its target, the matching section
-   of `RELEASE_NOTES.md`, and only the versioned ZIP and checksum.
+1. Build the reviewed commit using `TES3NP_MARKERLESS_CONSOLE_EXE` and
+   `TES3NP_MARKERLESS_CONSOLE_DLLS`. Run
+   `python scripts/check-windows-package.py <zip> --require-console-client`.
+   Test the versioned ZIP and keep those exact bytes for the release.
+2. Prepare a prerelease draft pinned to the full commit SHA. Attach only the
+   versioned ZIP and checksum. Complete the release review on `main`.
 3. After owner approval and the visibility change, run **Publish Alpha**
-   from the current `main` with the draft tag and reviewed ZIP SHA-256.
-   The workflow validates the package and evidence, publishes the draft
-   with its matching notes from `RELEASE_NOTES.md`,
-   confirms that the tag resolves to the reviewed commit, and checks the
-   public downloads before creating or updating `update-feed:alpha.json`.
-   If the release publishes but feed verification fails, resolve the
-   failure and rerun against the same commit and ZIP. Keep the versioned
-   release assets and their names stable during the retry.
-4. In a signed-out session, verify the README's GitHub Releases link and
-   download the numbered Windows ZIP from that release. The Pages site
-   is a separate rollout.
-5. After a later hotfix's feed and download are verified, remove the
-   superseded ZIP and checksum for that channel and feature build while
-   retaining its notes. Keep the latest approved ZIP per feature build.
+   from `main` using the tag and ZIP SHA-256. It verifies the draft, publishes
+   the release, checks the public download, then updates `update-feed:alpha.json`.
+4. Verify the release and feed signed out. If feed verification fails after
+   publication, fix the issue and rerun with the same tag, commit, and ZIP.
+   Keep the latest approved download per feature build and channel.
 
 ## Publish the one-time v0.1.20-alpha bridge
 
-Do this after the numbered v0.1.21-alpha release and alpha feed are
-verified and the owner has approved the bridge. Use the exact public
-v0.1.21-alpha ZIP after verifying its SHA-256 against the reviewed ZIP.
-From the same source checkout, copy the bytes to `tes3np-windows.zip`
-and run the metadata generator without `-ChannelFeed` to produce the
-schema 1 `tes3np-update.json` and `tes3np-windows.zip.sha256`.
+After verifying the public `.21` release and feed, obtain owner approval
+for the legacy bridge. Copy the verified `.21` ZIP byte-for-byte to
+`tes3np-windows.zip` and run `scripts/generate-update-metadata.ps1` without
+`-ChannelFeed` to generate the schema 1 `tes3np-update.json` and checksum.
 
-The November 17 baseline check downloaded the public .20 manifest,
-checksum, and ZIP without signing in. The schema 1 manifest, checksum, and
-65,779,100-byte ZIP agreed on SHA-256
-`61fca7ba2390f5e1bd5f633ec06b43756a45a1e632a70d759ea5932c4bd9538e`.
-The ZIP passed integrity checks. The stock Windows update through the .21
-public bridge still needs to be tested after it goes live.
-
-1. Check that the current legacy manifest still offers v0.1.20-alpha
-   (or is already the exact approved v0.1.21-alpha manifest on a retry).
-   Keep the versioned .20 ZIP and its checksum available for the old site
-   and stock-client tests.
-2. On `IAmShawn98/tes3np-releases`, replace the two unversioned
-   `latest-alpha` assets `tes3np-windows.zip` and
-   `tes3np-windows.zip.sha256`. Download both from their signed-out URLs
-   and compare the SHA-256 and checksum contents with the schema 1 manifest
-   before replacing `tes3np-update.json`. If either verification fails,
-   restore the original .20 pair and retry. Launchers check the size and
-   hash, so a partial replacement is rejected.
-3. Replace `tes3np-update.json` last and fetch it from the public URL.
-   Verify schema 1, version, filename, size and SHA-256. In a disposable
-   Windows profile, open the stock public .20 launcher and use its normal
-   update button. Verify it restarts as .21, preserves profiles and
-   preferences, and can use the new alpha feed.
-4. Keep the bridge public and serving v0.1.21-alpha through the
-   v0.1.22-alpha release. Verify the public v0.1.22-alpha ZIP and alpha feed
-   in `IAmShawn98/tes3np` before retiring `IAmShawn98/tes3np-releases`.
-   Coordinate the old site's transition and repository retirement with the
-   owner. After retirement, players still on .20 can download the current
-   release manually from `IAmShawn98/tes3np`.
-
-[Binaries and manifest on the legacy release](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha)
-
-## Release checklist
-
-- Verify `AppConfig.Version` in `src/state.ahk` and its matching
-  `CHANGELOG.md` and `RELEASE_NOTES.md` entries.
-- Run `python scripts/project.py check` with all payload files present and
-  `powershell -NoProfile -File scripts/check-powershell.ps1` on Windows.
-- Use the [Windows acceptance checklist](ALPHA-COMPATIBILITY-CHECKLIST.md)
-  for GUI, game, upgrade and recovery testing.
-- Inspect the automatic validation results. A passing compile and package
-  check does not certify live login, gameplay or imported macros.
-- Record the candidate ZIP hash, Windows results, corresponding source
-  details and distribution review before requesting owner approval.
+1. Preserve the numbered `.20` ZIP and checksum. Verify the manifest
+   currently serves `.20` or the exact approved `.21` manifest on a retry.
+2. Replace `tes3np-windows.zip` and `tes3np-windows.zip.sha256` on
+   [the legacy latest-alpha release](https://github.com/IAmShawn98/tes3np-releases/releases/tag/latest-alpha).
+   Download and verify both without signing in. Restore the original pair
+   if verification fails.
+3. Replace `tes3np-update.json` last. Fetch it publicly and verify schema,
+   version, filename, size, and SHA-256. Use the stock `.20` update button
+   in a disposable account to verify restart into `.21`, preserved data,
+   and access to the new alpha feed.
+4. Keep the legacy release available until `.22` and its update feed are
+   verified. Coordinate retirement and the site transition with the owner.

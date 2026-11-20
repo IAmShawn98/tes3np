@@ -24,7 +24,14 @@ TES3MP, CrabNet, DejaVu, .NET, Windows Desktop, and WebView2 notices. Mystic
 Cards ships with its SIL Open Font License notice. The maintainer approved
 retaining the recreated launcher artwork. The review record still has open
 entries for the distribution basis of Morrowind-derived art and Discord branding.
-See the [asset inventory](ASSETS.md).
+The launcher uses the player's Morrowind GOTY masters. The historical pack
+and legacy markerless EXE have separate provenance. Preserve the pack's
+original notice. The current ZIP includes the verified source-built client.
+
+`assets/backgrounds/launcher.png` is the recreated launcher background.
+`assets/icons/discord.png` comes from the [Discord brand kit](https://discord.com/branding).
+Chat Host also bundles `game-chat/assets/DiscordInt.png` for sign-in.
+The project has no blanket license for artwork or launcher source.
 
 ### Windows testing
 
@@ -43,9 +50,3 @@ the history containing the `.20` source and its original Expansion Pack asset
 notice. Preserve the `.20` tag, ZIP, and checksum. Keep the legacy release
 repository available through the `.20` → `.21` bridge and retire it after the
 public `.22` release and its update feed have been verified.
-
-### Detailed records in Git history
-
-- [Modified TES3MP source provenance](https://github.com/IAmShawn98/tes3np/blob/d10a9ac9539257b84d8a186252b4d80a123325a8/docs/MODIFIED-TES3MP-SOURCE-PROVENANCE.md)
-- [Asset distribution review](https://github.com/IAmShawn98/tes3np/blob/d10a9ac9539257b84d8a186252b4d80a123325a8/docs/ASSET-DISTRIBUTION-APPROVAL.md)
-- [Windows release test results](https://github.com/IAmShawn98/tes3np/blob/d10a9ac9539257b84d8a186252b4d80a123325a8/docs/CLEAN-WINDOWS-TEST-RESULTS.md)
