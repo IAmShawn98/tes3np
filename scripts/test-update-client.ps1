@@ -109,6 +109,22 @@ if (!$publisher.Contains('$requiredTag = if ($number -eq 0)') -or
     !$publisher.Contains('Published changelog $requiredTag was changed')) {
     throw 'Publishing a hotfix must verify the original and all earlier published changelogs.'
 }
+$indexHelper = Get-Content -LiteralPath 'scripts/update-hotfix-index.ps1' -Raw -Encoding UTF8
+if (!$publisher.Contains('& ./scripts/update-hotfix-index.ps1 -LatestHotfixTag $Tag') -or
+    !$publisher.Contains('TES3NP HOTFIX HISTORY START') -or
+    !$indexHelper.Contains('gh release edit $baseTag --repo $repo --notes-file $tempFile') -or
+    !$indexHelper.Contains('Published Hotfixes') -or
+    !$notesSource.Contains('Published hotfix index is malformed.')) {
+    throw 'Hotfix publication must append a verified history section without altering the original notes.'
+}
+$indexCall = $publisher.IndexOf('update-hotfix-index.ps1')
+$feedPublish = $publisher.IndexOf('Copy-Item -LiteralPath $manifestPath -Destination $feedFile')
+if ($indexCall -lt 0 -or $feedPublish -le $indexCall) {
+    throw 'The base release hotfix index must be updated before advancing the public feed.'
+}
+& (Join-Path $PSScriptRoot 'test-hotfix-index.ps1')
+Write-Host 'PASS: original GitHub changelog is retained and published hotfix links are verified.'
+
 
 $state = Get-Content -LiteralPath 'src/state.ahk' -Raw -Encoding UTF8
 $version = [regex]::Match($state, 'AppConfig\s*:=\s*\{Version:\s*"([^"]+)"').Groups[1].Value
