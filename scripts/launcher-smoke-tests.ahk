@@ -293,6 +293,31 @@ CheckExpansionPackToggleState()
         if ExpansionPackInstalled(game, config) || ExpansionPackIsEnabled()
             || LauncherExpansionToggle.Text != "Expansion Pack: Unverified"
             throw Error("A changed ESP must not pass the installed pack verification.")
+
+        
+        ; A fresh launcher has no local import record. Simulate the official
+        ; ZIP comparison at the trust-restoration boundary.
+        IniDelete(DataFile, "ExpansionPack", "VerifiedEspPath")
+        IniDelete(DataFile, "ExpansionPack", "VerifiedEspSHA256")
+        crc := ExpansionPackEspChecksum(esp)
+        if !ExpansionPackNeedsOfficialVerification(config)
+            throw Error("A missing verified record must be eligible for official recheck.")
+        if RestoreExistingExpansionPackVerification(config, "", "v0.2c")
+            || RestoreExistingExpansionPackVerification(config, "00000000", "v0.2c")
+            || RestoreExistingExpansionPackVerification(config, crc, "unknown")
+            throw Error("Unverified or mismatched official metadata must not establish trust.")
+        if IniRead(DataFile, "ExpansionPack", "VerifiedEspPath", "") != ""
+            throw Error("Failed official comparisons must not create an installation record.")
+        if !RestoreExistingExpansionPackVerification(config, crc, "v0.2c")
+            || !ExpansionPackInstalled(game, config) || !ExpansionPackIsEnabled(config)
+            throw Error("Matching official ZIP evidence must restore the installed SHA-256 record.")
+        if ExpansionPackNeedsOfficialVerification(config)
+            || IniRead(DataFile, "ExpansionPack", "VerifiedEspSHA256", "") != SHA256File(esp)
+            throw Error("Recovered trust must be persisted against the actual installed ESP.")
+        FileAppend("modified again", esp, "UTF-8-RAW")
+        if ExpansionPackInstalled(game, config) || ExpansionPackIsEnabled(config)
+            || RestoreExistingExpansionPackVerification(config, crc, "v0.2c")
+            throw Error("A modified ESP must invalidate the recovered trust and official comparison.")
     }
     catch Error as err
     {
