@@ -40,11 +40,27 @@ Nerevarine Prophecies as noncommercial projects.
 
 ## November 19 final candidate package verification
 
-The Windows package check passed for `tes3np-v0.1.21-alpha-windows.zip` from
-`00f0c93fb4581a2c79d9502137297d77acdde4f9`, with SHA-256
-`ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`. Package
-validation covered the source-built client and bundled notices. The maintainer's approval of the recreated artwork and
-the remaining rights review are recorded above.
+- Reviewed package: `tes3np-v0.1.21-alpha-windows.zip` from
+  `00f0c93fb4581a2c79d9502137297d77acdde4f9`.
+- The Windows verification and draft asset metadata report the same
+  ZIP SHA-256:
+  `ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`.
+- The build's standalone resource extraction check passed, including its
+  check for the absence of an embedded Expansion Pack payload. The
+  resource generator includes `MysticCards.ttf` and its SIL Open Font
+  License 1.1 notice together.
+- The final ZIP passed `--require-console-client`. The check requires the
+  AutoHotkey, TES3MP, DejaVu, .NET, Windows Desktop, and WebView2 notices,
+  and compares the bundled CrabNet license and corresponding-source
+  materials with the reviewed source tree. See the
+  [client provenance record](MODIFIED-TES3MP-SOURCE-PROVENANCE.md).
+- The final ZIP check compares the shipped HTML guide with the renderer's
+  output from the reviewed [user guide](USER-GUIDE.md). The guide source
+  contains text and links.
+- Distribution evidence for third-party artwork and branding remains
+  open, including the Morrowind-derived artwork and the use of Discord
+  branding in the launcher and Chat Host. The maintainer's artwork
+  decision is recorded above.
 
 ## Published guidance for adapted Morrowind artwork
 
