@@ -381,8 +381,7 @@ footer {
     container-type: size;
     overflow: hidden;
   }
-  .page-rails::before, .page-rails::after,
-  .page-frame-pieces::before, .page-frame-pieces::after {
+  .page-rails::before, .page-rails::after {
     content: "";
     position: absolute;
   }
@@ -404,33 +403,17 @@ footer {
     left: calc(100% - var(--page-rail-depth));
     transform: rotate(90deg) scaleY(-1);
   }
+  /* Use the complete jumbotron side slice at its original proportions. */
   .page-frame-pieces {
     grid-area: 2 / 1 / 4 / 2;
-    inset-block-start: calc(100% / 3);
+    inset-block: calc(100% / 3) auto;
+    block-size: calc(var(--frame-width) * 381 / 224);
+    transform: translateY(-50%);
+    border: solid transparent;
+    border-width: 0 var(--frame-width);
+    border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 stretch;
   }
   .page-frame-pieces + .page-frame-pieces { inset-block-start: calc(200% / 3); }
-  .page-frame-pieces::before { inset-inline-start: 0; }
-  .page-frame-pieces::after { inset-inline-end: 0; }
-
-  /* Each pair uses a single relief from the original launcher on each side. */
-  .page-frame-pieces::before, .page-frame-pieces::after {
-    inset-block-start: 0;
-    width: 101px;
-    height: 180px;
-    transform: translateY(-50%);
-    background-position: center -19px;
-    background-size: 100% auto;
-    background-repeat: no-repeat;
-    mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
-  }
-  .page-frame-pieces::before {
-    background-image: url("./assets/jumbotron-left-pillar.webp");
-    clip-path: polygon(0 0, 46% 0, 47% 6%, 58% 13%, 66% 17%, 64% 31%, 62% 62%, 65% 74%, 65% 81%, 55% 89%, 47% 96%, 47% 100%, 0 100%);
-  }
-  .page-frame-pieces::after {
-    background-image: url("./assets/jumbotron-right-pillar.webp");
-    clip-path: polygon(100% 0, 55% 0, 53% 6%, 44% 12%, 37% 17%, 40% 31%, 42% 62%, 38% 74%, 37% 81%, 48% 89%, 55% 96%, 55% 100%, 100% 100%);
-  }
   .jumbotron { --art-fade: transparent, #000 12%, #000 64%, #0009 86%, transparent; }
   .jumbotron::before, .jumbotron::after {
     max-width: min(47%, 35rem);
