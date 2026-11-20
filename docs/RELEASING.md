@@ -91,10 +91,20 @@ Fixes, and Removed Features. The launcher and publisher use this file.
   public history must be labeled unavailable rather than silently truncated.
   Users install the latest verified package directly, without sequential
   intermediate updates.
+- GitHub release descriptions are **append-only for hotfix history**:
+  the original feature release's full changelog and all previously published
+  hotfix descriptions must remain unchanged. After publishing a hotfix and
+  verifying its public ZIP, the alpha publisher uses
+  `scripts/update-hotfix-index.ps1` to add or refresh only the base release's
+  marked **Published Hotfixes** section. Entries link to the exact published
+  hotfix tags, include UTC publication dates, and appear newest first.
+  Re-running a publication is idempotent; malformed or missing history fails
+  closed. The verified feed advances only after the index has been updated.
 - Before approving any candidate, compare prior published version sections
-  with their GitHub release bodies and confirm no historical content was
-  removed or rewritten. The existing full regression and publication approval
-  requirements still apply.
+  with their GitHub release bodies, ignoring only the dedicated generated
+  hotfix-index suffix on the base release, and confirm no original changelog
+  content was removed or rewritten. The existing full regression and
+  publication approval requirements still apply.
 
 ## Website release history
 
@@ -108,9 +118,11 @@ unverified newer package becomes the website's latest download.
 
 The page retains a static v0.1.21-alpha fallback if the public API/feed is
 unavailable. When publishing later versions, keep that offline fallback
-current with a deliberately verified site snapshot. Existing GitHub release
-bodies are immutable; update the current feature's hotfix history by
-publishing a new tag/release, not editing the original.
+current with a deliberately verified site snapshot. GitHub release
+descriptions may change **only in their machine-marked Published Hotfixes
+index**; the website and launcher remove that index before rendering the
+original release notes, and display actual published fixes in the separate
+Hotfix History tab. Each hotfix retains its own GitHub release description.
 
 ## Publish Alpha
 
