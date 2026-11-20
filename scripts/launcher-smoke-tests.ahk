@@ -294,7 +294,7 @@ CheckExpansionPackToggleState()
             || LauncherExpansionToggle.Text != "Expansion Pack: Unverified"
             throw Error("A changed ESP must not pass the installed pack verification.")
 
-        
+
         ; A fresh launcher has no local import record. Simulate the official
         ; ZIP comparison at the trust-restoration boundary.
         IniDelete(DataFile, "ExpansionPack", "VerifiedEspPath")
