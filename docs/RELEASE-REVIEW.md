@@ -40,8 +40,13 @@ confirmed a fresh Windows 11 Pro x64 installation (build 26300) under a
 standard user account. The diagnostics confirm launcher startup, Expansion Pack
 import and disable, bundled-client login, and New Adventure. All 12 updater
 transaction and rollback checks passed. The maintainer reported a successful
-isolated `.20` → `.21` upgrade. Live download and feed verification follow
-publication.
+isolated `.20` → `.21` upgrade before publication.
+
+After publication, the public `.21` ZIP matched the tested SHA-256, and the
+checksum and alpha feed matched that package. The maintainer confirmed that the
+stock `.20` launcher on a fresh PC discovered and downloaded `.21` through the
+public legacy bridge, restarted into `.21`, and retained working characters and
+settings.
 
 ### Repository visibility and legacy updates
 
