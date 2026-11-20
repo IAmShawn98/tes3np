@@ -768,10 +768,15 @@ CheckDisplaySettingsAndReleaseNotes()
         scale := GetOwnedMenuScale()
         panel := CreateGoldNativePrompt(LauncherGui, "Release notes smoke", 800, 600)
         unregister := 0
+        switcher := {}
         try
         {
             ScaleOwnedMenuContent(panel, scale)
-            unregister := AddUpdateNotesViewport(panel, notes, scale)
+            unregister := AddUpdateNotesViewport(panel, "Short note.", scale, switcher)
+            if !switcher.HasOwnProp("Update")
+                throw Error("Release-note tab switch handler was not installed.")
+            ; Verify the switch from a single row back to a long, scrollable page.
+            switcher.Update.Call(notes)
             ShowGoldNativePrompt(panel)
             paragraphY := 0, headingY := 0, bulletY := 0, rowHeight := 0
             for row in panel
