@@ -1,9 +1,8 @@
 const gallery = document.querySelector('.gallery');
 const slides = [...gallery.querySelectorAll('.slide')];
-const controls = gallery.querySelector('.controls');
-const counter = gallery.querySelector('.counter');
+const previous = gallery.querySelector('.previous');
+const next = gallery.querySelector('.next');
 const title = gallery.querySelector('.slide-title');
-const version = gallery.querySelector('.slide-version');
 const rotation = gallery.querySelector('.rotation');
 const status = gallery.querySelector('[role="status"]');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -20,8 +19,6 @@ function showSlide(offset, announce) {
   const slide = slides[slideIndex];
   slide.removeAttribute('aria-hidden');
   title.textContent = slide.dataset.title;
-  version.textContent = slide.dataset.version;
-  counter.textContent = (slideIndex + 1) + ' / ' + slides.length;
   if (announce) {
     status.textContent = title.textContent + ', screenshot ' + (slideIndex + 1) + ' of ' + slides.length;
   }
@@ -29,7 +26,10 @@ function showSlide(offset, announce) {
 
 function scheduleRotation() {
   clearTimeout(timer);
-  rotation.textContent = autoplay ? 'Pause' : 'Play';
+  const rotationLabel = autoplay ? 'Pause slideshow' : 'Play slideshow';
+  rotation.setAttribute('aria-label', rotationLabel);
+  rotation.title = rotationLabel;
+  rotation.toggleAttribute('data-paused', !autoplay);
   if (autoplay && !pointerOver && !gallery.querySelector(':focus-visible') && !document.hidden) {
     timer = setTimeout(() => {
       showSlide(1, false);
@@ -43,8 +43,8 @@ function navigate(offset) {
   scheduleRotation();
 }
 
-gallery.querySelector('.previous').addEventListener('click', () => navigate(-1));
-gallery.querySelector('.next').addEventListener('click', () => navigate(1));
+previous.addEventListener('click', () => navigate(-1));
+next.addEventListener('click', () => navigate(1));
 rotation.addEventListener('click', () => {
   autoplay = !autoplay;
   scheduleRotation();
@@ -94,5 +94,7 @@ slides.forEach((slide, index) => {
   if (index !== slideIndex) slide.setAttribute('aria-hidden', 'true');
   slide.hidden = false;
 });
-controls.hidden = false;
+previous.hidden = false;
+next.hidden = false;
+rotation.hidden = false;
 scheduleRotation();
