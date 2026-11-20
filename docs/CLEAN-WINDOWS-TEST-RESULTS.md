@@ -1,6 +1,6 @@
 # Windows release test results
 
-Status: PENDING_CLEAN_MACHINE
+Status: CLEAN_MACHINE_TESTED
 
 ## November 17 developer preflight
 
@@ -206,8 +206,9 @@ folder picker are unverified for this run.
 - **Pending:** The startup and manual update checks returned an error.
   The `update-feed` branch was absent during this private-draft test.
   Live feed verification remains pending at cutover.
-- Windows account privilege, initial profile state, and display scale
-  were not recorded for this run.
+- **PASS reported:** The maintainer confirmed that this was a fresh Windows
+  11 Pro installation and that the test ran under a standard Windows account.
+  Display scale was not recorded.
 
 ## November 19 isolated upgrade and rollback for the final candidate
 
