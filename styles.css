@@ -40,11 +40,13 @@ p { margin: 0 0 16px; }
 .jumbotron::before, .jumbotron::after {
   content: "";
   position: absolute;
-  inset-block: 0;
+  inset-block-start: -7.5%;
   z-index: -1;
-  width: min(47%, 31rem);
+  height: 115%;
+  max-width: min(47%, 31rem);
+  aspect-ratio: 480 / 565;
   background-repeat: no-repeat;
-  background-size: auto 115%;
+  background-size: auto 100%;
   filter: sepia(.62) saturate(.7);
   opacity: .48;
   pointer-events: none;
