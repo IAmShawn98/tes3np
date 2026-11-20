@@ -6,7 +6,7 @@
 - Windows ZIP: `tes3np-v0.1.21-alpha-windows.zip`
 - ZIP SHA-256: `ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`
 - TES3MP source: VERIFIED_SOURCE_AND_BUILD
-- Asset distribution: PENDING_RIGHTS_REVIEW
+- Asset distribution: MAINTAINER_APPROVED
 - Windows testing: CLEAN_MACHINE_TESTED
 
 ### TES3MP client

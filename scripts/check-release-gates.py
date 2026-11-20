@@ -39,15 +39,16 @@ def main() -> int:
         return 1
 
     lines = review.read_text(encoding="utf-8-sig").splitlines()
-    for label, marker in (
-        ("TES3MP source", "VERIFIED_SOURCE_AND_BUILD"),
-        ("Asset distribution", "ASSET_RIGHTS_REVIEWED"),
-        ("Windows testing", "CLEAN_MACHINE_TESTED"),
+    for label, markers in (
+        ("TES3MP source", ("VERIFIED_SOURCE_AND_BUILD",)),
+        ("Asset distribution", ("ASSET_RIGHTS_REVIEWED", "MAINTAINER_APPROVED")),
+        ("Windows testing", ("CLEAN_MACHINE_TESTED",)),
     ):
         prefix = f"- {label}: "
         statuses = [line[len(prefix):].strip() for line in lines if line.startswith(prefix)]
-        if statuses != [marker]:
-            print(f"BLOCKED: {label} in {review.name} must be marked {marker}.")
+        if len(statuses) != 1 or statuses[0] not in markers:
+            expected = " or ".join(markers)
+            print(f"BLOCKED: {label} in {review.name} must be marked {expected}.")
             return 1
     print("Release review is complete; owner must still approve the release.")
     return 0

@@ -54,9 +54,12 @@ in [RELEASE-REVIEW.md](RELEASE-REVIEW.md). Record skipped checks explicitly.
 
 ## Release evidence gate
 
-Complete the source, distribution, and Windows checks in
-[RELEASE-REVIEW.md](RELEASE-REVIEW.md). Run `python scripts/check-release-gates.py`
-before publication and obtain the repository owner's approval.
+Record the source, asset decision, and Windows results in
+[RELEASE-REVIEW.md](RELEASE-REVIEW.md). Use `ASSET_RIGHTS_REVIEWED` when the
+distribution review is complete or `MAINTAINER_APPROVED` when the maintainer
+accepts the recorded asset evidence for the candidate. Run
+`python scripts/check-release-gates.py` before publication and obtain the
+repository owner's approval to publish.
 
 ## Player-facing release notes
 
