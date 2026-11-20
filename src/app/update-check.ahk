@@ -61,7 +61,8 @@ ScaleLauncherVersionLabel(scale)
     if IsObject(LauncherVersionLabel)
         LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
     if IsObject(LauncherUpdateBadge)
-        LauncherUpdateBadge.SetFont("s" Max(6, Round(10 * scale)) " Bold", "Segoe UI")
+        LauncherUpdateBadge.SetFont("s" Max(6, Round(10 * scale)) " Bold c"
+            (LauncherUpdateBadge.Text = "(1)" ? "D63232" : "8F806F"), "Segoe UI")
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
