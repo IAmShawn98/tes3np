@@ -30,7 +30,7 @@ body {
   border-style: solid;
   border-width: 0 var(--frame-width) var(--frame-bottom);
   border-color: transparent;
-  border-image: url("./assets/page-frame.webp?v=2") 0 224 212 224 round;
+  border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 round;
   pointer-events: none;
 }
 .jumbotron-frame::after {
