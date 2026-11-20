@@ -20,6 +20,7 @@ let autoplay = !reducedMotion.matches;
 let pointerOver = false;
 let timer;
 let outgoingSlide;
+let outgoingCleanup;
 let swipe;
 let suppressSwipeClick = false;
 let wheelTime = -Infinity;
@@ -31,17 +32,18 @@ function offsetSlide(index, offset) {
 }
 
 function readyImage(image) {
-  if (typeof image.decode === 'function') return image.decode();
+  // Image.decode() rejects on some browsers before load completes. A load
+  // event is enough to display the preview; decoding is not a navigation gate.
   return new Promise((resolve, reject) => {
     if (image.complete) {
-      if (image.naturalWidth) resolve();
+      if (image.naturalWidth > 0) resolve();
       else reject(new Error('The screenshot could not load.'));
       return;
     }
     function finish(event) {
       image.removeEventListener('load', finish);
       image.removeEventListener('error', finish);
-      if (event.type === 'load') resolve();
+      if (event.type === 'load' && image.naturalWidth > 0) resolve();
       else reject(new Error('The screenshot could not load.'));
     }
     image.addEventListener('load', finish);
@@ -67,6 +69,7 @@ function loadSlide(index, priority = 'auto') {
   const pending = readyImage(image)
     .catch(() => {
       image.removeAttribute('srcset');
+      image.removeAttribute('sizes');
       image.src = link.href;
       return readyImage(image);
     })
@@ -86,6 +89,7 @@ function preloadNext() {
 }
 
 function clearOutgoingSlide() {
+  clearTimeout(outgoingCleanup);
   if (outgoingSlide) outgoingSlide.classList.remove('is-outgoing');
   outgoingSlide = undefined;
 }
@@ -98,6 +102,9 @@ function showSlide(index, announce) {
   if (!reducedMotion.matches) {
     outgoingSlide = previousSlide;
     outgoingSlide.classList.add('is-outgoing');
+    // transitionend is not reliable when the tab is hidden or rendering is
+    // suspended. Always remove the outgoing layer after the fade duration.
+    outgoingCleanup = setTimeout(clearOutgoingSlide, 1350);
   }
   slideIndex = index;
   const slide = slides[slideIndex];
@@ -117,9 +124,10 @@ function scheduleRotation() {
   const rotationLabel = autoplay ? 'Pause slideshow' : 'Play slideshow';
   rotation.setAttribute('aria-label', rotationLabel);
   rotation.title = rotationLabel;
-  rotation.toggleAttribute('data-paused', !autoplay);
+  if (autoplay) rotation.removeAttribute('data-paused');
+  else rotation.setAttribute('data-paused', '');
   const focused = document.activeElement;
-  const keyboardFocus = gallery.contains(focused) && (!supportsFocusVisible || focused.matches(':focus-visible'));
+  const keyboardFocus = gallery.contains(focused) && (!supportsFocusVisible || (focused.matches && focused.matches(':focus-visible')));
   if (autoplay && !navigating && !pointerOver && !swipe && !keyboardFocus && !document.hidden) {
     timer = setTimeout(() => navigate(1, false), 5500);
   }
