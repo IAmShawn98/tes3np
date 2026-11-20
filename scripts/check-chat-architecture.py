@@ -743,7 +743,7 @@ expect(
     and 'RefreshExpansionPackToggle()' in bootstrap
     and '"Expansion Downloads", ToggleLauncherExpansionDownloads' not in bootstrap,
 )
-expansion_toggle_action = section_between(patcher, "ApplyExpansionPackToggle(checked := false)", "\nShowExpansionInstallPrompt(")
+expansion_toggle_action = section_between(patcher, "ApplyExpansionPackToggle(checked := false, disableUnverified := false)", "\nShowExpansionInstallPrompt(")
 unverified_disable = section_between(
     expansion_toggle_action, "if !enable && !ExpansionPackInstalled(morrowind, cfg)\n    {",
     "\n    if enable && !checked",
