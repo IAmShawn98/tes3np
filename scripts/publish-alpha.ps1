@@ -126,6 +126,68 @@ if ($release.isDraft) {
     $section = [regex]::Match($playerNotes, "(?ms)^##[ \t]+$tagPattern(?=[ \t]|\r?$)[^\r\n]*\r?\n(.*?)(?=^##[ \t]|\z)")
     $notes = $section.Groups[1].Value.Trim()
     if (!$notes) { throw "No RELEASE_NOTES.md content found for $Tag." }
+    # Published base notes and earlier hotfixes are immutable. A hotfix adds
+    # its own section; it must not replace or revise historical changelogs.
+    $hotfix = [regex]::Match($Tag, '\.([1-9][0-9]{0,8})    $notesFile = Join-Path $work 'release-notes.md'
+    [IO.File]::WriteAllText($notesFile, "## $Tag`n`n$notes`n")
+    gh release edit $Tag --repo $repo --draft=false --prerelease --latest=false --notes-file $notesFile
+}
+$publishedTag = @(git ls-remote origin "refs/tags/$Tag" "refs/tags/$Tag^{}")
+if (!$publishedTag.Count -or ($publishedTag[-1] -split "`t")[0] -cne $revision) {
+    throw 'Published tag does not point to the reviewed commit.'
+}
+
+# Verify the files at the same unsigned URLs players use before updating the feed.
+$base = "https://github.com/$repo/releases/download/$Tag"
+$publicZip = Join-Path $work 'public.zip'
+$publicChecksum = Join-Path $work 'public.sha256'
+Invoke-WebRequest "$base/$packageName" -OutFile $publicZip -MaximumRetryCount 3 -RetryIntervalSec 2
+Invoke-WebRequest "$base/$checksumName" -OutFile $publicChecksum -MaximumRetryCount 3 -RetryIntervalSec 2
+if ((Get-FileHash -LiteralPath $publicZip -Algorithm SHA256).Hash -ine $hash -or
+    (Get-Content -LiteralPath $publicChecksum -Raw).TrimEnd() -cne "$hash  $packageName") {
+    throw 'The public ZIP or checksum differs from the reviewed candidate. The feed was not updated.'
+}
+
+Copy-Item -LiteralPath $manifestPath -Destination $feedFile
+git -C $feedDirectory add -- alpha.json
+if (git -C $feedDirectory status --porcelain -- alpha.json) {
+    git -C $feedDirectory -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish alpha feed for $Tag"
+    git -C $feedDirectory push origin "HEAD:${feedRef}"
+}
+$feedRevision = git -C $feedDirectory rev-parse HEAD
+$publicManifest = Join-Path $work 'public-alpha.json'
+Invoke-WebRequest "https://raw.githubusercontent.com/$repo/update-feed/alpha.json?revision=$feedRevision" `
+    -OutFile $publicManifest -MaximumRetryCount 3 -RetryIntervalSec 2
+if ((Get-FileHash -LiteralPath $publicManifest).Hash -cne (Get-FileHash -LiteralPath $manifestPath).Hash) {
+    throw 'Public alpha feed did not return the generated manifest.'
+}
+
+Write-Host "Published $Tag and verified its alpha manifest and Windows download."
+)
+    if ($hotfix.Success) {
+        $baseTag = $Tag.Substring(0, $Tag.Length - $hotfix.Length)
+        $previousCount = [int]$hotfix.Groups[1].Value
+        if ($previousCount -gt 100) { throw 'Too many hotfix entries to verify safely.' }
+        for ($number = 0; $number -lt $previousCount; $number++) {
+            $requiredTag = if ($number -eq 0) { $baseTag } else { "$baseTag.$number" }
+            $requiredPattern = [regex]::Escape($requiredTag)
+            $historical = [regex]::Match($playerNotes,
+                "(?ms)^##[ \t]+$requiredPattern(?=[ \t]|\r?$)[^\r\n]*\r?\n(.*?)(?=^##[ \t]|\z)")
+            if (!$historical.Success -or !$historical.Groups[1].Value.Trim()) {
+                throw "Hotfix $Tag must retain the complete $requiredTag changelog."
+            }
+            $published = gh release view $requiredTag --repo $repo --json tagName,isDraft,body | ConvertFrom-Json
+            if ($published.tagName -cne $requiredTag -or $published.isDraft) {
+                throw "Previous release $requiredTag is not published."
+            }
+            $publishedBody = ([string]$published.body) -replace '\r\n', [string][char]10
+            $publishedBody = ($publishedBody -replace "(?m)^##[ \t]+$requiredPattern(?:[ \t]+[^\r\n]*)?[ \t]*\n", '').Trim()
+            $localBody = ($historical.Groups[1].Value -replace '\r\n', [string][char]10).Trim()
+            if ($publishedBody -cne $localBody) {
+                throw "Published changelog $requiredTag was changed. Preserve the exact historical notes."
+            }
+        }
+    }
     $notesFile = Join-Path $work 'release-notes.md'
     [IO.File]::WriteAllText($notesFile, "## $Tag`n`n$notes`n")
     gh release edit $Tag --repo $repo --draft=false --prerelease --latest=false --notes-file $notesFile
