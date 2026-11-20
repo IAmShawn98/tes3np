@@ -369,23 +369,34 @@ footer {
   .page-rails {
     grid-area: 2 / 1 / 4 / 2;
     inset-block-end: calc(-1 * var(--content-gap));
+    container-type: size;
+    overflow: hidden;
   }
   .page-rails::before, .page-rails::after,
   .page-frame-pieces::before, .page-frame-pieces::after {
     content: "";
     position: absolute;
   }
-  .page-rails::before, .page-frame-pieces::before { inset-inline-start: 0; }
-  .page-rails::after, .page-frame-pieces::after { inset-inline-end: 0; }
+  /* Rotate only the plain bottom slice from the hero's stone frame. */
   .page-rails::before, .page-rails::after {
-    inset-block: 0 12px;
-    width: 30px;
-    background:
-      linear-gradient(var(--rail-direction), #0f111588, #6c7b8a4d 30%, #77818b33 74%, #08090ad9),
-      url("./assets/jumbotron-stone.webp") center top;
+    inset-block-start: 0;
+    width: 100cqh;
+    height: var(--frame-bottom);
+    border: solid transparent;
+    border-width: 0 0 var(--frame-bottom);
+    border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 round;
+    transform-origin: top left;
   }
-  .page-rails::before { --rail-direction: to right; }
-  .page-rails::after { --rail-direction: to left; }
+  .page-rails::before {
+    left: var(--frame-bottom);
+    transform: rotate(90deg);
+  }
+  .page-rails::after {
+    left: calc(100% - var(--frame-bottom));
+    transform: rotate(90deg) scaleY(-1);
+  }
+  .page-frame-pieces::before { inset-inline-start: 0; }
+  .page-frame-pieces::after { inset-inline-end: 0; }
 
   /* Show the middle reliefs from the original launcher pillars once per page. */
   .page-frame-pieces::before, .page-frame-pieces::after {
