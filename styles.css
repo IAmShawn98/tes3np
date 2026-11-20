@@ -344,18 +344,67 @@ footer {
   color: #a99a85;
   font-size: .8125rem;
 }
+.page-rails, .page-frame-pieces { display: none; }
+
 @media (min-width: 70rem) {
   #top::after {
     content: "";
     position: absolute;
-    grid-area: 2 / 1 / 4 / 2;
-    inset: 0;
+    inset-inline: 0;
     inset-block-end: calc(-1 * var(--content-gap));
-    z-index: 1;
+    block-size: 58px;
+    z-index: 2;
     border: solid transparent;
     border-width: 0 72px 58px;
     border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 round;
     pointer-events: none;
+  }
+  .page-rails, .page-frame-pieces {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .page-rails {
+    grid-area: 2 / 1 / 4 / 2;
+    inset-block-end: calc(-1 * var(--content-gap));
+  }
+  .page-rails::before, .page-rails::after,
+  .page-frame-pieces::before, .page-frame-pieces::after {
+    content: "";
+    position: absolute;
+  }
+  .page-rails::before, .page-frame-pieces::before { inset-inline-start: 0; }
+  .page-rails::after, .page-frame-pieces::after { inset-inline-end: 0; }
+  .page-rails::before, .page-rails::after {
+    inset-block: 0 12px;
+    width: 30px;
+    background:
+      linear-gradient(var(--rail-direction), #0f111588, #6c7b8a4d 30%, #77818b33 74%, #08090ad9),
+      url("./assets/jumbotron-stone.webp") center top;
+  }
+  .page-rails::before { --rail-direction: to right; }
+  .page-rails::after { --rail-direction: to left; }
+
+  /* Show the middle reliefs from the original launcher pillars once per page. */
+  .page-frame-pieces::before, .page-frame-pieces::after {
+    inset-block-start: 50%;
+    width: 101px;
+    height: 180px;
+    transform: translateY(-50%);
+    background-position: center -19px;
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+  }
+  .page-frame-pieces::before {
+    background-image: url("./assets/jumbotron-left-pillar.webp");
+    clip-path: polygon(0 0, 46% 0, 47% 6%, 58% 13%, 66% 17%, 64% 31%, 62% 62%, 65% 74%, 65% 81%, 55% 89%, 47% 96%, 47% 100%, 0 100%);
+  }
+  .page-frame-pieces::after {
+    background-image: url("./assets/jumbotron-right-pillar.webp");
+    clip-path: polygon(100% 0, 55% 0, 53% 6%, 44% 12%, 37% 17%, 40% 31%, 42% 62%, 38% 74%, 37% 81%, 48% 89%, 55% 96%, 55% 100%, 100% 100%);
   }
   .jumbotron { --art-fade: transparent, #000 12%, #000 64%, #0009 86%, transparent; }
   .jumbotron::before, .jumbotron::after {
