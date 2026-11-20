@@ -1,7 +1,6 @@
 :root {
   color-scheme: dark;
-  --background: #080705;
-  --content-background: #15110e;
+  --background: #14171b;
   --frame-width: clamp(58px, 9vw, 126px);
   --frame-bottom: clamp(54px, 8.5vw, 120px);
   --frame-gutter: clamp(36px, 6.7vw, 92px);
@@ -21,8 +20,23 @@ body {
   padding-block-end: var(--content-gap);
   color: var(--text);
   background-color: var(--background);
+}
+#top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  isolation: isolate;
   background-image: linear-gradient(#0a08064d, #0a08064d), url("./assets/jumbotron-stone.webp");
   background-position: center top;
+}
+#top::before {
+  content: "";
+  grid-area: 2 / 1;
+  z-index: -1;
+  background-image: linear-gradient(
+    #30231791,
+    #251d17df 110px,
+    var(--background) clamp(260px, 34vw, 420px)
+  );
 }
 .jumbotron-frame {
   position: absolute;
@@ -54,16 +68,13 @@ button { font: inherit; cursor: pointer; }
   width: min(100%, calc(944px + var(--content-gutter) * 2));
   margin-inline: auto;
   padding-inline: var(--content-gutter);
+  background-color: #15110e;
 }
 .page-body {
+  grid-area: 2 / 1;
   display: flow-root;
   margin-block-start: var(--content-gap);
   padding-block: 24px 14px;
-  background-image: linear-gradient(
-    transparent,
-    color-mix(in srgb, var(--content-background) 70%, transparent) 70px,
-    var(--content-background) 150px
-  );
 }
 h2 {
   margin: 0 0 13px;
@@ -76,6 +87,7 @@ h2 {
 p { margin: 0 0 16px; }
 .jumbotron {
   --art-inset: max(0px, calc(50% - 42rem));
+  grid-area: 1 / 1;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -285,7 +297,6 @@ li::marker { color: #b79560; }
 code { background: #2c2117; color: #f0d5a3; padding: .08em .33em; font-size: .87em; overflow-wrap: anywhere; }
 footer {
   padding-block: 15px 28px;
-  background-color: var(--content-background);
   background-image: linear-gradient(var(--border), var(--border));
   background-position: center top;
   background-repeat: no-repeat;
