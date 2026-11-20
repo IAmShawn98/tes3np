@@ -66,9 +66,20 @@ button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 
-.page-body, footer {
+.page-body, footer, #top::after {
   width: min(100%, calc(944px + var(--content-gutter) * 2));
   margin-inline: auto;
+}
+#top::after {
+  content: "";
+  position: absolute;
+  grid-area: 2 / 1 / 4 / 2;
+  inset: var(--content-gap) 0 0;
+  z-index: 1;
+  border: 1px solid #9a7644;
+  pointer-events: none;
+}
+.page-body, footer {
   padding-inline: var(--content-gutter);
   background-color: #15110e;
 }
