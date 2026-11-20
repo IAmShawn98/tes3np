@@ -686,7 +686,7 @@ RefreshExpansionPackToggle()
 
 ToggleExpansionPack(*) => ApplyExpansionPackToggle()
 
-ApplyExpansionPackToggle(checked := false)
+ApplyExpansionPackToggle(checked := false, disableUnverified := false)
 {
     global AppDataDirectory, DataFile, BundledResourceRoot, ExpansionToggleRunning, Client
     if PatchInProgress()
@@ -712,7 +712,7 @@ ApplyExpansionPackToggle(checked := false)
     }
     if checked && !enable
         return
-    if !enable && !checked && !ExpansionPackInstalled(morrowind, cfg)
+    if !enable && !checked && !disableUnverified && !ExpansionPackInstalled(morrowind, cfg)
         && ExpansionPackEspPaths(morrowind, cfg).Length
     {
         ShowUnverifiedExistingExpansionPackPrompt(cfg)
@@ -906,7 +906,7 @@ CloseUnverifiedExistingExpansionPackPrompt(prompt, action := "Cancel", *)
         SetTimer(() => TES3MPCheckExpansionBeforeAction(config, continuation, false, true), -1)
     }
     else if action = "Disable"
-        SetTimer(() => ApplyExpansionPackToggle(true), -1)
+        SetTimer(() => ApplyExpansionPackToggle(false, true), -1)
 }
 
 ; Only shown after a fresh authenticated official ZIP checksum matches
