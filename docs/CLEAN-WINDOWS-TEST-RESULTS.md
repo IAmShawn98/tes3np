@@ -187,6 +187,7 @@ folder picker are unverified for this run.
   build. Generated update metadata and the independent file hash agreed.
 - **PASS reported:** The maintainer tested the packaged launcher and
   confirmed the Race wording was updated throughout the areas checked.
+
 ## November 19 second-PC acceptance of the final candidate
 
 - Windows 11 Pro x64, version `10.0.26300`. The SHA-256 of
@@ -206,8 +207,24 @@ folder picker are unverified for this run.
   The `update-feed` branch was absent during this private-draft test.
   Live feed verification remains pending at cutover.
 - Windows account privilege, initial profile state, and display scale
-  were not recorded for this run. Isolated upgrade and rollback coverage
-  for the final candidate is still pending.
+  were not recorded for this run.
+
+## November 19 isolated upgrade and rollback for the final candidate
+
+- Built from `00f0c93fb4581a2c79d9502137297d77acdde4f9`. The private
+  bridge prepared from the versioned final ZIP printed SHA-256
+  `ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d`,
+  matching the staged release asset.
+- **PASS:** All 12 updater transaction fixtures passed under PowerShell 7,
+  including the legacy directory layout, both injected rollback cases,
+  overlapping workers, and startup recovery. The versioned ZIP passed
+  package integrity and markerless-client validation again.
+- **PASS reported:** The maintainer reported success after running the
+  isolated `TES3NPTest` bridge from v0.1.20-alpha to v0.1.21-alpha.
+  The runner's success criteria are candidate startup confirmation and a
+  matching installed launcher SHA-256. The runner transcript was not supplied.
+- Live update discovery and downloads will be checked at publication
+  and when the legacy bridge is updated.
 
 Record the source commit, SHA-256, Windows versions, fresh standard-user
 install results, and upgrade and rollback results for the final ZIP built
