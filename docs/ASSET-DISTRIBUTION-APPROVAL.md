@@ -74,6 +74,21 @@ ZeniMax contact. Bethesda's [fan video policy](https://bethesda.net/en-US/news/b
 covers fan videos. No permission specific to bundling the adapted launcher
 background in the TES3NP Windows ZIP was identified in these sources.
 
+## Discord branding in the final candidate
+
+- The signed-out account control uses the brand-kit symbol in
+  `assets/icons/discord.png`. Chat Host also ships
+  `game-chat/assets/DiscordInt.png`, which the sign-in code reads and
+  injects as artwork into the embedded Discord sign-in page.
+- The [Discord brand guidelines](https://discord.com/branding) limit
+  use of the standalone symbol to contexts where the Discord brand is
+  already clear and require the logo to retain its form. Discord's
+  [developer terms](https://support-dev.discord.com/hc/en-us/articles/8562894815383-Discord-Developer-Terms-of-Service)
+  describe limited uses for attribution and incidental promotion under
+  the brand guidelines. The file's inclusion in the brand kit establishes
+  its source. The distribution basis for the shipped integration artwork
+  and the UI placements is still to be recorded.
+
 ## Historical .20 release and repository visibility
 
 Preserve the original .20 tag, versioned Windows ZIP, and checksum as shipped.
