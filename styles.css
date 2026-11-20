@@ -226,13 +226,20 @@ li::marker { color: #b79560; }
   grid-area: 1 / 1;
   min-width: 0;
   background: #080705;
-  opacity: 1;
-  mix-blend-mode: plus-lighter;
+  opacity: 0;
   transition: opacity 1250ms ease-in-out;
 }
+.slide:not([aria-hidden="true"]) {
+  z-index: 2;
+  opacity: 1;
+}
 .slide[aria-hidden="true"] {
-  opacity: 0;
   pointer-events: none;
+}
+.slide.is-outgoing {
+  z-index: 1;
+  opacity: 1;
+  transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .slide { transition: none; }

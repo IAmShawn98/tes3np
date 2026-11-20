@@ -9,6 +9,8 @@ const title = gallery.querySelector('.slide-title');
 const rotation = gallery.querySelector('.rotation');
 const status = gallery.querySelector('[role="status"]');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const supportsFocusVisible = window.CSS && CSS.supports('selector(:focus-visible)');
+const useTouchEvents = 'ontouchstart' in window;
 
 let slideIndex = 0;
 let requestedIndex = 0;
@@ -17,11 +19,34 @@ let navigating = false;
 let autoplay = !reducedMotion.matches;
 let pointerOver = false;
 let timer;
-let touchStart;
+let outgoingSlide;
+let swipe;
 let suppressSwipeClick = false;
+let wheelTime = -Infinity;
+let wheelDistance = 0;
+let wheelNavigated = false;
 
 function offsetSlide(index, offset) {
   return (index + offset + slides.length) % slides.length;
+}
+
+function readyImage(image) {
+  if (typeof image.decode === 'function') return image.decode();
+  return new Promise((resolve, reject) => {
+    if (image.complete) {
+      if (image.naturalWidth) resolve();
+      else reject(new Error('The screenshot could not load.'));
+      return;
+    }
+    function finish(event) {
+      image.removeEventListener('load', finish);
+      image.removeEventListener('error', finish);
+      if (event.type === 'load') resolve();
+      else reject(new Error('The screenshot could not load.'));
+    }
+    image.addEventListener('load', finish);
+    image.addEventListener('error', finish);
+  });
 }
 
 function loadSlide(index, priority = 'auto') {
@@ -39,11 +64,11 @@ function loadSlide(index, priority = 'auto') {
 
   if (imageLoads.has(index)) return imageLoads.get(index);
 
-  const pending = image.decode()
+  const pending = readyImage(image)
     .catch(() => {
       image.removeAttribute('srcset');
       image.src = link.href;
-      return image.decode();
+      return readyImage(image);
     })
     .catch((error) => {
       if (index !== slideIndex) image.remove();
@@ -60,10 +85,20 @@ function preloadNext() {
   }
 }
 
+function clearOutgoingSlide() {
+  if (outgoingSlide) outgoingSlide.classList.remove('is-outgoing');
+  outgoingSlide = undefined;
+}
+
 function showSlide(index, announce) {
   const previousSlide = slides[slideIndex];
   const previousLink = slideLinks[slideIndex];
   const moveFocus = document.activeElement === previousLink;
+  clearOutgoingSlide();
+  if (!reducedMotion.matches) {
+    outgoingSlide = previousSlide;
+    outgoingSlide.classList.add('is-outgoing');
+  }
   slideIndex = index;
   const slide = slides[slideIndex];
   slide.removeAttribute('aria-hidden');
@@ -83,7 +118,9 @@ function scheduleRotation() {
   rotation.setAttribute('aria-label', rotationLabel);
   rotation.title = rotationLabel;
   rotation.toggleAttribute('data-paused', !autoplay);
-  if (autoplay && !navigating && !pointerOver && !gallery.querySelector(':focus-visible') && !document.hidden) {
+  const focused = document.activeElement;
+  const keyboardFocus = gallery.contains(focused) && (!supportsFocusVisible || focused.matches(':focus-visible'));
+  if (autoplay && !navigating && !pointerOver && !swipe && !keyboardFocus && !document.hidden) {
     timer = setTimeout(() => navigate(1, false), 5500);
   }
 }
@@ -146,35 +183,129 @@ gallery.addEventListener('pointerleave', (event) => {
 gallery.addEventListener('focusin', scheduleRotation);
 gallery.addEventListener('focusout', () => setTimeout(scheduleRotation, 0));
 document.addEventListener('visibilitychange', scheduleRotation);
-reducedMotion.addEventListener('change', (event) => {
+function updateMotionPreference(event) {
   autoplay = !event.matches;
+  if (event.matches) clearOutgoingSlide();
   scheduleRotation();
+}
+if (typeof reducedMotion.addEventListener === 'function') {
+  reducedMotion.addEventListener('change', updateMotionPreference);
+} else {
+  reducedMotion.addListener(updateMotionPreference);
+}
+
+slideArea.addEventListener('transitionend', (event) => {
+  if (event.target === slides[slideIndex] && event.propertyName === 'opacity') clearOutgoingSlide();
 });
+
+function horizontalGesture(x, y) {
+  return Math.abs(x) > Math.abs(y) * 1.35;
+}
+
+function startSwipe(id, x, y) {
+  suppressSwipeClick = false;
+  swipe = { id, x, y };
+  scheduleRotation();
+}
+
+function cancelSwipe() {
+  if (!swipe) return;
+  swipe = undefined;
+  scheduleRotation();
+}
+
+function finishSwipe(id, x, y) {
+  if (!swipe || swipe.id !== id) return false;
+  const deltaX = x - swipe.x;
+  const deltaY = y - swipe.y;
+  const shouldNavigate = swipe.axis !== 'vertical' && Math.abs(deltaX) > 45 && horizontalGesture(deltaX, deltaY);
+  swipe = undefined;
+  if (shouldNavigate) {
+    suppressSwipeClick = true;
+    navigate(deltaX < 0 ? 1 : -1);
+  } else {
+    scheduleRotation();
+  }
+  return shouldNavigate;
+}
+
+slideArea.addEventListener('touchstart', (event) => {
+  if (event.touches.length !== 1) {
+    cancelSwipe();
+    return;
+  }
+  const touch = event.touches[0];
+  startSwipe(touch.identifier, touch.clientX, touch.clientY);
+}, { passive: true });
+slideArea.addEventListener('touchmove', (event) => {
+  if (!swipe) return;
+  if (event.touches.length !== 1) {
+    cancelSwipe();
+    return;
+  }
+  const touch = event.touches[0];
+  if (touch.identifier !== swipe.id) return;
+  const x = touch.clientX - swipe.x;
+  const y = touch.clientY - swipe.y;
+  if (!swipe.axis && Math.max(Math.abs(x), Math.abs(y)) > 8) {
+    swipe.axis = horizontalGesture(x, y) ? 'horizontal' : 'vertical';
+  }
+  if (swipe.axis === 'horizontal' && event.cancelable) event.preventDefault();
+}, { passive: false });
+slideArea.addEventListener('touchend', (event) => {
+  if (event.touches.length) {
+    cancelSwipe();
+    return;
+  }
+  const touch = event.changedTouches[0];
+  if (touch && finishSwipe(touch.identifier, touch.clientX, touch.clientY) && event.cancelable) {
+    event.preventDefault();
+  }
+}, { passive: false });
+slideArea.addEventListener('touchcancel', cancelSwipe);
 
 slideArea.addEventListener('pointerdown', (event) => {
   if (!event.isPrimary) return;
   suppressSwipeClick = false;
-  if (event.pointerType === 'touch') {
-    touchStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  if (event.pointerType === 'pen' || (event.pointerType === 'touch' && !useTouchEvents)) {
+    startSwipe(event.pointerId, event.clientX, event.clientY);
   }
 });
 slideArea.addEventListener('pointerup', (event) => {
-  if (touchStart?.id !== event.pointerId) return;
-  const x = event.clientX - touchStart.x;
-  const y = event.clientY - touchStart.y;
-  touchStart = undefined;
-  if (Math.abs(x) > 45 && Math.abs(x) > Math.abs(y) * 1.35) {
-    suppressSwipeClick = true;
-    navigate(x < 0 ? 1 : -1);
+  if (event.pointerType === 'pen' || (event.pointerType === 'touch' && !useTouchEvents)) {
+    finishSwipe(event.pointerId, event.clientX, event.clientY);
   }
 });
-slideArea.addEventListener('pointercancel', () => { touchStart = undefined; });
+slideArea.addEventListener('pointercancel', (event) => {
+  if (event.pointerType === 'pen' || (event.pointerType === 'touch' && !useTouchEvents)) cancelSwipe();
+});
 slideArea.addEventListener('click', (event) => {
   if (suppressSwipeClick && event.detail > 0) {
     event.preventDefault();
     suppressSwipeClick = false;
   }
 });
+
+slideArea.addEventListener('wheel', (event) => {
+  if (event.ctrlKey || event.metaKey) return;
+  const mode = event.deltaMode;
+  const horizontal = event.shiftKey ? (event.deltaX || event.deltaY) : event.deltaX;
+  if (!horizontal || (!event.shiftKey && Math.abs(horizontal) <= Math.abs(event.deltaY))) return;
+  if (event.cancelable) event.preventDefault();
+  // Trackpads emit a burst of wheel events, including trailing momentum.
+  if (event.timeStamp - wheelTime > 180) {
+    wheelDistance = 0;
+    wheelNavigated = false;
+  }
+  wheelTime = event.timeStamp;
+  if (wheelNavigated) return;
+  wheelDistance += horizontal;
+  const threshold = mode === 0 ? 40 : mode === 1 ? 2 : 1;
+  if (Math.abs(wheelDistance) >= threshold) {
+    wheelNavigated = true;
+    navigate(wheelDistance > 0 ? 1 : -1);
+  }
+}, { passive: false });
 
 slides.forEach((slide, index) => {
   if (index !== slideIndex) slide.setAttribute('aria-hidden', 'true');
