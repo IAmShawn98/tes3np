@@ -2342,7 +2342,7 @@ expect(
     update_dialogs.count("CreateGoldNativePrompt(0,") == 3
     and update_dialogs.count("ShowGoldNativePrompt(") == 3
     and "ScaleOwnedMenuContent(panel, scale)" in update_dialogs
-    and "AddUpdateNotesViewport(panel, notes, scale)" in update_dialogs
+    and "AddUpdateNotesViewport(panel, releaseNotes, scale, tabs.Switch)" in update_dialogs
     and "scale := GetUpdatePromptFitScale(panel)" in update_dialogs
     and "(width - 32) / panel.NativePromptWidth" in update_dialogs
     and "(height - 32) / panel.NativePromptHeight" in update_dialogs
@@ -2355,6 +2355,24 @@ expect(
     and 'Kind: "space"' not in update_notes
     and "96 / A_ScreenDPI" not in update_notes
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
+)
+expect(
+    "Update footer keeps installed version visible with a compact unread indicator",
+    'CreateLauncherUpdateBadge()' in bootstrap
+    and 'global LauncherUpdateBadge := 0' in update_check
+    and 'LauncherVersionLabel.Visible := true' in update_check
+    and 'LauncherUpdateBadge.Text := unseen ? "(1)" : Chr(0x2022)' in update_check
+    and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
+    and 'LauncherUpdateButton' not in update_check,
+)
+expect(
+    "Update history separates published releases and dated hotfix tabs",
+    'ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
+    and 'AddUpdateNoteTabs(preview, history.Release, history.Hotfix' in update_dialogs
+    and 'AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes)' in update_dialogs
+    and 'switcher.Update := updateNotes' in update_notes
+    and 'Loop capacity - 1' in update_notes
+    and 'No hotfixes have been released for this version.' in update_dialogs,
 )
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
 expect(
