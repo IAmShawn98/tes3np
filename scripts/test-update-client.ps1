@@ -104,9 +104,9 @@ if ($workflow -notmatch 'run: ./scripts/publish-alpha\.ps1' -or
     $publisher -match "Get-Content[^\r\n]+['""]CHANGELOG\.md") {
     throw 'The alpha publish workflow must use the player-facing release notes.'
 }
-if ($publisher -notmatch '\\$requiredTag = if \\(\\$number -eq 0\\)' -or
-    $publisher -notmatch 'gh release view \\$requiredTag' -or
-    $publisher -notmatch 'Published changelog \\$requiredTag was changed') {
+if (!$publisher.Contains('$requiredTag = if ($number -eq 0)') -or
+    !$publisher.Contains('gh release view $requiredTag') -or
+    !$publisher.Contains('Published changelog $requiredTag was changed')) {
     throw 'Publishing a hotfix must verify the original and all earlier published changelogs.'
 }
 
