@@ -32,7 +32,11 @@ p { margin: 0 0 16px; }
   padding: clamp(42px, 7vw, 70px) 20px clamp(38px, 6vw, 60px);
   border-bottom: 1px solid #927444;
   background-color: #080705;
-  background-image: radial-gradient(ellipse 46rem 120% at 50% 12%, #231b11, #0d0a07 65%, #080705);
+  background-image:
+    radial-gradient(ellipse 46rem 120% at 50% 12%, #231b11f5, #0d0a07e8 55%, #0a08064d),
+    url("./assets/jumbotron-stone.webp");
+  background-position: center;
+  background-repeat: no-repeat, repeat;
   color: #ece0c9;
   font: 400 1rem/1.5 "Source Sans 3", system-ui, sans-serif;
   text-align: center;
