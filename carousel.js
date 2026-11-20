@@ -8,7 +8,6 @@ const next = gallery.querySelector('.next');
 const title = gallery.querySelector('.slide-title');
 const rotation = gallery.querySelector('.rotation');
 const status = gallery.querySelector('[role="status"]');
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const supportsFocusVisible = window.CSS && CSS.supports('selector(:focus-visible)');
 const useTouchEvents = 'ontouchstart' in window;
 
@@ -16,8 +15,7 @@ let slideIndex = 0;
 let requestedIndex = 0;
 let navigationId = 0;
 let navigating = false;
-let autoplay = !reducedMotion.matches;
-let pointerOver = false;
+let autoplay = true;
 let timer;
 let outgoingSlide;
 let outgoingCleanup;
@@ -99,13 +97,10 @@ function showSlide(index, announce) {
   const previousLink = slideLinks[slideIndex];
   const moveFocus = document.activeElement === previousLink;
   clearOutgoingSlide();
-  if (!reducedMotion.matches) {
-    outgoingSlide = previousSlide;
-    outgoingSlide.classList.add('is-outgoing');
-    // transitionend is not reliable when the tab is hidden or rendering is
-    // suspended. Always remove the outgoing layer after the fade duration.
-    outgoingCleanup = setTimeout(clearOutgoingSlide, 1350);
-  }
+  outgoingSlide = previousSlide;
+  outgoingSlide.classList.add('is-outgoing');
+  // Also clear when Firefox omits transitionend.
+  outgoingCleanup = setTimeout(clearOutgoingSlide, 1350);
   slideIndex = index;
   const slide = slides[slideIndex];
   slide.removeAttribute('aria-hidden');
@@ -128,7 +123,7 @@ function scheduleRotation() {
   else rotation.setAttribute('data-paused', '');
   const focused = document.activeElement;
   const keyboardFocus = gallery.contains(focused) && (!supportsFocusVisible || (focused.matches && focused.matches(':focus-visible')));
-  if (autoplay && !navigating && !pointerOver && !swipe && !keyboardFocus && !document.hidden) {
+  if (autoplay && !navigating && !swipe && !keyboardFocus && !document.hidden) {
     timer = setTimeout(() => navigate(1, false), 5500);
   }
 }
@@ -176,32 +171,9 @@ gallery.addEventListener('keydown', (event) => {
     navigate(event.key === 'ArrowLeft' ? -1 : 1);
   }
 });
-gallery.addEventListener('pointerenter', (event) => {
-  if (event.pointerType === 'mouse') {
-    pointerOver = true;
-    scheduleRotation();
-  }
-});
-gallery.addEventListener('pointerleave', (event) => {
-  if (event.pointerType === 'mouse') {
-    pointerOver = false;
-    scheduleRotation();
-  }
-});
 gallery.addEventListener('focusin', scheduleRotation);
 gallery.addEventListener('focusout', () => setTimeout(scheduleRotation, 0));
 document.addEventListener('visibilitychange', scheduleRotation);
-function updateMotionPreference(event) {
-  autoplay = !event.matches;
-  if (event.matches) clearOutgoingSlide();
-  scheduleRotation();
-}
-if (typeof reducedMotion.addEventListener === 'function') {
-  reducedMotion.addEventListener('change', updateMotionPreference);
-} else {
-  reducedMotion.addListener(updateMotionPreference);
-}
-
 slideArea.addEventListener('transitionend', (event) => {
   if (event.target === slides[slideIndex] && event.propertyName === 'opacity') clearOutgoingSlide();
 });
