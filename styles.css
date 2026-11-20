@@ -24,43 +24,95 @@ main { padding-bottom: 14px; }
 h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 p { margin: 0 0 16px; }
 .jumbotron {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin-block: 0 24px;
-  padding: clamp(32px, 5vw, 52px) clamp(16px, 4vw, 40px);
-  background: #000;
+  padding: clamp(42px, 7vw, 70px) 20px clamp(38px, 6vw, 60px);
+  border-bottom: 1px solid #927444;
+  background: radial-gradient(ellipse at 50% 12%, #231b11, #0d0a07 65%, #080705);
+  color: #ece0c9;
+  font: 400 1rem/1.5 "Source Sans 3", system-ui, sans-serif;
   text-align: center;
 }
+.jumbotron::before, .jumbotron::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  z-index: -1;
+  width: 47%;
+  background-size: cover;
+  filter: sepia(.62) saturate(.7);
+  opacity: .48;
+  pointer-events: none;
+}
+.jumbotron::before {
+  inset-inline-start: 0;
+  background-image: url("./assets/jumbotron-left.webp");
+  background-position: center 51%;
+  mask-image: linear-gradient(to right, #000 12%, #000b 46%, transparent);
+}
+.jumbotron::after {
+  inset-inline-end: 0;
+  background-image: url("./assets/jumbotron-right.webp");
+  background-position: center 49%;
+  mask-image: linear-gradient(to left, #000 12%, #000b 46%, transparent);
+}
 .jumbotron h1 {
-  margin: 0 0 12px;
-  color: #f6f8fa;
-  font-size: clamp(3.5rem, 9vw, 5rem);
-  font-weight: 750;
-  line-height: 1.05;
+  margin: 0;
+  color: #e0bc7b;
+  font: 700 clamp(67px, 12vw, 112px)/.91 "Cormorant Garamond", Georgia, serif;
   letter-spacing: -.045em;
+  text-shadow: 0 2px 2px #000, 0 0 25px #ad74352b;
+}
+.jumbotron-ornament {
+  position: relative;
+  width: 112px;
+  height: 1px;
+  margin: 20px auto;
+  background: linear-gradient(90deg, transparent, #a7824a, transparent);
+}
+.jumbotron-ornament::after {
+  content: "";
+  position: absolute;
+  inset: -3px auto auto calc(50% - 3px);
+  width: 7px;
+  height: 7px;
+  border: 1px solid #bd995d;
+  transform: rotate(45deg);
+  background: #21180e;
 }
 .intro {
-  max-width: 54ch;
-  margin: 0 auto 22px;
-  font-size: clamp(1rem, 2.25vw, 1.125rem);
+  max-width: 39ch;
+  margin: 0 auto 23px;
+  font-size: clamp(17px, 2.3vw, 20px);
+  text-wrap: balance;
+  text-shadow: 0 1px 3px #000;
 }
+.intro a { color: #efd099; }
+.intro a:hover { color: #fff0d1; }
 section { margin-block: 30px; scroll-margin-top: 16px; }
 ul, ol { padding-inline-start: 1.45em; margin: 0 0 16px; }
 li + li { margin-top: .4em; }
 
-.download-row { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.download-row { display: flex; flex-direction: column; align-items: center; gap: 9px; }
 .download {
   display: inline-flex;
   align-items: center;
-  min-height: 42px;
-  padding: 6px 15px;
-  background: #238636;
-  border: 1px solid #3e9c50;
-  border-radius: 6px;
-  color: #fff;
-  font-weight: 650;
+  justify-content: center;
+  min-height: 46px;
+  padding: 8px 22px;
+  border: 1px solid #b18d55;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px #24190c, 0 3px 12px #0009;
+  background: linear-gradient(#674b2b, #3e2a17);
+  color: #fff0d1;
+  font-weight: 700;
   text-decoration: none;
 }
-.download:hover { color: #fff; background: #247d35; }
-.release { color: var(--secondary); font-size: .875rem; }
+.download:hover { background: linear-gradient(#785833, #4d351d); color: #fff0d1; }
+.jumbotron a:focus-visible { outline-color: #e0bc7b; }
+.release { color: #bfae91; font-size: .8125rem; }
 
 .gallery { margin: 0; }
 .slides {
@@ -170,4 +222,5 @@ code { background: #212830; border-radius: 5px; padding: .17em .36em; overflow-w
 footer { border-top: 1px solid var(--border); padding-block: 18px 28px; color: var(--secondary); font-size: .875rem; }
 @media (max-width: 520px) {
   main > :not(.jumbotron), footer { width: calc(100% - 28px); }
+  .jumbotron::before, .jumbotron::after { opacity: .26; }
 }
