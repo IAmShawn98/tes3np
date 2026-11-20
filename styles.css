@@ -24,6 +24,7 @@ body {
   background-position: center top;
 }
 #top {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   isolation: isolate;
@@ -329,6 +330,7 @@ li::marker { color: #b79560; }
 
 code { background: #2c2117; color: #f0d5a3; padding: .08em .33em; font-size: .87em; overflow-wrap: anywhere; }
 footer {
+  grid-area: 3 / 1;
   padding-block: 15px 28px;
   background-image: linear-gradient(var(--border), var(--border));
   background-position: center top;
@@ -343,6 +345,18 @@ footer {
   font-size: .8125rem;
 }
 @media (min-width: 70rem) {
+  #top::after {
+    content: "";
+    position: absolute;
+    grid-area: 2 / 1 / 4 / 2;
+    inset: 0;
+    inset-block-end: calc(-1 * var(--content-gap));
+    z-index: 1;
+    border: solid transparent;
+    border-width: 0 72px 58px;
+    border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 round;
+    pointer-events: none;
+  }
   .jumbotron { --art-fade: transparent, #000 12%, #000 64%, #0009 86%, transparent; }
   .jumbotron::before, .jumbotron::after {
     max-width: min(47%, 35rem);
