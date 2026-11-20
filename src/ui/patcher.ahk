@@ -3,6 +3,7 @@
 global MorrowindPromptGui := 0
 global ExpansionInstallPromptGui := 0
 global ExpansionAutoFailurePromptGui := 0
+global ExpansionFoundPromptGui := 0
 
 PatchInProgress()
 {
@@ -378,6 +379,81 @@ ExpansionPackInstalled(morrowind, config)
         }
     }
     return false
+}
+
+; Recover a missing local record only after an authenticated, current
+; official ZIP supplied its verified ESP checksum and release name.
+; Existing copies must all agree; a cached historical checksum is insufficient.
+RestoreExistingExpansionPackVerification(config, officialChecksum, officialVersion, attachment := "")
+{
+    global DataFile
+    if !RegExMatch(officialChecksum, "i)^[0-9a-f]{8}$")
+        || !RegExMatch(officialVersion, "i)^v\d{1,3}(?:\.\d{1,3}){1,3}[a-z]{0,3}$")
+        return false
+    checksum := StrUpper(officialChecksum)
+    morrowind := FindMorrowindFolder(config)
+    paths := ExpansionPackEspPaths(morrowind, config)
+    if !paths.Length || InstalledExpansionPackChecksum(config) != checksum
+        return false
+
+    verifiedPath := ""
+    verifiedHash := ""
+    for esp in paths
+    {
+        try
+        {
+            if FileGetSize(esp) <= 0 || ExpansionPackEspChecksum(esp) != checksum
+                return false
+            ; A recognizable installed version must not contradict the
+            ; current official attachment name.
+            version := TES3MPReadExpansionHeaderVersion(esp)
+            if version != "" && StrLower(version) != StrLower(officialVersion)
+                return false
+            hash := StrLower(SHA256File(esp))
+            if !RegExMatch(hash, "i)^[0-9a-f]{64}$")
+                || (verifiedHash != "" && verifiedHash != hash)
+                return false
+            fullPath := ExpansionPackFullPath(esp)
+            if fullPath = ""
+                return false
+            if verifiedPath = ""
+                verifiedPath := fullPath
+            verifiedHash := hash
+        }
+        catch
+            return false
+    }
+    ; Repeat checks before persisting, in case a game file changed mid-scan.
+    if verifiedPath = "" || InstalledExpansionPackChecksum(config) != checksum
+        return false
+    for esp in paths
+    {
+        try
+            if StrLower(SHA256File(esp)) != verifiedHash
+                return false
+        catch
+            return false
+    }
+    try
+    {
+        IniWrite(verifiedPath, DataFile, "ExpansionPack", "VerifiedEspPath")
+        IniWrite(verifiedHash, DataFile, "ExpansionPack", "VerifiedEspSHA256")
+        if !ExpansionPackInstalled(morrowind, config)
+            return false
+        RememberExpansionPackVersion(checksum, officialVersion, attachment)
+        RefreshExpansionPackToggle()
+        LogLauncherEvent("EXPANSION | Existing official pack verified; local installation record restored.")
+        return true
+    }
+    catch
+        return false
+}
+
+ExpansionPackNeedsOfficialVerification(config)
+{
+    morrowind := FindMorrowindFolder(config)
+    return ExpansionPackEspPaths(morrowind, config).Length
+        && !ExpansionPackInstalled(morrowind, config)
 }
 
 ExpansionPackFullPath(path)
@@ -780,6 +856,48 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     ExpansionInstallPromptGui := prompt
     ShowGoldNativePrompt(prompt)
     return true
+}
+
+; Only shown after a fresh authenticated official ZIP checksum matches
+; an existing installed copy and its local SHA-256 record was restored.
+ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false)
+{
+    global LauncherGui, ExpansionFoundPromptGui
+    if IsObject(ExpansionFoundPromptGui)
+        return false
+    prompt := CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Found", 680, 245)
+    prompt.ExpansionFoundContinue := onContinue
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39, "Existing Expansion Pack Found")
+    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    extra += AddGoldPromptCopy(prompt, 30, 78 + extra, 620, 72,
+        "I found your existing Expansion Pack and verified it against the latest official Discord ZIP. No download or reinstall is needed.")
+    extra += AddGoldPromptCopy(prompt, 30, 158 + extra, 620, 36,
+        alreadyEnabled ? "The pack is already enabled. Continue to your game?"
+            : "Your Expansion Pack is ready. Would you like to enable it?")
+    AddStyledButton(prompt, 30, 207 + extra, 370, 38,
+        alreadyEnabled ? "Continue to Game" : "Enable Expansion Pack",
+        CloseExistingExpansionPackFoundPrompt.Bind(prompt, true))
+    AddStyledButton(prompt, 417, 207 + extra, 233, 38, "Not Now",
+        CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
+    GrowGoldNativePrompt(prompt, extra)
+    prompt.OnEvent("Close", CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
+    prompt.OnEvent("Escape", CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
+    ExpansionFoundPromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+    return true
+}
+
+CloseExistingExpansionPackFoundPrompt(prompt, proceed := false, *)
+{
+    global ExpansionFoundPromptGui
+    if !IsObject(ExpansionFoundPromptGui) || ExpansionFoundPromptGui != prompt
+        return
+    ExpansionFoundPromptGui := 0
+    onContinue := prompt.ExpansionFoundContinue
+    CloseGoldNativePrompt(prompt)
+    if proceed && IsObject(onContinue)
+        SetTimer(() => onContinue.Call(true), -1)
 }
 
 CloseExpansionInstallPrompt(prompt, action := "Cancel", *)
