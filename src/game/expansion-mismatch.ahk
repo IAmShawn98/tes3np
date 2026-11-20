@@ -359,7 +359,7 @@ TES3MPExpansionCancelNativeDownload()
         CloseTES3MPExpansionMismatchDialog(ExpansionMismatchDialog, ExpansionMismatchSlot)
 }
 
-TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false)
+TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false, reviewOnly := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionPackPreflight, ExpansionAutoFailurePromptGui
     if IsObject(ExpansionAutoFailurePromptGui)
@@ -379,7 +379,8 @@ TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false)
         && TES3MPExpansionCallNativeUi("ExpansionPackNeedsOfficialVerification", config)
     alreadyEnabled := TES3MPExpansionCallNativeUi("ExpansionPackInLoadOrder", config)
     ExpansionPackPreflight := {Checksum: localChecksum, Continue: onContinue,
-        Waiting: true, Config: config, NeedsRecovery: needsRecovery, AlreadyEnabled: alreadyEnabled}
+        Waiting: true, Config: config, NeedsRecovery: needsRecovery,
+        AlreadyEnabled: alreadyEnabled, ReviewOnly: reviewOnly}
     ShowTES3MPExpansionMismatchDialog("Preflight")
     dialog := ExpansionMismatchDialog
     if !IsObject(dialog)
@@ -387,10 +388,10 @@ TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false)
         ExpansionPackPreflight := 0
         TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog",
             "The update check could not open.", "Check",
-            TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true))
+            TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true, reviewOnly))
         return true
     }
-    ExpansionPackPreflight.Retry := TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true)
+    ExpansionPackPreflight.Retry := TES3MPCheckExpansionBeforeAction.Bind(config, onContinue, true, reviewOnly)
     ExpansionPackPreflight.Deadline := TES3MPExpansionPreflightUnavailable.Bind(dialog,
         "Discord did not finish checking for the latest pack.")
     if authenticate
@@ -444,10 +445,11 @@ TES3MPExpansionContinuePreflight(dialog, recoveredExisting := false)
         return
     onContinue := ExpansionPackPreflight.Continue
     alreadyEnabled := ExpansionPackPreflight.AlreadyEnabled
+    reviewOnly := ExpansionPackPreflight.ReviewOnly
     CloseTES3MPExpansionMismatchDialog(dialog, ExpansionMismatchSlot)
     if recoveredExisting
         SetTimer(() => TES3MPExpansionCallNativeUi("ShowExistingExpansionPackFoundPrompt",
-            onContinue, alreadyEnabled), -1)
+            onContinue, alreadyEnabled, reviewOnly), -1)
     else
         SetTimer(() => onContinue.Call(true), -1)
 }
