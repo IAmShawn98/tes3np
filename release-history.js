@@ -217,6 +217,19 @@
       typeof release.body === 'string' && Boolean(parseTag(release.tag_name));
   }
 
+  function originalReleaseNotes(body) {
+    // A published base release may append a machine-managed Hotfixes index.
+    // The site already has its own history tab, so remove only that suffix.
+    const normalized = String(body).replace(/\r\n?/g, '\n').trimEnd();
+    const start = '<!-- TES3NP HOTFIX HISTORY START -->';
+    const end = '<!-- TES3NP HOTFIX HISTORY END -->';
+    if (!normalized.includes(start) && !normalized.includes(end)) return normalized;
+    const suffix = /\n\n<!-- TES3NP HOTFIX HISTORY START -->\n### Published Hotfixes\n\n[\s\S]*?\n<!-- TES3NP HOTFIX HISTORY END -->\s*$/;
+    if (!suffix.test(normalized)) throw new Error('Published hotfix index is malformed');
+    return normalized.replace(suffix, '').trimEnd();
+  }
+
+
   async function loadPublishedHistory() {
     const [manifest, releaseList] = await Promise.all([
       fetchJson(feedUrl), fetchJson(publishedUrl)
@@ -240,7 +253,7 @@
 
     // Build all content before replacing the existing, working .21 fallback.
     const original = document.createElement('div');
-    renderNotes(baseRelease.body, original);
+    renderNotes(originalReleaseNotes(baseRelease.body), original);
     const history = document.createElement('div');
     const hotfixes = published.filter((release) => {
       const info = parseTag(release.tag_name);
