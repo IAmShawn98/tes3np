@@ -8,7 +8,7 @@
   <title>tes3np | Official Download</title>
   <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&amp;family=Source+Sans+3:wght@400;700&amp;display=swap">
-  <link rel="stylesheet" href="./styles.css?v=42">
+  <link rel="stylesheet" href="./styles.css?v=43">
 </head>
 <body>
   <div id="top">
@@ -139,12 +139,23 @@
       </section>
 
       <section id="latest-update">
-        <h2>Latest Update</h2>
-        <h3 id="v0121-alpha--unreleased">v0.1.21-alpha</h3>
+        <h2>Latest Release</h2>
+        <div class="release-summary">
+          <h3 id="release-version">v0.1.21-alpha</h3>
+          <span class="release-date" id="release-published-date">November 20, 2026</span>
+        </div>
+        <p class="release-current-build" id="release-current-build">Latest download: v0.1.21-alpha</p>
+        <div class="release-tabs" role="tablist" aria-label="Published release history" hidden>
+          <button type="button" class="release-tab" id="release-notes-tab" role="tab" aria-controls="release-notes-panel" aria-selected="true" tabindex="0">Release Notes</button>
+          <button type="button" class="release-tab" id="hotfix-history-tab" role="tab" aria-controls="hotfix-history-panel" aria-selected="false" tabindex="-1">Hotfix History</button>
+        </div>
+        <div class="release-panel" id="release-notes-panel" role="tabpanel" aria-labelledby="release-notes-tab">
+          <div id="release-notes-body">
         <p>Changes since the last public release, v0.1.20-alpha.</p>
         <h4 id="new-features">New Features</h4>
         <ul>
           <li><strong>Game Chat:</strong> Read live Nerevarine Prophecies Discord messages alongside the launcher.</li>
+          <li><strong>Game Updates:</strong> Read server announcements in the launcher and react to posts when signed in to Discord.</li>
           <li><strong>Bug reporting:</strong> Send a report from <strong>Launcher Data</strong> with diagnostic logs and optional screenshots.</li>
           <li><strong>Bundled TES3MP:</strong> The Windows ZIP includes the TES3MP 0.8.1 client and its dependencies.</li>
           <li><strong>Happy Hour notifications:</strong> See an active Happy Hour and its remaining time on the launcher.</li>
@@ -183,6 +194,20 @@
         <ul>
           <li><strong>Scheduled Events:</strong> I decided to remove Scheduled Events because it doesn't align with my current plans for the launcher. Pieces of this feature will end up in future versions in some capacity.</li>
         </ul>
+          </div>
+        </div>
+        <div class="release-panel" id="hotfix-history-panel" role="tabpanel" aria-labelledby="hotfix-history-tab" hidden>
+          <p class="release-empty" id="hotfix-history-empty">No hotfixes have been published for this release.</p>
+          <div id="hotfix-history-body"></div>
+        </div>
+        <div class="release-links">
+          <a id="current-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha">View original release on GitHub</a>
+          <div class="release-archive"><span>Previous releases:</span>
+            <span id="release-archive-links"><a href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.20-alpha">v0.1.20-alpha</a></span>
+          </div>
+          <a href="https://github.com/IAmShawn98/tes3np/releases">All releases on GitHub</a>
+        </div>
+        <p id="release-history-status" class="release-history-status" role="status" aria-live="polite"></p>
       </section>
     </main>
 
@@ -203,5 +228,6 @@
   </div>
 
   <script src="./carousel.js?v=7" defer></script>
+  <script src="./release-history.js?v=1" defer></script>
 </body>
 </html>
