@@ -848,11 +848,8 @@ expect(
 
 expect(
     "Existing Expansion Pack recovery requires a fresh official checksum and preserves disable fallback",
-    'ExpansionPackNeedsOfficialVerification(config)' in mismatch
-    or (
-        'ExpansionPackNeedsOfficialVerification", config' in mismatch
-        and 'NeedsRecovery: needsRecovery' in mismatch
-    )
+    'ExpansionPackNeedsOfficialVerification", config' in mismatch
+    and 'NeedsRecovery: needsRecovery' in mismatch
     and 'if ExpansionMismatchZipChecksum = ""' in mismatch
     and '"RestoreExistingExpansionPackVerification", ExpansionPackPreflight.Config' in mismatch
     and 'TES3MPExpansionContinuePreflight(dialog, recoveredExisting)' in mismatch
