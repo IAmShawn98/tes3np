@@ -24,8 +24,8 @@ CreateLauncherUpdateBadge()
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
 
     x := Min(282, 12 + LauncherVersionTextWidth() + 8)
-    LauncherGui.SetFont("s10 Bold cD63232", "Segoe UI")
     LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 Center BackgroundTrans", "(1)")
+    LauncherUpdateBadge.SetFont("s10 Bold cD63232", "Segoe UI")
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateBadge.Visible := false
 }
