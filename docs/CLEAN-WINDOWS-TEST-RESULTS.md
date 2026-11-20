@@ -1,3 +1,3 @@
 # Release validation status
 
-Status: PENDING_CLEAN_MACHINE
+Status: CLEAN_MACHINE_TESTED
