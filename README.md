@@ -44,7 +44,7 @@ Open **Launcher Settings → Launcher Data → Report A Bug** to send a descript
 
 ## Latest Update
 
-### v0.1.21-alpha — unreleased
+### v0.1.21-alpha
 
 Changes since the last public release, v0.1.20-alpha.
 
