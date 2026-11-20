@@ -21,16 +21,33 @@ button { font: inherit; cursor: pointer; }
 main, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
 
 main { padding-block: 32px 14px; }
-h1, h2 { line-height: 1.25; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
-h1 { font-size: clamp(2rem, 5vw, 2.65rem); letter-spacing: -.025em; padding-bottom: 12px; }
-h2 { font-size: 1.5rem; padding-bottom: 8px; }
+h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 p { margin: 0 0 16px; }
-.intro { max-width: 73ch; }
+.jumbotron {
+  margin-block: 0 24px;
+  padding: clamp(32px, 5vw, 52px) clamp(16px, 4vw, 40px);
+  border-radius: 8px;
+  background: #000;
+  text-align: center;
+}
+.jumbotron h1 {
+  margin: 0 0 12px;
+  color: #f6f8fa;
+  font-size: clamp(3.5rem, 9vw, 5rem);
+  font-weight: 750;
+  line-height: 1.05;
+  letter-spacing: -.045em;
+}
+.intro {
+  max-width: 54ch;
+  margin: 0 auto 22px;
+  font-size: clamp(1rem, 2.25vw, 1.125rem);
+}
 section { margin-block: 30px; scroll-margin-top: 16px; }
 ul, ol { padding-inline-start: 1.45em; margin: 0 0 16px; }
 li + li { margin-top: .4em; }
 
-.download-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 20px; }
+.download-row { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .download {
   display: inline-flex;
   align-items: center;
