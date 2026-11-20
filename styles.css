@@ -33,10 +33,13 @@ p { margin: 0 0 16px; }
   border-bottom: 1px solid #927444;
   background-color: #080705;
   background-image:
+    url("./assets/jumbotron-left-pillar.webp"),
+    url("./assets/jumbotron-right-pillar.webp"),
     radial-gradient(ellipse 46rem 120% at 50% 12%, #231b11f5, #0d0a07e8 55%, #0a08064d),
     url("./assets/jumbotron-stone.webp");
-  background-position: center;
-  background-repeat: no-repeat, repeat;
+  background-position: left center, right center, center, center;
+  background-size: auto 112%, auto 112%, auto, auto;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
   color: #ece0c9;
   font: 400 1rem/1.5 "Source Sans 3", system-ui, sans-serif;
   text-align: center;
@@ -57,13 +60,13 @@ p { margin: 0 0 16px; }
 }
 .jumbotron::before {
   inset-inline-start: var(--art-inset);
-  background-image: url("./assets/jumbotron-left.webp");
+  background-image: url("./assets/jumbotron-left.webp?v=2");
   background-position: left center;
   mask-image: linear-gradient(to right, transparent, #000 12%, #000 44%, transparent 96%);
 }
 .jumbotron::after {
   inset-inline-end: var(--art-inset);
-  background-image: url("./assets/jumbotron-right.webp");
+  background-image: url("./assets/jumbotron-right.webp?v=2");
   background-position: right center;
   mask-image: linear-gradient(to left, transparent, #000 12%, #000 44%, transparent 96%);
 }
@@ -231,5 +234,6 @@ code { background: #212830; border-radius: 5px; padding: .17em .36em; overflow-w
 footer { border-top: 1px solid var(--border); padding-block: 18px 28px; color: var(--secondary); font-size: .875rem; }
 @media (max-width: 520px) {
   main > :not(.jumbotron), footer { width: calc(100% - 28px); }
+  .jumbotron { background-size: min(18vw, 76px) 112%, min(18vw, 76px) 112%, auto, auto; }
   .jumbotron::before, .jumbotron::after { opacity: .26; }
 }
