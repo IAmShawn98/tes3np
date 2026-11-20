@@ -4,6 +4,7 @@ global MorrowindPromptGui := 0
 global ExpansionInstallPromptGui := 0
 global ExpansionAutoFailurePromptGui := 0
 global ExpansionFoundPromptGui := 0
+global ExpansionCheckExistingPromptGui := 0
 
 PatchInProgress()
 {
@@ -711,6 +712,12 @@ ApplyExpansionPackToggle(checked := false)
     }
     if checked && !enable
         return
+    if !enable && !checked && !ExpansionPackInstalled(morrowind, cfg)
+        && ExpansionPackEspPaths(morrowind, cfg).Length
+    {
+        ShowUnverifiedExistingExpansionPackPrompt(cfg)
+        return
+    }
     if !enable && !ExpansionPackInstalled(morrowind, cfg)
     {
         if MsgBox("The Expansion Pack is in the OpenMW load order, but its installed file could not be verified."
@@ -858,9 +865,53 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     return true
 }
 
+; An enabled load-order entry without local verification should first
+; offer a safe official check, while still allowing explicit removal.
+ShowUnverifiedExistingExpansionPackPrompt(config)
+{
+    global LauncherGui, ExpansionCheckExistingPromptGui
+    if IsObject(ExpansionCheckExistingPromptGui)
+        return
+    prompt := CreateGoldNativePrompt(LauncherGui, "Check Existing Expansion Pack", 680, 250)
+    prompt.ExpansionCheckConfig := config
+    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39, "Existing Expansion Pack Detected")
+    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    extra += AddGoldPromptCopy(prompt, 30, 80 + extra, 620, 82,
+        "TES3NP found the Expansion Pack in your OpenMW load order, but its saved verification record is missing. Check it against the latest official Discord ZIP?")
+    AddStyledButton(prompt, 30, 188 + extra, 245, 38, "Verify Existing",
+        CloseUnverifiedExistingExpansionPackPrompt.Bind(prompt, "Verify"))
+    AddStyledButton(prompt, 290, 188 + extra, 180, 38, "Disable Entry",
+        CloseUnverifiedExistingExpansionPackPrompt.Bind(prompt, "Disable"))
+    AddStyledButton(prompt, 485, 188 + extra, 165, 38, "Cancel",
+        CloseUnverifiedExistingExpansionPackPrompt.Bind(prompt, "Cancel"))
+    GrowGoldNativePrompt(prompt, extra)
+    prompt.OnEvent("Close", CloseUnverifiedExistingExpansionPackPrompt.Bind(prompt, "Cancel"))
+    prompt.OnEvent("Escape", CloseUnverifiedExistingExpansionPackPrompt.Bind(prompt, "Cancel"))
+    ExpansionCheckExistingPromptGui := prompt
+    ShowGoldNativePrompt(prompt)
+}
+
+CloseUnverifiedExistingExpansionPackPrompt(prompt, action := "Cancel", *)
+{
+    global ExpansionCheckExistingPromptGui
+    if !IsObject(ExpansionCheckExistingPromptGui) || ExpansionCheckExistingPromptGui != prompt
+        return
+    ExpansionCheckExistingPromptGui := 0
+    config := prompt.ExpansionCheckConfig
+    CloseGoldNativePrompt(prompt)
+    if action = "Verify"
+    {
+        continuation := (*) => RefreshExpansionPackToggle()
+        SetTimer(() => TES3MPCheckExpansionBeforeAction(config, continuation, false, true), -1)
+    }
+    else if action = "Disable"
+        SetTimer(() => ApplyExpansionPackToggle(true), -1)
+}
+
 ; Only shown after a fresh authenticated official ZIP checksum matches
 ; an existing installed copy and its local SHA-256 record was restored.
-ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false)
+ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false, reviewOnly := false)
 {
     global LauncherGui, ExpansionFoundPromptGui
     if IsObject(ExpansionFoundPromptGui)
@@ -873,10 +924,11 @@ ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false)
     extra += AddGoldPromptCopy(prompt, 30, 78 + extra, 620, 72,
         "I found your existing Expansion Pack and verified it against the latest official Discord ZIP. No download or reinstall is needed.")
     extra += AddGoldPromptCopy(prompt, 30, 158 + extra, 620, 36,
-        alreadyEnabled ? "The pack is already enabled. Continue to your game?"
+        reviewOnly ? "Your existing Expansion Pack is verified and already enabled."
+            : alreadyEnabled ? "The pack is already enabled. Continue to your game?"
             : "Your Expansion Pack is ready. Would you like to enable it?")
     AddStyledButton(prompt, 30, 207 + extra, 370, 38,
-        alreadyEnabled ? "Continue to Game" : "Enable Expansion Pack",
+        reviewOnly ? "Done" : alreadyEnabled ? "Continue to Game" : "Enable Expansion Pack",
         CloseExistingExpansionPackFoundPrompt.Bind(prompt, true))
     AddStyledButton(prompt, 417, 207 + extra, 233, 38, "Not Now",
         CloseExistingExpansionPackFoundPrompt.Bind(prompt, false))
