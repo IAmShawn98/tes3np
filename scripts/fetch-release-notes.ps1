@@ -1,3 +1,4 @@
+[CmdletBinding(DefaultParameterSetName='Single')]
 param(
     [Parameter(Mandatory, ParameterSetName='Single')]
     [ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')]
@@ -104,7 +105,7 @@ foreach ($release in $all) {
     try { $info = Get-VersionInfo $rawVersion }
     catch { continue }
     if ($info.Channel -cne $latest.Channel) { continue }
-    if ((Compare-VersionInfo $info $latest) -eq 0) { $latestPublished = $true }
+    if ($tag -ceq "v$LatestVersion") { $latestPublished = $true }
     if ((Compare-VersionInfo $info $installed) -le 0 -or
         (Compare-VersionInfo $info $latest) -gt 0) { continue }
     if ($seenTags.ContainsKey($tag)) { throw 'Duplicate published release version.' }
