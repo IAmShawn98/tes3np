@@ -25,7 +25,10 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
 
 ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
-    notes := ReadPublishedVersionNotes(latestVersion)
+    ; Only changes published after the installed version belong in this preview.
+    ; Hotfix-to-hotfix updates open on the dated hotfix history tab.
+    history := ReadPublishedUpdateHistory(installedVersion, latestVersion)
+    notes := kind = "hotfix" ? history.Hotfix : history.Release
     response := {Download: false}
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 630)
     closeNotes := 0
@@ -35,23 +38,22 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         preview.SetFont("s10 cEDE1C9", "Segoe UI")
-        preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", "You can review the changes below before deciding to update.")
+        preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", "Review published changes you have missed before deciding to update.")
         preview.Add("Text", "x30 y94 w195 h24 BackgroundTrans", "Installed: v" installedVersion)
         preview.Add("Text", "x238 y94 w195 h24 BackgroundTrans", "Latest: v" latestVersion)
         preview.Add("Text", "x446 y94 w324 h24 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
-        preview.SetFont("s10 Bold cC5A45C", "Segoe UI")
-        preview.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "v" latestVersion " Release Notes")
+        tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix, kind = "hotfix" ? "hotfix" : "release")
         preview.SetFont("s10 cC5A45C", "Segoe UI")
-        preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans", "A newer version is available. Review the release details before choosing to download.")
+        preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans", "Download the latest version directly; intermediate installs are not required.")
         preview.Add("Text", "x30 y551 w740 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
         AddStyledButton(preview, 32, 582, 230, 34, "Continue to Download", (*) => (response.Download := true, DestroyScaledMenu(preview)))
         AddStyledButton(preview, 330, 582, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
-        AddStyledButton(preview, 590, 582, 178, 34, "Release Notes", (*) => Run(GetTes3npReleasePage(latestVersion)))
+        AddStyledButton(preview, 590, 582, 178, 34, "GitHub Release", (*) => Run(GetTes3npReleasePage(latestVersion)))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
-        closeNotes := AddUpdateNotesViewport(preview, notes, scale)
+        closeNotes := AddUpdateNotesViewport(preview, notes, scale, tabs.Switch)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         WinWaitClose("ahk_id " hwnd)
@@ -76,7 +78,15 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         title := "Automatic Updates Are Unavailable"
         message := "Check GitHub Releases for download options."
     }
-    notes := newer ? ReadPublishedVersionNotes(notesVersion) : ReadVersionReleaseNotes(installedVersion)
+    originalVersion := GetTes3npOriginalVersion(notesVersion)
+    releaseNotes := ReadVersionReleaseNotes(originalVersion)
+    hotfixNotes := "No hotfixes have been released for this version."
+    if ParseTes3npVersion(notesVersion).Hotfix > 0 {
+        if mode = "error"
+            hotfixNotes := "Published hotfix history is unavailable while offline."
+        else
+            hotfixNotes := ReadPublishedUpdateHistory(originalVersion, notesVersion).Hotfix
+    }
     state := {Retry: false}
     panel := CreateGoldNativePrompt(0, "tes3np — Version Status", 800, 600)
     closeNotes := 0
@@ -85,15 +95,16 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         panel.SetFont("s10 cEDE1C9", "Segoe UI")
         panel.Add("Text", "x30 y65 w740 h55 BackgroundTrans", message)
-        panel.SetFont("s10 Bold cC5A45C", "Segoe UI")
-        panel.Add("Text", "x30 y125 w740 h25 BackgroundTrans", "Build: v" notesVersion " Release Notes -")
+        tabs := AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes)
+        panel.SetFont("s9 cC5A45C", "Segoe UI")
+        panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
         AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, DestroyScaledMenu(panel)))
         AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => DestroyScaledMenu(panel))
         panel.OnEvent("Close", (*) => DestroyScaledMenu(panel))
         panel.OnEvent("Escape", (*) => DestroyScaledMenu(panel))
         scale := GetUpdatePromptFitScale(panel)
         ScaleOwnedMenuContent(panel, scale)
-        closeNotes := AddUpdateNotesViewport(panel, notes, scale)
+        closeNotes := AddUpdateNotesViewport(panel, releaseNotes, scale, tabs.Switch)
         hwnd := panel.Hwnd
         ShowGoldNativePrompt(panel, scale)
         WinWaitClose("ahk_id " hwnd)
@@ -104,6 +115,35 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     }
     if state.Retry
         SetTimer(CheckForUpdates, -100)
+}
+
+; Keep both tab buttons inside the same gold panel. The existing measured,
+; scrollable notes viewport is reused instead of opening stacked dialogs.
+AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes, initialTab := "release")
+{
+    tabs := {Release: releaseNotes, Hotfix: hotfixNotes, Selected: initialTab, Switch: {}}
+    tabs.ReleaseButton := AddStyledButton(panel, 30, 123, 199, 30, "Release Notes", (*) => SelectUpdateNoteTab(tabs, "release"))
+    tabs.HotfixButton := AddStyledButton(panel, 242, 123, 199, 30, "Hotfix History", (*) => SelectUpdateNoteTab(tabs, "hotfix"))
+    SetUpdateNoteTabLabels(tabs)
+    return tabs
+}
+
+SelectUpdateNoteTab(tabs, selected)
+{
+    if tabs.Selected = selected
+        return
+    tabs.Selected := selected
+    SetUpdateNoteTabLabels(tabs)
+    if tabs.Switch.HasOwnProp("Update")
+        tabs.Switch.Update.Call(selected = "hotfix" ? tabs.Hotfix : tabs.Release)
+}
+
+SetUpdateNoteTabLabels(tabs)
+{
+    tabs.ReleaseButton.Text := tabs.Selected = "release" ? "• Release Notes" : "Release Notes"
+    tabs.HotfixButton.Text := tabs.Selected = "hotfix" ? "• Hotfix History" : "Hotfix History"
+    for control in [tabs.ReleaseButton, tabs.HotfixButton]
+        DllCall("user32\InvalidateRect", "Ptr", control.Hwnd, "Ptr", 0, "Int", 1)
 }
 
 GetUpdatePromptFitScale(panel)
