@@ -236,7 +236,7 @@ Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the
         $hotfixes = [IO.File]::ReadAllText($hotfixFile)
         if ($features -notmatch 'v0\.1\.22-alpha' -or $features -notmatch 'v0\.1\.21-alpha' -or
             $features -match 'v0\.1\.20-alpha' -or $features -match 'DRAFT' -or
-            $hotfixes -notmatch 'v0\.1\.22-alpha\.2 — November 27, 2026' -or
+            $hotfixes -notmatch 'v0\.1\.22-alpha\.2 . November 27, 2026' -or
             $hotfixes -notmatch 'v0\.1\.20-alpha\.1' -or $hotfixes -match 'DRAFT') {
             throw 'Skipped history does not match the published, uninstalled changes.'
         }
