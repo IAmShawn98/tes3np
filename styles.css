@@ -40,7 +40,7 @@ body {
     transparent clamp(260px, 34vw, 420px)
   );
 }
-.jumbotron-frame, .page-cap {
+.jumbotron-frame, .page-cap, .page-rails {
   position: absolute;
   z-index: 1;
   inset: 0;
@@ -345,7 +345,7 @@ footer {
   color: #a99a85;
   font-size: .8125rem;
 }
-.page-rails, .page-frame-pieces, .page-cap { display: none; }
+.page-rails, .page-cap { display: none; }
 
 @media (min-width: 70rem) {
   body {
@@ -366,54 +366,12 @@ footer {
   .page-cap-bottom {
     inset-block-end: calc(-1 * var(--page-footer-gap));
   }
-  .page-rails, .page-frame-pieces {
-    display: block;
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-  }
   .page-rails {
-    /* Match the painted width of the jumbotron's plain side stone. */
-    --page-rail-depth: calc(var(--frame-width) * 1.42);
+    display: block;
     grid-area: 2 / 1 / 4 / 2;
     inset-block-end: calc(-1 * var(--page-footer-gap));
-    container-type: size;
-    overflow: hidden;
+    border-bottom-width: 0;
   }
-  .page-rails::before, .page-rails::after {
-    content: "";
-    position: absolute;
-  }
-  /* Rotate only the plain bottom slice from the hero's stone frame. */
-  .page-rails::before, .page-rails::after {
-    inset-block-start: 0;
-    width: 100cqh;
-    height: var(--page-rail-depth);
-    border: solid transparent;
-    border-width: 0 0 var(--page-rail-depth);
-    border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 round;
-    transform-origin: top left;
-  }
-  .page-rails::before {
-    left: var(--page-rail-depth);
-    transform: rotate(90deg);
-  }
-  .page-rails::after {
-    left: calc(100% - var(--page-rail-depth));
-    transform: rotate(90deg) scaleY(-1);
-  }
-  /* Use the complete jumbotron side slice at its original proportions. */
-  .page-frame-pieces {
-    grid-area: 2 / 1 / 4 / 2;
-    inset-block: calc(100% / 3) auto;
-    block-size: calc(var(--frame-width) * 381 / 224);
-    transform: translateY(-50%);
-    border: solid transparent;
-    border-width: 0 var(--frame-width);
-    border-image: url("./assets/page-frame.webp?v=3") 0 224 212 224 stretch;
-  }
-  .page-frame-pieces + .page-frame-pieces { inset-block-start: calc(200% / 3); }
   .jumbotron { --art-fade: transparent, #000 12%, #000 64%, #0009 86%, transparent; }
   .jumbotron::before, .jumbotron::after {
     max-width: min(47%, 35rem);
