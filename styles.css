@@ -349,7 +349,7 @@ footer {
 @media (min-width: 70rem) {
   body {
     --page-cap-gap: calc(var(--frame-bottom) * .3);
-    padding-block-start: var(--page-cap-gap);
+    padding-block: var(--page-cap-gap);
   }
   .page-cap {
     display: block;
@@ -362,7 +362,7 @@ footer {
     transform: scaleY(-1);
   }
   .page-cap-bottom {
-    inset-block-end: calc(-1 * var(--content-gap));
+    inset-block-end: calc(-1 * var(--page-cap-gap));
   }
   .page-rails, .page-frame-pieces {
     display: block;
@@ -373,7 +373,7 @@ footer {
   }
   .page-rails {
     grid-area: 2 / 1 / 4 / 2;
-    inset-block-end: calc(-1 * var(--content-gap));
+    inset-block-end: calc(-1 * var(--page-cap-gap));
     container-type: size;
     overflow: hidden;
   }
