@@ -81,7 +81,7 @@ p { margin: 0 0 16px; }
   position: relative;
   width: 112px;
   height: 1px;
-  margin: 20px auto;
+  margin: 20px auto 11px;
   background: linear-gradient(90deg, transparent, #a7824a, transparent);
 }
 .jumbotron-ornament::after {
@@ -93,6 +93,12 @@ p { margin: 0 0 16px; }
   border: 1px solid #bd995d;
   transform: rotate(45deg);
   background: #21180e;
+}
+.jumbotron-jiub {
+  display: block;
+  width: 56px;
+  height: auto;
+  margin: 0 auto 14px;
 }
 .intro {
   max-width: 39ch;
