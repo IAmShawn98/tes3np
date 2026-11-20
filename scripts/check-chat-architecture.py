@@ -823,7 +823,7 @@ expect(
     "Known outdated Expansion Packs are offered before login or re-enable",
     in_order(session, "TES3MPCheckExpansionBeforeAction(config", "Client := session")
     and 'TES3MPCheckExpansionBeforeAction(cfg, (*) => ApplyExpansionPackToggle(true))' in patcher
-    and in_order(expansion_update_offer, 'if packMatches', 'TES3MPExpansionContinuePreflight(dialog)')
+    and in_order(expansion_update_offer, 'if packMatches', 'TES3MPExpansionContinuePreflight(dialog, recoveredExisting)')
     and 'TES3MPExpansionPackMatches(installedChecksum, checksum)' in expansion_update_offer
     and 'TES3MPExpansionPreflightUnavailable.Bind(dialog,' in mismatch
     and 'SetTimer(TES3MPExpansionAuthenticatePreflight.Bind(ExpansionMismatchDialog), -10)' in mismatch
@@ -844,6 +844,27 @@ expect(
     and 'ExpansionZipChecksum.ReadAsync(uri)' in source
     and '"Installed: " installedVersion' in patcher
     and '"Available: " updateVersion' in patcher,
+)
+
+expect(
+    "Existing Expansion Pack recovery requires a fresh official checksum and preserves disable fallback",
+    'ExpansionPackNeedsOfficialVerification(config)' in mismatch
+    or (
+        'ExpansionPackNeedsOfficialVerification", config' in mismatch
+        and 'NeedsRecovery: needsRecovery' in mismatch
+    )
+    and 'if ExpansionMismatchZipChecksum = ""' in mismatch
+    and '"RestoreExistingExpansionPackVerification", ExpansionPackPreflight.Config' in mismatch
+    and 'TES3MPExpansionContinuePreflight(dialog, recoveredExisting)' in mismatch
+    and 'ShowExistingExpansionPackFoundPrompt' in mismatch
+    and 'RestoreExistingExpansionPackVerification(config, officialChecksum, officialVersion' in patcher
+    and 'InstalledExpansionPackChecksum(config) != checksum' in patcher
+    and 'SHA256File(esp)' in patcher
+    and 'RememberExpansionPackVersion(checksum, officialVersion, attachment)' in patcher
+    and 'ShowUnverifiedExistingExpansionPackPrompt(cfg)' in patcher
+    and '"Verify Existing"' in patcher and '"Disable Entry"' in patcher
+    and 'reviewOnly ? "Done"' in patcher
+    and 'RestoreExistingExpansionPackVerification(config, crc, "v0.2c")' in launcher_smoke_tests,
 )
 
 expect(
