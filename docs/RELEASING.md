@@ -105,30 +105,24 @@ directory for its approved test EXE hash and DLL requirements. The
 release package checker verifies the EXE and the staged DLL manifest
 against the packaged source materials. Capture those results for the
 exact release ZIP in the formal provenance evidence. See the
-[asset review](ASSET-DISTRIBUTION-APPROVAL.md#historical-20-release-and-repository-visibility)
+[release review](RELEASE-REVIEW.md#repository-visibility-and-legacy-updates)
 for the separate repository visibility review.
 
 ## Release evidence gate
 
-Before proposing a public release, run
-`python scripts/check-release-gates.py`. This intentionally **fails**
-until three reviewed evidence files exist:
+Record the selected source commit, Windows ZIP SHA-256, and review results
+in [RELEASE-REVIEW.md](RELEASE-REVIEW.md). Update the status for each item
+after its review is complete.
 
-- `docs/MODIFIED-TES3MP-SOURCE-PROVENANCE.md`: exact modified binary
-  SHA-256, corresponding source revision/patch, reproducible build commands,
-  author/source access and license notices; mark
-  `Status: VERIFIED_SOURCE_AND_BUILD` only after verification.
-- `docs/ASSET-DISTRIBUTION-APPROVAL.md`: review ownership, redistribution
-  scope, and third-party notices for the exact .21 release ZIP. Mark
-  `Status: ASSET_RIGHTS_REVIEWED` only when confirmed.
-- `docs/CLEAN-WINDOWS-TEST-RESULTS.md`: actual fresh Windows machine/VM
-  results with OS versions, packaged ZIP hash, prerequisites, user-level
-  permissions and regression outcomes; mark
-  `Status: CLEAN_MACHINE_TESTED` only when completed.
+- `TES3MP source: VERIFIED_SOURCE_AND_BUILD` covers the modified executable
+  hash, corresponding source and build instructions, and license notices.
+- `Asset distribution: ASSET_RIGHTS_REVIEWED` covers redistribution scope
+  and third-party notices for the exact release ZIP.
+- `Windows testing: CLEAN_MACHINE_TESTED` covers the fresh Windows tests,
+  including OS, prerequisites, account privileges, and regression results.
 
-The check looks for documentation and review markers, not independent legal
-proof. Passing it still requires the repository owner's explicit release
-approval. Do not invent or pre-fill approvals.
+Run `python scripts/check-release-gates.py` before publication. The owner
+approves the release after checking the recorded evidence.
 
 ## Player-facing release notes
 
@@ -177,9 +171,9 @@ publication have yet to be wired into the workflow.
    `python scripts/check-windows-package.py dist/tes3np-windows.zip --require-console-client`.
    Retain the exact ZIP tested on clean Windows. Copy it to the versioned
    filename and use the channel metadata generator above to obtain its
-   matching checksum. Commit the three evidence files to `main` after
-   review. Only those files may differ between the candidate's source
-   commit and the workflow's checkout.
+   matching checksum. Commit `docs/RELEASE-REVIEW.md` to `main` after
+   review. The publish script permits changes to the release review
+   documents and publishing tools after the candidate build.
 2. Prepare a prerelease **draft** in `IAmShawn98/tes3np` with the numbered
    tag, the full reviewed source SHA as its target, the matching section
    of `RELEASE_NOTES.md`, and only the versioned ZIP and checksum.

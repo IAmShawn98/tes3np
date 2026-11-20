@@ -43,14 +43,20 @@ if ($release.tagName -cne $Tag -or $revision -cnotmatch '\A[0-9a-f]{40}\z' -or
 if ((git merge-base $revision $mainRevision) -cne $revision) {
     throw 'The draft targets a source commit outside main.'
 }
-# Windows test evidence is recorded after building the exact candidate.
-$evidencePaths = @(
+# Review documents and publishing tools are outside the packaged source.
+$reviewPaths = @(
+    'docs/RELEASE-REVIEW.md',
+    'docs/RELEASING.md',
+    'docs/ALPHA-COMPATIBILITY-CHECKLIST.md',
+    'scripts/check-release-gates.py',
+    'scripts/publish-alpha.ps1',
+    # Older candidates may predate consolidation of the review documents.
     'docs/MODIFIED-TES3MP-SOURCE-PROVENANCE.md',
     'docs/ASSET-DISTRIBUTION-APPROVAL.md',
     'docs/CLEAN-WINDOWS-TEST-RESULTS.md'
 )
-$changed = git diff --name-only $revision $mainRevision
-if ($changed | Where-Object { $_ -cnotin $evidencePaths }) {
+$changed = git diff --name-only --no-renames $revision $mainRevision
+if ($changed | Where-Object { $_ -cnotin $reviewPaths }) {
     throw 'Source changed after the candidate build. Build and validate a candidate from the new source.'
 }
 

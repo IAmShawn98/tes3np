@@ -16,8 +16,8 @@ to the builds tested.
 - [ ] Check `--check-owned-menu-scaling`, including its font cleanup, in the
   final release ZIP with stdout and stderr captured. The packaged and source
   probes passed on the developer PC. See the
-  [Windows evidence record](CLEAN-WINDOWS-TEST-RESULTS.md).
-- [ ] Complete the three evidence records and gate in
+  [Windows testing in the release review](RELEASE-REVIEW.md#windows-testing).
+- [ ] Complete the release review and run the gate in
   [RELEASING.md](RELEASING.md#release-evidence-gate). Record Windows
   acceptance against the ZIP hash selected for release.
 
