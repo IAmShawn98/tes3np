@@ -4,6 +4,7 @@
   --frame-width: clamp(58px, 9vw, 126px);
   --frame-bottom: clamp(54px, 8.5vw, 120px);
   --frame-gutter: clamp(36px, 6.7vw, 92px);
+  --jumbotron-top-padding: clamp(12px, 2vw, 22px);
   --content-gutter: 20px;
   --content-gap: clamp(16px, 2.3vw, 28px);
   --surface: #2b2118;
@@ -101,7 +102,7 @@ p { margin: 0 0 16px; }
   isolation: isolate;
   overflow: hidden;
   margin-block: 0;
-  padding: clamp(12px, 2vw, 22px) var(--frame-gutter) calc(clamp(14px, 2vw, 24px) + var(--frame-bottom) / 3);
+  padding: var(--jumbotron-top-padding) var(--frame-gutter) calc(clamp(14px, 2vw, 24px) + var(--frame-bottom) / 3);
   background: radial-gradient(ellipse 46rem 120% at 50% 12%, #231b11f5, #0d0a07e8 55%, transparent);
   color: #ece0c9;
   font: 400 1rem/1.5 "Source Sans 3", system-ui, sans-serif;
@@ -349,7 +350,8 @@ footer {
 @media (min-width: 70rem) {
   body {
     --page-cap-gap: calc(var(--frame-bottom) * .3);
-    padding-block: var(--page-cap-gap);
+    --page-footer-gap: calc(var(--page-cap-gap) + var(--jumbotron-top-padding));
+    padding-block: var(--page-cap-gap) var(--page-footer-gap);
   }
   .page-cap {
     display: block;
@@ -362,7 +364,7 @@ footer {
     transform: scaleY(-1);
   }
   .page-cap-bottom {
-    inset-block-end: calc(-1 * var(--page-cap-gap));
+    inset-block-end: calc(-1 * var(--page-footer-gap));
   }
   .page-rails, .page-frame-pieces {
     display: block;
@@ -373,7 +375,7 @@ footer {
   }
   .page-rails {
     grid-area: 2 / 1 / 4 / 2;
-    inset-block-end: calc(-1 * var(--page-cap-gap));
+    inset-block-end: calc(-1 * var(--page-footer-gap));
     container-type: size;
     overflow: hidden;
   }
