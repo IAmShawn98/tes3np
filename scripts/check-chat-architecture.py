@@ -860,6 +860,7 @@ expect(
     and 'RememberExpansionPackVersion(checksum, officialVersion, attachment)' in patcher
     and 'ShowUnverifiedExistingExpansionPackPrompt(cfg)' in patcher
     and '"Verify Existing"' in patcher and '"Disable Entry"' in patcher
+    and 'SetTimer(() => ApplyExpansionPackToggle(false, true), -1)' in patcher
     and 'reviewOnly ? "Done"' in patcher
     and 'RestoreExistingExpansionPackVerification(config, crc, "v0.2c")' in launcher_smoke_tests,
 )
