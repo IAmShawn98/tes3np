@@ -45,7 +45,17 @@ function Compare-VersionInfo($Left, $Right) {
 }
 
 function Get-ReleaseBody($Release, [string]$ExpectedVersion) {
-    $body = ([string]$Release.body).Trim()
+    $body = (([string]$Release.body) -replace '\r\n?', [string][char]10).Trim()
+    # Base GitHub releases may append the machine-managed hotfix index.
+    # That index belongs on GitHub, not inside the launcher's base notes tab.
+    $indexStart = '<!-- TES3NP HOTFIX HISTORY START -->'
+    $indexEnd = '<!-- TES3NP HOTFIX HISTORY END -->'
+    if ($body.Contains($indexStart) -or $body.Contains($indexEnd)) {
+        $suffix = [regex]::Match($body,
+            '(?s)\n\n<!-- TES3NP HOTFIX HISTORY START -->\n### Published Hotfixes\n\n.*?\n<!-- TES3NP HOTFIX HISTORY END -->\s*\z')
+        if (!$suffix.Success) { throw 'Published hotfix index is malformed.' }
+        $body = $body.Substring(0, $suffix.Index).TrimEnd()
+    }
     $heading = [regex]::Match($body, '(?m)^##[ \t]+v(\S+)')
     if ($heading.Success -and $heading.Groups[1].Value -cne $ExpectedVersion) {
         throw 'Published release notes have a mismatched version heading.'
