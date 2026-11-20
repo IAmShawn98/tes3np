@@ -68,6 +68,34 @@ the previous public release. Retain published entries. Use a version heading
 and order the applicable categories as New Features, Improvements, Bug
 Fixes, and Removed Features. The launcher and publisher use this file.
 
+## Release notes and hotfix history (v0.1.22 onward)
+
+- Keep a separate `## v<version>` section in `RELEASE_NOTES.md` for each
+  feature release and every published hotfix. Preserve all previously published
+  sections and their contents. Never replace the original feature release
+  changelog with a single hotfix entry.
+- Draft fixes are not player-facing hotfixes. A fix appears in **Hotfix History**
+  only when its exact GitHub release is published, not when its commit or draft
+  exists. The date displayed is the public release's `published_at` timestamp
+  (shown as a UTC calendar date), not a development date.
+- A hotfix release (for example `v0.1.22-alpha.1`) gets its own short notes
+  describing only that hotfix. Do not repeat the base release changelog in its
+  notes. Publishing uses the exact version section to populate GitHub Releases.
+- The version footer always shows the installed version, with a red `(1)`
+  for an unseen newer published update and a subdued dot after viewing.
+  Either the version or indicator opens the optional updater; dismissing a
+  preview never installs files.
+- The update preview separates all missed **Release Notes** from published,
+  dated **Hotfix History**, newest first within each tab. A hotfix-only
+  update opens directly on the hotfix tab. An unverified or incomplete
+  public history must be labeled unavailable rather than silently truncated.
+  Users install the latest verified package directly, without sequential
+  intermediate updates.
+- Before approving any candidate, compare prior published version sections
+  with their GitHub release bodies and confirm no historical content was
+  removed or rewritten. The existing full regression and publication approval
+  requirements still apply.
+
 ## Publish Alpha
 
 1. Build the reviewed commit using `TES3NP_MARKERLESS_CONSOLE_EXE` and
