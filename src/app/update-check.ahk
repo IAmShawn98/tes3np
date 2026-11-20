@@ -4,7 +4,7 @@ global UpdateBusy := false
 global UpdateStartupRequest := 0
 global UpdateStartupStarted := 0
 global LauncherVersionLabel := 0
-global LauncherUpdateButton := 0
+global LauncherUpdateBadge := 0
 global LauncherUpdateDismissedVersion := ""
 
 CreateLauncherVersionLabel()
@@ -17,37 +17,69 @@ CreateLauncherVersionLabel()
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
 
-CreateLauncherUpdateButton()
+; The version remains visible, even when an update has been deferred.
+; A small (1) means an unseen published update; a subdued dot means viewed.
+CreateLauncherUpdateBadge()
 {
-    global LauncherGui, LauncherUpdateButton
+    global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
 
-    ; The update button shares the version label's space.
-    LauncherUpdateButton := AddStyledButton(LauncherGui, 12, 682, 300, 30, "Preview Latest Update!", CheckForUpdates)
-    LauncherUpdateButton.Visible := false
+    x := Min(282, 12 + LauncherVersionTextWidth() + 8)
+    LauncherGui.SetFont("s10 Bold cD63232", "Segoe UI")
+    LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 Center BackgroundTrans", "(1)")
+    LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
+    LauncherUpdateBadge.Visible := false
+}
+
+LauncherVersionTextWidth()
+{
+    global LauncherVersionLabel
+    dc := DllCall("user32\GetDC", "Ptr", LauncherVersionLabel.Hwnd, "Ptr")
+    if !dc
+        return 183
+    font := DllCall("SendMessageW", "Ptr", LauncherVersionLabel.Hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+    oldFont := font ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr") : 0
+    size := Buffer(8, 0)
+    try
+    {
+        if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "Str", LauncherVersionLabel.Text,
+            "Int", StrLen(LauncherVersionLabel.Text), "Ptr", size, "Int")
+            return 183
+        return NumGet(size, 0, "Int")
+    }
+    finally
+    {
+        if oldFont
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont)
+        DllCall("user32\ReleaseDC", "Ptr", LauncherVersionLabel.Hwnd, "Ptr", dc)
+    }
 }
 
 ScaleLauncherVersionLabel(scale)
 {
-    global LauncherVersionLabel
+    global LauncherVersionLabel, LauncherUpdateBadge
 
     if IsObject(LauncherVersionLabel)
         LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
+    if IsObject(LauncherUpdateBadge)
+        LauncherUpdateBadge.SetFont("s" Max(6, Round(10 * scale)) " Bold", "Segoe UI")
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
-    global AppConfig, LauncherUpdateButton, LauncherVersionLabel, LauncherUpdateDismissedVersion
+    global AppConfig, LauncherUpdateBadge, LauncherVersionLabel, LauncherUpdateDismissedVersion
 
-    if !IsObject(LauncherUpdateButton) || !IsObject(LauncherVersionLabel)
+    if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
         return
-    if isAvailable && latestVersion != "" {
-        kind := GetLauncherUpdateKind(AppConfig.Version, latestVersion)
-        LauncherUpdateButton.Text := kind = "hotfix" ? "Hotfix available" : "Preview Latest v" latestVersion " Update!"
-        DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateButton.Hwnd, "Ptr", 0, "Int", 1)
-    }
-    showUpdate := isAvailable && latestVersion != LauncherUpdateDismissedVersion
-    LauncherUpdateButton.Visible := showUpdate
-    LauncherVersionLabel.Visible := !showUpdate
+    LauncherVersionLabel.Visible := true
+    available := isAvailable && latestVersion != ""
+        && GetLauncherUpdateKind(AppConfig.Version, latestVersion) != ""
+    LauncherUpdateBadge.Visible := available
+    if !available
+        return
+    unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
+    LauncherUpdateBadge.Text := unseen ? "(1)" : Chr(0x2022)
+    LauncherUpdateBadge.SetFont(unseen ? "cD63232" : "c8F806F", "Segoe UI")
+    DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", 0, "Int", 1)
 }
 
 DismissLauncherUpdate(latestVersion)
@@ -174,6 +206,7 @@ CheckForUpdates(*)
         ; Store before showing the modal so Cancel/Not Now does not repeat next launch.
         if !HasSeenUpdateAutoPreview(latest)
             IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")
+        SetLauncherUpdateAvailable(true, latest)
         ; Viewing the gold preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)
         if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
@@ -192,7 +225,7 @@ CheckForUpdates(*)
             LogLauncherEvent("UPDATE | Installation deferred for verified update v" latest ".")
         } else {
             DismissLauncherUpdate(latest)
-            LogLauncherEvent("UPDATE | User deferred update v" latest "; clickable version label restored.")
+            LogLauncherEvent("UPDATE | User deferred update v" latest "; notification remains accessible beside version.")
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " Type(err))
