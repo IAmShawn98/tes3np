@@ -4,6 +4,7 @@
   --frame-width: clamp(58px, 9vw, 126px);
   --frame-bottom: clamp(54px, 8.5vw, 120px);
   --frame-gutter: clamp(36px, 6.7vw, 92px);
+  --content-gutter: 20px;
   --surface: #2b2118;
   --border: #59452d;
   --text: #cfc3af;
@@ -27,8 +28,18 @@ body {
   border-style: solid;
   border-width: 0 var(--frame-width) var(--frame-bottom);
   border-color: transparent;
-  border-image: url("./assets/page-frame.webp") 0 224 212 224 stretch round;
+  border-image: url("./assets/page-frame.webp?v=2") 0 224 212 224 round;
   pointer-events: none;
+}
+.jumbotron-frame::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(0px - var(--frame-bottom));
+  height: var(--frame-bottom);
+  aspect-ratio: 260 / 212;
+  transform: translateX(-50%);
+  background: url("./assets/page-frame-crest.webp") center bottom / contain no-repeat;
 }
 a { color: var(--gold); text-underline-offset: .17em; }
 a:hover { color: #f6d598; }
@@ -36,10 +47,13 @@ button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 
-.page-body > *, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
-
-main { padding-bottom: 14px; }
-.page-body { display: flow-root; padding-top: 24px; }
+.page-body, footer {
+  width: min(100%, calc(944px + var(--content-gutter) * 2));
+  margin-inline: auto;
+  padding-inline: var(--content-gutter);
+  background-color: #15110e;
+}
+.page-body { display: flow-root; padding-block: 24px 14px; }
 h2 {
   margin: 0 0 13px;
   padding-bottom: 7px;
@@ -153,7 +167,7 @@ li::marker { color: #b79560; }
 .jumbotron a:focus-visible { outline-color: #e0bc7b; }
 .release { color: #bfae91; font-size: .8125rem; }
 
-.gallery { margin-block: 0; }
+.gallery { margin: 0; }
 .slides {
   display: grid;
   isolation: isolate;
@@ -258,8 +272,15 @@ li::marker { color: #b79560; }
 }
 
 code { background: #2c2117; color: #f0d5a3; padding: .08em .33em; font-size: .87em; overflow-wrap: anywhere; }
-footer { border-top: 1px solid var(--border); padding-block: 15px 28px; font-size: .875rem; }
+footer {
+  padding-block: 15px 28px;
+  background-image: linear-gradient(var(--border), var(--border));
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: calc(100% - var(--content-gutter) * 2) 1px;
+  font-size: .875rem;
+}
 @media (max-width: 520px) {
-  .page-body > *, footer { width: calc(100% - 28px); }
+  :root { --content-gutter: 14px; }
   .jumbotron::before, .jumbotron::after { opacity: .26; }
 }
