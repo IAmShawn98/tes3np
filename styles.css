@@ -241,9 +241,6 @@ li::marker { color: #b79560; }
   opacity: 1;
   transition: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .slide { transition: none; }
-}
 .slide-link {
   position: relative;
   display: block;
