@@ -96,6 +96,22 @@ Fixes, and Removed Features. The launcher and publisher use this file.
   removed or rewritten. The existing full regression and publication approval
   requirements still apply.
 
+## Website release history
+
+The public [TES3NP website](https://iamshawn98.github.io/tes3np/) is
+published from the repository's `website` branch. Its release section uses
+`release-history.js` to fetch the verified `update-feed/alpha.json` version,
+confirm the matching public GitHub release/ZIP, then display its original
+feature notes and published dated hotfixes in separate tabs. Previous feature
+releases link to their historical GitHub release entries. No draft hotfix or
+unverified newer package becomes the website's latest download.
+
+The page retains a static v0.1.21-alpha fallback if the public API/feed is
+unavailable. When publishing later versions, keep that offline fallback
+current with a deliberately verified site snapshot. Existing GitHub release
+bodies are immutable; update the current feature's hotfix history by
+publishing a new tag/release, not editing the original.
+
 ## Publish Alpha
 
 1. Build the reviewed commit using `TES3NP_MARKERLESS_CONSOLE_EXE` and
