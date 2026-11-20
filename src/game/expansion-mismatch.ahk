@@ -375,7 +375,11 @@ TES3MPCheckExpansionBeforeAction(config, onContinue, authenticate := false)
         return true
     }
     localChecksum := TES3MPExpansionCallNativeUi("InstalledExpansionPackChecksum", config)
-    ExpansionPackPreflight := {Checksum: localChecksum, Continue: onContinue, Waiting: true}
+    needsRecovery := localChecksum != ""
+        && TES3MPExpansionCallNativeUi("ExpansionPackNeedsOfficialVerification", config)
+    alreadyEnabled := TES3MPExpansionCallNativeUi("ExpansionPackInLoadOrder", config)
+    ExpansionPackPreflight := {Checksum: localChecksum, Continue: onContinue,
+        Waiting: true, Config: config, NeedsRecovery: needsRecovery, AlreadyEnabled: alreadyEnabled}
     ShowTES3MPExpansionMismatchDialog("Preflight")
     dialog := ExpansionMismatchDialog
     if !IsObject(dialog)
@@ -432,15 +436,20 @@ TES3MPExpansionPreflightUnavailable(dialog, reason)
     TES3MPExpansionCallNativeUi("ShowExpansionAutoFailureDialog", reason, "Check", retry)
 }
 
-TES3MPExpansionContinuePreflight(dialog)
+TES3MPExpansionContinuePreflight(dialog, recoveredExisting := false)
 {
     global ExpansionMismatchDialog, ExpansionMismatchSlot, ExpansionPackPreflight
     if !IsObject(ExpansionPackPreflight) || !ExpansionPackPreflight.Waiting
         || !IsObject(ExpansionMismatchDialog) || ExpansionMismatchDialog != dialog
         return
     onContinue := ExpansionPackPreflight.Continue
+    alreadyEnabled := ExpansionPackPreflight.AlreadyEnabled
     CloseTES3MPExpansionMismatchDialog(dialog, ExpansionMismatchSlot)
-    SetTimer(() => onContinue.Call(true), -1)
+    if recoveredExisting
+        SetTimer(() => TES3MPExpansionCallNativeUi("ShowExistingExpansionPackFoundPrompt",
+            onContinue, alreadyEnabled), -1)
+    else
+        SetTimer(() => onContinue.Call(true), -1)
 }
 
 TES3MPExpansionPackMatches(installedChecksum, publishedChecksum)
@@ -478,8 +487,33 @@ TES3MPExpansionStartDiscoveredZip(slot, status)
             }
             if packMatches
             {
-                LogLauncherEvent("EXPANSION | Pre-launch check matched the official pack.")
-                TES3MPExpansionContinuePreflight(dialog)
+                ; A matched checksum is not, by itself, an installed trust
+                ; record. On fresh installs, rebuild that record only from
+                ; the current authenticated official ZIP lookup, never from
+                ; historical cached attachment checksums.
+                recoveredExisting := false
+                if ExpansionPackPreflight.NeedsRecovery
+                {
+                    if ExpansionMismatchZipChecksum = ""
+                    {
+                        TES3MPExpansionPreflightUnavailable(dialog,
+                            "Could not verify the existing Expansion Pack against the current official ZIP.")
+                        return
+                    }
+                    recoveredExisting := TES3MPExpansionCallNativeUi(
+                        "RestoreExistingExpansionPackVerification", ExpansionPackPreflight.Config,
+                        ExpansionMismatchZipChecksum, version, attachment)
+                    if !recoveredExisting
+                    {
+                        TES3MPExpansionPreflightUnavailable(dialog,
+                            "The existing Expansion Pack could not be verified. Retry the official check or choose the official ZIP.")
+                        return
+                    }
+                    LogLauncherEvent("EXPANSION | Existing pack matched current official ZIP; no reinstall required.")
+                }
+                else
+                    LogLauncherEvent("EXPANSION | Pre-launch check matched the official pack.")
+                TES3MPExpansionContinuePreflight(dialog, recoveredExisting)
                 return
             }
             ExpansionPackPreflight.Waiting := false
