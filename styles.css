@@ -18,23 +18,7 @@ button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
 
-.site-header { background: #010409; border-bottom: 1px solid var(--border); }
-.header-inner, main, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
-.header-inner {
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  padding-block: 10px;
-}
-
-.brand, .header-inner nav a { color: var(--text); text-decoration: none; }
-.brand { font-weight: 650; }
-.header-inner nav { display: flex; gap: 18px; font-size: .875rem; }
-.header-inner nav a { color: var(--secondary); }
-.header-inner nav a:hover { text-decoration: underline; color: var(--text); }
+main, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
 
 main { padding-block: 32px 14px; }
 h1, h2 { line-height: 1.25; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
@@ -140,7 +124,7 @@ li + li { margin-top: .4em; }
 code { background: #212830; border-radius: 5px; padding: .17em .36em; overflow-wrap: anywhere; }
 footer { border-top: 1px solid var(--border); padding-block: 18px 28px; color: var(--secondary); font-size: .875rem; }
 @media (max-width: 520px) {
-  .header-inner, main, footer { width: calc(100% - 28px); }
+  main, footer { width: calc(100% - 28px); }
   main { padding-top: 24px; }
   .gallery-bar { padding: 8px 10px; }
 }
