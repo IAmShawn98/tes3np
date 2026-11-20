@@ -18,15 +18,14 @@ button { font: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
 
-main, footer { width: min(100% - 40px, 944px); margin-inline: auto; }
+main > :not(.jumbotron), footer { width: min(100% - 40px, 944px); margin-inline: auto; }
 
-main { padding-block: 32px 14px; }
+main { padding-bottom: 14px; }
 h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 p { margin: 0 0 16px; }
 .jumbotron {
   margin-block: 0 24px;
   padding: clamp(32px, 5vw, 52px) clamp(16px, 4vw, 40px);
-  border-radius: 8px;
   background: #000;
   text-align: center;
 }
@@ -170,6 +169,5 @@ li + li { margin-top: .4em; }
 code { background: #212830; border-radius: 5px; padding: .17em .36em; overflow-wrap: anywhere; }
 footer { border-top: 1px solid var(--border); padding-block: 18px 28px; color: var(--secondary); font-size: .875rem; }
 @media (max-width: 520px) {
-  main, footer { width: calc(100% - 28px); }
-  main { padding-top: 24px; }
+  main > :not(.jumbotron), footer { width: calc(100% - 28px); }
 }
