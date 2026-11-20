@@ -24,13 +24,14 @@ main { padding-bottom: 14px; }
 h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 p { margin: 0 0 16px; }
 .jumbotron {
+  --art-inset: max(0px, calc(50% - 42rem));
   position: relative;
   isolation: isolate;
   overflow: hidden;
   margin-block: 0 24px;
   padding: clamp(42px, 7vw, 70px) 20px clamp(38px, 6vw, 60px);
   border-bottom: 1px solid #927444;
-  background: radial-gradient(ellipse at 50% 12%, #231b11, #0d0a07 65%, #080705);
+  background: #080705 radial-gradient(ellipse min(85%, 46rem) 120% at 50% 12%, #231b11, #0d0a07 65%, #080705);
   color: #ece0c9;
   font: 400 1rem/1.5 "Source Sans 3", system-ui, sans-serif;
   text-align: center;
@@ -40,23 +41,24 @@ p { margin: 0 0 16px; }
   position: absolute;
   inset-block: 0;
   z-index: -1;
-  width: 47%;
-  background-size: cover;
+  width: min(47%, 31rem);
+  background-repeat: no-repeat;
+  background-size: auto 115%;
   filter: sepia(.62) saturate(.7);
   opacity: .48;
   pointer-events: none;
 }
 .jumbotron::before {
-  inset-inline-start: 0;
+  inset-inline-start: var(--art-inset);
   background-image: url("./assets/jumbotron-left.webp");
-  background-position: center 51%;
-  mask-image: linear-gradient(to right, #000 12%, #000b 46%, transparent);
+  background-position: left center;
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 44%, transparent 96%);
 }
 .jumbotron::after {
-  inset-inline-end: 0;
+  inset-inline-end: var(--art-inset);
   background-image: url("./assets/jumbotron-right.webp");
-  background-position: center 49%;
-  mask-image: linear-gradient(to left, #000 12%, #000b 46%, transparent);
+  background-position: right center;
+  mask-image: linear-gradient(to left, transparent, #000 12%, #000 44%, transparent 96%);
 }
 .jumbotron h1 {
   margin: 0;
