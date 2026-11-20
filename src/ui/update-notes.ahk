@@ -87,7 +87,9 @@ ReadPublishedUpdateHistory(installedVersion, latestVersion)
 GetTes3npOriginalVersion(version)
 {
     info := ParseTes3npVersion(version)
-    return info.Feature[1] "." info.Feature[2] "." info.Feature[3] "-" info.Channel
+    feature := info.Feature[1] "." info.Feature[2] "." info.Feature[3]
+    ; Legacy live builds used unsuffixed base release tags.
+    return info.Channel = "live" && !InStr(version, "-live") ? feature : feature "-" info.Channel
 }
 
 ReleaseNoteFits(control, text, maxWidth)
