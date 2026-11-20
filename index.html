@@ -8,7 +8,7 @@
   <title>tes3np | Official Download</title>
   <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&amp;family=Source+Sans+3:wght@400;700&amp;display=swap">
-  <link rel="stylesheet" href="./styles.css?v=25">
+  <link rel="stylesheet" href="./styles.css?v=26">
 </head>
 <body>
   <main id="top">
@@ -62,49 +62,88 @@
       </figure>
 
       <section id="features">
-        <h2>v0.1.21-alpha preview</h2>
+        <h2>Features</h2>
         <ul>
-          <li><strong>Character Management</strong> — Register up to ten existing characters and log in up to four at a time. Mark any character as your favorite for quick logins right from the launcher’s startup page. Each race has its own loading icon, and you can add a custom profile picture for each character.</li>
-          <li><strong>Auto Login</strong> — Characters you register in the launcher can be logged in automatically from the <strong>Manage Characters</strong> page. The first character you add automatically becomes your favorite, and you can switch favorites at any time. Your favorite character appears on the launcher’s startup page for easy access.</li>
-          <li><strong>Data Backups</strong> — Your launcher data can be exported so you can reinstall or relocate at any time.</li>
-          <li><strong>Expansion Pack Support</strong> — Enable or disable expansion packs any time. If an expansion pack isn't installed, first time enabling it will ask if you want to download and install it automatically. If a new expansion pack releases, it will update to the latest version for you.</li>
-          <li><strong>Macro Integration</strong> — Upload your favorite macro scripts for things like fishing and training. Turn them on and off or tailor them to fit the launcher. Everything you use in one safe, backed-up environment.</li>
-          <li><strong>Custom Game Clients</strong> — Have a custom version of tes3mp.exe and don't want to give it up? Simply go to <strong>Launcher Settings → TES3MP Setup</strong> and set your custom client as your default and change back or update it any time you need.</li>
-          <li><strong>Discord Integration</strong> — If you log into Discord via the launcher you will gain access to auto downloading expansion packs, game chat integration with the launcher, and even offline happy hour alerts.</li>
-          <li><strong>And More</strong> — My goal with tes3np is to create a companion app to the game itself that bridges the community platforms (Discord, Wiki, and in-game) seamlessly. The installation process is simple, just follow the instructions below.</li>
+          <li><strong>Character Management and Auto Login</strong> — Save up to ten characters, log in up to four at once, and set a favorite for quick login.</li>
+          <li><strong>Character Portraits</strong> — Use the built-in race icons or add a custom portrait for a character's login screen.</li>
+          <li><strong>Data Backups</strong> — Export saved character details and login delays to move them to another PC.</li>
+          <li><strong>Expansion Pack Support</strong> — Install or update the official pack through Discord, or import a ZIP or extracted folder.</li>
+          <li><strong>Macro Integration</strong> — Run AutoHotkey scripts, ZIP macro packages, or linked Windows apps from <strong>Manage Characters</strong>.</li>
+          <li><strong>Custom Game Clients</strong> — Use the included TES3MP client or configure your own executable and dependencies.</li>
+          <li><strong>Game Chat and Happy Hour</strong> — Read live Discord chat and see active Happy Hour countdowns from new or saved announcements.</li>
         </ul>
       </section>
 
-      <section id="requirements">
-        <h2>Requirements</h2>
-        <ul>
-          <li>Windows 10 or 11, 64-bit.</li>
-          <li><a href="https://en.uesp.net/wiki/Morrowind:Morrowind">Morrowind Game of the Year Edition</a> with Tribunal and Bloodmoon.</li>
-        </ul>
-        <p>If the chat window doesn't function after logging into Discord, you might need to download <a href="https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section">Microsoft WebView2 Runtime</a>.</p>
-        <p>The v0.1.21-alpha Windows ZIP includes TES3MP 0.8.1 and AutoHotkey v2.</p>
-      </section>
-
-      <section id="install">
-        <h2>Install</h2>
-        <ol>
+      <section id="quick-start">
+        <h2>Quick Start</h2>
+        <p id="requirements">Requires <strong>Windows 10 or 11 (64-bit)</strong> and <a href="https://en.uesp.net/wiki/Morrowind:Morrowind"><strong>Morrowind GOTY</strong></a> with Tribunal and Bloodmoon. The ZIP includes TES3MP 0.8.1 and AutoHotkey v2.</p>
+        <ol id="install">
           <li>Extract the entire Windows ZIP into its own folder.</li>
-          <li>Run <code>tes3np.exe</code>. If asked, choose your Morrowind GOTY folder.</li>
-          <li>Open <strong>Manage Characters</strong> to save a character, or choose <strong>Start New Adventure</strong> to log in manually.</li>
+          <li>Run <code>tes3np.exe</code>. If prompted, select your Morrowind GOTY folder.</li>
+          <li>Open <strong>Manage Characters</strong> to save a character, or click <strong>Start New Adventure</strong> to log in manually.</li>
         </ol>
+        <p>If Game Chat isn’t working, check whether <a href="https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section">Microsoft WebView2 Runtime</a> is installed. It comes with Windows 11 and is already installed on most Windows 10 PCs.</p>
+        <p>See <a href="https://github.com/IAmShawn98/tes3np/blob/main/docs/USER-GUIDE.md">player guide</a> for a more in-depth user guide.</p>
       </section>
 
       <section id="update">
         <h2>Update</h2>
-        <p>Click the version number in the bottom left corner to check for updates. You can review the release notes before downloading and installing. Keep your <code>%APPDATA%\tes3np</code> folder so your characters and preferences carry over. If all you care about is your character list, simply click <strong>Export Data</strong> in <strong>Manage Characters</strong> and that should be good enough.</p>
+        <p>Click the version number in the bottom-left corner to review release notes and check for updates. Keep <code>%APPDATA%\tes3np</code> to preserve your characters and preferences.</p>
       </section>
 
       <section id="bug-reporting">
-        <h2>Bug reporting in v0.1.21-alpha</h2>
+        <h2>Bug Reporting</h2>
         <a class="bug-report-screenshot" href="./assets/bug-report.webp" aria-label="Open the full-size Report A Bug screenshot">
-          <img src="./assets/bug-report.webp" width="1434" height="1073" alt="TES3NP Report A Bug dialog with a description field, screenshot attachment button, and Send Report and Cancel buttons." loading="lazy">
+          <img src="./assets/bug-report.webp" alt="TES3NP Report A Bug dialog with a description field, screenshot attachments, and Send Report button" width="1434" height="1073" loading="lazy">
         </a>
-        <p>Open <strong>Launcher Settings → Launcher Data → Report A Bug</strong>. Describe what you were doing and what happened. Add screenshots if they help show the issue, then click <strong>Send Report</strong>. The launcher automatically attaches your launcher logs to help with troubleshooting.</p>
+        <p>Open <strong>Launcher Settings → Launcher Data → Report A Bug</strong> to send a description, diagnostic logs, and optional screenshots.</p>
+      </section>
+
+      <section id="latest-update">
+        <h2>Latest Update</h2>
+        <h3 id="v0121-alpha--unreleased">v0.1.21-alpha — unreleased</h3>
+        <p>Changes since the last public release, v0.1.20-alpha.</p>
+        <h4 id="new-features">New Features</h4>
+        <ul>
+          <li><strong>Game Chat:</strong> Read live Nerevarine Prophecies Discord messages alongside the launcher.</li>
+          <li><strong>Bug reporting:</strong> Send a report from <strong>Launcher Data</strong> with diagnostic logs and optional screenshots.</li>
+          <li><strong>Bundled TES3MP:</strong> The Windows ZIP includes the TES3MP 0.8.1 client and its dependencies.</li>
+          <li><strong>Happy Hour notifications:</strong> See an active Happy Hour and its remaining time on the launcher.</li>
+          <li><strong>Plugin mismatch recovery:</strong> If your plugins don't match the server's, the launcher helps you download the Expansion Pack and troubleshoot the problem.</li>
+          <li><strong>TES3MP Setup:</strong> Choose a custom TES3MP executable without replacing the bundled client.</li>
+          <li><strong>Login Progress:</strong> See your character's login steps in a dedicated progress window.</li>
+          <li><strong>Race:</strong> Select your character's race in <strong>Manage Characters</strong> to show its matching icon during login.</li>
+          <li><strong>Original Character:</strong> Choose <strong>Original Character</strong> in the <strong>Race</strong> selector to use a custom portrait.</li>
+        </ul>
+        <h4 id="improvements">Improvements</h4>
+        <ul>
+          <li><strong>Expansion Pack updates:</strong> TES3NP checks for the official pack before character login or re-enabling an installed pack. The update prompt shows the installed version when it can identify it, shows the available version, and lets you install from Discord or select a local package.</li>
+          <li><strong>Expansion Pack toggle:</strong> See progress while enabling the pack and a single confirmation when it is enabled or disabled.</li>
+          <li><strong>Launcher update channels:</strong> Alpha, beta, and live builds check their own feeds and show when a hotfix is available.</li>
+          <li><strong>Launcher Interface:</strong> Improved window scaling, menu positioning, and dialog appearances for a more consistent experience.</li>
+          <li><strong>Upload Expansion:</strong> Install the Expansion Pack from a downloaded ZIP file or an extracted folder.</li>
+          <li><strong>Diagnostics:</strong> Improved diagnostics for mismatches and error handling.</li>
+          <li><strong>Favorite character:</strong> Your first added character is now automatically selected as your favorite.</li>
+        </ul>
+        <h4 id="bug-fixes">Bug Fixes</h4>
+        <ul>
+          <li><strong>Character reconnect</strong> — Edit a character to enable automatic reconnect after a crash. Closing the game normally leaves it closed.</li>
+          <li><strong>Game Chat</strong> — Fixed a blank chat panel after first-time sign-in that could require restarting the launcher. The loading message and scrollbar now appear during the transition into Game Chat.</li>
+          <li><strong>Discord sign-in</strong> — Expansion Pack checks open the dedicated sign-in window when needed and resume after you sign in. Sign-in requests made while Discord is initializing are also handled.</li>
+          <li><strong>Manage Characters</strong> — Fixed visible flashing when editing or deleting characters and reduced the delay when closing the page.</li>
+          <li><strong>Manage Macros</strong> — Fixed a brief redraw glitch when saving a macro name.</li>
+          <li><strong>Morrowind setup</strong> — Fixed launch attempts that could proceed with missing game files. The launcher now opens the Morrowind folder picker.</li>
+          <li><strong>Expansion Pack imports</strong> — Fixed imports that could fail when Windows briefly locked a file and removed a size limit that rejected the official Expansion Pack ZIP.</li>
+          <li><strong>Character backups</strong> — Fixed an import error caused by the launcher trying to update a removed TES3MP executable field while restoring game client settings.</li>
+          <li><strong>Desktop shortcut prompt</strong> — Fixed cases where the prompt could reappear after a choice had already been saved.</li>
+          <li><strong>Launcher updates</strong> — Fixed a Windows PowerShell encoding issue that could prevent the updated launcher from confirming startup.</li>
+          <li><strong>AppData cleanup</strong> — The launcher now clears stale partial downloads, temporary files, and obsolete launcher caches on startup.</li>
+          <li><strong>Diagnostic privacy</strong> — Removed sensitive details such as local file paths and private URLs from diagnostic logs and copied reports.</li>
+        </ul>
+        <h4 id="removed-features">Removed Features</h4>
+        <ul>
+          <li><strong>Scheduled Events:</strong> I decided to remove Scheduled Events because it doesn't align with my current plans for the launcher. Pieces of this feature will end up in future versions in some capacity.</li>
+        </ul>
       </section>
     </div>
   </main>

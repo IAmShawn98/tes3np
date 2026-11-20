@@ -83,6 +83,13 @@ h2 {
   color: var(--gold);
   font: 700 clamp(27px, 4vw, 37px)/1.05 "Cormorant Garamond", Georgia, serif;
 }
+#latest-update h3,
+#latest-update h4 {
+  margin: 20px 0 8px;
+  color: var(--gold);
+  font: 700 1.375rem/1.15 "Cormorant Garamond", Georgia, serif;
+}
+#latest-update h3 { font-size: 1.625rem; }
 .page-body strong { color: #eadfc9; }
 p { margin: 0 0 16px; }
 .jumbotron {
