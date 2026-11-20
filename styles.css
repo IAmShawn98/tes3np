@@ -5,6 +5,7 @@
   --frame-bottom: clamp(54px, 8.5vw, 120px);
   --frame-gutter: clamp(36px, 6.7vw, 92px);
   --content-gutter: 20px;
+  --content-gap: clamp(16px, 2.3vw, 28px);
   --surface: #2b2118;
   --border: #59452d;
   --text: #cfc3af;
@@ -16,6 +17,7 @@
 body {
   min-height: 100vh;
   margin: 0;
+  padding-block-end: var(--content-gap);
   color: var(--text);
   background-color: var(--background);
   background-image: linear-gradient(#0a08064d, #0a08064d), url("./assets/jumbotron-stone.webp");
@@ -53,7 +55,11 @@ button { font: inherit; cursor: pointer; }
   padding-inline: var(--content-gutter);
   background-color: #15110e;
 }
-.page-body { display: flow-root; padding-block: 24px 14px; }
+.page-body {
+  display: flow-root;
+  margin-block-start: var(--content-gap);
+  padding-block: 24px 14px;
+}
 h2 {
   margin: 0 0 13px;
   padding-bottom: 7px;
