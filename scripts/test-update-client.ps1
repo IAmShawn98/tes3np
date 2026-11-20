@@ -78,13 +78,13 @@ Write-Host 'PASS: release generator and launcher package metadata contract.'
 # Both dialogs use the same styled, measured viewport and select the requested version.
 Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
-Require-Source 'ReadPublishedVersionNotes\(latestVersion\)' 'newer release notes in update preview' $dialogSource
-Require-Source 'ReadVersionReleaseNotes\(installedVersion\)' 'installed release notes in version status' $dialogSource
+Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
+Require-Source 'ReadVersionReleaseNotes\(originalVersion\)' 'original feature release notes survive hotfixes' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
 Require-Source 'return kind = "heading" \? "s12 Bold cE7BE70"' 'gold category headings' $notesSource
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Version Status", 800, 600\)' 'version status uses the gold modal' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, notes, scale\)' 'version status passes the actual modal scale to release notes' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\)' 'version status passes the scale and tab switcher to release notes' $dialogSource
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
 Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\)\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
@@ -193,6 +193,17 @@ if ($notesSource -match 'WrapReleaseNoteLines\(content, maximum') {
     throw 'Character-count wrapping can clip release note words.'
 }
 Write-Host 'PASS: plain release notes headings and measured wrapping.'
+
+# The footer notification must not replace or lengthen the installed version.
+Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact update indicator exists'
+Require-Source 'LauncherUpdateBadge\.Text := unseen \? "\(1\)" : Chr\(0x2022\)' 'unread and viewed states share one indicator'
+Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
+Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indicator reopens the optional updater'
+if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must not replace the footer version.' }
+Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
+Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
+Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the viewport' $notesSource
+
 
 Write-Host 'All launcher updater validation checks passed.'
 exit 0
