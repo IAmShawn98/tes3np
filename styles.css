@@ -1,6 +1,7 @@
 :root {
   color-scheme: dark;
   --background: #080705;
+  --content-background: #15110e;
   --frame-width: clamp(58px, 9vw, 126px);
   --frame-bottom: clamp(54px, 8.5vw, 120px);
   --frame-gutter: clamp(36px, 6.7vw, 92px);
@@ -53,12 +54,16 @@ button { font: inherit; cursor: pointer; }
   width: min(100%, calc(944px + var(--content-gutter) * 2));
   margin-inline: auto;
   padding-inline: var(--content-gutter);
-  background-color: #15110e;
 }
 .page-body {
   display: flow-root;
   margin-block-start: var(--content-gap);
   padding-block: 24px 14px;
+  background-image: linear-gradient(
+    transparent,
+    color-mix(in srgb, var(--content-background) 70%, transparent) 70px,
+    var(--content-background) 150px
+  );
 }
 h2 {
   margin: 0 0 13px;
@@ -280,6 +285,7 @@ li::marker { color: #b79560; }
 code { background: #2c2117; color: #f0d5a3; padding: .08em .33em; font-size: .87em; overflow-wrap: anywhere; }
 footer {
   padding-block: 15px 28px;
+  background-color: var(--content-background);
   background-image: linear-gradient(var(--border), var(--border));
   background-position: center top;
   background-repeat: no-repeat;
