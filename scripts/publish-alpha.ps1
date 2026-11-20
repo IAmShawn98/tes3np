@@ -146,6 +146,18 @@ if ($release.isDraft) {
                 throw "Previous release $requiredTag is not published."
             }
             $publishedBody = ([string]$published.body) -replace '\r\n', [string][char]10
+            $indexStart = '<!-- TES3NP HOTFIX HISTORY START -->'
+            $indexEnd = '<!-- TES3NP HOTFIX HISTORY END -->'
+            if ($number -eq 0 -and ($publishedBody.Contains($indexStart) -or
+                $publishedBody.Contains($indexEnd))) {
+                # A base release is allowed one machine-managed suffix only.
+                $protectedSuffix = [regex]::Match($publishedBody,
+                    '(?s)\n\n<!-- TES3NP HOTFIX HISTORY START -->\n### Published Hotfixes\n\n.*?\n<!-- TES3NP HOTFIX HISTORY END -->\s*\z')
+                if (!$protectedSuffix.Success) {
+                    throw "Published $requiredTag has an unexpected hotfix history format."
+                }
+                $publishedBody = $publishedBody.Substring(0, $protectedSuffix.Index)
+            }
             $publishedBody = ($publishedBody -replace "(?m)^##[ \t]+$requiredPattern(?:[ \t]+[^\r\n]*)?[ \t]*\n", '').Trim()
             $localBody = ($historical.Groups[1].Value -replace '\r\n', [string][char]10).Trim()
             if ($publishedBody -cne $localBody) {
@@ -171,6 +183,29 @@ Invoke-WebRequest "$base/$checksumName" -OutFile $publicChecksum -MaximumRetryCo
 if ((Get-FileHash -LiteralPath $publicZip -Algorithm SHA256).Hash -ine $hash -or
     (Get-Content -LiteralPath $publicChecksum -Raw).TrimEnd() -cne "$hash  $packageName") {
     throw 'The public ZIP or checksum differs from the reviewed candidate. The feed was not updated.'
+}
+
+# Hotfixes receive their own release entry. The original feature release
+# gains only a dated, append-only index of those published hotfixes. Update
+# the index before advancing the public feed; a failure is safe to retry.
+if ($Tag -match '\.[1-9][0-9]{0,8}
+Copy-Item -LiteralPath $manifestPath -Destination $feedFile
+git -C $feedDirectory add -- alpha.json
+if (git -C $feedDirectory status --porcelain -- alpha.json) {
+    git -C $feedDirectory -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Publish alpha feed for $Tag"
+    git -C $feedDirectory push origin "HEAD:${feedRef}"
+}
+$feedRevision = git -C $feedDirectory rev-parse HEAD
+$publicManifest = Join-Path $work 'public-alpha.json'
+Invoke-WebRequest "https://raw.githubusercontent.com/$repo/update-feed/alpha.json?revision=$feedRevision" `
+    -OutFile $publicManifest -MaximumRetryCount 3 -RetryIntervalSec 2
+if ((Get-FileHash -LiteralPath $publicManifest).Hash -cne (Get-FileHash -LiteralPath $manifestPath).Hash) {
+    throw 'Public alpha feed did not return the generated manifest.'
+}
+
+Write-Host "Published $Tag and verified its alpha manifest and Windows download."
+) {
+    & ./scripts/update-hotfix-index.ps1 -LatestHotfixTag $Tag
 }
 
 Copy-Item -LiteralPath $manifestPath -Destination $feedFile
