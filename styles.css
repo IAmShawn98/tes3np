@@ -302,6 +302,12 @@ footer {
   background-repeat: no-repeat;
   background-size: calc(100% - var(--content-gutter) * 2) 1px;
   font-size: .875rem;
+  text-align: center;
+}
+.footer-credit {
+  margin: 5px 0 0;
+  color: #a99a85;
+  font-size: .8125rem;
 }
 @media (max-width: 520px) {
   :root { --content-gutter: 14px; }
