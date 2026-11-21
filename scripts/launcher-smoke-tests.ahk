@@ -1061,7 +1061,7 @@ CheckCompactPublishedPreviewViewport()
     global ButtonFaces
     records := [
         {Version: "0.1.21-alpha.3", Label: "v0.1.21-alpha.3",
-            Hotfix: true, Notes: "### New Features`n- Latest sample change."},
+            Hotfix: true, Notes: "### New Features`n- Red circular 1 update notification.`n`n### Improvements`n- Cleaner update preview layout.`n- Better readability for grouped changes.`n`n### Bug Fixes`n- Fixed Expansion Pack disable flow when verification fails."},
         {Version: "0.1.21-alpha.2", Label: "v0.1.21-alpha.2",
             Hotfix: true, Notes: "### Improvements`n- Previous sample improvement."},
         {Version: "0.1.21-alpha.1", Label: "v0.1.21-alpha.1",
@@ -1103,6 +1103,25 @@ CheckCompactPublishedPreviewViewport()
                 throw Error("Compact gold viewport does not match the reference card bounds.")
             if !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
                 throw Error("Compact preview scroll-down control is missing.")
+            ; Full-sized initial preview must show the first heading and last
+            ; fix simultaneously, with no orphan scrollbar when content fits.
+            if percent = 100
+            {
+                seenFirst := false, seenLast := false
+                for row in panel
+                {
+                    if !row.Visible
+                        continue
+                    if row.Text = "New Features"
+                        seenFirst := true
+                    if InStr(row.Text, "Fixed Expansion Pack")
+                        seenLast := true
+                }
+                if !seenFirst || !seenLast
+                    throw Error("Compact Update Preview hides the first category or last bug fix at 100 percent.")
+                if down.Visible
+                    throw Error("No-scroll compact notes should not display orphan scrollbar arrows.")
+            }
             switcher.Update.Call(sections.Expanded)
             seenOlder := false
             Loop 100
