@@ -30,8 +30,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     ; confirmation and download behavior untouched.
     notes := IsObject(reviewNotes) ? reviewNotes : ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
     response := {Download: false}
-    ; Show the actual production popup at full launcher scale, with room
-    ; for the final category and the pinned earlier-update summary.
+    ; Keep the upper changelog scrollable and reserve four missed-release
+    ; rows within the same fixed-height production card.
     notesSpace := 100
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 600, 556 + notesSpace)
     closeNotes := 0
@@ -84,9 +84,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         missedHeading := 0
         if hasMissed
         {
-            preview.Add("Text", "x40 y" (376 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
+            preview.Add("Text", "x40 y" (312 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
-            missedHeading := preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace)
+            missedHeading := preview.Add("Text", "x40 y" (324 + rowExtra + notesSpace)
                 . " w520 h28 BackgroundTrans", "Updates You Missed")
         }
 
@@ -132,7 +132,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     ; lower part of the 'Updates You Missed' heading. Position its top below
     ; the *measured scaled heading control*, not above its text baseline.
     bottomLimit := px(490 + topExtra + bottomExtra)
-    rowTop := px(420 + topExtra + bottomExtra)
+    rowTop := px(356 + topExtra + bottomExtra)
     if IsObject(heading)
     {
         heading.GetPos(, &headingY, , &headingHeight)
@@ -146,10 +146,10 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     rowWidth := px(496)
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
         . " w" px(531) " h" (bottomLimit - rowTop) " Background171008")
-    page := {Items: versions, Offset: 1, VisibleRows: 3, MaxOffset: Max(1, versions.Length - 2)}
+    page := {Items: versions, Offset: 1, VisibleRows: 4, MaxOffset: Max(1, versions.Length - 3)}
     rows := []
     badges := []
-    for slot in [1, 2, 3]
+    for slot in [1, 2, 3, 4]
     {
         panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
@@ -162,7 +162,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         ; The same genuine red (1) artwork used beside Latest Hotfix.
         ; Each visible missed version gets its own badge, even in the
         ; developer stress preview. The badge shares the link's click action.
-        badge := panel.Add("Picture", "Hidden x0 y0 w" px(15) " h" px(15)
+        badge := panel.Add("Picture", "Hidden x0 y0 w" px(20) " h" px(20)
             . " BackgroundTrans", A_ScriptDir "\assets\controls\update-badge.png")
         badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
         badges.Push(badge)
@@ -174,18 +174,22 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         link.Move(left, rowTop + (slot - 1) * rowStep, rowWidth, rowHeight)
     ; Preserve the frame even at unusual Windows DPI settings: if the font
     ; needs more height, show fewer rows and let the scrollbar reach the rest.
-    page.VisibleRows := Max(1, Min(3,
+    page.VisibleRows := Max(1, Min(4,
         1 + Floor((bottomLimit - rowTop - rowHeight) / Max(1, rowStep))))
     page.MaxOffset := Max(1, versions.Length - page.VisibleRows + 1)
-    trackX := px(558)
-    trackY := rowTop
-    trackHeight := Max(1, bottomLimit - rowTop - Max(1, px(3)))
-    thumbX := px(561)
-    thumbWidth := px(6)
-    track := panel.Add("Text", "x" trackX " y" trackY " w" px(12)
+    ; The missed-version scrollbar shares the parent changelog's geometry,
+    ; gold texture, themed arrow buttons and draggable thumb.
+    arrowX := px(558)
+    arrowTop := rowTop
+    arrowBottom := bottomLimit - px(22)
+    trackY := arrowTop + px(25)
+    trackHeight := Max(1, arrowBottom - px(3) - trackY)
+    thumbX := px(565)
+    thumbWidth := px(8)
+    track := panel.Add("Text", "x" px(561) " y" trackY " w" px(16)
         . " h" trackHeight " Background704C27 +0x100")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth
-        . " h" px(16) " BackgroundC69951 +0x100")
+        . " h" px(22) " BackgroundC69951 +0x100")
     drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
     refresh(*)
     {
@@ -204,26 +208,34 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
             row.SetFont("s" Max(4, Round(10 * scale))
                 . (linked ? " Underline cF5C96E" : " Norm cAFA78B"), "Segoe UI")
             caption := item.Label
-            ; Leave room for the red (1) and preserve its position next to
-            ; the *measured* text, not the full-width transparent click area.
-            while StrLen(caption) > 2 && !ReleaseNoteFits(row, caption, rowWidth - px(30))
+            ; Leave room for the full-size red (1), aligned beside the
+            ; measured version rather than the full-width click target.
+            while StrLen(caption) > 2 && !ReleaseNoteFits(row, caption, rowWidth - px(36))
                 caption := SubStr(caption, 1, -2) "…"
             row.Text := caption
-            badgeX := left + Min(rowWidth - px(19),
+            badgeX := left + Min(rowWidth - px(25),
                 MeasureMissedUpdateTextWidth(row, caption) + px(6))
             row.GetPos(, &rowY)
-            badges[slot].Move(badgeX, rowY + Max(0, Floor((rowHeight - px(15)) / 2)),
-                px(15), px(15))
+            badges[slot].Move(badgeX, rowY + Max(0, Floor((rowHeight - px(20)) / 2)),
+                px(20), px(20))
             row.Visible := true
             badges[slot].Visible := true
         }
-        thumbHeight := Max(px(14), Round(trackHeight * Min(1, page.VisibleRows / page.Items.Length)))
+        thumbHeight := Max(px(22), Round(trackHeight * Min(1, page.VisibleRows / page.Items.Length)))
         thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1)
             / Max(1, page.MaxOffset - 1))
         thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
         track.Visible := page.MaxOffset > 1
         thumb.Visible := page.MaxOffset > 1
+        up.Visible := page.MaxOffset > 1
+        down.Visible := page.MaxOffset > 1
     }
+    up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22),
+        "↑", (*) => (page.Offset -= 1, refresh()))
+    down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22),
+        "↓", (*) => (page.Offset += 1, refresh()))
+    for arrow in [up, down]
+        arrow.SetFont(UpdateNoteFont("heading", true, true, scale), "Segoe UI")
     refresh()
     ; Disposable native smoke tests can inspect page bounds and scroll state
     ; without opening URLs or touching installed launcher data.
@@ -235,6 +247,8 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         observer.Badges := badges
         observer.Track := track
         observer.Thumb := thumb
+        observer.Up := up
+        observer.Down := down
         observer.Refresh := refresh
     }
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
