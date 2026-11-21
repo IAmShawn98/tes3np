@@ -2372,8 +2372,11 @@ expect(
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
     and 'if !wasVisible' in update_check
-    and 'LauncherVersionLabel.GetPos(&labelX, , &labelWidth)' in update_check
-    and 'x := labelX + labelWidth + 4' in update_check
+    and 'label.GetPos(&labelX, , &labelWidth)' in update_check
+    and 'x := GetLauncherUnreadBadgeX(LauncherVersionLabel, 1)' in update_check
+    and 'textPixels := MeasureMissedUpdateTextWidth(label, label.Text)' in update_check
+    and 'x := GetLauncherUnreadBadgeX(LauncherVersionLabel, scale)' in update_check
+    and 'CheckUnreadBadgeTextAdjacency()' in launcher_smoke_tests
     and 'RedrawLauncherUpdateBadge()' in update_check
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
     and 'IniWrite("1", path, "ReadPublishedVersions", version)' in update_check
@@ -2384,12 +2387,12 @@ expect(
     and 'ReleaseNoteLineHeight(LauncherUpdateNumber) <= availableHeight' in update_check
     and 'innerWidth := Max(1, Round(diameter * 0.72))' in update_check
     and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
-    and 'if width > 26' in launcher_smoke_tests
+    and 'if width > 30' in launcher_smoke_tests
     and 'badge := panel.Add("Picture"' in launcher_smoke_tests
     and 'assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir' in launcher_smoke_tests
     and 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle.png"' in launcher_smoke_tests
     and 'if !FileExist(badgeAsset)' in launcher_smoke_tests
-    and 'physical := Max(16, Round((18 + 5 * (digits - 1)) * scale))' in update_check
+    and 'physical := Max(16, Round((21 + 6 * (digits - 1)) * scale))' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
