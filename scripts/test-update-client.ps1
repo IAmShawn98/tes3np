@@ -133,21 +133,34 @@ Require-Source 'missedVersions := notes.HasOwnProp\("MissedVersions"\) \? notes.
 Require-Source 'hasMissed := missedVersions.Length > 0' 'history stays absent when no versions are missed' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'latest changelog keeps its own scrollable viewport' $dialogSource
 Require-Source '0, rowExtra, notesSpace, true, true, hasMissed\)' 'latest notes stop above the pinned missed history' $dialogSource
-Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading\)' 'pinned missed releases use the measured heading to bound their viewport' $dialogSource
+Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale,\s*rowExtra, notesSpace, missedHeading, 0, previewState\)' 'pinned missed releases use the measured heading to bound their viewport' $dialogSource
 Require-Source 'missedHeading := preview.Add\("Text", "x40 y" \(324 \+ rowExtra \+ notesSpace\)' 'the real missing-updates heading is retained for clipping tests' $dialogSource
 Require-Source '" w520 h28 BackgroundTrans", "Updates You Missed"\)' 'the full Georgia heading has room for native glyph descenders' $dialogSource
 Require-Source 'link.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'each missed version hyperlink resolves from its current scroll row' $dialogSource
 Require-Source 'badge.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'red (1) markers also open their associated GitHub changelog' $dialogSource
 Require-Source 'badges.Push\(badge\)' 'every visible missed version has its own red number one' $dialogSource
 Require-Source 'MeasureMissedUpdateTextWidth\(row, caption\)' 'small red markers sit after actual measured version text' $dialogSource
-Require-Source 'badges\[slot\].Visible := true' 'only visible version rows show a red one' $dialogSource
-Require-Source 'track.Visible := page.MaxOffset > 1' 'missed-update scrollbar appears only when rows overflow' $dialogSource
+Require-Source 'badge.Visible := !IsMissedUpdateRead\(page, item\)' 'only visible version rows show a red one' $dialogSource
+Require-Source 'scrolling := page.MaxOffset > 1' 'missed-update scrollbar appears only when rows overflow' $dialogSource
 Require-Source 'for slot in \[1, 2, 3, 4\]' 'four missed updates appear together at normal scale' $dialogSource
 Require-Source 'observer.RowHeight := rowHeight' 'native smoke reports measured row height when four entries cannot fit' $dialogSource
 Require-Source 'observer.BottomLimit := bottomLimit' 'native smoke reports history list lower bound on layout regressions' $dialogSource
 Require-Source 'up := AddStyledButton\(panel, arrowX, arrowTop, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold up arrow' $dialogSource
 Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold down arrow' $dialogSource
 Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
+Require-Source 'prefix.Text := prefixText' 'gold demo prefix remains separate from white version text' $dialogSource
+Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
+Require-Source 'preview.Add\("Text", "x40 y" \(354 \+ rowExtra \+ notesSpace\)' 'thin gold divider separates Updates You Missed from the list' $dialogSource
+Require-Source 'page.Total - page.VisibleRows \+ 1' 'scrolling includes Clear as a final item' $dialogSource
+Require-Source 'clearButton := AddStyledButton\(panel, left, rowTop, px\(86\), px\(25\),' 'Clear is a themed button inside the scrollable missed-update list' $dialogSource
+Require-Source 'if idx = page.Total' 'Clear scrolls with list instead of remaining pinned at bottom' $dialogSource
+Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Clear marks all listed versions read without deleting entries' $dialogSource
+Require-Source 'MarkMissedUpdateItemRead\(page, item\)' 'clicking one release marks only that version read' $dialogSource
+Require-Source 'SetLauncherDemoUnreadCount\(count\)' 'demo feedback changes footer count without persistent writes' $dialogSource
+Require-Source 'MarkPublishedVersionRead\(latestVersion, true\)' 'opening real popup clears only the offered update' $dialogSource
+Require-Source 'IsPublishedVersionRead\(version\)' 'real per-version read state can be checked independently' $source
+Require-Source 'IniRead\(DataFile, "ReadPublishedVersions", version, ""\)' 'read receipts are loaded from durable per-version INI keys' $source
+Require-Source 'if offered\s*IniWrite\(version, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'automatic preview dedup remains limited to offered version' $source
 Require-Source 'rowTop := px\(356 \+ topExtra \+ bottomExtra\)' 'version links begin beneath the complete heading' $dialogSource
 Require-Source 'heading.GetPos\(, &headingY, , &headingHeight\)' 'viewport positions against actual scaled heading bounds' $dialogSource
 Require-Source 'rowTop := Max\(rowTop, headingY \+ headingHeight \+ Max\(2, px\(4\)\)\)' 'list background cannot cover the end of the heading' $dialogSource
@@ -158,7 +171,7 @@ Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and cons
 Require-Source 'rowStep := Max\(rowStep, rowHeight \+ Max\(1, px\(2\)\)\)' 'missed-update link controls never overlap and erase neighboring glyphs' $dialogSource
 Require-Source 'bottomLimit := px\(554 \+ topExtra \+ bottomExtra\)' 'missed links use the expanded gold card, never overlap the action buttons' $dialogSource
 Require-Source 'page.VisibleRows := Max\(1, Min\(4,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
-Require-Source 'page.MaxOffset := Max\(1, versions.Length - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
+Require-Source 'page.MaxOffset := Max\(1, page.Total - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
 Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
 Require-Source '"https://github.com/IAmShawn98/tes3np/releases/tag/v" version' 'hyperlink destination is locked to release tags in the official repository' $dialogSource
 Require-Source 'MissedVersions: missedVersions' 'list includes the newest missed version and every older missed version' $notesSource
@@ -228,8 +241,8 @@ Require-Source 'Loop 24' 'development preview includes twenty-four scrolling str
 Require-Source 'demoVersion := Mod\(A_Index, 2\) \? "0.1.21-alpha" : "0.1.20-alpha"' 'demo repeats two actually published release tags rather than inventing nonexistent pages' $bootstrapSource
 Require-Source 'Url: GetTes3npReleasePage\(demoVersion\)' 'all demo entries open the correct GitHub page for the displayed version' $bootstrapSource
 Require-Source 'draftSections.MissedVersions := demoRows' 'mock history exists only inside the gated development review' $bootstrapSource
-Require-Source 'ShowDevelopmentUnreadBadgeSample\(24\)' 'development stress preview demonstrates the numeric footer badge' $bootstrapSource
-Require-Source 'SetLauncherUpdateAvailable\(false\)' 'opening the development preview clears the temporary badge' $bootstrapSource
+Require-Source 'ShowDevelopmentUnreadBadgeSample\(25\)' 'demo starts with 24 older entries plus one currently offered unread version' $bootstrapSource
+Require-Source 'draftSections.DemoMode := true' 'demo reads current version without altering persisted player update state' $bootstrapSource
 Require-Source 'ShowUpdatePreview\(GetTes3npOriginalVersion\(version\), version,' 'review invokes the real production update dialog' $bootstrapSource
 Require-Source 'BuildPublishedPreviewSections\(\[record\]\)' 'review uses the real production notes parser' $bootstrapSource
 if (Test-Path 'scripts/test-update-preview-visual.ps1') {
@@ -475,12 +488,12 @@ Write-Host 'PASS: plain release notes headings and measured wrapping.'
 # The installed version stays visible. The footer displays the exact count
 # of new published releases since the last preview, then clears on viewing.
 Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact unread update indicator exists'
-Require-Source 'LauncherUpdateBadge := LauncherGui\.Add\("Text", "x" x " y689 w22 h22 Center \+0x200 BackgroundD63232", "1"\)' 'footer notification is a circular red badge with white 1'
-Require-Source 'LauncherUpdateBadge\.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'unread badge numeral stays white at saved scale'
+Require-Source 'LauncherUpdateBadge := LauncherGui.Add\("Picture",' 'footer notification uses transparent circular artwork instead of rectangular text background' $source
+Require-Source 'LauncherUpdateNumber.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white at saved launcher scale' $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
 Require-Source 'size := Max\(6, Round\(10 \* scale\)\)' 'unread badge respects saved scale'
-Require-Source 'ApplyLauncherBadgeFont\(LauncherScale / 100\)' 'badge uses saved launcher scale'
+Require-Source 'SetLauncherUnreadBadgeNumber\(LauncherUpdateNumber.Text\)' 'resize of circular artwork recenters numeral at saved scale' $source
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (1) opens the optional updater'
 
@@ -493,16 +506,16 @@ Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge f
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
-Require-Source 'LauncherUpdateBadge.Move\(, centeredY, diameter, diameter\)' 'both badge axes stay equal when the number has multiple digits'
+Require-Source 'LauncherUpdateBadge.Move\(x, centeredY, diameter, diameter\)' 'numeric badge remains square in geometry and round in rendering' $source
 Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
 Require-Source 'Run\(command, A_ScriptDir, "Hide", &pid\)' 'published release count uses a hidden worker rather than blocking the GUI'
-Require-Source 'CountUnseenPublishedUpdateRecords\(records, job.Installed, seen\)' 'unread count compares published history with last viewed version'
-Require-Source 'baseline := installed' 'unread counter never includes the installed version itself'
-Require-Source 'if LauncherObservedUpdateVersion = job.Latest && !HasSeenUpdateAutoPreview\(job.Latest\)' 'stale background results cannot restore a cleared red badge'
+Require-Source 'CountUnseenPublishedUpdateRecords\(records, job.Installed\)' 'published history counts per-version receipts rather than a cumulative cutoff' $source
+Require-Source 'GetLauncherUpdateKind\(installed, version\) = ""' 'unread tally excludes installed release and deduplicates records' $source
+Require-Source 'if LauncherObservedUpdateVersion = job.Latest' 'stale background results do not override a different offered version' $source
 Require-Source 'CheckUnreadPublishedReleaseCounts\(\)' 'compiled smoke verifies unread count increases and clears correctly' $badgeHarness
 Require-Source 'if wasVisible[\s\S]*LauncherUpdateBadge\.Visible := false[\s\S]*RedrawLauncherUpdateBadge\(\)' 'viewing the update hides the badge and clears old pixels'
-Require-Source 'if !wasVisible\s*\{\s*ApplyLauncherBadgeFont\(LauncherScale / 100\)\s*LauncherUpdateBadge\.Visible := true\s*RedrawLauncherUpdateBadge\(\)' 'new update shows badge only when previously hidden'
+Require-Source 'if !wasVisible\s*\{\s*LauncherUpdateBadge.Visible := true\s*LauncherUpdateNumber.Visible := true\s*RedrawLauncherUpdateBadge\(\)' 'both circular art and numeral become visible together' $source
 Require-Source 'MapWindowPoints' 'badge repaint uses physical client coordinates'
 Require-Source 'RedrawWindow", "Ptr", LauncherGui\.Hwnd,[\s\S]*"UInt", 0x0185' 'only badge rectangle repaints its backdrop'
 if ($source.Contains('LauncherVersionTextWidth()') -or
@@ -523,8 +536,8 @@ if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must 
 # Check the production code path after temporary injection tooling is removed.
 # These assertions remain useful build regressions, not a runtime test mode.
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
-Require-Source '&& !HasSeenUpdateAutoPreview\(latestVersion\)' 'only unseen published versions show the red indicator'
-Require-Source 'IniWrite\(latest, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'viewing an update persists its seen state across restarts'
+Require-Source 'available := isAvailable && latestVersion != "" && unreadCount > 0' 'older unread releases keep the footer count after offered version is read' $source
+Require-Source 'IniWrite\("1", DataFile, "ReadPublishedVersions", version\)' 'read receipts persist separately for each published version' $source
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
 Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind, reviewNotes := 0\)' 'real production modal optionally accepts checkout-only draft notes' $dialogSource
 Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'category formatter reads only published history' $notesSource
