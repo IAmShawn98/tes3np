@@ -223,7 +223,10 @@ SetLauncherUnreadBadgeNumber(count)
     }
     baseY := Round(689 * scale)
     baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
+    ; The small circle was sitting slightly above the visible letterforms.
+    ; Apply a modest physical-pixel offset, independent of Windows DPI.
     centeredY := baseY - Floor((diameter - baseDiameter) / 2)
+        + Max(1, Round(5 / GetLauncherBadgeDpiScale()))
     ; Explicit bitmap size plus SS_REALSIZECONTROL keeps the 48px PNG from
     ; showing at its native size. Load first, then set final control bounds:
     ; replacing Picture.Value must never re-expand the resized circle.
