@@ -340,34 +340,34 @@ if ($notesSource -match 'WrapReleaseNoteLines\(content, maximum') {
 }
 Write-Host 'PASS: plain release notes headings and measured wrapping.'
 
-# The footer notification must not replace or lengthen the installed version.
-Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact update indicator exists'
-Require-Source 'nextText := unseen \? "\(1\)" : Chr\(0x25CF\)' 'unread and viewed states share one indicator'
-Require-Source 'color := unread \? "D63232" : "E0C27F"' 'viewed state uses visible warm gold on dark artwork'
-Require-Source 'size := Max\(6, Round\(\(unread \? 10 : 12\) \* scale\)\)' 'viewed circle is enlarged while respecting saved scale'
-Require-Source 'ApplyLauncherBadgeFont\(LauncherScale / 100\)' 'badge state uses saved launcher scale'
-Require-Source 'y689 w28 h22 BackgroundTrans' 'badge dot remains left-aligned next to version'
-if ($source.Contains('w28 h22 Center BackgroundTrans')) { throw 'Centered single-dot badge leaves an unnecessary horizontal gap.' }
-Require-Source 'LauncherUpdateBadge\.Text := nextText' 'badge updates through the shared state change path'
+# The installed version stays visible. An unseen newer update gets a red (1),
+# which disappears after its preview is viewed and stays hidden on restart.
+Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact unread update indicator exists'
+Require-Source 'LauncherUpdateBadge := LauncherGui\.Add\("Text", "x" x " y689 w28 h22 BackgroundTrans", "\(1\)"\)' 'red (1) is the only badge glyph'
+Require-Source 'LauncherUpdateBadge\.SetFont\("s" size " Bold cD63232", "Segoe UI"\)' 'unread badge stays red at saved scale'
+Require-Source 'size := Max\(6, Round\(10 \* scale\)\)' 'unread badge respects saved scale'
+Require-Source 'ApplyLauncherBadgeFont\(LauncherScale / 100\)' 'badge uses saved launcher scale'
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
-Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indicator reopens the optional updater'
+Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (1) opens the optional updater'
 
-# Footer alignment derives from the version control's DPI-aware natural width.
-# Redraw just its little badge rectangle, including the background image,
-# when replacing or hiding transparent glyphs.
+# Place the badge beside the natural-width version label and redraw the
+# backing image only under its rectangle when hiding or showing it.
 Require-Source 'LauncherVersionLabel := LauncherGui\.Add\("Text", "x12 y691 h18 BackgroundTrans"' 'version label auto sizes to visible text'
-Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'indicator follows rendered caption width'
+Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge follows rendered version width'
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
-Require-Source 'if wasVisible[\s\S]*LauncherUpdateBadge\.Visible := false[\s\S]*RedrawLauncherUpdateBadge\(\)' 'hidden badge clears old glyph'
-Require-Source 'if !wasVisible \|\| LauncherUpdateBadge\.Text != nextText' 'badge updates only for actual state changes'
+Require-Source 'if wasVisible[\s\S]*LauncherUpdateBadge\.Visible := false[\s\S]*RedrawLauncherUpdateBadge\(\)' 'viewing the update hides the badge and clears old pixels'
+Require-Source 'if !wasVisible\s*\{\s*ApplyLauncherBadgeFont\(LauncherScale / 100\)\s*LauncherUpdateBadge\.Visible := true\s*RedrawLauncherUpdateBadge\(\)' 'new update shows badge only when previously hidden'
 Require-Source 'MapWindowPoints' 'badge repaint uses physical client coordinates'
-Require-Source 'RedrawWindow", "Ptr", LauncherGui\.Hwnd,[\s\S]*"UInt", 0x0185' 'only the badge rectangle repaints its backdrop'
+Require-Source 'RedrawWindow", "Ptr", LauncherGui\.Hwnd,[\s\S]*"UInt", 0x0185' 'only badge rectangle repaints its backdrop'
 if ($source.Contains('LauncherVersionTextWidth()') -or
     $source.Contains('y691 w300 h18 BackgroundTrans') -or
-    $source.Contains('InvalidateRect", "Ptr", LauncherUpdateBadge.Hwnd')) {
-    throw 'Badge layout must not measure a physical pixel width as a DPI-scaled GUI coordinate or leave stale glyphs.'
+    $source.Contains('InvalidateRect", "Ptr", LauncherUpdateBadge.Hwnd') -or
+    $source.Contains('Chr(0x25CF)') -or $source.Contains('E0C27F') -or
+    $source.Contains('LauncherUpdateDismissedVersion') -or
+    $source.Contains('DismissLauncherUpdate(')) {
+    throw 'Only an unread red (1) may be shown; viewed state must be hidden and the footer must repaint cleanly.'
 }
-Write-Host 'PASS: badge aligns to version and repaints without stale transparent text.'
+Write-Host 'PASS: red (1) disappears after preview, stays hidden for viewed versions and repaints cleanly.'
 
 # The automatic preview is reached only when a newer published version appears.
 # Validate the actual Win32 function name; a doubled backslash is not a DLL entry point.
@@ -378,7 +378,9 @@ if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must 
 # These assertions remain useful build regressions, not a runtime test mode.
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
 $badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
-Require-Source 'unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview\(latestVersion\)' 'notification state uses published version and persisted seen flag'
+Require-Source '&& !HasSeenUpdateAutoPreview\(latestVersion\)' 'only unseen published versions show the red indicator'
+Require-Source 'IniWrite\(latest, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'viewing an update persists its seen state across restarts'
+Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
 Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind\)' 'release preview has only production parameters' $dialogSource
 Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'release history always reads the published records' $dialogSource
 Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'real Update Now remains available' $dialogSource
