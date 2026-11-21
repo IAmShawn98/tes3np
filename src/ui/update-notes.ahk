@@ -282,9 +282,9 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     ; changing the verified Version Status geometry (both extras default 0).
     px := (value) => Round(value * scale)
     viewport := panel.Add("Text", "x" px(28) " y" px(158 + topExtra)
-        " w" px(744) " h" px(367 + bottomExtra - topExtra) " BackgroundC5A45C")
+        . " w" px(744) " h" px(367 + bottomExtra - topExtra) " BackgroundC5A45C")
     panel.Add("Text", "x" px(30) " y" px(160 + topExtra)
-        " w" px(740) " h" px(363 + bottomExtra - topExtra) " Background171008")
+        . " w" px(740) " h" px(363 + bottomExtra - topExtra) " Background171008")
     ; Measure the actual Windows font before allocating rows. Launcher scale
     ; sizes the card, and the text keeps its normal size and wraps as needed.
     firstY := px(170 + topExtra), bottomY := px(516 + bottomExtra)
