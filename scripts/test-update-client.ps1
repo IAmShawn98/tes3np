@@ -162,6 +162,9 @@ Write-Host 'PASS: preview footer has two actions, with download still confirmati
 
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'installed notes merge original and hotfix changes' $dialogSource
 Require-Source 'Loop info.Hotfix \+ 1' 'installed cumulative notes include every installed hotfix only' $notesSource
+Require-Source 'return BuildInstalledVersionNotes\(records\)' 'installed history groups hotfixes above the base release' $notesSource
+Require-Source 'details := BuildCategorizedUpdateNotes\(\[record\], false\)' 'installed version groups retain category headings without duplicate version captions' $notesSource
+Require-Source 'BuildCategorizedUpdateNotes\(records, includeVersionHeadings := true\)' 'published preview preserves categorized version headings' $notesSource
 Require-Source 'ReadBundledVersionNotes\(entryVersion\)' 'installed notes use offline bundled source' $notesSource
 Require-Source 'if number = 0\s*notes := ReadPublishedVersionNotes\(base\)' 'original release has an online fallback' $notesSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'existing original notes remain available offline' $notesSource
@@ -397,7 +400,8 @@ if ($source -match 'LauncherBadgeTest|LauncherHistoryTest|HandleLauncherHistoryT
 }
 Write-Host 'PASS: temporary manual updater preview instrumentation removed; normal updater checks preserved.'
 
-Require-Source 'BuildCategorizedUpdateNotes\(records\)' 'missed changes and installed notes share one category formatter' $notesSource
+Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'missed published changes retain category-first formatting' $notesSource
+Require-Source 'BuildInstalledVersionNotes\(\[base, patch\]\)' 'compiled data smoke exercises grouped installed hotfix notes' $badgeHarness
 Require-Source 'switcher\.Update := updateNotes' 'scrollable viewport still supports safe content refresh' $notesSource
 Require-Source 'Loop capacity - 1' 'short and long categorized notes fill the viewport' $notesSource
 Require-Source 'if !CheckCategorizedUpdateNotes\(\)\s*ExitApp\(234\)' 'compiled --check runs real category formatting smoke tests' $badgeHarness

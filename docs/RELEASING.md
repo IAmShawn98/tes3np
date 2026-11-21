@@ -93,9 +93,12 @@ improvements as well as fixes. The launcher and publisher use this file.
   release version and publication date, newest first within each category.
   There are no separate tabs in the launcher preview.
 - After installation, Version Status displays one **cumulative changelog**
-  for that installed base release and all installed hotfixes. Original release
-  changes and hotfix additions appear under their appropriate categories,
-  marked by source version. The bundled changelog is used offline; missing
+  for that installed base release and all installed hotfixes, grouped by
+  installed version instead of interleaving the original and hotfix changes.
+  The latest installed hotfix comes first, followed by earlier installed
+  hotfixes (newest first), then the Base Release. Each version has its own
+  categorized New Features, Improvements, Bug Fixes, Hotfixes or Removed
+  Features as applicable. No extra tabs are introduced. The bundled changelog is used offline; missing
   required installed sections are shown as unavailable rather than silently
   omitted. No future/uninstalled changes appear in this view.
 - Unverified, incomplete, or unpublished update history must be labeled

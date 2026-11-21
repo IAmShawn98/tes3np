@@ -59,6 +59,29 @@ CheckCategorizedUpdateNotes()
         || InStr(result, "### Bug Fixes`n`n#### v0.1.21-alpha.1")
         return false
 
+    ; Installed history is grouped by version newest-first. The published
+    ; update preview above must retain its category-first formatting.
+    installed := BuildInstalledVersionNotes([base, patch])
+    latest := InStr(installed, "## Latest Hotfix — v0.1.21-alpha.1")
+    original := InStr(installed, "## Base Release — v0.1.21-alpha")
+    if !latest || !original || latest >= original
+        || !InStr(installed, "### New Features`n`n- **Alerts:** New indicator.")
+        || !InStr(installed, "### Improvements`n`n- **Pack:** Better verification.")
+        || !InStr(installed, "### Hotfixes`n`n- **Pack:** Fixed disabling.")
+        || !InStr(installed, "### Bug Fixes`n`n- **Login:** Original fix.")
+        || InStr(installed, "#### v0.1.21")
+        return false
+
+    newerPatch := {Version: "0.1.21-alpha.2", Label: "v0.1.21-alpha.2",
+        Hotfix: true, Notes: "### Hotfixes`n- **Updater:** Newest fix."}
+    stacked := BuildInstalledVersionNotes([base, patch, newerPatch])
+    newest := InStr(stacked, "## Latest Hotfix — v0.1.21-alpha.2")
+    earlier := InStr(stacked, "## Earlier Hotfix — v0.1.21-alpha.1")
+    baseStart := InStr(stacked, "## Base Release — v0.1.21-alpha")
+    if !newest || !earlier || !baseStart || newest >= earlier
+        || earlier >= baseStart || !InStr(stacked, "**Updater:** Newest fix.")
+        return false
+
     published := []
     AddPublishedNoteRecords("### v0.1.21-alpha.1 — November 21, 2026"
         . "`n`n### Improvements`n- **Launcher:** Updated.", published)
