@@ -82,8 +82,9 @@ Hotfixes change category. The launcher and publisher use this file.
 - A hotfix release (for example `v0.1.22-alpha.1`) gets its own short notes
   describing only that hotfix. Do not repeat the base release changelog in its
   notes. Publishing uses the exact version section to populate GitHub Releases.
-- The version footer always shows the installed version, with a red `(1)`
-  for each unseen newer published update. After the preview is viewed, the
+- The version footer always shows the installed version, with a red
+  circular notification containing a white `1` for each unseen newer
+  published update. After the preview is viewed, the
   indicator disappears and stays hidden until another version is published.
   Either the version or indicator opens the optional updater; dismissing a
   preview never installs files.
@@ -141,8 +142,10 @@ current with a deliberately verified site snapshot. GitHub release
 descriptions may change **only in their machine-marked Published Hotfixes
 index**; the website and launcher remove that index before rendering the original
 release notes. The **website** retains its separate Hotfix History tab;
-the **launcher** groups changes by category instead. Each hotfix retains its
-own GitHub release description.
+the **launcher** displays the newest missed published version first, with
+earlier missed changes expandable. After installation, its changelog is
+grouped by hotfix version, with category headings within each version.
+Each hotfix retains its own GitHub release description.
 
 ## Publish Alpha
 
