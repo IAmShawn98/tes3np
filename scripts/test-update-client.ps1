@@ -150,7 +150,8 @@ Require-Source 'up := AddStyledButton\(panel, arrowX, arrowTop, px\(20\), px\(22
 Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold down arrow' $dialogSource
 Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
 Require-Source 'prefix.Text := prefixText' 'optional row prefix does not alter production version text' $dialogSource
-Require-Source 'isDemo \? "Updates You Missed \(Sample\)" : "Updates You Missed"' 'sample status appears once in development preview heading, not before each link' $dialogSource
+Require-Source 'w520 h28 BackgroundTrans", "Updates You Missed"\)' 'development and production keep the same missed-updates heading' $dialogSource
+if ($dialogSource.Contains('Updates You Missed (Sample)')) { throw 'Keep the production missed-update heading in development preview.' }
 
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
 Require-Source 'RegisterMissedUpdateCursorTarget\(rows\[slot\], page, slot\)' 'only current release links register for hand cursor' $dialogSource
