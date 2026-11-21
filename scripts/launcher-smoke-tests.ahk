@@ -916,6 +916,7 @@ CheckDisplaySettingsAndReleaseNotes()
     }
     CheckUpdatePreviewMetadataLayout()
     CheckCircularUpdateBadgeRendering()
+    CheckExpandablePublishedPreviewViewport()
     try FileAppend("PASS: live display refresh and reset, loading cleanup, readable release-note rows, and version metadata layout at 50 and 100 percent" Chr(10), "*")
 }
 
@@ -966,6 +967,88 @@ CheckCircularUpdateBadgeRendering()
         }
     }
     try FileAppend("PASS: circular red update badge has native clipping at 50 and 100 percent" Chr(10), "*")
+}
+
+; Exercise the real expanded-history scroll viewport against a disposable native
+; panel. Only these local fixture notes are used; this never calls the updater,
+; changes the published feed, or writes installed-version/user data.
+CheckExpandablePublishedPreviewViewport()
+{
+    global ButtonFaces
+    records := [
+        {Version: "0.1.21-alpha.3", Label: "v0.1.21-alpha.3",
+            Hotfix: true, Notes: "### New Features`n- **Update:** Latest update."},
+        {Version: "0.1.21-alpha.2", Label: "v0.1.21-alpha.2",
+            Hotfix: true, Notes: "### Improvements`n- **Launcher:** Previous improvement."},
+        {Version: "0.1.21-alpha.1", Label: "v0.1.21-alpha.1",
+            Hotfix: true, Notes: "### Bug Fixes`n- **Pack:** Older correction."}
+    ]
+    sections := BuildPublishedPreviewSections(records)
+    if sections.EarlierCount != 2
+        throw Error("Expected two earlier missed updates in preview fixture.")
+    for percent in [50, 100]
+    {
+        scale := percent / 100
+        panel := Gui("-DPIScale", "Missed-update history viewport smoke")
+        panel.BackColor := "171008"
+        switcher := {Update: 0}
+        unregister := 0
+        try
+        {
+            ScaleOwnedMenuContent(panel, scale)
+            unregister := AddUpdateNotesViewport(panel, sections.Compact, scale,
+                switcher, 44, 28)
+            if !IsObject(switcher.Update)
+                throw Error("Update preview has no expandable history viewport.")
+            ; No earlier version's details should be in the compact notes.
+            if InStr(sections.Compact, "Previous improvement.")
+                || InStr(sections.Compact, "Older correction.")
+                throw Error("Compact preview leaked an earlier hotfix's change.")
+            switcher.Update(sections.Expanded)
+            down := 0
+            for control in panel
+                if control.Text = "↓"
+                    down := control
+            if !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
+                throw Error("Update preview has no scroll-down button.")
+            foundPrevious := false, foundOlder := false
+            Loop 100
+            {
+                for row in panel
+                {
+                    if !row.Visible
+                        continue
+                    if InStr(row.Text, "Previous improvement.")
+                        foundPrevious := true
+                    if InStr(row.Text, "Older correction.")
+                        foundOlder := true
+                    if !InStr(row.Text, "Previous improvement.")
+                        && !InStr(row.Text, "Older correction.")
+                        continue
+                    row.GetPos(, &top, , &height)
+                    if top < Round(214 * scale) || top + height > Round(544 * scale)
+                        throw Error("Expanded missed-update content overlaps the preview header or footer.")
+                }
+                if foundPrevious && foundOlder
+                    break
+                ButtonFaces[down.Hwnd].Action.Call()
+            }
+            if !foundPrevious || !foundOlder
+                throw Error("Earlier missed hotfix details cannot be reached by scrolling.")
+            switcher.Update(sections.Compact)
+            for row in panel
+                if row.Visible && (InStr(row.Text, "Previous improvement.")
+                    || InStr(row.Text, "Older correction."))
+                    throw Error("Collapsing earlier history did not hide older changes.")
+        }
+        finally
+        {
+            if IsObject(unregister)
+                unregister()
+            DestroyScaledMenu(panel)
+        }
+    }
+    try FileAppend("PASS: expandable missed-update history scrolls and collapses at 50 and 100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
