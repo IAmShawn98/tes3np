@@ -19,7 +19,9 @@ CreateLauncherVersionLabel()
 
     LauncherUpdateDismissedVersion := ""
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
-    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 w300 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    ; Let the Text control size itself to the rendered caption, not a 300px
+    ; click target. Its DPI-aware width is also the badge's alignment anchor.
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
 
@@ -29,35 +31,15 @@ CreateLauncherUpdateBadge()
 {
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
 
-    x := Min(282, 12 + LauncherVersionTextWidth() + 8)
+    ; GetPos returns GUI coordinates with AHK's DPI conversion already
+    ; accounted for. Re-measuring text with GDI and passing physical pixels
+    ; into Gui.Add would apply DPI scaling again and leave a large gap.
+    LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
+    x := labelX + labelWidth + 4
     LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 Center BackgroundTrans", "(1)")
     LauncherUpdateBadge.SetFont("s10 Bold cD63232", "Segoe UI")
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateBadge.Visible := false
-}
-
-LauncherVersionTextWidth()
-{
-    global LauncherVersionLabel
-    dc := DllCall("user32\GetDC", "Ptr", LauncherVersionLabel.Hwnd, "Ptr")
-    if !dc
-        return 183
-    font := DllCall("SendMessageW", "Ptr", LauncherVersionLabel.Hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
-    oldFont := font ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr") : 0
-    size := Buffer(8, 0)
-    try
-    {
-        if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "Str", LauncherVersionLabel.Text,
-            "Int", StrLen(LauncherVersionLabel.Text), "Ptr", size, "Int")
-            return 183
-        return NumGet(size, 0, "Int")
-    }
-    finally
-    {
-        if oldFont
-            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont)
-        DllCall("user32\ReleaseDC", "Ptr", LauncherVersionLabel.Hwnd, "Ptr", dc)
-    }
 }
 
 ScaleLauncherVersionLabel(scale)
@@ -83,14 +65,47 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
     LauncherVersionLabel.Visible := true
     available := isAvailable && latestVersion != ""
         && GetLauncherUpdateKind(AppConfig.Version, latestVersion) != ""
-    LauncherUpdateBadge.Visible := available
+    ; Transparent static text leaves old glyph pixels behind when updated
+    ; without the picture underneath being redrawn. Refresh the *footer*
+    ; rectangle after changing state; never invalidate the whole launcher.
+    wasVisible := LauncherUpdateBadge.Visible
     if !available
+    {
+        if wasVisible
+        {
+            LauncherUpdateBadge.Visible := false
+            RedrawLauncherUpdateBadge()
+        }
         return
+    }
     unseen := LauncherBadgeTestMode ? LauncherBadgeTestState = "unread"
         : latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
-    LauncherUpdateBadge.Text := unseen ? "(1)" : Chr(0x2022)
-    LauncherUpdateBadge.SetFont(unseen ? "cD63232" : "c8F806F", "Segoe UI")
-    DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", 0, "Int", 1)
+    nextText := unseen ? "(1)" : Chr(0x2022)
+    if !wasVisible || LauncherUpdateBadge.Text != nextText
+    {
+        LauncherUpdateBadge.Text := nextText
+        LauncherUpdateBadge.SetFont(unseen ? "cD63232" : "c8F806F", "Segoe UI")
+        LauncherUpdateBadge.Visible := true
+        RedrawLauncherUpdateBadge()
+    }
+}
+
+; Repaint the existing backdrop and all children only underneath the
+; badge (including when hidden). Screen-to-client mapping uses *physical*
+; Win32 pixels, so scaling is not applied a second time.
+RedrawLauncherUpdateBadge()
+{
+    global LauncherGui, LauncherUpdateBadge
+    if !IsObject(LauncherGui) || !IsObject(LauncherUpdateBadge)
+        return
+    rect := Buffer(16, 0)
+    if !DllCall("user32\GetWindowRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", rect, "Int")
+        return
+    DllCall("user32\MapWindowPoints", "Ptr", 0, "Ptr", LauncherGui.Hwnd,
+        "Ptr", rect, "UInt", 2, "Int")
+    ; RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW
+    DllCall("user32\RedrawWindow", "Ptr", LauncherGui.Hwnd,
+        "Ptr", rect, "Ptr", 0, "UInt", 0x0185, "Int")
 }
 
 DismissLauncherUpdate(latestVersion)
