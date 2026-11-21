@@ -2386,6 +2386,9 @@ expect(
     and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
     and 'if width > 26' in launcher_smoke_tests
     and 'badge := panel.Add("Picture"' in launcher_smoke_tests
+    and 'assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir' in launcher_smoke_tests
+    and 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle.png"' in launcher_smoke_tests
+    and 'if !FileExist(badgeAsset)' in launcher_smoke_tests
     and 'physical := Max(16, Round((18 + 5 * (digits - 1)) * scale))' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
