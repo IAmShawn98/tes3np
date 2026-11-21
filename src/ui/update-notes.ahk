@@ -465,7 +465,7 @@ UpdateNoteFont(kind, premium := false, compact := false, scale := 1.0)
     {
         ; Compact sample and real preview use smaller, actually scaled type.
         ; Version Status and existing menu tests still use the original font.
-        size := Max(5, Round((kind = "heading" ? 10 : 9) * scale))
+        size := Max(5, Round((kind = "heading" ? 10 : 8) * scale))
         return "s" size (kind = "heading" ? " Bold cF5C96E" : " Norm cFFF0DC")
     }
     if premium
