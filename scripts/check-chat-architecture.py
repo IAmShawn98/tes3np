@@ -2402,6 +2402,8 @@ expect(
     and 'metadataBorder.Move(, , , 40 + rowExtra)' in update_dialogs
     and 'A_ScriptDir "\\assets\\controls\\update-badge.png"' in update_dialogs
     and 'fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap' in update_dialogs
+    and 'for fontSize in [9, 8, 7, 6]' in update_dialogs
+    and 'gap := compact ? 16 : 18' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs
     and 'Loop capacity - 1' in update_notes,
 )

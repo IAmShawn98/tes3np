@@ -97,6 +97,9 @@ Require-Source 'AddUpdatePreviewMetadata\(panel, installedVersion, latestVersion
 Require-Source 'baseX := compact \? 44 : 30' 'metadata has 24px or more of compact ribbon side padding' $dialogSource
 Require-Source 'rightEdge := compact \? 556 : 770' 'metadata row has balanced side padding' $dialogSource
 Require-Source 'baseX := Round\(\(600 - fullWidth\) / 2\)' 'all three labels are centered as one group' $dialogSource
+Require-Source 'for fontSize in \[9, 8, 7, 6\]' 'compact metadata adaptively measures smaller fonts before reflowing' $dialogSource
+Require-Source 'measuredWidth <= 512' 'metadata font is selected to fit all three columns' $dialogSource
+Require-Source 'gap := compact \? 16 : 18' 'compact ribbon has gold-divider gaps without unnecessary wrapping' $dialogSource
 Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 32\)' 'wrapped channel label remains centered' $dialogSource
 Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed version naturally measures its width' $dialogSource
 Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest version naturally measures its width' $dialogSource

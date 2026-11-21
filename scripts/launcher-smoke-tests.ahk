@@ -1238,33 +1238,44 @@ CheckCenteredCompactUpdateMetadata()
         {
             extra := AddUpdatePreviewMetadata(panel, item.Installed, item.Latest,
                 item.Channel, true)
-            labels := []
+            if extra != 0
+                throw Error("Compact Installed | Latest | Channel must stay on one line.")
+            labels := [], separators := []
             for control in panel
-                if control.Text != ""
-                {
-                    control.GetPos(&x, &y, &width, &height)
-                    if x < 44 || x + width > 556 || height != 26
-                        throw Error("Compact metadata clipped despite padded ribbon.")
-                    if !ReleaseNoteFits(control, control.Text, width)
-                        throw Error("Compact metadata text was truncated.")
-                    labels.Push({X: x, Right: x + width, Y: y, Bottom: y + height})
-                }
-            if labels.Length != 3
-                throw Error("Compact preview metadata lost one of its fields.")
-            if extra = 0
             {
-                visualCenter := (labels[1].X + labels[3].Right) / 2
-                if Abs(visualCenter - 300) > 2
-                    throw Error("Installed/Latest/Channel are not centered together.")
-                if labels[1].Right >= labels[2].X
-                    || labels[2].Right >= labels[3].X
-                    throw Error("Compact metadata fields overlap.")
+                control.GetPos(&x, &y, &width, &height)
+                if control.Text = ""
+                {
+                    separators.Push({X: x, Y: y, Width: width, Height: height})
+                    continue
+                }
+                if x < 44 || x + width > 556 || y != 61 || height != 26
+                    throw Error("Compact metadata clipped or wrapped onto another line.")
+                if !ReleaseNoteFits(control, control.Text, width)
+                    throw Error("Compact metadata text was truncated.")
+                labels.Push({X: x, Right: x + width, Y: y, Bottom: y + height})
             }
+            if labels.Length != 3 || separators.Length != 2
+                throw Error("Compact preview needs all three captions and two gold dividers.")
+            visualCenter := (labels[1].X + labels[3].Right) / 2
+            if Abs(visualCenter - 300) > 2
+                throw Error("Installed/Latest/Channel are not centered together.")
+            if labels[1].Right >= labels[2].X
+                || labels[2].Right >= labels[3].X
+                throw Error("Compact metadata fields overlap.")
+            for sep in separators
+                if sep.Y != 64 || sep.Width != 1 || sep.Height != 18
+                    throw Error("Gold column divider not aligned with metadata.")
+            if separators[1].X <= labels[1].Right
+                || separators[1].X >= labels[2].X
+                || separators[2].X <= labels[2].Right
+                || separators[2].X >= labels[3].X
+                throw Error("Gold separators must sit between adjacent metadata labels.")
         }
         finally
             panel.Destroy()
     }
-    try FileAppend("PASS: compact Installed/Latest/Channel captions centered with symmetric padding" Chr(10), "*")
+    try FileAppend("PASS: Installed | Latest | Channel on one centered line with two gold separators" Chr(10), "*")
 }
 
 ; Exercise the update handshake without launching the UI or writing AppData.

@@ -144,7 +144,37 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 ; Return the extra vertical space needed if a narrow display requires wrapping.
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
-    panel.SetFont(compact ? "s9 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
+    ; The approved compact ribbon has one centered line:
+    ; Installed | Latest | Channel. Measure the actual Windows font BEFORE
+    ; creating these three controls; the previous s9-only path wrapped
+    ; Channel even for the standard .3 hotfix shown in the maintainer screenshot.
+    ; Shrink the metadata font only when its three real captions need it.
+    compactFontSize := 9
+    if compact
+    {
+        for fontSize in [9, 8, 7, 6]
+        {
+            probe := Gui("-DPIScale")
+            measuredWidth := 2 * 16
+            try
+            {
+                probe.SetFont("s" fontSize " Norm cFFF0DC", "Segoe UI")
+                channelNameProbe := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
+                for caption in ["Installed: v" installedVersion, "Latest: v" latestVersion, "Channel: " channelNameProbe]
+                {
+                    labelProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", caption)
+                    labelProbe.GetPos(, , &naturalWidth)
+                    measuredWidth += naturalWidth + 6
+                }
+            }
+            finally
+                probe.Destroy()
+            compactFontSize := fontSize
+            if measuredWidth <= 512
+                break
+        }
+    }
+    panel.SetFont(compact ? "s" compactFontSize " Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
     baseX := compact ? 44 : 30
     labelY := compact ? 61 : 80
     rightEdge := compact ? 556 : 770
@@ -166,7 +196,7 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
     installed.Move(, , installedWidth, 26)
     latest.Move(, , latestWidth, 26)
     channelText.Move(, , channelWidth, 26)
-    gap := compact ? 22 : 18
+    gap := compact ? 16 : 18
     fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap
     availableWidth := rightEdge - baseX
     if compact && fullWidth <= availableWidth
