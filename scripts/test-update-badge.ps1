@@ -35,7 +35,7 @@ $states = @{ Unread = [uint32]1; Viewed = [uint32]2; None = [uint32]3 }
 $result = [UIntPtr]::Zero
 # WM_APP + 0x41. The callback is registered only in explicit test mode.
 $sent = [TES3NPBadgeTestNative]::SendMessageTimeout(
-    $hwnd, [uint32]0x8041, [UIntPtr]$states[$State], [IntPtr]::Zero,
+    $hwnd, [uint32]0x8041, [UIntPtr]([uint32]$states[$State]), [IntPtr]::Zero,
     [uint32]2, [uint32]5000, [ref]$result)
 if ($sent -eq [IntPtr]::Zero) {
     $code = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
