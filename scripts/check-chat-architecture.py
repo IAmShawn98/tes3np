@@ -2357,12 +2357,14 @@ expect(
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 expect(
-    "Update footer shows red (1) only for an unseen published update; no viewed gold dot",
+    "Update footer shows a circular white 1 on red only for an unseen published update",
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
-    and 'LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 BackgroundTrans", "(1)")' in update_check
-    and 'LauncherUpdateBadge.SetFont("s" size " Bold cD63232", "Segoe UI")' in update_check
+    and 'LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w22 h22 Center +0x200 BackgroundD63232", "1")' in update_check
+    and 'LauncherUpdateBadge.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
+    and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
+    and 'CreateEllipticRgn' in update_check
     and 'size := Max(6, Round(10 * scale))' in update_check
     and '&& !HasSeenUpdateAutoPreview(latestVersion)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
@@ -2412,8 +2414,9 @@ expect(
     and 'channelText.GetPos(, , &channelWidth)' in update_dialogs
     and 'if channelX + channelWidth <= 770' in update_dialogs
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
-    and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
-    and 'AddUpdateNotesViewport(preview, notes, scale, 0, rowExtra, 28 + rowExtra)' in update_dialogs
+    and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w490 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
+    and 'AddUpdateNotesViewport(preview, notes.Compact, scale,' in update_dialogs
+    and 'noteSwitcher, 44 + rowExtra, 28 + rowExtra)' in update_dialogs
     and 'actionY := 568 + rowExtra' in update_dialogs
     and 'AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"' in update_dialogs
