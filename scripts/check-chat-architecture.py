@@ -2403,7 +2403,14 @@ expect(
     and 'A_ScriptDir "\\assets\\controls\\update-badge.png"' in update_dialogs
     and 'fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap' in update_dialogs
     and 'for fontSize in [9, 8, 7, 6]' in update_dialogs
-    and 'gap := compact ? 24 : 18' in update_dialogs
+    and 'gap := 24' in update_dialogs
+    and 'AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)' in update_dialogs
+    and 'PositionCompactMetadataPair(pair, x, y)' in update_dialogs
+    and 'panel.SetFont("s" compactFontSize " Bold cE7BE70", "Segoe UI")' in update_dialogs
+    and 'panel.SetFont("s" compactFontSize " Norm cFFF0DC", "Segoe UI")' in update_dialogs
+    and '{Label: "Installed:", Value: "v" installedVersion}' in update_dialogs
+    and '{Label: "Latest:", Value: "v" latestVersion}' in update_dialogs
+    and '{Label: "Channel:", Value: channelName}' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs
     and 'Loop capacity - 1' in update_notes,
 )
