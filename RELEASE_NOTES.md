@@ -6,17 +6,17 @@ Changes since the last public release, v0.1.21-alpha.
 
 ### New Features
 
-- **Update notifications:** A red (1) next to the launcher version shows when an update is available. After you view it, the indicator changes to a gold dot.
-- **Update history:** Review release notes and hotfixes from updates you've missed before installing them.
+- **Update notifications:** See a red (1) when an update is available and a gold dot after viewing it.
+- **Update history:** View release notes and hotfixes you've missed before updating.
 
 ### Improvements
 
-- **Launcher updates:** Review what's new, then choose **Update Now** or **Not Now**. Downloads and installation still require confirmation.
-- **Expansion Pack:** The launcher can recognize an already installed official pack without making you reinstall it if its verification information is missing.
+- **Launcher updates:** Review changes before choosing **Update Now** or **Not Now**. Downloads and installation still require confirmation.
+- **Expansion Pack:** Recognize an existing official pack without reinstalling it when verification records are missing.
 
 ### Hotfixes
 
-- **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when the launcher couldn't verify it.
+- **Expansion Pack:** Fixed an issue that could prevent disabling the pack when verification failed.
 
 ## v0.1.21-alpha — unreleased
 
