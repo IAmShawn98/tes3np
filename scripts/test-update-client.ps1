@@ -535,7 +535,7 @@ Require-Source 'assetRoot := A_IsCompiled \? BundledResourceRoot : A_ScriptDir' 
 Require-Source 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle\.png"' 'badge smoke loads its PNG from the runtime asset folder' $badgeHarness
 Require-Source 'if !FileExist\(badgeAsset\)' 'native smoke diagnoses missing bundled badge art before creating a Picture' $badgeHarness
 Require-Source 'badgeAsset\)' 'native smoke uses the verified PNG path when adding its Picture control' $badgeHarness
-Require-Source 'physical := Max\(16, Round\(\(21 \+ 6 \* \(digits - 1\)\) \* scale\)\)' 'two-digit footer circle targets 27 physical pixels, slightly larger than previous 23' $source
+Require-Source 'physical := Max\(20, Round\(\(21 \+ 6 \* \(digits - 1\)\) \* scale\)\)' 'two-digit footer circle targets 27 physical pixels, slightly larger than previous 23' $source
 Require-Source 'LauncherUpdateBadge.Move\(x, centeredY, diameter, diameter\)' 'numeric badge remains square in geometry and round in rendering' $source
 Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
