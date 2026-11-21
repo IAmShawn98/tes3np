@@ -264,9 +264,12 @@ if (!$badgeHarness.Contains('case "--test-update-badge":') -or
     !$badgeHarness.Contains('LauncherBadgeTestMode := true') -or
     $badgeHarness.Contains('PreviewUpdateBadgeFixture()') -or
     !$bootstrapSource.Contains('LauncherGui.Title := A_IconTip " [Badge Test]"') -or
+    !$bootstrapSource.Contains('LauncherBadgeTestWindowHwnd := LauncherGui.Hwnd') -or
     !$bootstrapSource.Contains('OnMessage(0x8041, HandleLauncherBadgeTestMessage)') -or
     !$bootstrapSource.Contains('if !LauncherBadgeTestMode') -or
     !$source.Contains('HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)') -or
+    !$source.Contains('hwnd != LauncherBadgeTestWindowHwnd') -or
+    $source.Contains('hwnd != LauncherGui.Hwnd') -or
     !$source.Contains('LauncherBadgeTestState := "unread"') -or
     !$source.Contains('LauncherBadgeTestState := "viewed"') -or
     !$source.Contains('LauncherBadgeTestState := "none"') -or
