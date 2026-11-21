@@ -6,14 +6,6 @@ global UpdateStartupStarted := 0
 global LauncherVersionLabel := 0
 global LauncherUpdateBadge := 0
 global LauncherUpdateDismissedVersion := ""
-; Only enabled by the explicit --test-update-badge command line switch.
-; Windows messages then adjust the real launcher's cosmetic badge in memory.
-; This mode never changes the published update feed or saved preview history.
-global LauncherBadgeTestMode := false
-global LauncherBadgeTestState := "none"
-global LauncherBadgeTestWindowHwnd := 0
-global LauncherHistoryTestBusy := false
-
 CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel, LauncherUpdateDismissedVersion
@@ -69,7 +61,7 @@ ApplyLauncherBadgeFont(scale)
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
     global AppConfig, LauncherUpdateBadge, LauncherVersionLabel, LauncherUpdateDismissedVersion
-    global LauncherBadgeTestMode, LauncherBadgeTestState, LauncherScale
+    global LauncherScale
 
     if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
         return
@@ -89,8 +81,7 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
         }
         return
     }
-    unseen := LauncherBadgeTestMode ? LauncherBadgeTestState = "unread"
-        : latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
+    unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
     nextText := unseen ? "(1)" : Chr(0x25CF)
     if !wasVisible || LauncherUpdateBadge.Text != nextText
     {
@@ -209,12 +200,7 @@ AutoPreviewNewUpdate(version, *)
 
 CheckForUpdates(*)
 {
-    global AppConfig, UpdateBusy, LauncherGui, DataFile, LauncherBadgeTestMode
-    if LauncherBadgeTestMode
-    {
-        MsgBox("This is a cosmetic update-indicator test. Use scripts\test-update-badge.ps1 to change its state.`nNo update has been published or installed.", "TES3NP Update Badge Test", "Iconi")
-        return
-    }
+    global AppConfig, UpdateBusy, LauncherGui, DataFile
     if UpdateBusy {
         LogLauncherEvent("UPDATE | Check ignored because another update operation is active.")
         return
@@ -289,92 +275,4 @@ DownloadUpdateText(url)
     if request.Status != 200
         throw Error("Update metadata returned HTTP " request.Status ".")
     return request.ResponseText
-}
-
-; WM_APP + 0x41: one numeric state sent from the local PowerShell test helper.
-; The handler is registered ONLY when the launcher started with the test flag.
-; No real update feed, profile or INI state is changed by these messages.
-HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)
-{
-    global LauncherBadgeTestMode, LauncherBadgeTestState, LauncherBadgeTestWindowHwnd
-    ; Compare a stored numeric HWND, not Gui.Hwnd: a destroyed Gui object
-    ; still exists, but reading its Hwnd raises "Gui has no window".
-    if !LauncherBadgeTestMode || hwnd != LauncherBadgeTestWindowHwnd
-        || !DllCall("user32\IsWindow", "Ptr", hwnd)
-        return 0
-    switch state
-    {
-        case 1:
-            LauncherBadgeTestState := "unread"
-        case 2:
-            LauncherBadgeTestState := "viewed"
-        case 3:
-            LauncherBadgeTestState := "none"
-        default:
-            return 0
-    }
-    if LauncherBadgeTestState = "none"
-        SetLauncherUpdateAvailable(false)
-    else
-        SetLauncherUpdateAvailable(true, "0.1.22-alpha")
-    return 1
-}
-
-; WM_APP + 0x42. This is a manual visual verification of the real update
-; preview UI, but with synthetic strings instead of GitHub release data.
-; Respond to PowerShell immediately: the dialog is opened by a timer, not
-; inside synchronous SendMessageTimeout.
-HandleLauncherHistoryTestMessage(scenario, unused, msg, hwnd)
-{
-    global LauncherBadgeTestMode, LauncherBadgeTestWindowHwnd, LauncherHistoryTestBusy
-    if !LauncherBadgeTestMode || hwnd != LauncherBadgeTestWindowHwnd
-        || !DllCall("user32\IsWindow", "Ptr", hwnd) || LauncherHistoryTestBusy
-        return 0
-    if scenario != 1 && scenario != 2
-        return 0
-    LauncherHistoryTestBusy := true
-    SetTimer(ShowLauncherHistoryTestPreview.Bind(scenario), -1)
-    return 1
-}
-
-ShowLauncherHistoryTestPreview(scenario)
-{
-    global LauncherBadgeTestMode, LauncherHistoryTestBusy
-    try
-    {
-        if !LauncherBadgeTestMode
-            return
-        if scenario = 1
-        {
-            installed := "0.1.20-alpha"
-            latest := "0.1.22-alpha.2"
-            kind := "update"
-            features := "### v0.1.22-alpha — November 23, 2026" "`n`n"
-                . "### New Features`n- **Expansion Pack:** Restore verification of installed files.`n"
-                . "- **Launcher:** Review release and hotfix history before updating.`n`n"
-                . "### v0.1.21-alpha — November 20, 2026`n`n"
-                . "### Improvements`n- **Launcher:** Reliability and usability improvements."
-            Loop 18
-                features .= "`n- **Improvement " A_Index ":** Update notes remain readable when scrolling and resizing."
-            hotfixes := "### v0.1.22-alpha.2 — November 27, 2026`n`n"
-                . "### Bug Fixes`n- **Launcher:** Improved update preview appearance.`n`n"
-                . "### v0.1.22-alpha.1 — November 25, 2026`n`n"
-                . "### Bug Fixes`n- **Launcher:** Improved notification behavior.`n`n"
-                . "### v0.1.21-alpha.1 — November 21, 2026`n`n"
-                . "### Bug Fixes`n- **Launcher:** Improved interface responsiveness."
-        }
-        else
-        {
-            installed := "0.1.22-alpha.1"
-            latest := "0.1.22-alpha.2"
-            kind := "hotfix"
-            features := "No new feature releases since your installed version."
-            hotfixes := "### v0.1.22-alpha.2 — November 27, 2026`n`n"
-                . "### Bug Fixes`n- **Launcher:** Improved update preview appearance."
-        }
-        ShowUpdatePreview(installed, latest, "alpha", kind,
-            {Release: features, Hotfix: hotfixes})
-    }
-    finally
-        LauncherHistoryTestBusy := false
 }
