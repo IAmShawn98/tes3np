@@ -2449,6 +2449,8 @@ expect(
     and 'UnregisterMissedUpdateCursorTarget(rows[slot])' in update_dialogs
     and 'IsMissedUpdateCursorTarget(handle)' in update_dialogs
     and 'IsLauncherFooterUpdateCursorTarget(handle)' in update_check
+    and 'className = "Static" && (IsMissedUpdateCursorTarget(wParam)' in native_renderer
+    and '|| IsLauncherFooterUpdateCursorTarget(wParam)' in native_renderer
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badges.Push(badge)' in update_dialogs
     and 'preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)' in update_dialogs
