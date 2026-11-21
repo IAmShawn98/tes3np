@@ -966,8 +966,7 @@ CheckUnreadPublishedReleaseCounts()
         if !IsPublishedVersionRead("0.1.21-alpha.2", fixture)
             || IsPublishedVersionRead("0.1.21-alpha.1", fixture)
             throw Error("Link read receipt did not persist independently.")
-        if IniRead(fixture, "Updates", "LastAutoPreviewVersion", "")
-            != "0.1.21-alpha.4"
+        if IniRead(fixture, "Updates", "LastAutoPreviewVersion", "") != "0.1.21-alpha.4"
             throw Error("Clicking older GitHub releases changed automatic popup dedup.")
     }
     finally
