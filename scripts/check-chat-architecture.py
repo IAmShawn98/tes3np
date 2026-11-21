@@ -2392,12 +2392,14 @@ expect(
     and 'testHistory := 0' in update_dialogs
     and 'synthetic := IsObject(testHistory)' in update_dialogs
     and 'history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
-    and 'CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 680)' in update_dialogs
-    and 'AddUpdateNotesViewport(preview, notes, scale, tabs.Switch, 24, 38)' in update_dialogs
-    and 'AddStyledButton(preview, 330, 618, 140, 34, "Close"' in update_dialogs
+    and 'CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)' in update_dialogs
+    and 'AddUpdateNotesViewport(preview, notes, scale, tabs.Switch, 0, 28)' in update_dialogs
+    and 'AddStyledButton(preview, 330, 568, 140, 34, "Close"' in update_dialogs
+    and 'Review the changes you have missed before deciding to update.' not in update_dialogs
+    and 'Preview only — nothing has been downloaded or installed.' not in update_dialogs
     and '"TEST DATA ONLY' not in update_dialogs
     and 'if synthetic' in update_dialogs
-    and 'AddStyledButton(preview, 590, 618, 178, 34, "GitHub Release"' in update_dialogs,
+    and 'AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"' in update_dialogs,
 )
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
 expect(
