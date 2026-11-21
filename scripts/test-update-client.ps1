@@ -309,6 +309,28 @@ if (!$badgeHarness.Contains('case "--test-update-badge":') -or
 }
 Write-Host 'PASS: PowerShell cosmetic badge injection targets only the real, opted-in launcher.'
 
+# Exercise the real history dialog with synthetic, local-only content.
+$historyHelper = Get-Content -LiteralPath 'scripts/test-update-history.ps1' -Raw -Encoding UTF8
+if (!$bootstrapSource.Contains('OnMessage(0x8042, HandleLauncherHistoryTestMessage)') -or
+    !$source.Contains('HandleLauncherHistoryTestMessage(scenario, unused, msg, hwnd)') -or
+    !$source.Contains('SetTimer(ShowLauncherHistoryTestPreview.Bind(scenario), -1)') -or
+    !$source.Contains('ShowUpdatePreview(installed, latest, "alpha", kind,') -or
+    !$source.Contains('features := "No new feature releases since your installed version."') -or
+    !$dialogSource.Contains('ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)') -or
+    !$dialogSource.Contains('history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)') -or
+    !$dialogSource.Contains('TEST DATA ONLY') -or
+    !$dialogSource.Contains('"Close Test Preview"') -or
+    !$historyHelper.Contains('SendMessageTimeout(') -or
+    !$historyHelper.Contains('FindWindow(') -or
+    !$historyHelper.Contains('0x8042') -or
+    !$historyHelper.Contains('Badge Test]') -or
+    !$historyHelper.Contains("ValidateSet('Missed', 'Hotfix')") -or
+    $historyHelper -match '(?i)(Set-Content|Copy-Item|Remove-Item|Invoke-WebRequest|Start-Process)\s') {
+    throw 'Synthetic history preview must stay opt-in, preserve the real history reader, and disable all downloads.'
+}
+Write-Host 'PASS: real update preview supports safe missed-release and hotfix-only test data.'
+
+
 Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
 Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
 Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the viewport' $notesSource
