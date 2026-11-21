@@ -2373,7 +2373,7 @@ expect(
     and 'x := labelX + labelWidth + 4' in update_check
     and 'RedrawLauncherUpdateBadge()' in update_check
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
-    and 'IniWrite("1", DataFile, "ReadPublishedVersions", version)' in update_check
+    and 'IniWrite("1", path, "ReadPublishedVersions", version)' in update_check
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
     and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
@@ -2382,6 +2382,8 @@ expect(
     and 'StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)' in update_check
     and 'CountUnseenPublishedUpdateRecords(records, job.Installed)' in update_check
     and 'CheckUnreadPublishedReleaseCounts()' in launcher_smoke_tests
+    and 'MarkPublishedVersionRead("0.1.21-alpha.4", true, fixture)' in launcher_smoke_tests
+    and 'IsPublishedVersionRead("0.1.21-alpha.3", fixture)' in launcher_smoke_tests
     and 'LauncherUpdateButton' not in update_check
     and 'LauncherUpdateDismissedVersion' not in update_check
     and 'Chr(0x25CF)' not in update_check
@@ -2427,7 +2429,7 @@ expect(
     and 'MarkPublishedVersionRead(latestVersion, true)' in update_dialogs
     and 'SetLauncherDemoUnreadCount(count)' in update_dialogs
     and 'IsPublishedVersionRead(version)' in update_check
-    and 'IniRead(DataFile, "ReadPublishedVersions", version, "")' in update_check
+    and 'IniRead(path, "ReadPublishedVersions", version, "")' in update_check
     and 'LauncherUpdateNumber.Visible := false' in update_check
     and 'for slot in [1, 2, 3, 4]' in update_dialogs
     and 'up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22),' in update_dialogs
