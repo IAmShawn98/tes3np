@@ -95,8 +95,10 @@ Require-Source 'kind = "hotfix" \? "hotfix" : "release", 118\)' 'tabs follow the
 Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, tabs.Switch, 0, 28\)' 'note viewport keeps a distinct frame and scroll region' $dialogSource
 Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'existing version status retains its tab position' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0\)' 'status panel retains original note geometry' $notesSource
-Require-Source 'AddStyledButton\(preview, 330, 568, 140, 34, "Close"' 'offline preview has a single safe close button' $dialogSource
-Require-Source 'AddStyledButton\(preview, 32, 568, 230, 34, "Continue to Download"' 'real update confirmation remains available' $dialogSource
+Require-Source 'AddStyledButton\(preview, 32, 568, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
+Require-Source 'AddStyledButton\(preview, 233, 568, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
+Require-Source 'MsgBox\("Update downloads are disabled for this preview\."' 'offline update button cannot download anything' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update proceeds to existing confirmation gates' $dialogSource
 if ((123 + 147) -ge 291 -or (371 + 167) -ge 555 -or
     (555 + 215) -gt 800 -or
     (20 + 42) -ge 80 -or
@@ -115,6 +117,12 @@ if ($dialogSource.Contains('"Installed: v" installedVersion') -or
     throw 'Update preview contains clipped metadata or redundant instructions.'
 }
 Write-Host 'PASS: compact preview separates title, metadata, tabs, notes and action row.'
+if ($dialogSource.Contains('"Continue to Download"') -or
+    $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"') -or
+    $dialogSource.Contains('AddStyledButton(preview, 330, 568, 140, 34, "Close"')) {
+    throw 'Update preview footer must show only Update Now and Not Now.'
+}
+Write-Host 'PASS: preview footer has two actions, with download still confirmation-gated.'
 
 Require-Source 'ReadVersionReleaseNotes\(originalVersion\)' 'original feature release notes survive hotfixes' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
@@ -363,7 +371,9 @@ if (!$bootstrapSource.Contains('OnMessage(0x8042, HandleLauncherHistoryTestMessa
     !$dialogSource.Contains('ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)') -or
     !$dialogSource.Contains('history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)') -or
     !$dialogSource.Contains('if synthetic') -or
-    !$dialogSource.Contains('AddStyledButton(preview, 330, 568, 140, 34, "Close"') -or
+    !$dialogSource.Contains('MsgBox("Update downloads are disabled for this preview."') -or
+    !$dialogSource.Contains('AddStyledButton(preview, 32, 568, 185, 34, "Update Now"') -or
+    !$dialogSource.Contains('AddStyledButton(preview, 233, 568, 155, 34, "Not Now"') -or
     $dialogSource.Contains('TEST DATA ONLY') -or
     !$historyHelper.Contains('SendMessageTimeout(') -or
     !$historyHelper.Contains('FindWindow(') -or
