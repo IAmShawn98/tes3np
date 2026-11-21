@@ -1088,7 +1088,7 @@ CheckCompactPublishedPreviewViewport()
                 switcher, 0, 100, true, true, true)
             if !IsObject(switcher.Update)
                 throw Error("Compact preview scroll-update callback was not initialized.")
-            borderFound := false, down := 0
+            borderFound := false, up := 0, down := 0, track := 0, thumb := 0
             for control in panel
             {
                 control.GetPos(&cx, &cy, &cw, &ch)
@@ -1097,13 +1097,31 @@ CheckCompactPublishedPreviewViewport()
                     && Abs(cw - Round(554 * scale)) <= 1
                     && Abs(ch - Round(305 * scale)) <= 1
                     borderFound := true
+                if control.Text = "↑"
+                    up := control
                 if control.Text = "↓"
                     down := control
+                if Abs(cx - Round(561 * scale)) <= 1
+                    && Abs(cw - Round(16 * scale)) <= 1
+                    && ch > Round(100 * scale)
+                    track := control
+                if Abs(cx - Round(565 * scale)) <= 1
+                    && Abs(cw - Round(8 * scale)) <= 1
+                    thumb := control
             }
             if !borderFound
                 throw Error("Compact gold viewport does not match the reference card bounds.")
-            if !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
-                throw Error("Compact preview scroll-down control is missing.")
+            if !IsObject(up) || !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
+                || !IsObject(track) || !IsObject(thumb)
+                throw Error("Compact preview scrollbar controls are missing.")
+            ; Track and thumb must be wholly between the arrows, not painted
+            ; beneath the upper button as in the regressed production preview.
+            up.GetPos(, &upY, , &upHeight)
+            down.GetPos(, &downY)
+            track.GetPos(, &trackY, , &trackHeight)
+            if trackY < upY + upHeight + Max(1, Round(2 * scale))
+                || trackY + trackHeight > downY - Max(1, Round(2 * scale))
+                throw Error("Compact scrollbar track overlaps an arrow button.")
             ; Full-sized initial preview must show the first heading and last
             ; fix simultaneously, with no orphan scrollbar when content fits.
             if percent = 82 || percent = 100
@@ -1124,6 +1142,11 @@ CheckCompactPublishedPreviewViewport()
                     throw Error("No-scroll compact notes should not display orphan scrollbar arrows.")
             }
             switcher.Update.Call(sections.Expanded)
+            if !track.Visible || !thumb.Visible
+                throw Error("Expanded changelog did not show the scroll track and thumb.")
+            thumb.GetPos(, &thumbY, , &thumbHeight)
+            if thumbY < trackY || thumbY + thumbHeight > trackY + trackHeight
+                throw Error("Compact scrollbar thumb extends outside its track.")
             seenOlder := false
             Loop 100
             {
