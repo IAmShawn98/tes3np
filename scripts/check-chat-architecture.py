@@ -2392,7 +2392,7 @@ expect(
     and 'assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir' in launcher_smoke_tests
     and 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle.png"' in launcher_smoke_tests
     and 'if !FileExist(badgeAsset)' in launcher_smoke_tests
-    and 'physical := Max(16, Round((21 + 6 * (digits - 1)) * scale))' in update_check
+    and 'physical := Max(20, Round((21 + 6 * (digits - 1)) * scale))' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
