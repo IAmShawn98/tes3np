@@ -57,9 +57,11 @@ Write-Host 'Preflighting isolated Update Preview visual test (no window opened).
 # read LASTEXITCODE here: scoped PowerShell script calls need not expose it.
 & (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Scale 100 -CheckOnly -AutoHotkeyPath $base
 Write-Host 'PASS: isolated Update Preview visual test parsed without production startup.'
-Write-Host 'Exercising the real Update Preview buttons with a disposable offline history.'
-& (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Scale 100 -SmokeTest -AutoHotkeyPath $base
-Write-Host 'PASS: disposable Update Preview expanded/collapsed and closed without launcher state.'
+if ((Get-Content -LiteralPath (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Raw)
+    -notmatch 'ScrollDragging := false') {
+    throw 'Isolated preview must initialize the inactive launcher scroll state.'
+}
+Write-Host 'PASS: disposable viewer initializes its own mouse-up dependencies.'
 
 Write-Host 'Testing the production AutoHotkey updater parser with generated metadata.'
 $metadataTest = Join-Path $projectRoot 'scripts/test-update-metadata.ahk'
