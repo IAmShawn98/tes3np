@@ -96,12 +96,14 @@ Require-Source 'notesSpace := 100' 'upper changelog is taller without overlappin
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'production popup uses actual launcher scale rather than an 81.5% miniature' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(panel, installedVersion, latestVersion, channel, compact := false\)' 'legacy metadata geometry remains testable' $dialogSource
-Require-Source 'baseX := compact \? 44 : 30' 'metadata has 24px or more of compact ribbon side padding' $dialogSource
-Require-Source 'rightEdge := compact \? 556 : 770' 'metadata row has balanced side padding' $dialogSource
+Require-Source 'baseX := compact \? 48 : 30' 'metadata has 28px or more of compact ribbon side padding' $dialogSource
+Require-Source 'rightEdge := compact \? 552 : 770' 'metadata row has balanced side padding' $dialogSource
 Require-Source 'baseX := Round\(\(600 - fullWidth\) / 2\)' 'all three labels are centered as one group' $dialogSource
 Require-Source 'for fontSize in \[9, 8, 7, 6\]' 'compact metadata adaptively measures smaller fonts before reflowing' $dialogSource
-Require-Source 'measuredWidth <= 512' 'metadata font is selected to fit all three columns' $dialogSource
-Require-Source 'gap := compact \? 16 : 18' 'compact ribbon has gold-divider gaps without unnecessary wrapping' $dialogSource
+Require-Source 'probe.SetFont\("s" fontSize " Bold cE7BE70", "Segoe UI"\)' 'compact width measurement uses bold gold reference typography' $dialogSource
+Require-Source 'panel.SetFont\(compact \? "s" compactFontSize " Bold cE7BE70"' 'reference ribbon uses warm gold text instead of near-white' $dialogSource
+Require-Source 'measuredWidth <= 504' 'metadata font is selected to fit all three columns' $dialogSource
+Require-Source 'gap := compact \? 24 : 18' 'compact ribbon has gold-divider gaps without unnecessary wrapping' $dialogSource
 Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 32\)' 'wrapped channel label remains centered' $dialogSource
 Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed version naturally measures its width' $dialogSource
 Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest version naturally measures its width' $dialogSource
