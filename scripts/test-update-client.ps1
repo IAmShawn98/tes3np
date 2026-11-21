@@ -515,22 +515,27 @@ Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (
 Require-Source 'LauncherVersionLabel := LauncherGui\.Add\("Text", "x12 y691 BackgroundTrans", "tes3np' 'version caption is measured without fixed dimensions'
 Require-Source 'LauncherVersionLabel\.GetPos\(, , &naturalWidth\)' 'version caption natural width is captured'
 Require-Source 'LauncherVersionLabel\.Move\(, , Ceil\(naturalWidth \* 1\.125\) \+ 4, 18\)' 'version label height applied after width measurement with 50 percent headroom'
-Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge follows rendered version width'
-Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
+Require-Source 'label.GetPos\(&labelX, , &labelWidth\)' 'measured badge positioning reads actual version label bounds' $source
+Require-Source 'x := GetLauncherUnreadBadgeX\(LauncherVersionLabel, 1\)' 'initial badge anchors to rendered caption instead of padded label width' $source
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
+Require-Source 'textPixels := MeasureMissedUpdateTextWidth\(label, label.Text\)' 'badge uses native GDI text width, not text-control padding' $source
+Require-Source 'x := GetLauncherUnreadBadgeX\(LauncherVersionLabel, scale\)' 'badge realigns after launcher-scale changes' $source
+Require-Source 'if LauncherUpdateNumber.Text = value && oldWidth = diameter[\s\S]*oldHeight = diameter && oldX = x' 'badge repositions even if count and size stay unchanged' $source
+Require-Source 'CheckUnreadBadgeTextAdjacency\(\)' 'native test checks gap after rendered text at 50 and 100 percent' $badgeHarness
+Require-Source 'screenGap := Round\(\(badgeX - labelX\) \* dpi - textPixels\)' 'native smoke measures actual text-to-badge separation' $badgeHarness
 Require-Source 'GetDpiForWindow' 'badge size is calibrated from actual Windows DPI' $source
 Require-Source 'ReleaseNoteFits\(LauncherUpdateNumber, LauncherUpdateNumber.Text,' 'numeric badge checks actual rendered digit width' $source
 Require-Source 'ReleaseNoteLineHeight\(LauncherUpdateNumber\) <= availableHeight' 'numeric badge shrinks font before vertical clipping' $source
 Require-Source 'innerWidth := Max\(1, Round\(diameter \* 0\.72\)\)' 'number inset uses the largest safe width inside the circle' $source
 Require-Source 'x" x " y689 w22 h22 \+0x40 BackgroundTrans' 'Picture control scales the circular bitmap to fit its resized bounds' $source
-Require-Source 'if width > 26' 'native GUI smoke rejects any oversized badge in physical screen pixels' $badgeHarness
+Require-Source 'if width > 30' 'native GUI smoke rejects oversized circles while permitting 27 pixels' $badgeHarness
 Require-Source 'badge := panel.Add\("Picture"' 'smoke tests the real Picture renderer, not a surrogate Text control' $badgeHarness
 Require-Source 'assetRoot := A_IsCompiled \? BundledResourceRoot : A_ScriptDir' 'compiled GUI smoke reads the extracted resource root' $badgeHarness
 Require-Source 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle\.png"' 'badge smoke loads its PNG from the runtime asset folder' $badgeHarness
 Require-Source 'if !FileExist\(badgeAsset\)' 'native smoke diagnoses missing bundled badge art before creating a Picture' $badgeHarness
 Require-Source 'badgeAsset\)' 'native smoke uses the verified PNG path when adding its Picture control' $badgeHarness
-Require-Source 'physical := Max\(16, Round\(\(18 \+ 5 \* \(digits - 1\)\) \* scale\)\)' 'two-digit footer circle targets 23 rendered pixels, not 48px source art' $source
+Require-Source 'physical := Max\(16, Round\(\(21 \+ 6 \* \(digits - 1\)\) \* scale\)\)' 'two-digit footer circle targets 27 physical pixels, slightly larger than previous 23' $source
 Require-Source 'LauncherUpdateBadge.Move\(x, centeredY, diameter, diameter\)' 'numeric badge remains square in geometry and round in rendering' $source
 Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
