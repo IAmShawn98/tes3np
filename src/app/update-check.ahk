@@ -313,26 +313,12 @@ PollLauncherUnreadReleaseCount(*)
                 latestFound := true
         if !latestFound
             throw Error("Unread count did not include the verified latest release.")
-        baseline := job.Installed
         seen := IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "")
-        try
-        {
-            if seen != "" && ParseTes3npVersion(seen).Channel = ParseTes3npVersion(job.Installed).Channel
-                && CompareUpdateNoteVersions(seen, baseline) > 0
-                baseline := seen
-        }
-        catch Error
-        {
-            ; Invalid or outdated saved state cannot change the count.
-            baseline := job.Installed
-        }
-        count := 0
-        for record in records
-            if CompareUpdateNoteVersions(record.Version, baseline) > 0
-                count += 1
+        unread := CountUnseenPublishedUpdateRecords(records, job.Installed, seen)
+        count := unread.Count
         if LauncherObservedUpdateVersion = job.Latest && !HasSeenUpdateAutoPreview(job.Latest)
             SetLauncherUpdateAvailable(true, job.Latest, count)
-        LogLauncherEvent("UPDATE | Verified " count " unread published release(s) since v" baseline ".")
+        LogLauncherEvent("UPDATE | Verified " count " unread published release(s) since v" unread.Baseline ".")
     }
     catch Error as err
         LogLauncherEvent("UPDATE | Unread published-release count unavailable (" Type(err) ").")
@@ -344,6 +330,30 @@ CleanupUnreadReleaseCountFiles(job)
 {
     try FileDelete(job.ReleaseFile)
     try FileDelete(job.HotfixFile)
+}
+
+; Pure version-counting rule, shared by the asynchronous updater and
+; disposable offline smoke tests. A viewed version raises the lower bound;
+; the installed version is always excluded, never counted as missed.
+CountUnseenPublishedUpdateRecords(records, installed, lastViewed := "")
+{
+    baseline := installed
+    try
+    {
+        if lastViewed != ""
+            && ParseTes3npVersion(lastViewed).Channel = ParseTes3npVersion(installed).Channel
+            && CompareUpdateNoteVersions(lastViewed, baseline) > 0
+            baseline := lastViewed
+    }
+    catch Error
+    {
+        baseline := installed
+    }
+    count := 0
+    for record in records
+        if CompareUpdateNoteVersions(record.Version, baseline) > 0
+            count += 1
+    return {Count: count, Baseline: baseline}
 }
 
 HasSeenUpdateAutoPreview(version)
