@@ -64,10 +64,9 @@ ApplyLauncherBadgeFont(scale, sample := 0)
     number := IsObject(sample) ? sample : LauncherUpdateNumber
     if !IsObject(number)
         return
-    ; Make the numeral easier to read WITHOUT enlarging or moving its red
-    ; circle. Start with a bolder, more legible point size; the native glyph
-    ; measurements still reduce it if either digit would clip at Windows DPI.
-    size := Max(6, Round(12 * scale / GetLauncherBadgeDpiScale()))
+    ; Use more of the existing red circle for visibly larger white digits.
+    ; Measure the actual native glyphs and back off only if they would clip.
+    size := Max(6, Round(16 * scale / GetLauncherBadgeDpiScale()))
     bounds := Buffer(16, 0)
     if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
         "Ptr", bounds, "Int")
@@ -94,8 +93,8 @@ ApplyLauncherBadgeFont(scale, sample := 0)
     }
 }
 
-; Clip the native red Text control to a circle after its final DPI/launcher
-; scale has been applied. Windows owns the transferred GDI region lifetime.
+; Clip both the red Picture and its numeral Text overlay to true circles.
+; Windows owns the transferred GDI region lifetime.
 ShapeCircularUpdateBadge(control)
 {
     if !IsObject(control) || !DllCall("user32\IsWindow", "Ptr", control.Hwnd, "Int")
@@ -235,14 +234,14 @@ SetLauncherUnreadBadgeNumber(count)
     LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels " "
         . A_ScriptDir "\assets\controls\update-unread-circle.png"
     LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)
-    ; The number overlay is strictly INSIDE the circle, so its rectangular
-    ; background never shows square red corners outside the round image.
-    ; These inset corners are inside the circle (0.36² + 0.34² < 0.5²).
-    innerWidth := Max(1, Round(diameter * 0.72))
-    innerHeight := Max(1, Round(diameter * 0.68))
+    ; Give the numeral a larger, concentric circular overlay. Clip its red
+    ; background too, so there are no square corners around the PNG circle.
+    innerWidth := Max(1, Round(diameter * 0.90))
+    innerHeight := innerWidth
     LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
         centeredY + Floor((diameter - innerHeight) / 2), innerWidth, innerHeight)
     LauncherUpdateNumber.Text := value
+    ShapeCircularUpdateBadge(LauncherUpdateNumber)
     ApplyLauncherBadgeFont(scale)
     ShapeCircularUpdateBadge(LauncherUpdateBadge)
     if wasVisible
