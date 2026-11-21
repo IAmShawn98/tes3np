@@ -238,7 +238,7 @@ Write-Host 'PASS: release dialog avoids redundant full-window repaint.'
 Require-Source 'face.Window = panel.Hwnd' 'release repaint is scoped to the active panel' $dialogSource
 Require-Source 'PaintButtonNow\(handle\)' 'themed button faces are explicitly painted' $dialogSource
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
-Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\), premium\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
+Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\), premium, compactLayout, scale\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
 Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
 Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
