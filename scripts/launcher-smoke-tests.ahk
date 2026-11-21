@@ -189,7 +189,7 @@ CheckGameLoginCardMoveTracking(game, card, layout)
                 Sleep(10)
             WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
             if x != layout.X + offset || y != layout.Y + offset || width != layout.Width || height != layout.Height
-                return ReportLoginCardSmokeFailure("tracking: follow moved game window")
+                return ReportLoginCardSmokeFailure("tracking: follow moved game window | offset=" offset " trackedGameX=" card.ProgressLayout.GameWindow.X " actualGameX=" GetGameLoginProgressWindow(game.Hwnd).X " expectedCardX=" (layout.X + offset) " actualCardX=" x " expectedCardY=" (layout.Y + offset) " actualCardY=" y)
         }
     }
     finally
