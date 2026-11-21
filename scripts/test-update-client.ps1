@@ -94,8 +94,10 @@ Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVer
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 600, 556\)' 'preview matches reference modal proportions' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(panel, installedVersion, latestVersion, channel, compact := false\)' 'legacy metadata geometry remains testable' $dialogSource
-Require-Source 'baseX := compact \? 40 : 30' 'metadata supports compact and legacy starting positions' $dialogSource
-Require-Source 'rightEdge := compact \? 568 : 770' 'metadata wraps within compact 600px modal' $dialogSource
+Require-Source 'baseX := compact \? 44 : 30' 'metadata has 24px or more of compact ribbon side padding' $dialogSource
+Require-Source 'rightEdge := compact \? 556 : 770' 'metadata row has balanced side padding' $dialogSource
+Require-Source 'baseX := Round\(\(600 - fullWidth\) / 2\)' 'all three labels are centered as one group' $dialogSource
+Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 32\)' 'wrapped channel label remains centered' $dialogSource
 Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed version naturally measures its width' $dialogSource
 Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest version naturally measures its width' $dialogSource
 Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'channel naturally measures its width' $dialogSource
@@ -103,9 +105,9 @@ Require-Source 'installed.Move\(, , installedWidth, 26\)' 'installed field sets 
 Require-Source 'latest.Move\(, , latestWidth, 26\)' 'latest field sets height only after natural measurement' $dialogSource
 Require-Source 'channelText.Move\(, , channelWidth, 26\)' 'channel field sets height only after natural measurement' $dialogSource
 Require-Source 'if channelX \+ channelWidth <= rightEdge' 'metadata keeps three columns when they fit' $dialogSource
-Require-Source 'channelText.Move\(baseX, labelY \+ 32\)' 'wrapped metadata supports a second row' $dialogSource
-Require-Source 'channelText.Move\(baseX, labelY \+ 64\)' 'wrapped metadata supports a third row' $dialogSource
-Require-Source 'metadataBorder.Move\(, , , 36 \+ rowExtra\)' 'gold metadata border grows with wrapped versions' $dialogSource
+Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 32\)' 'wrapped metadata supports a centered second row' $dialogSource
+Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 64\)' 'wrapped metadata supports a centered third row' $dialogSource
+Require-Source 'metadataBorder.Move\(, , , 40 \+ rowExtra\)' 'gold metadata border retains vertical padding with wrapped versions' $dialogSource
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows if longer versions require rows' $dialogSource
 Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
 Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h365 BackgroundC5A45C"\)' 'notes and earlier history share a continuous reference-sized gold frame' $dialogSource
@@ -115,7 +117,13 @@ Require-Source '"View earlier changes"' 'gold text link replaces the former top-
 Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Latest\)' 'earlier history toggle preserves all missed versions' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'only the latest missed hotfix is initially scrolled' $dialogSource
 Require-Source 'noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0\)' 'compact layout supports pinned earlier summary' $dialogSource
-Require-Source 'ShapeCircularUpdateBadge\(latestBadge\)' 'latest update badge remains circular' $dialogSource
+Require-Source 'A_ScriptDir "\\assets\\controls\\update-badge\.png"' 'update preview uses a true transparent circular badge bitmap' $dialogSource
+if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf)) {
+    throw 'Transparent circular update badge artwork is missing.'
+}
+if (!(Get-Content -LiteralPath 'scripts/generate-bundled-resources.py' -Raw).Contains('"assets/controls/update-badge.png"')) {
+    throw 'Standalone launcher build must include its circular notification artwork.'
+}
 Require-Source 'actionY := 511 \+ rowExtra' 'reference-aligned actions follow wrapped metadata' $dialogSource
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'update button is centered under the card' $dialogSource
 Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now is centered beside Update Now' $dialogSource

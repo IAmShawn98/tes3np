@@ -146,7 +146,7 @@ BuildPublishedPreviewSections(records)
         Loop earlierCount
         {
             oldRecord := records[A_Index + 1]
-            earlierLabels.Push(oldRecord.Label)
+            earlierLabels.Push("v" oldRecord.Version)
             compact .= "`n- " oldRecord.Label
             expanded .= "`n`n#### " oldRecord.Label
                 . "`n" BuildCategorizedUpdateNotes([oldRecord], false)
@@ -511,9 +511,14 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     viewWidth := compactLayout ? 560 : 744
     viewHeight := compactLayout ? (fixedEarlier ? 207 : 330) : 367 + bottomExtra - topExtra
     viewport := panel.Add("Text", "x" px(viewX) " y" px(viewY)
-        . " w" px(viewWidth) " h" px(viewHeight) " BackgroundC5A45C")
-    panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)
-        . " w" px(viewWidth - 4) " h" px(viewHeight - 4) " Background171008")
+        . " w" px(viewWidth) " h" px(viewHeight)
+        . (compactLayout ? " Background171008" : " BackgroundC5A45C"))
+    ; The preview already has one continuous outer gold changelog frame.
+    ; A second frame directly beneath Latest Hotfix looked like a separate
+    ; box and stole vertical space; Version Status retains its old frame.
+    if !compactLayout
+        panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)
+            . " w" px(viewWidth - 4) " h" px(viewHeight - 4) " Background171008")
     firstY := px(compactLayout ? 178 + topExtra : 170 + topExtra)
     bottomY := px(compactLayout ? (fixedEarlier ? 373 : 480) + topExtra : 516 + bottomExtra)
     left := px(compactLayout ? 40 : 42)

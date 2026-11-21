@@ -2399,8 +2399,9 @@ expect(
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
     and 'BuildPublishedPreviewSections(records)' in update_notes
     and 'noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Latest)' in update_dialogs
-    and 'metadataBorder.Move(, , , 36 + rowExtra)' in update_dialogs
-    and 'ShapeCircularUpdateBadge(latestBadge)' in update_dialogs
+    and 'metadataBorder.Move(, , , 40 + rowExtra)' in update_dialogs
+    and 'A_ScriptDir "\\assets\\controls\\update-badge.png"' in update_dialogs
+    and 'fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs
     and 'Loop capacity - 1' in update_notes,
 )
