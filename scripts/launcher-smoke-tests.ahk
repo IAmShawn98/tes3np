@@ -935,22 +935,23 @@ CheckUnreadPublishedReleaseCounts()
         {Version: "0.1.21-alpha.2"},
         {Version: "0.1.21-alpha.1"}
     ]
-    scenarios := [
-        {Viewed: "", Expected: 4},
-        {Viewed: "0.1.21-alpha.1", Expected: 3},
-        {Viewed: "0.1.21-alpha.2", Expected: 2},
-        {Viewed: "0.1.21-alpha.3", Expected: 1},
-        {Viewed: "0.1.21-alpha.4", Expected: 0},
-        {Viewed: "not-a-version", Expected: 4},
-        {Viewed: "0.1.21-beta.4", Expected: 4}
-    ]
-    for item in scenarios
+    seen := Map()
+    expected := 4
+    if CountUnseenPublishedUpdateRecords(records, "0.1.21-alpha", seen).Count != expected
+        throw Error("Four published releases must start as four separate unread receipts.")
+    ; Reading the offered newest version must NOT clear the three older ones.
+    for version in ["0.1.21-alpha.4", "0.1.21-alpha.2",
+        "0.1.21-alpha.1", "0.1.21-alpha.3"]
     {
-        result := CountUnseenPublishedUpdateRecords(records, "0.1.21-alpha", item.Viewed)
-        if result.Count != item.Expected
-            throw Error("Unread published-release counter returned " result.Count
-                " instead of " item.Expected " after viewing v" item.Viewed ".")
+        seen[version] := true
+        expected -= 1
+        if CountUnseenPublishedUpdateRecords(records, "0.1.21-alpha", seen).Count != expected
+            throw Error("Reading " version " cleared another version's notification.")
     }
+    ; Installed and duplicate published versions cannot double-count.
+    records.Push({Version: "0.1.21-alpha"}, {Version: "0.1.21-alpha.4"})
+    if CountUnseenPublishedUpdateRecords(records, "0.1.21-alpha", Map()).Count != 4
+        throw Error("Installed or duplicated releases incorrectly inflated the unread count.")
     ; A multi-digit badge stays round: its horizontal and vertical
     ; dimensions grow together at the same saved launcher scale.
     for percent in [50, 100]
@@ -1335,7 +1336,17 @@ CheckMissedUpdateLinkViewport()
             items := sections.MissedVersions
             if count = 1
                 items := [{Version: items[1].Version,
-                    Label: items[1].Label " (unreleased draft)", Url: ""}]
+                    Label: items[1].Label " (unreleased draft)",
+                    DisplayVersion: items[1].Label " (unreleased draft)", Url: ""}]
+            if count = 24
+            {
+                Loop count
+                {
+                    items[A_Index].Prefix := "DEMO " Format("{:02}", A_Index) " — "
+                    items[A_Index].DisplayVersion := "v" items[A_Index].Version
+                    items[A_Index].Key := "demo-" Format("{:02}", A_Index)
+                }
+            }
             observer := {}
             unregister := 0
             try
@@ -1344,7 +1355,8 @@ CheckMissedUpdateLinkViewport()
                 unregister := AddMissedUpdateLinks(panel, items,
                     scale, 0, 100, heading, observer)
                 if !IsObject(observer.Refresh) || observer.Rows.Length != 4
-                    || observer.Badges.Length != 4
+                    || observer.Badges.Length != 4 || observer.Prefixes.Length != 4
+                    || !IsObject(observer.Clear)
                     throw Error("Missed-updates viewport did not initialize its rows.")
                 ; This previously passed because the smoke test contained no
                 ; heading: the list was drawn five pixels over its last glyphs.
@@ -1405,7 +1417,7 @@ CheckMissedUpdateLinkViewport()
                         throw Error("Actual draft missed-update entry is vertically clipped.")
                 }
 
-                scrollExpected := count > observer.Page.VisibleRows
+                scrollExpected := count + 1 > observer.Page.VisibleRows
                 if (observer.Track.Visible || observer.Thumb.Visible
                     || observer.Up.Visible || observer.Down.Visible) != scrollExpected
                     throw Error("Missed-updates arrows and scrollbar must appear together only when scrolling is needed.")
@@ -1417,7 +1429,7 @@ CheckMissedUpdateLinkViewport()
                 if trackY < upY + upHeight + Max(1, Round(2 * scale))
                     || trackY + trackHeight > downY - Max(1, Round(2 * scale))
                     throw Error("Missed-update scrollbar track overlaps a themed arrow.")
-                if count > observer.Page.VisibleRows
+                if count + 1 > observer.Page.VisibleRows
                 {
                     observer.Page.Offset := observer.Page.MaxOffset
                     observer.Refresh.Call()
@@ -1431,6 +1443,35 @@ CheckMissedUpdateLinkViewport()
                     observer.Thumb.GetPos(, &thumbY, , &thumbHeight)
                     if thumbY < trackY || thumbY + thumbHeight > trackY + trackHeight
                         throw Error("Missed-updates scrollbar thumb escapes the track.")
+                }
+                ; Clear belongs to the LAST scroll position. It never
+                ; replaces the historical rows or creates a fixed footer.
+                observer.Page.Offset := observer.Page.MaxOffset
+                observer.Refresh.Call()
+                if !observer.Clear.Visible
+                    throw Error("Clear action must scroll into view after the last release.")
+                observer.Clear.GetPos(, &clearY)
+                if clearY < listY || clearY >= listY + listHeight
+                    throw Error("Clear action escaped the scrolling history panel.")
+                if count >= 7
+                {
+                    ; Only one distinct demo/read receipt is cleared.
+                    observer.Page.Offset := 1
+                    observer.Refresh.Call()
+                    first := items[1]
+                    MarkMissedUpdateItemRead(observer.Page, first)
+                    observer.Refresh.Call()
+                    if !IsMissedUpdateRead(observer.Page, first)
+                        || observer.Badges[1].Visible
+                        throw Error("Click-to-read hid the entry or left its red notification visible.")
+                    ClearMissedUpdateBadges(observer.Page)
+                    for item in items
+                        if !IsMissedUpdateRead(observer.Page, item)
+                            throw Error("Clear failed to mark all missed versions read.")
+                    observer.Page.Offset := 1
+                    observer.Refresh.Call()
+                    if !observer.Rows[1].Visible || observer.Badges[1].Visible
+                        throw Error("Clear must preserve visible links while hiding their red badge.")
                 }
             }
             finally
