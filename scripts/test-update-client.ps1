@@ -88,9 +88,9 @@ Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 620
 Require-Source 'x30 y20 w740 h42 BackgroundTrans", title' 'title has its own line' $dialogSource
 Require-Source 'x30 y80 w90 h26 BackgroundTrans", "Installed:"' 'installed label has separate bounds' $dialogSource
 Require-Source 'x123 y80 w147 h26 BackgroundTrans", "v" installedVersion' 'installed version is fully visible' $dialogSource
-Require-Source 'x291 y80 w70 h26 BackgroundTrans", "Latest:"' 'latest label has separate bounds' $dialogSource
-Require-Source 'x371 y80 w167 h26 BackgroundTrans", "v" latestVersion' 'latest version is fully visible' $dialogSource
-Require-Source 'x555 y80 w215 h26 BackgroundTrans", "Channel: "' 'channel keeps its own column' $dialogSource
+Require-Source 'x272 y80 w70 h26 BackgroundTrans", "Latest:"' 'latest label has separate bounds' $dialogSource
+Require-Source 'x346 y80 w167 h26 BackgroundTrans", "v" latestVersion' 'latest version is fully visible' $dialogSource
+Require-Source 'x518 y80 w252 h26 BackgroundTrans", "Channel: "' 'channel keeps its own column' $dialogSource
 Require-Source 'kind = "hotfix" \? "hotfix" : "release", 118\)' 'tabs follow the metadata row' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, tabs.Switch, 0, 28\)' 'note viewport keeps a distinct frame and scroll region' $dialogSource
 Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'existing version status retains its tab position' $dialogSource
@@ -99,8 +99,10 @@ Require-Source 'AddStyledButton\(preview, 32, 568, 185, 34, "Update Now"' 'updat
 Require-Source 'AddStyledButton\(preview, 233, 568, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
 Require-Source 'MsgBox\("Update downloads are disabled for this preview\."' 'offline update button cannot download anything' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update proceeds to existing confirmation gates' $dialogSource
-if ((123 + 147) -ge 291 -or (371 + 167) -ge 555 -or
-    (555 + 215) -gt 800 -or
+if ((123 + 147) -ge 272 -or (272 + 70) -ge 346 -or
+    (346 + 167) -ge 518 -or (518 + 252) -gt 800 -or
+    (272 - (123 + 147)) -gt 8 -or
+    (518 - (346 + 167)) -gt 8 -or
     (20 + 42) -ge 80 -or
     (80 + 26) -ge 118 -or
     (118 + 30) -ge 158 -or
