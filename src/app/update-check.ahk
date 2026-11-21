@@ -64,10 +64,33 @@ ApplyLauncherBadgeFont(scale)
     global LauncherUpdateNumber
     if !IsObject(LauncherUpdateNumber)
         return
-    ; GUI SetFont is DPI-aware. Match the actual physical circle instead of
-    ; rendering a 10pt glyph twice as large on high-DPI Windows displays.
-    size := Max(5, Round(9 * scale / GetLauncherBadgeDpiScale()))
-    LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+    ; Keep both white digits inside the SMALL physical circle. The old fixed
+    ; 10pt font overflowed the 24px numeral inset on high-DPI displays.
+    size := Max(4, Round(8 * scale / GetLauncherBadgeDpiScale()))
+    bounds := Buffer(16, 0)
+    if !DllCall("user32\GetClientRect", "Ptr", LauncherUpdateNumber.Hwnd,
+        "Ptr", bounds, "Int")
+    {
+        LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+        return
+    }
+    availableWidth := Max(1, NumGet(bounds, 8, "Int") - 1)
+    availableHeight := Max(1, NumGet(bounds, 12, "Int"))
+    Loop 6
+    {
+        LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+        try
+        {
+            if ReleaseNoteFits(LauncherUpdateNumber, LauncherUpdateNumber.Text,
+                availableWidth) && ReleaseNoteLineHeight(LauncherUpdateNumber) <= availableHeight
+                break
+        }
+        catch Error
+            break
+        if size <= 3
+            break
+        size -= 1
+    }
 }
 
 ; Clip the native red Text control to a circle after its final DPI/launcher
@@ -185,7 +208,8 @@ SetLauncherUnreadBadgeNumber(count)
     LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)
     ; The number overlay is strictly INSIDE the circle, so its rectangular
     ; background never shows square red corners outside the round image.
-    innerWidth := Max(1, Round(diameter * 0.68))
+    ; These inset corners are inside the circle (0.36² + 0.34² < 0.5²).
+    innerWidth := Max(1, Round(diameter * 0.72))
     innerHeight := Max(1, Round(diameter * 0.68))
     LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
         centeredY + Floor((diameter - innerHeight) / 2), innerWidth, innerHeight)
