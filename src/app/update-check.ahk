@@ -30,8 +30,7 @@ CreateLauncherVersionLabel()
 CreateLauncherUpdateBadge()
 {
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
-    LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
-    x := labelX + labelWidth + 4
+    x := GetLauncherUnreadBadgeX(LauncherVersionLabel, 1)
     ; A blank alpha-transparent red disk supplies a genuinely circular edge.
     ; The white number sits entirely inside the circle with no baked-in "1".
     LauncherUpdateBadge := LauncherGui.Add("Picture",
@@ -169,25 +168,51 @@ GetLauncherBadgeDpiScale()
     return Max(1, A_ScreenDPI / 96)
 }
 
+; Anchor to the actual RENDERED end of the version label, not the
+; deliberately padded Text-control width (which created the large gap).
+; GetTextExtentPoint32W returns device pixels; GUI GetPos uses DPI-aware
+; coordinates, so convert before composing the adjacent X position.
+GetLauncherUnreadBadgeX(label, scale)
+{
+    label.GetPos(&labelX, , &labelWidth)
+    dpi := GetLauncherBadgeDpiScale()
+    try
+    {
+        textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
+        textWidth := Ceil(textPixels / dpi)
+        if textWidth > 0
+            return labelX + Min(labelWidth, textWidth + 1) + Max(1, Round(3 * scale))
+    }
+    catch Error
+    {
+        ; A missing device context must not keep the launcher from loading.
+    }
+    ; Fall back to the unpadded original width, not the 12.5%-extended box.
+    return labelX + Round(Max(1, labelWidth - 4) / 1.125) + Max(1, Round(3 * scale))
+}
+
 LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
     ; At full launcher scale, "24" gets ~23 PHYSICAL pixels, not the
     ; image's 48px native size. Smaller launcher scales retain 16px min.
-    physical := Max(16, Round((18 + 5 * (digits - 1)) * scale))
+    physical := Max(16, Round((21 + 6 * (digits - 1)) * scale))
     return Max(1, Round(physical / GetLauncherBadgeDpiScale()))
 }
 
 SetLauncherUnreadBadgeNumber(count)
 {
-    global LauncherUpdateBadge, LauncherUpdateNumber, LauncherScale
+    global LauncherUpdateBadge, LauncherUpdateNumber, LauncherVersionLabel, LauncherScale
     if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherUpdateNumber)
+        || !IsObject(LauncherVersionLabel)
         return
     value := "" Max(1, Integer(count))
     scale := LauncherScale / 100
     diameter := LauncherUnreadBadgeDiameter(count, scale)
-    LauncherUpdateBadge.GetPos(&x, , &oldWidth, &oldHeight)
-    if LauncherUpdateNumber.Text = value && oldWidth = diameter && oldHeight = diameter
+    LauncherUpdateBadge.GetPos(&oldX, , &oldWidth, &oldHeight)
+    x := GetLauncherUnreadBadgeX(LauncherVersionLabel, scale)
+    if LauncherUpdateNumber.Text = value && oldWidth = diameter
+        && oldHeight = diameter && oldX = x
         return
     wasVisible := LauncherUpdateBadge.Visible
     if wasVisible
