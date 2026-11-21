@@ -13,11 +13,11 @@ Changes since the last public release, v0.1.21-alpha.
 
 ### Bug Fixes
 
-- **Expansion Pack:** You can still disable an installed pack if its verification check cannot be completed.
-- **Update windows:** Fixed version numbers running into each other, buttons sometimes appearing blank, and flickering when opening update details.
-- **Release notes:** Fixed text being cut off or poorly spaced when scrolling or switching between release notes and hotfix history.
-- **Update notifications:** Fixed the notification indicator appearing too far from the version number or leaving marks behind after changing.
-- **Update checks:** Fixed an issue that could stop the update preview from opening.
+- **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when a check failed.
+- **Update windows:** Fixed overlapping version numbers, blank buttons, and flickering.
+- **Release notes:** Fixed cut-off text and uneven spacing when viewing update details.
+- **Update notifications:** Fixed the red (1) and gold dot appearing too far from the version number or leaving marks behind.
+- **Update checks:** Fixed a problem that could stop the update window from opening.
 
 ## v0.1.21-alpha — unreleased
 
