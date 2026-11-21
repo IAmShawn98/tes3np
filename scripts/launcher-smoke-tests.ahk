@@ -997,7 +997,7 @@ CheckExpandablePublishedPreviewViewport()
         {
             ScaleOwnedMenuContent(panel, scale)
             unregister := AddUpdateNotesViewport(panel, sections.Compact, scale,
-                switcher, 44, 28)
+                switcher, 44, 28, true)
             if !IsObject(switcher.Update)
                 throw Error("Update preview has no expandable history viewport.")
             ; No earlier version's details should be in the compact notes.

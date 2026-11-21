@@ -2346,7 +2346,7 @@ expect(
     and "scale := GetUpdatePromptFitScale(panel)" in update_dialogs
     and "(width - 32) / panel.NativePromptWidth" in update_dialogs
     and "(height - 32) / panel.NativePromptHeight" in update_dialogs
-    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)))" in update_notes
+    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium)" in update_notes
     and 'return kind = "heading" ? "s12 Bold cE7BE70" : "s11 Norm cF4E9D6"' in update_notes
     and "ReleaseNoteLineHeight(sample)" in update_notes
     and "GetTextMetricsW" in update_notes
@@ -2416,7 +2416,7 @@ expect(
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
     and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w490 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
     and 'AddUpdateNotesViewport(preview, notes.Compact, scale,' in update_dialogs
-    and 'noteSwitcher, 44 + rowExtra, 28 + rowExtra)' in update_dialogs
+    and 'noteSwitcher, 44 + rowExtra, 28 + rowExtra, true)' in update_dialogs
     and 'actionY := 568 + rowExtra' in update_dialogs
     and 'AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"' in update_dialogs
