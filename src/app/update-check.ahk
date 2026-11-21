@@ -12,6 +12,7 @@ global LauncherUpdateDismissedVersion := ""
 global LauncherBadgeTestMode := false
 global LauncherBadgeTestState := "none"
 global LauncherBadgeTestWindowHwnd := 0
+global LauncherHistoryTestBusy := false
 
 CreateLauncherVersionLabel()
 {
@@ -317,4 +318,63 @@ HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)
     else
         SetLauncherUpdateAvailable(true, "0.1.22-alpha")
     return 1
+}
+
+; WM_APP + 0x42. This is a manual visual verification of the real update
+; preview UI, but with synthetic strings instead of GitHub release data.
+; Respond to PowerShell immediately: the dialog is opened by a timer, not
+; inside synchronous SendMessageTimeout.
+HandleLauncherHistoryTestMessage(scenario, unused, msg, hwnd)
+{
+    global LauncherBadgeTestMode, LauncherBadgeTestWindowHwnd, LauncherHistoryTestBusy
+    if !LauncherBadgeTestMode || hwnd != LauncherBadgeTestWindowHwnd
+        || !DllCall("user32\IsWindow", "Ptr", hwnd) || LauncherHistoryTestBusy
+        return 0
+    if scenario != 1 && scenario != 2
+        return 0
+    LauncherHistoryTestBusy := true
+    SetTimer(ShowLauncherHistoryTestPreview.Bind(scenario), -1)
+    return 1
+}
+
+ShowLauncherHistoryTestPreview(scenario)
+{
+    global LauncherBadgeTestMode, LauncherHistoryTestBusy
+    try
+    {
+        if !LauncherBadgeTestMode
+            return
+        if scenario = 1
+        {
+            installed := "0.1.20-alpha"
+            latest := "0.1.22-alpha.2"
+            kind := "update"
+            features := "### v0.1.22-alpha — SAMPLE RELEASE" "`n`n"
+                . "### New Features`n- **Launcher:** This is synthetic feature history for UI testing.`n"
+                . "- **Interface:** The newest feature release should appear first.`n`n"
+                . "### v0.1.21-alpha — SAMPLE RELEASE`n`n"
+                . "### Improvements`n- **Launcher:** This is an earlier simulated feature release."
+            Loop 18
+                features .= "`n- **Sample " A_Index ":** Extra synthetic notes to verify scrolling and wrapping."
+            hotfixes := "### v0.1.22-alpha.2 — SAMPLE HOTFIX`n`n"
+                . "### Bug Fixes`n- **Launcher:** Newer simulated hotfix.`n`n"
+                . "### v0.1.22-alpha.1 — SAMPLE HOTFIX`n`n"
+                . "### Bug Fixes`n- **Launcher:** Older simulated hotfix.`n`n"
+                . "### v0.1.21-alpha.1 — SAMPLE HOTFIX`n`n"
+                . "### Bug Fixes`n- **Launcher:** A simulated hotfix from an earlier feature version."
+        }
+        else
+        {
+            installed := "0.1.22-alpha.1"
+            latest := "0.1.22-alpha.2"
+            kind := "hotfix"
+            features := "No new feature releases since your installed version."
+            hotfixes := "### v0.1.22-alpha.2 — SAMPLE HOTFIX`n`n"
+                . "### Bug Fixes`n- **Launcher:** Only this simulated hotfix should appear."
+        }
+        ShowUpdatePreview(installed, latest, "alpha", kind,
+            {Release: features, Hotfix: hotfixes})
+    }
+    finally
+        LauncherHistoryTestBusy := false
 }
