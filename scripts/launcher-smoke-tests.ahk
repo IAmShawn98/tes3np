@@ -843,12 +843,42 @@ CheckDevelopmentReviewExecutablePaths()
     try FileAppend("PASS: root and local-build EXEs enable checkout preview; distributions stay disabled" Chr(10), "*")
 }
 
+; A closed update GUI must not crash a still-dispatching native mouse callback.
+; This reproduces WM_LBUTTONDOWN arriving after the modal is destroyed but
+; before its OnMessage callback has been removed from the global dispatcher.
+CheckUpdateNoteCallbackLifetime()
+{
+    dialog := Gui("-DPIScale", "Disposed update callback check")
+    viewport := dialog.Add("Text", "x0 y0 w40 h40", "")
+    track := dialog.Add("Text", "x40 y0 w12 h40", "")
+    thumb := dialog.Add("Text", "x40 y0 w12 h12", "")
+    dialogHwnd := dialog.Hwnd
+    viewportHwnd := viewport.Hwnd
+    trackHwnd := track.Hwnd
+    thumbHwnd := thumb.Hwnd
+    page := {MaxOffset: 2, Offset: 1, Closed: false}
+    drag := {Active: false, Timer: 0, PanelHwnd: dialogHwnd}
+    refresh := (*) => 0
+    dialog.Destroy()
+    if DllCall("user32\IsWindow", "Ptr", dialogHwnd, "Int")
+        throw Error("Disposed update test dialog was not destroyed.")
+    StartUpdateNotesDrag(dialogHwnd, thumbHwnd, trackHwnd, drag, page, refresh,
+        0, 0, 0, dialogHwnd)
+    UpdateNotesMouseWheel(viewportHwnd, page, refresh, 0, 0, 0, dialogHwnd)
+    page.Closed := true
+    StartUpdateNotesDrag(dialogHwnd, thumbHwnd, trackHwnd, drag, page, refresh,
+        0, 0, 0, dialogHwnd)
+    UpdateNotesMouseWheel(viewportHwnd, page, refresh, 0, 0, 0, dialogHwnd)
+    try FileAppend("PASS: native update mouse callbacks ignore destroyed modal HWNDs" Chr(10), "*")
+}
+
 ; The owned-menu probe already runs on Windows in CI. Use its disposable owner
 ; to exercise the real display refresh and release-note rows at both extremes.
 CheckDisplaySettingsAndReleaseNotes()
 {
     global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
     CheckDevelopmentReviewExecutablePaths()
+    CheckUpdateNoteCallbackLifetime()
     if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100
         || GetLauncherScaleForWorkArea(1280, 680, 1.5) != 60
         || GetLauncherScaleForWorkArea(1280, 680, 1.5, 100) != 63
