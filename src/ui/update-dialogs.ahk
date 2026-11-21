@@ -25,9 +25,10 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
 
 ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
-    ; Show only the published changes missed since the installed build,
-    ; grouped by their actual category, even for a hotfix-only update.
-    notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)
+    ; Show only published changes missed since this installed build. The
+    ; latest published release is prominent; earlier missed changes expand
+    ; on demand without hiding any published notes or changing updater gates.
+    notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
     response := {Download: false}
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)
     closeNotes := 0
@@ -36,14 +37,46 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h42 BackgroundTrans", title)
-        ; Use one measured metadata layout for both feature and hotfix
-        ; updates. Longer version numbers move the next item rather than
-        ; painting over its text. If needed, the extra row reflows the card.
+        ; Add the mockup's gold box behind the existing Installed / Latest /
+        ; Channel captions. Resize it together with the verified metadata
+        ; row-wrap logic instead of moving any original wording.
+        metadataBorder := preview.Add("Text", "x28 y74 w744 h34 BackgroundC5A45C")
+        metadataFill := preview.Add("Text", "x30 y76 w740 h30 Background171008")
         rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)
         if rowExtra
+        {
+            metadataBorder.Move(, , , 34 + rowExtra)
+            metadataFill.Move(, , , 30 + rowExtra)
             GrowGoldNativePrompt(preview, rowExtra)
+        }
         preview.SetFont("s12 Bold cC5A45C", "Georgia")
-        preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Changes in This Update")
+        preview.Add("Text", "x30 y" (118 + rowExtra) " w490 h30 BackgroundTrans", "Changes in This Update")
+        noteSwitcher := {Update: 0}
+        previewState := {Expanded: false}
+        if notes.Title != ""
+        {
+            preview.SetFont("s12 Bold cE7BE70", "Georgia")
+            preview.Add("Text", "x42 y" (161 + rowExtra) " w650 h30 BackgroundTrans", notes.Title)
+            preview.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+            latestBadge := preview.Add("Text", "x716 y" (163 + rowExtra)
+                . " w22 h22 Center +0x200 BackgroundD63232", "1")
+        }
+        if notes.EarlierCount > 0
+        {
+            showEarlier := AddStyledButton(preview, 536, 118 + rowExtra, 225, 29,
+                "View earlier changes", (*) => TogglePublishedPreviewHistory())
+            hideEarlier := AddStyledButton(preview, 536, 118 + rowExtra, 225, 29,
+                "Hide earlier changes", (*) => TogglePublishedPreviewHistory())
+            hideEarlier.Visible := false
+        }
+        TogglePublishedPreviewHistory()
+        {
+            previewState.Expanded := !previewState.Expanded
+            noteSwitcher.Update(previewState.Expanded ? notes.Expanded : notes.Compact)
+            showEarlier.Visible := !previewState.Expanded
+            hideEarlier.Visible := previewState.Expanded
+            PaintGoldUpdateDialogButtons(preview)
+        }
         ; Keep both actions together at the lower left, aligned with the
         ; notes panel. The real Update Now action still enters the existing
         ; download and install confirmation flow outside this window.
@@ -55,7 +88,10 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
-        closeNotes := AddUpdateNotesViewport(preview, notes, scale, 0, rowExtra, 28 + rowExtra)
+        closeNotes := AddUpdateNotesViewport(preview, notes.Compact, scale,
+            noteSwitcher, 44 + rowExtra, 28 + rowExtra)
+        if notes.Title != ""
+            ShapeCircularUpdateBadge(latestBadge)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)

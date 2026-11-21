@@ -50,7 +50,7 @@ ReadPublishedVersionNotes(version)
 }
 
 
-; Build separate original-release and dated-hotfix tabs from actual GitHub
+; Read published base releases and dated hotfixes from actual GitHub
 ; publications. Missing history is never presented as if it were complete.
 ReadPublishedUpdateHistory(installedVersion, latestVersion)
 {
@@ -86,18 +86,18 @@ ReadPublishedUpdateHistory(installedVersion, latestVersion)
 
 
 ; An update preview includes only the missed published versions.
-ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)
+ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, separateLatest := false)
 {
     history := ReadPublishedUpdateHistory(installedVersion, latestVersion)
     unavailable := "Published release history is unavailable. See GitHub Releases for complete details."
     if InStr(history.Release, unavailable) || InStr(history.Hotfix, unavailable)
-        return unavailable
+        return separateLatest ? EmptyPublishedPreviewSections(unavailable) : unavailable
     try {
         records := []
         AddPublishedNoteRecords(history.Release, records)
         AddPublishedNoteRecords(history.Hotfix, records)
         if !records.Length
-            return unavailable
+            return separateLatest ? EmptyPublishedPreviewSections(unavailable) : unavailable
         ; Merge the two published lists newest-first without changing content.
         Loop records.Length {
             index := 1
@@ -110,10 +110,45 @@ ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)
                 index += 1
             }
         }
+        if separateLatest
+            return BuildPublishedPreviewSections(records)
         return BuildCategorizedUpdateNotes(records)
     } catch Error {
-        return unavailable
+        return separateLatest ? EmptyPublishedPreviewSections(unavailable) : unavailable
     }
+}
+
+EmptyPublishedPreviewSections(message)
+{
+    return {Title: "", Compact: message, Expanded: message, EarlierCount: 0}
+}
+
+; Only the newest missed published release is expanded initially. All earlier
+; missed releases remain available by clicking the preview's optional toggle.
+; This uses the same verified publication history, not bundled/unpublished data.
+BuildPublishedPreviewSections(records)
+{
+    if !records.Length
+        return EmptyPublishedPreviewSections("Published release history is unavailable.")
+    newest := records[1]
+    title := (newest.Hotfix ? "Latest Hotfix — " : "Latest Release — ") newest.Label
+    compact := BuildCategorizedUpdateNotes([newest], false)
+    expanded := compact
+    earlierCount := records.Length - 1
+    if earlierCount > 0
+    {
+        compact .= "`n`n### Earlier updates included"
+        compact .= "`nYou also missed " earlierCount " earlier " (earlierCount = 1 ? "update." : "updates.")
+        expanded .= "`n`n### Earlier updates included"
+        Loop earlierCount
+        {
+            oldRecord := records[A_Index + 1]
+            compact .= "`n- " oldRecord.Label
+            expanded .= "`n`n#### " oldRecord.Label
+                . "`n" BuildCategorizedUpdateNotes([oldRecord], false)
+        }
+    }
+    return {Title: title, Compact: compact, Expanded: expanded, EarlierCount: earlierCount}
 }
 
 AddPublishedNoteRecords(history, records)

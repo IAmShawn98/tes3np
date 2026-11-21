@@ -32,8 +32,9 @@ CreateLauncherUpdateBadge()
     ; into Gui.Add would apply DPI scaling again and leave a large gap.
     LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
     x := labelX + labelWidth + 4
-    LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 BackgroundTrans", "(1)")
-    LauncherUpdateBadge.SetFont("s10 Bold cD63232", "Segoe UI")
+    LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w22 h22 Center +0x200 BackgroundD63232", "1")
+    LauncherUpdateBadge.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+    ShapeCircularUpdateBadge(LauncherUpdateBadge)
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateBadge.Visible := false
 }
@@ -45,6 +46,8 @@ ScaleLauncherVersionLabel(scale)
     if IsObject(LauncherVersionLabel)
         LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
     ApplyLauncherBadgeFont(scale)
+    if IsObject(LauncherUpdateBadge)
+        ShapeCircularUpdateBadge(LauncherUpdateBadge)
 }
 
 ; Preserve the red unread notification at the saved launcher scale.
@@ -54,7 +57,27 @@ ApplyLauncherBadgeFont(scale)
     if !IsObject(LauncherUpdateBadge)
         return
     size := Max(6, Round(10 * scale))
-    LauncherUpdateBadge.SetFont("s" size " Bold cD63232", "Segoe UI")
+    LauncherUpdateBadge.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+}
+
+; Clip the native red Text control to a circle after its final DPI/launcher
+; scale has been applied. Windows owns the transferred GDI region lifetime.
+ShapeCircularUpdateBadge(control)
+{
+    if !IsObject(control) || !DllCall("user32\IsWindow", "Ptr", control.Hwnd, "Int")
+        return
+    bounds := Buffer(16, 0)
+    if !DllCall("user32\GetClientRect", "Ptr", control.Hwnd, "Ptr", bounds, "Int")
+        return
+    width := NumGet(bounds, 8, "Int"), height := NumGet(bounds, 12, "Int")
+    diameter := Min(width, height)
+    if diameter < 1
+        return
+    circle := DllCall("gdi32\CreateEllipticRgn", "Int", 0, "Int", 0,
+        "Int", diameter, "Int", diameter, "Ptr")
+    if circle && !DllCall("user32\SetWindowRgn", "Ptr", control.Hwnd,
+        "Ptr", circle, "Int", 1, "Int")
+        DllCall("gdi32\DeleteObject", "Ptr", circle)
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")

@@ -86,6 +86,30 @@ CheckCategorizedUpdateNotes()
         || InStr(stacked, "### Hotfixes")
         return false
 
+    ; Preview prominently shows only the latest missed version. The two
+    ; earlier published versions are complete after expanding, not discarded.
+    newestMissed := {Version: "0.1.21-alpha.3",
+        Label: "v0.1.21-alpha.3 — November 23, 2026", Hotfix: true,
+        Notes: "### Bug Fixes`n- **Updater:** Latest repair."}
+    previousMissed := {Version: "0.1.21-alpha.2",
+        Label: "v0.1.21-alpha.2 — November 22, 2026", Hotfix: true,
+        Notes: "### Improvements`n- **Launcher:** Previous improvement."}
+    previewSections := BuildPublishedPreviewSections([newestMissed, previousMissed, patch])
+    if previewSections.EarlierCount != 2
+        || !InStr(previewSections.Title, "Latest Hotfix — v0.1.21-alpha.3")
+        || !InStr(previewSections.Compact, "**Updater:** Latest repair.")
+        || !InStr(previewSections.Compact, "You also missed 2 earlier updates.")
+        || InStr(previewSections.Compact, "**Launcher:** Previous improvement.")
+        || !InStr(previewSections.Expanded, "**Launcher:** Previous improvement.")
+        || !InStr(previewSections.Expanded, "**Pack:** Fixed disabling.")
+        return false
+    previewOnly := BuildPublishedPreviewSections([newestMissed])
+    if previewOnly.EarlierCount != 0 || previewOnly.Compact != previewOnly.Expanded
+        return false
+    unavailablePreview := EmptyPublishedPreviewSections("Published release history is unavailable.")
+    if unavailablePreview.Title != "" || unavailablePreview.EarlierCount
+        return false
+
     published := []
     AddPublishedNoteRecords("### v0.1.21-alpha.1 — November 21, 2026"
         . "`n`n### Improvements`n- **Launcher:** Updated.", published)
