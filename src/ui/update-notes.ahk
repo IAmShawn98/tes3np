@@ -120,7 +120,7 @@ AddPublishedNoteRecords(history, records)
 {
     active := 0
     for line in StrSplit(StrReplace(history, "`r", ""), "`n") {
-        if RegExMatch(line, "^###[ `t]+v(`S+)", &match) {
+        if RegExMatch(line, "^###[ `t]+v(\S+)", &match) {
             version := match[1]
             info := ParseTes3npVersion(version)
             active := {Version: version, Label: Trim(SubStr(line, 5)),
