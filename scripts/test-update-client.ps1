@@ -508,7 +508,7 @@ Require-Source 'LauncherUpdateNumber.OnEvent\("Click", CheckForUpdates\)' 'numbe
 Require-Source 'number.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white even as font grows' $source $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
-Require-Source 'size := Max\(6, Round\(12 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'unread numeral starts larger but retains DPI calibration' $source
+Require-Source 'size := Max\(6, Round\(16 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'unread numeral starts larger but retains DPI calibration' $source
 Require-Source 'SetLauncherUnreadBadgeNumber\(LauncherUpdateNumber.Text\)' 'resize of circular artwork recenters numeral at saved scale' $source
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (1) opens the optional updater'
@@ -532,8 +532,11 @@ Require-Source 'ReleaseNoteFits\(number, number.Text,' 'unread counter still mea
 Require-Source 'ReleaseNoteLineHeight\(number\) <= availableHeight' 'unread counter still shrinks its font if it clips vertically' $source
 Require-Source 'ApplyLauncherBadgeFont\(scale, sample := 0\)' 'font fitting accepts isolated native GUI sample for regression test' $source
 Require-Source 'ApplyLauncherBadgeFont\(scale, number\)' 'native smoke exercises actual enlarged two-digit font' $badgeHarness
-Require-Source 'if percent = 100 && measuredHeight < 13' 'compiled test rejects illegibly small counter numbers' $badgeHarness
-Require-Source 'innerWidth := Max\(1, Round\(diameter \* 0\.72\)\)' 'number inset uses the largest safe width inside the circle' $source
+Require-Source 'if percent = 100 && measuredHeight < 16' 'compiled test rejects illegibly small counter numbers' $badgeHarness
+Require-Source 'innerWidth := Max\(1, Round\(diameter \* 0\.90\)\)' 'number overlay uses most of the existing circle' $source
+Require-Source 'innerHeight := innerWidth' 'number overlay stays circular' $source
+Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateNumber\)' 'red numeral overlay is clipped to a true circle' $source
+Require-Source 'Unread numeral overlay region is not circular\.' 'native smoke validates the clipped numeral background' $badgeHarness
 Require-Source 'x" x " y689 w22 h22 \+0x40 BackgroundTrans' 'Picture control scales the circular bitmap to fit its resized bounds' $source
 Require-Source 'if width > 30' 'native GUI smoke rejects oversized circles while permitting 27 pixels' $badgeHarness
 Require-Source 'badge := panel.Add\("Picture"' 'smoke tests the real Picture renderer, not a surrogate Text control' $badgeHarness
