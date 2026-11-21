@@ -240,6 +240,9 @@ Require-Source 'PaintButtonNow\(handle\)' 'themed button faces are explicitly pa
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
 Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\), premium\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
 Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
+Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
+Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
+Require-Source 'preview.SetFont\("s8 Underline cF5C96E", "Segoe UI"\)' 'earlier updates link is compact and readable' $dialogSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
 Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry

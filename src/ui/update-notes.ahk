@@ -354,7 +354,7 @@ WrapReleaseNoteLines(line, control, maxWidth)
 
 ; Render plain category headings and bullet points, as shown in RELEASE_NOTES.md.
 ; Each on-screen row is measured in the real control font before scrolling.
-BuildStyledReleaseNoteRows(content, measureRow, maxWidth, premium := false)
+BuildStyledReleaseNoteRows(content, measureRow, maxWidth, premium := false, compact := false, scale := 1.0)
 {
     rows := []
     paragraphBreak := false
@@ -372,14 +372,14 @@ BuildStyledReleaseNoteRows(content, measureRow, maxWidth, premium := false)
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
             line := StrReplace(line, "**", "")
         }
-        measureRow.SetFont(UpdateNoteFont(kind, premium), UpdateNoteFontFace(kind, premium))
+        measureRow.SetFont(UpdateNoteFont(kind, premium, compact, scale), UpdateNoteFontFace(kind, premium))
         for index, part in WrapReleaseNoteLines(line, measureRow, maxWidth) {
             gapBefore := index = 1 && rows.Length > 0 && (paragraphBreak || kind != rows[rows.Length].Kind)
             rows.Push({Text: part, Kind: kind, GapBefore: gapBefore})
         }
         paragraphBreak := false
     }
-    measureRow.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
+    measureRow.SetFont(UpdateNoteFont("body", premium, compact, scale), UpdateNoteFontFace("body", premium))
     if !rows.Length
         rows.Push({Text: "No release notes available.", Kind: "body", GapBefore: false})
     return rows
@@ -459,8 +459,15 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     return 0
 }
 
-UpdateNoteFont(kind, premium := false)
+UpdateNoteFont(kind, premium := false, compact := false, scale := 1.0)
 {
+    if compact
+    {
+        ; Compact sample and real preview use smaller, actually scaled type.
+        ; Version Status and existing menu tests still use the original font.
+        size := Max(5, Round((kind = "heading" ? 10 : 9) * scale))
+        return "s" size (kind = "heading" ? " Bold cF5C96E" : " Norm cFFF0DC")
+    }
     if premium
         return kind = "heading" ? "s12 Bold cF5C96E" : "s11 Norm cFFF0DC"
     return kind = "heading" ? "s12 Bold cE7BE70" : "s11 Norm cF4E9D6"
@@ -511,17 +518,17 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     bottomY := px(compactLayout ? (fixedEarlier ? 358 : 480) + topExtra : 516 + bottomExtra)
     left := px(compactLayout ? 40 : 42)
     width := px(compactLayout ? 507 : 686)
-    panel.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
+    panel.SetFont(UpdateNoteFont("body", premium, compactLayout, scale), UpdateNoteFontFace("body", premium))
     sample := panel.Add("Text", "Hidden x" left " y" firstY " w" width " h1 Background171008 +0x80", "")
     bodyHeight := ReleaseNoteLineHeight(sample)
-    sample.SetFont(UpdateNoteFont("heading", premium), UpdateNoteFontFace("heading", premium))
+    sample.SetFont(UpdateNoteFont("heading", premium, compactLayout, scale), UpdateNoteFontFace("heading", premium))
     rowHeight := Max(bodyHeight, ReleaseNoteLineHeight(sample)) + 1
     ; The measurement row becomes the first displayed row. Restore its body
     ; style after measuring the heading font, including on empty history tabs.
-    sample.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
+    sample.SetFont(UpdateNoteFont("body", premium, compactLayout, scale), UpdateNoteFontFace("body", premium))
     lineGap := Max(1, px(2)), sectionGap := Max(1, px(4))
     stride := rowHeight + lineGap
-    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium)
+    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium, compactLayout, scale)
     capacity := Max(1, (bottomY - firstY + lineGap) // stride)
     ; Find the first row of the last page so the final notes fill the viewport.
     lastOffset := lines.Length
@@ -566,7 +573,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
                 continue
             }
             if rowStyles[index] != entry.Kind {
-                row.SetFont(UpdateNoteFont(entry.Kind, premium), UpdateNoteFontFace(entry.Kind, premium))
+                row.SetFont(UpdateNoteFont(entry.Kind, premium, compactLayout, scale), UpdateNoteFontFace(entry.Kind, premium))
                 rowStyles[index] := entry.Kind
             }
             row.Move(left, y, width, rowHeight)
@@ -579,10 +586,17 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
         track.Visible := page.MaxOffset > 1
         thumb.Visible := page.MaxOffset > 1
+        ; The compact preview must not show orphan arrow buttons on short
+        ; latest-version notes that fit without scrolling.
+        if compactLayout
+        {
+            up.Visible := page.MaxOffset > 1
+            down.Visible := page.MaxOffset > 1
+        }
     }
     updateNotes(newNotes)
     {
-        page.Lines := BuildStyledReleaseNoteRows(newNotes, sample, width - Max(2, px(10)), premium)
+        page.Lines := BuildStyledReleaseNoteRows(newNotes, sample, width - Max(2, px(10)), premium, compactLayout, scale)
         page.Offset := 1
         lastOffset := page.Lines.Length
         used := rowHeight
@@ -606,7 +620,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
-        arrow.SetFont(UpdateNoteFont("heading", premium), "Segoe UI")
+        arrow.SetFont(UpdateNoteFont("heading", premium, compactLayout, scale), "Segoe UI")
     refresh()
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
