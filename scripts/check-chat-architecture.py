@@ -2378,15 +2378,21 @@ expect(
     and 'E0C27F' not in update_check,
 )
 expect(
-    "Update preview and installed notes group additions by category",
+    "Published previews categorize missed changes while installed history groups hotfix versions without a redundant Hotfixes category",
     'ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)' in update_dialogs
     and 'ReadInstalledCumulativeNotes(notesVersion)' in update_dialogs
     and 'ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_notes
     and 'AddPublishedNoteRecords(history.Release, records)' in update_notes
     and 'AddPublishedNoteRecords(history.Hotfix, records)' in update_notes
-    and 'BuildCategorizedUpdateNotes(records)' in update_notes
-    and 'NoteCategoryName(heading, isHotfix)' in update_notes
-    and 'return isHotfix ? "Hotfixes" : "Bug Fixes"' in update_notes
+    and 'return BuildCategorizedUpdateNotes(records)' in update_notes
+    and 'return BuildInstalledVersionNotes(records)' in update_notes
+    and 'details := BuildCategorizedUpdateNotes([record], false)' in update_notes
+    and 'title := "Latest Hotfix"' in update_notes
+    and 'title := "Base Release"' in update_notes
+    and 'NoteCategoryName(heading)' in update_notes
+    and 'case "Bug Fixes", "Fixed", "Hotfixes":' in update_notes
+    and 'return "Bug Fixes"' in update_notes
+    and 'order := ["New Features", "Improvements", "Bug Fixes",' in update_notes
     and '"Changes in This Update"' in update_dialogs
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs
