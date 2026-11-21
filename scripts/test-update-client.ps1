@@ -117,7 +117,11 @@ Require-Source 'actionY := 568 \+ rowExtra' 'action buttons follow any wrapped h
 Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
 Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Compact, scale,' 'single preview viewport shows the latest expanded and earlier missed summaries' $dialogSource
-Require-Source 'noteSwitcher, 44 \+ rowExtra, 28 \+ rowExtra\)' 'latest hotfix heading leaves notes viewport scrollable' $dialogSource
+Require-Source 'noteSwitcher, 44 \+ rowExtra, 28 \+ rowExtra, true\)' 'latest hotfix heading leaves premium preview scrollable' $dialogSource
+Require-Source 'preview.SetFont\("s16 Bold cE7BE70", "Georgia"\)' 'high contrast serif preview title' $dialogSource
+Require-Source 'preview.Add\("Text", "x30 y" \(152 \+ rowExtra\) " w740 h2 BackgroundC5A45C"\)' 'gold separator below changes heading' $dialogSource
+Require-Source 'preview.Add\("Text", "x28 y" \(158 \+ rowExtra\) " w744 h46 BackgroundC5A45C"\)' 'gold latest-hotfix header frame' $dialogSource
+Require-Source 'panel.Add\("Text", "x" \(latestX - 9\) " y83 w1 h18 BackgroundC5A45C"\)' 'metadata separators follow measured widths' $dialogSource
 Require-Source 'metadataBorder := preview.Add\("Text", "x28 y74 w744 h34 BackgroundC5A45C"\)' 'installed/latest/channel has a gold border' $dialogSource
 Require-Source 'metadataBorder.Move\(, , , 34 \+ rowExtra\)' 'metadata gold frame grows with wrapped version labels' $dialogSource
 Require-Source '"View earlier changes"' 'older missed changes are available on demand' $dialogSource
@@ -198,7 +202,8 @@ Write-Host 'PASS: release dialog avoids redundant full-window repaint.'
 Require-Source 'face.Window = panel.Hwnd' 'release repaint is scoped to the active panel' $dialogSource
 Require-Source 'PaintButtonNow\(handle\)' 'themed button faces are explicitly painted' $dialogSource
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
-Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\)\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
+Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\), premium\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
+Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
 Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry

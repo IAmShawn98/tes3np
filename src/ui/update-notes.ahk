@@ -349,7 +349,7 @@ WrapReleaseNoteLines(line, control, maxWidth)
 
 ; Render plain category headings and bullet points, as shown in RELEASE_NOTES.md.
 ; Each on-screen row is measured in the real control font before scrolling.
-BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
+BuildStyledReleaseNoteRows(content, measureRow, maxWidth, premium := false)
 {
     rows := []
     paragraphBreak := false
@@ -367,14 +367,14 @@ BuildStyledReleaseNoteRows(content, measureRow, maxWidth)
             line := "• " RegExReplace(line, "^[-*+]\s+", "")
             line := StrReplace(line, "**", "")
         }
-        measureRow.SetFont(UpdateNoteFont(kind), "Segoe UI")
+        measureRow.SetFont(UpdateNoteFont(kind, premium), UpdateNoteFontFace(kind, premium))
         for index, part in WrapReleaseNoteLines(line, measureRow, maxWidth) {
             gapBefore := index = 1 && rows.Length > 0 && (paragraphBreak || kind != rows[rows.Length].Kind)
             rows.Push({Text: part, Kind: kind, GapBefore: gapBefore})
         }
         paragraphBreak := false
     }
-    measureRow.SetFont(UpdateNoteFont("body"), "Segoe UI")
+    measureRow.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
     if !rows.Length
         rows.Push({Text: "No release notes available.", Kind: "body", GapBefore: false})
     return rows
@@ -454,9 +454,16 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     return 0
 }
 
-UpdateNoteFont(kind)
+UpdateNoteFont(kind, premium := false)
 {
+    if premium
+        return kind = "heading" ? "s12 Bold cF5C96E" : "s11 Norm cFFF0DC"
     return kind = "heading" ? "s12 Bold cE7BE70" : "s11 Norm cF4E9D6"
+}
+
+UpdateNoteFontFace(kind, premium := false)
+{
+    return premium && kind = "heading" ? "Georgia" : "Segoe UI"
 }
 
 ReleaseNoteLineHeight(control)
@@ -479,7 +486,7 @@ ReleaseNoteLineHeight(control)
     }
 }
 
-AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0)
+AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0, premium := false)
 {
     ; The taller update preview reflows the same existing viewport without
     ; changing the verified Version Status geometry (both extras default 0).
@@ -492,17 +499,17 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     ; sizes the card, and the text keeps its normal size and wraps as needed.
     firstY := px(170 + topExtra), bottomY := px(516 + bottomExtra)
     left := px(42), width := px(686)
-    panel.SetFont(UpdateNoteFont("body"), "Segoe UI")
+    panel.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
     sample := panel.Add("Text", "Hidden x" left " y" firstY " w" width " h1 Background171008 +0x80", "")
     bodyHeight := ReleaseNoteLineHeight(sample)
-    sample.SetFont(UpdateNoteFont("heading"), "Segoe UI")
+    sample.SetFont(UpdateNoteFont("heading", premium), UpdateNoteFontFace("heading", premium))
     rowHeight := Max(bodyHeight, ReleaseNoteLineHeight(sample)) + 1
     ; The measurement row becomes the first displayed row. Restore its body
     ; style after measuring the heading font, including on empty history tabs.
-    sample.SetFont(UpdateNoteFont("body"), "Segoe UI")
+    sample.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
     lineGap := Max(1, px(2)), sectionGap := Max(1, px(4))
     stride := rowHeight + lineGap
-    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)))
+    lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium)
     capacity := Max(1, (bottomY - firstY + lineGap) // stride)
     ; Find the first row of the last page so the final notes fill the viewport.
     lastOffset := lines.Length
@@ -544,7 +551,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
                 continue
             }
             if rowStyles[index] != entry.Kind {
-                row.SetFont(UpdateNoteFont(entry.Kind), "Segoe UI")
+                row.SetFont(UpdateNoteFont(entry.Kind, premium), UpdateNoteFontFace(entry.Kind, premium))
                 rowStyles[index] := entry.Kind
             }
             row.Move(left, y, width, rowHeight)
@@ -560,7 +567,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     }
     updateNotes(newNotes)
     {
-        page.Lines := BuildStyledReleaseNoteRows(newNotes, sample, width - Max(2, px(10)))
+        page.Lines := BuildStyledReleaseNoteRows(newNotes, sample, width - Max(2, px(10)), premium)
         page.Offset := 1
         lastOffset := page.Lines.Length
         used := rowHeight
@@ -581,7 +588,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     up := AddStyledButton(panel, px(744), px(163 + topExtra), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, px(744), px(500 + bottomExtra), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
-        arrow.SetFont(UpdateNoteFont("heading"), "Segoe UI")
+        arrow.SetFont(UpdateNoteFont("heading", premium), "Segoe UI")
     refresh()
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)

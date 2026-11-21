@@ -33,7 +33,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)
     closeNotes := 0
     try {
-        preview.SetFont("s14 Bold cC5A45C", "Georgia")
+        preview.SetFont("s16 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h42 BackgroundTrans", title)
@@ -41,7 +41,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         ; Channel captions. Resize it together with the verified metadata
         ; row-wrap logic instead of moving any original wording.
         metadataBorder := preview.Add("Text", "x28 y74 w744 h34 BackgroundC5A45C")
-        metadataFill := preview.Add("Text", "x30 y76 w740 h30 Background171008")
+        metadataFill := preview.Add("Text", "x30 y76 w740 h30 Background21170F")
         rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)
         if rowExtra
         {
@@ -49,16 +49,21 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
             metadataFill.Move(, , , 30 + rowExtra)
             GrowGoldNativePrompt(preview, rowExtra)
         }
-        preview.SetFont("s12 Bold cC5A45C", "Georgia")
+        preview.SetFont("s13 Bold cE7BE70", "Georgia")
         preview.Add("Text", "x30 y" (118 + rowExtra) " w490 h30 BackgroundTrans", "Changes in This Update")
+        ; The mockup's continuous gold frame visually joins the newest
+        ; hotfix heading to the measured and scrollable notes viewport.
+        preview.Add("Text", "x30 y" (152 + rowExtra) " w740 h2 BackgroundC5A45C")
+        preview.Add("Text", "x28 y" (158 + rowExtra) " w744 h46 BackgroundC5A45C")
+        preview.Add("Text", "x30 y" (160 + rowExtra) " w740 h43 Background171008")
         noteSwitcher := {Update: 0}
         previewState := {Expanded: false}
         if notes.Title != ""
         {
-            preview.SetFont("s12 Bold cE7BE70", "Georgia")
-            preview.Add("Text", "x42 y" (161 + rowExtra) " w650 h30 BackgroundTrans", notes.Title)
+            preview.SetFont("s13 Bold cE7BE70", "Georgia")
+            preview.Add("Text", "x42 y" (162 + rowExtra) " w650 h30 BackgroundTrans", notes.Title)
             preview.SetFont("s10 Bold cFFFFFF", "Segoe UI")
-            latestBadge := preview.Add("Text", "x716 y" (163 + rowExtra)
+            latestBadge := preview.Add("Text", "x716 y" (166 + rowExtra)
                 . " w22 h22 Center +0x200 BackgroundD63232", "1")
         }
         if notes.EarlierCount > 0
@@ -91,7 +96,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes.Compact, scale,
-            noteSwitcher, 44 + rowExtra, 28 + rowExtra)
+            noteSwitcher, 44 + rowExtra, 28 + rowExtra, true)
         if notes.Title != ""
             ShapeCircularUpdateBadge(latestBadge)
         hwnd := preview.Hwnd
@@ -138,12 +143,16 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
     {
         latest.Move(latestX, 80)
         channelText.Move(channelX, 80)
+        ; The separators follow actual rendered version-caption widths.
+        panel.Add("Text", "x" (latestX - 9) " y83 w1 h18 BackgroundC5A45C")
+        panel.Add("Text", "x" (channelX - 9) " y83 w1 h18 BackgroundC5A45C")
         return 0
     }
     if latestX + latestWidth <= 770
     {
         latest.Move(latestX, 80)
         channelText.Move(30, 112)
+        panel.Add("Text", "x" (latestX - 9) " y83 w1 h18 BackgroundC5A45C")
         return 32
     }
     latest.Move(30, 112)
