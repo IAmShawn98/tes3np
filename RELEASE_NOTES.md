@@ -4,20 +4,19 @@
 
 Changes since the last public release, v0.1.21-alpha.
 
+### New Features
+
+- **Update notifications:** A red (1) appears beside the launcher version when an update is available. After you view the update, it changes to a gold dot.
+- **Update history:** See release notes and hotfixes from versions you missed before updating. Hotfix-only updates show a simple **Hotfixes** list.
+
 ### Improvements
 
-- **Update notifications:** See a red (1) next to the launcher version when a new update is available. After viewing it, the indicator becomes a gold dot.
-- **Release and hotfix history:** Review changes from versions you missed before updating. Updates containing only hotfixes show a simple **Hotfixes** list.
-- **Updating the launcher:** Choose **Update Now** or **Not Now** after reviewing the changes. Downloading and installing still require confirmation.
-- **Expansion Pack:** An already installed official pack can be recognized again without reinstalling it when its previous verification information is missing.
+- **Launcher updates:** Review changes, then choose **Update Now** or **Not Now**. Downloads and installation still require confirmation.
+- **Expansion Pack:** If your existing official pack loses its verification information, the launcher can recognize it again without making you reinstall it.
 
 ### Bug Fixes
 
 - **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when a check failed.
-- **Update windows:** Fixed overlapping version numbers, blank buttons, and flickering.
-- **Release notes:** Fixed cut-off text and uneven spacing when viewing update details.
-- **Update notifications:** Fixed the red (1) and gold dot appearing too far from the version number or leaving marks behind.
-- **Update checks:** Fixed a problem that could stop the update window from opening.
 
 ## v0.1.21-alpha — unreleased
 
