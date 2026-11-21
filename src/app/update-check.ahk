@@ -139,6 +139,10 @@ GetLauncherBadgeDpiScale()
                 return dpi / 96
         }
     }
+    catch Error
+    {
+        ; GetDpiForWindow is unavailable on older Windows versions.
+    }
     return Max(1, A_ScreenDPI / 96)
 }
 
