@@ -102,7 +102,10 @@ RegisterLauncherEventHandlers()
     global LauncherGui, LauncherBadgeTestMode
 
     if LauncherBadgeTestMode
+    {
         OnMessage(0x8041, HandleLauncherBadgeTestMessage)
+        OnMessage(0x8042, HandleLauncherHistoryTestMessage)
+    }
     OnMessage(0x0201, HandleMouseDown)
     OnMessage(0x0202, ReleaseButton)
     OnMessage(0x0100, HandleThemedButtonKey)
