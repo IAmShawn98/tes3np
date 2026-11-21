@@ -2361,26 +2361,26 @@ expect(
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
-    and 'LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w22 h22 Center +0x200 BackgroundD63232", "1")' in update_check
-    and 'LauncherUpdateBadge.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
+    and 'LauncherUpdateBadge := LauncherGui.Add("Picture",' in update_check
+    and 'LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
     and 'size := Max(6, Round(10 * scale))' in update_check
-    and '&& !HasSeenUpdateAutoPreview(latestVersion)' in update_check
+    and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
     and 'if !wasVisible' in update_check
     and 'LauncherVersionLabel.GetPos(&labelX, , &labelWidth)' in update_check
     and 'x := labelX + labelWidth + 4' in update_check
     and 'RedrawLauncherUpdateBadge()' in update_check
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
-    and 'IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")' in update_check
+    and 'IniWrite("1", DataFile, "ReadPublishedVersions", version)' in update_check
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
     and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
-    and 'LauncherUpdateBadge.Move(, centeredY, diameter, diameter)' in update_check
+    and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
     and 'StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)' in update_check
-    and 'CountUnseenPublishedUpdateRecords(records, job.Installed, seen)' in update_check
+    and 'CountUnseenPublishedUpdateRecords(records, job.Installed)' in update_check
     and 'CheckUnreadPublishedReleaseCounts()' in launcher_smoke_tests
     and 'LauncherUpdateButton' not in update_check
     and 'LauncherUpdateDismissedVersion' not in update_check
@@ -2408,20 +2408,34 @@ expect(
     and 'BuildPublishedPreviewSections(records)' in update_notes
     and '"Updates You Missed"' in update_dialogs
     and 'missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []' in update_dialogs
-    and 'AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading)' in update_dialogs
+    and 'AddMissedUpdateLinks(preview, missedVersions, scale,' in update_dialogs
     and 'heading.GetPos(, &headingY, , &headingHeight)' in update_dialogs
     and 'rowTop := Max(rowTop, headingY + headingHeight + Max(2, px(4)))' in update_dialogs
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badges.Push(badge)' in update_dialogs
+    and 'preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)' in update_dialogs
+    and 'Prefix: "DEMO " Format("{:02}", A_Index) " — "' in bootstrap
+    and 'DisplayVersion: "v" demoVersion' in bootstrap
+    and 'prefix.Text := prefixText' in update_dialogs
+    and 'Underline cFFF0DC' in update_dialogs
+    and 'if idx = page.Total' in update_dialogs
+    and 'clearButton := AddStyledButton(panel, left, rowTop, px(86), px(25),' in update_dialogs
+    and 'ClearMissedUpdateBadges(page, *)' in update_dialogs
+    and 'MarkMissedUpdateItemRead(page, item)' in update_dialogs
+    and 'MarkPublishedVersionRead(latestVersion, true)' in update_dialogs
+    and 'SetLauncherDemoUnreadCount(count)' in update_dialogs
+    and 'IsPublishedVersionRead(version)' in update_check
+    and 'IniRead(DataFile, "ReadPublishedVersions", version, "")' in update_check
+    and 'LauncherUpdateNumber.Visible := false' in update_check
     and 'for slot in [1, 2, 3, 4]' in update_dialogs
     and 'up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22),' in update_dialogs
     and 'down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22),' in update_dialogs
     and 'badge := panel.Add("Picture", "Hidden x0 y0 w" px(20) " h" px(20)' in update_dialogs
     and 'MeasureMissedUpdateTextWidth(row, caption)' in update_dialogs
     and 'for count in [1, 3, 7, 24]' in launcher_smoke_tests
-    and 'track.Visible := page.MaxOffset > 1' in update_dialogs
+    and 'scrolling := page.MaxOffset > 1' in update_dialogs
     and 'MissedVersions: missedVersions' in update_notes
     and 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' in update_notes
     and 'metadataBorder.Move(, , , 40 + rowExtra)' in update_dialogs
@@ -2457,8 +2471,8 @@ expect(
     and 'Loop 24' in bootstrap
     and 'demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"' in bootstrap
     and 'Url: GetTes3npReleasePage(demoVersion)' in bootstrap
-    and 'ShowDevelopmentUnreadBadgeSample(24)' in bootstrap
-    and 'SetLauncherUpdateAvailable(false)' in bootstrap
+    and 'ShowDevelopmentUnreadBadgeSample(25)' in bootstrap
+    and 'draftSections.DemoMode := true' in bootstrap
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
     and 'actionY := 511 + rowExtra + notesSpace + missedSpace' in update_dialogs
     and 'missedSpace := hasMissed ? 64 : 0' in update_dialogs
@@ -2476,7 +2490,7 @@ expect(
     and 'FileExist(checkoutRoot "\\.git")' in bootstrap
     and 'ReadBundledVersionNotes(version)' in bootstrap
     and 'BuildPublishedPreviewSections([record])' in bootstrap
-    and '&& !HasSeenUpdateAutoPreview(latestVersion)' in update_check
+    and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and '--test-update-badge' not in launcher_smoke_tests
     and 'LauncherBadgeTest' not in update_check
     and 'LauncherBadgeTest' not in bootstrap
