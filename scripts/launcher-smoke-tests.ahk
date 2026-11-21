@@ -1017,11 +1017,12 @@ CheckUnreadPublishedReleaseCounts()
             ; Verify the ACTUAL white two-digit overlay can use a readable
             ; font inside that unchanged circle. Check native text metrics,
             ; not merely the requested point size in source code.
-            insetWidth := Max(1, Round(diameter * 0.72))
-            insetHeight := Max(1, Round(diameter * 0.68))
+            insetWidth := Max(1, Round(diameter * 0.90))
+            insetHeight := insetWidth
             number := panel.Add("Text", "x0 y0 w" insetWidth " h" insetHeight
                 . " Center +0x200 BackgroundD63232", "24")
             ApplyLauncherBadgeFont(scale, number)
+            ShapeCircularUpdateBadge(number)
             numberRect := Buffer(16, 0)
             if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
                 "Ptr", numberRect, "Int")
@@ -1032,7 +1033,7 @@ CheckUnreadPublishedReleaseCounts()
             if !ReleaseNoteFits(number, number.Text, usableWidth)
                 || measuredHeight > usableHeight
                 throw Error("Enlarged unread digits clip the unchanged circular badge.")
-            if percent = 100 && measuredHeight < 13
+            if percent = 100 && measuredHeight < 16
                 throw Error("Unread numeral is still too small to read at full launcher scale.")
             region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
                 "Int", 0, "Int", 0, "Ptr")
@@ -1047,6 +1048,15 @@ CheckUnreadPublishedReleaseCounts()
                 || DllCall("gdi32\PtInRegion", "Ptr", region,
                     "Int", 0, "Int", 0, "Int")
                 throw Error("Unread picture circle must clip its corners, not its center.")
+            ; The larger numeral overlay must remain circular as well.
+            if DllCall("user32\GetWindowRgn", "Ptr", number.Hwnd,
+                "Ptr", region, "Int") <= 0
+                throw Error("Unread numeral overlay is not clipped to a circle.")
+            if !DllCall("gdi32\PtInRegion", "Ptr", region,
+                "Int", usableWidth // 2, "Int", usableHeight // 2, "Int")
+                || DllCall("gdi32\PtInRegion", "Ptr", region,
+                    "Int", 0, "Int", 0, "Int")
+                throw Error("Unread numeral overlay region is not circular.")
         }
         finally
         {
