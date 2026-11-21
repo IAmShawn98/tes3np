@@ -1454,7 +1454,6 @@ CheckMissedUpdateLinkViewport()
             {
                 Loop count
                 {
-                    items[A_Index].Prefix := "DEMO " Format("{:02}", A_Index) " — "
                     items[A_Index].DisplayVersion := "v" items[A_Index].Version
                     items[A_Index].Key := "demo-" Format("{:02}", A_Index)
                 }
@@ -1480,8 +1479,18 @@ CheckMissedUpdateLinkViewport()
                 }
                 else if !IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
                     || !IsMissedUpdateCursorTarget(observer.Badges[1].Hwnd)
-                    || (count = 24 && !IsMissedUpdateCursorTarget(observer.Prefixes[1].Hwnd))
                     throw Error("Clickable release controls must use the hand cursor.")
+                ; Development samples now look like production: ivory version
+                ; links without a gold DEMO xx prefix or shifted row position.
+                if count = 24
+                {
+                    for slot, prefix in observer.Prefixes
+                        if prefix.Visible
+                            throw Error("Development release list still displays a DEMO prefix.")
+                    observer.Rows[1].GetPos(&sampleX)
+                    if Abs(sampleX - Round(48 * scale)) > 1
+                        throw Error("Version links must start at the production row inset.")
+                }
                 ; This previously passed because the smoke test contained no
                 ; heading: the list was drawn five pixels over its last glyphs.
                 heading.GetPos(, &headingY, , &headingHeight)
