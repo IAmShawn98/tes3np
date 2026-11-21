@@ -11,6 +11,7 @@ global LauncherUpdateDismissedVersion := ""
 ; This mode never changes the published update feed or saved preview history.
 global LauncherBadgeTestMode := false
 global LauncherBadgeTestState := "none"
+global LauncherBadgeTestWindowHwnd := 0
 
 CreateLauncherVersionLabel()
 {
@@ -185,7 +186,7 @@ CheckForUpdates(*)
     global AppConfig, UpdateBusy, LauncherGui, DataFile, LauncherBadgeTestMode
     if LauncherBadgeTestMode
     {
-        MsgBox("This is a cosmetic update-indicator test. Use scripts\\test-update-badge.ps1 to change its state.`nNo update has been published or installed.", "TES3NP Update Badge Test", "Iconi")
+        MsgBox("This is a cosmetic update-indicator test. Use scripts\test-update-badge.ps1 to change its state.`nNo update has been published or installed.", "TES3NP Update Badge Test", "Iconi")
         return
     }
     if UpdateBusy {
@@ -269,8 +270,11 @@ DownloadUpdateText(url)
 ; No real update feed, profile or INI state is changed by these messages.
 HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)
 {
-    global LauncherGui, LauncherBadgeTestMode, LauncherBadgeTestState
-    if !LauncherBadgeTestMode || !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+    global LauncherBadgeTestMode, LauncherBadgeTestState, LauncherBadgeTestWindowHwnd
+    ; Compare a stored numeric HWND, not Gui.Hwnd: a destroyed Gui object
+    ; still exists, but reading its Hwnd raises "Gui has no window".
+    if !LauncherBadgeTestMode || hwnd != LauncherBadgeTestWindowHwnd
+        || !DllCall("user32\IsWindow", "Ptr", hwnd)
         return 0
     switch state
     {
