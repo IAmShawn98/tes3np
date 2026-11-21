@@ -294,7 +294,7 @@ Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(1
 Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
 Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
-Require-Source 'row.SetFont\("s" Max\(5, Round\(10 \* scale\)\)' 'missed release links use measured compact text' $dialogSource
+Require-Source 'row.SetFont\("s" Max\(4, Round\(10 \* scale\)\)' 'missed release links use measured compact text' $dialogSource
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'full production update popup retains owner scale instead of miniature rendering' $dialogSource
 Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 373 : 480\)' 'notes use almost the full upper-card height without crossing the gold divider' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
