@@ -159,12 +159,10 @@ PaintGoldUpdateDialogButtons(panel)
     global ButtonFaces
     if !IsObject(panel) || !DllCall("user32\IsWindowVisible", "Ptr", panel.Hwnd, "Int")
         return
-    ; First commit native layout and parent/child invalidations in z-order.
-    ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW
-    DllCall("user32\RedrawWindow", "Ptr", panel.Hwnd, "Ptr", 0, "Ptr", 0,
-        "UInt", 0x0181, "Int")
-    ; These buttons are owner/subclass painted; draw each visible HWND now
-    ; so a missed initial WM_PAINT cannot leave its face blank.
+    ; ShowGoldNativePrompt already paints the background and ordinary text.
+    ; Do not invalidate the entire visible parent here: that repaints the
+    ; backdrop over its newly exposed children and causes an opening flash.
+    ; Only paint our buffered button faces to repair the missed first WM_PAINT.
     for handle, face in ButtonFaces
         if face.Window = panel.Hwnd && !face.HasOwnProp("IsLabel")
             && DllCall("user32\IsWindowVisible", "Ptr", handle, "Int")
