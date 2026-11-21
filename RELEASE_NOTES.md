@@ -1,22 +1,22 @@
 # TES3NP Release Notes
 
-## v0.1.22-alpha — unreleased
+## v0.1.21-alpha.1 — unreleased
 
 Changes since the last public release, v0.1.21-alpha.
 
 ### New Features
 
-- **Update notifications:** A red (1) appears beside the launcher version when an update is available. After you view the update, it changes to a gold dot.
-- **Update history:** See release notes and hotfixes from versions you missed before updating. Hotfix-only updates show a simple **Hotfixes** list.
+- **Update notifications:** A red (1) next to the launcher version shows when an update is available. After you view it, the indicator changes to a gold dot.
+- **Update history:** Review release notes and hotfixes from updates you've missed before installing them.
 
 ### Improvements
 
-- **Launcher updates:** Review changes, then choose **Update Now** or **Not Now**. Downloads and installation still require confirmation.
-- **Expansion Pack:** If your existing official pack loses its verification information, the launcher can recognize it again without making you reinstall it.
+- **Launcher updates:** Review what's new, then choose **Update Now** or **Not Now**. Downloads and installation still require confirmation.
+- **Expansion Pack:** The launcher can recognize an already installed official pack without making you reinstall it if its verification information is missing.
 
-### Bug Fixes
+### Hotfixes
 
-- **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when a check failed.
+- **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when an update check failed.
 
 ## v0.1.21-alpha — unreleased
 
