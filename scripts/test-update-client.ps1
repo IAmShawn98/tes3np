@@ -81,21 +81,36 @@ Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
 Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
 
-# Keep version fields in separate, sized text controls with enough room
-# between the three groups to avoid clipping or drawing over other labels.
-Require-Source 'x30 y94 w90 h24 BackgroundTrans", "Installed:"' 'installed metadata label is separate' $dialogSource
-Require-Source 'x123 y94 w147 h24 BackgroundTrans", "v" installedVersion' 'installed version has its own visible control' $dialogSource
-Require-Source 'x291 y94 w70 h24 BackgroundTrans", "Latest:"' 'latest metadata label has room' $dialogSource
-Require-Source 'x371 y94 w167 h24 BackgroundTrans", "v" latestVersion' 'latest version has its own visible control' $dialogSource
-Require-Source 'x555 y94 w215 h24 BackgroundTrans", "Channel: "' 'channel occupies a separate metadata column' $dialogSource
-if ((123 + 147) -ge 291 -or (371 + 167) -ge 555) {
-    throw 'Update preview metadata columns must not overlap.'
+# The release-preview layout separates each header row, the tabs and the
+# notes viewport. Do not allow crowded or clipped footer metadata again.
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 680\)' 'update preview reserves enough vertical space' $dialogSource
+Require-Source 'x30 y105 w90 h25 BackgroundTrans", "Installed:"' 'installed metadata label has its own space' $dialogSource
+Require-Source 'x123 y105 w147 h25 BackgroundTrans", "v" installedVersion' 'installed version has a separate control' $dialogSource
+Require-Source 'x291 y105 w70 h25 BackgroundTrans", "Latest:"' 'latest metadata label has its own space' $dialogSource
+Require-Source 'x371 y105 w167 h25 BackgroundTrans", "v" latestVersion' 'latest version has a separate control' $dialogSource
+Require-Source 'x555 y105 w215 h25 BackgroundTrans", "Channel: "' 'channel stays in its own column' $dialogSource
+Require-Source 'kind = "hotfix" \? "hotfix" : "release", 143\)' 'update tabs move below metadata' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, tabs.Switch, 24, 38\)' 'notes viewport moves with preview layout' $dialogSource
+Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'status panel tabs preserve old layout' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0\)' 'status panel notes keep default geometry' $notesSource
+Require-Source 'x30 y574 w740 h24 BackgroundTrans' 'footer copy has comfortable space' $dialogSource
+Require-Source 'AddStyledButton\(preview, 330, 618, 140, 34, "Close"' 'offline preview has a single safe exit' $dialogSource
+if ((123 + 147) -ge 291 -or (371 + 167) -ge 555 -or
+    (555 + 215) -gt 800 -or
+    (105 + 25) -ge 143 -or
+    (143 + 30) -ge (158 + 24) -or
+    (158 + 367 + 38) -ge 574 -or
+    (574 + 24) -ge 618 -or
+    (618 + 34) -ge 680) {
+    throw 'Update preview has overlapping control bounds.'
 }
 if ($dialogSource.Contains('"Installed: v" installedVersion') -or
-    $dialogSource.Contains('"Latest: v" latestVersion')) {
-    throw 'Update preview versions must not wrap into a clipped second line.'
+    $dialogSource.Contains('"Latest: v" latestVersion') -or
+    $dialogSource.Contains('TEST DATA ONLY') -or
+    $dialogSource.Contains('"Close Test Preview"')) {
+    throw 'Update preview must not clip version fields or repeat test-only messaging.'
 }
-Write-Host 'PASS: update preview metadata shows installed and latest version values.'
+Write-Host 'PASS: preview header, tabs, scrolling and footer have spaced bounds.'
 
 Require-Source 'ReadVersionReleaseNotes\(originalVersion\)' 'original feature release notes survive hotfixes' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
@@ -343,8 +358,9 @@ if (!$bootstrapSource.Contains('OnMessage(0x8042, HandleLauncherHistoryTestMessa
     !$source.Contains('features := "No new feature releases since your installed version."') -or
     !$dialogSource.Contains('ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)') -or
     !$dialogSource.Contains('history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)') -or
-    !$dialogSource.Contains('TEST DATA ONLY') -or
-    !$dialogSource.Contains('"Close Test Preview"') -or
+    !$dialogSource.Contains('if synthetic') -or
+    !$dialogSource.Contains('AddStyledButton(preview, 330, 618, 140, 34, "Close"') -or
+    $dialogSource.Contains('TEST DATA ONLY') -or
     !$historyHelper.Contains('SendMessageTimeout(') -or
     !$historyHelper.Contains('FindWindow(') -or
     !$historyHelper.Contains('0x8042') -or
