@@ -178,15 +178,16 @@ if ($dialogSource.Contains('"Continue to Download"') -or
 }
 Write-Host 'PASS: Update Now and Not Now remain confirmation-gated and centered.'
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
-Require-Source 'A_Args\[1\] != "--review-unreleased-update"' 'pre-publication startup review requires explicit flag' $bootstrapSource
+Require-Source 'if A_Args.Length \|\| !RegExMatch\(AppConfig.Version' 'pre-publication review runs only on ordinary startup with a hotfix draft' $bootstrapSource
 Require-Source 'FileExist\(checkoutRoot "\\.git"\)' 'unreleased review only works in a development checkout' $bootstrapSource
+Require-Source 'ReadBundledVersionNotes\(AppConfig.Version\) != ""' 'startup preview requires locally existing unreleased notes' $bootstrapSource
 Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted RELEASE_NOTES rather than fake hotfixes' $bootstrapSource
 Require-Source 'ShowUpdatePreview\(GetTes3npOriginalVersion\(version\), version,' 'review invokes the real production update dialog' $bootstrapSource
 Require-Source 'BuildPublishedPreviewSections\(\[record\]\)' 'review uses the real production notes parser' $bootstrapSource
 if (Test-Path 'scripts/test-update-preview-visual.ps1') {
     throw 'Retired standalone fake-history visual test still exists.'
 }
-Write-Host 'PASS: full production launcher review is checkout-gated and fake visual fixture is removed.'
+Write-Host 'PASS: real production dialog auto-opens only at a source-checkout startup; fake visual fixture removed.'
 
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource

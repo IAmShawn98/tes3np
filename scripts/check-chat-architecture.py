@@ -2429,7 +2429,7 @@ expect(
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
     and 'CanShowDevelopmentReleaseReview()' in bootstrap
     and 'ShowDevelopmentReleaseReview(*)' in bootstrap
-    and 'A_Args[1] != "--review-unreleased-update"' in bootstrap
+    and 'if A_Args.Length || !RegExMatch(AppConfig.Version,' in bootstrap
     and 'FileExist(checkoutRoot "\\.git")' in bootstrap
     and 'ReadBundledVersionNotes(version)' in bootstrap
     and 'BuildPublishedPreviewSections([record])' in bootstrap
@@ -2533,7 +2533,7 @@ expect(
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
     and 'CanShowDevelopmentReleaseReview()' in bootstrap
     and 'ShowDevelopmentReleaseReview(*)' in bootstrap
-    and 'A_Args[1] != "--review-unreleased-update"' in bootstrap
+    and 'if A_Args.Length || !RegExMatch(AppConfig.Version,' in bootstrap
     and 'FileExist(checkoutRoot "\\.git")' in bootstrap
     and 'ReadBundledVersionNotes(version)' in bootstrap
     and 'BuildPublishedPreviewSections([record])' in bootstrap,

@@ -42,16 +42,19 @@ StartLauncher()
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
-; A narrowly gated pre-publication review of real draft notes. Distributions
-; outside a Git checkout cannot activate this even if given the CLI argument.
+; Open the real pending-hotfix modal automatically at ordinary startup
+; inside this development checkout. Standalone distributions and CLI checks
+; always keep their original production startup flow.
 CanShowDevelopmentReleaseReview()
 {
-    if A_Args.Length != 1 || A_Args[1] != "--review-unreleased-update"
+    global AppConfig
+    if A_Args.Length || !RegExMatch(AppConfig.Version, "\.\d+$")
         return false
     checkoutRoot := A_IsCompiled ? A_ScriptDir "\..\.." : A_ScriptDir
     return FileExist(checkoutRoot "\.git") != ""
         && FileExist(checkoutRoot "\scripts\check-ahk-compile.ps1") != ""
         && FileExist(A_ScriptDir "\RELEASE_NOTES.md") != ""
+        && ReadBundledVersionNotes(AppConfig.Version) != ""
 }
 
 ShowDevelopmentReleaseReview(*)
