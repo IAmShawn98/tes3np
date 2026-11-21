@@ -124,7 +124,9 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
 LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
-    return Max(1, Round((22 + 14 * (digits - 1)) * scale))
+    ; Keep multi-digit counts compact while retaining equal axes and the
+    ; transparent circular edge. 24 uses 28px instead of 36px at 100%.
+    return Max(1, Round((22 + 6 * (digits - 1)) * scale))
 }
 
 SetLauncherUnreadBadgeNumber(count)
