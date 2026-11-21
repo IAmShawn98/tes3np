@@ -2398,7 +2398,13 @@ expect(
     and '"Changes in This Update"' in update_dialogs
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
     and 'BuildPublishedPreviewSections(records)' in update_notes
-    and 'noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Latest)' in update_dialogs
+    and '"Updates You Missed"' in update_dialogs
+    and 'missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []' in update_dialogs
+    and 'AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace)' in update_dialogs
+    and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
+    and 'track.Visible := page.MaxOffset > 1' in update_dialogs
+    and 'MissedVersions: missedVersions' in update_notes
+    and 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' in update_notes
     and 'metadataBorder.Move(, , , 40 + rowExtra)' in update_dialogs
     and 'A_ScriptDir "\\assets\\controls\\update-badge.png"' in update_dialogs
     and 'fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap' in update_dialogs
@@ -2426,11 +2432,11 @@ expect(
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
     and 'preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
     and 'AddUpdateNotesViewport(preview, notes.Latest, scale,' in update_dialogs
-    and 'noteSwitcher, rowExtra, notesSpace, true, true, showEarlierSummary)' in update_dialogs
-    and 'showEarlierSummary := notes.EarlierCount > 0' in update_dialogs
-    and 'notes.HasOwnProp("ReviewEmptyEarlier")' in update_dialogs
-    and '"No earlier missed updates for this draft."' in update_dialogs
-    and 'draftSections.ReviewEmptyEarlier := true' in bootstrap
+    and '0, rowExtra, notesSpace, true, true, hasMissed)' in update_dialogs
+    and 'hasMissed := missedVersions.Length > 0' in update_dialogs
+    and 'draftSections.MissedVersions[1].Url := ""' in bootstrap
+    and 'draftSections.MissedVersions[1].Label .= " (unreleased draft)"' in bootstrap
+    and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
     and 'actionY := 511 + rowExtra + notesSpace' in update_dialogs
     and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 313, actionY, 181, 34, "Not Now"' in update_dialogs
