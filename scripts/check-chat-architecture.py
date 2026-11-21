@@ -2400,7 +2400,10 @@ expect(
     and 'BuildPublishedPreviewSections(records)' in update_notes
     and '"Updates You Missed"' in update_dialogs
     and 'missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []' in update_dialogs
-    and 'AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace)' in update_dialogs
+    and 'AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading)' in update_dialogs
+    and 'heading.GetPos(, &headingY, , &headingHeight)' in update_dialogs
+    and 'rowTop := Max(rowTop, headingY + headingHeight + Max(2, px(4)))' in update_dialogs
+    and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'track.Visible := page.MaxOffset > 1' in update_dialogs
     and 'MissedVersions: missedVersions' in update_notes
