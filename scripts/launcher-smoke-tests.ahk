@@ -1020,7 +1020,7 @@ CheckUnreadPublishedReleaseCounts()
             insetWidth := Max(1, Round(diameter * 0.90))
             insetHeight := insetWidth
             number := panel.Add("Text", "x0 y0 w" insetWidth " h" insetHeight
-                . " Center +0x200 BackgroundD63232", "24")
+                . " Center +0x200 BackgroundTrans", "24")
             ApplyLauncherBadgeFont(scale, number)
             ShapeCircularUpdateBadge(number)
             numberRect := Buffer(16, 0)
@@ -1048,7 +1048,7 @@ CheckUnreadPublishedReleaseCounts()
                 || DllCall("gdi32\PtInRegion", "Ptr", region,
                     "Int", 0, "Int", 0, "Int")
                 throw Error("Unread picture circle must clip its corners, not its center.")
-            ; The larger numeral overlay must remain circular as well.
+            ; Confirm the transparent number overlays the circle safely.
             if DllCall("user32\GetWindowRgn", "Ptr", number.Hwnd,
                 "Ptr", region, "Int") <= 0
                 throw Error("Unread numeral overlay is not clipped to a circle.")
