@@ -85,7 +85,7 @@ if ($dialogSource.Contains('You are running the latest and greatest version of t
     throw 'Obsolete up-to-date status wording must not return.'
 }
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
-Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
+Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion\)' 'update preview categorizes missed published versions' $dialogSource
 
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
@@ -110,17 +110,14 @@ Require-Source 'if channelX \+ channelWidth <= 770' 'three fields use the same r
 Require-Source 'if latestX \+ latestWidth <= 770' 'channel drops to a second row when necessary' $dialogSource
 Require-Source 'channelText.Move\(30, 144\)' 'longer versions can use three rows without overlap' $dialogSource
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'metadata wrapping extends the gold frame' $dialogSource
-Require-Source 'switcher := 0' 'hotfix-only preview has no tab switcher' $dialogSource
-Require-Source 'if kind = "hotfix"' 'hotfix-only path is explicitly handled' $dialogSource
-Require-Source 'preview.Add\("Text", "x30 y" \(118 \+ rowExtra\) " w740 h30 BackgroundTrans", "Hotfixes"\)' 'hotfix preview has a single Hotfixes heading' $dialogSource
-Require-Source 'tabs := AddUpdateNoteTabs\(preview, history.Release, history.Hotfix,' 'feature updates retain both tabs' $dialogSource
-Require-Source 'switcher := tabs.Switch' 'feature history can still switch between notes and hotfixes' $dialogSource
+Require-Source 'preview.Add\("Text", "x30 y" \(118 \+ rowExtra\) " w740 h30 BackgroundTrans", "Changes in This Update"\)' 'preview has one changes heading' $dialogSource
+Require-Source 'notes := ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion\)' 'all update types use categorized missed changes' $dialogSource
 Require-Source 'actionY := 568 \+ rowExtra' 'action buttons follow any wrapped header' $dialogSource
 Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
 Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, switcher, rowExtra, 28 \+ rowExtra\)' 'notes remain below dynamically spaced header' $dialogSource
-Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'version status retains both existing tabs' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\)' 'version status retains original note geometry' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, 0, rowExtra, 28 \+ rowExtra\)' 'single categorized notes viewport follows dynamic header' $dialogSource
+Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update still enters existing confirmation flow' $dialogSource
 
 $previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
@@ -130,17 +127,12 @@ if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -l
     throw 'Preview and measured metadata helper must remain separate from the Version Status dialog.'
 }
 $previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
-$hotfixStart = $previewPath.IndexOf('if kind = "hotfix"')
-$releaseStart = $previewPath.IndexOf('tabs := AddUpdateNoteTabs(', $hotfixStart)
-if ($hotfixStart -lt 0 -or $releaseStart -le $hotfixStart) {
-    throw 'Hotfix-only view must not use Release Notes or the tab switcher.'
-}
-$hotfixPath = $previewPath.Substring($hotfixStart, $releaseStart - $hotfixStart)
-if (!$hotfixPath.Contains('"Hotfixes"') -or
-    $hotfixPath.Contains('AddUpdateNoteTabs(') -or
-    $hotfixPath.Contains('history.Release') -or
-    !$previewPath.Contains('notes := kind = "hotfix" ? history.Hotfix : history.Release')) {
-    throw 'Hotfix-only preview must render only published hotfix history beneath Hotfixes.'
+if (!$previewPath.Contains('notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)') -or
+    !$previewPath.Contains('"Changes in This Update"') -or
+    $previewPath.Contains('AddUpdateNoteTabs(') -or
+    $previewPath.Contains('history.Hotfix') -or
+    $previewPath.Contains('history.Release')) {
+    throw 'Update preview must show one categorized summary of only missed published changes.'
 }
 $smokeSource = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
 if (!$smokeSource.Contains('CheckUpdatePreviewMetadataLayout()') -or
@@ -161,22 +153,29 @@ if ((20 + 42) -ge 80 -or (80 + 26) -ge 118 -or
     (568 + 34) -ge 620) {
     throw 'Preview base geometry overlaps; wrapped rows must preserve these same gaps.'
 }
-Write-Host 'PASS: preview metadata adapts to version widths and hotfix-only view has a single Hotfixes heading.'
+Write-Host 'PASS: preview metadata adapts to version widths and every update shows categorized changes.'
 if ($dialogSource.Contains('"Continue to Download"') -or
     $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"')) {
     throw 'Update preview footer must show only Update Now and Not Now.'
 }
 Write-Host 'PASS: preview footer has two actions, with download still confirmation-gated.'
 
-Require-Source 'ReadVersionReleaseNotes\(originalVersion\)' 'original feature release notes survive hotfixes' $dialogSource
-Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
+Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'installed notes merge original and hotfix changes' $dialogSource
+Require-Source 'Loop info.Hotfix \+ 1' 'installed cumulative notes include every installed hotfix only' $notesSource
+Require-Source 'ReadBundledVersionNotes\(entryVersion\)' 'installed notes use offline bundled source' $notesSource
+Require-Source 'if number = 0\s*notes := ReadPublishedVersionNotes\(base\)' 'original release has an online fallback' $notesSource
+Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'existing original notes remain available offline' $notesSource
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
-Require-Source 'return kind = "heading" \? "s12 Bold cE7BE70"' 'gold category headings' $notesSource
+Require-Source 'return kind = "heading" \? "s12 Bold cE7BE70"' 'gold category headings remain' $notesSource
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Version Status", 800, 600\)' 'version status uses the gold modal' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\)' 'version status passes the scale and tab switcher to release notes' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status keeps measured scrolling without tabs' $dialogSource
 Require-Source 'ShowGoldNativePrompt\(preview, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(preview\)' 'update preview paints buttons immediately after show' $dialogSource
-Require-Source 'ShowGoldNativePrompt\(panel, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(panel\)' 'version status paints tabs and footer immediately after show' $dialogSource
-Require-Source 'tabs.Switch.Update.Call\(selected = "hotfix" \? tabs.Hotfix : tabs.Release\)\r?\n\s*;[^\r\n]*\r?\n\s*PaintGoldUpdateDialogButtons\(tabs.ReleaseButton.Gui\)' 'release note tab switches repaint their native buttons' $dialogSource
+Require-Source 'ShowGoldNativePrompt\(panel, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(panel\)' 'version status paints its footer immediately after show' $dialogSource
+if ($dialogSource.Contains('AddUpdateNoteTabs(') -or
+    $dialogSource.Contains('Hotfix History') -or
+    $dialogSource.Contains('tabs.Switch')) {
+    throw 'Obsolete separate release/hotfix tabs must not return.'
+}
 # A redundant full-window redraw after Show was making the dialog visibly
 # flicker. Only its missing owner-painted button faces should be repainted.
 if ($dialogSource.Contains('RedrawWindow", "Ptr", panel.Hwnd')) {
@@ -382,7 +381,7 @@ Require-Source '&& !HasSeenUpdateAutoPreview\(latestVersion\)' 'only unseen publ
 Require-Source 'IniWrite\(latest, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'viewing an update persists its seen state across restarts'
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
 Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind\)' 'release preview has only production parameters' $dialogSource
-Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'release history always reads the published records' $dialogSource
+Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'category formatter reads only published history' $notesSource
 Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'real Update Now remains available' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'Update Now enters the existing confirmation-gated updater' $dialogSource
 Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'Not Now leaves the updater unchanged' $dialogSource
@@ -396,9 +395,9 @@ if ($source -match 'LauncherBadgeTest|LauncherHistoryTest|HandleLauncherHistoryT
 }
 Write-Host 'PASS: temporary manual updater preview instrumentation removed; normal updater checks preserved.'
 
-Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
-Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
-Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the viewport' $notesSource
+Require-Source 'BuildCategorizedUpdateNotes\(records\)' 'missed changes and installed notes share one category formatter' $notesSource
+Require-Source 'switcher\.Update := updateNotes' 'scrollable viewport still supports safe content refresh' $notesSource
+Require-Source 'Loop capacity - 1' 'short and long categorized notes fill the viewport' $notesSource
 
 
 
