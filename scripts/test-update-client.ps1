@@ -535,7 +535,10 @@ Require-Source 'ApplyLauncherBadgeFont\(scale, number\)' 'native smoke exercises
 Require-Source 'if percent = 100 && measuredHeight < 16' 'compiled test rejects illegibly small counter numbers' $badgeHarness
 Require-Source 'innerWidth := Max\(1, Round\(diameter \* 0\.90\)\)' 'number overlay uses most of the existing circle' $source
 Require-Source 'innerHeight := innerWidth' 'number overlay stays circular' $source
-Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateNumber\)' 'red numeral overlay is clipped to a true circle' $source
+Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateNumber\)' 'white numeral control retains circular clipping' $source
+Require-Source 'y694 w14 h11 Center \+0x200 BackgroundTrans' 'white numeral reveals existing circular PNG without a red square' $source
+Require-Source 'Center \+0x200 BackgroundTrans", "24"' 'native two-digit smoke uses transparent numeral overlay' $badgeHarness
+if ($source.Contains('y694 w14 h11 Center +0x200 BackgroundD63232')) { throw 'Opaque numeral text background would create a visible red square over the circular badge.' }
 Require-Source 'Unread numeral overlay region is not circular\.' 'native smoke validates the clipped numeral background' $badgeHarness
 Require-Source 'x" x " y689 w22 h22 \+0x40 BackgroundTrans' 'Picture control scales the circular bitmap to fit its resized bounds' $source
 Require-Source 'if width > 30' 'native GUI smoke rejects oversized circles while permitting 27 pixels' $badgeHarness
