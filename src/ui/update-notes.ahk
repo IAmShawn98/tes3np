@@ -120,7 +120,8 @@ ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, separateLat
 
 EmptyPublishedPreviewSections(message)
 {
-    return {Title: "", Compact: message, Expanded: message, EarlierCount: 0}
+    return {Title: "", Compact: message, Expanded: message, Latest: message,
+        EarlierCount: 0, EarlierLabels: []}
 }
 
 ; Only the newest missed published release is expanded initially. All earlier
@@ -131,9 +132,11 @@ BuildPublishedPreviewSections(records)
     if !records.Length
         return EmptyPublishedPreviewSections("Published release history is unavailable.")
     newest := records[1]
-    title := (newest.Hotfix ? "Latest Hotfix — " : "Latest Release — ") newest.Label
+    title := (newest.Hotfix ? "Latest Hotfix — v" : "Latest Release — v") newest.Version
     compact := BuildCategorizedUpdateNotes([newest], false)
+    latestNotes := compact
     expanded := compact
+    earlierLabels := []
     earlierCount := records.Length - 1
     if earlierCount > 0
     {
@@ -143,12 +146,14 @@ BuildPublishedPreviewSections(records)
         Loop earlierCount
         {
             oldRecord := records[A_Index + 1]
+            earlierLabels.Push(oldRecord.Label)
             compact .= "`n- " oldRecord.Label
             expanded .= "`n`n#### " oldRecord.Label
                 . "`n" BuildCategorizedUpdateNotes([oldRecord], false)
         }
     }
-    return {Title: title, Compact: compact, Expanded: expanded, EarlierCount: earlierCount}
+    return {Title: title, Compact: compact, Expanded: expanded,
+        Latest: latestNotes, EarlierCount: earlierCount, EarlierLabels: earlierLabels}
 }
 
 AddPublishedNoteRecords(history, records)
@@ -486,19 +491,26 @@ ReleaseNoteLineHeight(control)
     }
 }
 
-AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0, premium := false)
+AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0, premium := false, compactLayout := false, fixedEarlier := false)
 {
     ; The taller update preview reflows the same existing viewport without
     ; changing the verified Version Status geometry (both extras default 0).
     px := (value) => Round(value * scale)
-    viewport := panel.Add("Text", "x" px(28) " y" px(158 + topExtra)
-        . " w" px(744) " h" px(367 + bottomExtra - topExtra) " BackgroundC5A45C")
-    panel.Add("Text", "x" px(30) " y" px(160 + topExtra)
-        . " w" px(740) " h" px(363 + bottomExtra - topExtra) " Background171008")
-    ; Measure the actual Windows font before allocating rows. Launcher scale
-    ; sizes the card, and the text keeps its normal size and wraps as needed.
-    firstY := px(170 + topExtra), bottomY := px(516 + bottomExtra)
-    left := px(42), width := px(686)
+    ; Compact Update Preview uses the real mockup's 560px gold card. When
+    ; earlier updates exist, reserve the lower portion for the fixed summary
+    ; and keep the latest/expanded notes independently scrollable above it.
+    viewX := compactLayout ? 20 : 28
+    viewY := compactLayout ? 166 + topExtra : 158 + topExtra
+    viewWidth := compactLayout ? 560 : 744
+    viewHeight := compactLayout ? (fixedEarlier ? 207 : 330) : 367 + bottomExtra - topExtra
+    viewport := panel.Add("Text", "x" px(viewX) " y" px(viewY)
+        . " w" px(viewWidth) " h" px(viewHeight) " BackgroundC5A45C")
+    panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)
+        . " w" px(viewWidth - 4) " h" px(viewHeight - 4) " Background171008")
+    firstY := px(compactLayout ? 178 + topExtra : 170 + topExtra)
+    bottomY := px(compactLayout ? (fixedEarlier ? 358 : 480) + topExtra : 516 + bottomExtra)
+    left := px(compactLayout ? 40 : 42)
+    width := px(compactLayout ? 507 : 686)
     panel.SetFont(UpdateNoteFont("body", premium), UpdateNoteFontFace("body", premium))
     sample := panel.Add("Text", "Hidden x" left " y" firstY " w" width " h1 Background171008 +0x80", "")
     bodyHeight := ReleaseNoteLineHeight(sample)
@@ -529,9 +541,12 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
-    trackY := px(188 + topExtra), trackHeight := px(309 + bottomExtra - topExtra)
-    thumbX := px(750), thumbWidth := px(8)
-    track := panel.Add("Text", "x" px(746) " y" trackY " w" px(16) " h" trackHeight " Background704C27")
+    trackY := px(compactLayout ? 176 + topExtra : 188 + topExtra)
+    trackHeight := px(compactLayout ? (fixedEarlier ? 171 : 294) : 309 + bottomExtra - topExtra)
+    thumbX := px(compactLayout ? 565 : 750)
+    thumbWidth := px(8)
+    track := panel.Add("Text", "x" px(compactLayout ? 561 : 746) " y" trackY
+        . " w" px(16) " h" trackHeight " Background704C27")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth " h" px(32) " +0x100 BackgroundC69951")
     drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
     refresh(*) {
@@ -585,8 +600,11 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     if IsObject(switcher)
         switcher.Update := updateNotes
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
-    up := AddStyledButton(panel, px(744), px(163 + topExtra), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
-    down := AddStyledButton(panel, px(744), px(500 + bottomExtra), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
+    arrowX := px(compactLayout ? 558 : 744)
+    arrowTop := px(compactLayout ? 169 + topExtra : 163 + topExtra)
+    arrowBottom := px(compactLayout ? (fixedEarlier ? 348 : 470) + topExtra : 500 + bottomExtra)
+    up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
+    down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
         arrow.SetFont(UpdateNoteFont("heading", premium), "Segoe UI")
     refresh()

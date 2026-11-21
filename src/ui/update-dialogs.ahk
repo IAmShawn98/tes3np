@@ -25,85 +25,109 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
 
 ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
-    ; Show only published changes missed since this installed build. The
-    ; latest published release is prominent; earlier missed changes expand
-    ; on demand without hiding any published notes or changing updater gates.
+    ; The 600 x 556 compact composition follows the approved gold fantasy
+    ; mockup. Keep existing player-facing text, version history, updater
+    ; confirmation and download behavior untouched.
     notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
     response := {Download: false}
-    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)
+    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 600, 556)
     closeNotes := 0
-    try {
+    try
+    {
         preview.SetFont("s16 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
-        preview.Add("Text", "x30 y20 w740 h42 BackgroundTrans", title)
-        ; Add the mockup's gold box behind the existing Installed / Latest /
-        ; Channel captions. Resize it together with the verified metadata
-        ; row-wrap logic instead of moving any original wording.
-        metadataBorder := preview.Add("Text", "x28 y74 w744 h34 BackgroundC5A45C")
-        metadataFill := preview.Add("Text", "x30 y76 w740 h30 Background21170F")
-        rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)
+        preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
+
+        ; Narrow gold metadata ribbon. Each natural-size label is measured so
+        ; long future versions reflow rather than collide with Channel.
+        preview.Add("Text", "x20 y53 w560 h36 BackgroundC5A45C")
+        metadataFill := preview.Add("Text", "x22 y55 w556 h32 Background21170F")
+        rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel, true)
         if rowExtra
         {
-            metadataBorder.Move(, , , 34 + rowExtra)
-            metadataFill.Move(, , , 30 + rowExtra)
+            metadataFill.Move(, , , 32 + rowExtra)
             GrowGoldNativePrompt(preview, rowExtra)
         }
-        preview.SetFont("s13 Bold cE7BE70", "Georgia")
-        preview.Add("Text", "x30 y" (118 + rowExtra) " w490 h30 BackgroundTrans", "Changes in This Update")
-        ; The mockup's continuous gold frame visually joins the newest
-        ; hotfix heading to the measured and scrollable notes viewport.
-        preview.Add("Text", "x30 y" (152 + rowExtra) " w740 h2 BackgroundC5A45C")
-        preview.Add("Text", "x28 y" (158 + rowExtra) " w744 h46 BackgroundC5A45C")
-        preview.Add("Text", "x30 y" (160 + rowExtra) " w740 h43 Background171008")
-        noteSwitcher := {Update: 0}
-        previewState := {Expanded: false}
+
+        preview.SetFont("s14 Bold cE7BE70", "Georgia")
+        preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")
+        ; One continuous outer frame contains the latest hotfix, readable
+        ; scrollable notes, a gold rule, and fixed earlier-update summary.
+        preview.Add("Text", "x20 y" (131 + rowExtra) " w560 h365 BackgroundC5A45C")
+        preview.Add("Text", "x22 y" (133 + rowExtra) " w556 h361 Background171008")
+
         if notes.Title != ""
         {
             preview.SetFont("s13 Bold cE7BE70", "Georgia")
-            preview.Add("Text", "x42 y" (162 + rowExtra) " w650 h30 BackgroundTrans", notes.Title)
+            latestTitle := preview.Add("Text", "x40 y" (139 + rowExtra)
+                . " BackgroundTrans +0x80", notes.Title)
+            latestTitle.GetPos(, , &naturalTitleWidth)
+            latestTitle.Move(40, 139 + rowExtra, Min(naturalTitleWidth + 4, 484), 28)
+            ; Place the round notification immediately after the latest
+            ; version, not at a fixed far-right position.
             preview.SetFont("s10 Bold cFFFFFF", "Segoe UI")
-            latestBadge := preview.Add("Text", "x716 y" (166 + rowExtra)
-                . " w22 h22 Center +0x200 BackgroundD63232", "1")
+            latestBadge := preview.Add("Text", "x" Min(537, 50 + naturalTitleWidth)
+                . " y" (144 + rowExtra) " w20 h20 Center +0x200 BackgroundD63232", "1")
         }
+
+        noteSwitcher := {Update: 0}
+        previewState := {Expanded: false}
         if notes.EarlierCount > 0
         {
-            showEarlier := AddStyledButton(preview, 536, 118 + rowExtra, 225, 29,
-                "View earlier changes", (*) => TogglePublishedPreviewHistory())
-            hideEarlier := AddStyledButton(preview, 536, 118 + rowExtra, 225, 29,
-                "Hide earlier changes", (*) => TogglePublishedPreviewHistory())
+            preview.Add("Text", "x40 y" (376 + rowExtra) " w520 h2 BackgroundC5A45C")
+            preview.SetFont("s12 Bold cE7BE70", "Georgia")
+            preview.Add("Text", "x40 y" (388 + rowExtra) " w520 h25 BackgroundTrans", "Earlier updates included")
+            preview.SetFont("s10 Norm cFFF0DC", "Segoe UI")
+            preview.Add("Text", "x40 y" (416 + rowExtra) " w515 h19 BackgroundTrans",
+                "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
+            yLabel := 435 + rowExtra
+            for label in notes.EarlierLabels
+            {
+                if yLabel > 455 + rowExtra
+                    break
+                preview.Add("Text", "x48 y" yLabel " w330 h19 BackgroundTrans", "• " label)
+                yLabel += 19
+            }
+            preview.SetFont("s10 Underline cF5C96E", "Segoe UI")
+            showEarlier := preview.Add("Text", "x395 y" (455 + rowExtra)
+                . " w166 h23 BackgroundTrans +0x100", "View earlier changes")
+            hideEarlier := preview.Add("Text", "x395 y" (455 + rowExtra)
+                . " w166 h23 BackgroundTrans +0x100", "Hide earlier changes")
+            showEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
+            hideEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
             hideEarlier.Visible := false
         }
+
         TogglePublishedPreviewHistory()
         {
             previewState.Expanded := !previewState.Expanded
-            ; Object-property function calls pass the object as an extra implicit
-            ; argument in AHK v2. Call the stored callback explicitly instead.
-            noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Compact)
+            noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Latest)
             showEarlier.Visible := !previewState.Expanded
             hideEarlier.Visible := previewState.Expanded
-            PaintGoldUpdateDialogButtons(preview)
         }
-        ; Keep both actions together at the lower left, aligned with the
-        ; notes panel. The real Update Now action still enters the existing
-        ; download and install confirmation flow outside this window.
-        actionY := 568 + rowExtra
-        AddStyledButton(preview, 32, actionY, 185, 34, "Update Now",
+
+        ; Both approved controls are centered below the gold history frame.
+        actionY := 511 + rowExtra
+        AddStyledButton(preview, 109, actionY, 181, 34, "Update Now",
             (*) => (response.Download := true, DestroyScaledMenu(preview)))
-        AddStyledButton(preview, 233, actionY, 155, 34, "Not Now", (*) => DestroyScaledMenu(preview))
+        AddStyledButton(preview, 313, actionY, 181, 34, "Not Now", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
+
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
-        closeNotes := AddUpdateNotesViewport(preview, notes.Compact, scale,
-            noteSwitcher, 44 + rowExtra, 28 + rowExtra, true)
+        closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
+            noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0)
         if notes.Title != ""
             ShapeCircularUpdateBadge(latestBadge)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
         WinWaitClose("ahk_id " hwnd)
-    } finally {
+    }
+    finally
+    {
         if IsObject(closeNotes)
             try closeNotes()
         CloseGoldNativePrompt(preview)
@@ -115,17 +139,20 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 ; installed and latest build strings vary (especially for hotfix versions),
 ; so hard-coded text-box widths otherwise clip or overlap their neighbors.
 ; Return the extra vertical space needed if a narrow display requires wrapping.
-AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
+AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
-    panel.SetFont("s10 Bold cEDE1C9", "Segoe UI")
+    panel.SetFont(compact ? "s9 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
+    baseX := compact ? 40 : 30
+    labelY := compact ? 61 : 80
+    rightEdge := compact ? 568 : 770
     ; AHK only auto-sizes a Text control reliably to its caption when
     ; neither width nor height is specified. Setting h26 at creation made
     ; GetPos return a narrow default width and truncated Installed metadata.
     ; Capture natural widths first, then apply the fixed one-line height.
-    installed := panel.Add("Text", "x30 y80 BackgroundTrans +0x80", "Installed: v" installedVersion)
-    latest := panel.Add("Text", "x30 y80 BackgroundTrans +0x80", "Latest: v" latestVersion)
+    installed := panel.Add("Text", "x" baseX " y" labelY " BackgroundTrans +0x80", "Installed: v" installedVersion)
+    latest := panel.Add("Text", "x" baseX " y" labelY " BackgroundTrans +0x80", "Latest: v" latestVersion)
     channelName := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
-    channelText := panel.Add("Text", "x30 y80 BackgroundTrans +0x80", "Channel: " channelName)
+    channelText := panel.Add("Text", "x" baseX " y" labelY " BackgroundTrans +0x80", "Channel: " channelName)
 
     installed.GetPos(, , &installedWidth)
     latest.GetPos(, , &latestWidth)
@@ -136,27 +163,26 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
     installed.Move(, , installedWidth, 26)
     latest.Move(, , latestWidth, 26)
     channelText.Move(, , channelWidth, 26)
-    gap := 18
-    latestX := 30 + installedWidth + gap
+    gap := compact ? 14 : 18
+    latestX := baseX + installedWidth + gap
     channelX := latestX + latestWidth + gap
-    if channelX + channelWidth <= 770
+    if channelX + channelWidth <= rightEdge
     {
-        latest.Move(latestX, 80)
-        channelText.Move(channelX, 80)
-        ; The separators follow actual rendered version-caption widths.
-        panel.Add("Text", "x" (latestX - 9) " y83 w1 h18 BackgroundC5A45C")
-        panel.Add("Text", "x" (channelX - 9) " y83 w1 h18 BackgroundC5A45C")
+        latest.Move(latestX, labelY)
+        channelText.Move(channelX, labelY)
+        panel.Add("Text", "x" (latestX - 9) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
+        panel.Add("Text", "x" (channelX - 9) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
         return 0
     }
-    if latestX + latestWidth <= 770
+    if latestX + latestWidth <= rightEdge
     {
-        latest.Move(latestX, 80)
-        channelText.Move(30, 112)
-        panel.Add("Text", "x" (latestX - 9) " y83 w1 h18 BackgroundC5A45C")
+        latest.Move(latestX, labelY)
+        channelText.Move(baseX, labelY + 32)
+        panel.Add("Text", "x" (latestX - 9) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
         return 32
     }
-    latest.Move(30, 112)
-    channelText.Move(30, 144)
+    latest.Move(baseX, labelY + 32)
+    channelText.Move(baseX, labelY + 64)
     return 64
 }
 

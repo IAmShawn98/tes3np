@@ -88,7 +88,7 @@ if ($InstalledVersion -cne '0.1.21-alpha' -or $LatestVersion -cne '0.1.21-alpha.
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [IO.File]::WriteAllText($ReleaseOutputPath, '', $utf8)
 $history = @"
-### v0.1.21-alpha.1 — sample earlier hotfix
+### v0.1.21-alpha.1
 
 ### New Features
 - **Update notifications:** See a red (1) when an update is available. It disappears after you view the update.
@@ -100,7 +100,7 @@ $history = @"
 ### Bug Fixes
 - **Expansion Pack:** Fixed an issue that could prevent disabling the pack when verification failed.
 
-### v0.1.21-alpha.2 — sample earlier hotfix
+### v0.1.21-alpha.2
 
 ### Improvements
 - **Visual test only:** Example notes for an earlier missed hotfix. This is not a published release.
@@ -108,22 +108,22 @@ $history = @"
 ### Bug Fixes
 - **Visual test only:** Example earlier change, included so the expandable history can be tested.
 
-### v0.1.21-alpha.3 — sample latest hotfix
+### v0.1.21-alpha.3
 
 ### New Features
-- **Visual test only:** Example latest hotfix change, not a published update.
+- **Visual test only:** Red circular 1 update notification.
 
 ### Improvements
-- **Visual test only:** Check the gold borders, red circular 1, and scroll layout.
-- **Visual test only:** Check that earlier missed versions are initially compact.
+- **Visual test only:** Cleaner update preview layout.
+- **Visual test only:** Better readability for grouped changes.
 
 ### Bug Fixes
-- **Visual test only:** No actual files will be downloaded, installed, or replaced.
+- **Visual test only:** No files are downloaded or installed.
 "@
 [IO.File]::WriteAllText($HotfixOutputPath, $history, $utf8)
 '@
     $utf8 = New-Object System.Text.UTF8Encoding($false)
-    [IO.File]::WriteAllText($helperPath, $fakeHistory, $utf8)
+    [IO.File]::WriteAllText($helperPath, $fakeHistory, (New-Object System.Text.UTF8Encoding($true)))
 
     $runnerPath = Join-Path $temporary 'tes3np-preview-test.ahk'
     $prefix = @'
