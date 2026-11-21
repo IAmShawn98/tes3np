@@ -81,47 +81,73 @@ Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
 Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
 
-# Protect both horizontal and vertical spacing, rather than trying to
-# paper over one clipped label at a time. The production preview must remain
-# readable at normal launcher scale, with no redundant intro or footer copy.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 620\)' 'preview uses a compact, bounded window' $dialogSource
-Require-Source 'x30 y20 w740 h42 BackgroundTrans", title' 'title has its own line' $dialogSource
-Require-Source 'x30 y80 w90 h26 BackgroundTrans", "Installed:"' 'installed label has separate bounds' $dialogSource
-Require-Source 'x123 y80 w147 h26 BackgroundTrans", "v" installedVersion' 'installed version is fully visible' $dialogSource
-Require-Source 'x272 y80 w70 h26 BackgroundTrans", "Latest:"' 'latest label has separate bounds' $dialogSource
-Require-Source 'x346 y80 w167 h26 BackgroundTrans", "v" latestVersion' 'latest version is fully visible' $dialogSource
-Require-Source 'x518 y80 w252 h26 BackgroundTrans", "Channel: "' 'channel keeps its own column' $dialogSource
-Require-Source 'kind = "hotfix" \? "hotfix" : "release", 118\)' 'tabs follow the metadata row' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, tabs.Switch, 0, 28\)' 'note viewport keeps a distinct frame and scroll region' $dialogSource
-Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'existing version status retains its tab position' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0\)' 'status panel retains original note geometry' $notesSource
-Require-Source 'AddStyledButton\(preview, 32, 568, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
-Require-Source 'AddStyledButton\(preview, 233, 568, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
-Require-Source 'MsgBox\("Update downloads are disabled for this preview\."' 'offline update button cannot download anything' $dialogSource
-Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update proceeds to existing confirmation gates' $dialogSource
-if ((123 + 147) -ge 272 -or (272 + 70) -ge 346 -or
-    (346 + 167) -ge 518 -or (518 + 252) -gt 800 -or
-    (272 - (123 + 147)) -gt 8 -or
-    (518 - (346 + 167)) -gt 8 -or
-    (20 + 42) -ge 80 -or
-    (80 + 26) -ge 118 -or
-    (118 + 30) -ge 158 -or
-    (158 + 367 + 28) -ge 568 -or
-    (568 + 34) -ge 620) {
-    throw 'Update preview layout has overlapping or out-of-bounds regions.'
+# The preview must derive each version field's width from actual rendered text,
+# rather than the length of the shorter feature-only test version. The optional
+# second metadata row reflows tabs, notes, actions and the gold frame as one unit.
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 620\)' 'preview base height is retained' $dialogSource
+Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel\)' 'feature and hotfix use the same metadata layout' $dialogSource
+Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed caption uses measured natural width' $dialogSource
+Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest caption uses measured natural width' $dialogSource
+Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'channel caption uses measured natural width' $dialogSource
+Require-Source 'gap := 18' 'metadata groups have an intentional consistent gap' $dialogSource
+Require-Source 'if channelX \+ channelWidth <= 770' 'three fields use the same row when they fit' $dialogSource
+Require-Source 'if latestX \+ latestWidth <= 770' 'channel drops to a second row when necessary' $dialogSource
+Require-Source 'channelText.Move\(30, 144\)' 'longer versions can use three rows without overlap' $dialogSource
+Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'metadata wrapping extends the gold frame' $dialogSource
+Require-Source 'switcher := 0' 'hotfix-only preview has no tab switcher' $dialogSource
+Require-Source 'if kind = "hotfix"' 'hotfix-only path is explicitly handled' $dialogSource
+Require-Source 'preview.Add\("Text", "x30 y" \(118 \+ rowExtra\) " w740 h30 BackgroundTrans", "Hotfixes"\)' 'hotfix preview has a single Hotfixes heading' $dialogSource
+Require-Source 'tabs := AddUpdateNoteTabs\(preview, history.Release, history.Hotfix,' 'feature updates retain both tabs' $dialogSource
+Require-Source 'switcher := tabs.Switch' 'feature history can still switch between notes and hotfixes' $dialogSource
+Require-Source 'actionY := 568 \+ rowExtra' 'action buttons follow any wrapped header' $dialogSource
+Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
+Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, switcher, rowExtra, 28 \+ rowExtra\)' 'notes remain below dynamically spaced header' $dialogSource
+Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'version status retains both existing tabs' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\)' 'version status retains original note geometry' $dialogSource
+Require-Source 'MsgBox\("Update downloads are disabled for this preview\."' 'test update cannot download anything' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update still enters existing confirmation flow' $dialogSource
+
+$previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
+$metadataStart = $dialogSource.IndexOf('AddUpdatePreviewMetadata(panel, installedVersion')
+$statusStart = $dialogSource.IndexOf('ShowUpdateStatusPanel(mode, installedVersion')
+if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -le $metadataStart) {
+    throw 'Preview and measured metadata helper must remain separate from the Version Status dialog.'
 }
-if ($dialogSource.Contains('"Installed: v" installedVersion') -or
-    $dialogSource.Contains('"Latest: v" latestVersion') -or
+$previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
+$hotfixStart = $previewPath.IndexOf('if kind = "hotfix"')
+$releaseStart = $previewPath.IndexOf('tabs := AddUpdateNoteTabs(', $hotfixStart)
+if ($hotfixStart -lt 0 -or $releaseStart -le $hotfixStart) {
+    throw 'Hotfix-only view must not use Release Notes or the tab switcher.'
+}
+$hotfixPath = $previewPath.Substring($hotfixStart, $releaseStart - $hotfixStart)
+if (!$hotfixPath.Contains('"Hotfixes"') -or
+    $hotfixPath.Contains('AddUpdateNoteTabs(') -or
+    $hotfixPath.Contains('history.Release') -or
+    !$previewPath.Contains('notes := kind = "hotfix" ? history.Hotfix : history.Release')) {
+    throw 'Hotfix-only preview must render only published hotfix history beneath Hotfixes.'
+}
+$smokeSource = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
+if (!$smokeSource.Contains('CheckUpdatePreviewMetadataLayout()') -or
+    !$smokeSource.Contains('Update preview metadata overlaps at this version length.') -or
+    !$smokeSource.Contains('1.0.0-live.100')) {
+    throw 'Windows smoke tests must verify dynamic metadata widths and clipping.'
+}
+if ($dialogSource.Contains('x123 y80 w147 h26') -or
     $dialogSource.Contains('Review the changes you have missed before deciding to update.') -or
     $dialogSource.Contains('Preview only — nothing has been downloaded or installed.') -or
     $dialogSource.Contains('TEST DATA ONLY') -or
     $dialogSource.Contains('"Close Test Preview"')) {
-    throw 'Update preview contains clipped metadata or redundant instructions.'
+    throw 'Update preview reintroduced fixed-width version labels or redundant copy.'
 }
-Write-Host 'PASS: compact preview separates title, metadata, tabs, notes and action row.'
+if ((20 + 42) -ge 80 -or (80 + 26) -ge 118 -or
+    (118 + 30) -ge 158 -or (158 + 367 + 28) -ge 568 -or
+    (568 + 34) -ge 620) {
+    throw 'Preview base geometry overlaps; wrapped rows must preserve these same gaps.'
+}
+Write-Host 'PASS: preview metadata adapts to version widths and hotfix-only view has a single Hotfixes heading.'
 if ($dialogSource.Contains('"Continue to Download"') -or
-    $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"') -or
-    $dialogSource.Contains('AddStyledButton(preview, 330, 568, 140, 34, "Close"')) {
+    $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"')) {
     throw 'Update preview footer must show only Update Now and Not Now.'
 }
 Write-Host 'PASS: preview footer has two actions, with download still confirmation-gated.'
@@ -374,8 +400,8 @@ if (!$bootstrapSource.Contains('OnMessage(0x8042, HandleLauncherHistoryTestMessa
     !$dialogSource.Contains('history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)') -or
     !$dialogSource.Contains('if synthetic') -or
     !$dialogSource.Contains('MsgBox("Update downloads are disabled for this preview."') -or
-    !$dialogSource.Contains('AddStyledButton(preview, 32, 568, 185, 34, "Update Now"') -or
-    !$dialogSource.Contains('AddStyledButton(preview, 233, 568, 155, 34, "Not Now"') -or
+    !$dialogSource.Contains('AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"') -or
+    !$dialogSource.Contains('AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"') -or
     $dialogSource.Contains('TEST DATA ONLY') -or
     !$historyHelper.Contains('SendMessageTimeout(') -or
     !$historyHelper.Contains('FindWindow(') -or
