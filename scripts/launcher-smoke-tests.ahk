@@ -989,7 +989,7 @@ CheckUnreadPublishedReleaseCounts()
         dpiScale := GetLauncherBadgeDpiScale()
         diameter := LauncherUnreadBadgeDiameter(24, scale)
         oneDigit := LauncherUnreadBadgeDiameter(1, scale)
-        expectedPixels := Max(16, Round(27 * scale))
+        expectedPixels := Max(20, Round(27 * scale))
         if diameter < oneDigit || diameter < 1
             throw Error("Two-digit unread badge must fit a readable, circular number.")
         panel := Gui(, "Native numeric unread badge smoke")
@@ -1035,7 +1035,7 @@ CheckUnreadPublishedReleaseCounts()
             panel.Destroy()
         }
     }
-    try FileAppend("PASS: unread counts 4,3,2,1,0 and native PNG circle renders at 16-27 physical pixels" Chr(10), "*")
+    try FileAppend("PASS: unread counts 4,3,2,1,0 and native PNG circle renders at 20-27 physical pixels" Chr(10), "*")
 }
 
 ; The version Text control has intentionally padded bounds to avoid clipping
