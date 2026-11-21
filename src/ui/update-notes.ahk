@@ -276,14 +276,18 @@ ReleaseNoteLineHeight(control)
     }
 }
 
-AddUpdateNotesViewport(panel, notes, scale, switcher := 0)
+AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0)
 {
+    ; The taller update preview reflows the same existing viewport without
+    ; changing the verified Version Status geometry (both extras default 0).
     px := (value) => Round(value * scale)
-    viewport := panel.Add("Text", "x" px(28) " y" px(158) " w" px(744) " h" px(367) " BackgroundC5A45C")
-    panel.Add("Text", "x" px(30) " y" px(160) " w" px(740) " h" px(363) " Background171008")
+    viewport := panel.Add("Text", "x" px(28) " y" px(158 + topExtra)
+        " w" px(744) " h" px(367 + bottomExtra - topExtra) " BackgroundC5A45C")
+    panel.Add("Text", "x" px(30) " y" px(160 + topExtra)
+        " w" px(740) " h" px(363 + bottomExtra - topExtra) " Background171008")
     ; Measure the actual Windows font before allocating rows. Launcher scale
     ; sizes the card, and the text keeps its normal size and wraps as needed.
-    firstY := px(170), bottomY := px(516)
+    firstY := px(170 + topExtra), bottomY := px(516 + bottomExtra)
     left := px(42), width := px(686)
     panel.SetFont(UpdateNoteFont("body"), "Segoe UI")
     sample := panel.Add("Text", "Hidden x" left " y" firstY " w" width " h1 Background171008 +0x80", "")
@@ -315,7 +319,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0)
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
-    trackY := px(188), trackHeight := px(309)
+    trackY := px(188 + topExtra), trackHeight := px(309 + bottomExtra - topExtra)
     thumbX := px(750), thumbWidth := px(8)
     track := panel.Add("Text", "x" px(746) " y" trackY " w" px(16) " h" trackHeight " Background704C27")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth " h" px(32) " +0x100 BackgroundC69951")
@@ -371,8 +375,8 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0)
     if IsObject(switcher)
         switcher.Update := updateNotes
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
-    up := AddStyledButton(panel, px(744), px(163), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
-    down := AddStyledButton(panel, px(744), px(500), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
+    up := AddStyledButton(panel, px(744), px(163 + topExtra), px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
+    down := AddStyledButton(panel, px(744), px(500 + bottomExtra), px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
         arrow.SetFont(UpdateNoteFont("heading"), "Segoe UI")
     refresh()
