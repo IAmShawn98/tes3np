@@ -126,22 +126,26 @@ Require-Source 'metadataBorder.Move\(, , , 40 \+ rowExtra\)' 'gold metadata bord
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows if longer versions require rows' $dialogSource
 Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
 Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h" \(365 \+ notesSpace\) " BackgroundC5A45C"\)' 'outer gold frame grows with notes instead of clipping' $dialogSource
-Require-Source 'preview.Add\("Text", "x40 y" \(376 \+ rowExtra \+ notesSpace\) " w520 h2 BackgroundC5A45C"\)' 'pinned earlier updates divider follows the full-height notes' $dialogSource
+Require-Source 'preview.Add\("Text", "x40 y" \(312 \+ rowExtra \+ notesSpace\) " w520 h2 BackgroundC5A45C"\)' 'pinned earlier updates divider follows the full-height notes' $dialogSource
 Require-Source '"Updates You Missed"' 'pinned history uses the approved player-facing heading' $dialogSource
 Require-Source 'missedVersions := notes.HasOwnProp\("MissedVersions"\) \? notes.MissedVersions : \[\]' 'published preview reads every missed release' $dialogSource
 Require-Source 'hasMissed := missedVersions.Length > 0' 'history stays absent when no versions are missed' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'latest changelog keeps its own scrollable viewport' $dialogSource
 Require-Source '0, rowExtra, notesSpace, true, true, hasMissed\)' 'latest notes stop above the pinned missed history' $dialogSource
 Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading\)' 'pinned missed releases use the measured heading to bound their viewport' $dialogSource
-Require-Source 'missedHeading := preview.Add\("Text", "x40 y" \(388 \+ rowExtra \+ notesSpace\)' 'the real missing-updates heading is retained for clipping tests' $dialogSource
+Require-Source 'missedHeading := preview.Add\("Text", "x40 y" \(324 \+ rowExtra \+ notesSpace\)' 'the real missing-updates heading is retained for clipping tests' $dialogSource
 Require-Source '" w520 h28 BackgroundTrans", "Updates You Missed"\)' 'the full Georgia heading has room for native glyph descenders' $dialogSource
 Require-Source 'link.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'each missed version hyperlink resolves from its current scroll row' $dialogSource
 Require-Source 'badge.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'red (1) markers also open their associated GitHub changelog' $dialogSource
 Require-Source 'badges.Push\(badge\)' 'every visible missed version has its own red number one' $dialogSource
 Require-Source 'MeasureMissedUpdateTextWidth\(row, caption\)' 'small red markers sit after actual measured version text' $dialogSource
 Require-Source 'badges\[slot\].Visible := true' 'only visible version rows show a red one' $dialogSource
-Require-Source 'track.Visible := page.MaxOffset > 1' 'history scrollbar appears only when more than three releases are missed' $dialogSource
-Require-Source 'rowTop := px\(420 \+ topExtra \+ bottomExtra\)' 'version links begin beneath the complete heading' $dialogSource
+Require-Source 'track.Visible := page.MaxOffset > 1' 'missed-update scrollbar appears only when rows overflow' $dialogSource
+Require-Source 'for slot in \[1, 2, 3, 4\]' 'four missed updates appear together at normal scale' $dialogSource
+Require-Source 'up := AddStyledButton\(panel, arrowX, arrowTop, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold up arrow' $dialogSource
+Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold down arrow' $dialogSource
+Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
+Require-Source 'rowTop := px\(356 \+ topExtra \+ bottomExtra\)' 'version links begin beneath the complete heading' $dialogSource
 Require-Source 'heading.GetPos\(, &headingY, , &headingHeight\)' 'viewport positions against actual scaled heading bounds' $dialogSource
 Require-Source 'rowTop := Max\(rowTop, headingY \+ headingHeight \+ Max\(2, px\(4\)\)\)' 'list background cannot cover the end of the heading' $dialogSource
 Require-Source '" h" \(bottomLimit - rowTop\) " Background171008"' 'opaque history background stops before the gold card border' $dialogSource
@@ -150,7 +154,7 @@ Require-Source 'rowHeight := Max\(rowHeight, ReleaseNoteLineHeight\(link\) \+ px
 Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and consistent spacing' $dialogSource
 Require-Source 'rowStep := Max\(rowStep, rowHeight \+ Max\(1, px\(2\)\)\)' 'missed-update link controls never overlap and erase neighboring glyphs' $dialogSource
 Require-Source 'bottomLimit := px\(490 \+ topExtra \+ bottomExtra\)' 'missed links cannot cross the gold card bottom' $dialogSource
-Require-Source 'page.VisibleRows := Max\(1, Min\(3,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
+Require-Source 'page.VisibleRows := Max\(1, Min\(4,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
 Require-Source 'page.MaxOffset := Max\(1, versions.Length - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
 Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
 Require-Source '"https://github.com/IAmShawn98/tes3np/releases/tag/v" version' 'hyperlink destination is locked to release tags in the official repository' $dialogSource
@@ -485,8 +489,9 @@ Require-Source 'LauncherVersionLabel\.Move\(, , Ceil\(naturalWidth \* 1\.125\) \
 Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge follows rendered version width'
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
-Require-Source 'newWidth := height \+ Max\(0, StrLen\(value\) - 1\)' 'multi-digit counts enlarge the badge rather than clipping its text'
-Require-Source 'CreateRoundRectRgn' 'two-digit counts are shown in a red rounded pill'
+Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
+Require-Source 'LauncherUpdateBadge.Move\(, centeredY, diameter, diameter\)' 'both badge axes stay equal when the number has multiple digits'
+Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
 Require-Source 'Run\(command, A_ScriptDir, "Hide", &pid\)' 'published release count uses a hidden worker rather than blocking the GUI'
 Require-Source 'CountUnseenPublishedUpdateRecords\(records, job.Installed, seen\)' 'unread count compares published history with last viewed version'
