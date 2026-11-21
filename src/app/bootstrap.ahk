@@ -53,11 +53,32 @@ CanShowDevelopmentReleaseReview()
     global AppConfig
     if A_Args.Length || !RegExMatch(AppConfig.Version, "\.\d+$")
         return false
-    checkoutRoot := A_IsCompiled ? A_ScriptDir "\..\.." : A_ScriptDir
-    return FileExist(checkoutRoot "\.git") != ""
-        && FileExist(checkoutRoot "\scripts\check-ahk-compile.ps1") != ""
+    checkoutRoot := FindDevelopmentReviewCheckoutRoot(A_ScriptDir, A_IsCompiled)
+    return checkoutRoot != ""
         && FileExist(A_ScriptDir "\RELEASE_NOTES.md") != ""
         && ReadBundledVersionNotes(AppConfig.Version) != ""
+}
+
+; The root EXE and dist\local-build EXE both need the checkout-only preview.
+; Do not auto-show development rows from a distributable ZIP's directory.
+FindDevelopmentReviewCheckoutRoot(scriptDir, compiled)
+{
+    if IsDevelopmentReviewCheckout(scriptDir)
+        return scriptDir
+    if !compiled
+        return ""
+    SplitPath(scriptDir, &folderName, &parentDir)
+    SplitPath(parentDir, &parentName)
+    if folderName != "local-build" || parentName != "dist"
+        return ""
+    checkoutRoot := scriptDir "\..\.."
+    return IsDevelopmentReviewCheckout(checkoutRoot) ? checkoutRoot : ""
+}
+
+IsDevelopmentReviewCheckout(checkoutRoot)
+{
+    return FileExist(checkoutRoot "\.git") != ""
+        && FileExist(checkoutRoot "\scripts\check-ahk-compile.ps1") != ""
 }
 
 ShowDevelopmentReleaseReview(*)
