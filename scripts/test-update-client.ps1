@@ -484,7 +484,7 @@ Require-Source 'LauncherVersionLabel\.GetPos\(, , &naturalWidth\)' 'version capt
 Require-Source 'LauncherVersionLabel\.Move\(, , Ceil\(naturalWidth \* 1\.125\) \+ 4, 18\)' 'version label height applied after width measurement with 50 percent headroom'
 Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge follows rendered version width'
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
-Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one' 
+Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'newWidth := height \+ Max\(0, StrLen\(value\) - 1\)' 'multi-digit counts enlarge the badge rather than clipping its text'
 Require-Source 'CreateRoundRectRgn' 'two-digit counts are shown in a red rounded pill'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
