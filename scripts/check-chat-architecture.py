@@ -2398,7 +2398,7 @@ expect(
     and '"Changes in This Update"' in update_dialogs
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
     and 'BuildPublishedPreviewSections(records)' in update_notes
-    and 'noteSwitcher.Update(previewState.Expanded ? notes.Expanded : notes.Compact)' in update_dialogs
+    and 'noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Compact)' in update_dialogs
     and 'metadataBorder.Move(, , , 34 + rowExtra)' in update_dialogs
     and 'ShapeCircularUpdateBadge(latestBadge)' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs

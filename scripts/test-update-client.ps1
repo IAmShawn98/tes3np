@@ -121,7 +121,7 @@ Require-Source 'noteSwitcher, 44 \+ rowExtra, 28 \+ rowExtra\)' 'latest hotfix h
 Require-Source 'metadataBorder := preview.Add\("Text", "x28 y74 w744 h34 BackgroundC5A45C"\)' 'installed/latest/channel has a gold border' $dialogSource
 Require-Source 'metadataBorder.Move\(, , , 34 \+ rowExtra\)' 'metadata gold frame grows with wrapped version labels' $dialogSource
 Require-Source '"View earlier changes"' 'older missed changes are available on demand' $dialogSource
-Require-Source 'noteSwitcher.Update\(previewState.Expanded \? notes.Expanded : notes.Compact\)' 'earlier history toggle changes the real notes viewport' $dialogSource
+Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Compact\)' 'earlier history toggle calls the viewport handler without implicit receiver' $dialogSource
 Require-Source 'ShapeCircularUpdateBadge\(latestBadge\)' 'latest update heading has a circular unread badge' $dialogSource
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
@@ -414,6 +414,8 @@ Write-Host 'PASS: temporary manual updater preview instrumentation removed; norm
 Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed published changes retain categorized formatting' $notesSource
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
 Require-Source 'previewSections := BuildPublishedPreviewSections\(\[newestMissed, previousMissed, patch\]\)' 'compiled smoke covers compact and expanded missed updates' $badgeHarness
+Require-Source 'CheckExpandablePublishedPreviewViewport\(\)' 'native smoke exercises expanding and collapsing the missed-update viewport' $badgeHarness
+Require-Source 'switcher.Update.Call\(sections.Expanded\)' 'native smoke calls the correct AHK bound callback' $badgeHarness
 Require-Source 'BuildInstalledVersionNotes\(\[base, patch\]\)' 'compiled data smoke exercises grouped installed hotfix notes' $badgeHarness
 Require-Source 'switcher\.Update := updateNotes' 'scrollable viewport still supports safe content refresh' $notesSource
 Require-Source 'Loop capacity - 1' 'short and long categorized notes fill the viewport' $notesSource

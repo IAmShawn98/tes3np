@@ -72,7 +72,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         TogglePublishedPreviewHistory()
         {
             previewState.Expanded := !previewState.Expanded
-            noteSwitcher.Update(previewState.Expanded ? notes.Expanded : notes.Compact)
+            ; Object-property function calls pass the object as an extra implicit
+            ; argument in AHK v2. Call the stored callback explicitly instead.
+            noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Compact)
             showEarlier.Visible := !previewState.Expanded
             hideEarlier.Visible := previewState.Expanded
             PaintGoldUpdateDialogButtons(preview)
