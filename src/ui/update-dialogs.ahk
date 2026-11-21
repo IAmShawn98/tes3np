@@ -33,7 +33,14 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     ; Keep the upper changelog scrollable and reserve four missed-release
     ; rows within the same fixed-height production card.
     notesSpace := 100
-    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 600, 556 + notesSpace)
+    ; Reserve extra height only when there are missed releases. The measured
+    ; Windows 10pt link controls need more vertical space than the nominal
+    ; 29px estimate; do not squeeze the upper changelog or its scrollbar.
+    missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []
+    hasMissed := missedVersions.Length > 0
+    missedSpace := hasMissed ? 64 : 0
+    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview",
+        600, 556 + notesSpace + missedSpace)
     closeNotes := 0
     closeMissed := 0
     try
@@ -59,8 +66,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")
         ; One continuous outer frame contains the latest hotfix, readable
         ; scrollable notes, a gold rule, and fixed earlier-update summary.
-        preview.Add("Text", "x20 y" (131 + rowExtra) " w560 h" (365 + notesSpace) " BackgroundC5A45C")
-        preview.Add("Text", "x22 y" (133 + rowExtra) " w556 h" (361 + notesSpace) " Background171008")
+        preview.Add("Text", "x20 y" (131 + rowExtra) " w560 h" (365 + notesSpace + missedSpace) " BackgroundC5A45C")
+        preview.Add("Text", "x22 y" (133 + rowExtra) " w556 h" (361 + notesSpace + missedSpace) " Background171008")
 
         if notes.Title != ""
         {
@@ -79,8 +86,6 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         ; List every genuinely missed published version, including the
         ; newest, with its own GitHub changelog. No fake released versions
         ; are inserted into the production history.
-        missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []
-        hasMissed := missedVersions.Length > 0
         missedHeading := 0
         if hasMissed
         {
@@ -91,7 +96,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         }
 
         ; Both approved controls are centered below the gold history frame.
-        actionY := 511 + rowExtra + notesSpace
+        actionY := 511 + rowExtra + notesSpace + missedSpace
         AddStyledButton(preview, 109, actionY, 181, 34, "Update Now",
             (*) => (response.Download := true, DestroyScaledMenu(preview)))
         AddStyledButton(preview, 313, actionY, 181, 34, "Not Now", (*) => DestroyScaledMenu(preview))
@@ -131,7 +136,9 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     ; The clipping was caused by the opaque list viewport painting over the
     ; lower part of the 'Updates You Missed' heading. Position its top below
     ; the *measured scaled heading control*, not above its text baseline.
-    bottomLimit := px(490 + topExtra + bottomExtra)
+    ; A 64px history extension is reserved in the real missed-update
+    ; preview card, allowing four measured-font rows without clipping.
+    bottomLimit := px(554 + topExtra + bottomExtra)
     rowTop := px(356 + topExtra + bottomExtra)
     if IsObject(heading)
     {
@@ -242,6 +249,9 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     if IsObject(observer)
     {
         observer.Page := page
+        observer.RowHeight := rowHeight
+        observer.RowStep := rowStep
+        observer.BottomLimit := bottomLimit
         observer.Viewport := viewport
         observer.Rows := rows
         observer.Badges := badges
