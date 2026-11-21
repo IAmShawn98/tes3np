@@ -1303,6 +1303,7 @@ CheckCompactPublishedPreviewViewport()
 ; preview scales. These disposable versions never reach GitHub or the updater.
 CheckMissedUpdateLinkViewport()
 {
+    global ButtonFaces
     for count in [1, 3, 7, 24]
     {
         records := []
