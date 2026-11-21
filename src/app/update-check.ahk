@@ -378,23 +378,26 @@ CleanupUnreadReleaseCountFiles(job)
 ; Per-version receipts persist in settings.ini without removing the
 ; release entry. Reading the current offered version does not clear older
 ; unread versions. The legacy scalar is used only for the *exact* old receipt.
-IsPublishedVersionRead(version)
+IsPublishedVersionRead(version, fixturePath := "")
 {
     global DataFile
     ParseTes3npVersion(version)
-    if IniRead(DataFile, "ReadPublishedVersions", version, "") = "1"
+    path := fixturePath != "" ? fixturePath : DataFile
+    if IniRead(path, "ReadPublishedVersions", version, "") = "1"
         return true
-    return IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "") = version
+    return IniRead(path, "Updates", "LastAutoPreviewVersion", "") = version
 }
 
-MarkPublishedVersionRead(version, offered := false)
+MarkPublishedVersionRead(version, offered := false, fixturePath := "")
 {
     global DataFile, AppDataDirectory
     ParseTes3npVersion(version)
-    DirCreate(AppDataDirectory)
-    IniWrite("1", DataFile, "ReadPublishedVersions", version)
+    if fixturePath = ""
+        DirCreate(AppDataDirectory)
+    path := fixturePath != "" ? fixturePath : DataFile
+    IniWrite("1", path, "ReadPublishedVersions", version)
     if offered
-        IniWrite(version, DataFile, "Updates", "LastAutoPreviewVersion")
+        IniWrite(version, path, "Updates", "LastAutoPreviewVersion")
 }
 
 ; A Map of read versions may be supplied by native offline regression tests.
