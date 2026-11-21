@@ -29,9 +29,12 @@ StartLauncher()
 
     if CanShowDevelopmentReleaseReview()
     {
-        ; Open the real production update popup after the main launcher loads.
-        ; Never launch the downloader or change installed/public update state.
-        SetTimer(ShowDevelopmentReleaseReview, -750)
+        ; Preview the numeric footer count before the native modal opens.
+        ; This deliberately touches neither installed state nor the update feed.
+        ShowDevelopmentUnreadBadgeSample(24)
+        ; The native production modal then clears the temporary footer badge
+        ; and shows 24 DEMO rows linked to two real published release pages.
+        SetTimer(ShowDevelopmentReleaseReview, -2500)
     }
     else
     {
@@ -87,6 +90,9 @@ ShowDevelopmentReleaseReview(*)
                 Url: GetTes3npReleasePage(demoVersion)})
         }
         draftSections.MissedVersions := demoRows
+        ; Opening the preview dismisses the dev-only unread count, exactly
+        ; as viewing a real published update clears its persisted indicator.
+        SetLauncherUpdateAvailable(false)
         ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
             "alpha", "hotfix", draftSections)
         LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
