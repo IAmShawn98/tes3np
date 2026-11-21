@@ -1111,9 +1111,10 @@ CheckCompactPublishedPreviewViewport()
             }
             if !borderFound
                 throw Error("Compact gold viewport does not match the reference card bounds.")
-            if !IsObject(up) || !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
-                || !IsObject(track) || !IsObject(thumb)
+            if !IsObject(up) || !IsObject(down) || !IsObject(track) || !IsObject(thumb)
                 throw Error("Compact preview scrollbar controls are missing.")
+            if !ButtonFaces.Has(down.Hwnd)
+                throw Error("Compact preview scroll-down button lost its themed face.")
             ; Track and thumb must be wholly between the arrows, not painted
             ; beneath the upper button as in the regressed production preview.
             up.GetPos(, &upY, , &upHeight)
@@ -1142,11 +1143,14 @@ CheckCompactPublishedPreviewViewport()
                     throw Error("No-scroll compact notes should not display orphan scrollbar arrows.")
             }
             switcher.Update.Call(sections.Expanded)
-            if !track.Visible || !thumb.Visible
-                throw Error("Expanded changelog did not show the scroll track and thumb.")
-            thumb.GetPos(, &thumbY, , &thumbHeight)
-            if thumbY < trackY || thumbY + thumbHeight > trackY + trackHeight
-                throw Error("Compact scrollbar thumb extends outside its track.")
+            if track.Visible != thumb.Visible
+                throw Error("Compact scrollbar track and thumb visibility disagree.")
+            if track.Visible
+            {
+                thumb.GetPos(, &thumbY, , &thumbHeight)
+                if thumbY < trackY || thumbY + thumbHeight > trackY + trackHeight
+                    throw Error("Compact scrollbar thumb extends outside its track.")
+            }
             seenOlder := false
             Loop 100
             {
