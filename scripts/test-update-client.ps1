@@ -150,6 +150,14 @@ Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), p
 Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
 Require-Source 'prefix.Text := prefixText' 'gold demo prefix remains separate from white version text' $dialogSource
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
+Require-Source 'RegisterMissedUpdateCursorTarget\(rows\[slot\], page, slot\)' 'only current release links register for hand cursor' $dialogSource
+Require-Source 'UnregisterMissedUpdateCursorTarget\(rows\[slot\]\)' 'modal cleanup removes clickable link cursor targets' $dialogSource
+Require-Source 'IsMissedUpdateCursorTarget\(handle\)' 'cursor resolver validates the current release entry' $dialogSource
+Require-Source 'IsLauncherFooterUpdateCursorTarget\(handle\)' 'version footer declares its clickable cursor targets' $source
+Require-Source 'UpdateMissedUpdateMarkReadLabel\(page\)' 'Mark Read button caption follows unread count' $dialogSource
+Require-Source 'unread > 1 \? "Mark All Read" : "Mark Read"' 'multiple unread releases show Mark All Read' $dialogSource
+Require-Source 'PaintButtonNow\(page.ClearButton.Hwnd\)' 'owner-painted button redraws after caption change' $dialogSource
+Require-Source 'One remaining unread release must display Mark Read' 'native smoke tests transition from multiple to one unread' $badgeHarness
 Require-Source 'preview.Add\("Text", "x40 y" \(354 \+ rowExtra \+ notesSpace\)' 'thin gold divider separates Updates You Missed from the list' $dialogSource
 Require-Source 'page.Total - page.VisibleRows \+ 1' 'scrolling includes Clear as a final item' $dialogSource
 Require-Source 'clearButton := AddStyledButton\(panel, px\(34\), markReadY, px\(118\), px\(26\),' 'Mark Read stays visible in a fixed footer below the list' $dialogSource
