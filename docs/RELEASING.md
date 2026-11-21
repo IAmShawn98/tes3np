@@ -87,8 +87,9 @@ Fixes, and Removed Features. The launcher and publisher use this file.
   preview never installs files.
 - The update preview separates all missed **Release Notes** from published,
   dated **Hotfix History**, newest first within each tab. A hotfix-only
-  update opens directly on the hotfix tab. An unverified or incomplete
-  public history must be labeled unavailable rather than silently truncated.
+  update shows a single **Hotfixes** section without a Release Notes tab.
+  Unverified or incomplete public history must be labeled unavailable rather
+  than silently truncated.
   Users install the latest verified package directly, without sequential
   intermediate updates.
 - GitHub release descriptions are **append-only for hotfix history**:
