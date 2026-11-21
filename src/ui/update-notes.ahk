@@ -395,15 +395,16 @@ BuildStyledReleaseNoteRows(content, measureRow, maxWidth, premium := false, comp
     return rows
 }
 
-UpdateNotesMouseWheel(viewport, page, refresh, wParam, lParam, msg, hwnd)
+UpdateNotesMouseWheel(viewportHwnd, page, refresh, wParam, lParam, msg, hwnd)
 {
-    ; Use the viewport's HWND bounds because the wheel message uses screen pixels.
-    if !DllCall("user32\IsWindow", "Ptr", viewport.Hwnd, "Int")
+    ; A global WM_MOUSEWHEEL handler can run after its dialog is destroyed.
+    ; Keep the captured HWND rather than dereferencing a dead GUI control.
+    if page.Closed || !DllCall("user32\IsWindow", "Ptr", viewportHwnd, "Int")
         return
     mx := (lParam & 0xFFFF) << 48 >> 48
     my := ((lParam >> 16) & 0xFFFF) << 48 >> 48
     bounds := Buffer(16, 0)
-    if !DllCall("user32\GetWindowRect", "Ptr", viewport.Hwnd, "Ptr", bounds)
+    if !DllCall("user32\GetWindowRect", "Ptr", viewportHwnd, "Ptr", bounds)
         return
     if mx < NumGet(bounds, 0, "Int") || mx >= NumGet(bounds, 8, "Int")
         || my < NumGet(bounds, 4, "Int") || my >= NumGet(bounds, 12, "Int")
@@ -418,6 +419,12 @@ UpdateNotesDragMove(drag, page, refresh)
 {
     if !drag.Active
         return
+    if page.Closed || !DllCall("user32\IsWindow", "Ptr", drag.PanelHwnd, "Int")
+    {
+        drag.Active := false
+        SetTimer(drag.Timer, 0)
+        return
+    }
     if !GetKeyState("LButton", "P") {
         drag.Active := false
         SetTimer(drag.Timer, 0)
@@ -434,13 +441,16 @@ UpdateNotesDragMove(drag, page, refresh)
     refresh()
 }
 
-StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, msg, hwnd)
+StartUpdateNotesDrag(panelHwnd, thumbHwnd, trackHwnd, drag, page, refresh, wParam, lParam, msg, hwnd)
 {
-    if page.MaxOffset <= 1
+    ; WM_LBUTTONDOWN may be dispatched between Destroy() and unregister().
+    ; Native HWND checks avoid the "Gui has no window" fatal error.
+    if page.Closed || page.MaxOffset <= 1
+        || !DllCall("user32\IsWindow", "Ptr", panelHwnd, "Int")
         return
     ; Hit-test the thumb by screen position because the press can reach its parent.
-    if DllCall("user32\GetAncestor", "Ptr", hwnd, "UInt", 2, "Ptr") != panel.Hwnd
-        && hwnd != panel.Hwnd
+    if DllCall("user32\GetAncestor", "Ptr", hwnd, "UInt", 2, "Ptr") != panelHwnd
+        && hwnd != panelHwnd
         return
     cursor := Buffer(8, 0)
     if !DllCall("user32\GetCursorPos", "Ptr", cursor)
@@ -449,8 +459,8 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     mouseY := NumGet(cursor, 4, "Int")
     trackRect := Buffer(16, 0)
     thumbRect := Buffer(16, 0)
-    if !DllCall("user32\GetWindowRect", "Ptr", track.Hwnd, "Ptr", trackRect)
-        || !DllCall("user32\GetWindowRect", "Ptr", thumb.Hwnd, "Ptr", thumbRect)
+    if !DllCall("user32\GetWindowRect", "Ptr", trackHwnd, "Ptr", trackRect)
+        || !DllCall("user32\GetWindowRect", "Ptr", thumbHwnd, "Ptr", thumbRect)
         return
     ; Make the slender gold handle easier to grab without changing its design.
     if mouseX < NumGet(trackRect, 0, "Int") - 5
@@ -463,7 +473,7 @@ StartUpdateNotesDrag(panel, thumb, track, drag, page, refresh, wParam, lParam, m
     drag.StartOffset := page.Offset
     drag.TrackPixels := NumGet(trackRect, 12, "Int") - NumGet(trackRect, 4, "Int")
     drag.ThumbPixels := NumGet(thumbRect, 12, "Int") - NumGet(thumbRect, 4, "Int")
-    DllCall("user32\SetCapture", "Ptr", panel.Hwnd)
+    DllCall("user32\SetCapture", "Ptr", panelHwnd)
     drag.Timer := UpdateNotesDragMove.Bind(drag, page, refresh)
     SetTimer(drag.Timer, 16)
     return 0
@@ -558,7 +568,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         used := nextHeight
         lastOffset -= 1
     }
-    page := {Offset: 1, Lines: lines, MaxOffset: lastOffset}
+    page := {Offset: 1, Lines: lines, MaxOffset: lastOffset, Closed: false}
     noteRows := [sample]
     rowStyles := ["body"]
     ; Allocate the whole viewport so switching from short to long notes fills it.
@@ -578,7 +588,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     track := panel.Add("Text", "x" px(compactLayout ? 561 : 746) " y" trackY
         . " w" px(16) " h" trackHeight " Background704C27")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth " h" px(32) " +0x100 BackgroundC69951")
-    drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
+    drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0, PanelHwnd: panel.Hwnd}
     refresh(*) {
         page.Offset := Min(page.MaxOffset, Max(1, page.Offset))
         y := firstY
@@ -636,7 +646,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     }
     if IsObject(switcher)
         switcher.Update := updateNotes
-    dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
+    dragStartCallback := StartUpdateNotesDrag.Bind(panel.Hwnd, thumb.Hwnd, track.Hwnd, drag, page, refresh)
     arrowX := px(compactLayout ? 558 : 744)
     arrowTop := px(arrowTopY)
     arrowBottom := px(arrowBottomY)
@@ -645,7 +655,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     for arrow in [up, down]
         arrow.SetFont(UpdateNoteFont("heading", premium, compactLayout, scale), "Segoe UI")
     refresh()
-    wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
+    wheelCallback := UpdateNotesMouseWheel.Bind(viewport.Hwnd, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
     try OnMessage(0x020A, wheelCallback, 1)
     catch {
@@ -653,6 +663,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         throw
     }
     unregister() {
+        page.Closed := true
         OnMessage(0x020A, wheelCallback, 0)
         OnMessage(0x0201, dragStartCallback, 0)
         if drag.Active {
