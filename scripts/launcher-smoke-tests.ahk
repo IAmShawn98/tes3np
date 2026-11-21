@@ -21,6 +21,8 @@ RunLauncherChecks(args)
                 ExitApp(229)
             if !CheckGameLoginProgressFit()
                 ExitApp(230)
+            if !CheckCategorizedUpdateNotes()
+                ExitApp(234)
             CheckCrashRecoveryProfiles()
         case "--check-expansion-ui":
             CheckExpansionProgressBindings()
@@ -35,6 +37,36 @@ RunLauncherChecks(args)
         case "--check-game-login-card":
             ExitApp(CheckGameLoginCardStacking() ? 0 : 231)
     }
+}
+
+
+; Pure data check: verify release and hotfix notes appear in the correct
+; categories and retain source versions without opening a test-only UI.
+CheckCategorizedUpdateNotes()
+{
+    base := {Version: "0.1.21-alpha", Label: "v0.1.21-alpha", Hotfix: false,
+        Notes: "### New Features`n- **Chat:** Original feature.`n### Bug Fixes`n- **Login:** Original fix."}
+    patch := {Version: "0.1.21-alpha.1", Label: "v0.1.21-alpha.1",
+        Hotfix: true, Notes: "### New Features`n- **Alerts:** New indicator."
+            . "`n### Improvements`n- **Pack:** Better verification."
+            . "`n### Bug Fixes`n- **Pack:** Fixed disabling."}
+    result := BuildCategorizedUpdateNotes([base, patch])
+    if !InStr(result, "### New Features`n`n#### v0.1.21-alpha")
+        || !InStr(result, "#### v0.1.21-alpha.1`n- **Alerts:** New indicator.")
+        || !InStr(result, "### Improvements`n`n#### v0.1.21-alpha.1")
+        || !InStr(result, "### Bug Fixes`n`n#### v0.1.21-alpha")
+        || !InStr(result, "### Hotfixes`n`n#### v0.1.21-alpha.1")
+        || InStr(result, "### Bug Fixes`n`n#### v0.1.21-alpha.1")
+        return false
+
+    published := []
+    AddPublishedNoteRecords("### v0.1.21-alpha.1 — November 21, 2026"
+        . "`n`n### Improvements`n- **Launcher:** Updated.", published)
+    if published.Length != 1 || published[1].Version != "0.1.21-alpha.1"
+        || !published[1].Hotfix || !InStr(published[1].Label, "November 21, 2026")
+        || CompareUpdateNoteVersions("0.1.21-alpha.1", "0.1.21-alpha") <= 0
+        return false
+    return true
 }
 
 CheckGameLoginProgressFit()
