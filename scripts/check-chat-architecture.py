@@ -2379,7 +2379,7 @@ expect(
     and 'IniWrite("1", path, "ReadPublishedVersions", version)' in update_check
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
     and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
-    and '22 + 6 * (digits - 1)' in update_check
+    and '22 + 3 * (digits - 1)' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
