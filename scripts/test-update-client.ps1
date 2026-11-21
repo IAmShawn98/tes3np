@@ -505,7 +505,7 @@ Require-Source 'LauncherUpdateBadge := LauncherGui.Add\("Picture",' 'footer noti
 Require-Source 'update-unread-circle\.png' 'footer uses a blank alpha circle, not a bitmap with an embedded numeral' $source
 Require-Source 'LauncherUpdateBadge.Value := "\*w" bitmapPixels " \*h" bitmapPixels' 'badge image is explicitly resized before its final control bounds' $source
 Require-Source 'LauncherUpdateNumber.OnEvent\("Click", CheckForUpdates\)' 'number overlay remains clickable like its circular backdrop' $source
-Require-Source 'LauncherUpdateNumber.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white at saved launcher scale' $source
+Require-Source 'number.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white even as font grows' $source $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
 Require-Source 'size := Max\(6, Round\(12 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'unread numeral starts larger but retains DPI calibration' $source
