@@ -115,7 +115,6 @@ Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'not
 Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, switcher, rowExtra, 28 \+ rowExtra\)' 'notes remain below dynamically spaced header' $dialogSource
 Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'version status retains both existing tabs' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\)' 'version status retains original note geometry' $dialogSource
-Require-Source 'MsgBox\("Update downloads are disabled for this preview\."' 'test update cannot download anything' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update still enters existing confirmation flow' $dialogSource
 
 $previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
@@ -147,6 +146,7 @@ if ($dialogSource.Contains('x123 y80 w147 h26') -or
     $dialogSource.Contains('Review the changes you have missed before deciding to update.') -or
     $dialogSource.Contains('Preview only — nothing has been downloaded or installed.') -or
     $dialogSource.Contains('TEST DATA ONLY') -or
+    $dialogSource.Contains('Update downloads are disabled for this preview.') -or
     $dialogSource.Contains('"Close Test Preview"')) {
     throw 'Update preview reintroduced fixed-width version labels or redundant copy.'
 }
