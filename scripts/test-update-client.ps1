@@ -254,30 +254,33 @@ Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indic
 Require-Source 'if !IsObject\(LauncherGui\) \|\| !DllCall\("user32\\IsWindowVisible"' 'automatic update preview uses valid native visibility check'
 if ($source.Contains('"user32\\\\IsWindowVisible"')) { throw 'Automatic preview must not use a doubled Win32 function separator.' }
 if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must not replace the footer version.' }
-# Exercise unseen/viewed/none with the real footer controls, but in a
-# standalone preview that must never hit the live updater or user's INI.
-$badgeFixture = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
-$fixtureStart = [regex]::Match($badgeFixture, '(?m)^PreviewUpdateBadgeFixture\(\)\r?\n\{')
-$start = if ($fixtureStart.Success) { $fixtureStart.Index } else { -1 }
-$end = $badgeFixture.IndexOf('; Exercise the update handshake', $start)
-if ($start -lt 0 -or $end -le $start) {
-    throw 'Standalone update badge preview fixture is missing.'
+# The badge preview must be injected into the actual launcher window only when
+# it was explicitly launched with a test flag. Real settings, live update feeds,
+# and publishing logic remain untouched.
+$badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
+$bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
+$badgeHelper = Get-Content -LiteralPath 'scripts/test-update-badge.ps1' -Raw -Encoding UTF8
+if (!$badgeHarness.Contains('case "--test-update-badge":') -or
+    !$badgeHarness.Contains('LauncherBadgeTestMode := true') -or
+    $badgeHarness.Contains('PreviewUpdateBadgeFixture()') -or
+    !$bootstrapSource.Contains('LauncherGui.Title := A_IconTip " [Badge Test]"') -or
+    !$bootstrapSource.Contains('OnMessage(0x8041, HandleLauncherBadgeTestMessage)') -or
+    !$bootstrapSource.Contains('if !LauncherBadgeTestMode') -or
+    !$source.Contains('HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)') -or
+    !$source.Contains('LauncherBadgeTestState := "unread"') -or
+    !$source.Contains('LauncherBadgeTestState := "viewed"') -or
+    !$source.Contains('LauncherBadgeTestState := "none"') -or
+    !$source.Contains('unseen := LauncherBadgeTestMode ? LauncherBadgeTestState = "unread"') -or
+    !$badgeHelper.Contains('SendMessageTimeout(') -or
+    !$badgeHelper.Contains('FindWindow(') -or
+    !$badgeHelper.Contains('0x8041') -or
+    !$badgeHelper.Contains('Badge Test]') -or
+    $badgeHelper.Contains('Set-Content ') -or
+    $badgeHelper.Contains('Start-Process ') -or
+    $badgeHelper.Contains('Invoke-WebRequest ')) {
+    throw 'Live badge test must target only the opted-in launcher without changing files or the update feed.'
 }
-$fixture = $badgeFixture.Substring($start, $end - $start)
-if (!$badgeFixture.Contains('case "--preview-update-badge":') -or
-    !$fixture.Contains('DataFile := root "\settings.ini"') -or
-    !$fixture.Contains('DataFile := previousDataFile') -or
-    !$fixture.Contains('LauncherVersionLabel.OnEvent("Click", CheckForUpdates, 0)') -or
-    !$fixture.Contains('LauncherUpdateBadge.OnEvent("Click", CheckForUpdates, 0)') -or
-    !$fixture.Contains('PreviewUpdateBadgeState("unread", status)') -or
-    !$fixture.Contains('PreviewUpdateBadgeState("viewed", status)') -or
-    !$fixture.Contains('PreviewUpdateBadgeState("none", status)') -or
-    $fixture.Contains('DownloadUpdateText(') -or
-    $fixture.Contains('StartTransactionalUpdate(') -or
-    $fixture -match '(?im)^[ \t]*gui[ \t]*:=' ) {
-    throw 'Update badge preview must use synthetic data and isolated settings only.'
-}
-Write-Host 'PASS: update badge preview uses disposable settings with no live network or install.'
+Write-Host 'PASS: PowerShell cosmetic badge injection targets only the real, opted-in launcher.'
 
 Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
 Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
