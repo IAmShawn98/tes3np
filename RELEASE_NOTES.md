@@ -6,7 +6,7 @@ Changes since the last public release, v0.1.21-alpha.
 
 ### New Features
 
-- **Update notifications:** See a red (1) when an update is available. It disappears after you view the update and returns for each new update.
+- **Update notifications:** See a red (1) when an update is available. It disappears after you view the update.
 
 ### Improvements
 
