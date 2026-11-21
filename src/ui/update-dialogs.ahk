@@ -56,6 +56,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         closeNotes := AddUpdateNotesViewport(preview, notes, scale, tabs.Switch)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
+        PaintGoldUpdateDialogButtons(preview)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(closeNotes)
@@ -107,6 +108,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         closeNotes := AddUpdateNotesViewport(panel, releaseNotes, scale, tabs.Switch)
         hwnd := panel.Hwnd
         ShowGoldNativePrompt(panel, scale)
+        PaintGoldUpdateDialogButtons(panel)
         WinWaitClose("ahk_id " hwnd)
     } finally {
         if IsObject(closeNotes)
@@ -136,6 +138,8 @@ SelectUpdateNoteTab(tabs, selected)
     SetUpdateNoteTabLabels(tabs)
     if tabs.Switch.HasOwnProp("Update")
         tabs.Switch.Update.Call(selected = "hotfix" ? tabs.Hotfix : tabs.Release)
+    ; Tab text and the newly rendered notes must be visible without hover.
+    PaintGoldUpdateDialogButtons(tabs.ReleaseButton.Gui)
 }
 
 SetUpdateNoteTabLabels(tabs)
@@ -144,6 +148,27 @@ SetUpdateNoteTabLabels(tabs)
     tabs.HotfixButton.Text := tabs.Selected = "hotfix" ? "• Hotfix History" : "Hotfix History"
     for control in [tabs.ReleaseButton, tabs.HotfixButton]
         DllCall("user32\InvalidateRect", "Ptr", control.Hwnd, "Ptr", 0, "Int", 1)
+}
+
+; Release dialogs create dynamically painted ClassButton controls while hidden.
+; A direct paint after showing them covers the Windows first-exposure race where
+; the controls look blank until hovered or the window is minimized/restored.
+; Restrict the pass to controls owned by this dialog; no launcher/UI rebuild.
+PaintGoldUpdateDialogButtons(panel)
+{
+    global ButtonFaces
+    if !IsObject(panel) || !DllCall("user32\\IsWindowVisible", "Ptr", panel.Hwnd, "Int")
+        return
+    ; First commit native layout and parent/child invalidations in z-order.
+    ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW
+    DllCall("user32\\RedrawWindow", "Ptr", panel.Hwnd, "Ptr", 0, "Ptr", 0,
+        "UInt", 0x0181, "Int")
+    ; These buttons are owner/subclass painted; draw each visible HWND now
+    ; so a missed initial WM_PAINT cannot leave its face blank.
+    for handle, face in ButtonFaces
+        if face.Window = panel.Hwnd && !face.HasOwnProp("IsLabel")
+            && DllCall("user32\\IsWindowVisible", "Ptr", handle, "Int")
+            PaintButtonNow(handle)
 }
 
 GetUpdatePromptFitScale(panel)
