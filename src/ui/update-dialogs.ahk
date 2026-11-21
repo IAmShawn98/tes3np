@@ -121,7 +121,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     return response.Download ? "Yes" : "No"
 }
 
-; Scrollable, independently interactive 3-row published version list.
+; Four-row published version list with its own themed arrowed scrollbar.
 ; Fixed bounds stay inside the gold frame and above the update buttons.
 AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, heading := 0, observer := 0)
 {
