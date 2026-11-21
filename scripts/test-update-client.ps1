@@ -89,7 +89,7 @@ Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVer
 
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
-# second metadata row reflows tabs, notes, actions and the gold frame as one unit.
+# second metadata row reflows the notes, actions and gold frame as one unit.
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Update Preview", 800, 620\)' 'preview base height is retained' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel\)' 'feature and hotfix use the same metadata layout' $dialogSource
 
@@ -235,7 +235,7 @@ $playerNotes = $section.Groups[1].Value
 if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source checks|github actions|fixture|pending windows|source-only|build transcript') {
     throw 'Internal engineering details must not appear in player-facing release notes.'
 }
-$categories = @('New Features', 'Improvements', 'Bug Fixes', 'Removed Features')
+$categories = @('New Features', 'Improvements', 'Bug Fixes', 'Hotfixes', 'Removed Features')
 $found = @([regex]::Matches($playerNotes, '(?m)^### ([^\r\n]+)') | ForEach-Object { $_.Groups[1].Value })
 $ordered = @($categories | Where-Object { $_ -in $found })
 if (!$found.Count -or ($found -join '|') -ne ($ordered -join '|')) {
@@ -295,7 +295,7 @@ Write-Host 'PASS: matching player-facing notes, ordered categories, and release 
         }
 
         # GitHub links published hotfixes from the base release, but that
-        # link index must not duplicate the launcher's Hotfix History tab.
+        # link index must not be duplicated in the launcher's categorized preview.
         $baseNotes = '### New Features' + [char]10 + '- **Launcher:** Original features.'
         $indexedBody = '## v0.1.21-alpha' + [char]10 + [char]10 + $baseNotes +
             [char]10 + [char]10 + '<!-- TES3NP HOTFIX HISTORY START -->' +
@@ -398,6 +398,8 @@ Write-Host 'PASS: temporary manual updater preview instrumentation removed; norm
 Require-Source 'BuildCategorizedUpdateNotes\(records\)' 'missed changes and installed notes share one category formatter' $notesSource
 Require-Source 'switcher\.Update := updateNotes' 'scrollable viewport still supports safe content refresh' $notesSource
 Require-Source 'Loop capacity - 1' 'short and long categorized notes fill the viewport' $notesSource
+Require-Source 'if !CheckCategorizedUpdateNotes\(\)\s*ExitApp\(234\)' 'compiled --check runs real category formatting smoke tests' $badgeHarness
+Require-Source 'AddPublishedNoteRecords\("### v0\.1\.21-alpha\.1' 'smoke test parses a dated published hotfix' $badgeHarness
 
 
 
