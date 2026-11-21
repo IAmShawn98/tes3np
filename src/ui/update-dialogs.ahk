@@ -77,30 +77,41 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
 
         noteSwitcher := {Update: 0}
         previewState := {Expanded: false}
-        if notes.EarlierCount > 0
+        ; Published previews show this section only for genuinely missed versions.
+        ; A local draft review keeps the section visible as an honest empty
+        ; state so its layout can be reviewed without inventing hotfixes.
+        showEarlierSummary := notes.EarlierCount > 0
+            || (notes.HasOwnProp("ReviewEmptyEarlier") && notes.ReviewEmptyEarlier)
+        if showEarlierSummary
         {
             preview.Add("Text", "x40 y" (376 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
             preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace) " w520 h25 BackgroundTrans", "Earlier updates included")
             preview.SetFont("s10 Norm cFFF0DC", "Segoe UI")
-            preview.Add("Text", "x40 y" (420 + rowExtra + notesSpace) " w515 h20 BackgroundTrans",
-                "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
-            yLabel := 442 + rowExtra + notesSpace
-            for label in notes.EarlierLabels
+            if notes.EarlierCount > 0
             {
-                if yLabel > 464 + rowExtra + notesSpace
-                    break
-                preview.Add("Text", "x48 y" yLabel " w330 h20 BackgroundTrans", "• " label)
-                yLabel += 21
+                preview.Add("Text", "x40 y" (420 + rowExtra + notesSpace) " w515 h20 BackgroundTrans",
+                    "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
+                yLabel := 442 + rowExtra + notesSpace
+                for label in notes.EarlierLabels
+                {
+                    if yLabel > 464 + rowExtra + notesSpace
+                        break
+                    preview.Add("Text", "x48 y" yLabel " w330 h20 BackgroundTrans", "• " label)
+                    yLabel += 21
+                }
+                preview.SetFont("s9 Underline cF5C96E", "Segoe UI")
+                showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
+                    . " w188 h25 BackgroundTrans +0x100", "View earlier changes")
+                hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
+                    . " w188 h25 BackgroundTrans +0x100", "Hide earlier changes")
+                showEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
+                hideEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
+                hideEarlier.Visible := false
             }
-            preview.SetFont("s9 Underline cF5C96E", "Segoe UI")
-            showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
-                . " w188 h25 BackgroundTrans +0x100", "View earlier changes")
-            hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
-                . " w188 h25 BackgroundTrans +0x100", "Hide earlier changes")
-            showEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
-            hideEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
-            hideEarlier.Visible := false
+            else
+                preview.Add("Text", "x40 y" (420 + rowExtra + notesSpace)
+                    . " w515 h20 BackgroundTrans", "No earlier missed updates for this draft.")
         }
 
         TogglePublishedPreviewHistory()
@@ -123,7 +134,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         scale := Min(GetOwnedMenuScale(), GetUpdatePromptFitScale(preview))
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
-            noteSwitcher, rowExtra, notesSpace, true, true, notes.EarlierCount > 0)
+            noteSwitcher, rowExtra, notesSpace, true, true, showEarlierSummary)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
