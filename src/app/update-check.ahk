@@ -37,7 +37,7 @@ CreateLauncherUpdateBadge()
         "x" x " y689 w22 h22 +0x40 BackgroundTrans",
         A_ScriptDir "\assets\controls\update-unread-circle.png")
     LauncherUpdateNumber := LauncherGui.Add("Text",
-        "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundD63232", "1")
+        "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundTrans", "1")
     LauncherUpdateNumber.SetFont("s10 Bold cFFFFFF", "Segoe UI")
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)
@@ -234,8 +234,8 @@ SetLauncherUnreadBadgeNumber(count)
     LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels " "
         . A_ScriptDir "\assets\controls\update-unread-circle.png"
     LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)
-    ; Give the numeral a larger, concentric circular overlay. Clip its red
-    ; background too, so there are no square corners around the PNG circle.
+    ; The numeral has no background of its own: reveal the circular PNG
+    ; beneath it rather than painting an opaque red rectangular Text control.
     innerWidth := Max(1, Round(diameter * 0.90))
     innerHeight := innerWidth
     LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
