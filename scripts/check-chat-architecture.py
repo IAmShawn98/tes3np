@@ -2342,7 +2342,7 @@ expect(
     update_dialogs.count("CreateGoldNativePrompt(0,") == 3
     and update_dialogs.count("ShowGoldNativePrompt(") == 3
     and "ScaleOwnedMenuContent(panel, scale)" in update_dialogs
-    and "AddUpdateNotesViewport(panel, releaseNotes, scale, tabs.Switch)" in update_dialogs
+    and "AddUpdateNotesViewport(panel, releaseNotes, scale)" in update_dialogs
     and "scale := GetUpdatePromptFitScale(panel)" in update_dialogs
     and "(width - 32) / panel.NativePromptWidth" in update_dialogs
     and "(height - 32) / panel.NativePromptHeight" in update_dialogs
@@ -2378,30 +2378,32 @@ expect(
     and 'E0C27F' not in update_check,
 )
 expect(
-    "Feature updates retain release/hotfix tabs; hotfix-only updates show Hotfixes",
-    'ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
-    and 'AddUpdateNoteTabs(preview, history.Release, history.Hotfix' in update_dialogs
-    and 'if kind = "hotfix"' in update_dialogs
-    and '"Hotfixes")' in update_dialogs
-    and 'notes := kind = "hotfix" ? history.Hotfix : history.Release' in update_dialogs
-    and 'AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes)' in update_dialogs
-    and 'switcher.Update := updateNotes' in update_notes
-    and 'Loop capacity - 1' in update_notes
-    and 'No hotfixes have been released for this version.' in update_dialogs,
+    "Update preview and installed notes group additions by category",
+    'ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)' in update_dialogs
+    and 'ReadInstalledCumulativeNotes(notesVersion)' in update_dialogs
+    and 'ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_notes
+    and 'AddPublishedNoteRecords(history.Release, records)' in update_notes
+    and 'AddPublishedNoteRecords(history.Hotfix, records)' in update_notes
+    and 'BuildCategorizedUpdateNotes(records)' in update_notes
+    and 'NoteCategoryName(heading, isHotfix)' in update_notes
+    and 'return isHotfix ? "Hotfixes" : "Bug Fixes"' in update_notes
+    and '"Changes in This Update"' in update_dialogs
+    and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
+    and 'AddUpdateNoteTabs(' not in update_dialogs
+    and 'Loop capacity - 1' in update_notes,
 )
 expect(
     "Production updater contains no temporary injection mode and retains confirmation guards",
     'ShowUpdatePreview(installedVersion, latestVersion, channel, kind)' in update_dialogs
-    and 'history := ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
+    and 'notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)' in update_dialogs
     and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)' in update_dialogs
     and 'installed.GetPos(, , &installedWidth)' in update_dialogs
     and 'latest.GetPos(, , &latestWidth)' in update_dialogs
     and 'channelText.GetPos(, , &channelWidth)' in update_dialogs
     and 'if channelX + channelWidth <= 770' in update_dialogs
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
-    and 'if kind = "hotfix"' in update_dialogs
-    and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Hotfixes")' in update_dialogs
-    and 'AddUpdateNotesViewport(preview, notes, scale, switcher, rowExtra, 28 + rowExtra)' in update_dialogs
+    and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
+    and 'AddUpdateNotesViewport(preview, notes, scale, 0, rowExtra, 28 + rowExtra)' in update_dialogs
     and 'actionY := 568 + rowExtra' in update_dialogs
     and 'AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"' in update_dialogs
