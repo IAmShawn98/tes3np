@@ -1263,13 +1263,25 @@ CheckMissedUpdateLinkViewport()
                     row.GetPos(&x, &y, &width, &height)
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
-                        || y < Round(520 * scale) - 1
-                        || y + height > Round(586 * scale) + 1
+                        || y < Round(512 * scale) - 1
+                        || y + height > Round(589 * scale) + 1
                         || !ReleaseNoteFits(row, row.Text, width)
-                        throw Error("A missed-update hyperlink clips or escapes its fixed gold frame.")
+                        || height < ReleaseNoteLineHeight(row) + Round(8 * scale)
+                        throw Error("A missed-update hyperlink or its font clips the lower gold frame.")
                 }
                 if visible != Min(3, count)
                     throw Error("Missed-updates list shows the wrong number of visible links.")
+                ; The screenshot regression cut the lower half of the one
+                ; visible draft row at 100%. Verify the native font's actual
+                ; line metrics against its Text control height at each scale.
+                if count = 1
+                {
+                    row := observer.Rows[1]
+                    row.GetPos(, , , &linkHeight)
+                    if linkHeight < ReleaseNoteLineHeight(row) + Round(8 * scale)
+                        throw Error("Single missed-update entry is vertically clipped.")
+                }
+
                 if (observer.Track.Visible || observer.Thumb.Visible) != (count > 3)
                     throw Error("Missed-updates scrollbar must appear only for more than three versions.")
                 if count > 3
