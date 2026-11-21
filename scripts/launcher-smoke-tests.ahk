@@ -952,6 +952,26 @@ CheckUnreadPublishedReleaseCounts()
     records.Push({Version: "0.1.21-alpha"}, {Version: "0.1.21-alpha.4"})
     if CountUnseenPublishedUpdateRecords(records, "0.1.21-alpha", Map()).Count != 4
         throw Error("Installed or duplicated releases incorrectly inflated the unread count.")
+    ; The only persistent-state smoke uses a disposable INI: it must never
+    ; modify the user's live update receipts or installed launcher settings.
+    fixture := A_Temp "\tes3np-read-receipts-" DllCall("GetCurrentProcessId", "UInt")
+        . "-" A_TickCount ".ini"
+    try
+    {
+        MarkPublishedVersionRead("0.1.21-alpha.4", true, fixture)
+        if !IsPublishedVersionRead("0.1.21-alpha.4", fixture)
+            || IsPublishedVersionRead("0.1.21-alpha.3", fixture)
+            throw Error("Preview read receipt accidentally cleared an older version.")
+        MarkPublishedVersionRead("0.1.21-alpha.2", false, fixture)
+        if !IsPublishedVersionRead("0.1.21-alpha.2", fixture)
+            || IsPublishedVersionRead("0.1.21-alpha.1", fixture)
+            throw Error("Link read receipt did not persist independently.")
+        if IniRead(fixture, "Updates", "LastAutoPreviewVersion", "")
+            != "0.1.21-alpha.4"
+            throw Error("Clicking older GitHub releases changed automatic popup dedup.")
+    }
+    finally
+        try FileDelete(fixture)
     ; A multi-digit badge stays round: its horizontal and vertical
     ; dimensions grow together at the same saved launcher scale.
     for percent in [50, 100]
