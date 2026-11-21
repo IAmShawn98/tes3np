@@ -139,6 +139,7 @@ Require-Source 'rowTop := px\(408 \+ topExtra \+ bottomExtra\)' 'version links s
 Require-Source 'rowHeight := px\(29\)' 'missed-update links initially reserve 29px to avoid font clipping' $dialogSource
 Require-Source 'rowHeight := Max\(rowHeight, ReleaseNoteLineHeight\(link\) \+ px\(8\)\)' 'native font metrics enlarge rows when Windows requires more glyph room' $dialogSource
 Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and consistent spacing' $dialogSource
+Require-Source 'rowStep := Max\(rowStep, rowHeight \+ Max\(1, px\(2\)\)\)' 'missed-update link controls never overlap and erase neighboring glyphs' $dialogSource
 Require-Source 'bottomLimit := px\(490 \+ topExtra \+ bottomExtra\)' 'missed links cannot cross the gold card bottom' $dialogSource
 Require-Source 'page.VisibleRows := Max\(1, Min\(3,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
 Require-Source 'page.MaxOffset := Max\(1, versions.Length - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
@@ -513,6 +514,7 @@ Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed p
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
 Require-Source 'CheckMissedUpdateLinkViewport\(\)' 'native smoke tests missed update links and scrolling' $badgeHarness
 Require-Source 'Label: items\[1\].Label " \(unreleased draft\)"' 'native smoke reproduces the clipped local draft line' $badgeHarness
+Require-Source 'Missed-update Text controls overlap and may erase glyphs\.' 'native smoke checks row overlap' $badgeHarness
 Require-Source 'for count in \[1, 3, 7\]' 'regression covers one, three and many missed versions' $badgeHarness
 Require-Source 'observer.Page.Offset := observer.Page.MaxOffset' 'native smoke verifies the last missed version remains reachable' $badgeHarness
 Require-Source 'previewSections := BuildPublishedPreviewSections\(\[newestMissed, previousMissed, patch\]\)' 'compiled smoke covers compact and expanded missed updates' $badgeHarness
