@@ -2361,7 +2361,11 @@ expect(
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
-    and 'LauncherUpdateBadge.Text := unseen ? "(1)" : Chr(0x2022)' in update_check
+    and 'nextText := unseen ? "(1)" : Chr(0x2022)' in update_check
+    and 'LauncherUpdateBadge.Text := nextText' in update_check
+    and 'LauncherVersionLabel.GetPos(&labelX, , &labelWidth)' in update_check
+    and 'x := labelX + labelWidth + 4' in update_check
+    and 'RedrawLauncherUpdateBadge()' in update_check
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
     and 'LauncherUpdateButton' not in update_check,
 )
