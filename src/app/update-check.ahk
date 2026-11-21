@@ -5,8 +5,10 @@ global UpdateStartupRequest := 0
 global UpdateStartupStarted := 0
 global LauncherVersionLabel := 0
 global LauncherUpdateBadge := 0
+global LauncherUpdateNumber := 0
 global LauncherUnreadReleaseJob := 0
 global LauncherObservedUpdateVersion := ""
+global LauncherPublishedVersions := []
 CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel
@@ -27,39 +29,44 @@ CreateLauncherVersionLabel()
 ; published update that has not yet been viewed.
 CreateLauncherUpdateBadge()
 {
-    global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
-
-    ; GetPos returns GUI coordinates with AHK's DPI conversion already
-    ; accounted for. Re-measuring text with GDI and passing physical pixels
-    ; into Gui.Add would apply DPI scaling again and leave a large gap.
+    global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
     x := labelX + labelWidth + 4
-    LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w22 h22 Center +0x200 BackgroundD63232", "1")
-    LauncherUpdateBadge.SetFont("s10 Bold cFFFFFF", "Segoe UI")
-    ShapeCircularUpdateBadge(LauncherUpdateBadge)
+    ; Alpha-transparent badge art supplies a genuinely circular edge. The
+    ; number plate sits entirely INSIDE the red disk, hiding the asset's
+    ; fixed "1" without ever producing a visible square perimeter.
+    LauncherUpdateBadge := LauncherGui.Add("Picture",
+        "x" x " y689 w22 h22 BackgroundTrans",
+        A_ScriptDir "\assets\controls\update-badge.png")
+    LauncherUpdateNumber := LauncherGui.Add("Text",
+        "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundD63232", "1")
+    LauncherUpdateNumber.SetFont("s10 Bold cFFFFFF", "Segoe UI")
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
+    LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)
+    LauncherUpdateNumber.Visible := false
     LauncherUpdateBadge.Visible := false
 }
 
 ScaleLauncherVersionLabel(scale)
 {
-    global LauncherVersionLabel, LauncherUpdateBadge
-
+    global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     if IsObject(LauncherVersionLabel)
         LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
     ApplyLauncherBadgeFont(scale)
     if IsObject(LauncherUpdateBadge)
         ShapeCircularUpdateBadge(LauncherUpdateBadge)
+    if IsObject(LauncherUpdateNumber)
+        SetLauncherUnreadBadgeNumber(LauncherUpdateNumber.Text)
 }
 
 ; Preserve the red unread notification at the saved launcher scale.
 ApplyLauncherBadgeFont(scale)
 {
-    global LauncherUpdateBadge
-    if !IsObject(LauncherUpdateBadge)
+    global LauncherUpdateNumber
+    if !IsObject(LauncherUpdateNumber)
         return
     size := Max(6, Round(10 * scale))
-    LauncherUpdateBadge.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+    LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
 }
 
 ; Clip the native red Text control to a circle after its final DPI/launcher
@@ -85,23 +92,22 @@ ShapeCircularUpdateBadge(control)
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
 {
-    global AppConfig, LauncherUpdateBadge, LauncherVersionLabel
+    global AppConfig, LauncherUpdateBadge, LauncherUpdateNumber, LauncherVersionLabel
     global LauncherScale, LauncherObservedUpdateVersion
-
-    if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
+    if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherUpdateNumber)
         return
     LauncherVersionLabel.Visible := true
     available := isAvailable && latestVersion != "" && unreadCount > 0
         && GetLauncherUpdateKind(AppConfig.Version, latestVersion) != ""
-        && !HasSeenUpdateAutoPreview(latestVersion)
-    LauncherObservedUpdateVersion := available ? latestVersion : ""
-    ; Repaint only the footer badge rectangle; never invalidate the entire
-    ; launcher or leave old numbers on top of the newly measured count.
+    ; Keep this reference even when the offered release is read: an earlier
+    ; missed version may remain unread and the background scan may finish.
+    LauncherObservedUpdateVersion := isAvailable ? latestVersion : ""
     wasVisible := LauncherUpdateBadge.Visible
     if !available
     {
         if wasVisible
         {
+            LauncherUpdateNumber.Visible := false
             LauncherUpdateBadge.Visible := false
             RedrawLauncherUpdateBadge()
         }
@@ -110,13 +116,12 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
     SetLauncherUnreadBadgeNumber(unreadCount)
     if !wasVisible
     {
-        ApplyLauncherBadgeFont(LauncherScale / 100)
         LauncherUpdateBadge.Visible := true
+        LauncherUpdateNumber.Visible := true
         RedrawLauncherUpdateBadge()
     }
 }
 
-; Keep a true circle at every launcher scale, even for 24 or 100.
 LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
@@ -125,47 +130,65 @@ LauncherUnreadBadgeDiameter(count, scale)
 
 SetLauncherUnreadBadgeNumber(count)
 {
-    global LauncherUpdateBadge, LauncherScale
-    if !IsObject(LauncherUpdateBadge)
+    global LauncherUpdateBadge, LauncherUpdateNumber, LauncherScale
+    if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherUpdateNumber)
         return
-    value := "" Max(1, count)
+    value := "" Max(1, Integer(count))
     scale := LauncherScale / 100
     diameter := LauncherUnreadBadgeDiameter(count, scale)
-    LauncherUpdateBadge.GetPos(, , &oldWidth, &oldHeight)
-    if LauncherUpdateBadge.Text = value
-        && oldWidth = diameter && oldHeight = diameter
+    LauncherUpdateBadge.GetPos(&x, , &oldWidth, &oldHeight)
+    if LauncherUpdateNumber.Text = value && oldWidth = diameter && oldHeight = diameter
         return
     wasVisible := LauncherUpdateBadge.Visible
     if wasVisible
     {
-        ; Clear original bounds before moving to avoid leftover red pixels.
+        LauncherUpdateNumber.Visible := false
         LauncherUpdateBadge.Visible := false
         RedrawLauncherUpdateBadge()
     }
-    LauncherUpdateBadge.Text := value
     baseY := Round(689 * scale)
     baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
     centeredY := baseY - Floor((diameter - baseDiameter) / 2)
-    LauncherUpdateBadge.Move(, centeredY, diameter, diameter)
+    LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)
+    ; The inset rectangle's corners stay well within the circle at every
+    ; diameter (diagonal < radius), and its red center hides the art's "1".
+    innerWidth := Max(1, Round(diameter * 0.66))
+    innerHeight := Max(1, Round(diameter * 0.50))
+    LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
+        centeredY + Floor((diameter - innerHeight) / 2), innerWidth, innerHeight)
+    LauncherUpdateNumber.Text := value
     ApplyLauncherBadgeFont(scale)
     ShapeCircularUpdateBadge(LauncherUpdateBadge)
     if wasVisible
     {
         LauncherUpdateBadge.Visible := true
+        LauncherUpdateNumber.Visible := true
         RedrawLauncherUpdateBadge()
     }
 }
 
-; Development review only: show a count without pretending that the
-; unpublished draft was seen or writing any user-state INI key.
-ShowDevelopmentUnreadBadgeSample(count)
+; Demo rows have per-row, in-memory IDs. They never write player settings.
+SetLauncherDemoUnreadCount(count)
 {
-    global LauncherUpdateBadge
+    global LauncherUpdateBadge, LauncherUpdateNumber
     if !IsObject(LauncherUpdateBadge)
         return
+    if count <= 0
+    {
+        LauncherUpdateNumber.Visible := false
+        LauncherUpdateBadge.Visible := false
+        RedrawLauncherUpdateBadge()
+        return
+    }
     SetLauncherUnreadBadgeNumber(count)
     LauncherUpdateBadge.Visible := true
+    LauncherUpdateNumber.Visible := true
     RedrawLauncherUpdateBadge()
+}
+
+ShowDevelopmentUnreadBadgeSample(count)
+{
+    SetLauncherDemoUnreadCount(count)
 }
 
 ; Repaint the existing backdrop and all children only underneath the
