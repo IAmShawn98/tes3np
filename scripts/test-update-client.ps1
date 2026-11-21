@@ -226,8 +226,16 @@ Write-Host 'PASS: matching player-facing notes, ordered categories, and release 
 
         $responses['v0.1.22-alpha.10'].body = "## v0.1.23-alpha`n`nWrong version."
         Remove-Item -LiteralPath $output
-        & $helper -Version '0.1.22-alpha.10' -OutputPath $output
-        if ($LASTEXITCODE -ne 1 -or (Test-Path -LiteralPath $output)) {
+        # The fetcher fails closed by throwing on invalid release headings.
+        # Catch the expected error instead of aborting the entire test runner.
+        $rejected = $false
+        try {
+            & $helper -Version '0.1.22-alpha.10' -OutputPath $output
+            if ($LASTEXITCODE -ne 0) { $rejected = $true }
+        } catch {
+            $rejected = $true
+        }
+        if (!$rejected -or (Test-Path -LiteralPath $output)) {
             throw 'A mismatched release body must not be displayed under the requested version.'
         }
     } finally {
@@ -383,8 +391,16 @@ Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the
         }
         $releases = @($releases | Where-Object { $_.tag_name -cne 'v0.1.22-alpha.2' })
         Remove-Item -LiteralPath $featureFile,$hotfixFile -ErrorAction SilentlyContinue
-        & $helper -InstalledVersion '0.1.22-alpha.1' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
-        if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $featureFile) -or (Test-Path -LiteralPath $hotfixFile)) {
+        # The helper throws when the requested latest release is not published.
+        # Either a terminating error or a nonzero exit code is a safe refusal.
+        $rejected = $false
+        try {
+            & $helper -InstalledVersion '0.1.22-alpha.1' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
+            if ($LASTEXITCODE -ne 0) { $rejected = $true }
+        } catch {
+            $rejected = $true
+        }
+        if (!$rejected -or (Test-Path -LiteralPath $featureFile) -or (Test-Path -LiteralPath $hotfixFile)) {
             throw 'Unpublished latest version must not produce history.'
         }
     } finally {
