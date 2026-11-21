@@ -82,7 +82,8 @@ Fixes, and Removed Features. The launcher and publisher use this file.
   describing only that hotfix. Do not repeat the base release changelog in its
   notes. Publishing uses the exact version section to populate GitHub Releases.
 - The version footer always shows the installed version, with a red `(1)`
-  for an unseen newer published update and a subdued dot after viewing.
+  for each unseen newer published update. After the preview is viewed, the
+  indicator disappears and stays hidden until another version is published.
   Either the version or indicator opens the optional updater; dismissing a
   preview never installs files.
 - The update preview separates all missed **Release Notes** from published,
