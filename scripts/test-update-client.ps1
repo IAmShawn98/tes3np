@@ -268,7 +268,7 @@ Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only seri
 Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
 Require-Source 'preview.SetFont\("s9 Underline cF5C96E", "Segoe UI"\)' 'earlier updates link is compact and readable' $dialogSource
-Require-Source 'scale := Min\(0\.815 \* GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'preview matches 489x453 reference while obeying launcher scale' $dialogSource
+Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'full production update popup retains owner scale instead of miniature rendering' $dialogSource
 Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 373 : 480\)' 'notes use almost the full upper-card height without crossing the gold divider' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
