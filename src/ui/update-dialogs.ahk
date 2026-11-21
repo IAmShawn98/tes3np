@@ -138,7 +138,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
     rowWidth := px(496)
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
         . " w" px(531) " h" px(82) " Background171008")
-    page := {Items: versions, Offset: 1, MaxOffset: Max(1, versions.Length - 2)}
+    page := {Items: versions, Offset: 1, VisibleRows: 3, MaxOffset: Max(1, versions.Length - 2)}
     rows := []
     for slot in [1, 2, 3]
     {
@@ -153,9 +153,12 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
     }
     for slot, link in rows
         link.Move(left, rowTop + (slot - 1) * rowStep, rowWidth, rowHeight)
-    ; The last row must end above the gold card's lower inside edge.
-    if rowTop + 2 * rowStep + rowHeight > px(590 + topExtra + bottomExtra)
-        throw Error("Missed-update links cannot fit the selected launcher scale.")
+    ; Preserve the frame even at unusual Windows DPI settings: if the font
+    ; needs more height, show fewer rows and let the scrollbar reach the rest.
+    bottomLimit := px(490 + topExtra + bottomExtra)
+    page.VisibleRows := Max(1, Min(3,
+        1 + Floor((bottomLimit - rowTop - rowHeight) / Max(1, rowStep))))
+    page.MaxOffset := Max(1, versions.Length - page.VisibleRows + 1)
     trackX := px(558)
     trackY := rowTop
     trackHeight := px(78)
@@ -172,7 +175,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
         for slot, row in rows
         {
             idx := page.Offset + slot - 1
-            if idx > page.Items.Length
+            if slot > page.VisibleRows || idx > page.Items.Length
             {
                 row.Visible := false
                 continue
@@ -188,7 +191,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
             row.Text := caption
             row.Visible := true
         }
-        thumbHeight := Max(px(14), Round(trackHeight * Min(1, 3 / page.Items.Length)))
+        thumbHeight := Max(px(14), Round(trackHeight * Min(1, page.VisibleRows / page.Items.Length)))
         thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1)
             / Max(1, page.MaxOffset - 1))
         thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
