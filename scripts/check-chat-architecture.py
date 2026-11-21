@@ -2454,7 +2454,10 @@ expect(
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badges.Push(badge)' in update_dialogs
     and 'preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)' in update_dialogs
-    and 'Prefix: "DEMO " Format("{:02}", A_Index) " — "' in bootstrap
+    and 'Key: "demo-" Format("{:02}", A_Index)' in bootstrap
+    and 'Prefix: "DEMO "' not in bootstrap
+    and 'Label: "v" demoVersion' in bootstrap
+    and 'isDemo ? "Updates You Missed (Sample)" : "Updates You Missed"' in update_dialogs
     and 'DisplayVersion: "v" demoVersion' in bootstrap
     and 'prefix.Text := prefixText' in update_dialogs
     and 'Underline cFFF0DC' in update_dialogs
@@ -2516,6 +2519,7 @@ expect(
     and 'Loop 24' in bootstrap
     and 'demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"' in bootstrap
     and 'Url: GetTes3npReleasePage(demoVersion)' in bootstrap
+    and 'Development release list still displays a DEMO prefix.' in launcher_smoke_tests
     and 'ShowDevelopmentUnreadBadgeSample(25)' in bootstrap
     and 'draftSections.DemoMode := true' in bootstrap
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
