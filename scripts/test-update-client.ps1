@@ -149,7 +149,9 @@ Require-Source 'observer.BottomLimit := bottomLimit' 'native smoke reports histo
 Require-Source 'up := AddStyledButton\(panel, arrowX, arrowTop, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold up arrow' $dialogSource
 Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold down arrow' $dialogSource
 Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
-Require-Source 'prefix.Text := prefixText' 'gold demo prefix remains separate from white version text' $dialogSource
+Require-Source 'prefix.Text := prefixText' 'optional row prefix does not alter production version text' $dialogSource
+Require-Source 'isDemo \? "Updates You Missed \(Sample\)" : "Updates You Missed"' 'sample status appears once in development preview heading, not before each link' $dialogSource
+
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
 Require-Source 'RegisterMissedUpdateCursorTarget\(rows\[slot\], page, slot\)' 'only current release links register for hand cursor' $dialogSource
 Require-Source 'UnregisterMissedUpdateCursorTarget\(rows\[slot\]\)' 'modal cleanup removes clickable link cursor targets' $dialogSource
@@ -168,6 +170,7 @@ Require-Source '"Mark Read", ClearMissedUpdateBadges.Bind\(page\)' 'bulk action 
 Require-Source 'markReadY := px\(528 \+ topExtra \+ bottomExtra\)' 'fixed Mark Read button stays in the lower-left corner' $dialogSource
 Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Mark Read still marks all missed versions read without removing history' $dialogSource
 Require-Source 'scrollExpected := count > observer.Page.VisibleRows' 'native smoke excludes fixed Mark Read from scroll count' $badgeHarness
+Require-Source 'Development release list still displays a DEMO prefix.' 'native preview smoke rejects development label prefixes' $badgeHarness
 Require-Source 'observer.Clear.Visible \|\| scrolledClearY != originalClearY' 'native smoke rejects Mark Read moving or disappearing during scrolling' $badgeHarness
 Require-Source 'Total: versions.Length, MaxOffset: 1' 'scroll offsets include only release entries, never the Mark Read button' $dialogSource
 Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Clear marks all listed versions read without deleting entries' $dialogSource
@@ -263,6 +266,9 @@ Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted 
 Require-Source 'draftSections := BuildPublishedPreviewSections\(\[record\]\)' 'development preview uses the genuine single draft record' $bootstrapSource
 Require-Source 'Loop 24' 'development preview includes twenty-four scrolling stress entries' $bootstrapSource
 Require-Source 'demoVersion := Mod\(A_Index, 2\) \? "0.1.21-alpha" : "0.1.20-alpha"' 'demo repeats two actually published release tags rather than inventing nonexistent pages' $bootstrapSource
+Require-Source 'Key: "demo-" Format' 'each sample retains a distinct in-memory receipt key' $bootstrapSource
+Require-Source 'Label: "v" demoVersion' 'sample rows display plain white version links' $bootstrapSource
+if ($bootstrapSource.Contains('Prefix: "DEMO "')) { throw 'Development preview must not prepend DEMO labels to version links.' }
 Require-Source 'Url: GetTes3npReleasePage\(demoVersion\)' 'all demo entries open the correct GitHub page for the displayed version' $bootstrapSource
 Require-Source 'draftSections.MissedVersions := demoRows' 'mock history exists only inside the gated development review' $bootstrapSource
 Require-Source 'ShowDevelopmentUnreadBadgeSample\(25\)' 'demo starts with 24 older entries plus one currently offered unread version' $bootstrapSource
