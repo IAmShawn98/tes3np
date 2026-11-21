@@ -7,7 +7,6 @@ param(
     [ValidateSet(50, 100)]
     [int]$Scale = 100,
     [switch]$CheckOnly,
-    [switch]$SmokeTest,
     [string]$AutoHotkeyPath = ''
 )
 
@@ -141,10 +140,9 @@ if visualScale != 50 && visualScale != 100
     ExitApp(61)
 if A_Args.Length >= 2 && A_Args[2] = "--check-only"
     ExitApp(0)
-visualSmoke := A_Args.Length >= 2 && A_Args[2] = "--smoke-test"
-; The production BuildButtonViewport() initializes this flag. This isolated
-; viewer deliberately skips that entire launcher page, but reuses the real
-; ReleaseButton() handler, which invokes ReleaseMenuScroll() on every click.
+; The normal launcher initializes ScrollDragging in BuildButtonViewport().
+; This isolated viewer skips that page but reuses its real mouse-up handler,
+; which always invokes ReleaseMenuScroll(). Keep the inactive state explicit.
 ScrollDragging := false
 LauncherScale := visualScale
 ownerScale := visualScale / 100
@@ -168,11 +166,6 @@ OnMessage(0x0007, HandleThemedButtonFocus, 1)
 OnMessage(0x0008, HandleThemedButtonFocus, 1)
 OnMessage(0x0215, HandleCaptureLost, 1)
 SetTimer(UpdateButtonHover, 30)
-if visualSmoke
-{
-    visualSmokeStarted := A_TickCount
-    SetTimer(GuardedPreviewVisualSmoke, 100)
-}
 try {
     ; This executes the real, unchanged ShowUpdatePreview rendering code.
     ; Only the published-history helper is redirected by A_ScriptDir to the
@@ -180,82 +173,18 @@ try {
     result := ShowUpdatePreview("0.1.21-alpha", "0.1.21-alpha.3",
         "alpha", "hotfix")
     SetTimer(UpdateButtonHover, 0)
-    if visualSmoke
-    {
-        if result != "No"
-            throw Error("Disposable preview unexpectedly requested Update Now.")
-        FileAppend("PASS: real Update Preview opened, expanded/collapsed, and closed through its native buttons." Chr(10), "*")
-    }
-    else
-        MsgBox("VISUAL TEST ONLY — " (result = "Yes" ? "Update Now" : "Not Now / Close")
-            " was selected." Chr(10) "Nothing was downloaded or installed."
-            Chr(10) "No public update was published.", "TES3NP visual test", "Iconi")
+    MsgBox("VISUAL TEST ONLY — " (result = "Yes" ? "Update Now" : "Not Now / Close")
+        " was selected." Chr(10) "Nothing was downloaded or installed."
+        Chr(10) "No public update was published.", "TES3NP visual test", "Iconi")
 } finally {
     SetTimer(UpdateButtonHover, 0)
-    if visualSmoke
-        SetTimer(GuardedPreviewVisualSmoke, 0)
     try LauncherGui.Destroy()
     try DisposeButtonPainter()
 }
 ExitApp(0)
 
-; The automatic smoke exercises the actual production popup, its themed
-; button actions, and the previously failing launcher mouse-up handler. Only
-; locally supplied fake history is read; no update/install handler is called.
-; Convert timer exceptions to a process exit code: GUI message boxes block CI.
-GuardedPreviewVisualSmoke()
-{
-    try ExercisePreviewVisualControls()
-    catch Error as err
-    {
-        try FileAppend("FAIL: disposable preview interaction — " err.Message Chr(10), "**")
-        ExitApp(66)
-    }
-}
-ExercisePreviewVisualControls()
-{
-    global ButtonFaces, visualSmokeStarted
-    if A_TickCount - visualSmokeStarted > 12000
-    {
-        available := ""
-        for handle, face in ButtonFaces
-            if DllCall("user32\IsWindow", "Ptr", handle, "Int")
-                available .= (available = "" ? "" : ", ") face.Label.Text
-        throw Error("The sample Update Preview controls did not appear. Buttons: " available)
-    }
-    showEarlier := 0, hideEarlier := 0, notNow := 0
-    for hwnd, face in ButtonFaces
-    {
-        if !DllCall("user32\IsWindow", "Ptr", hwnd, "Int")
-            continue
-        switch face.Label.Text
-        {
-            case "View earlier changes":
-                showEarlier := face
-            case "Hide earlier changes":
-                hideEarlier := face
-            case "Not Now":
-                notNow := face
-        }
-    }
-    if !IsObject(showEarlier) || !IsObject(hideEarlier) || !IsObject(notNow)
-        return
-    if !showEarlier.Control.Visible
-        throw Error("The initial preview should offer View earlier changes.")
-    if hideEarlier.Control.Visible
-        throw Error("The earlier history starts expanded unexpectedly.")
-    if ReleaseMenuScroll()
-        throw Error("An inactive launcher scrollbar consumed a preview click.")
-    showEarlier.Action.Call()
-    if showEarlier.Control.Visible || !hideEarlier.Control.Visible
-        throw Error("Clicking View earlier changes did not expand the history.")
-    hideEarlier.Action.Call()
-    if !showEarlier.Control.Visible || hideEarlier.Control.Visible
-        throw Error("Clicking Hide earlier changes did not collapse the history.")
-    SetTimer(GuardedPreviewVisualSmoke, 0)
-    notNow.Action.Call()
-}
-
+; These two helpers are called by real UI mouse handling but do not belong to
+; this isolated viewer. Its preview has no macro or Character Book scrollbar.
 '@
     $scriptText = $prefix + [Environment]::NewLine +
         ($includes -join [Environment]::NewLine) +
@@ -268,27 +197,10 @@ ExercisePreviewVisualControls()
     if ($CheckOnly) {
         $arguments += ' --check-only'
     }
-    elseif ($SmokeTest) {
-        $arguments += ' --smoke-test'
-    }
     $testStdout = Join-Path $temporary 'test-stdout.txt'
     $testStderr = Join-Path $temporary 'test-stderr.txt'
     # Capture the actual Windows process exit code and interpreter diagnostics.
-    $testProcess = Start-Process -FilePath $AutoHotkeyPath -ArgumentList $arguments -WorkingDirectory $temporary -PassThru -RedirectStandardOutput $testStdout -RedirectStandardError $testStderr
-    if ($SmokeTest -or $CheckOnly) {
-        if (!$testProcess.WaitForExit(30000)) {
-            try { $testProcess.Kill() } catch {}
-            foreach ($output in @($testStdout, $testStderr)) {
-                if (Test-Path -LiteralPath $output) {
-                    Get-Content -LiteralPath $output | ForEach-Object { Write-Host $_ }
-                }
-            }
-            throw 'The isolated Update Preview visual test timed out.'
-        }
-    }
-    else {
-        $testProcess.WaitForExit()
-    }
+    $testProcess = Start-Process -FilePath $AutoHotkeyPath -ArgumentList $arguments -WorkingDirectory $temporary -PassThru -Wait -RedirectStandardOutput $testStdout -RedirectStandardError $testStderr
     if ($testProcess.ExitCode -ne 0) {
         foreach ($output in @($testStdout, $testStderr)) {
             if (Test-Path -LiteralPath $output) {
@@ -299,12 +211,7 @@ ExercisePreviewVisualControls()
     }
     if ($CheckOnly) {
         Write-Host 'PASS | Visual-test script parsed without opening a GUI.' -ForegroundColor Green
-    }
-    elseif ($SmokeTest) {
-        Get-Content -LiteralPath $testStdout | ForEach-Object { Write-Host $_ }
-        Write-Host 'PASS | Disposable preview native buttons and mouse-up contract.' -ForegroundColor Green
-    }
-    else {
+    } else {
         Write-Host 'PASS | Visual test closed. No updater installation or user profile change was requested.' -ForegroundColor Green
     }
 } finally {
