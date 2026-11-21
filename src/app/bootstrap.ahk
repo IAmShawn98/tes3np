@@ -63,13 +63,16 @@ ConfigureLauncherTrayMenu()
 
 BuildLauncherWindow()
 {
-    global LauncherGui, LauncherExpansionToggle, LauncherBadgeTestMode
+    global LauncherGui, LauncherExpansionToggle, LauncherBadgeTestMode, LauncherBadgeTestWindowHwnd
 
     LauncherGui := Gui("-Caption -Border", A_IconTip)
     ; Borderless launcher looks exactly like normal, while PowerShell can
     ; target only this opted-in test instance by its distinct window title.
     if LauncherBadgeTestMode
+    {
         LauncherGui.Title := A_IconTip " [Badge Test]"
+        LauncherBadgeTestWindowHwnd := LauncherGui.Hwnd
+    }
     ; WS_CLIPCHILDREN keeps launcher repaints from drawing over the embedded chat window.
     styleGetter := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
     styleSetter := A_PtrSize = 8 ? "SetWindowLongPtrW" : "SetWindowLongW"
