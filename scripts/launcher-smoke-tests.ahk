@@ -849,13 +849,12 @@ CheckUpdatePreviewMetadataLayout()
                     throw Error("Update preview metadata is clipped or offscreen: " control.Text)
                 bounds.Push({X: x, Y: y, Right: x + width, Bottom: y + height})
             }
-            if bounds.Length != 3 || ![0, 32, 64].Has(extra)
+            if bounds.Length != 3 || (extra != 0 && extra != 32 && extra != 64)
                 throw Error("Update preview metadata layout returned invalid controls or spacing.")
-            Loop bounds.Length
-                for later in bounds
+            for i, current in bounds
+                for j, later in bounds
                 {
-                    current := bounds[A_Index]
-                    if current.X = later.X && current.Y = later.Y
+                    if j <= i
                         continue
                     if current.X < later.Right && current.Right > later.X
                         && current.Y < later.Bottom && current.Bottom > later.Y
