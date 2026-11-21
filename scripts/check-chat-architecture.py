@@ -2357,7 +2357,7 @@ expect(
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 expect(
-    "Update footer shows a circular white 1 on red only for an unseen published update",
+    "Update footer shows the unread published-version count on a red circle or pill and clears when viewed",
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
@@ -2374,6 +2374,12 @@ expect(
     and 'RedrawLauncherUpdateBadge()' in update_check
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
     and 'IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")' in update_check
+    and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
+    and 'newWidth := height + Max(0, StrLen(value) - 1)' in update_check
+    and 'CreateRoundRectRgn' in update_check
+    and 'StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)' in update_check
+    and 'CountUnseenPublishedUpdateRecords(records, job.Installed, seen)' in update_check
+    and 'CheckUnreadPublishedReleaseCounts()' in launcher_smoke_tests
     and 'LauncherUpdateButton' not in update_check
     and 'LauncherUpdateDismissedVersion' not in update_check
     and 'Chr(0x25CF)' not in update_check
@@ -2405,6 +2411,10 @@ expect(
     and 'rowTop := Max(rowTop, headingY + headingHeight + Max(2, px(4)))' in update_dialogs
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
+    and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
+    and 'badges.Push(badge)' in update_dialogs
+    and 'MeasureMissedUpdateTextWidth(row, caption)' in update_dialogs
+    and 'for count in [1, 3, 7, 24]' in launcher_smoke_tests
     and 'track.Visible := page.MaxOffset > 1' in update_dialogs
     and 'MissedVersions: missedVersions' in update_notes
     and 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' in update_notes
@@ -2437,8 +2447,12 @@ expect(
     and 'AddUpdateNotesViewport(preview, notes.Latest, scale,' in update_dialogs
     and '0, rowExtra, notesSpace, true, true, hasMissed)' in update_dialogs
     and 'hasMissed := missedVersions.Length > 0' in update_dialogs
-    and 'draftSections.MissedVersions[1].Url := ""' in bootstrap
-    and 'draftSections.MissedVersions[1].Label .= " (unreleased draft)"' in bootstrap
+    and 'draftSections.MissedVersions := demoRows' in bootstrap
+    and 'Loop 24' in bootstrap
+    and 'demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"' in bootstrap
+    and 'Url: GetTes3npReleasePage(demoVersion)' in bootstrap
+    and 'ShowDevelopmentUnreadBadgeSample(24)' in bootstrap
+    and 'SetLauncherUpdateAvailable(false)' in bootstrap
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
     and 'actionY := 511 + rowExtra + notesSpace' in update_dialogs
     and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
