@@ -49,18 +49,18 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         preview.Add("Text", "x555 y80 w215 h26 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
         tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix,
             kind = "hotfix" ? "hotfix" : "release", 118)
+        ; Keep both actions together at the lower left, aligned with the
+        ; notes panel. The real Update Now action still enters the existing
+        ; download and install confirmation flow outside this window.
         if synthetic
         {
-            ; The opt-in test uses the same production layout but exposes
-            ; no download or GitHub release actions.
-            AddStyledButton(preview, 330, 568, 140, 34, "Close", (*) => DestroyScaledMenu(preview))
+            AddStyledButton(preview, 32, 568, 185, 34, "Update Now",
+                (*) => MsgBox("Update downloads are disabled for this preview.", "TES3NP Update Preview", "Iconi"))
         }
         else
-        {
-            AddStyledButton(preview, 32, 568, 230, 34, "Continue to Download", (*) => (response.Download := true, DestroyScaledMenu(preview)))
-            AddStyledButton(preview, 330, 568, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
-            AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release", (*) => Run(GetTes3npReleasePage(latestVersion)))
-        }
+            AddStyledButton(preview, 32, 568, 185, 34, "Update Now",
+                (*) => (response.Download := true, DestroyScaledMenu(preview)))
+        AddStyledButton(preview, 233, 568, 155, 34, "Not Now", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
