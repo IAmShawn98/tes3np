@@ -2351,7 +2351,7 @@ expect(
     and "ReleaseNoteLineHeight(sample)" in update_notes
     and "GetTextMetricsW" in update_notes
     and "if y + rowHeight > bottomY" in update_notes
-    and "sectionGap := Max(1, px(4))" in update_notes
+    and "sectionGap := compactLayout ? Max(1, px(2)) : Max(1, px(4))" in update_notes
     and 'Kind: "space"' not in update_notes
     and "96 / A_ScreenDPI" not in update_notes
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
