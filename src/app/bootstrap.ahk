@@ -70,12 +70,23 @@ ShowDevelopmentReleaseReview(*)
             throw Error("No local release notes for v" version ".")
         record := {Version: version, Label: "v" version,
             Hotfix: true, Notes: changelog}
-        ; Preview the real pending notes in the production dialog. The
-        ; draft appears in Updates You Missed, but is not a hyperlink until
-        ; GitHub actually publishes that exact release tag.
+        ; Development-only stress review: the *latest changelog* remains
+        ; the real, unreleased local draft. The 24 rows below it deliberately
+        ; repeat the only two verified public release tags (v0.1.21-alpha
+        ; and v0.1.20-alpha). They are labeled DEMO, never treated as genuine
+        ; missed updates and never written to the published update feed.
+        ; Repeating real tags tests scrolling and clickable, non-404 pages
+        ; without inventing GitHub releases that do not exist.
         draftSections := BuildPublishedPreviewSections([record])
-        draftSections.MissedVersions[1].Url := ""
-        draftSections.MissedVersions[1].Label .= " (unreleased draft)"
+        demoRows := []
+        Loop 24
+        {
+            demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"
+            demoRows.Push({Version: demoVersion,
+                Label: "DEMO " Format("{:02}", A_Index) " — v" demoVersion,
+                Url: GetTes3npReleasePage(demoVersion)})
+        }
+        draftSections.MissedVersions := demoRows
         ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
             "alpha", "hotfix", draftSections)
         LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
