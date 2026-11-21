@@ -417,7 +417,9 @@ CountUnseenPublishedUpdateRecords(records, installed, seenState := 0)
 RefreshLauncherPublishedUnreadCount(versions := 0, latest := "")
 {
     global AppConfig, LauncherPublishedVersions, LauncherObservedUpdateVersion
-    if IsObject(versions)
+    ; A temporarily unavailable changelog must not discard previously
+    ; verified history or make older unread notifications disappear.
+    if IsObject(versions) && versions.Length
         LauncherPublishedVersions := versions
     if latest = ""
         latest := LauncherObservedUpdateVersion
