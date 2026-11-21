@@ -49,6 +49,16 @@ $base = Get-ChildItem -LiteralPath $ahkRoot -Recurse -Filter 'AutoHotkey64.exe' 
 $compiler = Get-ChildItem -LiteralPath $compilerRoot -Recurse -Filter 'Ahk2Exe.exe' -File | Select-Object -First 1 -ExpandProperty FullName
 if (!$base -or !$compiler) { throw 'Verified AutoHotkey tools were not extracted.' }
 
+# Parse the disposable visual preview driver against the exact production
+# modules. The --check-only path exits before showing any GUI or reading a
+# public release; this is separate from runtime/visual acceptance on a PC.
+Write-Host 'Preflighting isolated Update Preview visual test (no window opened).'
+& (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Scale 100 -CheckOnly -AutoHotkeyPath $base
+if ($LASTEXITCODE -ne 0) {
+    throw "Update Preview visual test preflight failed with exit code $LASTEXITCODE."
+}
+Write-Host 'PASS: isolated Update Preview visual test parsed without production startup.'
+
 Write-Host 'Testing the production AutoHotkey updater parser with generated metadata.'
 $metadataTest = Join-Path $projectRoot 'scripts/test-update-metadata.ahk'
 $generator = Join-Path $projectRoot 'scripts/generate-update-metadata.ps1'
