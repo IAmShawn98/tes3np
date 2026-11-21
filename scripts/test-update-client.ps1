@@ -370,7 +370,12 @@ Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 309 : 480\)' '
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
 Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry
-Require-Source 'UpdateNotesMouseWheel\.Bind\(viewport, page, refresh\)' 'wheel handler is bound to the release notes viewport' $notesSource
+Require-Source 'UpdateNotesMouseWheel\.Bind\(viewport.Hwnd, page, refresh\)' 'wheel handler captures the release-notes HWND before destruction' $notesSource
+Require-Source 'StartUpdateNotesDrag\.Bind\(panel.Hwnd, thumb.Hwnd, track.Hwnd, drag, page, refresh\)' 'drag handlers capture stable numeric HWNDs' $notesSource
+Require-Source 'if page.Closed \|\| page.MaxOffset <= 1' 'closed dialog cannot handle stale pointer events' $notesSource
+Require-Source 'CheckUpdateNoteCallbackLifetime\(\)' 'compiled native smoke reproduces mouse message after dialog close' $badgeHarness
+Require-Source 'page.Closed := true' 'unregister disables callbacks before removing handlers' $notesSource
+Require-Source 'UnregisterMissedUpdateCursorTarget\(handle\)' 'cursor cleanup does not dereference destroyed Text controls' $dialogSource
 Require-Source 'GetWindowRect", "Ptr", viewport\.Hwnd, "Ptr", bounds' 'wheel hit test uses the viewport HWND' $notesSource
 
 $buildScript = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
