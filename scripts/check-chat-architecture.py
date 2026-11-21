@@ -2368,10 +2368,10 @@ expect(
     and 'number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
-    and 'size := Max(6, Round(12 * scale / GetLauncherBadgeDpiScale()))' in update_check
+    and 'size := Max(6, Round(16 * scale / GetLauncherBadgeDpiScale()))' in update_check
     and 'ApplyLauncherBadgeFont(scale, sample := 0)' in update_check
     and 'ApplyLauncherBadgeFont(scale, number)' in launcher_smoke_tests
-    and 'if percent = 100 && measuredHeight < 13' in launcher_smoke_tests
+    and 'if percent = 100 && measuredHeight < 16' in launcher_smoke_tests
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
     and 'if !wasVisible' in update_check
@@ -2388,9 +2388,13 @@ expect(
     and 'GetDpiForWindow' in update_check
     and 'ReleaseNoteFits(number, number.Text,' in update_check
     and 'ReleaseNoteLineHeight(number) <= availableHeight' in update_check
-    and 'innerWidth := Max(1, Round(diameter * 0.72))' in update_check
+    and 'innerWidth := Max(1, Round(diameter * 0.90))' in update_check
+    and 'innerHeight := innerWidth' in update_check
+    and 'ShapeCircularUpdateBadge(LauncherUpdateNumber)' in update_check
     and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
     and 'if width > 30' in launcher_smoke_tests
+    and 'ShapeCircularUpdateBadge(number)' in launcher_smoke_tests
+    and 'Unread numeral overlay region is not circular.' in launcher_smoke_tests
     and 'badge := panel.Add("Picture"' in launcher_smoke_tests
     and 'assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir' in launcher_smoke_tests
     and 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle.png"' in launcher_smoke_tests
