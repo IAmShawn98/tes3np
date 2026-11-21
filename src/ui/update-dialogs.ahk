@@ -40,13 +40,13 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h42 BackgroundTrans", title)
         preview.SetFont("s10 cEDE1C9", "Segoe UI")
-        ; One clear metadata row below the title. Group labels and version
-        ; values remain separate so longer build numbers do not wrap.
+        ; Keep three distinct metadata groups but minimize wasted space
+        ; between them. Full-size controls prevent version numbers clipping.
         preview.Add("Text", "x30 y80 w90 h26 BackgroundTrans", "Installed:")
         preview.Add("Text", "x123 y80 w147 h26 BackgroundTrans", "v" installedVersion)
-        preview.Add("Text", "x291 y80 w70 h26 BackgroundTrans", "Latest:")
-        preview.Add("Text", "x371 y80 w167 h26 BackgroundTrans", "v" latestVersion)
-        preview.Add("Text", "x555 y80 w215 h26 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+        preview.Add("Text", "x272 y80 w70 h26 BackgroundTrans", "Latest:")
+        preview.Add("Text", "x346 y80 w167 h26 BackgroundTrans", "v" latestVersion)
+        preview.Add("Text", "x518 y80 w252 h26 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
         tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix,
             kind = "hotfix" ? "hotfix" : "release", 118)
         ; Keep both actions together at the lower left, aligned with the
