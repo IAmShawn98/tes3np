@@ -1470,6 +1470,18 @@ CheckMissedUpdateLinkViewport()
                     || observer.Badges.Length != 4 || observer.Prefixes.Length != 4
                     || !IsObject(observer.Clear)
                     throw Error("Missed-updates viewport did not initialize its rows.")
+                expectedCaption := count > 1 ? "Mark All Read" : "Mark Read"
+                if observer.Clear.Text != expectedCaption
+                    throw Error("Unread-count action caption incorrect on initialization.")
+                if count = 1
+                {
+                    if IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
+                        throw Error("Unreleased draft must not use the link hand cursor.")
+                }
+                else if !IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
+                    || !IsMissedUpdateCursorTarget(observer.Badges[1].Hwnd)
+                    || (count = 24 && !IsMissedUpdateCursorTarget(observer.Prefixes[1].Hwnd))
+                    throw Error("Clickable release controls must use the hand cursor.")
                 ; This previously passed because the smoke test contained no
                 ; heading: the list was drawn five pixels over its last glyphs.
                 heading.GetPos(, &headingY, , &headingHeight)
@@ -1562,8 +1574,8 @@ CheckMissedUpdateLinkViewport()
                 }
                 ; Mark Read is a fixed footer control, not an item in the
                 ; scrollable release list. It must be visible at BOTH ends.
-                if !observer.Clear.Visible || observer.Clear.Text != "Mark Read"
-                    throw Error("Mark Read must always be visible beneath release links.")
+                if !observer.Clear.Visible || observer.Clear.Text != expectedCaption
+                    throw Error("Unread-count action must stay visible beneath release links.")
                 observer.Clear.GetPos(&clearX, &clearY, &clearWidth, &clearHeight)
                 originalClearY := clearY
                 if clearX < Round(34 * scale) - 1
@@ -1587,7 +1599,7 @@ CheckMissedUpdateLinkViewport()
                         || observer.Badges[1].Visible
                         throw Error("Click-to-read hid the entry or left its red notification visible.")
                     ClearMissedUpdateBadges(observer.Page)
-                    if !observer.Clear.Visible
+                    if !observer.Clear.Visible || observer.Clear.Text != "Mark Read"
                         throw Error("Mark Read must remain visible after clearing.")
                     for item in items
                         if !IsMissedUpdateRead(observer.Page, item)
@@ -1597,11 +1609,27 @@ CheckMissedUpdateLinkViewport()
                     if !observer.Rows[1].Visible || observer.Badges[1].Visible
                         throw Error("Clear must preserve visible links while hiding their red badge.")
                 }
+                if count = 3 && percent = 100
+                {
+                    MarkMissedUpdateItemRead(observer.Page, items[1])
+                    MarkMissedUpdateItemRead(observer.Page, items[2])
+                    observer.Refresh.Call()
+                    if observer.Clear.Text != "Mark Read"
+                        throw Error("One remaining unread release must display Mark Read.")
+                    MarkMissedUpdateItemRead(observer.Page, items[3])
+                    observer.Refresh.Call()
+                    if observer.Clear.Text != "Mark Read"
+                        throw Error("Cleared release list must not show Mark All Read.")
+                }
             }
             finally
             {
                 if IsObject(unregister)
+                {
                     unregister()
+                    if IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
+                        throw Error("Closed preview retained stale link-cursor target.")
+                }
                 panel.Destroy()
             }
         }
