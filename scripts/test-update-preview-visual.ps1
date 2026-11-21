@@ -171,7 +171,7 @@ SetTimer(UpdateButtonHover, 30)
 if visualSmoke
 {
     visualSmokeStarted := A_TickCount
-    SetTimer(ExercisePreviewVisualControls, 100)
+    SetTimer(GuardedPreviewVisualSmoke, 100)
 }
 try {
     ; This executes the real, unchanged ShowUpdatePreview rendering code.
@@ -193,7 +193,7 @@ try {
 } finally {
     SetTimer(UpdateButtonHover, 0)
     if visualSmoke
-        SetTimer(ExercisePreviewVisualControls, 0)
+        SetTimer(GuardedPreviewVisualSmoke, 0)
     try LauncherGui.Destroy()
     try DisposeButtonPainter()
 }
@@ -202,11 +202,27 @@ ExitApp(0)
 ; The automatic smoke exercises the actual production popup, its themed
 ; button actions, and the previously failing launcher mouse-up handler. Only
 ; locally supplied fake history is read; no update/install handler is called.
+; Convert timer exceptions to a process exit code: GUI message boxes block CI.
+GuardedPreviewVisualSmoke()
+{
+    try ExercisePreviewVisualControls()
+    catch Error as err
+    {
+        try FileAppend("FAIL: disposable preview interaction — " err.Message Chr(10), "**")
+        ExitApp(66)
+    }
+}
 ExercisePreviewVisualControls()
 {
     global ButtonFaces, visualSmokeStarted
-    if A_TickCount - visualSmokeStarted > 15000
-        throw Error("The sample Update Preview controls did not appear.")
+    if A_TickCount - visualSmokeStarted > 12000
+    {
+        available := ""
+        for handle, face in ButtonFaces
+            if DllCall("user32\IsWindow", "Ptr", handle, "Int")
+                available .= (available = "" ? "" : ", ") face.Label.Text
+        throw Error("The sample Update Preview controls did not appear. Buttons: " available)
+    }
     showEarlier := 0, hideEarlier := 0, notNow := 0
     for hwnd, face in ButtonFaces
     {
@@ -236,7 +252,7 @@ ExercisePreviewVisualControls()
     hideEarlier.Action.Call()
     if !showEarlier.Control.Visible || hideEarlier.Control.Visible
         throw Error("Clicking Hide earlier changes did not collapse the history.")
-    SetTimer(ExercisePreviewVisualControls, 0)
+    SetTimer(GuardedPreviewVisualSmoke, 0)
     notNow.Action.Call()
 }
 
@@ -262,6 +278,11 @@ ExercisePreviewVisualControls()
     if ($SmokeTest -or $CheckOnly) {
         if (!$testProcess.WaitForExit(30000)) {
             try { $testProcess.Kill() } catch {}
+            foreach ($output in @($testStdout, $testStderr)) {
+                if (Test-Path -LiteralPath $output) {
+                    Get-Content -LiteralPath $output | ForEach-Object { Write-Host $_ }
+                }
+            }
             throw 'The isolated Update Preview visual test timed out.'
         }
     }
