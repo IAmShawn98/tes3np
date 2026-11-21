@@ -2538,6 +2538,10 @@ expect(
     and 'ShowDevelopmentReleaseReview(*)' in bootstrap
     and 'if A_Args.Length || !RegExMatch(AppConfig.Version,' in bootstrap
     and 'FileExist(checkoutRoot "\\.git")' in bootstrap
+    and 'FindDevelopmentReviewCheckoutRoot(A_ScriptDir, A_IsCompiled)' in bootstrap
+    and 'folderName != "local-build" || parentName != "dist"' in bootstrap
+    and 'CheckDevelopmentReviewExecutablePaths()' in launcher_smoke_tests
+    and 'Packaged distributions must not auto-show development updates.' in launcher_smoke_tests
     and 'ReadBundledVersionNotes(version)' in bootstrap
     and 'BuildPublishedPreviewSections([record])' in bootstrap
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
@@ -2642,6 +2646,10 @@ expect(
     and 'ShowDevelopmentReleaseReview(*)' in bootstrap
     and 'if A_Args.Length || !RegExMatch(AppConfig.Version,' in bootstrap
     and 'FileExist(checkoutRoot "\\.git")' in bootstrap
+    and 'FindDevelopmentReviewCheckoutRoot(A_ScriptDir, A_IsCompiled)' in bootstrap
+    and 'folderName != "local-build" || parentName != "dist"' in bootstrap
+    and 'CheckDevelopmentReviewExecutablePaths()' in launcher_smoke_tests
+    and 'Packaged distributions must not auto-show development updates.' in launcher_smoke_tests
     and 'ReadBundledVersionNotes(version)' in bootstrap
     and 'BuildPublishedPreviewSections([record])' in bootstrap,
 )
