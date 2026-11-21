@@ -86,6 +86,16 @@ Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' '
 # second metadata row reflows tabs, notes, actions and the gold frame as one unit.
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 620\)' 'preview base height is retained' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel\)' 'feature and hotfix use the same metadata layout' $dialogSource
+
+Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Installed: v" installedVersion\)' 'installed caption autosizes before height assignment' $dialogSource
+Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Latest: v" latestVersion\)' 'latest caption autosizes before height assignment' $dialogSource
+Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Channel: " channelName\)' 'channel caption autosizes before height assignment' $dialogSource
+Require-Source 'installed\.Move\(, , installedWidth, 26\)' 'installed caption height applied only after measuring natural width' $dialogSource
+Require-Source 'latest\.Move\(, , latestWidth, 26\)' 'latest caption height applied only after measuring natural width' $dialogSource
+Require-Source 'channelText\.Move\(, , channelWidth, 26\)' 'channel caption height applied only after measuring natural width' $dialogSource
+if ($dialogSource.Contains('x30 y80 h26 BackgroundTrans +0x80')) {
+    throw 'Fixed Text height at creation prevents content-width auto-sizing and fails compiled metadata smoke checks.'
+}
 Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed caption uses measured natural width' $dialogSource
 Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest caption uses measured natural width' $dialogSource
 Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'channel caption uses measured natural width' $dialogSource
