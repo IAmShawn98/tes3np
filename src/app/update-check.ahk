@@ -35,7 +35,7 @@ CreateLauncherUpdateBadge()
     ; A blank alpha-transparent red disk supplies a genuinely circular edge.
     ; The white number sits entirely inside the circle with no baked-in "1".
     LauncherUpdateBadge := LauncherGui.Add("Picture",
-        "x" x " y689 w22 h22 BackgroundTrans",
+        "x" x " y689 w22 h22 +0x40 BackgroundTrans",
         A_ScriptDir "\assets\controls\update-unread-circle.png")
     LauncherUpdateNumber := LauncherGui.Add("Text",
         "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundD63232", "1")
@@ -64,7 +64,9 @@ ApplyLauncherBadgeFont(scale)
     global LauncherUpdateNumber
     if !IsObject(LauncherUpdateNumber)
         return
-    size := Max(6, Round(10 * scale))
+    ; GUI SetFont is DPI-aware. Match the actual physical circle instead of
+    ; rendering a 10pt glyph twice as large on high-DPI Windows displays.
+    size := Max(5, Round(9 * scale / GetLauncherBadgeDpiScale()))
     LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
 }
 
@@ -121,12 +123,32 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
     }
 }
 
+GetLauncherBadgeDpiScale()
+{
+    global LauncherGui
+    ; GuiControl.Move/GetPos apply Windows DPI scaling automatically.
+    ; The old code requested 25 logical px, producing a roughly 52px
+    ; circle on the user's high-DPI launcher. Convert the desired *screen*
+    ; pixels back to GUI coordinates before requesting the bitmap.
+    try
+    {
+        if IsObject(LauncherGui)
+        {
+            dpi := DllCall("user32\GetDpiForWindow", "Ptr", LauncherGui.Hwnd, "UInt")
+            if dpi >= 96
+                return dpi / 96
+        }
+    }
+    return Max(1, A_ScreenDPI / 96)
+}
+
 LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
-    ; Two digits use a compact 25px circle, not the oversized 36px one.
-    ; Keep both axes equal; the transparent image gives it a round edge.
-    return Max(1, Round((22 + 3 * (digits - 1)) * scale))
+    ; At full launcher scale, "24" gets ~23 PHYSICAL pixels, not the
+    ; image's 48px native size. Smaller launcher scales retain 16px min.
+    physical := Max(16, Round((18 + 5 * (digits - 1)) * scale))
+    return Max(1, Round(physical / GetLauncherBadgeDpiScale()))
 }
 
 SetLauncherUnreadBadgeNumber(count)
@@ -150,15 +172,17 @@ SetLauncherUnreadBadgeNumber(count)
     baseY := Round(689 * scale)
     baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
     centeredY := baseY - Floor((diameter - baseDiameter) / 2)
+    ; Explicit bitmap size plus SS_REALSIZECONTROL keeps the 48px PNG from
+    ; showing at its native size. Load first, then set final control bounds:
+    ; replacing Picture.Value must never re-expand the resized circle.
+    bitmapPixels := Max(1, Round(diameter * GetLauncherBadgeDpiScale()))
+    LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels " "
+        . A_ScriptDir "\assets\controls\update-unread-circle.png"
     LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)
-    ; Reload at the new bounds: native Picture controls can retain their
-    ; previous bitmap size after Move, which left a small circle behind a
-    ; large rectangular numeral overlay in the stress screenshot.
-    LauncherUpdateBadge.Value := A_ScriptDir "\assets\controls\update-unread-circle.png"
-    ; The inset rectangle's corners stay fully inside the circular alpha edge
-    ; at every diameter (diagonal < radius).
-    innerWidth := Max(1, Round(diameter * 0.76))
-    innerHeight := Max(1, Round(diameter * 0.50))
+    ; The number overlay is strictly INSIDE the circle, so its rectangular
+    ; background never shows square red corners outside the round image.
+    innerWidth := Max(1, Round(diameter * 0.68))
+    innerHeight := Max(1, Round(diameter * 0.68))
     LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
         centeredY + Floor((diameter - innerHeight) / 2), innerWidth, innerHeight)
     LauncherUpdateNumber.Text := value
