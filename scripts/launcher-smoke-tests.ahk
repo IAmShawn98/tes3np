@@ -832,7 +832,13 @@ CheckUpdatePreviewMetadataLayout()
         {Installed: "0.1.20-alpha", Latest: "0.1.22-alpha.2", Channel: "alpha"},
         {Installed: "0.1.22-alpha.1", Latest: "0.1.22-alpha.2", Channel: "alpha"},
         {Installed: "0.1.22-alpha.10", Latest: "0.1.23-alpha.100", Channel: "alpha"},
-        {Installed: "1.0.0-live.10", Latest: "1.0.0-live.100", Channel: "live"}
+        {Installed: "1.0.0-live.10", Latest: "1.0.0-live.100", Channel: "live"},
+        ; Deliberately long build numbers exercise the second- and third-row
+        ; fallback so future hotfix suffixes never paint over Channel.
+        {Installed: "0.1.22-alpha.12345678901234567890",
+            Latest: "0.1.23-alpha.12345678901234567890", Channel: "alpha"},
+        {Installed: "0.1.22-alpha.1234567890123456789012345678901234567890",
+            Latest: "0.1.23-alpha.1234567890123456789012345678901234567890", Channel: "alpha"}
     ]
     for scenario in scenarios
     {
@@ -846,11 +852,15 @@ CheckUpdatePreviewMetadataLayout()
             {
                 control.GetPos(&x, &y, &width, &height)
                 if x < 30 || x + width > 770 || width < 1 || height != 26
+                    || !ReleaseNoteFits(control, control.Text, width)
                     throw Error("Update preview metadata is clipped or offscreen: " control.Text)
                 bounds.Push({X: x, Y: y, Right: x + width, Bottom: y + height})
             }
             if bounds.Length != 3 || (extra != 0 && extra != 32 && extra != 64)
                 throw Error("Update preview metadata layout returned invalid controls or spacing.")
+            bottomRow := Max(bounds[1].Y, bounds[2].Y, bounds[3].Y)
+            if bottomRow - 80 != extra
+                throw Error("Update preview frame does not follow the bottom metadata row.")
             for i, current in bounds
                 for j, later in bounds
                 {
