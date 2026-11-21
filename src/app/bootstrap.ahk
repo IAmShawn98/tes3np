@@ -76,8 +76,9 @@ ShowDevelopmentReleaseReview(*)
         ; Development-only stress review: the *latest changelog* remains
         ; the real, unreleased local draft. The 24 rows below it deliberately
         ; repeat the only two verified public release tags (v0.1.21-alpha
-        ; and v0.1.20-alpha). They are labeled DEMO, never treated as genuine
-        ; missed updates and never written to the published update feed.
+        ; and v0.1.20-alpha). They display like ordinary version links,
+        ; but the preview heading marks them as samples. Their distinct
+        ; in-memory keys never write to the published update feed.
         ; Repeating real tags tests scrolling and clickable, non-404 pages
         ; without inventing GitHub releases that do not exist.
         draftSections := BuildPublishedPreviewSections([record])
@@ -87,9 +88,8 @@ ShowDevelopmentReleaseReview(*)
             demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"
             demoRows.Push({Version: demoVersion,
                 Key: "demo-" Format("{:02}", A_Index),
-                Prefix: "DEMO " Format("{:02}", A_Index) " — ",
                 DisplayVersion: "v" demoVersion,
-                Label: "DEMO " Format("{:02}", A_Index) " — v" demoVersion,
+                Label: "v" demoVersion,
                 Url: GetTes3npReleasePage(demoVersion)})
         }
         draftSections.MissedVersions := demoRows
