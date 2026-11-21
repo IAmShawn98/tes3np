@@ -431,7 +431,23 @@ RefreshLauncherPublishedUnreadCount(versions := 0, latest := "")
 
 HasSeenUpdateAutoPreview(version)
 {
-    return IsPublishedVersionRead(version)
+    global DataFile
+    if IsPublishedVersionRead(version)
+        return true
+    ; Automatic popup suppression stays monotonic if a stale manifest
+    ; temporarily advertises an older release. This does NOT mark older
+    ; historical versions read or subtract them from the footer count.
+    seen := IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "")
+    if seen = ""
+        return false
+    try
+    {
+        if ParseTes3npVersion(seen).Channel = ParseTes3npVersion(version).Channel
+            return CompareUpdateNoteVersions(seen, version) >= 0
+    }
+    catch Error
+        return false
+    return false
 }
 
 AutoPreviewNewUpdate(version, *)
