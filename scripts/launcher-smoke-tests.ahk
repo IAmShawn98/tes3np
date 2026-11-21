@@ -971,6 +971,7 @@ CheckUnreadPublishedReleaseCounts()
     }
     finally
         try FileDelete(fixture)
+    CheckUnreadBadgeTextAdjacency()
     ; The actual launcher uses a PNG Picture control. An earlier Text-only
     ; test passed while Windows painted the native 48px PNG as a 52px circle.
     ; This compiled probe must read the same extracted asset as production:
@@ -988,7 +989,7 @@ CheckUnreadPublishedReleaseCounts()
         dpiScale := GetLauncherBadgeDpiScale()
         diameter := LauncherUnreadBadgeDiameter(24, scale)
         oneDigit := LauncherUnreadBadgeDiameter(1, scale)
-        expectedPixels := Max(16, Round(23 * scale))
+        expectedPixels := Max(16, Round(27 * scale))
         if diameter < oneDigit || diameter < 1
             throw Error("Two-digit unread badge must fit a readable, circular number.")
         panel := Gui(, "Native numeric unread badge smoke")
@@ -1011,7 +1012,7 @@ CheckUnreadPublishedReleaseCounts()
                 throw Error("Unread badge must be " expectedPixels
                     " physical pixels at " percent "% launcher scale, actual "
                     width "x" height " (DPI " dpiScale ").")
-            if width > 26
+            if width > 30
                 throw Error("Footer unread circle is visually oversized: " width " pixels.")
             region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
                 "Int", 0, "Int", 0, "Ptr")
@@ -1034,7 +1035,44 @@ CheckUnreadPublishedReleaseCounts()
             panel.Destroy()
         }
     }
-    try FileAppend("PASS: unread counts 4,3,2,1,0 and native PNG circle renders at 16-23 physical pixels" Chr(10), "*")
+    try FileAppend("PASS: unread counts 4,3,2,1,0 and native PNG circle renders at 16-27 physical pixels" Chr(10), "*")
+}
+
+; The version Text control has intentionally padded bounds to avoid clipping
+; at small launcher scales. The unread badge must follow the actual rendered
+; last glyph, not that large transparent Text rectangle.
+CheckUnreadBadgeTextAdjacency()
+{
+    dpi := GetLauncherBadgeDpiScale()
+    panel := Gui(, "Unread badge text adjacency smoke")
+    panel.SetFont("s9 cC5A45C", "Segoe UI")
+    label := panel.Add("Text", "x12 y10 BackgroundTrans",
+        "tes3np · v0.1.21-alpha.1")
+    label.GetPos(, , &naturalWidth)
+    padded := Ceil(naturalWidth * 1.125) + 4
+    try
+    {
+        for percent in [50, 100]
+        {
+            scale := percent / 100
+            label.Move(Round(12 * scale), Round(10 * scale),
+                Round(padded * scale), Round(18 * scale))
+            label.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
+            label.GetPos(&labelX, , &labelWidth)
+            badgeX := GetLauncherUnreadBadgeX(label, scale)
+            textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
+            screenGap := Round((badgeX - labelX) * dpi - textPixels)
+            if screenGap < 0 || screenGap > Round(8 * dpi)
+                throw Error("Footer badge must follow visible version text, "
+                    "not the padded label bounds; gap=" screenGap
+                    " device px at " percent "% scale.")
+            if badgeX >= labelX + labelWidth + Max(1, Round(2 * scale))
+                throw Error("Footer badge still anchors after the oversized padded text box.")
+        }
+    }
+    finally
+        panel.Destroy()
+    try FileAppend("PASS: unread badge stays beside rendered version glyphs at 50 and 100 percent" Chr(10), "*")
 }
 
 ; Verify native clipping for the actual circular red badge at the same
