@@ -127,15 +127,19 @@ Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows
 Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
 Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h" \(365 \+ notesSpace\) " BackgroundC5A45C"\)' 'outer gold frame grows with notes instead of clipping' $dialogSource
 Require-Source 'preview.Add\("Text", "x40 y" \(376 \+ rowExtra \+ notesSpace\) " w520 h2 BackgroundC5A45C"\)' 'pinned earlier updates divider follows the full-height notes' $dialogSource
-Require-Source '"Earlier updates included"' 'earlier missed history is visible on the initial preview' $dialogSource
-Require-Source '"View earlier changes"' 'gold text link replaces the former top-right button' $dialogSource
-Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Latest\)' 'earlier history toggle preserves all missed versions' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'only the latest missed hotfix is initially scrolled' $dialogSource
-Require-Source 'noteSwitcher, rowExtra, notesSpace, true, true, showEarlierSummary\)' 'scroll viewport honors the pinned earlier summary' $dialogSource
-Require-Source 'showEarlierSummary := notes.EarlierCount > 0' 'published updates show the pinned section only for genuine missed releases' $dialogSource
-Require-Source 'notes.HasOwnProp\("ReviewEmptyEarlier"\)' 'draft review can show an accurate empty-state section' $dialogSource
-Require-Source 'if notes.EarlierCount > 0' 'earlier update links appear only when there are missed releases' $dialogSource
-Require-Source '"No earlier missed updates for this draft\."' 'draft preview does not invent missed updates' $dialogSource
+Require-Source '"Updates You Missed"' 'pinned history uses the approved player-facing heading' $dialogSource
+Require-Source 'missedVersions := notes.HasOwnProp\("MissedVersions"\) \? notes.MissedVersions : \[\]' 'published preview reads every missed release' $dialogSource
+Require-Source 'hasMissed := missedVersions.Length > 0' 'history stays absent when no versions are missed' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'latest changelog keeps its own scrollable viewport' $dialogSource
+Require-Source '0, rowExtra, notesSpace, true, true, hasMissed\)' 'latest notes stop above the pinned missed history' $dialogSource
+Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale, rowExtra, notesSpace\)' 'pinned missed releases have their own bounded viewport' $dialogSource
+Require-Source 'link.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'each missed version hyperlink resolves from its current scroll row' $dialogSource
+Require-Source 'track.Visible := page.MaxOffset > 1' 'history scrollbar appears only when more than three releases are missed' $dialogSource
+Require-Source 'rowTop := px\(420 \+ topExtra \+ bottomExtra\)' 'version links fit the lower gold frame without clipping' $dialogSource
+Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
+Require-Source '"https://github.com/IAmShawn98/tes3np/releases/tag/v" version' 'hyperlink destination is locked to release tags in the official repository' $dialogSource
+Require-Source 'MissedVersions: missedVersions' 'list includes the newest missed version and every older missed version' $notesSource
+Require-Source 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' 'links derive from verified published history' $notesSource
 Require-Source 'A_ScriptDir "\\assets\\controls\\update-badge\.png"' 'update preview uses a true transparent circular badge bitmap' $dialogSource
 if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf)) {
     throw 'Transparent circular update badge artwork is missing.'
@@ -162,7 +166,7 @@ if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -l
 }
 $previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
 if (!$previewPath.Contains('ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
-    !$previewPath.Contains('notes.EarlierLabels') -or
+    !$previewPath.Contains('notes.HasOwnProp("MissedVersions")') -or
     $previewPath.Contains('AddUpdateNoteTabs(') -or
     $previewPath.Contains('history.Hotfix') -or
     $previewPath.Contains('history.Release')) {
@@ -185,7 +189,7 @@ if ((14 + 31) -ge 53 -or (61 + 26) -ge 96 -or
     (511 + 100 + 34) -ge (556 + 100)) {
     throw 'Compact preview frame overlaps title, metadata, notes, or footer controls.'
 }
-Write-Host 'PASS: compact preview hierarchy, metadata wrapping and pinned earlier summary match reference layout.'
+Write-Host 'PASS: compact preview, pinned missed-version links and fixed scroll bounds match reference layout.'
 if ($dialogSource.Contains('"Continue to Download"') -or
     $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"')) {
     throw 'Preview footer must retain only the two established update choices.'
@@ -197,7 +201,7 @@ Require-Source 'FileExist\(checkoutRoot "\\.git"\)' 'unreleased review only work
 Require-Source 'ReadBundledVersionNotes\(AppConfig.Version\) != ""' 'startup preview requires locally existing unreleased notes' $bootstrapSource
 Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted RELEASE_NOTES rather than fake hotfixes' $bootstrapSource
 Require-Source 'draftSections := BuildPublishedPreviewSections\(\[record\]\)' 'development preview uses the genuine single draft record' $bootstrapSource
-Require-Source 'draftSections.ReviewEmptyEarlier := true' 'development preview exercises the pinned earlier section without fabricated releases' $bootstrapSource
+Require-Source 'draftSections.MissedVersions\[1\].Url := ""' 'unpublished draft review has no misleading GitHub release hyperlink' $bootstrapSource
 Require-Source 'ShowUpdatePreview\(GetTes3npOriginalVersion\(version\), version,' 'review invokes the real production update dialog' $bootstrapSource
 Require-Source 'BuildPublishedPreviewSections\(\[record\]\)' 'review uses the real production notes parser' $bootstrapSource
 if (Test-Path 'scripts/test-update-preview-visual.ps1') {
@@ -284,7 +288,7 @@ Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(1
 Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
 Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
-Require-Source 'preview.SetFont\("s9 Underline cF5C96E", "Segoe UI"\)' 'earlier updates link is compact and readable' $dialogSource
+Require-Source 'row.SetFont\("s" Max\(5, Round\(10 \* scale\)\)' 'missed release links use measured compact text' $dialogSource
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'full production update popup retains owner scale instead of miniature rendering' $dialogSource
 Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 373 : 480\)' 'notes use almost the full upper-card height without crossing the gold divider' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
@@ -501,6 +505,9 @@ Write-Host 'PASS: temporary manual updater preview instrumentation removed; norm
 
 Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed published changes retain categorized formatting' $notesSource
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
+Require-Source 'CheckMissedUpdateLinkViewport\(\)' 'native smoke tests missed update links and scrolling' $badgeHarness
+Require-Source 'for count in \[1, 3, 7\]' 'regression covers one, three and many missed versions' $badgeHarness
+Require-Source 'observer.Page.Offset := observer.Page.MaxOffset' 'native smoke verifies the last missed version remains reachable' $badgeHarness
 Require-Source 'previewSections := BuildPublishedPreviewSections\(\[newestMissed, previousMissed, patch\]\)' 'compiled smoke covers compact and expanded missed updates' $badgeHarness
 Require-Source 'CheckExpandablePublishedPreviewViewport\(\)' 'native smoke exercises expanding and collapsing the missed-update viewport' $badgeHarness
 Require-Source 'switcher.Update.Call\(sections.Expanded\)' 'native smoke calls the correct AHK bound callback' $badgeHarness
