@@ -1,5 +1,8 @@
 ; Display update status, release previews, and download and install confirmations.
 
+; These per-preview HWND entries are removed when the modal closes.
+global MissedUpdateCursorTargets := Map()
+
 ShowGoldUpdateConfirmation(title, message, confirmLabel)
 {
     response := {Accepted: false}
@@ -206,6 +209,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     markReadY := px(528 + topExtra + bottomExtra)
     clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),
         "Mark Read", ClearMissedUpdateBadges.Bind(page))
+    page.ClearButton := clearButton
 
     arrowX := px(558)
     arrowTop := rowTop
@@ -267,6 +271,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         scrolling := page.MaxOffset > 1
         track.Visible := scrolling, thumb.Visible := scrolling
         up.Visible := scrolling, down.Visible := scrolling
+        UpdateMissedUpdateMarkReadLabel(page)
     }
     page.Refresh := refresh
 
@@ -304,8 +309,20 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         throw
     }
     track.OnEvent("Click", JumpMissedUpdateList.Bind(page, track, refresh))
+    for slot in [1, 2, 3, 4]
+    {
+        RegisterMissedUpdateCursorTarget(prefixes[slot], page, slot)
+        RegisterMissedUpdateCursorTarget(rows[slot], page, slot)
+        RegisterMissedUpdateCursorTarget(badges[slot], page, slot)
+    }
     unregister()
     {
+        for slot in [1, 2, 3, 4]
+        {
+            UnregisterMissedUpdateCursorTarget(prefixes[slot])
+            UnregisterMissedUpdateCursorTarget(rows[slot])
+            UnregisterMissedUpdateCursorTarget(badges[slot])
+        }
         OnMessage(0x020A, wheelCallback, 0)
         OnMessage(0x0201, dragStartCallback, 0)
         if drag.Active
@@ -318,11 +335,59 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     return unregister
 }
 
+RegisterMissedUpdateCursorTarget(control, page, slot)
+{
+    global MissedUpdateCursorTargets
+    MissedUpdateCursorTargets[control.Hwnd] := {Page: page, Slot: slot}
+}
+
+UnregisterMissedUpdateCursorTarget(control)
+{
+    global MissedUpdateCursorTargets
+    if MissedUpdateCursorTargets.Has(control.Hwnd)
+        MissedUpdateCursorTargets.Delete(control.Hwnd)
+}
+
+IsMissedUpdateCursorTarget(handle)
+{
+    global MissedUpdateCursorTargets
+    if !MissedUpdateCursorTargets.Has(handle)
+        return false
+    target := MissedUpdateCursorTargets[handle]
+    page := target.Page
+    index := page.Offset + target.Slot - 1
+    if target.Slot > page.VisibleRows || index < 1 || index > page.Total
+        return false
+    item := page.Items[index]
+    if !item.HasOwnProp("Url") || item.Url = ""
+        return false
+    ; Only the same validated GitHub release destination as click dispatch.
+    return RegExMatch(item.Version, "^\d+\.\d+\.\d+(?:-(?:alpha|beta|live)(?:\.\d+)?|\.\d+)?$")
+        && item.Url = "https://github.com/IAmShawn98/tes3np/releases/tag/v" item.Version
+}
+
 IsMissedUpdateRead(page, item)
 {
     if page.State.Demo
         return page.State.Seen.Has(item.HasOwnProp("Key") ? item.Key : item.Version)
     return IsPublishedVersionRead(item.Version)
+}
+
+UpdateMissedUpdateMarkReadLabel(page)
+{
+    if !page.HasOwnProp("ClearButton") || !IsObject(page.ClearButton)
+        return
+    unread := 0
+    for item in page.Items
+        if !IsMissedUpdateRead(page, item)
+            unread += 1
+    label := unread > 1 ? "Mark All Read" : "Mark Read"
+    if page.ClearButton.Text != label
+    {
+        page.ClearButton.Text := label
+        ; This is a custom-painted native button: repaint the new caption.
+        PaintButtonNow(page.ClearButton.Hwnd)
+    }
 }
 
 RefreshMissedUpdateReadState(page)
@@ -350,7 +415,7 @@ MarkMissedUpdateItemRead(page, item)
 
 ClearMissedUpdateBadges(page, *)
 {
-    ; Mark Read clears the unread notifications for all listed releases
+    ; Mark Read / Mark All Read clears the unread notifications for all releases
     ; without removing a single entry, regardless of scroll position.
     for item in page.Items
         if !IsMissedUpdateRead(page, item)
