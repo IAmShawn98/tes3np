@@ -23,14 +23,17 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     return response.Accepted
 }
 
-ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
+ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes := 0)
 {
     ; The 600 x 556 compact composition follows the approved gold fantasy
     ; mockup. Keep existing player-facing text, version history, updater
     ; confirmation and download behavior untouched.
-    notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
+    notes := IsObject(reviewNotes) ? reviewNotes : ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
     response := {Download: false}
-    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 600, 556)
+    ; Show the actual production popup at full launcher scale, with room
+    ; for the final category and the pinned earlier-update summary.
+    notesSpace := 100
+    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 600, 556 + notesSpace)
     closeNotes := 0
     try
     {
@@ -55,8 +58,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")
         ; One continuous outer frame contains the latest hotfix, readable
         ; scrollable notes, a gold rule, and fixed earlier-update summary.
-        preview.Add("Text", "x20 y" (131 + rowExtra) " w560 h365 BackgroundC5A45C")
-        preview.Add("Text", "x22 y" (133 + rowExtra) " w556 h361 Background171008")
+        preview.Add("Text", "x20 y" (131 + rowExtra) " w560 h" (365 + notesSpace) " BackgroundC5A45C")
+        preview.Add("Text", "x22 y" (133 + rowExtra) " w556 h" (361 + notesSpace) " Background171008")
 
         if notes.Title != ""
         {
@@ -76,24 +79,24 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         previewState := {Expanded: false}
         if notes.EarlierCount > 0
         {
-            preview.Add("Text", "x40 y" (376 + rowExtra) " w520 h2 BackgroundC5A45C")
+            preview.Add("Text", "x40 y" (376 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
-            preview.Add("Text", "x40 y" (388 + rowExtra) " w520 h25 BackgroundTrans", "Earlier updates included")
+            preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace) " w520 h25 BackgroundTrans", "Earlier updates included")
             preview.SetFont("s10 Norm cFFF0DC", "Segoe UI")
-            preview.Add("Text", "x40 y" (420 + rowExtra) " w515 h20 BackgroundTrans",
+            preview.Add("Text", "x40 y" (420 + rowExtra + notesSpace) " w515 h20 BackgroundTrans",
                 "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
-            yLabel := 442 + rowExtra
+            yLabel := 442 + rowExtra + notesSpace
             for label in notes.EarlierLabels
             {
-                if yLabel > 464 + rowExtra
+                if yLabel > 464 + rowExtra + notesSpace
                     break
                 preview.Add("Text", "x48 y" yLabel " w330 h20 BackgroundTrans", "• " label)
                 yLabel += 21
             }
             preview.SetFont("s9 Underline cF5C96E", "Segoe UI")
-            showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra)
+            showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
                 . " w188 h25 BackgroundTrans +0x100", "View earlier changes")
-            hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra)
+            hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
                 . " w188 h25 BackgroundTrans +0x100", "Hide earlier changes")
             showEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
             hideEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
@@ -109,21 +112,18 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         }
 
         ; Both approved controls are centered below the gold history frame.
-        actionY := 511 + rowExtra
+        actionY := 511 + rowExtra + notesSpace
         AddStyledButton(preview, 109, actionY, 181, 34, "Update Now",
             (*) => (response.Download := true, DestroyScaledMenu(preview)))
         AddStyledButton(preview, 313, actionY, 181, 34, "Not Now", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
 
-        ; The 600x556 logical grid intentionally renders at 81.5%:
-        ; approved reference artwork is approximately 489x453 physical px.
-        ; Inherit launcher 50/100% preference without affecting any other
-        ; gold prompt. Scale the notes text and scrollbar by the same factor.
-        scale := Min(0.815 * GetOwnedMenuScale(), GetUpdatePromptFitScale(preview))
+        ; Do not shrink this dialog to a second miniature scale.
+        scale := Min(GetOwnedMenuScale(), GetUpdatePromptFitScale(preview))
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
-            noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0)
+            noteSwitcher, rowExtra, notesSpace, true, true, notes.EarlierCount > 0)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)

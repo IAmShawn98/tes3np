@@ -511,7 +511,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     viewX := compactLayout ? 23 : 28
     viewY := compactLayout ? 168 + topExtra : 158 + topExtra
     viewWidth := compactLayout ? 554 : 744
-    viewHeight := compactLayout ? (fixedEarlier ? 205 : 326) : 367 + bottomExtra - topExtra
+    viewHeight := compactLayout ? (fixedEarlier ? 205 : 326) + bottomExtra : 367 + bottomExtra - topExtra
     viewport := panel.Add("Text", "x" px(viewX) " y" px(viewY)
         . " w" px(viewWidth) " h" px(viewHeight)
         . (compactLayout ? " Background171008" : " BackgroundC5A45C"))
@@ -522,7 +522,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)
             . " w" px(viewWidth - 4) " h" px(viewHeight - 4) " Background171008")
     firstY := px(compactLayout ? 178 + topExtra : 170 + topExtra)
-    bottomY := px(compactLayout ? (fixedEarlier ? 373 : 480) + topExtra : 516 + bottomExtra)
+    bottomY := px(compactLayout ? (fixedEarlier ? 373 : 480) + topExtra + bottomExtra : 516 + bottomExtra)
     left := px(compactLayout ? 40 : 42)
     width := px(compactLayout ? 507 : 686)
     panel.SetFont(UpdateNoteFont("body", premium, compactLayout, scale), UpdateNoteFontFace("body", premium))
@@ -557,7 +557,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         rowStyles.Push("body")
     }
     trackY := px(compactLayout ? 176 + topExtra : 188 + topExtra)
-    trackHeight := px(compactLayout ? (fixedEarlier ? 171 : 294) : 309 + bottomExtra - topExtra)
+    trackHeight := px(compactLayout ? (fixedEarlier ? 171 : 294) + bottomExtra : 309 + bottomExtra - topExtra)
     thumbX := px(compactLayout ? 565 : 750)
     thumbWidth := px(8)
     track := panel.Add("Text", "x" px(compactLayout ? 561 : 746) " y" trackY
@@ -624,7 +624,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     arrowX := px(compactLayout ? 558 : 744)
     arrowTop := px(compactLayout ? 169 + topExtra : 163 + topExtra)
-    arrowBottom := px(compactLayout ? (fixedEarlier ? 348 : 470) + topExtra : 500 + bottomExtra)
+    arrowBottom := px(compactLayout ? (fixedEarlier ? 348 : 470) + topExtra + bottomExtra : 500 + bottomExtra)
     up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]

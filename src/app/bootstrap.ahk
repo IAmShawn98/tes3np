@@ -27,10 +27,59 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWithGameUpdates()
 
-    SetTimer(CleanupStaleLauncherData, -1000)
-    SetTimer(CheckForUpdateAvailability, -250)
-    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
+    if CanShowDevelopmentReleaseReview()
+    {
+        ; Open the real production update popup after the main launcher loads.
+        ; Never launch the downloader or change installed/public update state.
+        SetTimer(ShowDevelopmentReleaseReview, -750)
+    }
+    else
+    {
+        SetTimer(CleanupStaleLauncherData, -1000)
+        SetTimer(CheckForUpdateAvailability, -250)
+        SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
+    }
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
+}
+
+; A narrowly gated pre-publication review of real draft notes. Distributions
+; outside a Git checkout cannot activate this even if given the CLI argument.
+CanShowDevelopmentReleaseReview()
+{
+    if A_Args.Length != 1 || A_Args[1] != "--review-unreleased-update"
+        return false
+    checkoutRoot := A_IsCompiled ? A_ScriptDir "\..\.." : A_ScriptDir
+    return FileExist(checkoutRoot "\.git") != ""
+        && FileExist(checkoutRoot "\scripts\check-ahk-compile.ps1") != ""
+        && FileExist(A_ScriptDir "\RELEASE_NOTES.md") != ""
+}
+
+ShowDevelopmentReleaseReview(*)
+{
+    global AppConfig
+    version := AppConfig.Version
+    try
+    {
+        if !RegExMatch(version, "\.\d+$")
+            throw Error("Draft hotfix version required for release review.")
+        changelog := ReadBundledVersionNotes(version)
+        if changelog = ""
+            throw Error("No local release notes for v" version ".")
+        record := {Version: version, Label: "v" version,
+            Hotfix: true, Notes: changelog}
+        ; Only the existing notes from RELEASE_NOTES.md are used. The real
+        ; published-update path still performs verified history retrieval.
+        ; The modal result is intentionally ignored: no download/install.
+        ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
+            "alpha", "hotfix", BuildPublishedPreviewSections([record]))
+        LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
+    }
+    catch Error as err
+    {
+        LogLauncherEvent("UPDATE | Draft preview unavailable (" Type(err) ").")
+        MsgBox("Could not open the local release review: " err.Message,
+            "tes3np", "Icon!")
+    }
 }
 
 RequireLauncherAssets()
