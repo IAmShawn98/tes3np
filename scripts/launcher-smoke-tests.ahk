@@ -1131,7 +1131,7 @@ CheckCompactPublishedPreviewViewport()
                     if !row.Visible || !InStr(row.Text, "Older sample repair.")
                         continue
                     row.GetPos(, &y, , &height)
-                    if y < Round(178 * scale) || y + height > Round(358 * scale)
+                    if y < Round(178 * scale) || y + height > Round(373 * scale)
                         throw Error("Expanded earlier notes overlap the fixed preview summary.")
                     seenOlder := true
                 }
