@@ -91,7 +91,9 @@ Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVer
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
 # second metadata row reflows the notes, actions and gold frame as one unit.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 600, 556\)' 'preview matches reference modal proportions' $dialogSource
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 600, 556 \+ notesSpace\)' 'real production update preview has space for complete notes' $dialogSource
+Require-Source 'notesSpace := 100' 'upper changelog is taller without overlapping earlier updates' $dialogSource
+Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'production popup uses actual launcher scale rather than an 81.5% miniature' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(panel, installedVersion, latestVersion, channel, compact := false\)' 'legacy metadata geometry remains testable' $dialogSource
 Require-Source 'baseX := compact \? 44 : 30' 'metadata has 24px or more of compact ribbon side padding' $dialogSource
@@ -113,13 +115,13 @@ Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\)
 Require-Source 'metadataBorder.Move\(, , , 40 \+ rowExtra\)' 'gold metadata border retains vertical padding with wrapped versions' $dialogSource
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows if longer versions require rows' $dialogSource
 Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
-Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h365 BackgroundC5A45C"\)' 'notes and earlier history share a continuous reference-sized gold frame' $dialogSource
-Require-Source 'preview.Add\("Text", "x40 y" \(376 \+ rowExtra\) " w520 h2 BackgroundC5A45C"\)' 'earlier missed updates have a pinned gold divider' $dialogSource
+Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h" \(365 \+ notesSpace\) " BackgroundC5A45C"\)' 'outer gold frame grows with notes instead of clipping' $dialogSource
+Require-Source 'preview.Add\("Text", "x40 y" \(376 \+ rowExtra \+ notesSpace\) " w520 h2 BackgroundC5A45C"\)' 'pinned earlier updates divider follows the full-height notes' $dialogSource
 Require-Source '"Earlier updates included"' 'earlier missed history is visible on the initial preview' $dialogSource
 Require-Source '"View earlier changes"' 'gold text link replaces the former top-right button' $dialogSource
 Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Latest\)' 'earlier history toggle preserves all missed versions' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'only the latest missed hotfix is initially scrolled' $dialogSource
-Require-Source 'noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0\)' 'compact layout supports pinned earlier summary' $dialogSource
+Require-Source 'noteSwitcher, rowExtra, notesSpace, true, true, notes.EarlierCount > 0\)' 'production scroll viewport grows above pinned earlier summary' $dialogSource
 Require-Source 'A_ScriptDir "\\assets\\controls\\update-badge\.png"' 'update preview uses a true transparent circular badge bitmap' $dialogSource
 if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf)) {
     throw 'Transparent circular update badge artwork is missing.'
@@ -127,7 +129,7 @@ if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf))
 if (!(Get-Content -LiteralPath 'scripts/generate-bundled-resources.py' -Raw).Contains('"assets/controls/update-badge.png"')) {
     throw 'Standalone launcher build must include its circular notification artwork.'
 }
-Require-Source 'actionY := 511 \+ rowExtra' 'reference-aligned actions follow wrapped metadata' $dialogSource
+Require-Source 'actionY := 511 \+ rowExtra \+ notesSpace' 'production action buttons follow enlarged notes' $dialogSource
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'update button is centered under the card' $dialogSource
 Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now is centered beside Update Now' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production updater still enters its confirmation flow' $dialogSource
@@ -145,7 +147,7 @@ if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -l
     throw 'Preview, metadata and installed Version Status must remain separate production functions.'
 }
 $previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
-if (!$previewPath.Contains('notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
+if (!$previewPath.Contains('ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
     !$previewPath.Contains('notes.EarlierLabels') -or
     $previewPath.Contains('AddUpdateNoteTabs(') -or
     $previewPath.Contains('history.Hotfix') -or
@@ -165,8 +167,8 @@ if ($dialogSource.Contains('x123 y80 w147 h26') -or
     throw 'Temporary copy or fixed-size version captions must not enter the production dialog.'
 }
 if ((14 + 31) -ge 53 -or (61 + 26) -ge 96 -or
-    (96 + 30) -ge 131 -or (131 + 365) -ge 511 -or
-    (511 + 34) -ge 556) {
+    (96 + 30) -ge 131 -or (131 + 365 + 100) -ge (511 + 100) -or
+    (511 + 100 + 34) -ge (556 + 100)) {
     throw 'Compact preview frame overlaps title, metadata, notes, or footer controls.'
 }
 Write-Host 'PASS: compact preview hierarchy, metadata wrapping and pinned earlier summary match reference layout.'
@@ -175,6 +177,16 @@ if ($dialogSource.Contains('"Continue to Download"') -or
     throw 'Preview footer must retain only the two established update choices.'
 }
 Write-Host 'PASS: Update Now and Not Now remain confirmation-gated and centered.'
+$bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
+Require-Source 'A_Args\[1\] != "--review-unreleased-update"' 'pre-publication startup review requires explicit flag' $bootstrapSource
+Require-Source 'FileExist\(checkoutRoot "\\.git"\)' 'unreleased review only works in a development checkout' $bootstrapSource
+Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted RELEASE_NOTES rather than fake hotfixes' $bootstrapSource
+Require-Source 'ShowUpdatePreview\(GetTes3npOriginalVersion\(version\), version,' 'review invokes the real production update dialog' $bootstrapSource
+Require-Source 'BuildPublishedPreviewSections\(\[record\]\)' 'review uses the real production notes parser' $bootstrapSource
+if (Test-Path 'scripts/test-update-preview-visual.ps1') {
+    throw 'Retired standalone fake-history visual test still exists.'
+}
+Write-Host 'PASS: full production launcher review is checkout-gated and fake visual fixture is removed.'
 
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
@@ -187,7 +199,7 @@ if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -l
     throw 'Preview and measured metadata helper must remain separate from the Version Status dialog.'
 }
 $previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
-if (!$previewPath.Contains('notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
+if (!$previewPath.Contains('ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
     !$previewPath.Contains('"Changes in This Update"') -or
     $previewPath.Contains('AddUpdateNoteTabs(') -or
     $previewPath.Contains('history.Hotfix') -or

@@ -49,19 +49,12 @@ $base = Get-ChildItem -LiteralPath $ahkRoot -Recurse -Filter 'AutoHotkey64.exe' 
 $compiler = Get-ChildItem -LiteralPath $compilerRoot -Recurse -Filter 'Ahk2Exe.exe' -File | Select-Object -First 1 -ExpandProperty FullName
 if (!$base -or !$compiler) { throw 'Verified AutoHotkey tools were not extracted.' }
 
-# Parse the disposable visual preview driver against the exact production
-# modules. The --check-only path exits before showing any GUI or reading a
-# public release; this is separate from runtime/visual acceptance on a PC.
-Write-Host 'Preflighting isolated Update Preview visual test (no window opened).'
-# The child PowerShell script throws on an interpreter error. Do not
-# read LASTEXITCODE here: scoped PowerShell script calls need not expose it.
-& (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Scale 100 -CheckOnly -AutoHotkeyPath $base
-Write-Host 'PASS: isolated Update Preview visual test parsed without production startup.'
-$visualPreviewSource = Get-Content -LiteralPath (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Raw
-if ($visualPreviewSource -notmatch 'ScrollDragging := false') {
-    throw 'Isolated preview must initialize the inactive launcher scroll state.'
+# The old standalone miniature with invented .2/.3 updates is removed.
+# Source review now starts the real launcher and uses its real local draft.
+if (Test-Path (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1')) {
+    throw 'The retired standalone sample preview tester is still present.'
 }
-Write-Host 'PASS: disposable viewer initializes its own mouse-up dependencies.'
+Write-Host 'PASS: retired standalone update preview fixture is absent.'
 
 Write-Host 'Testing the production AutoHotkey updater parser with generated metadata.'
 $metadataTest = Join-Path $projectRoot 'scripts/test-update-metadata.ahk'

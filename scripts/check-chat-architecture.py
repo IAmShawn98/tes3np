@@ -2409,8 +2409,8 @@ expect(
 )
 expect(
     "Production updater contains no temporary injection mode and retains confirmation guards",
-    'ShowUpdatePreview(installedVersion, latestVersion, channel, kind)' in update_dialogs
-    and 'notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)' in update_dialogs
+    'ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes := 0)' in update_dialogs
+    and 'ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)' in update_dialogs
     and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel, true)' in update_dialogs
     and 'installed.GetPos(, , &installedWidth)' in update_dialogs
     and 'latest.GetPos(, , &latestWidth)' in update_dialogs
@@ -2419,14 +2419,20 @@ expect(
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
     and 'preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
     and 'AddUpdateNotesViewport(preview, notes.Latest, scale,' in update_dialogs
-    and 'noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0)' in update_dialogs
-    and 'actionY := 511 + rowExtra' in update_dialogs
+    and 'noteSwitcher, rowExtra, notesSpace, true, true, notes.EarlierCount > 0)' in update_dialogs
+    and 'actionY := 511 + rowExtra + notesSpace' in update_dialogs
     and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 313, actionY, 181, 34, "Not Now"' in update_dialogs
     and 'response.Download := true, DestroyScaledMenu(preview)' in update_dialogs
     and 'CheckUpdatePreviewMetadataLayout()' in launcher_smoke_tests
     and 'Update preview metadata overlaps at this version length.' in launcher_smoke_tests
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
+    and 'CanShowDevelopmentReleaseReview()' in bootstrap
+    and 'ShowDevelopmentReleaseReview(*)' in bootstrap
+    and 'A_Args[1] != "--review-unreleased-update"' in bootstrap
+    and 'FileExist(checkoutRoot "\\.git")' in bootstrap
+    and 'ReadBundledVersionNotes(version)' in bootstrap
+    and 'BuildPublishedPreviewSections([record])' in bootstrap
     and '&& !HasSeenUpdateAutoPreview(latestVersion)' in update_check
     and '--test-update-badge' not in launcher_smoke_tests
     and 'LauncherBadgeTest' not in update_check
@@ -2524,7 +2530,13 @@ expect(
     and "DownloadUpdateText(" not in automatic_update
     and "ParseAndValidateUpdateManifest(request.ResponseText, AppConfig.Version)" in automatic_update
     and 'request.SetTimeouts(5000, 5000, 10000, 10000)' in automatic_update
-    and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap,
+    and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
+    and 'CanShowDevelopmentReleaseReview()' in bootstrap
+    and 'ShowDevelopmentReleaseReview(*)' in bootstrap
+    and 'A_Args[1] != "--review-unreleased-update"' in bootstrap
+    and 'FileExist(checkoutRoot "\\.git")' in bootstrap
+    and 'ReadBundledVersionNotes(version)' in bootstrap
+    and 'BuildPublishedPreviewSections([record])' in bootstrap,
 )
 expect(
     "WinForms first show stays compositor-cloaked until initial dock and saved visibility are ready",
