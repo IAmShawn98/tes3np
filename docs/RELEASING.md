@@ -65,19 +65,19 @@ repository owner's approval to publish.
 
 Use [RELEASE_NOTES.md](../RELEASE_NOTES.md) for player-visible changes since
 the previous public release. Retain published entries. Use a version heading
-and order the applicable categories as New Features, Improvements, Bug
-Fixes, and Removed Features. The launcher and publisher use this file.
+and order the applicable categories as New Features, Improvements, Bug Fixes,
+Hotfixes, and Removed Features. A hotfix may contain new features and
+improvements as well as fixes. The launcher and publisher use this file.
 
-## Release notes and hotfix history (v0.1.22 onward)
+## Categorized release notes and hotfixes (v0.1.21-alpha.1 onward)
 
 - Keep a separate `## v<version>` section in `RELEASE_NOTES.md` for each
   feature release and every published hotfix. Preserve all previously published
   sections and their contents. Never replace the original feature release
   changelog with a single hotfix entry.
-- Draft fixes are not player-facing hotfixes. A fix appears in **Hotfix History**
-  only when its exact GitHub release is published, not when its commit or draft
-  exists. The date displayed is the public release's `published_at` timestamp
-  (shown as a UTC calendar date), not a development date.
+- Drafts and commits are never player-facing updates. A change appears in the
+  update preview only after its exact GitHub release is published. Preview
+  dates use the public release's `published_at` UTC calendar date.
 - A hotfix release (for example `v0.1.22-alpha.1`) gets its own short notes
   describing only that hotfix. Do not repeat the base release changelog in its
   notes. Publishing uses the exact version section to populate GitHub Releases.
@@ -86,13 +86,21 @@ Fixes, and Removed Features. The launcher and publisher use this file.
   indicator disappears and stays hidden until another version is published.
   Either the version or indicator opens the optional updater; dismissing a
   preview never installs files.
-- The update preview separates all missed **Release Notes** from published,
-  dated **Hotfix History**, newest first within each tab. A hotfix-only
-  update shows a single **Hotfixes** section without a Release Notes tab.
-  Unverified or incomplete public history must be labeled unavailable rather
-  than silently truncated.
-  Users install the latest verified package directly, without sequential
-  intermediate updates.
+- The update preview shows **only missed published changes**, categorized
+  as New Features, Improvements, Bug Fixes, Hotfixes, or Removed Features.
+  Fixes introduced by a hotfix belong under Hotfixes, even when that hotfix
+  also introduces new features or improvements. Changes retain their original
+  release version and publication date, newest first within each category.
+  There are no separate tabs in the launcher preview.
+- After installation, Version Status displays one **cumulative changelog**
+  for that installed base release and all installed hotfixes. Original release
+  changes and hotfix additions appear under their appropriate categories,
+  marked by source version. The bundled changelog is used offline; missing
+  required installed sections are shown as unavailable rather than silently
+  omitted. No future/uninstalled changes appear in this view.
+- Unverified, incomplete, or unpublished update history must be labeled
+  unavailable rather than silently truncated. Users install the latest
+  verified package directly, without sequential intermediate updates.
 - GitHub release descriptions are **append-only for hotfix history**:
   the original feature release's full changelog and all previously published
   hotfix descriptions must remain unchanged. After publishing a hotfix and
@@ -122,9 +130,10 @@ The page retains a static v0.1.21-alpha fallback if the public API/feed is
 unavailable. When publishing later versions, keep that offline fallback
 current with a deliberately verified site snapshot. GitHub release
 descriptions may change **only in their machine-marked Published Hotfixes
-index**; the website and launcher remove that index before rendering the
-original release notes, and display actual published fixes in the separate
-Hotfix History tab. Each hotfix retains its own GitHub release description.
+index**; the website and launcher remove that index before rendering the original
+release notes. The **website** retains its separate Hotfix History tab;
+the **launcher** groups changes by category instead. Each hotfix retains its
+own GitHub release description.
 
 ## Publish Alpha
 
