@@ -159,8 +159,11 @@ Require-Source 'MarkMissedUpdateItemRead\(page, item\)' 'clicking one release ma
 Require-Source 'SetLauncherDemoUnreadCount\(count\)' 'demo feedback changes footer count without persistent writes' $dialogSource
 Require-Source 'MarkPublishedVersionRead\(latestVersion, true\)' 'opening real popup clears only the offered update' $dialogSource
 Require-Source 'IsPublishedVersionRead\(version\)' 'real per-version read state can be checked independently' $source
-Require-Source 'IniRead\(DataFile, "ReadPublishedVersions", version, ""\)' 'read receipts are loaded from durable per-version INI keys' $source
-Require-Source 'if offered\s*IniWrite\(version, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'automatic preview dedup remains limited to offered version' $source
+Require-Source 'IniRead\(path, "ReadPublishedVersions", version, ""\)' 'read receipts are loaded from durable per-version INI keys' $source
+Require-Source 'fixturePath != "" \? fixturePath : DataFile' 'INI regression can use disposable paths without modifying user settings' $source
+Require-Source 'MarkPublishedVersionRead\("0\.1\.21-alpha\.4", true, fixture\)' 'native test marks only offered version read in temporary INI' $badgeHarness
+Require-Source 'IsPublishedVersionRead\("0\.1\.21-alpha\.3", fixture\)' 'native test ensures older versions stay unread' $badgeHarness
+Require-Source 'if offered\s*IniWrite\(version, path, "Updates", "LastAutoPreviewVersion"\)' 'automatic preview dedup remains limited to offered version' $source
 Require-Source 'rowTop := px\(356 \+ topExtra \+ bottomExtra\)' 'version links begin beneath the complete heading' $dialogSource
 Require-Source 'heading.GetPos\(, &headingY, , &headingHeight\)' 'viewport positions against actual scaled heading bounds' $dialogSource
 Require-Source 'rowTop := Max\(rowTop, headingY \+ headingHeight \+ Max\(2, px\(4\)\)\)' 'list background cannot cover the end of the heading' $dialogSource
@@ -537,7 +540,7 @@ if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must 
 # These assertions remain useful build regressions, not a runtime test mode.
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
 Require-Source 'available := isAvailable && latestVersion != "" && unreadCount > 0' 'older unread releases keep the footer count after offered version is read' $source
-Require-Source 'IniWrite\("1", DataFile, "ReadPublishedVersions", version\)' 'read receipts persist separately for each published version' $source
+Require-Source 'IniWrite\("1", path, "ReadPublishedVersions", version\)' 'read receipts persist separately for each published version' $source
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
 Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind, reviewNotes := 0\)' 'real production modal optionally accepts checkout-only draft notes' $dialogSource
 Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'category formatter reads only published history' $notesSource
