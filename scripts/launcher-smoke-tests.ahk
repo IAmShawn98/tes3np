@@ -917,6 +917,7 @@ CheckDisplaySettingsAndReleaseNotes()
     CheckUpdatePreviewMetadataLayout()
     CheckCircularUpdateBadgeRendering()
     CheckExpandablePublishedPreviewViewport()
+    CheckCompactPublishedPreviewViewport()
     try FileAppend("PASS: live display refresh and reset, loading cleanup, readable release-note rows, and version metadata layout at 50 and 100 percent" Chr(10), "*")
 }
 
@@ -1050,6 +1051,89 @@ CheckExpandablePublishedPreviewViewport()
         }
     }
     try FileAppend("PASS: expandable missed-update history scrolls and collapses at 50 and 100 percent" Chr(10), "*")
+}
+
+; Confirm the real 600px-wide reference composition keeps its notes inside
+; the reserved upper section, with earlier history pinned beneath it. All
+; controls and release records are disposable and contain no public update.
+CheckCompactPublishedPreviewViewport()
+{
+    global ButtonFaces
+    records := [
+        {Version: "0.1.21-alpha.3", Label: "v0.1.21-alpha.3",
+            Hotfix: true, Notes: "### New Features`n- Latest sample change."},
+        {Version: "0.1.21-alpha.2", Label: "v0.1.21-alpha.2",
+            Hotfix: true, Notes: "### Improvements`n- Previous sample improvement."},
+        {Version: "0.1.21-alpha.1", Label: "v0.1.21-alpha.1",
+            Hotfix: true, Notes: "### Bug Fixes`n- Older sample repair."}
+    ]
+    sections := BuildPublishedPreviewSections(records)
+    if sections.Title != "Latest Hotfix — v0.1.21-alpha.3"
+        || sections.EarlierLabels.Length != 2
+        || InStr(sections.Latest, "Previous sample improvement.")
+        throw Error("Compact preview latest/earlier data contract changed.")
+    for percent in [50, 100]
+    {
+        scale := percent / 100
+        panel := Gui("-DPIScale", "Compact preview viewport regression")
+        panel.BackColor := "171008"
+        switcher := {Update: 0}
+        unregister := 0
+        try
+        {
+            ScaleOwnedMenuContent(panel, scale)
+            unregister := AddUpdateNotesViewport(panel, sections.Latest, scale,
+                switcher, 0, 0, true, true, true)
+            if !IsObject(switcher.Update)
+                throw Error("Compact preview scroll-update callback was not initialized.")
+            borderFound := false, down := 0
+            for control in panel
+            {
+                control.GetPos(&cx, &cy, &cw, &ch)
+                if Abs(cx - Round(20 * scale)) <= 1
+                    && Abs(cy - Round(166 * scale)) <= 1
+                    && Abs(cw - Round(560 * scale)) <= 1
+                    && Abs(ch - Round(207 * scale)) <= 1
+                    borderFound := true
+                if control.Text = "↓"
+                    down := control
+            }
+            if !borderFound
+                throw Error("Compact gold viewport does not match the reference card bounds.")
+            if !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
+                throw Error("Compact preview scroll-down control is missing.")
+            switcher.Update.Call(sections.Expanded)
+            seenOlder := false
+            Loop 100
+            {
+                for row in panel
+                {
+                    if !row.Visible || !InStr(row.Text, "Older sample repair.")
+                        continue
+                    row.GetPos(, &y, , &height)
+                    if y < Round(178 * scale) || y + height > Round(358 * scale)
+                        throw Error("Expanded earlier notes overlap the fixed preview summary.")
+                    seenOlder := true
+                }
+                if seenOlder
+                    break
+                ButtonFaces[down.Hwnd].Action.Call()
+            }
+            if !seenOlder
+                throw Error("Earlier note cannot be scrolled into the compact preview.")
+            switcher.Update.Call(sections.Latest)
+            for row in panel
+                if row.Visible && InStr(row.Text, "Older sample repair.")
+                    throw Error("Collapsing compact history did not restore latest-only notes.")
+        }
+        finally
+        {
+            if IsObject(unregister)
+                unregister()
+            DestroyScaledMenu(panel)
+        }
+    }
+    try FileAppend("PASS: reference-sized compact preview scroll and pinned summary bounds at 50 and 100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
