@@ -97,10 +97,14 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
 {
     panel.SetFont("s10 Bold cEDE1C9", "Segoe UI")
-    installed := panel.Add("Text", "x30 y80 h26 BackgroundTrans +0x80", "Installed: v" installedVersion)
-    latest := panel.Add("Text", "x30 y80 h26 BackgroundTrans +0x80", "Latest: v" latestVersion)
+    ; AHK only auto-sizes a Text control reliably to its caption when
+    ; neither width nor height is specified. Setting h26 at creation made
+    ; GetPos return a narrow default width and truncated Installed metadata.
+    ; Capture natural widths first, then apply the fixed one-line height.
+    installed := panel.Add("Text", "x30 y80 BackgroundTrans +0x80", "Installed: v" installedVersion)
+    latest := panel.Add("Text", "x30 y80 BackgroundTrans +0x80", "Latest: v" latestVersion)
     channelName := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
-    channelText := panel.Add("Text", "x30 y80 h26 BackgroundTrans +0x80", "Channel: " channelName)
+    channelText := panel.Add("Text", "x30 y80 BackgroundTrans +0x80", "Channel: " channelName)
 
     installed.GetPos(, , &installedWidth)
     latest.GetPos(, , &latestWidth)
@@ -108,9 +112,9 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
     ; Include a little font/DPI rounding tolerance before positioning the
     ; next group, so the final glyph cannot touch the following label.
     installedWidth += 6, latestWidth += 6, channelWidth += 6
-    installed.Move(, , installedWidth)
-    latest.Move(, , latestWidth)
-    channelText.Move(, , channelWidth)
+    installed.Move(, , installedWidth, 26)
+    latest.Move(, , latestWidth, 26)
+    channelText.Move(, , channelWidth, 26)
     gap := 18
     latestX := 30 + installedWidth + gap
     channelX := latestX + latestWidth + gap
