@@ -2361,7 +2361,11 @@ expect(
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
-    and 'nextText := unseen ? "(1)" : Chr(0x2022)' in update_check
+    and 'nextText := unseen ? "(1)" : Chr(0x25CF)' in update_check
+    and 'LauncherUpdateBadge.SetFont("s" size " Bold c" color, "Segoe UI")' in update_check
+    and 'color := unread ? "D63232" : "E0C27F"' in update_check
+    and 'size := Max(6, Round((unread ? 10 : 12) * scale))' in update_check
+    and 'y689 w28 h22 BackgroundTrans' in update_check
     and 'LauncherUpdateBadge.Text := nextText' in update_check
     and 'LauncherVersionLabel.GetPos(&labelX, , &labelWidth)' in update_check
     and 'x := labelX + labelWidth + 4' in update_check
