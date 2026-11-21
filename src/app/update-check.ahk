@@ -321,6 +321,11 @@ PollLauncherUnreadReleaseCount(*)
                 && CompareUpdateNoteVersions(seen, baseline) > 0
                 baseline := seen
         }
+        catch Error
+        {
+            ; Invalid or outdated saved state cannot change the count.
+            baseline := job.Installed
+        }
         count := 0
         for record in records
             if CompareUpdateNoteVersions(record.Version, baseline) > 0
