@@ -189,13 +189,21 @@ ExitApp(0)
 
     Write-Host "TES3NP | Opening isolated Update Preview visual test ($Scale%)." -ForegroundColor Cyan
     Write-Host 'Preview includes two SAMPLE missed hotfixes; the production updater and feed are not used.' -ForegroundColor Cyan
-    $argsForAhk = @($runnerPath, "$Scale")
+    $arguments = '/ErrorStdOut "' + $runnerPath + '" ' + $Scale
     if ($CheckOnly) {
-        $argsForAhk += '--check-only'
+        $arguments += ' --check-only'
     }
-    & $AutoHotkeyPath '/ErrorStdOut' @argsForAhk
-    if ($LASTEXITCODE -ne 0) {
-        throw "The AutoHotkey visual test failed (exit $LASTEXITCODE)."
+    $testStdout = Join-Path $temporary 'test-stdout.txt'
+    $testStderr = Join-Path $temporary 'test-stderr.txt'
+    # Capture the actual Windows process exit code and interpreter diagnostics.
+    $testProcess = Start-Process -FilePath $AutoHotkeyPath -ArgumentList $arguments -WorkingDirectory $temporary -PassThru -Wait -RedirectStandardOutput $testStdout -RedirectStandardError $testStderr
+    if ($testProcess.ExitCode -ne 0) {
+        foreach ($output in @($testStdout, $testStderr)) {
+            if (Test-Path -LiteralPath $output) {
+                Get-Content -LiteralPath $output | ForEach-Object { Write-Host $_ }
+            }
+        }
+        throw "The AutoHotkey visual test failed (exit $($testProcess.ExitCode))."
     }
     if ($CheckOnly) {
         Write-Host 'PASS | Visual-test script parsed without opening a GUI.' -ForegroundColor Green
