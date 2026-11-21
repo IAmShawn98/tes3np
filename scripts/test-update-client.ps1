@@ -262,6 +262,10 @@ Write-Host 'PASS: Update Now and Not Now remain confirmation-gated and centered.
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
 Require-Source 'if A_Args.Length \|\| !RegExMatch\(AppConfig.Version' 'pre-publication review runs only on ordinary startup with a hotfix draft' $bootstrapSource
 Require-Source 'FileExist\(checkoutRoot "\\.git"\)' 'unreleased review only works in a development checkout' $bootstrapSource
+Require-Source 'FindDevelopmentReviewCheckoutRoot\(A_ScriptDir, A_IsCompiled\)' 'startup recognizes root executable and nested local build' $bootstrapSource
+Require-Source 'folderName != "local-build" \|\| parentName != "dist"' 'other distributions cannot auto-open demo history' $bootstrapSource
+Require-Source 'CheckDevelopmentReviewExecutablePaths\(\)' 'compiled smoke exercises development preview path detection' $badgeHarness
+Require-Source 'Packaged distributions must not auto-show development updates\.' 'native test rejects sample preview in exported ZIP folders' $badgeHarness
 Require-Source 'ReadBundledVersionNotes\(AppConfig.Version\) != ""' 'startup preview requires locally existing unreleased notes' $bootstrapSource
 Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted RELEASE_NOTES rather than fake hotfixes' $bootstrapSource
 Require-Source 'draftSections := BuildPublishedPreviewSections\(\[record\]\)' 'development preview uses the genuine single draft record' $bootstrapSource
