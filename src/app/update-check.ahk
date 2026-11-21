@@ -150,6 +150,10 @@ SetLauncherUnreadBadgeNumber(count)
     baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
     centeredY := baseY - Floor((diameter - baseDiameter) / 2)
     LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)
+    ; Reload at the new bounds: native Picture controls can retain their
+    ; previous bitmap size after Move, which left a small circle behind a
+    ; large rectangular numeral overlay in the stress screenshot.
+    LauncherUpdateBadge.Value := A_ScriptDir "\assets\controls\update-badge.png"
     ; The inset rectangle's corners stay well within the circle at every
     ; diameter (diagonal < radius), and its red center hides the art's "1".
     innerWidth := Max(1, Round(diameter * 0.66))
