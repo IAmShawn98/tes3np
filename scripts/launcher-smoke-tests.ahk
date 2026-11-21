@@ -1310,7 +1310,7 @@ CheckCenteredCompactUpdateMetadata()
                     separators.Push({X: x, Y: y, Width: width, Height: height})
                     continue
                 }
-                if x < 44 || x + width > 556 || y != 61 || height != 26
+                if x < 48 || x + width > 552 || y != 61 || height != 26
                     throw Error("Compact metadata clipped or wrapped onto another line.")
                 if !ReleaseNoteFits(control, control.Text, width)
                     throw Error("Compact metadata text was truncated.")
@@ -1324,14 +1324,18 @@ CheckCenteredCompactUpdateMetadata()
             if labels[1].Right >= labels[2].X
                 || labels[2].Right >= labels[3].X
                 throw Error("Compact metadata fields overlap.")
+            ; The approved ribbon keeps at least 28px of content padding
+            ; inside its x20..580 gold frame and comfortable divider gaps.
+            if labels[1].X < 48 || labels[3].Right > 552
+                throw Error("Compact metadata lost its balanced side padding.")
             for sep in separators
                 if sep.Y != 64 || sep.Width != 1 || sep.Height != 18
                     throw Error("Gold column divider not aligned with metadata.")
-            if separators[1].X <= labels[1].Right
-                || separators[1].X >= labels[2].X
-                || separators[2].X <= labels[2].Right
-                || separators[2].X >= labels[3].X
-                throw Error("Gold separators must sit between adjacent metadata labels.")
+            if separators[1].X - labels[1].Right < 8
+                || labels[2].X - (separators[1].X + 1) < 8
+                || separators[2].X - labels[2].Right < 8
+                || labels[3].X - (separators[2].X + 1) < 8
+                throw Error("Gold separators need visible breathing room on both sides.")
         }
         finally
             panel.Destroy()
