@@ -57,8 +57,8 @@ Write-Host 'Preflighting isolated Update Preview visual test (no window opened).
 # read LASTEXITCODE here: scoped PowerShell script calls need not expose it.
 & (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Scale 100 -CheckOnly -AutoHotkeyPath $base
 Write-Host 'PASS: isolated Update Preview visual test parsed without production startup.'
-if ((Get-Content -LiteralPath (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Raw)
-    -notmatch 'ScrollDragging := false') {
+$visualPreviewSource = Get-Content -LiteralPath (Join-Path $projectRoot 'scripts/test-update-preview-visual.ps1') -Raw
+if ($visualPreviewSource -notmatch 'ScrollDragging := false') {
     throw 'Isolated preview must initialize the inactive launcher scroll state.'
 }
 Write-Host 'PASS: disposable viewer initializes its own mouse-up dependencies.'
