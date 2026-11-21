@@ -78,6 +78,12 @@ Write-Host 'PASS: release generator and launcher package metadata contract.'
 
 # Both dialogs use the same styled, measured viewport and select the requested version.
 Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
+
+Require-Source 'message := "If an update is published, you will be notified\."' 'up-to-date status uses concise notification wording' $dialogSource
+Require-Source 'panel\.Add\("Text", "x30 y65 w740 h30 BackgroundTrans", message\)' 'status description uses single-line height' $dialogSource
+if ($dialogSource.Contains('You are running the latest and greatest version of the tes3np launcher!')) {
+    throw 'Obsolete up-to-date status wording must not return.'
+}
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
 Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
 
