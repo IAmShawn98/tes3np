@@ -96,24 +96,32 @@ Require-Source 'notesSpace := 100' 'upper changelog is taller without overlappin
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'production popup uses actual launcher scale rather than an 81.5% miniature' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(panel, installedVersion, latestVersion, channel, compact := false\)' 'legacy metadata geometry remains testable' $dialogSource
-Require-Source 'baseX := compact \? 48 : 30' 'metadata has 28px or more of compact ribbon side padding' $dialogSource
-Require-Source 'rightEdge := compact \? 552 : 770' 'metadata row has balanced side padding' $dialogSource
-Require-Source 'baseX := Round\(\(600 - fullWidth\) / 2\)' 'all three labels are centered as one group' $dialogSource
-Require-Source 'for fontSize in \[9, 8, 7, 6\]' 'compact metadata adaptively measures smaller fonts before reflowing' $dialogSource
-Require-Source 'probe.SetFont\("s" fontSize " Bold cE7BE70", "Segoe UI"\)' 'compact width measurement uses bold gold reference typography' $dialogSource
-Require-Source 'panel.SetFont\(compact \? "s" compactFontSize " Bold cE7BE70"' 'reference ribbon uses warm gold text instead of near-white' $dialogSource
-Require-Source 'measuredWidth <= 504' 'metadata font is selected to fit all three columns' $dialogSource
-Require-Source 'gap := compact \? 24 : 18' 'compact ribbon has gold-divider gaps without unnecessary wrapping' $dialogSource
-Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 32\)' 'wrapped channel label remains centered' $dialogSource
-Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed version naturally measures its width' $dialogSource
-Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest version naturally measures its width' $dialogSource
-Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'channel naturally measures its width' $dialogSource
-Require-Source 'installed.Move\(, , installedWidth, 26\)' 'installed field sets height only after natural measurement' $dialogSource
-Require-Source 'latest.Move\(, , latestWidth, 26\)' 'latest field sets height only after natural measurement' $dialogSource
-Require-Source 'channelText.Move\(, , channelWidth, 26\)' 'channel field sets height only after natural measurement' $dialogSource
-Require-Source 'if channelX \+ channelWidth <= rightEdge' 'metadata keeps three columns when they fit' $dialogSource
-Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 32\)' 'wrapped metadata supports a centered second row' $dialogSource
-Require-Source 'channelText.Move\(compact \? Round\(\(600 - channelWidth\) / 2\) : baseX, labelY \+ 64\)' 'wrapped metadata supports a centered third row' $dialogSource
+Require-Source 'if compact\s+return AddCompactUpdatePreviewMetadata\(panel, installedVersion, latestVersion, channel\)' 'compact preview uses its own reference-styled renderer' $dialogSource
+Require-Source 'sideLeft := 48' 'metadata retains 28px left frame padding' $dialogSource
+Require-Source 'sideRight := 552' 'metadata retains 28px right frame padding' $dialogSource
+Require-Source 'startX := Round\(\(600 - fullWidth\) / 2\)' 'three compact fields remain centered as one group' $dialogSource
+Require-Source 'for fontSize in \[9, 8, 7, 6\]' 'compact metadata measures fonts before reflowing' $dialogSource
+Require-Source 'probe.SetFont\("s" fontSize " Bold cE7BE70", "Segoe UI"\)' 'reference label measurement uses gold bold typography' $dialogSource
+Require-Source 'probe.SetFont\("s" fontSize " Norm cFFF0DC", "Segoe UI"\)' 'reference value measurement uses pale ivory typography' $dialogSource
+Require-Source 'panel.SetFont\("s" compactFontSize " Bold cE7BE70", "Segoe UI"\)' 'only Installed, Latest and Channel prefixes are gold' $dialogSource
+Require-Source 'panel.SetFont\("s" compactFontSize " Norm cFFF0DC", "Segoe UI"\)' 'version and channel values remain ivory' $dialogSource
+Require-Source '\{Label: "Installed:", Value: "v" installedVersion\}' 'Installed label stays separate from its value' $dialogSource
+Require-Source '\{Label: "Latest:", Value: "v" latestVersion\}' 'Latest label stays separate from its value' $dialogSource
+Require-Source '\{Label: "Channel:", Value: channelName\}' 'Channel label stays separate from its value' $dialogSource
+Require-Source 'gap := 24' 'compact metadata has reference-sized divider gaps' $dialogSource
+Require-Source 'measuredWidth <= availableWidth' 'metadata chooses the font size based on actual available ribbon width' $dialogSource
+Require-Source 'PositionCompactMetadataPair\(pairs\[3\], channelX, 61\)' 'standard metadata uses one centered line' $dialogSource
+Require-Source 'PositionCompactMetadataPair\(pairs\[3\], Round\(\(600 - pairs\[3\]\.Width\) / 2\), 93\)' 'long channel metadata can wrap cleanly onto a second row' $dialogSource
+Require-Source 'pair.Value.Move\(x \+ pair.LabelWidth \+ 3, y, pair.ValueWidth, 26\)' 'label/value pairs preserve a measured 3px internal gap' $dialogSource
+Require-Source 'installed.GetPos\(, , &installedWidth\)' 'legacy installed field still measures its natural width' $dialogSource
+Require-Source 'latest.GetPos\(, , &latestWidth\)' 'legacy latest field still measures its natural width' $dialogSource
+Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'legacy channel field still measures its natural width' $dialogSource
+Require-Source 'installed.Move\(, , installedWidth, 26\)' 'legacy installed field sets its height after measuring' $dialogSource
+Require-Source 'latest.Move\(, , latestWidth, 26\)' 'legacy latest field sets its height after measuring' $dialogSource
+Require-Source 'channelText.Move\(, , channelWidth, 26\)' 'legacy channel field sets its height after measuring' $dialogSource
+Require-Source 'if channelX \+ channelWidth <= rightEdge' 'legacy metadata remains dynamically measured' $dialogSource
+Require-Source 'channelText.Move\(baseX, labelY \+ 32\)' 'legacy metadata can reflow onto a second row' $dialogSource
+Require-Source 'channelText.Move\(baseX, labelY \+ 64\)' 'legacy metadata can reflow onto a third row' $dialogSource
 Require-Source 'metadataBorder.Move\(, , , 40 \+ rowExtra\)' 'gold metadata border retains vertical padding with wrapped versions' $dialogSource
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows if longer versions require rows' $dialogSource
 Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
