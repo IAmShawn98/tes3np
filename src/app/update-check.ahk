@@ -9,9 +9,15 @@ CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
-    ; Let the Text control size itself to the rendered caption, not a 300px
-    ; click target. Its DPI-aware width is also the badge's alignment anchor.
-    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 h18 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    ; AHK only auto-sizes a Text control to its full caption when neither
+    ; dimension is specified at creation. Giving it h18 here used a narrow
+    ; default width and cut the version number off at 50% launcher scale.
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    LauncherVersionLabel.GetPos(, , &naturalWidth)
+    ; The launcher scales bounds by 50%, but keeps this text at least 5pt
+    ; (9pt at 100%); reserve enough width for that font-size floor.
+    ; The badge uses the final width as its adjacent alignment anchor.
+    LauncherVersionLabel.Move(, , Ceil(naturalWidth * 1.125) + 4, 18)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
 
