@@ -820,7 +820,51 @@ CheckDisplaySettingsAndReleaseNotes()
             CloseGoldNativePrompt(panel)
         }
     }
-    try FileAppend("PASS: live display refresh and reset, loading cleanup, and readable release-note rows at 50 and 100 percent" Chr(10), "*")
+    CheckUpdatePreviewMetadataLayout()
+    try FileAppend("PASS: live display refresh and reset, loading cleanup, readable release-note rows, and version metadata layout at 50 and 100 percent" Chr(10), "*")
+}
+
+; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
+; showing an update or changing any installed profile, game, or release data.
+CheckUpdatePreviewMetadataLayout()
+{
+    scenarios := [
+        {Installed: "0.1.20-alpha", Latest: "0.1.22-alpha.2", Channel: "alpha"},
+        {Installed: "0.1.22-alpha.1", Latest: "0.1.22-alpha.2", Channel: "alpha"},
+        {Installed: "0.1.22-alpha.10", Latest: "0.1.23-alpha.100", Channel: "alpha"},
+        {Installed: "1.0.0-live.10", Latest: "1.0.0-live.100", Channel: "live"}
+    ]
+    for scenario in scenarios
+    {
+        metadataPanel := Gui("-DPIScale")
+        try
+        {
+            extra := AddUpdatePreviewMetadata(metadataPanel,
+                scenario.Installed, scenario.Latest, scenario.Channel)
+            bounds := []
+            for control in metadataPanel
+            {
+                control.GetPos(&x, &y, &width, &height)
+                if x < 30 || x + width > 770 || width < 1 || height != 26
+                    throw Error("Update preview metadata is clipped or offscreen: " control.Text)
+                bounds.Push({X: x, Y: y, Right: x + width, Bottom: y + height})
+            }
+            if bounds.Length != 3 || ![0, 32, 64].Has(extra)
+                throw Error("Update preview metadata layout returned invalid controls or spacing.")
+            Loop bounds.Length
+                for later in bounds
+                {
+                    current := bounds[A_Index]
+                    if current.X = later.X && current.Y = later.Y
+                        continue
+                    if current.X < later.Right && current.Right > later.X
+                        && current.Y < later.Bottom && current.Bottom > later.Y
+                        throw Error("Update preview metadata overlaps at this version length.")
+                }
+        }
+        finally
+            metadataPanel.Destroy()
+    }
 }
 
 ; Exercise the update handshake without launching the UI or writing AppData.
