@@ -2365,7 +2365,7 @@ expect(
     and 'update-unread-circle.png' in update_check
     and 'LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)' in update_check
     and 'LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels' in update_check
-    and 'LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
+    and 'number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
     and 'size := Max(6, Round(12 * scale / GetLauncherBadgeDpiScale()))' in update_check
@@ -2386,8 +2386,8 @@ expect(
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
     and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
     and 'GetDpiForWindow' in update_check
-    and 'ReleaseNoteFits(LauncherUpdateNumber, LauncherUpdateNumber.Text,' in update_check
-    and 'ReleaseNoteLineHeight(LauncherUpdateNumber) <= availableHeight' in update_check
+    and 'ReleaseNoteFits(number, number.Text,' in update_check
+    and 'ReleaseNoteLineHeight(number) <= availableHeight' in update_check
     and 'innerWidth := Max(1, Round(diameter * 0.72))' in update_check
     and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
     and 'if width > 30' in launcher_smoke_tests
