@@ -8,6 +8,7 @@ $metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath)
 $installSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-install.ahk') -Raw -Encoding UTF8
 $dialogSource = Get-Content -LiteralPath 'src/ui/update-dialogs.ahk' -Raw -Encoding UTF8
 $notesSource = Get-Content -LiteralPath 'src/ui/update-notes.ahk' -Raw -Encoding UTF8
+$badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
 $fetcherSource = Get-Content -LiteralPath 'scripts/fetch-release-notes.ps1' -Raw -Encoding UTF8
 
 function Require-Source([string]$Pattern, [string]$Name, [string]$Code = $source) {
@@ -384,7 +385,6 @@ if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must 
 # Check the production code path after temporary injection tooling is removed.
 # These assertions remain useful build regressions, not a runtime test mode.
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
-$badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
 Require-Source '&& !HasSeenUpdateAutoPreview\(latestVersion\)' 'only unseen published versions show the red indicator'
 Require-Source 'IniWrite\(latest, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'viewing an update persists its seen state across restarts'
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
