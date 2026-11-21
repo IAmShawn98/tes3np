@@ -2398,8 +2398,8 @@ expect(
     and '"Changes in This Update"' in update_dialogs
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
     and 'BuildPublishedPreviewSections(records)' in update_notes
-    and 'noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Compact)' in update_dialogs
-    and 'metadataBorder.Move(, , , 34 + rowExtra)' in update_dialogs
+    and 'noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Latest)' in update_dialogs
+    and 'metadataBorder.Move(, , , 36 + rowExtra)' in update_dialogs
     and 'ShapeCircularUpdateBadge(latestBadge)' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs
     and 'Loop capacity - 1' in update_notes,
@@ -2408,18 +2408,18 @@ expect(
     "Production updater contains no temporary injection mode and retains confirmation guards",
     'ShowUpdatePreview(installedVersion, latestVersion, channel, kind)' in update_dialogs
     and 'notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)' in update_dialogs
-    and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)' in update_dialogs
+    and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel, true)' in update_dialogs
     and 'installed.GetPos(, , &installedWidth)' in update_dialogs
     and 'latest.GetPos(, , &latestWidth)' in update_dialogs
     and 'channelText.GetPos(, , &channelWidth)' in update_dialogs
-    and 'if channelX + channelWidth <= 770' in update_dialogs
+    and 'if channelX + channelWidth <= rightEdge' in update_dialogs
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
-    and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w490 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
-    and 'AddUpdateNotesViewport(preview, notes.Compact, scale,' in update_dialogs
-    and 'noteSwitcher, 44 + rowExtra, 28 + rowExtra, true)' in update_dialogs
-    and 'actionY := 568 + rowExtra' in update_dialogs
-    and 'AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"' in update_dialogs
-    and 'AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"' in update_dialogs
+    and 'preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
+    and 'AddUpdateNotesViewport(preview, notes.Latest, scale,' in update_dialogs
+    and 'noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0)' in update_dialogs
+    and 'actionY := 511 + rowExtra' in update_dialogs
+    and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
+    and 'AddStyledButton(preview, 313, actionY, 181, 34, "Not Now"' in update_dialogs
     and 'response.Download := true, DestroyScaledMenu(preview)' in update_dialogs
     and 'CheckUpdatePreviewMetadataLayout()' in launcher_smoke_tests
     and 'Update preview metadata overlaps at this version length.' in launcher_smoke_tests

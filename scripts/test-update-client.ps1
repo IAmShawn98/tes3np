@@ -91,42 +91,78 @@ Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVer
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
 # second metadata row reflows the notes, actions and gold frame as one unit.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Update Preview", 800, 620\)' 'preview base height is retained' $dialogSource
-Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel\)' 'feature and hotfix use the same metadata layout' $dialogSource
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 600, 556\)' 'preview matches reference modal proportions' $dialogSource
+Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
+Require-Source 'AddUpdatePreviewMetadata\(panel, installedVersion, latestVersion, channel, compact := false\)' 'legacy metadata geometry remains testable' $dialogSource
+Require-Source 'baseX := compact \? 40 : 30' 'metadata supports compact and legacy starting positions' $dialogSource
+Require-Source 'rightEdge := compact \? 568 : 770' 'metadata wraps within compact 600px modal' $dialogSource
+Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed version naturally measures its width' $dialogSource
+Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest version naturally measures its width' $dialogSource
+Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'channel naturally measures its width' $dialogSource
+Require-Source 'installed.Move\(, , installedWidth, 26\)' 'installed field sets height only after natural measurement' $dialogSource
+Require-Source 'latest.Move\(, , latestWidth, 26\)' 'latest field sets height only after natural measurement' $dialogSource
+Require-Source 'channelText.Move\(, , channelWidth, 26\)' 'channel field sets height only after natural measurement' $dialogSource
+Require-Source 'if channelX \+ channelWidth <= rightEdge' 'metadata keeps three columns when they fit' $dialogSource
+Require-Source 'channelText.Move\(baseX, labelY \+ 32\)' 'wrapped metadata supports a second row' $dialogSource
+Require-Source 'channelText.Move\(baseX, labelY \+ 64\)' 'wrapped metadata supports a third row' $dialogSource
+Require-Source 'metadataBorder.Move\(, , , 36 \+ rowExtra\)' 'gold metadata border grows with wrapped versions' $dialogSource
+Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows if longer versions require rows' $dialogSource
+Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
+Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h365 BackgroundC5A45C"\)' 'notes and earlier history share a continuous reference-sized gold frame' $dialogSource
+Require-Source 'preview.Add\("Text", "x40 y" \(376 \+ rowExtra\) " w520 h2 BackgroundC5A45C"\)' 'earlier missed updates have a pinned gold divider' $dialogSource
+Require-Source '"Earlier updates included"' 'earlier missed history is visible on the initial preview' $dialogSource
+Require-Source '"View earlier changes"' 'gold text link replaces the former top-right button' $dialogSource
+Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Latest\)' 'earlier history toggle preserves all missed versions' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'only the latest missed hotfix is initially scrolled' $dialogSource
+Require-Source 'noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0\)' 'compact layout supports pinned earlier summary' $dialogSource
+Require-Source 'ShapeCircularUpdateBadge\(latestBadge\)' 'latest update badge remains circular' $dialogSource
+Require-Source 'actionY := 511 \+ rowExtra' 'reference-aligned actions follow wrapped metadata' $dialogSource
+Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'update button is centered under the card' $dialogSource
+Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now is centered beside Update Now' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production updater still enters its confirmation flow' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'installed Version Status stays unchanged' $dialogSource
+Require-Source 'BuildPublishedPreviewSections\(records\)' 'preview data comes only from the published version parser' $notesSource
+Require-Source 'EarlierLabels: earlierLabels' 'published missed versions are retained in the pinned summary' $notesSource
+Require-Source 'compactLayout := false, fixedEarlier := false\)' 'preview-only compact notes layout leaves installed status unaffected' $notesSource
 
-Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Installed: v" installedVersion\)' 'installed caption autosizes before height assignment' $dialogSource
-Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Latest: v" latestVersion\)' 'latest caption autosizes before height assignment' $dialogSource
-Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Channel: " channelName\)' 'channel caption autosizes before height assignment' $dialogSource
-Require-Source 'installed\.Move\(, , installedWidth, 26\)' 'installed caption height applied only after measuring natural width' $dialogSource
-Require-Source 'latest\.Move\(, , latestWidth, 26\)' 'latest caption height applied only after measuring natural width' $dialogSource
-Require-Source 'channelText\.Move\(, , channelWidth, 26\)' 'channel caption height applied only after measuring natural width' $dialogSource
-if ($dialogSource.Contains('x30 y80 h26 BackgroundTrans +0x80')) {
-    throw 'Fixed Text height at creation prevents content-width auto-sizing and fails compiled metadata smoke checks.'
+$previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
+$metadataStart = $dialogSource.IndexOf('AddUpdatePreviewMetadata(panel, installedVersion')
+$statusStart = $dialogSource.IndexOf('ShowUpdateStatusPanel(mode, installedVersion')
+if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -le $metadataStart) {
+    throw 'Preview, metadata and installed Version Status must remain separate production functions.'
 }
-Require-Source 'installed.GetPos\(, , &installedWidth\)' 'installed caption uses measured natural width' $dialogSource
-Require-Source 'latest.GetPos\(, , &latestWidth\)' 'latest caption uses measured natural width' $dialogSource
-Require-Source 'channelText.GetPos\(, , &channelWidth\)' 'channel caption uses measured natural width' $dialogSource
-Require-Source 'gap := 18' 'metadata groups have an intentional consistent gap' $dialogSource
-Require-Source 'if channelX \+ channelWidth <= 770' 'three fields use the same row when they fit' $dialogSource
-Require-Source 'if latestX \+ latestWidth <= 770' 'channel drops to a second row when necessary' $dialogSource
-Require-Source 'channelText.Move\(30, 144\)' 'longer versions can use three rows without overlap' $dialogSource
-Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'metadata wrapping extends the gold frame' $dialogSource
-Require-Source 'preview.Add\("Text", "x30 y" \(118 \+ rowExtra\) " w490 h30 BackgroundTrans", "Changes in This Update"\)' 'preview retains the established changes heading' $dialogSource
-Require-Source 'notes := ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion, true\)' 'all update types use verified missed published changes with latest-first preview' $dialogSource
-Require-Source 'actionY := 568 \+ rowExtra' 'action buttons follow any wrapped header' $dialogSource
-Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
-Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(preview, notes.Compact, scale,' 'single preview viewport shows the latest expanded and earlier missed summaries' $dialogSource
-Require-Source 'noteSwitcher, 44 \+ rowExtra, 28 \+ rowExtra, true\)' 'latest hotfix heading leaves premium preview scrollable' $dialogSource
-Require-Source 'preview.SetFont\("s16 Bold cE7BE70", "Georgia"\)' 'high contrast serif preview title' $dialogSource
-Require-Source 'preview.Add\("Text", "x30 y" \(152 \+ rowExtra\) " w740 h2 BackgroundC5A45C"\)' 'gold separator below changes heading' $dialogSource
-Require-Source 'preview.Add\("Text", "x28 y" \(158 \+ rowExtra\) " w744 h46 BackgroundC5A45C"\)' 'gold latest-hotfix header frame' $dialogSource
-Require-Source 'panel.Add\("Text", "x" \(latestX - 9\) " y83 w1 h18 BackgroundC5A45C"\)' 'metadata separators follow measured widths' $dialogSource
-Require-Source 'metadataBorder := preview.Add\("Text", "x28 y74 w744 h34 BackgroundC5A45C"\)' 'installed/latest/channel has a gold border' $dialogSource
-Require-Source 'metadataBorder.Move\(, , , 34 \+ rowExtra\)' 'metadata gold frame grows with wrapped version labels' $dialogSource
-Require-Source '"View earlier changes"' 'older missed changes are available on demand' $dialogSource
-Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Compact\)' 'earlier history toggle calls the viewport handler without implicit receiver' $dialogSource
-Require-Source 'ShapeCircularUpdateBadge\(latestBadge\)' 'latest update heading has a circular unread badge' $dialogSource
+$previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
+if (!$previewPath.Contains('notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
+    !$previewPath.Contains('notes.EarlierLabels') -or
+    $previewPath.Contains('AddUpdateNoteTabs(') -or
+    $previewPath.Contains('history.Hotfix') -or
+    $previewPath.Contains('history.Release')) {
+    throw 'Preview must use real missed published changes in one compact gold modal.'
+}
+$smokeSource = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
+if (!$smokeSource.Contains('CheckUpdatePreviewMetadataLayout()') -or
+    !$smokeSource.Contains('Update preview metadata overlaps at this version length.') -or
+    !$smokeSource.Contains('1.0.0-live.100')) {
+    throw 'Windows regression must verify measured version labels, wrapping, and clipping.'
+}
+if ($dialogSource.Contains('x123 y80 w147 h26') -or
+    $dialogSource.Contains('Review the changes you have missed before deciding to update.') -or
+    $dialogSource.Contains('TEST DATA ONLY') -or
+    $dialogSource.Contains('"Close Test Preview"')) {
+    throw 'Temporary copy or fixed-size version captions must not enter the production dialog.'
+}
+if ((14 + 31) -ge 53 -or (61 + 26) -ge 96 -or
+    (96 + 30) -ge 131 -or (131 + 365) -ge 511 -or
+    (511 + 34) -ge 556) {
+    throw 'Compact preview frame overlaps title, metadata, notes, or footer controls.'
+}
+Write-Host 'PASS: compact preview hierarchy, metadata wrapping and pinned earlier summary match reference layout.'
+if ($dialogSource.Contains('"Continue to Download"') -or
+    $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"')) {
+    throw 'Preview footer must retain only the two established update choices.'
+}
+Write-Host 'PASS: Update Now and Not Now remain confirmation-gated and centered.'
+
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update still enters existing confirmation flow' $dialogSource
