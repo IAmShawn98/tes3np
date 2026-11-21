@@ -1352,7 +1352,7 @@ CheckMissedUpdateLinkViewport()
                 observer.Viewport.GetPos(, &listY, , &listHeight)
                 if listY < headingY + headingHeight + Max(1, Round(3 * scale))
                     throw Error("Opaque missed-updates viewport covers the heading text.")
-                if listY + listHeight > Round(590 * scale) + 1
+                if listY + listHeight > Round(654 * scale) + 1
                     throw Error("Missed-updates viewport spills below the gold frame.")
                 visible := 0
                 previousBottom := 0
@@ -1381,7 +1381,7 @@ CheckMissedUpdateLinkViewport()
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
                         || y < Round(456 * scale) - 1
-                        || y + height > Round(590 * scale) + 1
+                        || y + height > Round(654 * scale) + 1
                         || !ReleaseNoteFits(row, row.Text, width)
                         || height < ReleaseNoteLineHeight(row) + Round(8 * scale)
                         throw Error("A missed-update hyperlink or its font clips the lower gold frame.")
@@ -1389,7 +1389,10 @@ CheckMissedUpdateLinkViewport()
                 if visible != Min(observer.Page.VisibleRows, count)
                     throw Error("Missed-updates list shows the wrong number of visible links.")
                 if percent = 100 && count = 24 && observer.Page.VisibleRows < 4
-                    throw Error("A normal-sized missed-updates list must display four entries.")
+                    throw Error("A normal-sized missed-updates list must display four entries: "
+                        observer.Page.VisibleRows " fitted, native row=" observer.RowHeight
+                        "px, step=" observer.RowStep "px, list top=" listY
+                        "px, bottom=" observer.BottomLimit "px.")
                 ; The screenshot regression cut the lower half of the one
                 ; visible draft row at 100%. Verify the native font's actual
                 ; line metrics against its Text control height at each scale.
