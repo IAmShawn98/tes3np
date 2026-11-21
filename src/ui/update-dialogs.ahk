@@ -154,11 +154,12 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     ; Leave the final 32px of the gold card for the always-visible Mark Read
     ; action. Scrolling may never cover or push this button out of view.
     bottomLimit := px(522 + topExtra + bottomExtra)
-    rowTop := px(356 + topExtra + bottomExtra)
+    ; Leave a visible gap beneath the second gold heading divider.
+    rowTop := px(362 + topExtra + bottomExtra)
     if IsObject(heading)
     {
         heading.GetPos(, &headingY, , &headingHeight)
-        rowTop := Max(rowTop, headingY + headingHeight + Max(2, px(4)))
+        rowTop := Max(rowTop, headingY + headingHeight + Max(3, px(10)))
     }
     if rowTop >= bottomLimit
         throw Error("Missed-update viewport has no space below its heading.")
