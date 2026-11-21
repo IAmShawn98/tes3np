@@ -32,12 +32,11 @@ CreateLauncherUpdateBadge()
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
     x := labelX + labelWidth + 4
-    ; Alpha-transparent badge art supplies a genuinely circular edge. The
-    ; number plate sits entirely INSIDE the red disk, hiding the asset's
-    ; fixed "1" without ever producing a visible square perimeter.
+    ; A blank alpha-transparent red disk supplies a genuinely circular edge.
+    ; The white number sits entirely inside the circle with no baked-in "1".
     LauncherUpdateBadge := LauncherGui.Add("Picture",
         "x" x " y689 w22 h22 BackgroundTrans",
-        A_ScriptDir "\assets\controls\update-badge.png")
+        A_ScriptDir "\assets\controls\update-unread-circle.png")
     LauncherUpdateNumber := LauncherGui.Add("Text",
         "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundD63232", "1")
     LauncherUpdateNumber.SetFont("s10 Bold cFFFFFF", "Segoe UI")
@@ -153,9 +152,9 @@ SetLauncherUnreadBadgeNumber(count)
     ; Reload at the new bounds: native Picture controls can retain their
     ; previous bitmap size after Move, which left a small circle behind a
     ; large rectangular numeral overlay in the stress screenshot.
-    LauncherUpdateBadge.Value := A_ScriptDir "\assets\controls\update-badge.png"
-    ; The inset rectangle's corners stay well within the circle at every
-    ; diameter (diagonal < radius), and its red center hides the art's "1".
+    LauncherUpdateBadge.Value := A_ScriptDir "\assets\controls\update-unread-circle.png"
+    ; The inset rectangle's corners stay fully inside the circular alpha edge
+    ; at every diameter (diagonal < radius).
     innerWidth := Max(1, Round(diameter * 0.66))
     innerHeight := Max(1, Round(diameter * 0.50))
     LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
