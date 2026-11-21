@@ -142,8 +142,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     return response.Download ? "Yes" : "No"
 }
 
-; Four visible linked versions with a scrollable Clear action at the END.
-; Reading a release only hides its red (1); it never removes that row.
+; Four visible linked versions plus a fixed lower-left Mark Read action.
+; Reading a release hides only its red (1); links remain in the list.
 AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, heading := 0, observer := 0, state := 0)
 {
     if !versions.Length
@@ -151,7 +151,9 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     if !IsObject(state)
         state := {Demo: true, Seen: Map(), Offered: ""}
     px := (value) => Round(value * scale)
-    bottomLimit := px(554 + topExtra + bottomExtra)
+    ; Leave the final 32px of the gold card for the always-visible Mark Read
+    ; action. Scrolling may never cover or push this button out of view.
+    bottomLimit := px(522 + topExtra + bottomExtra)
     rowTop := px(356 + topExtra + bottomExtra)
     if IsObject(heading)
     {
@@ -168,7 +170,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
         . " w" px(531) " h" (bottomLimit - rowTop) " Background171008")
     page := {Items: versions, Offset: 1, VisibleRows: 4,
-        Total: versions.Length + 1, MaxOffset: 1, State: state, Refresh: 0}
+        Total: versions.Length, MaxOffset: 1, State: state, Refresh: 0}
     rows := [], prefixes := [], badges := []
     for slot in [1, 2, 3, 4]
     {
@@ -197,10 +199,12 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         1 + Floor((bottomLimit - rowTop - rowHeight) / Max(1, rowStep))))
     page.MaxOffset := Max(1, page.Total - page.VisibleRows + 1)
 
+    ; This control stays in its own fixed footer area, independent from the
+    ; missed-release scroll offset and scrollbar thumb position.
     panel.SetFont("s9 Bold cFFF0DC", "Segoe UI")
-    clearButton := AddStyledButton(panel, left, rowTop, px(86), px(25),
-        "Clear", ClearMissedUpdateBadges.Bind(page))
-    clearButton.Visible := false
+    markReadY := px(528 + topExtra + bottomExtra)
+    clearButton := AddStyledButton(panel, left, markReadY, px(118), px(26),
+        "Mark Read", ClearMissedUpdateBadges.Bind(page))
 
     arrowX := px(558)
     arrowTop := rowTop
@@ -217,7 +221,6 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     refresh(*)
     {
         page.Offset := Max(1, Min(page.MaxOffset, page.Offset))
-        clearButton.Visible := false
         for slot, row in rows
         {
             idx := page.Offset + slot - 1
@@ -228,14 +231,6 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
             if slot > page.VisibleRows || idx > page.Total
                 continue
             y := rowTop + (slot - 1) * rowStep
-            if idx = page.Total
-            {
-                ; Clear is the final scrollable item, not an overlay pinned
-                ; below the list or hidden behind the action buttons.
-                clearButton.Move(left, y, px(86), Min(px(25), rowHeight))
-                clearButton.Visible := true
-                continue
-            }
             item := page.Items[idx]
             prefixText := item.HasOwnProp("Prefix") ? item.Prefix : ""
             caption := item.HasOwnProp("DisplayVersion") ? item.DisplayVersion : "v" item.Version
@@ -354,8 +349,8 @@ MarkMissedUpdateItemRead(page, item)
 
 ClearMissedUpdateBadges(page, *)
 {
-    ; The Clear item is part of the scrollable history, but no historical
-    ; link disappears: only its persisted or demo-only notification state.
+    ; Mark Read clears the unread notifications for all listed releases
+    ; without removing a single entry, regardless of scroll position.
     for item in page.Items
         if !IsMissedUpdateRead(page, item)
             MarkMissedUpdateItemRead(page, item)
