@@ -38,6 +38,17 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     ; 29px estimate; do not squeeze the upper changelog or its scrollbar.
     missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []
     hasMissed := missedVersions.Length > 0
+    isDemo := notes.HasOwnProp("DemoMode") && notes.DemoMode
+    previewState := {Demo: isDemo, Seen: Map(), Offered: latestVersion}
+    ; Opening marks ONLY the offered release as read. Older versions remain
+    ; visible and retain their own unread badges until clicked or cleared.
+    if isDemo
+        SetLauncherDemoUnreadCount(missedVersions.Length)
+    else
+    {
+        MarkPublishedVersionRead(latestVersion, true)
+        RefreshLauncherPublishedUnreadCount(missedVersions, latestVersion)
+    }
     missedSpace := hasMissed ? 64 : 0
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview",
         600, 556 + notesSpace + missedSpace)
@@ -78,9 +89,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
             latestTitle.Move(40, 139 + rowExtra, Min(naturalTitleWidth + 4, 484), 28)
             ; Place the round notification immediately after the latest
             ; version, not at a fixed far-right position.
-            latestBadge := preview.Add("Picture", "x" Min(537, 50 + naturalTitleWidth)
-                . " y" (144 + rowExtra) " w20 h20 BackgroundTrans",
-                A_ScriptDir "\assets\controls\update-badge.png")
+            ; This offered release is already marked read on opening.
+            ; Its notification is part of the footer count, not a permanent
+            ; red marker in the already-viewed modal title.
         }
 
         ; List every genuinely missed published version, including the
@@ -93,6 +104,10 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
             missedHeading := preview.Add("Text", "x40 y" (324 + rowExtra + notesSpace)
                 . " w520 h28 BackgroundTrans", "Updates You Missed")
+            ; A second fine gold rule separates the heading from the actual
+            ; version entries, without covering the lettering.
+            preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)
+                . " w520 h1 BackgroundC5A45C")
         }
 
         ; Both approved controls are centered below the gold history frame.
@@ -109,7 +124,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
             0, rowExtra, notesSpace, true, true, hasMissed)
         if hasMissed
-            closeMissed := AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading)
+            closeMissed := AddMissedUpdateLinks(preview, missedVersions, scale,
+                rowExtra, notesSpace, missedHeading, 0, previewState)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
