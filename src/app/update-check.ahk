@@ -195,8 +195,8 @@ LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
     ; At full launcher scale, "24" gets ~23 PHYSICAL pixels, not the
-    ; image's 48px native size. Smaller launcher scales retain 16px min.
-    physical := Max(16, Round((21 + 6 * (digits - 1)) * scale))
+    ; image's 48px native size. Smaller launcher scales retain a readable 20px min.
+    physical := Max(20, Round((21 + 6 * (digits - 1)) * scale))
     return Max(1, Round(physical / GetLauncherBadgeDpiScale()))
 }
 
