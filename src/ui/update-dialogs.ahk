@@ -23,11 +23,13 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     return response.Accepted
 }
 
-ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
+ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)
 {
-    ; Only changes published after the installed version belong in this preview.
+    ; Production always reads actual published history. The optional data
+    ; injection is used only by the explicit offline UI test command.
     ; Hotfix-to-hotfix updates open on the dated hotfix history tab.
-    history := ReadPublishedUpdateHistory(installedVersion, latestVersion)
+    synthetic := IsObject(testHistory)
+    history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)
     notes := kind = "hotfix" ? history.Hotfix : history.Release
     response := {Download: false}
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 630)
@@ -38,7 +40,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         preview.SetFont("s10 cEDE1C9", "Segoe UI")
-        preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", "Review published changes you have missed before deciding to update.")
+        preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", synthetic
+            ? "TEST DATA ONLY — Simulated changes, not actual published releases."
+            : "Review published changes you have missed before deciding to update.")
         preview.Add("Text", "x30 y94 w195 h24 BackgroundTrans", "Installed: v" installedVersion)
         preview.Add("Text", "x238 y94 w195 h24 BackgroundTrans", "Latest: v" latestVersion)
         preview.Add("Text", "x446 y94 w324 h24 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
@@ -46,9 +50,18 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         preview.SetFont("s10 cC5A45C", "Segoe UI")
         preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans", "Download the latest version directly; intermediate installs are not required.")
         preview.Add("Text", "x30 y551 w740 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
-        AddStyledButton(preview, 32, 582, 230, 34, "Continue to Download", (*) => (response.Download := true, DestroyScaledMenu(preview)))
-        AddStyledButton(preview, 330, 582, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
-        AddStyledButton(preview, 590, 582, 178, 34, "GitHub Release", (*) => Run(GetTes3npReleasePage(latestVersion)))
+        if synthetic
+        {
+            ; No download or GitHub action exists in the synthetic UI test.
+            AddStyledButton(preview, 32, 582, 230, 34, "Close Test Preview", (*) => DestroyScaledMenu(preview))
+            AddStyledButton(preview, 330, 582, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
+        }
+        else
+        {
+            AddStyledButton(preview, 32, 582, 230, 34, "Continue to Download", (*) => (response.Download := true, DestroyScaledMenu(preview)))
+            AddStyledButton(preview, 330, 582, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
+            AddStyledButton(preview, 590, 582, 178, 34, "GitHub Release", (*) => Run(GetTes3npReleasePage(latestVersion)))
+        }
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
