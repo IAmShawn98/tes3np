@@ -24,9 +24,10 @@ if (!$AutoHotkeyPath) {
         (Join-Path $root 'dist\local-build\runtime\AutoHotkey64.exe'),
         (Join-Path $root 'dist\tes3np-windows\runtime\AutoHotkey64.exe')
     )
-    $AutoHotkeyPath = @($candidates | Where-Object {
+    $selectedRuntime = $candidates | Where-Object {
         Test-Path -LiteralPath $_ -PathType Leaf
-    } | Select-Object -First 1)[0]
+    } | Select-Object -First 1
+    $AutoHotkeyPath = if ($selectedRuntime) { $selectedRuntime } else { '' }
 }
 if (!$AutoHotkeyPath -or !(Test-Path -LiteralPath $AutoHotkeyPath -PathType Leaf)) {
     throw 'The packaged AutoHotkey64.exe is missing. Run the existing Windows build first.'
@@ -192,7 +193,7 @@ ExitApp(0)
     if ($CheckOnly) {
         $argsForAhk += '--check-only'
     }
-    & $AutoHotkeyPath @argsForAhk
+    & $AutoHotkeyPath '/ErrorStdOut' @argsForAhk
     if ($LASTEXITCODE -ne 0) {
         throw "The AutoHotkey visual test failed (exit $LASTEXITCODE)."
     }
