@@ -315,7 +315,7 @@ Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale 
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
 Require-Source 'row.SetFont\("s" Max\(4, Round\(10 \* scale\)\)' 'missed release links use measured compact text' $dialogSource
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'full production update popup retains owner scale instead of miniature rendering' $dialogSource
-Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 373 : 480\)' 'notes use almost the full upper-card height without crossing the gold divider' $notesSource
+Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 309 : 480\)' 'latest notes end before the taller missed-version list' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
 Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry
@@ -545,7 +545,7 @@ Require-Source 'Opaque missed-updates viewport covers the heading text\.' 'nativ
 Require-Source 'Label: items\[1\].Label " \(unreleased draft\)"' 'native smoke reproduces the clipped local draft line' $badgeHarness
 Require-Source 'Missed-update Text controls overlap and may erase glyphs\.' 'native smoke checks row overlap' $badgeHarness
 Require-Source 'for count in \[1, 3, 7, 24\]' 'regression covers one through twenty-four missed version rows' $badgeHarness
-Require-Source 'observer.Badges.Length != 3' 'native smoke verifies each row gets a circular red one' $badgeHarness
+Require-Source 'observer.Badges.Length != 4' 'native smoke verifies all four visible rows get a full-size red one' $badgeHarness
 Require-Source 'observer.Page.Offset := observer.Page.MaxOffset' 'native smoke verifies the last missed version remains reachable' $badgeHarness
 Require-Source 'previewSections := BuildPublishedPreviewSections\(\[newestMissed, previousMissed, patch\]\)' 'compiled smoke covers compact and expanded missed updates' $badgeHarness
 Require-Source 'CheckExpandablePublishedPreviewViewport\(\)' 'native smoke exercises expanding and collapsing the missed-update viewport' $badgeHarness
