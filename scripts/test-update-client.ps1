@@ -500,12 +500,12 @@ Write-Host 'PASS: plain release notes headings and measured wrapping.'
 Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact unread update indicator exists'
 Require-Source 'LauncherUpdateBadge := LauncherGui.Add\("Picture",' 'footer notification uses transparent circular artwork instead of rectangular text background' $source
 Require-Source 'update-unread-circle\.png' 'footer uses a blank alpha circle, not a bitmap with an embedded numeral' $source
-Require-Source 'LauncherUpdateBadge.Value := A_ScriptDir "\\assets\\controls\\update-unread-circle\.png"' 'circle artwork reloads after native resize' $source
+Require-Source 'LauncherUpdateBadge.Value := "\*w" bitmapPixels " \*h" bitmapPixels' 'badge image is explicitly resized before its final control bounds' $source
 Require-Source 'LauncherUpdateNumber.OnEvent\("Click", CheckForUpdates\)' 'number overlay remains clickable like its circular backdrop' $source
 Require-Source 'LauncherUpdateNumber.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white at saved launcher scale' $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
-Require-Source 'size := Max\(6, Round\(10 \* scale\)\)' 'unread badge respects saved scale'
+Require-Source 'size := Max\(5, Round\(9 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'badge numeral accounts for physical DPI and launcher scale'
 Require-Source 'SetLauncherUnreadBadgeNumber\(LauncherUpdateNumber.Text\)' 'resize of circular artwork recenters numeral at saved scale' $source
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (1) opens the optional updater'
@@ -519,7 +519,11 @@ Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge f
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
-Require-Source '22 \+ 3 \* \(digits - 1\)' 'two-digit footer circle is compact rather than oversized' $source
+Require-Source 'GetDpiForWindow' 'badge size is calibrated from actual Windows DPI' $source
+Require-Source 'x" x " y689 w22 h22 \+0x40 BackgroundTrans' 'Picture control scales the circular bitmap to fit its resized bounds' $source
+Require-Source 'if width > 26' 'native GUI smoke rejects any oversized badge in physical screen pixels' $badgeHarness
+Require-Source 'badge := panel.Add\("Picture"' 'smoke tests the real Picture renderer, not a surrogate Text control' $badgeHarness
+Require-Source 'physical := Max\(16, Round\(\(18 \+ 5 \* \(digits - 1\)\) \* scale\)\)' 'two-digit footer circle targets 23 rendered pixels, not 48px source art' $source
 Require-Source 'LauncherUpdateBadge.Move\(x, centeredY, diameter, diameter\)' 'numeric badge remains square in geometry and round in rendering' $source
 Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
