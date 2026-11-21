@@ -1157,7 +1157,7 @@ CheckCompactPublishedPreviewViewport()
                 if Abs(cx - Round(23 * scale)) <= 1
                     && Abs(cy - Round(168 * scale)) <= 1
                     && Abs(cw - Round(554 * scale)) <= 1
-                    && Abs(ch - Round(305 * scale)) <= 1
+                    && Abs(ch - Round(241 * scale)) <= 1
                     borderFound := true
                 if control.Text = "↑"
                     up := control
@@ -1185,24 +1185,30 @@ CheckCompactPublishedPreviewViewport()
             if trackY < upY + upHeight + Max(1, Round(2 * scale))
                 || trackY + trackHeight > downY - Max(1, Round(2 * scale))
                 throw Error("Compact scrollbar track overlaps an arrow button.")
-            ; Full-sized initial preview must show the first heading and last
-            ; fix simultaneously, with no orphan scrollbar when content fits.
+            ; The taller missed-version list intentionally shortens the
+            ; changelog. Confirm the first heading and the last fix remain
+            ; available through its independent arrowed scrollbar.
             if percent = 82 || percent = 100
             {
                 seenFirst := false, seenLast := false
                 for row in panel
-                {
-                    if !row.Visible
-                        continue
-                    if row.Text = "New Features"
+                    if row.Visible && row.Text = "New Features"
                         seenFirst := true
-                    if InStr(row.Text, "Fixed Expansion Pack")
-                        seenLast := true
+                if !seenFirst
+                    throw Error("Compact notes lost the first New Features heading.")
+                Loop 100
+                {
+                    for row in panel
+                        if row.Visible && InStr(row.Text, "Fixed Expansion Pack")
+                            seenLast := true
+                    if seenLast
+                        break
+                    if !down.Visible
+                        throw Error("Latest changelog cannot scroll to its last fix.")
+                    ButtonFaces[down.Hwnd].Action.Call()
                 }
-                if !seenFirst || !seenLast
-                    throw Error("Compact Update Preview hides the first category or last bug fix at 100 percent.")
-                if down.Visible
-                    throw Error("No-scroll compact notes should not display orphan scrollbar arrows.")
+                if !seenLast
+                    throw Error("Compact latest notes cannot reach the final Bug Fixes entry.")
             }
             switcher.Update.Call(sections.Expanded)
             if track.Visible != thumb.Visible
@@ -1221,7 +1227,7 @@ CheckCompactPublishedPreviewViewport()
                     if !row.Visible || !InStr(row.Text, "Older sample repair.")
                         continue
                     row.GetPos(, &y, , &height)
-                    if y < Round(178 * scale) || y + height > Round(473 * scale)
+                    if y < Round(178 * scale) || y + height > Round(409 * scale)
                         throw Error("Expanded earlier notes overlap the fixed preview summary.")
                     seenOlder := true
                 }
@@ -1309,7 +1315,7 @@ CheckMissedUpdateLinkViewport()
             ; Mirror the production heading BEFORE launcher scaling, so its
             ; real scaled HWND bounds can be checked against the opaque list.
             panel.SetFont("s12 Bold cE7BE70", "Georgia")
-            heading := panel.Add("Text", "x40 y488 w520 h28 BackgroundTrans", "Updates You Missed")
+            heading := panel.Add("Text", "x40 y424 w520 h28 BackgroundTrans", "Updates You Missed")
             ; Reproduce the actual screenshot's nonclickable local draft row,
             ; not just the shorter, underlined published release captions.
             items := sections.MissedVersions
@@ -1323,8 +1329,8 @@ CheckMissedUpdateLinkViewport()
                 ScaleOwnedMenuContent(panel, scale)
                 unregister := AddMissedUpdateLinks(panel, items,
                     scale, 0, 100, heading, observer)
-                if !IsObject(observer.Refresh) || observer.Rows.Length != 3
-                    || observer.Badges.Length != 3
+                if !IsObject(observer.Refresh) || observer.Rows.Length != 4
+                    || observer.Badges.Length != 4
                     throw Error("Missed-updates viewport did not initialize its rows.")
                 ; This previously passed because the smoke test contained no
                 ; heading: the list was drawn five pixels over its last glyphs.
@@ -1355,10 +1361,12 @@ CheckMissedUpdateLinkViewport()
                     badge.GetPos(&badgeX, &badgeY, &badgeWidth, &badgeHeight)
                     if badgeX < x || badgeX + badgeWidth > x + width
                         || badgeY < y || badgeY + badgeHeight > y + height
+                        || Abs(badgeWidth - Round(20 * scale)) > 1
+                        || Abs(badgeHeight - Round(20 * scale)) > 1
                         throw Error("Red (1) must stay directly beside its missed version inside the visible link.")
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
-                        || y < Round(520 * scale) - 1
+                        || y < Round(456 * scale) - 1
                         || y + height > Round(590 * scale) + 1
                         || !ReleaseNoteFits(row, row.Text, width)
                         || height < ReleaseNoteLineHeight(row) + Round(8 * scale)
@@ -1366,6 +1374,8 @@ CheckMissedUpdateLinkViewport()
                 }
                 if visible != Min(observer.Page.VisibleRows, count)
                     throw Error("Missed-updates list shows the wrong number of visible links.")
+                if percent = 100 && count = 24 && observer.Page.VisibleRows < 4
+                    throw Error("A normal-sized missed-updates list must display four entries.")
                 ; The screenshot regression cut the lower half of the one
                 ; visible draft row at 100%. Verify the native font's actual
                 ; line metrics against its Text control height at each scale.
@@ -1378,8 +1388,18 @@ CheckMissedUpdateLinkViewport()
                         throw Error("Actual draft missed-update entry is vertically clipped.")
                 }
 
-                if (observer.Track.Visible || observer.Thumb.Visible) != (count > observer.Page.VisibleRows)
-                    throw Error("Missed-updates scrollbar must appear only for more than three versions.")
+                scrollExpected := count > observer.Page.VisibleRows
+                if (observer.Track.Visible || observer.Thumb.Visible
+                    || observer.Up.Visible || observer.Down.Visible) != scrollExpected
+                    throw Error("Missed-updates arrows and scrollbar must appear together only when scrolling is needed.")
+                if !ButtonFaces.Has(observer.Up.Hwnd) || !ButtonFaces.Has(observer.Down.Hwnd)
+                    throw Error("Missed-updates arrows do not use the parent changelog's themed buttons.")
+                observer.Up.GetPos(, &upY, , &upHeight)
+                observer.Down.GetPos(, &downY)
+                observer.Track.GetPos(, &trackY, , &trackHeight)
+                if trackY < upY + upHeight + Max(1, Round(2 * scale))
+                    || trackY + trackHeight > downY - Max(1, Round(2 * scale))
+                    throw Error("Missed-update scrollbar track overlaps a themed arrow.")
                 if count > observer.Page.VisibleRows
                 {
                     observer.Page.Offset := observer.Page.MaxOffset
