@@ -1092,10 +1092,10 @@ CheckCompactPublishedPreviewViewport()
             for control in panel
             {
                 control.GetPos(&cx, &cy, &cw, &ch)
-                if Abs(cx - Round(20 * scale)) <= 1
-                    && Abs(cy - Round(166 * scale)) <= 1
-                    && Abs(cw - Round(560 * scale)) <= 1
-                    && Abs(ch - Round(207 * scale)) <= 1
+                if Abs(cx - Round(23 * scale)) <= 1
+                    && Abs(cy - Round(168 * scale)) <= 1
+                    && Abs(cw - Round(554 * scale)) <= 1
+                    && Abs(ch - Round(205 * scale)) <= 1
                     borderFound := true
                 if control.Text = "↓"
                     down := control

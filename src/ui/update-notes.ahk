@@ -506,10 +506,12 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     ; Compact Update Preview uses the real mockup's 560px gold card. When
     ; earlier updates exist, reserve the lower portion for the fixed summary
     ; and keep the latest/expanded notes independently scrollable above it.
-    viewX := compactLayout ? 20 : 28
-    viewY := compactLayout ? 166 + topExtra : 158 + topExtra
-    viewWidth := compactLayout ? 560 : 744
-    viewHeight := compactLayout ? (fixedEarlier ? 207 : 330) : 367 + bottomExtra - topExtra
+    ; The compact scroll hit area must remain INSIDE the existing outer
+    ; changelog frame (x20..580), never paint over its gold edge or header.
+    viewX := compactLayout ? 23 : 28
+    viewY := compactLayout ? 168 + topExtra : 158 + topExtra
+    viewWidth := compactLayout ? 554 : 744
+    viewHeight := compactLayout ? (fixedEarlier ? 205 : 326) : 367 + bottomExtra - topExtra
     viewport := panel.Add("Text", "x" px(viewX) " y" px(viewY)
         . " w" px(viewWidth) " h" px(viewHeight)
         . (compactLayout ? " Background171008" : " BackgroundC5A45C"))

@@ -132,6 +132,8 @@ Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'installed
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'preview data comes only from the published version parser' $notesSource
 Require-Source 'EarlierLabels: earlierLabels' 'published missed versions are retained in the pinned summary' $notesSource
 Require-Source 'compactLayout := false, fixedEarlier := false\)' 'preview-only compact notes layout leaves installed status unaffected' $notesSource
+Require-Source 'viewX := compactLayout \? 23 : 28' 'compact scroll hit area does not cover the outer gold frame' $notesSource
+Require-Source 'viewY := compactLayout \? 168 \+ topExtra : 158 \+ topExtra' 'scroll hit area clears latest-hotfix heading' $notesSource
 
 $previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
 $metadataStart = $dialogSource.IndexOf('AddUpdatePreviewMetadata(panel, installedVersion')
