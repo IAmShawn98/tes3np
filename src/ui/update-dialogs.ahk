@@ -43,15 +43,14 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         copy := synthetic ? "TEST DATA ONLY — Simulated changes, not actual published releases."
             : "Review published changes you have missed before deciding to update."
         preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", copy)
-        ; The metadata fits in three columns. A single wrapped Text control
-        ; with "Installed: v..." clips the version onto a hidden second line
-        ; when its caption exceeds w195/h24 (especially at larger DPI).
-        ; Keep each version in its own no-space label within the same row.
-        preview.Add("Text", "x30 y94 w77 h24 BackgroundTrans", "Installed:")
-        preview.Add("Text", "x109 y94 w125 h24 BackgroundTrans", "v" installedVersion)
-        preview.Add("Text", "x238 y94 w61 h24 BackgroundTrans", "Latest:")
-        preview.Add("Text", "x301 y94 w138 h24 BackgroundTrans", "v" latestVersion)
-        preview.Add("Text", "x446 y94 w324 h24 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+        ; Keep labels and versions in separate controls, with room for the
+        ; actual rendered glyphs and a visible gap between the three groups.
+        ; The former columns butted together and covered the latest version.
+        preview.Add("Text", "x30 y94 w90 h24 BackgroundTrans", "Installed:")
+        preview.Add("Text", "x123 y94 w147 h24 BackgroundTrans", "v" installedVersion)
+        preview.Add("Text", "x291 y94 w70 h24 BackgroundTrans", "Latest:")
+        preview.Add("Text", "x371 y94 w167 h24 BackgroundTrans", "v" latestVersion)
+        preview.Add("Text", "x555 y94 w215 h24 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
         tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix, kind = "hotfix" ? "hotfix" : "release")
         preview.SetFont("s10 cC5A45C", "Segoe UI")
         preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans",
