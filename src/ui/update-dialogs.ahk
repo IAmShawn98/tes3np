@@ -27,7 +27,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
 {
     ; Production always reads actual published history. The optional data
     ; injection is used only by the explicit offline UI test command.
-    ; Hotfix-to-hotfix updates open on the dated hotfix history tab.
+    ; Hotfix-to-hotfix updates show only the dated Hotfixes section.
     synthetic := IsObject(testHistory)
     history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)
     notes := kind = "hotfix" ? history.Hotfix : history.Release
