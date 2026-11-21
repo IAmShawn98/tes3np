@@ -81,36 +81,40 @@ Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
 Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
 
-# The release-preview layout separates each header row, the tabs and the
-# notes viewport. Do not allow crowded or clipped footer metadata again.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 680\)' 'update preview reserves enough vertical space' $dialogSource
-Require-Source 'x30 y105 w90 h25 BackgroundTrans", "Installed:"' 'installed metadata label has its own space' $dialogSource
-Require-Source 'x123 y105 w147 h25 BackgroundTrans", "v" installedVersion' 'installed version has a separate control' $dialogSource
-Require-Source 'x291 y105 w70 h25 BackgroundTrans", "Latest:"' 'latest metadata label has its own space' $dialogSource
-Require-Source 'x371 y105 w167 h25 BackgroundTrans", "v" latestVersion' 'latest version has a separate control' $dialogSource
-Require-Source 'x555 y105 w215 h25 BackgroundTrans", "Channel: "' 'channel stays in its own column' $dialogSource
-Require-Source 'kind = "hotfix" \? "hotfix" : "release", 143\)' 'update tabs move below metadata' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, tabs.Switch, 24, 38\)' 'notes viewport moves with preview layout' $dialogSource
-Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'status panel tabs preserve old layout' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0\)' 'status panel notes keep default geometry' $notesSource
-Require-Source 'x30 y574 w740 h24 BackgroundTrans' 'footer copy has comfortable space' $dialogSource
-Require-Source 'AddStyledButton\(preview, 330, 618, 140, 34, "Close"' 'offline preview has a single safe exit' $dialogSource
+# Protect both horizontal and vertical spacing, rather than trying to
+# paper over one clipped label at a time. The production preview must remain
+# readable at normal launcher scale, with no redundant intro or footer copy.
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 620\)' 'preview uses a compact, bounded window' $dialogSource
+Require-Source 'x30 y20 w740 h42 BackgroundTrans", title' 'title has its own line' $dialogSource
+Require-Source 'x30 y80 w90 h26 BackgroundTrans", "Installed:"' 'installed label has separate bounds' $dialogSource
+Require-Source 'x123 y80 w147 h26 BackgroundTrans", "v" installedVersion' 'installed version is fully visible' $dialogSource
+Require-Source 'x291 y80 w70 h26 BackgroundTrans", "Latest:"' 'latest label has separate bounds' $dialogSource
+Require-Source 'x371 y80 w167 h26 BackgroundTrans", "v" latestVersion' 'latest version is fully visible' $dialogSource
+Require-Source 'x555 y80 w215 h26 BackgroundTrans", "Channel: "' 'channel keeps its own column' $dialogSource
+Require-Source 'kind = "hotfix" \? "hotfix" : "release", 118\)' 'tabs follow the metadata row' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, tabs.Switch, 0, 28\)' 'note viewport keeps a distinct frame and scroll region' $dialogSource
+Require-Source 'AddUpdateNoteTabs\(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123\)' 'existing version status retains its tab position' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, notes, scale, switcher := 0, topExtra := 0, bottomExtra := 0\)' 'status panel retains original note geometry' $notesSource
+Require-Source 'AddStyledButton\(preview, 330, 568, 140, 34, "Close"' 'offline preview has a single safe close button' $dialogSource
+Require-Source 'AddStyledButton\(preview, 32, 568, 230, 34, "Continue to Download"' 'real update confirmation remains available' $dialogSource
 if ((123 + 147) -ge 291 -or (371 + 167) -ge 555 -or
     (555 + 215) -gt 800 -or
-    (105 + 25) -ge 143 -or
-    (143 + 30) -ge (158 + 24) -or
-    (158 + 367 + 38) -ge 574 -or
-    (574 + 24) -ge 618 -or
-    (618 + 34) -ge 680) {
-    throw 'Update preview has overlapping control bounds.'
+    (20 + 42) -ge 80 -or
+    (80 + 26) -ge 118 -or
+    (118 + 30) -ge 158 -or
+    (158 + 367 + 28) -ge 568 -or
+    (568 + 34) -ge 620) {
+    throw 'Update preview layout has overlapping or out-of-bounds regions.'
 }
 if ($dialogSource.Contains('"Installed: v" installedVersion') -or
     $dialogSource.Contains('"Latest: v" latestVersion') -or
+    $dialogSource.Contains('Review the changes you have missed before deciding to update.') -or
+    $dialogSource.Contains('Preview only — nothing has been downloaded or installed.') -or
     $dialogSource.Contains('TEST DATA ONLY') -or
     $dialogSource.Contains('"Close Test Preview"')) {
-    throw 'Update preview must not clip version fields or repeat test-only messaging.'
+    throw 'Update preview contains clipped metadata or redundant instructions.'
 }
-Write-Host 'PASS: preview header, tabs, scrolling and footer have spaced bounds.'
+Write-Host 'PASS: compact preview separates title, metadata, tabs, notes and action row.'
 
 Require-Source 'ReadVersionReleaseNotes\(originalVersion\)' 'original feature release notes survive hotfixes' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
@@ -359,7 +363,7 @@ if (!$bootstrapSource.Contains('OnMessage(0x8042, HandleLauncherHistoryTestMessa
     !$dialogSource.Contains('ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)') -or
     !$dialogSource.Contains('history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)') -or
     !$dialogSource.Contains('if synthetic') -or
-    !$dialogSource.Contains('AddStyledButton(preview, 330, 618, 140, 34, "Close"') -or
+    !$dialogSource.Contains('AddStyledButton(preview, 330, 568, 140, 34, "Close"') -or
     $dialogSource.Contains('TEST DATA ONLY') -or
     !$historyHelper.Contains('SendMessageTimeout(') -or
     !$historyHelper.Contains('FindWindow(') -or
