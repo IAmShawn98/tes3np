@@ -180,6 +180,8 @@ Require-Source '"https://github.com/IAmShawn98/tes3np/releases/tag/v" version' '
 Require-Source 'MissedVersions: missedVersions' 'list includes the newest missed version and every older missed version' $notesSource
 Require-Source 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' 'links derive from verified published history' $notesSource
 Require-Source 'A_ScriptDir "\\assets\\controls\\update-badge\.png"' 'update preview uses a true transparent circular badge bitmap' $dialogSource
+if (!(Test-Path -LiteralPath 'assets/controls/update-unread-circle.png' -PathType Leaf)) { throw 'Unnumbered circular footer artwork is missing.' }
+if (!(Get-Content -LiteralPath 'scripts/generate-bundled-resources.py' -Raw).Contains('"assets/controls/update-unread-circle.png"')) { throw 'Standalone build must embed blank circular unread artwork.' }
 if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf)) {
     throw 'Transparent circular update badge artwork is missing.'
 }
@@ -492,6 +494,9 @@ Write-Host 'PASS: plain release notes headings and measured wrapping.'
 # of new published releases since the last preview, then clears on viewing.
 Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact unread update indicator exists'
 Require-Source 'LauncherUpdateBadge := LauncherGui.Add\("Picture",' 'footer notification uses transparent circular artwork instead of rectangular text background' $source
+Require-Source 'update-unread-circle\.png' 'footer uses a blank alpha circle, not a bitmap with an embedded numeral' $source
+Require-Source 'LauncherUpdateBadge.Value := A_ScriptDir "\\assets\\controls\\update-unread-circle\.png"' 'circle artwork reloads after native resize' $source
+Require-Source 'LauncherUpdateNumber.OnEvent\("Click", CheckForUpdates\)' 'number overlay remains clickable like its circular backdrop' $source
 Require-Source 'LauncherUpdateNumber.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white at saved launcher scale' $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
