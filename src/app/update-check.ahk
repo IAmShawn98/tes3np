@@ -127,7 +127,7 @@ SetLauncherUnreadBadgeNumber(count)
     global LauncherUpdateBadge, LauncherScale
     if !IsObject(LauncherUpdateBadge)
         return
-    value := String(Max(1, count))
+    value := "" Max(1, count)
     LauncherUpdateBadge.GetPos(, , &oldWidth, &height)
     scale := LauncherScale / 100
     newWidth := height + Max(0, StrLen(value) - 1) * Max(5, Round(10 * scale))
