@@ -27,6 +27,11 @@ public static class TES3NPBadgeTestNative {
 }
 
 $hwnd = [TES3NPBadgeTestNative]::FindWindow('AutoHotkeyGUI', $testWindow)
+# Allow the normally-rendered launcher a moment to finish opening.
+for ($attempt = 0; $attempt -lt 20 -and $hwnd -eq [IntPtr]::Zero; $attempt++) {
+    Start-Sleep -Milliseconds 250
+    $hwnd = [TES3NPBadgeTestNative]::FindWindow('AutoHotkeyGUI', $testWindow)
+}
 if ($hwnd -eq [IntPtr]::Zero) {
     throw 'Badge Test launcher not found. Close TES3NP, then open tes3np.exe --test-update-badge before sending a state.'
 }
