@@ -246,7 +246,8 @@ Write-Host 'PASS: plain release notes headings and measured wrapping.'
 
 # The footer notification must not replace or lengthen the installed version.
 Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact update indicator exists'
-Require-Source 'LauncherUpdateBadge\.Text := unseen \? "\(1\)" : Chr\(0x2022\)' 'unread and viewed states share one indicator'
+Require-Source 'nextText := unseen \? "\(1\)" : Chr\(0x2022\)' 'unread and viewed states share one indicator'
+Require-Source 'LauncherUpdateBadge\.Text := nextText' 'badge updates through the shared state change path'
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indicator reopens the optional updater'
 
