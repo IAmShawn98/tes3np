@@ -55,8 +55,8 @@ CheckCategorizedUpdateNotes()
         || !InStr(result, "#### v0.1.21-alpha.1`n- **Alerts:** New indicator.")
         || !InStr(result, "### Improvements`n`n#### v0.1.21-alpha.1")
         || !InStr(result, "### Bug Fixes`n`n#### v0.1.21-alpha")
-        || !InStr(result, "### Hotfixes`n`n#### v0.1.21-alpha.1")
-        || InStr(result, "### Bug Fixes`n`n#### v0.1.21-alpha.1")
+        || !InStr(result, "#### v0.1.21-alpha.1`n- **Pack:** Fixed disabling.")
+        || InStr(result, "### Hotfixes")
         return false
 
     ; Installed history is grouped by version newest-first. The published
@@ -67,11 +67,13 @@ CheckCategorizedUpdateNotes()
     if !latest || !original || latest >= original
         || !InStr(installed, "### New Features`n`n- **Alerts:** New indicator.")
         || !InStr(installed, "### Improvements`n`n- **Pack:** Better verification.")
-        || !InStr(installed, "### Hotfixes`n`n- **Pack:** Fixed disabling.")
+        || !InStr(installed, "### Bug Fixes`n`n- **Pack:** Fixed disabling.")
         || !InStr(installed, "### Bug Fixes`n`n- **Login:** Original fix.")
+        || InStr(installed, "### Hotfixes")
         || InStr(installed, "#### v0.1.21")
         return false
 
+    ; Historical notes containing a Hotfixes heading must remain readable.
     newerPatch := {Version: "0.1.21-alpha.2", Label: "v0.1.21-alpha.2",
         Hotfix: true, Notes: "### Hotfixes`n- **Updater:** Newest fix."}
     stacked := BuildInstalledVersionNotes([base, patch, newerPatch])
@@ -79,7 +81,9 @@ CheckCategorizedUpdateNotes()
     earlier := InStr(stacked, "## Earlier Hotfix — v0.1.21-alpha.1")
     baseStart := InStr(stacked, "## Base Release — v0.1.21-alpha")
     if !newest || !earlier || !baseStart || newest >= earlier
-        || earlier >= baseStart || !InStr(stacked, "**Updater:** Newest fix.")
+        || earlier >= baseStart
+        || !InStr(stacked, "### Bug Fixes`n`n- **Updater:** Newest fix.")
+        || InStr(stacked, "### Hotfixes")
         return false
 
     published := []
