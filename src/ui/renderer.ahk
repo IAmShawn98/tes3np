@@ -69,6 +69,8 @@ HandleNativeClickableCursor(wParam, lParam, msg, hwnd)
         return
     className := StrGet(classBuffer, "UTF-16")
     if className = "Button" || className = "SysLink"
+        || (className = "Static" && (IsMissedUpdateCursorTarget(wParam)
+            || IsLauncherFooterUpdateCursorTarget(wParam)))
     {
         SetLauncherHandCursor()
         return 1
