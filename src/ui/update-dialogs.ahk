@@ -34,7 +34,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     closeNotes := 0
     try
     {
-        preview.SetFont(kind = "hotfix" ? "s16 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
+        preview.SetFont(kind = "hotfix" ? "s13 Bold cE7BE70" : "s11 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
@@ -51,7 +51,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
             GrowGoldNativePrompt(preview, rowExtra)
         }
 
-        preview.SetFont("s14 Bold cE7BE70", "Georgia")
+        preview.SetFont("s11 Bold cE7BE70", "Georgia")
         preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")
         ; One continuous outer frame contains the latest hotfix, readable
         ; scrollable notes, a gold rule, and fixed earlier-update summary.
@@ -60,7 +60,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 
         if notes.Title != ""
         {
-            preview.SetFont("s13 Bold cE7BE70", "Georgia")
+            preview.SetFont("s11 Bold cE7BE70", "Georgia")
             latestTitle := preview.Add("Text", "x40 y" (139 + rowExtra)
                 . " BackgroundTrans +0x80", notes.Title)
             latestTitle.GetPos(, , &naturalTitleWidth)
@@ -77,24 +77,24 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         if notes.EarlierCount > 0
         {
             preview.Add("Text", "x40 y" (376 + rowExtra) " w520 h2 BackgroundC5A45C")
-            preview.SetFont("s12 Bold cE7BE70", "Georgia")
+            preview.SetFont("s10 Bold cE7BE70", "Georgia")
             preview.Add("Text", "x40 y" (388 + rowExtra) " w520 h25 BackgroundTrans", "Earlier updates included")
-            preview.SetFont("s10 Norm cFFF0DC", "Segoe UI")
-            preview.Add("Text", "x40 y" (416 + rowExtra) " w515 h19 BackgroundTrans",
+            preview.SetFont("s8 Norm cFFF0DC", "Segoe UI")
+            preview.Add("Text", "x40 y" (420 + rowExtra) " w515 h20 BackgroundTrans",
                 "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
-            yLabel := 435 + rowExtra
+            yLabel := 442 + rowExtra
             for label in notes.EarlierLabels
             {
-                if yLabel > 455 + rowExtra
+                if yLabel > 464 + rowExtra
                     break
-                preview.Add("Text", "x48 y" yLabel " w330 h19 BackgroundTrans", "• " label)
-                yLabel += 19
+                preview.Add("Text", "x48 y" yLabel " w330 h20 BackgroundTrans", "• " label)
+                yLabel += 21
             }
-            preview.SetFont("s10 Underline cF5C96E", "Segoe UI")
-            showEarlier := preview.Add("Text", "x395 y" (455 + rowExtra)
-                . " w166 h23 BackgroundTrans +0x100", "View earlier changes")
-            hideEarlier := preview.Add("Text", "x395 y" (455 + rowExtra)
-                . " w166 h23 BackgroundTrans +0x100", "Hide earlier changes")
+            preview.SetFont("s8 Underline cF5C96E", "Segoe UI")
+            showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra)
+                . " w188 h25 BackgroundTrans +0x100", "View earlier changes")
+            hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra)
+                . " w188 h25 BackgroundTrans +0x100", "Hide earlier changes")
             showEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
             hideEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
             hideEarlier.Visible := false
@@ -142,7 +142,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 ; Return the extra vertical space needed if a narrow display requires wrapping.
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
-    panel.SetFont(compact ? "s9 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
+    panel.SetFont(compact ? "s8 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
     baseX := compact ? 40 : 30
     labelY := compact ? 61 : 80
     rightEdge := compact ? 568 : 770

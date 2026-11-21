@@ -1070,6 +1070,7 @@ CheckCompactPublishedPreviewViewport()
     sections := BuildPublishedPreviewSections(records)
     if sections.Title != "Latest Hotfix — v0.1.21-alpha.3"
         || sections.EarlierLabels.Length != 2
+        || !InStr(sections.Latest, "New Features")
         || InStr(sections.Latest, "Previous sample improvement.")
         throw Error("Compact preview latest/earlier data contract changed.")
     for percent in [50, 100]
