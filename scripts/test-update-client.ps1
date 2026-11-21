@@ -155,7 +155,7 @@ if ($dialogSource.Contains('Updates You Missed (Sample)')) { throw 'Keep the pro
 
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
 Require-Source 'RegisterMissedUpdateCursorTarget\(rows\[slot\], page, slot\)' 'only current release links register for hand cursor' $dialogSource
-Require-Source 'UnregisterMissedUpdateCursorTarget\(rows\[slot\]\)' 'modal cleanup removes clickable link cursor targets' $dialogSource
+Require-Source 'for handle in cursorHandles' 'modal cleanup walks captured numeric link handles' $dialogSource
 Require-Source 'IsMissedUpdateCursorTarget\(handle\)' 'cursor resolver validates the current release entry' $dialogSource
 Require-Source 'className = "Static" && \(IsMissedUpdateCursorTarget\(wParam\)' 'Windows cursor handler recognizes clickable release Text controls' $rendererSource
 Require-Source 'IsLauncherFooterUpdateCursorTarget\(wParam\)' 'cursor handler recognizes the clickable update footer' $rendererSource
