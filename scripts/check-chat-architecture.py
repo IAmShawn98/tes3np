@@ -2382,6 +2382,21 @@ expect(
     and 'Loop capacity - 1' in update_notes
     and 'No hotfixes have been released for this version.' in update_dialogs,
 )
+expect(
+    "Opt-in real-launcher synthetic history checks do not enable downloads or edit release data",
+    'OnMessage(0x8042, HandleLauncherHistoryTestMessage)' in bootstrap
+    and 'HandleLauncherHistoryTestMessage(scenario, unused, msg, hwnd)' in update_check
+    and 'hwnd != LauncherBadgeTestWindowHwnd' in update_check
+    and 'SetTimer(ShowLauncherHistoryTestPreview.Bind(scenario), -1)' in update_check
+    and 'ShowUpdatePreview(installed, latest, "alpha", kind,' in update_check
+    and 'testHistory := 0' in update_dialogs
+    and 'synthetic := IsObject(testHistory)' in update_dialogs
+    and 'history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
+    and '"TEST DATA ONLY' in update_dialogs
+    and '"Close Test Preview"' in update_dialogs
+    and 'if synthetic' in update_dialogs
+    and 'AddStyledButton(preview, 590, 582, 178, 34, "GitHub Release"' in update_dialogs,
+)
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
 expect(
     "Display settings stage all five values before replacing the live INI",
