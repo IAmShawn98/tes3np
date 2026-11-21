@@ -840,9 +840,9 @@ PreviewUpdateBadgeFixture()
         LauncherGui.SetFont("s16 Bold cE7BE70", "Segoe UI")
         LauncherGui.Add("Text", "x35 y40 w890 h42 BackgroundTrans", "Update indicator — isolated test preview")
         LauncherGui.SetFont("s11 Norm cEDE1C9", "Segoe UI")
-        LauncherGui.Add("Text", "x35 y105 w880 h52 BackgroundTrans", 
+        LauncherGui.Add("Text", "x35 y105 w880 h52 BackgroundTrans",
             "Simulated published version: v0.1.22-alpha. No network, game files, or real settings are used.")
-        LauncherGui.Add("Text", "x35 y184 w880 h36 BackgroundTrans", 
+        LauncherGui.Add("Text", "x35 y184 w880 h36 BackgroundTrans",
             "Use the buttons below, then inspect the real version label at the bottom-left.")
         status := LauncherGui.Add("Text", "x35 y247 w880 h48 BackgroundTrans", "")
         CreateLauncherVersionLabel()
