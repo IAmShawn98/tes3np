@@ -111,14 +111,14 @@ $history = @"
 ### v0.1.21-alpha.3
 
 ### New Features
-- **Visual test only:** Red circular 1 update notification.
+- Red circular 1 update notification.
 
 ### Improvements
-- **Visual test only:** Cleaner update preview layout.
-- **Visual test only:** Better readability for grouped changes.
+- Cleaner update preview layout.
+- Better readability for grouped changes.
 
 ### Bug Fixes
-- **Visual test only:** No files are downloaded or installed.
+- Fixed Expansion Pack disable flow when verification fails.
 "@
 [IO.File]::WriteAllText($HotfixOutputPath, $history, $utf8)
 '@
