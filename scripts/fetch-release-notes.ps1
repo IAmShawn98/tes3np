@@ -3,7 +3,13 @@ param(
     [Parameter(Mandatory, ParameterSetName='Single')]
     [ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')]
     [string]$Version,
-    [Parameter(Mandatory, ParameterSetName='Single')][string]$OutputPath,
+    [Parameter(Mandatory, ParameterSetName='Single')]
+    [Parameter(Mandatory, ParameterSetName='Bundled')][string]$OutputPath,
+
+    [Parameter(Mandatory, ParameterSetName='Bundled')]
+    [ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')]
+    [string]$BundledVersion,
+    [Parameter(Mandatory, ParameterSetName='Bundled')][string]$BundledNotesPath,
 
     [Parameter(Mandatory, ParameterSetName='History')]
     [ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')]
@@ -11,8 +17,7 @@ param(
     [Parameter(Mandatory, ParameterSetName='History')]
     [ValidatePattern('\A(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})(?:-(?:alpha|beta|live)(?:\.[1-9][0-9]{0,8})?|\.[1-9][0-9]{0,8})?\z')]
     [string]$LatestVersion,
-    [Parameter(Mandatory, ParameterSetName='History')][string]$ReleaseOutputPath,
-    [Parameter(Mandatory, ParameterSetName='History')][string]$HotfixOutputPath
+    [Parameter(Mandatory, ParameterSetName='History')][string]$SummaryOutputPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,7 +69,19 @@ function Get-ReleaseBody($Release, [string]$ExpectedVersion) {
     return ($body -replace "(?m)^##[ \t]+v$escapedVersion(?:[ \t]+[^\r\n]*)?[ \t]*\r?\n", '').Trim()
 }
 
-if ($PSCmdlet.ParameterSetName -ceq 'Single') {
+
+# Both previews and installed-version notes use the same category formatter.
+# Every change retains its published version/date; no source release is rewritten.
+function Format-CategoryNotes([object[]]$Entries) {
+    $names = @('New Features', 'Improvements', 'Bug Fixes', 'Hotfixes', 'Removed Features', 'Other Changes')
+    $groups = [ordered]@{}
+    foreach ($name in $names) { $groups[$name] = @() }
+
+    foreach ($entry in $Entries) {
+        $sections = @{}
+        $current = ''
+        foreach ($line in ($entry.Body -split "\r?\n")) {
+            if ($line -match '^###\s+(.+?)\s*
     $tag = "v$Version"
     try {
         $release = Invoke-RestMethod -Uri "$baseUri/$tag" -Headers $headers -TimeoutSec 5
@@ -87,8 +104,7 @@ if ($installed.Channel -cne $latest.Channel -or
     (Compare-VersionInfo $latest $installed) -le 0) {
     throw 'Invalid update history range.'
 }
-if ($ReleaseOutputPath -ceq $HotfixOutputPath) { throw 'History destinations must differ.' }
-Remove-Item -LiteralPath $ReleaseOutputPath, $HotfixOutputPath -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $SummaryOutputPath -ErrorAction SilentlyContinue
 
 $all = @()
 $complete = $false
@@ -133,23 +149,14 @@ $entries = @($entries | Sort-Object -Property @{
     Expression = { $_.Info.Hotfix }; Descending = $true
 })
 
-$featureNotes = @()
-$hotfixNotes = @()
+# Reject gaps among numbered hotfixes in the requested update range.
 foreach ($entry in $entries) {
-    $part = "### v$($entry.Info.Version) " + [char]0x2014 + " $($entry.Date)" + [Environment]::NewLine +
-        [Environment]::NewLine + $entry.Body
-    if ($entry.Info.Hotfix -gt 0) { $hotfixNotes += $part }
-    else { $featureNotes += $part }
+    if ($entry.Info.Hotfix -le 0) { continue }
+    $baseName = $entry.Info.Version -replace '\.[1-9][0-9]{0,8}$', ''
+    $startingHotfix = if ($entry.Info.Feature -eq $installed.Feature) { $installed.Hotfix } else { 0 }
+    for ($number = $startingHotfix + 1; $number -le $entry.Info.Hotfix; $number++) {
+        $needed = "v$baseName.$number"
+        if (!$seenTags.ContainsKey($needed)) { throw "Published update history is missing $needed." }
+    }
 }
-$releaseText = if ($featureNotes.Count) {
-    $featureNotes -join ([Environment]::NewLine + [Environment]::NewLine)
-} else {
-    'No new feature releases since your installed version.'
-}
-$hotfixText = if ($hotfixNotes.Count) {
-    $hotfixNotes -join ([Environment]::NewLine + [Environment]::NewLine)
-} else {
-    'No new hotfixes since your installed version.'
-}
-[IO.File]::WriteAllText($ReleaseOutputPath, $releaseText, $utf8)
-[IO.File]::WriteAllText($HotfixOutputPath, $hotfixText, $utf8)
+[IO.File]::WriteAllText($SummaryOutputPath, (Format-CategoryNotes $entries), $utf8)
