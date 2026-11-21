@@ -7,6 +7,7 @@ $source = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8
 $metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-metadata.ahk') -Raw -Encoding UTF8
 $installSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-install.ahk') -Raw -Encoding UTF8
 $dialogSource = Get-Content -LiteralPath 'src/ui/update-dialogs.ahk' -Raw -Encoding UTF8
+$rendererSource = Get-Content -LiteralPath 'src/ui/renderer.ahk' -Raw -Encoding UTF8
 $notesSource = Get-Content -LiteralPath 'src/ui/update-notes.ahk' -Raw -Encoding UTF8
 $badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
 $fetcherSource = Get-Content -LiteralPath 'scripts/fetch-release-notes.ps1' -Raw -Encoding UTF8
@@ -153,6 +154,8 @@ Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white a
 Require-Source 'RegisterMissedUpdateCursorTarget\(rows\[slot\], page, slot\)' 'only current release links register for hand cursor' $dialogSource
 Require-Source 'UnregisterMissedUpdateCursorTarget\(rows\[slot\]\)' 'modal cleanup removes clickable link cursor targets' $dialogSource
 Require-Source 'IsMissedUpdateCursorTarget\(handle\)' 'cursor resolver validates the current release entry' $dialogSource
+Require-Source 'className = "Static" && \(IsMissedUpdateCursorTarget\(wParam\)' 'Windows cursor handler recognizes clickable release Text controls' $rendererSource
+Require-Source 'IsLauncherFooterUpdateCursorTarget\(wParam\)' 'cursor handler recognizes the clickable update footer' $rendererSource
 Require-Source 'IsLauncherFooterUpdateCursorTarget\(handle\)' 'version footer declares its clickable cursor targets' $source
 Require-Source 'UpdateMissedUpdateMarkReadLabel\(page\)' 'Mark Read button caption follows unread count' $dialogSource
 Require-Source 'unread > 1 \? "Mark All Read" : "Mark Read"' 'multiple unread releases show Mark All Read' $dialogSource
