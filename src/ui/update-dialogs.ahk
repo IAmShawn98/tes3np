@@ -151,6 +151,9 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
         rowHeight := Max(rowHeight, ReleaseNoteLineHeight(link) + px(8))
         rows.Push(link)
     }
+    ; Never overlap native Text controls: a later transparent sibling can
+    ; erase the previous row's descenders during Windows repaint.
+    rowStep := Max(rowStep, rowHeight + Max(1, px(2)))
     for slot, link in rows
         link.Move(left, rowTop + (slot - 1) * rowStep, rowWidth, rowHeight)
     ; Preserve the frame even at unusual Windows DPI settings: if the font
