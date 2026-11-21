@@ -2457,7 +2457,8 @@ expect(
     and 'Key: "demo-" Format("{:02}", A_Index)' in bootstrap
     and 'Prefix: "DEMO "' not in bootstrap
     and 'Label: "v" demoVersion' in bootstrap
-    and 'isDemo ? "Updates You Missed (Sample)" : "Updates You Missed"' in update_dialogs
+    and '. " w520 h28 BackgroundTrans", "Updates You Missed")' in update_dialogs
+    and 'Updates You Missed (Sample)' not in update_dialogs
     and 'DisplayVersion: "v" demoVersion' in bootstrap
     and 'prefix.Text := prefixText' in update_dialogs
     and 'Underline cFFF0DC' in update_dialogs
