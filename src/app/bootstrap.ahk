@@ -77,8 +77,8 @@ ShowDevelopmentReleaseReview(*)
         ; the real, unreleased local draft. The 24 rows below it deliberately
         ; repeat the only two verified public release tags (v0.1.21-alpha
         ; and v0.1.20-alpha). They display like ordinary version links,
-        ; but the preview heading marks them as samples. Their distinct
-        ; in-memory keys never write to the published update feed.
+        ; while their distinct in-memory keys prevent demo clicks from
+        ; writing to the published update feed.
         ; Repeating real tags tests scrolling and clickable, non-404 pages
         ; without inventing GitHub releases that do not exist.
         draftSections := BuildPublishedPreviewSections([record])
