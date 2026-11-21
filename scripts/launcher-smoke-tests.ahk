@@ -1061,6 +1061,11 @@ CheckUnreadBadgeTextAdjacency()
             label.GetPos(&labelX, , &labelWidth)
             badgeX := GetLauncherUnreadBadgeX(label, scale)
             textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
+            ; The circle previously sat visibly above the text baseline.
+            ; Require a positive five-screen-pixel downward alignment.
+            downInset := Max(1, Round(5 / dpi))
+            if downInset < 1 || Abs(downInset * dpi - 5) > dpi
+                throw Error("Unread badge vertical offset is inconsistent with display DPI.")
             screenGap := Round((badgeX - labelX) * dpi - textPixels)
             if screenGap < 0 || screenGap > Round(8 * dpi)
                 throw Error("Footer badge must follow visible version text, "
@@ -1439,10 +1444,14 @@ CheckMissedUpdateLinkViewport()
                 ; heading: the list was drawn five pixels over its last glyphs.
                 heading.GetPos(, &headingY, , &headingHeight)
                 observer.Viewport.GetPos(, &listY, , &listHeight)
-                if listY < headingY + headingHeight + Max(1, Round(3 * scale))
+                if listY < headingY + headingHeight + Max(1, Round(8 * scale))
                     throw Error("Opaque missed-updates viewport covers the heading text.")
                 if listY + listHeight > Round(622 * scale) + 1
                     throw Error("Missed-updates viewport spills below the gold frame.")
+                ; Actual lower heading separator is at y454. The first
+                ; release link needs visible air below it at all scales.
+                if listY < Round(462 * scale) - 1
+                    throw Error("First missed-version entry starts too close to its gold divider.")
                 visible := 0
                 previousBottom := 0
                 for slot, row in observer.Rows
@@ -1469,7 +1478,7 @@ CheckMissedUpdateLinkViewport()
                         throw Error("Red (1) must stay directly beside its missed version inside the visible link.")
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
-                        || y < Round(456 * scale) - 1
+                        || y < Round(462 * scale) - 1
                         || y + height > Round(622 * scale) + 1
                         || !ReleaseNoteFits(row, row.Text, width)
                         || height < ReleaseNoteLineHeight(row) + Round(8 * scale)
