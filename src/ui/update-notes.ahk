@@ -513,15 +513,15 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     ; The taller update preview reflows the same existing viewport without
     ; changing the verified Version Status geometry (both extras default 0).
     px := (value) => Round(value * scale)
-    ; Compact Update Preview uses the real mockup's 560px gold card. When
-    ; earlier updates exist, reserve the lower portion for the fixed summary
-    ; and keep the latest/expanded notes independently scrollable above it.
+    ; Compact preview uses the real 560px gold card. When missed releases
+    ; exist, reserve a full four-row lower list; the upper notes retain their
+    ; own independently scrollable viewport and arrow buttons.
     ; The compact scroll hit area must remain INSIDE the existing outer
     ; changelog frame (x20..580), never paint over its gold edge or header.
     viewX := compactLayout ? 23 : 28
     viewY := compactLayout ? 168 + topExtra : 158 + topExtra
     viewWidth := compactLayout ? 554 : 744
-    viewHeight := compactLayout ? (fixedEarlier ? 205 : 326) + bottomExtra : 367 + bottomExtra - topExtra
+    viewHeight := compactLayout ? (fixedEarlier ? 141 : 326) + bottomExtra : 367 + bottomExtra - topExtra
     viewport := panel.Add("Text", "x" px(viewX) " y" px(viewY)
         . " w" px(viewWidth) " h" px(viewHeight)
         . (compactLayout ? " Background171008" : " BackgroundC5A45C"))
@@ -532,7 +532,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)
             . " w" px(viewWidth - 4) " h" px(viewHeight - 4) " Background171008")
     firstY := px(compactLayout ? 178 + topExtra : 170 + topExtra)
-    bottomY := px(compactLayout ? (fixedEarlier ? 373 : 480) + topExtra + bottomExtra : 516 + bottomExtra)
+    bottomY := px(compactLayout ? (fixedEarlier ? 309 : 480) + topExtra + bottomExtra : 516 + bottomExtra)
     left := px(compactLayout ? 40 : 42)
     width := px(compactLayout ? 507 : 686)
     panel.SetFont(UpdateNoteFont("body", premium, compactLayout, scale), UpdateNoteFontFace("body", premium))
@@ -570,7 +570,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     ; Previously the compact track began at 176 while the top arrow ran
     ; from 169 to 191, painting a duplicate-looking arrow over the thumb.
     arrowTopY := compactLayout ? 169 + topExtra : 163 + topExtra
-    arrowBottomY := compactLayout ? (fixedEarlier ? 348 : 470) + topExtra + bottomExtra : 500 + bottomExtra
+    arrowBottomY := compactLayout ? (fixedEarlier ? 284 : 470) + topExtra + bottomExtra : 500 + bottomExtra
     trackY := px(arrowTopY + 25)
     trackHeight := Max(1, px(arrowBottomY - 3) - trackY)
     thumbX := px(compactLayout ? 565 : 750)
