@@ -2445,6 +2445,10 @@ expect(
     and 'rowTop := Max(rowTop, headingY + headingHeight + Max(3, px(10)))' in update_dialogs
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
+    and 'RegisterMissedUpdateCursorTarget(rows[slot], page, slot)' in update_dialogs
+    and 'UnregisterMissedUpdateCursorTarget(rows[slot])' in update_dialogs
+    and 'IsMissedUpdateCursorTarget(handle)' in update_dialogs
+    and 'IsLauncherFooterUpdateCursorTarget(handle)' in update_check
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badges.Push(badge)' in update_dialogs
     and 'preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)' in update_dialogs
@@ -2456,6 +2460,10 @@ expect(
     and 'clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),' in update_dialogs
     and 'markReadY := px(528 + topExtra + bottomExtra)' in update_dialogs
     and '"Mark Read", ClearMissedUpdateBadges.Bind(page)' in update_dialogs
+    and 'UpdateMissedUpdateMarkReadLabel(page)' in update_dialogs
+    and 'unread > 1 ? "Mark All Read" : "Mark Read"' in update_dialogs
+    and 'PaintButtonNow(page.ClearButton.Hwnd)' in update_dialogs
+    and 'One remaining unread release must display Mark Read' in launcher_smoke_tests
     and 'observer.Clear.Visible || scrolledClearY != originalClearY' in launcher_smoke_tests
     and 'ClearMissedUpdateBadges(page, *)' in update_dialogs
     and 'MarkMissedUpdateItemRead(page, item)' in update_dialogs
