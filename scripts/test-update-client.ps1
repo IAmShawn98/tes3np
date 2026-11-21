@@ -91,7 +91,7 @@ Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVer
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
 # second metadata row reflows the notes, actions and gold frame as one unit.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 600, 556 \+ notesSpace\)' 'real production update preview has space for complete notes' $dialogSource
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Update Preview", 600, 556 \+ notesSpace\)' 'real production update preview has space for complete notes' $dialogSource
 Require-Source 'notesSpace := 100' 'upper changelog is taller without overlapping earlier updates' $dialogSource
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'production popup uses actual launcher scale rather than an 81.5% miniature' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
