@@ -919,6 +919,7 @@ CheckDisplaySettingsAndReleaseNotes()
     CheckCircularUpdateBadgeRendering()
     CheckExpandablePublishedPreviewViewport()
     CheckCompactPublishedPreviewViewport()
+    CheckMissedUpdateLinkViewport()
     try FileAppend("PASS: live display refresh and reset, loading cleanup, readable release-note rows, and version metadata layout at 50 and 100 percent" Chr(10), "*")
 }
 
@@ -1216,6 +1217,86 @@ CheckCompactPublishedPreviewViewport()
         }
     }
     try FileAppend("PASS: full-height production preview and draft hotfix clipping at 41, 50, 82 and 100 percent" Chr(10), "*")
+}
+
+; Verify one, three, and many published update links at the actual native
+; preview scales. These disposable versions never reach GitHub or the updater.
+CheckMissedUpdateLinkViewport()
+{
+    for count in [1, 3, 7]
+    {
+        records := []
+        Loop count
+        {
+            version := "0.1.21-alpha." (count - A_Index + 1)
+            records.Push({Version: version, Label: "v" version,
+                Hotfix: true, Notes: "### Bug Fixes`n- A verified test note."})
+        }
+        sections := BuildPublishedPreviewSections(records)
+        if sections.MissedVersions.Length != count
+            throw Error("Missed-updates list excludes the newest version or drops an earlier one.")
+        if sections.MissedVersions[1].Version != records[1].Version
+            || sections.MissedVersions[count].Version != records[count].Version
+            throw Error("Missed versions do not preserve newest-first order.")
+        for record in sections.MissedVersions
+            if record.Url != "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version
+                throw Error("Missed update does not link to its exact GitHub release tag.")
+        for percent in [41, 50, 82, 100]
+        {
+            scale := percent / 100
+            panel := Gui("-DPIScale", "Missed updates viewport smoke")
+            observer := {}
+            unregister := 0
+            try
+            {
+                ScaleOwnedMenuContent(panel, scale)
+                unregister := AddMissedUpdateLinks(panel, sections.MissedVersions,
+                    scale, 0, 100, observer)
+                if !IsObject(observer.Refresh) || observer.Rows.Length != 3
+                    throw Error("Missed-updates viewport did not initialize its rows.")
+                visible := 0
+                for row in observer.Rows
+                {
+                    if !row.Visible
+                        continue
+                    visible += 1
+                    row.GetPos(&x, &y, &width, &height)
+                    if x < Round(48 * scale) - 1
+                        || x + width > Round(544 * scale) + 1
+                        || y < Round(520 * scale) - 1
+                        || y + height > Round(586 * scale) + 1
+                        || !ReleaseNoteFits(row, row.Text, width)
+                        throw Error("A missed-update hyperlink clips or escapes its fixed gold frame.")
+                }
+                if visible != Min(3, count)
+                    throw Error("Missed-updates list shows the wrong number of visible links.")
+                if (observer.Track.Visible || observer.Thumb.Visible) != (count > 3)
+                    throw Error("Missed-updates scrollbar must appear only for more than three versions.")
+                if count > 3
+                {
+                    observer.Page.Offset := observer.Page.MaxOffset
+                    observer.Refresh.Call()
+                    foundLast := false
+                    for row in observer.Rows
+                        if row.Visible && row.Text = sections.MissedVersions[count].Label
+                            foundLast := true
+                    if !foundLast
+                        throw Error("Scrolling missed updates cannot reach the oldest omitted version.")
+                    observer.Track.GetPos(, &trackY, , &trackHeight)
+                    observer.Thumb.GetPos(, &thumbY, , &thumbHeight)
+                    if thumbY < trackY || thumbY + thumbHeight > trackY + trackHeight
+                        throw Error("Missed-updates scrollbar thumb escapes the track.")
+                }
+            }
+            finally
+            {
+                if IsObject(unregister)
+                    unregister()
+                panel.Destroy()
+            }
+        }
+    }
+    try FileAppend("PASS: missed-update GitHub links fit and scroll for 1, 3 and 7 versions at 41-100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
