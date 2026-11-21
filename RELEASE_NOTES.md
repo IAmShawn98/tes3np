@@ -7,7 +7,6 @@ Changes since the last public release, v0.1.21-alpha.
 ### New Features
 
 - **Update notifications:** See a red (1) when an update is available and a gold dot after viewing it.
-- **Update history:** View release notes and hotfixes you've missed before updating.
 
 ### Improvements
 
