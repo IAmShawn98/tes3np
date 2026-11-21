@@ -34,18 +34,19 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     closeNotes := 0
     try
     {
-        preview.SetFont("s16 Bold cE7BE70", "Georgia")
+        preview.SetFont(kind = "hotfix" ? "s16 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
 
         ; Narrow gold metadata ribbon. Each natural-size label is measured so
         ; long future versions reflow rather than collide with Channel.
-        preview.Add("Text", "x20 y53 w560 h36 BackgroundC5A45C")
+        metadataBorder := preview.Add("Text", "x20 y53 w560 h36 BackgroundC5A45C")
         metadataFill := preview.Add("Text", "x22 y55 w556 h32 Background21170F")
         rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel, true)
         if rowExtra
         {
+            metadataBorder.Move(, , , 36 + rowExtra)
             metadataFill.Move(, , , 32 + rowExtra)
             GrowGoldNativePrompt(preview, rowExtra)
         }
