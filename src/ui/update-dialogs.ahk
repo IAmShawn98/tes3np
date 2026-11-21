@@ -174,7 +174,8 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
         . " w" px(531) " h" (bottomLimit - rowTop) " Background171008")
     page := {Items: versions, Offset: 1, VisibleRows: 4,
-        Total: versions.Length, MaxOffset: 1, State: state, Refresh: 0}
+        Total: versions.Length, MaxOffset: 1, State: state, Refresh: 0,
+        Closed: false}
     rows := [], prefixes := [], badges := []
     for slot in [1, 2, 3, 4]
     {
@@ -221,7 +222,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         . " h" trackHeight " Background704C27 +0x100")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth
         . " h" px(22) " BackgroundC69951 +0x100")
-    drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
+    drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0, PanelHwnd: panel.Hwnd}
 
     refresh(*)
     {
@@ -299,8 +300,8 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         observer.Down := down
         observer.Refresh := refresh
     }
-    wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
-    dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
+    wheelCallback := UpdateNotesMouseWheel.Bind(viewport.Hwnd, page, refresh)
+    dragStartCallback := StartUpdateNotesDrag.Bind(panel.Hwnd, thumb.Hwnd, track.Hwnd, drag, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
     try OnMessage(0x020A, wheelCallback, 1)
     catch
@@ -309,20 +310,21 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         throw
     }
     track.OnEvent("Click", JumpMissedUpdateList.Bind(page, track, refresh))
+    cursorHandles := []
     for slot in [1, 2, 3, 4]
     {
-        RegisterMissedUpdateCursorTarget(prefixes[slot], page, slot)
-        RegisterMissedUpdateCursorTarget(rows[slot], page, slot)
-        RegisterMissedUpdateCursorTarget(badges[slot], page, slot)
+        for control in [prefixes[slot], rows[slot], badges[slot]]
+        {
+            RegisterMissedUpdateCursorTarget(control, page, slot)
+            cursorHandles.Push(control.Hwnd)
+        }
     }
     unregister()
     {
-        for slot in [1, 2, 3, 4]
-        {
-            UnregisterMissedUpdateCursorTarget(prefixes[slot])
-            UnregisterMissedUpdateCursorTarget(rows[slot])
-            UnregisterMissedUpdateCursorTarget(badges[slot])
-        }
+        page.Closed := true
+        ; Clean the numeric HWND keys without reading a destroyed control.
+        for handle in cursorHandles
+            UnregisterMissedUpdateCursorTarget(handle)
         OnMessage(0x020A, wheelCallback, 0)
         OnMessage(0x0201, dragStartCallback, 0)
         if drag.Active
@@ -341,11 +343,11 @@ RegisterMissedUpdateCursorTarget(control, page, slot)
     MissedUpdateCursorTargets[control.Hwnd] := {Page: page, Slot: slot}
 }
 
-UnregisterMissedUpdateCursorTarget(control)
+UnregisterMissedUpdateCursorTarget(handle)
 {
     global MissedUpdateCursorTargets
-    if MissedUpdateCursorTargets.Has(control.Hwnd)
-        MissedUpdateCursorTargets.Delete(control.Hwnd)
+    if MissedUpdateCursorTargets.Has(handle)
+        MissedUpdateCursorTargets.Delete(handle)
 }
 
 IsMissedUpdateCursorTarget(handle)
@@ -355,6 +357,8 @@ IsMissedUpdateCursorTarget(handle)
         return false
     target := MissedUpdateCursorTargets[handle]
     page := target.Page
+    if page.Closed
+        return false
     index := page.Offset + target.Slot - 1
     if target.Slot > page.VisibleRows || index < 1 || index > page.Total
         return false
