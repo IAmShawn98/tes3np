@@ -157,17 +157,17 @@ SetUpdateNoteTabLabels(tabs)
 PaintGoldUpdateDialogButtons(panel)
 {
     global ButtonFaces
-    if !IsObject(panel) || !DllCall("user32\\IsWindowVisible", "Ptr", panel.Hwnd, "Int")
+    if !IsObject(panel) || !DllCall("user32\IsWindowVisible", "Ptr", panel.Hwnd, "Int")
         return
     ; First commit native layout and parent/child invalidations in z-order.
     ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW
-    DllCall("user32\\RedrawWindow", "Ptr", panel.Hwnd, "Ptr", 0, "Ptr", 0,
+    DllCall("user32\RedrawWindow", "Ptr", panel.Hwnd, "Ptr", 0, "Ptr", 0,
         "UInt", 0x0181, "Int")
     ; These buttons are owner/subclass painted; draw each visible HWND now
     ; so a missed initial WM_PAINT cannot leave its face blank.
     for handle, face in ButtonFaces
         if face.Window = panel.Hwnd && !face.HasOwnProp("IsLabel")
-            && DllCall("user32\\IsWindowVisible", "Ptr", handle, "Int")
+            && DllCall("user32\IsWindowVisible", "Ptr", handle, "Int")
             PaintButtonNow(handle)
 }
 
