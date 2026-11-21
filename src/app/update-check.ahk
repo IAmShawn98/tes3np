@@ -36,7 +36,8 @@ CreateLauncherUpdateBadge()
     ; into Gui.Add would apply DPI scaling again and leave a large gap.
     LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
     x := labelX + labelWidth + 4
-    LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 Center BackgroundTrans", "(1)")
+    ; Left alignment keeps a single viewed dot as close to the caption as (1).
+    LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 BackgroundTrans", "(1)")
     LauncherUpdateBadge.SetFont("s10 Bold cD63232", "Segoe UI")
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateBadge.Visible := false
@@ -48,17 +49,26 @@ ScaleLauncherVersionLabel(scale)
 
     if IsObject(LauncherVersionLabel)
         LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
-    if IsObject(LauncherUpdateBadge)
-    {
-        color := LauncherUpdateBadge.Text = "(1)" ? "D63232" : "8F806F"
-        LauncherUpdateBadge.SetFont("s" Max(6, Round(10 * scale)) " Bold c" color, "Segoe UI")
-    }
+    ApplyLauncherBadgeFont(scale)
+}
+
+; Keep unread (1) red, but make the viewed indicator visible on the
+; dark, textured footer. The solid circle needs no centering offset.
+ApplyLauncherBadgeFont(scale)
+{
+    global LauncherUpdateBadge
+    if !IsObject(LauncherUpdateBadge)
+        return
+    unread := LauncherUpdateBadge.Text = "(1)"
+    size := Max(6, Round((unread ? 10 : 12) * scale))
+    color := unread ? "D63232" : "E0C27F"
+    LauncherUpdateBadge.SetFont("s" size " Bold c" color, "Segoe UI")
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
     global AppConfig, LauncherUpdateBadge, LauncherVersionLabel, LauncherUpdateDismissedVersion
-    global LauncherBadgeTestMode, LauncherBadgeTestState
+    global LauncherBadgeTestMode, LauncherBadgeTestState, LauncherScale
 
     if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
         return
@@ -80,11 +90,11 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
     }
     unseen := LauncherBadgeTestMode ? LauncherBadgeTestState = "unread"
         : latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
-    nextText := unseen ? "(1)" : Chr(0x2022)
+    nextText := unseen ? "(1)" : Chr(0x25CF)
     if !wasVisible || LauncherUpdateBadge.Text != nextText
     {
         LauncherUpdateBadge.Text := nextText
-        LauncherUpdateBadge.SetFont(unseen ? "cD63232" : "c8F806F", "Segoe UI")
+        ApplyLauncherBadgeFont(LauncherScale / 100)
         LauncherUpdateBadge.Visible := true
         RedrawLauncherUpdateBadge()
     }
