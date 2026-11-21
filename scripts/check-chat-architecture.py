@@ -2391,9 +2391,12 @@ expect(
     and 'innerWidth := Max(1, Round(diameter * 0.90))' in update_check
     and 'innerHeight := innerWidth' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateNumber)' in update_check
+    and 'y694 w14 h11 Center +0x200 BackgroundTrans' in update_check
+    and 'y694 w14 h11 Center +0x200 BackgroundD63232' not in update_check
     and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
     and 'if width > 30' in launcher_smoke_tests
     and 'ShapeCircularUpdateBadge(number)' in launcher_smoke_tests
+    and 'Center +0x200 BackgroundTrans", "24"' in launcher_smoke_tests
     and 'Unread numeral overlay region is not circular.' in launcher_smoke_tests
     and 'badge := panel.Add("Picture"' in launcher_smoke_tests
     and 'assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir' in launcher_smoke_tests
