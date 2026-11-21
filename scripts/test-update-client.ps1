@@ -248,6 +248,10 @@ Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact update indicator exists'
 Require-Source 'LauncherUpdateBadge\.Text := unseen \? "\(1\)" : Chr\(0x2022\)' 'unread and viewed states share one indicator'
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indicator reopens the optional updater'
+# The automatic preview is reached only when a newer published version appears.
+# Validate the actual Win32 function name; a doubled backslash is not a DLL entry point.
+Require-Source 'if !IsObject\(LauncherGui\) \|\| !DllCall\("user32\\IsWindowVisible"' 'automatic update preview uses valid native visibility check'
+if ($source.Contains('"user32\\\\IsWindowVisible"')) { throw 'Automatic preview must not use a doubled Win32 function separator.' }
 if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must not replace the footer version.' }
 Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
 Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
