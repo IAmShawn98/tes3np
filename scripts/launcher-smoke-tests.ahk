@@ -1301,7 +1301,7 @@ CheckCenteredCompactUpdateMetadata()
                 item.Channel, true)
             if extra != 0
                 throw Error("Compact Installed | Latest | Channel must stay on one line.")
-            labels := [], separators := []
+            textParts := [], separators := []
             for control in panel
             {
                 control.GetPos(&x, &y, &width, &height)
@@ -1314,33 +1314,44 @@ CheckCenteredCompactUpdateMetadata()
                     throw Error("Compact metadata clipped or wrapped onto another line.")
                 if !ReleaseNoteFits(control, control.Text, width)
                     throw Error("Compact metadata text was truncated.")
-                labels.Push({X: x, Right: x + width, Y: y, Bottom: y + height})
+                textParts.Push({Text: control.Text, X: x, Y: y,
+                    Right: x + width, Bottom: y + height})
             }
-            if labels.Length != 3 || separators.Length != 2
-                throw Error("Compact preview needs all three captions and two gold dividers.")
-            visualCenter := (labels[1].X + labels[3].Right) / 2
+            if textParts.Length != 6 || separators.Length != 2
+                throw Error("Compact preview requires three separately colored label/value pairs and two dividers.")
+            expectedLabels := ["Installed:", "Latest:", "Channel:"]
+            expectedValues := ["v" item.Installed, "v" item.Latest, item.Channel]
+            fields := []
+            Loop 3
+            {
+                label := textParts[2 * A_Index - 1]
+                value := textParts[2 * A_Index]
+                if label.Text != expectedLabels[A_Index] || value.Text != expectedValues[A_Index]
+                    throw Error("Compact label/value texts do not match the reference.")
+                if label.Y != value.Y || value.X - label.Right != 3
+                    throw Error("Gold metadata labels must align directly before their ivory values.")
+                fields.Push({X: label.X, Right: value.Right})
+            }
+            visualCenter := (fields[1].X + fields[3].Right) / 2
             if Abs(visualCenter - 300) > 2
                 throw Error("Installed/Latest/Channel are not centered together.")
-            if labels[1].Right >= labels[2].X
-                || labels[2].Right >= labels[3].X
-                throw Error("Compact metadata fields overlap.")
-            ; The approved ribbon keeps at least 28px of content padding
-            ; inside its x20..580 gold frame and comfortable divider gaps.
-            if labels[1].X < 48 || labels[3].Right > 552
+            if fields[1].X < 48 || fields[3].Right > 552
                 throw Error("Compact metadata lost its balanced side padding.")
+            if fields[1].Right >= fields[2].X || fields[2].Right >= fields[3].X
+                throw Error("Compact metadata fields overlap.")
             for sep in separators
                 if sep.Y != 64 || sep.Width != 1 || sep.Height != 18
                     throw Error("Gold column divider not aligned with metadata.")
-            if separators[1].X - labels[1].Right < 8
-                || labels[2].X - (separators[1].X + 1) < 8
-                || separators[2].X - labels[2].Right < 8
-                || labels[3].X - (separators[2].X + 1) < 8
+            if separators[1].X - fields[1].Right < 8
+                || fields[2].X - (separators[1].X + 1) < 8
+                || separators[2].X - fields[2].Right < 8
+                || fields[3].X - (separators[2].X + 1) < 8
                 throw Error("Gold separators need visible breathing room on both sides.")
         }
         finally
             panel.Destroy()
     }
-    try FileAppend("PASS: Installed | Latest | Channel on one centered line with two gold separators" Chr(10), "*")
+    try FileAppend("PASS: gold metadata labels and ivory values, centered with safe dividers" Chr(10), "*")
 }
 
 ; Exercise the update handshake without launching the UI or writing AppData.
