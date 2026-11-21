@@ -13,7 +13,7 @@ Changes since the last public release, v0.1.21-alpha.
 - **Launcher updates:** Review changes before choosing **Update Now** or **Not Now**. Downloads and installation still require confirmation.
 - **Expansion Pack:** Recognize an existing official pack without reinstalling it when verification records are missing.
 
-### Hotfixes
+### Bug Fixes
 
 - **Expansion Pack:** Fixed an issue that could prevent disabling the pack when verification failed.
 

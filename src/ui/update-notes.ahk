@@ -188,13 +188,15 @@ BuildInstalledVersionNotes(records)
     return result != "" ? result : "Release notes are unavailable. See GitHub Releases."
 }
 
-NoteCategoryName(heading, isHotfix)
+NoteCategoryName(heading)
 {
     switch heading {
-        case "New Features", "Improvements", "Removed Features", "Hotfixes":
+        case "New Features", "Improvements", "Removed Features":
             return heading
-        case "Bug Fixes", "Fixed":
-            return isHotfix ? "Hotfixes" : "Bug Fixes"
+        ; Historical release notes may use "Hotfixes". Keep their content,
+        ; but display all fixes under Bug Fixes: "hotfix" is a release type.
+        case "Bug Fixes", "Fixed", "Hotfixes":
+            return "Bug Fixes"
         case "Install":
             return ""
         default:
@@ -205,7 +207,7 @@ NoteCategoryName(heading, isHotfix)
 ; Preserve each change's original category and show its source version/date.
 BuildCategorizedUpdateNotes(records, includeVersionHeadings := true)
 {
-    order := ["New Features", "Improvements", "Bug Fixes", "Hotfixes",
+    order := ["New Features", "Improvements", "Bug Fixes",
         "Removed Features", "Other Changes"]
     combined := Map()
     for category in order
@@ -218,7 +220,7 @@ BuildCategorizedUpdateNotes(records, includeVersionHeadings := true)
         for rawLine in StrSplit(StrReplace(record.Notes, "`r", ""), "`n") {
             line := Trim(rawLine)
             if RegExMatch(line, "^###[ `t]+(.+)$", &heading) {
-                current := NoteCategoryName(heading[1], record.Hotfix)
+                current := NoteCategoryName(heading[1])
                 continue
             }
             if current = ""

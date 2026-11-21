@@ -66,8 +66,9 @@ repository owner's approval to publish.
 Use [RELEASE_NOTES.md](../RELEASE_NOTES.md) for player-visible changes since
 the previous public release. Retain published entries. Use a version heading
 and order the applicable categories as New Features, Improvements, Bug Fixes,
-Hotfixes, and Removed Features. A hotfix may contain new features and
-improvements as well as fixes. The launcher and publisher use this file.
+and Removed Features. A hotfix may contain new features and improvements as
+well as fixes. The version itself identifies a hotfix; there is no separate
+Hotfixes change category. The launcher and publisher use this file.
 
 ## Categorized release notes and hotfixes (v0.1.21-alpha.1 onward)
 
@@ -87,18 +88,20 @@ improvements as well as fixes. The launcher and publisher use this file.
   Either the version or indicator opens the optional updater; dismissing a
   preview never installs files.
 - The update preview shows **only missed published changes**, categorized
-  as New Features, Improvements, Bug Fixes, Hotfixes, or Removed Features.
-  Fixes introduced by a hotfix belong under Hotfixes, even when that hotfix
-  also introduces new features or improvements. Changes retain their original
-  release version and publication date, newest first within each category.
+  as New Features, Improvements, Bug Fixes, or Removed Features.
+  Fixes introduced by a hotfix belong under Bug Fixes, even when that hotfix
+  also introduces new features or improvements. An older published release
+  may use the historical Hotfixes heading; the launcher displays its entries
+  under Bug Fixes without rewriting the published source. Changes retain their
+  original release version and publication date, newest first within each category.
   There are no separate tabs in the launcher preview.
 - After installation, Version Status displays one **cumulative changelog**
   for that installed base release and all installed hotfixes, grouped by
   installed version instead of interleaving the original and hotfix changes.
   The latest installed hotfix comes first, followed by earlier installed
   hotfixes (newest first), then the Base Release. Each version has its own
-  categorized New Features, Improvements, Bug Fixes, Hotfixes or Removed
-  Features as applicable. No extra tabs are introduced. The bundled changelog is used offline; missing
+  categorized New Features, Improvements, Bug Fixes, or Removed Features
+  as applicable. No extra tabs are introduced. The bundled changelog is used offline; missing
   required installed sections are shown as unavailable rather than silently
   omitted. No future/uninstalled changes appear in this view.
 - Unverified, incomplete, or unpublished update history must be labeled

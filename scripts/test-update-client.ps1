@@ -165,6 +165,9 @@ Require-Source 'Loop info.Hotfix \+ 1' 'installed cumulative notes include every
 Require-Source 'return BuildInstalledVersionNotes\(records\)' 'installed history groups hotfixes above the base release' $notesSource
 Require-Source 'details := BuildCategorizedUpdateNotes\(\[record\], false\)' 'installed version groups retain category headings without duplicate version captions' $notesSource
 Require-Source 'BuildCategorizedUpdateNotes\(records, includeVersionHeadings := true\)' 'published preview preserves categorized version headings' $notesSource
+Require-Source 'case "Bug Fixes", "Fixed", "Hotfixes":' 'legacy Hotfixes sections render under Bug Fixes' $notesSource
+Require-Source 'return "Bug Fixes"' 'hotfix fixes use the normal Bug Fixes category' $notesSource
+Require-Source 'InStr\(stacked, "### Hotfixes"\)' 'compiled smoke forbids a redundant Hotfixes category' $badgeHarness
 Require-Source 'ReadBundledVersionNotes\(entryVersion\)' 'installed notes use offline bundled source' $notesSource
 Require-Source 'if number = 0\s*notes := ReadPublishedVersionNotes\(base\)' 'original release has an online fallback' $notesSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'existing original notes remain available offline' $notesSource
@@ -238,7 +241,7 @@ $playerNotes = $section.Groups[1].Value
 if ($playerNotes -match '(?i)commit [0-9a-f]{7}|regression contract|source checks|github actions|fixture|pending windows|source-only|build transcript') {
     throw 'Internal engineering details must not appear in player-facing release notes.'
 }
-$categories = @('New Features', 'Improvements', 'Bug Fixes', 'Hotfixes', 'Removed Features')
+$categories = @('New Features', 'Improvements', 'Bug Fixes', 'Removed Features')
 $found = @([regex]::Matches($playerNotes, '(?m)^### ([^\r\n]+)') | ForEach-Object { $_.Groups[1].Value })
 $ordered = @($categories | Where-Object { $_ -in $found })
 if (!$found.Count -or ($found -join '|') -ne ($ordered -join '|')) {
