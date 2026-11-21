@@ -242,7 +242,9 @@ Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(1
 Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
 Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
-Require-Source 'preview.SetFont\("s8 Underline cF5C96E", "Segoe UI"\)' 'earlier updates link is compact and readable' $dialogSource
+Require-Source 'preview.SetFont\("s9 Underline cF5C96E", "Segoe UI"\)' 'earlier updates link is compact and readable' $dialogSource
+Require-Source 'scale := Min\(0\.815 \* GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'preview matches 489x453 reference while obeying launcher scale' $dialogSource
+Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 373 : 480\)' 'notes use almost the full upper-card height without crossing the gold divider' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
 Require-Source 'ReleaseNoteFits\(control, remaining, maxWidth\)' 'pixel-width line fitting' $notesSource
 Require-Source '#Include src\\ui\\update-notes\.ahk' 'release notes module is included by the launcher' $entry

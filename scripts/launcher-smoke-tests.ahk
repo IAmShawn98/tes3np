@@ -1073,7 +1073,7 @@ CheckCompactPublishedPreviewViewport()
         || !InStr(sections.Latest, "New Features")
         || InStr(sections.Latest, "Previous sample improvement.")
         throw Error("Compact preview latest/earlier data contract changed.")
-    for percent in [50, 100]
+    for percent in [41, 50, 82, 100]
     {
         scale := percent / 100
         panel := Gui("-DPIScale", "Compact preview viewport regression")
@@ -1105,7 +1105,7 @@ CheckCompactPublishedPreviewViewport()
                 throw Error("Compact preview scroll-down control is missing.")
             ; Full-sized initial preview must show the first heading and last
             ; fix simultaneously, with no orphan scrollbar when content fits.
-            if percent = 100
+            if percent = 82 || percent = 100
             {
                 seenFirst := false, seenLast := false
                 for row in panel
@@ -1153,7 +1153,7 @@ CheckCompactPublishedPreviewViewport()
             DestroyScaledMenu(panel)
         }
     }
-    try FileAppend("PASS: reference-sized compact preview scroll and pinned summary bounds at 50 and 100 percent" Chr(10), "*")
+    try FileAppend("PASS: reference-sized compact preview first-to-last notes and scrolling at 41, 50, 82 and 100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
