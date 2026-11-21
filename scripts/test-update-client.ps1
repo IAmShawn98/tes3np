@@ -439,9 +439,9 @@ Require-Source 'IniWrite\(latest, DataFile, "Updates", "LastAutoPreviewVersion"\
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
 Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind\)' 'release preview has only production parameters' $dialogSource
 Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'category formatter reads only published history' $notesSource
-Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'real Update Now remains available' $dialogSource
+Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'real Update Now remains available' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'Update Now enters the existing confirmation-gated updater' $dialogSource
-Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'Not Now leaves the updater unchanged' $dialogSource
+Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now leaves the updater unchanged' $dialogSource
 Require-Source 'SetTimer\(CheckForUpdateAvailability, -250\)' 'normal update polling starts' $bootstrapSource
 Require-Source 'SetTimer\(OfferDesktopShortcutOnFirstLaunch, -1800\)' 'normal first-run prompt restored' $bootstrapSource
 if ($source -match 'LauncherBadgeTest|LauncherHistoryTest|HandleLauncherHistoryTest|ShowLauncherHistoryTestPreview' -or
