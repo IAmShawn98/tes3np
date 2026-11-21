@@ -81,12 +81,16 @@ Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
 Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
 
-# Keep version values readable next to their labels. Combined text wraps the
-# versions onto a clipped second line in the three-column metadata row.
-Require-Source 'x30 y94 w77 h24 BackgroundTrans", "Installed:"' 'installed metadata label is separate' $dialogSource
-Require-Source 'x109 y94 w125 h24 BackgroundTrans", "v" installedVersion' 'installed version has its own visible control' $dialogSource
-Require-Source 'x238 y94 w61 h24 BackgroundTrans", "Latest:"' 'latest metadata label is separate' $dialogSource
-Require-Source 'x301 y94 w138 h24 BackgroundTrans", "v" latestVersion' 'latest version has its own visible control' $dialogSource
+# Keep version fields in separate, sized text controls with enough room
+# between the three groups to avoid clipping or drawing over other labels.
+Require-Source 'x30 y94 w90 h24 BackgroundTrans", "Installed:"' 'installed metadata label is separate' $dialogSource
+Require-Source 'x123 y94 w147 h24 BackgroundTrans", "v" installedVersion' 'installed version has its own visible control' $dialogSource
+Require-Source 'x291 y94 w70 h24 BackgroundTrans", "Latest:"' 'latest metadata label has room' $dialogSource
+Require-Source 'x371 y94 w167 h24 BackgroundTrans", "v" latestVersion' 'latest version has its own visible control' $dialogSource
+Require-Source 'x555 y94 w215 h24 BackgroundTrans", "Channel: "' 'channel occupies a separate metadata column' $dialogSource
+if ((123 + 147) -ge 291 -or (371 + 167) -ge 555) {
+    throw 'Update preview metadata columns must not overlap.'
+}
 if ($dialogSource.Contains('"Installed: v" installedVersion') -or
     $dialogSource.Contains('"Latest: v" latestVersion')) {
     throw 'Update preview versions must not wrap into a clipped second line.'
