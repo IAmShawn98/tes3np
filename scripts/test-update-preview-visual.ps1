@@ -55,6 +55,7 @@ try {
     $requiredArt = @(
         'controls\button.png',
         'controls\scroll-panel.png',
+        'controls\update-badge.png',
         'backgrounds\character-book.png',
         'backgrounds\launcher.png',
         'headings\quest.png',

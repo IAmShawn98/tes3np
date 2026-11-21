@@ -915,6 +915,7 @@ CheckDisplaySettingsAndReleaseNotes()
         }
     }
     CheckUpdatePreviewMetadataLayout()
+    CheckCenteredCompactUpdateMetadata()
     CheckCircularUpdateBadgeRendering()
     CheckExpandablePublishedPreviewViewport()
     CheckCompactPublishedPreviewViewport()
@@ -1220,6 +1221,50 @@ CheckUpdatePreviewMetadataLayout()
         finally
             metadataPanel.Destroy()
     }
+}
+
+; Use real AHK Text measurement to ensure reference-size update metadata is
+; centered as one group with padding and cannot overlap a neighboring field.
+CheckCenteredCompactUpdateMetadata()
+{
+    cases := [
+        {Installed: "0.1.21-alpha", Latest: "0.1.21-alpha.3", Channel: "alpha"},
+        {Installed: "0.1.22-alpha.10", Latest: "0.1.23-alpha.100", Channel: "alpha"}
+    ]
+    for item in cases
+    {
+        panel := Gui("-DPIScale")
+        try
+        {
+            extra := AddUpdatePreviewMetadata(panel, item.Installed, item.Latest,
+                item.Channel, true)
+            labels := []
+            for control in panel
+                if control.Text != ""
+                {
+                    control.GetPos(&x, &y, &width, &height)
+                    if x < 44 || x + width > 556 || height != 26
+                        throw Error("Compact metadata clipped despite padded ribbon.")
+                    if !ReleaseNoteFits(control, control.Text, width)
+                        throw Error("Compact metadata text was truncated.")
+                    labels.Push({X: x, Right: x + width, Y: y, Bottom: y + height})
+                }
+            if labels.Length != 3
+                throw Error("Compact preview metadata lost one of its fields.")
+            if extra = 0
+            {
+                visualCenter := (labels[1].X + labels[3].Right) / 2
+                if Abs(visualCenter - 300) > 2
+                    throw Error("Installed/Latest/Channel are not centered together.")
+                if labels[1].Right >= labels[2].X
+                    || labels[2].Right >= labels[3].X
+                    throw Error("Compact metadata fields overlap.")
+            }
+        }
+        finally
+            panel.Destroy()
+    }
+    try FileAppend("PASS: compact Installed/Latest/Channel captions centered with symmetric padding" Chr(10), "*")
 }
 
 ; Exercise the update handshake without launching the UI or writing AppData.

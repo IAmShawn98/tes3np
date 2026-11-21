@@ -41,13 +41,13 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 
         ; Narrow gold metadata ribbon. Each natural-size label is measured so
         ; long future versions reflow rather than collide with Channel.
-        metadataBorder := preview.Add("Text", "x20 y53 w560 h36 BackgroundC5A45C")
-        metadataFill := preview.Add("Text", "x22 y55 w556 h32 Background21170F")
+        metadataBorder := preview.Add("Text", "x20 y53 w560 h40 BackgroundC5A45C")
+        metadataFill := preview.Add("Text", "x22 y55 w556 h36 Background21170F")
         rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel, true)
         if rowExtra
         {
-            metadataBorder.Move(, , , 36 + rowExtra)
-            metadataFill.Move(, , , 32 + rowExtra)
+            metadataBorder.Move(, , , 40 + rowExtra)
+            metadataFill.Move(, , , 36 + rowExtra)
             GrowGoldNativePrompt(preview, rowExtra)
         }
 
@@ -67,9 +67,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
             latestTitle.Move(40, 139 + rowExtra, Min(naturalTitleWidth + 4, 484), 28)
             ; Place the round notification immediately after the latest
             ; version, not at a fixed far-right position.
-            preview.SetFont("s10 Bold cFFFFFF", "Segoe UI")
-            latestBadge := preview.Add("Text", "x" Min(537, 50 + naturalTitleWidth)
-                . " y" (144 + rowExtra) " w20 h20 Center +0x200 BackgroundD63232", "1")
+            latestBadge := preview.Add("Picture", "x" Min(537, 50 + naturalTitleWidth)
+                . " y" (144 + rowExtra) " w20 h20 BackgroundTrans",
+                A_ScriptDir "\assets\controls\update-badge.png")
         }
 
         noteSwitcher := {Update: 0}
@@ -124,8 +124,6 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
             noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0)
-        if notes.Title != ""
-            ShapeCircularUpdateBadge(latestBadge)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
@@ -147,9 +145,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
     panel.SetFont(compact ? "s9 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
-    baseX := compact ? 40 : 30
+    baseX := compact ? 44 : 30
     labelY := compact ? 61 : 80
-    rightEdge := compact ? 568 : 770
+    rightEdge := compact ? 556 : 770
     ; AHK only auto-sizes a Text control reliably to its caption when
     ; neither width nor height is specified. Setting h26 at creation made
     ; GetPos return a narrow default width and truncated Installed metadata.
@@ -168,26 +166,38 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
     installed.Move(, , installedWidth, 26)
     latest.Move(, , latestWidth, 26)
     channelText.Move(, , channelWidth, 26)
-    gap := compact ? 14 : 18
+    gap := compact ? 22 : 18
+    fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap
+    availableWidth := rightEdge - baseX
+    if compact && fullWidth <= availableWidth
+        baseX := Round((600 - fullWidth) / 2)
     latestX := baseX + installedWidth + gap
     channelX := latestX + latestWidth + gap
     if channelX + channelWidth <= rightEdge
     {
+        installed.Move(baseX, labelY)
         latest.Move(latestX, labelY)
         channelText.Move(channelX, labelY)
-        panel.Add("Text", "x" (latestX - 9) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
-        panel.Add("Text", "x" (channelX - 9) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
+        separatorOffset := Floor(gap / 2)
+        panel.Add("Text", "x" (latestX - separatorOffset) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
+        panel.Add("Text", "x" (channelX - separatorOffset) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
         return 0
     }
+    pairWidth := installedWidth + latestWidth + gap
+    if compact && pairWidth <= availableWidth
+        baseX := Round((600 - pairWidth) / 2)
+    latestX := baseX + installedWidth + gap
     if latestX + latestWidth <= rightEdge
     {
+        installed.Move(baseX, labelY)
         latest.Move(latestX, labelY)
-        channelText.Move(baseX, labelY + 32)
-        panel.Add("Text", "x" (latestX - 9) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
+        channelText.Move(compact ? Round((600 - channelWidth) / 2) : baseX, labelY + 32)
+        panel.Add("Text", "x" (latestX - Floor(gap / 2)) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
         return 32
     }
-    latest.Move(baseX, labelY + 32)
-    channelText.Move(baseX, labelY + 64)
+    installed.Move(compact ? Round((600 - installedWidth) / 2) : baseX, labelY)
+    latest.Move(compact ? Round((600 - latestWidth) / 2) : baseX, labelY + 32)
+    channelText.Move(compact ? Round((600 - channelWidth) / 2) : baseX, labelY + 64)
     return 64
 }
 
