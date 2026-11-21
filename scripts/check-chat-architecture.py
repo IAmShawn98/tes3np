@@ -2346,7 +2346,7 @@ expect(
     and "scale := GetUpdatePromptFitScale(panel)" in update_dialogs
     and "(width - 32) / panel.NativePromptWidth" in update_dialogs
     and "(height - 32) / panel.NativePromptHeight" in update_dialogs
-    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium)" in update_notes
+    and "BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium, compactLayout, scale)" in update_notes
     and 'return kind = "heading" ? "s12 Bold cE7BE70" : "s11 Norm cF4E9D6"' in update_notes
     and "ReleaseNoteLineHeight(sample)" in update_notes
     and "GetTextMetricsW" in update_notes
