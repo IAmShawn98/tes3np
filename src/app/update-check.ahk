@@ -6,6 +6,11 @@ global UpdateStartupStarted := 0
 global LauncherVersionLabel := 0
 global LauncherUpdateBadge := 0
 global LauncherUpdateDismissedVersion := ""
+; Only enabled by the explicit --test-update-badge command line switch.
+; Windows messages then adjust the real launcher's cosmetic badge in memory.
+; This mode never changes the published update feed or saved preview history.
+global LauncherBadgeTestMode := false
+global LauncherBadgeTestState := "none"
 
 CreateLauncherVersionLabel()
 {
@@ -70,6 +75,7 @@ ScaleLauncherVersionLabel(scale)
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
     global AppConfig, LauncherUpdateBadge, LauncherVersionLabel, LauncherUpdateDismissedVersion
+    global LauncherBadgeTestMode, LauncherBadgeTestState
 
     if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
         return
@@ -79,7 +85,8 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
     LauncherUpdateBadge.Visible := available
     if !available
         return
-    unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
+    unseen := LauncherBadgeTestMode ? LauncherBadgeTestState = "unread"
+        : latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
     LauncherUpdateBadge.Text := unseen ? "(1)" : Chr(0x2022)
     LauncherUpdateBadge.SetFont(unseen ? "cD63232" : "c8F806F", "Segoe UI")
     DllCall("user32\InvalidateRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", 0, "Int", 1)
@@ -175,7 +182,12 @@ AutoPreviewNewUpdate(version, *)
 
 CheckForUpdates(*)
 {
-    global AppConfig, UpdateBusy, LauncherGui, DataFile
+    global AppConfig, UpdateBusy, LauncherGui, DataFile, LauncherBadgeTestMode
+    if LauncherBadgeTestMode
+    {
+        MsgBox("This is a cosmetic update-indicator test. Use scripts\\test-update-badge.ps1 to change its state.`nNo update has been published or installed.", "TES3NP Update Badge Test", "Iconi")
+        return
+    }
     if UpdateBusy {
         LogLauncherEvent("UPDATE | Check ignored because another update operation is active.")
         return
@@ -250,4 +262,30 @@ DownloadUpdateText(url)
     if request.Status != 200
         throw Error("Update metadata returned HTTP " request.Status ".")
     return request.ResponseText
+}
+
+; WM_APP + 0x41: one numeric state sent from the local PowerShell test helper.
+; The handler is registered ONLY when the launcher started with the test flag.
+; No real update feed, profile or INI state is changed by these messages.
+HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)
+{
+    global LauncherGui, LauncherBadgeTestMode, LauncherBadgeTestState
+    if !LauncherBadgeTestMode || !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
+        return 0
+    switch state
+    {
+        case 1:
+            LauncherBadgeTestState := "unread"
+        case 2:
+            LauncherBadgeTestState := "viewed"
+        case 3:
+            LauncherBadgeTestState := "none"
+        default:
+            return 0
+    }
+    if LauncherBadgeTestState = "none"
+        SetLauncherUpdateAvailable(false)
+    else
+        SetLauncherUpdateAvailable(true, "0.1.22-alpha")
+    return 1
 }
