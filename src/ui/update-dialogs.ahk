@@ -418,9 +418,18 @@ OpenMissedUpdateVersion(page, slot, *)
     expected := "https://github.com/IAmShawn98/tes3np/releases/tag/v" version
     if item.Url != expected
         return
-    try Run(expected)
+    try
+        Run(expected)
     catch Error as err
+    {
         MsgBox("Could not open the GitHub changelog: " err.Message, "tes3np", "Icon!")
+        return
+    }
+    ; Clicking a published link (or its red 1) reads only that version.
+    ; The entry stays visible and the footer is recalculated immediately.
+    if !IsMissedUpdateRead(page, item)
+        MarkMissedUpdateItemRead(page, item)
+    RefreshMissedUpdateReadState(page)
 }
 
 ; Text controls have one color each. Keep the three compact ribbon labels
