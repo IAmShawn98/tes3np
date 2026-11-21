@@ -2357,21 +2357,25 @@ expect(
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 expect(
-    "Update footer keeps installed version visible with a compact unread indicator",
+    "Update footer shows red (1) only for an unseen published update; no viewed gold dot",
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
-    and 'nextText := unseen ? "(1)" : Chr(0x25CF)' in update_check
-    and 'LauncherUpdateBadge.SetFont("s" size " Bold c" color, "Segoe UI")' in update_check
-    and 'color := unread ? "D63232" : "E0C27F"' in update_check
-    and 'size := Max(6, Round((unread ? 10 : 12) * scale))' in update_check
-    and 'y689 w28 h22 BackgroundTrans' in update_check
-    and 'LauncherUpdateBadge.Text := nextText' in update_check
+    and 'LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 BackgroundTrans", "(1)")' in update_check
+    and 'LauncherUpdateBadge.SetFont("s" size " Bold cD63232", "Segoe UI")' in update_check
+    and 'size := Max(6, Round(10 * scale))' in update_check
+    and '&& !HasSeenUpdateAutoPreview(latestVersion)' in update_check
+    and 'LauncherUpdateBadge.Visible := false' in update_check
+    and 'if !wasVisible' in update_check
     and 'LauncherVersionLabel.GetPos(&labelX, , &labelWidth)' in update_check
     and 'x := labelX + labelWidth + 4' in update_check
     and 'RedrawLauncherUpdateBadge()' in update_check
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
-    and 'LauncherUpdateButton' not in update_check,
+    and 'IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")' in update_check
+    and 'LauncherUpdateButton' not in update_check
+    and 'LauncherUpdateDismissedVersion' not in update_check
+    and 'Chr(0x25CF)' not in update_check
+    and 'E0C27F' not in update_check,
 )
 expect(
     "Feature updates retain release/hotfix tabs; hotfix-only updates show Hotfixes",
@@ -2405,7 +2409,7 @@ expect(
     and 'CheckUpdatePreviewMetadataLayout()' in launcher_smoke_tests
     and 'Update preview metadata overlaps at this version length.' in launcher_smoke_tests
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
-    and 'unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)' in update_check
+    and '&& !HasSeenUpdateAutoPreview(latestVersion)' in update_check
     and '--test-update-badge' not in launcher_smoke_tests
     and 'LauncherBadgeTest' not in update_check
     and 'LauncherBadgeTest' not in bootstrap
