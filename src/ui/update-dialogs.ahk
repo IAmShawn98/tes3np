@@ -25,10 +25,9 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
 
 ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
-    ; Hotfix-only updates show only the dated Hotfixes section.
-    ; Feature releases show separate Release Notes and Hotfix History tabs.
-    history := ReadPublishedUpdateHistory(installedVersion, latestVersion)
-    notes := kind = "hotfix" ? history.Hotfix : history.Release
+    ; Show only the published changes missed since the installed build,
+    ; grouped by their actual category, even for a hotfix-only update.
+    notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)
     response := {Download: false}
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)
     closeNotes := 0
@@ -43,21 +42,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)
         if rowExtra
             GrowGoldNativePrompt(preview, rowExtra)
-        switcher := 0
-        if kind = "hotfix"
-        {
-            ; A hotfix-only update has no new feature release to review.
-            ; Mirror the single-section treatment of version information,
-            ; but label the section Hotfixes rather than showing two tabs.
-            preview.SetFont("s12 Bold cC5A45C", "Georgia")
-            preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Hotfixes")
-        }
-        else
-        {
-            tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix,
-                "release", 118 + rowExtra)
-            switcher := tabs.Switch
-        }
+        preview.SetFont("s12 Bold cC5A45C", "Georgia")
+        preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Changes in This Update")
         ; Keep both actions together at the lower left, aligned with the
         ; notes panel. The real Update Now action still enters the existing
         ; download and install confirmation flow outside this window.
@@ -69,7 +55,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
-        closeNotes := AddUpdateNotesViewport(preview, notes, scale, switcher, rowExtra, 28 + rowExtra)
+        closeNotes := AddUpdateNotesViewport(preview, notes, scale, 0, rowExtra, 28 + rowExtra)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
@@ -129,8 +115,9 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
 
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
 {
-    newer := mode = "disabled" && GetLauncherUpdateKind(installedVersion, latestVersion) != ""
-    notesVersion := newer ? latestVersion : installedVersion
+    ; The version-status screen describes the installed package, never an
+    ; uninstalled update advertised by a disabled feed.
+    notesVersion := installedVersion
     title := "You're All Caught Up, Fetcher!"
     message := "If an update is published, you will be notified."
     if mode = "error" {
@@ -140,15 +127,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         title := "Automatic Updates Are Unavailable"
         message := "Check GitHub Releases for download options."
     }
-    originalVersion := GetTes3npOriginalVersion(notesVersion)
-    releaseNotes := ReadVersionReleaseNotes(originalVersion)
-    hotfixNotes := "No hotfixes have been released for this version."
-    if ParseTes3npVersion(notesVersion).Hotfix > 0 {
-        if mode = "error"
-            hotfixNotes := "Published hotfix history is unavailable while offline."
-        else
-            hotfixNotes := ReadPublishedUpdateHistory(originalVersion, notesVersion).Hotfix
-    }
+    releaseNotes := ReadInstalledCumulativeNotes(notesVersion)
     state := {Retry: false}
     panel := CreateGoldNativePrompt(0, "tes3np — Version Status", 800, 600)
     closeNotes := 0
@@ -157,7 +136,8 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         panel.SetFont("s10 cEDE1C9", "Segoe UI")
         panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
-        tabs := AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes)
+        panel.SetFont("s12 Bold cC5A45C", "Georgia")
+        panel.Add("Text", "x30 y123 w430 h30 BackgroundTrans", "Release Notes")
         panel.SetFont("s9 cC5A45C", "Segoe UI")
         panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
         AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, DestroyScaledMenu(panel)))
@@ -166,7 +146,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         panel.OnEvent("Escape", (*) => DestroyScaledMenu(panel))
         scale := GetUpdatePromptFitScale(panel)
         ScaleOwnedMenuContent(panel, scale)
-        closeNotes := AddUpdateNotesViewport(panel, releaseNotes, scale, tabs.Switch)
+        closeNotes := AddUpdateNotesViewport(panel, releaseNotes, scale)
         hwnd := panel.Hwnd
         ShowGoldNativePrompt(panel, scale)
         PaintGoldUpdateDialogButtons(panel)
@@ -178,37 +158,6 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     }
     if state.Retry
         SetTimer(CheckForUpdates, -100)
-}
-
-; Keep both tab buttons inside the same gold panel. The existing measured,
-; scrollable notes viewport is reused instead of opening stacked dialogs.
-AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes, initialTab := "release", tabY := 123)
-{
-    tabs := {Release: releaseNotes, Hotfix: hotfixNotes, Selected: initialTab, Switch: {}}
-    tabs.ReleaseButton := AddStyledButton(panel, 30, tabY, 199, 30, "Release Notes", (*) => SelectUpdateNoteTab(tabs, "release"))
-    tabs.HotfixButton := AddStyledButton(panel, 242, tabY, 199, 30, "Hotfix History", (*) => SelectUpdateNoteTab(tabs, "hotfix"))
-    SetUpdateNoteTabLabels(tabs)
-    return tabs
-}
-
-SelectUpdateNoteTab(tabs, selected)
-{
-    if tabs.Selected = selected
-        return
-    tabs.Selected := selected
-    SetUpdateNoteTabLabels(tabs)
-    if tabs.Switch.HasOwnProp("Update")
-        tabs.Switch.Update.Call(selected = "hotfix" ? tabs.Hotfix : tabs.Release)
-    ; Tab text and the newly rendered notes must be visible without hover.
-    PaintGoldUpdateDialogButtons(tabs.ReleaseButton.Gui)
-}
-
-SetUpdateNoteTabLabels(tabs)
-{
-    tabs.ReleaseButton.Text := tabs.Selected = "release" ? "• Release Notes" : "Release Notes"
-    tabs.HotfixButton.Text := tabs.Selected = "hotfix" ? "• Hotfix History" : "Hotfix History"
-    for control in [tabs.ReleaseButton, tabs.HotfixButton]
-        DllCall("user32\InvalidateRect", "Ptr", control.Hwnd, "Ptr", 0, "Int", 1)
 }
 
 ; Release dialogs create dynamically painted ClassButton controls while hidden.
