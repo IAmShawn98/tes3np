@@ -505,7 +505,7 @@ Require-Source 'LauncherUpdateNumber.OnEvent\("Click", CheckForUpdates\)' 'numbe
 Require-Source 'LauncherUpdateNumber.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white at saved launcher scale' $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
-Require-Source 'size := Max\(5, Round\(9 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'badge numeral accounts for physical DPI and launcher scale'
+Require-Source 'size := Max\(4, Round\(8 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'badge numeral accounts for physical DPI and launcher scale'
 Require-Source 'SetLauncherUnreadBadgeNumber\(LauncherUpdateNumber.Text\)' 'resize of circular artwork recenters numeral at saved scale' $source
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (1) opens the optional updater'
@@ -520,6 +520,9 @@ Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside captio
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
 Require-Source 'GetDpiForWindow' 'badge size is calibrated from actual Windows DPI' $source
+Require-Source 'ReleaseNoteFits\(LauncherUpdateNumber, LauncherUpdateNumber.Text,' 'numeric badge checks actual rendered digit width' $source
+Require-Source 'ReleaseNoteLineHeight\(LauncherUpdateNumber\) <= availableHeight' 'numeric badge shrinks font before vertical clipping' $source
+Require-Source 'innerWidth := Max\(1, Round\(diameter \* 0\.72\)\)' 'number inset uses the largest safe width inside the circle' $source
 Require-Source 'x" x " y689 w22 h22 \+0x40 BackgroundTrans' 'Picture control scales the circular bitmap to fit its resized bounds' $source
 Require-Source 'if width > 26' 'native GUI smoke rejects any oversized badge in physical screen pixels' $badgeHarness
 Require-Source 'badge := panel.Add\("Picture"' 'smoke tests the real Picture renderer, not a surrogate Text control' $badgeHarness
