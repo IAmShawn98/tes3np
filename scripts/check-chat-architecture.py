@@ -2357,7 +2357,7 @@ expect(
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 expect(
-    "Update footer shows the unread published-version count on a red circle or pill and clears when viewed",
+    "Update footer shows circular unread badge counts at all scales and clears when viewed",
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
@@ -2375,8 +2375,10 @@ expect(
     and 'LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)' in update_check
     and 'IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")' in update_check
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
-    and 'newWidth := height + Max(0, StrLen(value) - 1)' in update_check
-    and 'CreateRoundRectRgn' in update_check
+    and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
+    and 'LauncherUpdateBadge.Move(, centeredY, diameter, diameter)' in update_check
+    and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
+    and 'CreateRoundRectRgn' not in update_check
     and 'StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)' in update_check
     and 'CountUnseenPublishedUpdateRecords(records, job.Installed, seen)' in update_check
     and 'CheckUnreadPublishedReleaseCounts()' in launcher_smoke_tests
@@ -2413,6 +2415,10 @@ expect(
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badges.Push(badge)' in update_dialogs
+    and 'for slot in [1, 2, 3, 4]' in update_dialogs
+    and 'up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22),' in update_dialogs
+    and 'down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22),' in update_dialogs
+    and 'badge := panel.Add("Picture", "Hidden x0 y0 w" px(20) " h" px(20)' in update_dialogs
     and 'MeasureMissedUpdateTextWidth(row, caption)' in update_dialogs
     and 'for count in [1, 3, 7, 24]' in launcher_smoke_tests
     and 'track.Visible := page.MaxOffset > 1' in update_dialogs
