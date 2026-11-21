@@ -915,7 +915,57 @@ CheckDisplaySettingsAndReleaseNotes()
         }
     }
     CheckUpdatePreviewMetadataLayout()
+    CheckCircularUpdateBadgeRendering()
     try FileAppend("PASS: live display refresh and reset, loading cleanup, readable release-note rows, and version metadata layout at 50 and 100 percent" Chr(10), "*")
+}
+
+; Verify native clipping for the actual circular red badge at the same
+; launcher scales used by the compiled menu suite. Disposable controls only:
+; no launcher profile, update feed, installed game or release data is changed.
+CheckCircularUpdateBadgeRendering()
+{
+    for percent in [50, 100]
+    {
+        panel := Gui("-DPIScale", "Circular update badge smoke")
+        badge := panel.Add("Text",
+            "x0 y0 w22 h22 Center +0x200 BackgroundD63232", "1")
+        badge.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+        region := 0
+        try
+        {
+            ScaleOwnedMenuContent(panel, percent / 100)
+            ShapeCircularUpdateBadge(badge)
+            rect := Buffer(16, 0)
+            if !DllCall("user32\GetClientRect", "Ptr", badge.Hwnd, "Ptr", rect, "Int")
+                throw Error("Could not measure the native update badge.")
+            width := NumGet(rect, 8, "Int")
+            height := NumGet(rect, 12, "Int")
+            expected := Round(22 * percent / 100)
+            if width != expected || height != expected
+                throw Error("Circular update badge did not scale to " percent " percent.")
+            region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
+                "Int", 0, "Int", 0, "Ptr")
+            if !region
+                throw Error("Could not allocate update badge region probe.")
+            kind := DllCall("user32\GetWindowRgn",
+                "Ptr", badge.Hwnd, "Ptr", region, "Int")
+            if kind = 0 || kind = -1
+                throw Error("Circular update badge has no native clipping region.")
+            center := expected // 2
+            if !DllCall("gdi32\PtInRegion", "Ptr", region,
+                "Int", center, "Int", center, "Int")
+                || DllCall("gdi32\PtInRegion", "Ptr", region,
+                    "Int", 0, "Int", 0, "Int")
+                throw Error("Update badge must clip corners but retain its center.")
+        }
+        finally
+        {
+            if region
+                DllCall("gdi32\DeleteObject", "Ptr", region)
+            DestroyScaledMenu(panel)
+        }
+    }
+    try FileAppend("PASS: circular red update badge has native clipping at 50 and 100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
