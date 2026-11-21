@@ -351,7 +351,9 @@ Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (
 
 # Place the badge beside the natural-width version label and redraw the
 # backing image only under its rectangle when hiding or showing it.
-Require-Source 'LauncherVersionLabel := LauncherGui\.Add\("Text", "x12 y691 h18 BackgroundTrans"' 'version label auto sizes to visible text'
+Require-Source 'LauncherVersionLabel := LauncherGui\.Add\("Text", "x12 y691 BackgroundTrans", "tes3np' 'version caption is measured without fixed dimensions'
+Require-Source 'LauncherVersionLabel\.GetPos\(, , &naturalWidth\)' 'version caption natural width is captured'
+Require-Source 'LauncherVersionLabel\.Move\(, , Ceil\(naturalWidth \* 1\.125\) \+ 4, 18\)' 'version label height applied after width measurement with 50 percent headroom'
 Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge follows rendered version width'
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
 Require-Source 'if wasVisible[\s\S]*LauncherUpdateBadge\.Visible := false[\s\S]*RedrawLauncherUpdateBadge\(\)' 'viewing the update hides the badge and clears old pixels'
