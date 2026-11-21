@@ -465,7 +465,7 @@ UpdateNoteFont(kind, premium := false, compact := false, scale := 1.0)
     {
         ; Compact sample and real preview use smaller, actually scaled type.
         ; Version Status and existing menu tests still use the original font.
-        size := Max(5, Round((kind = "heading" ? 10 : 8) * scale))
+        size := Max(5, Round((kind = "heading" ? 12 : 11) * scale))
         return "s" size (kind = "heading" ? " Bold cF5C96E" : " Norm cFFF0DC")
     }
     if premium
@@ -515,7 +515,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)
         . " w" px(viewWidth - 4) " h" px(viewHeight - 4) " Background171008")
     firstY := px(compactLayout ? 178 + topExtra : 170 + topExtra)
-    bottomY := px(compactLayout ? (fixedEarlier ? 358 : 480) + topExtra : 516 + bottomExtra)
+    bottomY := px(compactLayout ? (fixedEarlier ? 373 : 480) + topExtra : 516 + bottomExtra)
     left := px(compactLayout ? 40 : 42)
     width := px(compactLayout ? 507 : 686)
     panel.SetFont(UpdateNoteFont("body", premium, compactLayout, scale), UpdateNoteFontFace("body", premium))
@@ -526,7 +526,8 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     ; The measurement row becomes the first displayed row. Restore its body
     ; style after measuring the heading font, including on empty history tabs.
     sample.SetFont(UpdateNoteFont("body", premium, compactLayout, scale), UpdateNoteFontFace("body", premium))
-    lineGap := Max(1, px(2)), sectionGap := Max(1, px(4))
+    lineGap := compactLayout ? Max(0, px(1)) : Max(1, px(2))
+    sectionGap := compactLayout ? Max(1, px(2)) : Max(1, px(4))
     stride := rowHeight + lineGap
     lines := BuildStyledReleaseNoteRows(notes, sample, width - Max(2, px(10)), premium, compactLayout, scale)
     capacity := Max(1, (bottomY - firstY + lineGap) // stride)

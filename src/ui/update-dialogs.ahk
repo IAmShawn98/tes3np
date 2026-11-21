@@ -34,7 +34,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     closeNotes := 0
     try
     {
-        preview.SetFont(kind = "hotfix" ? "s13 Bold cE7BE70" : "s11 Bold cE7BE70", "Georgia")
+        preview.SetFont(kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
@@ -77,9 +77,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         if notes.EarlierCount > 0
         {
             preview.Add("Text", "x40 y" (376 + rowExtra) " w520 h2 BackgroundC5A45C")
-            preview.SetFont("s10 Bold cE7BE70", "Georgia")
+            preview.SetFont("s12 Bold cE7BE70", "Georgia")
             preview.Add("Text", "x40 y" (388 + rowExtra) " w520 h25 BackgroundTrans", "Earlier updates included")
-            preview.SetFont("s8 Norm cFFF0DC", "Segoe UI")
+            preview.SetFont("s10 Norm cFFF0DC", "Segoe UI")
             preview.Add("Text", "x40 y" (420 + rowExtra) " w515 h20 BackgroundTrans",
                 "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
             yLabel := 442 + rowExtra
@@ -90,7 +90,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
                 preview.Add("Text", "x48 y" yLabel " w330 h20 BackgroundTrans", "• " label)
                 yLabel += 21
             }
-            preview.SetFont("s8 Underline cF5C96E", "Segoe UI")
+            preview.SetFont("s9 Underline cF5C96E", "Segoe UI")
             showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra)
                 . " w188 h25 BackgroundTrans +0x100", "View earlier changes")
             hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra)
@@ -116,7 +116,11 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
 
-        scale := GetUpdatePromptFitScale(preview)
+        ; The 600x556 logical grid intentionally renders at 81.5%:
+        ; approved reference artwork is approximately 489x453 physical px.
+        ; Inherit launcher 50/100% preference without affecting any other
+        ; gold prompt. Scale the notes text and scrollbar by the same factor.
+        scale := Min(0.815 * GetOwnedMenuScale(), GetUpdatePromptFitScale(preview))
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
             noteSwitcher, rowExtra, 0, true, true, notes.EarlierCount > 0)
@@ -142,7 +146,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 ; Return the extra vertical space needed if a narrow display requires wrapping.
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
-    panel.SetFont(compact ? "s8 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
+    panel.SetFont(compact ? "s9 Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
     baseX := compact ? 40 : 30
     labelY := compact ? 61 : 80
     rightEdge := compact ? 568 : 770
