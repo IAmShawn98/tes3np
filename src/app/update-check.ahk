@@ -58,30 +58,32 @@ ScaleLauncherVersionLabel(scale)
 }
 
 ; Preserve the red unread notification at the saved launcher scale.
-ApplyLauncherBadgeFont(scale)
+ApplyLauncherBadgeFont(scale, sample := 0)
 {
     global LauncherUpdateNumber
-    if !IsObject(LauncherUpdateNumber)
+    number := IsObject(sample) ? sample : LauncherUpdateNumber
+    if !IsObject(number)
         return
-    ; Keep both white digits inside the SMALL physical circle. The old fixed
-    ; 10pt font overflowed the 24px numeral inset on high-DPI displays.
-    size := Max(4, Round(8 * scale / GetLauncherBadgeDpiScale()))
+    ; Make the numeral easier to read WITHOUT enlarging or moving its red
+    ; circle. Start with a bolder, more legible point size; the native glyph
+    ; measurements still reduce it if either digit would clip at Windows DPI.
+    size := Max(6, Round(12 * scale / GetLauncherBadgeDpiScale()))
     bounds := Buffer(16, 0)
-    if !DllCall("user32\GetClientRect", "Ptr", LauncherUpdateNumber.Hwnd,
+    if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
         "Ptr", bounds, "Int")
     {
-        LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+        number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
         return
     }
     availableWidth := Max(1, NumGet(bounds, 8, "Int") - 1)
     availableHeight := Max(1, NumGet(bounds, 12, "Int"))
-    Loop 6
+    Loop 12
     {
-        LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+        number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
         try
         {
-            if ReleaseNoteFits(LauncherUpdateNumber, LauncherUpdateNumber.Text,
-                availableWidth) && ReleaseNoteLineHeight(LauncherUpdateNumber) <= availableHeight
+            if ReleaseNoteFits(number, number.Text,
+                availableWidth) && ReleaseNoteLineHeight(number) <= availableHeight
                 break
         }
         catch Error
