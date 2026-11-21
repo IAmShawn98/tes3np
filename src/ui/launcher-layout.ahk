@@ -60,6 +60,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
 ShowLauncherWindow(reuseCached := false, *)
 {
     global LauncherGui, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
+    global LauncherUpdateBadge, LauncherUpdateNumber
     if DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
         DllCall("ShowWindow", "Ptr", LauncherGui.Hwnd, "Int", 9) ; SW_RESTORE
     placement := GetLauncherPlacement()
@@ -78,6 +79,12 @@ ShowLauncherWindow(reuseCached := false, *)
                 healthy := false
                 break
             }
+            ; The unread circle and its numeral are anchored after the
+            ; rendered label at each scale. Their position and diameter are
+            ; intentionally dynamic rather than the captured base rectangle.
+            if (IsObject(LauncherUpdateBadge) && hwnd = LauncherUpdateBadge.Hwnd)
+                || (IsObject(LauncherUpdateNumber) && hwnd = LauncherUpdateNumber.Hwnd)
+                continue
             item.Control.GetPos(&x, &y, &w, &h)
             if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
                 || Abs(w - Round(item.Width * ratio)) > 2 || Abs(h - Round(item.Height * ratio)) > 2
