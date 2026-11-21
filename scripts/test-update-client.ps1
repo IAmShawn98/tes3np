@@ -91,7 +91,8 @@ Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVer
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
 # second metadata row reflows the notes, actions and gold frame as one unit.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Update Preview", 600, 556 \+ notesSpace\)' 'real production update preview has space for complete notes' $dialogSource
+Require-Source 'preview := CreateGoldNativePrompt\(0, "tes3np \u2014 Update Preview",\s*600, 556 \+ notesSpace \+ missedSpace\)' 'preview allocates real extra history height only when releases were missed' $dialogSource
+Require-Source 'missedSpace := hasMissed \? 64 : 0' 'history has measured room without shrinking the upper changelog' $dialogSource
 Require-Source 'notesSpace := 100' 'upper changelog is taller without overlapping earlier updates' $dialogSource
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'production popup uses actual launcher scale rather than an 81.5% miniature' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel, true\)' 'both update types use the compact measured metadata card' $dialogSource
@@ -125,7 +126,7 @@ Require-Source 'channelText.Move\(baseX, labelY \+ 64\)' 'legacy metadata can re
 Require-Source 'metadataBorder.Move\(, , , 40 \+ rowExtra\)' 'gold metadata border retains vertical padding with wrapped versions' $dialogSource
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'compact dialog grows if longer versions require rows' $dialogSource
 Require-Source '"Changes in This Update"' 'preview retains its established player-facing heading' $dialogSource
-Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h" \(365 \+ notesSpace\) " BackgroundC5A45C"\)' 'outer gold frame grows with notes instead of clipping' $dialogSource
+Require-Source 'preview.Add\("Text", "x20 y" \(131 \+ rowExtra\) " w560 h" \(365 \+ notesSpace \+ missedSpace\) " BackgroundC5A45C"\)' 'gold frame grows with measured history content without clipping' $dialogSource
 Require-Source 'preview.Add\("Text", "x40 y" \(312 \+ rowExtra \+ notesSpace\) " w520 h2 BackgroundC5A45C"\)' 'pinned earlier updates divider follows the full-height notes' $dialogSource
 Require-Source '"Updates You Missed"' 'pinned history uses the approved player-facing heading' $dialogSource
 Require-Source 'missedVersions := notes.HasOwnProp\("MissedVersions"\) \? notes.MissedVersions : \[\]' 'published preview reads every missed release' $dialogSource
@@ -142,6 +143,8 @@ Require-Source 'MeasureMissedUpdateTextWidth\(row, caption\)' 'small red markers
 Require-Source 'badges\[slot\].Visible := true' 'only visible version rows show a red one' $dialogSource
 Require-Source 'track.Visible := page.MaxOffset > 1' 'missed-update scrollbar appears only when rows overflow' $dialogSource
 Require-Source 'for slot in \[1, 2, 3, 4\]' 'four missed updates appear together at normal scale' $dialogSource
+Require-Source 'observer.RowHeight := rowHeight' 'native smoke reports measured row height when four entries cannot fit' $dialogSource
+Require-Source 'observer.BottomLimit := bottomLimit' 'native smoke reports history list lower bound on layout regressions' $dialogSource
 Require-Source 'up := AddStyledButton\(panel, arrowX, arrowTop, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold up arrow' $dialogSource
 Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold down arrow' $dialogSource
 Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
@@ -153,7 +156,7 @@ Require-Source 'rowHeight := px\(29\)' 'missed-update links initially reserve 29
 Require-Source 'rowHeight := Max\(rowHeight, ReleaseNoteLineHeight\(link\) \+ px\(8\)\)' 'native font metrics enlarge rows when Windows requires more glyph room' $dialogSource
 Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and consistent spacing' $dialogSource
 Require-Source 'rowStep := Max\(rowStep, rowHeight \+ Max\(1, px\(2\)\)\)' 'missed-update link controls never overlap and erase neighboring glyphs' $dialogSource
-Require-Source 'bottomLimit := px\(490 \+ topExtra \+ bottomExtra\)' 'missed links cannot cross the gold card bottom' $dialogSource
+Require-Source 'bottomLimit := px\(554 \+ topExtra \+ bottomExtra\)' 'missed links use the expanded gold card, never overlap the action buttons' $dialogSource
 Require-Source 'page.VisibleRows := Max\(1, Min\(4,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
 Require-Source 'page.MaxOffset := Max\(1, versions.Length - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
 Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
@@ -167,7 +170,7 @@ if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf))
 if (!(Get-Content -LiteralPath 'scripts/generate-bundled-resources.py' -Raw).Contains('"assets/controls/update-badge.png"')) {
     throw 'Standalone launcher build must include its circular notification artwork.'
 }
-Require-Source 'actionY := 511 \+ rowExtra \+ notesSpace' 'production action buttons follow enlarged notes' $dialogSource
+Require-Source 'actionY := 511 \+ rowExtra \+ notesSpace \+ missedSpace' 'production action buttons move beneath expanded history' $dialogSource
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'update button is centered under the card' $dialogSource
 Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now is centered beside Update Now' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production updater still enters its confirmation flow' $dialogSource
