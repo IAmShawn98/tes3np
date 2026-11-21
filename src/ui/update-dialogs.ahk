@@ -132,7 +132,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     newer := mode = "disabled" && GetLauncherUpdateKind(installedVersion, latestVersion) != ""
     notesVersion := newer ? latestVersion : installedVersion
     title := "You're All Caught Up, Fetcher!"
-    message := "You are running the latest and greatest version of the tes3np launcher! If an update is published, you will be notified."
+    message := "If an update is published, you will be notified."
     if mode = "error" {
         title := "Could Not Check for Updates"
         message := "Showing release notes for your installed version."
@@ -156,7 +156,7 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
         panel.SetFont("s14 Bold cC5A45C", "Georgia")
         panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         panel.SetFont("s10 cEDE1C9", "Segoe UI")
-        panel.Add("Text", "x30 y65 w740 h55 BackgroundTrans", message)
+        panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
         tabs := AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes)
         panel.SetFont("s9 cC5A45C", "Segoe UI")
         panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
