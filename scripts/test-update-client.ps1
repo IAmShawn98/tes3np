@@ -467,7 +467,7 @@ $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encodi
 Require-Source '&& !HasSeenUpdateAutoPreview\(latestVersion\)' 'only unseen published versions show the red indicator'
 Require-Source 'IniWrite\(latest, DataFile, "Updates", "LastAutoPreviewVersion"\)' 'viewing an update persists its seen state across restarts'
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
-Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind\)' 'release preview has only production parameters' $dialogSource
+Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind, reviewNotes := 0\)' 'real production modal optionally accepts checkout-only draft notes' $dialogSource
 Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'category formatter reads only published history' $notesSource
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'real Update Now remains available' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'Update Now enters the existing confirmation-gated updater' $dialogSource
