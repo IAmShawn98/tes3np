@@ -148,6 +148,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         . " w" px(531) " h" (bottomLimit - rowTop) " Background171008")
     page := {Items: versions, Offset: 1, VisibleRows: 3, MaxOffset: Max(1, versions.Length - 2)}
     rows := []
+    badges := []
     for slot in [1, 2, 3]
     {
         panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
@@ -158,6 +159,13 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         ; can display the entire glyph (it clipped the draft version).
         rowHeight := Max(rowHeight, ReleaseNoteLineHeight(link) + px(8))
         rows.Push(link)
+        ; The same genuine red (1) artwork used beside Latest Hotfix.
+        ; Each visible missed version gets its own badge, even in the
+        ; developer stress preview. The badge shares the link's click action.
+        badge := panel.Add("Picture", "Hidden x0 y0 w" px(15) " h" px(15)
+            . " BackgroundTrans", A_ScriptDir "\assets\controls\update-badge.png")
+        badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
+        badges.Push(badge)
     }
     ; Never overlap native Text controls: a later transparent sibling can
     ; erase the previous row's descenders during Windows repaint.
@@ -188,6 +196,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
             if slot > page.VisibleRows || idx > page.Items.Length
             {
                 row.Visible := false
+                badges[slot].Visible := false
                 continue
             }
             item := page.Items[idx]
@@ -195,11 +204,18 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
             row.SetFont("s" Max(4, Round(10 * scale))
                 . (linked ? " Underline cF5C96E" : " Norm cAFA78B"), "Segoe UI")
             caption := item.Label
-            ; Extremely long versions must never run into the scrollbar.
-            while StrLen(caption) > 2 && !ReleaseNoteFits(row, caption, rowWidth - px(6))
+            ; Leave room for the red (1) and preserve its position next to
+            ; the *measured* text, not the full-width transparent click area.
+            while StrLen(caption) > 2 && !ReleaseNoteFits(row, caption, rowWidth - px(30))
                 caption := SubStr(caption, 1, -2) "…"
             row.Text := caption
+            badgeX := left + Min(rowWidth - px(19),
+                MeasureMissedUpdateTextWidth(row, caption) + px(6))
+            row.GetPos(, &rowY)
+            badges[slot].Move(badgeX, rowY + Max(0, Floor((rowHeight - px(15)) / 2)),
+                px(15), px(15))
             row.Visible := true
+            badges[slot].Visible := true
         }
         thumbHeight := Max(px(14), Round(trackHeight * Min(1, page.VisibleRows / page.Items.Length)))
         thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1)
@@ -216,6 +232,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         observer.Page := page
         observer.Viewport := viewport
         observer.Rows := rows
+        observer.Badges := badges
         observer.Track := track
         observer.Thumb := thumb
         observer.Refresh := refresh
@@ -242,6 +259,32 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         }
     }
     return unregister
+}
+
+; Return native rendered text width; static Text controls are deliberately
+; much wider than their captions to keep the entire row clickable.
+MeasureMissedUpdateTextWidth(control, value)
+{
+    font := DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x31,
+        "Ptr", 0, "Ptr", 0, "Ptr")
+    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
+    if !dc
+        throw OSError()
+    previous := font ? DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr") : 0
+    try
+    {
+        extent := Buffer(8, 0)
+        if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc,
+            "Str", value, "Int", StrLen(value), "Ptr", extent, "Int")
+            throw OSError()
+        return NumGet(extent, 0, "Int")
+    }
+    finally
+    {
+        if previous
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous)
+        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+    }
 }
 
 JumpMissedUpdateList(page, track, refresh, *)
