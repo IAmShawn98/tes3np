@@ -4,7 +4,7 @@ global LauncherExpansionToggle := 0
 
 StartLauncher()
 {
-    global HoverTimer, LauncherBadgeTestMode
+    global HoverTimer
 
     LogLauncherEvent("Launcher startup beginning.")
     RequireLauncherAssets()
@@ -28,13 +28,8 @@ StartLauncher()
     ShowLauncherWithGameUpdates()
 
     SetTimer(CleanupStaleLauncherData, -1000)
-    ; The opt-in cosmetic preview stays on the real launcher, but cannot
-    ; contact the updater or show first-run prompts during this test.
-    if !LauncherBadgeTestMode
-    {
-        SetTimer(CheckForUpdateAvailability, -250)
-        SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
-    }
+    SetTimer(CheckForUpdateAvailability, -250)
+    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
 }
 
@@ -63,16 +58,9 @@ ConfigureLauncherTrayMenu()
 
 BuildLauncherWindow()
 {
-    global LauncherGui, LauncherExpansionToggle, LauncherBadgeTestMode, LauncherBadgeTestWindowHwnd
+    global LauncherGui, LauncherExpansionToggle
 
     LauncherGui := Gui("-Caption -Border", A_IconTip)
-    ; Borderless launcher looks exactly like normal, while PowerShell can
-    ; target only this opted-in test instance by its distinct window title.
-    if LauncherBadgeTestMode
-    {
-        LauncherGui.Title := A_IconTip " [Badge Test]"
-        LauncherBadgeTestWindowHwnd := LauncherGui.Hwnd
-    }
     ; WS_CLIPCHILDREN keeps launcher repaints from drawing over the embedded chat window.
     styleGetter := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
     styleSetter := A_PtrSize = 8 ? "SetWindowLongPtrW" : "SetWindowLongW"
@@ -99,13 +87,7 @@ BuildLauncherWindow()
 
 RegisterLauncherEventHandlers()
 {
-    global LauncherGui, LauncherBadgeTestMode
-
-    if LauncherBadgeTestMode
-    {
-        OnMessage(0x8041, HandleLauncherBadgeTestMessage)
-        OnMessage(0x8042, HandleLauncherHistoryTestMessage)
-    }
+    global LauncherGui
     OnMessage(0x0201, HandleMouseDown)
     OnMessage(0x0202, ReleaseButton)
     OnMessage(0x0100, HandleThemedButtonKey)
