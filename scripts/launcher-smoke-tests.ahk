@@ -3,7 +3,6 @@
 
 RunLauncherChecks(args)
 {
-    global LauncherBadgeTestMode
     if !A_IsCompiled && args.Length = 4 && args[4] = "--check-update-state"
         CheckUpdateStateHandshake()
     if !args.Length
@@ -35,10 +34,6 @@ RunLauncherChecks(args)
             CheckOwnedMenuScaling()
         case "--check-game-login-card":
             ExitApp(CheckGameLoginCardStacking() ? 0 : 231)
-        case "--test-update-badge":
-            ; Opt-in only: continue into the normal launcher with a local
-            ; cosmetic indicator hook. No real update feed is changed.
-            LauncherBadgeTestMode := true
     }
 }
 
