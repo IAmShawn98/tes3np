@@ -973,6 +973,14 @@ CheckUnreadPublishedReleaseCounts()
         try FileDelete(fixture)
     ; The actual launcher uses a PNG Picture control. An earlier Text-only
     ; test passed while Windows painted the native 48px PNG as a 52px circle.
+    ; This compiled probe must read the same extracted asset as production:
+    ; the bundled-resource preflight runs before --check-owned-menu-scaling.
+    ; Scripts in scripts/ are not covered by the staged src/ path rewriter.
+    global BundledResourceRoot
+    assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir
+    badgeAsset := assetRoot "\assets\controls\update-unread-circle.png"
+    if !FileExist(badgeAsset)
+        throw Error("Numeric unread badge smoke cannot load bundled PNG: " badgeAsset)
     ; Exercise the real image load order, DPI scaling and Win32 dimensions.
     for percent in [50, 100]
     {
@@ -986,13 +994,13 @@ CheckUnreadPublishedReleaseCounts()
         panel := Gui(, "Native numeric unread badge smoke")
         badge := panel.Add("Picture", "x0 y0 w" diameter " h" diameter
             . " +0x40 BackgroundTrans",
-            A_ScriptDir "\assets\controls\update-unread-circle.png")
+            badgeAsset)
         region := 0
         try
         {
             imagePixels := Max(1, Round(diameter * dpiScale))
             badge.Value := "*w" imagePixels " *h" imagePixels " "
-                . A_ScriptDir "\assets\controls\update-unread-circle.png"
+                . badgeAsset
             badge.Move(0, 0, diameter, diameter)
             ShapeCircularUpdateBadge(badge)
             rect := Buffer(16, 0)
