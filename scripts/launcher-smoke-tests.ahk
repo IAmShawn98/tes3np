@@ -3,6 +3,7 @@
 
 RunLauncherChecks(args)
 {
+    global LauncherBadgeTestMode
     if !A_IsCompiled && args.Length = 4 && args[4] = "--check-update-state"
         CheckUpdateStateHandshake()
     if !args.Length
@@ -37,7 +38,6 @@ RunLauncherChecks(args)
         case "--test-update-badge":
             ; Opt-in only: continue into the normal launcher with a local
             ; cosmetic indicator hook. No real update feed is changed.
-            global LauncherBadgeTestMode
             LauncherBadgeTestMode := true
     }
 }
