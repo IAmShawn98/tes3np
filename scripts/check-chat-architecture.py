@@ -2374,9 +2374,12 @@ expect(
     and 'LauncherUpdateButton' not in update_check,
 )
 expect(
-    "Update history separates published releases and dated hotfix tabs",
+    "Feature updates retain release/hotfix tabs; hotfix-only updates show Hotfixes",
     'ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
     and 'AddUpdateNoteTabs(preview, history.Release, history.Hotfix' in update_dialogs
+    and 'if kind = "hotfix"' in update_dialogs
+    and '"Hotfixes")' in update_dialogs
+    and 'notes := kind = "hotfix" ? history.Hotfix : history.Release' in update_dialogs
     and 'AddUpdateNoteTabs(panel, releaseNotes, hotfixNotes)' in update_dialogs
     and 'switcher.Update := updateNotes' in update_notes
     and 'Loop capacity - 1' in update_notes
@@ -2393,9 +2396,21 @@ expect(
     and 'synthetic := IsObject(testHistory)' in update_dialogs
     and 'history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
     and 'CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)' in update_dialogs
-    and 'AddUpdateNotesViewport(preview, notes, scale, tabs.Switch, 0, 28)' in update_dialogs
-    and 'AddStyledButton(preview, 32, 568, 185, 34, "Update Now"' in update_dialogs
-    and 'AddStyledButton(preview, 233, 568, 155, 34, "Not Now"' in update_dialogs
+    and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)' in update_dialogs
+    and 'AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)' in update_dialogs
+    and 'installed.GetPos(, , &installedWidth)' in update_dialogs
+    and 'latest.GetPos(, , &latestWidth)' in update_dialogs
+    and 'channelText.GetPos(, , &channelWidth)' in update_dialogs
+    and 'if channelX + channelWidth <= 770' in update_dialogs
+    and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
+    and 'if kind = "hotfix"' in update_dialogs
+    and 'preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Hotfixes")' in update_dialogs
+    and 'AddUpdateNotesViewport(preview, notes, scale, switcher, rowExtra, 28 + rowExtra)' in update_dialogs
+    and 'actionY := 568 + rowExtra' in update_dialogs
+    and 'AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"' in update_dialogs
+    and 'AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"' in update_dialogs
+    and 'CheckUpdatePreviewMetadataLayout()' in launcher_smoke_tests
+    and 'Update preview metadata overlaps at this version length.' in launcher_smoke_tests
     and 'MsgBox("Update downloads are disabled for this preview."' in update_dialogs
     and 'response.Download := true, DestroyScaledMenu(preview)' in update_dialogs
     and 'Review the changes you have missed before deciding to update.' not in update_dialogs
