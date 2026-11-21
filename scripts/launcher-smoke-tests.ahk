@@ -105,6 +105,12 @@ CheckGameLoginProgressFit()
     return !IsObject(FitGameLoginProgress({X: 0, Y: 0, Width: 0, Height: 100}, game, 1))
 }
 
+ReportLoginCardSmokeFailure(stage)
+{
+    FileAppend("FAIL: login card Z-order smoke | " stage "`n", "*")
+    return false
+}
+
 CheckGameLoginCardStacking()
 {
     ; Disposable windows test the production placement against real Windows
@@ -121,31 +127,31 @@ CheckGameLoginCardStacking()
         {
             if !DllCall("SetWindowPos", "Ptr", game.Hwnd, "Ptr", topOfBand,
                 "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13, "Int")
-                return false
+                return ReportLoginCardSmokeFailure("stage " A_Index ": raise game window")
             layout := {X: 75 + A_Index * 5, Y: 80, Width: 100, Height: 120}
             foreground := DllCall("GetForegroundWindow", "Ptr")
             if !PositionGameLoginProgress(card.Hwnd, game.Hwnd, layout, A_Index = 1, true)
                 || DllCall("GetWindow", "Ptr", game.Hwnd, "UInt", 3, "Ptr") != card.Hwnd
                 || !DllCall("IsWindowVisible", "Ptr", card.Hwnd)
                 || DllCall("GetForegroundWindow", "Ptr") != foreground
-                return false
+                return ReportLoginCardSmokeFailure("stage " A_Index ": position initial card and preserve focus")
             ; Raise the covering window in the same band. The card should
             ; stay above the game and below the covering window.
             if !DllCall("SetWindowPos", "Ptr", cover.Hwnd, "Ptr", topOfBand,
                 "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13, "Int")
-                return false
+                return ReportLoginCardSmokeFailure("stage " A_Index ": raise cover window")
             if !PositionGameLoginProgress(card.Hwnd, game.Hwnd, layout, false, false)
                 || DllCall("GetWindow", "Ptr", game.Hwnd, "UInt", 3, "Ptr") != card.Hwnd
                 || DllCall("GetWindow", "Ptr", card.Hwnd, "UInt", 3, "Ptr") != cover.Hwnd
                 || ((WinGetExStyle("ahk_id " card.Hwnd) & 0x8) != 0) != (topOfBand = -1)
                 || DllCall("GetForegroundWindow", "Ptr") != foreground
-                return false
+                return ReportLoginCardSmokeFailure("stage " A_Index ": reposition card and verify z-order")
             WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
             if x != layout.X || y != layout.Y || width != layout.Width || height != layout.Height
-                return false
+                return ReportLoginCardSmokeFailure("stage " A_Index ": verify card bounds")
         }
         if !CheckGameLoginCardMoveTracking(game, card, layout)
-            return false
+            return ReportLoginCardSmokeFailure("stage " A_Index ": track game-window movement")
     }
     finally
     {
@@ -170,20 +176,20 @@ CheckGameLoginCardMoveTracking(game, card, layout)
     {
         TrackGameLoginProgressWindow(game.Hwnd)
         if !IsObject(LoginProgressTracking) || !LoginProgressTracking.Hook
-            return false
+            return ReportLoginCardSmokeFailure("tracking: install movement hook")
         for offset in [28, -11, 43]
         {
             ; Move the fixture without running the login timer. Only the
             ; queued native window event can move the card to the new spot.
             if !DllCall("SetWindowPos", "Ptr", game.Hwnd, "Ptr", 0,
                 "Int", original.X + offset, "Int", original.Y + offset, "Int", 0, "Int", 0, "UInt", 0x15, "Int")
-                return false
+                return ReportLoginCardSmokeFailure("tracking: move fixture game window")
             deadline := A_TickCount + 1000
             while card.ProgressLayout.GameWindow.X != original.X + offset && A_TickCount < deadline
                 Sleep(10)
             WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
             if x != layout.X + offset || y != layout.Y + offset || width != layout.Width || height != layout.Height
-                return false
+                return ReportLoginCardSmokeFailure("tracking: follow moved game window")
         }
     }
     finally
