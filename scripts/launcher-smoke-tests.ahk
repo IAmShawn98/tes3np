@@ -767,6 +767,9 @@ CheckDisplaySettingsAndReleaseNotes()
         LauncherScale := percent
         scale := GetOwnedMenuScale()
         panel := CreateGoldNativePrompt(LauncherGui, "Release notes smoke", 800, 600)
+        ; Exercise the native themed tab and footer controls at both scales.
+        tab := AddStyledButton(panel, 30, 123, 199, 30, "Release Notes", (*) => 0)
+        footer := AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => 0)
         unregister := 0
         switcher := {}
         try
@@ -778,6 +781,10 @@ CheckDisplaySettingsAndReleaseNotes()
             ; Verify the switch from a single row back to a long, scrollable page.
             switcher.Update.Call(notes)
             ShowGoldNativePrompt(panel)
+            PaintGoldUpdateDialogButtons(panel)
+            if !DllCall("user32\IsWindowVisible", "Ptr", tab.Hwnd, "Int")
+                || !DllCall("user32\IsWindowVisible", "Ptr", footer.Hwnd, "Int")
+                throw Error("Release note tabs or footer buttons did not become visible.")
             paragraphY := 0, headingY := 0, bulletY := 0, rowHeight := 0
             for row in panel
             {
