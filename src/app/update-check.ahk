@@ -168,7 +168,7 @@ AutoPreviewNewUpdate(version, *)
     global LauncherGui, UpdateBusy, LauncherUpdateDismissedVersion
     if UpdateBusy || LauncherUpdateDismissedVersion = version || HasSeenUpdateAutoPreview(version)
         return
-    if !IsObject(LauncherGui) || !DllCall("user32\\IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+    if !IsObject(LauncherGui) || !DllCall("user32\IsWindowVisible", "Ptr", LauncherGui.Hwnd)
         return
     CheckForUpdates()
 }
