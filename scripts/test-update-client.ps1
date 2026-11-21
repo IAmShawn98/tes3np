@@ -88,7 +88,12 @@ Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\
 Require-Source 'ShowGoldNativePrompt\(preview, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(preview\)' 'update preview paints buttons immediately after show' $dialogSource
 Require-Source 'ShowGoldNativePrompt\(panel, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(panel\)' 'version status paints tabs and footer immediately after show' $dialogSource
 Require-Source 'tabs.Switch.Update.Call\(selected = "hotfix" \? tabs.Hotfix : tabs.Release\)\r?\n\s*;[^\r\n]*\r?\n\s*PaintGoldUpdateDialogButtons\(tabs.ReleaseButton.Gui\)' 'release note tab switches repaint their native buttons' $dialogSource
-Require-Source 'RedrawWindow", "Ptr", panel.Hwnd, "Ptr", 0, "Ptr", 0' 'redraw includes native owned panel' $dialogSource
+# A redundant full-window redraw after Show was making the dialog visibly
+# flicker. Only its missing owner-painted button faces should be repainted.
+if ($dialogSource.Contains('RedrawWindow", "Ptr", panel.Hwnd')) {
+    throw 'Release Notes should not redraw the entire visible dialog after opening.'
+}
+Write-Host 'PASS: release dialog avoids redundant full-window repaint.'
 Require-Source 'face.Window = panel.Hwnd' 'release repaint is scoped to the active panel' $dialogSource
 Require-Source 'PaintButtonNow\(handle\)' 'themed button faces are explicitly painted' $dialogSource
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
