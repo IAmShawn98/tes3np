@@ -144,21 +144,20 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
 ; Return the extra vertical space needed if a narrow display requires wrapping.
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
-    ; The approved compact ribbon has one centered line:
-    ; Installed | Latest | Channel. Measure the actual Windows font BEFORE
-    ; creating these three controls; the previous s9-only path wrapped
-    ; Channel even for the standard .3 hotfix shown in the maintainer screenshot.
-    ; Shrink the metadata font only when its three real captions need it.
+    ; The compact ribbon uses warm, bold gold labels with more breathing
+    ; room between the three fields and around the gold separators.
+    ; Measure that exact font before creation so longer version strings can
+    ; shrink without ever clipping or pushing into the 28px side padding.
     compactFontSize := 9
     if compact
     {
         for fontSize in [9, 8, 7, 6]
         {
             probe := Gui("-DPIScale")
-            measuredWidth := 2 * 16
+            measuredWidth := 2 * 24
             try
             {
-                probe.SetFont("s" fontSize " Norm cFFF0DC", "Segoe UI")
+                probe.SetFont("s" fontSize " Bold cE7BE70", "Segoe UI")
                 channelNameProbe := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
                 for caption in ["Installed: v" installedVersion, "Latest: v" latestVersion, "Channel: " channelNameProbe]
                 {
@@ -170,14 +169,14 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
             finally
                 probe.Destroy()
             compactFontSize := fontSize
-            if measuredWidth <= 512
+            if measuredWidth <= 504
                 break
         }
     }
-    panel.SetFont(compact ? "s" compactFontSize " Norm cFFF0DC" : "s10 Bold cEDE1C9", "Segoe UI")
-    baseX := compact ? 44 : 30
+    panel.SetFont(compact ? "s" compactFontSize " Bold cE7BE70" : "s10 Bold cEDE1C9", "Segoe UI")
+    baseX := compact ? 48 : 30
     labelY := compact ? 61 : 80
-    rightEdge := compact ? 556 : 770
+    rightEdge := compact ? 552 : 770
     ; AHK only auto-sizes a Text control reliably to its caption when
     ; neither width nor height is specified. Setting h26 at creation made
     ; GetPos return a narrow default width and truncated Installed metadata.
@@ -196,7 +195,7 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
     installed.Move(, , installedWidth, 26)
     latest.Move(, , latestWidth, 26)
     channelText.Move(, , channelWidth, 26)
-    gap := compact ? 16 : 18
+    gap := compact ? 24 : 18
     fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap
     availableWidth := rightEdge - baseX
     if compact && fullWidth <= availableWidth
