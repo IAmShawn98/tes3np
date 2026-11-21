@@ -84,6 +84,150 @@ ReadPublishedUpdateHistory(installedVersion, latestVersion)
     }
 }
 
+
+; An update preview includes only the missed published versions.
+ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)
+{
+    history := ReadPublishedUpdateHistory(installedVersion, latestVersion)
+    unavailable := "Published release history is unavailable. See GitHub Releases for complete details."
+    if InStr(history.Release, unavailable) || InStr(history.Hotfix, unavailable)
+        return unavailable
+    try {
+        records := []
+        AddPublishedNoteRecords(history.Release, records)
+        AddPublishedNoteRecords(history.Hotfix, records)
+        if !records.Length
+            return unavailable
+        ; Merge the two published lists newest-first without changing content.
+        Loop records.Length {
+            index := 1
+            while index < records.Length {
+                if CompareUpdateNoteVersions(records[index].Version, records[index + 1].Version) < 0 {
+                    current := records[index]
+                    records[index] := records[index + 1]
+                    records[index + 1] := current
+                }
+                index += 1
+            }
+        }
+        return BuildCategorizedUpdateNotes(records)
+    } catch Error {
+        return unavailable
+    }
+}
+
+AddPublishedNoteRecords(history, records)
+{
+    active := 0
+    for line in StrSplit(StrReplace(history, "`r", ""), "`n") {
+        if RegExMatch(line, "^###[ `t]+v(`S+)", &match) {
+            version := match[1]
+            info := ParseTes3npVersion(version)
+            active := {Version: version, Label: Trim(SubStr(line, 5)),
+                Hotfix: info.Hotfix > 0, Notes: ""}
+            records.Push(active)
+        } else if IsObject(active) {
+            active.Notes .= line "`n"
+        }
+    }
+}
+
+CompareUpdateNoteVersions(left, right)
+{
+    a := ParseTes3npVersion(left)
+    b := ParseTes3npVersion(right)
+    for index, number in a.Feature {
+        if number != b.Feature[index]
+            return number > b.Feature[index] ? 1 : -1
+    }
+    return a.Hotfix = b.Hotfix ? 0 : a.Hotfix > b.Hotfix ? 1 : -1
+}
+
+; Use the bundled changelog for the installed base release and every installed
+; hotfix. Do not show an uninstalled version or rely on GitHub when offline.
+ReadInstalledCumulativeNotes(version)
+{
+    base := GetTes3npOriginalVersion(version)
+    info := ParseTes3npVersion(version)
+    records := []
+    Loop info.Hotfix + 1 {
+        number := A_Index - 1
+        entryVersion := number = 0 ? base : base "." number
+        notes := ReadBundledVersionNotes(entryVersion)
+        if notes = "" {
+            if number = 0
+                notes := ReadPublishedVersionNotes(base)
+            if notes = "" || InStr(notes, "currently unavailable")
+                return "Complete release notes for v" version " are unavailable. See GitHub Releases."
+        }
+        records.Push({Version: entryVersion, Label: "v" entryVersion,
+            Hotfix: number > 0, Notes: notes})
+    }
+    return BuildCategorizedUpdateNotes(records)
+}
+
+NoteCategoryName(heading, isHotfix)
+{
+    switch heading {
+        case "New Features", "Improvements", "Removed Features", "Hotfixes":
+            return heading
+        case "Bug Fixes", "Fixed":
+            return isHotfix ? "Hotfixes" : "Bug Fixes"
+        case "Install":
+            return ""
+        default:
+            return "Other Changes"
+    }
+}
+
+; Preserve each change's original category and show its source version/date.
+BuildCategorizedUpdateNotes(records)
+{
+    order := ["New Features", "Improvements", "Bug Fixes", "Hotfixes",
+        "Removed Features", "Other Changes"]
+    combined := Map()
+    for category in order
+        combined[category] := []
+    for record in records {
+        current := ""
+        sections := Map()
+        for category in order
+            sections[category] := []
+        for rawLine in StrSplit(StrReplace(record.Notes, "`r", ""), "`n") {
+            line := Trim(rawLine)
+            if RegExMatch(line, "^###[ `t]+(.+)$", &heading) {
+                current := NoteCategoryName(heading[1], record.Hotfix)
+                continue
+            }
+            if current = ""
+                continue
+            if RegExMatch(line, "^[-*+][ `t]+(.+)$", &bullet)
+                sections[current].Push("- " bullet[1])
+            else if line != "" && current = "Other Changes"
+                sections[current].Push(line)
+        }
+        for category in order {
+            if !sections[category].Length
+                continue
+            part := "#### " record.Label
+            for bullet in sections[category]
+                part .= "`n" bullet
+            combined[category].Push(part)
+        }
+    }
+    output := ""
+    for category in order {
+        if !combined[category].Length
+            continue
+        if output != ""
+            output .= "`n`n"
+        output .= "### " category
+        for part in combined[category]
+            output .= "`n`n" part
+    }
+    return output != "" ? output : "Release notes are unavailable. See GitHub Releases."
+}
+
 GetTes3npOriginalVersion(version)
 {
     info := ParseTes3npVersion(version)
