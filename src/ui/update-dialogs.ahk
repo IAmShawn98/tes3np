@@ -32,7 +32,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
     history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)
     notes := kind = "hotfix" ? history.Hotfix : history.Release
     response := {Download: false}
-    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 680)
+    preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)
     closeNotes := 0
     try {
         preview.SetFont("s14 Bold cC5A45C", "Georgia")
@@ -40,37 +40,32 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h42 BackgroundTrans", title)
         preview.SetFont("s10 cEDE1C9", "Segoe UI")
-        preview.Add("Text", "x30 y69 w740 h24 BackgroundTrans",
-            "Review the changes you have missed before deciding to update.")
-        ; Keep the three metadata groups away from each other and from the
-        ; tab row. Each version gets its own control to avoid wrapping/clipping.
-        preview.Add("Text", "x30 y105 w90 h25 BackgroundTrans", "Installed:")
-        preview.Add("Text", "x123 y105 w147 h25 BackgroundTrans", "v" installedVersion)
-        preview.Add("Text", "x291 y105 w70 h25 BackgroundTrans", "Latest:")
-        preview.Add("Text", "x371 y105 w167 h25 BackgroundTrans", "v" latestVersion)
-        preview.Add("Text", "x555 y105 w215 h25 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
+        ; One clear metadata row below the title. Group labels and version
+        ; values remain separate so longer build numbers do not wrap.
+        preview.Add("Text", "x30 y80 w90 h26 BackgroundTrans", "Installed:")
+        preview.Add("Text", "x123 y80 w147 h26 BackgroundTrans", "v" installedVersion)
+        preview.Add("Text", "x291 y80 w70 h26 BackgroundTrans", "Latest:")
+        preview.Add("Text", "x371 y80 w167 h26 BackgroundTrans", "v" latestVersion)
+        preview.Add("Text", "x555 y80 w215 h26 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
         tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix,
-            kind = "hotfix" ? "hotfix" : "release", 143)
-        preview.SetFont("s10 cC5A45C", "Segoe UI")
-        preview.Add("Text", "x30 y574 w740 h24 BackgroundTrans",
-            "Preview only — nothing has been downloaded or installed.")
+            kind = "hotfix" ? "hotfix" : "release", 118)
         if synthetic
         {
-            ; Keep the real preview layout, but expose only a Close action:
-            ; this opt-in fixture cannot download or open unpublished releases.
-            AddStyledButton(preview, 330, 618, 140, 34, "Close", (*) => DestroyScaledMenu(preview))
+            ; The opt-in test uses the same production layout but exposes
+            ; no download or GitHub release actions.
+            AddStyledButton(preview, 330, 568, 140, 34, "Close", (*) => DestroyScaledMenu(preview))
         }
         else
         {
-            AddStyledButton(preview, 32, 618, 230, 34, "Continue to Download", (*) => (response.Download := true, DestroyScaledMenu(preview)))
-            AddStyledButton(preview, 330, 618, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
-            AddStyledButton(preview, 590, 618, 178, 34, "GitHub Release", (*) => Run(GetTes3npReleasePage(latestVersion)))
+            AddStyledButton(preview, 32, 568, 230, 34, "Continue to Download", (*) => (response.Download := true, DestroyScaledMenu(preview)))
+            AddStyledButton(preview, 330, 568, 140, 34, "Not Now", (*) => DestroyScaledMenu(preview))
+            AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release", (*) => Run(GetTes3npReleasePage(latestVersion)))
         }
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
-        closeNotes := AddUpdateNotesViewport(preview, notes, scale, tabs.Switch, 24, 38)
+        closeNotes := AddUpdateNotesViewport(preview, notes, scale, tabs.Switch, 0, 28)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
