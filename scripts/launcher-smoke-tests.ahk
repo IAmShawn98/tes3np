@@ -1261,12 +1261,16 @@ CheckMissedUpdateLinkViewport()
                 if !IsObject(observer.Refresh) || observer.Rows.Length != 3
                     throw Error("Missed-updates viewport did not initialize its rows.")
                 visible := 0
+                previousBottom := 0
                 for row in observer.Rows
                 {
                     if !row.Visible
                         continue
                     visible += 1
                     row.GetPos(&x, &y, &width, &height)
+                    if previousBottom && y <= previousBottom
+                        throw Error("Missed-update Text controls overlap and may erase glyphs.")
+                    previousBottom := y + height
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
                         || y < Round(508 * scale) - 1
