@@ -811,11 +811,44 @@ CheckOwnedMenuScaling()
     ExitApp(0)
 }
 
+; Regression guard: a compiled root executable should open the same checkout
+; draft preview as dist\local-build, without enabling it in exported packages.
+CheckDevelopmentReviewExecutablePaths()
+{
+    root := A_Temp "\tes3np-preview-check-" NewLauncherFileId()
+    try
+    {
+        DirCreate(root "\.git")
+        DirCreate(root "\scripts")
+        FileAppend("; development fixture", root "\scripts\check-ahk-compile.ps1")
+        DirCreate(root "\dist\local-build")
+        DirCreate(root "\dist\tes3np-windows")
+        if FindDevelopmentReviewCheckoutRoot(root, true) != root
+            || FindDevelopmentReviewCheckoutRoot(root, false) != root
+            throw Error("Root executable cannot locate the local development checkout.")
+        if FindDevelopmentReviewCheckoutRoot(root "\dist\local-build", true) = ""
+            throw Error("Nested local-build executable cannot locate the checkout.")
+        if FindDevelopmentReviewCheckoutRoot(root "\dist\local-build", false) != ""
+            || FindDevelopmentReviewCheckoutRoot(root "\dist\tes3np-windows", true) != ""
+            throw Error("Packaged distributions must not auto-show development updates.")
+        DirDelete(root "\.git")
+        if FindDevelopmentReviewCheckoutRoot(root, true) != ""
+            || FindDevelopmentReviewCheckoutRoot(root "\dist\local-build", true) != ""
+            throw Error("Development preview must require a valid checkout marker.")
+    }
+    finally
+    {
+        try DirDelete(root, true)
+    }
+    try FileAppend("PASS: root and local-build EXEs enable checkout preview; distributions stay disabled" Chr(10), "*")
+}
+
 ; The owned-menu probe already runs on Windows in CI. Use its disposable owner
 ; to exercise the real display refresh and release-note rows at both extremes.
 CheckDisplaySettingsAndReleaseNotes()
 {
     global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
+    CheckDevelopmentReviewExecutablePaths()
     if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100
         || GetLauncherScaleForWorkArea(1280, 680, 1.5) != 60
         || GetLauncherScaleForWorkArea(1280, 680, 1.5, 100) != 63
