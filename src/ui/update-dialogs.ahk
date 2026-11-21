@@ -131,28 +131,34 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
     ; Reserve enough measured space for the complete font (including its
     ; descent and native Text control inset), without crossing the gold frame.
     ; The three visible rows end by y589, above the card's y594 inner edge.
-    rowTop := px(412 + topExtra + bottomExtra)
+    rowTop := px(408 + topExtra + bottomExtra)
     rowStep := px(24)
     rowHeight := px(29)
     left := px(48)
     rowWidth := px(496)
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
-        . " w" px(531) " h" px(79) " Background171008")
+        . " w" px(531) " h" px(82) " Background171008")
     page := {Items: versions, Offset: 1, MaxOffset: Max(1, versions.Length - 2)}
     rows := []
     for slot in [1, 2, 3]
     {
-        panel.SetFont("s" Max(5, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
+        panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
         link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
-        if ReleaseNoteLineHeight(link) + px(8) > rowHeight
-            throw Error("Missed-update row is shorter than its rendered font.")
+        ; Use the native font height rather than assuming a 20px Text box
+        ; can display the entire glyph (it clipped the draft version).
+        rowHeight := Max(rowHeight, ReleaseNoteLineHeight(link) + px(8))
         rows.Push(link)
     }
+    for slot, link in rows
+        link.Move(left, rowTop + (slot - 1) * rowStep, rowWidth, rowHeight)
+    ; The last row must end above the gold card's lower inside edge.
+    if rowTop + 2 * rowStep + rowHeight > px(590 + topExtra + bottomExtra)
+        throw Error("Missed-update links cannot fit the selected launcher scale.")
     trackX := px(558)
     trackY := rowTop
-    trackHeight := px(76)
+    trackHeight := px(78)
     thumbX := px(561)
     thumbWidth := px(6)
     track := panel.Add("Text", "x" trackX " y" trackY " w" px(12)
@@ -173,7 +179,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
             }
             item := page.Items[idx]
             linked := item.Url != ""
-            row.SetFont("s" Max(5, Round(10 * scale))
+            row.SetFont("s" Max(4, Round(10 * scale))
                 . (linked ? " Underline cF5C96E" : " Norm cAFA78B"), "Segoe UI")
             caption := item.Label
             ; Extremely long versions must never run into the scrollbar.
