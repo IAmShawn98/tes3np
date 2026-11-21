@@ -39,33 +39,45 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h42 BackgroundTrans", title)
-        preview.SetFont("s10 cEDE1C9", "Segoe UI")
-        ; Keep three distinct metadata groups but minimize wasted space
-        ; between them. Full-size controls prevent version numbers clipping.
-        preview.Add("Text", "x30 y80 w90 h26 BackgroundTrans", "Installed:")
-        preview.Add("Text", "x123 y80 w147 h26 BackgroundTrans", "v" installedVersion)
-        preview.Add("Text", "x272 y80 w70 h26 BackgroundTrans", "Latest:")
-        preview.Add("Text", "x346 y80 w167 h26 BackgroundTrans", "v" latestVersion)
-        preview.Add("Text", "x518 y80 w252 h26 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
-        tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix,
-            kind = "hotfix" ? "hotfix" : "release", 118)
+        ; Use one measured metadata layout for both feature and hotfix
+        ; updates. Longer version numbers move the next item rather than
+        ; painting over its text. If needed, the extra row reflows the card.
+        rowExtra := AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)
+        if rowExtra
+            GrowGoldNativePrompt(preview, rowExtra)
+        switcher := 0
+        if kind = "hotfix"
+        {
+            ; A hotfix-only update has no new feature release to review.
+            ; Mirror the single-section treatment of version information,
+            ; but label the section Hotfixes rather than showing two tabs.
+            preview.SetFont("s12 Bold cC5A45C", "Georgia")
+            preview.Add("Text", "x30 y" (118 + rowExtra) " w740 h30 BackgroundTrans", "Hotfixes")
+        }
+        else
+        {
+            tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix,
+                "release", 118 + rowExtra)
+            switcher := tabs.Switch
+        }
         ; Keep both actions together at the lower left, aligned with the
         ; notes panel. The real Update Now action still enters the existing
         ; download and install confirmation flow outside this window.
+        actionY := 568 + rowExtra
         if synthetic
         {
-            AddStyledButton(preview, 32, 568, 185, 34, "Update Now",
+            AddStyledButton(preview, 32, actionY, 185, 34, "Update Now",
                 (*) => MsgBox("Update downloads are disabled for this preview.", "TES3NP Update Preview", "Iconi"))
         }
         else
-            AddStyledButton(preview, 32, 568, 185, 34, "Update Now",
+            AddStyledButton(preview, 32, actionY, 185, 34, "Update Now",
                 (*) => (response.Download := true, DestroyScaledMenu(preview)))
-        AddStyledButton(preview, 233, 568, 155, 34, "Not Now", (*) => DestroyScaledMenu(preview))
+        AddStyledButton(preview, 233, actionY, 155, 34, "Not Now", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
         scale := GetUpdatePromptFitScale(preview)
         ScaleOwnedMenuContent(preview, scale)
-        closeNotes := AddUpdateNotesViewport(preview, notes, scale, tabs.Switch, 0, 28)
+        closeNotes := AddUpdateNotesViewport(preview, notes, scale, switcher, rowExtra, 28 + rowExtra)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
@@ -76,6 +88,41 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         CloseGoldNativePrompt(preview)
     }
     return response.Download ? "Yes" : "No"
+}
+
+; Place the preview metadata from the real rendered Text-control widths. The
+; installed and latest build strings vary (especially for hotfix versions),
+; so hard-coded text-box widths otherwise clip or overlap their neighbors.
+; Return the extra vertical space needed if a narrow display requires wrapping.
+AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
+{
+    panel.SetFont("s10 Bold cEDE1C9", "Segoe UI")
+    installed := panel.Add("Text", "x30 y80 h26 BackgroundTrans +0x80", "Installed: v" installedVersion)
+    latest := panel.Add("Text", "x30 y80 h26 BackgroundTrans +0x80", "Latest: v" latestVersion)
+    channelName := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
+    channelText := panel.Add("Text", "x30 y80 h26 BackgroundTrans +0x80", "Channel: " channelName)
+
+    installed.GetPos(, , &installedWidth)
+    latest.GetPos(, , &latestWidth)
+    channelText.GetPos(, , &channelWidth)
+    gap := 18
+    latestX := 30 + installedWidth + gap
+    channelX := latestX + latestWidth + gap
+    if channelX + channelWidth <= 770
+    {
+        latest.Move(latestX, 80)
+        channelText.Move(channelX, 80)
+        return 0
+    }
+    if latestX + latestWidth <= 770
+    {
+        latest.Move(latestX, 80)
+        channelText.Move(30, 112)
+        return 32
+    }
+    latest.Move(30, 112)
+    channelText.Move(30, 144)
+    return 64
 }
 
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
