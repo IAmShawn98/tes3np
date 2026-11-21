@@ -262,13 +262,15 @@ PollStartupUpdateAvailability(*)
             throw Error("Update metadata returned HTTP " request.Status ".")
         manifest := ParseAndValidateUpdateManifest(request.ResponseText, AppConfig.Version)
         available := manifest.UpdateEnabled && GetLauncherUpdateKind(AppConfig.Version, manifest.Version) != ""
-        SetLauncherUpdateAvailable(available, manifest.version)
-        if available && !HasSeenUpdateAutoPreview(manifest.version)
+        SetLauncherUpdateAvailable(available, manifest.version,
+            IsPublishedVersionRead(manifest.version) ? 0 : 1)
+        if available
         {
-            ; The manifest verifies the newest release, but it contains no
-            ; count. Count the actual published GitHub releases asynchronously.
+            ; The currently offered update might already be read while
+            ; earlier missed versions still contribute to the footer count.
             StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)
-            SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
+            if !HasSeenUpdateAutoPreview(manifest.version)
+                SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
         }
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") " | Elapsed: " elapsed "ms.")
     } catch Error as err {
@@ -316,7 +318,7 @@ StartLauncherUnreadReleaseCount(installed, latest)
 ; guess how many hotfix tags were published.
 PollLauncherUnreadReleaseCount(*)
 {
-    global LauncherUnreadReleaseJob, LauncherObservedUpdateVersion, DataFile
+    global LauncherUnreadReleaseJob, LauncherObservedUpdateVersion, LauncherPublishedVersions
     job := LauncherUnreadReleaseJob
     if !IsObject(job)
     {
@@ -349,12 +351,13 @@ PollLauncherUnreadReleaseCount(*)
                 latestFound := true
         if !latestFound
             throw Error("Unread count did not include the verified latest release.")
-        seen := IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "")
-        unread := CountUnseenPublishedUpdateRecords(records, job.Installed, seen)
-        count := unread.Count
-        if LauncherObservedUpdateVersion = job.Latest && !HasSeenUpdateAutoPreview(job.Latest)
-            SetLauncherUpdateAvailable(true, job.Latest, count)
-        LogLauncherEvent("UPDATE | Verified " count " unread published release(s) since v" unread.Baseline ".")
+        if LauncherObservedUpdateVersion = job.Latest
+        {
+            LauncherPublishedVersions := records
+            unread := CountUnseenPublishedUpdateRecords(records, job.Installed)
+            SetLauncherUpdateAvailable(true, job.Latest, unread.Count)
+            LogLauncherEvent("UPDATE | Verified " unread.Count " unread published release(s).")
+        }
     }
     catch Error as err
         LogLauncherEvent("UPDATE | Unread published-release count unavailable (" Type(err) ").")
@@ -368,48 +371,65 @@ CleanupUnreadReleaseCountFiles(job)
     try FileDelete(job.HotfixFile)
 }
 
-; Pure version-counting rule, shared by the asynchronous updater and
-; disposable offline smoke tests. A viewed version raises the lower bound;
-; the installed version is always excluded, never counted as missed.
-CountUnseenPublishedUpdateRecords(records, installed, lastViewed := "")
+; Per-version receipts persist in settings.ini without removing the
+; release entry. Reading the current offered version does not clear older
+; unread versions. The legacy scalar is used only for the *exact* old receipt.
+IsPublishedVersionRead(version)
 {
-    baseline := installed
-    try
-    {
-        if lastViewed != ""
-            && ParseTes3npVersion(lastViewed).Channel = ParseTes3npVersion(installed).Channel
-            && CompareUpdateNoteVersions(lastViewed, baseline) > 0
-            baseline := lastViewed
-    }
-    catch Error
-    {
-        baseline := installed
-    }
-    count := 0
+    global DataFile
+    ParseTes3npVersion(version)
+    if IniRead(DataFile, "ReadPublishedVersions", version, "") = "1"
+        return true
+    return IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "") = version
+}
+
+MarkPublishedVersionRead(version, offered := false)
+{
+    global DataFile, AppDataDirectory
+    ParseTes3npVersion(version)
+    DirCreate(AppDataDirectory)
+    IniWrite("1", DataFile, "ReadPublishedVersions", version)
+    if offered
+        IniWrite(version, DataFile, "Updates", "LastAutoPreviewVersion")
+}
+
+; A Map of read versions may be supplied by native offline regression tests.
+CountUnseenPublishedUpdateRecords(records, installed, seenState := 0)
+{
+    unique := Map()
+    unread := 0
     for record in records
-        if CompareUpdateNoteVersions(record.Version, baseline) > 0
-            count += 1
-    return {Count: count, Baseline: baseline}
+    {
+        version := record.Version
+        if unique.Has(version) || GetLauncherUpdateKind(installed, version) = ""
+            continue
+        unique[version] := true
+        read := IsObject(seenState) ? seenState.Has(version) : IsPublishedVersionRead(version)
+        if !read
+            unread += 1
+    }
+    return {Count: unread}
+}
+
+; Recount the same verified records that remain visible in the menu.
+; A delayed background scan also checks the latest read receipts before it
+; can repaint the footer, so it cannot resurrect cleared notifications.
+RefreshLauncherPublishedUnreadCount(versions := 0, latest := "")
+{
+    global AppConfig, LauncherPublishedVersions, LauncherObservedUpdateVersion
+    if IsObject(versions)
+        LauncherPublishedVersions := versions
+    if latest = ""
+        latest := LauncherObservedUpdateVersion
+    if latest = ""
+        return
+    count := CountUnseenPublishedUpdateRecords(LauncherPublishedVersions, AppConfig.Version).Count
+    SetLauncherUpdateAvailable(true, latest, count)
 }
 
 HasSeenUpdateAutoPreview(version)
 {
-    global DataFile
-    seen := IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "")
-    if seen = version
-        return true
-    if seen = ""
-        return false
-    try
-    {
-        ; The feed might temporarily lag behind a previously viewed
-        ; version. Never resurrect an older notification as "unread."
-        if ParseTes3npVersion(seen).Channel = ParseTes3npVersion(version).Channel
-            return CompareUpdateNoteVersions(seen, version) >= 0
-    }
-    catch Error
-        return false
-    return false
+    return IsPublishedVersionRead(version)
 }
 
 AutoPreviewNewUpdate(version, *)
@@ -450,15 +470,10 @@ CheckForUpdates(*)
             ShowUpdateStatusPanel("current", AppConfig.Version)
             return
         }
-        ; Update notifications are stored by published version. Viewing the
-        ; preview clears (1); a newly published version shows it again.
+        ; Entering the preview marks only the offered release as read.
+        ; Older published versions stay unread until individually clicked
+        ; or cleared by the user's explicit Clear action.
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
-        ; The first preview of this published version is remembered across restarts,
-        ; regardless of whether it opened automatically or the user opened it.
-        ; Store before showing the modal so Cancel/Not Now does not repeat next launch.
-        if !HasSeenUpdateAutoPreview(latest)
-            IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")
-        SetLauncherUpdateAvailable(true, latest)
         ; Viewing the update preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)
         if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
