@@ -5,12 +5,9 @@ global UpdateStartupRequest := 0
 global UpdateStartupStarted := 0
 global LauncherVersionLabel := 0
 global LauncherUpdateBadge := 0
-global LauncherUpdateDismissedVersion := ""
 CreateLauncherVersionLabel()
 {
-    global AppConfig, LauncherGui, LauncherVersionLabel, LauncherUpdateDismissedVersion
-
-    LauncherUpdateDismissedVersion := ""
+    global AppConfig, LauncherGui, LauncherVersionLabel
     LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
     ; Let the Text control size itself to the rendered caption, not a 300px
     ; click target. Its DPI-aware width is also the badge's alignment anchor.
@@ -18,8 +15,8 @@ CreateLauncherVersionLabel()
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
 
-; The version remains visible, even when an update has been deferred.
-; A small (1) means an unseen published update; a subdued dot means viewed.
+; Keep the installed version visible. Show a red (1) only for a newer
+; published update that has not yet been viewed.
 CreateLauncherUpdateBadge()
 {
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
@@ -29,7 +26,6 @@ CreateLauncherUpdateBadge()
     ; into Gui.Add would apply DPI scaling again and leave a large gap.
     LauncherVersionLabel.GetPos(&labelX, , &labelWidth)
     x := labelX + labelWidth + 4
-    ; Left alignment keeps a single viewed dot as close to the caption as (1).
     LauncherUpdateBadge := LauncherGui.Add("Text", "x" x " y689 w28 h22 BackgroundTrans", "(1)")
     LauncherUpdateBadge.SetFont("s10 Bold cD63232", "Segoe UI")
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
@@ -45,22 +41,19 @@ ScaleLauncherVersionLabel(scale)
     ApplyLauncherBadgeFont(scale)
 }
 
-; Keep unread (1) red, but make the viewed indicator visible on the
-; dark, textured footer. The solid circle needs no centering offset.
+; Preserve the red unread notification at the saved launcher scale.
 ApplyLauncherBadgeFont(scale)
 {
     global LauncherUpdateBadge
     if !IsObject(LauncherUpdateBadge)
         return
-    unread := LauncherUpdateBadge.Text = "(1)"
-    size := Max(6, Round((unread ? 10 : 12) * scale))
-    color := unread ? "D63232" : "E0C27F"
-    LauncherUpdateBadge.SetFont("s" size " Bold c" color, "Segoe UI")
+    size := Max(6, Round(10 * scale))
+    LauncherUpdateBadge.SetFont("s" size " Bold cD63232", "Segoe UI")
 }
 
 SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
 {
-    global AppConfig, LauncherUpdateBadge, LauncherVersionLabel, LauncherUpdateDismissedVersion
+    global AppConfig, LauncherUpdateBadge, LauncherVersionLabel
     global LauncherScale
 
     if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
@@ -68,6 +61,7 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
     LauncherVersionLabel.Visible := true
     available := isAvailable && latestVersion != ""
         && GetLauncherUpdateKind(AppConfig.Version, latestVersion) != ""
+        && !HasSeenUpdateAutoPreview(latestVersion)
     ; Transparent static text leaves old glyph pixels behind when updated
     ; without the picture underneath being redrawn. Refresh the *footer*
     ; rectangle after changing state; never invalidate the whole launcher.
@@ -81,11 +75,8 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
         }
         return
     }
-    unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)
-    nextText := unseen ? "(1)" : Chr(0x25CF)
-    if !wasVisible || LauncherUpdateBadge.Text != nextText
+    if !wasVisible
     {
-        LauncherUpdateBadge.Text := nextText
         ApplyLauncherBadgeFont(LauncherScale / 100)
         LauncherUpdateBadge.Visible := true
         RedrawLauncherUpdateBadge()
@@ -108,13 +99,6 @@ RedrawLauncherUpdateBadge()
     ; RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW
     DllCall("user32\RedrawWindow", "Ptr", LauncherGui.Hwnd,
         "Ptr", rect, "Ptr", 0, "UInt", 0x0185, "Int")
-}
-
-DismissLauncherUpdate(latestVersion)
-{
-    global LauncherUpdateDismissedVersion
-    LauncherUpdateDismissedVersion := latestVersion
-    SetLauncherUpdateAvailable(true, latestVersion)
 }
 
 CheckForUpdateAvailability(*)
@@ -190,8 +174,8 @@ HasSeenUpdateAutoPreview(version)
 
 AutoPreviewNewUpdate(version, *)
 {
-    global LauncherGui, UpdateBusy, LauncherUpdateDismissedVersion
-    if UpdateBusy || LauncherUpdateDismissedVersion = version || HasSeenUpdateAutoPreview(version)
+    global LauncherGui, UpdateBusy
+    if UpdateBusy || HasSeenUpdateAutoPreview(version)
         return
     if !IsObject(LauncherGui) || !DllCall("user32\IsWindowVisible", "Ptr", LauncherGui.Hwnd)
         return
@@ -226,8 +210,8 @@ CheckForUpdates(*)
             ShowUpdateStatusPanel("current", AppConfig.Version)
             return
         }
-        ; The startup check owns the footer notification. Opening a preview
-        ; from the version text must not re-show a dismissed banner.
+        ; Update notifications are stored by published version. Viewing the
+        ; preview clears (1); a newly published version shows it again.
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         ; The first preview of this published version is remembered across restarts,
         ; regardless of whether it opened automatically or the user opened it.
@@ -235,7 +219,7 @@ CheckForUpdates(*)
         if !HasSeenUpdateAutoPreview(latest)
             IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")
         SetLauncherUpdateAvailable(true, latest)
-        ; Viewing the gold preview never downloads, stages, or installs files.
+        ; Viewing the update preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)
         if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
             BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
@@ -252,8 +236,7 @@ CheckForUpdates(*)
             }
             LogLauncherEvent("UPDATE | Installation deferred for verified update v" latest ".")
         } else {
-            DismissLauncherUpdate(latest)
-            LogLauncherEvent("UPDATE | User deferred update v" latest "; notification remains accessible beside version.")
+            LogLauncherEvent("UPDATE | User deferred update v" latest "; unread indicator remains hidden until a newer update.")
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " Type(err))
