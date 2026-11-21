@@ -85,6 +85,12 @@ Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSo
 Require-Source 'return kind = "heading" \? "s12 Bold cE7BE70"' 'gold category headings' $notesSource
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Version Status", 800, 600\)' 'version status uses the gold modal' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, tabs.Switch\)' 'version status passes the scale and tab switcher to release notes' $dialogSource
+Require-Source 'ShowGoldNativePrompt\(preview, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(preview\)' 'update preview paints buttons immediately after show' $dialogSource
+Require-Source 'ShowGoldNativePrompt\(panel, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(panel\)' 'version status paints tabs and footer immediately after show' $dialogSource
+Require-Source 'tabs.Switch.Update.Call\(selected = "hotfix" \? tabs.Hotfix : tabs.Release\)\r?\n\s*;[^\r\n]*\r?\n\s*PaintGoldUpdateDialogButtons\(tabs.ReleaseButton.Gui\)' 'release note tab switches repaint their native buttons' $dialogSource
+Require-Source 'RedrawWindow", "Ptr", panel.Hwnd, "Ptr", 0, "Ptr", 0' 'redraw includes native owned panel' $dialogSource
+Require-Source 'face.Window = panel.Hwnd' 'release repaint is scoped to the active panel' $dialogSource
+Require-Source 'PaintButtonNow\(handle\)' 'themed button faces are explicitly painted' $dialogSource
 Require-Source '#Include src\\ui\\update-dialogs\.ahk' 'update dialogs are included by the launcher' $entry
 Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(10\)\)\)' 'font-measured changelog wrapping uses the scaled width' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
