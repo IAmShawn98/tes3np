@@ -2364,11 +2364,11 @@ expect(
     and 'LauncherUpdateBadge := LauncherGui.Add("Picture",' in update_check
     and 'update-unread-circle.png' in update_check
     and 'LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)' in update_check
-    and 'LauncherUpdateBadge.Value := A_ScriptDir "\\assets\\controls\\update-unread-circle.png"' in update_check
+    and 'LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels' in update_check
     and 'LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
-    and 'size := Max(6, Round(10 * scale))' in update_check
+    and 'size := Max(5, Round(9 * scale / GetLauncherBadgeDpiScale()))' in update_check
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
     and 'if !wasVisible' in update_check
@@ -2379,7 +2379,11 @@ expect(
     and 'IniWrite("1", path, "ReadPublishedVersions", version)' in update_check
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
     and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
-    and '22 + 3 * (digits - 1)' in update_check
+    and 'GetDpiForWindow' in update_check
+    and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
+    and 'if width > 26' in launcher_smoke_tests
+    and 'badge := panel.Add("Picture"' in launcher_smoke_tests
+    and 'physical := Max(16, Round((18 + 5 * (digits - 1)) * scale))' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
