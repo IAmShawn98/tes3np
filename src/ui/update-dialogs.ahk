@@ -127,13 +127,17 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
     if !versions.Length
         return 0
     px := (value) => Round(value * scale)
-    rowTop := px(420 + topExtra + bottomExtra)
-    rowStep := px(22)
-    rowHeight := px(20)
+    ; Static link glyphs extend below the former 20px control on Windows.
+    ; Reserve enough measured space for the complete font (including its
+    ; descent and native Text control inset), without crossing the gold frame.
+    ; The three visible rows end by y589, above the card's y594 inner edge.
+    rowTop := px(412 + topExtra + bottomExtra)
+    rowStep := px(24)
+    rowHeight := px(29)
     left := px(48)
     rowWidth := px(496)
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
-        . " w" px(531) " h" px(66) " Background171008")
+        . " w" px(531) " h" px(79) " Background171008")
     page := {Items: versions, Offset: 1, MaxOffset: Max(1, versions.Length - 2)}
     rows := []
     for slot in [1, 2, 3]
@@ -142,11 +146,13 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
         link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
+        if ReleaseNoteLineHeight(link) + px(8) > rowHeight
+            throw Error("Missed-update row is shorter than its rendered font.")
         rows.Push(link)
     }
     trackX := px(558)
     trackY := rowTop
-    trackHeight := px(64)
+    trackHeight := px(76)
     thumbX := px(561)
     thumbWidth := px(6)
     track := panel.Add("Text", "x" trackX " y" trackY " w" px(12)
