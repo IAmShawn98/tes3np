@@ -70,12 +70,12 @@ ShowDevelopmentReleaseReview(*)
             throw Error("No local release notes for v" version ".")
         record := {Version: version, Label: "v" version,
             Hotfix: true, Notes: changelog}
-        ; Only real local draft notes are used. The review renders an
-        ; accurate empty earlier-updates summary when there are no missed
-        ; releases; the published-update path still reads verified history.
-        ; The modal result is ignored: no download/install.
+        ; Preview the real pending notes in the production dialog. The
+        ; draft appears in Updates You Missed, but is not a hyperlink until
+        ; GitHub actually publishes that exact release tag.
         draftSections := BuildPublishedPreviewSections([record])
-        draftSections.ReviewEmptyEarlier := true
+        draftSections.MissedVersions[1].Url := ""
+        draftSections.MissedVersions[1].Label .= " (unreleased draft)"
         ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
             "alpha", "hotfix", draftSections)
         LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
