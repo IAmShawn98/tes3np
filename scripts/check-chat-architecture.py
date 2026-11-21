@@ -2426,7 +2426,11 @@ expect(
     and 'GrowGoldNativePrompt(preview, rowExtra)' in update_dialogs
     and 'preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")' in update_dialogs
     and 'AddUpdateNotesViewport(preview, notes.Latest, scale,' in update_dialogs
-    and 'noteSwitcher, rowExtra, notesSpace, true, true, notes.EarlierCount > 0)' in update_dialogs
+    and 'noteSwitcher, rowExtra, notesSpace, true, true, showEarlierSummary)' in update_dialogs
+    and 'showEarlierSummary := notes.EarlierCount > 0' in update_dialogs
+    and 'notes.HasOwnProp("ReviewEmptyEarlier")' in update_dialogs
+    and '"No earlier missed updates for this draft."' in update_dialogs
+    and 'draftSections.ReviewEmptyEarlier := true' in bootstrap
     and 'actionY := 511 + rowExtra + notesSpace' in update_dialogs
     and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 313, actionY, 181, 34, "Not Now"' in update_dialogs
