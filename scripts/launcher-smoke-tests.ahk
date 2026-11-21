@@ -34,6 +34,9 @@ RunLauncherChecks(args)
             CheckOwnedMenuScaling()
         case "--check-game-login-card":
             ExitApp(CheckGameLoginCardStacking() ? 0 : 231)
+        case "--preview-update-badge":
+            PreviewUpdateBadgeFixture()
+            ExitApp(0)
     }
 }
 
@@ -816,6 +819,95 @@ CheckDisplaySettingsAndReleaseNotes()
         }
     }
     try FileAppend("PASS: live display refresh and reset, loading cleanup, and readable release-note rows at 50 and 100 percent" Chr(10), "*")
+}
+
+; Test-only update notification preview. It exercises the launcher's actual
+; footer/version/badge controls but never contacts the live feed or installer.
+; All preview state is isolated to a disposable INI under %TEMP%.
+PreviewUpdateBadgeFixture()
+{
+    global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
+    global DataFile, LauncherUpdateDismissedVersion, AppConfig
+    previousDataFile := DataFile
+    root := A_Temp "\\tes3np-update-badge-preview-" NewLauncherFileId()
+    gui := 0
+    try
+    {
+        DirCreate(root)
+        DataFile := root "\\settings.ini"
+        LauncherGui := Gui("-Caption -Border -DPIScale", "TES3NP Update Badge Preview")
+        LauncherGui.BackColor := "171008"
+        LauncherGui.SetFont("s16 Bold cE7BE70", "Segoe UI")
+        LauncherGui.Add("Text", "x35 y40 w890 h42 BackgroundTrans", "Update indicator — isolated test preview")
+        LauncherGui.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+        LauncherGui.Add("Text", "x35 y105 w880 h52 BackgroundTrans", 
+            "Simulated published version: v0.1.22-alpha. No network, game files, or real settings are used.")
+        LauncherGui.Add("Text", "x35 y184 w880 h36 BackgroundTrans", 
+            "Use the buttons below, then inspect the real version label at the bottom-left.")
+        status := LauncherGui.Add("Text", "x35 y247 w880 h48 BackgroundTrans", "")
+        CreateLauncherVersionLabel()
+        CreateLauncherUpdateBadge()
+        ; The real footer controls normally open the update checker.
+        ; Disable that click handler in this offline preview only.
+        LauncherVersionLabel.OnEvent("Click", CheckForUpdates, 0)
+        LauncherUpdateBadge.OnEvent("Click", CheckForUpdates, 0)
+        LauncherGui.SetFont("s11 Norm c171008", "Segoe UI")
+        button := LauncherGui.Add("Button", "x35 y332 w200 h44", "Unread update")
+        button.OnEvent("Click", (*) => PreviewUpdateBadgeState("unread", status))
+        button := LauncherGui.Add("Button", "x253 y332 w200 h44", "Mark viewed")
+        button.OnEvent("Click", (*) => PreviewUpdateBadgeState("viewed", status))
+        button := LauncherGui.Add("Button", "x471 y332 w200 h44", "No update")
+        button.OnEvent("Click", (*) => PreviewUpdateBadgeState("none", status))
+        button := LauncherGui.Add("Button", "x705 y332 w200 h44", "Close preview")
+        button.OnEvent("Click", (*) => LauncherGui.Destroy())
+        LauncherGui.OnEvent("Close", (*) => LauncherGui.Destroy())
+        LauncherGui.OnEvent("Escape", (*) => LauncherGui.Destroy())
+        PreviewUpdateBadgeState("unread", status)
+        hwnd := LauncherGui.Hwnd
+        LauncherGui.Show("w960 h720")
+        WinWaitClose("ahk_id " hwnd)
+    }
+    finally
+    {
+        if IsObject(LauncherGui) && DllCall("IsWindow", "Ptr", LauncherGui.Hwnd)
+            try LauncherGui.Destroy()
+        DataFile := previousDataFile
+        try DirDelete(root, true)
+    }
+}
+
+PreviewUpdateBadgeState(mode, status)
+{
+    global DataFile, LauncherUpdateDismissedVersion, LauncherUpdateBadge, LauncherVersionLabel
+    latest := "0.1.22-alpha"
+    switch mode
+    {
+        case "unread":
+            IniDelete(DataFile, "Updates", "LastAutoPreviewVersion")
+            LauncherUpdateDismissedVersion := ""
+            SetLauncherUpdateAvailable(true, latest)
+            expected := "(1)"
+            description := "Unread: red (1) beside the installed version."
+        case "viewed":
+            ; Mimic a preview marked seen, including a fresh in-memory session.
+            IniWrite(latest, DataFile, "Updates", "LastAutoPreviewVersion")
+            LauncherUpdateDismissedVersion := ""
+            SetLauncherUpdateAvailable(true, latest)
+            expected := Chr(0x2022)
+            description := "Viewed: subtle dot; installed version stays visible."
+        case "none":
+            SetLauncherUpdateAvailable(false)
+            expected := ""
+            description := "Current: no update indicator should be visible."
+        default:
+            throw Error("Unknown update badge preview state.")
+    }
+    valid := LauncherVersionLabel.Visible
+        && LauncherUpdateBadge.Visible = (mode != "none")
+        && (mode = "none" || LauncherUpdateBadge.Text = expected)
+    if !valid
+        throw Error("Update badge preview state did not match the expected UI.")
+    status.Text := description
 }
 
 ; Exercise the update handshake without launching the UI or writing AppData.
