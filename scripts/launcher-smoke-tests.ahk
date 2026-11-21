@@ -1075,10 +1075,20 @@ CheckUpdatePreviewMetadataLayout()
         {
             extra := AddUpdatePreviewMetadata(metadataPanel,
                 scenario.Installed, scenario.Latest, scenario.Channel)
-            bounds := []
+            bounds := [], separators := 0
             for control in metadataPanel
             {
                 control.GetPos(&x, &y, &width, &height)
+                ; The premium metadata card includes decorative gold rules.
+                ; Keep caption validation strict, and separately verify the
+                ; dividers rather than treating them as truncated captions.
+                if control.Text = ""
+                {
+                    if width != 1 || height != 18 || y != 83 || x < 30 || x > 770
+                        throw Error("Gold metadata separator escaped its measured gap.")
+                    separators += 1
+                    continue
+                }
                 fits := ReleaseNoteFits(control, control.Text, width)
                 if x < 30 || x + width > 770 || width < 1 || height != 26 || !fits
                     throw Error("Update preview metadata is clipped or offscreen: " control.Text
@@ -1087,6 +1097,9 @@ CheckUpdatePreviewMetadataLayout()
             }
             if bounds.Length != 3 || (extra != 0 && extra != 32 && extra != 64)
                 throw Error("Update preview metadata layout returned invalid controls or spacing.")
+            expectedSeparators := extra = 0 ? 2 : extra = 32 ? 1 : 0
+            if separators != expectedSeparators
+                throw Error("Gold metadata dividers do not match the wrapped caption rows.")
             bottomRow := Max(bounds[1].Y, bounds[2].Y, bounds[3].Y)
             if bottomRow - 80 != extra
                 throw Error("Update preview frame does not follow the bottom metadata row.")
