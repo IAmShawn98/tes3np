@@ -81,12 +81,13 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         ; are inserted into the production history.
         missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []
         hasMissed := missedVersions.Length > 0
+        missedHeading := 0
         if hasMissed
         {
             preview.Add("Text", "x40 y" (376 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
-            preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace)
-                . " w520 h25 BackgroundTrans", "Updates You Missed")
+            missedHeading := preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace)
+                . " w520 h28 BackgroundTrans", "Updates You Missed")
         }
 
         ; Both approved controls are centered below the gold history frame.
@@ -103,7 +104,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
             0, rowExtra, notesSpace, true, true, hasMissed)
         if hasMissed
-            closeMissed := AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace)
+            closeMissed := AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
@@ -122,22 +123,29 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
 
 ; Scrollable, independently interactive 3-row published version list.
 ; Fixed bounds stay inside the gold frame and above the update buttons.
-AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, observer := 0)
+AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, heading := 0, observer := 0)
 {
     if !versions.Length
         return 0
     px := (value) => Round(value * scale)
-    ; Static link glyphs extend below the former 20px control on Windows.
-    ; Reserve enough measured space for the complete font (including its
-    ; descent and native Text control inset), without crossing the gold frame.
-    ; The three visible rows end by y589, above the card's y594 inner edge.
-    rowTop := px(408 + topExtra + bottomExtra)
+    ; The clipping was caused by the opaque list viewport painting over the
+    ; lower part of the 'Updates You Missed' heading. Position its top below
+    ; the *measured scaled heading control*, not above its text baseline.
+    bottomLimit := px(490 + topExtra + bottomExtra)
+    rowTop := px(420 + topExtra + bottomExtra)
+    if IsObject(heading)
+    {
+        heading.GetPos(, &headingY, , &headingHeight)
+        rowTop := Max(rowTop, headingY + headingHeight + Max(2, px(4)))
+    }
+    if rowTop >= bottomLimit
+        throw Error("Missed-update viewport has no space below its heading.")
     rowStep := px(24)
     rowHeight := px(29)
     left := px(48)
     rowWidth := px(496)
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
-        . " w" px(531) " h" px(82) " Background171008")
+        . " w" px(531) " h" (bottomLimit - rowTop) " Background171008")
     page := {Items: versions, Offset: 1, VisibleRows: 3, MaxOffset: Max(1, versions.Length - 2)}
     rows := []
     for slot in [1, 2, 3]
@@ -158,13 +166,12 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
         link.Move(left, rowTop + (slot - 1) * rowStep, rowWidth, rowHeight)
     ; Preserve the frame even at unusual Windows DPI settings: if the font
     ; needs more height, show fewer rows and let the scrollbar reach the rest.
-    bottomLimit := px(490 + topExtra + bottomExtra)
     page.VisibleRows := Max(1, Min(3,
         1 + Floor((bottomLimit - rowTop - rowHeight) / Max(1, rowStep))))
     page.MaxOffset := Max(1, versions.Length - page.VisibleRows + 1)
     trackX := px(558)
     trackY := rowTop
-    trackHeight := px(78)
+    trackHeight := Max(1, bottomLimit - rowTop - Max(1, px(3)))
     thumbX := px(561)
     thumbWidth := px(6)
     track := panel.Add("Text", "x" trackX " y" trackY " w" px(12)
@@ -207,6 +214,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, ob
     if IsObject(observer)
     {
         observer.Page := page
+        observer.Viewport := viewport
         observer.Rows := rows
         observer.Track := track
         observer.Thumb := thumb
