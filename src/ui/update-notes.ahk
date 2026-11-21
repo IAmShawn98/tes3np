@@ -556,8 +556,13 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
-    trackY := px(compactLayout ? 176 + topExtra : 188 + topExtra)
-    trackHeight := px(compactLayout ? (fixedEarlier ? 171 : 294) + bottomExtra : 309 + bottomExtra - topExtra)
+    ; Keep the track between the two arrow buttons at every menu scale.
+    ; Previously the compact track began at 176 while the top arrow ran
+    ; from 169 to 191, painting a duplicate-looking arrow over the thumb.
+    arrowTopY := compactLayout ? 169 + topExtra : 163 + topExtra
+    arrowBottomY := compactLayout ? (fixedEarlier ? 348 : 470) + topExtra + bottomExtra : 500 + bottomExtra
+    trackY := px(arrowTopY + 25)
+    trackHeight := Max(1, px(arrowBottomY - 3) - trackY)
     thumbX := px(compactLayout ? 565 : 750)
     thumbWidth := px(8)
     track := panel.Add("Text", "x" px(compactLayout ? 561 : 746) " y" trackY
@@ -623,8 +628,8 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         switcher.Update := updateNotes
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     arrowX := px(compactLayout ? 558 : 744)
-    arrowTop := px(compactLayout ? 169 + topExtra : 163 + topExtra)
-    arrowBottom := px(compactLayout ? (fixedEarlier ? 348 : 470) + topExtra + bottomExtra : 500 + bottomExtra)
+    arrowTop := px(arrowTopY)
+    arrowBottom := px(arrowBottomY)
     up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
