@@ -131,7 +131,11 @@ Require-Source '"Earlier updates included"' 'earlier missed history is visible o
 Require-Source '"View earlier changes"' 'gold text link replaces the former top-right button' $dialogSource
 Require-Source 'noteSwitcher.Update.Call\(previewState.Expanded \? notes.Expanded : notes.Latest\)' 'earlier history toggle preserves all missed versions' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'only the latest missed hotfix is initially scrolled' $dialogSource
-Require-Source 'noteSwitcher, rowExtra, notesSpace, true, true, notes.EarlierCount > 0\)' 'production scroll viewport grows above pinned earlier summary' $dialogSource
+Require-Source 'noteSwitcher, rowExtra, notesSpace, true, true, showEarlierSummary\)' 'scroll viewport honors the pinned earlier summary' $dialogSource
+Require-Source 'showEarlierSummary := notes.EarlierCount > 0' 'published updates show the pinned section only for genuine missed releases' $dialogSource
+Require-Source 'notes.HasOwnProp\("ReviewEmptyEarlier"\)' 'draft review can show an accurate empty-state section' $dialogSource
+Require-Source 'if notes.EarlierCount > 0' 'earlier update links appear only when there are missed releases' $dialogSource
+Require-Source '"No earlier missed updates for this draft\."' 'draft preview does not invent missed updates' $dialogSource
 Require-Source 'A_ScriptDir "\\assets\\controls\\update-badge\.png"' 'update preview uses a true transparent circular badge bitmap' $dialogSource
 if (!(Test-Path -LiteralPath 'assets/controls/update-badge.png' -PathType Leaf)) {
     throw 'Transparent circular update badge artwork is missing.'
@@ -192,6 +196,8 @@ Require-Source 'if A_Args.Length \|\| !RegExMatch\(AppConfig.Version' 'pre-publi
 Require-Source 'FileExist\(checkoutRoot "\\.git"\)' 'unreleased review only works in a development checkout' $bootstrapSource
 Require-Source 'ReadBundledVersionNotes\(AppConfig.Version\) != ""' 'startup preview requires locally existing unreleased notes' $bootstrapSource
 Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted RELEASE_NOTES rather than fake hotfixes' $bootstrapSource
+Require-Source 'draftSections := BuildPublishedPreviewSections\(\[record\]\)' 'development preview uses the genuine single draft record' $bootstrapSource
+Require-Source 'draftSections.ReviewEmptyEarlier := true' 'development preview exercises the pinned earlier section without fabricated releases' $bootstrapSource
 Require-Source 'ShowUpdatePreview\(GetTes3npOriginalVersion\(version\), version,' 'review invokes the real production update dialog' $bootstrapSource
 Require-Source 'BuildPublishedPreviewSections\(\[record\]\)' 'review uses the real production notes parser' $bootstrapSource
 if (Test-Path 'scripts/test-update-preview-visual.ps1') {
