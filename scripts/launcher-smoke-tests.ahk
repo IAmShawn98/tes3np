@@ -829,12 +829,12 @@ PreviewUpdateBadgeFixture()
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge
     global DataFile, LauncherUpdateDismissedVersion, AppConfig
     previousDataFile := DataFile
-    root := A_Temp "\\tes3np-update-badge-preview-" NewLauncherFileId()
+    root := A_Temp "\tes3np-update-badge-preview-" NewLauncherFileId()
     gui := 0
     try
     {
         DirCreate(root)
-        DataFile := root "\\settings.ini"
+        DataFile := root "\settings.ini"
         LauncherGui := Gui("-Caption -Border -DPIScale", "TES3NP Update Badge Preview")
         LauncherGui.BackColor := "171008"
         LauncherGui.SetFont("s16 Bold cE7BE70", "Segoe UI")
@@ -883,7 +883,7 @@ PreviewUpdateBadgeState(mode, status)
     switch mode
     {
         case "unread":
-            IniDelete(DataFile, "Updates", "LastAutoPreviewVersion")
+            IniWrite("", DataFile, "Updates", "LastAutoPreviewVersion")
             LauncherUpdateDismissedVersion := ""
             SetLauncherUpdateAvailable(true, latest)
             expected := "(1)"
