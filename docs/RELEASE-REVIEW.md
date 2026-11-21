@@ -1,5 +1,14 @@
 # TES3NP release review
 
+## v0.1.21-alpha.1 — hotfix candidate (not published)
+
+- Development branch: `Update/v0.1.22-alpha`; version staged in `src/state.ahk` as `0.1.21-alpha.1`.
+- Player notes: the new `v0.1.21-alpha.1` section retains New Features, Improvements, and Hotfixes. The historical `v0.1.21-alpha` body was checked against its published GitHub release and matches exactly.
+- Windows CI checks at [`250ba505`](https://github.com/IAmShawn98/tes3np/commit/250ba5054ac5bea23a6b8a138d27a59460539564): updater/source and publication-history fixtures, updater metadata, transaction and rollback, Expansion Pack import/toggle, AHK compilation, compiled launcher `--check`, and owned menu tests passed.
+- **CI remains failed** at the existing login-card native WinEvent delivery smoke test (exit code 231). The [run log](https://github.com/IAmShawn98/tes3np/actions/runs/44866793691) shows the dummy game window moved to X=88 while the card stayed at X=90. A direct call to the existing location-change callback moved the card correctly to X=118, Y=108. This distinguishes the callback behavior from native event delivery on the hosted runner; it is **not** an interactive-Windows acceptance pass. The same smoke failure predates this hotfix on `main`.
+- **Still pending:** an exact Windows candidate ZIP and SHA-256, desktop UI review at tested DPI/scales, real window-movement verification, installed/uninstalled changelog display and red `(1)` dismissal/restart checks, update confirmation and rollback acceptance, and an approved release source commit.
+- No `v0.1.21-alpha.1` public release, ZIP, checksum, or feed advancement has been performed. Do not publish without maintainer approval.
+
 ## v0.1.21-alpha
 
 - Source commit: [`00f0c93`](https://github.com/IAmShawn98/tes3np/commit/00f0c93fb4581a2c79d9502137297d77acdde4f9)
