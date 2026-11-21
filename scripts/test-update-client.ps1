@@ -249,6 +249,24 @@ Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact update indicator exists'
 Require-Source 'LauncherUpdateBadge\.Text := unseen \? "\(1\)" : Chr\(0x2022\)' 'unread and viewed states share one indicator'
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indicator reopens the optional updater'
+
+# Footer alignment derives from the version control's DPI-aware natural width.
+# Redraw just its little badge rectangle, including the background image,
+# when replacing or hiding transparent glyphs.
+Require-Source 'LauncherVersionLabel := LauncherGui\.Add\("Text", "x12 y691 h18 BackgroundTrans"' 'version label auto sizes to visible text'
+Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'indicator follows rendered caption width'
+Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
+Require-Source 'if wasVisible[\s\S]*LauncherUpdateBadge\.Visible := false[\s\S]*RedrawLauncherUpdateBadge\(\)' 'hidden badge clears old glyph'
+Require-Source 'if !wasVisible \|\| LauncherUpdateBadge\.Text != nextText' 'badge updates only for actual state changes'
+Require-Source 'MapWindowPoints' 'badge repaint uses physical client coordinates'
+Require-Source 'RedrawWindow", "Ptr", LauncherGui\.Hwnd,[\s\S]*"UInt", 0x0185' 'only the badge rectangle repaints its backdrop'
+if ($source.Contains('LauncherVersionTextWidth()') -or
+    $source.Contains('y691 w300 h18 BackgroundTrans') -or
+    $source.Contains('InvalidateRect", "Ptr", LauncherUpdateBadge.Hwnd')) {
+    throw 'Badge layout must not measure a physical pixel width as a DPI-scaled GUI coordinate or leave stale glyphs.'
+}
+Write-Host 'PASS: badge aligns to version and repaints without stale transparent text.'
+
 # The automatic preview is reached only when a newer published version appears.
 # Validate the actual Win32 function name; a doubled backslash is not a DLL entry point.
 Require-Source 'if !IsObject\(LauncherGui\) \|\| !DllCall\("user32\\IsWindowVisible"' 'automatic update preview uses valid native visibility check'
