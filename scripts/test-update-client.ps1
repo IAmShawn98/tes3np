@@ -8,6 +8,7 @@ $metadata = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath)
 $installSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $SourcePath) 'update-install.ahk') -Raw -Encoding UTF8
 $dialogSource = Get-Content -LiteralPath 'src/ui/update-dialogs.ahk' -Raw -Encoding UTF8
 $notesSource = Get-Content -LiteralPath 'src/ui/update-notes.ahk' -Raw -Encoding UTF8
+$fetcherSource = Get-Content -LiteralPath 'scripts/fetch-release-notes.ps1' -Raw -Encoding UTF8
 
 function Require-Source([string]$Pattern, [string]$Name, [string]$Code = $source) {
     if ($Code -notmatch $Pattern) { throw "Updater client safety check missing: $Name" }
@@ -125,7 +126,7 @@ if (!$publisher.Contains('& ./scripts/update-hotfix-index.ps1 -LatestHotfixTag $
     !$publisher.Contains('TES3NP HOTFIX HISTORY START') -or
     !$indexHelper.Contains('gh release edit $baseTag --repo $repo --notes-file $tempFile') -or
     !$indexHelper.Contains('Published Hotfixes') -or
-    !$notesSource.Contains('Published hotfix index is malformed.')) {
+    !$fetcherSource.Contains('Published hotfix index is malformed.')) {
     throw 'Hotfix publication must append a verified history section without altering the original notes.'
 }
 $indexCall = $publisher.IndexOf('update-hotfix-index.ps1')
@@ -253,6 +254,29 @@ Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'indic
 Require-Source 'if !IsObject\(LauncherGui\) \|\| !DllCall\("user32\\IsWindowVisible"' 'automatic update preview uses valid native visibility check'
 if ($source.Contains('"user32\\\\IsWindowVisible"')) { throw 'Automatic preview must not use a doubled Win32 function separator.' }
 if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must not replace the footer version.' }
+# Exercise unseen/viewed/none with the real footer controls, but in a
+# standalone preview that must never hit the live updater or user's INI.
+$badgeFixture = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
+$start = $badgeFixture.IndexOf('PreviewUpdateBadgeFixture()' + [Environment]::NewLine + '{')
+$end = $badgeFixture.IndexOf('; Exercise the update handshake', $start)
+if ($start -lt 0 -or $end -le $start) {
+    throw 'Standalone update badge preview fixture is missing.'
+}
+$fixture = $badgeFixture.Substring($start, $end - $start)
+if (!$badgeFixture.Contains('case "--preview-update-badge":') -or
+    !$fixture.Contains('DataFile := root "\settings.ini"') -or
+    !$fixture.Contains('DataFile := previousDataFile') -or
+    !$fixture.Contains('LauncherVersionLabel.OnEvent("Click", CheckForUpdates, 0)') -or
+    !$fixture.Contains('LauncherUpdateBadge.OnEvent("Click", CheckForUpdates, 0)') -or
+    !$fixture.Contains('PreviewUpdateBadgeState("unread", status)') -or
+    !$fixture.Contains('PreviewUpdateBadgeState("viewed", status)') -or
+    !$fixture.Contains('PreviewUpdateBadgeState("none", status)') -or
+    $fixture.Contains('DownloadUpdateText(') -or
+    $fixture.Contains('StartTransactionalUpdate(')) {
+    throw 'Update badge preview must use synthetic data and isolated settings only.'
+}
+Write-Host 'PASS: update badge preview uses disposable settings with no live network or install.'
+
 Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
 Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
 Require-Source 'Loop capacity - 1' 'switching from short to long notes fills the viewport' $notesSource
