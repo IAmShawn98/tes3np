@@ -121,7 +121,7 @@ ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, separateLat
 EmptyPublishedPreviewSections(message)
 {
     return {Title: "", Compact: message, Expanded: message, Latest: message,
-        EarlierCount: 0, EarlierLabels: []}
+        EarlierCount: 0, EarlierLabels: [], MissedVersions: []}
 }
 
 ; Only the newest missed published release is expanded initially. All earlier
@@ -137,6 +137,15 @@ BuildPublishedPreviewSections(records)
     latestNotes := compact
     expanded := compact
     earlierLabels := []
+    ; Every published release newer than the installed version is missed,
+    ; including the latest. Each entry links to its own published changelog.
+    missedVersions := []
+    for record in records
+    {
+        info := ParseTes3npVersion(record.Version)
+        missedVersions.Push({Version: record.Version, Label: "v" record.Version,
+            Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version})
+    }
     earlierCount := records.Length - 1
     if earlierCount > 0
     {
@@ -153,7 +162,8 @@ BuildPublishedPreviewSections(records)
         }
     }
     return {Title: title, Compact: compact, Expanded: expanded,
-        Latest: latestNotes, EarlierCount: earlierCount, EarlierLabels: earlierLabels}
+        Latest: latestNotes, EarlierCount: earlierCount, EarlierLabels: earlierLabels,
+        MissedVersions: missedVersions}
 }
 
 AddPublishedNoteRecords(history, records)
