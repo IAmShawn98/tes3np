@@ -359,7 +359,21 @@ CountUnseenPublishedUpdateRecords(records, installed, lastViewed := "")
 HasSeenUpdateAutoPreview(version)
 {
     global DataFile
-    return IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "") = version
+    seen := IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "")
+    if seen = version
+        return true
+    if seen = ""
+        return false
+    try
+    {
+        ; The feed might temporarily lag behind a previously viewed
+        ; version. Never resurrect an older notification as "unread."
+        if ParseTes3npVersion(seen).Channel = ParseTes3npVersion(version).Channel
+            return CompareUpdateNoteVersions(seen, version) >= 0
+    }
+    catch Error
+        return false
+    return false
 }
 
 AutoPreviewNewUpdate(version, *)
