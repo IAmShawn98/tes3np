@@ -1085,7 +1085,7 @@ CheckCompactPublishedPreviewViewport()
         {
             ScaleOwnedMenuContent(panel, scale)
             unregister := AddUpdateNotesViewport(panel, sections.Latest, scale,
-                switcher, 0, 0, true, true, true)
+                switcher, 0, 100, true, true, true)
             if !IsObject(switcher.Update)
                 throw Error("Compact preview scroll-update callback was not initialized.")
             borderFound := false, down := 0
@@ -1095,7 +1095,7 @@ CheckCompactPublishedPreviewViewport()
                 if Abs(cx - Round(23 * scale)) <= 1
                     && Abs(cy - Round(168 * scale)) <= 1
                     && Abs(cw - Round(554 * scale)) <= 1
-                    && Abs(ch - Round(205 * scale)) <= 1
+                    && Abs(ch - Round(305 * scale)) <= 1
                     borderFound := true
                 if control.Text = "↓"
                     down := control
@@ -1132,7 +1132,7 @@ CheckCompactPublishedPreviewViewport()
                     if !row.Visible || !InStr(row.Text, "Older sample repair.")
                         continue
                     row.GetPos(, &y, , &height)
-                    if y < Round(178 * scale) || y + height > Round(373 * scale)
+                    if y < Round(178 * scale) || y + height > Round(473 * scale)
                         throw Error("Expanded earlier notes overlap the fixed preview summary.")
                     seenOlder := true
                 }
@@ -1154,7 +1154,41 @@ CheckCompactPublishedPreviewViewport()
             DestroyScaledMenu(panel)
         }
     }
-    try FileAppend("PASS: reference-sized compact preview first-to-last notes and scrolling at 41, 50, 82 and 100 percent" Chr(10), "*")
+    ; Exercise the actual pending .1 release-note text, not only fabricated
+    ; short data: the final Bug Fixes section must be visible at 100%.
+    realNotes := ReadBundledVersionNotes("0.1.21-alpha.1")
+    if realNotes != ""
+    {
+        realSection := BuildPublishedPreviewSections([
+            {Version: "0.1.21-alpha.1", Label: "v0.1.21-alpha.1",
+                Hotfix: true, Notes: realNotes}])
+        panel := Gui("-DPIScale", "Real unreleased release-note clipping check")
+        unregister := 0
+        try
+        {
+            switcher := {Update: 0}
+            unregister := AddUpdateNotesViewport(panel, realSection.Latest, 1.0,
+                switcher, 0, 100, true, true, false)
+            seenFix := false, seenLastLine := false
+            for control in panel
+                if control.Visible
+                {
+                    if control.Text = "Bug Fixes"
+                        seenFix := true
+                    if InStr(control.Text, "Fixed an issue")
+                        seenLastLine := true
+                }
+            if !seenFix || !seenLastLine
+                throw Error("Real pending hotfix has clipped Bug Fixes notes at 100%.")
+        }
+        finally
+        {
+            if IsObject(unregister)
+                unregister()
+            DestroyScaledMenu(panel)
+        }
+    }
+    try FileAppend("PASS: full-height production preview and draft hotfix clipping at 41, 50, 82 and 100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
