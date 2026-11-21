@@ -1014,6 +1014,26 @@ CheckUnreadPublishedReleaseCounts()
                     width "x" height " (DPI " dpiScale ").")
             if width > 30
                 throw Error("Footer unread circle is visually oversized: " width " pixels.")
+            ; Verify the ACTUAL white two-digit overlay can use a readable
+            ; font inside that unchanged circle. Check native text metrics,
+            ; not merely the requested point size in source code.
+            insetWidth := Max(1, Round(diameter * 0.72))
+            insetHeight := Max(1, Round(diameter * 0.68))
+            number := panel.Add("Text", "x0 y0 w" insetWidth " h" insetHeight
+                . " Center +0x200 BackgroundD63232", "24")
+            ApplyLauncherBadgeFont(scale, number)
+            numberRect := Buffer(16, 0)
+            if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
+                "Ptr", numberRect, "Int")
+                throw Error("Could not measure unread numeral bounds.")
+            usableWidth := Max(1, NumGet(numberRect, 8, "Int") - 1)
+            usableHeight := NumGet(numberRect, 12, "Int")
+            measuredHeight := ReleaseNoteLineHeight(number)
+            if !ReleaseNoteFits(number, number.Text, usableWidth)
+                || measuredHeight > usableHeight
+                throw Error("Enlarged unread digits clip the unchanged circular badge.")
+            if percent = 100 && measuredHeight < 13
+                throw Error("Unread numeral is still too small to read at full launcher scale.")
             region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
                 "Int", 0, "Int", 0, "Ptr")
             if !region
@@ -1035,7 +1055,7 @@ CheckUnreadPublishedReleaseCounts()
             panel.Destroy()
         }
     }
-    try FileAppend("PASS: unread counts 4,3,2,1,0 and native PNG circle renders at 20-27 physical pixels" Chr(10), "*")
+    try FileAppend("PASS: unread counts 4,3,2,1,0 and 20-27px PNG circle with legible fitted numeral" Chr(10), "*")
 }
 
 ; The version Text control has intentionally padded bounds to avoid clipping
