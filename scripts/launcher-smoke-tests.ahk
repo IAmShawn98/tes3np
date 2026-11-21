@@ -951,28 +951,41 @@ CheckUnreadPublishedReleaseCounts()
             throw Error("Unread published-release counter returned " result.Count
                 " instead of " item.Expected " after viewing v" item.Viewed ".")
     }
-    ; A badge containing a two-digit count must extend past the original
-    ; 22px circle and retain a rounded Win32 clipping region.
+    ; A multi-digit badge stays round: its horizontal and vertical
+    ; dimensions grow together at the same saved launcher scale.
     for percent in [50, 100]
     {
-        panel := Gui("-DPIScale", "Numeric unread badge smoke")
-        badge := panel.Add("Text", "x0 y0 w40 h22 Center +0x200 BackgroundD63232", "24")
-        badge.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+        scale := percent / 100
+        diameter := LauncherUnreadBadgeDiameter(24, 1.0)
+        if diameter <= LauncherUnreadBadgeDiameter(1, 1.0)
+            throw Error("Multi-digit notification circle was not enlarged.")
+        panel := Gui("-DPIScale", "Circular numeric unread badge smoke")
+        badge := panel.Add("Text", "x0 y0 w" diameter " h" diameter
+            . " Center +0x200 BackgroundD63232", "24")
+        badge.SetFont("s" Max(6, Round(10 * scale)) " Bold cFFFFFF", "Segoe UI")
         region := 0
         try
         {
-            ScaleOwnedMenuContent(panel, percent / 100)
+            ScaleOwnedMenuContent(panel, scale)
             ShapeCircularUpdateBadge(badge)
             badge.GetPos(, , &width, &height)
-            if width <= height
-                throw Error("Multi-digit unread badge lost its expanded pill width.")
+            expected := LauncherUnreadBadgeDiameter(24, scale)
+            if Abs(width - expected) > 1 || Abs(height - expected) > 1
+                || width != height
+                throw Error("The 24 unread badge must be a large circle, never a pill.")
             region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
                 "Int", 0, "Int", 0, "Ptr")
             if !region
                 throw Error("Unread badge region probe failed.")
             kind := DllCall("user32\GetWindowRgn", "Ptr", badge.Hwnd, "Ptr", region, "Int")
             if kind <= 0
-                throw Error("Multi-digit unread badge did not create a native rounded region.")
+                throw Error("Multi-digit unread badge did not create a native circle region.")
+            center := width // 2
+            if !DllCall("gdi32\PtInRegion", "Ptr", region,
+                "Int", center, "Int", center, "Int")
+                || DllCall("gdi32\PtInRegion", "Ptr", region,
+                    "Int", 0, "Int", 0, "Int")
+                throw Error("Multi-digit circle must clip the corners, not its center.")
         }
         finally
         {
@@ -981,7 +994,7 @@ CheckUnreadPublishedReleaseCounts()
             panel.Destroy()
         }
     }
-    try FileAppend("PASS: unread published-release badge counts 4,3,2,1,0 and two-digit pill shape" Chr(10), "*")
+    try FileAppend("PASS: unread counts 4,3,2,1,0 and circular two-digit notification at 50 and 100 percent" Chr(10), "*")
 }
 
 ; Verify native clipping for the actual circular red badge at the same
