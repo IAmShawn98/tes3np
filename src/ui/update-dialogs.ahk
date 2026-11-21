@@ -142,18 +142,15 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     return response.Download ? "Yes" : "No"
 }
 
-; Four-row published version list with its own themed arrowed scrollbar.
-; Fixed bounds stay inside the gold frame and above the update buttons.
-AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, heading := 0, observer := 0)
+; Four visible linked versions with a scrollable Clear action at the END.
+; Reading a release only hides its red (1); it never removes that row.
+AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, heading := 0, observer := 0, state := 0)
 {
     if !versions.Length
         return 0
+    if !IsObject(state)
+        state := {Demo: true, Seen: Map(), Offered: ""}
     px := (value) => Round(value * scale)
-    ; The clipping was caused by the opaque list viewport painting over the
-    ; lower part of the 'Updates You Missed' heading. Position its top below
-    ; the *measured scaled heading control*, not above its text baseline.
-    ; A 64px history extension is reserved in the real missed-update
-    ; preview card, allowing four measured-font rows without clipping.
     bottomLimit := px(554 + topExtra + bottomExtra)
     rowTop := px(356 + topExtra + bottomExtra)
     if IsObject(heading)
@@ -163,96 +160,120 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     }
     if rowTop >= bottomLimit
         throw Error("Missed-update viewport has no space below its heading.")
+
     rowStep := px(24)
     rowHeight := px(29)
     left := px(48)
     rowWidth := px(496)
     viewport := panel.Add("Text", "x" px(40) " y" rowTop
         . " w" px(531) " h" (bottomLimit - rowTop) " Background171008")
-    page := {Items: versions, Offset: 1, VisibleRows: 4, MaxOffset: Max(1, versions.Length - 3)}
-    rows := []
-    badges := []
+    page := {Items: versions, Offset: 1, VisibleRows: 4,
+        Total: versions.Length + 1, MaxOffset: 1, State: state, Refresh: 0}
+    rows := [], prefixes := [], badges := []
     for slot in [1, 2, 3, 4]
     {
-        panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
+        panel.SetFont("s" Max(4, Round(10 * scale)) " Bold cE7BE70", "Segoe UI")
+        prefix := panel.Add("Text", "Hidden x0 y0 w" px(5)
+            . " h" rowHeight " BackgroundTrans +0x100", "")
+        prefix.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
+        prefixes.Push(prefix)
+
+        panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cFFF0DC", "Segoe UI")
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
         link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
-        ; Use the native font height rather than assuming a 20px Text box
-        ; can display the entire glyph (it clipped the draft version).
         rowHeight := Max(rowHeight, ReleaseNoteLineHeight(link) + px(8))
         rows.Push(link)
-        ; The same genuine red (1) artwork used beside Latest Hotfix.
-        ; Each visible missed version gets its own badge, even in the
-        ; developer stress preview. The badge shares the link's click action.
+
         badge := panel.Add("Picture", "Hidden x0 y0 w" px(20) " h" px(20)
             . " BackgroundTrans", A_ScriptDir "\assets\controls\update-badge.png")
         badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
         badges.Push(badge)
     }
-    ; Never overlap native Text controls: a later transparent sibling can
-    ; erase the previous row's descenders during Windows repaint.
     rowStep := Max(rowStep, rowHeight + Max(1, px(2)))
     for slot, link in rows
         link.Move(left, rowTop + (slot - 1) * rowStep, rowWidth, rowHeight)
-    ; Preserve the frame even at unusual Windows DPI settings: if the font
-    ; needs more height, show fewer rows and let the scrollbar reach the rest.
     page.VisibleRows := Max(1, Min(4,
         1 + Floor((bottomLimit - rowTop - rowHeight) / Max(1, rowStep))))
-    page.MaxOffset := Max(1, versions.Length - page.VisibleRows + 1)
-    ; The missed-version scrollbar shares the parent changelog's geometry,
-    ; gold texture, themed arrow buttons and draggable thumb.
+    page.MaxOffset := Max(1, page.Total - page.VisibleRows + 1)
+
+    panel.SetFont("s9 Bold cFFF0DC", "Segoe UI")
+    clearButton := AddStyledButton(panel, left, rowTop, px(86), px(25),
+        "Clear", ClearMissedUpdateBadges.Bind(page))
+    clearButton.Visible := false
+
     arrowX := px(558)
     arrowTop := rowTop
     arrowBottom := bottomLimit - px(22)
     trackY := arrowTop + px(25)
     trackHeight := Max(1, arrowBottom - px(3) - trackY)
-    thumbX := px(565)
-    thumbWidth := px(8)
+    thumbX := px(565), thumbWidth := px(8)
     track := panel.Add("Text", "x" px(561) " y" trackY " w" px(16)
         . " h" trackHeight " Background704C27 +0x100")
     thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth
         . " h" px(22) " BackgroundC69951 +0x100")
     drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
+
     refresh(*)
     {
         page.Offset := Max(1, Min(page.MaxOffset, page.Offset))
+        clearButton.Visible := false
         for slot, row in rows
         {
             idx := page.Offset + slot - 1
-            if slot > page.VisibleRows || idx > page.Items.Length
+            prefix := prefixes[slot], badge := badges[slot]
+            prefix.Visible := false
+            row.Visible := false
+            badge.Visible := false
+            if slot > page.VisibleRows || idx > page.Total
+                continue
+            y := rowTop + (slot - 1) * rowStep
+            if idx = page.Total
             {
-                row.Visible := false
-                badges[slot].Visible := false
+                ; Clear is the final scrollable item, not an overlay pinned
+                ; below the list or hidden behind the action buttons.
+                clearButton.Move(left, y, px(86), Min(px(25), rowHeight))
+                clearButton.Visible := true
                 continue
             }
             item := page.Items[idx]
-            linked := item.Url != ""
+            prefixText := item.HasOwnProp("Prefix") ? item.Prefix : ""
+            caption := item.HasOwnProp("DisplayVersion") ? item.DisplayVersion : "v" item.Version
+            prefixWidth := prefixText = "" ? 0
+                : Min(rowWidth - px(90), MeasureMissedUpdateTextWidth(prefix, prefixText) + px(5))
+            if prefixWidth
+            {
+                prefix.Move(left, y, prefixWidth, rowHeight)
+                prefix.Text := prefixText
+                prefix.Visible := true
+            }
             row.SetFont("s" Max(4, Round(10 * scale))
-                . (linked ? " Underline cF5C96E" : " Norm cAFA78B"), "Segoe UI")
-            caption := item.Label
-            ; Leave room for the full-size red (1), aligned beside the
-            ; measured version rather than the full-width click target.
-            while StrLen(caption) > 2 && !ReleaseNoteFits(row, caption, rowWidth - px(36))
+                . (item.Url != "" ? " Underline cFFF0DC" : " Norm cFFF0DC"),
+                "Segoe UI")
+            availableWidth := rowWidth - prefixWidth
+            while StrLen(caption) > 2
+                && !ReleaseNoteFits(row, caption, availableWidth - px(36))
                 caption := SubStr(caption, 1, -2) "…"
+            row.Move(left + prefixWidth, y, availableWidth, rowHeight)
             row.Text := caption
-            badgeX := left + Min(rowWidth - px(25),
-                MeasureMissedUpdateTextWidth(row, caption) + px(6))
-            row.GetPos(, &rowY)
-            badges[slot].Move(badgeX, rowY + Max(0, Floor((rowHeight - px(20)) / 2)),
-                px(20), px(20))
             row.Visible := true
-            badges[slot].Visible := true
+            badgeX := left + Min(rowWidth - px(23), prefixWidth
+                + MeasureMissedUpdateTextWidth(row, caption) + px(6))
+            badge.Move(badgeX, y + Max(0, Floor((rowHeight - px(20)) / 2)),
+                px(20), px(20))
+            badge.Visible := !IsMissedUpdateRead(page, item)
         }
-        thumbHeight := Max(px(22), Round(trackHeight * Min(1, page.VisibleRows / page.Items.Length)))
+        thumbHeight := Min(trackHeight, Max(px(22),
+            Round(trackHeight * Min(1, page.VisibleRows / page.Total))))
         thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1)
             / Max(1, page.MaxOffset - 1))
         thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
-        track.Visible := page.MaxOffset > 1
-        thumb.Visible := page.MaxOffset > 1
-        up.Visible := page.MaxOffset > 1
-        down.Visible := page.MaxOffset > 1
+        scrolling := page.MaxOffset > 1
+        track.Visible := scrolling, thumb.Visible := scrolling
+        up.Visible := scrolling, down.Visible := scrolling
     }
+    page.Refresh := refresh
+
     up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22),
         "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22),
@@ -260,8 +281,6 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     for arrow in [up, down]
         arrow.SetFont(UpdateNoteFont("heading", true, true, scale), "Segoe UI")
     refresh()
-    ; Disposable native smoke tests can inspect page bounds and scroll state
-    ; without opening URLs or touching installed launcher data.
     if IsObject(observer)
     {
         observer.Page := page
@@ -270,7 +289,9 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         observer.BottomLimit := bottomLimit
         observer.Viewport := viewport
         observer.Rows := rows
+        observer.Prefixes := prefixes
         observer.Badges := badges
+        observer.Clear := clearButton
         observer.Track := track
         observer.Thumb := thumb
         observer.Up := up
@@ -299,6 +320,46 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         }
     }
     return unregister
+}
+
+IsMissedUpdateRead(page, item)
+{
+    if page.State.Demo
+        return page.State.Seen.Has(item.HasOwnProp("Key") ? item.Key : item.Version)
+    return IsPublishedVersionRead(item.Version)
+}
+
+RefreshMissedUpdateReadState(page)
+{
+    if page.State.Demo
+    {
+        count := 0
+        for item in page.Items
+            if !IsMissedUpdateRead(page, item)
+                count += 1
+        SetLauncherDemoUnreadCount(count)
+    }
+    else
+        RefreshLauncherPublishedUnreadCount(page.Items, page.State.Offered)
+    page.Refresh.Call()
+}
+
+MarkMissedUpdateItemRead(page, item)
+{
+    if page.State.Demo
+        page.State.Seen[item.HasOwnProp("Key") ? item.Key : item.Version] := true
+    else
+        MarkPublishedVersionRead(item.Version)
+}
+
+ClearMissedUpdateBadges(page, *)
+{
+    ; The Clear item is part of the scrollable history, but no historical
+    ; link disappears: only its persisted or demo-only notification state.
+    for item in page.Items
+        if !IsMissedUpdateRead(page, item)
+            MarkMissedUpdateItemRead(page, item)
+    RefreshMissedUpdateReadState(page)
 }
 
 ; Return native rendered text width; static Text controls are deliberately
