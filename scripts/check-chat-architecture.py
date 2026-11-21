@@ -2446,7 +2446,8 @@ expect(
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'RegisterMissedUpdateCursorTarget(rows[slot], page, slot)' in update_dialogs
-    and 'UnregisterMissedUpdateCursorTarget(rows[slot])' in update_dialogs
+    and 'UnregisterMissedUpdateCursorTarget(handle)' in update_dialogs
+    and 'for handle in cursorHandles' in update_dialogs
     and 'IsMissedUpdateCursorTarget(handle)' in update_dialogs
     and 'IsLauncherFooterUpdateCursorTarget(handle)' in update_check
     and 'className = "Static" && (IsMissedUpdateCursorTarget(wParam)' in native_renderer
