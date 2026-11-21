@@ -40,15 +40,17 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         preview.SetFont("s10 cEDE1C9", "Segoe UI")
-        preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", synthetic
-            ? "TEST DATA ONLY — Simulated changes, not actual published releases."
-            : "Review published changes you have missed before deciding to update.")
+        copy := synthetic ? "TEST DATA ONLY — Simulated changes, not actual published releases."
+            : "Review published changes you have missed before deciding to update."
+        preview.Add("Text", "x30 y62 w740 h24 BackgroundTrans", copy)
         preview.Add("Text", "x30 y94 w195 h24 BackgroundTrans", "Installed: v" installedVersion)
         preview.Add("Text", "x238 y94 w195 h24 BackgroundTrans", "Latest: v" latestVersion)
         preview.Add("Text", "x446 y94 w324 h24 BackgroundTrans", "Channel: " (channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"))
         tabs := AddUpdateNoteTabs(preview, history.Release, history.Hotfix, kind = "hotfix" ? "hotfix" : "release")
         preview.SetFont("s10 cC5A45C", "Segoe UI")
-        preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans", "Download the latest version directly; intermediate installs are not required.")
+        preview.Add("Text", "x30 y529 w740 h22 BackgroundTrans",
+            synthetic ? "Offline test only — no package can be downloaded or installed."
+                : "Download the latest version directly; intermediate installs are not required.")
         preview.Add("Text", "x30 y551 w740 h22 BackgroundTrans", "Preview only — nothing has been downloaded or installed.")
         if synthetic
         {
