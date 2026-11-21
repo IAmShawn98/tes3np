@@ -2379,6 +2379,7 @@ expect(
     and 'IniWrite("1", path, "ReadPublishedVersions", version)' in update_check
     and 'SetLauncherUnreadBadgeNumber(unreadCount)' in update_check
     and 'LauncherUnreadBadgeDiameter(count, scale)' in update_check
+    and '22 + 6 * (digits - 1)' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
@@ -2425,8 +2426,11 @@ expect(
     and 'DisplayVersion: "v" demoVersion' in bootstrap
     and 'prefix.Text := prefixText' in update_dialogs
     and 'Underline cFFF0DC' in update_dialogs
-    and 'if idx = page.Total' in update_dialogs
-    and 'clearButton := AddStyledButton(panel, left, rowTop, px(86), px(25),' in update_dialogs
+    and 'Total: versions.Length, MaxOffset: 1' in update_dialogs
+    and 'clearButton := AddStyledButton(panel, left, markReadY, px(118), px(26),' in update_dialogs
+    and 'markReadY := px(528 + topExtra + bottomExtra)' in update_dialogs
+    and '"Mark Read", ClearMissedUpdateBadges.Bind(page)' in update_dialogs
+    and 'observer.Clear.Visible || scrolledClearY != originalClearY' in launcher_smoke_tests
     and 'ClearMissedUpdateBadges(page, *)' in update_dialogs
     and 'MarkMissedUpdateItemRead(page, item)' in update_dialogs
     and 'MarkPublishedVersionRead(latestVersion, true)' in update_dialogs
@@ -2481,7 +2485,7 @@ expect(
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
     and 'actionY := 511 + rowExtra + notesSpace + missedSpace' in update_dialogs
     and 'missedSpace := hasMissed ? 64 : 0' in update_dialogs
-    and 'bottomLimit := px(554 + topExtra + bottomExtra)' in update_dialogs
+    and 'bottomLimit := px(522 + topExtra + bottomExtra)' in update_dialogs
     and 'observer.RowHeight := rowHeight' in update_dialogs
     and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 313, actionY, 181, 34, "Not Now"' in update_dialogs
