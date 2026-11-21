@@ -1,5 +1,27 @@
 # TES3NP Release Notes
 
+## v0.1.22-alpha — unreleased
+
+Changes since the last public release, v0.1.21-alpha.
+
+### Improvements
+
+- **Launcher update notifications:** A compact red (1) appears beside the installed version for an unseen published update; a gold dot indicates an update has already been viewed.
+- **Update history:** Review missed feature-release notes and published hotfixes in separate, scrollable views. Hotfix-only updates show a single Hotfixes section.
+- **Update choices:** Review changes before choosing **Update Now** or **Not Now**. Downloads and installation still require separate confirmation.
+- **Hotfix release history:** The original feature-release notes remain intact while published hotfixes receive separately dated entries and links.
+
+### Bug Fixes
+
+- **Expansion Pack verification:** Recover missing verification records for an existing official Expansion Pack after checking against the current official download, without reinstalling the matching pack.
+- **Expansion Pack controls:** Preserve the option to disable an existing pack after a failed verification check without forcing an installation.
+- **Update notification indicator:** Fixed badge spacing, coloring, and stale pixels when the indicator changes between unread and viewed states or the launcher is scaled.
+- **Update preview layout:** Fixed clipped or overlapping version labels and improved spacing for longer version numbers.
+- **Update dialogs:** Fixed release-note tab and button faces that could initially appear blank, as well as unnecessary repaint flicker when opening the dialog.
+- **Release-note scrolling:** Fixed text measurement and wrapping when switching between short and long update histories.
+- **Automatic update preview:** Corrected a Windows visibility check that could prevent the update dialog from opening.
+- **Version status:** Removed redundant text that could overlap the release-note tabs.
+
 ## v0.1.21-alpha — unreleased
 
 Changes since the last public release, v0.1.20-alpha.
