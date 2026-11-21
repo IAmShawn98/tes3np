@@ -80,6 +80,19 @@ Write-Host 'PASS: release generator and launcher package metadata contract.'
 Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
 Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'update preview shows only missed published versions' $dialogSource
+
+# Keep version values readable next to their labels. Combined text wraps the
+# versions onto a clipped second line in the three-column metadata row.
+Require-Source 'x30 y94 w77 h24 BackgroundTrans", "Installed:"' 'installed metadata label is separate' $dialogSource
+Require-Source 'x109 y94 w125 h24 BackgroundTrans", "v" installedVersion' 'installed version has its own visible control' $dialogSource
+Require-Source 'x238 y94 w61 h24 BackgroundTrans", "Latest:"' 'latest metadata label is separate' $dialogSource
+Require-Source 'x301 y94 w138 h24 BackgroundTrans", "v" latestVersion' 'latest version has its own visible control' $dialogSource
+if ($dialogSource.Contains('"Installed: v" installedVersion') -or
+    $dialogSource.Contains('"Latest: v" latestVersion')) {
+    throw 'Update preview versions must not wrap into a clipped second line.'
+}
+Write-Host 'PASS: update preview metadata shows installed and latest version values.'
+
 Require-Source 'ReadVersionReleaseNotes\(originalVersion\)' 'original feature release notes survive hotfixes' $dialogSource
 Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(version\)' 'installed notes work offline' $notesSource
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
