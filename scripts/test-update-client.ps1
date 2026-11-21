@@ -273,7 +273,8 @@ if (!$badgeFixture.Contains('case "--preview-update-badge":') -or
     !$fixture.Contains('PreviewUpdateBadgeState("viewed", status)') -or
     !$fixture.Contains('PreviewUpdateBadgeState("none", status)') -or
     $fixture.Contains('DownloadUpdateText(') -or
-    $fixture.Contains('StartTransactionalUpdate(')) {
+    $fixture.Contains('StartTransactionalUpdate(') -or
+    $fixture -match '(?im)^[ \t]*gui[ \t]*:=' ) {
     throw 'Update badge preview must use synthetic data and isolated settings only.'
 }
 Write-Host 'PASS: update badge preview uses disposable settings with no live network or install.'
