@@ -35,6 +35,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     notesSpace := 100
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 600, 556 + notesSpace)
     closeNotes := 0
+    closeMissed := 0
     try
     {
         preview.SetFont(kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
@@ -75,51 +76,17 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
                 A_ScriptDir "\assets\controls\update-badge.png")
         }
 
-        noteSwitcher := {Update: 0}
-        previewState := {Expanded: false}
-        ; Published previews show this section only for genuinely missed versions.
-        ; A local draft review keeps the section visible as an honest empty
-        ; state so its layout can be reviewed without inventing hotfixes.
-        showEarlierSummary := notes.EarlierCount > 0
-            || (notes.HasOwnProp("ReviewEmptyEarlier") && notes.ReviewEmptyEarlier)
-        if showEarlierSummary
+        ; List every genuinely missed published version, including the
+        ; newest, with its own GitHub changelog. No fake released versions
+        ; are inserted into the production history.
+        missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []
+        hasMissed := missedVersions.Length > 0
+        if hasMissed
         {
             preview.Add("Text", "x40 y" (376 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
-            preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace) " w520 h25 BackgroundTrans", "Earlier updates included")
-            preview.SetFont("s10 Norm cFFF0DC", "Segoe UI")
-            if notes.EarlierCount > 0
-            {
-                preview.Add("Text", "x40 y" (420 + rowExtra + notesSpace) " w515 h20 BackgroundTrans",
-                    "You also missed " notes.EarlierCount " earlier " (notes.EarlierCount = 1 ? "hotfix." : "hotfixes."))
-                yLabel := 442 + rowExtra + notesSpace
-                for label in notes.EarlierLabels
-                {
-                    if yLabel > 464 + rowExtra + notesSpace
-                        break
-                    preview.Add("Text", "x48 y" yLabel " w330 h20 BackgroundTrans", "• " label)
-                    yLabel += 21
-                }
-                preview.SetFont("s9 Underline cF5C96E", "Segoe UI")
-                showEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
-                    . " w188 h25 BackgroundTrans +0x100", "View earlier changes")
-                hideEarlier := preview.Add("Text", "x386 y" (454 + rowExtra + notesSpace)
-                    . " w188 h25 BackgroundTrans +0x100", "Hide earlier changes")
-                showEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
-                hideEarlier.OnEvent("Click", (*) => TogglePublishedPreviewHistory())
-                hideEarlier.Visible := false
-            }
-            else
-                preview.Add("Text", "x40 y" (420 + rowExtra + notesSpace)
-                    . " w515 h20 BackgroundTrans", "No earlier missed updates for this draft.")
-        }
-
-        TogglePublishedPreviewHistory()
-        {
-            previewState.Expanded := !previewState.Expanded
-            noteSwitcher.Update.Call(previewState.Expanded ? notes.Expanded : notes.Latest)
-            showEarlier.Visible := !previewState.Expanded
-            hideEarlier.Visible := previewState.Expanded
+            preview.Add("Text", "x40 y" (388 + rowExtra + notesSpace)
+                . " w520 h25 BackgroundTrans", "Updates You Missed")
         }
 
         ; Both approved controls are centered below the gold history frame.
@@ -134,7 +101,9 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
         scale := Min(GetOwnedMenuScale(), GetUpdatePromptFitScale(preview))
         ScaleOwnedMenuContent(preview, scale)
         closeNotes := AddUpdateNotesViewport(preview, notes.Latest, scale,
-            noteSwitcher, rowExtra, notesSpace, true, true, showEarlierSummary)
+            0, rowExtra, notesSpace, true, true, hasMissed)
+        if hasMissed
+            closeMissed := AddMissedUpdateLinks(preview, missedVersions, scale, rowExtra, notesSpace)
         hwnd := preview.Hwnd
         ShowGoldNativePrompt(preview, scale)
         PaintGoldUpdateDialogButtons(preview)
@@ -142,11 +111,136 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     }
     finally
     {
+        if IsObject(closeMissed)
+            try closeMissed()
         if IsObject(closeNotes)
             try closeNotes()
         CloseGoldNativePrompt(preview)
     }
     return response.Download ? "Yes" : "No"
+}
+
+; Scrollable, independently interactive 3-row published version list.
+; Fixed bounds stay inside the gold frame and above the update buttons.
+AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0)
+{
+    if !versions.Length
+        return 0
+    px := (value) => Round(value * scale)
+    rowTop := px(420 + topExtra + bottomExtra)
+    rowStep := px(22)
+    rowHeight := px(20)
+    left := px(48)
+    rowWidth := px(496)
+    viewport := panel.Add("Text", "x" px(40) " y" rowTop
+        . " w" px(531) " h" px(66) " Background171008")
+    page := {Items: versions, Offset: 1, MaxOffset: Max(1, versions.Length - 2)}
+    rows := []
+    for slot in [1, 2, 3]
+    {
+        panel.SetFont("s" Max(6, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
+        link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
+            . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
+        link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
+        rows.Push(link)
+    }
+    trackX := px(558)
+    trackY := rowTop
+    trackHeight := px(64)
+    thumbX := px(561)
+    thumbWidth := px(6)
+    track := panel.Add("Text", "x" trackX " y" trackY " w" px(12)
+        . " h" trackHeight " Background704C27 +0x100")
+    thumb := panel.Add("Text", "x" thumbX " y" trackY " w" thumbWidth
+        . " h" px(16) " BackgroundC69951 +0x100")
+    drag := {Active: false, StartY: 0, StartOffset: 1, Timer: 0}
+    refresh(*)
+    {
+        page.Offset := Max(1, Min(page.MaxOffset, page.Offset))
+        for slot, row in rows
+        {
+            idx := page.Offset + slot - 1
+            if idx > page.Items.Length
+            {
+                row.Visible := false
+                continue
+            }
+            item := page.Items[idx]
+            linked := item.Url != ""
+            row.SetFont("s" Max(6, Round(10 * scale))
+                . (linked ? " Underline cF5C96E" : " Norm cAFA78B"), "Segoe UI")
+            caption := item.Label
+            ; Extremely long versions must never run into the scrollbar.
+            while StrLen(caption) > 2 && !ReleaseNoteFits(row, caption, rowWidth - px(6))
+                caption := SubStr(caption, 1, -2) "…"
+            row.Text := caption
+            row.Visible := true
+        }
+        thumbHeight := Max(px(14), Round(trackHeight * Min(1, 3 / page.Items.Length)))
+        thumbY := trackY + Round((trackHeight - thumbHeight) * (page.Offset - 1)
+            / Max(1, page.MaxOffset - 1))
+        thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)
+        track.Visible := page.MaxOffset > 1
+        thumb.Visible := page.MaxOffset > 1
+    }
+    refresh()
+    wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
+    dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
+    OnMessage(0x0201, dragStartCallback, 1)
+    try OnMessage(0x020A, wheelCallback, 1)
+    catch
+    {
+        OnMessage(0x0201, dragStartCallback, 0)
+        throw
+    }
+    track.OnEvent("Click", JumpMissedUpdateList.Bind(page, track, refresh))
+    unregister()
+    {
+        OnMessage(0x020A, wheelCallback, 0)
+        OnMessage(0x0201, dragStartCallback, 0)
+        if drag.Active
+        {
+            drag.Active := false
+            SetTimer(drag.Timer, 0)
+            DllCall("user32\ReleaseCapture")
+        }
+    }
+    return unregister
+}
+
+JumpMissedUpdateList(page, track, refresh, *)
+{
+    if page.MaxOffset <= 1
+        return
+    rect := Buffer(16, 0)
+    mouse := Buffer(8, 0)
+    if !DllCall("user32\GetWindowRect", "Ptr", track.Hwnd, "Ptr", rect)
+        || !DllCall("user32\GetCursorPos", "Ptr", mouse)
+        return
+    y := NumGet(mouse, 4, "Int") - NumGet(rect, 4, "Int")
+    height := NumGet(rect, 12, "Int") - NumGet(rect, 4, "Int")
+    page.Offset := 1 + Round((page.MaxOffset - 1) * y / Max(1, height))
+    refresh()
+}
+
+OpenMissedUpdateVersion(page, slot, *)
+{
+    idx := page.Offset + slot - 1
+    if idx > page.Items.Length
+        return
+    item := page.Items[idx]
+    if item.Url = ""
+        return ; An unreleased local draft has no GitHub changelog yet.
+    version := item.Version
+    if !RegExMatch(version,
+        "^\d+\.\d+\.\d+(?:-(?:alpha|beta|live)(?:\.\d+)?|\.\d+)?$")
+        return
+    expected := "https://github.com/IAmShawn98/tes3np/releases/tag/v" version
+    if item.Url != expected
+        return
+    try Run(expected)
+    catch Error as err
+        MsgBox("Could not open the GitHub changelog: " err.Message, "tes3np", "Icon!")
 }
 
 ; Text controls have one color each. Keep the three compact ribbon labels
