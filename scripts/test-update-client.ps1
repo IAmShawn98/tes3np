@@ -84,7 +84,7 @@ Require-Source 'ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' '
 # The preview must derive each version field's width from actual rendered text,
 # rather than the length of the shorter feature-only test version. The optional
 # second metadata row reflows tabs, notes, actions and the gold frame as one unit.
-Require-Source 'CreateGoldNativePrompt\(0, "tes3np — Update Preview", 800, 620\)' 'preview base height is retained' $dialogSource
+Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Update Preview", 800, 620\)' 'preview base height is retained' $dialogSource
 Require-Source 'AddUpdatePreviewMetadata\(preview, installedVersion, latestVersion, channel\)' 'feature and hotfix use the same metadata layout' $dialogSource
 
 Require-Source 'panel\.Add\("Text", "x30 y80 BackgroundTrans \+0x80", "Installed: v" installedVersion\)' 'installed caption autosizes before height assignment' $dialogSource
@@ -144,7 +144,7 @@ if (!$smokeSource.Contains('CheckUpdatePreviewMetadataLayout()') -or
 }
 if ($dialogSource.Contains('x123 y80 w147 h26') -or
     $dialogSource.Contains('Review the changes you have missed before deciding to update.') -or
-    $dialogSource.Contains('Preview only — nothing has been downloaded or installed.') -or
+    $dialogSource -match 'Preview only \u2014 nothing has been downloaded or installed\.' -or
     $dialogSource.Contains('TEST DATA ONLY') -or
     $dialogSource.Contains('Update downloads are disabled for this preview.') -or
     $dialogSource.Contains('"Close Test Preview"')) {
