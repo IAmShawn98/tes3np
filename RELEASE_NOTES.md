@@ -16,7 +16,7 @@ Changes since the last public release, v0.1.21-alpha.
 
 ### Hotfixes
 
-- **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when an update check failed.
+- **Expansion Pack:** Fixed a problem that could stop you from turning off the pack when the launcher couldn't verify it.
 
 ## v0.1.21-alpha — unreleased
 
