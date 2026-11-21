@@ -2362,6 +2362,9 @@ expect(
     and 'global LauncherUpdateBadge := 0' in update_check
     and 'LauncherVersionLabel.Visible := true' in update_check
     and 'LauncherUpdateBadge := LauncherGui.Add("Picture",' in update_check
+    and 'update-unread-circle.png' in update_check
+    and 'LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)' in update_check
+    and 'LauncherUpdateBadge.Value := A_ScriptDir "\\assets\\controls\\update-unread-circle.png"' in update_check
     and 'LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
