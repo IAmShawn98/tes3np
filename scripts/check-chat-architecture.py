@@ -2524,6 +2524,8 @@ expect(
     and 'ShowDevelopmentUnreadBadgeSample(25)' in bootstrap
     and 'draftSections.DemoMode := true' in bootstrap
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
+    and 'CheckUpdateNoteCallbackLifetime()' in launcher_smoke_tests
+    and 'StartUpdateNotesDrag(dialogHwnd, thumbHwnd, trackHwnd, drag, page, refresh,' in launcher_smoke_tests
     and 'actionY := 511 + rowExtra + notesSpace + missedSpace' in update_dialogs
     and 'missedSpace := hasMissed ? 64 : 0' in update_dialogs
     and 'bottomLimit := px(522 + topExtra + bottomExtra)' in update_dialogs
