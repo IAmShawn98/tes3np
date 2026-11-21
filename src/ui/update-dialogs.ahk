@@ -106,8 +106,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
             preview.Add("Text", "x40 y" (312 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
             preview.SetFont("s12 Bold cE7BE70", "Georgia")
             missedHeading := preview.Add("Text", "x40 y" (324 + rowExtra + notesSpace)
-                . " w520 h28 BackgroundTrans",
-                isDemo ? "Updates You Missed (Sample)" : "Updates You Missed")
+                . " w520 h28 BackgroundTrans", "Updates You Missed")
             ; A second fine gold rule separates the heading from the actual
             ; version entries, without covering the lettering.
             preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)
