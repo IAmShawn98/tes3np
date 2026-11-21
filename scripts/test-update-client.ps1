@@ -152,7 +152,7 @@ Require-Source 'prefix.Text := prefixText' 'gold demo prefix remains separate fr
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
 Require-Source 'preview.Add\("Text", "x40 y" \(354 \+ rowExtra \+ notesSpace\)' 'thin gold divider separates Updates You Missed from the list' $dialogSource
 Require-Source 'page.Total - page.VisibleRows \+ 1' 'scrolling includes Clear as a final item' $dialogSource
-Require-Source 'clearButton := AddStyledButton\(panel, left, markReadY, px\(118\), px\(26\),' 'Mark Read stays visible in a fixed footer below the list' $dialogSource
+Require-Source 'clearButton := AddStyledButton\(panel, px\(34\), markReadY, px\(118\), px\(26\),' 'Mark Read stays visible in a fixed footer below the list' $dialogSource
 Require-Source '"Mark Read", ClearMissedUpdateBadges.Bind\(page\)' 'bulk action is explicitly labeled Mark Read' $dialogSource
 Require-Source 'markReadY := px\(528 \+ topExtra \+ bottomExtra\)' 'fixed Mark Read button stays in the lower-left corner' $dialogSource
 Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Mark Read still marks all missed versions read without removing history' $dialogSource
