@@ -174,8 +174,12 @@ BuildInstalledVersionNotes(records)
     result := ""
     Loop records.Length {
         record := records[records.Length - A_Index + 1]
-        title := !record.Hotfix ? "Base Release"
-            : A_Index = 1 ? "Latest Hotfix" : "Earlier Hotfix"
+        if !record.Hotfix
+            title := "Base Release"
+        else if A_Index = 1
+            title := "Latest Hotfix"
+        else
+            title := "Earlier Hotfix"
         details := BuildCategorizedUpdateNotes([record], false)
         if result != ""
             result .= "`n`n"
