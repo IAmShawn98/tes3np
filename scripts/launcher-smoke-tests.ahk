@@ -977,6 +977,8 @@ CheckUnreadPublishedReleaseCounts()
     {
         scale := percent / 100
         diameter := LauncherUnreadBadgeDiameter(24, 1.0)
+        if diameter != 25 || LauncherUnreadBadgeDiameter(1, 1.0) != 22
+            throw Error("Two-digit footer circle must be compact (25px), not the old oversized 36px.")
         if diameter <= LauncherUnreadBadgeDiameter(1, 1.0)
             throw Error("Multi-digit notification circle was not enlarged.")
         panel := Gui("-DPIScale", "Circular numeric unread badge smoke")
