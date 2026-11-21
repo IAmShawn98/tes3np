@@ -519,7 +519,7 @@ Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge f
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
-Require-Source '22 \+ 6 \* \(digits - 1\)' 'two-digit footer circle is compact rather than oversized' $source
+Require-Source '22 \+ 3 \* \(digits - 1\)' 'two-digit footer circle is compact rather than oversized' $source
 Require-Source 'LauncherUpdateBadge.Move\(x, centeredY, diameter, diameter\)' 'numeric badge remains square in geometry and round in rendering' $source
 Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
