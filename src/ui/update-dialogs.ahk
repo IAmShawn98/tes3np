@@ -23,13 +23,11 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     return response.Accepted
 }
 
-ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)
+ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
-    ; Production always reads actual published history. The optional data
-    ; injection is used only by the explicit offline UI test command.
-    ; Hotfix-to-hotfix updates show only the dated Hotfixes section.
-    synthetic := IsObject(testHistory)
-    history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)
+    ; Hotfix-only updates show only the dated Hotfixes section.
+    ; Feature releases show separate Release Notes and Hotfix History tabs.
+    history := ReadPublishedUpdateHistory(installedVersion, latestVersion)
     notes := kind = "hotfix" ? history.Hotfix : history.Release
     response := {Download: false}
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)
@@ -64,14 +62,8 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory :=
         ; notes panel. The real Update Now action still enters the existing
         ; download and install confirmation flow outside this window.
         actionY := 568 + rowExtra
-        if synthetic
-        {
-            AddStyledButton(preview, 32, actionY, 185, 34, "Update Now",
-                (*) => MsgBox("Update downloads are disabled for this preview.", "TES3NP Update Preview", "Iconi"))
-        }
-        else
-            AddStyledButton(preview, 32, actionY, 185, 34, "Update Now",
-                (*) => (response.Download := true, DestroyScaledMenu(preview)))
+        AddStyledButton(preview, 32, actionY, 185, 34, "Update Now",
+            (*) => (response.Download := true, DestroyScaledMenu(preview)))
         AddStyledButton(preview, 233, actionY, 155, 34, "Not Now", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Close", (*) => DestroyScaledMenu(preview))
         preview.OnEvent("Escape", (*) => DestroyScaledMenu(preview))
