@@ -2460,7 +2460,10 @@ expect(
     and 'ShowDevelopmentUnreadBadgeSample(24)' in bootstrap
     and 'SetLauncherUpdateAvailable(false)' in bootstrap
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
-    and 'actionY := 511 + rowExtra + notesSpace' in update_dialogs
+    and 'actionY := 511 + rowExtra + notesSpace + missedSpace' in update_dialogs
+    and 'missedSpace := hasMissed ? 64 : 0' in update_dialogs
+    and 'bottomLimit := px(554 + topExtra + bottomExtra)' in update_dialogs
+    and 'observer.RowHeight := rowHeight' in update_dialogs
     and 'AddStyledButton(preview, 109, actionY, 181, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 313, actionY, 181, 34, "Not Now"' in update_dialogs
     and 'response.Download := true, DestroyScaledMenu(preview)' in update_dialogs
