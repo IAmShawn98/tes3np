@@ -105,6 +105,12 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
     installed.GetPos(, , &installedWidth)
     latest.GetPos(, , &latestWidth)
     channelText.GetPos(, , &channelWidth)
+    ; Include a little font/DPI rounding tolerance before positioning the
+    ; next group, so the final glyph cannot touch the following label.
+    installedWidth += 6, latestWidth += 6, channelWidth += 6
+    installed.Move(, , installedWidth)
+    latest.Move(, , latestWidth)
+    channelText.Move(, , channelWidth)
     gap := 18
     latestX := 30 + installedWidth + gap
     channelX := latestX + latestWidth + gap
