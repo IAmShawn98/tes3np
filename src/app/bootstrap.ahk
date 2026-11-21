@@ -70,11 +70,14 @@ ShowDevelopmentReleaseReview(*)
             throw Error("No local release notes for v" version ".")
         record := {Version: version, Label: "v" version,
             Hotfix: true, Notes: changelog}
-        ; Only the existing notes from RELEASE_NOTES.md are used. The real
-        ; published-update path still performs verified history retrieval.
-        ; The modal result is intentionally ignored: no download/install.
+        ; Only real local draft notes are used. The review renders an
+        ; accurate empty earlier-updates summary when there are no missed
+        ; releases; the published-update path still reads verified history.
+        ; The modal result is ignored: no download/install.
+        draftSections := BuildPublishedPreviewSections([record])
+        draftSections.ReviewEmptyEarlier := true
         ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
-            "alpha", "hotfix", BuildPublishedPreviewSections([record]))
+            "alpha", "hotfix", draftSections)
         LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
     }
     catch Error as err
