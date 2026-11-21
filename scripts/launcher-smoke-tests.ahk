@@ -189,7 +189,17 @@ CheckGameLoginCardMoveTracking(game, card, layout)
                 Sleep(10)
             WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
             if x != layout.X + offset || y != layout.Y + offset || width != layout.Width || height != layout.Height
-                return ReportLoginCardSmokeFailure("tracking: follow moved game window | offset=" offset " trackedGameX=" card.ProgressLayout.GameWindow.X " actualGameX=" GetGameLoginProgressWindow(game.Hwnd).X " expectedCardX=" (layout.X + offset) " actualCardX=" x " expectedCardY=" (layout.Y + offset) " actualCardY=" y)
+            {
+                ; Diagnostic only: a direct event can distinguish callback logic
+                ; from hosted-runner WinEvent delivery. Never count this as pass.
+                tracking := LoginProgressTracking
+                OnGameLoginProgressLocationChange(tracking.Hook, 0x800B, game.Hwnd,
+                    0, 0, tracking.ThreadId, A_TickCount)
+                WinGetPos(&directX, &directY, , , "ahk_id " card.Hwnd)
+                FileAppend("DIAGNOSTIC: direct WinEvent callback | cardX=" directX
+                    " cardY=" directY " trackedGameX=" card.ProgressLayout.GameWindow.X "`n", "*")
+                return ReportLoginCardSmokeFailure("tracking: follow moved game window | offset=" offset " actualGameX=" GetGameLoginProgressWindow(game.Hwnd).X " expectedCardX=" (layout.X + offset) " actualCardX=" x " expectedCardY=" (layout.Y + offset) " actualCardY=" y)
+            }
         }
     }
     finally
