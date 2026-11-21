@@ -1383,7 +1383,7 @@ CheckMissedUpdateLinkViewport()
                 observer.Viewport.GetPos(, &listY, , &listHeight)
                 if listY < headingY + headingHeight + Max(1, Round(3 * scale))
                     throw Error("Opaque missed-updates viewport covers the heading text.")
-                if listY + listHeight > Round(654 * scale) + 1
+                if listY + listHeight > Round(622 * scale) + 1
                     throw Error("Missed-updates viewport spills below the gold frame.")
                 visible := 0
                 previousBottom := 0
@@ -1412,7 +1412,7 @@ CheckMissedUpdateLinkViewport()
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
                         || y < Round(456 * scale) - 1
-                        || y + height > Round(654 * scale) + 1
+                        || y + height > Round(622 * scale) + 1
                         || !ReleaseNoteFits(row, row.Text, width)
                         || height < ReleaseNoteLineHeight(row) + Round(8 * scale)
                         throw Error("A missed-update hyperlink or its font clips the lower gold frame.")
@@ -1436,7 +1436,7 @@ CheckMissedUpdateLinkViewport()
                         throw Error("Actual draft missed-update entry is vertically clipped.")
                 }
 
-                scrollExpected := count + 1 > observer.Page.VisibleRows
+                scrollExpected := count > observer.Page.VisibleRows
                 if (observer.Track.Visible || observer.Thumb.Visible
                     || observer.Up.Visible || observer.Down.Visible) != scrollExpected
                     throw Error("Missed-updates arrows and scrollbar must appear together only when scrolling is needed.")
@@ -1448,7 +1448,7 @@ CheckMissedUpdateLinkViewport()
                 if trackY < upY + upHeight + Max(1, Round(2 * scale))
                     || trackY + trackHeight > downY - Max(1, Round(2 * scale))
                     throw Error("Missed-update scrollbar track overlaps a themed arrow.")
-                if count + 1 > observer.Page.VisibleRows
+                if count > observer.Page.VisibleRows
                 {
                     observer.Page.Offset := observer.Page.MaxOffset
                     observer.Refresh.Call()
@@ -1463,15 +1463,21 @@ CheckMissedUpdateLinkViewport()
                     if thumbY < trackY || thumbY + thumbHeight > trackY + trackHeight
                         throw Error("Missed-updates scrollbar thumb escapes the track.")
                 }
-                ; Clear belongs to the LAST scroll position. It never
-                ; replaces the historical rows or creates a fixed footer.
+                ; Mark Read is a fixed footer control, not an item in the
+                ; scrollable release list. It must be visible at BOTH ends.
+                if !observer.Clear.Visible || observer.Clear.Text != "Mark Read"
+                    throw Error("Mark Read must always be visible beneath release links.")
+                observer.Clear.GetPos(&clearX, &clearY, &clearWidth, &clearHeight)
+                originalClearY := clearY
+                if clearX < Round(48 * scale) - 1
+                    || clearY < listY + listHeight + Max(1, Round(4 * scale))
+                    || clearY + clearHeight > Round(654 * scale) + 1
+                    throw Error("Mark Read must fit inside the reserved gold footer area.")
                 observer.Page.Offset := observer.Page.MaxOffset
                 observer.Refresh.Call()
-                if !observer.Clear.Visible
-                    throw Error("Clear action must scroll into view after the last release.")
-                observer.Clear.GetPos(, &clearY)
-                if clearY < listY || clearY >= listY + listHeight
-                    throw Error("Clear action escaped the scrolling history panel.")
+                observer.Clear.GetPos(, &scrolledClearY)
+                if !observer.Clear.Visible || scrolledClearY != originalClearY
+                    throw Error("Mark Read moved or disappeared when scrolling releases.")
                 if count >= 7
                 {
                     ; Only one distinct demo/read receipt is cleared.
@@ -1484,6 +1490,8 @@ CheckMissedUpdateLinkViewport()
                         || observer.Badges[1].Visible
                         throw Error("Click-to-read hid the entry or left its red notification visible.")
                     ClearMissedUpdateBadges(observer.Page)
+                    if !observer.Clear.Visible
+                        throw Error("Mark Read must remain visible after clearing.")
                     for item in items
                         if !IsMissedUpdateRead(observer.Page, item)
                             throw Error("Clear failed to mark all missed versions read.")
