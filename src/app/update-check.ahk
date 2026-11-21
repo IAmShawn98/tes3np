@@ -45,6 +45,15 @@ CreateLauncherUpdateBadge()
     LauncherUpdateBadge.Visible := false
 }
 
+IsLauncherFooterUpdateCursorTarget(handle)
+{
+    global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
+    for control in [LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber]
+        if IsObject(control) && control.Hwnd = handle
+            return true
+    return false
+}
+
 ScaleLauncherVersionLabel(scale)
 {
     global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
