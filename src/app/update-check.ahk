@@ -5,6 +5,8 @@ global UpdateStartupRequest := 0
 global UpdateStartupStarted := 0
 global LauncherVersionLabel := 0
 global LauncherUpdateBadge := 0
+global LauncherUnreadReleaseJob := 0
+global LauncherObservedUpdateVersion := ""
 CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel
@@ -73,27 +75,32 @@ ShapeCircularUpdateBadge(control)
     diameter := Min(width, height)
     if diameter < 1
         return
-    circle := DllCall("gdi32\CreateEllipticRgn", "Int", 0, "Int", 0,
-        "Int", diameter, "Int", diameter, "Ptr")
-    if circle && !DllCall("user32\SetWindowRgn", "Ptr", control.Hwnd,
-        "Ptr", circle, "Int", 1, "Int")
-        DllCall("gdi32\DeleteObject", "Ptr", circle)
+    ; One digit stays a perfect circle; multiple digits get a pill wide
+    ; enough to display the actual count rather than truncating the numeral.
+    region := width = height
+        ? DllCall("gdi32\CreateEllipticRgn", "Int", 0, "Int", 0,
+            "Int", diameter, "Int", diameter, "Ptr")
+        : DllCall("gdi32\CreateRoundRectRgn", "Int", 0, "Int", width,
+            "Int", height, "Int", height, "Int", height, "Ptr")
+    if region && !DllCall("user32\SetWindowRgn", "Ptr", control.Hwnd,
+        "Ptr", region, "Int", 1, "Int")
+        DllCall("gdi32\DeleteObject", "Ptr", region)
 }
 
-SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
+SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
 {
     global AppConfig, LauncherUpdateBadge, LauncherVersionLabel
-    global LauncherScale
+    global LauncherScale, LauncherObservedUpdateVersion
 
     if !IsObject(LauncherUpdateBadge) || !IsObject(LauncherVersionLabel)
         return
     LauncherVersionLabel.Visible := true
-    available := isAvailable && latestVersion != ""
+    available := isAvailable && latestVersion != "" && unreadCount > 0
         && GetLauncherUpdateKind(AppConfig.Version, latestVersion) != ""
         && !HasSeenUpdateAutoPreview(latestVersion)
-    ; Transparent static text leaves old glyph pixels behind when updated
-    ; without the picture underneath being redrawn. Refresh the *footer*
-    ; rectangle after changing state; never invalidate the whole launcher.
+    LauncherObservedUpdateVersion := available ? latestVersion : ""
+    ; Repaint only the footer badge rectangle; never invalidate the entire
+    ; launcher or leave old numbers on top of the newly measured count.
     wasVisible := LauncherUpdateBadge.Visible
     if !available
     {
@@ -104,12 +111,48 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "")
         }
         return
     }
+    SetLauncherUnreadBadgeNumber(unreadCount)
     if !wasVisible
     {
         ApplyLauncherBadgeFont(LauncherScale / 100)
         LauncherUpdateBadge.Visible := true
         RedrawLauncherUpdateBadge()
     }
+}
+
+; Keep a circular single-digit badge. The number expands into a rounded
+; red pill for larger counts instead of clipping digits at launcher scale.
+SetLauncherUnreadBadgeNumber(count)
+{
+    global LauncherUpdateBadge, LauncherScale
+    if !IsObject(LauncherUpdateBadge)
+        return
+    value := String(Max(1, count))
+    LauncherUpdateBadge.GetPos(, , &oldWidth, &height)
+    scale := LauncherScale / 100
+    newWidth := height + Max(0, StrLen(value) - 1) * Max(5, Round(10 * scale))
+    changed := LauncherUpdateBadge.Text != value || oldWidth != newWidth
+    if !changed
+        return
+    LauncherUpdateBadge.Text := value
+    if oldWidth != newWidth
+        LauncherUpdateBadge.Move(, , newWidth, height)
+    ApplyLauncherBadgeFont(scale)
+    ShapeCircularUpdateBadge(LauncherUpdateBadge)
+    if LauncherUpdateBadge.Visible
+        RedrawLauncherUpdateBadge()
+}
+
+; Development review only: show a count without pretending that the
+; unpublished draft was seen or writing any user-state INI key.
+ShowDevelopmentUnreadBadgeSample(count)
+{
+    global LauncherUpdateBadge
+    if !IsObject(LauncherUpdateBadge)
+        return
+    SetLauncherUnreadBadgeNumber(count)
+    LauncherUpdateBadge.Visible := true
+    RedrawLauncherUpdateBadge()
 }
 
 ; Repaint the existing backdrop and all children only underneath the
@@ -185,7 +228,12 @@ PollStartupUpdateAvailability(*)
         available := manifest.UpdateEnabled && GetLauncherUpdateKind(AppConfig.Version, manifest.Version) != ""
         SetLauncherUpdateAvailable(available, manifest.version)
         if available && !HasSeenUpdateAutoPreview(manifest.version)
+        {
+            ; The manifest verifies the newest release, but it contains no
+            ; count. Count the actual published GitHub releases asynchronously.
+            StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)
             SetTimer(AutoPreviewNewUpdate.Bind(manifest.version), -4000)
+        }
         LogLauncherEvent("UPDATE | Startup availability check | Current: v" AppConfig.Version " | Latest: v" manifest.version " | Available: " (available ? "yes" : "no") " | Elapsed: " elapsed "ms.")
     } catch Error as err {
         SetTimer(PollStartupUpdateAvailability, 0)
@@ -193,6 +241,104 @@ PollStartupUpdateAvailability(*)
         SetLauncherUpdateAvailable(false)
         LogLauncherEvent("UPDATE | Startup availability check unavailable (" Type(err) ") after " elapsed "ms.")
     }
+}
+
+; Run the existing, verified published-history reader off the GUI thread.
+; Only genuine GitHub releases (not draft tags or local notes) contribute to
+; this unread count. This uses the same safe, bounded five-page feed as the
+; full update preview and never installs or downloads a launcher build.
+StartLauncherUnreadReleaseCount(installed, latest)
+{
+    global BundledResourceRoot, LauncherUnreadReleaseJob
+    if IsObject(LauncherUnreadReleaseJob)
+        return
+    ParseTes3npVersion(installed)
+    ParseTes3npVersion(latest)
+    script := (A_IsCompiled ? BundledResourceRoot : A_ScriptDir) "\scripts\fetch-release-notes.ps1"
+    if !FileExist(script)
+        return
+    prefix := A_Temp "\tes3np-unread-" DllCall("GetCurrentProcessId", "UInt") "-" A_TickCount
+    releaseFile := prefix "-releases.txt"
+    hotfixFile := prefix "-hotfixes.txt"
+    powershell := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe"
+    command := '"' powershell '" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' script
+        . '" -InstalledVersion "' installed '" -LatestVersion "' latest
+        . '" -ReleaseOutputPath "' releaseFile '" -HotfixOutputPath "' hotfixFile '"'
+    try
+    {
+        Run(command, A_ScriptDir, "Hide", &pid)
+        LauncherUnreadReleaseJob := {Pid: pid, Start: A_TickCount,
+            Installed: installed, Latest: latest,
+            ReleaseFile: releaseFile, HotfixFile: hotfixFile}
+        SetTimer(PollLauncherUnreadReleaseCount, 200)
+    }
+    catch Error as err
+        LogLauncherEvent("UPDATE | Unread published-release count unavailable (" Type(err) ").")
+}
+
+; Read the subprocess result only after it exits; never block the GUI or
+; guess how many hotfix tags were published.
+PollLauncherUnreadReleaseCount(*)
+{
+    global LauncherUnreadReleaseJob, LauncherObservedUpdateVersion, DataFile
+    job := LauncherUnreadReleaseJob
+    if !IsObject(job)
+    {
+        SetTimer(PollLauncherUnreadReleaseCount, 0)
+        return
+    }
+    if A_TickCount - job.Start > 60000
+    {
+        SetTimer(PollLauncherUnreadReleaseCount, 0)
+        LauncherUnreadReleaseJob := 0
+        try ProcessClose(job.Pid)
+        CleanupUnreadReleaseCountFiles(job)
+        LogLauncherEvent("UPDATE | Unread published-release count timed out.")
+        return
+    }
+    if ProcessExist(job.Pid)
+        return
+    SetTimer(PollLauncherUnreadReleaseCount, 0)
+    LauncherUnreadReleaseJob := 0
+    try
+    {
+        if !FileExist(job.ReleaseFile) || !FileExist(job.HotfixFile)
+            throw Error("GitHub published-history scan did not complete.")
+        records := []
+        AddPublishedNoteRecords(FileRead(job.ReleaseFile, "UTF-8"), records)
+        AddPublishedNoteRecords(FileRead(job.HotfixFile, "UTF-8"), records)
+        latestFound := false
+        for record in records
+            if record.Version = job.Latest
+                latestFound := true
+        if !latestFound
+            throw Error("Unread count did not include the verified latest release.")
+        baseline := job.Installed
+        seen := IniRead(DataFile, "Updates", "LastAutoPreviewVersion", "")
+        try
+        {
+            if seen != "" && ParseTes3npVersion(seen).Channel = ParseTes3npVersion(job.Installed).Channel
+                && CompareUpdateNoteVersions(seen, baseline) > 0
+                baseline := seen
+        }
+        count := 0
+        for record in records
+            if CompareUpdateNoteVersions(record.Version, baseline) > 0
+                count += 1
+        if LauncherObservedUpdateVersion = job.Latest && !HasSeenUpdateAutoPreview(job.Latest)
+            SetLauncherUpdateAvailable(true, job.Latest, count)
+        LogLauncherEvent("UPDATE | Verified " count " unread published release(s) since v" baseline ".")
+    }
+    catch Error as err
+        LogLauncherEvent("UPDATE | Unread published-release count unavailable (" Type(err) ").")
+    finally
+        CleanupUnreadReleaseCountFiles(job)
+}
+
+CleanupUnreadReleaseCountFiles(job)
+{
+    try FileDelete(job.ReleaseFile)
+    try FileDelete(job.HotfixFile)
 }
 
 HasSeenUpdateAutoPreview(version)
