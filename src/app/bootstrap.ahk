@@ -31,7 +31,7 @@ StartLauncher()
     {
         ; Preview the numeric footer count before the native modal opens.
         ; This deliberately touches neither installed state nor the update feed.
-        ShowDevelopmentUnreadBadgeSample(24)
+        ShowDevelopmentUnreadBadgeSample(25)
         ; The native production modal then clears the temporary footer badge
         ; and shows 24 DEMO rows linked to two real published release pages.
         SetTimer(ShowDevelopmentReleaseReview, -2500)
@@ -86,13 +86,16 @@ ShowDevelopmentReleaseReview(*)
         {
             demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"
             demoRows.Push({Version: demoVersion,
+                Key: "demo-" Format("{:02}", A_Index),
+                Prefix: "DEMO " Format("{:02}", A_Index) " — ",
+                DisplayVersion: "v" demoVersion,
                 Label: "DEMO " Format("{:02}", A_Index) " — v" demoVersion,
                 Url: GetTes3npReleasePage(demoVersion)})
         }
         draftSections.MissedVersions := demoRows
-        ; Opening the preview dismisses the dev-only unread count, exactly
-        ; as viewing a real published update clears its persisted indicator.
-        SetLauncherUpdateAvailable(false)
+        draftSections.DemoMode := true
+        ; Opening marks only the offered draft read: 25 -> 24. Demo link
+        ; and Clear actions use in-memory IDs, never persisted release data.
         ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
             "alpha", "hotfix", draftSections)
         LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
