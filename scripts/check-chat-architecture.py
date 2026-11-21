@@ -2368,7 +2368,10 @@ expect(
     and 'LauncherUpdateNumber.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
-    and 'size := Max(4, Round(8 * scale / GetLauncherBadgeDpiScale()))' in update_check
+    and 'size := Max(6, Round(12 * scale / GetLauncherBadgeDpiScale()))' in update_check
+    and 'ApplyLauncherBadgeFont(scale, sample := 0)' in update_check
+    and 'ApplyLauncherBadgeFont(scale, number)' in launcher_smoke_tests
+    and 'if percent = 100 && measuredHeight < 13' in launcher_smoke_tests
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
     and 'if !wasVisible' in update_check
