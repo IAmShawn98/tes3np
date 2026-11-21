@@ -152,8 +152,13 @@ Require-Source 'prefix.Text := prefixText' 'gold demo prefix remains separate fr
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
 Require-Source 'preview.Add\("Text", "x40 y" \(354 \+ rowExtra \+ notesSpace\)' 'thin gold divider separates Updates You Missed from the list' $dialogSource
 Require-Source 'page.Total - page.VisibleRows \+ 1' 'scrolling includes Clear as a final item' $dialogSource
-Require-Source 'clearButton := AddStyledButton\(panel, left, rowTop, px\(86\), px\(25\),' 'Clear is a themed button inside the scrollable missed-update list' $dialogSource
-Require-Source 'if idx = page.Total' 'Clear scrolls with list instead of remaining pinned at bottom' $dialogSource
+Require-Source 'clearButton := AddStyledButton\(panel, left, markReadY, px\(118\), px\(26\),' 'Mark Read stays visible in a fixed footer below the list' $dialogSource
+Require-Source '"Mark Read", ClearMissedUpdateBadges.Bind\(page\)' 'bulk action is explicitly labeled Mark Read' $dialogSource
+Require-Source 'markReadY := px\(528 \+ topExtra \+ bottomExtra\)' 'fixed Mark Read button stays in the lower-left corner' $dialogSource
+Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Mark Read still marks all missed versions read without removing history' $dialogSource
+Require-Source 'scrollExpected := count > observer.Page.VisibleRows' 'native smoke excludes fixed Mark Read from scroll count' $badgeHarness
+Require-Source 'observer.Clear.Visible \|\| scrolledClearY != originalClearY' 'native smoke rejects Mark Read moving or disappearing during scrolling' $badgeHarness
+Require-Source 'Total: versions.Length, MaxOffset: 1' 'scroll offsets include only release entries, never the Mark Read button' $dialogSource
 Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Clear marks all listed versions read without deleting entries' $dialogSource
 Require-Source 'MarkMissedUpdateItemRead\(page, item\)' 'clicking one release marks only that version read' $dialogSource
 Require-Source 'SetLauncherDemoUnreadCount\(count\)' 'demo feedback changes footer count without persistent writes' $dialogSource
@@ -172,7 +177,7 @@ Require-Source 'rowHeight := px\(29\)' 'missed-update links initially reserve 29
 Require-Source 'rowHeight := Max\(rowHeight, ReleaseNoteLineHeight\(link\) \+ px\(8\)\)' 'native font metrics enlarge rows when Windows requires more glyph room' $dialogSource
 Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and consistent spacing' $dialogSource
 Require-Source 'rowStep := Max\(rowStep, rowHeight \+ Max\(1, px\(2\)\)\)' 'missed-update link controls never overlap and erase neighboring glyphs' $dialogSource
-Require-Source 'bottomLimit := px\(554 \+ topExtra \+ bottomExtra\)' 'missed links use the expanded gold card, never overlap the action buttons' $dialogSource
+Require-Source 'bottomLimit := px\(522 \+ topExtra \+ bottomExtra\)' 'missed-version viewport ends above reserved Mark Read footer' $dialogSource
 Require-Source 'page.VisibleRows := Max\(1, Min\(4,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
 Require-Source 'page.MaxOffset := Max\(1, page.Total - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
 Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
@@ -514,6 +519,7 @@ Require-Source 'LauncherVersionLabel\.GetPos\(&labelX, , &labelWidth\)' 'badge f
 Require-Source 'x := labelX \+ labelWidth \+ 4' 'badge stays close beside caption'
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
 Require-Source 'LauncherUnreadBadgeDiameter\(count, scale\)' 'multi-digit counts enlarge the diameter of a true circle'
+Require-Source '22 \+ 6 \* \(digits - 1\)' 'two-digit footer circle is compact rather than oversized' $source
 Require-Source 'LauncherUpdateBadge.Move\(x, centeredY, diameter, diameter\)' 'numeric badge remains square in geometry and round in rendering' $source
 Require-Source 'region := DllCall\("gdi32\\CreateEllipticRgn"' 'unread notification always uses a clipped circle'
 Require-Source 'StartLauncherUnreadReleaseCount\(AppConfig.Version, manifest.version\)' 'startup counts actual published releases asynchronously'
