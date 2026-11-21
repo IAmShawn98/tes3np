@@ -122,7 +122,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
 
 ; Scrollable, independently interactive 3-row published version list.
 ; Fixed bounds stay inside the gold frame and above the update buttons.
-AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0)
+AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, observer := 0)
 {
     if !versions.Length
         return 0
@@ -138,7 +138,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0)
     rows := []
     for slot in [1, 2, 3]
     {
-        panel.SetFont("s" Max(6, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
+        panel.SetFont("s" Max(5, Round(10 * scale)) " Underline cF5C96E", "Segoe UI")
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
         link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
@@ -167,7 +167,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0)
             }
             item := page.Items[idx]
             linked := item.Url != ""
-            row.SetFont("s" Max(6, Round(10 * scale))
+            row.SetFont("s" Max(5, Round(10 * scale))
                 . (linked ? " Underline cF5C96E" : " Norm cAFA78B"), "Segoe UI")
             caption := item.Label
             ; Extremely long versions must never run into the scrollbar.
@@ -184,6 +184,16 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0)
         thumb.Visible := page.MaxOffset > 1
     }
     refresh()
+    ; Disposable native smoke tests can inspect page bounds and scroll state
+    ; without opening URLs or touching installed launcher data.
+    if IsObject(observer)
+    {
+        observer.Page := page
+        observer.Rows := rows
+        observer.Track := track
+        observer.Thumb := thumb
+        observer.Refresh := refresh
+    }
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport, page, refresh)
     dragStartCallback := StartUpdateNotesDrag.Bind(panel, thumb, track, drag, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)
