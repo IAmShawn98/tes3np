@@ -124,9 +124,9 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
 LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
-    ; Keep multi-digit counts compact while retaining equal axes and the
-    ; transparent circular edge. 24 uses 28px instead of 36px at 100%.
-    return Max(1, Round((22 + 6 * (digits - 1)) * scale))
+    ; Two digits use a compact 25px circle, not the oversized 36px one.
+    ; Keep both axes equal; the transparent image gives it a round edge.
+    return Max(1, Round((22 + 3 * (digits - 1)) * scale))
 }
 
 SetLauncherUnreadBadgeNumber(count)
@@ -157,7 +157,7 @@ SetLauncherUnreadBadgeNumber(count)
     LauncherUpdateBadge.Value := A_ScriptDir "\assets\controls\update-unread-circle.png"
     ; The inset rectangle's corners stay fully inside the circular alpha edge
     ; at every diameter (diagonal < radius).
-    innerWidth := Max(1, Round(diameter * 0.66))
+    innerWidth := Max(1, Round(diameter * 0.76))
     innerHeight := Max(1, Round(diameter * 0.50))
     LauncherUpdateNumber.Move(x + Floor((diameter - innerWidth) / 2),
         centeredY + Floor((diameter - innerHeight) / 2), innerWidth, innerHeight)
