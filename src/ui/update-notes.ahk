@@ -163,7 +163,25 @@ ReadInstalledCumulativeNotes(version)
         records.Push({Version: entryVersion, Label: "v" entryVersion,
             Hotfix: number > 0, Notes: notes})
     }
-    return BuildCategorizedUpdateNotes(records)
+    return BuildInstalledVersionNotes(records)
+}
+
+; Keep the installed hotfix visible immediately, rather than burying it
+; below the original release under shared category headings. The single
+; scrolling viewport and the published-update preview remain unchanged.
+BuildInstalledVersionNotes(records)
+{
+    result := ""
+    Loop records.Length {
+        record := records[records.Length - A_Index + 1]
+        title := !record.Hotfix ? "Base Release"
+            : A_Index = 1 ? "Latest Hotfix" : "Earlier Hotfix"
+        details := BuildCategorizedUpdateNotes([record], false)
+        if result != ""
+            result .= "`n`n"
+        result .= "## " title " — " record.Label "`n`n" details
+    }
+    return result != "" ? result : "Release notes are unavailable. See GitHub Releases."
 }
 
 NoteCategoryName(heading, isHotfix)
@@ -181,7 +199,7 @@ NoteCategoryName(heading, isHotfix)
 }
 
 ; Preserve each change's original category and show its source version/date.
-BuildCategorizedUpdateNotes(records)
+BuildCategorizedUpdateNotes(records, includeVersionHeadings := true)
 {
     order := ["New Features", "Improvements", "Bug Fixes", "Hotfixes",
         "Removed Features", "Other Changes"]
@@ -209,9 +227,9 @@ BuildCategorizedUpdateNotes(records)
         for category in order {
             if !sections[category].Length
                 continue
-            part := "#### " record.Label
+            part := includeVersionHeadings ? "#### " record.Label : ""
             for bullet in sections[category]
-                part .= "`n" bullet
+                part .= (part = "" ? "" : "`n") bullet
             combined[category].Push(part)
         }
     }
