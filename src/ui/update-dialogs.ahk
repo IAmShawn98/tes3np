@@ -203,7 +203,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     ; missed-release scroll offset and scrollbar thumb position.
     panel.SetFont("s9 Bold cFFF0DC", "Segoe UI")
     markReadY := px(528 + topExtra + bottomExtra)
-    clearButton := AddStyledButton(panel, left, markReadY, px(118), px(26),
+    clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),
         "Mark Read", ClearMissedUpdateBadges.Bind(page))
 
     arrowX := px(558)
