@@ -75,13 +75,9 @@ ShapeCircularUpdateBadge(control)
     diameter := Min(width, height)
     if diameter < 1
         return
-    ; One digit stays a perfect circle; multiple digits get a pill wide
-    ; enough to display the actual count rather than truncating the numeral.
-    region := width = height
-        ? DllCall("gdi32\CreateEllipticRgn", "Int", 0, "Int", 0,
-            "Int", diameter, "Int", diameter, "Ptr")
-        : DllCall("gdi32\CreateRoundRectRgn", "Int", 0, "Int", width,
-            "Int", height, "Int", height, "Int", height, "Ptr")
+    ; Always preserve a true circle at every unread count.
+    region := DllCall("gdi32\CreateEllipticRgn", "Int", 0, "Int", 0,
+        "Int", diameter, "Int", diameter, "Ptr")
     if region && !DllCall("user32\SetWindowRgn", "Ptr", control.Hwnd,
         "Ptr", region, "Int", 1, "Int")
         DllCall("gdi32\DeleteObject", "Ptr", region)
@@ -120,27 +116,44 @@ SetLauncherUpdateAvailable(isAvailable, latestVersion := "", unreadCount := 1)
     }
 }
 
-; Keep a circular single-digit badge. The number expands into a rounded
-; red pill for larger counts instead of clipping digits at launcher scale.
+; Keep a true circle at every launcher scale, even for 24 or 100.
+LauncherUnreadBadgeDiameter(count, scale)
+{
+    digits := StrLen("" Max(1, count))
+    return Max(1, Round((22 + 14 * (digits - 1)) * scale))
+}
+
 SetLauncherUnreadBadgeNumber(count)
 {
     global LauncherUpdateBadge, LauncherScale
     if !IsObject(LauncherUpdateBadge)
         return
     value := "" Max(1, count)
-    LauncherUpdateBadge.GetPos(, , &oldWidth, &height)
     scale := LauncherScale / 100
-    newWidth := height + Max(0, StrLen(value) - 1) * Max(5, Round(10 * scale))
-    changed := LauncherUpdateBadge.Text != value || oldWidth != newWidth
-    if !changed
+    diameter := LauncherUnreadBadgeDiameter(count, scale)
+    LauncherUpdateBadge.GetPos(, , &oldWidth, &oldHeight)
+    if LauncherUpdateBadge.Text = value
+        && oldWidth = diameter && oldHeight = diameter
         return
+    wasVisible := LauncherUpdateBadge.Visible
+    if wasVisible
+    {
+        ; Clear original bounds before moving to avoid leftover red pixels.
+        LauncherUpdateBadge.Visible := false
+        RedrawLauncherUpdateBadge()
+    }
     LauncherUpdateBadge.Text := value
-    if oldWidth != newWidth
-        LauncherUpdateBadge.Move(, , newWidth, height)
+    baseY := Round(689 * scale)
+    baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
+    centeredY := baseY - Floor((diameter - baseDiameter) / 2)
+    LauncherUpdateBadge.Move(, centeredY, diameter, diameter)
     ApplyLauncherBadgeFont(scale)
     ShapeCircularUpdateBadge(LauncherUpdateBadge)
-    if LauncherUpdateBadge.Visible
+    if wasVisible
+    {
+        LauncherUpdateBadge.Visible := true
         RedrawLauncherUpdateBadge()
+    }
 }
 
 ; Development review only: show a count without pretending that the
