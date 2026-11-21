@@ -138,49 +138,19 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     return response.Download ? "Yes" : "No"
 }
 
-; Place the preview metadata from the real rendered Text-control widths. The
-; installed and latest build strings vary (especially for hotfix versions),
-; so hard-coded text-box widths otherwise clip or overlap their neighbors.
-; Return the extra vertical space needed if a narrow display requires wrapping.
+; Text controls have one color each. Keep the three compact ribbon labels
+; gold, but render their values separately in the reference's pale ivory.
+; Both styles measure actual rendered widths before placing the controls.
 AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compact := false)
 {
-    ; The compact ribbon uses warm, bold gold labels with more breathing
-    ; room between the three fields and around the gold separators.
-    ; Measure that exact font before creation so longer version strings can
-    ; shrink without ever clipping or pushing into the 28px side padding.
-    compactFontSize := 9
     if compact
-    {
-        for fontSize in [9, 8, 7, 6]
-        {
-            probe := Gui("-DPIScale")
-            measuredWidth := 2 * 24
-            try
-            {
-                probe.SetFont("s" fontSize " Bold cE7BE70", "Segoe UI")
-                channelNameProbe := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
-                for caption in ["Installed: v" installedVersion, "Latest: v" latestVersion, "Channel: " channelNameProbe]
-                {
-                    labelProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", caption)
-                    labelProbe.GetPos(, , &naturalWidth)
-                    measuredWidth += naturalWidth + 6
-                }
-            }
-            finally
-                probe.Destroy()
-            compactFontSize := fontSize
-            if measuredWidth <= 504
-                break
-        }
-    }
-    panel.SetFont(compact ? "s" compactFontSize " Bold cE7BE70" : "s10 Bold cEDE1C9", "Segoe UI")
-    baseX := compact ? 48 : 30
-    labelY := compact ? 61 : 80
-    rightEdge := compact ? 552 : 770
-    ; AHK only auto-sizes a Text control reliably to its caption when
-    ; neither width nor height is specified. Setting h26 at creation made
-    ; GetPos return a narrow default width and truncated Installed metadata.
-    ; Capture natural widths first, then apply the fixed one-line height.
+        return AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
+
+    ; Preserve the separate Version Status / legacy metadata layout.
+    panel.SetFont("s10 Bold cEDE1C9", "Segoe UI")
+    baseX := 30
+    labelY := 80
+    rightEdge := 770
     installed := panel.Add("Text", "x" baseX " y" labelY " BackgroundTrans +0x80", "Installed: v" installedVersion)
     latest := panel.Add("Text", "x" baseX " y" labelY " BackgroundTrans +0x80", "Latest: v" latestVersion)
     channelName := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Live Stable"
@@ -189,17 +159,12 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
     installed.GetPos(, , &installedWidth)
     latest.GetPos(, , &latestWidth)
     channelText.GetPos(, , &channelWidth)
-    ; Include a little font/DPI rounding tolerance before positioning the
-    ; next group, so the final glyph cannot touch the following label.
     installedWidth += 6, latestWidth += 6, channelWidth += 6
     installed.Move(, , installedWidth, 26)
     latest.Move(, , latestWidth, 26)
     channelText.Move(, , channelWidth, 26)
-    gap := compact ? 24 : 18
+    gap := 18
     fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap
-    availableWidth := rightEdge - baseX
-    if compact && fullWidth <= availableWidth
-        baseX := Round((600 - fullWidth) / 2)
     latestX := baseX + installedWidth + gap
     channelX := latestX + latestWidth + gap
     if channelX + channelWidth <= rightEdge
@@ -212,22 +177,111 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
         panel.Add("Text", "x" (channelX - separatorOffset) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
         return 0
     }
-    pairWidth := installedWidth + latestWidth + gap
-    if compact && pairWidth <= availableWidth
-        baseX := Round((600 - pairWidth) / 2)
     latestX := baseX + installedWidth + gap
     if latestX + latestWidth <= rightEdge
     {
         installed.Move(baseX, labelY)
         latest.Move(latestX, labelY)
-        channelText.Move(compact ? Round((600 - channelWidth) / 2) : baseX, labelY + 32)
+        channelText.Move(baseX, labelY + 32)
         panel.Add("Text", "x" (latestX - Floor(gap / 2)) " y" (labelY + 3) " w1 h18 BackgroundC5A45C")
         return 32
     }
-    installed.Move(compact ? Round((600 - installedWidth) / 2) : baseX, labelY)
-    latest.Move(compact ? Round((600 - latestWidth) / 2) : baseX, labelY + 32)
-    channelText.Move(compact ? Round((600 - channelWidth) / 2) : baseX, labelY + 64)
+    installed.Move(baseX, labelY)
+    latest.Move(baseX, labelY + 32)
+    channelText.Move(baseX, labelY + 64)
     return 64
+}
+
+AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
+{
+    ; Only the prefixes are gold: Installed:, Latest:, Channel:.
+    ; The versions and channel values are pale ivory, just as in the reference.
+    channelName := channel = "alpha" ? "alpha" : channel = "beta" ? "beta" : "live"
+    captions := [
+        {Label: "Installed:", Value: "v" installedVersion},
+        {Label: "Latest:", Value: "v" latestVersion},
+        {Label: "Channel:", Value: channelName}
+    ]
+    gap := 24
+    sideLeft := 48
+    sideRight := 552
+    availableWidth := sideRight - sideLeft
+    compactFontSize := 9
+    ; Measure labels and values in their separate actual fonts. Adapt only
+    ; when a long version cannot retain a centered single row.
+    for fontSize in [9, 8, 7, 6]
+    {
+        probe := Gui("-DPIScale")
+        measuredWidth := 2 * gap
+        try
+        {
+            for item in captions
+            {
+                probe.SetFont("s" fontSize " Bold cE7BE70", "Segoe UI")
+                labelProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Label)
+                labelProbe.GetPos(, , &labelWidth)
+                probe.SetFont("s" fontSize " Norm cFFF0DC", "Segoe UI")
+                valueProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Value)
+                valueProbe.GetPos(, , &valueWidth)
+                measuredWidth += labelWidth + valueWidth + 7
+            }
+        }
+        finally
+            probe.Destroy()
+        compactFontSize := fontSize
+        if measuredWidth <= availableWidth
+            break
+    }
+
+    pairs := []
+    for item in captions
+    {
+        panel.SetFont("s" compactFontSize " Bold cE7BE70", "Segoe UI")
+        labelControl := panel.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Label)
+        labelControl.GetPos(, , &labelWidth)
+        panel.SetFont("s" compactFontSize " Norm cFFF0DC", "Segoe UI")
+        valueControl := panel.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Value)
+        valueControl.GetPos(, , &valueWidth)
+        labelWidth += 2
+        valueWidth += 2
+        pairs.Push({Label: labelControl, Value: valueControl,
+            LabelWidth: labelWidth, ValueWidth: valueWidth,
+            Width: labelWidth + valueWidth + 3})
+    }
+
+    fullWidth := pairs[1].Width + pairs[2].Width + pairs[3].Width + 2 * gap
+    if fullWidth <= availableWidth
+    {
+        startX := Round((600 - fullWidth) / 2)
+        latestX := startX + pairs[1].Width + gap
+        channelX := latestX + pairs[2].Width + gap
+        PositionCompactMetadataPair(pairs[1], startX, 61)
+        PositionCompactMetadataPair(pairs[2], latestX, 61)
+        PositionCompactMetadataPair(pairs[3], channelX, 61)
+        panel.Add("Text", "x" (latestX - Floor(gap / 2)) " y64 w1 h18 BackgroundC5A45C")
+        panel.Add("Text", "x" (channelX - Floor(gap / 2)) " y64 w1 h18 BackgroundC5A45C")
+        return 0
+    }
+    pairWidth := pairs[1].Width + pairs[2].Width + gap
+    if pairWidth <= availableWidth
+    {
+        startX := Round((600 - pairWidth) / 2)
+        latestX := startX + pairs[1].Width + gap
+        PositionCompactMetadataPair(pairs[1], startX, 61)
+        PositionCompactMetadataPair(pairs[2], latestX, 61)
+        PositionCompactMetadataPair(pairs[3], Round((600 - pairs[3].Width) / 2), 93)
+        panel.Add("Text", "x" (latestX - Floor(gap / 2)) " y64 w1 h18 BackgroundC5A45C")
+        return 32
+    }
+    for index, pair in pairs
+        PositionCompactMetadataPair(pair, Round((600 - pair.Width) / 2), 61 + (index - 1) * 32)
+    return 64
+}
+
+PositionCompactMetadataPair(pair, x, y)
+{
+    pair.Label.Move(x, y, pair.LabelWidth, 26)
+    pair.Value.Move(x + pair.LabelWidth + 3, y, pair.ValueWidth, 26)
 }
 
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
