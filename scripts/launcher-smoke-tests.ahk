@@ -851,9 +851,10 @@ CheckUpdatePreviewMetadataLayout()
             for control in metadataPanel
             {
                 control.GetPos(&x, &y, &width, &height)
-                if x < 30 || x + width > 770 || width < 1 || height != 26
-                    || !ReleaseNoteFits(control, control.Text, width)
-                    throw Error("Update preview metadata is clipped or offscreen: " control.Text)
+                fits := ReleaseNoteFits(control, control.Text, width)
+                if x < 30 || x + width > 770 || width < 1 || height != 26 || !fits
+                    throw Error("Update preview metadata is clipped or offscreen: " control.Text
+                        " [x=" x ", y=" y ", width=" width ", height=" height ", textFits=" fits "]")
                 bounds.Push({X: x, Y: y, Right: x + width, Bottom: y + height})
             }
             if bounds.Length != 3 || (extra != 0 && extra != 32 && extra != 64)
