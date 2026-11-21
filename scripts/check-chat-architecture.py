@@ -2386,18 +2386,10 @@ expect(
     and 'No hotfixes have been released for this version.' in update_dialogs,
 )
 expect(
-    "Opt-in real-launcher synthetic history checks do not enable downloads or edit release data",
-    'OnMessage(0x8042, HandleLauncherHistoryTestMessage)' in bootstrap
-    and 'HandleLauncherHistoryTestMessage(scenario, unused, msg, hwnd)' in update_check
-    and 'hwnd != LauncherBadgeTestWindowHwnd' in update_check
-    and 'SetTimer(ShowLauncherHistoryTestPreview.Bind(scenario), -1)' in update_check
-    and 'ShowUpdatePreview(installed, latest, "alpha", kind,' in update_check
-    and 'testHistory := 0' in update_dialogs
-    and 'synthetic := IsObject(testHistory)' in update_dialogs
-    and 'history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
-    and 'CreateGoldNativePrompt(0, "tes3np — Update Preview", 800, 620)' in update_dialogs
+    "Production updater contains no temporary injection mode and retains confirmation guards",
+    'ShowUpdatePreview(installedVersion, latestVersion, channel, kind)' in update_dialogs
+    and 'history := ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_dialogs
     and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)' in update_dialogs
-    and 'AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)' in update_dialogs
     and 'installed.GetPos(, , &installedWidth)' in update_dialogs
     and 'latest.GetPos(, , &latestWidth)' in update_dialogs
     and 'channelText.GetPos(, , &channelWidth)' in update_dialogs
@@ -2409,16 +2401,19 @@ expect(
     and 'actionY := 568 + rowExtra' in update_dialogs
     and 'AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"' in update_dialogs
     and 'AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"' in update_dialogs
+    and 'response.Download := true, DestroyScaledMenu(preview)' in update_dialogs
     and 'CheckUpdatePreviewMetadataLayout()' in launcher_smoke_tests
     and 'Update preview metadata overlaps at this version length.' in launcher_smoke_tests
-    and 'MsgBox("Update downloads are disabled for this preview."' in update_dialogs
-    and 'response.Download := true, DestroyScaledMenu(preview)' in update_dialogs
-    and 'Review the changes you have missed before deciding to update.' not in update_dialogs
-    and 'Preview only — nothing has been downloaded or installed.' not in update_dialogs
-    and '"TEST DATA ONLY' not in update_dialogs
-    and 'if synthetic' in update_dialogs
-    and '"Continue to Download"' not in update_dialogs
-    and 'AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"' not in update_dialogs,
+    and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
+    and 'unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview(latestVersion)' in update_check
+    and '--test-update-badge' not in launcher_smoke_tests
+    and 'LauncherBadgeTest' not in update_check
+    and 'LauncherBadgeTest' not in bootstrap
+    and 'HandleLauncherHistoryTestMessage' not in update_check
+    and '0x8041' not in bootstrap
+    and '0x8042' not in bootstrap
+    and 'testHistory' not in update_dialogs
+    and 'synthetic' not in update_dialogs,
 )
 display_save = section_between(display_settings, "\nSaveLauncherDisplaySettings(", "\nAccessibilityFontSize(")
 expect(
