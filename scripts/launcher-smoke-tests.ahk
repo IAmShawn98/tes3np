@@ -917,10 +917,71 @@ CheckDisplaySettingsAndReleaseNotes()
     CheckUpdatePreviewMetadataLayout()
     CheckCenteredCompactUpdateMetadata()
     CheckCircularUpdateBadgeRendering()
+    CheckUnreadPublishedReleaseCounts()
     CheckExpandablePublishedPreviewViewport()
     CheckCompactPublishedPreviewViewport()
     CheckMissedUpdateLinkViewport()
     try FileAppend("PASS: live display refresh and reset, loading cleanup, readable release-note rows, and version metadata layout at 50 and 100 percent" Chr(10), "*")
+}
+
+; Offline count contract: newly published versions increase the count,
+; opening the preview advances the last-viewed baseline, and older releases
+; never reappear as unread on the next launcher start.
+CheckUnreadPublishedReleaseCounts()
+{
+    records := [
+        {Version: "0.1.21-alpha.4"},
+        {Version: "0.1.21-alpha.3"},
+        {Version: "0.1.21-alpha.2"},
+        {Version: "0.1.21-alpha.1"}
+    ]
+    scenarios := [
+        {Viewed: "", Expected: 4},
+        {Viewed: "0.1.21-alpha.1", Expected: 3},
+        {Viewed: "0.1.21-alpha.2", Expected: 2},
+        {Viewed: "0.1.21-alpha.3", Expected: 1},
+        {Viewed: "0.1.21-alpha.4", Expected: 0},
+        {Viewed: "not-a-version", Expected: 4},
+        {Viewed: "0.1.21-beta.4", Expected: 4}
+    ]
+    for item in scenarios
+    {
+        result := CountUnseenPublishedUpdateRecords(records, "0.1.21-alpha", item.Viewed)
+        if result.Count != item.Expected
+            throw Error("Unread published-release counter returned " result.Count
+                " instead of " item.Expected " after viewing v" item.Viewed ".")
+    }
+    ; A badge containing a two-digit count must extend past the original
+    ; 22px circle and retain a rounded Win32 clipping region.
+    for percent in [50, 100]
+    {
+        panel := Gui("-DPIScale", "Numeric unread badge smoke")
+        badge := panel.Add("Text", "x0 y0 w40 h22 Center +0x200 BackgroundD63232", "24")
+        badge.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+        region := 0
+        try
+        {
+            ScaleOwnedMenuContent(panel, percent / 100)
+            ShapeCircularUpdateBadge(badge)
+            badge.GetPos(, , &width, &height)
+            if width <= height
+                throw Error("Multi-digit unread badge lost its expanded pill width.")
+            region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
+                "Int", 0, "Int", 0, "Ptr")
+            if !region
+                throw Error("Unread badge region probe failed.")
+            kind := DllCall("user32\GetWindowRgn", "Ptr", badge.Hwnd, "Ptr", region, "Int")
+            if kind <= 0
+                throw Error("Multi-digit unread badge did not create a native rounded region.")
+        }
+        finally
+        {
+            if region
+                DllCall("gdi32\DeleteObject", "Ptr", region)
+            panel.Destroy()
+        }
+    }
+    try FileAppend("PASS: unread published-release badge counts 4,3,2,1,0 and two-digit pill shape" Chr(10), "*")
 }
 
 ; Verify native clipping for the actual circular red badge at the same
@@ -1223,7 +1284,7 @@ CheckCompactPublishedPreviewViewport()
 ; preview scales. These disposable versions never reach GitHub or the updater.
 CheckMissedUpdateLinkViewport()
 {
-    for count in [1, 3, 7]
+    for count in [1, 3, 7, 24]
     {
         records := []
         Loop count
@@ -1263,6 +1324,7 @@ CheckMissedUpdateLinkViewport()
                 unregister := AddMissedUpdateLinks(panel, items,
                     scale, 0, 100, heading, observer)
                 if !IsObject(observer.Refresh) || observer.Rows.Length != 3
+                    || observer.Badges.Length != 3
                     throw Error("Missed-updates viewport did not initialize its rows.")
                 ; This previously passed because the smoke test contained no
                 ; heading: the list was drawn five pixels over its last glyphs.
@@ -1274,15 +1336,26 @@ CheckMissedUpdateLinkViewport()
                     throw Error("Missed-updates viewport spills below the gold frame.")
                 visible := 0
                 previousBottom := 0
-                for row in observer.Rows
+                for slot, row in observer.Rows
                 {
+                    badge := observer.Badges[slot]
                     if !row.Visible
+                    {
+                        if badge.Visible
+                            throw Error("An offscreen missed update retains its red (1) badge.")
                         continue
+                    }
+                    if !badge.Visible
+                        throw Error("A visible missed update is missing its red (1) badge.")
                     visible += 1
                     row.GetPos(&x, &y, &width, &height)
                     if previousBottom && y <= previousBottom
                         throw Error("Missed-update Text controls overlap and may erase glyphs.")
                     previousBottom := y + height
+                    badge.GetPos(&badgeX, &badgeY, &badgeWidth, &badgeHeight)
+                    if badgeX < x || badgeX + badgeWidth > x + width
+                        || badgeY < y || badgeY + badgeHeight > y + height
+                        throw Error("Red (1) must stay directly beside its missed version inside the visible link.")
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
                         || y < Round(520 * scale) - 1
@@ -1331,7 +1404,7 @@ CheckMissedUpdateLinkViewport()
             }
         }
     }
-    try FileAppend("PASS: missed-update GitHub links fit and scroll for 1, 3 and 7 versions at 41-100 percent" Chr(10), "*")
+    try FileAppend("PASS: missed-update links and red (1) markers fit and scroll for 1, 3, 7 and 24 versions at 41-100 percent" Chr(10), "*")
 }
 
 ; Exercise actual AutoHotkey Text autosizing and the metadata fallback without
