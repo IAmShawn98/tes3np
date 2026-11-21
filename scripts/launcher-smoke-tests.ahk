@@ -971,43 +971,53 @@ CheckUnreadPublishedReleaseCounts()
     }
     finally
         try FileDelete(fixture)
-    ; A multi-digit badge stays round: its horizontal and vertical
-    ; dimensions grow together at the same saved launcher scale.
+    ; The actual launcher uses a PNG Picture control. An earlier Text-only
+    ; test passed while Windows painted the native 48px PNG as a 52px circle.
+    ; Exercise the real image load order, DPI scaling and Win32 dimensions.
     for percent in [50, 100]
     {
         scale := percent / 100
-        diameter := LauncherUnreadBadgeDiameter(24, 1.0)
-        if diameter != 25 || LauncherUnreadBadgeDiameter(1, 1.0) != 22
-            throw Error("Two-digit footer circle must be compact (25px), not the old oversized 36px.")
-        if diameter <= LauncherUnreadBadgeDiameter(1, 1.0)
-            throw Error("Multi-digit notification circle was not enlarged.")
-        panel := Gui("-DPIScale", "Circular numeric unread badge smoke")
-        badge := panel.Add("Text", "x0 y0 w" diameter " h" diameter
-            . " Center +0x200 BackgroundD63232", "24")
-        badge.SetFont("s" Max(6, Round(10 * scale)) " Bold cFFFFFF", "Segoe UI")
+        dpiScale := GetLauncherBadgeDpiScale()
+        diameter := LauncherUnreadBadgeDiameter(24, scale)
+        oneDigit := LauncherUnreadBadgeDiameter(1, scale)
+        expectedPixels := Max(16, Round(23 * scale))
+        if diameter < oneDigit || diameter < 1
+            throw Error("Two-digit unread badge must fit a readable, circular number.")
+        panel := Gui(, "Native numeric unread badge smoke")
+        badge := panel.Add("Picture", "x0 y0 w" diameter " h" diameter
+            . " +0x40 BackgroundTrans",
+            A_ScriptDir "\assets\controls\update-unread-circle.png")
         region := 0
         try
         {
-            ScaleOwnedMenuContent(panel, scale)
+            imagePixels := Max(1, Round(diameter * dpiScale))
+            badge.Value := "*w" imagePixels " *h" imagePixels " "
+                . A_ScriptDir "\assets\controls\update-unread-circle.png"
+            badge.Move(0, 0, diameter, diameter)
             ShapeCircularUpdateBadge(badge)
-            badge.GetPos(, , &width, &height)
-            expected := LauncherUnreadBadgeDiameter(24, scale)
-            if Abs(width - expected) > 1 || Abs(height - expected) > 1
-                || width != height
-                throw Error("The 24 unread badge must be a large circle, never a pill.")
+            rect := Buffer(16, 0)
+            if !DllCall("user32\GetClientRect", "Ptr", badge.Hwnd, "Ptr", rect)
+                throw Error("Unread picture bounds cannot be measured.")
+            width := NumGet(rect, 8, "Int"), height := NumGet(rect, 12, "Int")
+            if width != height || Abs(width - expectedPixels) > 2
+                throw Error("Unread badge must be " expectedPixels
+                    " physical pixels at " percent "% launcher scale, actual "
+                    width "x" height " (DPI " dpiScale ").")
+            if width > 26
+                throw Error("Footer unread circle is visually oversized: " width " pixels.")
             region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
                 "Int", 0, "Int", 0, "Ptr")
             if !region
-                throw Error("Unread badge region probe failed.")
+                throw Error("Unread circle region probe failed.")
             kind := DllCall("user32\GetWindowRgn", "Ptr", badge.Hwnd, "Ptr", region, "Int")
             if kind <= 0
-                throw Error("Multi-digit unread badge did not create a native circle region.")
+                throw Error("Unread picture does not have its circular clipping region.")
             center := width // 2
             if !DllCall("gdi32\PtInRegion", "Ptr", region,
                 "Int", center, "Int", center, "Int")
                 || DllCall("gdi32\PtInRegion", "Ptr", region,
                     "Int", 0, "Int", 0, "Int")
-                throw Error("Multi-digit circle must clip the corners, not its center.")
+                throw Error("Unread picture circle must clip its corners, not its center.")
         }
         finally
         {
@@ -1016,7 +1026,7 @@ CheckUnreadPublishedReleaseCounts()
             panel.Destroy()
         }
     }
-    try FileAppend("PASS: unread counts 4,3,2,1,0 and circular two-digit notification at 50 and 100 percent" Chr(10), "*")
+    try FileAppend("PASS: unread counts 4,3,2,1,0 and native PNG circle renders at 16-23 physical pixels" Chr(10), "*")
 }
 
 ; Verify native clipping for the actual circular red badge at the same
