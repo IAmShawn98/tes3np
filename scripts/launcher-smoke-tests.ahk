@@ -830,7 +830,6 @@ PreviewUpdateBadgeFixture()
     global DataFile, LauncherUpdateDismissedVersion, AppConfig
     previousDataFile := DataFile
     root := A_Temp "\tes3np-update-badge-preview-" NewLauncherFileId()
-    gui := 0
     try
     {
         DirCreate(root)
