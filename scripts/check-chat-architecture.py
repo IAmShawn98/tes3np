@@ -2427,7 +2427,7 @@ expect(
     and 'prefix.Text := prefixText' in update_dialogs
     and 'Underline cFFF0DC' in update_dialogs
     and 'Total: versions.Length, MaxOffset: 1' in update_dialogs
-    and 'clearButton := AddStyledButton(panel, left, markReadY, px(118), px(26),' in update_dialogs
+    and 'clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),' in update_dialogs
     and 'markReadY := px(528 + topExtra + bottomExtra)' in update_dialogs
     and '"Mark Read", ClearMissedUpdateBadges.Bind(page)' in update_dialogs
     and 'observer.Clear.Visible || scrolledClearY != originalClearY' in launcher_smoke_tests
