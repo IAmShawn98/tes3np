@@ -2394,6 +2394,9 @@ expect(
     and 'if !FileExist(badgeAsset)' in launcher_smoke_tests
     and 'physical := Max(20, Round((21 + 6 * (digits - 1)) * scale))' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
+    and 'centeredY := baseY - Floor((diameter - baseDiameter) / 2) + Max(1, Round(5 / GetLauncherBadgeDpiScale()))' in update_check
+    and 'rowTop := px(362 + topExtra + bottomExtra)' in update_dialogs
+    and 'if listY < Round(462 * scale) - 1' in launcher_smoke_tests
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check
     and 'CreateRoundRectRgn' not in update_check
     and 'StartLauncherUnreadReleaseCount(AppConfig.Version, manifest.version)' in update_check
@@ -2429,7 +2432,7 @@ expect(
     and 'missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []' in update_dialogs
     and 'AddMissedUpdateLinks(preview, missedVersions, scale,' in update_dialogs
     and 'heading.GetPos(, &headingY, , &headingHeight)' in update_dialogs
-    and 'rowTop := Max(rowTop, headingY + headingHeight + Max(2, px(4)))' in update_dialogs
+    and 'rowTop := Max(rowTop, headingY + headingHeight + Max(3, px(10)))' in update_dialogs
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
