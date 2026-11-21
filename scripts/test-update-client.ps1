@@ -111,12 +111,18 @@ Require-Source 'if channelX \+ channelWidth <= 770' 'three fields use the same r
 Require-Source 'if latestX \+ latestWidth <= 770' 'channel drops to a second row when necessary' $dialogSource
 Require-Source 'channelText.Move\(30, 144\)' 'longer versions can use three rows without overlap' $dialogSource
 Require-Source 'GrowGoldNativePrompt\(preview, rowExtra\)' 'metadata wrapping extends the gold frame' $dialogSource
-Require-Source 'preview.Add\("Text", "x30 y" \(118 \+ rowExtra\) " w740 h30 BackgroundTrans", "Changes in This Update"\)' 'preview has one changes heading' $dialogSource
-Require-Source 'notes := ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion\)' 'all update types use categorized missed changes' $dialogSource
+Require-Source 'preview.Add\("Text", "x30 y" \(118 \+ rowExtra\) " w490 h30 BackgroundTrans", "Changes in This Update"\)' 'preview retains the established changes heading' $dialogSource
+Require-Source 'notes := ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion, true\)' 'all update types use verified missed published changes with latest-first preview' $dialogSource
 Require-Source 'actionY := 568 \+ rowExtra' 'action buttons follow any wrapped header' $dialogSource
 Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'update action is left-aligned in preview' $dialogSource
 Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'not now appears directly beside update action' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(preview, notes, scale, 0, rowExtra, 28 \+ rowExtra\)' 'single categorized notes viewport follows dynamic header' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(preview, notes.Compact, scale,' 'single preview viewport shows the latest expanded and earlier missed summaries' $dialogSource
+Require-Source 'noteSwitcher, 44 \+ rowExtra, 28 \+ rowExtra\)' 'latest hotfix heading leaves notes viewport scrollable' $dialogSource
+Require-Source 'metadataBorder := preview.Add\("Text", "x28 y74 w744 h34 BackgroundC5A45C"\)' 'installed/latest/channel has a gold border' $dialogSource
+Require-Source 'metadataBorder.Move\(, , , 34 \+ rowExtra\)' 'metadata gold frame grows with wrapped version labels' $dialogSource
+Require-Source '"View earlier changes"' 'older missed changes are available on demand' $dialogSource
+Require-Source 'noteSwitcher.Update\(previewState.Expanded \? notes.Expanded : notes.Compact\)' 'earlier history toggle changes the real notes viewport' $dialogSource
+Require-Source 'ShapeCircularUpdateBadge\(latestBadge\)' 'latest update heading has a circular unread badge' $dialogSource
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update still enters existing confirmation flow' $dialogSource
@@ -128,7 +134,7 @@ if ($previewStart -lt 0 -or $metadataStart -le $previewStart -or $statusStart -l
     throw 'Preview and measured metadata helper must remain separate from the Version Status dialog.'
 }
 $previewPath = $dialogSource.Substring($previewStart, $metadataStart - $previewStart)
-if (!$previewPath.Contains('notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)') -or
+if (!$previewPath.Contains('notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)') -or
     !$previewPath.Contains('"Changes in This Update"') -or
     $previewPath.Contains('AddUpdateNoteTabs(') -or
     $previewPath.Contains('history.Hotfix') -or
@@ -149,9 +155,9 @@ if ($dialogSource.Contains('x123 y80 w147 h26') -or
     $dialogSource.Contains('"Close Test Preview"')) {
     throw 'Update preview reintroduced fixed-width version labels or redundant copy.'
 }
-if ((20 + 42) -ge 80 -or (80 + 26) -ge 118 -or
-    (118 + 30) -ge 158 -or (158 + 367 + 28) -ge 568 -or
-    (568 + 34) -ge 620) {
+if ((20 + 42) -ge 74 -or (80 + 26) -ge 118 -or
+    (118 + 30) -ge 161 -or (161 + 30) -ge (158 + 44) -or
+    (158 + 367 + 28) -ge 568 -or (568 + 34) -ge 620) {
     throw 'Preview base geometry overlaps; wrapped rows must preserve these same gaps.'
 }
 Write-Host 'PASS: preview metadata adapts to version widths and every update shows categorized changes.'
@@ -346,11 +352,13 @@ if ($notesSource -match 'WrapReleaseNoteLines\(content, maximum') {
 }
 Write-Host 'PASS: plain release notes headings and measured wrapping.'
 
-# The installed version stays visible. An unseen newer update gets a red (1),
-# which disappears after its preview is viewed and stays hidden on restart.
+# The installed version stays visible. An unseen newer update gets a red
+# circular 1; it disappears after viewing and stays hidden on restart.
 Require-Source 'CreateLauncherUpdateBadge\(\)' 'compact unread update indicator exists'
-Require-Source 'LauncherUpdateBadge := LauncherGui\.Add\("Text", "x" x " y689 w28 h22 BackgroundTrans", "\(1\)"\)' 'red (1) is the only badge glyph'
-Require-Source 'LauncherUpdateBadge\.SetFont\("s" size " Bold cD63232", "Segoe UI"\)' 'unread badge stays red at saved scale'
+Require-Source 'LauncherUpdateBadge := LauncherGui\.Add\("Text", "x" x " y689 w22 h22 Center \+0x200 BackgroundD63232", "1"\)' 'footer notification is a circular red badge with white 1'
+Require-Source 'LauncherUpdateBadge\.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'unread badge numeral stays white at saved scale'
+Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
+Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
 Require-Source 'size := Max\(6, Round\(10 \* scale\)\)' 'unread badge respects saved scale'
 Require-Source 'ApplyLauncherBadgeFont\(LauncherScale / 100\)' 'badge uses saved launcher scale'
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
@@ -403,7 +411,9 @@ if ($source -match 'LauncherBadgeTest|LauncherHistoryTest|HandleLauncherHistoryT
 }
 Write-Host 'PASS: temporary manual updater preview instrumentation removed; normal updater checks preserved.'
 
-Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'missed published changes retain category-first formatting' $notesSource
+Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed published changes retain categorized formatting' $notesSource
+Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
+Require-Source 'previewSections := BuildPublishedPreviewSections\(\[newestMissed, previousMissed, patch\]\)' 'compiled smoke covers compact and expanded missed updates' $badgeHarness
 Require-Source 'BuildInstalledVersionNotes\(\[base, patch\]\)' 'compiled data smoke exercises grouped installed hotfix notes' $badgeHarness
 Require-Source 'switcher\.Update := updateNotes' 'scrollable viewport still supports safe content refresh' $notesSource
 Require-Source 'Loop capacity - 1' 'short and long categorized notes fill the viewport' $notesSource

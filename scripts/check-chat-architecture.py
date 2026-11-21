@@ -2379,7 +2379,7 @@ expect(
 )
 expect(
     "Published previews categorize missed changes while installed history groups hotfix versions without a redundant Hotfixes category",
-    'ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)' in update_dialogs
+    'ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)' in update_dialogs
     and 'ReadInstalledCumulativeNotes(notesVersion)' in update_dialogs
     and 'ReadPublishedUpdateHistory(installedVersion, latestVersion)' in update_notes
     and 'AddPublishedNoteRecords(history.Release, records)' in update_notes
@@ -2395,13 +2395,17 @@ expect(
     and 'order := ["New Features", "Improvements", "Bug Fixes",' in update_notes
     and '"Changes in This Update"' in update_dialogs
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
+    and 'BuildPublishedPreviewSections(records)' in update_notes
+    and 'noteSwitcher.Update(previewState.Expanded ? notes.Expanded : notes.Compact)' in update_dialogs
+    and 'metadataBorder.Move(, , , 34 + rowExtra)' in update_dialogs
+    and 'ShapeCircularUpdateBadge(latestBadge)' in update_dialogs
     and 'AddUpdateNoteTabs(' not in update_dialogs
     and 'Loop capacity - 1' in update_notes,
 )
 expect(
     "Production updater contains no temporary injection mode and retains confirmation guards",
     'ShowUpdatePreview(installedVersion, latestVersion, channel, kind)' in update_dialogs
-    and 'notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion)' in update_dialogs
+    and 'notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)' in update_dialogs
     and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel)' in update_dialogs
     and 'installed.GetPos(, , &installedWidth)' in update_dialogs
     and 'latest.GetPos(, , &latestWidth)' in update_dialogs

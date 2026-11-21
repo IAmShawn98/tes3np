@@ -88,7 +88,10 @@ Hotfixes change category. The launcher and publisher use this file.
   Either the version or indicator opens the optional updater; dismissing a
   preview never installs files.
 - The update preview shows **only missed published changes**, categorized
-  as New Features, Improvements, Bug Fixes, or Removed Features.
+  as New Features, Improvements, Bug Fixes, or Removed Features. The newest
+  published update appears first with a compact list of earlier missed
+  versions; the player can expand or hide those older notes without losing
+  any previously published content.
   Fixes introduced by a hotfix belong under Bug Fixes, even when that hotfix
   also introduces new features or improvements. An older published release
   may use the historical Hotfixes heading; the launcher displays its entries
