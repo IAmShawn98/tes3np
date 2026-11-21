@@ -257,7 +257,8 @@ if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must 
 # Exercise unseen/viewed/none with the real footer controls, but in a
 # standalone preview that must never hit the live updater or user's INI.
 $badgeFixture = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
-$start = $badgeFixture.IndexOf('PreviewUpdateBadgeFixture()' + [Environment]::NewLine + '{')
+$fixtureStart = [regex]::Match($badgeFixture, '(?m)^PreviewUpdateBadgeFixture\(\)\r?\n\{')
+$start = if ($fixtureStart.Success) { $fixtureStart.Index } else { -1 }
 $end = $badgeFixture.IndexOf('; Exercise the update handshake', $start)
 if ($start -lt 0 -or $end -le $start) {
     throw 'Standalone update badge preview fixture is missing.'
