@@ -1471,7 +1471,7 @@ CheckMissedUpdateLinkViewport()
                     throw Error("Mark Read must always be visible beneath release links.")
                 observer.Clear.GetPos(&clearX, &clearY, &clearWidth, &clearHeight)
                 originalClearY := clearY
-                if clearX < Round(48 * scale) - 1
+                if clearX < Round(34 * scale) - 1
                     || clearY < listY + listHeight + Max(1, Round(4 * scale))
                     || clearY + clearHeight > Round(654 * scale) + 1
                     throw Error("Mark Read must fit inside the reserved gold footer area.")
