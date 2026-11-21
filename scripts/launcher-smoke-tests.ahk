@@ -1004,7 +1004,8 @@ CheckExpandablePublishedPreviewViewport()
             if InStr(sections.Compact, "Previous improvement.")
                 || InStr(sections.Compact, "Older correction.")
                 throw Error("Compact preview leaked an earlier hotfix's change.")
-            switcher.Update(sections.Expanded)
+            ; Match the production callback call style: no implicit receiver.
+            switcher.Update.Call(sections.Expanded)
             down := 0
             for control in panel
                 if control.Text = "↓"
@@ -1035,7 +1036,7 @@ CheckExpandablePublishedPreviewViewport()
             }
             if !foundPrevious || !foundOlder
                 throw Error("Earlier missed hotfix details cannot be reached by scrolling.")
-            switcher.Update(sections.Compact)
+            switcher.Update.Call(sections.Compact)
             for row in panel
                 if row.Visible && (InStr(row.Text, "Previous improvement.")
                     || InStr(row.Text, "Older correction."))
