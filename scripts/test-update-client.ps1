@@ -135,10 +135,13 @@ Require-Source '0, rowExtra, notesSpace, true, true, hasMissed\)' 'latest notes 
 Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale, rowExtra, notesSpace\)' 'pinned missed releases have their own bounded viewport' $dialogSource
 Require-Source 'link.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'each missed version hyperlink resolves from its current scroll row' $dialogSource
 Require-Source 'track.Visible := page.MaxOffset > 1' 'history scrollbar appears only when more than three releases are missed' $dialogSource
-Require-Source 'rowTop := px\(412 \+ topExtra \+ bottomExtra\)' 'version links begin high enough to fit complete rendered lines' $dialogSource
-Require-Source 'rowHeight := px\(29\)' 'missed-update links reserve 29px to avoid clipping font descent' $dialogSource
-Require-Source 'ReleaseNoteLineHeight\(link\) \+ px\(8\) > rowHeight' 'native font metrics guard against vertically truncated links' $dialogSource
-Require-Source 'rowStep := px\(24\)' 'three rows fit cleanly between lower heading and gold border' $dialogSource
+Require-Source 'rowTop := px\(408 \+ topExtra \+ bottomExtra\)' 'version links start above the old clipping boundary' $dialogSource
+Require-Source 'rowHeight := px\(29\)' 'missed-update links initially reserve 29px to avoid font clipping' $dialogSource
+Require-Source 'rowHeight := Max\(rowHeight, ReleaseNoteLineHeight\(link\) \+ px\(8\)\)' 'native font metrics enlarge rows when Windows requires more glyph room' $dialogSource
+Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and consistent spacing' $dialogSource
+Require-Source 'bottomLimit := px\(490 \+ topExtra \+ bottomExtra\)' 'missed links cannot cross the gold card bottom' $dialogSource
+Require-Source 'page.VisibleRows := Max\(1, Min\(3,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
+Require-Source 'page.MaxOffset := Max\(1, versions.Length - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
 Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
 Require-Source '"https://github.com/IAmShawn98/tes3np/releases/tag/v" version' 'hyperlink destination is locked to release tags in the official repository' $dialogSource
 Require-Source 'MissedVersions: missedVersions' 'list includes the newest missed version and every older missed version' $notesSource
@@ -509,6 +512,7 @@ Write-Host 'PASS: temporary manual updater preview instrumentation removed; norm
 Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed published changes retain categorized formatting' $notesSource
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
 Require-Source 'CheckMissedUpdateLinkViewport\(\)' 'native smoke tests missed update links and scrolling' $badgeHarness
+Require-Source 'Label: items\[1\].Label " \(unreleased draft\)"' 'native smoke reproduces the clipped local draft line' $badgeHarness
 Require-Source 'for count in \[1, 3, 7\]' 'regression covers one, three and many missed versions' $badgeHarness
 Require-Source 'observer.Page.Offset := observer.Page.MaxOffset' 'native smoke verifies the last missed version remains reachable' $badgeHarness
 Require-Source 'previewSections := BuildPublishedPreviewSections\(\[newestMissed, previousMissed, patch\]\)' 'compiled smoke covers compact and expanded missed updates' $badgeHarness
