@@ -132,10 +132,15 @@ Require-Source 'missedVersions := notes.HasOwnProp\("MissedVersions"\) \? notes.
 Require-Source 'hasMissed := missedVersions.Length > 0' 'history stays absent when no versions are missed' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'latest changelog keeps its own scrollable viewport' $dialogSource
 Require-Source '0, rowExtra, notesSpace, true, true, hasMissed\)' 'latest notes stop above the pinned missed history' $dialogSource
-Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale, rowExtra, notesSpace\)' 'pinned missed releases have their own bounded viewport' $dialogSource
+Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale, rowExtra, notesSpace, missedHeading\)' 'pinned missed releases use the measured heading to bound their viewport' $dialogSource
+Require-Source 'missedHeading := preview.Add\("Text", "x40 y" \(388 \+ rowExtra \+ notesSpace\)' 'the real missing-updates heading is retained for clipping tests' $dialogSource
+Require-Source '" w520 h28 BackgroundTrans", "Updates You Missed"\)' 'the full Georgia heading has room for native glyph descenders' $dialogSource
 Require-Source 'link.OnEvent\("Click", OpenMissedUpdateVersion.Bind\(page, slot\)\)' 'each missed version hyperlink resolves from its current scroll row' $dialogSource
 Require-Source 'track.Visible := page.MaxOffset > 1' 'history scrollbar appears only when more than three releases are missed' $dialogSource
-Require-Source 'rowTop := px\(408 \+ topExtra \+ bottomExtra\)' 'version links start above the old clipping boundary' $dialogSource
+Require-Source 'rowTop := px\(420 \+ topExtra \+ bottomExtra\)' 'version links begin beneath the complete heading' $dialogSource
+Require-Source 'heading.GetPos\(, &headingY, , &headingHeight\)' 'viewport positions against actual scaled heading bounds' $dialogSource
+Require-Source 'rowTop := Max\(rowTop, headingY \+ headingHeight \+ Max\(2, px\(4\)\)\)' 'list background cannot cover the end of the heading' $dialogSource
+Require-Source '" h" \(bottomLimit - rowTop\) " Background171008"' 'opaque history background stops before the gold card border' $dialogSource
 Require-Source 'rowHeight := px\(29\)' 'missed-update links initially reserve 29px to avoid font clipping' $dialogSource
 Require-Source 'rowHeight := Max\(rowHeight, ReleaseNoteLineHeight\(link\) \+ px\(8\)\)' 'native font metrics enlarge rows when Windows requires more glyph room' $dialogSource
 Require-Source 'rowStep := px\(24\)' 'missed-update rows retain compact and consistent spacing' $dialogSource
@@ -513,6 +518,7 @@ Write-Host 'PASS: temporary manual updater preview instrumentation removed; norm
 Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed published changes retain categorized formatting' $notesSource
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
 Require-Source 'CheckMissedUpdateLinkViewport\(\)' 'native smoke tests missed update links and scrolling' $badgeHarness
+Require-Source 'Opaque missed-updates viewport covers the heading text\.' 'native layout smoke reproduces and rejects clipped Updates You Missed heading' $badgeHarness
 Require-Source 'Label: items\[1\].Label " \(unreleased draft\)"' 'native smoke reproduces the clipped local draft line' $badgeHarness
 Require-Source 'Missed-update Text controls overlap and may erase glyphs\.' 'native smoke checks row overlap' $badgeHarness
 Require-Source 'for count in \[1, 3, 7\]' 'regression covers one, three and many missed versions' $badgeHarness
