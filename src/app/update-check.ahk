@@ -349,19 +349,19 @@ ShowLauncherHistoryTestPreview(scenario)
             installed := "0.1.20-alpha"
             latest := "0.1.22-alpha.2"
             kind := "update"
-            features := "### v0.1.22-alpha — November 23, 2026 (SAMPLE)" "`n`n"
-                . "### New Features`n- **Launcher:** This is synthetic feature history for UI testing.`n"
-                . "- **Interface:** The newest feature release should appear first.`n`n"
-                . "### v0.1.21-alpha — November 20, 2026 (SAMPLE)`n`n"
-                . "### Improvements`n- **Launcher:** This is an earlier simulated feature release."
+            features := "### v0.1.22-alpha — November 23, 2026" "`n`n"
+                . "### New Features`n- **Expansion Pack:** Restore verification of installed files.`n"
+                . "- **Launcher:** Review release and hotfix history before updating.`n`n"
+                . "### v0.1.21-alpha — November 20, 2026`n`n"
+                . "### Improvements`n- **Launcher:** Reliability and usability improvements."
             Loop 18
-                features .= "`n- **Sample " A_Index ":** Extra synthetic notes to verify scrolling and wrapping."
-            hotfixes := "### v0.1.22-alpha.2 — November 27, 2026 (SAMPLE)`n`n"
-                . "### Bug Fixes`n- **Launcher:** Newer simulated hotfix.`n`n"
-                . "### v0.1.22-alpha.1 — November 25, 2026 (SAMPLE)`n`n"
-                . "### Bug Fixes`n- **Launcher:** Older simulated hotfix.`n`n"
-                . "### v0.1.21-alpha.1 — November 21, 2026 (SAMPLE)`n`n"
-                . "### Bug Fixes`n- **Launcher:** A simulated hotfix from an earlier feature version."
+                features .= "`n- **Improvement " A_Index ":** Update notes remain readable when scrolling and resizing."
+            hotfixes := "### v0.1.22-alpha.2 — November 27, 2026`n`n"
+                . "### Bug Fixes`n- **Launcher:** Improved update preview appearance.`n`n"
+                . "### v0.1.22-alpha.1 — November 25, 2026`n`n"
+                . "### Bug Fixes`n- **Launcher:** Improved notification behavior.`n`n"
+                . "### v0.1.21-alpha.1 — November 21, 2026`n`n"
+                . "### Bug Fixes`n- **Launcher:** Improved interface responsiveness."
         }
         else
         {
@@ -369,8 +369,8 @@ ShowLauncherHistoryTestPreview(scenario)
             latest := "0.1.22-alpha.2"
             kind := "hotfix"
             features := "No new feature releases since your installed version."
-            hotfixes := "### v0.1.22-alpha.2 — November 27, 2026 (SAMPLE)`n`n"
-                . "### Bug Fixes`n- **Launcher:** Only this simulated hotfix should appear."
+            hotfixes := "### v0.1.22-alpha.2 — November 27, 2026`n`n"
+                . "### Bug Fixes`n- **Launcher:** Improved update preview appearance."
         }
         ShowUpdatePreview(installed, latest, "alpha", kind,
             {Release: features, Hotfix: hotfixes})
