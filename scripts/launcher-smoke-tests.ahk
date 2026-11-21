@@ -1245,6 +1245,10 @@ CheckMissedUpdateLinkViewport()
         {
             scale := percent / 100
             panel := Gui("-DPIScale", "Missed updates viewport smoke")
+            ; Mirror the production heading BEFORE launcher scaling, so its
+            ; real scaled HWND bounds can be checked against the opaque list.
+            panel.SetFont("s12 Bold cE7BE70", "Georgia")
+            heading := panel.Add("Text", "x40 y488 w520 h28 BackgroundTrans", "Updates You Missed")
             ; Reproduce the actual screenshot's nonclickable local draft row,
             ; not just the shorter, underlined published release captions.
             items := sections.MissedVersions
@@ -1257,9 +1261,17 @@ CheckMissedUpdateLinkViewport()
             {
                 ScaleOwnedMenuContent(panel, scale)
                 unregister := AddMissedUpdateLinks(panel, items,
-                    scale, 0, 100, observer)
+                    scale, 0, 100, heading, observer)
                 if !IsObject(observer.Refresh) || observer.Rows.Length != 3
                     throw Error("Missed-updates viewport did not initialize its rows.")
+                ; This previously passed because the smoke test contained no
+                ; heading: the list was drawn five pixels over its last glyphs.
+                heading.GetPos(, &headingY, , &headingHeight)
+                observer.Viewport.GetPos(, &listY, , &listHeight)
+                if listY < headingY + headingHeight + Max(1, Round(3 * scale))
+                    throw Error("Opaque missed-updates viewport covers the heading text.")
+                if listY + listHeight > Round(590 * scale) + 1
+                    throw Error("Missed-updates viewport spills below the gold frame.")
                 visible := 0
                 previousBottom := 0
                 for row in observer.Rows
@@ -1273,7 +1285,7 @@ CheckMissedUpdateLinkViewport()
                     previousBottom := y + height
                     if x < Round(48 * scale) - 1
                         || x + width > Round(544 * scale) + 1
-                        || y < Round(508 * scale) - 1
+                        || y < Round(520 * scale) - 1
                         || y + height > Round(590 * scale) + 1
                         || !ReleaseNoteFits(row, row.Text, width)
                         || height < ReleaseNoteLineHeight(row) + Round(8 * scale)
