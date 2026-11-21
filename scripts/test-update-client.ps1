@@ -368,61 +368,25 @@ Write-Host 'PASS: badge aligns to version and repaints without stale transparent
 Require-Source 'if !IsObject\(LauncherGui\) \|\| !DllCall\("user32\\IsWindowVisible"' 'automatic update preview uses valid native visibility check'
 if ($source.Contains('"user32\\\\IsWindowVisible"')) { throw 'Automatic preview must not use a doubled Win32 function separator.' }
 if ($source.Contains('LauncherUpdateButton')) { throw 'Long update buttons must not replace the footer version.' }
-# The badge preview must be injected into the actual launcher window only when
-# it was explicitly launched with a test flag. Real settings, live update feeds,
-# and publishing logic remain untouched.
-$badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
+# Check the production code path after temporary injection tooling is removed.
+# These assertions remain useful build regressions, not a runtime test mode.
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
-$badgeHelper = Get-Content -LiteralPath 'scripts/test-update-badge.ps1' -Raw -Encoding UTF8
-if (!$badgeHarness.Contains('case "--test-update-badge":') -or
-    !$badgeHarness.Contains('LauncherBadgeTestMode := true') -or
-    $badgeHarness.Contains('PreviewUpdateBadgeFixture()') -or
-    !$bootstrapSource.Contains('LauncherGui.Title := A_IconTip " [Badge Test]"') -or
-    !$bootstrapSource.Contains('LauncherBadgeTestWindowHwnd := LauncherGui.Hwnd') -or
-    !$bootstrapSource.Contains('OnMessage(0x8041, HandleLauncherBadgeTestMessage)') -or
-    !$bootstrapSource.Contains('if !LauncherBadgeTestMode') -or
-    !$source.Contains('HandleLauncherBadgeTestMessage(state, unused, msg, hwnd)') -or
-    !$source.Contains('hwnd != LauncherBadgeTestWindowHwnd') -or
-    $source.Contains('hwnd != LauncherGui.Hwnd') -or
-    !$source.Contains('LauncherBadgeTestState := "unread"') -or
-    !$source.Contains('LauncherBadgeTestState := "viewed"') -or
-    !$source.Contains('LauncherBadgeTestState := "none"') -or
-    !$source.Contains('unseen := LauncherBadgeTestMode ? LauncherBadgeTestState = "unread"') -or
-    !$badgeHelper.Contains('SendMessageTimeout(') -or
-    !$badgeHelper.Contains('FindWindow(') -or
-    !$badgeHelper.Contains('0x8041') -or
-    !$badgeHelper.Contains('Badge Test]') -or
-    $badgeHelper.Contains('Set-Content ') -or
-    $badgeHelper.Contains('Start-Process ') -or
-    $badgeHelper.Contains('Invoke-WebRequest ')) {
-    throw 'Live badge test must target only the opted-in launcher without changing files or the update feed.'
+$badgeHarness = Get-Content -LiteralPath 'scripts/launcher-smoke-tests.ahk' -Raw -Encoding UTF8
+Require-Source 'unseen := latestVersion != LauncherUpdateDismissedVersion && !HasSeenUpdateAutoPreview\(latestVersion\)' 'notification state uses published version and persisted seen flag'
+Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind\)' 'release preview has only production parameters' $dialogSource
+Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'release history always reads the published records' $dialogSource
+Require-Source 'AddStyledButton\(preview, 32, actionY, 185, 34, "Update Now"' 'real Update Now remains available' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'Update Now enters the existing confirmation-gated updater' $dialogSource
+Require-Source 'AddStyledButton\(preview, 233, actionY, 155, 34, "Not Now"' 'Not Now leaves the updater unchanged' $dialogSource
+Require-Source 'SetTimer\(CheckForUpdateAvailability, -250\)' 'normal update polling starts' $bootstrapSource
+Require-Source 'SetTimer\(OfferDesktopShortcutOnFirstLaunch, -1800\)' 'normal first-run prompt restored' $bootstrapSource
+if ($source -match 'LauncherBadgeTest|LauncherHistoryTest|HandleLauncherHistoryTest|ShowLauncherHistoryTestPreview' -or
+    $bootstrapSource -match 'LauncherBadgeTest|LauncherHistoryTest|0x8041|0x8042' -or
+    $badgeHarness.Contains('--test-update-badge') -or
+    $dialogSource -match 'testHistory|synthetic|TEST DATA ONLY|Update downloads are disabled for this preview') {
+    throw 'Temporary manual notification/history injection code remains in production.'
 }
-Write-Host 'PASS: PowerShell cosmetic badge injection targets only the real, opted-in launcher.'
-
-# Exercise the real history dialog with synthetic, local-only content.
-$historyHelper = Get-Content -LiteralPath 'scripts/test-update-history.ps1' -Raw -Encoding UTF8
-if (!$bootstrapSource.Contains('OnMessage(0x8042, HandleLauncherHistoryTestMessage)') -or
-    !$source.Contains('HandleLauncherHistoryTestMessage(scenario, unused, msg, hwnd)') -or
-    !$source.Contains('SetTimer(ShowLauncherHistoryTestPreview.Bind(scenario), -1)') -or
-    !$source.Contains('ShowUpdatePreview(installed, latest, "alpha", kind,') -or
-    !$source.Contains('features := "No new feature releases since your installed version."') -or
-    !$dialogSource.Contains('ShowUpdatePreview(installedVersion, latestVersion, channel, kind, testHistory := 0)') -or
-    !$dialogSource.Contains('history := synthetic ? testHistory : ReadPublishedUpdateHistory(installedVersion, latestVersion)') -or
-    !$dialogSource.Contains('if synthetic') -or
-    !$dialogSource.Contains('MsgBox("Update downloads are disabled for this preview."') -or
-    !$dialogSource.Contains('AddStyledButton(preview, 32, actionY, 185, 34, "Update Now"') -or
-    !$dialogSource.Contains('AddStyledButton(preview, 233, actionY, 155, 34, "Not Now"') -or
-    $dialogSource.Contains('TEST DATA ONLY') -or
-    !$historyHelper.Contains('SendMessageTimeout(') -or
-    !$historyHelper.Contains('FindWindow(') -or
-    !$historyHelper.Contains('0x8042') -or
-    !$historyHelper.Contains('Badge Test]') -or
-    !$historyHelper.Contains("ValidateSet('Missed', 'Hotfix')") -or
-    $historyHelper -match '(?i)(Set-Content|Copy-Item|Remove-Item|Invoke-WebRequest|Start-Process)\s') {
-    throw 'Synthetic history preview must stay opt-in, preserve the real history reader, and disable all downloads.'
-}
-Write-Host 'PASS: real update preview supports safe missed-release and hotfix-only test data.'
-
+Write-Host 'PASS: temporary manual updater preview instrumentation removed; normal updater checks preserved.'
 
 Require-Source 'AddUpdateNoteTabs\(preview, history\.Release, history\.Hotfix' 'missed changes use separate feature and hotfix tabs' $dialogSource
 Require-Source 'switcher\.Update := updateNotes' 'tab switch updates scrollable viewport' $notesSource
