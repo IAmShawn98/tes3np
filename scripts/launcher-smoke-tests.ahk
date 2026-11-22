@@ -62,7 +62,7 @@ CheckCategorizedUpdateNotes()
     ; Installed history is grouped by version newest-first. The published
     ; update preview above must retain its category-first formatting.
     installed := BuildInstalledVersionNotes([base, patch])
-    latest := InStr(installed, "## Latest Hotfix — v0.1.21-alpha.1")
+    latest := InStr(installed, "## Latest Patch — v0.1.21-alpha.1")
     original := InStr(installed, "## Base Release — v0.1.21-alpha")
     if !latest || !original || latest >= original
         || !InStr(installed, "### New Features`n`n- **Alerts:** New indicator.")
@@ -77,8 +77,8 @@ CheckCategorizedUpdateNotes()
     newerPatch := {Version: "0.1.21-alpha.2", Label: "v0.1.21-alpha.2",
         Hotfix: true, Notes: "### Hotfixes`n- **Updater:** Newest fix."}
     stacked := BuildInstalledVersionNotes([base, patch, newerPatch])
-    newest := InStr(stacked, "## Latest Hotfix — v0.1.21-alpha.2")
-    earlier := InStr(stacked, "## Earlier Hotfix — v0.1.21-alpha.1")
+    newest := InStr(stacked, "## Latest Patch — v0.1.21-alpha.2")
+    earlier := InStr(stacked, "## Earlier Patch — v0.1.21-alpha.1")
     baseStart := InStr(stacked, "## Base Release — v0.1.21-alpha")
     if !newest || !earlier || !baseStart || newest >= earlier
         || earlier >= baseStart
@@ -96,7 +96,11 @@ CheckCategorizedUpdateNotes()
         Notes: "### Improvements`n- **Launcher:** Previous improvement."}
     previewSections := BuildPublishedPreviewSections([newestMissed, previousMissed, patch])
     if previewSections.EarlierCount != 2
-        || !InStr(previewSections.Title, "Latest Hotfix — v0.1.21-alpha.3")
+        || !previewSections.HistoryVerified
+        || previewSections.MissedVersions.Length != 2
+        || previewSections.MissedVersions[1].Version != "0.1.21-alpha.2"
+        || previewSections.MissedVersions[2].Version != "0.1.21-alpha.1"
+        || !InStr(previewSections.Title, "Latest Patch — v0.1.21-alpha.3")
         || !InStr(previewSections.Compact, "**Updater:** Latest repair.")
         || !InStr(previewSections.Compact, "You also missed 2 earlier updates.")
         || InStr(previewSections.Compact, "**Launcher:** Previous improvement.")
@@ -104,10 +108,13 @@ CheckCategorizedUpdateNotes()
         || !InStr(previewSections.Expanded, "**Pack:** Fixed disabling.")
         return false
     previewOnly := BuildPublishedPreviewSections([newestMissed])
-    if previewOnly.EarlierCount != 0 || previewOnly.Compact != previewOnly.Expanded
+    if previewOnly.EarlierCount != 0 || previewOnly.MissedVersions.Length != 0
+        || !previewOnly.HistoryVerified
+        || previewOnly.Compact != previewOnly.Expanded
         return false
     unavailablePreview := EmptyPublishedPreviewSections("Published release history is unavailable.")
     if unavailablePreview.Title != "" || unavailablePreview.EarlierCount
+        || unavailablePreview.HistoryVerified
         return false
 
     published := []
@@ -811,38 +818,6 @@ CheckOwnedMenuScaling()
     ExitApp(0)
 }
 
-; Regression guard: a compiled root executable should open the same checkout
-; draft preview as dist\local-build, without enabling it in exported packages.
-CheckDevelopmentReviewExecutablePaths()
-{
-    root := A_Temp "\tes3np-preview-check-" NewLauncherFileId()
-    try
-    {
-        DirCreate(root "\.git")
-        DirCreate(root "\scripts")
-        FileAppend("; development fixture", root "\scripts\check-ahk-compile.ps1")
-        DirCreate(root "\dist\local-build")
-        DirCreate(root "\dist\tes3np-windows")
-        if FindDevelopmentReviewCheckoutRoot(root, true) != root
-            || FindDevelopmentReviewCheckoutRoot(root, false) != root
-            throw Error("Root executable cannot locate the local development checkout.")
-        if FindDevelopmentReviewCheckoutRoot(root "\dist\local-build", true) = ""
-            throw Error("Nested local-build executable cannot locate the checkout.")
-        if FindDevelopmentReviewCheckoutRoot(root "\dist\local-build", false) != ""
-            || FindDevelopmentReviewCheckoutRoot(root "\dist\tes3np-windows", true) != ""
-            throw Error("Packaged distributions must not auto-show development updates.")
-        DirDelete(root "\.git")
-        if FindDevelopmentReviewCheckoutRoot(root, true) != ""
-            || FindDevelopmentReviewCheckoutRoot(root "\dist\local-build", true) != ""
-            throw Error("Development preview must require a valid checkout marker.")
-    }
-    finally
-    {
-        try DirDelete(root, true)
-    }
-    try FileAppend("PASS: root and local-build EXEs enable checkout preview; distributions stay disabled" Chr(10), "*")
-}
-
 ; A closed update GUI must not crash a still-dispatching native mouse callback.
 ; This reproduces WM_LBUTTONDOWN arriving after the modal is destroyed but
 ; before its OnMessage callback has been removed from the global dispatcher.
@@ -877,7 +852,6 @@ CheckUpdateNoteCallbackLifetime()
 CheckDisplaySettingsAndReleaseNotes()
 {
     global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
-    CheckDevelopmentReviewExecutablePaths()
     CheckUpdateNoteCallbackLifetime()
     if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100
         || GetLauncherScaleForWorkArea(1280, 680, 1.5) != 60
@@ -1320,7 +1294,7 @@ CheckCompactPublishedPreviewViewport()
             Hotfix: true, Notes: "### Bug Fixes`n- Older sample repair."}
     ]
     sections := BuildPublishedPreviewSections(records)
-    if sections.Title != "Latest Hotfix — v0.1.21-alpha.3"
+    if sections.Title != "Latest Patch — v0.1.21-alpha.3"
         || sections.EarlierLabels.Length != 2
         || !InStr(sections.Latest, "New Features")
         || InStr(sections.Latest, "Previous sample improvement.")
@@ -1438,15 +1412,15 @@ CheckCompactPublishedPreviewViewport()
             DestroyScaledMenu(panel)
         }
     }
-    ; Exercise the actual pending .1 release-note text, not only fabricated
-    ; short data: the final Bug Fixes section must be visible at 100%.
+    ; Exercise the bundled hotfix release-note text as well as short
+    ; isolated fixtures: the final Bug Fixes must fit at 100%.
     realNotes := ReadBundledVersionNotes("0.1.21-alpha.1")
     if realNotes != ""
     {
         realSection := BuildPublishedPreviewSections([
             {Version: "0.1.21-alpha.1", Label: "v0.1.21-alpha.1",
                 Hotfix: true, Notes: realNotes}])
-        panel := Gui("-DPIScale", "Real unreleased release-note clipping check")
+        panel := Gui("-DPIScale", "Bundled release-note clipping check")
         unregister := 0
         try
         {
@@ -1472,7 +1446,7 @@ CheckCompactPublishedPreviewViewport()
             DestroyScaledMenu(panel)
         }
     }
-    try FileAppend("PASS: full-height production preview and draft hotfix clipping at 41, 50, 82 and 100 percent" Chr(10), "*")
+    try FileAppend("PASS: full-height production preview and bundled hotfix clipping at 41, 50, 82 and 100 percent" Chr(10), "*")
 }
 
 ; Verify one, three, and many published update links at the actual native
@@ -1482,7 +1456,11 @@ CheckMissedUpdateLinkViewport()
     global ButtonFaces
     for count in [1, 3, 7, 24]
     {
-        records := []
+        ; Generate one offered version followed by exactly 'count' older
+        ; skipped releases; the offered version must NEVER enter this list.
+        offered := "0.1.21-alpha." (count + 1)
+        records := [{Version: offered, Label: "v" offered,
+            Hotfix: true, Notes: "### Bug Fixes`n- Current offered update."}]
         Loop count
         {
             version := "0.1.21-alpha." (count - A_Index + 1)
@@ -1491,12 +1469,12 @@ CheckMissedUpdateLinkViewport()
         }
         sections := BuildPublishedPreviewSections(records)
         if sections.MissedVersions.Length != count
-            throw Error("Missed-updates list excludes the newest version or drops an earlier one.")
-        if sections.MissedVersions[1].Version != records[1].Version
-            || sections.MissedVersions[count].Version != records[count].Version
+            throw Error("Missed-updates list included the current offer or lost earlier releases.")
+        if sections.MissedVersions[1].Version != records[2].Version
+            || sections.MissedVersions[count].Version != records[count + 1].Version
             throw Error("Missed versions do not preserve newest-first order.")
         for record in sections.MissedVersions
-            if record.Url != "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version
+            if record.Url != GetPublishedVersionNotesUrl(record.Version)
                 throw Error("Missed update does not link to its exact GitHub release tag.")
         for percent in [41, 50, 82, 100]
         {
@@ -1506,54 +1484,35 @@ CheckMissedUpdateLinkViewport()
             ; real scaled HWND bounds can be checked against the opaque list.
             panel.SetFont("s12 Bold cE7BE70", "Georgia")
             heading := panel.Add("Text", "x40 y424 w520 h28 BackgroundTrans", "Updates You Missed")
-            ; Reproduce the actual screenshot's nonclickable local draft row,
-            ; not just the shorter, underlined published release captions.
+            ; Disposable records exercise one, several and many releases.
+            ; Their read callbacks never access the user's real INI state.
             items := sections.MissedVersions
-            if count = 1
-                items := [{Version: items[1].Version,
-                    Label: items[1].Label " (unreleased draft)",
-                    DisplayVersion: items[1].Label " (unreleased draft)", Url: ""}]
-            if count = 24
-            {
-                Loop count
-                {
-                    items[A_Index].DisplayVersion := "v" items[A_Index].Version
-                    items[A_Index].Key := "demo-" Format("{:02}", A_Index)
-                }
-            }
+            seen := Map()
+            state := {Offered: "",
+                IsRead: (version) => seen.Has(version),
+                MarkRead: (version) => (seen[version] := true),
+                RefreshCount: (*) => 0}
             observer := {}
             unregister := 0
             try
             {
                 ScaleOwnedMenuContent(panel, scale)
                 unregister := AddMissedUpdateLinks(panel, items,
-                    scale, 0, 100, heading, observer)
+                    scale, 0, 100, heading, observer, state)
                 if !IsObject(observer.Refresh) || observer.Rows.Length != 4
-                    || observer.Badges.Length != 4 || observer.Prefixes.Length != 4
-                    || !IsObject(observer.Clear)
+                    || observer.Badges.Length != 4 || !IsObject(observer.Clear)
                     throw Error("Missed-updates viewport did not initialize its rows.")
                 expectedCaption := count > 1 ? "Mark All Read" : "Mark Read"
                 if observer.Clear.Text != expectedCaption
                     throw Error("Unread-count action caption incorrect on initialization.")
-                if count = 1
-                {
-                    if IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
-                        throw Error("Unreleased draft must not use the link hand cursor.")
-                }
-                else if !IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
+                if !IsMissedUpdateCursorTarget(observer.Rows[1].Hwnd)
                     || !IsMissedUpdateCursorTarget(observer.Badges[1].Hwnd)
                     throw Error("Clickable release controls must use the hand cursor.")
-                ; Development samples now look like production: ivory version
-                ; links without a gold DEMO xx prefix or shifted row position.
-                if count = 24
-                {
-                    for slot, prefix in observer.Prefixes
-                        if prefix.Visible
-                            throw Error("Development release list still displays a DEMO prefix.")
-                    observer.Rows[1].GetPos(&sampleX)
-                    if Abs(sampleX - Round(48 * scale)) > 1
-                        throw Error("Version links must start at the production row inset.")
-                }
+                ; Every link begins at the production inset, independent
+                ; of how many published versions must be displayed.
+                observer.Rows[1].GetPos(&firstLinkX)
+                if Abs(firstLinkX - Round(48 * scale)) > 1
+                    throw Error("Version links must start at the production row inset.")
                 ; This previously passed because the smoke test contained no
                 ; heading: the list was drawn five pixels over its last glyphs.
                 heading.GetPos(, &headingY, , &headingHeight)
@@ -1605,18 +1564,6 @@ CheckMissedUpdateLinkViewport()
                         observer.Page.VisibleRows " fitted, native row=" observer.RowHeight
                         "px, step=" observer.RowStep "px, list top=" listY
                         "px, bottom=" observer.BottomLimit "px.")
-                ; The screenshot regression cut the lower half of the one
-                ; visible draft row at 100%. Verify the native font's actual
-                ; line metrics against its Text control height at each scale.
-                if count = 1
-                {
-                    row := observer.Rows[1]
-                    row.GetPos(, , , &linkHeight)
-                    if linkHeight < ReleaseNoteLineHeight(row) + Round(8 * scale)
-                        || !InStr(row.Text, "(unreleased draft)")
-                        throw Error("Actual draft missed-update entry is vertically clipped.")
-                }
-
                 scrollExpected := count > observer.Page.VisibleRows
                 if (observer.Track.Visible || observer.Thumb.Visible
                     || observer.Up.Visible || observer.Down.Visible) != scrollExpected
@@ -1661,7 +1608,7 @@ CheckMissedUpdateLinkViewport()
                     throw Error("Mark Read moved or disappeared when scrolling releases.")
                 if count >= 7
                 {
-                    ; Only one distinct demo/read receipt is cleared.
+                    ; Only the selected release is marked read first.
                     observer.Page.Offset := 1
                     observer.Refresh.Call()
                     first := items[1]

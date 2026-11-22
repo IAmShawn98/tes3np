@@ -6,16 +6,20 @@ Changes since the last public release, v0.1.21-alpha.
 
 ### New Features
 
-- **Update notifications:** See a red (1) when an update is available. It disappears after you view the update.
+- **Update Notifications:** A notification appears beside the launcher version when new updates are available. Notifications disappear as updates are viewed.
+- **Missed Updates:** View updates you may have missed, read their changes, and mark them as read.
 
 ### Improvements
 
-- **Launcher updates:** Review changes before choosing **Update Now** or **Not Now**. Downloads and installation still require confirmation.
-- **Expansion Pack:** Recognize an existing official pack without reinstalling it when verification records are missing.
+- **Launcher Updates:** Redesigned the update window to clearly show your installed version, the newest available version, and what's changed before updating.
+- **Release Notes:** Improved how update history is displayed, showing the newest installed updates first while keeping older release notes available.
+- **Expansion Pack:** The launcher can now recognize an existing official Expansion Pack without requiring you to reinstall it.
 
 ### Bug Fixes
 
-- **Expansion Pack:** Fixed an issue that could prevent disabling the pack when verification failed.
+- **Release Notes:** Fixed an issue that could prevent previous update notes from loading correctly.
+- **Launcher Interface:** Fixed the version number being cut off when using smaller launcher sizes.
+- **Expansion Pack:** Fixed an issue that could prevent disabling the Expansion Pack when its files couldn't be verified.
 
 ## v0.1.21-alpha — unreleased
 

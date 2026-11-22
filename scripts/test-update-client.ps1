@@ -28,25 +28,35 @@ Require-Source '!\(fileName == "tes3np-" releaseId "-windows\.zip"\)' 'package f
 Require-Source '\[0-9a-f\]\{64\}' 'SHA-256 format validation' $metadata
 Require-Source 'Download\(manifest\.PackageUrl, part\)' 'download uses validated package address' $installSource
 Require-Source '!manifest\.updateEnabled' 'emergency update disable handling'
-# The UI now uses an owned error-status panel instead of the removed
-# "No update was installed" string. Assert the actual fail-closed behavior:
-# errors report status, and neither download nor installation proceeds without
-# the user's separate confirmation.
+# The player explicitly accepts the transaction by choosing Update Now.
+# Preserve safe package verification, a staged transaction and rollback, but
+# avoid prompting two additional times after that explicit choice.
 Require-Source 'LogLauncherEvent\("ERROR \| UPDATE \| "' 'update failure is logged'
 Require-Source 'ShowUpdateStatusPanel\("error", AppConfig\.Version\)' 'update failure opens status panel'
-Require-Source 'if choice = "Yes" && ShowGoldUpdateConfirmation\("Download Update\?"' 'download requires user confirmation'
-Require-Source 'if ShowGoldUpdateConfirmation\("Install Verified Update\?"' 'installation requires second confirmation'
+Require-Source 'if choice = "Yes" \{' 'Update Now is the single explicit approval'
+Require-Source 'BeginInterfaceUpdate\(LauncherGui, "Downloading update\.\.\."' 'existing download progress is retained'
+Require-Source 'staged := DownloadAndStageUpdate\(manifest\)' 'package is downloaded and verified before installation'
+Require-Source 'handedOff := true' 'verified stage hands off to transactional installer'
+Require-Source 'if staged != "" && !handedOff' 'failed or cancelled handoffs clean up staged payloads'
+Require-Source 'DeleteLauncherStagingTree\(staged\)' 'unhanded-off stage is safely removed'
 
-$downloadGate = $source.IndexOf('if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?"')
-$stage = $source.IndexOf('staged := DownloadAndStageUpdate(manifest)', $downloadGate)
-$installGate = $source.IndexOf('if ShowGoldUpdateConfirmation("Install Verified Update?"', $stage)
-$launch = $source.IndexOf('StartTransactionalUpdate(manifest.version, staged)', $installGate)
-if ($downloadGate -lt 0 -or $stage -le $downloadGate -or
-    $installGate -le $stage -or $launch -le $installGate -or
+$previewGate = $source.IndexOf('choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)')
+$singleGate = $source.IndexOf('if choice = "Yes" {', $previewGate)
+$progress = $source.IndexOf('BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)', $singleGate)
+$stage = $source.IndexOf('staged := DownloadAndStageUpdate(manifest)', $progress)
+$launch = $source.IndexOf('StartTransactionalUpdate(manifest.version, staged)', $stage)
+$handoff = $source.IndexOf('handedOff := true', $launch)
+$exit = $source.IndexOf('ExitApp(0)', $handoff)
+$checkEnd = $source.IndexOf('DownloadUpdateText(url)', $exit)
+if ($previewGate -lt 0 -or $singleGate -le $previewGate -or
+    $progress -le $singleGate -or $stage -le $progress -or
+    $launch -le $stage -or $handoff -le $launch -or
+    $exit -le $handoff -or $checkEnd -le $exit -or
+    $source.Substring($singleGate, $checkEnd - $singleGate).Contains('ShowGoldUpdateConfirmation(') -or
     [regex]::Matches($source, 'StartTransactionalUpdate\(manifest\.version, staged\)').Count -ne 1) {
-    throw 'Updater client safety check missing: confirmed stage -> confirmed transactional installation order'
+    throw 'Updater source must preserve one-click preview -> progress -> verified stage -> transactional install.'
 }
-Write-Host 'PASS: verified update is staged and installed only after separate confirmations.'
+Write-Host 'PASS: Update Now starts verified download and transactional install with no redundant prompts.'
 
 $entry = Get-Content -LiteralPath 'tes3np.ahk' -Raw -Encoding UTF8
 $builder = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
@@ -86,7 +96,8 @@ Require-Source 'panel\.Add\("Text", "x30 y65 w740 h30 BackgroundTrans", message\
 if ($dialogSource.Contains('You are running the latest and greatest version of the tes3np launcher!')) {
     throw 'Obsolete up-to-date status wording must not return.'
 }
-Require-Source 'kind = "hotfix" \? "A Hotfix Is Available For v" installedVersion' 'hotfix preview heading names the installed version dynamically' $dialogSource
+Require-Source 'kind = "hotfix" \? "A Patch Is Available For v" installedVersion' 'hotfix preview heading names the installed version dynamically' $dialogSource
+Require-Source 'if ReleaseNoteFits\(titleControl, title, 548\)' 'variable-length headings fit their measured native width' $dialogSource
 Require-Source 'releaseType := channel = "alpha" \? "Alpha" : channel = "beta" \? "Beta" : "Stable Release"' 'regular update title calls the stable channel Stable Release' $dialogSource
 Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion, true\)' 'update preview categorizes missed published versions' $dialogSource
 
@@ -133,6 +144,10 @@ Require-Source 'preview.Add\("Text", "x40 y" \(312 \+ rowExtra \+ notesSpace\) "
 Require-Source '"Updates You Missed"' 'pinned history uses the approved player-facing heading' $dialogSource
 Require-Source 'missedVersions := notes.HasOwnProp\("MissedVersions"\) \? notes.MissedVersions : \[\]' 'published preview reads every missed release' $dialogSource
 Require-Source 'hasMissed := missedVersions.Length > 0' 'history stays absent when no versions are missed' $dialogSource
+Require-Source 'HistoryVerified: false' 'failed release-history lookup is not an authoritative empty list' $notesSource
+Require-Source 'HistoryVerified: true' 'successfully parsed release history may replace cached unread records' $notesSource
+Require-Source 'verifiedHistory := notes.HasOwnProp\("HistoryVerified"\) && notes.HistoryVerified' 'history verification must be checked before cache replacement' $dialogSource
+Require-Source 'RefreshLauncherPublishedUnreadCount\(verifiedHistory \? missedVersions : 0, latestVersion\)' 'unavailable release history cannot clear previously verified unread records' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(preview, notes.Latest, scale,' 'latest changelog keeps its own scrollable viewport' $dialogSource
 Require-Source '0, rowExtra, notesSpace, true, true, hasMissed\)' 'latest notes stop above the pinned missed history' $dialogSource
 Require-Source 'AddMissedUpdateLinks\(preview, missedVersions, scale,\s*rowExtra, notesSpace, missedHeading, 0, previewState\)' 'pinned missed releases use the measured heading to bound their viewport' $dialogSource
@@ -150,12 +165,11 @@ Require-Source 'observer.BottomLimit := bottomLimit' 'native smoke reports histo
 Require-Source 'up := AddStyledButton\(panel, arrowX, arrowTop, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold up arrow' $dialogSource
 Require-Source 'down := AddStyledButton\(panel, arrowX, arrowBottom, px\(20\), px\(22\),' 'missed-version scroll uses the parent gold down arrow' $dialogSource
 Require-Source 'badge := panel.Add\("Picture", "Hidden x0 y0 w" px\(20\) " h" px\(20\)' 'missed release badges match the 20px latest hotfix badge' $dialogSource
-Require-Source 'prefix.Text := prefixText' 'optional row prefix does not alter production version text' $dialogSource
 Require-Source 'w520 h28 BackgroundTrans", "Updates You Missed"\)' 'development and production keep the same missed-updates heading' $dialogSource
 if ($dialogSource.Contains('Updates You Missed (Sample)')) { throw 'Keep the production missed-update heading in development preview.' }
 
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
-Require-Source 'for control in \[prefixes\[slot\], rows\[slot\], badges\[slot\]\]' 'all visible release-link elements share cursor registration' $dialogSource
+Require-Source 'for control in \[rows\[slot\], badges\[slot\]\]' 'visible release links and badges share cursor registration' $dialogSource
 Require-Source 'RegisterMissedUpdateCursorTarget\(control, page, slot\)' 'current release controls register for hand cursor' $dialogSource
 Require-Source 'cursorHandles.Push\(control.Hwnd\)' 'clicked link HWNDs are captured for safe cleanup' $dialogSource
 Require-Source 'for handle in cursorHandles' 'modal cleanup walks captured numeric link handles' $dialogSource
@@ -174,12 +188,11 @@ Require-Source '"Mark Read", ClearMissedUpdateBadges.Bind\(page\)' 'bulk action 
 Require-Source 'markReadY := px\(528 \+ topExtra \+ bottomExtra\)' 'fixed Mark Read button stays in the lower-left corner' $dialogSource
 Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Mark Read still marks all missed versions read without removing history' $dialogSource
 Require-Source 'scrollExpected := count > observer.Page.VisibleRows' 'native smoke excludes fixed Mark Read from scroll count' $badgeHarness
-Require-Source 'Development release list still displays a DEMO prefix.' 'native preview smoke rejects development label prefixes' $badgeHarness
 Require-Source 'observer.Clear.Visible \|\| scrolledClearY != originalClearY' 'native smoke rejects Mark Read moving or disappearing during scrolling' $badgeHarness
 Require-Source 'Total: versions.Length, MaxOffset: 1' 'scroll offsets include only release entries, never the Mark Read button' $dialogSource
 Require-Source 'ClearMissedUpdateBadges\(page, \*\)' 'Clear marks all listed versions read without deleting entries' $dialogSource
 Require-Source 'MarkMissedUpdateItemRead\(page, item\)' 'clicking one release marks only that version read' $dialogSource
-Require-Source 'SetLauncherDemoUnreadCount\(count\)' 'demo feedback changes footer count without persistent writes' $dialogSource
+Require-Source 'page.State.RefreshCount.Call\(\)' 'native fixture controls suppress live footer writes' $dialogSource
 Require-Source 'MarkPublishedVersionRead\(latestVersion, true\)' 'opening real popup clears only the offered update' $dialogSource
 Require-Source 'IsPublishedVersionRead\(version\)' 'real per-version read state can be checked independently' $source
 Require-Source 'IniRead\(path, "ReadPublishedVersions", version, ""\)' 'read receipts are loaded from durable per-version INI keys' $source
@@ -202,9 +215,12 @@ Require-Source 'bottomLimit := px\(522 \+ topExtra \+ bottomExtra\)' 'missed-ver
 Require-Source 'page.VisibleRows := Max\(1, Min\(4,' 'oversized font uses fewer rows with scroll rather than truncation' $dialogSource
 Require-Source 'page.MaxOffset := Max\(1, page.Total - page.VisibleRows \+ 1\)' 'hidden missed versions remain reachable via scroll' $dialogSource
 Require-Source 'Run\(expected\)' 'published changelogs open their exact GitHub release in a browser' $dialogSource
-Require-Source '"https://github.com/IAmShawn98/tes3np/releases/tag/v" version' 'hyperlink destination is locked to release tags in the official repository' $dialogSource
-Require-Source 'MissedVersions: missedVersions' 'list includes the newest missed version and every older missed version' $notesSource
-Require-Source 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' 'links derive from verified published history' $notesSource
+Require-Source 'GetPublishedVersionNotesUrl\(version\)' 'historical hyperlink destination is validated through the canonical mapper' $dialogSource
+Require-Source 'return "https://iamshawn98\.github\.io/tes3np/#patch-v" version' 'consolidated historical patches link to durable website anchors' $notesSource
+Require-Source 'return "https://github\.com/IAmShawn98/tes3np/releases/tag/v" version' 'legacy published release links retain exact GitHub destinations' $notesSource
+Require-Source 'MissedVersions: missedVersions' 'list includes only older skipped releases, not the offered release' $notesSource
+Require-Source 'if index = 1' 'offered release is excluded from missed list' $notesSource
+Require-Source 'Url: GetPublishedVersionNotesUrl\(record.Version\)' 'links derive from verified published versions with canonical destinations' $notesSource
 Require-Source 'A_ScriptDir "\\assets\\controls\\update-badge\.png"' 'update preview uses a true transparent circular badge bitmap' $dialogSource
 if (!(Test-Path -LiteralPath 'assets/controls/update-unread-circle.png' -PathType Leaf)) { throw 'Unnumbered circular footer artwork is missing.' }
 if (!(Get-Content -LiteralPath 'scripts/generate-bundled-resources.py' -Raw).Contains('"assets/controls/update-unread-circle.png"')) { throw 'Standalone build must embed blank circular unread artwork.' }
@@ -217,7 +233,7 @@ if (!(Get-Content -LiteralPath 'scripts/generate-bundled-resources.py' -Raw).Con
 Require-Source 'actionY := 511 \+ rowExtra \+ notesSpace \+ missedSpace' 'production action buttons move beneath expanded history' $dialogSource
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'update button is centered under the card' $dialogSource
 Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now is centered beside Update Now' $dialogSource
-Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production updater still enters its confirmation flow' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production updater enters the single-action update flow' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'installed Version Status stays unchanged' $dialogSource
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'preview data comes only from the published version parser' $notesSource
 Require-Source 'EarlierLabels: earlierLabels' 'published missed versions are retained in the pinned summary' $notesSource
@@ -261,36 +277,24 @@ if ($dialogSource.Contains('"Continue to Download"') -or
     $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"')) {
     throw 'Preview footer must retain only the two established update choices.'
 }
-Write-Host 'PASS: Update Now and Not Now remain confirmation-gated and centered.'
+Write-Host 'PASS: Update Now and Not Now remain centered; Update Now is the only approval.'
 $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encoding UTF8
-Require-Source 'if A_Args.Length \|\| !RegExMatch\(AppConfig.Version' 'pre-publication review runs only on ordinary startup with a hotfix draft' $bootstrapSource
-Require-Source 'FileExist\(checkoutRoot "\\.git"\)' 'unreleased review only works in a development checkout' $bootstrapSource
-Require-Source 'FindDevelopmentReviewCheckoutRoot\(A_ScriptDir, A_IsCompiled\)' 'startup recognizes root executable and nested local build' $bootstrapSource
-Require-Source 'folderName != "local-build" \|\| parentName != "dist"' 'other distributions cannot auto-open demo history' $bootstrapSource
-Require-Source 'CheckDevelopmentReviewExecutablePaths\(\)' 'compiled smoke exercises development preview path detection' $badgeHarness
-Require-Source 'Packaged distributions must not auto-show development updates\.' 'native test rejects sample preview in exported ZIP folders' $badgeHarness
-Require-Source 'ReadBundledVersionNotes\(AppConfig.Version\) != ""' 'startup preview requires locally existing unreleased notes' $bootstrapSource
-Require-Source 'ReadBundledVersionNotes\(version\)' 'review uses actual drafted RELEASE_NOTES rather than fake hotfixes' $bootstrapSource
-Require-Source 'draftSections := BuildPublishedPreviewSections\(\[record\]\)' 'development preview uses the genuine single draft record' $bootstrapSource
-Require-Source 'Loop 24' 'development preview includes twenty-four scrolling stress entries' $bootstrapSource
-Require-Source 'demoVersion := Mod\(A_Index, 2\) \? "0.1.21-alpha" : "0.1.20-alpha"' 'demo repeats two actually published release tags rather than inventing nonexistent pages' $bootstrapSource
-Require-Source 'Key: "demo-" Format' 'each sample retains a distinct in-memory receipt key' $bootstrapSource
-Require-Source 'Label: "v" demoVersion' 'sample rows display plain white version links' $bootstrapSource
-if ($bootstrapSource.Contains('Prefix: "DEMO "')) { throw 'Development preview must not prepend DEMO labels to version links.' }
-Require-Source 'Url: GetTes3npReleasePage\(demoVersion\)' 'all demo entries open the correct GitHub page for the displayed version' $bootstrapSource
-Require-Source 'draftSections.MissedVersions := demoRows' 'mock history exists only inside the gated development review' $bootstrapSource
-Require-Source 'ShowDevelopmentUnreadBadgeSample\(25\)' 'demo starts with 24 older entries plus one currently offered unread version' $bootstrapSource
-Require-Source 'draftSections.DemoMode := true' 'demo reads current version without altering persisted player update state' $bootstrapSource
-Require-Source 'ShowUpdatePreview\(GetTes3npOriginalVersion\(version\), version,' 'review invokes the real production update dialog' $bootstrapSource
-Require-Source 'BuildPublishedPreviewSections\(\[record\]\)' 'review uses the real production notes parser' $bootstrapSource
+Require-Source 'SetTimer\(CheckForUpdateAvailability, -250\)' 'normal startup always begins real update polling' $bootstrapSource
+if ($bootstrapSource -match 'CanShowDevelopmentReleaseReview|ShowDevelopmentReleaseReview|ShowDevelopmentUnreadBadgeSample|Loop 24|DemoMode') {
+    throw 'Production bootstrap still contains temporary development-preview behavior.'
+}
+if ($source -match 'SetLauncherDemoUnreadCount|ShowDevelopmentUnreadBadgeSample' -or
+    $dialogSource -match 'DemoMode|page.State.Demo|SetLauncherDemoUnreadCount') {
+    throw 'Production updater still contains simulated unread counts or demo state.'
+}
 if (Test-Path 'scripts/test-update-preview-visual.ps1') {
     throw 'Retired standalone fake-history visual test still exists.'
 }
-Write-Host 'PASS: real production dialog auto-opens only at a source-checkout startup; fake visual fixture removed.'
+Write-Host 'PASS: normal startup uses published updates only; development preview removed.'
 
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
 Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
-Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update still enters existing confirmation flow' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update retains the approved Update Now action' $dialogSource
 
 $previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
 $metadataStart = $dialogSource.IndexOf('AddUpdatePreviewMetadata(panel, installedVersion')
@@ -330,7 +334,7 @@ if ($dialogSource.Contains('"Continue to Download"') -or
     $dialogSource.Contains('AddStyledButton(preview, 590, 568, 178, 34, "GitHub Release"')) {
     throw 'Update preview footer must show only Update Now and Not Now.'
 }
-Write-Host 'PASS: preview footer has two actions, with download still confirmation-gated.'
+Write-Host 'PASS: preview footer has two actions, with no redundant confirmation dialogs.'
 
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'installed notes merge original and hotfix changes' $dialogSource
 Require-Source 'Loop info.Hotfix \+ 1' 'installed cumulative notes include every installed hotfix only' $notesSource
@@ -611,10 +615,10 @@ $bootstrapSource = Get-Content -LiteralPath 'src/app/bootstrap.ahk' -Raw -Encodi
 Require-Source 'available := isAvailable && latestVersion != "" && unreadCount > 0' 'older unread releases keep the footer count after offered version is read' $source
 Require-Source 'IniWrite\("1", path, "ReadPublishedVersions", version\)' 'read receipts persist separately for each published version' $source
 Require-Source 'if UpdateBusy \|\| HasSeenUpdateAutoPreview\(version\)' 'previously viewed updates do not automatically reopen'
-Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind, reviewNotes := 0\)' 'real production modal optionally accepts checkout-only draft notes' $dialogSource
+Require-Source 'ShowUpdatePreview\(installedVersion, latestVersion, channel, kind\)' 'production preview accepts only released update metadata' $dialogSource
 Require-Source 'history := ReadPublishedUpdateHistory\(installedVersion, latestVersion\)' 'category formatter reads only published history' $notesSource
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'real Update Now remains available' $dialogSource
-Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'Update Now enters the existing confirmation-gated updater' $dialogSource
+Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'Update Now begins the verified transactional update' $dialogSource
 Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now leaves the updater unchanged' $dialogSource
 Require-Source 'SetTimer\(CheckForUpdateAvailability, -250\)' 'normal update polling starts' $bootstrapSource
 Require-Source 'SetTimer\(OfferDesktopShortcutOnFirstLaunch, -1800\)' 'normal first-run prompt restored' $bootstrapSource
@@ -630,7 +634,7 @@ Require-Source 'return BuildCategorizedUpdateNotes\(records\)' 'default missed p
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'latest-first update preview splits genuine published records' $notesSource
 Require-Source 'CheckMissedUpdateLinkViewport\(\)' 'native smoke tests missed update links and scrolling' $badgeHarness
 Require-Source 'Opaque missed-updates viewport covers the heading text\.' 'native layout smoke reproduces and rejects clipped Updates You Missed heading' $badgeHarness
-Require-Source 'Label: items\[1\].Label " \(unreleased draft\)"' 'native smoke reproduces the clipped local draft line' $badgeHarness
+Require-Source 'state := \{Offered: ""' 'native smoke uses isolated fixture receipt callbacks' $badgeHarness
 Require-Source 'Missed-update Text controls overlap and may erase glyphs\.' 'native smoke checks row overlap' $badgeHarness
 Require-Source 'for count in \[1, 3, 7, 24\]' 'regression covers one through twenty-four missed version rows' $badgeHarness
 Require-Source 'observer.Badges.Length != 4' 'native smoke verifies all four visible rows get a full-size red one' $badgeHarness
@@ -650,7 +654,7 @@ Require-Source 'AddPublishedNoteRecords\("### v0\.1\.21-alpha\.1' 'smoke test pa
 # excluded; skipped release notes are grouped by feature and dated hotfix.
 & {
     $nl = [Environment]::NewLine
-    $releases = @(
+    $global:Tes3npLegacyHistoryFixtureReleases = @(
         @{ tag_name='v0.1.22-alpha.3'; draft=$true; published_at='2026-11-28T00:00:00Z'; body='DRAFT MUST NOT LEAK' },
         @{ tag_name='v0.1.22-alpha.2'; draft=$false; published_at='2026-11-27T02:00:00Z'; body=(@('## v0.1.22-alpha.2','','### Bug Fixes','- **Launcher:** Fixed newer bug.') -join $nl) },
         @{ tag_name='v0.1.22-alpha.1'; draft=$false; published_at='2026-11-25T02:00:00Z'; body=(@('## v0.1.22-alpha.1','','### Bug Fixes','- **Launcher:** Fixed older bug.') -join $nl) },
@@ -664,14 +668,39 @@ Require-Source 'AddPublishedNoteRecords\("### v0\.1\.21-alpha\.1' 'smoke test pa
         if ($Uri -cne 'https://api.github.com/repos/IAmShawn98/tes3np/releases?per_page=100&page=1') {
             throw 'Unexpected release history URL.'
         }
-        return $releases
+        # Emit one public API release record per pipeline item. Returning
+        # comma-wrapped arrays creates a nested response and hides all tags
+        # from Get-PublishedReleases in the consolidated notes reader.
+        foreach ($release in $global:Tes3npLegacyHistoryFixtureReleases) {
+            Write-Output ([pscustomobject]$release)
+        }
     }
     $helper = Join-Path $PSScriptRoot 'fetch-release-notes.ps1'
     $featureFile = [IO.Path]::GetTempFileName()
     $hotfixFile = [IO.Path]::GetTempFileName()
     try {
+        # Validate the fixture shape before exercising published history.
+        # This catches nested arrays and missing tag fields immediately.
+        $probe = @(Invoke-RestMethod -Uri 'https://api.github.com/repos/IAmShawn98/tes3np/releases?per_page=100&page=1' -Headers @{} -TimeoutSec 10)
+        $matching = @($probe | Where-Object { $_.tag_name -ceq 'v0.1.22-alpha.2' })
+        if ($probe.Count -ne 8 -or $matching.Count -ne 1 -or
+            $matching[0] -isnot [pscustomobject] -or $matching[0].draft -or
+            !$matching[0].published_at) {
+            throw 'Legacy GitHub fixture must emit eight flat release records with a unique published latest tag.'
+        }
+        Write-Host 'PASS: legacy release-history mock emits eight flat release records.'
+        # A prior expected Single-mode rejection calls exit 1. History mode
+        # returns normally after writing both files without calling exit 0,
+        # so it does NOT reset an inherited LASTEXITCODE in this same process.
+        # Clear that unrelated code before the invocation, then check both
+        # outputs; a genuine worker exception still terminates this fixture.
+        $global:LASTEXITCODE = 0
         & $helper -InstalledVersion '0.1.20-alpha' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
-        if ($LASTEXITCODE -ne 0) { throw 'Published release history fixture failed.' }
+        if ($LASTEXITCODE -ne 0 -or
+            !(Test-Path -LiteralPath $featureFile -PathType Leaf) -or
+            !(Test-Path -LiteralPath $hotfixFile -PathType Leaf)) {
+            throw 'Published release history fixture failed or did not write both output files.'
+        }
         $features = [IO.File]::ReadAllText($featureFile)
         $hotfixes = [IO.File]::ReadAllText($hotfixFile)
         if ($features -notmatch 'v0\.1\.22-alpha' -or $features -notmatch 'v0\.1\.21-alpha' -or
@@ -680,8 +709,13 @@ Require-Source 'AddPublishedNoteRecords\("### v0\.1\.21-alpha\.1' 'smoke test pa
             $hotfixes -notmatch 'v0\.1\.20-alpha\.1' -or $hotfixes -match 'DRAFT') {
             throw 'Skipped history does not match the published, uninstalled changes.'
         }
+        $global:LASTEXITCODE = 0
         & $helper -InstalledVersion '0.1.22-alpha.1' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
-        if ($LASTEXITCODE -ne 0) { throw 'Hotfix-only history fixture failed.' }
+        if ($LASTEXITCODE -ne 0 -or
+            !(Test-Path -LiteralPath $featureFile -PathType Leaf) -or
+            !(Test-Path -LiteralPath $hotfixFile -PathType Leaf)) {
+            throw 'Hotfix-only history fixture failed or did not write both output files.'
+        }
         $features = [IO.File]::ReadAllText($featureFile)
         $hotfixes = [IO.File]::ReadAllText($hotfixFile)
         if ($features -notmatch 'No new feature releases' -or
@@ -690,11 +724,12 @@ Require-Source 'AddPublishedNoteRecords\("### v0\.1\.21-alpha\.1' 'smoke test pa
             $hotfixes -match 'Original installed notes') {
             throw 'Hotfix preview included an old changelog or already installed fix.'
         }
-        $releases = @($releases | Where-Object { $_.tag_name -cne 'v0.1.22-alpha.2' })
+        $global:Tes3npLegacyHistoryFixtureReleases = @($global:Tes3npLegacyHistoryFixtureReleases | Where-Object { $_.tag_name -cne 'v0.1.22-alpha.2' })
         Remove-Item -LiteralPath $featureFile,$hotfixFile -ErrorAction SilentlyContinue
         # The helper throws when the requested latest release is not published.
         # Either a terminating error or a nonzero exit code is a safe refusal.
         $rejected = $false
+        $global:LASTEXITCODE = 0
         try {
             & $helper -InstalledVersion '0.1.22-alpha.1' -LatestVersion '0.1.22-alpha.2' -ReleaseOutputPath $featureFile -HotfixOutputPath $hotfixFile
             if ($LASTEXITCODE -ne 0) { $rejected = $true }
@@ -706,6 +741,7 @@ Require-Source 'AddPublishedNoteRecords\("### v0\.1\.21-alpha\.1' 'smoke test pa
         }
     } finally {
         Remove-Item -LiteralPath $featureFile,$hotfixFile -ErrorAction SilentlyContinue
+        Remove-Variable -Name 'Tes3npLegacyHistoryFixtureReleases' -Scope Global -ErrorAction SilentlyContinue
     }
 }
 Write-Host 'PASS: publication-only, missed-version, hotfix-only and missing-target note fixtures.'

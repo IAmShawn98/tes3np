@@ -2429,13 +2429,14 @@ expect(
     and 'return BuildCategorizedUpdateNotes(records)' in update_notes
     and 'return BuildInstalledVersionNotes(records)' in update_notes
     and 'details := BuildCategorizedUpdateNotes([record], false)' in update_notes
-    and 'title := "Latest Hotfix"' in update_notes
+    and 'title := "Latest Patch"' in update_notes
     and 'title := "Base Release"' in update_notes
     and 'NoteCategoryName(heading)' in update_notes
     and 'case "Bug Fixes", "Fixed", "Hotfixes":' in update_notes
     and 'return "Bug Fixes"' in update_notes
     and 'order := ["New Features", "Improvements", "Bug Fixes",' in update_notes
     and '"Changes in This Update"' in update_dialogs
+    and 'if ReleaseNoteFits(titleControl, title, 548)' in update_dialogs
     and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
     and 'BuildPublishedPreviewSections(records)' in update_notes
     and '"Updates You Missed"' in update_dialogs
@@ -2445,7 +2446,7 @@ expect(
     and 'rowTop := Max(rowTop, headingY + headingHeight + Max(3, px(10)))' in update_dialogs
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
-    and 'for control in [prefixes[slot], rows[slot], badges[slot]]' in update_dialogs
+    and 'for control in [rows[slot], badges[slot]]' in update_dialogs
     and 'RegisterMissedUpdateCursorTarget(control, page, slot)' in update_dialogs
     and 'cursorHandles.Push(control.Hwnd)' in update_dialogs
     and 'UnregisterMissedUpdateCursorTarget(handle)' in update_dialogs
@@ -2457,13 +2458,8 @@ expect(
     and 'badge.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
     and 'badges.Push(badge)' in update_dialogs
     and 'preview.Add("Text", "x40 y" (354 + rowExtra + notesSpace)' in update_dialogs
-    and 'Key: "demo-" Format("{:02}", A_Index)' in bootstrap
-    and 'Prefix: "DEMO "' not in bootstrap
-    and 'Label: "v" demoVersion' in bootstrap
     and '. " w520 h28 BackgroundTrans", "Updates You Missed")' in update_dialogs
     and 'Updates You Missed (Sample)' not in update_dialogs
-    and 'DisplayVersion: "v" demoVersion' in bootstrap
-    and 'prefix.Text := prefixText' in update_dialogs
     and 'Underline cFFF0DC' in update_dialogs
     and 'Total: versions.Length, MaxOffset: 1' in update_dialogs
     and 'clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),' in update_dialogs
@@ -2477,7 +2473,7 @@ expect(
     and 'ClearMissedUpdateBadges(page, *)' in update_dialogs
     and 'MarkMissedUpdateItemRead(page, item)' in update_dialogs
     and 'MarkPublishedVersionRead(latestVersion, true)' in update_dialogs
-    and 'SetLauncherDemoUnreadCount(count)' in update_dialogs
+    and 'page.State.RefreshCount.Call()' in update_dialogs
     and 'IsPublishedVersionRead(version)' in update_check
     and 'IniRead(path, "ReadPublishedVersions", version, "")' in update_check
     and 'LauncherUpdateNumber.Visible := false' in update_check
@@ -2489,7 +2485,8 @@ expect(
     and 'for count in [1, 3, 7, 24]' in launcher_smoke_tests
     and 'scrolling := page.MaxOffset > 1' in update_dialogs
     and 'MissedVersions: missedVersions' in update_notes
-    and 'Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version' in update_notes
+    and 'Url: GetPublishedVersionNotesUrl(record.Version)' in update_notes
+    and 'GetPublishedVersionNotesUrl(item.Version)' in update_dialogs
     and 'metadataBorder.Move(, , , 40 + rowExtra)' in update_dialogs
     and 'A_ScriptDir "\\assets\\controls\\update-badge.png"' in update_dialogs
     and 'fullWidth := installedWidth + latestWidth + channelWidth + 2 * gap' in update_dialogs
@@ -2506,8 +2503,8 @@ expect(
     and 'Loop capacity - 1' in update_notes,
 )
 expect(
-    "Production updater contains no temporary injection mode and retains confirmation guards",
-    'ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes := 0)' in update_dialogs
+    "Production updater contains no temporary injection mode and retains transactional safety",
+    'ShowUpdatePreview(installedVersion, latestVersion, channel, kind)' in update_dialogs
     and 'ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)' in update_dialogs
     and 'AddUpdatePreviewMetadata(preview, installedVersion, latestVersion, channel, true)' in update_dialogs
     and 'installed.GetPos(, , &installedWidth)' in update_dialogs
@@ -2519,13 +2516,9 @@ expect(
     and 'AddUpdateNotesViewport(preview, notes.Latest, scale,' in update_dialogs
     and '0, rowExtra, notesSpace, true, true, hasMissed)' in update_dialogs
     and 'hasMissed := missedVersions.Length > 0' in update_dialogs
-    and 'draftSections.MissedVersions := demoRows' in bootstrap
-    and 'Loop 24' in bootstrap
-    and 'demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"' in bootstrap
-    and 'Url: GetTes3npReleasePage(demoVersion)' in bootstrap
-    and 'Development release list still displays a DEMO prefix.' in launcher_smoke_tests
-    and 'ShowDevelopmentUnreadBadgeSample(25)' in bootstrap
-    and 'draftSections.DemoMode := true' in bootstrap
+    and 'CanShowDevelopmentReleaseReview' not in bootstrap
+    and 'ShowDevelopmentUnreadBadgeSample' not in update_check
+    and 'page.State.Demo' not in update_dialogs
     and 'CheckMissedUpdateLinkViewport()' in launcher_smoke_tests
     and 'CheckUpdateNoteCallbackLifetime()' in launcher_smoke_tests
     and 'StartUpdateNotesDrag(dialogHwnd, thumbHwnd, trackHwnd, drag, page, refresh,' in launcher_smoke_tests
@@ -2539,16 +2532,10 @@ expect(
     and 'CheckUpdatePreviewMetadataLayout()' in launcher_smoke_tests
     and 'Update preview metadata overlaps at this version length.' in launcher_smoke_tests
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
-    and 'CanShowDevelopmentReleaseReview()' in bootstrap
-    and 'ShowDevelopmentReleaseReview(*)' in bootstrap
-    and 'if A_Args.Length || !RegExMatch(AppConfig.Version,' in bootstrap
-    and 'FileExist(checkoutRoot "\\.git")' in bootstrap
-    and 'FindDevelopmentReviewCheckoutRoot(A_ScriptDir, A_IsCompiled)' in bootstrap
-    and 'folderName != "local-build" || parentName != "dist"' in bootstrap
-    and 'CheckDevelopmentReviewExecutablePaths()' in launcher_smoke_tests
-    and 'Packaged distributions must not auto-show development updates.' in launcher_smoke_tests
-    and 'ReadBundledVersionNotes(version)' in bootstrap
-    and 'BuildPublishedPreviewSections([record])' in bootstrap
+    and 'CanShowDevelopmentReleaseReview' not in bootstrap
+    and 'ShowDevelopmentReleaseReview' not in bootstrap
+    and 'CheckDevelopmentReviewExecutablePaths()' not in launcher_smoke_tests
+    and 'SetTimer(CleanupStaleLauncherData, -1000)' in bootstrap
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and '--test-update-badge' not in launcher_smoke_tests
     and 'LauncherBadgeTest' not in update_check
@@ -2647,16 +2634,10 @@ expect(
     and "ParseAndValidateUpdateManifest(request.ResponseText, AppConfig.Version)" in automatic_update
     and 'request.SetTimeouts(5000, 5000, 10000, 10000)' in automatic_update
     and 'SetTimer(CheckForUpdateAvailability, -250)' in bootstrap
-    and 'CanShowDevelopmentReleaseReview()' in bootstrap
-    and 'ShowDevelopmentReleaseReview(*)' in bootstrap
-    and 'if A_Args.Length || !RegExMatch(AppConfig.Version,' in bootstrap
-    and 'FileExist(checkoutRoot "\\.git")' in bootstrap
-    and 'FindDevelopmentReviewCheckoutRoot(A_ScriptDir, A_IsCompiled)' in bootstrap
-    and 'folderName != "local-build" || parentName != "dist"' in bootstrap
-    and 'CheckDevelopmentReviewExecutablePaths()' in launcher_smoke_tests
-    and 'Packaged distributions must not auto-show development updates.' in launcher_smoke_tests
-    and 'ReadBundledVersionNotes(version)' in bootstrap
-    and 'BuildPublishedPreviewSections([record])' in bootstrap,
+    and 'CanShowDevelopmentReleaseReview' not in bootstrap
+    and 'ShowDevelopmentReleaseReview' not in bootstrap
+    and 'CheckDevelopmentReviewExecutablePaths()' not in launcher_smoke_tests
+    and 'SetTimer(CleanupStaleLauncherData, -1000)' in bootstrap,
 )
 expect(
     "WinForms first show stays compositor-cloaked until initial dock and saved visibility are ready",

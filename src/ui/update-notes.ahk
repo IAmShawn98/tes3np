@@ -85,6 +85,18 @@ ReadPublishedUpdateHistory(installedVersion, latestVersion)
 }
 
 
+; A GitHub tag can outlive its historical Release page when the one
+; current prerelease record is retagged. Link to the website's per-version
+; history anchors for this consolidated .21-alpha family only.
+GetPublishedVersionNotesUrl(version)
+{
+    if version = "0.1.21-alpha"
+        return "https://iamshawn98.github.io/tes3np/#base-v0.1.21-alpha"
+    if RegExMatch(version, "^0\.1\.21-alpha\.[1-9][0-9]*$")
+        return "https://iamshawn98.github.io/tes3np/#patch-v" version
+    return "https://github.com/IAmShawn98/tes3np/releases/tag/v" version
+}
+
 ; An update preview includes only the missed published versions.
 ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, separateLatest := false)
 {
@@ -121,7 +133,7 @@ ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, separateLat
 EmptyPublishedPreviewSections(message)
 {
     return {Title: "", Compact: message, Expanded: message, Latest: message,
-        EarlierCount: 0, EarlierLabels: [], MissedVersions: []}
+        EarlierCount: 0, EarlierLabels: [], MissedVersions: [], HistoryVerified: false}
 }
 
 ; Only the newest missed published release is expanded initially. All earlier
@@ -132,19 +144,21 @@ BuildPublishedPreviewSections(records)
     if !records.Length
         return EmptyPublishedPreviewSections("Published release history is unavailable.")
     newest := records[1]
-    title := (newest.Hotfix ? "Latest Hotfix — v" : "Latest Release — v") newest.Version
+    title := (newest.Hotfix ? "Latest Patch — v" : "Latest Release — v") newest.Version
     compact := BuildCategorizedUpdateNotes([newest], false)
     latestNotes := compact
     expanded := compact
     earlierLabels := []
-    ; Every published release newer than the installed version is missed,
-    ; including the latest. Each entry links to its own published changelog.
+    ; The currently offered release is NOT missed. Only older published
+    ; releases still newer than the installation belong in this section.
+    ; Keep authoritative per-version links and independent read receipts.
     missedVersions := []
-    for record in records
+    for index, record in records
     {
-        info := ParseTes3npVersion(record.Version)
+        if index = 1
+            continue
         missedVersions.Push({Version: record.Version, Label: "v" record.Version,
-            Url: "https://github.com/IAmShawn98/tes3np/releases/tag/v" record.Version})
+            Url: GetPublishedVersionNotesUrl(record.Version)})
     }
     earlierCount := records.Length - 1
     if earlierCount > 0
@@ -163,7 +177,7 @@ BuildPublishedPreviewSections(records)
     }
     return {Title: title, Compact: compact, Expanded: expanded,
         Latest: latestNotes, EarlierCount: earlierCount, EarlierLabels: earlierLabels,
-        MissedVersions: missedVersions}
+        MissedVersions: missedVersions, HistoryVerified: true}
 }
 
 AddPublishedNoteRecords(history, records)
@@ -227,9 +241,9 @@ BuildInstalledVersionNotes(records)
         if !record.Hotfix
             title := "Base Release"
         else if A_Index = 1
-            title := "Latest Hotfix"
+            title := "Latest Patch"
         else
-            title := "Earlier Hotfix"
+            title := "Earlier Patch"
         details := BuildCategorizedUpdateNotes([record], false)
         if result != ""
             result .= "`n`n"
@@ -536,7 +550,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         . " w" px(viewWidth) " h" px(viewHeight)
         . (compactLayout ? " Background171008" : " BackgroundC5A45C"))
     ; The preview already has one continuous outer gold changelog frame.
-    ; A second frame directly beneath Latest Hotfix looked like a separate
+    ; A second frame directly beneath Latest Patch looked like a separate
     ; box and stole vertical space; Version Status retains its old frame.
     if !compactLayout
         panel.Add("Text", "x" px(viewX + 2) " y" px(viewY + 2)

@@ -26,12 +26,12 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     return response.Accepted
 }
 
-ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes := 0)
+ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
     ; The 600 x 556 compact composition follows the approved gold fantasy
     ; mockup. Keep existing player-facing text, version history, updater
     ; confirmation and download behavior untouched.
-    notes := IsObject(reviewNotes) ? reviewNotes : ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
+    notes := ReadPublishedCategorizedUpdateNotes(installedVersion, latestVersion, true)
     response := {Download: false}
     ; Keep the upper changelog scrollable and reserve four missed-release
     ; rows within the same fixed-height production card.
@@ -41,17 +41,14 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     ; 29px estimate; do not squeeze the upper changelog or its scrollbar.
     missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []
     hasMissed := missedVersions.Length > 0
-    isDemo := notes.HasOwnProp("DemoMode") && notes.DemoMode
-    previewState := {Demo: isDemo, Seen: Map(), Offered: latestVersion}
-    ; Opening marks ONLY the offered release as read. Older versions remain
-    ; visible and retain their own unread badges until clicked or cleared.
-    if isDemo
-        SetLauncherDemoUnreadCount(missedVersions.Length)
-    else
-    {
-        MarkPublishedVersionRead(latestVersion, true)
-        RefreshLauncherPublishedUnreadCount(missedVersions, latestVersion)
-    }
+    previewState := {Offered: latestVersion}
+    ; Opening marks only the offered published release read. Earlier releases
+    ; remain visible and retain independent read receipts.
+    MarkPublishedVersionRead(latestVersion, true)
+    ; Only a successfully parsed release history may replace the cached list.
+    ; An unavailable history is not proof that there are zero older updates.
+    verifiedHistory := notes.HasOwnProp("HistoryVerified") && notes.HistoryVerified
+    RefreshLauncherPublishedUnreadCount(verifiedHistory ? missedVersions : 0, latestVersion)
     missedSpace := hasMissed ? 64 : 0
     preview := CreateGoldNativePrompt(0, "tes3np — Update Preview",
         600, 556 + notesSpace + missedSpace)
@@ -61,8 +58,16 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     {
         preview.SetFont(kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable Release"
-        title := kind = "hotfix" ? "A Hotfix Is Available For v" installedVersion : "A New " releaseType " Is Available to Download, S'wit!"
-        preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
+        title := kind = "hotfix" ? "A Patch Is Available For v" installedVersion : "A New " releaseType " Is Available to Download, S'wit!"
+        titleControl := preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
+        ; Preserve the approved one-line heading at every supported version
+        ; length. Let actual Windows text metrics determine a smaller font.
+        for fontSize in (kind = "hotfix" ? [14, 13, 12, 11, 10] : [12, 11, 10, 9])
+        {
+            titleControl.SetFont("s" fontSize " Bold cE7BE70", "Georgia")
+            if ReleaseNoteFits(titleControl, title, 548)
+                break
+        }
 
         ; Narrow gold metadata ribbon. Each natural-size label is measured so
         ; long future versions reflow rather than collide with Channel.
@@ -152,7 +157,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     if !versions.Length
         return 0
     if !IsObject(state)
-        state := {Demo: true, Seen: Map(), Offered: ""}
+        state := {Offered: ""}
     px := (value) => Round(value * scale)
     ; Leave the final 32px of the gold card for the always-visible Mark Read
     ; action. Scrolling may never cover or push this button out of view.
@@ -176,15 +181,9 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     page := {Items: versions, Offset: 1, VisibleRows: 4,
         Total: versions.Length, MaxOffset: 1, State: state, Refresh: 0,
         Closed: false}
-    rows := [], prefixes := [], badges := []
+    rows := [], badges := []
     for slot in [1, 2, 3, 4]
     {
-        panel.SetFont("s" Max(4, Round(10 * scale)) " Bold cE7BE70", "Segoe UI")
-        prefix := panel.Add("Text", "Hidden x0 y0 w" px(5)
-            . " h" rowHeight " BackgroundTrans +0x100", "")
-        prefix.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
-        prefixes.Push(prefix)
-
         panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cFFF0DC", "Segoe UI")
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
@@ -230,36 +229,25 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         for slot, row in rows
         {
             idx := page.Offset + slot - 1
-            prefix := prefixes[slot], badge := badges[slot]
-            prefix.Visible := false
+            badge := badges[slot]
             row.Visible := false
             badge.Visible := false
             if slot > page.VisibleRows || idx > page.Total
                 continue
             y := rowTop + (slot - 1) * rowStep
             item := page.Items[idx]
-            prefixText := item.HasOwnProp("Prefix") ? item.Prefix : ""
-            caption := item.HasOwnProp("DisplayVersion") ? item.DisplayVersion : "v" item.Version
-            prefixWidth := prefixText = "" ? 0
-                : Min(rowWidth - px(90), MeasureMissedUpdateTextWidth(prefix, prefixText) + px(5))
-            if prefixWidth
-            {
-                prefix.Move(left, y, prefixWidth, rowHeight)
-                prefix.Text := prefixText
-                prefix.Visible := true
-            }
+            caption := "v" item.Version
             row.SetFont("s" Max(4, Round(10 * scale))
                 . (item.Url != "" ? " Underline cFFF0DC" : " Norm cFFF0DC"),
                 "Segoe UI")
-            availableWidth := rowWidth - prefixWidth
             while StrLen(caption) > 2
-                && !ReleaseNoteFits(row, caption, availableWidth - px(36))
+                && !ReleaseNoteFits(row, caption, rowWidth - px(36))
                 caption := SubStr(caption, 1, -2) "…"
-            row.Move(left + prefixWidth, y, availableWidth, rowHeight)
+            row.Move(left, y, rowWidth, rowHeight)
             row.Text := caption
             row.Visible := true
-            badgeX := left + Min(rowWidth - px(23), prefixWidth
-                + MeasureMissedUpdateTextWidth(row, caption) + px(6))
+            badgeX := left + Min(rowWidth - px(23),
+                MeasureMissedUpdateTextWidth(row, caption) + px(6))
             badge.Move(badgeX, y + Max(0, Floor((rowHeight - px(20)) / 2)),
                 px(20), px(20))
             badge.Visible := !IsMissedUpdateRead(page, item)
@@ -291,7 +279,6 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
         observer.BottomLimit := bottomLimit
         observer.Viewport := viewport
         observer.Rows := rows
-        observer.Prefixes := prefixes
         observer.Badges := badges
         observer.Clear := clearButton
         observer.Track := track
@@ -313,7 +300,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     cursorHandles := []
     for slot in [1, 2, 3, 4]
     {
-        for control in [prefixes[slot], rows[slot], badges[slot]]
+        for control in [rows[slot], badges[slot]]
         {
             RegisterMissedUpdateCursorTarget(control, page, slot)
             cursorHandles.Push(control.Hwnd)
@@ -365,15 +352,17 @@ IsMissedUpdateCursorTarget(handle)
     item := page.Items[index]
     if !item.HasOwnProp("Url") || item.Url = ""
         return false
-    ; Only the same validated GitHub release destination as click dispatch.
+    ; Only the exact authoritative per-version destination is clickable.
     return RegExMatch(item.Version, "^\d+\.\d+\.\d+(?:-(?:alpha|beta|live)(?:\.\d+)?|\.\d+)?$")
-        && item.Url = "https://github.com/IAmShawn98/tes3np/releases/tag/v" item.Version
+        && item.Url = GetPublishedVersionNotesUrl(item.Version)
 }
 
 IsMissedUpdateRead(page, item)
 {
-    if page.State.Demo
-        return page.State.Seen.Has(item.HasOwnProp("Key") ? item.Key : item.Version)
+    ; Native smoke tests supply isolated read callbacks. Production uses the
+    ; normal per-version INI receipt; test callbacks are isolated.
+    if page.State.HasOwnProp("IsRead")
+        return page.State.IsRead.Call(item.Version)
     return IsPublishedVersionRead(item.Version)
 }
 
@@ -396,14 +385,8 @@ UpdateMissedUpdateMarkReadLabel(page)
 
 RefreshMissedUpdateReadState(page)
 {
-    if page.State.Demo
-    {
-        count := 0
-        for item in page.Items
-            if !IsMissedUpdateRead(page, item)
-                count += 1
-        SetLauncherDemoUnreadCount(count)
-    }
+    if page.State.HasOwnProp("RefreshCount")
+        page.State.RefreshCount.Call()
     else
         RefreshLauncherPublishedUnreadCount(page.Items, page.State.Offered)
     page.Refresh.Call()
@@ -411,8 +394,8 @@ RefreshMissedUpdateReadState(page)
 
 MarkMissedUpdateItemRead(page, item)
 {
-    if page.State.Demo
-        page.State.Seen[item.HasOwnProp("Key") ? item.Key : item.Version] := true
+    if page.State.HasOwnProp("MarkRead")
+        page.State.MarkRead.Call(item.Version)
     else
         MarkPublishedVersionRead(item.Version)
 }
@@ -480,14 +463,14 @@ OpenMissedUpdateVersion(page, slot, *)
     if !RegExMatch(version,
         "^\d+\.\d+\.\d+(?:-(?:alpha|beta|live)(?:\.\d+)?|\.\d+)?$")
         return
-    expected := "https://github.com/IAmShawn98/tes3np/releases/tag/v" version
+    expected := GetPublishedVersionNotesUrl(version)
     if item.Url != expected
         return
     try
         Run(expected)
     catch Error as err
     {
-        MsgBox("Could not open the GitHub changelog: " err.Message, "tes3np", "Icon!")
+        MsgBox("Could not open the published changelog: " err.Message, "tes3np", "Icon!")
         return
     }
     ; Clicking a published link (or its red 1) reads only that version.

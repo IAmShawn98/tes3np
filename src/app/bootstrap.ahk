@@ -27,106 +27,10 @@ StartLauncher()
     SetTimer(HoverTimer, 30)
     ShowLauncherWithGameUpdates()
 
-    if CanShowDevelopmentReleaseReview()
-    {
-        ; Preview the numeric footer count before the native modal opens.
-        ; This deliberately touches neither installed state nor the update feed.
-        ShowDevelopmentUnreadBadgeSample(25)
-        ; The native production modal then clears the temporary footer badge
-        ; and shows 24 DEMO rows linked to two real published release pages.
-        SetTimer(ShowDevelopmentReleaseReview, -2500)
-    }
-    else
-    {
-        SetTimer(CleanupStaleLauncherData, -1000)
-        SetTimer(CheckForUpdateAvailability, -250)
-        SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
-    }
+    SetTimer(CleanupStaleLauncherData, -1000)
+    SetTimer(CheckForUpdateAvailability, -250)
+    SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
-}
-
-; Open the real pending-hotfix modal automatically at ordinary startup
-; inside this development checkout. Standalone distributions and CLI checks
-; always keep their original production startup flow.
-CanShowDevelopmentReleaseReview()
-{
-    global AppConfig
-    if A_Args.Length || !RegExMatch(AppConfig.Version, "\.\d+$")
-        return false
-    checkoutRoot := FindDevelopmentReviewCheckoutRoot(A_ScriptDir, A_IsCompiled)
-    return checkoutRoot != ""
-        && FileExist(A_ScriptDir "\RELEASE_NOTES.md") != ""
-        && ReadBundledVersionNotes(AppConfig.Version) != ""
-}
-
-; The root EXE and dist\local-build EXE both need the checkout-only preview.
-; Do not auto-show development rows from a distributable ZIP's directory.
-FindDevelopmentReviewCheckoutRoot(scriptDir, compiled)
-{
-    if IsDevelopmentReviewCheckout(scriptDir)
-        return scriptDir
-    if !compiled
-        return ""
-    SplitPath(scriptDir, &folderName, &parentDir)
-    SplitPath(parentDir, &parentName)
-    if folderName != "local-build" || parentName != "dist"
-        return ""
-    checkoutRoot := scriptDir "\..\.."
-    return IsDevelopmentReviewCheckout(checkoutRoot) ? checkoutRoot : ""
-}
-
-IsDevelopmentReviewCheckout(checkoutRoot)
-{
-    return FileExist(checkoutRoot "\.git") != ""
-        && FileExist(checkoutRoot "\scripts\check-ahk-compile.ps1") != ""
-}
-
-ShowDevelopmentReleaseReview(*)
-{
-    global AppConfig
-    version := AppConfig.Version
-    try
-    {
-        if !RegExMatch(version, "\.\d+$")
-            throw Error("Draft hotfix version required for release review.")
-        changelog := ReadBundledVersionNotes(version)
-        if changelog = ""
-            throw Error("No local release notes for v" version ".")
-        record := {Version: version, Label: "v" version,
-            Hotfix: true, Notes: changelog}
-        ; Development-only stress review: the *latest changelog* remains
-        ; the real, unreleased local draft. The 24 rows below it deliberately
-        ; repeat the only two verified public release tags (v0.1.21-alpha
-        ; and v0.1.20-alpha). They display like ordinary version links,
-        ; while their distinct in-memory keys prevent demo clicks from
-        ; writing to the published update feed.
-        ; Repeating real tags tests scrolling and clickable, non-404 pages
-        ; without inventing GitHub releases that do not exist.
-        draftSections := BuildPublishedPreviewSections([record])
-        demoRows := []
-        Loop 24
-        {
-            demoVersion := Mod(A_Index, 2) ? "0.1.21-alpha" : "0.1.20-alpha"
-            demoRows.Push({Version: demoVersion,
-                Key: "demo-" Format("{:02}", A_Index),
-                DisplayVersion: "v" demoVersion,
-                Label: "v" demoVersion,
-                Url: GetTes3npReleasePage(demoVersion)})
-        }
-        draftSections.MissedVersions := demoRows
-        draftSections.DemoMode := true
-        ; Opening marks only the offered draft read: 25 -> 24. Demo link
-        ; and Clear actions use in-memory IDs, never persisted release data.
-        ShowUpdatePreview(GetTes3npOriginalVersion(version), version,
-            "alpha", "hotfix", draftSections)
-        LogLauncherEvent("UPDATE | Local draft reviewed; no update installed.")
-    }
-    catch Error as err
-    {
-        LogLauncherEvent("UPDATE | Draft preview unavailable (" Type(err) ").")
-        MsgBox("Could not open the local release review: " err.Message,
-            "tes3np", "Icon!")
-    }
 }
 
 RequireLauncherAssets()

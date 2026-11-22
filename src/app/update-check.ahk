@@ -261,30 +261,6 @@ SetLauncherUnreadBadgeNumber(count)
     }
 }
 
-; Demo rows have per-row, in-memory IDs. They never write player settings.
-SetLauncherDemoUnreadCount(count)
-{
-    global LauncherUpdateBadge, LauncherUpdateNumber
-    if !IsObject(LauncherUpdateBadge)
-        return
-    if count <= 0
-    {
-        LauncherUpdateNumber.Visible := false
-        LauncherUpdateBadge.Visible := false
-        RedrawLauncherUpdateBadge()
-        return
-    }
-    SetLauncherUnreadBadgeNumber(count)
-    LauncherUpdateBadge.Visible := true
-    LauncherUpdateNumber.Visible := true
-    RedrawLauncherUpdateBadge()
-}
-
-ShowDevelopmentUnreadBadgeSample(count)
-{
-    SetLauncherDemoUnreadCount(count)
-}
-
 ; Repaint the existing backdrop and all children only underneath the
 ; badge (including when hidden). Screen-to-client mapping uses *physical*
 ; Win32 pixels, so scaling is not applied a second time.
@@ -516,7 +492,9 @@ RefreshLauncherPublishedUnreadCount(versions := 0, latest := "")
     global AppConfig, LauncherPublishedVersions, LauncherObservedUpdateVersion
     ; A temporarily unavailable changelog must not discard previously
     ; verified history or make older unread notifications disappear.
-    if IsObject(versions) && versions.Length
+    ; An explicit empty list means that this offer has no missed updates.
+    ; A default numeric 0 still means keep the previous verified history.
+    if IsObject(versions)
         LauncherPublishedVersions := versions
     if latest = ""
         latest := LauncherObservedUpdateVersion
@@ -591,20 +569,20 @@ CheckForUpdates(*)
         LogLauncherEvent("UPDATE | Update available: v" latest ".")
         ; Viewing the update preview never downloads, stages, or installs files.
         choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)
-        if choice = "Yes" && ShowGoldUpdateConfirmation("Download Update?", "Download and verify v" latest "?`nThe installed launcher will not be changed.", "Download") {
+        ; Update Now is the explicit user action that authorizes download,
+        ; verification, and installation. Do not add redundant prompts.
+        if choice = "Yes" {
             BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
             try {
                 staged := DownloadAndStageUpdate(manifest)
                 SetInterfaceLoadingText("Update ready to install...")
             } finally EndInterfaceUpdate()
             LogLauncherEvent("UPDATE | READY | Verified update staged for v" latest ".")
-            if ShowGoldUpdateConfirmation("Install Verified Update?", "v" latest " is verified and ready.`nInstalling will restart tes3np. Rollback is available if startup fails.", "Install Update") {
-                StartTransactionalUpdate(manifest.version, staged)
-                handedOff := true
-                LogLauncherEvent("UPDATE | Transactional installer started for v" latest ".")
-                ExitApp(0)
-            }
-            LogLauncherEvent("UPDATE | Installation deferred for verified update v" latest ".")
+            ; Keep the established transactional worker and startup rollback.
+            StartTransactionalUpdate(manifest.version, staged)
+            handedOff := true
+            LogLauncherEvent("UPDATE | Transactional installer started for v" latest ".")
+            ExitApp(0)
         } else {
             LogLauncherEvent("UPDATE | User deferred update v" latest "; unread indicator remains hidden until a newer update.")
         }
