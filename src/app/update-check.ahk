@@ -21,7 +21,7 @@ CreateLauncherVersionLabel()
     ; The launcher scales bounds by 50%, but keeps this text at least 5pt
     ; (9pt at 100%); reserve enough width for that font-size floor.
     ; The badge uses the final width as its adjacent alignment anchor.
-    LauncherVersionLabel.Move(, , Ceil(naturalWidth * 1.125) + 4, 18)
+    LauncherVersionLabel.Move(, , Ceil(naturalWidth * 1.25) + 4, 18)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
 
@@ -197,8 +197,8 @@ GetLauncherUnreadBadgeX(label, scale)
     {
         ; A missing device context must not keep the launcher from loading.
     }
-    ; Fall back to the unpadded original width, not the 12.5%-extended box.
-    return labelX + Round(Max(1, labelWidth - 4) / 1.125) + Max(1, Round(3 * scale))
+    ; Fall back to the unpadded original width, not the 25%-extended box.
+    return labelX + Round(Max(1, labelWidth - 4) / 1.25) + Max(1, Round(3 * scale))
 }
 
 LauncherUnreadBadgeDiameter(count, scale)

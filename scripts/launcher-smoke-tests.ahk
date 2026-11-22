@@ -1116,7 +1116,7 @@ CheckUnreadBadgeTextAdjacency()
     label := panel.Add("Text", "x12 y10 BackgroundTrans",
         "tes3np · v0.1.21-alpha.1")
     label.GetPos(, , &naturalWidth)
-    padded := Ceil(naturalWidth * 1.125) + 4
+    padded := Ceil(naturalWidth * 1.25) + 4
     try
     {
         for percent in [50, 100]
@@ -1427,17 +1427,46 @@ CheckCompactPublishedPreviewViewport()
             switcher := {Update: 0}
             unregister := AddUpdateNotesViewport(panel, realSection.Latest, 1.0,
                 switcher, 0, 100, true, true, false)
-            seenFix := false, seenLastLine := false
+            ; The real changelog is scrollable. A valid final fix may be
+            ; below the first page; verify that the native arrows reach it.
+            seenFix := false, seenFirstFix := false, seenFinalFix := false
+            down := 0
             for control in panel
-                if control.Visible
+                if control.Text = Chr(0x2193)
+                    down := control
+            if !IsObject(down) || !ButtonFaces.Has(down.Hwnd)
+                throw Error("Bundled hotfix scrollbar has no native down action.")
+            Loop 100
+            {
+                for control in panel
                 {
+                    if !control.Visible
+                        continue
                     if control.Text = "Bug Fixes"
                         seenFix := true
                     if InStr(control.Text, "Fixed an issue")
-                        seenLastLine := true
+                        seenFirstFix := true
+                    if InStr(control.Text, "verified.")
+                        seenFinalFix := true
+                    if control.Text = "Bug Fixes"
+                        || InStr(control.Text, "Fixed an issue")
+                        || InStr(control.Text, "verified.")
+                    {
+                        control.GetPos(, &rowY, , &rowHeight)
+                        if rowY < 178 || rowY + rowHeight > 580
+                            throw Error("Bundled hotfix note exceeds scroll viewport.")
+                    }
                 }
-            if !seenFix || !seenLastLine
-                throw Error("Real pending hotfix has clipped Bug Fixes notes at 100%.")
+                if seenFix && seenFirstFix && seenFinalFix
+                    break
+                if !down.Visible
+                    break
+                ButtonFaces[down.Hwnd].Action.Call()
+            }
+            if !seenFix || !seenFirstFix || !seenFinalFix
+                throw Error("Bundled hotfix Bug Fixes cannot all be reached: "
+                    . "heading=" seenFix ", first=" seenFirstFix
+                    ", final=" seenFinalFix ".")
         }
         finally
         {
