@@ -154,7 +154,9 @@ Require-Source 'w520 h28 BackgroundTrans", "Updates You Missed"\)' 'development 
 if ($dialogSource.Contains('Updates You Missed (Sample)')) { throw 'Keep the production missed-update heading in development preview.' }
 
 Require-Source 'Underline cFFF0DC' 'published release links appear ivory/white and underlined' $dialogSource
-Require-Source 'RegisterMissedUpdateCursorTarget\(rows\[slot\], page, slot\)' 'only current release links register for hand cursor' $dialogSource
+Require-Source 'for control in \[prefixes\[slot\], rows\[slot\], badges\[slot\]\]' 'all visible release-link elements share cursor registration' $dialogSource
+Require-Source 'RegisterMissedUpdateCursorTarget\(control, page, slot\)' 'current release controls register for hand cursor' $dialogSource
+Require-Source 'cursorHandles.Push\(control.Hwnd\)' 'clicked link HWNDs are captured for safe cleanup' $dialogSource
 Require-Source 'for handle in cursorHandles' 'modal cleanup walks captured numeric link handles' $dialogSource
 Require-Source 'IsMissedUpdateCursorTarget\(handle\)' 'cursor resolver validates the current release entry' $dialogSource
 Require-Source 'className = "Static" && \(IsMissedUpdateCursorTarget\(wParam\)' 'Windows cursor handler recognizes clickable release Text controls' $rendererSource
