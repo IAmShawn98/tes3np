@@ -8,7 +8,7 @@
   <title>tes3np | Official Download</title>
   <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&amp;family=Source+Sans+3:wght@400;700&amp;display=swap">
-  <link rel="stylesheet" href="./styles.css?v=43">
+  <link rel="stylesheet" href="./styles.css?v=44">
 </head>
 <body>
   <div id="top">
@@ -18,8 +18,8 @@
       <div class="jumbotron-ornament" aria-hidden="true"></div>
       <p class="intro">A robust game launcher for the Morrowind private server <a href="https://wiki.nerevarineprophecies.com/Main_Page">Nerevarine Prophecies</a>.</p>
       <div class="download-row">
-        <a class="download" href="https://github.com/IAmShawn98/tes3np/releases/download/v0.1.21-alpha/tes3np-v0.1.21-alpha-windows.zip">Download for Windows</a>
-        <span class="release">v0.1.21-alpha · ZIP</span>
+        <a class="download" href="https://github.com/IAmShawn98/tes3np/releases/download/v0.1.21-alpha.1/tes3np-v0.1.21-alpha.1-windows.zip">Download for Windows</a>
+        <span class="release">v0.1.21-alpha.1 · ZIP</span>
       </div>
       <div class="jumbotron-frame" aria-hidden="true"></div>
     </section>
@@ -139,69 +139,92 @@
       </section>
 
       <section id="latest-update">
-        <h2>Latest Release</h2>
+        <h2>Latest Update</h2>
         <div class="release-summary">
-          <h3 id="release-version">v0.1.21-alpha</h3>
-          <span class="release-date" id="release-published-date">November 20, 2026</span>
+          <h3 id="release-version">v0.1.21-alpha.1</h3>
+          <span class="release-date" id="release-published-date">Published November 22, 2026</span>
         </div>
-        <p class="release-current-build" id="release-current-build">Latest download: v0.1.21-alpha</p>
-        <div class="release-tabs" role="tablist" aria-label="Published release history" hidden>
-          <button type="button" class="release-tab" id="release-notes-tab" role="tab" aria-controls="release-notes-panel" aria-selected="true" tabindex="0">Release Notes</button>
-          <button type="button" class="release-tab" id="hotfix-history-tab" role="tab" aria-controls="hotfix-history-panel" aria-selected="false" tabindex="-1">Hotfix History</button>
-        </div>
-        <div class="release-panel" id="release-notes-panel" role="tabpanel" aria-labelledby="release-notes-tab">
+        <p class="release-current-build" id="release-current-build">Latest download: v0.1.21-alpha.1</p>
+        <div class="release-panel" id="release-notes-panel" role="region" aria-label="Published update history">
           <div id="release-notes-body">
-        <p>Changes since the last public release, v0.1.20-alpha.</p>
-        <h4 id="new-features">New Features</h4>
-        <ul>
-          <li><strong>Game Chat:</strong> Read live Nerevarine Prophecies Discord messages alongside the launcher.</li>
-          <li><strong>Game Updates:</strong> Read server announcements in the launcher and react to posts when signed in to Discord.</li>
-          <li><strong>Bug reporting:</strong> Send a report from <strong>Launcher Data</strong> with diagnostic logs and optional screenshots.</li>
-          <li><strong>Bundled TES3MP:</strong> The Windows ZIP includes the TES3MP 0.8.1 client and its dependencies.</li>
-          <li><strong>Happy Hour notifications:</strong> See an active Happy Hour and its remaining time on the launcher.</li>
-          <li><strong>Plugin mismatch recovery:</strong> If your plugins don't match the server's, the launcher helps you download the Expansion Pack and troubleshoot the problem.</li>
-          <li><strong>TES3MP Setup:</strong> Choose a custom TES3MP executable without replacing the bundled client.</li>
-          <li><strong>Login Progress:</strong> See your character's login steps in a dedicated progress window.</li>
-          <li><strong>Race:</strong> Select your character's race in <strong>Manage Characters</strong> to show its matching icon during login.</li>
-          <li><strong>Original Character:</strong> Choose <strong>Original Character</strong> in the <strong>Race</strong> selector to use a custom portrait.</li>
-        </ul>
-        <h4 id="improvements">Improvements</h4>
-        <ul>
-          <li><strong>Expansion Pack updates:</strong> TES3NP checks for the official pack before character login or re-enabling an installed pack. The update prompt shows the installed version when it can identify it, shows the available version, and lets you install from Discord or select a local package.</li>
-          <li><strong>Expansion Pack toggle:</strong> See progress while enabling the pack and a single confirmation when it is enabled or disabled.</li>
-          <li><strong>Launcher update channels:</strong> Alpha, beta, and live builds check their own feeds and show when a hotfix is available.</li>
-          <li><strong>Launcher Interface:</strong> Improved window scaling, menu positioning, and dialog appearances for a more consistent experience.</li>
-          <li><strong>Upload Expansion:</strong> Install the Expansion Pack from a downloaded ZIP file or an extracted folder.</li>
-          <li><strong>Diagnostics:</strong> Improved diagnostics for mismatches and error handling.</li>
-          <li><strong>Favorite character:</strong> Your first added character is now automatically selected as your favorite.</li>
-        </ul>
-        <h4 id="bug-fixes">Bug Fixes</h4>
-        <ul>
-          <li><strong>Character reconnect</strong> — Edit a character to enable automatic reconnect after a crash. Closing the game normally leaves it closed.</li>
-          <li><strong>Game Chat</strong> — Fixed a blank chat panel after first-time sign-in that could require restarting the launcher. The loading message and scrollbar now appear during the transition into Game Chat.</li>
-          <li><strong>Discord sign-in</strong> — Expansion Pack checks open the dedicated sign-in window when needed and resume after you sign in. Sign-in requests made while Discord is initializing are also handled.</li>
-          <li><strong>Manage Characters</strong> — Fixed visible flashing when editing or deleting characters and reduced the delay when closing the page.</li>
-          <li><strong>Manage Macros</strong> — Fixed a brief redraw glitch when saving a macro name.</li>
-          <li><strong>Morrowind setup</strong> — Fixed launch attempts that could proceed with missing game files. The launcher now opens the Morrowind folder picker.</li>
-          <li><strong>Expansion Pack imports</strong> — Fixed imports that could fail when Windows briefly locked a file and removed a size limit that rejected the official Expansion Pack ZIP.</li>
-          <li><strong>Character backups</strong> — Fixed an import error caused by the launcher trying to update a removed TES3MP executable field while restoring game client settings.</li>
-          <li><strong>Desktop shortcut prompt</strong> — Fixed cases where the prompt could reappear after a choice had already been saved.</li>
-          <li><strong>Launcher updates</strong> — Fixed a Windows PowerShell encoding issue that could prevent the updated launcher from confirming startup.</li>
-          <li><strong>AppData cleanup</strong> — The launcher now clears stale partial downloads, temporary files, and obsolete launcher caches on startup.</li>
-          <li><strong>Diagnostic privacy</strong> — Removed sensitive details such as local file paths and private URLs from diagnostic logs and copied reports.</li>
-        </ul>
-        <h4 id="removed-features">Removed Features</h4>
-        <ul>
-          <li><strong>Scheduled Events:</strong> I decided to remove Scheduled Events because it doesn't align with my current plans for the launcher. Pieces of this feature will end up in future versions in some capacity.</li>
-        </ul>
+            <article class="release-entry" id="patch-v0.1.21-alpha.1">
+              <h3>Latest Patch — v0.1.21-alpha.1</h3>
+              <span class="release-entry-date">Published November 22, 2026</span>
+              <div class="release-entry-body">
+                <p>Changes since the last public release, v0.1.21-alpha.</p>
+                <h4>New Features</h4>
+                <ul>
+                <li><strong>Update Notifications:</strong> A notification appears beside the launcher version when new updates are available. Notifications disappear as updates are viewed.</li>
+                <li><strong>Missed Updates:</strong> View updates you may have missed, read their changes, and mark them as read.</li>
+                </ul>
+                <h4>Improvements</h4>
+                <ul>
+                <li><strong>Launcher Updates:</strong> Redesigned the update window to clearly show your installed version, the newest available version, and what's changed before updating.</li>
+                <li><strong>Release Notes:</strong> Improved how update history is displayed, showing the newest installed updates first while keeping older release notes available.</li>
+                <li><strong>Expansion Pack:</strong> The launcher can now recognize an existing official Expansion Pack without requiring you to reinstall it.</li>
+                </ul>
+                <h4>Bug Fixes</h4>
+                <ul>
+                <li><strong>Release Notes:</strong> Fixed an issue that could prevent previous update notes from loading correctly.</li>
+                <li><strong>Launcher Interface:</strong> Fixed the version number being cut off when using smaller launcher sizes.</li>
+                <li><strong>Expansion Pack:</strong> Fixed an issue that could prevent disabling the Expansion Pack when its files couldn't be verified.</li>
+                </ul>
+              </div>
+            </article>
+            <article class="release-entry" id="base-v0.1.21-alpha">
+              <h3>Base Release — v0.1.21-alpha</h3>
+              <span class="release-entry-date">Published November 20, 2026</span>
+              <div class="release-entry-body">
+    <p>Changes since the last public release, v0.1.20-alpha.</p>
+            <h4 id="new-features">New Features</h4>
+            <ul>
+              <li><strong>Game Chat:</strong> Read live Nerevarine Prophecies Discord messages alongside the launcher.</li>
+              <li><strong>Game Updates:</strong> Read server announcements in the launcher and react to posts when signed in to Discord.</li>
+              <li><strong>Bug reporting:</strong> Send a report from <strong>Launcher Data</strong> with diagnostic logs and optional screenshots.</li>
+              <li><strong>Bundled TES3MP:</strong> The Windows ZIP includes the TES3MP 0.8.1 client and its dependencies.</li>
+              <li><strong>Happy Hour notifications:</strong> See an active Happy Hour and its remaining time on the launcher.</li>
+              <li><strong>Plugin mismatch recovery:</strong> If your plugins don't match the server's, the launcher helps you download the Expansion Pack and troubleshoot the problem.</li>
+              <li><strong>TES3MP Setup:</strong> Choose a custom TES3MP executable without replacing the bundled client.</li>
+              <li><strong>Login Progress:</strong> See your character's login steps in a dedicated progress window.</li>
+              <li><strong>Race:</strong> Select your character's race in <strong>Manage Characters</strong> to show its matching icon during login.</li>
+              <li><strong>Original Character:</strong> Choose <strong>Original Character</strong> in the <strong>Race</strong> selector to use a custom portrait.</li>
+            </ul>
+            <h4 id="improvements">Improvements</h4>
+            <ul>
+              <li><strong>Expansion Pack updates:</strong> TES3NP checks for the official pack before character login or re-enabling an installed pack. The update prompt shows the installed version when it can identify it, shows the available version, and lets you install from Discord or select a local package.</li>
+              <li><strong>Expansion Pack toggle:</strong> See progress while enabling the pack and a single confirmation when it is enabled or disabled.</li>
+              <li><strong>Launcher update channels:</strong> Alpha, beta, and live builds check their own feeds and show when a hotfix is available.</li>
+              <li><strong>Launcher Interface:</strong> Improved window scaling, menu positioning, and dialog appearances for a more consistent experience.</li>
+              <li><strong>Upload Expansion:</strong> Install the Expansion Pack from a downloaded ZIP file or an extracted folder.</li>
+              <li><strong>Diagnostics:</strong> Improved diagnostics for mismatches and error handling.</li>
+              <li><strong>Favorite character:</strong> Your first added character is now automatically selected as your favorite.</li>
+            </ul>
+            <h4 id="bug-fixes">Bug Fixes</h4>
+            <ul>
+              <li><strong>Character reconnect</strong> — Edit a character to enable automatic reconnect after a crash. Closing the game normally leaves it closed.</li>
+              <li><strong>Game Chat</strong> — Fixed a blank chat panel after first-time sign-in that could require restarting the launcher. The loading message and scrollbar now appear during the transition into Game Chat.</li>
+              <li><strong>Discord sign-in</strong> — Expansion Pack checks open the dedicated sign-in window when needed and resume after you sign in. Sign-in requests made while Discord is initializing are also handled.</li>
+              <li><strong>Manage Characters</strong> — Fixed visible flashing when editing or deleting characters and reduced the delay when closing the page.</li>
+              <li><strong>Manage Macros</strong> — Fixed a brief redraw glitch when saving a macro name.</li>
+              <li><strong>Morrowind setup</strong> — Fixed launch attempts that could proceed with missing game files. The launcher now opens the Morrowind folder picker.</li>
+              <li><strong>Expansion Pack imports</strong> — Fixed imports that could fail when Windows briefly locked a file and removed a size limit that rejected the official Expansion Pack ZIP.</li>
+              <li><strong>Character backups</strong> — Fixed an import error caused by the launcher trying to update a removed TES3MP executable field while restoring game client settings.</li>
+              <li><strong>Desktop shortcut prompt</strong> — Fixed cases where the prompt could reappear after a choice had already been saved.</li>
+              <li><strong>Launcher updates</strong> — Fixed a Windows PowerShell encoding issue that could prevent the updated launcher from confirming startup.</li>
+              <li><strong>AppData cleanup</strong> — The launcher now clears stale partial downloads, temporary files, and obsolete launcher caches on startup.</li>
+              <li><strong>Diagnostic privacy</strong> — Removed sensitive details such as local file paths and private URLs from diagnostic logs and copied reports.</li>
+            </ul>
+            <h4 id="removed-features">Removed Features</h4>
+            <ul>
+              <li><strong>Scheduled Events:</strong> I decided to remove Scheduled Events because it doesn't align with my current plans for the launcher. Pieces of this feature will end up in future versions in some capacity.</li>
+            </ul>
+              </div>
+            </article>
           </div>
         </div>
-        <div class="release-panel" id="hotfix-history-panel" role="tabpanel" aria-labelledby="hotfix-history-tab" hidden>
-          <p class="release-empty" id="hotfix-history-empty">No hotfixes have been published for this release.</p>
-          <div id="hotfix-history-body"></div>
-        </div>
         <div class="release-links">
-          <a id="current-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha">View original release on GitHub</a>
+          <a id="current-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha.1">View latest update on GitHub</a>
+          <a id="base-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha">View base release on GitHub</a>
           <div class="release-archive"><span>Previous releases:</span>
             <span id="release-archive-links"><a href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.20-alpha">v0.1.20-alpha</a></span>
           </div>
@@ -228,6 +251,6 @@
   </div>
 
   <script src="./carousel.js?v=7" defer></script>
-  <script src="./release-history.js?v=2" defer></script>
+  <script src="./release-history.js?v=3" defer></script>
 </body>
 </html>

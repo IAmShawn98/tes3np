@@ -1,6 +1,6 @@
 /* TES3NP website release browser.
  * The verified alpha feed determines the downloadable version; only published
- * GitHub releases supply changelogs. The baked-in .21 page remains the fallback.
+ * GitHub releases supply changelogs. The baked-in .21.1 history remains the fallback.
  */
 (() => {
   'use strict';
@@ -12,42 +12,8 @@
 
   const byId = (id) => document.getElementById(id);
   const section = byId('latest-update');
-  const releaseTab = byId('release-notes-tab');
-  const hotfixTab = byId('hotfix-history-tab');
-  const releasePanel = byId('release-notes-panel');
-  const hotfixPanel = byId('hotfix-history-panel');
-
-  if (!section || !releaseTab || !hotfixTab || !releasePanel || !hotfixPanel) {
-    return;
-  }
-
-  const tabs = [releaseTab, hotfixTab];
-  function showTab(selected) {
-    tabs.forEach((tab) => {
-      const active = tab === selected;
-      tab.setAttribute('aria-selected', String(active));
-      tab.tabIndex = active ? 0 : -1;
-    });
-    releasePanel.hidden = selected !== releaseTab;
-    hotfixPanel.hidden = selected !== hotfixTab;
-  }
-
-  tabs.forEach((tab, index) => {
-    tab.addEventListener('click', () => showTab(tab));
-    tab.addEventListener('keydown', (event) => {
-      let selectedIndex = index;
-      if (event.key === 'ArrowRight') selectedIndex = (index + 1) % tabs.length;
-      else if (event.key === 'ArrowLeft') selectedIndex = (index + tabs.length - 1) % tabs.length;
-      else if (event.key === 'Home') selectedIndex = 0;
-      else if (event.key === 'End') selectedIndex = tabs.length - 1;
-      else return;
-      event.preventDefault();
-      tabs[selectedIndex].focus();
-      showTab(tabs[selectedIndex]);
-    });
-  });
-  section.querySelector('.release-tabs').hidden = false;
-  showTab(releaseTab);
+  const notesBody = byId('release-notes-body');
+  if (!section || !notesBody) return;
 
   function parseTag(tag) {
     const match = /^v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})-alpha(?:\.([1-9][0-9]{0,8}))?$/.exec(tag);
@@ -56,7 +22,7 @@
     return {
       tag,
       feature,
-      hotfix: Number(match[4] || 0),
+      patch: Number(match[4] || 0),
       baseTag: 'v' + feature.join('.') + '-alpha'
     };
   }
@@ -65,7 +31,7 @@
     for (let i = 0; i < 3; i += 1) {
       if (a.feature[i] !== b.feature[i]) return a.feature[i] - b.feature[i];
     }
-    return a.hotfix - b.hotfix;
+    return a.patch - b.patch;
   }
 
   function formatDate(timestamp) {
@@ -218,8 +184,7 @@
   }
 
   function originalReleaseNotes(body) {
-    // A published base release may append a machine-managed Hotfixes index.
-    // The site already has its own history tab, so remove only that suffix.
+    // Retain the original notes, removing only the legacy generated index.
     const normalized = String(body).replace(/\r\n?/g, '\n').trimEnd();
     const start = '<!-- TES3NP HOTFIX HISTORY START -->';
     const end = '<!-- TES3NP HOTFIX HISTORY END -->';
@@ -247,34 +212,38 @@
     const exactAsset = Array.isArray(latestRelease.assets)
       ? latestRelease.assets.find((asset) =>
           asset.name === manifest.package.fileName &&
-          asset.size === manifest.package.size && asset.state === 'uploaded')
+          asset.size === manifest.package.size && asset.state === 'uploaded' &&
+          String(asset.digest || '').toLowerCase() === 'sha256:' + manifest.package.sha256.toLowerCase())
       : null;
     if (!exactAsset) throw new Error('Verified public ZIP is not published');
 
-    // Build all content before replacing the existing, working .21 fallback.
-    const original = document.createElement('div');
-    renderNotes(originalReleaseNotes(baseRelease.body), original);
-    const history = document.createElement('div');
-    const hotfixes = published.filter((release) => {
-      const info = parseTag(release.tag_name);
-      return info && info.baseTag === latest.baseTag &&
-        info.hotfix > 0 && info.hotfix <= latest.hotfix;
-    }).sort((a, b) => parseTag(b.tag_name).hotfix - parseTag(a.tag_name).hotfix);
-
-    for (const release of hotfixes) {
+    // Use one history panel, in the README's newest-patch-first order.
+    // Require every published patch in the family, not a truncated selection.
+    const articles = document.createDocumentFragment();
+    for (let patchNumber = latest.patch; patchNumber >= 0; patchNumber -= 1) {
+      const tag = latest.baseTag + (patchNumber ? '.' + patchNumber : '');
+      const release = published.find((item) => item.tag_name === tag);
+      if (!release || !release.body.trim()) {
+        throw new Error('Published patch history is incomplete');
+      }
+      const title = patchNumber === 0
+        ? (latest.patch === 0 ? 'Latest Release' : 'Base Release')
+        : (patchNumber === latest.patch ? 'Latest Patch' : 'Earlier Patch');
       const article = document.createElement('article');
-      article.className = 'release-hotfix';
-      const heading = document.createElement('h4');
-      heading.textContent = release.tag_name;
+      article.className = 'release-entry';
+      article.id = (patchNumber ? 'patch-' : 'base-') + tag;
+      const heading = document.createElement('h3');
+      heading.textContent = title + ' — ' + tag;
       article.appendChild(heading);
       const date = document.createElement('span');
-      date.className = 'release-hotfix-date';
+      date.className = 'release-entry-date';
       date.textContent = 'Published ' + formatDate(release.published_at);
       article.appendChild(date);
       const body = document.createElement('div');
-      renderNotes(release.body, body);
+      body.className = 'release-entry-body';
+      renderNotes(patchNumber === 0 ? originalReleaseNotes(release.body) : release.body, body);
       article.appendChild(body);
-      history.appendChild(article);
+      articles.appendChild(article);
     }
 
     const previous = published.filter((release) => {
@@ -282,11 +251,10 @@
       return info && info.hotfix === 0 && info.baseTag !== latest.baseTag && compareFeature(info, latest) < 0;
     }).sort((a, b) => compareFeature(parseTag(b.tag_name), parseTag(a.tag_name))).slice(0, 4);
 
-    byId('release-notes-body').replaceChildren(...original.childNodes);
-    byId('hotfix-history-body').replaceChildren(...history.childNodes);
-    byId('hotfix-history-empty').hidden = hotfixes.length > 0;
-    byId('release-version').textContent = latest.baseTag;
-    byId('release-published-date').textContent = 'Published ' + formatDate(baseRelease.published_at);
+    notesBody.replaceChildren(articles);
+    byId('release-version').textContent = latest.tag;
+    byId('release-published-date').textContent =
+      'Published ' + formatDate(latestRelease.published_at);
     byId('release-current-build').textContent = 'Latest download: ' + latest.tag;
 
     const archive = byId('release-archive-links');
@@ -297,7 +265,9 @@
     } else {
       archive.textContent = 'See GitHub Releases';
     }
-    byId('current-release-link').href = githubUrl + latest.baseTag;
+    byId('current-release-link').href = githubUrl + latest.tag;
+    byId('base-release-link').href = githubUrl + latest.baseTag;
+    byId('base-release-link').hidden = latest.patch === 0;
 
     // The download button follows the verified, published alpha feed only.
     const download = document.querySelector('.download-row .download');
@@ -313,9 +283,8 @@
 
   loadPublishedHistory().catch(() => {
     // Preserve working download, original changelog and archive links.
-    byId('hotfix-history-empty').textContent =
-      'Live hotfix history is temporarily unavailable. Check GitHub Releases for the latest published fixes.';
+    // Retain the saved verified history and download if the API is unavailable.
     byId('release-history-status').textContent =
-      'Live history could not be checked. Displaying the saved v0.1.21-alpha notes.';
+      'Live history could not be checked. Displaying the saved v0.1.21-alpha.1 update history.';
   });
 })();
