@@ -2445,7 +2445,9 @@ expect(
     and 'rowTop := Max(rowTop, headingY + headingHeight + Max(3, px(10)))' in update_dialogs
     and 'observer.Viewport := viewport' in update_dialogs
     and 'link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))' in update_dialogs
-    and 'RegisterMissedUpdateCursorTarget(rows[slot], page, slot)' in update_dialogs
+    and 'for control in [prefixes[slot], rows[slot], badges[slot]]' in update_dialogs
+    and 'RegisterMissedUpdateCursorTarget(control, page, slot)' in update_dialogs
+    and 'cursorHandles.Push(control.Hwnd)' in update_dialogs
     and 'UnregisterMissedUpdateCursorTarget(handle)' in update_dialogs
     and 'for handle in cursorHandles' in update_dialogs
     and 'IsMissedUpdateCursorTarget(handle)' in update_dialogs
