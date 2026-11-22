@@ -60,7 +60,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     try
     {
         preview.SetFont(kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
-        releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable"
+        releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable Release"
         title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
 
