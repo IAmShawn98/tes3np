@@ -378,7 +378,7 @@ Require-Source 'if page.Closed \|\| page.MaxOffset <= 1' 'closed dialog cannot h
 Require-Source 'CheckUpdateNoteCallbackLifetime\(\)' 'compiled native smoke reproduces mouse message after dialog close' $badgeHarness
 Require-Source 'page.Closed := true' 'unregister disables callbacks before removing handlers' $notesSource
 Require-Source 'UnregisterMissedUpdateCursorTarget\(handle\)' 'cursor cleanup does not dereference destroyed Text controls' $dialogSource
-Require-Source 'GetWindowRect", "Ptr", viewport\.Hwnd, "Ptr", bounds' 'wheel hit test uses the viewport HWND' $notesSource
+Require-Source 'GetWindowRect", "Ptr", viewportHwnd, "Ptr", bounds' 'wheel hit test uses the captured viewport HWND after dialog close' $notesSource
 
 $buildScript = Get-Content -LiteralPath 'scripts/build-windows.ps1' -Raw -Encoding UTF8
 if (-not $buildScript.Contains("Copy-Item (Join-Path `$projectRoot 'RELEASE_NOTES.md')")) {
