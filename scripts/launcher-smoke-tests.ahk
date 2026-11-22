@@ -1125,9 +1125,12 @@ CheckUnreadBadgeTextAdjacency()
             label.Move(Round(12 * scale), Round(10 * scale),
                 Round(padded * scale), Round(18 * scale))
             label.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
+            FitLauncherVersionLabelToText(label)
             label.GetPos(&labelX, , &labelWidth)
             badgeX := GetLauncherUnreadBadgeX(label, scale)
             textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
+            if labelWidth < Ceil(textPixels / dpi) + 1
+                throw Error("Footer version glyphs still clip after native text fitting.")
             ; The circle previously sat visibly above the text baseline.
             ; Require a positive five-screen-pixel downward alignment.
             downInset := Max(1, Round(5 / dpi))

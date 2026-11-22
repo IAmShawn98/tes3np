@@ -60,7 +60,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
 ShowLauncherWindow(reuseCached := false, *)
 {
     global LauncherGui, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
-    global LauncherUpdateBadge, LauncherUpdateNumber
+    global LauncherUpdateBadge, LauncherUpdateNumber, LauncherVersionLabel
     if DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
         DllCall("ShowWindow", "Ptr", LauncherGui.Hwnd, "Int", 9) ; SW_RESTORE
     placement := GetLauncherPlacement()
@@ -86,8 +86,15 @@ ShowLauncherWindow(reuseCached := false, *)
                 || (IsObject(LauncherUpdateNumber) && hwnd = LauncherUpdateNumber.Hwnd)
                 continue
             item.Control.GetPos(&x, &y, &w, &h)
+            expectedWidth := Round(item.Width * ratio)
+            ; Unlike the snapshot, the version Text control may grow after
+            ; applying the minimum font size. Validate that measured width
+            ; rather than mistaking a legitimate fit for stale geometry.
+            if IsObject(LauncherVersionLabel) && hwnd = LauncherVersionLabel.Hwnd
+                try expectedWidth := Max(expectedWidth,
+                    LauncherVersionLabelRequiredWidth(item.Control))
             if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
-                || Abs(w - Round(item.Width * ratio)) > 2 || Abs(h - Round(item.Height * ratio)) > 2
+                || Abs(w - expectedWidth) > 2 || Abs(h - Round(item.Height * ratio)) > 2
             {
                 healthy := false
                 break

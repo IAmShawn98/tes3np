@@ -22,6 +22,7 @@ CreateLauncherVersionLabel()
     ; (9pt at 100%); reserve enough width for that font-size floor.
     ; The badge uses the final width as its adjacent alignment anchor.
     LauncherVersionLabel.Move(, , Ceil(naturalWidth * 1.25) + 4, 18)
+    FitLauncherVersionLabelToText(LauncherVersionLabel)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
 
@@ -58,7 +59,10 @@ ScaleLauncherVersionLabel(scale)
 {
     global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     if IsObject(LauncherVersionLabel)
+    {
         LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
+        FitLauncherVersionLabelToText(LauncherVersionLabel)
+    }
     ApplyLauncherBadgeFont(scale)
     if IsObject(LauncherUpdateBadge)
         ShapeCircularUpdateBadge(LauncherUpdateBadge)
@@ -178,6 +182,25 @@ GetLauncherBadgeDpiScale()
     return Max(1, A_ScreenDPI / 96)
 }
 
+; The version font has a 5pt floor at small launcher scales, so the
+; captured 100%-size Text rectangle can become narrower than its glyphs.
+; Expand only when real GDI metrics require it, preserving baseline padding.
+LauncherVersionLabelRequiredWidth(label)
+{
+    return Ceil(MeasureMissedUpdateTextWidth(label, label.Text)
+        / GetLauncherBadgeDpiScale()) + 2
+}
+
+FitLauncherVersionLabelToText(label)
+{
+    try required := LauncherVersionLabelRequiredWidth(label)
+    catch Error
+        return
+    label.GetPos(, , &currentWidth)
+    if required > currentWidth
+        label.Move(, , required, )
+}
+
 ; Anchor to the actual RENDERED end of the version label, not the
 ; deliberately padded Text-control width (which created the large gap).
 ; GetTextExtentPoint32W returns device pixels; GUI GetPos uses DPI-aware
@@ -191,7 +214,7 @@ GetLauncherUnreadBadgeX(label, scale)
         textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
         textWidth := Ceil(textPixels / dpi)
         if textWidth > 0
-            return labelX + Min(labelWidth, textWidth + 1) + Max(1, Round(3 * scale))
+            return labelX + textWidth + Max(1, Round(3 * scale))
     }
     catch Error
     {
