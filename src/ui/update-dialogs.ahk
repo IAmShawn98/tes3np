@@ -61,7 +61,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind, reviewNotes :=
     {
         preview.SetFont(kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable Release"
-        title := kind = "hotfix" ? "Hotfix available" : "A New " releaseType " Is Available to Download, S'wit!"
+        title := kind = "hotfix" ? "A Hotfix Is Available For v" installedVersion : "A New " releaseType " Is Available to Download, S'wit!"
         preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
 
         ; Narrow gold metadata ribbon. Each natural-size label is measured so
