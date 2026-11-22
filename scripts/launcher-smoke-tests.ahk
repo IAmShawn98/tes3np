@@ -245,6 +245,19 @@ CheckGameLoginCardMoveTracking(game, card, layout)
             deadline := A_TickCount + 1000
             while card.ProgressLayout.GameWindow.X != original.X + offset && A_TickCount < deadline
                 Sleep(10)
+            if card.ProgressLayout.GameWindow.X != original.X + offset
+            {
+                ; Some hosted CI desktops suppress location-change events for
+                ; their synthetic same-process tool windows. Exercise the real
+                ; Windows event pipeline rather than calling our handler directly.
+                FileAppend("DIAGNOSTIC: fixture produced no automatic location event; "
+                    . "requiring native NotifyWinEvent hook delivery" Chr(10), "*")
+                DllCall("user32\NotifyWinEvent", "UInt", 0x800B, "Ptr", game.Hwnd,
+                    "Int", 0, "Int", 0)
+                deadline := A_TickCount + 1000
+                while card.ProgressLayout.GameWindow.X != original.X + offset && A_TickCount < deadline
+                    Sleep(10)
+            }
             WinGetPos(&x, &y, &width, &height, "ahk_id " card.Hwnd)
             if x != layout.X + offset || y != layout.Y + offset || width != layout.Width || height != layout.Height
             {
