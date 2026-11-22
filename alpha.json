@@ -2,15 +2,15 @@
   "manifestVersion": 2,
   "product": "tes3np",
   "channel": "alpha",
-  "version": "0.1.21-alpha",
-  "releaseId": "v0.1.21-alpha",
+  "version": "0.1.21-alpha.1",
+  "releaseId": "v0.1.21-alpha.1",
   "platform": "windows",
   "architecture": "x64",
   "package": {
-    "fileName": "tes3np-v0.1.21-alpha-windows.zip",
-    "size": 140035207,
-    "sha256": "ee3de2d7c6958215ef0c7cf25f49ce76c1a8db77f8a39a5c64c595ec5027cd4d"
+    "fileName": "tes3np-v0.1.21-alpha.1-windows.zip",
+    "size": 140063075,
+    "sha256": "8090655c5cbb470b3d2adedfcb1dea04ada51402d8d5a344b9bb7ce265bcdc79"
   },
-  "sourceRevision": "00f0c93fb4581a2c79d9502137297d77acdde4f9",
+  "sourceRevision": "d83fa557dfe30f8eae84348deb2006af473e64a8",
   "updateEnabled": true
 }
