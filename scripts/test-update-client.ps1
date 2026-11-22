@@ -86,7 +86,7 @@ Require-Source 'panel\.Add\("Text", "x30 y65 w740 h30 BackgroundTrans", message\
 if ($dialogSource.Contains('You are running the latest and greatest version of the tes3np launcher!')) {
     throw 'Obsolete up-to-date status wording must not return.'
 }
-Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
+Require-Source 'kind = "hotfix" \? "A Hotfix Is Available For v" installedVersion' 'hotfix preview heading names the installed version dynamically' $dialogSource
 Require-Source 'releaseType := channel = "alpha" \? "Alpha" : channel = "beta" \? "Beta" : "Stable Release"' 'regular update title calls the stable channel Stable Release' $dialogSource
 Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion, true\)' 'update preview categorizes missed published versions' $dialogSource
 
