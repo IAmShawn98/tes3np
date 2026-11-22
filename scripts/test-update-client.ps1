@@ -551,7 +551,7 @@ Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (
 # backing image only under its rectangle when hiding or showing it.
 Require-Source 'LauncherVersionLabel := LauncherGui\.Add\("Text", "x12 y691 BackgroundTrans", "tes3np' 'version caption is measured without fixed dimensions'
 Require-Source 'LauncherVersionLabel\.GetPos\(, , &naturalWidth\)' 'version caption natural width is captured'
-Require-Source 'LauncherVersionLabel\.Move\(, , Ceil\(naturalWidth \* 1\.125\) \+ 4, 18\)' 'version label height applied after width measurement with 50 percent headroom'
+Require-Source 'LauncherVersionLabel\.Move\(, , Ceil\(naturalWidth \* 1\.25\) \+ 4, 18\)' 'version label height applied after width measurement with 25 percent width reserve'
 Require-Source 'label.GetPos\(&labelX, , &labelWidth\)' 'measured badge positioning reads actual version label bounds' $source
 Require-Source 'x := GetLauncherUnreadBadgeX\(LauncherVersionLabel, 1\)' 'initial badge anchors to rendered caption instead of padded label width' $source
 Require-Source 'SetLauncherUnreadBadgeNumber\(unreadCount\)' 'launcher footer displays the unread number, not a fixed one'
