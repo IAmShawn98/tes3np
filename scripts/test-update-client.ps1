@@ -87,6 +87,7 @@ if ($dialogSource.Contains('You are running the latest and greatest version of t
     throw 'Obsolete up-to-date status wording must not return.'
 }
 Require-Source 'kind = "hotfix" \? "Hotfix available"' 'hotfix preview heading' $dialogSource
+Require-Source 'releaseType := channel = "alpha" \? "Alpha" : channel = "beta" \? "Beta" : "Stable Release"' 'regular update title calls the stable channel Stable Release' $dialogSource
 Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion, true\)' 'update preview categorizes missed published versions' $dialogSource
 
 # The preview must derive each version field's width from actual rendered text,
