@@ -246,8 +246,10 @@ ValidateAccessibleControlRectangles(rectangles, parentWidth, parentHeight)
 
 
 ; Future layout commit primitive. Preflight EVERY destination before movement,
-; record pixel snapshots, and restore all controls if an operation fails.
-; MoveStyledButton keeps the native target and GDI-themed face synchronized.
+; record native control snapshots, and restore all controls if an operation fails.
+; Coordinates passed here are actual GUI control coordinates. Do NOT route
+; through the Character Book's BookS scaling helper: this primitive must also
+; work for all other owned menus without multiplying the scale twice.
 ; This is not called by the live launcher until artwork/content fit is solved.
 ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
 {
@@ -280,8 +282,19 @@ ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
     try
     {
         for entry in placements
-            MoveStyledButton(entry.Control,
-                entry.X, entry.Y, entry.Width, entry.Height)
+        {
+            ctrl := entry.Control
+            ctrl.Move(entry.X, entry.Y, entry.Width, entry.Height)
+            if ButtonFaces.Has(ctrl.Hwnd)
+            {
+                face := ButtonFaces[ctrl.Hwnd]
+                face.X := entry.X, face.Y := entry.Y
+                face.W := entry.Width, face.H := entry.Height
+                if face.HasOwnProp("Control") && IsObject(face.Control)
+                    && face.Control.Hwnd != ctrl.Hwnd
+                    face.Control.Move(entry.X, entry.Y, entry.Width, entry.Height)
+            }
+        }
     }
     catch Error as err
     {
@@ -299,6 +312,7 @@ ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
                     face.X := snapshot.X, face.Y := snapshot.Y
                     face.W := snapshot.Width, face.H := snapshot.Height
                     if face.HasOwnProp("Control") && IsObject(face.Control)
+                        && face.Control.Hwnd != ctrl.Hwnd
                         face.Control.Move(snapshot.X, snapshot.Y,
                             snapshot.Width, snapshot.Height)
                 }
