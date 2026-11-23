@@ -845,13 +845,42 @@ NativeInterfaceFontHeight(control)
     return Abs(NumGet(definition, 0, "Int"))
 }
 
+
+; Measure real GDI wrapped copy at each accessibility mode. Font heights by
+; themselves do not detect clipped paragraphs or overlapping controls.
+NativeWrappedInterfaceTextHeight(control, caption, width)
+{
+    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
+    if !dc
+        throw Error("Could not measure native wrapped text.")
+    previous := 0
+    try
+    {
+        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
+            "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+        if font
+            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+        bounds := Buffer(16, 0)
+        NumPut("Int", 0, "Int", 0, "Int", width, "Int", 0, bounds)
+        DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
+            "Ptr", bounds, "UInt", 0xC10) ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX
+        return NumGet(bounds, 12, "Int")
+    }
+    finally
+    {
+        if previous
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
+        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
     oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
     try
     {
-        bodyHeights := [], settingsHeights := []
+        bodyHeights := [], settingsHeights := [], characterHeights := []
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
@@ -868,9 +897,24 @@ CheckInterfaceTextAccessibility()
                 SetAccessibleTextFont(panel, "s" V016Font(13) " Norm c241408", "Georgia")
                 settingsLabel := panel.Add("Text", "x4 y48 w330 h40", "Settings section label")
                 settingsHeights.Push(NativeInterfaceFontHeight(settingsLabel))
+                SetAccessibleTextFont(panel, "s11 Norm c241408", "Georgia")
+                fullDescription := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
+                bookCopy := panel.Add("Text", "x4 y92 w390 h81", fullDescription)
+                measured := NativeWrappedInterfaceTextHeight(bookCopy, fullDescription, 382)
+                characterHeights.Push(measured)
+                ; The native book reflows from measured height, leaving the
+                ; original 164px row anchor in place when the copy already fits.
+                paragraphHeight := Max(81, measured + 6)
+                firstRow := Max(164, 80 + paragraphHeight + 3)
+                if firstRow < 80 + paragraphHeight
+                    throw Error("Accessible character description overlaps the first row.")
+                if firstRow + 9 * 24 + 23 > 530
+                    throw Error("Character description and ten rows exceed the book at " mode ".")
             }
             finally panel.Destroy()
         }
+        if characterHeights[1] > characterHeights[2] || characterHeights[2] > characterHeights[3]
+            throw Error("Character description did not respond monotonically to text size.")
         if bodyHeights[1] >= bodyHeights[2] || bodyHeights[2] >= bodyHeights[3]
             || settingsHeights[1] >= settingsHeights[2]
             || settingsHeights[2] >= settingsHeights[3]
