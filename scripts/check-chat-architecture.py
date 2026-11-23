@@ -594,6 +594,25 @@ expect(
     and 'channelTextArea_' in composer_page
     and not any(token in composer_page for token in ('fetch(', 'dispatchEvent(', '.click(', 'requestSubmit(')),
 )
+composer_height = re.search(
+    r'const int ChatComposerHeight = (\d+), ChatComposerSpace = ChatComposerHeight \+ 5;',
+    composer,
+)
+expect(
+    "Chat composer shows at least three wrapped draft lines without shrinking message history",
+    composer_height is not None and 84 <= int(composer_height[1]) <= 100
+    and 'ClientSize.Height - ChatPixels(14 + ChatComposerHeight)' in composer
+    and 'ChatPixels(ChatComposerHeight)' in composer
+    and 'int composerSpace = nativeMode ? ChatPixels(ChatComposerSpace) : 0;' in source
+    and 'ClientSize.Height - ChatPixels(78) - composerSpace' in source
+    and 'int dockHeight = chatHeight + (nativeMode ? ChatComposerSpace : 0);' in source
+    and 'max-height: calc(var(--tes3np-compose-height) - 6px) !important;' in composer_page
+    and 'overflow: auto !important;' in composer_page
+    and 'white-space: pre-wrap !important; overflow-wrap: anywhere !important;' in composer_page
+    and 'word-break: break-word !important;' in composer_page
+    and "boundEditor.focus({ preventScroll: true });" in composer_page
+    and 'height: 30px !important;' in composer_page,
+)
 # Chat Host has a separate real WebView2 renderer, its parent, a native
 # loading-text control and a textured custom scrollbar. All four must change
 # state together on the first successful Discord feed.

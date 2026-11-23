@@ -41,6 +41,9 @@
         background: transparent !important; color: #f1e4ca !important; caret-color: #e0b971 !important;
         font: var(--tes3np-compose-font) !important; padding: 2px 0 !important; margin: 0 !important;
         border: 0 !important;
+        /* Let drafts wrap across three visible lines. Longer drafts keep
+           the editor's native vertical scroll rather than clipping text. */
+        white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: break-word !important;
         box-sizing: border-box !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
         height: auto !important; min-height: 28px !important; max-height: calc(var(--tes3np-compose-height) - 6px) !important;
         overflow: auto !important; scrollbar-width: thin;

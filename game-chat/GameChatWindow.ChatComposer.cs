@@ -5,7 +5,10 @@ using static GameChatNative;
 
 internal sealed partial class GameChatWindow
 {
-    const int ChatComposerHeight = 36, ChatComposerSpace = 41;
+    // Three readable draft lines at the established 24px editor line height.
+    // Keep the existing five-pixel bottom/layout allowance and enlarge the
+    // docked host by the same amount: chat history must not lose height.
+    const int ChatComposerHeight = 84, ChatComposerSpace = ChatComposerHeight + 5;
     static readonly Lazy<string> ChatComposerScript = GameChatWeb.Page("discord-chat-composer.js");
     readonly Panel chatComposerViewport = new() { Visible = false, BackColor = Color.FromArgb(23, 18, 14) };
     readonly Label chatComposerStatus = new()
