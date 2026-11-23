@@ -194,6 +194,7 @@ class BookPlan:
     macro_row_height: int = 62
     character_pitch: int = 24
     macro_pitch: int = 70
+    show_limit_notice: bool = False
 
 
 
@@ -292,6 +293,7 @@ def plan_character_macro_book(
     macro_count: int = 4,
     row_pitch: int = 24,
     macro_pitch: int = 70,
+    show_limit_notice: bool = False,
     baseline_width: int = 960,
     baseline_height: int = 650,
 ) -> BookPlan:
@@ -318,8 +320,12 @@ def plan_character_macro_book(
     paragraph_bottom = 80 + max(81, paragraph_height)
     left_first = max(164, paragraph_bottom + 3)
     last_left = left_first + (profile_count - 1) * effective_row_pitch + row_height if profile_count else left_first
-    left_action = max(540, last_left + 10) if profile_count else max(164, paragraph_bottom + 3)
-    left_action_bottom = left_action + 30
+    notice_top = max(429, last_left + 8) if show_limit_notice else 0
+    notice_bottom = notice_top + 25 if show_limit_notice else 0
+    left_action = (max(540, last_left + 10, notice_bottom + 10)
+                   if profile_count else max(164, paragraph_bottom + 3))
+    left_action_bottom = (left_action + 65 if not profile_count
+                          else left_action + 30)
 
     macro_text_bottom = 87 + max(48, macro_explanation_height)
     macro_first = max(140, macro_text_bottom + 5)
@@ -332,7 +338,7 @@ def plan_character_macro_book(
     # of whichever column needs the most vertical room.
     footer_y = max(575, left_action_bottom + 5, macro_upload_bottom + 8)
     needed_page_height = max(baseline_height, footer_y + 75)
-    controls = (
+    placements = [
         ("description", Rect(70, 80, 390, max(81, paragraph_height))),
         ("character-rows", Rect(70, left_first, 370,
              max(0, last_left - left_first))),
@@ -341,10 +347,21 @@ def plan_character_macro_book(
         ("macro-rows", Rect(525, macro_first, 355,
              max(0, macro_last - macro_first))),
         ("macro-upload", Rect(525, macro_upload, 355, 29)),
-        ("footer-left", Rect(70, footer_y, 370, 30)),
         ("footer-close", Rect(515, footer_y, 90, 30)),
-        ("footer-right", Rect(775, footer_y, 110, 30)),
-    )
+    ]
+    if show_limit_notice:
+        placements.append(("character-limit-notice", Rect(70, notice_top, 370, 25)))
+    if profile_count:
+        # Wipe uses the original 577px top and 25px height at Normal.
+        placements.extend((
+            ("footer-left", Rect(70, footer_y + 2, 370, 25)),
+            ("footer-right", Rect(775, footer_y, 110, 30)),
+        ))
+    else:
+        # With no characters, Import appears directly below Add and there is
+        # no Wipe or Export in the footer.
+        placements.append(("import-data", Rect(70, left_action + 35, 370, 30)))
+    controls = tuple(placements)
     violations = []
     if baseline_width > screen_width:
         violations.append("Character Book artwork exceeds available work-area width")
@@ -365,4 +382,5 @@ def plan_character_macro_book(
                     character_row_height=row_height,
                     macro_row_height=macro_row_height,
                     character_pitch=effective_row_pitch,
-                    macro_pitch=effective_macro_pitch)
+                    macro_pitch=effective_macro_pitch,
+                    show_limit_notice=show_limit_notice)
