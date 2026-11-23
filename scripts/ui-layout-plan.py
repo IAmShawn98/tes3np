@@ -200,6 +200,79 @@ class BookPlan:
 
 
 
+
+@dataclass(frozen=True)
+class MeasuredControl:
+    """True measured text footprint plus the interactive area it needs."""
+    name: str
+    text_width: int
+    text_height: int
+    minimum_width: int
+    minimum_height: int
+    padding_x: int = 0
+    padding_y: int = 0
+
+    def __post_init__(self):
+        if not self.name or min(self.text_width, self.text_height,
+                                self.minimum_width, self.minimum_height,
+                                self.padding_x, self.padding_y) < 0:
+            raise ValueError("Invalid measured control dimensions")
+
+
+@dataclass(frozen=True)
+class FlowPlan:
+    feasible: bool
+    controls: tuple[tuple[str, Rect], ...]
+    required_height: int
+    violations: tuple[str, ...]
+
+
+def plan_measured_control_flow(
+    items: Sequence[MeasuredControl],
+    x: int,
+    y: int,
+    available_width: int,
+    horizontal_gap: int = 8,
+    vertical_gap: int = 8,
+) -> FlowPlan:
+    """Arrange complete button/label text without truncating or downfitting.
+
+    Coordinates are logical units at the selected font; the caller must measure
+    actual glyph width/height and test parent/artwork fit before applying.
+    A row wraps only as a complete control, never by cutting its wording.
+    """
+    if min(x, y, available_width, horizontal_gap, vertical_gap) < 0:
+        raise ValueError("Invalid flow bounds")
+    cursor_x = x
+    cursor_y = y
+    row_height = 0
+    positions: list[tuple[str, Rect]] = []
+    errors: list[str] = []
+    known: set[str] = set()
+    for item in items:
+        if not isinstance(item, MeasuredControl):
+            raise TypeError("Flow items must be measured controls")
+        if item.name in known:
+            errors.append(f"Duplicate control name: {item.name}")
+        known.add(item.name)
+        width = max(item.minimum_width, item.text_width + 2 * item.padding_x)
+        height = max(item.minimum_height, item.text_height + 2 * item.padding_y)
+        if width > available_width:
+            errors.append(f"Unbroken control too wide: {item.name}")
+            continue
+        if cursor_x > x and cursor_x + width > x + available_width:
+            cursor_x = x
+            cursor_y += row_height + vertical_gap
+            row_height = 0
+        positions.append((item.name, Rect(cursor_x, cursor_y, width, height)))
+        cursor_x += width + horizontal_gap
+        row_height = max(row_height, height)
+    required_bottom = cursor_y + row_height if positions else y
+    return FlowPlan(not errors, tuple(positions) if not errors else (),
+                    required_bottom, tuple(errors))
+
+
+
 def expand_book_control_positions(
     plan: BookPlan,
 ) -> tuple[tuple[str, Rect], ...]:
