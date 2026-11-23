@@ -2422,16 +2422,28 @@ expect(
 )
 display_refresh = section_between(display_settings, "\nRefreshLauncherDisplay(message, settings)", "\nSaveLauncherDisplaySettings(")
 expect(
-    "Display previews use live loading feedback before and throughout resize",
-    in_order(display_refresh, "CreateLoadingCard(LauncherGui,", "SetLoadingCardProgress(loading.Panel, message,",
-             'DllCall("EnableWindow", "Ptr", launcherHwnd, "Int", 1)', 'WinActivate("ahk_id " launcherHwnd)',
-             "settings.Hide()", "ApplyLauncherScaleToWindow(false)", "PositionOwnedMenuAtParent(loading.Card, LauncherGui)",
+    "Display previews retain a complete old frame and live progress while scaling",
+    in_order(display_refresh,
+             "CaptureInterfaceFrame(LauncherGui, true)",
+             "hasDisplayFrame := IsObject(loading) && IsObject(loading.Gui)",
+             "if !hasDisplayFrame",
+             "CreateLoadingCard(LauncherGui,",
+             "SetLoadingCardProgress(loading.Panel, message,",
+             'DllCall("EnableWindow", "Ptr", launcherHwnd, "Int", 1)',
+             'WinActivate("ahk_id " launcherHwnd)',
+             "settings.Hide()", "ApplyLauncherScaleToWindow(false)",
              '"Updating interface text..."', "ApplyAccessibilityTextSize(false)",
-             '"Updating readability..."', "finally DestroyLoadingCard(loading)")
+             '"Updating readability..."', "ApplyEnhancedReadability()",
+             '"UInt", 0x0181)', "ReleaseCapturedInterfaceFrame(loading)")
     and 'RefreshLauncherDisplay("Restoring display settings...", settings)' in display_settings
     and '"Resetting display settings..."' in display_settings
+    and 'if !hasDisplayFrame\n        {\n            DllCall("SetWindowPos", "Ptr", loading.Dim.Hwnd' in display_refresh
+    and "PositionOwnedMenuAtParent(loading.Card, LauncherGui)" in display_refresh
+    and "if hasDisplayFrame\n            ReleaseCapturedInterfaceFrame(loading)" in display_refresh
+    and "else\n            DestroyLoadingCard(loading)" in display_refresh
+    and "stable frame captured." in display_refresh
+    and "frame capture unavailable; live loading fallback." in display_refresh
     and "SetPageCompositorCloak(" not in display_refresh
-    and "CaptureInterfaceFrame(" not in display_refresh
     and "WinGetPos(" not in launcher_scale_apply
     and "WinMove(" not in launcher_scale_apply,
 )

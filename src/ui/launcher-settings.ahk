@@ -165,7 +165,17 @@ RefreshLauncherDisplay(message, settings)
         throw OSError()
     x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
     width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
-    loading := CreateLoadingCard(LauncherGui, x, y, width, height, message)
+    ; The live dimmer is translucent: it reveals partially resized/painted
+    ; launcher controls during Preview/Restore. Reuse the established bitmap
+    ; frame cover so the last complete frame remains visible until redraw is
+    ; finished; retain the normal live progress card on top of that frame.
+    ; Fall back to the former live-only loader if desktop capture is unavailable.
+    loading := CaptureInterfaceFrame(LauncherGui, true)
+    hasDisplayFrame := IsObject(loading) && IsObject(loading.Gui)
+    if !hasDisplayFrame
+        loading := CreateLoadingCard(LauncherGui, x, y, width, height, message)
+    LogLauncherEvent(hasDisplayFrame ? "UI | Display refresh stable frame captured."
+        : "UI | Display refresh frame capture unavailable; live loading fallback.")
     try
     {
         ; Paint the loading card, then return foreground to the launcher before
@@ -183,16 +193,29 @@ RefreshLauncherDisplay(message, settings)
             throw OSError()
         x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
         width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
-        DllCall("SetWindowPos", "Ptr", loading.Dim.Hwnd, "Ptr", 0,
-            "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0014)
-        PositionOwnedMenuAtParent(loading.Card, LauncherGui)
+        ; The snapshot and its progress card intentionally remain at the OLD
+        ; complete-frame bounds during reflow. Moving them midway would reveal
+        ; partial launcher frames at the changing edges. Only the fallback
+        ; (which has no snapshot) tracks the resized live launcher.
+        if !hasDisplayFrame
+        {
+            DllCall("SetWindowPos", "Ptr", loading.Dim.Hwnd, "Ptr", 0,
+                "Int", x, "Int", y, "Int", width, "Int", height, "UInt", 0x0014)
+            PositionOwnedMenuAtParent(loading.Card, LauncherGui)
+        }
         SetLoadingCardProgress(loading.Panel, "Updating interface text...", 0.55)
         ApplyAccessibilityTextSize(false)
         SetLoadingCardProgress(loading.Panel, "Updating readability...", 0.85)
         ApplyEnhancedReadability()
         DllCall("RedrawWindow", "Ptr", launcherHwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
     }
-    finally DestroyLoadingCard(loading)
+    finally
+    {
+        if hasDisplayFrame
+            ReleaseCapturedInterfaceFrame(loading)
+        else
+            DestroyLoadingCard(loading)
+    }
 }
 
 SaveLauncherDisplaySettings(scale, textSize, readability, reduceMotion, followWindows)
