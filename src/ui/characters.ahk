@@ -29,7 +29,7 @@ ApplyCharacterBookScale(scale)
     ScaleOwnedMenuContent(CharacterPage, scale)
     if CharacterPage.HasOwnProp("BookBackground")
         CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
-    UpdateCharacterDescriptionPages()
+    RestoreCharacterDescriptionFont()
 }
 
 OpenCharacterPage(*)
@@ -52,7 +52,7 @@ OpenCharacterPage(*)
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
-            UpdateCharacterDescriptionPages()
+            RestoreCharacterDescriptionFont()
             CharacterPage.Show("Hide w" Round(960 * bookScale)
                 " h" Round(650 * bookScale))
             PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
@@ -100,8 +100,7 @@ OpenCharacterPage(*)
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans +0x100", "")
-    CharacterDescription.OnEvent("Click", NextCharacterDescriptionPage)
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
     Loop 10
     {
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
@@ -168,7 +167,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice, CharacterDescriptionFullText
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -191,16 +190,15 @@ RefreshProfiles()
             }
         }
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
-        CharacterDescriptionFullText := descriptionText
-        ; The paragraph keeps its requested text size and uses an in-place
-        ; page when the whole copy cannot fit above the character rows.
+        CharacterDescription.Text := descriptionText
+        ; Preserve the full, readable original paragraph in its approved rectangle.
         ; Use the same gap below Add character in both list states.
         actionY := Profiles.Length ? 540 : 164
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
         CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
-        UpdateCharacterDescriptionPages()
+        RestoreCharacterDescriptionFont()
         CharacterDescription.Visible := true
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : actionY + 35
@@ -238,97 +236,16 @@ RefreshProfiles()
 }
 
 
-; Keep the original paragraph rectangle, requested accessible font and rows.
-; Clicking the paragraph cycles its full text through that SAME rectangle.
-global CharacterDescriptionPages := []
-global CharacterDescriptionPageIndex := 1
-global CharacterDescriptionFullText := ""
-
-UpdateCharacterDescriptionPages()
+; The approved 390x81 description cannot contain the entire paragraph at
+; Extra Large without overlapping character rows. Keep all copy visible at
+; its original readable size; never micro-shrink or paginate it.
+RestoreCharacterDescriptionFont()
 {
-    global CharacterDescription, CharacterDescriptionPages, CharacterDescriptionPageIndex
-    global CharacterDescriptionFullText
+    global CharacterDescription, LauncherMorrowindFont
     if !IsObject(CharacterDescription) || !DllCall("IsWindow", "Ptr", CharacterDescription.Hwnd)
         return
-    if CharacterDescriptionFullText = ""
-        return
-    CharacterDescriptionPages := []
-    CharacterDescriptionPageIndex := 1
-    words := StrSplit(CharacterDescriptionFullText, " ")
-    current := ""
-    for word in words
-    {
-        candidate := current = "" ? word : current " " word
-        ; Reserve a visible next-page cue while more words remain.
-        if CharacterDescriptionTextFits(CharacterDescription, candidate " ↪")
-        {
-            current := candidate
-            continue
-        }
-        if current != ""
-        {
-            CharacterDescriptionPages.Push(current)
-            current := word
-        }
-        else
-        {
-            ; A single oversized word is preserved, never silently deleted.
-            current := word
-        }
-    }
-    if current != ""
-        CharacterDescriptionPages.Push(current)
-    ShowCharacterDescriptionPage()
-}
-
-CharacterDescriptionTextFits(control, caption)
-{
-    control.GetPos(, , &controlWidth, &controlHeight)
-    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
-    if !dc
-        return false
-    previous := 0
-    try
-    {
-        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
-            "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
-        if font
-            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
-        bounds := Buffer(16, 0)
-        NumPut("Int", 0, "Int", 0, "Int", Max(1, controlWidth - 8), "Int", 0, bounds)
-        ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX.
-        DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
-            "Ptr", bounds, "UInt", 0xC10)
-        return NumGet(bounds, 12, "Int") <= Max(1, controlHeight - 6)
-    }
-    finally
-    {
-        if previous
-            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
-        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
-    }
-}
-
-ShowCharacterDescriptionPage()
-{
-    global CharacterDescription, CharacterDescriptionPages, CharacterDescriptionPageIndex
-    if !CharacterDescriptionPages.Length
-        return
-    caption := CharacterDescriptionPages[CharacterDescriptionPageIndex]
-    ; The next page is available by clicking this same paragraph, not by
-    ; moving any heading, row, button or picture.
-    if CharacterDescriptionPages.Length > 1
-        caption .= " ↪"
-    CharacterDescription.Text := caption
-}
-
-NextCharacterDescriptionPage(*)
-{
-    global CharacterDescriptionPages, CharacterDescriptionPageIndex
-    if CharacterDescriptionPages.Length < 2
-        return
-    CharacterDescriptionPageIndex := Mod(CharacterDescriptionPageIndex, CharacterDescriptionPages.Length) + 1
-    ShowCharacterDescriptionPage()
+    CharacterDescription.SetFont("s" Max(7, Round(11 * GetCharacterBookScale()))
+        " Norm c241408", LauncherMorrowindFont)
 }
 
 MoveStyledButton(control, x, y, width, height)
