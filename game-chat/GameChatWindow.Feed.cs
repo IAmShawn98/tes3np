@@ -27,6 +27,11 @@ internal sealed partial class GameChatWindow
             string json = JsonSerializer.Deserialize<string>(raw) ?? "[]";
             ObserveLiveFeedReturn(json);
             if (json == lastFeed && !imagesNeedRedraw && nativeMode && !needsVisibleUpdate) {
+                // Seeking the source tail may leave the JSON unchanged.
+                // Still observe that fresh source page before claiming coverage.
+                if (!initialBackfillComplete && (happyHourTailCandidateId != 0 ||
+                    happyHourTailConfirmed))
+                    ObserveHappyHourSourcePage(DiscordFeedReader.Read(json), feedNavigationId);
                 DetectLatestHappyHour();
                 return;
             }
@@ -39,6 +44,7 @@ internal sealed partial class GameChatWindow
                 return;
             }
 
+            ObserveHappyHourSourcePage(messages, feedNavigationId);
             NotifyForNewMessage(messages[^1].Id);
             EnsureChatLogLoaded();
             ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;

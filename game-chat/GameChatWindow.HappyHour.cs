@@ -159,6 +159,7 @@ internal sealed partial class GameChatWindow
             initialBackfillComplete = false;
             initialBackfillStarted = DateTime.MinValue;
             initialBackfillAttempts = 0;
+            ResetHappyHourSourceSearch();
             if (valid)
             {
                 Log("HAPPY HOUR | Verified cached activation: " +

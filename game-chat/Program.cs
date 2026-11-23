@@ -9,6 +9,11 @@ internal static class Program
             Environment.ExitCode = GameChatWindow.CheckChatArchivePersistence();
             return;
         }
+        if (args.Length == 1 && args[0] == "--check-happy-hour-history")
+        {
+            Environment.ExitCode = GameChatWindow.CheckHappyHourHistoryCoverage();
+            return;
+        }
         if (args.Length < 1 || !long.TryParse(args[0], out long owner)) return;
         int baseWidth = args.Length > 1 && int.TryParse(args[1], out int width) && width > 0
             ? width : 960;

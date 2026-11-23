@@ -284,6 +284,34 @@ expect(
 )
 
 expect(
+    "Happy Hour scans only source-observed pages after a verified current Discord tail",
+    "SeekLatestMessagesScript = GameChatWeb.Page(\"seek-latest-messages.js\")" in source
+    and "ResetHappyHourSourceSearch();" in source
+    and "IsRecentHappyHourTail(currentId, DateTimeOffset.UtcNow)" in source
+    and "happyHourTailStableChecks >= 2" in source
+    and "ObserveHappyHourSourcePage(messages, feedNavigationId);" in source
+    and "ObserveHappyHourSourcePage(DiscordFeedReader.Read(json), feedNavigationId);" in source
+    and "DateTimeOffset oldestLoaded = DiscordTimestamp(happyHourSearchOldestId);" in source
+    and "bool complete = HappyHourSourceWindowCovered(happyHourTailConfirmed," in source
+    and "if (!liveTailConfirmed || oldestSourceMessageId == 0) return false;" in source
+    and "_ = LoadOlderMessages(true);" in source
+    and "history.Count == 0) return;" not in section_between(
+        source, "void BackfillUntilHappyHour()", "void RequestOlderMessages("
+    )
+    and "DiscordTimestamp(history.First().Key)" not in section_between(
+        source, "void BackfillUntilHappyHour()", "void RequestOlderMessages("
+    ),
+)
+expect(
+    "Happy Hour DOM helper and native coverage regression fixture are built",
+    (chat_web / "seek-latest-messages.js").is_file()
+    and 'button.getClientRects().length > 0' in (chat_web / "seek-latest-messages.js").read_text(encoding="utf-8")
+    and 'jump to (?:present|latest)' in (chat_web / "seek-latest-messages.js").read_text(encoding="utf-8")
+    and "GameChatWindow.CheckHappyHourHistoryCoverage()" in source
+    and "--check-happy-hour-history" in source,
+)
+
+expect(
     "Archive must be written with replace-on-complete semantics",
     "WriteChatArchiveAtomically(indexPath," in source
     and "WriteChatArchiveAtomically(textPath," in source

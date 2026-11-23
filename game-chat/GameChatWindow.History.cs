@@ -25,8 +25,9 @@ internal sealed partial class GameChatWindow
     bool historyAwaitingNavigation;
 
     static readonly Lazy<string> OlderMessagesScript = GameChatWeb.Page("load-older-messages.js");
+    static readonly Lazy<string> SeekLatestMessagesScript = GameChatWeb.Page("seek-latest-messages.js");
 
-    async Task LoadOlderMessages()
+    async Task LoadOlderMessages(bool forHappyHour = false)
     {
         if (loadingHistory || !discordChannelReady || discordLoginVisible || discordNavigationInProgress ||
             web.CoreWebView2 == null ||
@@ -37,7 +38,11 @@ internal sealed partial class GameChatWindow
         lastHistoryRequest = DateTime.UtcNow;
         try
         {
-            ulong oldest = history.Count > 0 ? history.First().Key : ulong.MaxValue;
+            // Happy Hour scans must page their own observed window, not the
+            // cumulative native history retained from an earlier source position.
+            ulong oldest = forHappyHour && happyHourSearchOldestId != 0
+                ? happyHourSearchOldestId
+                : history.Count > 0 ? history.First().Key : ulong.MaxValue;
             if (oldest < lastHistoryOldestId)
             {
                 lastHistoryOldestId = oldest;
@@ -105,7 +110,10 @@ internal sealed partial class GameChatWindow
                 return;
             }
             Log("History scroll (" + scriptMode + ", attempt=" + attempt + "): " + result);
-            if (history.Count > 0 && history.First().Key < oldest)
+            ulong observedOldest = forHappyHour && happyHourSearchOldestId != 0
+                ? happyHourSearchOldestId
+                : history.Count > 0 ? history.First().Key : ulong.MaxValue;
+            if (observedOldest < oldest)
             {
                 historyStallCount = 0;
             }
@@ -138,6 +146,164 @@ internal sealed partial class GameChatWindow
 
     bool initialBackfillComplete;
 
+    // Current-source coverage is distinct from the cumulative native history.
+    bool happyHourTailSeeking;
+    ulong happyHourTailSampleId;
+    ulong happyHourTailCandidateId;
+    ulong happyHourTailNavigationId;
+    int happyHourTailStableChecks;
+    bool happyHourTailConfirmed;
+    ulong happyHourSearchOldestId;
+    DateTime nextHappyHourTailProbe = DateTime.MinValue;
+    DateTime lastHappyHourTailWaitLog = DateTime.MinValue;
+
+    void ResetHappyHourSourceSearch()
+    {
+        happyHourTailSampleId = 0;
+        happyHourTailCandidateId = 0;
+        happyHourTailNavigationId = 0;
+        happyHourTailStableChecks = 0;
+        happyHourTailConfirmed = false;
+        happyHourSearchOldestId = 0;
+        nextHappyHourTailProbe = DateTime.MinValue;
+        historyNoProgressCount = 0;
+        lastHistoryOldestId = ulong.MaxValue;
+        historyLastVisibleFirst = "";
+        historyAwaitingNavigation = false;
+        historyBackoffUntil = DateTime.MinValue;
+    }
+
+    static bool IsRecentHappyHourTail(ulong messageId, DateTimeOffset now)
+    {
+        if (messageId == 0) return false;
+        var sent = DiscordTimestamp(messageId);
+        return sent >= now.AddHours(-1) && sent <= now.AddMinutes(5);
+    }
+
+    static bool HappyHourSourceWindowCovered(bool liveTailConfirmed,
+        ulong oldestSourceMessageId, ulong candidateId, DateTimeOffset now)
+    {
+        if (!liveTailConfirmed || oldestSourceMessageId == 0) return false;
+        var oldest = DiscordTimestamp(oldestSourceMessageId);
+        return (candidateId != 0 && oldest <= DiscordTimestamp(candidateId)) ||
+               oldest <= now.AddHours(-1);
+    }
+
+    // Compiled Windows regression fixture: stale archive history must never
+    // satisfy coverage without observing the live channel source first.
+    public static int CheckHappyHourHistoryCoverage()
+    {
+        var now = new DateTimeOffset(2026, 11, 22, 20, 0, 0, TimeSpan.Zero);
+        static ulong IdAt(DateTimeOffset instant) =>
+            (ulong)(instant.ToUnixTimeMilliseconds() - 1420070400000L) << 22;
+        ulong stale = IdAt(now.AddHours(-4));
+        ulong recent = IdAt(now.AddMinutes(-10));
+        ulong candidate = IdAt(now.AddMinutes(-20));
+        ulong beforeCandidate = IdAt(now.AddMinutes(-30));
+        if (HappyHourSourceWindowCovered(false, stale, 0, now)) return 1;
+        if (HappyHourSourceWindowCovered(true, 0, 0, now)) return 2;
+        if (HappyHourSourceWindowCovered(true, recent, 0, now)) return 3;
+        if (!HappyHourSourceWindowCovered(true, stale, 0, now)) return 4;
+        if (!HappyHourSourceWindowCovered(true, beforeCandidate, candidate, now)) return 5;
+        if (HappyHourSourceWindowCovered(false, beforeCandidate, candidate, now)) return 6;
+        if (IsRecentHappyHourTail(stale, now)) return 7;
+        if (!IsRecentHappyHourTail(recent, now)) return 8;
+        if (IsRecentHappyHourTail(IdAt(now.AddMinutes(6)), now)) return 9;
+        return 0;
+    }
+
+    // Discord can reopen at an old read marker. First seek the current
+    // channel tail; never infer live coverage from an old archived message.
+    async Task SeekHappyHourLiveTail()
+    {
+        if (happyHourTailSeeking || happyHourTailCandidateId != 0 ||
+            closingChat || IsDisposed || !discordChannelReady ||
+            discordLoginVisible || discordNavigationInProgress ||
+            web.CoreWebView2 == null || DateTime.UtcNow < nextHappyHourTailProbe)
+            return;
+        happyHourTailSeeking = true;
+        nextHappyHourTailProbe = DateTime.UtcNow.AddSeconds(1);
+        try
+        {
+            var core = web.CoreWebView2;
+            string url = core.Source?.TrimEnd('/') ?? "";
+            if (!string.Equals(url, Channel, StringComparison.OrdinalIgnoreCase))
+            {
+                if (IsGameChatRoute(url)) core.Navigate(Channel);
+                return;
+            }
+            ulong navigationId = discordNavigationId;
+            string raw = await core.ExecuteScriptAsync(SeekLatestMessagesScript.Value)
+                .WaitAsync(TimeSpan.FromSeconds(4));
+            if (closingChat || IsDisposed || !discordChannelReady ||
+                discordNavigationInProgress || navigationId != discordNavigationId ||
+                web.CoreWebView2 != core) return;
+            string response = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "";
+            if (response.StartsWith("present:", StringComparison.Ordinal) &&
+                ulong.TryParse(response.AsSpan("present:".Length), out ulong currentId) &&
+                IsRecentHappyHourTail(currentId, DateTimeOffset.UtcNow))
+            {
+                if (currentId == happyHourTailSampleId &&
+                    happyHourTailNavigationId == navigationId)
+                    happyHourTailStableChecks++;
+                else
+                {
+                    happyHourTailSampleId = currentId;
+                    happyHourTailNavigationId = navigationId;
+                    happyHourTailStableChecks = 1;
+                }
+                if (happyHourTailStableChecks >= 2)
+                {
+                    happyHourTailCandidateId = currentId;
+                    Log("HAPPY HOUR | Stable recent Discord tail reached; awaiting source rows");
+                }
+                return;
+            }
+            happyHourTailSampleId = 0;
+            happyHourTailStableChecks = 0;
+            string reason = response.StartsWith("present:", StringComparison.Ordinal)
+                ? "stale-source" : response;
+            if (reason is not ("jump-requested" or "seeking" or "loading" or
+                "no-message-list" or "no-scroller" or "no-message-id" or "stale-source"))
+                reason = "unavailable";
+            if (DateTime.UtcNow - lastHappyHourTailWaitLog > TimeSpan.FromSeconds(30))
+            {
+                lastHappyHourTailWaitLog = DateTime.UtcNow;
+                Log("HAPPY HOUR | Waiting for current Discord tail: " + reason);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (DateTime.UtcNow - lastHappyHourTailWaitLog > TimeSpan.FromSeconds(30))
+            {
+                lastHappyHourTailWaitLog = DateTime.UtcNow;
+                Log("HAPPY HOUR | Live tail check unavailable: " + ex.GetType().Name);
+            }
+        }
+        finally { happyHourTailSeeking = false; }
+    }
+
+    void ObserveHappyHourSourcePage(IReadOnlyList<DiscordFeedRow> messages, ulong navigationId)
+    {
+        if (initialBackfillComplete || !discordChannelReady || messages.Count == 0)
+            return;
+        ulong observedOldest = messages.Min(row => row.Id);
+        ulong observedNewest = messages.Max(row => row.Id);
+        if (!happyHourTailConfirmed)
+        {
+            if (happyHourTailCandidateId == 0 ||
+                navigationId != happyHourTailNavigationId ||
+                observedNewest < happyHourTailCandidateId ||
+                !string.Equals(web.CoreWebView2?.Source?.TrimEnd('/'), Channel,
+                    StringComparison.OrdinalIgnoreCase)) return;
+            happyHourSearchOldestId = observedOldest;
+            happyHourTailConfirmed = true;
+            Log("HAPPY HOUR | Live source anchored; scanning newly observed history");
+        }
+        else if (observedOldest < happyHourSearchOldestId)
+            happyHourSearchOldestId = observedOldest;
+    }
+
     // Restoring Discord's hidden source from historical paging can load
     // previously unseen (but old) rows. Do not turn them into chat alerts.
     bool waitingForLiveFeedAfterHistory;
@@ -149,21 +315,26 @@ internal sealed partial class GameChatWindow
     void BackfillUntilHappyHour()
     {
         if (!discordChannelReady || initialBackfillComplete || !nativeMode || discordLoginVisible ||
-            loadingHistory || web.CoreWebView2 == null || !messageBrowserReady ||
-            history.Count == 0) return;
+            loadingHistory || web.CoreWebView2 == null || !messageBrowserReady) return;
+        if (!happyHourTailConfirmed || happyHourSearchOldestId == 0)
+        {
+            _ = SeekHappyHourLiveTail();
+            return;
+        }
         if (initialBackfillStarted == DateTime.MinValue) {
             initialBackfillStarted = DateTime.UtcNow;
             Log("HAPPY HOUR | Searching Discord history backward for latest real activation");
         }
         ulong candidateId = LatestArchivedHappyHourId();
-        DateTimeOffset oldestLoaded = DiscordTimestamp(history.First().Key);
+        DateTimeOffset oldestLoaded = DiscordTimestamp(happyHourSearchOldestId);
         // The archive may already contain an older event from a previous
         // session. Don't stop until the current live history has paged back
         // through that event: newer activations could still be unseen.
         bool verifiedLatest = candidateId > 0 &&
             oldestLoaded <= DiscordTimestamp(candidateId);
         bool pastActiveWindow = oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1);
-        bool complete = verifiedLatest || pastActiveWindow;
+        bool complete = HappyHourSourceWindowCovered(happyHourTailConfirmed,
+            happyHourSearchOldestId, candidateId, DateTimeOffset.UtcNow);
         // Discord may throttle or stop exposing history. Log partial
         // coverage rather than claiming detection succeeded.
         bool timedOut = initialBackfillAttempts >= 500 ||
@@ -198,7 +369,7 @@ internal sealed partial class GameChatWindow
         if (DateTime.UtcNow < historyBackoffUntil ||
             DateTime.UtcNow - lastHistoryRequest < TimeSpan.FromMilliseconds(600)) return;
         initialBackfillAttempts++;
-        _ = LoadOlderMessages();
+        _ = LoadOlderMessages(true);
     }
 
     void RequestOlderMessages(bool forceTop = false)

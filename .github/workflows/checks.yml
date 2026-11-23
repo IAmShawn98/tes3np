@@ -48,6 +48,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Test Happy Hour live-tail DOM behavior
+        run: node scripts/test-seek-latest-messages.js
       - name: Compile Windows Game Chat
         run: dotnet build game-chat/tes3np.GameChat.csproj -c Release -r win-x64 --no-self-contained
       - name: Test Game Chat archive persistence
@@ -61,3 +63,15 @@ jobs:
           }
           if ($probe.ExitCode -ne 0) { throw "Game Chat archive fixture failed with exit code $($probe.ExitCode)." }
           Write-Host 'PASS: Game Chat archive order, format, and retry after a sharing violation.'
+
+      - name: Test Happy Hour source coverage
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'game-chat/bin/Release/net8.0-windows/win-x64/tes3np.ChatHost.exe'
+          $probe = Start-Process -FilePath $exe.Path -ArgumentList '--check-happy-hour-history' -PassThru
+          if (!$probe.WaitForExit(30000)) {
+            $probe.Kill()
+            throw 'Happy Hour history fixture timed out.'
+          }
+          if ($probe.ExitCode -ne 0) { throw "Happy Hour history fixture failed with exit code $($probe.ExitCode)." }
+          Write-Host 'PASS: stale archive does not count as source coverage; genuine active-hour boundary.'
