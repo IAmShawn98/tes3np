@@ -225,9 +225,9 @@ def expand_book_control_positions(
         controls.extend((
             (prefix + "-tick", Rect(70, y + 2, 18, max(18, character_row_height - 5))),
             (prefix + "-name", Rect(95, y, 140, character_row_height)),
-            (prefix + "-play", Rect(240, y, 55, max(22, character_row_height))),
-            (prefix + "-edit", Rect(300, y, 60, max(22, character_row_height))),
-            (prefix + "-remove", Rect(365, y, 75, max(22, character_row_height))),
+            (prefix + "-play", Rect(240, y, 55, max(22, character_row_height - 1))),
+            (prefix + "-edit", Rect(300, y, 60, max(22, character_row_height - 1))),
+            (prefix + "-remove", Rect(365, y, 75, max(22, character_row_height - 1))),
         ))
     for number in range(macro_count):
         y = right.y + number * mac_pitch
