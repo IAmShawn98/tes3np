@@ -47,7 +47,6 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
 EndInterfaceUpdate()
 {
     global CharacterPage, InterfaceUpdateGui, InterfaceUpdating, InterfaceUpdateDepth, InterfaceFrameCover
-    global V016SettingsGuiHwnd
     ; Be defensive about mismatched cleanup. A stray EndInterfaceUpdate must not
     ; drive the depth negative or dereference a GUI that has already been closed.
     if InterfaceUpdateDepth <= 0
@@ -70,16 +69,11 @@ EndInterfaceUpdate()
     previousCritical := Critical("On")
     redrawEnabled := false
     isCharacterBook := InterfaceUpdateGui = CharacterPage
-    ; Switching between Launcher Settings and Launcher Data changes many
-    ; visible child controls under the captured frame. 0x0081 only queues
-    ; their repaint; UpdateWindow(parent) does not drain child paint messages.
-    ; Complete their paint synchronously before releasing the frame cover.
-    isSettingsPage := V016SettingsGuiHwnd && targetWindow = V016SettingsGuiHwnd
     try
     {
         DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW
         redrawEnabled := true
-        if !isCharacterBook && !isSettingsPage
+        if !isCharacterBook
             DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
         ; Commit geometry and pointer state while the captured frame still
         ; covers the real window. This makes the first click after loading use
@@ -87,10 +81,9 @@ EndInterfaceUpdate()
         SyncDynamicButtonGeometry()
         ResetThemedPointerState()
         UpdateButtonHover()
-        if isCharacterBook || isSettingsPage
+        if isCharacterBook
         {
-            ; A synchronous child repaint prevents a partly drawn Settings
-            ; page from appearing as soon as the capture cover is destroyed.
+            ; Use the same synchronous child repaint as the book's startup.
             ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW.
             DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
         }

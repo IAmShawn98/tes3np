@@ -585,14 +585,10 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     page := {Offset: 1, Lines: lines, MaxOffset: lastOffset, Closed: false}
     noteRows := [sample]
     rowStyles := ["body"]
-    ; The first measurement control starts with h1, not the real rowHeight.
-    ; Force its first Move even though its initial y already equals firstY.
-    cachedRowY := [-1]
     ; Allocate the whole viewport so switching from short to long notes fills it.
     Loop capacity - 1 {
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
-        cachedRowY.Push(firstY)
     }
     ; Keep the track between the two arrow buttons at every menu scale.
     ; Previously the compact track began at 176 while the top arrow ran
@@ -627,17 +623,9 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
                 row.SetFont(UpdateNoteFont(entry.Kind, premium, compactLayout, scale), UpdateNoteFontFace(entry.Kind, premium))
                 rowStyles[index] := entry.Kind
             }
-            ; WM_SETTEXT on a live Static can expose the parent's gold
-            ; background for a compositor frame. Reuse the existing
-            ; no-erase buffered text updater; only move/show when needed.
-            if cachedRowY[index] != y {
-                row.Move(left, y, width, rowHeight)
-                cachedRowY[index] := y
-            }
-            if row.Text != entry.Text
-                SetPaintedLabelText(row, entry.Text)
-            if !row.Visible
-                row.Visible := true
+            row.Move(left, y, width, rowHeight)
+            row.Text := entry.Text
+            row.Visible := true
             y += stride
         }
         thumbHeight := Max(px(22), Round(trackHeight * Min(1, capacity / page.Lines.Length)))
