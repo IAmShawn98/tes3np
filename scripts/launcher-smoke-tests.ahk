@@ -898,6 +898,18 @@ CheckAccessibleLayoutPreflight()
         || enlargedFull.AddTop < enlargedFull.NoticeBottom + 10
         || enlargedFull.FooterTop < enlargedFull.AddTop + 35
         throw Error("Enlarged character warning intersects rows or Add/Close actions.")
+    halfScale := PlanAccessibleBookGeometry(220, 72, 38, 130,
+        520, 490, 10, 4, false, 0.5, 1.0)
+    if !halfScale.Feasible || halfScale.Height <= 650
+        throw Error("Half-scale launcher failed to preserve full logical text layout.")
+    dpiBalanced := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        960, 650, 10, 4, false, 0.5, 2.0)
+    if !dpiBalanced.Feasible || dpiBalanced.CharacterTop != normalBook.CharacterTop
+        throw Error("DPI and independent launcher zoom produced different layout anchors.")
+    dpiTooBig := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        960, 650, 10, 4, false, 1.0, 1.5)
+    if dpiTooBig.Feasible || dpiTooBig.Height != 0
+        throw Error("Physically oversized book incorrectly accepted by the monitor planner.")
     normalAgain := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if normalAgain.Height != normalBook.Height
         || normalAgain.CharacterTop != normalBook.CharacterTop
