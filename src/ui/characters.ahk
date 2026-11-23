@@ -187,7 +187,7 @@ RefreshProfiles()
                 SetBookTick(controls.Tick, SelectedProfile = index)
             }
         }
-        descriptionText := "Add, edit, or delete character details here. This won't affect them in-game."
+        descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
         ; Use the same gap below Add character in both list states.
