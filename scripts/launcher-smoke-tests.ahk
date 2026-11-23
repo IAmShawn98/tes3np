@@ -845,10 +845,33 @@ NativeInterfaceFontHeight(control)
     return Abs(NumGet(definition, 0, "Int"))
 }
 
+
+; Native, pure layout preflight: verify the exact baseline and overflow
+; condition that the previous partial Character Book reflow got wrong.
+CheckAccessibleLayoutPreflight()
+{
+    rows := {Id: "character-rows", Height: 239, GapAfter: 10}
+    add := {Id: "add-character", Height: 30, MinimumTop: 540}
+    baseline := PlanAccessibleVerticalStack([
+        {Id: "full-description", Height: 81, GapAfter: 3}, rows, add], 80, 570)
+    if !baseline.Feasible || baseline.Items[1].Top != 80
+        || baseline.Items[2].Top != 164 || baseline.Items[3].Top != 540
+        throw Error("Baseline Character Book layout planning changed.")
+    enlarged := PlanAccessibleVerticalStack([
+        {Id: "full-description", Height: 220, GapAfter: 3}, rows, add], 80, 570)
+    if enlarged.Feasible || enlarged.Overflow <= 0
+        throw Error("Infeasible enlarged Character Book geometry was accepted.")
+    restored := PlanAccessibleVerticalStack([
+        {Id: "full-description", Height: 81, GapAfter: 3}, rows, add], 80, 570)
+    if !restored.Feasible || restored.Items[2].Top != baseline.Items[2].Top
+        throw Error("Normal layout did not restore its original geometry.")
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
     oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
+    CheckAccessibleLayoutPreflight()
     try
     {
         bodyHeights := [], settingsHeights := []
