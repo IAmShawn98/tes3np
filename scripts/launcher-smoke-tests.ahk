@@ -917,10 +917,15 @@ CheckAccessibleLayoutPreflight()
     {
         first := sandbox.Add("Text", "x10 y10 w65 h22", "One")
         second := sandbox.Add("Text", "x100 y10 w65 h22", "Two")
+        incompletePlan := ApplyAccessibleControlLayout(sandbox, [
+            {Id: "first", Control: first, X: 20, Y: 48, Width: 65, Height: 22}
+        ], 300, 200)
+        if incompletePlan.Applied
+            throw Error("Unvalidated layout transaction moved a native control.")
         collisionPlan := ApplyAccessibleControlLayout(sandbox, [
             {Id: "first", Control: first, X: 30, Y: 40, Width: 65, Height: 22},
             {Id: "second", Control: second, X: 45, Y: 40, Width: 65, Height: 22}
-        ], 300, 200)
+        ], 300, 200, true)
         if collisionPlan.Applied
             throw Error("Rejected dynamic layout unexpectedly moved native controls.")
         first.GetPos(&bx, &by, &bw, &bh)
@@ -929,7 +934,7 @@ CheckAccessibleLayoutPreflight()
         movePlan := ApplyAccessibleControlLayout(sandbox, [
             {Id: "first", Control: first, X: 20, Y: 48, Width: 65, Height: 22},
             {Id: "second", Control: second, X: 100, Y: 48, Width: 65, Height: 22}
-        ], 300, 200)
+        ], 300, 200, true)
         if !movePlan.Applied
             throw Error("Feasible native control layout did not apply.")
         second.GetPos(&mx, &my, &mw, &mh)
@@ -938,7 +943,7 @@ CheckAccessibleLayoutPreflight()
         resetPlan := ApplyAccessibleControlLayout(sandbox, [
             {Id: "first", Control: first, X: 10, Y: 10, Width: 65, Height: 22},
             {Id: "second", Control: second, X: 100, Y: 10, Width: 65, Height: 22}
-        ], 300, 200)
+        ], 300, 200, true)
         if !resetPlan.Applied
             throw Error("Returning to Normal did not restore layout targets.")
         first.GetPos(&rx, &ry, &rw, &rh)
