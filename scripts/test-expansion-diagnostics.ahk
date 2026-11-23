@@ -49,6 +49,15 @@ AddStyledButton(gui, x, y, width, height, text, callback)
     return MismatchFixtureDisallow("styled button")
 }
 
+; The production Expansion Pack dialog now uses the shared Interface Text
+; font wrapper. This isolated no-GUI fixture deliberately does NOT include
+; launcher-settings.ahk, so resolve its external dependency with a forbidden
+; stub. The stub must never be called during these pure parser tests.
+SetAccessibleTextFont(target, options, fontName := unset)
+{
+    return MismatchFixtureDisallow("accessible UI font")
+}
+
 SendLauncherChatCommand(command, targetHwnd := 0)
 {
     return MismatchFixtureDisallow("ChatHost command")
