@@ -390,8 +390,8 @@ def check(allow_missing_payload: bool = False) -> None:
             and 0 <= favorite_notice < save_notice < save_favorite
         ),
         "favorite description and newly approved compact layout stay aligned": (
-            'descriptionText := "Add, edit, or delete character details here.' in character_ui
-            and 'This won\'t affect them in-game."' in character_ui
+            'descriptionText := "This is a list of all your characters.' in character_ui
+            and 'does not impact them in-game!"' in character_ui
             and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in character_ui
             and 'y := 164 + (index - 1) * 24' in character_ui
             and 'actionY := Profiles.Length ? 540 : 164' in character_ui
