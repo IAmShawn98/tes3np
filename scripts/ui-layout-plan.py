@@ -196,6 +196,7 @@ class BookPlan:
     character_pitch: int = 24
     macro_pitch: int = 70
     show_limit_notice: bool = False
+    requires_art_extension: bool = False
 
 
 
@@ -394,4 +395,5 @@ def plan_character_macro_book(
                     macro_row_height=macro_row_height,
                     character_pitch=effective_row_pitch,
                     macro_pitch=effective_macro_pitch,
-                    show_limit_notice=show_limit_notice)
+                    show_limit_notice=show_limit_notice,
+                    requires_art_extension=(needed_page_height > baseline_height))
