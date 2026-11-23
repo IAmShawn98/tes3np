@@ -265,6 +265,24 @@ expect(
     and "Math.Max(0, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalSeconds))" in source,
 )
 expect(
+    "Image-only Happy Hours keep source media, retry after quiet-feed failures and retain known authors",
+    'void RetryDueHappyHourImages()' in source
+    and 'RetryDueHappyHourImages();' in chat_window
+    and 'nextHappyHourImageRetry = now.AddSeconds(2);' in source
+    and 'failedImageAttempts[url] = attempts;' in source
+    and 'LogHappyHourSourceImageCoverage(messages);' in source
+    and 'window.__tes3npSourceAuthorById' in feed_extractor,
+)
+expect(
+    "Manual history browsing must restore the verified hidden Discord live source",
+    'bool manualHistorySourceMoved;' in chat_history
+    and 'if (!forHappyHour) manualHistorySourceMoved = true;' in chat_history
+    and 'void RestoreLiveSourceAfterManualHistory()' in chat_history
+    and 'Restoring live Discord source after manual history browsing' in chat_history
+    and 'historyCatchupActive = false;' in chat_renderer,
+)
+
+expect(
     "Recent cached Happy Hour does not suppress searches for newer activations",
     'checking for a newer Discord activation' in source
     and 'initialBackfillComplete = false;\n            initialBackfillStarted = DateTime.MinValue;\n            initialBackfillAttempts = 0;' in source

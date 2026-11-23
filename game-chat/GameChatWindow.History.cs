@@ -6,6 +6,10 @@ internal sealed partial class GameChatWindow
 
     bool loadingHistory;
 
+    // Manual historical scrolling shares the Discord source used for live
+    // monitoring. Remember when that source was moved so we can restore it.
+    bool manualHistorySourceMoved;
+
     ulong lastHistoryOldestId = ulong.MaxValue;
 
     int historyStallCount;
@@ -36,6 +40,7 @@ internal sealed partial class GameChatWindow
             (historyAwaitingNavigation && DateTime.UtcNow - historyNavigationStarted < TimeSpan.FromMilliseconds(900))) return;
         loadingHistory = true;
         lastHistoryRequest = DateTime.UtcNow;
+        if (!forHappyHour) manualHistorySourceMoved = true;
         try
         {
             // Happy Hour scans must page their own observed window, not the
@@ -398,6 +403,27 @@ internal sealed partial class GameChatWindow
         _ = LoadOlderMessages();
     }
 
+    // Unlike startup Happy Hour backfill, normal scrollback used to leave the
+    // hidden WebView anchored to old messages indefinitely. Reanchor it when
+    // the user closes chat or returns to the latest end, and redo the verified
+    // source-tail scan before treating the source as live again.
+    void RestoreLiveSourceAfterManualHistory()
+    {
+        if (!manualHistorySourceMoved || closingChat || IsDisposed ||
+            !initialBackfillComplete || loadingHistory || discordNavigationInProgress ||
+            !discordChannelReady || discordLoginVisible || web.CoreWebView2 == null)
+            return;
+        bool atLatest = browserScrollHeight - browserClientHeight - browserScrollTop <= 96;
+        if (chatOpen && (historyCatchupActive || (userScrolledChat && !atLatest))) return;
+        manualHistorySourceMoved = false;
+        waitingForLiveFeedAfterHistory = true;
+        lastRestoredFeed = "";
+        restoredFeedStableTicks = 0;
+        BeginHappyHourDiscovery();
+        Log("CHAT | Restoring live Discord source after manual history browsing");
+        web.CoreWebView2.Navigate(Channel);
+    }
+
     void MaintainHistory(object? sender, EventArgs e)
     {
         if (closingChat || IsDisposed) return;
@@ -409,7 +435,10 @@ internal sealed partial class GameChatWindow
             if (!initialBackfillComplete)
                 BackfillUntilHappyHour();
             else
-                RequestOlderMessages();
+            {
+                RestoreLiveSourceAfterManualHistory();
+                if (initialBackfillComplete) RequestOlderMessages();
+            }
         }
     }
 

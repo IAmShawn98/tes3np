@@ -6,6 +6,28 @@ internal sealed partial class GameChatWindow
 
     readonly System.Collections.Generic.Dictionary<string, DateTime> failedImages = new();
 
+    readonly System.Collections.Generic.Dictionary<string, int> failedImageAttempts = new();
+
+    DateTime nextHappyHourImageRetry = DateTime.MinValue;
+
+    // A quiet Discord feed must not starve a failed image-only Happy Hour.
+    // Retry only still-active, Yagrum-attributed image candidates, on a
+    // bounded backoff independent of whether the feed JSON changes.
+    void RetryDueHappyHourImages()
+    {
+        DateTime now = DateTime.UtcNow;
+        if (closingChat || IsDisposed || now < nextHappyHourImageRetry) return;
+        nextHappyHourImageRetry = now.AddSeconds(2);
+        foreach (var failed in failedImages.ToArray())
+        {
+            if (failed.Value > now || pendingImages.Contains(failed.Key) ||
+                !happyHourImageMessageIds.TryGetValue(failed.Key, out var ids) ||
+                !ids.Any(id => DiscordTimestamp(id).AddHours(1) > DateTimeOffset.UtcNow))
+                continue;
+            _ = FetchChatImage(failed.Key);
+        }
+    }
+
     static readonly System.Net.Http.HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
 
     bool imagesNeedRedraw;
@@ -78,9 +100,22 @@ internal sealed partial class GameChatWindow
         finally
         {
             if (imageCache.ContainsKey(url))
+            {
                 failedImages.Remove(url);
+                failedImageAttempts.Remove(url);
+            }
             else if (!closingChat && !IsDisposed)
-                failedImages[url] = DateTime.UtcNow.AddMinutes(2);
+            {
+                int attempts = failedImageAttempts.TryGetValue(url, out int previous)
+                    ? previous + 1 : 1;
+                failedImageAttempts[url] = attempts;
+                bool activeCandidate = happyHourImageMessageIds.TryGetValue(url, out var ids) &&
+                    ids.Any(id => DiscordTimestamp(id).AddHours(1) > DateTimeOffset.UtcNow);
+                int delaySeconds = activeCandidate
+                    ? Math.Min(120, 15 * (1 << Math.Min(attempts - 1, 3)))
+                    : 120;
+                failedImages[url] = DateTime.UtcNow.AddSeconds(delaySeconds);
+            }
             pendingImages.Remove(url);
             imagesNeedRedraw = true;
         }

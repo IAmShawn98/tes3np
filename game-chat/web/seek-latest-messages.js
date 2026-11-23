@@ -5,15 +5,25 @@
   // Discord can reopen a channel at an old read marker. Scrolling to the
   // bottom of that virtual window alone does not prove we reached the live
   // channel. Ask Discord's own "Jump to Present" control first when shown.
-  const jump = [...document.querySelectorAll('button, [role="button"]')].find(button => {
-    const label = [button.getAttribute('aria-label'), button.getAttribute('title'),
-      button.textContent].filter(Boolean).join(' ');
-    return /jump to (?:present|latest)/i.test(label) &&
-      button.getClientRects().length > 0;
-  });
-  if (jump) {
-    jump.click();
-    return 'jump-requested';
+  // Source styling can hide Discord's native Jump to Present control.
+  // Briefly disable only TES3NP's injected stylesheet while locating/clicking
+  // the real Discord button, then restore the source appearance exactly.
+  const sourceStyle = document.getElementById('tes3np-chat-style')?.sheet;
+  const restoreStyle = sourceStyle && !sourceStyle.disabled;
+  if (restoreStyle) sourceStyle.disabled = true;
+  try {
+    const jump = [...document.querySelectorAll('button, [role="button"]')].find(button => {
+      const label = [button.getAttribute('aria-label'), button.getAttribute('title'),
+        button.textContent].filter(Boolean).join(' ');
+      return /jump to (?:present|latest)/i.test(label) &&
+        button.getClientRects().length > 0;
+    });
+    if (jump) {
+      jump.click();
+      return 'jump-requested';
+    }
+  } finally {
+    if (restoreStyle) sourceStyle.disabled = false;
   }
 
   let scroller = list;

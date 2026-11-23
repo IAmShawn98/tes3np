@@ -49,6 +49,10 @@ internal sealed partial class GameChatWindow
                     browserScrollHeight = (int)Math.Round(root.GetProperty("height").GetDouble());
                     browserClientHeight = (int)Math.Round(root.GetProperty("client").GetDouble());
                     userScrolledChat = root.TryGetProperty("userScrolled", out var interacted) && interacted.GetBoolean();
+                    // Returning to the live end stops old-history catchup
+                    // even when the user scrolls instead of clicking the button.
+                    if (browserScrollHeight - browserClientHeight - browserScrollTop <= 96)
+                        historyCatchupActive = false;
                     goldScrollbar.Invalidate();
                     if (userScrolledChat && browserScrollTop < Math.Max(900, browserClientHeight * 3)) RequestOlderMessages();
                 }

@@ -25,6 +25,12 @@
     if (restoreTheme) theme.disabled = false;
   }
   let lastVisibleAuthor = '';
+  // Preserve an author already observed for this exact Discord message ID
+  // when virtualized grouped messages lose their username header. Do not
+  // infer authors for previously unseen headerless rows.
+  const sourceAuthorById = window.__tes3npSourceAuthorById ||
+    (window.__tes3npSourceAuthorById = new Map());
+  if (sourceAuthorById.size > 5000) sourceAuthorById.clear();
   return JSON.stringify(rows.map((el, index) => {
     const usernameEl = authors[index];
     const user = usernameEl?.textContent?.trim() || '';
@@ -32,7 +38,8 @@
     // Discord groups consecutive posts under one username.
     // Preserve the native chat layout's original user field,
     // but retain the source author when authenticating bot images.
-    const sourceAuthor = user || lastVisibleAuthor;
+    const sourceAuthor = user || sourceAuthorById.get(el.id) || lastVisibleAuthor;
+    if (sourceAuthor) sourceAuthorById.set(el.id, sourceAuthor);
     // Reserve gold for the bot's own name, including when a
     // player chooses the same Discord display name.
     const isYagrum = user.toLowerCase() === 'yagrum' &&

@@ -125,6 +125,7 @@ internal sealed partial class GameChatWindow : Form
             await CheckDiscordAuthentication();
             PublishDiscordAccount();
             _ = RefreshServerUpdates();
+            RetryDueHappyHourImages();
             await RefreshNativeMessages();
             if (closingChat || IsDisposed) return;
             PositionChatWindows();

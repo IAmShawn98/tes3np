@@ -10,6 +10,22 @@ internal sealed partial class GameChatWindow
     bool feedInitialized;
     ulong latestMessageId;
 
+    DateTime nextHappyHourSourceImageLog = DateTime.MinValue;
+
+    void LogHappyHourSourceImageCoverage(IReadOnlyList<DiscordFeedRow> rows)
+    {
+        if (DateTime.UtcNow < nextHappyHourSourceImageLog) return;
+        var imageRows = rows.Where(row => row.Message.Images.Length > 0).ToArray();
+        if (imageRows.Length == 0) return;
+        int named = imageRows.Count(row => IsHappyHourAuthor(row.SourceAuthor));
+        int unknown = imageRows.Count(row => string.IsNullOrWhiteSpace(row.SourceAuthor));
+        nextHappyHourSourceImageLog = DateTime.UtcNow.AddSeconds(30);
+        // Count-only diagnostics: no messages, IDs, URLs or private authors.
+        Log("HAPPY HOUR | Source attachment rows=" + imageRows.Length +
+            "; Yagrum-name attributed=" + named +
+            "; unknown author=" + unknown);
+    }
+
     async Task RefreshNativeMessages()
     {
         if (refreshingNativeFeed || closingChat || IsDisposed || web.CoreWebView2 == null ||
@@ -45,6 +61,7 @@ internal sealed partial class GameChatWindow
             }
 
             ObserveHappyHourSourcePage(messages, feedNavigationId);
+            LogHappyHourSourceImageCoverage(messages);
             NotifyForNewMessage(messages[^1].Id);
             EnsureChatLogLoaded();
             ulong previousFirst = history.Count > 0 ? history.First().Key : ulong.MaxValue;

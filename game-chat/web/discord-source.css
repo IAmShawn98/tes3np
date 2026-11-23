@@ -1,3 +1,5 @@
+/* Keep Discord's native Jump to Present and image attachments laid out in the
+   authenticated hidden source. The player-facing chat uses another renderer. */
 /* TES3NP compact, read-only message feed */
 :root, html, body, #app-mount {
   background: #17130e !important; color: #ead6aa !important;
@@ -7,7 +9,7 @@
 [class*="membersWrap_"], [class*="members_"], [class*="panels_"],
 [class*="form_"], [class*="channelTextArea_"], [class*="toolbar_"],
 [class*="notice_"], [class*="titleWrapper_"], [class*="upperContainer_"],
-[class*="chatHeaderBar_"], [class*="jumpToPresentBar_"],
+[class*="chatHeaderBar_"], 
 [class*="newMessagesBar_"], [class*="typing_"],
 [class*="avatar_"], [class*="botTag_"], [class*="buttons_"],
 [class*="channelName_"], [class*="chatHeader_"], [class*="searchBar_"],
@@ -39,7 +41,7 @@
   color: #d8b26d !important; letter-spacing: .2px !important;
 }
 [class*="timestamp_"], [class*="divider_"], [class*="repliedMessage_"],
-[class*="messageAccessories_"], [class*="reaction_"],
+ [class*="reaction_"],
 [class*="buttonContainer_"], [class*="messageToolbar_"] {
   display: none !important;
 }

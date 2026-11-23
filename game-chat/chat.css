@@ -1,10 +1,12 @@
+/* Keep Discord's native Jump to Present and image attachments laid out in the
+   authenticated hidden source. The player-facing chat uses another renderer. */
 /* TES3NP chat appearance - edit and save; launcher reloads automatically. */
 :root,html,body,#app-mount { background:rgba(0,0,0,.78)!important;color:#ead7ae!important; }
 [class*="guilds_"],[class*="sidebar_"],[class*="sidebarList_"],
 [class*="membersWrap_"],[class*="members_"],[class*="panels_"],
 [class*="form_"],[class*="channelTextArea_"],[class*="toolbar_"],
 [class*="notice_"],[class*="titleWrapper_"],[class*="upperContainer_"],
-[class*="chatHeaderBar_"],[class*="jumpToPresentBar_"],[class*="newMessagesBar_"],
+[class*="chatHeaderBar_"],[class*="newMessagesBar_"],
 [class*="typing_"],[class*="avatar_"],[class*="botTag_"],
 [class*="buttons_"],[class*="channelName_"],[class*="chatHeader_"],
 [class*="searchBar_"],[class*="topic_"],[class*="titleContainer_"],
@@ -25,7 +27,7 @@
 }
 [class*="username_"] {font:bold 12px Georgia,serif!important;color:#d9b978!important}
 [class*="timestamp_"],[class*="divider_"],[class*="repliedMessage_"],
-[class*="messageAccessories_"],[class*="reaction_"] {display:none!important}
+[class*="reaction_"] {display:none!important}
 ::-webkit-scrollbar{width:6px!important}
 ::-webkit-scrollbar-track{background:#241b12!important}
 ::-webkit-scrollbar-thumb{background:#94744a!important;border-radius:3px!important}
