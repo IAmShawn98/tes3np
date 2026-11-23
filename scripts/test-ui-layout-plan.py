@@ -146,6 +146,48 @@ class LayoutPlanningTest(unittest.TestCase):
                            dict(normal.controls)["macro-rows"].height)
         self.assertGreater(macro_grown.page_height, normal.page_height)
 
+    def test_full_control_plan_keeps_approved_normal_positions(self):
+        plan = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        positions = layout.expand_book_control_positions(plan)
+        self.assertEqual(layout.validate_book_control_positions(plan, positions), ())
+        controls = dict(positions)
+        self.assertEqual(controls["character-1-name"], layout.Rect(95, 164, 140, 23))
+        self.assertEqual(controls["character-10-remove"], layout.Rect(365, 380, 75, 23))
+        self.assertEqual(controls["macro-1-status"], layout.Rect(551, 140, 329, 17))
+        self.assertEqual(controls["macro-4-run"], layout.Rect(551, 392, 103, 20))
+        self.assertEqual(controls["footer-close"], layout.Rect(515, 575, 90, 30))
+
+    def test_full_control_plan_reflows_all_row_buttons_together(self):
+        normal = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        enlarged = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
+        self.assertTrue(enlarged.feasible, enlarged.violations)
+        before = dict(layout.expand_book_control_positions(normal))
+        after = dict(layout.expand_book_control_positions(
+            enlarged, character_row_height=38, macro_row_height=130))
+        self.assertEqual(layout.validate_book_control_positions(enlarged, tuple(after.items())), ())
+        self.assertGreater(after["character-1-play"].y, before["character-1-play"].y)
+        self.assertEqual(after["character-1-play"].y, after["character-1-name"].y)
+        self.assertEqual(after["character-1-remove"].y, after["character-1-name"].y)
+        self.assertGreater(after["macro-4-run"].y, before["macro-4-run"].y)
+        self.assertEqual(after["macro-4-run"].y, after["macro-4-stop"].y)
+
+    def test_control_plan_rejects_infeasible_parent_and_restores_normal(self):
+        rejected = layout.plan_character_macro_book(220, 72, 38, 130, 960, 650)
+        self.assertEqual(layout.expand_book_control_positions(rejected), ())
+        baseline = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        restored = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        self.assertEqual(layout.expand_book_control_positions(baseline),
+                         layout.expand_book_control_positions(restored))
+
+    def test_validator_catches_colliding_click_targets(self):
+        plan = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        broken = (
+            ("character-1-play", layout.Rect(240, 164, 55, 22)),
+            ("character-1-edit", layout.Rect(250, 164, 60, 22)),
+        )
+        self.assertTrue(any("overlap" in item
+                            for item in layout.validate_book_control_positions(plan, broken)))
+
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
             layout.plan_vertical_stack(0, 200, ("not-a-layout-item",))
