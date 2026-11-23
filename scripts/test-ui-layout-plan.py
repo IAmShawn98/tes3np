@@ -370,7 +370,12 @@ class LayoutPlanningTest(unittest.TestCase):
             70, 40, 23, 62, 1920, 1080,
             measured_character_name_width=215, measured_macro_name_width=165)
         self.assertTrue(normal.feasible, normal.violations)
-        self.assertTrue(normal.live_application_ready)
+        self.assertFalse(normal.live_application_ready)
+        approved_fixture = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            measured_character_name_width=110, measured_macro_name_width=100,
+            complete_control_metrics=True, artwork_strategy_validated=True)
+        self.assertTrue(approved_fixture.live_application_ready)
         self.assertTrue(long_names.feasible, long_names.violations)
         self.assertTrue(long_names.requires_horizontal_reflow)
         self.assertFalse(long_names.live_application_ready)
@@ -386,6 +391,26 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertFalse(unmeasured.live_application_ready)
         self.assertTrue(enlarged.requires_art_extension)
         self.assertFalse(enlarged.live_application_ready)
+
+    def test_incomplete_metrics_and_unverified_artwork_block_live_application(self):
+        kwargs = dict(
+            measured_character_name_width=115,
+            measured_macro_name_width=103,
+        )
+        no_controls = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            artwork_strategy_validated=True, **kwargs)
+        no_art = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            complete_control_metrics=True, **kwargs)
+        both = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            complete_control_metrics=True, artwork_strategy_validated=True,
+            **kwargs)
+        self.assertFalse(no_controls.live_application_ready)
+        self.assertFalse(no_art.live_application_ready)
+        self.assertTrue(both.live_application_ready)
+        self.assertEqual(no_controls.controls, both.controls)
 
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
