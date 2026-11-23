@@ -136,6 +136,40 @@ MeasureAccessibleWrappedText(control, caption, width)
     }
 }
 
+
+; Pure geometry preflight for text-aware native layouts. Callers provide
+; actual measured text heights, then check Feasible BEFORE moving any HWND.
+; Items: {Id, Height, MinimumHeight, GapAfter, MinimumTop}.
+; This does NOT change any control, font, button face or cached book state.
+PlanAccessibleVerticalStack(items, top, availableBottom)
+{
+    if top < 0 || availableBottom < top
+        throw Error("Invalid accessible layout bounds.")
+    result := []
+    cursor := top
+    for item in items
+    {
+        if !IsObject(item) || !item.HasOwnProp("Id") || !item.HasOwnProp("Height")
+            throw Error("Missing accessible layout item fields.")
+        minimum := item.HasOwnProp("MinimumHeight") ? item.MinimumHeight : 0
+        gap := item.HasOwnProp("GapAfter") ? item.GapAfter : 0
+        minimumTop := item.HasOwnProp("MinimumTop") ? item.MinimumTop : 0
+        if item.Height < 0 || minimum < 0 || gap < 0 || minimumTop < 0
+            throw Error("Negative accessible layout measurement.")
+        cursor := Max(cursor, minimumTop)
+        height := Max(item.Height, minimum)
+        result.Push({Id: item.Id, Top: cursor, Bottom: cursor + height,
+            Height: height})
+        cursor += height + gap
+    }
+    neededBottom := top
+    for entry in result
+        neededBottom := Max(neededBottom, entry.Bottom)
+    overflow := Max(0, neededBottom - availableBottom)
+    return {Feasible: overflow = 0, Items: result, NeededBottom: neededBottom,
+        AvailableBottom: availableBottom, Overflow: overflow}
+}
+
 ScaleOwnedMenuContent(gui, scale)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
