@@ -83,6 +83,13 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)", refresh)
         self.assertIn("transferY := Profiles.Length ? 575 : actionY + 35", refresh)
         self.assertNotIn("CharacterDescription.Text := StrReplace", refresh)
+        # Cached books must remeasure only when the font choice changed.
+        open_section = source[
+            source.index("OpenCharacterPage(*)"):source.index("\nRefreshProfiles()\n{")]
+        self.assertIn("cachedTextChanged := CharacterPage.HasOwnProp", open_section)
+        self.assertIn("if cachedTextChanged && !Profiles.Length", open_section)
+        self.assertIn("RefreshProfiles()", open_section)
+        self.assertIn('CharacterPage.Show("Hide w" Round(960 * bookScale)', open_section)
 
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
