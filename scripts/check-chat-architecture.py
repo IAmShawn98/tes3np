@@ -2779,7 +2779,11 @@ expect(
     and section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(').count(
         'DllCall("user32\\FrameRect"') == 2
     and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
-    and "fontHeight := -Max(9, Min(Round(AccessibilityFontSize(21) * paintScale)," in embedded_chat
+    and "requestedHeight := Max(9, Round(AccessibilityFontSize(21) * paintScale))" in embedded_chat
+    and "availableAdvance := Max(1, baselineY - Max(2, Round(h * 0.06)))" in embedded_chat
+    and 'GetTextExtentPoint32W' in section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(')
+    and 'if advance > availableAdvance' in embedded_chat
+    and '"Int", baselineY, "Str", label' in embedded_chat
     and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat
     and "arrowHeight := Max(4, Round(10 * paintScale))" in embedded_chat,
 )
