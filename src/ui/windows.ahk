@@ -314,7 +314,9 @@ ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
                 "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
             DllCall("user32\RedrawWindow", "Ptr", gui.Hwnd,
                 "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
-            RepaintMenuButtons()
+            ; Synchronize live hitbox geometry AND painter baselines before
+            ; repainting. RepaintMenuButtons alone leaves BaseWidth stale.
+            FinishButtonDisplay()
         }
     }
     return {Applied: true, Errors: []}
