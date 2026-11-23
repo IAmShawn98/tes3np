@@ -496,7 +496,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
             and 'macro.LastError := "Could not stop"' in macro
             and 'macro.LastError := ""' in macro
-            and 'itemRow.Status.SetFont(state.Error ? "s" Max(7, BookS(9)) " cB22222"' in macro
+            and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "s" Max(7, BookS(9)) " cB22222"' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro,
         "scroll wheel and draggable thumb still attached":
             'MacroScrollTrack := CharacterPage.Add("Text"' in macro
