@@ -137,6 +137,40 @@ MeasureAccessibleWrappedText(control, caption, width)
 }
 
 
+
+; Returns the unshortened single-line glyph extent from the current native
+; font. Never modifies the control or replaces a larger requested text size.
+; Used by future horizontal layout preflights for names, buttons and headings.
+MeasureAccessibleSingleLineText(control, caption)
+{
+    if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd)
+        throw Error("Cannot measure a missing text control.")
+    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
+    if !dc
+        throw Error("Cannot obtain horizontal text metrics.")
+    previous := 0
+    try
+    {
+        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
+            "UInt", 0x31, "Ptr", 0, "Ptr", 0)
+        if font
+            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+        bounds := Buffer(8, 0)
+        if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc,
+            "WStr", caption, "Int", StrLen(caption), "Ptr", bounds, "Int")
+            throw Error("Failed to measure horizontal interface text.")
+        return {Width: NumGet(bounds, 0, "Int"),
+            Height: NumGet(bounds, 4, "Int")}
+    }
+    finally
+    {
+        if previous
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
+        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+    }
+}
+
+
 ; Pure geometry preflight for text-aware native layouts. Callers provide
 ; actual measured text heights, then check Feasible BEFORE moving any HWND.
 ; Items: {Id, Height, MinimumHeight, GapAfter, MinimumTop}.
