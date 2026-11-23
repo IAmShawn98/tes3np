@@ -389,12 +389,16 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'if result != "Yes"\n            return' in character_ui
             and 0 <= favorite_notice < save_notice < save_favorite
         ),
-        "favorite description and newly approved compact layout stay aligned": (
+        "favorite description retains full copy and uses measured accessible reflow": (
             'descriptionText := "This is a list of all your characters.' in character_ui
             and 'does not impact them in-game!"' in character_ui
-            and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in character_ui
-            and 'y := 164 + (index - 1) * 24' in character_ui
-            and 'actionY := Profiles.Length ? 540 : 164' in character_ui
+            and 'ReflowCharacterBookDescription()' in character_ui
+            and 'MeasureAccessibleWrappedText(CharacterDescription,' in character_ui
+            and 'firstRowY := Max(164, 80 + Ceil(paragraphHeight / GetCharacterBookScale()) + 12)' in character_ui
+            and 'MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)' in character_ui
+            and 'MoveStyledButton(controls.Remove, 365, y, 75, 22)' in character_ui
+            and "NextCharacterDescriptionPage" not in character_ui
+            and "FitCharacterDescriptionFont(" not in character_ui
             and "Click on the tick box before one of your characters" not in character_ui
         ),
         "favorite notice included in portable backup": (
