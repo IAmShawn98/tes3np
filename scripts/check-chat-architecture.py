@@ -1918,6 +1918,26 @@ expect(
     and 'if staged\n            RevealPaintedPage(settings)\n        else\n            FinishButtonDisplay()' in settings_open
     and 'SetPageCompositorCloak(settings, false)' in settings_open,
 )
+interface_loading = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
+interface_update_completion = section_between(
+    interface_loading,
+    "EndInterfaceUpdate()",
+    "\n\n; A transient owned window",
+)
+expect(
+    "Settings/Data transitions complete native child painting before frame-cover removal",
+    'global V016SettingsGuiHwnd' in interface_update_completion
+    and 'isSettingsPage := V016SettingsGuiHwnd && targetWindow = V016SettingsGuiHwnd' in interface_update_completion
+    and 'if !isCharacterBook && !isSettingsPage' in interface_update_completion
+    and 'if isCharacterBook || isSettingsPage' in interface_update_completion
+    and '"UInt", 0x0181' in interface_update_completion
+    and in_order(
+        interface_update_completion,
+        'if isCharacterBook || isSettingsPage',
+        'DllCall("RedrawWindow", "Ptr", targetWindow',
+        'ReleaseInterfaceFrame()',
+    ),
+)
 expect(
     "Only page presentation uses DWM cloak and forces child paints before uncloak",
     'SetPageCompositorCloak(gui, cloak)' in window_presenter
