@@ -585,7 +585,9 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     page := {Offset: 1, Lines: lines, MaxOffset: lastOffset, Closed: false}
     noteRows := [sample]
     rowStyles := ["body"]
-    cachedRowY := [firstY]
+    ; The first measurement control starts with h1, not the real rowHeight.
+    ; Force its first Move even though its initial y already equals firstY.
+    cachedRowY := [-1]
     ; Allocate the whole viewport so switching from short to long notes fills it.
     Loop capacity - 1 {
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))

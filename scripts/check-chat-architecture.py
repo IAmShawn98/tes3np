@@ -1927,7 +1927,8 @@ interface_update_completion = section_between(
 update_notes_ui = (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Release-note scrolling avoids redundant moves and native text-background flashes",
-    'cachedRowY := [firstY]' in update_notes_ui
+    'cachedRowY := [-1]' in update_notes_ui
+    and 'Force its first Move even though its initial y already equals firstY.' in update_notes_ui
     and 'cachedRowY.Push(firstY)' in update_notes_ui
     and 'if cachedRowY[index] != y {' in update_notes_ui
     and 'if row.Text != entry.Text' in update_notes_ui
