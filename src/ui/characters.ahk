@@ -34,7 +34,7 @@ ApplyCharacterBookScale(scale)
 OpenCharacterPage(*)
 {
     global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
-    global AccessibilityTextSize
+    global AccessibilityTextSize, Profiles
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -48,9 +48,16 @@ OpenCharacterPage(*)
         try
         {
             ; A cached book can predate the new Interface Text preference.
+            cachedTextChanged := CharacterPage.HasOwnProp("InterfaceFontMode")
+                && CharacterPage.InterfaceFontMode != AccessibilityTextSize
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
+            ; The empty book's description and action stack depend on the
+            ; actual font. A cached font change must recompute that live
+            ; geometry before reveal, but ordinary cached reopen stays fast.
+            if cachedTextChanged && !Profiles.Length
+                RefreshProfiles()
             CharacterPage.Show("Hide w" Round(960 * bookScale)
                 " h" Round(650 * bookScale))
             PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
