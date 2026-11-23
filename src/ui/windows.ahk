@@ -300,9 +300,14 @@ PlanAccessibleMeasuredControlFlow(items, x, y, availableWidth,
 ; through the Character Book's BookS scaling helper: this primitive must also
 ; work for all other owned menus without multiplying the scale twice.
 ; This is not called by the live launcher until artwork/content fit is solved.
-ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
+ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight,
+    validatedPlan := false)
 {
     global ButtonFaces
+    ; Fail closed. Only an explicit COMPLETE, artwork-safe layout plan may
+    ; authorize moving any control. Sandbox smoke must also supply approval.
+    if !validatedPlan
+        return {Applied: false, Errors: ["Layout plan lacks complete validation."]}
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
         throw Error("Cannot apply layout to a missing window.")
     rectangles := [], snapshots := []
