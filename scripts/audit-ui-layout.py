@@ -111,6 +111,8 @@ def main():
     parser.add_argument("--output", type=Path, help="Write report here, relative to repository root")
     options = parser.parse_args()
     report = summarize(inventory())
+    if not report["files"]:
+        parser.error("No production UI source files were inventoried.")
     output = (json.dumps(report, indent=2, ensure_ascii=False) + "\n"
               if options.format == "json" else as_markdown(report))
     if options.output:
