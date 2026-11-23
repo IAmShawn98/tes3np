@@ -8,9 +8,9 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     response := {Accepted: false}
     window := CreateGoldNativePrompt(0, "tes3np — Update Confirmation", 640, 258)
     try {
-        window.SetFont("s15 Bold cC5A45C", "Georgia")
+        SetAccessibleTextFont(window, "s15 Bold cC5A45C", "Georgia")
         extra := AddGoldPromptCopy(window, 32, 26, 588, 32, title)
-        window.SetFont("s10 cFFFFFF", "Segoe UI")
+        SetAccessibleTextFont(window, "s10 cFFFFFF", "Segoe UI")
         extra += AddGoldPromptCopy(window, 32, 86 + extra, 588, 67, message)
         AddStyledButton(window, 221, 203 + extra, 185, 34, confirmLabel, (*) => (response.Accepted := true, DestroyScaledMenu(window)))
         AddStyledButton(window, 422, 203 + extra, 185, 34, "Not Now", (*) => DestroyScaledMenu(window))
@@ -56,7 +56,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     closeMissed := 0
     try
     {
-        preview.SetFont(kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
+        SetAccessibleTextFont(preview, kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
         releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable Release"
         title := kind = "hotfix" ? "A Patch Is Available For v" installedVersion : "A New " releaseType " Is Available to Download, S'wit!"
         titleControl := preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
@@ -64,7 +64,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         ; length. Let actual Windows text metrics determine a smaller font.
         for fontSize in (kind = "hotfix" ? [14, 13, 12, 11, 10] : [12, 11, 10, 9])
         {
-            titleControl.SetFont("s" fontSize " Bold cE7BE70", "Georgia")
+            SetAccessibleTextFont(titleControl, "s" fontSize " Bold cE7BE70", "Georgia")
             if ReleaseNoteFits(titleControl, title, 548)
                 break
         }
@@ -81,7 +81,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
             GrowGoldNativePrompt(preview, rowExtra)
         }
 
-        preview.SetFont("s11 Bold cE7BE70", "Georgia")
+        SetAccessibleTextFont(preview, "s11 Bold cE7BE70", "Georgia")
         preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")
         ; One continuous outer frame contains the latest hotfix, readable
         ; scrollable notes, a gold rule, and fixed earlier-update summary.
@@ -90,7 +90,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 
         if notes.Title != ""
         {
-            preview.SetFont("s11 Bold cE7BE70", "Georgia")
+            SetAccessibleTextFont(preview, "s11 Bold cE7BE70", "Georgia")
             latestTitle := preview.Add("Text", "x40 y" (139 + rowExtra)
                 . " BackgroundTrans +0x80", notes.Title)
             latestTitle.GetPos(, , &naturalTitleWidth)
@@ -109,7 +109,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         if hasMissed
         {
             preview.Add("Text", "x40 y" (312 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
-            preview.SetFont("s12 Bold cE7BE70", "Georgia")
+            SetAccessibleTextFont(preview, "s12 Bold cE7BE70", "Georgia")
             missedHeading := preview.Add("Text", "x40 y" (324 + rowExtra + notesSpace)
                 . " w520 h28 BackgroundTrans", "Updates You Missed")
             ; A second fine gold rule separates the heading from the actual
@@ -184,7 +184,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     rows := [], badges := []
     for slot in [1, 2, 3, 4]
     {
-        panel.SetFont("s" Max(4, Round(10 * scale)) " Underline cFFF0DC", "Segoe UI")
+        SetAccessibleTextFont(panel, "s" Max(4, Round(10 * scale)) " Underline cFFF0DC", "Segoe UI")
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
         link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
@@ -205,7 +205,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
 
     ; This control stays in its own fixed footer area, independent from the
     ; missed-release scroll offset and scrollbar thumb position.
-    panel.SetFont("s9 Bold cFFF0DC", "Segoe UI")
+    SetAccessibleTextFont(panel, "s9 Bold cFFF0DC", "Segoe UI")
     markReadY := px(528 + topExtra + bottomExtra)
     clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),
         "Mark Read", ClearMissedUpdateBadges.Bind(page))
@@ -237,7 +237,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
             y := rowTop + (slot - 1) * rowStep
             item := page.Items[idx]
             caption := "v" item.Version
-            row.SetFont("s" Max(4, Round(10 * scale))
+            SetAccessibleTextFont(row, "s" Max(4, Round(10 * scale))
                 . (item.Url != "" ? " Underline cFFF0DC" : " Norm cFFF0DC"),
                 "Segoe UI")
             while StrLen(caption) > 2
@@ -269,7 +269,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22),
         "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
-        arrow.SetFont(UpdateNoteFont("heading", true, true, scale), "Segoe UI")
+        SetAccessibleTextFont(arrow, UpdateNoteFont("heading", true, true, scale), "Segoe UI")
     refresh()
     if IsObject(observer)
     {
@@ -489,7 +489,7 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
         return AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
 
     ; Preserve the separate Version Status / legacy metadata layout.
-    panel.SetFont("s10 Bold cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(panel, "s10 Bold cEDE1C9", "Segoe UI")
     baseX := 30
     labelY := 80
     rightEdge := 770
@@ -559,10 +559,10 @@ AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
         {
             for item in captions
             {
-                probe.SetFont("s" fontSize " Bold cE7BE70", "Segoe UI")
+                SetAccessibleTextFont(probe, "s" fontSize " Bold cE7BE70", "Segoe UI")
                 labelProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Label)
                 labelProbe.GetPos(, , &labelWidth)
-                probe.SetFont("s" fontSize " Norm cFFF0DC", "Segoe UI")
+                SetAccessibleTextFont(probe, "s" fontSize " Norm cFFF0DC", "Segoe UI")
                 valueProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Value)
                 valueProbe.GetPos(, , &valueWidth)
                 measuredWidth += labelWidth + valueWidth + 7
@@ -578,10 +578,10 @@ AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
     pairs := []
     for item in captions
     {
-        panel.SetFont("s" compactFontSize " Bold cE7BE70", "Segoe UI")
+        SetAccessibleTextFont(panel, "s" compactFontSize " Bold cE7BE70", "Segoe UI")
         labelControl := panel.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Label)
         labelControl.GetPos(, , &labelWidth)
-        panel.SetFont("s" compactFontSize " Norm cFFF0DC", "Segoe UI")
+        SetAccessibleTextFont(panel, "s" compactFontSize " Norm cFFF0DC", "Segoe UI")
         valueControl := panel.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Value)
         valueControl.GetPos(, , &valueWidth)
         labelWidth += 2
@@ -645,13 +645,13 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     panel := CreateGoldNativePrompt(0, "tes3np — Version Status", 800, 600)
     closeNotes := 0
     try {
-        panel.SetFont("s14 Bold cC5A45C", "Georgia")
+        SetAccessibleTextFont(panel, "s14 Bold cC5A45C", "Georgia")
         panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
-        panel.SetFont("s10 cEDE1C9", "Segoe UI")
+        SetAccessibleTextFont(panel, "s10 cEDE1C9", "Segoe UI")
         panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
-        panel.SetFont("s12 Bold cC5A45C", "Georgia")
+        SetAccessibleTextFont(panel, "s12 Bold cC5A45C", "Georgia")
         panel.Add("Text", "x30 y123 w430 h30 BackgroundTrans", "Release Notes")
-        panel.SetFont("s9 cC5A45C", "Segoe UI")
+        SetAccessibleTextFont(panel, "s9 cC5A45C", "Segoe UI")
         panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
         AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, DestroyScaledMenu(panel)))
         AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => DestroyScaledMenu(panel))

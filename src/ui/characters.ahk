@@ -34,6 +34,7 @@ ApplyCharacterBookScale(scale)
 OpenCharacterPage(*)
 {
     global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
+    global AccessibilityTextSize
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -46,6 +47,8 @@ OpenCharacterPage(*)
         staged := SetPageCompositorCloak(CharacterPage, true)
         try
         {
+            ; A cached book can predate the new Interface Text preference.
+            RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
             CharacterPage.Show("Hide w" Round(960 * bookScale)
@@ -86,19 +89,19 @@ OpenCharacterPage(*)
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
     ; Use the same native Morrowind-style face as Launcher Settings. Keep
     ; interactive buttons in their existing button font for readability.
-    CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s19 Norm c241408", LauncherMorrowindFont)
     CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Manage Characters")
     ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
     AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30, "Add character", (*) => EditProfile(0))
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
-    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
     Loop 10
     {
-        CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
+        SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
         ; Start just below the instructions; retain all ten 24px-spaced
         ; rows and their aligned painted buttons and hit targets.
@@ -115,11 +118,11 @@ OpenCharacterPage(*)
         remove := AddStyledButton(CharacterPage, 365, y, 75, 22, "Remove", RemoveVisibleProfile.Bind(index))
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
     CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 429, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
-    CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
     AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
@@ -135,6 +138,7 @@ OpenCharacterPage(*)
     ; this preserves the compact two-button action stack.
     ApplyV016CharacterLayout()
     RefreshProfiles()
+    CharacterPage.InterfaceFontMode := AccessibilityTextSize
     PrepareWindowDisplay(CharacterPage)
     staged := SetPageCompositorCloak(CharacterPage, true)
     try
@@ -331,7 +335,7 @@ EditProfile(index, *)
         LaunchSettingsHeading.Text := index ? "Editing " profile.Name : "Add New Character"
         LaunchSettingsHeading.Visible := true
         HideMacroBookPanel()
-        CharacterPage.SetFont("s10 c382314", "Segoe UI")
+        SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
         global EditorFields
         entries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
             ["UsernameDelay", "Username screen delay (sec)", profile.UsernameDelay],
@@ -373,7 +377,7 @@ EditProfile(index, *)
 CreateProfileEditor()
 {
     global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint, EditorReconnectTick
-    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
     EditorRows := []
     Loop 5
     {
@@ -390,7 +394,7 @@ CreateProfileEditor()
         EditorControls.Push(input)
     }
     SetInterfaceLoadingText("Loading race selector...")
-    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
     speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Race")
     speciesOptions := ["Select race..."]
     for item in CharacterSpeciesOptions()
@@ -399,7 +403,7 @@ CreateProfileEditor()
     EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
         "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
     EditorSpeciesDropDown.OnEvent("Change", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
-    CharacterPage.SetFont("s9 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s9 c382314", "Segoe UI")
     ; The old hint overlapped the DDL's collapsed native control (y376..~402),
     ; so its text could remain invisible until the book was reconstructed.
     EditorOCSpeciesHint := CharacterPage.Add("Text",
@@ -407,7 +411,7 @@ CreateProfileEditor()
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
     ; by clicking the persistent race line without changing the layout.
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
-    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
     EditorReconnectTick := AddBookTick(CharacterPage, 525, 435, ToggleEditorReconnect)
     reconnectLabel := AddBookLabel(CharacterPage, 551, 432, 329, 24, "Auto reconnect on crash")
@@ -546,7 +550,7 @@ PromptOriginalCharacterSpecies(current := "")
     dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox",
         "Original Character race")
     dialog.BackColor := "E2CEA2"
-    dialog.SetFont("s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(dialog, "s10 c382314", "Segoe UI")
     dialog.Add("Text", "x20 y17 w320 h40",
         "What is your original character's race?")
     options := ["Select race..."]

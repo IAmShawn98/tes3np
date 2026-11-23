@@ -831,6 +831,79 @@ CheckOwnedMenuScaling()
     ExitApp(0)
 }
 
+; All launcher-owned native copy must observe Normal / Large / Extra Large,
+; including nonbutton labels and the cached character book. Compare actual
+; LOGFONT handles and keep the UI geometry unchanged.
+NativeInterfaceFontHeight(control)
+{
+    font := DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x0031,
+        "Ptr", 0, "Ptr", 0, "Ptr")
+    definition := Buffer(92, 0)
+    if !font || DllCall("gdi32\GetObjectW", "Ptr", font, "Int",
+        definition.Size, "Ptr", definition, "Int") < 92
+        throw Error("Native control font was not readable.")
+    return Abs(NumGet(definition, 0, "Int"))
+}
+
+CheckInterfaceTextAccessibility()
+{
+    global AccessibilityTextSize, V016SettingsScale
+    oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
+    try
+    {
+        bodyHeights := [], settingsHeights := []
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            V016SettingsScale := 1.0
+            panel := Gui("-DPIScale")
+            try
+            {
+                SetAccessibleTextFont(panel, "s11 Norm c382314", "Segoe UI")
+                body := panel.Add("Text", "x4 y4 w330 h40", "Character and settings copy")
+                bodyHeights.Push(NativeInterfaceFontHeight(body))
+                SetAccessibleTextFont(body, "c241408")
+                if NativeInterfaceFontHeight(body) != bodyHeights[bodyHeights.Length]
+                    throw Error("Changing a font color incorrectly resized its text.")
+                SetAccessibleTextFont(panel, "s" V016Font(13) " Norm c241408", "Georgia")
+                settingsLabel := panel.Add("Text", "x4 y48 w330 h40", "Settings section label")
+                settingsHeights.Push(NativeInterfaceFontHeight(settingsLabel))
+            }
+            finally panel.Destroy()
+        }
+        if bodyHeights[1] >= bodyHeights[2] || bodyHeights[2] >= bodyHeights[3]
+            || settingsHeights[1] >= settingsHeights[2]
+            || settingsHeights[2] >= settingsHeights[3]
+            throw Error("Interface Text choice does not enlarge native body and settings labels.")
+        AccessibilityTextSize := "Normal"
+        book := Gui("-DPIScale")
+        try
+        {
+            SetAccessibleTextFont(book, "s11 Norm", "Segoe UI")
+            label := book.Add("Text", "x20 y20 w300 h30", "Cached character menu")
+            book.InterfaceFontMode := "Normal"
+            label.GetPos(&x, &y, &width, &height)
+            before := NativeInterfaceFontHeight(label)
+            AccessibilityTextSize := "Extra Large"
+            RefreshCachedBookTextPreference(book)
+            if NativeInterfaceFontHeight(label) <= before
+                throw Error("Cached Character Book kept its old font size.")
+            label.GetPos(&ax, &ay, &aw, &ah)
+            if ax != x || ay != y || aw != width || ah != height
+                throw Error("Cached font refresh moved a character control.")
+            if !book.HasOwnProp("OwnedGeneratedFonts") || !book.OwnedGeneratedFonts.Length
+                throw Error("Cached Character Book did not own its generated fonts.")
+        }
+        finally DestroyScaledMenu(book)
+        try FileAppend("PASS: Interface Text scales native copy and cached books without changing hit targets" Chr(10), "*")
+    }
+    finally
+    {
+        AccessibilityTextSize := oldMode
+        V016SettingsScale := oldScale
+    }
+}
+
 ; A closed update GUI must not crash a still-dispatching native mouse callback.
 ; This reproduces WM_LBUTTONDOWN arriving after the modal is destroyed but
 ; before its OnMessage callback has been removed from the global dispatcher.
@@ -1043,6 +1116,7 @@ CheckDisplaySettingsAndReleaseNotes()
 {
     global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
     global V016SettingsGuiHwnd, InterfaceFrameCover
+    CheckInterfaceTextAccessibility()
     CheckUpdateNoteCallbackLifetime()
     CheckExtremeDisplayFrameCoverage()
     if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100

@@ -2347,8 +2347,8 @@ expect(
     and 'window.Show("Hide x" layout.X' in login_progress
     and in_order(login_card_present, "CreateGameLoginProgress(layout)", "RenderGameLoginProgress()",
                  'PositionGameLoginProgress(LoginProgressGui.Hwnd, gameHwnd, layout', "try previous.Destroy()")
-    and 'row.Symbol.SetFont("s" GameLoginProgressFontSize(14, scale)' in login_progress
-    and 'marker.Symbol.SetFont("s" GameLoginProgressFontSize(17, scale)' in login_progress
+    and 'SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(14, scale)' in login_progress
+    and 'SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(17, scale)' in login_progress
     and "CheckGameLoginProgressFit()" in launcher_smoke_tests,
 )
 expect(
@@ -2398,6 +2398,49 @@ expect(
     and "ApplyLauncherButtonFont(face, scale)" in font_update
     and "ApplyLauncherButtonFont(face, scale)" in launcher_layout
     and "face.Control.Move(" not in font_update,
+)
+# Interface Text is a single native font preference, not a button-only
+# feature. These files own every text-bearing native menu/edit/status surface.
+# Fail on future raw SetFont calls so newly added dialogs cannot accidentally
+# ignore the accessibility choice.
+native_font_paths = [
+    "src/ui/bug-report.ahk",
+    "src/ui/characters.ahk",
+    "src/ui/front-page.ahk",
+    "src/ui/login-progress.ahk",
+    "src/ui/macros.ahk",
+    "src/ui/patcher.ahk",
+    "src/ui/update-dialogs.ahk",
+    "src/ui/update-notes.ahk",
+    "src/ui/controls.ahk",
+    "src/ui/loading.ahk",
+    "src/ui/v016-refinements.ahk",
+    "src/game/expansion-mismatch.ahk",
+]
+for native_path in native_font_paths:
+    native_content = (ROOT / native_path).read_text(encoding="utf-8-sig")
+    native_code = "\n".join(line for line in native_content.splitlines()
+                            if not line.lstrip().startswith(";"))
+    expect(
+        f"Interface Text controls native font sizes in {native_path}",
+        "SetAccessibleTextFont(" in native_code
+        and not re.search(r"\b\w+(?:\.\w+)*\.SetFont\(", native_code),
+    )
+expect(
+    "Interface Text covers main launcher copy, Settings, footer and cached character fonts",
+    "AccessibilityFontMultiplier(preference := unset)" in display_settings
+    and "SetAccessibleTextFont(target, options, fontName := unset)" in display_settings
+    and "AccessibilityFontSize(matched[2] + 0)" in display_settings
+    and 'face.HasOwnProp("IsInfo")' in font_update
+    and 'AccessibilityFontSize(19) * scale' in font_update
+    and "ScaleLauncherVersionLabel(scale)" in font_update
+    and 'AccessibilityFontSize(9) * scale' in update_check
+    and 'AccessibilityFontSize(16) * scale' in update_check
+    and 'AccessibilityFontSize(10) * scale' in launcher_layout
+    and 'AccessibilityFontSize(19) * scale' in launcher_layout
+    and "RefreshCachedBookTextPreference(CharacterPage)" in (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
+    and "RefreshCachedBookTextPreference(book)" in (ROOT / "src/ui/windows.ahk").read_text(encoding="utf-8-sig")
+    and "CheckInterfaceTextAccessibility()" in launcher_smoke_tests,
 )
 launcher_scale_apply = section_between(
     launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true, placement := unset)\n{", "\n}",
@@ -2647,8 +2690,8 @@ expect(
     and 'gap := 24' in update_dialogs
     and 'AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)' in update_dialogs
     and 'PositionCompactMetadataPair(pair, x, y)' in update_dialogs
-    and 'panel.SetFont("s" compactFontSize " Bold cE7BE70", "Segoe UI")' in update_dialogs
-    and 'panel.SetFont("s" compactFontSize " Norm cFFF0DC", "Segoe UI")' in update_dialogs
+    and 'SetAccessibleTextFont(panel, "s" compactFontSize " Bold cE7BE70", "Segoe UI")' in update_dialogs
+    and 'SetAccessibleTextFont(panel, "s" compactFontSize " Norm cFFF0DC", "Segoe UI")' in update_dialogs
     and '{Label: "Installed:", Value: "v" installedVersion}' in update_dialogs
     and '{Label: "Latest:", Value: "v" latestVersion}' in update_dialogs
     and '{Label: "Channel:", Value: channelName}' in update_dialogs
@@ -2736,7 +2779,7 @@ expect(
     and section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(').count(
         'DllCall("user32\\FrameRect"') == 2
     and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
-    and "fontHeight := -Max(9, Round(21 * paintScale))" in embedded_chat
+    and "fontHeight := -Max(9, Min(Round(AccessibilityFontSize(21) * paintScale)," in embedded_chat
     and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat
     and "arrowHeight := Max(4, Round(10 * paintScale))" in embedded_chat,
 )

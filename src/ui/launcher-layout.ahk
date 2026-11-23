@@ -42,12 +42,14 @@ ApplyLauncherControlScale(suspendRedraw := true)
             if !DllCall("IsWindow", "Ptr", hwnd) || face.Window != LauncherGui.Hwnd
                 continue
             if face.HasOwnProp("IsInfo")
-                face.Control.SetFont("s" Max(5, Round(10 * scale)) " Norm", "Palatino Linotype")
+                face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale))
+                    " Norm", "Palatino Linotype")
             else if !face.HasOwnProp("IsLabel")
                 ApplyLauncherButtonFont(face, scale)
         }
         if IsObject(LauncherHeading)
-            LauncherHeading.SetFont("s" Max(1, Round(19 * scale)) " Norm c241408", LauncherMorrowindFont)
+            LauncherHeading.SetFont("s" Max(1, Round(AccessibilityFontSize(19) * scale))
+                " Norm c241408", LauncherMorrowindFont)
         ScaleLauncherVersionLabel(scale)
     }
     finally

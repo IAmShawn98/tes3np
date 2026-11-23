@@ -181,6 +181,73 @@ ScaleOwnedMenuContent(gui, scale)
     gui.OwnedContentScale := scale
 }
 
+; Character Book is cached after Close. A saved Interface Text change must
+; also update this hidden menu when it is next opened, without rebuilding
+; its macro/editor data or shifting any control rectangles.
+RefreshCachedBookTextPreference(book)
+{
+    global AccessibilityTextSize
+    if !IsObject(book) || !DllCall("IsWindow", "Ptr", book.Hwnd)
+        return
+    previous := book.HasOwnProp("InterfaceFontMode") ? book.InterfaceFontMode : AccessibilityTextSize
+    if previous = AccessibilityTextSize
+        return
+    ratio := AccessibilityFontMultiplier() / AccessibilityFontMultiplier(previous)
+    previousFonts := book.HasOwnProp("OwnedGeneratedFonts") ? book.OwnedGeneratedFonts : []
+    generated := previousFonts.Clone()
+    book.OwnedGeneratedFonts := generated
+    nextFonts := [], retainedFonts := Map(), fontCache := Map()
+    for control in book
+    {
+        if !DllCall("IsWindow", "Ptr", control.Hwnd)
+            continue
+        oldFont := DllCall("SendMessageW", "Ptr", control.Hwnd,
+            "UInt", 0x0031, "Ptr", 0, "Ptr", 0, "Ptr")
+        if !oldFont
+            continue
+        if !fontCache.Has(oldFont)
+        {
+            definition := Buffer(92, 0)
+            if DllCall("gdi32\GetObjectW", "Ptr", oldFont, "Int", definition.Size,
+                "Ptr", definition, "Int") < 92
+            {
+                retainedFonts[oldFont] := true
+                continue
+            }
+            height := NumGet(definition, 0, "Int")
+            if !height
+            {
+                retainedFonts[oldFont] := true
+                continue
+            }
+            NumPut("Int", (height < 0 ? -1 : 1) * Max(1, Round(Abs(height) * ratio)),
+                definition, 0)
+            NumPut("Int", 0, definition, 4)
+            nextFont := DllCall("gdi32\CreateFontIndirectW", "Ptr", definition, "Ptr")
+            if !nextFont
+            {
+                retainedFonts[oldFont] := true
+                continue
+            }
+            fontCache[oldFont] := nextFont
+            generated.Push(nextFont)
+            nextFonts.Push(nextFont)
+        }
+        if fontCache.Has(oldFont)
+            DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x0030,
+                "Ptr", fontCache[oldFont], "Ptr", 0)
+    }
+    for font in previousFonts
+    {
+        if retainedFonts.Has(font)
+            nextFonts.Push(font)
+        else
+            DllCall("gdi32\DeleteObject", "Ptr", font)
+    }
+    book.OwnedGeneratedFonts := nextFonts
+    book.InterfaceFontMode := AccessibilityTextSize
+}
+
 DestroyScaledMenu(gui)
 {
     fonts := gui.HasOwnProp("OwnedGeneratedFonts") ? gui.OwnedGeneratedFonts : []

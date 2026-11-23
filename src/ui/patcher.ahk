@@ -828,16 +828,16 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     }
     prompt := CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)
     prompt.ExpansionDecision := onDecision
-    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
     extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39,
         IsObject(onDecision) ? "Update Expansion Pack" : "Install Expansion Pack")
-    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     if IsObject(onDecision)
     {
         extra += AddGoldPromptCopy(prompt, 30, 82 + extra, 620, 28,
             comparisonUnavailable ? "Could not verify your installed pack. Install the official ZIP?"
                 : "Install the latest Expansion Pack from Discord?")
-        prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
+        SetAccessibleTextFont(prompt, "s11 Bold cEDE1C9", "Segoe UI")
         extra += AddGoldPromptCopy(prompt, 30, 120 + extra, 620, 24, "Installed: " installedVersion)
         extra += AddGoldPromptCopy(prompt, 30, 148 + extra, 620, 24, "Available: " updateVersion)
         AddStyledButton(prompt, 30, 189 + extra, 165, 38, "Yes",
@@ -875,9 +875,9 @@ ShowUnverifiedExistingExpansionPackPrompt(config)
         return
     prompt := CreateGoldNativePrompt(LauncherGui, "Check Existing Expansion Pack", 680, 250)
     prompt.ExpansionCheckConfig := config
-    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
     extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39, "Existing Expansion Pack Detected")
-    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 80 + extra, 620, 82,
         "TES3NP found the Expansion Pack in your OpenMW load order, but its saved verification record is missing. Check it against the latest official Discord ZIP?")
     AddStyledButton(prompt, 30, 188 + extra, 245, 38, "Verify Existing",
@@ -923,12 +923,12 @@ ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false, review
     ; wrapped text increases both the button offset and the dialog height.
     prompt := CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Verified", 680, 328)
     prompt.ExpansionFoundContinue := onContinue
-    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
     extra := AddGoldPromptCopy(prompt, 30, 27, 620, 43, "Existing Expansion Pack Verified")
-    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 91 + extra, 620, 76,
         "The installed Expansion Pack matches the latest official version. No download or reinstallation is necessary.")
-    prompt.SetFont("s11 Bold cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(prompt, "s11 Bold cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 182 + extra, 620, 42,
         alreadyEnabled ? "Your Expansion Pack is already enabled."
             : "Would you like to enable it now?")
@@ -1015,9 +1015,9 @@ ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
         : "The automatic download could not be completed. You can try again, or choose an Expansion Pack ZIP or extracted folder already on your computer."
     prompt := CreateGoldNativePrompt(LauncherGui, title, 700, 318)
     prompt.ExpansionRetry := retry
-    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
     extra := AddGoldPromptCopy(prompt, 30, 24, 640, 43, title)
-    prompt.SetFont("s11 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 86 + extra, 640, 91, explanation)
     ; Preserve an informative but bounded sanitized failure reason. Never
     ; show signed CDN URLs or raw paths from a private transfer.
@@ -1026,7 +1026,7 @@ ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
         shortReason := SubStr(SanitizeDiagnosticText(reason), 1, 180)
         if shortReason != ""
         {
-            prompt.SetFont("s9 Norm cD8C38C", "Segoe UI")
+            SetAccessibleTextFont(prompt, "s9 Norm cD8C38C", "Segoe UI")
             extra += AddGoldPromptCopy(prompt, 30, 186 + extra, 640, 47, shortReason)
         }
     }
@@ -1095,9 +1095,9 @@ CheckFirstRunMorrowind(resumeExpansion := false, *)
     ; selection and optional automatic Expansion Pack resumption.
     prompt := CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)
     prompt.ResumeExpansionPack := resumeExpansion
-    prompt.SetFont("s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
     extra := AddGoldPromptCopy(prompt, 30, 26, 620, 40, "Morrowind Installation Not Found")
-    prompt.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(prompt, "s10 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 85 + extra, 620, 135,
         "TES3MP needs a legally purchased copy of Morrowind Game of the Year Edition (GOTY), or Morrowind with both Tribunal and Bloodmoon installed. Install the game if needed, then choose the folder that contains Data Files.")
     choose := AddStyledButton(prompt, 30, 268 + extra, 392, 42, "Choose Morrowind Folder",

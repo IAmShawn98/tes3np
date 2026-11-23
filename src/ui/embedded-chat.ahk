@@ -397,7 +397,10 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
     }
     ; Scale the rotated caption and arrow with the tab.
     paintScale := LauncherScale / 100
-    fontHeight := -Max(9, Round(21 * paintScale))
+    ; This rotated caption is GDI text, not a standard Gui.SetFont label.
+    ; Enlarge it with Interface Text, but retain room for the arrow and frame.
+    fontHeight := -Max(9, Min(Round(AccessibilityFontSize(21) * paintScale),
+        Max(9, Floor(h / 5))))
     font := DllCall("gdi32\CreateFontW",
         "Int", fontHeight, "Int", 0, "Int", 900, "Int", 900,
         "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,

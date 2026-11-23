@@ -313,7 +313,7 @@ CreateGameLoginProgress(layout)
     for line in [[0, 0, 420, 4], [0, 477, 420, 4], [0, 0, 4, 481], [416, 0, 4, 481]]
         window.Add("Text", "x" p(line[1]) " y" p(line[2])
             " w" p(line[3]) " h" p(line[4]) " BackgroundD1AE67", "")
-    window.SetFont("s" fontSize(15) " Bold cF2E4D0", "Georgia")
+    SetAccessibleTextFont(window, "s" fontSize(15) " Bold cF2E4D0", "Georgia")
     window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
         " h" p(38) " Center BackgroundTrans +0x4000", "Logging in...")
     portraitPath := GetCharacterLoginIconPath(LoginProgressSpecies, LoginProgressPortraitFile)
@@ -322,7 +322,7 @@ CreateGameLoginProgress(layout)
     if RegExMatch(portraitPath, "i)\.ico$")
         pictureOptions .= " Icon1"
     window.Add("Picture", pictureOptions, portraitPath)
-    window.SetFont("s" fontSize(13) " Bold cF2E4D0", "Georgia")
+    SetAccessibleTextFont(window, "s" fontSize(13) " Bold cF2E4D0", "Georgia")
     LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" p(143)
         " w" p(372) " h" p(30) " Center BackgroundTrans", "")
     window.Add("Text", "x" p(27) " y" p(181) " w" p(366) " h" p(2) " Background806B51", "")
@@ -332,30 +332,30 @@ CreateGameLoginProgress(layout)
     for index, labelText in steps
     {
         y := p(197 + (index - 1) * 46)
-        window.SetFont("s" fontSize(11) " cC8BFB4", "Segoe UI")
+        SetAccessibleTextFont(window, "s" fontSize(11) " cC8BFB4", "Segoe UI")
         label := window.Add("Text", "x" p(30) " y" y " w" p(360)
             " h" p(22) " Center BackgroundTrans", labelText)
-        window.SetFont("s" fontSize(13) " cFFFFFF", "Segoe UI Symbol")
+        SetAccessibleTextFont(window, "s" fontSize(13) " cFFFFFF", "Segoe UI Symbol")
         dot := window.Add("Text", "x" p(195) " y" (y + p(23))
             " w" p(30) " h" p(21) " Center BackgroundTrans", "●")
-        window.SetFont("s" fontSize(12) " Bold c173C2A", "Segoe UI Symbol")
+        SetAccessibleTextFont(window, "s" fontSize(12) " Bold c173C2A", "Segoe UI Symbol")
         symbol := window.Add("Text", "x" p(195) " y" (y + p(23))
             " w" p(30) " h" p(21) " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressRows.Push({Dot: dot, Label: label, Symbol: symbol,
             BaseText: labelText, SymbolText: "", DotColor: "", LabelColor: ""})
     }
     window.Add("Text", "x" p(27) " y" p(391) " w" p(366) " h" p(2) " Background806B51", "")
-    window.SetFont("s" fontSize(10) " Bold cD3B687", "Segoe UI")
+    SetAccessibleTextFont(window, "s" fontSize(10) " Bold cD3B687", "Segoe UI")
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" p(403)
         " w" p(372) " h" p(25) " Center BackgroundTrans +0x4000", "")
     LoginProgressSummaryDots := []
     Loop 4
     {
         x := p(135 + (A_Index - 1) * 42)
-        window.SetFont("s" fontSize(18) " cFFFFFF", "Segoe UI Symbol")
+        SetAccessibleTextFont(window, "s" fontSize(18) " cFFFFFF", "Segoe UI Symbol")
         circle := window.Add("Text", "x" x " y" p(440)
             " w" p(28) " h" p(27) " Center BackgroundTrans +0x4000", "●")
-        window.SetFont("s" fontSize(15) " Bold c173C2A", "Segoe UI Symbol")
+        SetAccessibleTextFont(window, "s" fontSize(15) " Bold c173C2A", "Segoe UI Symbol")
         symbol := window.Add("Text", "x" x " y" p(442)
             " w" p(28) " h" p(27) " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressSummaryDots.Push({Circle: circle, Symbol: symbol, Color: "", SymbolText: ""})
@@ -393,13 +393,13 @@ RenderGameLoginProgress()
         }
         if row.DotColor != color
         {
-            row.Dot.SetFont("c" color)
+            SetAccessibleTextFont(row.Dot, "c" color)
             row.DotColor := color
             dirty := true
         }
         if row.LabelColor != labelColor
         {
-            row.Label.SetFont("c" labelColor)
+            SetAccessibleTextFont(row.Label, "c" labelColor)
             row.LabelColor := labelColor
             dirty := true
         }
@@ -408,9 +408,9 @@ RenderGameLoginProgress()
         {
             row.Symbol.Text := symbol
             if symbol = "✔"
-                row.Symbol.SetFont("s" GameLoginProgressFontSize(12, scale) " Bold c173C2A", "Segoe UI Symbol")
+                SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(12, scale) " Bold c173C2A", "Segoe UI Symbol")
             else if symbol = "!"
-                row.Symbol.SetFont("s" GameLoginProgressFontSize(14, scale) " Bold c173C2A", "Segoe UI")
+                SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(14, scale) " Bold c173C2A", "Segoe UI")
             row.SymbolText := symbol
             dirty := true
         }
@@ -427,7 +427,7 @@ RenderGameLoginProgress()
         color := finished ? "6EE29B" : active ? "62AFFF" : "FFFFFF"
         if marker.Color != color
         {
-            marker.Circle.SetFont("c" color)
+            SetAccessibleTextFont(marker.Circle, "c" color)
             marker.Color := color
             dirty := true
         }
@@ -436,9 +436,9 @@ RenderGameLoginProgress()
         {
             marker.Symbol.Text := symbol
             if symbol = "✔"
-                marker.Symbol.SetFont("s" GameLoginProgressFontSize(15, scale) " Bold c173C2A", "Segoe UI Symbol")
+                SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(15, scale) " Bold c173C2A", "Segoe UI Symbol")
             else if symbol = "!"
-                marker.Symbol.SetFont("s" GameLoginProgressFontSize(17, scale) " Bold c173C2A", "Segoe UI")
+                SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(17, scale) " Bold c173C2A", "Segoe UI")
             marker.SymbolText := symbol
             dirty := true
         }

@@ -12,9 +12,9 @@ BuildMacroBookPanel()
     MacroScrollOffset := 0
     MacroScrollDragging := false
     MacroScrollGrab := 0
-    CharacterPage.SetFont("s19 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s19 Norm c241408", LauncherMorrowindFont)
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
-    CharacterPage.SetFont("s11 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
         "Upload, run, or stop macros here. Click the pencil to rename a macro.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
@@ -33,17 +33,17 @@ BuildMacroBookPanel()
         ; Preserve 8px between macro rows and remove the unused space
         ; above the first status by moving the populated list up 12px.
         y := 140 + (position - 1) * 70
-        CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
+        SetAccessibleTextFont(CharacterPage, "s9 Norm c241408", LauncherMorrowindFont)
         status := CharacterPage.Add("Text",
             "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
-        CharacterPage.SetFont("s12 Norm c241408", LauncherMorrowindFont)
+        SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
         tick := AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))
         name := AddBookLabel(CharacterPage, 551, y + 19, 125, 22, "")
         ButtonFaces[name.Hwnd].UseControlPosition := true
         rename := AddStyledButton(CharacterPage, 680, y + 19, 21, 22,
             Chr(0x270E), EditMacroBookRow.Bind(position))
         ButtonFaces[rename.Hwnd].UseControlPosition := true
-        rename.SetFont("s10 Bold", "Segoe UI Symbol")
+        SetAccessibleTextFont(rename, "s10 Bold", "Segoe UI Symbol")
         run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
             "Run", RunMacroBookRow.Bind(position))
         stop := AddStyledButton(CharacterPage, 663, y + 42, 103, 20,
@@ -55,7 +55,7 @@ BuildMacroBookPanel()
             Run: run, Stop: stop, Remove: remove})
         MacroBookControls.Push(tick, status, name, rename, run, stop, remove)
     }
-    CharacterPage.SetFont("s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
     MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y159 w125 h22 Hidden Limit100 -Multi")
     MacroNameEdit.EditingItem := 0
     MacroNameEdit.ErrorText := ""
@@ -69,7 +69,7 @@ BuildMacroBookPanel()
     MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
         "Upload Macro", ImportMacroPackage)
     ; Progress and failure feedback for imports appears under Upload.
-    CharacterPage.SetFont("s9 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
         "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")
     MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
@@ -169,7 +169,7 @@ RefreshMacroBookRows()
             itemRow.Status.Text := state.Text
         if itemRow.StatusError != state.Error
         {
-            itemRow.Status.SetFont(state.Error ? "s" Max(7, BookS(9)) " cB22222"
+            SetAccessibleTextFont(itemRow.Status, state.Error ? "s" Max(7, BookS(9)) " cB22222"
                 : "s" Max(7, BookS(9)) " c241408", LauncherMorrowindFont)
             itemRow.StatusError := state.Error
         }
@@ -833,7 +833,7 @@ ChooseMacroScript(scripts)
     result := {Entry: ""}
     chooser := Gui("+Owner" MacroPage.Hwnd " -MinimizeBox -MaximizeBox", "Choose macro script")
     chooser.BackColor := "E2CEA2"
-    chooser.SetFont("s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(chooser, "s10 c382314", "Segoe UI")
     chooser.Add("Text", "x20 y20 w460 h40", "This package has more than one script. Choose the main .ahk file to run.")
     list := chooser.Add("DropDownList", "x20 y70 w460 Choose1", scripts)
     button := chooser.Add("Button", "x260 y115 w100 h30 Default", "Import")

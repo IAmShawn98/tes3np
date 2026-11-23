@@ -60,7 +60,7 @@ ScaleLauncherVersionLabel(scale)
     global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     if IsObject(LauncherVersionLabel)
     {
-        LauncherVersionLabel.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
+        LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), "Segoe UI")
         FitLauncherVersionLabelToText(LauncherVersionLabel)
     }
     ApplyLauncherBadgeFont(scale)
@@ -79,7 +79,7 @@ ApplyLauncherBadgeFont(scale, sample := 0)
         return
     ; Use more of the existing red circle for visibly larger white digits.
     ; Measure the actual native glyphs and back off only if they would clip.
-    size := Max(6, Round(16 * scale / GetLauncherBadgeDpiScale()))
+    size := Max(6, Round(AccessibilityFontSize(16) * scale / GetLauncherBadgeDpiScale()))
     bounds := Buffer(16, 0)
     if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
         "Ptr", bounds, "Int")

@@ -253,11 +253,30 @@ SaveLauncherDisplaySettings(scale, textSize, readability, reduceMotion, followWi
         Critical(previousCritical)
     }
 }
-AccessibilityFontSize(baseSize)
+AccessibilityFontMultiplier(preference := unset)
 {
     global AccessibilityTextSize
-    multiplier := AccessibilityTextSize = "Extra Large" ? 1.35 : AccessibilityTextSize = "Large" ? 1.18 : 1.0
-    return Round(baseSize * multiplier)
+    if !IsSet(preference)
+        preference := AccessibilityTextSize
+    return preference = "Extra Large" ? 1.35 : preference = "Large" ? 1.18 : 1.0
+}
+
+AccessibilityFontSize(baseSize)
+{
+    return Round(baseSize * AccessibilityFontMultiplier())
+}
+
+; Use the *same* interface text multiplier for native labels, inputs, headings
+; and modal copy, not only owner-drawn buttons. Preserve all other font options
+; and the exact Normal size. GUI geometry and window scaling stay independent.
+SetAccessibleTextFont(target, options, fontName := unset)
+{
+    if RegExMatch(options, "i)(^|\s)s(\d+(?:\.\d+)?)(?=\s|$)", &matched)
+        options := StrReplace(options, matched[0],
+            matched[1] "s" AccessibilityFontSize(matched[2] + 0))
+    if IsSet(fontName)
+        return target.SetFont(options, fontName)
+    return target.SetFont(options)
 }
 
 ApplyLauncherButtonFont(face, scale)
@@ -270,7 +289,7 @@ ApplyLauncherButtonFont(face, scale)
 
 ApplyAccessibilityTextSize(suspendRedraw := true)
 {
-    global LauncherGui, ButtonFaces, LauncherScale
+    global LauncherGui, ButtonFaces, LauncherScale, LauncherHeading, LauncherMorrowindFont
     if !IsObject(LauncherGui)
         return
     ; Font changes must NEVER restore native hit targets to their 100% base
@@ -284,10 +303,20 @@ ApplyAccessibilityTextSize(suspendRedraw := true)
     {
         for handle, face in ButtonFaces
         {
-            if !DllCall("IsWindow", "Ptr", handle) || face.HasOwnProp("IsLabel") || face.Window != LauncherGui.Hwnd
+            if !DllCall("IsWindow", "Ptr", handle) || face.Window != LauncherGui.Hwnd
                 continue
-            ApplyLauncherButtonFont(face, scale)
+            if face.HasOwnProp("IsInfo")
+                face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale))
+                    " Norm", "Palatino Linotype")
+            else if !face.HasOwnProp("IsLabel")
+                ApplyLauncherButtonFont(face, scale)
         }
+        ; The main heading and footer are native Text controls, not buttons.
+        ; Font changes should never reset their already-scaled positions.
+        if IsObject(LauncherHeading)
+            LauncherHeading.SetFont("s" Max(1, Round(AccessibilityFontSize(19) * scale))
+                " Norm c241408", LauncherMorrowindFont)
+        ScaleLauncherVersionLabel(scale)
     }
     finally
         if suspendRedraw

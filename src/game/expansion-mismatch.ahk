@@ -837,7 +837,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
-    dialog.SetFont("s16 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(dialog, "s16 Bold cC5A45C", "Georgia")
     installing := mode = "Install" || mode = "Browse"
     if installing
     {
@@ -860,7 +860,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
             . "Copy Diagnostic Info and send the report to the Discord bug-reports channel."
     }
     dialog.Add("Text", "x25 y19 w610 h43 BackgroundTrans", dialogTitle)
-    dialog.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(dialog, "s10 Norm cEDE1C9", "Segoe UI")
     dialog.Add("Text", "x25 y74 w610 h74 BackgroundTrans", intro)
     instructions := mode = "Install"
         ? "Automatic setup didn't finish. Click Download and Install to retry the "
@@ -871,7 +871,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
             . "or its extracted folder and import it safely."
     dialog.Add("Text", "x25 y159 w610 h88 BackgroundTrans", instructions)
     dialog.Add("Text", "x25 y256 w610 h66 BackgroundTrans", help)
-    dialog.SetFont("s10 Bold cC5A45C", "Segoe UI")
+    SetAccessibleTextFont(dialog, "s10 Bold cC5A45C", "Segoe UI")
     dialog.Add("Text", "x25 y324 w610 h24 BackgroundTrans", "Latest Expansion Pack - Discord")
     ; Native child HWND placeholder for the existing ChatHost's WebView2.
     ; No extra Discord popup and no second browser profile are created.
@@ -900,7 +900,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     if !installing
         AddStyledButton(dialog, 245, 468, 210, 33, "Copy Diagnostic Info",
             (*) => TES3MPCopyMismatchDiagnostics(nativeStatus))
-    dialog.SetFont("s9 Norm cD8C38C", "Segoe UI")
+    SetAccessibleTextFont(dialog, "s9 Norm cD8C38C", "Segoe UI")
     dialog.Add("Link", "x25 y553 w610 h22",
         '<a href="https://discord.com/channels/509601787901116437/1555049936800718928">Open the download channel in Discord if the embed is unavailable</a>')
     AddStyledButton(dialog, 300, 580, 180, 38,

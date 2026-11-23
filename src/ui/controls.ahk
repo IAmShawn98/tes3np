@@ -16,7 +16,7 @@ AddLauncherButton(y, name, action, topPadding := 0)
 {
     global LauncherGui, ButtonFaces
     InitButtonPainter()
-    LauncherGui.SetFont("s10 Bold", "Segoe UI")
+    SetAccessibleTextFont(LauncherGui, "s10 Bold", "Segoe UI")
     ; Only the first row needs its transparent top padding removed to clear the heading.
     button := LauncherGui.Add("Custom", "ClassButton x370 y" (y - 11 + topPadding)
         " w220 h" (48 - topPadding) " +0xB +Tabstop", name)
@@ -35,7 +35,7 @@ AddStyledButton(gui, x, y, width, height, text, action)
     ; use that same scale instead of remaining 10pt at 50/60 percent.
     ; Other books are scaled together later by ScaleOwnedMenuContent.
     buttonScale := gui.HasOwnProp("MenuButtonScale") ? gui.MenuButtonScale : 1.0
-    gui.SetFont("s" Max(7, Round(10 * buttonScale)) " Bold", "Segoe UI")
+    SetAccessibleTextFont(gui, "s" Max(7, Round(10 * buttonScale)) " Bold", "Segoe UI")
     button := gui.Add("Custom", "ClassButton x" x " y" y " w" width " h" height " +0xB +Tabstop", text)
     DllCall("uxtheme\SetWindowTheme", "Ptr", button.Hwnd, "WStr", "", "WStr", "")
     ButtonFaces[button.Hwnd] := {Control: button, Label: button, Action: action, Y: y, X: x, Gui: gui, Window: gui.Hwnd, Book: true, State: "normal", BaseX: x, BaseWidth: width, BaseHeight: height}

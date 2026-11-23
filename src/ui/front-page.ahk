@@ -15,16 +15,16 @@ BuildFrontPage()
     ; Leave both corner controls outside the draggable area.
     DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 BackgroundTrans +0x100")
     LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
-    LauncherGui.SetFont("s10 Norm", "Palatino Linotype")
+    SetAccessibleTextFont(LauncherGui, "s10 Norm", "Palatino Linotype")
     ; Keep the Quest copy clear of the updates panel over the bottom of the backdrop.
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 151)
     AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events. The road to godhood is never a lonely one!")
     ; Match the native Morrowind-style typography used by Launcher Settings
     ; and Characters. A slightly larger, darker regular face keeps the
     ; handwritten lettering readable against the parchment.
-    LauncherGui.SetFont("s19 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(LauncherGui, "s19 Norm c241408", LauncherMorrowindFont)
     LauncherHeading := LauncherGui.Add("Text", "x330 y414 w300 h34 Center BackgroundTrans", "Game Launcher")
-    LauncherGui.SetFont("s11", "Segoe UI")
+    SetAccessibleTextFont(LauncherGui, "s11", "Segoe UI")
     HoverButton := 0
     PressedButton := 0
     BuildButtonViewport()

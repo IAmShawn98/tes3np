@@ -179,38 +179,38 @@ OpenLauncherSettingsV016(*)
     settings.Parchment := settings.Add("Picture", "x" V016S(-12) " y" V016S(-20) " w" V016S(544) " h" V016S(650), A_ScriptDir "\\assets\\controls\\scroll-panel.png")
     settings.ParchmentExtra := 0
 
-    settings.SetFont("s" V016Font(19) " Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(19) " Norm c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(70) " y" V016S(121) " w" V016S(370) " h" V016S(34) " Center BackgroundTrans", "Launcher Settings")
 
-    settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(169) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Launcher size")
     ; Native dropdowns cannot display the proprietary bitmap face directly.
     ; Keep their interactive chrome native, but use a neutral system font so
     ; they no longer inherit the old Georgia/MysticCards approximation.
-    settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     choices := ["Automatic (Recommended)", "50%", "60%", "70%", "80%", "90%", "100%"]
     choice := LauncherScaleMode = "Auto" ? 1 : ScaleChoiceIndex(LauncherRequestedScale) + 1
     scaleList := settings.Add("DropDownList", "x" V016S(184) " y" V016S(164) " w" V016S(296) " Choose" choice, choices)
-    settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
     copyExtra := AddV016SettingsCopy(settings, 32, V016S(196), 448, 40,
         "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed.")
 
-    settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" (V016S(242) + copyExtra) " w" V016S(145) " h" V016S(24) " BackgroundTrans", "Interface text")
-    settings.SetFont("s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c241408", LauncherMorrowindFont)
     textChoices := ["Normal", "Large", "Extra Large"]
     textChoice := AccessibilityTextSize = "Large" ? 2 : AccessibilityTextSize = "Extra Large" ? 3 : 1
     textList := settings.Add("DropDownList", "x" V016S(184) " y" (V016S(237) + copyExtra) " w" V016S(296) " Choose" textChoice, textChoices)
-    settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
     copyExtra += AddV016SettingsCopy(settings, 32, V016S(269) + copyExtra, 448, 30,
         "Choose how big or small the launcher interface is for you.")
 
-    settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
     readabilityPrefix := V016ReadabilityState ? "☑" : "■"
     readability := settings.Add("Text", "x" V016S(32) " y" (V016S(305) + copyExtra) " w" V016S(448) " h" V016S(32) " +0x100 BackgroundTrans", readabilityPrefix "  Enhanced readability")
     readability.OnEvent("Click", ToggleV016ReadabilityControl.Bind(readability))
     settings.ReadabilityControl := readability
-    settings.SetFont("s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
+    SetAccessibleTextFont(settings, "s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
     copyExtra += AddV016SettingsCopy(settings, 70, V016S(335) + copyExtra, 410, 42,
         "Improves readability by providing stronger contrast and brighter button text.")
     GrowV016SettingsParchment(settings, copyExtra)
@@ -376,18 +376,18 @@ OpenAppDataSettingsV016(settings, *)
         before := Map()
         for control in settings
             before[control.Hwnd] := true
-        settings.SetFont("s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
+        SetAccessibleTextFont(settings, "s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
         settings.Add("Text", "x" V016S(32) " y" V016S(126) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data & Diagnostics")
         ; The original 10pt Morrowind font was difficult to read at default
         ; scale. Use larger lettering and concise copy within the same panel.
-        settings.SetFont("s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
+        SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
         copyExtra := AddV016SettingsCopy(settings, 42, V016S(166), 428, 65,
             "Characters and preferences are saved in AppData. Export characters before resetting.")
         AddStyledButton(settings, V016S(32), V016S(243) + copyExtra, V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
         AddStyledButton(settings, V016S(32), V016S(284) + copyExtra, V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
         settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(284) + copyExtra, V016S(214), V016S(30),
             "Report A Bug", OpenBugReportPage.Bind(settings))
-        settings.SetFont("s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+        SetAccessibleTextFont(settings, "s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
         settings.Add("Text", "x" V016S(32) " y" (V016S(351) + copyExtra) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
         AddStyledButton(settings, V016S(32), V016S(385) + copyExtra, V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
         AddStyledButton(settings, V016S(32), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
@@ -662,16 +662,16 @@ OpenClientSelectionSettings(*)
     ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
     initialHeight := saved ? 460 : 412
     menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — TES3MP Setup", 680, initialHeight)
-    menu.SetFont("s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(menu, "s17 Bold cC5A45C", "Georgia")
     heading := menu.Add("Text", "x30 y25 w620 BackgroundTrans +Wrap", "TES3MP Setup")
     heading.GetPos(, , , &headingHeight)
     activeY := Max(78, 25 + headingHeight + 8)
     display := mode = "Bundled" ? "Using the included TES3MP setup" : "Using your custom TES3MP setup"
-    menu.SetFont("s11 Bold cE7BE70", "Segoe UI")
+    SetAccessibleTextFont(menu, "s11 Bold cE7BE70", "Segoe UI")
     activeLabel := menu.Add("Text", "x30 y" activeY " w620 BackgroundTrans +Wrap", display)
     activeLabel.GetPos(, , , &activeHeight)
     detailsY := Max(115, activeY + activeHeight + 8)
-    menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(menu, "s10 Norm cEDE1C9", "Segoe UI")
     details := menu.Add("Text", "x30 y" detailsY " w620 BackgroundTrans +Wrap",
         "Choose which copy of TES3MP opens when you launch the game. "
         . "TES3NP comes with a setup that's ready to play.")
@@ -682,7 +682,7 @@ OpenClientSelectionSettings(*)
     reactivate.Enabled := saved
     restoreY := (saved ? 286 : 238) + textOffset
     restore := AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP", (*) => RestoreBundledClientV016(menu))
-    menu.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(menu, "s10 Norm cEDE1C9", "Segoe UI")
     statusY := (saved ? 339 : 291) + textOffset
     statusLabel := menu.Add("Text", "x30 y" statusY " w620 h48 BackgroundTrans +Wrap", "")
     closeY := (saved ? 399 : 351) + textOffset
@@ -770,11 +770,11 @@ ConfigureCustomClientV016(menu, *)
     ; Preserve the dependency workflow inside the same borderless,
     ; changelog-style native card system as its parent TES3MP Setup.
     options := CreateGoldNativePrompt(menu, "Set Up Your Custom EXE", 640, 382)
-    options.SetFont("s15 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(options, "s15 Bold cC5A45C", "Georgia")
     heading := options.Add("Text", "x30 y22 w580 BackgroundTrans +Wrap", "Set Up Your Custom EXE")
     heading.GetPos(, , , &headingHeight)
     detailsY := Max(72, 22 + headingHeight + 8)
-    options.SetFont("s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(options, "s10 Norm cEDE1C9", "Segoe UI")
     details := options.Add("Text", "x30 y" detailsY " w580 BackgroundTrans +Wrap",
         "TES3NP will use the tes3mp.exe you selected. If it came with its own DLLs or other files, "
         . "choose the folder that contains them. If you're only swapping the EXE, use the files that come with TES3NP.")
