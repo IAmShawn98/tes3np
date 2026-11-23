@@ -57,6 +57,19 @@ class InventoryCoverageTests(unittest.TestCase):
                 self.assertFalse(item["source"].startswith(";"))
                 self.assertFalse(item["source"].startswith("//"))
 
+    def test_layout_transaction_has_no_character_book_scaling_dependency(self):
+        source = (SOURCE.parents[1] / "src/ui/windows.ahk").read_text(
+            encoding="utf-8-sig")
+        start = source.index("ApplyAccessibleControlLayout(gui, placements,")
+        end = source.index("\n; Pure native draft", start)
+        body = source[start:end]
+        self.assertIn("validity := ValidateAccessibleControlRectangles(", body)
+        self.assertIn("for snapshot in snapshots", body)
+        self.assertIn("ctrl.Move(entry.X, entry.Y, entry.Width, entry.Height)", body)
+        self.assertNotIn("MoveStyledButton(", body)
+        self.assertNotIn("BookS(", body)
+        self.assertNotIn("GetCharacterBookScale(", body)
+
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
         self.assertEqual(report["scope"], ["src", "game-chat"])
