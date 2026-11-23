@@ -1108,12 +1108,55 @@ CheckMeasuredAccessibleBookPreflight()
     finally AccessibilityTextSize := previousMode
 }
 
+; Verify the ACTUAL Settings copy builder, not a parallel synthetic layout.
+; The new measured height must push subsequent controls out of the way.
+CheckMeasuredV016SettingsCopy()
+{
+    global AccessibilityTextSize, V016SettingsScale
+    previousMode := AccessibilityTextSize, previousScale := V016SettingsScale
+    fullCopy := "Automatic scaling is recommended. tes3np stays at full size when possible and shrinks only when needed."
+    try
+    {
+        V016SettingsScale := 1.0
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            panel := Gui("-DPIScale")
+            try
+            {
+                SetAccessibleTextFont(panel, "s11 Norm c382314", "Georgia")
+                extra := AddV016SettingsCopy(panel, 20, 35, 180, 30, fullCopy)
+                label := 0
+                for ctrl in panel
+                    label := ctrl
+                if !IsObject(label)
+                    throw Error("Settings help text was not created.")
+                label.GetPos(&x, &y, &w, &h)
+                needed := MeasureAccessibleWrappedText(label, fullCopy, w - 4) + 4
+                if x != 20 || y != 35 || w != 180
+                    || h < needed || h < 30 || h != 30 + extra
+                    throw Error("Settings text did not occupy its measured full height at " mode ".")
+                nextY := 35 + 30 + extra + 8
+                if nextY < y + h + 8
+                    throw Error("Settings button would overlap enlarged copy at " mode ".")
+            }
+            finally panel.Destroy()
+        }
+    }
+    finally
+    {
+        AccessibilityTextSize := previousMode
+        V016SettingsScale := previousScale
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
     oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
     CheckAccessibleLayoutPreflight()
     CheckMeasuredAccessibleBookPreflight()
+    CheckMeasuredV016SettingsCopy()
     try
     {
         bodyHeights := [], settingsHeights := []
