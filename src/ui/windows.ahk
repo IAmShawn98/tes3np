@@ -177,7 +177,7 @@ PlanAccessibleVerticalStack(items, top, availableBottom)
 ; feasible plan after considering any additional editor/overlay controls.
 PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     characterRowHeight, macroRowHeight, workWidth, workHeight,
-    characterCount := 10, macroCount := 4)
+    characterCount := 10, macroCount := 4, showLimitNotice := false)
 {
     if Min(descriptionHeight, macroTextHeight, characterRowHeight,
         macroRowHeight, workWidth, workHeight, characterCount, macroCount) < 0
@@ -191,21 +191,27 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     characterBottom := characterCount
         ? characterTop + (characterCount - 1) * characterPitch + characterRowHeight
         : characterTop
-    addTop := characterCount ? Max(540, characterBottom + 10)
+    noticeTop := showLimitNotice ? Max(429, characterBottom + 8) : 0
+    noticeBottom := showLimitNotice ? noticeTop + 25 : 0
+    addTop := characterCount ? Max(540, characterBottom + 10, noticeBottom + 10)
         : Max(164, descriptionBottom + 3)
+    leftActionBottom := characterCount ? addTop + 30 : addTop + 65
     macroTextBottom := 87 + Max(48, macroTextHeight)
     macroTop := Max(140, macroTextBottom + 5)
     macroBottom := macroCount
         ? macroTop + (macroCount - 1) * macroPitch + macroRowHeight
         : macroTop
     uploadTop := Max(188, macroBottom + 8)
-    footerTop := Max(575, addTop + 35, uploadTop + 37)
+    footerTop := Max(575, leftActionBottom + 5, uploadTop + 37)
     pageHeight := Max(650, footerTop + 75)
     fits := workWidth >= 960 && workHeight >= pageHeight
     return {Feasible: fits, Width: 960, Height: fits ? pageHeight : 0,
         RequiredHeight: pageHeight, CharacterTop: characterTop,
         CharacterPitch: characterPitch, CharacterBottom: characterBottom,
-        AddTop: addTop, MacroTop: macroTop, MacroPitch: macroPitch,
+        AddTop: addTop, ImportTop: characterCount ? 0 : addTop + 35,
+        NoticeTop: noticeTop, NoticeBottom: noticeBottom,
+        WipeTop: characterCount ? footerTop + 2 : 0,
+        MacroTop: macroTop, MacroPitch: macroPitch,
         MacroBottom: macroBottom, UploadTop: uploadTop, FooterTop: footerTop}
 }
 
