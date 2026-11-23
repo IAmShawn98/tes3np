@@ -2041,8 +2041,8 @@ expect(
     and 'CharacterPage.BookBackground.Value := A_ScriptDir' in characters_ui
     and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
     and 'x := BookS(x), y := BookS(y)' in characters_ui
-    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in characters_ui
-    and 'y := 164 + (index - 1) * 24' in characters_ui
+    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(410), BookS(184))' in characters_ui
+    and 'y := 275 + (index - 1) * 24' in characters_ui
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
@@ -2421,16 +2421,18 @@ for native_path in native_font_paths:
     native_content = (ROOT / native_path).read_text(encoding="utf-8-sig")
     native_code = "\n".join(line for line in native_content.splitlines()
                             if not line.lstrip().startswith(";"))
-    # The book paragraph stays at the chosen accessible font and the
-    # approved 390x81 rectangle; overflow is paginated in that same control.
+    # One shared Character Book layout must fit the full paragraph across
+    # Normal/Large/Extra Large without changing positions between modes.
     if native_path == "src/ui/characters.ahk":
         expect(
-            "Character description preserves Extra Large text without shrinking or moving rows",
-            "UpdateCharacterDescriptionPages()" in native_code
-            and "CharacterDescriptionTextFits(control, caption)" in native_code
-            and "NextCharacterDescriptionPage(*)" in native_code
-            and 'CharacterDescription.OnEvent("Click", NextCharacterDescriptionPage)' in native_code
-            and "CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))" in native_code
+            "Character description keeps full text and identical layout at every font size",
+            'CharacterDescription := CharacterPage.Add("Text", "x70 y80 w410 h184 BackgroundTrans", "")' in native_code
+            and "CharacterDescription.Move(BookS(70), BookS(80), BookS(410), BookS(184))" in native_code
+            and "y := 275 + (index - 1) * 24" in native_code
+            and "RestoreCharacterDescriptionFont()" in native_code
+            and "SetAccessibleTextFont(CharacterDescription," in native_code
+            and "UpdateCharacterDescriptionPages()" not in native_code
+            and "NextCharacterDescriptionPage" not in native_code
             and "FitCharacterDescriptionFont(" not in native_code,
         )
     expect(
