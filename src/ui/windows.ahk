@@ -205,6 +205,45 @@ PlanAccessibleVerticalStack(items, top, availableBottom)
 }
 
 
+
+; Shared, non-mutating collision and bounds validator. Pass independent
+; controls only: their native hit targets and matching painted faces are one
+; logical unit, not two rectangles to collide with each other.
+ValidateAccessibleControlRectangles(rectangles, parentWidth, parentHeight)
+{
+    if parentWidth <= 0 || parentHeight <= 0
+        throw Error("Invalid accessible layout parent dimensions.")
+    errors := [], seen := Map()
+    for index, rect in rectangles
+    {
+        if !IsObject(rect) || !rect.HasOwnProp("Id")
+            || !rect.HasOwnProp("X") || !rect.HasOwnProp("Y")
+            || !rect.HasOwnProp("Width") || !rect.HasOwnProp("Height")
+            throw Error("Incomplete accessible layout control rectangle.")
+        if seen.Has(rect.Id)
+            errors.Push("Duplicate control: " rect.Id)
+        else
+            seen[rect.Id] := true
+        if rect.X < 0 || rect.Y < 0 || rect.Width < 0 || rect.Height < 0
+            errors.Push("Negative rectangle: " rect.Id)
+        if rect.X + rect.Width > parentWidth
+            || rect.Y + rect.Height > parentHeight
+            errors.Push("Offscreen rectangle: " rect.Id)
+        for nextIndex, nextRect in rectangles
+        {
+            if nextIndex <= index
+                continue
+            if rect.X < nextRect.X + nextRect.Width
+                && nextRect.X < rect.X + rect.Width
+                && rect.Y < nextRect.Y + nextRect.Height
+                && nextRect.Y < rect.Y + rect.Height
+                errors.Push("Overlapping controls: " rect.Id " / " nextRect.Id)
+        }
+    }
+    return {Feasible: errors.Length = 0, Errors: errors}
+}
+
+
 ; Pure native draft of the complete Character + Macro Book geometry. This
 ; matches the offline Python feasibility model; it never moves HWNDs.
 ; The caller must measure actual text heights first, and only APPLY a
