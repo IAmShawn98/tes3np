@@ -8,6 +8,7 @@ measurements are inputs from the actual renderer, not estimated here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import ceil, isfinite
 from typing import Sequence
 
 
@@ -294,6 +295,8 @@ def plan_character_macro_book(
     row_pitch: int = 24,
     macro_pitch: int = 70,
     show_limit_notice: bool = False,
+    ui_scale: float = 1.0,
+    dpi_scale: float = 1.0,
     baseline_width: int = 960,
     baseline_height: int = 650,
 ) -> BookPlan:
@@ -310,6 +313,11 @@ def plan_character_macro_book(
         raise ValueError("Negative geometry or count")
     if profile_count > 10 or macro_count > 4:
         raise ValueError("Visible row count exceeds existing controls")
+    if show_limit_notice and not profile_count:
+        raise ValueError("Cannot show character-limit notice without characters")
+    if (not isfinite(ui_scale) or not isfinite(dpi_scale)
+            or ui_scale <= 0 or dpi_scale <= 0):
+        raise ValueError("Invalid launcher or DPI scale")
     # Grow the pitch when text/hit targets grow. Retain each column's
     # original baseline spacing (1px for character rows, 8px for macros),
     # instead of rejecting larger accessible fonts or overlapping the rows.
@@ -363,9 +371,12 @@ def plan_character_macro_book(
         placements.append(("import-data", Rect(70, left_action + 35, 370, 30)))
     controls = tuple(placements)
     violations = []
-    if baseline_width > screen_width:
+    # Screen/work-area bounds are physical pixels. The plan remains in
+    # logical pixels to avoid cumulative scaling and rounding drift.
+    physical_scale = ui_scale * dpi_scale
+    if ceil(baseline_width * physical_scale) > screen_width:
         violations.append("Character Book artwork exceeds available work-area width")
-    if needed_page_height > screen_height:
+    if ceil(needed_page_height * physical_scale) > screen_height:
         violations.append("Character Book content exceeds available work-area height")
     for name, rect in controls:
         if rect.right > baseline_width or rect.bottom > needed_page_height:
