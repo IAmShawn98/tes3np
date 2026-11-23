@@ -29,13 +29,12 @@ ApplyCharacterBookScale(scale)
     ScaleOwnedMenuContent(CharacterPage, scale)
     if CharacterPage.HasOwnProp("BookBackground")
         CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
-    ReflowCharacterDescription()
 }
 
 OpenCharacterPage(*)
 {
     global CharacterPage, LauncherGui, CharacterHeading, LaunchSettingsHeading, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, CharacterRows, BookDragStrip, CharacterLimitNotice, ButtonFaces, EditorControls, V016CharacterLayoutApplied
-    global AccessibilityTextSize, CharacterDescriptionContinuation
+    global AccessibilityTextSize
     if IsObject(CharacterPage) && DllCall("IsWindow", "Ptr", CharacterPage.Hwnd)
     {
         ; Cached book is already fully painted and layered with its correct
@@ -52,7 +51,6 @@ OpenCharacterPage(*)
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
-            ReflowCharacterDescription()
             CharacterPage.Show("Hide w" Round(960 * bookScale)
                 " h" Round(650 * bookScale))
             PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
@@ -101,10 +99,6 @@ OpenCharacterPage(*)
     ; a full extra paragraph of empty control space above the first row.
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
     CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
-    ; Continuation occupies unused parchment beneath the fixed ten-row list.
-    ; It never moves any original control or changes with the text preference.
-    CharacterDescriptionContinuation := CharacterPage.Add("Text",
-        "x70 y455 w390 h84 BackgroundTrans Hidden", "")
     Loop 10
     {
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
@@ -171,7 +165,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, CharacterDescriptionContinuation, AddCharacterButton, MaxCharacters, CharacterLimitNotice
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -193,9 +187,8 @@ RefreshProfiles()
                 SetBookTick(controls.Tick, SelectedProfile = index)
             }
         }
-        descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
+        descriptionText := "Add, edit, or delete character details here. This won't affect them in-game."
         CharacterDescription.Text := descriptionText
-        ReflowCharacterDescription()
         CharacterDescription.Visible := true
         ; Use the same gap below Add character in both list states.
         actionY := Profiles.Length ? 540 : 164
@@ -203,8 +196,6 @@ RefreshProfiles()
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
         CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
-        CharacterDescriptionContinuation.Move(BookS(70), BookS(455), BookS(390), BookS(84))
-        ReflowCharacterDescription()
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : actionY + 35
         ; Preserve the original wide Import Data layout and compact Export Data
@@ -238,81 +229,6 @@ RefreshProfiles()
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
     }
     finally EndInterfaceUpdate()
-}
-
-
-; Keep the original description anchor, font preference and all ten row
-; positions. At larger fonts, put any remaining words in a second fixed text
-; region below the rows, rather than clipping, reducing glyphs or scrolling.
-ReflowCharacterDescription()
-{
-    global CharacterDescription, CharacterDescriptionContinuation
-    if !IsObject(CharacterDescription) || !IsObject(CharacterDescriptionContinuation)
-        return
-    if !DllCall("IsWindow", "Ptr", CharacterDescription.Hwnd)
-        || !DllCall("IsWindow", "Ptr", CharacterDescriptionContinuation.Hwnd)
-        return
-    fullText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
-    ; The same chosen accessible font is used in both fixed regions.
-    font := DllCall("user32\SendMessageW", "Ptr", CharacterDescription.Hwnd,
-        "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
-    if font
-        DllCall("user32\SendMessageW", "Ptr", CharacterDescriptionContinuation.Hwnd,
-            "UInt", 0x30, "Ptr", font, "Ptr", 0)
-    words := StrSplit(fullText, " ")
-    prefix := "", firstCount := 0
-    for index, word in words
-    {
-        candidate := prefix = "" ? word : prefix " " word
-        if !CharacterDescriptionFits(CharacterDescription, candidate)
-            break
-        prefix := candidate
-        firstCount := index
-    }
-    if firstCount = words.Length
-    {
-        CharacterDescription.Text := fullText
-        CharacterDescriptionContinuation.Text := ""
-        CharacterDescriptionContinuation.Visible := false
-        return
-    }
-    remainder := ""
-    Loop words.Length - firstCount
-    {
-        word := words[firstCount + A_Index]
-        remainder .= (remainder = "" ? "" : " ") word
-    }
-    CharacterDescription.Text := prefix
-    CharacterDescriptionContinuation.Text := remainder
-    CharacterDescriptionContinuation.Visible := true
-}
-
-CharacterDescriptionFits(control, caption)
-{
-    control.GetPos(, , &w, &h)
-    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
-    if !dc
-        return false
-    previous := 0
-    try
-    {
-        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
-            "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
-        if font
-            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
-        bounds := Buffer(16, 0)
-        NumPut("Int", 0, "Int", 0, "Int", Max(1, w - 8), "Int", 0, bounds)
-        ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX.
-        DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
-            "Ptr", bounds, "UInt", 0xC10)
-        return NumGet(bounds, 12, "Int") <= Max(1, h - 4)
-    }
-    finally
-    {
-        if previous
-            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
-        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
-    }
 }
 
 MoveStyledButton(control, x, y, width, height)
