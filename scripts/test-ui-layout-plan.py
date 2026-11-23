@@ -191,6 +191,45 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(layout.validate_book_control_positions(
             large, tuple(controls.items())), ())
 
+    def test_empty_character_book_keeps_original_add_and_import_positions(self):
+        plan = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080, profile_count=0, macro_count=0)
+        self.assertTrue(plan.feasible, plan.violations)
+        positions = dict(layout.expand_book_control_positions(plan))
+        self.assertEqual(positions["add-character"], layout.Rect(70, 164, 370, 30))
+        self.assertEqual(positions["import-data"], layout.Rect(70, 199, 370, 30))
+        self.assertNotIn("footer-left", positions)
+        self.assertNotIn("footer-right", positions)
+        self.assertNotIn("character-1-name", positions)
+        self.assertEqual(layout.validate_book_control_positions(
+            plan, tuple(positions.items())), ())
+
+    def test_full_character_book_keeps_notice_and_wipe_without_overlap(self):
+        plan = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            profile_count=10, show_limit_notice=True)
+        self.assertTrue(plan.feasible, plan.violations)
+        positions = dict(layout.expand_book_control_positions(plan))
+        self.assertEqual(positions["character-limit-notice"], layout.Rect(70, 429, 370, 25))
+        self.assertEqual(positions["footer-left"], layout.Rect(70, 577, 370, 25))
+        self.assertNotIn("import-data", positions)
+        self.assertEqual(layout.validate_book_control_positions(
+            plan, tuple(positions.items())), ())
+
+    def test_enlarged_limit_notice_moves_with_rows_and_actions(self):
+        plan = layout.plan_character_macro_book(
+            220, 72, 38, 130, 1920, 1080,
+            profile_count=10, show_limit_notice=True)
+        self.assertTrue(plan.feasible, plan.violations)
+        positions = dict(layout.expand_book_control_positions(plan))
+        notice = positions["character-limit-notice"]
+        last_name = positions["character-10-name"]
+        add = positions["add-character"]
+        self.assertGreaterEqual(notice.y, last_name.bottom + 8)
+        self.assertGreaterEqual(add.y, notice.bottom + 10)
+        self.assertEqual(layout.validate_book_control_positions(
+            plan, tuple(positions.items())), ())
+
     def test_control_plan_rejects_infeasible_parent_and_restores_normal(self):
         rejected = layout.plan_character_macro_book(220, 72, 38, 130, 960, 650)
         self.assertEqual(layout.expand_book_control_positions(rejected), ())
