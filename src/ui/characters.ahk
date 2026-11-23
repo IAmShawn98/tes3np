@@ -190,12 +190,30 @@ RefreshProfiles()
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
-        ; Use the same gap below Add character in both list states.
+        ; Start every refresh from immutable approved Normal geometry.
+        ; When the list is empty, there are no rows to collide with: measure
+        ; the COMPLETE instructions and push Add/Import together only if the
+        ; book's unchanged parchment/footers can contain them. The populated
+        ; ten-row state needs its own all-control transaction.
         actionY := Profiles.Length ? 540 : 164
-        MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
-        ; Shrink the transparent hit area as well as the visible gap so it
-        ; cannot cover a character checkbox after a refresh or import.
         CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
+        if !Profiles.Length
+        {
+            captionHeight := Max(BookS(81),
+                MeasureAccessibleWrappedText(CharacterDescription, descriptionText,
+                    Max(1, BookS(390) - BookS(4))) + BookS(4))
+            proposedAddY := Max(164, Ceil((BookS(80) + captionHeight
+                + BookS(3)) / GetCharacterBookScale()))
+            ; Keep Import above the original footer: no new scrolling, no
+            ; bitmap stretching, and no partial move if text cannot fit.
+            if proposedAddY + 65 <= 570
+            {
+                CharacterDescription.Move(BookS(70), BookS(80),
+                    BookS(390), captionHeight)
+                actionY := proposedAddY
+            }
+        }
+        MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : actionY + 35
         ; Preserve the original wide Import Data layout and compact Export Data
