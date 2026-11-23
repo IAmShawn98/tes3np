@@ -153,3 +153,119 @@ def character_book_left_column(
         available_bottom=available_bottom,
         items=items,
     )
+
+
+@dataclass(frozen=True)
+class Rect:
+    """Immutable logical-pixel rectangle, independently measured from GUI state."""
+    x: int
+    y: int
+    width: int
+    height: int
+
+    def __post_init__(self):
+        if min(self.x, self.y, self.width, self.height) < 0:
+            raise ValueError("Negative rectangle dimension")
+
+    @property
+    def right(self) -> int:
+        return self.x + self.width
+
+    @property
+    def bottom(self) -> int:
+        return self.y + self.height
+
+    def intersects(self, other: "Rect") -> bool:
+        return (self.x < other.right and other.x < self.right
+                and self.y < other.bottom and other.y < self.bottom)
+
+
+@dataclass(frozen=True)
+class BookPlan:
+    """All-or-nothing Character/Macro Book draft, not live control coordinates."""
+    feasible: bool
+    page_width: int
+    page_height: int
+    controls: tuple[tuple[str, Rect], ...]
+    violations: tuple[str, ...]
+
+
+def plan_character_macro_book(
+    paragraph_height: int,
+    macro_explanation_height: int,
+    row_height: int,
+    macro_row_height: int,
+    screen_width: int,
+    screen_height: int,
+    profile_count: int = 10,
+    macro_count: int = 4,
+    row_pitch: int = 24,
+    macro_pitch: int = 70,
+    baseline_width: int = 960,
+    baseline_height: int = 650,
+) -> BookPlan:
+    """Plan BOTH parchment columns, actions and footer before applying ANY move.
+
+    Geometry comes from the currently approved Character Book anchors.
+    Paragraph and row heights are required measured inputs, not font guesses.
+    The parent may grow vertically when there is real work-area space.
+    Insufficient monitor space returns an infeasible plan, never a partial move.
+    """
+    if min(paragraph_height, macro_explanation_height, row_height,
+           macro_row_height, screen_width, screen_height, profile_count,
+           macro_count, row_pitch, macro_pitch) < 0:
+        raise ValueError("Negative geometry or count")
+    if profile_count > 10 or macro_count > 4:
+        raise ValueError("Visible row count exceeds existing controls")
+    if profile_count and row_pitch < row_height:
+        raise ValueError("Character row pitch too small for accessible font")
+    if macro_count and macro_pitch < macro_row_height:
+        raise ValueError("Macro row pitch too small for accessible font")
+
+    # A column's planned height is measured from its original top anchor.
+    paragraph_bottom = 80 + max(81, paragraph_height)
+    left_first = max(164, paragraph_bottom + 3)
+    last_left = left_first + (profile_count - 1) * row_pitch + row_height if profile_count else left_first
+    left_action = max(540, last_left + 10) if profile_count else max(164, paragraph_bottom + 3)
+    left_action_bottom = left_action + 30
+
+    macro_text_bottom = 87 + max(48, macro_explanation_height)
+    macro_first = max(140, macro_text_bottom + 5)
+    macro_last = (macro_first + (macro_count - 1) * macro_pitch + macro_row_height
+                  if macro_count else macro_first)
+    macro_upload = max(188, macro_last + 8)
+    macro_upload_bottom = macro_upload + 29
+
+    # The two columns are independently laid out; the footer is downstream
+    # of whichever column needs the most vertical room.
+    footer_y = max(575, left_action_bottom + 5, macro_upload_bottom + 8)
+    needed_page_height = max(baseline_height, footer_y + 75)
+    controls = (
+        ("description", Rect(70, 80, 390, max(81, paragraph_height))),
+        ("character-rows", Rect(70, left_first, 370,
+             max(0, last_left - left_first))),
+        ("add-character", Rect(70, left_action, 370, 30)),
+        ("macro-explanation", Rect(525, 87, 355, max(48, macro_explanation_height))),
+        ("macro-rows", Rect(525, macro_first, 355,
+             max(0, macro_last - macro_first))),
+        ("macro-upload", Rect(525, macro_upload, 355, 29)),
+        ("footer-left", Rect(70, footer_y, 370, 30)),
+        ("footer-close", Rect(515, footer_y, 90, 30)),
+        ("footer-right", Rect(775, footer_y, 110, 30)),
+    )
+    violations = []
+    if baseline_width > screen_width:
+        violations.append("Character Book artwork exceeds available work-area width")
+    if needed_page_height > screen_height:
+        violations.append("Character Book content exceeds available work-area height")
+    for name, rect in controls:
+        if rect.right > baseline_width or rect.bottom > needed_page_height:
+            violations.append(f"{name} falls outside the planned parent bounds")
+    for i, (name, rect) in enumerate(controls):
+        for other_name, other_rect in controls[i + 1:]:
+            if rect.intersects(other_rect):
+                violations.append(f"{name} overlaps {other_name}")
+    return BookPlan(not violations, baseline_width,
+                    needed_page_height if not violations else 0,
+                    controls if not violations else tuple(),
+                    tuple(violations))
