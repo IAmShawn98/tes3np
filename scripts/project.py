@@ -394,7 +394,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'does not impact them in-game!"' in character_ui
             and 'ReflowCharacterBookDescription()' in character_ui
             and 'MeasureAccessibleWrappedText(CharacterDescription,' in character_ui
-            and 'firstRowY := Max(164, 80 + Ceil(paragraphHeight / GetCharacterBookScale()) + 12)' in character_ui
+            and 'firstRowY := Max(164, 80 + Ceil(paragraphHeight / GetCharacterBookScale()) + 3)' in character_ui
             and 'MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)' in character_ui
             and 'MoveStyledButton(controls.Remove, 365, y, 75, 22)' in character_ui
             and "NextCharacterDescriptionPage" not in character_ui
