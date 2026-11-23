@@ -249,7 +249,7 @@ ReflowCharacterBookDescription()
     if !DllCall("IsWindow", "Ptr", CharacterDescription.Hwnd)
         return
     width := BookS(390)
-    textHeight := MeasureCharacterBookWrappedText(CharacterDescription,
+    textHeight := MeasureAccessibleWrappedText(CharacterDescription,
         CharacterDescription.Text, Max(1, width - BookS(8)))
     paragraphHeight := Max(BookS(81), textHeight + BookS(6))
     CharacterDescription.Move(BookS(70), BookS(80), width, paragraphHeight)
@@ -260,8 +260,8 @@ ReflowCharacterBookDescription()
     for index, controls in CharacterRows
     {
         y := firstRowY + (index - 1) * 24
-        controls.Tick.Move(BookS(70), BookS(y + 2), BookS(18), BookS(18))
-        controls.Name.Move(BookS(95), BookS(y), BookS(140), BookS(23))
+        MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
+        MoveStyledButton(controls.Name, 95, y, 140, 23)
         MoveStyledButton(controls.Play, 240, y, 55, 22)
         MoveStyledButton(controls.Edit, 300, y, 60, 22)
         MoveStyledButton(controls.Remove, 365, y, 75, 22)
@@ -276,35 +276,7 @@ ReflowCharacterBookDescription()
         MoveStyledButton(AddCharacterButton, 70, 540, 370, 30)
     else
         MoveStyledButton(AddCharacterButton, 70, Max(164, firstRowY), 370, 30)
-    CharacterLimitNotice.Move(BookS(70), BookS(Max(429, lastRowBottom + 8)),
-        BookS(370), BookS(25))
-}
-
-MeasureCharacterBookWrappedText(control, caption, width)
-{
-    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
-    if !dc
-        throw Error("Cannot measure Character Book text.")
-    previous := 0
-    try
-    {
-        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
-            "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
-        if font
-            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
-        bounds := Buffer(16, 0)
-        NumPut("Int", 0, "Int", 0, "Int", width, "Int", 0, bounds)
-        ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX
-        DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
-            "Ptr", bounds, "UInt", 0xC10)
-        return NumGet(bounds, 12, "Int")
-    }
-    finally
-    {
-        if previous
-            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
-        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
-    }
+    MoveStyledButton(CharacterLimitNotice, 70, Max(429, lastRowBottom + 8), 370, 25)
 }
 
 MoveStyledButton(control, x, y, width, height)
