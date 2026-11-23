@@ -2730,7 +2730,8 @@ expect(
     "DwmFlush" not in loading_ui.replace("DwmFlush synchronously", "")
     and "previousCritical := A_IsCritical" in loading_ui
     and "finally Critical(previousCritical)" in loading_ui
-    and "finally DestroyLoadingCard(loading)" in display_refresh,
+    and 'if hasDisplayFrame\n            ReleaseCapturedInterfaceFrame(loading)' in display_refresh
+    and 'else\n            DestroyLoadingCard(loading)' in display_refresh,
 )
 expect(
     "Launcher initial sizing is hidden and subsequent displays reuse cached layout",
