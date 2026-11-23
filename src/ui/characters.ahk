@@ -29,7 +29,6 @@ ApplyCharacterBookScale(scale)
     ScaleOwnedMenuContent(CharacterPage, scale)
     if CharacterPage.HasOwnProp("BookBackground")
         CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
-    RestoreCharacterDescriptionFont()
 }
 
 OpenCharacterPage(*)
@@ -52,7 +51,6 @@ OpenCharacterPage(*)
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
-            RestoreCharacterDescriptionFont()
             CharacterPage.Show("Hide w" Round(960 * bookScale)
                 " h" Round(650 * bookScale))
             PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
@@ -100,14 +98,14 @@ OpenCharacterPage(*)
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
-    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w410 h184 BackgroundTrans", "")
+    CharacterDescription := CharacterPage.Add("Text", "x70 y80 w390 h81 BackgroundTrans", "")
     Loop 10
     {
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
         ; Start just below the instructions; retain all ten 24px-spaced
         ; rows and their aligned painted buttons and hit targets.
-        y := 275 + (index - 1) * 24
+        y := 164 + (index - 1) * 24
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -121,7 +119,7 @@ OpenCharacterPage(*)
         CharacterRows.Push({Tick: tick, Name: name, Play: play, Edit: edit, Remove: remove})
     }
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
-    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 515, 370, 20, "* You have reached the server character limit.")
+    CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 429, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
@@ -191,15 +189,13 @@ RefreshProfiles()
         }
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
-        ; Preserve the full, readable original paragraph in its approved rectangle.
+        CharacterDescription.Visible := true
         ; Use the same gap below Add character in both list states.
-        actionY := Profiles.Length ? 540 : 290
+        actionY := Profiles.Length ? 540 : 164
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
-        CharacterDescription.Move(BookS(70), BookS(80), BookS(410), BookS(184))
-        RestoreCharacterDescriptionFont()
-        CharacterDescription.Visible := true
+        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : actionY + 35
         ; Preserve the original wide Import Data layout and compact Export Data
@@ -233,19 +229,6 @@ RefreshProfiles()
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
     }
     finally EndInterfaceUpdate()
-}
-
-
-; Use one expanded description rectangle and fixed character-row layout for all
-; text preferences. Keep the full original paragraph and apply its selected
-; accessible font size without shortening, paging or micro-shrinking.
-RestoreCharacterDescriptionFont()
-{
-    global CharacterDescription, LauncherMorrowindFont
-    if !IsObject(CharacterDescription) || !DllCall("IsWindow", "Ptr", CharacterDescription.Hwnd)
-        return
-    SetAccessibleTextFont(CharacterDescription,
-        "s" Max(7, Round(11 * GetCharacterBookScale())) " Norm c241408", LauncherMorrowindFont)
 }
 
 MoveStyledButton(control, x, y, width, height)
