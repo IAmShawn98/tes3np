@@ -286,7 +286,10 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     physicalScale := uiScale * dpiScale
     fits := workWidth >= Ceil(960 * physicalScale)
         && workHeight >= Ceil(pageHeight * physicalScale)
-    return {Feasible: fits, Width: 960, Height: fits ? pageHeight : 0,
+    ; A geometric fit is NOT approval to stretch the 960x650 painted book.
+    ; A taller parent requires an artwork-preserving extension strategy.
+    return {Feasible: fits, RequiresArtworkExtension: pageHeight > 650,
+        Width: 960, Height: fits ? pageHeight : 0,
         RequiredHeight: pageHeight, CharacterTop: characterTop,
         CharacterPitch: characterPitch, CharacterBottom: characterBottom,
         AddTop: addTop, ImportTop: characterCount ? 0 : addTop + 35,
