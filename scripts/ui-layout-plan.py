@@ -118,7 +118,7 @@ def plan_responsive_parent(
     return ParentPagePlan(
         feasible=overflow == 0,
         required_height=required,
-        target_height=required if not overflow else minimum_page_height,
+        target_height=required if not overflow else 0,
         available_height=available_work_height,
         growth=max(0, required - minimum_page_height),
         overflow=overflow,
