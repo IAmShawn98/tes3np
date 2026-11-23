@@ -136,8 +136,8 @@ def character_book_left_column(
 
     Coordinates and row pitch mirror existing native Character Book geometry.
     The baseline top positions and footer constraints must be considered before
-    attempting any live reflow. Last action bottom 605 is already the visible
-    action's bottom boundary above the fixed Wipe Character List control.
+    attempting any live reflow. The Add action ends at y570, just above
+    the fixed Wipe Character List action beginning near y575.
     """
     if measured_paragraph_height < 0 or action_height < 0:
         raise ValueError("Negative text/action height")
