@@ -188,17 +188,17 @@ class BookPlan:
     page_height: int
     controls: tuple[tuple[str, Rect], ...]
     violations: tuple[str, ...]
+    profile_count: int = 10
+    macro_count: int = 4
+    character_row_height: int = 23
+    macro_row_height: int = 62
+    character_pitch: int = 24
+    macro_pitch: int = 70
 
 
 
 def expand_book_control_positions(
     plan: BookPlan,
-    profile_count: int = 10,
-    macro_count: int = 4,
-    character_row_height: int = 23,
-    macro_row_height: int = 62,
-    row_pitch: int = 24,
-    macro_pitch: int = 70,
 ) -> tuple[tuple[str, Rect], ...]:
     """Expand a feasible two-column plan into one immutable control geometry.
 
@@ -208,16 +208,18 @@ def expand_book_control_positions(
     """
     if not plan.feasible or not plan.controls:
         return ()
-    if min(profile_count, macro_count, character_row_height,
-           macro_row_height, row_pitch, macro_pitch) < 0:
-        raise ValueError("Invalid control dimensions")
-    if profile_count > 10 or macro_count > 4:
-        raise ValueError("More controls requested than allocated")
+    # Expansion uses the *same* measured inputs that created the plan.
+    # Requiring callers to re-supply row heights previously allowed a Large
+    # page to receive Normal-sized controls while appearing geometrically valid.
+    profile_count = plan.profile_count
+    macro_count = plan.macro_count
+    character_row_height = plan.character_row_height
+    macro_row_height = plan.macro_row_height
     regions = dict(plan.controls)
     left = regions["character-rows"]
     right = regions["macro-rows"]
-    char_pitch = max(row_pitch, character_row_height + 1)
-    mac_pitch = max(macro_pitch, macro_row_height + 8)
+    char_pitch = plan.character_pitch
+    mac_pitch = plan.macro_pitch
     controls: list[tuple[str, Rect]] = []
     for number in range(profile_count):
         y = left.y + number * char_pitch
@@ -358,4 +360,9 @@ def plan_character_macro_book(
     return BookPlan(not violations, baseline_width,
                     needed_page_height if not violations else 0,
                     controls if not violations else tuple(),
-                    tuple(violations))
+                    tuple(violations),
+                    profile_count=profile_count, macro_count=macro_count,
+                    character_row_height=row_height,
+                    macro_row_height=macro_row_height,
+                    character_pitch=effective_row_pitch,
+                    macro_pitch=effective_macro_pitch)
