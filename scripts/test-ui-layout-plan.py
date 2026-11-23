@@ -136,7 +136,7 @@ class LayoutPlanningTest(unittest.TestCase):
     def test_two_columns_grow_row_pitches_instead_of_shrinking_font(self):
         normal = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
         character_grown = layout.plan_character_macro_book(70, 40, 38, 62, 1920, 1080)
-        macro_grown = layout.plan_character_macro_book(70, 40, 23, 91, 1920, 1080)
+        macro_grown = layout.plan_character_macro_book(70, 40, 23, 130, 1920, 1080)
         self.assertTrue(normal.feasible, normal.violations)
         self.assertTrue(character_grown.feasible, character_grown.violations)
         self.assertTrue(macro_grown.feasible, macro_grown.violations)
