@@ -170,6 +170,45 @@ PlanAccessibleVerticalStack(items, top, availableBottom)
         AvailableBottom: availableBottom, Overflow: overflow}
 }
 
+
+; Pure native draft of the complete Character + Macro Book geometry. This
+; matches the offline Python feasibility model; it never moves HWNDs.
+; The caller must measure actual text heights first, and only APPLY a
+; feasible plan after considering any additional editor/overlay controls.
+PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
+    characterRowHeight, macroRowHeight, workWidth, workHeight,
+    characterCount := 10, macroCount := 4)
+{
+    if Min(descriptionHeight, macroTextHeight, characterRowHeight,
+        macroRowHeight, workWidth, workHeight, characterCount, macroCount) < 0
+        throw Error("Invalid Character Book measurements.")
+    if characterCount > 10 || macroCount > 4
+        throw Error("Character Book has more rows than existing controls.")
+    characterPitch := Max(24, characterRowHeight + 1)
+    macroPitch := Max(70, macroRowHeight + 8)
+    descriptionBottom := 80 + Max(81, descriptionHeight)
+    characterTop := Max(164, descriptionBottom + 3)
+    characterBottom := characterCount
+        ? characterTop + (characterCount - 1) * characterPitch + characterRowHeight
+        : characterTop
+    addTop := characterCount ? Max(540, characterBottom + 10)
+        : Max(164, descriptionBottom + 3)
+    macroTextBottom := 87 + Max(48, macroTextHeight)
+    macroTop := Max(140, macroTextBottom + 5)
+    macroBottom := macroCount
+        ? macroTop + (macroCount - 1) * macroPitch + macroRowHeight
+        : macroTop
+    uploadTop := Max(188, macroBottom + 8)
+    footerTop := Max(575, addTop + 35, uploadTop + 37)
+    pageHeight := Max(650, footerTop + 75)
+    fits := workWidth >= 960 && workHeight >= pageHeight
+    return {Feasible: fits, Width: 960, Height: fits ? pageHeight : 0,
+        RequiredHeight: pageHeight, CharacterTop: characterTop,
+        CharacterPitch: characterPitch, CharacterBottom: characterBottom,
+        AddTop: addTop, MacroTop: macroTop, MacroPitch: macroPitch,
+        MacroBottom: macroBottom, UploadTop: uploadTop, FooterTop: footerTop}
+}
+
 ScaleOwnedMenuContent(gui, scale)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
