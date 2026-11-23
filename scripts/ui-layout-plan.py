@@ -190,6 +190,94 @@ class BookPlan:
     violations: tuple[str, ...]
 
 
+
+def expand_book_control_positions(
+    plan: BookPlan,
+    profile_count: int = 10,
+    macro_count: int = 4,
+    character_row_height: int = 23,
+    macro_row_height: int = 62,
+    row_pitch: int = 24,
+    macro_pitch: int = 70,
+) -> tuple[tuple[str, Rect], ...]:
+    """Expand a feasible two-column plan into one immutable control geometry.
+
+    This does NOT change the native button faces, hit targets, or live GUI.
+    It is a full-transaction preview used to check relative row alignment,
+    footer placement, and original Normal anchors before implementing them.
+    """
+    if not plan.feasible or not plan.controls:
+        return ()
+    if min(profile_count, macro_count, character_row_height,
+           macro_row_height, row_pitch, macro_pitch) < 0:
+        raise ValueError("Invalid control dimensions")
+    if profile_count > 10 or macro_count > 4:
+        raise ValueError("More controls requested than allocated")
+    regions = dict(plan.controls)
+    left = regions["character-rows"]
+    right = regions["macro-rows"]
+    char_pitch = max(row_pitch, character_row_height + 1)
+    mac_pitch = max(macro_pitch, macro_row_height + 8)
+    controls: list[tuple[str, Rect]] = []
+    for number in range(profile_count):
+        y = left.y + number * char_pitch
+        prefix = f"character-{number + 1}"
+        controls.extend((
+            (prefix + "-tick", Rect(70, y + 2, 18, max(18, character_row_height - 5))),
+            (prefix + "-name", Rect(95, y, 140, character_row_height)),
+            (prefix + "-play", Rect(240, y, 55, max(22, character_row_height))),
+            (prefix + "-edit", Rect(300, y, 60, max(22, character_row_height))),
+            (prefix + "-remove", Rect(365, y, 75, max(22, character_row_height))),
+        ))
+    for number in range(macro_count):
+        y = right.y + number * mac_pitch
+        prefix = f"macro-{number + 1}"
+        row_action_height = max(20, macro_row_height - 42)
+        controls.extend((
+            (prefix + "-status", Rect(551, y, 329, max(17, macro_row_height - 45))),
+            (prefix + "-tick", Rect(525, y + 20, 18, 18)),
+            (prefix + "-name", Rect(551, y + 19, 125, max(22, macro_row_height - 40))),
+            (prefix + "-rename", Rect(680, y + 19, 21, max(22, macro_row_height - 40))),
+            (prefix + "-run", Rect(551, y + 42, 103, row_action_height)),
+            (prefix + "-stop", Rect(663, y + 42, 103, row_action_height)),
+            (prefix + "-remove", Rect(775, y + 42, 105, row_action_height)),
+        ))
+    # Aggregate rectangles are not returned because they intentionally
+    # contain the individual controls. The footer is returned as independent
+    # buttons; shared coordinate planning prevents painter/hitbox drift.
+    controls.extend((name, rect) for name, rect in plan.controls
+                    if name not in ("character-rows", "macro-rows"))
+    return tuple(controls)
+
+
+def validate_book_control_positions(
+    plan: BookPlan,
+    positions: Sequence[tuple[str, Rect]],
+) -> tuple[str, ...]:
+    """Check same-column row bounds, no duplicate IDs, and parent containment."""
+    if not plan.feasible:
+        return ("Parent layout infeasible",)
+    issues: list[str] = []
+    seen: set[str] = set()
+    for name, rect in positions:
+        if name in seen:
+            issues.append(f"Duplicate control ID: {name}")
+        seen.add(name)
+        if rect.right > plan.page_width or rect.bottom > plan.page_height:
+            issues.append(f"Control outside book: {name}")
+    # Direct text and action controls on the same row can share a y range
+    # but never their horizontal region. Macro status and name intentionally
+    # occupy vertically distinct bands, so only check per-kind actions.
+    for i, (name, rect) in enumerate(positions):
+        if not name.endswith(("-play", "-edit", "-remove", "-run", "-stop", "-rename")):
+            continue
+        for other_name, other_rect in positions[i + 1:]:
+            if (other_name.endswith(("-play", "-edit", "-remove", "-run", "-stop", "-rename"))
+                    and rect.intersects(other_rect)):
+                issues.append(f"Interactive controls overlap: {name} / {other_name}")
+    return tuple(issues)
+
+
 def plan_character_macro_book(
     paragraph_height: int,
     macro_explanation_height: int,
