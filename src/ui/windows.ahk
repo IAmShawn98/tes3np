@@ -393,7 +393,8 @@ ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
 PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     characterRowHeight, macroRowHeight, workWidth, workHeight,
     characterCount := 10, macroCount := 4, showLimitNotice := false,
-    uiScale := 1.0, dpiScale := 1.0)
+    uiScale := 1.0, dpiScale := 1.0,
+    measuredCharacterNameWidth := -1, measuredMacroNameWidth := -1)
 {
     if Min(descriptionHeight, macroTextHeight, characterRowHeight,
         macroRowHeight, workWidth, workHeight, characterCount, macroCount) < 0
@@ -429,8 +430,17 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     fits := workWidth >= Ceil(960 * physicalScale)
         && workHeight >= Ceil(pageHeight * physicalScale)
     ; A geometric fit is NOT approval to stretch the 960x650 painted book.
-    ; A taller parent requires an artwork-preserving extension strategy.
+    ; Require measured names AND complete horizontal room before the live
+    ; transaction may be enabled. -1 explicitly means not measured.
+    requiresHorizontalReflow := (characterCount
+        && measuredCharacterNameWidth > 140)
+        || (macroCount && measuredMacroNameWidth > 125)
+    liveApplicationReady := fits && pageHeight <= 650
+        && measuredCharacterNameWidth >= 0 && measuredMacroNameWidth >= 0
+        && !requiresHorizontalReflow
     return {Feasible: fits, RequiresArtworkExtension: pageHeight > 650,
+        RequiresHorizontalReflow: requiresHorizontalReflow,
+        LiveApplicationReady: liveApplicationReady,
         Width: 960, Height: fits ? pageHeight : 0,
         RequiredHeight: pageHeight, CharacterTop: characterTop,
         CharacterPitch: characterPitch, CharacterBottom: characterBottom,
