@@ -45,13 +45,19 @@ V016Font(value)
 
 AddV016SettingsCopy(settings, x, y, width, reservedHeight, text)
 {
-    ; Let the native control measure the wrapped text with the current
-    ; font and DPI. Reuse the default space unless the copy needs more.
+    ; The Settings and Launcher Data pages are already built from a shared
+    ; copyExtra stack. Measure the COMPLETE text in the font actually attached
+    ; to the new native control and grow that control *before* subsequent
+    ; sections and their buttons are positioned. Never downfit the font.
     label := settings.Add("Text", "x" V016S(x) " y" y " w" V016S(width) " BackgroundTrans +Wrap", text)
     label.GetPos(, , , &measuredHeight)
     reserved := V016S(reservedHeight)
-    if measuredHeight < reserved
-        label.Move(, , , reserved)
+    ; DT_CALCRECT can expose overflow that the default AHK Static height
+    ; misses at Large/Extra Large or on high-DPI native font rendering.
+    measuredHeight := Max(measuredHeight,
+        MeasureAccessibleWrappedText(label, text, Max(1, V016S(width) - V016S(4)))
+            + V016S(4))
+    label.Move(, , , Max(reserved, measuredHeight))
     return Max(0, measuredHeight - reserved)
 }
 
