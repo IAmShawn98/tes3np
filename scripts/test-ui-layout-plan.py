@@ -230,6 +230,42 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(layout.validate_book_control_positions(
             plan, tuple(positions.items())), ())
 
+    def test_half_scale_fits_without_changing_logical_content_or_text(self):
+        full = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
+        half = layout.plan_character_macro_book(
+            220, 72, 38, 130, 520, 490, ui_scale=0.5)
+        self.assertTrue(full.feasible, full.violations)
+        self.assertTrue(half.feasible, half.violations)
+        self.assertEqual(full.controls, half.controls)
+        self.assertEqual(full.page_height, half.page_height)
+        self.assertEqual(layout.expand_book_control_positions(full),
+                         layout.expand_book_control_positions(half))
+
+    def test_zoom_and_dpi_are_independent_screen_constraints(self):
+        base = layout.plan_character_macro_book(
+            70, 40, 23, 62, 960, 650)
+        zoomed = layout.plan_character_macro_book(
+            70, 40, 23, 62, 960, 650, ui_scale=0.5, dpi_scale=2)
+        exceeds = layout.plan_character_macro_book(
+            70, 40, 23, 62, 960, 650, ui_scale=1.0, dpi_scale=1.5)
+        self.assertTrue(base.feasible)
+        self.assertTrue(zoomed.feasible)
+        self.assertEqual(base.controls, zoomed.controls)
+        self.assertFalse(exceeds.feasible)
+        self.assertEqual(exceeds.controls, ())
+
+    def test_reject_invalid_viewport_scale_or_impossible_limit_notice(self):
+        with self.assertRaises(ValueError):
+            layout.plan_character_macro_book(
+                70, 40, 23, 62, 1920, 1080, ui_scale=0)
+        with self.assertRaises(ValueError):
+            layout.plan_character_macro_book(
+                70, 40, 23, 62, 1920, 1080, dpi_scale=float("nan"))
+        with self.assertRaises(ValueError):
+            layout.plan_character_macro_book(
+                70, 40, 23, 62, 1920, 1080,
+                profile_count=0, show_limit_notice=True)
+
     def test_control_plan_rejects_infeasible_parent_and_restores_normal(self):
         rejected = layout.plan_character_macro_book(220, 72, 38, 130, 960, 650)
         self.assertEqual(layout.expand_book_control_positions(rejected), ())
