@@ -610,8 +610,22 @@ expect(
     and 'overflow: auto !important;' in composer_page
     and 'white-space: pre-wrap !important; overflow-wrap: anywhere !important;' in composer_page
     and 'word-break: break-word !important;' in composer_page
+    and 'scrollbar-width: auto !important; scrollbar-color: auto !important;' in composer_page
+    and '[${editorMarker}]::-webkit-scrollbar {' in composer_page
+    and 'width: 15px !important; height: 0 !important;' in composer_page
+    and '[${editorMarker}]::-webkit-scrollbar-track {' in composer_page
+    and 'background: #17120b !important; border: 2px solid #967648 !important;' in composer_page
+    and '[${editorMarker}]::-webkit-scrollbar-thumb {' in composer_page
+    and 'linear-gradient(90deg,#58401e 0%,#c7a971 40%,#9b7840 85%,#4c351a 100%)' in composer_page
+    and '[${editorMarker}]::-webkit-scrollbar-button:single-button {' in composer_page
+    and '[${editorMarker}]::-webkit-scrollbar-button:single-button:vertical:decrement {' in composer_page
+    and '[${editorMarker}]::-webkit-scrollbar-button:single-button:vertical:increment {' in composer_page
     and "boundEditor.focus({ preventScroll: true });" in composer_page
-    and 'height: 30px !important;' in composer_page,
+    and 'flex: 0 0 54px !important; width: 54px !important;' in composer_page
+    and 'align-self: stretch !important; height: auto !important;' in composer_page
+    and 'max-height: none !important; margin: 0 !important;' in composer_page
+    and "content: ''; width: 24px; height: 21px;" in composer_page
+    and 'height: 30px !important;' not in composer_page,
 )
 # Chat Host has a separate real WebView2 renderer, its parent, a native
 # loading-text control and a textured custom scrollbar. All four must change

@@ -46,8 +46,36 @@
         white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: break-word !important;
         box-sizing: border-box !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
         height: auto !important; min-height: 28px !important; max-height: calc(var(--tes3np-compose-height) - 6px) !important;
-        overflow: auto !important; scrollbar-width: thin;
+        overflow: auto !important;
+        /* Chromium/WebView2 honors the WebKit thumb/track theme when these
+           standardized overrides remain at auto. */
+        scrollbar-width: auto !important; scrollbar-color: auto !important;
       }
+      /* Match the existing Morrowind bronze/gold scrollbar from chat.css.
+         Scope to the real Discord contenteditable: never touch the feed. */
+      [${editorMarker}]::-webkit-scrollbar {
+        width: 15px !important; height: 0 !important; background: #080705 !important;
+      }
+      [${editorMarker}]::-webkit-scrollbar-track {
+        background: #17120b !important; border: 2px solid #967648 !important;
+        box-shadow: inset 1px 1px 0 #322412 !important;
+      }
+      [${editorMarker}]::-webkit-scrollbar-thumb {
+        background: linear-gradient(90deg,#58401e 0%,#c7a971 40%,#9b7840 85%,#4c351a 100%) !important;
+        border: 2px solid #d3b783 !important; border-radius: 0 !important;
+        min-height: 24px !important;
+      }
+      [${editorMarker}]::-webkit-scrollbar-button:single-button {
+        height: 15px !important; display: block !important; background: #2a1e10 !important;
+        border: 2px solid #b79a60 !important; box-shadow: inset 1px 1px 0 #e0c78d !important;
+      }
+      [${editorMarker}]::-webkit-scrollbar-button:single-button:vertical:decrement {
+        background-image: linear-gradient(135deg,transparent 45%,#e6cf96 46%,#e6cf96 55%,transparent 56%) !important;
+      }
+      [${editorMarker}]::-webkit-scrollbar-button:single-button:vertical:increment {
+        background-image: linear-gradient(315deg,transparent 45%,#e6cf96 46%,#e6cf96 55%,transparent 56%) !important;
+      }
+      [${editorMarker}]::-webkit-scrollbar-corner { background: #17120b !important; }
       [${areaMarker}] :is([class*="placeholder_"], [data-slate-placeholder="true"]:not([class*="placeholder_"] *)) {
         position: absolute !important; inset: 2px 0 auto !important; transform: none !important;
         margin: 0 !important; padding: 0 !important; pointer-events: none !important;
@@ -56,15 +84,23 @@
       }
       [${sendMarker}] {
         box-sizing: border-box !important; display: grid !important; place-items: center !important;
-        flex: 0 0 32px !important; height: 30px !important; margin: 0 !important; padding: 0 !important;
-        color: #e5c68d !important; background: #2a2014 !important;
-        border: 1px solid #907343 !important; border-radius: 3px !important; cursor: pointer !important;
+        /* Fill the full composer height; the 54px-wide target is comparable
+           to the annotated button size without covering the editor scroll. */
+        flex: 0 0 54px !important; width: 54px !important; min-width: 54px !important;
+        align-self: stretch !important; height: auto !important; min-height: 0 !important;
+        max-height: none !important; margin: 0 !important; padding: 0 !important;
+        color: #e5c68d !important;
+        background: linear-gradient(90deg,#24180d 0%,#4d371c 50%,#302111 100%) !important;
+        border: 2px ridge #b79a60 !important; border-radius: 2px !important; cursor: pointer !important;
       }
       [${sendMarker}]::before {
-        content: ''; width: 20px; height: 17px; background: currentColor;
+        content: ''; width: 24px; height: 21px; background: currentColor;
         clip-path: polygon(0 0, 100% 50%, 0 100%, 0 59%, 65% 50%, 0 41%);
       }
-      [${sendMarker}]:hover, [${sendMarker}]:focus-visible { color: #fff0c9 !important; background: #47341f !important; }
+      [${sendMarker}]:hover, [${sendMarker}]:focus-visible {
+        color: #fff0c9 !important;
+        background: linear-gradient(90deg,#3b2914 0%,#76582c 50%,#4e361a 100%) !important;
+      }
       [${sendMarker}]:focus-visible { outline: 1px solid #e5c68d !important; outline-offset: 1px !important; }
       [${areaMarker}]:focus-within { border-color: #d5b477 !important; }
     `;
