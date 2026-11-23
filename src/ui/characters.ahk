@@ -243,7 +243,7 @@ RefreshProfiles()
 ReflowCharacterBookDescription()
 {
     global CharacterPage, CharacterDescription, CharacterRows
-    global AddCharacterButton, WipeCharacterButton, Profiles, CharacterLimitNotice
+    global AddCharacterButton, WipeCharacterButton, DataTransferButton, Profiles, CharacterLimitNotice
     if !IsObject(CharacterPage) || !IsObject(CharacterDescription)
         return
     if !DllCall("IsWindow", "Ptr", CharacterDescription.Hwnd)
@@ -275,7 +275,13 @@ ReflowCharacterBookDescription()
     if Profiles.Length
         MoveStyledButton(AddCharacterButton, 70, 540, 370, 30)
     else
-        MoveStyledButton(AddCharacterButton, 70, Max(164, firstRowY), 370, 30)
+    {
+        emptyActionY := Max(164, firstRowY)
+        MoveStyledButton(AddCharacterButton, 70, emptyActionY, 370, 30)
+        ; The empty-book Import button follows Add in the SAME reflow, rather
+        ; than being left at the pre-reflow 199px position and overlapping it.
+        MoveStyledButton(DataTransferButton, 70, emptyActionY + 35, 370, 30)
+    }
     MoveStyledButton(CharacterLimitNotice, 70, Max(429, lastRowBottom + 8), 370, 25)
 }
 
