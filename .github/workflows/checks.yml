@@ -20,6 +20,8 @@ jobs:
         run: python scripts/project.py check --allow-missing-payload
       - name: Inventory native launcher and Game Chat text/geometry paths
         run: python scripts/audit-ui-layout.py --format json --output ui-layout-inventory.json
+      - name: Verify all expected UI modules remain in accessibility audit
+        run: python scripts/test-ui-audit.py
       - name: Test full-content layout feasibility and reversible baseline planning
         run: python scripts/test-ui-layout-plan.py
       - name: Parse workers with Windows PowerShell 5.1
