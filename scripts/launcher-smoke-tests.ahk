@@ -1050,6 +1050,8 @@ CheckMeasuredAccessibleBookPreflight()
             {
                 SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
                 description := probe.Add("Text", "x8 y8 w390 h81", fullDescription)
+                if MeasureAccessibleWrappedText(description, "", 382) != 0
+                    throw Error("Empty native status text should have zero text height.")
                 descriptionHeight := MeasureAccessibleWrappedText(description,
                     fullDescription, 382)
                 SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
