@@ -394,7 +394,8 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     characterRowHeight, macroRowHeight, workWidth, workHeight,
     characterCount := 10, macroCount := 4, showLimitNotice := false,
     uiScale := 1.0, dpiScale := 1.0,
-    measuredCharacterNameWidth := -1, measuredMacroNameWidth := -1)
+    measuredCharacterNameWidth := -1, measuredMacroNameWidth := -1,
+    completeControlMetrics := false, artworkStrategyValidated := false)
 {
     if Min(descriptionHeight, macroTextHeight, characterRowHeight,
         macroRowHeight, workWidth, workHeight, characterCount, macroCount) < 0
@@ -437,6 +438,7 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
         || (macroCount && measuredMacroNameWidth > 125)
     liveApplicationReady := fits && pageHeight <= 650
         && measuredCharacterNameWidth >= 0 && measuredMacroNameWidth >= 0
+        && completeControlMetrics && artworkStrategyValidated
         && !requiresHorizontalReflow
     return {Feasible: fits, RequiresArtworkExtension: pageHeight > 650,
         RequiresHorizontalReflow: requiresHorizontalReflow,
