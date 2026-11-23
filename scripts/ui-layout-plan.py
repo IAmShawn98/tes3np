@@ -197,6 +197,8 @@ class BookPlan:
     macro_pitch: int = 70
     show_limit_notice: bool = False
     requires_art_extension: bool = False
+    requires_horizontal_reflow: bool = False
+    live_application_ready: bool = False
 
 
 
@@ -371,6 +373,8 @@ def plan_character_macro_book(
     show_limit_notice: bool = False,
     ui_scale: float = 1.0,
     dpi_scale: float = 1.0,
+    measured_character_name_width: int | None = None,
+    measured_macro_name_width: int | None = None,
     baseline_width: int = 960,
     baseline_height: int = 650,
 ) -> BookPlan:
@@ -392,6 +396,15 @@ def plan_character_macro_book(
     if (not isfinite(ui_scale) or not isfinite(dpi_scale)
             or ui_scale <= 0 or dpi_scale <= 0):
         raise ValueError("Invalid launcher or DPI scale")
+    for width in (measured_character_name_width, measured_macro_name_width):
+        if width is not None and width < 0:
+            raise ValueError("Negative measured text width")
+    horizontal_reflow = (
+        (profile_count > 0 and measured_character_name_width is not None
+         and measured_character_name_width > 140)
+        or (macro_count > 0 and measured_macro_name_width is not None
+            and measured_macro_name_width > 125)
+    )
     # Grow the pitch when text/hit targets grow. Retain each column's
     # original baseline spacing (1px for character rows, 8px for macros),
     # instead of rejecting larger accessible fonts or overlapping the rows.
@@ -469,4 +482,14 @@ def plan_character_macro_book(
                     character_pitch=effective_row_pitch,
                     macro_pitch=effective_macro_pitch,
                     show_limit_notice=show_limit_notice,
-                    requires_art_extension=(needed_page_height > baseline_height))
+                    requires_art_extension=(needed_page_height > baseline_height),
+                    requires_horizontal_reflow=horizontal_reflow,
+                    # An accepted vertical rectangle is NOT a ready-to-apply
+                    # layout if text is unmeasured, artwork would stretch or
+                    # horizontal names need additional space.
+                    live_application_ready=(
+                        not violations
+                        and measured_character_name_width is not None
+                        and measured_macro_name_width is not None
+                        and not horizontal_reflow
+                        and needed_page_height <= baseline_height))
