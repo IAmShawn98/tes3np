@@ -945,7 +945,7 @@ CheckMeasuredAccessibleBookPreflight()
     previousMode := AccessibilityTextSize
     fullDescription := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
     macroCopy := "Upload, run, or stop macros here. Click the pencil to rename a macro."
-    heights := [], plans := [], nameWidths := []
+    heights := [], plans := [], nameWidths := [], macroNameWidths := []
     try
     {
         for mode in ["Normal", "Large", "Extra Large"]
@@ -974,6 +974,11 @@ CheckMeasuredAccessibleBookPreflight()
                 macroName := probe.Add("Text", "x8 y205 w125 h22", "Macro Name")
                 macroNameHeight := MeasureAccessibleWrappedText(macroName,
                     "Macro Name", 121)
+                longMacroMetrics := MeasureAccessibleSingleLineText(macroName,
+                    "A long macro name that must retain its complete original text")
+                if longMacroMetrics.Width <= 125
+                    throw Error("Long Macro Book fixture failed to expose fixed-width truncation.")
+                macroNameWidths.Push(longMacroMetrics.Width)
                 heights.Push({Description: descriptionHeight, Macro: macroHeight,
                     Character: characterHeight, MacroRow: Max(62, macroNameHeight + 40)})
                 plan := PlanAccessibleBookGeometry(descriptionHeight, macroHeight,
@@ -989,7 +994,9 @@ CheckMeasuredAccessibleBookPreflight()
             finally probe.Destroy()
         }
         if nameWidths[1] >= nameWidths[2] || nameWidths[2] >= nameWidths[3]
-            throw Error("Large Interface Text failed to increase unshortened character-name width.")
+            || macroNameWidths[1] >= macroNameWidths[2]
+            || macroNameWidths[2] >= macroNameWidths[3]
+            throw Error("Large Interface Text failed to increase complete Character/Macro name widths.")
         if heights[1].Description > heights[2].Description
             || heights[2].Description > heights[3].Description
             throw Error("The original Character Book description got smaller at a larger text preference.")
