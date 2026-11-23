@@ -865,6 +865,28 @@ CheckAccessibleLayoutPreflight()
         {Id: "full-description", Height: 81, GapAfter: 3}, rows, add], 80, 570)
     if !restored.Feasible || restored.Items[2].Top != baseline.Items[2].Top
         throw Error("Normal layout did not restore its original geometry.")
+    normalBook := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
+    if !normalBook.Feasible || normalBook.Height != 650
+        || normalBook.CharacterTop != 164 || normalBook.MacroTop != 140
+        || normalBook.FooterTop != 575
+        throw Error("Complete normal two-column Book baseline changed.")
+    largeBook := PlanAccessibleBookGeometry(220, 72, 23, 62, 1920, 1080)
+    if !largeBook.Feasible || largeBook.Height <= 650
+        || largeBook.CharacterTop <= normalBook.CharacterTop
+        || largeBook.FooterTop <= normalBook.FooterTop
+        throw Error("Whole-book Large reflow did not reserve enough parent space.")
+    noSpace := PlanAccessibleBookGeometry(220, 72, 23, 62, 960, 650)
+    if noSpace.Feasible || noSpace.Height != 0
+        throw Error("Oversized Character Book produced a partial screen layout.")
+    biggerRows := PlanAccessibleBookGeometry(70, 40, 38, 130, 1920, 1080)
+    if !biggerRows.Feasible || biggerRows.CharacterPitch <= normalBook.CharacterPitch
+        || biggerRows.MacroPitch <= normalBook.MacroPitch
+        throw Error("Measured larger row fonts were not given extra spacing.")
+    normalAgain := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
+    if normalAgain.Height != normalBook.Height
+        || normalAgain.CharacterTop != normalBook.CharacterTop
+        || normalAgain.MacroTop != normalBook.MacroTop
+        throw Error("Whole-book layout did not restore its normal anchors.")
 }
 
 CheckInterfaceTextAccessibility()
