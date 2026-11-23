@@ -2439,11 +2439,7 @@ for native_path in native_font_paths:
             and "NumGet(bounds, 12, \"Int\") <= textHeight" in fit_helper
             and "CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))" in native_code,
         )
-        native_code = native_code.replace(
-            "\nFitCharacterDescriptionFont(control, caption, fontName)\n{" + fit_helper,
-            "",
-            1,
-        )
+        native_code = native_code.replace(fit_helper, "", 1)
     expect(
         f"Interface Text controls native font sizes in {native_path}",
         "SetAccessibleTextFont(" in native_code
