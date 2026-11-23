@@ -114,6 +114,18 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertLessEqual(rect["add-character"].bottom + 5, rect["footer-left"].y)
         self.assertLessEqual(rect["macro-upload"].bottom + 8, rect["footer-close"].y)
 
+    def test_resizing_book_requires_artwork_safe_extension(self):
+        normal = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        enlarged = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
+        self.assertTrue(normal.feasible, normal.violations)
+        self.assertTrue(enlarged.feasible, enlarged.violations)
+        self.assertFalse(normal.requires_art_extension)
+        self.assertTrue(enlarged.requires_art_extension)
+        # Geometry feasibility must not be confused with permission to
+        # stretch the fixed 960x650 Morrowind artwork.
+        self.assertEqual(normal.page_height, 650)
+        self.assertGreater(enlarged.page_height, 650)
+
     def test_two_columns_are_reversible(self):
         before = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
         larger = layout.plan_character_macro_book(220, 72, 23, 62, 1920, 1080)
