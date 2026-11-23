@@ -217,21 +217,22 @@ def plan_character_macro_book(
         raise ValueError("Negative geometry or count")
     if profile_count > 10 or macro_count > 4:
         raise ValueError("Visible row count exceeds existing controls")
-    if profile_count and row_pitch < row_height:
-        raise ValueError("Character row pitch too small for accessible font")
-    if macro_count and macro_pitch < macro_row_height:
-        raise ValueError("Macro row pitch too small for accessible font")
+    # Grow the pitch when text/hit targets grow. Retain each column's
+    # original baseline spacing (1px for character rows, 8px for macros),
+    # instead of rejecting larger accessible fonts or overlapping the rows.
+    effective_row_pitch = max(row_pitch, row_height + 1)
+    effective_macro_pitch = max(macro_pitch, macro_row_height + 8)
 
     # A column's planned height is measured from its original top anchor.
     paragraph_bottom = 80 + max(81, paragraph_height)
     left_first = max(164, paragraph_bottom + 3)
-    last_left = left_first + (profile_count - 1) * row_pitch + row_height if profile_count else left_first
+    last_left = left_first + (profile_count - 1) * effective_row_pitch + row_height if profile_count else left_first
     left_action = max(540, last_left + 10) if profile_count else max(164, paragraph_bottom + 3)
     left_action_bottom = left_action + 30
 
     macro_text_bottom = 87 + max(48, macro_explanation_height)
     macro_first = max(140, macro_text_bottom + 5)
-    macro_last = (macro_first + (macro_count - 1) * macro_pitch + macro_row_height
+    macro_last = (macro_first + (macro_count - 1) * effective_macro_pitch + macro_row_height
                   if macro_count else macro_first)
     macro_upload = max(188, macro_last + 8)
     macro_upload_bottom = macro_upload + 29
