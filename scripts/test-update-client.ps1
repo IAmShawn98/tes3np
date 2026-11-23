@@ -115,10 +115,10 @@ Require-Source 'sideLeft := 48' 'metadata retains 28px left frame padding' $dial
 Require-Source 'sideRight := 552' 'metadata retains 28px right frame padding' $dialogSource
 Require-Source 'startX := Round\(\(600 - fullWidth\) / 2\)' 'three compact fields remain centered as one group' $dialogSource
 Require-Source 'for fontSize in \[9, 8, 7, 6\]' 'compact metadata measures fonts before reflowing' $dialogSource
-Require-Source 'probe.SetFont\("s" fontSize " Bold cE7BE70", "Segoe UI"\)' 'reference label measurement uses gold bold typography' $dialogSource
-Require-Source 'probe.SetFont\("s" fontSize " Norm cFFF0DC", "Segoe UI"\)' 'reference value measurement uses pale ivory typography' $dialogSource
-Require-Source 'panel.SetFont\("s" compactFontSize " Bold cE7BE70", "Segoe UI"\)' 'only Installed, Latest and Channel prefixes are gold' $dialogSource
-Require-Source 'panel.SetFont\("s" compactFontSize " Norm cFFF0DC", "Segoe UI"\)' 'version and channel values remain ivory' $dialogSource
+Require-Source 'SetAccessibleTextFont\(probe, "s" fontSize " Bold cE7BE70", "Segoe UI"\)' 'reference label measurement uses gold bold typography' $dialogSource
+Require-Source 'SetAccessibleTextFont\(probe, "s" fontSize " Norm cFFF0DC", "Segoe UI"\)' 'reference value measurement uses pale ivory typography' $dialogSource
+Require-Source 'SetAccessibleTextFont\(panel, "s" compactFontSize " Bold cE7BE70", "Segoe UI"\)' 'only Installed, Latest and Channel prefixes are gold' $dialogSource
+Require-Source 'SetAccessibleTextFont\(panel, "s" compactFontSize " Norm cFFF0DC", "Segoe UI"\)' 'version and channel values remain ivory' $dialogSource
 Require-Source '\{Label: "Installed:", Value: "v" installedVersion\}' 'Installed label stays separate from its value' $dialogSource
 Require-Source '\{Label: "Latest:", Value: "v" latestVersion\}' 'Latest label stays separate from its value' $dialogSource
 Require-Source '\{Label: "Channel:", Value: channelName\}' 'Channel label stays separate from its value' $dialogSource
@@ -371,7 +371,7 @@ Require-Source 'BuildStyledReleaseNoteRows\(notes, sample, width - Max\(2, px\(1
 Require-Source 'UpdateNoteFontFace\(kind, premium := false\)' 'preview-only serif headings preserve status styling' $notesSource
 Require-Source 'UpdateNoteFont\(kind, premium := false, compact := false, scale := 1.0\)' 'compact and status font paths remain separate' $notesSource
 Require-Source 'if compactLayout' 'compact preview hides arrows when no scrolling is required' $notesSource
-Require-Source 'row.SetFont\("s" Max\(4, Round\(10 \* scale\)\)' 'missed release links use measured compact text' $dialogSource
+Require-Source 'SetAccessibleTextFont\(row, "s" Max\(4, Round\(10 \* scale\)\)' 'missed release links use measured compact text' $dialogSource
 Require-Source 'scale := Min\(GetOwnedMenuScale\(\), GetUpdatePromptFitScale\(preview\)\)' 'full production update popup retains owner scale instead of miniature rendering' $dialogSource
 Require-Source 'bottomY := px\(compactLayout \? \(fixedEarlier \? 309 : 480\)' 'latest notes end before the taller missed-version list' $notesSource
 Require-Source 'GetTextExtentPoint32W' 'measure actual rendered word widths' $notesSource
@@ -542,7 +542,7 @@ Require-Source 'LauncherUpdateNumber.OnEvent\("Click", CheckForUpdates\)' 'numbe
 Require-Source 'number.SetFont\("s" size " Bold cFFFFFF", "Segoe UI"\)' 'number overlay stays white even as font grows' $source $source
 Require-Source 'ShapeCircularUpdateBadge\(LauncherUpdateBadge\)' 'badge shape is updated at launcher scaling'
 Require-Source 'CreateEllipticRgn' 'native circle is drawn rather than parentheses'
-Require-Source 'size := Max\(6, Round\(16 \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'unread numeral starts larger but retains DPI calibration' $source
+Require-Source 'size := Max\(6, Round\(AccessibilityFontSize\(16\) \* scale / GetLauncherBadgeDpiScale\(\)\)\)' 'unread numeral starts larger but retains DPI calibration' $source
 Require-Source 'SetLauncherUnreadBadgeNumber\(LauncherUpdateNumber.Text\)' 'resize of circular artwork recenters numeral at saved scale' $source
 Require-Source 'LauncherVersionLabel\.Visible := true' 'installed version remains visible'
 Require-Source 'LauncherUpdateBadge\.OnEvent\("Click", CheckForUpdates\)' 'red (1) opens the optional updater'
