@@ -248,20 +248,20 @@ FitCharacterDescriptionFont(control, caption, fontName)
     for size in RangeCharacterDescriptionSizes(desiredSize)
     {
         control.SetFont("s" size " Norm c241408", fontName)
-        dc := DllCall("user32\\GetDC", "Ptr", control.Hwnd, "Ptr")
+        dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
         if !dc
             return
         previous := 0
         try
         {
-            font := DllCall("user32\\SendMessageW", "Ptr", control.Hwnd,
+            font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
                 "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
             if font
-                previous := DllCall("gdi32\\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+                previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
             bounds := Buffer(16, 0)
             NumPut("Int", 0, "Int", 0, "Int", textWidth, "Int", 0, bounds)
             ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX.
-            DllCall("user32\\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
+            DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
                 "Ptr", bounds, "UInt", 0xC10)
             if NumGet(bounds, 12, "Int") <= textHeight
                 return
@@ -269,8 +269,8 @@ FitCharacterDescriptionFont(control, caption, fontName)
         finally
         {
             if previous
-                DllCall("gdi32\\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
-            DllCall("user32\\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+                DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
+            DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
         }
     }
 }
