@@ -2041,8 +2041,11 @@ expect(
     and 'CharacterPage.BookBackground.Value := A_ScriptDir' in characters_ui
     and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
     and 'x := BookS(x), y := BookS(y)' in characters_ui
-    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in characters_ui
-    and 'y := 164 + (index - 1) * 24' in characters_ui
+    and 'ReflowCharacterBookDescription()' in characters_ui
+    and 'MeasureAccessibleWrappedText(CharacterDescription,' in characters_ui
+    and 'paragraphHeight := Max(BookS(81), textHeight + BookS(6))' in characters_ui
+    and 'MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)' in characters_ui
+    and 'MoveStyledButton(controls.Name, 95, y, 140, 23)' in characters_ui
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
