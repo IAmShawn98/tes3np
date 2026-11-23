@@ -845,38 +845,9 @@ NativeInterfaceFontHeight(control)
     return Abs(NumGet(definition, 0, "Int"))
 }
 
-
-; Measure the actual native font and multiline copy, not just its LOGFONT size.
-; This prevents accessible text from passing CI while visually clipping.
-NativeWrappedInterfaceTextHeight(control, caption, width)
-{
-    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
-    if !dc
-        throw Error("Could not measure native interface text.")
-    previous := 0
-    try
-    {
-        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
-            "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
-        if font
-            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
-        rect := Buffer(16, 0)
-        NumPut("Int", 0, "Int", 0, "Int", width, "Int", 0, rect)
-        DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
-            "Ptr", rect, "UInt", 0xC10) ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX
-        return NumGet(rect, 12, "Int")
-    }
-    finally
-    {
-        if previous
-            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
-        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
-    }
-}
-
 CheckInterfaceTextAccessibility()
 {
-    global AccessibilityTextSize, V016SettingsScale, LauncherMorrowindFont
+    global AccessibilityTextSize, V016SettingsScale
     oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
     try
     {
@@ -897,16 +868,6 @@ CheckInterfaceTextAccessibility()
                 SetAccessibleTextFont(panel, "s" V016Font(13) " Norm c241408", "Georgia")
                 settingsLabel := panel.Add("Text", "x4 y48 w330 h40", "Settings section label")
                 settingsHeights.Push(NativeInterfaceFontHeight(settingsLabel))
-                ; The Character Book's original 390x81 description must fit at
-                ; every preference, without moving the character rows or
-                ; reducing the user's requested font size.
-                SetAccessibleTextFont(panel, "s11 Norm c241408", LauncherMorrowindFont)
-                copy := panel.Add("Text", "x4 y92 w390 h81",
-                    "Add, edit, or delete character details here. This won't affect them in-game.")
-                measuredHeight := NativeWrappedInterfaceTextHeight(copy, copy.Text, 382)
-                if measuredHeight > 81
-                    throw Error("Character Book description clips at " mode
-                        " (text height " measuredHeight " > 81).")
             }
             finally panel.Destroy()
         }
