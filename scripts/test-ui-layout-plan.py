@@ -325,6 +325,43 @@ class LayoutPlanningTest(unittest.TestCase):
                             self.assertEqual(
                                 layout.expand_book_control_positions(plan), positions)
 
+    def test_complete_button_labels_wrap_as_controls_not_as_words(self):
+        normal = (
+            layout.MeasuredControl("Play", 28, 16, 55, 22, padding_x=6),
+            layout.MeasuredControl("Edit", 25, 16, 60, 22, padding_x=6),
+            layout.MeasuredControl("Remove", 53, 16, 75, 22, padding_x=6),
+        )
+        large = (
+            layout.MeasuredControl("Play", 49, 25, 55, 22, padding_x=6),
+            layout.MeasuredControl("Edit", 48, 25, 60, 22, padding_x=6),
+            layout.MeasuredControl("Remove", 96, 25, 75, 22, padding_x=6),
+        )
+        a = layout.plan_measured_control_flow(normal, 240, 164, 200, 5, 8)
+        b = layout.plan_measured_control_flow(large, 240, 164, 200, 5, 8)
+        self.assertTrue(a.feasible)
+        self.assertTrue(b.feasible)
+        self.assertEqual(a.required_height, 186)
+        self.assertGreater(b.required_height, a.required_height)
+        rect = dict(b.controls)
+        self.assertGreaterEqual(rect["Remove"].width, 108)
+        self.assertGreater(rect["Remove"].y, 164)
+        self.assertEqual(layout.plan_measured_control_flow(normal, 240, 164, 200, 5, 8), a)
+
+    def test_text_too_wide_requires_parent_redesign_without_clipping(self):
+        unbreakable = (layout.MeasuredControl(
+            "Expansion Pack: Enabled", 480, 26, 120, 30, padding_x=12),)
+        result = layout.plan_measured_control_flow(unbreakable, 45, 60, 264)
+        self.assertFalse(result.feasible)
+        self.assertEqual(result.controls, ())
+        self.assertIn("too wide", result.violations[0])
+
+    def test_flow_rejects_duplicate_names_and_invalid_measurements(self):
+        control = layout.MeasuredControl("Settings", 70, 16, 90, 24)
+        result = layout.plan_measured_control_flow((control, control), 0, 0, 300)
+        self.assertFalse(result.feasible)
+        with self.assertRaises(ValueError):
+            layout.MeasuredControl("broken", -1, 16, 20, 20)
+
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
             layout.plan_vertical_stack(0, 200, ("not-a-layout-item",))
