@@ -89,6 +89,42 @@ def plan_vertical_stack(
                 available_bottom, overflow, tuple(violations))
 
 
+@dataclass(frozen=True)
+class ParentPagePlan:
+    feasible: bool
+    required_height: int
+    target_height: int
+    available_height: int
+    growth: int
+    overflow: int
+
+
+def plan_responsive_parent(
+    content: Plan,
+    minimum_page_height: int,
+    footer_reserved_height: int,
+    available_work_height: int,
+) -> ParentPagePlan:
+    """Plan a parent resize BEFORE placing children.
+
+    The caller must measure every content region (columns and footer) and
+    pass the maximum required lower edge. This only computes geometry; it
+    never decides to shrink text, add scrolling, or edit a live window.
+    """
+    if min(minimum_page_height, footer_reserved_height, available_work_height) < 0:
+        raise ValueError("Negative parent/page height")
+    required = max(minimum_page_height, content.needed_bottom + footer_reserved_height)
+    overflow = max(0, required - available_work_height)
+    return ParentPagePlan(
+        feasible=overflow == 0,
+        required_height=required,
+        target_height=required if not overflow else minimum_page_height,
+        available_height=available_work_height,
+        growth=max(0, required - minimum_page_height),
+        overflow=overflow,
+    )
+
+
 def character_book_left_column(
     measured_paragraph_height: int,
     row_count: int = 10,
