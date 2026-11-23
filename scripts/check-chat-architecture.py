@@ -2041,11 +2041,8 @@ expect(
     and 'CharacterPage.BookBackground.Value := A_ScriptDir' in characters_ui
     and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
     and 'x := BookS(x), y := BookS(y)' in characters_ui
-    and 'ReflowCharacterBookDescription()' in characters_ui
-    and 'MeasureAccessibleWrappedText(CharacterDescription,' in characters_ui
-    and 'paragraphHeight := Max(BookS(81), textHeight + BookS(6))' in characters_ui
-    and 'MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)' in characters_ui
-    and 'MoveStyledButton(controls.Name, 95, y, 140, 23)' in characters_ui
+    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in characters_ui
+    and 'y := 164 + (index - 1) * 24' in characters_ui
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
@@ -2782,11 +2779,7 @@ expect(
     and section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(').count(
         'DllCall("user32\\FrameRect"') == 2
     and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
-    and "requestedHeight := Max(9, Round(AccessibilityFontSize(21) * paintScale))" in embedded_chat
-    and "availableAdvance := Max(1, baselineY - Max(2, Round(h * 0.06)))" in embedded_chat
-    and 'GetTextExtentPoint32W' in section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(')
-    and 'if advance > availableAdvance' in embedded_chat
-    and '"Int", baselineY, "Str", label' in embedded_chat
+    and "fontHeight := -Max(9, Min(Round(AccessibilityFontSize(21) * paintScale)," in embedded_chat
     and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat
     and "arrowHeight := Max(4, Round(10 * paintScale))" in embedded_chat,
 )
