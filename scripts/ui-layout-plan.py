@@ -232,15 +232,20 @@ def expand_book_control_positions(
     for number in range(macro_count):
         y = right.y + number * mac_pitch
         prefix = f"macro-{number + 1}"
-        row_action_height = max(20, macro_row_height - 42)
+        # The larger row height is a budget, not permission to overlay the
+        # name and action buttons. Grow the name region first, then start the
+        # action row strictly below it, keeping the complete original content.
+        name_height = max(22, macro_row_height * 3 // 10)
+        action_offset = max(42, 19 + name_height + 1)
+        action_height = max(20, macro_row_height - action_offset)
         controls.extend((
-            (prefix + "-status", Rect(551, y, 329, max(17, macro_row_height - 45))),
+            (prefix + "-status", Rect(551, y, 329, 17)),
             (prefix + "-tick", Rect(525, y + 20, 18, 18)),
-            (prefix + "-name", Rect(551, y + 19, 125, max(22, macro_row_height - 40))),
-            (prefix + "-rename", Rect(680, y + 19, 21, max(22, macro_row_height - 40))),
-            (prefix + "-run", Rect(551, y + 42, 103, row_action_height)),
-            (prefix + "-stop", Rect(663, y + 42, 103, row_action_height)),
-            (prefix + "-remove", Rect(775, y + 42, 105, row_action_height)),
+            (prefix + "-name", Rect(551, y + 19, 125, name_height)),
+            (prefix + "-rename", Rect(680, y + 19, 21, name_height)),
+            (prefix + "-run", Rect(551, y + action_offset, 103, action_height)),
+            (prefix + "-stop", Rect(663, y + action_offset, 103, action_height)),
+            (prefix + "-remove", Rect(775, y + action_offset, 105, action_height)),
         ))
     # Aggregate rectangles are not returned because they intentionally
     # contain the individual controls. The footer is returned as independent
@@ -265,16 +270,12 @@ def validate_book_control_positions(
         seen.add(name)
         if rect.right > plan.page_width or rect.bottom > plan.page_height:
             issues.append(f"Control outside book: {name}")
-    # Direct text and action controls on the same row can share a y range
-    # but never their horizontal region. Macro status and name intentionally
-    # occupy vertically distinct bands, so only check per-kind actions.
+    # Individual rectangles may never overlap, including text and native
+    # clickable targets. Aggregate parent regions were deliberately omitted.
     for i, (name, rect) in enumerate(positions):
-        if not name.endswith(("-play", "-edit", "-remove", "-run", "-stop", "-rename")):
-            continue
         for other_name, other_rect in positions[i + 1:]:
-            if (other_name.endswith(("-play", "-edit", "-remove", "-run", "-stop", "-rename"))
-                    and rect.intersects(other_rect)):
-                issues.append(f"Interactive controls overlap: {name} / {other_name}")
+            if rect.intersects(other_rect):
+                issues.append(f"Controls overlap: {name} / {other_name}")
     return tuple(issues)
 
 
