@@ -956,6 +956,25 @@ CheckExtremeDisplayFrameCoverage()
                 " w" testcase.Width " h" testcase.Height)
             DllCall("RedrawWindow", "Ptr", backdrop.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
             DllCall("RedrawWindow", "Ptr", source.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+            ; A brand-new synthetic source can be WS_VISIBLE and repainted
+            ; while the desktop compositor still presents its prior pixels.
+            ; Wait briefly in this TEST ONLY until the fixture itself appears
+            ; in the screen DC, then let the desktop composition settle.
+            readyPixel := 0xFFFFFFFF
+            Loop 20
+            {
+                probeDC := DllCall("GetDC", "Ptr", 0, "Ptr")
+                readyPixel := DllCall("GetPixel", "Ptr", probeDC,
+                    "Int", testcase.X + 15, "Int", testcase.Y + 15, "UInt")
+                DllCall("ReleaseDC", "Ptr", 0, "Ptr", probeDC)
+                if readyPixel = 0x346794
+                    break
+                Sleep(25)
+            }
+            if readyPixel != 0x346794
+                throw Error("Synthetic source never appeared in desktop pixels ("
+                    Format("0x{:06X}", readyPixel) ").")
+            Sleep(80) ; compositor readiness of synthetic fixture only
             frame := CaptureInterfaceFrame(source, false, testcase.Target)
             if !IsObject(frame) || !IsObject(frame.Gui) || !frame.Bitmap
                 throw Error("The full desktop-union screenshot could not be captured.")
