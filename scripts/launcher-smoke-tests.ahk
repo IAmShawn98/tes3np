@@ -994,6 +994,21 @@ CheckAccessibleLayoutPreflight()
         960, 650, 10, 4, false, 1.0, 1.5)
     if dpiTooBig.Feasible || dpiTooBig.Height != 0
         throw Error("Physically oversized book incorrectly accepted by the monitor planner.")
+    knownShortNames := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        1920, 1080, 10, 4, false, 1.0, 1.0, 110, 100)
+    if !knownShortNames.Feasible || !knownShortNames.LiveApplicationReady
+        throw Error("Measured fitting names were rejected by native readiness preflight.")
+    unknownNames := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
+    if unknownNames.LiveApplicationReady
+        throw Error("Unmeasured Book names were incorrectly approved for live layout.")
+    clippedNames := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        1920, 1080, 10, 4, false, 1.0, 1.0, 215, 165)
+    if clippedNames.LiveApplicationReady || !clippedNames.RequiresHorizontalReflow
+        throw Error("Native Book silently accepted truncated character/macro names.")
+    enlargedNames := PlanAccessibleBookGeometry(220, 72, 38, 130,
+        1920, 1080, 10, 4, false, 1.0, 1.0, 110, 100)
+    if enlargedNames.LiveApplicationReady || !enlargedNames.RequiresArtworkExtension
+        throw Error("Native Book approved vertically stretched parchment artwork.")
     normalAgain := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if normalAgain.Height != normalBook.Height
         || normalAgain.CharacterTop != normalBook.CharacterTop
