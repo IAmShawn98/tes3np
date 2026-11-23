@@ -283,6 +283,36 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertTrue(any("overlap" in item
                             for item in layout.validate_book_control_positions(plan, broken)))
 
+    def test_state_and_scale_matrix_never_clips_or_overlaps(self):
+        # Every plan is a fresh immutable computation, not an incremental
+        # adjustment to the last setting. The real Windows smoke still must
+        # supply rendered font measurements before live layout is enabled.
+        for profiles in (0, 1, 6, 10):
+            for macros in (0, 1, 4):
+                for label, paragraph, macro_copy, char_row, macro_row in (
+                    ("Normal", 70, 40, 23, 62),
+                    ("Extra Large", 220, 72, 38, 130),
+                ):
+                    for ui_scale, dpi_scale in ((1.0, 1.0), (0.5, 1.0),
+                                                (1.0, 1.5), (0.5, 2.0)):
+                        with self.subTest(profiles=profiles, macros=macros,
+                                          preference=label, ui_scale=ui_scale,
+                                          dpi_scale=dpi_scale):
+                            plan = layout.plan_character_macro_book(
+                                paragraph, macro_copy, char_row, macro_row,
+                                1920, 1600,
+                                profile_count=profiles, macro_count=macros,
+                                show_limit_notice=(profiles == 10),
+                                ui_scale=ui_scale, dpi_scale=dpi_scale)
+                            self.assertTrue(plan.feasible, plan.violations)
+                            positions = layout.expand_book_control_positions(plan)
+                            self.assertEqual(
+                                layout.validate_book_control_positions(plan, positions), ())
+                            self.assertEqual(len(set(name for name, _ in positions)),
+                                             len(positions))
+                            self.assertEqual(
+                                layout.expand_book_control_positions(plan), positions)
+
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
             layout.plan_vertical_stack(0, 200, ("not-a-layout-item",))
