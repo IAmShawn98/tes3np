@@ -245,6 +245,55 @@ ValidateAccessibleControlRectangles(rectangles, parentWidth, parentHeight)
 
 
 
+
+; Pure horizontal flow for full-width labels, headings, and buttons across
+; native launcher views. TextWidth/TextHeight must be real GDI measurements,
+; never shortened or silently downfitted. Wrap whole controls when needed.
+PlanAccessibleMeasuredControlFlow(items, x, y, availableWidth,
+    horizontalGap := 8, verticalGap := 8)
+{
+    if Min(x, y, availableWidth, horizontalGap, verticalGap) < 0
+        throw Error("Invalid accessible horizontal layout bounds.")
+    positions := [], errors := [], known := Map()
+    cursorX := x, cursorY := y, rowHeight := 0
+    for item in items
+    {
+        if !IsObject(item) || !item.HasOwnProp("Id")
+            || !item.HasOwnProp("TextWidth") || !item.HasOwnProp("TextHeight")
+            || !item.HasOwnProp("MinimumWidth") || !item.HasOwnProp("MinimumHeight")
+            throw Error("Incomplete measured interface text control.")
+        if known.Has(item.Id)
+            errors.Push("Duplicate control name: " item.Id)
+        known[item.Id] := true
+        paddingX := item.HasOwnProp("PaddingX") ? item.PaddingX : 0
+        paddingY := item.HasOwnProp("PaddingY") ? item.PaddingY : 0
+        if Min(item.TextWidth, item.TextHeight, item.MinimumWidth,
+            item.MinimumHeight, paddingX, paddingY) < 0
+            throw Error("Negative measured interface text.")
+        width := Max(item.MinimumWidth, item.TextWidth + 2 * paddingX)
+        height := Max(item.MinimumHeight, item.TextHeight + 2 * paddingY)
+        if width > availableWidth
+        {
+            errors.Push("Unbroken control too wide: " item.Id)
+            continue
+        }
+        if cursorX > x && cursorX + width > x + availableWidth
+        {
+            cursorX := x
+            cursorY += rowHeight + verticalGap
+            rowHeight := 0
+        }
+        positions.Push({Id: item.Id, X: cursorX, Y: cursorY,
+            Width: width, Height: height})
+        cursorX += width + horizontalGap
+        rowHeight := Max(rowHeight, height)
+    }
+    neededBottom := positions.Length ? cursorY + rowHeight : y
+    return {Feasible: errors.Length = 0,
+        Items: errors.Length ? [] : positions,
+        NeededBottom: neededBottom, Errors: errors}
+}
+
 ; Future layout commit primitive. Preflight EVERY destination before movement,
 ; record native control snapshots, and restore all controls if an operation fails.
 ; Coordinates passed here are actual GUI control coordinates. Do NOT route
