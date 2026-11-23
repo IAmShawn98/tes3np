@@ -925,47 +925,86 @@ CheckBufferedReleaseNoteRow(row)
 
 ; The owned-menu probe already runs on Windows in CI. Use its disposable owner
 ; to exercise the real display refresh and release-note rows at both extremes.
-; Exercise the precise union cover geometry used for extreme preview/revert.
-; Previously a 50%-sized snapshot left the 100%-sized destination exposed.
-; The bitmap face must never stretch, and shrink restores must not unnecessarily
-; resize a perfectly adequate larger cover.
+; Exercise the real union screenshot, not just a black window enlarged
+; over a small old-size bitmap. Use native Gui backdrops with known pixels so
+; the Windows smoke fails if the new outer area is blank/black/misplaced.
 CheckExtremeDisplayFrameCoverage()
 {
     cases := [
-        {X: 140, Y: 120, Width: 480, Height: 358,
-            Target: {X: 60, Y: 35, Width: 960, Height: 716}, Expanded: true},
-        {X: 60, Y: 35, Width: 960, Height: 716,
-            Target: {X: 140, Y: 120, Width: 480, Height: 358}, Expanded: false}
+        {X: 160, Y: 150, Width: 240, Height: 180,
+            Target: {X: 70, Y: 60, Width: 480, Height: 360}, Expanded: true},
+        {X: 70, Y: 60, Width: 480, Height: 360,
+            Target: {X: 160, Y: 150, Width: 240, Height: 180}, Expanded: false}
     ]
     for testcase in cases
     {
-        cover := Gui("-Caption -Border -DPIScale +ToolWindow")
-        face := cover.Add("Text", "x0 y0 w" testcase.Width " h" testcase.Height, "Captured old frame")
+        left := Min(testcase.X, testcase.Target.X)
+        top := Min(testcase.Y, testcase.Target.Y)
+        right := Max(testcase.X + testcase.Width, testcase.Target.X + testcase.Target.Width)
+        bottom := Max(testcase.Y + testcase.Height, testcase.Target.Y + testcase.Target.Height)
+        width := right - left, height := bottom - top
+        backdrop := Gui("-Caption -Border -DPIScale +ToolWindow")
+        backdrop.BackColor := "426B93" ; distinct nonblack real-screen area
+        source := Gui("-Caption -Border -DPIScale +ToolWindow")
+        source.BackColor := "946734"
+        frame := 0
+        memoryDC := 0, sourceDC := 0, oldBitmap := 0
         try
         {
-            cover.Show("NA x" testcase.X " y" testcase.Y
+            backdrop.Show("NA x" left " y" top " w" width " h" height)
+            source.Show("NA x" testcase.X " y" testcase.Y
                 " w" testcase.Width " h" testcase.Height)
-            frame := {Gui: cover, Face: face, X: testcase.X, Y: testcase.Y,
-                Width: testcase.Width, Height: testcase.Height}
-            grew := ExpandCapturedDisplayFrame(frame, testcase.Target)
-            if grew != testcase.Expanded
-                throw Error("Captured display cover did not detect the expected extreme-size transition.")
-            left := Min(testcase.X, testcase.Target.X)
-            top := Min(testcase.Y, testcase.Target.Y)
-            right := Max(testcase.X + testcase.Width, testcase.Target.X + testcase.Target.Width)
-            bottom := Max(testcase.Y + testcase.Height, testcase.Target.Y + testcase.Target.Height)
+            DllCall("RedrawWindow", "Ptr", backdrop.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+            DllCall("RedrawWindow", "Ptr", source.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+            frame := CaptureInterfaceFrame(source, false, testcase.Target)
+            if !IsObject(frame) || !IsObject(frame.Gui) || !frame.Bitmap
+                throw Error("The full desktop-union screenshot could not be captured.")
+            if frame.Expanded != testcase.Expanded
+                throw Error("The capture did not recognize an extreme-size transition.")
             bounds := Buffer(16, 0)
-            if !DllCall("GetWindowRect", "Ptr", cover.Hwnd, "Ptr", bounds, "Int")
+            if !DllCall("GetWindowRect", "Ptr", frame.Gui.Hwnd, "Ptr", bounds, "Int")
                 throw OSError()
             if NumGet(bounds, 0, "Int") != left || NumGet(bounds, 4, "Int") != top
                 || NumGet(bounds, 8, "Int") != right || NumGet(bounds, 12, "Int") != bottom
-                throw Error("Captured display cover does not conceal both launcher rectangles.")
-            face.GetPos(&fx, &fy, &fw, &fh)
-            if fx != testcase.X - left || fy != testcase.Y - top
-                || fw != testcase.Width || fh != testcase.Height
-                throw Error("Captured old-frame bitmap was moved or stretched during extreme scaling.")
+                throw Error("Captured union does not cover both launcher rectangles.")
+            frame.Face.GetPos(&fx, &fy, &fw, &fh)
+            if fx != 0 || fy != 0 || fw != width || fh != height
+                throw Error("The full-union image does not fill the full cover or was stretched.")
+            sourceDC := DllCall("GetDC", "Ptr", 0, "Ptr")
+            memoryDC := DllCall("CreateCompatibleDC", "Ptr", sourceDC, "Ptr")
+            if !sourceDC || !memoryDC
+                throw OSError()
+            oldBitmap := DllCall("SelectObject", "Ptr", memoryDC, "Ptr", frame.Bitmap, "Ptr")
+            ; Read a pixel safely within the old launcher and require the
+            ; snapshot to reproduce its native background, not a fake matte.
+            innerX := testcase.X - left + 15
+            innerY := testcase.Y - top + 15
+            inner := DllCall("GetPixel", "Ptr", memoryDC, "Int", innerX, "Int", innerY, "UInt")
+            if inner != 0x346794 ; old launcher RGB #946734, COLORREF #346794
+                throw Error("The original launcher pixels were not preserved.")
+            if testcase.Expanded
+            {
+                ; This point is outside the small source but inside the 100%
+                ; target. It MUST contain the actual colored desktop behind
+                ; the source, not a synthesized opaque black rectangle.
+                outer := DllCall("GetPixel", "Ptr", memoryDC, "Int", 15, "Int", 15, "UInt")
+                if outer != 0x936B42 ; desktop RGB #426B93, COLORREF #936B42
+                    throw Error("The expanded screenshot contains a blank/black outer region.")
+            }
         }
-        finally cover.Destroy()
+        finally
+        {
+            if oldBitmap
+                DllCall("SelectObject", "Ptr", memoryDC, "Ptr", oldBitmap, "Ptr")
+            if memoryDC
+                DllCall("DeleteDC", "Ptr", memoryDC)
+            if sourceDC
+                DllCall("ReleaseDC", "Ptr", 0, "Ptr", sourceDC)
+            if IsObject(frame)
+                ReleaseCapturedInterfaceFrame(frame)
+            source.Destroy()
+            backdrop.Destroy()
+        }
     }
 }
 

@@ -138,7 +138,7 @@ EndInterfaceUpdate()
 ; A transient owned window preserves the last visible frame during layout updates.
 ; Its bitmap stays in memory and is released after the completed redraw.
 
-CaptureInterfaceFrame(sourceWindow, showLoading := false)
+CaptureInterfaceFrame(sourceWindow, showLoading := false, destination := unset)
 {
     if !DllCall("IsWindowVisible", "Ptr", sourceWindow.Hwnd)
     {
@@ -160,6 +160,22 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
     DllCall("ClientToScreen", "Ptr", sourceWindow.Hwnd, "Ptr", origin)
     x := NumGet(origin, 0, "Int")
     y := NumGet(origin, 4, "Int")
+    ; Source bounds anchor the progress card. The optional target is used ONLY
+    ; for display Preview/Restore: capture the full union from the desktop
+    ; BEFORE any owned image, dim or loading card is shown. This avoids
+    ; recapturing our own overlay and avoids a synthetic black filler.
+    sourceX := x, sourceY := y, sourceWidth := width, sourceHeight := height
+    expanded := false
+    if IsSet(destination)
+    {
+        left := Min(x, destination.X)
+        top := Min(y, destination.Y)
+        right := Max(x + width, destination.X + destination.Width)
+        bottom := Max(y + height, destination.Y + destination.Height)
+        x := left, y := top, width := right - left, height := bottom - top
+        expanded := x != sourceX || y != sourceY
+            || width != sourceWidth || height != sourceHeight
+    }
     screenDC := DllCall("GetDC", "Ptr", 0, "Ptr")
     memoryDC := DllCall("CreateCompatibleDC", "Ptr", screenDC, "Ptr")
     bitmap := DllCall("CreateCompatibleBitmap", "Ptr", screenDC, "Int", width, "Int", height, "Ptr")
@@ -197,10 +213,13 @@ CaptureInterfaceFrame(sourceWindow, showLoading := false)
         cover.Show("NA x" x " y" y " w" width " h" height)
         DllCall("SetWindowPos", "Ptr", cover.Hwnd, "Ptr", 0, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
         DllCall("UpdateWindow", "Ptr", cover.Hwnd)
-        frame := {Gui: cover, Face: face, Bitmap: bitmap, Dim: 0, Card: 0, Panel: 0, X: x, Y: y, Width: width, Height: height}
+        frame := {Gui: cover, Face: face, Bitmap: bitmap, Dim: 0, Card: 0, Panel: 0,
+            X: x, Y: y, Width: width, Height: height, Expanded: expanded}
         if showLoading
         {
-            loading := CreateLoadingCard(cover, x, y, width, height)
+            ; Keep progress over the old, complete launcher rather than
+            ; moving it to the center of a much larger desktop union.
+            loading := CreateLoadingCard(cover, sourceX, sourceY, sourceWidth, sourceHeight)
             frame.Dim := loading.Dim
             frame.Card := loading.Card
             frame.Panel := loading.Panel

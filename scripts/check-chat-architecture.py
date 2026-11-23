@@ -2420,19 +2420,19 @@ expect(
         "LauncherCachedLayoutCount := LauncherControlLayout.Count",
     ),
 )
-display_frame_extension = section_between(
-    display_settings, "\nExpandCapturedDisplayFrame(frame, destination)",
-    "\nRefreshLauncherDisplay(message, settings)"
+desktop_capture = section_between(
+    loading_ui, "\nCaptureInterfaceFrame(sourceWindow, showLoading := false, destination := unset)",
+    "\nReleaseInterfaceFrame()"
 )
 display_refresh = section_between(display_settings, "\nRefreshLauncherDisplay(message, settings)", "\nSaveLauncherDisplaySettings(")
 expect(
     "Display previews retain a complete old frame and live progress while scaling",
     in_order(display_refresh,
-             "CaptureInterfaceFrame(LauncherGui, true)",
+             "CaptureInterfaceFrame(LauncherGui, true, GetLauncherPlacement())",
              "hasDisplayFrame := IsObject(loading) && IsObject(loading.Gui)",
              "if !hasDisplayFrame",
              "CreateLoadingCard(LauncherGui,",
-             "ExpandCapturedDisplayFrame(loading, GetLauncherPlacement())",
+             'LogLauncherEvent(hasDisplayFrame ? "UI | Display refresh stable frame captured."',
              "SetLoadingCardProgress(loading.Panel, message,",
              'DllCall("EnableWindow", "Ptr", launcherHwnd, "Int", 1)',
              'WinActivate("ahk_id " launcherHwnd)',
@@ -2456,18 +2456,24 @@ expect(
     and "WinMove(" not in launcher_scale_apply,
 )
 expect(
-    "Extreme 50 to 100 scale previews cover both positions without stretching their bitmap",
-    'left := Min(frame.X, destination.X)' in display_frame_extension
-    and 'top := Min(frame.Y, destination.Y)' in display_frame_extension
-    and 'right := Max(frame.X + frame.Width, destination.X + destination.Width)' in display_frame_extension
-    and 'bottom := Max(frame.Y + frame.Height, destination.Y + destination.Height)' in display_frame_extension
-    and 'frame.Gui.BackColor := "000000"' in display_frame_extension
-    and 'frame.Face.Move(frame.X - left, frame.Y - top, frame.Width, frame.Height)' in display_frame_extension
-    and 'DllCall("SetWindowPos", "Ptr", frame.Gui.Hwnd' in display_frame_extension
-    and '0x0181' in display_frame_extension
+    "Extreme scale changes capture REAL union desktop pixels before any overlay is shown",
+    'sourceX := x, sourceY := y, sourceWidth := width, sourceHeight := height' in desktop_capture
+    and 'if IsSet(destination)' in desktop_capture
+    and 'left := Min(x, destination.X)' in desktop_capture
+    and 'top := Min(y, destination.Y)' in desktop_capture
+    and 'right := Max(x + width, destination.X + destination.Width)' in desktop_capture
+    and 'bottom := Max(y + height, destination.Y + destination.Height)' in desktop_capture
+    and 'x := left, y := top, width := right - left, height := bottom - top' in desktop_capture
+    and in_order(desktop_capture, 'x := left, y := top, width := right - left, height := bottom - top',
+                 'CreateCompatibleBitmap', 'copied := DllCall("BitBlt"',
+                 'cover := Gui(', 'face := cover.Add("Custom"',
+                 'CreateLoadingCard(cover, sourceX, sourceY, sourceWidth, sourceHeight)')
+    and 'X: x, Y: y, Width: width, Height: height, Expanded: expanded' in desktop_capture
+    and 'frame.Gui.BackColor := "000000"' not in display_settings
+    and 'ExpandCapturedDisplayFrame' not in display_settings
     and 'CheckExtremeDisplayFrameCoverage()' in launcher_smoke_tests
-    and 'Captured display cover does not conceal both launcher rectangles.' in launcher_smoke_tests
-    and 'Captured old-frame bitmap was moved or stretched' in launcher_smoke_tests,
+    and 'The expanded screenshot contains a blank/black outer region.' in launcher_smoke_tests
+    and 'The original launcher pixels were not preserved.' in launcher_smoke_tests,
 )
 control_scale = section_between(launcher_layout, "ApplyLauncherControlScale(suspendRedraw", "ShowLauncherWindow(")
 expect(
