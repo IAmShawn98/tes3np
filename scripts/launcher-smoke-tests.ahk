@@ -865,6 +865,22 @@ CheckAccessibleLayoutPreflight()
         {Id: "full-description", Height: 81, GapAfter: 3}, rows, add], 80, 570)
     if !restored.Feasible || restored.Items[2].Top != baseline.Items[2].Top
         throw Error("Normal layout did not restore its original geometry.")
+    alignedControls := ValidateAccessibleControlRectangles([
+        {Id: "name", X: 95, Y: 164, Width: 140, Height: 23},
+        {Id: "play", X: 240, Y: 164, Width: 55, Height: 22},
+        {Id: "edit", X: 300, Y: 164, Width: 60, Height: 22},
+        {Id: "remove", X: 365, Y: 164, Width: 75, Height: 22}], 960, 650)
+    if !alignedControls.Feasible
+        throw Error("Approved Normal Character Book controls were considered overlapping.")
+    collision := ValidateAccessibleControlRectangles([
+        {Id: "play", X: 240, Y: 164, Width: 55, Height: 22},
+        {Id: "edit", X: 250, Y: 164, Width: 60, Height: 22}], 960, 650)
+    if collision.Feasible
+        throw Error("Dynamic hit-target collision was not detected.")
+    tooWide := ValidateAccessibleControlRectangles([
+        {Id: "name", X: 900, Y: 164, Width: 140, Height: 23}], 960, 650)
+    if tooWide.Feasible
+        throw Error("Text-aware layout accepted an off-parent control.")
     normalBook := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if !normalBook.Feasible || normalBook.Height != 650
         || normalBook.CharacterTop != 164 || normalBook.MacroTop != 140
