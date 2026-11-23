@@ -177,13 +177,18 @@ PlanAccessibleVerticalStack(items, top, availableBottom)
 ; feasible plan after considering any additional editor/overlay controls.
 PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     characterRowHeight, macroRowHeight, workWidth, workHeight,
-    characterCount := 10, macroCount := 4, showLimitNotice := false)
+    characterCount := 10, macroCount := 4, showLimitNotice := false,
+    uiScale := 1.0, dpiScale := 1.0)
 {
     if Min(descriptionHeight, macroTextHeight, characterRowHeight,
         macroRowHeight, workWidth, workHeight, characterCount, macroCount) < 0
         throw Error("Invalid Character Book measurements.")
     if characterCount > 10 || macroCount > 4
         throw Error("Character Book has more rows than existing controls.")
+    if showLimitNotice && !characterCount
+        throw Error("Character limit notice requires saved characters.")
+    if uiScale <= 0 || dpiScale <= 0
+        throw Error("Invalid owned-menu or monitor DPI scale.")
     characterPitch := Max(24, characterRowHeight + 1)
     macroPitch := Max(70, macroRowHeight + 8)
     descriptionBottom := 80 + Max(81, descriptionHeight)
@@ -204,7 +209,10 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
     uploadTop := Max(188, macroBottom + 8)
     footerTop := Max(575, leftActionBottom + 5, uploadTop + 37)
     pageHeight := Max(650, footerTop + 75)
-    fits := workWidth >= 960 && workHeight >= pageHeight
+    ; Work-area values are physical pixels; Book geometry is logical.
+    physicalScale := uiScale * dpiScale
+    fits := workWidth >= Ceil(960 * physicalScale)
+        && workHeight >= Ceil(pageHeight * physicalScale)
     return {Feasible: fits, Width: 960, Height: fits ? pageHeight : 0,
         RequiredHeight: pageHeight, CharacterTop: characterTop,
         CharacterPitch: characterPitch, CharacterBottom: characterBottom,
