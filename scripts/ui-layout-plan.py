@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Pure geometry planning for TES3NP text-aware layouts.
+
+No Windows, game state, assets, or GUI mutation. A plan is feasible only when
+EVERY item fits; callers must not commit partly reflowed controls. Font and text
+measurements are inputs from the actual renderer, not estimated here.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Sequence
+
+
+@dataclass(frozen=True)
+class TextBlock:
+    name: str
+    minimum_height: int
+    required_height: int
+    gap_after: int = 0
+
+    def __post_init__(self):
+        if not self.name or min(self.minimum_height, self.required_height, self.gap_after) < 0:
+            raise ValueError("Invalid text block measurements")
+
+
+@dataclass(frozen=True)
+class FixedRows:
+    name: str
+    count: int
+    row_height: int
+    row_pitch: int
+    gap_after: int = 0
+
+    def __post_init__(self):
+        if not self.name or self.count < 0 or min(self.row_height, self.row_pitch, self.gap_after) < 0:
+            raise ValueError("Invalid row group dimensions")
+        if self.count and self.row_pitch < self.row_height:
+            raise ValueError("Rows must not overlap")
+
+
+@dataclass(frozen=True)
+class Plan:
+    feasible: bool
+    positions: tuple[tuple[str, int, int], ...]
+    needed_bottom: int
+    available_bottom: int
+    overflow: int
+    violations: tuple[str, ...]
+
+
+def plan_vertical_stack(
+    top: int,
+    available_bottom: int,
+    items: Sequence[TextBlock | FixedRows],
+    minimum_next_top: int | None = None,
+) -> Plan:
+    """Resolve positions from immutable inputs. NEVER mutate existing controls.
+
+    TextBlock.required_height must be measured using the requested accessible
+    font and actual render width. FixedRows.count may represent all ten
+    allocated row controls; a caller may use another count for visible rows.
+    """
+    if top < 0 or available_bottom < 0 or available_bottom < top:
+        raise ValueError("Invalid content bounds")
+    cursor = top
+    positions: list[tuple[str, int, int]] = []
+    violations: list[str] = []
+    for item in items:
+        if minimum_next_top is not None:
+            cursor = max(cursor, minimum_next_top)
+            minimum_next_top = None
+        if isinstance(item, TextBlock):
+            height = max(item.minimum_height, item.required_height)
+            positions.append((item.name, cursor, cursor + height))
+            cursor += height + item.gap_after
+        elif isinstance(item, FixedRows):
+            height = (item.count - 1) * item.row_pitch + item.row_height if item.count else 0
+            positions.append((item.name, cursor, cursor + height))
+            cursor += height + item.gap_after
+        else:
+            raise TypeError("Unsupported layout item")
+    needed_bottom = max(top, max((bottom for _, _, bottom in positions), default=top))
+    overflow = max(0, needed_bottom - available_bottom)
+    if overflow:
+        violations.append(f"Content requires bottom {needed_bottom}, but the available bottom is {available_bottom}; overflow {overflow}")
+    return Plan(not violations, tuple(positions), needed_bottom,
+                available_bottom, overflow, tuple(violations))
+
+
+def character_book_left_column(
+    measured_paragraph_height: int,
+    row_count: int = 10,
+    action_height: int = 30,
+    available_bottom: int = 605,
+) -> Plan:
+    """Diagnostic only; does not authorize changing Character Book positions.
+
+    Coordinates and row pitch mirror existing native Character Book geometry.
+    The baseline top positions and footer constraints must be considered before
+    attempting any live reflow. Last action bottom 605 is already the visible
+    window's action/footer boundary, not unlimited free space.
+    """
+    if measured_paragraph_height < 0 or action_height < 0:
+        raise ValueError("Negative text/action height")
+    return plan_vertical_stack(
+        top=80,
+        available_bottom=available_bottom,
+        items=(
+            TextBlock("complete-description", 81, measured_paragraph_height, gap_after=3),
+            FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=10),
+            TextBlock("add-character", action_height, action_height),
+        ),
+        minimum_next_top=80,
+    )
