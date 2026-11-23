@@ -171,6 +171,18 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertGreater(after["macro-4-run"].y, before["macro-4-run"].y)
         self.assertEqual(after["macro-4-run"].y, after["macro-4-stop"].y)
 
+    def test_larger_macro_name_never_overlays_action_controls(self):
+        plan = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
+        positions = dict(layout.expand_book_control_positions(
+            plan, character_row_height=38, macro_row_height=130))
+        self.assertTrue(plan.feasible, plan.violations)
+        self.assertLessEqual(positions["macro-1-name"].bottom,
+                             positions["macro-1-run"].y)
+        self.assertLessEqual(positions["macro-4-name"].bottom,
+                             positions["macro-4-run"].y)
+        self.assertEqual(layout.validate_book_control_positions(
+            plan, tuple(positions.items())), ())
+
     def test_control_plan_rejects_infeasible_parent_and_restores_normal(self):
         rejected = layout.plan_character_macro_book(220, 72, 38, 130, 960, 650)
         self.assertEqual(layout.expand_book_control_positions(rejected), ())
