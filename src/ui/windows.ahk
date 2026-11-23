@@ -101,6 +101,40 @@ GetOwnedMenuFitScale(owner, width, height, horizontalMargin := 24, verticalMargi
 
 ; Scale child bounds and fonts together to keep text aligned with hit targets.
 ; Keep generated fonts alive while the controls use them.
+
+; Shared native text measurement for text-aware launcher layouts. Use the
+; control's actual font after Interface Text and DPI/launcher scaling. Return
+; the required wrapped pixel height without moving or resizing any controls.
+MeasureAccessibleWrappedText(control, caption, width)
+{
+    if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd)
+        throw Error("Cannot measure a missing interface text control.")
+    dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
+    if !dc
+        throw Error("Cannot acquire interface text metrics.")
+    previous := 0
+    try
+    {
+        font := DllCall("user32\SendMessageW", "Ptr", control.Hwnd,
+            "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+        if font
+            previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+        bounds := Buffer(16, 0)
+        NumPut("Int", 0, "Int", 0, "Int", Max(1, Round(width)), "Int", 0, bounds)
+        ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX
+        if !DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
+            "Ptr", bounds, "UInt", 0xC10)
+            throw Error("Failed to measure wrapped interface text.")
+        return NumGet(bounds, 12, "Int")
+    }
+    finally
+    {
+        if previous
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
+        DllCall("user32\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+    }
+}
+
 ScaleOwnedMenuContent(gui, scale)
 {
     if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
