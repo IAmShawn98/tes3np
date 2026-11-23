@@ -29,7 +29,6 @@ ApplyCharacterBookScale(scale)
     ScaleOwnedMenuContent(CharacterPage, scale)
     if CharacterPage.HasOwnProp("BookBackground")
         CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
-    ReflowCharacterBookDescription()
 }
 
 OpenCharacterPage(*)
@@ -52,7 +51,6 @@ OpenCharacterPage(*)
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
-            ReflowCharacterBookDescription()
             CharacterPage.Show("Hide w" Round(960 * bookScale)
                 " h" Round(650 * bookScale))
             PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
@@ -147,7 +145,6 @@ OpenCharacterPage(*)
     {
         bookScale := GetOwnedMenuScale()
         ApplyCharacterBookScale(bookScale)
-        ReflowCharacterBookDescription()
         CharacterPage.Show("Hide w" Round(960 * bookScale)
             " h" Round(650 * bookScale))
         PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
@@ -198,7 +195,7 @@ RefreshProfiles()
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
-        ReflowCharacterBookDescription()
+        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : actionY + 35
         ; Preserve the original wide Import Data layout and compact Export Data
@@ -230,59 +227,8 @@ RefreshProfiles()
         if ButtonFaces.Has(DataTransferButton.Hwnd)
             ButtonFaces[DataTransferButton.Hwnd].Text := DataTransferButton.Text
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
-        ReflowCharacterBookDescription()
     }
     finally EndInterfaceUpdate()
-}
-
-
-; Text-aware Character Book layout: retain the full paragraph and its selected
-; font; place the existing character rows BELOW its measured multiline height.
-; Geometry is recomputed from the current native font on first build, cached
-; reopen and owned-menu scale change. Nothing is permanently displaced.
-ReflowCharacterBookDescription()
-{
-    global CharacterPage, CharacterDescription, CharacterRows
-    global AddCharacterButton, WipeCharacterButton, DataTransferButton, Profiles, CharacterLimitNotice
-    if !IsObject(CharacterPage) || !IsObject(CharacterDescription)
-        return
-    if !DllCall("IsWindow", "Ptr", CharacterDescription.Hwnd)
-        return
-    width := BookS(390)
-    textHeight := MeasureAccessibleWrappedText(CharacterDescription,
-        CharacterDescription.Text, Max(1, width - BookS(8)))
-    paragraphHeight := Max(BookS(81), textHeight + BookS(6))
-    CharacterDescription.Move(BookS(70), BookS(80), width, paragraphHeight)
-
-    ; All ten rows remain in their original order and maintain their relative
-    ; positions. Normal reverts to the original first-row location automatically.
-    firstRowY := Max(164, 80 + Ceil(paragraphHeight / GetCharacterBookScale()) + 3)
-    for index, controls in CharacterRows
-    {
-        y := firstRowY + (index - 1) * 24
-        MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
-        MoveStyledButton(controls.Name, 95, y, 140, 23)
-        MoveStyledButton(controls.Play, 240, y, 55, 22)
-        MoveStyledButton(controls.Edit, 300, y, 60, 22)
-        MoveStyledButton(controls.Remove, 365, y, 75, 22)
-    }
-    ; Keep actions below the list when there are saved profiles. If the book
-    ; cannot accommodate a particular font+ten-row combination, emit an error
-    ; rather than silently clipping or scaling down the selected font.
-    lastRowBottom := firstRowY + (CharacterRows.Length - 1) * 24 + 23
-    if Profiles.Length && lastRowBottom > 530
-        throw Error("Character Book text and character list exceed the available parchment height.")
-    if Profiles.Length
-        MoveStyledButton(AddCharacterButton, 70, 540, 370, 30)
-    else
-    {
-        emptyActionY := Max(164, firstRowY)
-        MoveStyledButton(AddCharacterButton, 70, emptyActionY, 370, 30)
-        ; The empty-book Import button follows Add in the SAME reflow, rather
-        ; than being left at the pre-reflow 199px position and overlapping it.
-        MoveStyledButton(DataTransferButton, 70, emptyActionY + 35, 370, 30)
-    }
-    MoveStyledButton(CharacterLimitNotice, 70, Max(429, lastRowBottom + 8), 370, 25)
 }
 
 MoveStyledButton(control, x, y, width, height)
