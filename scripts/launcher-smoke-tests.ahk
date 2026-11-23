@@ -881,6 +881,43 @@ CheckAccessibleLayoutPreflight()
         {Id: "name", X: 900, Y: 164, Width: 140, Height: 23}], 960, 650)
     if tooWide.Feasible
         throw Error("Text-aware layout accepted an off-parent control.")
+    ; Disposable native controls prove a rejected plan never partially moves
+    ; hit targets, a valid plan moves together, and Normal restores exactly.
+    sandbox := Gui("-DPIScale")
+    try
+    {
+        first := sandbox.Add("Text", "x10 y10 w65 h22", "One")
+        second := sandbox.Add("Text", "x100 y10 w65 h22", "Two")
+        collisionPlan := ApplyAccessibleControlLayout(sandbox, [
+            {Id: "first", Control: first, X: 30, Y: 40, Width: 65, Height: 22},
+            {Id: "second", Control: second, X: 45, Y: 40, Width: 65, Height: 22}
+        ], 300, 200)
+        if collisionPlan.Applied
+            throw Error("Rejected dynamic layout unexpectedly moved native controls.")
+        first.GetPos(&bx, &by, &bw, &bh)
+        if bx != 10 || by != 10 || bw != 65 || bh != 22
+            throw Error("Rejected layout did not preserve its original native controls.")
+        movePlan := ApplyAccessibleControlLayout(sandbox, [
+            {Id: "first", Control: first, X: 20, Y: 48, Width: 65, Height: 22},
+            {Id: "second", Control: second, X: 100, Y: 48, Width: 65, Height: 22}
+        ], 300, 200)
+        if !movePlan.Applied
+            throw Error("Feasible native control layout did not apply.")
+        second.GetPos(&mx, &my, &mw, &mh)
+        if mx != 100 || my != 48
+            throw Error("Native controls did not move as one validated group.")
+        resetPlan := ApplyAccessibleControlLayout(sandbox, [
+            {Id: "first", Control: first, X: 10, Y: 10, Width: 65, Height: 22},
+            {Id: "second", Control: second, X: 100, Y: 10, Width: 65, Height: 22}
+        ], 300, 200)
+        if !resetPlan.Applied
+            throw Error("Returning to Normal did not restore layout targets.")
+        first.GetPos(&rx, &ry, &rw, &rh)
+        if rx != 10 || ry != 10 || rw != 65 || rh != 22
+            throw Error("Normal did not restore the exact original control rectangle.")
+    }
+    finally sandbox.Destroy()
+
     normalBook := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if !normalBook.Feasible || normalBook.Height != 650
         || normalBook.CharacterTop != 164 || normalBook.MacroTop != 140
