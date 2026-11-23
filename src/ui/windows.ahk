@@ -110,6 +110,10 @@ MeasureAccessibleWrappedText(control, caption, width)
 {
     if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd)
         throw Error("Cannot measure a missing interface text control.")
+    ; Blank dynamic status labels have no text footprint. Do not turn a
+    ; legitimate empty state into a GDI measurement exception.
+    if caption = ""
+        return 0
     dc := DllCall("user32\GetDC", "Ptr", control.Hwnd, "Ptr")
     if !dc
         throw Error("Cannot acquire interface text metrics.")
