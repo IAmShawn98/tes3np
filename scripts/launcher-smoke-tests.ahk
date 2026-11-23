@@ -865,6 +865,35 @@ CheckAccessibleLayoutPreflight()
         {Id: "full-description", Height: 81, GapAfter: 3}, rows, add], 80, 570)
     if !restored.Feasible || restored.Items[2].Top != baseline.Items[2].Top
         throw Error("Normal layout did not restore its original geometry.")
+    completeButtons := [
+        {Id: "Play", TextWidth: 28, TextHeight: 16,
+            MinimumWidth: 55, MinimumHeight: 22, PaddingX: 6},
+        {Id: "Edit", TextWidth: 25, TextHeight: 16,
+            MinimumWidth: 60, MinimumHeight: 22, PaddingX: 6},
+        {Id: "Remove", TextWidth: 53, TextHeight: 16,
+            MinimumWidth: 75, MinimumHeight: 22, PaddingX: 6}]
+    normalFlow := PlanAccessibleMeasuredControlFlow(
+        completeButtons, 240, 164, 200, 5, 8)
+    if !normalFlow.Feasible || normalFlow.NeededBottom != 186
+        || normalFlow.Items[3].Y != 164
+        throw Error("Normal controls did not preserve one-row layout.")
+    largeFlow := PlanAccessibleMeasuredControlFlow([
+        {Id: "Play", TextWidth: 49, TextHeight: 25,
+            MinimumWidth: 55, MinimumHeight: 22, PaddingX: 6},
+        {Id: "Edit", TextWidth: 48, TextHeight: 25,
+            MinimumWidth: 60, MinimumHeight: 22, PaddingX: 6},
+        {Id: "Remove", TextWidth: 96, TextHeight: 25,
+            MinimumWidth: 75, MinimumHeight: 22, PaddingX: 6}
+    ], 240, 164, 200, 5, 8)
+    if !largeFlow.Feasible || largeFlow.Items[3].Y <= 164
+        || largeFlow.Items[3].Width < 108
+        throw Error("Complete large-font button text did not flow into a second row.")
+    noHorizontalRoom := PlanAccessibleMeasuredControlFlow([
+        {Id: "Expansion Pack: Enabled", TextWidth: 480, TextHeight: 26,
+            MinimumWidth: 120, MinimumHeight: 30, PaddingX: 12}
+    ], 45, 60, 264)
+    if noHorizontalRoom.Feasible || noHorizontalRoom.Items.Length
+        throw Error("Oversized main-launcher label was clipped rather than rejected.")
     alignedControls := ValidateAccessibleControlRectangles([
         {Id: "name", X: 95, Y: 164, Width: 140, Height: 23},
         {Id: "play", X: 240, Y: 164, Width: 55, Height: 22},
