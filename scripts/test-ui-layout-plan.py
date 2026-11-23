@@ -96,6 +96,49 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertGreater(larger_window.target_height, restored_window.target_height)
         self.assertEqual(restored_window.target_height, 650)
 
+    def test_two_columns_keep_normal_artwork_anchors(self):
+        plan = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        self.assertTrue(plan.feasible, plan.violations)
+        self.assertEqual((plan.page_width, plan.page_height), (960, 650))
+        rect = dict(plan.controls)
+        self.assertEqual(rect["character-rows"].y, 164)
+        self.assertEqual(rect["macro-rows"].y, 140)
+        self.assertEqual(rect["footer-close"].y, 575)
+
+    def test_two_columns_grow_parent_with_large_full_text(self):
+        plan = layout.plan_character_macro_book(220, 72, 23, 62, 1920, 1080)
+        self.assertTrue(plan.feasible, plan.violations)
+        self.assertGreater(plan.page_height, 650)
+        rect = dict(plan.controls)
+        self.assertGreater(rect["character-rows"].y, 164)
+        self.assertLessEqual(rect["add-character"].bottom + 5, rect["footer-left"].y)
+        self.assertLessEqual(rect["macro-upload"].bottom + 8, rect["footer-close"].y)
+
+    def test_two_columns_are_reversible(self):
+        before = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        larger = layout.plan_character_macro_book(220, 72, 23, 62, 1920, 1080)
+        restored = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        self.assertTrue(larger.feasible)
+        self.assertEqual(before, restored)
+
+    def test_two_columns_small_monitor_rejects_every_move(self):
+        plan = layout.plan_character_macro_book(220, 72, 23, 62, 960, 650)
+        self.assertFalse(plan.feasible)
+        self.assertEqual(plan.page_height, 0)
+        self.assertEqual(plan.controls, ())
+        self.assertIn("height", plan.violations[0])
+
+    def test_two_columns_reject_horizontally_constrained_work_area(self):
+        plan = layout.plan_character_macro_book(70, 40, 23, 62, 800, 1080)
+        self.assertFalse(plan.feasible)
+        self.assertEqual(plan.controls, ())
+
+    def test_two_columns_reject_font_oversized_rows(self):
+        with self.assertRaises(ValueError):
+            layout.plan_character_macro_book(70, 40, 28, 62, 1920, 1080)
+        with self.assertRaises(ValueError):
+            layout.plan_character_macro_book(70, 40, 23, 75, 1920, 1080)
+
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
             layout.plan_vertical_stack(0, 200, ("not-a-layout-item",))
