@@ -996,8 +996,16 @@ CheckAccessibleLayoutPreflight()
         throw Error("Physically oversized book incorrectly accepted by the monitor planner.")
     knownShortNames := PlanAccessibleBookGeometry(70, 40, 23, 62,
         1920, 1080, 10, 4, false, 1.0, 1.0, 110, 100)
-    if !knownShortNames.Feasible || !knownShortNames.LiveApplicationReady
-        throw Error("Measured fitting names were rejected by native readiness preflight.")
+    if !knownShortNames.Feasible || knownShortNames.LiveApplicationReady
+        throw Error("Unmeasured button metrics were accepted as live-ready.")
+    fullyValidated := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        1920, 1080, 10, 4, false, 1.0, 1.0, 110, 100, true, true)
+    if !fullyValidated.Feasible || !fullyValidated.LiveApplicationReady
+        throw Error("Complete synthetic native validation could not pass preflight.")
+    missingArtwork := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        1920, 1080, 10, 4, false, 1.0, 1.0, 110, 100, true, false)
+    if missingArtwork.LiveApplicationReady
+        throw Error("Unapproved parchment artwork passed live readiness gate.")
     unknownNames := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if unknownNames.LiveApplicationReady
         throw Error("Unmeasured Book names were incorrectly approved for live layout.")
