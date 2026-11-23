@@ -887,6 +887,28 @@ CheckBufferedReleaseNoteRow(row)
             "Int", height - 3, "UInt")
         if pixel != 0x081017 ; COLORREF of exact #171008 background
             throw Error("A painted release-note row exposed a non-dark background.")
+        ; A solid dark bitmap would also pass the background check while
+        ; silently dropping all lettering. Require at least one glyph pixel.
+        hasTextPixel := false
+        Loop Min(width - 3, 200)
+        {
+            sampleX := A_Index
+            Loop Min(height - 2, 32)
+            {
+                sampleY := A_Index
+                sample := DllCall("gdi32\GetPixel", "Ptr", memoryDC, "Int", sampleX,
+                    "Int", sampleY, "UInt")
+                if sample != 0x081017 && sample != 0xFFFFFFFF
+                {
+                    hasTextPixel := true
+                    break
+                }
+            }
+            if hasTextPixel
+                break
+        }
+        if !hasTextPixel
+            throw Error("A buffered release-note row painted its background but not its lettering.")
     }
     finally
     {
