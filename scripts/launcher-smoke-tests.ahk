@@ -888,9 +888,11 @@ CheckAccessibleLayoutPreflight()
         throw Error("Complete normal two-column Book baseline changed.")
     largeBook := PlanAccessibleBookGeometry(220, 72, 23, 62, 1920, 1080)
     if !largeBook.Feasible || largeBook.Height <= 650
+        || !largeBook.RequiresArtworkExtension
+        || normalBook.RequiresArtworkExtension
         || largeBook.CharacterTop <= normalBook.CharacterTop
         || largeBook.FooterTop <= normalBook.FooterTop
-        throw Error("Whole-book Large reflow did not reserve enough parent space.")
+        throw Error("Whole-book Large reflow did not reserve enough parent/artwork space.")
     noSpace := PlanAccessibleBookGeometry(220, 72, 23, 62, 960, 650)
     if noSpace.Feasible || noSpace.Height != 0
         throw Error("Oversized Character Book produced a partial screen layout.")
