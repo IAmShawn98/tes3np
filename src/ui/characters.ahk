@@ -259,7 +259,8 @@ UpdateCharacterDescriptionPages()
     for word in words
     {
         candidate := current = "" ? word : current " " word
-        if CharacterDescriptionTextFits(CharacterDescription, candidate)
+        ; Reserve a visible next-page cue while more words remain.
+        if CharacterDescriptionTextFits(CharacterDescription, candidate " ↪")
         {
             current := candidate
             continue
@@ -316,6 +317,8 @@ ShowCharacterDescriptionPage()
     caption := CharacterDescriptionPages[CharacterDescriptionPageIndex]
     ; The next page is available by clicking this same paragraph, not by
     ; moving any heading, row, button or picture.
+    if CharacterDescriptionPages.Length > 1
+        caption .= " ↪"
     CharacterDescription.Text := caption
 }
 
