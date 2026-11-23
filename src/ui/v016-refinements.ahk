@@ -105,7 +105,7 @@ ApplyV016CharacterLayout(*)
     ; Keep Add Character immediately above Wipe Character List. Keep the Wipe
     ; button directly beneath it, using the same styled-button mover as
     ; RefreshProfiles so the painted and native button layers stay together.
-    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 290, 370, 30)
+    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 540 : 164, 370, 30)
     MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
     V016CharacterLayoutApplied := true
 }
