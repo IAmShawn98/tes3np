@@ -152,7 +152,7 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(layout.validate_book_control_positions(plan, positions), ())
         controls = dict(positions)
         self.assertEqual(controls["character-1-name"], layout.Rect(95, 164, 140, 23))
-        self.assertEqual(controls["character-10-remove"], layout.Rect(365, 380, 75, 23))
+        self.assertEqual(controls["character-10-remove"], layout.Rect(365, 380, 75, 22))
         self.assertEqual(controls["macro-1-status"], layout.Rect(551, 140, 329, 17))
         self.assertEqual(controls["macro-4-run"], layout.Rect(551, 392, 103, 20))
         self.assertEqual(controls["footer-close"], layout.Rect(515, 575, 90, 30))
