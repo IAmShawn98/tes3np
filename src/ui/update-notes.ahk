@@ -493,6 +493,115 @@ StartUpdateNotesDrag(panelHwnd, thumbHwnd, trackHwnd, drag, page, refresh, wPara
     return 0
 }
 
+; Release-note rows used to rely on Static's independent background erasure.
+; In a gold-backed prompt, moving or changing their text could expose a gold
+; rectangle for a single DWM frame. Keep the proven native row sizing, text
+; wrapping, scroll math, and control accessibility; paint each row's dark face
+; and its text together in ONE buffered transfer, using its actual font.
+AttachUpdateNoteRowPainter(row, premium, compact)
+{
+    global UpdateNoteRowPaintCallback, UpdateNoteRowPaintState
+    if !IsSet(UpdateNoteRowPaintState)
+        UpdateNoteRowPaintState := Map()
+    if !IsSet(UpdateNoteRowPaintCallback)
+        UpdateNoteRowPaintCallback := CallbackCreate(UpdateNoteRowWindowProc, "Fast", 6)
+    handle := row.Hwnd
+    UpdateNoteRowPaintState[handle] := {Control: row, Kind: "body", Premium: premium, Compact: compact}
+    if !DllCall("comctl32\SetWindowSubclass", "Ptr", handle, "Ptr", UpdateNoteRowPaintCallback, "UPtr", 1, "UPtr", 0, "Int")
+    {
+        UpdateNoteRowPaintState.Delete(handle)
+        throw OSError()
+    }
+}
+
+UpdateNoteRowWindowProc(handle, message, wParam, lParam, subclassId, reference)
+{
+    global UpdateNoteRowPaintState, UpdateNoteRowPaintCallback
+    if message = 0x0082 ; WM_NCDESTROY: HWNDs are reused, never leave stale records
+    {
+        if UpdateNoteRowPaintState.Has(handle)
+            UpdateNoteRowPaintState.Delete(handle)
+        DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", UpdateNoteRowPaintCallback, "UPtr", 1)
+    }
+    if UpdateNoteRowPaintState.Has(handle)
+    {
+        if message = 0x0014 ; WM_ERASEBKGND; the buffered frame fills its own dark face
+            return 1
+        if message = 0x000F ; WM_PAINT
+        {
+            paint := Buffer(A_PtrSize = 8 ? 72 : 64, 0)
+            dc := DllCall("user32\BeginPaint", "Ptr", handle, "Ptr", paint, "Ptr")
+            if dc
+            {
+                try PaintBufferedUpdateNoteRow(handle, dc)
+                finally DllCall("user32\EndPaint", "Ptr", handle, "Ptr", paint)
+            }
+            return 0
+        }
+        if message = 0x0318 ; WM_PRINTCLIENT for print/screenshot and native smoke tests
+        {
+            if wParam
+                PaintBufferedUpdateNoteRow(handle, wParam)
+            return 0
+        }
+    }
+    return DllCall("comctl32\DefSubclassProc", "Ptr", handle, "UInt", message,
+        "Ptr", wParam, "Ptr", lParam, "Ptr")
+}
+
+PaintBufferedUpdateNoteRow(handle, targetDC)
+{
+    global UpdateNoteRowPaintState
+    if !targetDC || !UpdateNoteRowPaintState.Has(handle)
+        return
+    state := UpdateNoteRowPaintState[handle]
+    rect := Buffer(16, 0)
+    if !DllCall("user32\GetClientRect", "Ptr", handle, "Ptr", rect, "Int")
+        return
+    width := NumGet(rect, 8, "Int"), height := NumGet(rect, 12, "Int")
+    if width <= 0 || height <= 0
+        return
+    memoryDC := DllCall("gdi32\CreateCompatibleDC", "Ptr", targetDC, "Ptr")
+    if !memoryDC
+        return
+    bitmap := 0, oldBitmap := 0, brush := 0, oldFont := 0
+    try
+    {
+        bitmap := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", targetDC, "Int", width, "Int", height, "Ptr")
+        if !bitmap
+            return
+        oldBitmap := DllCall("gdi32\SelectObject", "Ptr", memoryDC, "Ptr", bitmap, "Ptr")
+        brush := DllCall("gdi32\CreateSolidBrush", "UInt", 0x081017, "Ptr") ; #171008 (COLORREF BGR)
+        if brush
+            DllCall("user32\FillRect", "Ptr", memoryDC, "Ptr", rect, "Ptr", brush)
+        font := DllCall("user32\SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+        if font
+            oldFont := DllCall("gdi32\SelectObject", "Ptr", memoryDC, "Ptr", font, "Ptr")
+        DllCall("gdi32\SetBkMode", "Ptr", memoryDC, "Int", 1) ; TRANSPARENT on our dark bitmap
+        color := state.Kind = "heading" ? (state.Premium || state.Compact ? 0x6EC9F5 : 0x70BEE7)
+            : (state.Premium || state.Compact ? 0xDCF0FF : 0xD6E9F4)
+        DllCall("gdi32\SetTextColor", "Ptr", memoryDC, "UInt", color)
+        ; The layout engine has already wrapped each text line and measured its
+        ; font. Do not change its height or positioning as the rejected fix did.
+        DllCall("user32\DrawTextW", "Ptr", memoryDC, "WStr", state.Control.Text,
+            "Int", -1, "Ptr", rect, "UInt", 0x0820) ; DT_SINGLELINE | DT_NOPREFIX
+        DllCall("gdi32\BitBlt", "Ptr", targetDC, "Int", 0, "Int", 0, "Int", width, "Int", height,
+            "Ptr", memoryDC, "Int", 0, "Int", 0, "UInt", 0x00CC0020)
+    }
+    finally
+    {
+        if oldFont
+            DllCall("gdi32\SelectObject", "Ptr", memoryDC, "Ptr", oldFont, "Ptr")
+        if brush
+            DllCall("gdi32\DeleteObject", "Ptr", brush)
+        if oldBitmap
+            DllCall("gdi32\SelectObject", "Ptr", memoryDC, "Ptr", oldBitmap, "Ptr")
+        if bitmap
+            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
+        DllCall("gdi32\DeleteDC", "Ptr", memoryDC)
+    }
+}
+
 UpdateNoteFont(kind, premium := false, compact := false, scale := 1.0)
 {
     if compact
@@ -590,6 +699,9 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
         noteRows.Push(panel.Add("Text", "Hidden x" left " y" firstY " w" width " h" rowHeight " Background171008 +0x80", ""))
         rowStyles.Push("body")
     }
+    ; Paint each native row atomically, without changing any measured layout.
+    for row in noteRows
+        AttachUpdateNoteRowPainter(row, premium, compactLayout)
     ; Keep the track between the two arrow buttons at every menu scale.
     ; Previously the compact track began at 176 while the top arrow ran
     ; from 169 to 191, painting a duplicate-looking arrow over the thumb.
@@ -620,6 +732,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
                 continue
             }
             if rowStyles[index] != entry.Kind {
+                UpdateNoteRowPaintState[row.Hwnd].Kind := entry.Kind
                 row.SetFont(UpdateNoteFont(entry.Kind, premium, compactLayout, scale), UpdateNoteFontFace(entry.Kind, premium))
                 rowStyles[index] := entry.Kind
             }

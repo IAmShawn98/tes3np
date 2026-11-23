@@ -860,11 +860,53 @@ CheckUpdateNoteCallbackLifetime()
     try FileAppend("PASS: native update mouse callbacks ignore destroyed modal HWNDs" Chr(10), "*")
 }
 
+; Exercise the actual composited native note row, rather than assuming that
+; static layout checks can detect a one-frame gold-background erase.
+CheckBufferedReleaseNoteRow(row)
+{
+    global UpdateNoteRowPaintState
+    if !IsSet(UpdateNoteRowPaintState) || !UpdateNoteRowPaintState.Has(row.Hwnd)
+        throw Error("Visible release-note row has no dedicated buffered painter.")
+    bounds := Buffer(16, 0)
+    if !DllCall("user32\GetClientRect", "Ptr", row.Hwnd, "Ptr", bounds, "Int")
+        throw OSError()
+    width := NumGet(bounds, 8, "Int"), height := NumGet(bounds, 12, "Int")
+    sourceDC := DllCall("user32\GetDC", "Ptr", row.Hwnd, "Ptr")
+    memoryDC := 0, bitmap := 0, oldBitmap := 0
+    try
+    {
+        memoryDC := DllCall("gdi32\CreateCompatibleDC", "Ptr", sourceDC, "Ptr")
+        bitmap := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", sourceDC, "Int", width, "Int", height, "Ptr")
+        if !memoryDC || !bitmap
+            throw OSError()
+        oldBitmap := DllCall("gdi32\SelectObject", "Ptr", memoryDC, "Ptr", bitmap, "Ptr")
+        ; Send WM_PRINTCLIENT through the installed native Static subclass.
+        DllCall("user32\SendMessageW", "Ptr", row.Hwnd, "UInt", 0x0318,
+            "Ptr", memoryDC, "Ptr", 4)
+        pixel := DllCall("gdi32\GetPixel", "Ptr", memoryDC, "Int", width - 3,
+            "Int", height - 3, "UInt")
+        if pixel != 0x081017 ; COLORREF of exact #171008 background
+            throw Error("A painted release-note row exposed a non-dark background.")
+    }
+    finally
+    {
+        if oldBitmap
+            DllCall("gdi32\SelectObject", "Ptr", memoryDC, "Ptr", oldBitmap, "Ptr")
+        if bitmap
+            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
+        if memoryDC
+            DllCall("gdi32\DeleteDC", "Ptr", memoryDC)
+        if sourceDC
+            DllCall("user32\ReleaseDC", "Ptr", row.Hwnd, "Ptr", sourceDC)
+    }
+}
+
 ; The owned-menu probe already runs on Windows in CI. Use its disposable owner
 ; to exercise the real display refresh and release-note rows at both extremes.
 CheckDisplaySettingsAndReleaseNotes()
 {
     global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
+    global V016SettingsGuiHwnd, InterfaceFrameCover
     CheckUpdateNoteCallbackLifetime()
     if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100
         || GetLauncherScaleForWorkArea(1280, 680, 1.5) != 60
@@ -901,6 +943,26 @@ CheckDisplaySettingsAndReleaseNotes()
                 || DllCall("IsWindowVisible", "Ptr", settings.Hwnd, "Int") || ButtonFaces.Count != faceCount
                 throw Error("Display refresh did not restore the live launcher or release its loading card.")
         }
+        ; This was invisible to prior tests: WM_SETREDRAW(FALSE) can strip
+        ; WS_VISIBLE off the top-level Settings GUI underneath its cover.
+        settings.Show("w280 h170")
+        settings.Add("Text", "x15 y20 w220 h30", "Settings transition visibility smoke")
+        previousSettingsHwnd := V016SettingsGuiHwnd
+        V016SettingsGuiHwnd := settings.Hwnd
+        try
+        {
+            BeginInterfaceUpdate(settings, "Settings transition", false)
+            try
+            {
+                if IsObject(InterfaceFrameCover)
+                    && !DllCall("user32\IsWindowVisible", "Ptr", settings.Hwnd, "Int")
+                    throw Error("Covered Settings unexpectedly lost WS_VISIBLE.")
+            }
+            finally EndInterfaceUpdate()
+            if !DllCall("user32\IsWindowVisible", "Ptr", settings.Hwnd, "Int")
+                throw Error("Settings did not remain visible after the native transition.")
+        }
+        finally V016SettingsGuiHwnd := previousSettingsHwnd
     }
     finally
     {
@@ -941,7 +1003,10 @@ CheckDisplaySettingsAndReleaseNotes()
                     continue
                 row.GetPos(, &top, &width, &height)
                 if row.Text = "First paragraph."
+                {
                     paragraphY := top, rowHeight := height
+                    CheckBufferedReleaseNoteRow(row)
+                }
                 else if row.Text = "Section heading"
                     headingY := top
                 else if row.Text = "• First bullet."

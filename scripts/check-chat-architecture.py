@@ -1918,6 +1918,40 @@ expect(
     and 'if staged\n            RevealPaintedPage(settings)\n        else\n            FinishButtonDisplay()' in settings_open
     and 'SetPageCompositorCloak(settings, false)' in settings_open,
 )
+# Native flicker regressions: inspect the exact owner-redraw and note-row
+# background behavior. The Windows compiled GUI smoke additionally exercises
+# WM_PRINTCLIENT pixels and validates visible row sizes at 50/100 percent.
+loading_flicker = (ROOT / "src" / "ui" / "loading.ahk").read_text(encoding="utf-8-sig")
+notes_flicker = (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Covered Settings changes never disable the top-level redraw/visibility",
+    'settingsCovered := IsObject(InterfaceFrameCover)' in loading_flicker
+    and 'if !settingsCovered && IsObject(InterfaceUpdateGui)' in loading_flicker
+    and 'InterfaceParentRedrawSuppressed := true' in loading_flicker
+    and 'if InterfaceParentRedrawSuppressed' in loading_flicker
+    and 'isCoveredSettings := IsObject(InterfaceFrameCover)' in loading_flicker
+    and 'if isCharacterBook || isCoveredSettings' in loading_flicker
+    and '0x0181' in loading_flicker
+    and 'Covered Settings unexpectedly lost WS_VISIBLE.' in launcher_smoke_tests,
+)
+expect(
+    "Note-row background and text are painted in one buffered native pass",
+    'AttachUpdateNoteRowPainter(row, premium, compact)' in notes_flicker
+    and 'UpdateNoteRowWindowProc(handle, message, wParam, lParam, subclassId, reference)' in notes_flicker
+    and 'PaintBufferedUpdateNoteRow(handle, targetDC)' in notes_flicker
+    and 'if message = 0x0014' in notes_flicker
+    and 'if message = 0x000F' in notes_flicker
+    and 'if message = 0x0318' in notes_flicker
+    and '0x081017' in notes_flicker
+    and 'gdi32\\BitBlt' in notes_flicker
+    and 'UpdateNoteRowPaintState[row.Hwnd].Kind := entry.Kind' in notes_flicker
+    and 'row.Move(left, y, width, rowHeight)' in notes_flicker
+    and 'row.Text := entry.Text' in notes_flicker
+    and 'row.Visible := true' in notes_flicker
+    and 'cachedRowY' not in notes_flicker
+    and 'CheckBufferedReleaseNoteRow(row)' in launcher_smoke_tests,
+)
+
 expect(
     "Only page presentation uses DWM cloak and forces child paints before uncloak",
     'SetPageCompositorCloak(gui, cloak)' in window_presenter

@@ -3,6 +3,7 @@
 BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps := 0)
 {
     global CharacterPage, InterfaceUpdating, InterfaceUpdateDepth, InterfaceFrameCover, InterfaceUpdateGui, InterfaceCompletedSteps, InterfaceTotalSteps
+    global V016SettingsGuiHwnd, InterfaceParentRedrawSuppressed
     InterfaceUpdateDepth += 1
     if InterfaceUpdateDepth > 1
     {
@@ -22,6 +23,7 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
         ReleaseInterfaceFrame()
         target := IsObject(gui) ? gui : CharacterPage
         InterfaceUpdateGui := 0
+        InterfaceParentRedrawSuppressed := false
         ; Hidden pages are already staged. WM_SETREDRAW(TRUE) would make a
         ; hidden book visible if an asynchronous macro import finishes there.
         if !IsObject(target) || !DllCall("IsWindowVisible", "Ptr", target.Hwnd)
@@ -32,10 +34,18 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
         InterfaceUpdating := true
         SetInterfaceLoadingText("Waiting for Jiub...")
         InterfaceFrameCover := CaptureInterfaceFrame(InterfaceUpdateGui, showLoading)
-        ; Freeze the real window after capturing its current frame. All control
-        ; destruction/creation happens under the captured, owned frame.
-        if IsObject(InterfaceUpdateGui) && DllCall("IsWindow", "Ptr", InterfaceUpdateGui.Hwnd)
+        ; Settings already has a captured cover. WM_SETREDRAW(FALSE) removes
+        ; WS_VISIBLE on top-level windows, disturbing presentation of the
+        ; layered parchment/owned cover. Change Settings controls behind the
+        ; cover without suppressing the entire owner's visibility.
+        settingsCovered := IsObject(InterfaceFrameCover) && V016SettingsGuiHwnd
+            && InterfaceUpdateGui.Hwnd = V016SettingsGuiHwnd
+        if !settingsCovered && IsObject(InterfaceUpdateGui)
+            && DllCall("IsWindow", "Ptr", InterfaceUpdateGui.Hwnd)
+        {
             DllCall("SendMessageW", "Ptr", InterfaceUpdateGui.Hwnd, "UInt", 0x000B, "Ptr", 0, "Ptr", 0)
+            InterfaceParentRedrawSuppressed := true
+        }
         if message != ""
             SetInterfaceLoadingText(message)
         if IsObject(InterfaceFrameCover) && !IsObject(InterfaceFrameCover.Panel)
@@ -47,12 +57,14 @@ BeginInterfaceUpdate(gui := 0, message := "", showLoading := false, totalSteps :
 EndInterfaceUpdate()
 {
     global CharacterPage, InterfaceUpdateGui, InterfaceUpdating, InterfaceUpdateDepth, InterfaceFrameCover
+    global InterfaceParentRedrawSuppressed, V016SettingsGuiHwnd
     ; Be defensive about mismatched cleanup. A stray EndInterfaceUpdate must not
     ; drive the depth negative or dereference a GUI that has already been closed.
     if InterfaceUpdateDepth <= 0
     {
         InterfaceUpdateDepth := 0
         InterfaceUpdating := false
+        InterfaceParentRedrawSuppressed := false
         return
     }
     InterfaceUpdateDepth -= 1
@@ -63,17 +75,23 @@ EndInterfaceUpdate()
     {
         SetTimer(ShowSlowInterfaceLoading, 0)
         InterfaceUpdating := false
+        InterfaceParentRedrawSuppressed := false
         ReleaseInterfaceFrame()
         return
     }
     previousCritical := Critical("On")
-    redrawEnabled := false
+    redrawEnabled := !InterfaceParentRedrawSuppressed
     isCharacterBook := InterfaceUpdateGui = CharacterPage
+    isCoveredSettings := IsObject(InterfaceFrameCover) && V016SettingsGuiHwnd
+        && targetWindow = V016SettingsGuiHwnd
     try
     {
-        DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0) ; WM_SETREDRAW
-        redrawEnabled := true
-        if !isCharacterBook
+        if InterfaceParentRedrawSuppressed
+        {
+            DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+            redrawEnabled := true
+        }
+        if !isCharacterBook && !isCoveredSettings
             DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0081)
         ; Commit geometry and pointer state while the captured frame still
         ; covers the real window. This makes the first click after loading use
@@ -81,9 +99,10 @@ EndInterfaceUpdate()
         SyncDynamicButtonGeometry()
         ResetThemedPointerState()
         UpdateButtonHover()
-        if isCharacterBook
+        if isCharacterBook || isCoveredSettings
         {
-            ; Use the same synchronous child repaint as the book's startup.
+            ; Complete every Settings control paint behind the snapshot cover
+            ; without toggling Settings' top-level WS_VISIBLE state.
             ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW.
             DllCall("RedrawWindow", "Ptr", targetWindow, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
         }
@@ -108,6 +127,7 @@ EndInterfaceUpdate()
                 DllCall("SendMessageW", "Ptr", targetWindow, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
             SetTimer(ShowSlowInterfaceLoading, 0)
             InterfaceUpdating := false
+            InterfaceParentRedrawSuppressed := false
             ReleaseInterfaceFrame()
         }
         finally Critical(previousCritical)
