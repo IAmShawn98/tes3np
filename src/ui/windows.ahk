@@ -244,6 +244,83 @@ ValidateAccessibleControlRectangles(rectangles, parentWidth, parentHeight)
 }
 
 
+
+; Future layout commit primitive. Preflight EVERY destination before movement,
+; record pixel snapshots, and restore all controls if an operation fails.
+; MoveStyledButton keeps the native target and GDI-themed face synchronized.
+; This is not called by the live launcher until artwork/content fit is solved.
+ApplyAccessibleControlLayout(gui, placements, logicalWidth, logicalHeight)
+{
+    global ButtonFaces
+    if !IsObject(gui) || !DllCall("IsWindow", "Ptr", gui.Hwnd)
+        throw Error("Cannot apply layout to a missing window.")
+    rectangles := [], snapshots := []
+    for index, placement in placements
+    {
+        if !IsObject(placement) || !placement.HasOwnProp("Control")
+            || !IsObject(placement.Control)
+            || placement.Control.Gui.Hwnd != gui.Hwnd
+            throw Error("Layout contains a control not owned by this window.")
+        if !DllCall("IsWindow", "Ptr", placement.Control.Hwnd)
+            throw Error("Layout contains a destroyed control.")
+        rectangles.Push({Id: placement.Id, X: placement.X, Y: placement.Y,
+            Width: placement.Width, Height: placement.Height})
+        placement.Control.GetPos(&x, &y, &w, &h)
+        snapshots.Push({Control: placement.Control, X: x, Y: y,
+            Width: w, Height: h})
+    }
+    validity := ValidateAccessibleControlRectangles(
+        rectangles, logicalWidth, logicalHeight)
+    if !validity.Feasible
+        return {Applied: false, Errors: validity.Errors}
+    visible := DllCall("IsWindowVisible", "Ptr", gui.Hwnd)
+    if visible
+        DllCall("user32\SendMessageW", "Ptr", gui.Hwnd,
+            "UInt", 0x000B, "Ptr", 0, "Ptr", 0) ; WM_SETREDRAW
+    try
+    {
+        for entry in placements
+            MoveStyledButton(entry.Control,
+                entry.X, entry.Y, entry.Width, entry.Height)
+    }
+    catch Error as err
+    {
+        ; The original snapshots are already in *physical* control pixels.
+        ; Do not route them through BookS a second time during recovery.
+        for snapshot in snapshots
+        {
+            try
+            {
+                ctrl := snapshot.Control
+                ctrl.Move(snapshot.X, snapshot.Y, snapshot.Width, snapshot.Height)
+                if ButtonFaces.Has(ctrl.Hwnd)
+                {
+                    face := ButtonFaces[ctrl.Hwnd]
+                    face.X := snapshot.X, face.Y := snapshot.Y
+                    face.W := snapshot.Width, face.H := snapshot.Height
+                    if face.HasOwnProp("Control") && IsObject(face.Control)
+                        face.Control.Move(snapshot.X, snapshot.Y,
+                            snapshot.Width, snapshot.Height)
+                }
+            }
+        }
+        throw err
+    }
+    finally
+    {
+        if visible
+        {
+            DllCall("user32\SendMessageW", "Ptr", gui.Hwnd,
+                "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
+            DllCall("user32\RedrawWindow", "Ptr", gui.Hwnd,
+                "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+            RepaintMenuButtons()
+        }
+    }
+    return {Applied: true, Errors: []}
+}
+
+
 ; Pure native draft of the complete Character + Macro Book geometry. This
 ; matches the offline Python feasibility model; it never moves HWNDs.
 ; The caller must measure actual text heights first, and only APPLY a
