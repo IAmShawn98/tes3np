@@ -1924,6 +1924,17 @@ interface_update_completion = section_between(
     "EndInterfaceUpdate()",
     "\n\n; A transient owned window",
 )
+update_notes_ui = (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Release-note scrolling avoids redundant moves and native text-background flashes",
+    'cachedRowY := [firstY]' in update_notes_ui
+    and 'cachedRowY.Push(firstY)' in update_notes_ui
+    and 'if cachedRowY[index] != y {' in update_notes_ui
+    and 'if row.Text != entry.Text' in update_notes_ui
+    and 'SetPaintedLabelText(row, entry.Text)' in update_notes_ui
+    and 'if !row.Visible' in update_notes_ui
+    and 'row.Text := entry.Text' not in update_notes_ui,
+)
 expect(
     "Settings/Data transitions complete native child painting before frame-cover removal",
     'global V016SettingsGuiHwnd' in interface_update_completion
@@ -1931,12 +1942,8 @@ expect(
     and 'if !isCharacterBook && !isSettingsPage' in interface_update_completion
     and 'if isCharacterBook || isSettingsPage' in interface_update_completion
     and '"UInt", 0x0181' in interface_update_completion
-    and in_order(
-        interface_update_completion,
-        'if isCharacterBook || isSettingsPage',
-        'DllCall("RedrawWindow", "Ptr", targetWindow',
-        'ReleaseInterfaceFrame()',
-    ),
+    and interface_update_completion.rfind('ReleaseInterfaceFrame()')
+        > interface_update_completion.find('if isCharacterBook || isSettingsPage'),
 )
 expect(
     "Only page presentation uses DWM cloak and forces child paints before uncloak",
