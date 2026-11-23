@@ -925,11 +925,56 @@ CheckBufferedReleaseNoteRow(row)
 
 ; The owned-menu probe already runs on Windows in CI. Use its disposable owner
 ; to exercise the real display refresh and release-note rows at both extremes.
+; Exercise the precise union cover geometry used for extreme preview/revert.
+; Previously a 50%-sized snapshot left the 100%-sized destination exposed.
+; The bitmap face must never stretch, and shrink restores must not unnecessarily
+; resize a perfectly adequate larger cover.
+CheckExtremeDisplayFrameCoverage()
+{
+    cases := [
+        {X: 140, Y: 120, Width: 480, Height: 358,
+            Target: {X: 60, Y: 35, Width: 960, Height: 716}, Expanded: true},
+        {X: 60, Y: 35, Width: 960, Height: 716,
+            Target: {X: 140, Y: 120, Width: 480, Height: 358}, Expanded: false}
+    ]
+    for testcase in cases
+    {
+        cover := Gui("-Caption -Border -DPIScale +ToolWindow")
+        face := cover.Add("Text", "x0 y0 w" testcase.Width " h" testcase.Height, "Captured old frame")
+        try
+        {
+            cover.Show("NA x" testcase.X " y" testcase.Y
+                " w" testcase.Width " h" testcase.Height)
+            frame := {Gui: cover, Face: face, X: testcase.X, Y: testcase.Y,
+                Width: testcase.Width, Height: testcase.Height}
+            grew := ExpandCapturedDisplayFrame(frame, testcase.Target)
+            if grew != testcase.Expanded
+                throw Error("Captured display cover did not detect the expected extreme-size transition.")
+            left := Min(testcase.X, testcase.Target.X)
+            top := Min(testcase.Y, testcase.Target.Y)
+            right := Max(testcase.X + testcase.Width, testcase.Target.X + testcase.Target.Width)
+            bottom := Max(testcase.Y + testcase.Height, testcase.Target.Y + testcase.Target.Height)
+            bounds := Buffer(16, 0)
+            if !DllCall("GetWindowRect", "Ptr", cover.Hwnd, "Ptr", bounds, "Int")
+                throw OSError()
+            if NumGet(bounds, 0, "Int") != left || NumGet(bounds, 4, "Int") != top
+                || NumGet(bounds, 8, "Int") != right || NumGet(bounds, 12, "Int") != bottom
+                throw Error("Captured display cover does not conceal both launcher rectangles.")
+            face.GetPos(&fx, &fy, &fw, &fh)
+            if fx != testcase.X - left || fy != testcase.Y - top
+                || fw != testcase.Width || fh != testcase.Height
+                throw Error("Captured old-frame bitmap was moved or stretched during extreme scaling.")
+        }
+        finally cover.Destroy()
+    }
+}
+
 CheckDisplaySettingsAndReleaseNotes()
 {
     global LauncherGui, LauncherHeading, LauncherScale, LauncherScaleMode, LauncherRequestedScale, ButtonFaces
     global V016SettingsGuiHwnd, InterfaceFrameCover
     CheckUpdateNoteCallbackLifetime()
+    CheckExtremeDisplayFrameCoverage()
     if GetLauncherScaleForWorkArea(1920, 1040, 1.0) != 100
         || GetLauncherScaleForWorkArea(1280, 680, 1.5) != 60
         || GetLauncherScaleForWorkArea(1280, 680, 1.5, 100) != 63

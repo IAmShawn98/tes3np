@@ -153,6 +153,35 @@ PreviewLauncherSettings(settings, scaleList, textList, readability, reduceMotion
     }
 }
 
+; The captured bitmap must stay at its original pixel size/location. When
+; Preview/Restore changes 50% <-> 100%, however, the destination launcher
+; can extend well outside that original cover. Grow only the cover's opaque
+; background to the union of both rectangles; keep the captured pixels and
+; loading card anchored over the old launcher until final paint is complete.
+ExpandCapturedDisplayFrame(frame, destination)
+{
+    if !IsObject(frame) || !IsObject(frame.Gui) || !IsObject(frame.Face)
+        return false
+    left := Min(frame.X, destination.X)
+    top := Min(frame.Y, destination.Y)
+    right := Max(frame.X + frame.Width, destination.X + destination.Width)
+    bottom := Max(frame.Y + frame.Height, destination.Y + destination.Height)
+    width := right - left, height := bottom - top
+    if width <= frame.Width && height <= frame.Height
+        return false
+    ; The extra region is intentionally opaque, not a translucent loading dim
+    ; that would reveal native controls moving/painting beneath it.
+    frame.Gui.BackColor := "000000"
+    frame.Face.Move(frame.X - left, frame.Y - top, frame.Width, frame.Height)
+    ; SWP_NOZORDER | SWP_NOACTIVATE: do not disturb owned loading/progress HWNDs.
+    if !DllCall("SetWindowPos", "Ptr", frame.Gui.Hwnd, "Ptr", 0,
+        "Int", left, "Int", top, "Int", width, "Int", height, "UInt", 0x0014, "Int")
+        throw OSError()
+    ; Ensure the newly exposed opaque matte is fully painted before resizing.
+    DllCall("RedrawWindow", "Ptr", frame.Gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+    return true
+}
+
 RefreshLauncherDisplay(message, settings)
 {
     global LauncherGui
@@ -178,6 +207,14 @@ RefreshLauncherDisplay(message, settings)
         : "UI | Display refresh frame capture unavailable; live loading fallback.")
     try
     {
+        if hasDisplayFrame
+        {
+            ; Predict the same destination that ApplyLauncherScaleToWindow will
+            ; use, while the old launcher is still in its original rectangle.
+            ; Protect BOTH rectangles before any controls are moved.
+            if ExpandCapturedDisplayFrame(loading, GetLauncherPlacement())
+                LogLauncherEvent("UI | Display refresh frame expanded for scale transition.")
+        }
         ; Paint the loading card, then return foreground to the launcher before
         ; hiding its active owned Settings window. It must be enabled to take focus.
         SetLoadingCardProgress(loading.Panel, message, 0.15)
@@ -193,9 +230,8 @@ RefreshLauncherDisplay(message, settings)
             throw OSError()
         x := NumGet(bounds, 0, "Int"), y := NumGet(bounds, 4, "Int")
         width := NumGet(bounds, 8, "Int") - x, height := NumGet(bounds, 12, "Int") - y
-        ; The snapshot and its progress card intentionally remain at the OLD
-        ; complete-frame bounds during reflow. Moving them midway would reveal
-        ; partial launcher frames at the changing edges. Only the fallback
+        ; The captured bitmap/progress remain anchored at the OLD position
+        ; inside their now-enlarged opaque union cover. Only the fallback
         ; (which has no snapshot) tracks the resized live launcher.
         if !hasDisplayFrame
         {

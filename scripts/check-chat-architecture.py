@@ -2420,6 +2420,10 @@ expect(
         "LauncherCachedLayoutCount := LauncherControlLayout.Count",
     ),
 )
+display_frame_extension = section_between(
+    display_settings, "\nExpandCapturedDisplayFrame(frame, destination)",
+    "\nRefreshLauncherDisplay(message, settings)"
+)
 display_refresh = section_between(display_settings, "\nRefreshLauncherDisplay(message, settings)", "\nSaveLauncherDisplaySettings(")
 expect(
     "Display previews retain a complete old frame and live progress while scaling",
@@ -2428,6 +2432,7 @@ expect(
              "hasDisplayFrame := IsObject(loading) && IsObject(loading.Gui)",
              "if !hasDisplayFrame",
              "CreateLoadingCard(LauncherGui,",
+             "ExpandCapturedDisplayFrame(loading, GetLauncherPlacement())",
              "SetLoadingCardProgress(loading.Panel, message,",
              'DllCall("EnableWindow", "Ptr", launcherHwnd, "Int", 1)',
              'WinActivate("ahk_id " launcherHwnd)',
@@ -2449,6 +2454,20 @@ expect(
     and "SetPageCompositorCloak(" not in display_refresh
     and "WinGetPos(" not in launcher_scale_apply
     and "WinMove(" not in launcher_scale_apply,
+)
+expect(
+    "Extreme 50 to 100 scale previews cover both positions without stretching their bitmap",
+    'left := Min(frame.X, destination.X)' in display_frame_extension
+    and 'top := Min(frame.Y, destination.Y)' in display_frame_extension
+    and 'right := Max(frame.X + frame.Width, destination.X + destination.Width)' in display_frame_extension
+    and 'bottom := Max(frame.Y + frame.Height, destination.Y + destination.Height)' in display_frame_extension
+    and 'frame.Gui.BackColor := "000000"' in display_frame_extension
+    and 'frame.Face.Move(frame.X - left, frame.Y - top, frame.Width, frame.Height)' in display_frame_extension
+    and 'DllCall("SetWindowPos", "Ptr", frame.Gui.Hwnd' in display_frame_extension
+    and '0x0181' in display_frame_extension
+    and 'CheckExtremeDisplayFrameCoverage()' in launcher_smoke_tests
+    and 'Captured display cover does not conceal both launcher rectangles.' in launcher_smoke_tests
+    and 'Captured old-frame bitmap was moved or stretched' in launcher_smoke_tests,
 )
 control_scale = section_between(launcher_layout, "ApplyLauncherControlScale(suspendRedraw", "ShowLauncherWindow(")
 expect(
