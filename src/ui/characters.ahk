@@ -256,7 +256,7 @@ ReflowCharacterBookDescription()
 
     ; All ten rows remain in their original order and maintain their relative
     ; positions. Normal reverts to the original first-row location automatically.
-    firstRowY := Max(164, 80 + Ceil(paragraphHeight / GetCharacterBookScale()) + 12)
+    firstRowY := Max(164, 80 + Ceil(paragraphHeight / GetCharacterBookScale()) + 3)
     for index, controls in CharacterRows
     {
         y := firstRowY + (index - 1) * 24
