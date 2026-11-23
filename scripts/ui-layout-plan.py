@@ -17,9 +17,10 @@ class TextBlock:
     minimum_height: int
     required_height: int
     gap_after: int = 0
+    minimum_top: int = 0
 
     def __post_init__(self):
-        if not self.name or min(self.minimum_height, self.required_height, self.gap_after) < 0:
+        if not self.name or min(self.minimum_height, self.required_height, self.gap_after, self.minimum_top) < 0:
             raise ValueError("Invalid text block measurements")
 
 
@@ -70,6 +71,7 @@ def plan_vertical_stack(
             cursor = max(cursor, minimum_next_top)
             minimum_next_top = None
         if isinstance(item, TextBlock):
+            cursor = max(cursor, item.minimum_top)
             height = max(item.minimum_height, item.required_height)
             positions.append((item.name, cursor, cursor + height))
             cursor += height + item.gap_after
@@ -91,14 +93,14 @@ def character_book_left_column(
     measured_paragraph_height: int,
     row_count: int = 10,
     action_height: int = 30,
-    available_bottom: int = 605,
+    available_bottom: int = 570,
 ) -> Plan:
     """Diagnostic only; does not authorize changing Character Book positions.
 
     Coordinates and row pitch mirror existing native Character Book geometry.
     The baseline top positions and footer constraints must be considered before
     attempting any live reflow. Last action bottom 605 is already the visible
-    window's action/footer boundary, not unlimited free space.
+    action's bottom boundary above the fixed Wipe Character List control.
     """
     if measured_paragraph_height < 0 or action_height < 0:
         raise ValueError("Negative text/action height")
@@ -108,7 +110,7 @@ def character_book_left_column(
         items=(
             TextBlock("complete-description", 81, measured_paragraph_height, gap_after=3),
             FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=10),
-            TextBlock("add-character", action_height, action_height),
+            TextBlock("add-character", action_height, action_height, minimum_top=540),
         ),
         minimum_next_top=80,
     )
