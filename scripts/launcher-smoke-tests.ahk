@@ -889,11 +889,75 @@ CheckAccessibleLayoutPreflight()
         throw Error("Whole-book layout did not restore its normal anchors.")
 }
 
+
+; Measure real, unchanged Character/Macro copy using the chosen Windows font.
+; This is a disposable GUI: it cannot move the actual cached Character Book.
+; Never claim a full-view pass merely because a text string was measurable.
+CheckMeasuredAccessibleBookPreflight()
+{
+    global AccessibilityTextSize
+    previousMode := AccessibilityTextSize
+    fullDescription := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
+    macroCopy := "Upload, run, or stop macros here. Click the pencil to rename a macro."
+    heights := [], plans := []
+    try
+    {
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            probe := Gui("-DPIScale")
+            try
+            {
+                SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
+                description := probe.Add("Text", "x8 y8 w390 h81", fullDescription)
+                descriptionHeight := MeasureAccessibleWrappedText(description,
+                    fullDescription, 382)
+                SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
+                macro := probe.Add("Text", "x8 y100 w355 h48", macroCopy)
+                macroHeight := MeasureAccessibleWrappedText(macro, macroCopy, 347)
+                SetAccessibleTextFont(probe, "s12 Norm c241408", "Georgia")
+                characterName := probe.Add("Text", "x8 y160 w140 h23", "Character Name")
+                characterHeight := MeasureAccessibleWrappedText(characterName,
+                    "Character Name", 136)
+                SetAccessibleTextFont(probe, "s12 Norm c241408", "Georgia")
+                macroName := probe.Add("Text", "x8 y205 w125 h22", "Macro Name")
+                macroNameHeight := MeasureAccessibleWrappedText(macroName,
+                    "Macro Name", 121)
+                heights.Push({Description: descriptionHeight, Macro: macroHeight,
+                    Character: characterHeight, MacroRow: Max(62, macroNameHeight + 40)})
+                plan := PlanAccessibleBookGeometry(descriptionHeight, macroHeight,
+                    Max(23, characterHeight), Max(62, macroNameHeight + 40),
+                    1920, 1200)
+                if !plan.Feasible
+                    throw Error("Measured accessible text exceeded the full-work-area fixture at " mode ".")
+                if plan.CharacterTop < 80 + Max(81, descriptionHeight) + 3
+                    || plan.MacroTop < 87 + Max(48, macroHeight) + 5
+                    throw Error("Measured text overlaps a neighboring row at " mode ".")
+                plans.Push(plan)
+            }
+            finally probe.Destroy()
+        }
+        if heights[1].Description > heights[2].Description
+            || heights[2].Description > heights[3].Description
+            throw Error("The original Character Book description got smaller at a larger text preference.")
+        if plans[3].RequiredHeight < plans[1].RequiredHeight
+            throw Error("Larger text reduced the required whole-book height.")
+        constrained := PlanAccessibleBookGeometry(heights[3].Description,
+            heights[3].Macro, Max(23, heights[3].Character),
+            heights[3].MacroRow, 800, 650)
+        if constrained.Feasible || constrained.Height != 0
+            throw Error("Infeasible measured two-column layout was accepted.")
+        try FileAppend("PASS: measured unchanged Character/Macro text feeds reversible whole-book layout preflight" Chr(10), "*")
+    }
+    finally AccessibilityTextSize := previousMode
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
     oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
     CheckAccessibleLayoutPreflight()
+    CheckMeasuredAccessibleBookPreflight()
     try
     {
         bodyHeights := [], settingsHeights := []
