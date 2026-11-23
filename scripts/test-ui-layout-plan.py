@@ -69,6 +69,33 @@ class LayoutPlanningTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             layout.plan_vertical_stack(600, 570, ())
 
+    def test_responsive_parent_can_grow_without_shrinking_text(self):
+        content = layout.character_book_left_column(220, show_limit_notice=True)
+        self.assertFalse(content.feasible)
+        page = layout.plan_responsive_parent(
+            content, minimum_page_height=650, footer_reserved_height=60,
+            available_work_height=800,
+        )
+        self.assertTrue(page.feasible)
+        self.assertGreater(page.target_height, 650)
+        self.assertEqual(page.target_height, page.required_height)
+        self.assertEqual(page.overflow, 0)
+
+    def test_responsive_parent_rejects_small_screen_without_partial_commit(self):
+        content = layout.character_book_left_column(220, show_limit_notice=True)
+        page = layout.plan_responsive_parent(content, 650, 60, 640)
+        self.assertFalse(page.feasible)
+        self.assertEqual(page.target_height, 0)
+        self.assertGreater(page.overflow, 0)
+
+    def test_responsive_parent_returns_to_normal_baseline(self):
+        large = layout.character_book_left_column(220, show_limit_notice=True)
+        normal = layout.character_book_left_column(70, show_limit_notice=True)
+        larger_window = layout.plan_responsive_parent(large, 650, 60, 800)
+        restored_window = layout.plan_responsive_parent(normal, 650, 60, 800)
+        self.assertGreater(larger_window.target_height, restored_window.target_height)
+        self.assertEqual(restored_window.target_height, 650)
+
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
             layout.plan_vertical_stack(0, 200, ("not-a-layout-item",))
