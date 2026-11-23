@@ -362,6 +362,31 @@ class LayoutPlanningTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             layout.MeasuredControl("broken", -1, 16, 20, 20)
 
+    def test_horizontal_name_overflow_blocks_live_book_application(self):
+        normal = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            measured_character_name_width=110, measured_macro_name_width=100)
+        long_names = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080,
+            measured_character_name_width=215, measured_macro_name_width=165)
+        self.assertTrue(normal.feasible, normal.violations)
+        self.assertTrue(normal.live_application_ready)
+        self.assertTrue(long_names.feasible, long_names.violations)
+        self.assertTrue(long_names.requires_horizontal_reflow)
+        self.assertFalse(long_names.live_application_ready)
+        self.assertEqual(normal.page_height, long_names.page_height)
+
+    def test_missing_text_measurements_or_unsupported_artwork_are_not_ready(self):
+        unmeasured = layout.plan_character_macro_book(
+            70, 40, 23, 62, 1920, 1080)
+        enlarged = layout.plan_character_macro_book(
+            220, 72, 38, 130, 1920, 1080,
+            measured_character_name_width=120, measured_macro_name_width=108)
+        self.assertTrue(unmeasured.feasible)
+        self.assertFalse(unmeasured.live_application_ready)
+        self.assertTrue(enlarged.requires_art_extension)
+        self.assertFalse(enlarged.live_application_ready)
+
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
             layout.plan_vertical_stack(0, 200, ("not-a-layout-item",))
