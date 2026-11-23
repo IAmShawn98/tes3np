@@ -162,8 +162,7 @@ class LayoutPlanningTest(unittest.TestCase):
         enlarged = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
         self.assertTrue(enlarged.feasible, enlarged.violations)
         before = dict(layout.expand_book_control_positions(normal))
-        after = dict(layout.expand_book_control_positions(
-            enlarged, character_row_height=38, macro_row_height=130))
+        after = dict(layout.expand_book_control_positions(enlarged))
         self.assertEqual(layout.validate_book_control_positions(enlarged, tuple(after.items())), ())
         self.assertGreater(after["character-1-play"].y, before["character-1-play"].y)
         self.assertEqual(after["character-1-play"].y, after["character-1-name"].y)
@@ -173,8 +172,7 @@ class LayoutPlanningTest(unittest.TestCase):
 
     def test_larger_macro_name_never_overlays_action_controls(self):
         plan = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
-        positions = dict(layout.expand_book_control_positions(
-            plan, character_row_height=38, macro_row_height=130))
+        positions = dict(layout.expand_book_control_positions(plan))
         self.assertTrue(plan.feasible, plan.violations)
         self.assertLessEqual(positions["macro-1-name"].bottom,
                              positions["macro-1-run"].y)
@@ -182,6 +180,16 @@ class LayoutPlanningTest(unittest.TestCase):
                              positions["macro-4-run"].y)
         self.assertEqual(layout.validate_book_control_positions(
             plan, tuple(positions.items())), ())
+
+    def test_control_expander_uses_measured_plan_without_second_font_guess(self):
+        large = layout.plan_character_macro_book(220, 72, 38, 130, 1920, 1080)
+        controls = dict(layout.expand_book_control_positions(large))
+        self.assertEqual(large.character_row_height, 38)
+        self.assertEqual(large.macro_row_height, 130)
+        self.assertEqual(controls["character-1-name"].height, 38)
+        self.assertGreater(controls["macro-1-run"].y, controls["macro-1-name"].y)
+        self.assertEqual(layout.validate_book_control_positions(
+            large, tuple(controls.items())), ())
 
     def test_control_plan_rejects_infeasible_parent_and_restores_normal(self):
         rejected = layout.plan_character_macro_book(220, 72, 38, 130, 960, 650)
