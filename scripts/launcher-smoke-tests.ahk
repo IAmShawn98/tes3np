@@ -927,7 +927,7 @@ CheckMeasuredAccessibleBookPreflight()
     previousMode := AccessibilityTextSize
     fullDescription := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
     macroCopy := "Upload, run, or stop macros here. Click the pencil to rename a macro."
-    heights := [], plans := []
+    heights := [], plans := [], nameWidths := []
     try
     {
         for mode in ["Normal", "Large", "Extra Large"]
@@ -947,6 +947,11 @@ CheckMeasuredAccessibleBookPreflight()
                 characterName := probe.Add("Text", "x8 y160 w140 h23", "Character Name")
                 characterHeight := MeasureAccessibleWrappedText(characterName,
                     "Character Name", 136)
+                longNameMetrics := MeasureAccessibleSingleLineText(characterName,
+                    "A character name that should not ever be cut off or replaced")
+                if longNameMetrics.Width <= 140
+                    throw Error("Long-name fixture did not exceed the original fixed name column.")
+                nameWidths.Push(longNameMetrics.Width)
                 SetAccessibleTextFont(probe, "s12 Norm c241408", "Georgia")
                 macroName := probe.Add("Text", "x8 y205 w125 h22", "Macro Name")
                 macroNameHeight := MeasureAccessibleWrappedText(macroName,
@@ -965,6 +970,8 @@ CheckMeasuredAccessibleBookPreflight()
             }
             finally probe.Destroy()
         }
+        if nameWidths[1] >= nameWidths[2] || nameWidths[2] >= nameWidths[3]
+            throw Error("Large Interface Text failed to increase unshortened character-name width.")
         if heights[1].Description > heights[2].Description
             || heights[2].Description > heights[3].Description
             throw Error("The original Character Book description got smaller at a larger text preference.")
