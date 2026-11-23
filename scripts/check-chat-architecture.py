@@ -2421,6 +2421,29 @@ for native_path in native_font_paths:
     native_content = (ROOT / native_path).read_text(encoding="utf-8-sig")
     native_code = "\n".join(line for line in native_content.splitlines()
                             if not line.lstrip().startswith(";"))
+    # The Character Book description must fit its existing 81px rectangle.
+    # Its measured font-fit is the only permitted direct SetFont exception:
+    # it starts at the requested accessible size and steps down to fit.
+    if native_path == "src/ui/characters.ahk":
+        fit_helper = section_between(
+            native_code,
+            "\nFitCharacterDescriptionFont(control, caption, fontName)\n{",
+            "\nRangeCharacterDescriptionSizes(desiredSize)",
+        )
+        expect(
+            "Character description fits measured text without changing book geometry",
+            "desiredSize := AccessibilityFontSize(11)" in fit_helper
+            and 'control.SetFont("s" size " Norm c241408", fontName)' in fit_helper
+            and "GetTextExtentPoint32W" not in fit_helper
+            and 'DllCall("user32\\DrawTextW"' in fit_helper
+            and "NumGet(bounds, 12, \"Int\") <= textHeight" in fit_helper
+            and "CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))" in native_code,
+        )
+        native_code = native_code.replace(
+            "\nFitCharacterDescriptionFont(control, caption, fontName)\n{" + fit_helper,
+            "",
+            1,
+        )
     expect(
         f"Interface Text controls native font sizes in {native_path}",
         "SetAccessibleTextFont(" in native_code
