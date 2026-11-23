@@ -133,11 +133,18 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertFalse(plan.feasible)
         self.assertEqual(plan.controls, ())
 
-    def test_two_columns_reject_font_oversized_rows(self):
-        with self.assertRaises(ValueError):
-            layout.plan_character_macro_book(70, 40, 28, 62, 1920, 1080)
-        with self.assertRaises(ValueError):
-            layout.plan_character_macro_book(70, 40, 23, 75, 1920, 1080)
+    def test_two_columns_grow_row_pitches_instead_of_shrinking_font(self):
+        normal = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
+        character_grown = layout.plan_character_macro_book(70, 40, 38, 62, 1920, 1080)
+        macro_grown = layout.plan_character_macro_book(70, 40, 23, 91, 1920, 1080)
+        self.assertTrue(normal.feasible, normal.violations)
+        self.assertTrue(character_grown.feasible, character_grown.violations)
+        self.assertTrue(macro_grown.feasible, macro_grown.violations)
+        self.assertGreater(dict(character_grown.controls)["character-rows"].height,
+                           dict(normal.controls)["character-rows"].height)
+        self.assertGreater(dict(macro_grown.controls)["macro-rows"].height,
+                           dict(normal.controls)["macro-rows"].height)
+        self.assertGreater(macro_grown.page_height, normal.page_height)
 
     def test_unmeasured_or_unknown_items_not_silently_accepted(self):
         with self.assertRaises(TypeError):
