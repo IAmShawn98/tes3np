@@ -165,7 +165,7 @@ OpenCharacterPage(*)
 
 RefreshProfiles()
 {
-    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice
+    global CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces, DataTransferButton, WipeCharacterButton, CharacterDescription, AddCharacterButton, MaxCharacters, CharacterLimitNotice, LauncherMorrowindFont
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
@@ -189,13 +189,17 @@ RefreshProfiles()
         }
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
-        CharacterDescription.Visible := true
+        ; Retain the original paragraph rectangle and all character row positions.
+        ; Measure the wrapped text against that rectangle after the book scale
+        ; is applied, so Large/Extra Large cannot paint over the first row.
         ; Use the same gap below Add character in both list states.
         actionY := Profiles.Length ? 540 : 164
         MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
         ; Shrink the transparent hit area as well as the visible gap so it
         ; cannot cover a character checkbox after a refresh or import.
         CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
+        FitCharacterDescriptionFont(CharacterDescription, descriptionText, LauncherMorrowindFont)
+        CharacterDescription.Visible := true
         transferX := Profiles.Length ? 775 : 70
         transferY := Profiles.Length ? 575 : actionY + 35
         ; Preserve the original wide Import Data layout and compact Export Data
@@ -229,6 +233,54 @@ RefreshProfiles()
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
     }
     finally EndInterfaceUpdate()
+}
+
+
+; Keep the character-book paragraph in the approved fixed rectangle.
+; Font preference supplies the requested ceiling; wrapped text is measured
+; with the control's actual GDI font before selecting a size that fits.
+FitCharacterDescriptionFont(control, caption, fontName)
+{
+    desiredSize := AccessibilityFontSize(11)
+    control.GetPos(, , &controlWidth, &controlHeight)
+    textWidth := Max(1, controlWidth - 4)
+    textHeight := Max(1, controlHeight - 2)
+    for size in RangeCharacterDescriptionSizes(desiredSize)
+    {
+        control.SetFont("s" size " Norm c241408", fontName)
+        dc := DllCall("user32\\GetDC", "Ptr", control.Hwnd, "Ptr")
+        if !dc
+            return
+        previous := 0
+        try
+        {
+            font := DllCall("user32\\SendMessageW", "Ptr", control.Hwnd,
+                "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+            if font
+                previous := DllCall("gdi32\\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+            bounds := Buffer(16, 0)
+            NumPut("Int", 0, "Int", 0, "Int", textWidth, "Int", 0, bounds)
+            ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX.
+            DllCall("user32\\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
+                "Ptr", bounds, "UInt", 0xC10)
+            if NumGet(bounds, 12, "Int") <= textHeight
+                return
+        }
+        finally
+        {
+            if previous
+                DllCall("gdi32\\SelectObject", "Ptr", dc, "Ptr", previous, "Ptr")
+            DllCall("user32\\ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+        }
+    }
+}
+
+RangeCharacterDescriptionSizes(desiredSize)
+{
+    sizes := []
+    Loop Max(1, desiredSize - 7 + 1)
+        sizes.Push(desiredSize - A_Index + 1)
+    return sizes
 }
 
 MoveStyledButton(control, x, y, width, height)
