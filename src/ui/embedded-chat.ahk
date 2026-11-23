@@ -395,21 +395,41 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
         }
         finally DllCall("gdi32\DeleteObject", "Ptr", frame)
     }
-    ; Scale the rotated caption and arrow with the tab.
+    ; Keep the original caption baseline and tab geometry at every text size.
+    ; A rotated font's advance runs along the tab's height, so measure that
+    ; advance instead of guessing the maximum font size from h / 5.
     paintScale := LauncherScale / 100
-    ; This rotated caption is GDI text, not a standard Gui.SetFont label.
-    ; Enlarge it with Interface Text, but retain room for the arrow and frame.
-    fontHeight := -Max(9, Min(Round(AccessibilityFontSize(21) * paintScale),
-        Max(9, Floor(h / 5))))
+    baselineY := Round(h * 0.87) + shift
+    availableAdvance := Max(1, baselineY - Max(2, Round(h * 0.06)))
+    requestedHeight := Max(9, Round(AccessibilityFontSize(21) * paintScale))
+    fontHeight := -requestedHeight
     font := DllCall("gdi32\CreateFontW",
         "Int", fontHeight, "Int", 0, "Int", 900, "Int", 900,
         "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
         "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
         "UInt", 0, "Str", "Segoe UI", "Ptr")
     oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
-    ; Positive 90-degree escapement runs text upward from the baseline.
+    extent := Buffer(8, 0)
+    if DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", label,
+        "Int", StrLen(label), "Ptr", extent)
+    {
+        advance := NumGet(extent, 0, "Int")
+        if advance > availableAdvance
+        {
+            fittedHeight := Max(1, Floor(requestedHeight * availableAdvance / advance))
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
+            DllCall("gdi32\DeleteObject", "Ptr", font)
+            font := DllCall("gdi32\CreateFontW",
+                "Int", -fittedHeight, "Int", 0, "Int", 900, "Int", 900,
+                "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
+                "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
+                "UInt", 0, "Str", "Segoe UI", "Ptr")
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+        }
+    }
+    ; Positive 90-degree escapement runs text upward from this fixed baseline.
     DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.53),
-        "Int", Round(h * 0.87) + shift, "Str", label, "Int", StrLen(label))
+        "Int", baselineY, "Str", label, "Int", StrLen(label))
     DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
     DllCall("gdi32\DeleteObject", "Ptr", font)
     pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
