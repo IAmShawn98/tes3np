@@ -981,7 +981,19 @@ CheckExtremeDisplayFrameCoverage()
             innerY := testcase.Y - top + 15
             inner := DllCall("GetPixel", "Ptr", memoryDC, "Int", innerX, "Int", innerY, "UInt")
             if inner != 0x346794 ; old launcher RGB #946734, COLORREF #346794
-                throw Error("The original launcher pixels were not preserved.")
+            {
+                ; Print only fixture RGB values; no desktop content or paths.
+                sourceWindowDC := DllCall("GetDC", "Ptr", source.Hwnd, "Ptr")
+                actualWindowColor := DllCall("GetPixel", "Ptr", sourceWindowDC,
+                    "Int", 15, "Int", 15, "UInt")
+                DllCall("ReleaseDC", "Ptr", source.Hwnd, "Ptr", sourceWindowDC)
+                directScreenColor := DllCall("GetPixel", "Ptr", sourceDC,
+                    "Int", testcase.X + 15, "Int", testcase.Y + 15, "UInt")
+                throw Error("The original launcher pixels were not preserved. "
+                    "Bitmap=" Format("0x{:06X}", inner)
+                    " sourceDC=" Format("0x{:06X}", actualWindowColor)
+                    " desktopDC=" Format("0x{:06X}", directScreenColor) ".")
+            }
             if testcase.Expanded
             {
                 ; This point is outside the small source but inside the 100%
