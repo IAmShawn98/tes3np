@@ -18,6 +18,8 @@ jobs:
           python-version: '3.12'
       - name: Check source and available patch payload
         run: python scripts/project.py check --allow-missing-payload
+      - name: Inventory native launcher and Game Chat text/geometry paths
+        run: python scripts/audit-ui-layout.py --format json --output ui-layout-inventory.json
       - name: Parse workers with Windows PowerShell 5.1
         shell: powershell
         run: ./scripts/check-powershell.ps1
