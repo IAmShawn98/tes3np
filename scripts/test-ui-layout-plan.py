@@ -36,6 +36,16 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(result.available_bottom, 570)
         self.assertIn("overflow", result.violations[0])
 
+    def test_character_limit_notice_is_part_of_available_height(self):
+        normal = layout.character_book_left_column(70, show_limit_notice=True)
+        self.assertTrue(normal.feasible)
+        positions = {name: (top, bottom) for name, top, bottom in normal.positions}
+        self.assertEqual(positions["character-limit-notice"], (429, 454))
+        self.assertEqual(positions["add-character"], (540, 570))
+        large = layout.character_book_left_column(220, show_limit_notice=True)
+        self.assertFalse(large.feasible)
+        self.assertGreater(large.overflow, 0)
+
     def test_recompute_normal_is_independent_of_prior_large_attempt(self):
         large = layout.character_book_left_column(220)
         normal = layout.character_book_left_column(70)
