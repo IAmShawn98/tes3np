@@ -94,6 +94,7 @@ def character_book_left_column(
     row_count: int = 10,
     action_height: int = 30,
     available_bottom: int = 570,
+    show_limit_notice: bool = False,
 ) -> Plan:
     """Diagnostic only; does not authorize changing Character Book positions.
 
@@ -104,13 +105,15 @@ def character_book_left_column(
     """
     if measured_paragraph_height < 0 or action_height < 0:
         raise ValueError("Negative text/action height")
+    items: list[TextBlock | FixedRows] = [
+        TextBlock("complete-description", 81, measured_paragraph_height, gap_after=3),
+        FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=10),
+    ]
+    if show_limit_notice:
+        items.append(TextBlock("character-limit-notice", 25, 25, minimum_top=429))
+    items.append(TextBlock("add-character", action_height, action_height, minimum_top=540))
     return plan_vertical_stack(
         top=80,
         available_bottom=available_bottom,
-        items=(
-            TextBlock("complete-description", 81, measured_paragraph_height, gap_after=3),
-            FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=10),
-            TextBlock("add-character", action_height, action_height, minimum_top=540),
-        ),
-        minimum_next_top=80,
+        items=items,
     )
