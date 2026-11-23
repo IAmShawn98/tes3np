@@ -208,11 +208,22 @@ RefreshLauncherDisplay(message, settings)
         SetLoadingCardProgress(loading.Panel, "Updating readability...", 0.85)
         ApplyEnhancedReadability()
         DllCall("RedrawWindow", "Ptr", launcherHwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
+        ; The final all-children redraw occurs AFTER the earlier GDI button
+        ; blits in the scale/text helpers. Repaint those custom faces once more
+        ; before the captured frame is taken away.
+        RepaintMenuButtons()
     }
     finally
     {
         if hasDisplayFrame
-            ReleaseCapturedInterfaceFrame(loading)
+        {
+            ; The original cleanup destroyed the dim/progress FIRST, exposing
+            ; an undimmed stale screenshot for a compositor frame. Hide the
+            ; capture (and its owned loading windows) as one presentation step;
+            ; release HWNDs and the detached bitmap only AFTER that hide.
+            try loading.Gui.Hide()
+            finally ReleaseCapturedInterfaceFrame(loading)
+        }
         else
             DestroyLoadingCard(loading)
     }
