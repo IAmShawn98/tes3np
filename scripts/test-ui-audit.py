@@ -70,6 +70,20 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertNotIn("BookS(", body)
         self.assertNotIn("GetCharacterBookScale(", body)
 
+    def test_empty_character_book_reflows_measured_copy_not_populated_rows(self):
+        source = (SOURCE.parents[1] / "src/ui/characters.ahk").read_text(
+            encoding="utf-8-sig")
+        begin = source.index("RefreshProfiles()\n{")
+        end = source.index("\nMoveStyledButton(control,", begin)
+        refresh = source[begin:end]
+        self.assertIn("CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))", refresh)
+        self.assertIn("if !Profiles.Length", refresh)
+        self.assertIn("MeasureAccessibleWrappedText(CharacterDescription, descriptionText,", refresh)
+        self.assertIn("if proposedAddY + 65 <= 570", refresh)
+        self.assertIn("MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)", refresh)
+        self.assertIn("transferY := Profiles.Length ? 575 : actionY + 35", refresh)
+        self.assertNotIn("CharacterDescription.Text := StrReplace", refresh)
+
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
         self.assertEqual(report["scope"], ["src", "game-chat"])
