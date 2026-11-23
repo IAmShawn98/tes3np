@@ -882,6 +882,22 @@ CheckAccessibleLayoutPreflight()
     if !biggerRows.Feasible || biggerRows.CharacterPitch <= normalBook.CharacterPitch
         || biggerRows.MacroPitch <= normalBook.MacroPitch
         throw Error("Measured larger row fonts were not given extra spacing.")
+    emptyState := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080, 0, 0)
+    if !emptyState.Feasible || emptyState.AddTop != 164
+        || emptyState.ImportTop != 199 || emptyState.WipeTop != 0
+        throw Error("Empty Book Add/Import layout does not match the approved baseline.")
+    fullState := PlanAccessibleBookGeometry(70, 40, 23, 62,
+        1920, 1080, 10, 4, true)
+    if !fullState.Feasible || fullState.NoticeTop != 429
+        || fullState.WipeTop != 577
+        throw Error("Full Character Book warning/Wipe layout changed.")
+    enlargedFull := PlanAccessibleBookGeometry(220, 72, 38, 130,
+        1920, 1080, 10, 4, true)
+    if !enlargedFull.Feasible
+        || enlargedFull.NoticeTop < enlargedFull.CharacterBottom + 8
+        || enlargedFull.AddTop < enlargedFull.NoticeBottom + 10
+        || enlargedFull.FooterTop < enlargedFull.AddTop + 35
+        throw Error("Enlarged character warning intersects rows or Add/Close actions.")
     normalAgain := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if normalAgain.Height != normalBook.Height
         || normalAgain.CharacterTop != normalBook.CharacterTop
