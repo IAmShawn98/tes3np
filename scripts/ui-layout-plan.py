@@ -375,6 +375,8 @@ def plan_character_macro_book(
     dpi_scale: float = 1.0,
     measured_character_name_width: int | None = None,
     measured_macro_name_width: int | None = None,
+    complete_control_metrics: bool = False,
+    artwork_strategy_validated: bool = False,
     baseline_width: int = 960,
     baseline_height: int = 650,
 ) -> BookPlan:
@@ -491,5 +493,7 @@ def plan_character_macro_book(
                         not violations
                         and measured_character_name_width is not None
                         and measured_macro_name_width is not None
+                        and complete_control_metrics
+                        and artwork_strategy_validated
                         and not horizontal_reflow
                         and needed_page_height <= baseline_height))
