@@ -1800,6 +1800,44 @@ CheckMeasuredBookEditorGeometry()
     }
 }
 
+CheckMeasuredVersionStatusHeader()
+{
+    global AccessibilityTextSize
+    saved := AccessibilityTextSize
+    try
+    {
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            panel := Gui("-DPIScale")
+            try
+            {
+                SetAccessibleTextFont(panel, "s14 Bold", "Georgia")
+                title := panel.Add("Text", "x30 y20 w740 h38", "You're All Caught Up, Fetcher!")
+                SetAccessibleTextFont(panel, "s10", "Segoe UI")
+                message := panel.Add("Text", "x30 y65 w740 h30", "If an update is published, you will be notified.")
+                SetAccessibleTextFont(panel, "s12 Bold", "Georgia")
+                heading := panel.Add("Text", "x30 y123 w430 h30", "Release Notes")
+                SetAccessibleTextFont(panel, "s9", "Segoe UI")
+                build := panel.Add("Text", "x482 y129 w288 h22", "Build: v0.1.21-alpha.1")
+                extra := ReflowVersionStatusHeader(title, message, heading, build)
+                heading.GetPos(, &hy, , &hh)
+                build.GetPos(, &by, , &bh)
+                if mode = "Normal"
+                {
+                    if extra || hy != 123 || by != 129 || bh != 22
+                        throw Error("Normal Version Status header changed.")
+                }
+                else if 158 + extra < Max(hy + hh, by + bh) + 5
+                    || bh < MeasureAccessibleWrappedText(build, build.Text, 280)
+                    throw Error("Enlarged Version Status Build label overlaps notes frame.")
+            }
+            finally panel.Destroy()
+        }
+    }
+    finally AccessibilityTextSize := saved
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1826,6 +1864,7 @@ CheckInterfaceTextAccessibility()
     CheckAccessibleBookNameWrapping()
     try FileAppend("CHECK: CheckMeasuredBookEditorGeometry (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredBookEditorGeometry()
+    CheckMeasuredVersionStatusHeader()
     try
     {
         bodyHeights := [], settingsHeights := []

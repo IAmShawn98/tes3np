@@ -50,6 +50,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
         if IsObject(LauncherHeading)
             LauncherHeading.SetFont("s" Max(1, Round(AccessibilityFontSize(19) * scale))
                 " Norm c241408", LauncherMorrowindFont)
+        ReflowLauncherAccessibleEdgeControls(scale)
         ScaleLauncherVersionLabel(scale)
     }
     finally
@@ -57,6 +58,54 @@ ApplyLauncherControlScale(suspendRedraw := true)
             DllCall("SendMessageW", "Ptr", LauncherGui.Hwnd, "UInt", 0x000B, "Ptr", 1, "Ptr", 0)
     DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0085 | 0x0100 | 0x0001 | 0x0004)
     RepaintMenuButtons()
+}
+
+ReflowLauncherAccessibleEdgeControls(scale)
+{
+    global LauncherGui, LauncherControlLayout, ButtonFaces, AccessibilityTextSize
+    global LauncherExpansionToggle, LauncherChatToggle, DragStrip
+    if !IsObject(LauncherGui) || !LauncherControlLayout.Count
+        return
+    for control in [LauncherExpansionToggle, LauncherChatToggle, DragStrip]
+        if !IsObject(control) || !LauncherControlLayout.Has(control.Hwnd)
+            return
+    LauncherGui.AccessibleEdgeRects := Map()
+    expansion := LauncherControlLayout[LauncherExpansionToggle.Hwnd]
+    tab := LauncherControlLayout[LauncherChatToggle.Hwnd]
+    drag := LauncherControlLayout[DragStrip.Hwnd]
+    ew := Round(expansion.Width * scale), eh := Round(expansion.Height * scale)
+    tw := Round(tab.Width * scale), th := Round(tab.Height * scale)
+    dx := Round(drag.X * scale), dw := Round(drag.Width * scale)
+    ty := Round(tab.Y * scale)
+    if AccessibilityTextSize != "Normal"
+    {
+        ; Measure every state so toggling never shifts the drag region.
+        for caption in ["Expansion Pack: Enabled", "Expansion Pack: Disabled", "Expansion Pack: Unverified"]
+        {
+            extent := MeasureAccessibleSingleLineText(LauncherExpansionToggle, caption)
+            ew := Max(ew, extent.Width + Max(8, Round(16 * scale)))
+            eh := Max(eh, extent.Height + Max(4, Round(6 * scale)))
+        }
+        dx := Max(dx, ew + Round(15 * scale))
+        dw := Max(1, Round((drag.X + drag.Width) * scale) - dx)
+        metrics := MeasureLauncherChatCaption(LauncherChatToggle, scale)
+        dpi := A_ScreenDPI / 96
+        tw := Max(tw, Ceil(metrics.RequiredWidth / dpi))
+        th := Max(th, Ceil(metrics.RequiredHeight / dpi))
+        ty := Round((tab.Y + tab.Height / 2) * scale - th / 2)
+    }
+    for entry in [{Control: LauncherExpansionToggle, X: 0, Y: 0, W: ew, H: eh},
+        {Control: LauncherChatToggle, X: 0, Y: ty, W: tw, H: th},
+        {Control: DragStrip, X: dx, Y: Round(drag.Y * scale), W: dw, H: Round(drag.Height * scale)}]
+    {
+        entry.Control.GetPos(&x, &y, &w, &h)
+        if x != entry.X || y != entry.Y || w != entry.W || h != entry.H
+            entry.Control.Move(entry.X, entry.Y, entry.W, entry.H)
+        LauncherGui.AccessibleEdgeRects[entry.Control.Hwnd] := entry
+    }
+    ButtonFaces[LauncherExpansionToggle.Hwnd].NoAccessibleDownfit := AccessibilityTextSize != "Normal"
+    ; The backdrop slice expects base design units.
+    ButtonFaces[LauncherChatToggle.Hwnd].Y := AccessibilityTextSize = "Normal" ? tab.Y : ty / scale
 }
 
 ShowLauncherWindow(reuseCached := false, *)
@@ -89,14 +138,21 @@ ShowLauncherWindow(reuseCached := false, *)
                 continue
             item.Control.GetPos(&x, &y, &w, &h)
             expectedWidth := Round(item.Width * ratio)
+            expectedX := Round(item.X * ratio), expectedY := Round(item.Y * ratio)
+            expectedHeight := Round(item.Height * ratio)
+            if LauncherGui.HasOwnProp("AccessibleEdgeRects") && LauncherGui.AccessibleEdgeRects.Has(hwnd)
+            {
+                edge := LauncherGui.AccessibleEdgeRects[hwnd]
+                expectedX := edge.X, expectedY := edge.Y, expectedWidth := edge.W, expectedHeight := edge.H
+            }
             ; Unlike the snapshot, the version Text control may grow after
             ; applying the minimum font size. Validate that measured width
             ; rather than mistaking a legitimate fit for stale geometry.
             if IsObject(LauncherVersionLabel) && hwnd = LauncherVersionLabel.Hwnd
                 try expectedWidth := Max(expectedWidth,
                     LauncherVersionLabelRequiredWidth(item.Control))
-            if Abs(x - Round(item.X * ratio)) > 2 || Abs(y - Round(item.Y * ratio)) > 2
-                || Abs(w - expectedWidth) > 2 || Abs(h - Round(item.Height * ratio)) > 2
+            if Abs(x - expectedX) > 2 || Abs(y - expectedY) > 2
+                || Abs(w - expectedWidth) > 2 || Abs(h - expectedHeight) > 2
             {
                 healthy := false
                 break

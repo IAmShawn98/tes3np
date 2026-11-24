@@ -316,6 +316,7 @@ ApplyAccessibilityTextSize(suspendRedraw := true)
         if IsObject(LauncherHeading)
             LauncherHeading.SetFont("s" Max(1, Round(AccessibilityFontSize(19) * scale))
                 " Norm c241408", LauncherMorrowindFont)
+        ReflowLauncherAccessibleEdgeControls(scale)
         ScaleLauncherVersionLabel(scale)
     }
     finally

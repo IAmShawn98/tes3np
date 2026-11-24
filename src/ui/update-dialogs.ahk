@@ -626,6 +626,27 @@ PositionCompactMetadataPair(pair, x, y)
     pair.Value.Move(x + pair.LabelWidth + 3, y, pair.ValueWidth, 26)
 }
 
+; Version Status uses physical-pixel GUI bounds. Measure the native
+; header before building the existing scroll viewport. Keep the footer
+; and window scale; the existing scroll region starts below the metadata.
+ReflowVersionStatusHeader(title, message, heading, build)
+{
+    global AccessibilityTextSize
+    if AccessibilityTextSize = "Normal"
+        return 0
+    titleH := Max(38, MeasureAccessibleWrappedText(title, title.Text, 732) + 4)
+    messageY := Max(65, 20 + titleH + 7)
+    messageH := Max(30, MeasureAccessibleWrappedText(message, message.Text, 732) + 4)
+    headingY := Max(123, messageY + messageH + 12)
+    headingH := Max(30, MeasureAccessibleWrappedText(heading, heading.Text, 422) + 4)
+    buildH := Max(22, MeasureAccessibleWrappedText(build, build.Text, 280) + 4)
+    title.Move(30, 20, 740, titleH)
+    message.Move(30, messageY, 740, messageH)
+    heading.Move(30, headingY, 430, headingH)
+    build.Move(482, headingY + 6, 288, buildH)
+    return Max(0, headingY + Max(headingH, 6 + buildH) + 5 - 158)
+}
+
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
 {
     ; The version-status screen describes the installed package, never an
@@ -646,20 +667,21 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     closeNotes := 0
     try {
         SetAccessibleTextFont(panel, "s14 Bold cC5A45C", "Georgia")
-        panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
+        titleControl := panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         SetAccessibleTextFont(panel, "s10 cEDE1C9", "Segoe UI")
-        panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
+        messageControl := panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
         SetAccessibleTextFont(panel, "s12 Bold cC5A45C", "Georgia")
-        panel.Add("Text", "x30 y123 w430 h30 BackgroundTrans", "Release Notes")
+        notesHeading := panel.Add("Text", "x30 y123 w430 h30 BackgroundTrans", "Release Notes")
         SetAccessibleTextFont(panel, "s9 cC5A45C", "Segoe UI")
-        panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
+        buildLabel := panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
+        topExtra := ReflowVersionStatusHeader(titleControl, messageControl, notesHeading, buildLabel)
         AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, DestroyScaledMenu(panel)))
         AddStyledButton(panel, 410, 544, 212, 34, "Close", (*) => DestroyScaledMenu(panel))
         panel.OnEvent("Close", (*) => DestroyScaledMenu(panel))
         panel.OnEvent("Escape", (*) => DestroyScaledMenu(panel))
         scale := GetUpdatePromptFitScale(panel)
         ScaleOwnedMenuContent(panel, scale)
-        closeNotes := AddUpdateNotesViewport(panel, releaseNotes, scale)
+        closeNotes := AddUpdateNotesViewport(panel, releaseNotes, scale, 0, topExtra)
         hwnd := panel.Hwnd
         ShowGoldNativePrompt(panel, scale)
         PaintGoldUpdateDialogButtons(panel)

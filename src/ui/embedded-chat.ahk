@@ -377,9 +377,46 @@ CreateLauncherChatToggle()
     OnMessage(0x0204, LauncherChatRightClick)
 }
 
+CreateLauncherChatCaptionFont(height)
+{
+    return DllCall("gdi32\CreateFontW",
+        "Int", -height, "Int", 0, "Int", 900, "Int", 900,
+        "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
+        "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
+        "UInt", 0, "Str", "Segoe UI", "Ptr")
+}
+
+GetLauncherChatCaptionMetrics(dc, label, paintScale)
+{
+    extent := Buffer(8, 0)
+    if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", label,
+        "Int", StrLen(label), "Ptr", extent)
+        throw Error("Could not measure rotated Game Chat caption.")
+    advance := NumGet(extent, 0, "Int"), height := NumGet(extent, 4, "Int")
+    pad := Max(4, Round(6 * paintScale))
+    arrowHalf := Max(4, Round(9 * paintScale))
+    return {Advance: advance, Height: height, Pad: pad,
+        RequiredWidth: height + 2 * arrowHalf + 4 * pad,
+        RequiredHeight: advance + 4 * pad}
+}
+
+MeasureLauncherChatCaption(control, paintScale)
+{
+    dc := DllCall("GetDC", "Ptr", control.Hwnd, "Ptr")
+    font := CreateLauncherChatCaptionFont(Max(9, Round(AccessibilityFontSize(21) * paintScale)))
+    old := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+    try return GetLauncherChatCaptionMetrics(dc, control.Text, paintScale)
+    finally
+    {
+        DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", old, "Ptr")
+        DllCall("gdi32\DeleteObject", "Ptr", font)
+        DllCall("ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
+    }
+}
+
 PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
 {
-    global LauncherScale, LauncherChatOpen
+    global LauncherScale, LauncherChatOpen, AccessibilityTextSize
     ; The outer line covers the artwork's transparent edge. Keep both lines
     ; one pixel wide so the original double frame stays sharp at smaller sizes.
     frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x00FFFFFF, "Ptr")
@@ -395,22 +432,18 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
         }
         finally DllCall("gdi32\DeleteObject", "Ptr", frame)
     }
-    ; Keep the original caption baseline and tab geometry at every text size.
+    ; Keep the original caption baseline in Normal. Enlarged modes use
+    ; measured native tab bounds and separate arrow/caption lanes.
     ; A rotated font's advance runs along the tab's height, so measure that
     ; advance instead of guessing the maximum font size from h / 5.
     paintScale := LauncherScale / 100
     baselineY := Round(h * 0.87) + shift
     availableAdvance := Max(1, baselineY - Max(2, Round(h * 0.06)))
     requestedHeight := Max(9, Round(AccessibilityFontSize(21) * paintScale))
-    fontHeight := -requestedHeight
-    font := DllCall("gdi32\CreateFontW",
-        "Int", fontHeight, "Int", 0, "Int", 900, "Int", 900,
-        "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
-        "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
-        "UInt", 0, "Str", "Segoe UI", "Ptr")
+    font := CreateLauncherChatCaptionFont(requestedHeight)
     oldFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
     extent := Buffer(8, 0)
-    if DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", label,
+    if AccessibilityTextSize = "Normal" && DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", label,
         "Int", StrLen(label), "Ptr", extent)
     {
         advance := NumGet(extent, 0, "Int")
@@ -427,14 +460,21 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         }
     }
-    ; Positive 90-degree escapement runs text upward from this fixed baseline.
-    DllCall("gdi32\TextOutW", "Ptr", dc, "Int", Round(w * 0.53),
+    captionX := Round(w * 0.53), arrowX := Round(w * 0.32)
+    if AccessibilityTextSize != "Normal"
+    {
+        metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
+        baselineY := Round((h + metrics.Advance) / 2) + shift
+        captionX := w - metrics.Height - metrics.Pad
+        arrowX := Round(captionX / 2)
+    }
+    DllCall("gdi32\TextOutW", "Ptr", dc, "Int", captionX,
         "Int", baselineY, "Str", label, "Int", StrLen(label))
     DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
     DllCall("gdi32\DeleteObject", "Ptr", font)
     pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
     oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
-    cx := Round(w * 0.32), cy := Round(h * 0.50) + shift
+    cx := arrowX, cy := Round(h * 0.50) + shift
     direction := LauncherChatOpen ? -1 : 1
     arrowHalf := Max(4, Round(9 * paintScale))
     arrowHeight := Max(4, Round(10 * paintScale))

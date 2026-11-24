@@ -60,7 +60,7 @@ BuildLauncherWindow()
 {
     global LauncherGui, LauncherExpansionToggle
 
-    LauncherGui := Gui("-Caption -Border", A_IconTip)
+    LauncherGui := CreateAccessibleLayoutGui("-Caption -Border", A_IconTip)
     ; WS_CLIPCHILDREN keeps launcher repaints from drawing over the embedded chat window.
     styleGetter := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
     styleSetter := A_PtrSize = 8 ? "SetWindowLongPtrW" : "SetWindowLongW"
