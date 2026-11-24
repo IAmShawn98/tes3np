@@ -449,6 +449,7 @@ LauncherFaceCacheEligible(face)
     if face.HasOwnProp("IsDiscordName") || face.HasOwnProp("IsDiscordPortrait")
         || face.HasOwnProp("IsLoading") || face.HasOwnProp("IsTick")
         || face.HasOwnProp("MacroSelected") || face.HasOwnProp("UseControlPosition")
+        || face.HasOwnProp("AccessibleWrappedName") || face.HasOwnProp("AccessibleWrappedButton")
         || face.Gui.HasOwnProp("BookBackground")
         return false
     if face.HasOwnProp("IsInfo") || face.HasOwnProp("IsChatTab")
@@ -472,12 +473,14 @@ LauncherFaceCacheKey(handle, face, width, height)
     Loop 23
         fontKey .= Format("{:08X}", NumGet(definition, (A_Index - 1) * 4, "UInt"))
     face.Control.GetPos(&x, &y, &logicalWidth, &logicalHeight)
-    caption := face.Control.Text
+    caption := face.HasOwnProp("IsInfo") ? face.Control.Text : face.Label.Text
     return width "|" height "|" font "|" fontKey "|" LauncherScale "|" A_ScreenDPI
         . "|" AccessibilityTextSize "|" EnhancedReadability
         . "|" (face.HasOwnProp("IsChatTab") ? LauncherChatOpen : 0)
         . "|" face.State "|" face.Y "|" (face.HasOwnProp("X") ? face.X : 0)
         . "|" x "|" y "|" logicalWidth "|" logicalHeight "|" face.Control.Enabled
+        . "|" face.HasOwnProp("IsInfo") "|" face.HasOwnProp("IsChatTab")
+        . "|" (face.HasOwnProp("NoAccessibleDownfit") ? face.NoAccessibleDownfit : 0)
         . "|" (face.HasOwnProp("Book") ? face.Book : 0)
         . "|" (face.HasOwnProp("BaseWidth") ? face.BaseWidth : 0)
         . "|" (face.HasOwnProp("BaseHeight") ? face.BaseHeight : 0)
