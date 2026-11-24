@@ -135,6 +135,67 @@ MoveMacroTextIfChanged(control, x, y, width, height)
         control.Move(x, y, width, height)
 }
 
+; Coordinates are immutable Book design units. Keep native hitboxes and
+; their separately painted Morrowind buttons synchronized without a timer
+; repaint when the same arrangement is already visible.
+MoveMacroStyledIfChanged(control, x, y, width, height)
+{
+    control.GetPos(&oldX, &oldY, &oldWidth, &oldHeight)
+    if oldX != BookS(x) || oldY != BookS(y)
+        || oldWidth != BookS(width) || oldHeight != BookS(height)
+        MoveStyledButton(control, x, y, width, height)
+}
+
+; The macro panel already has four scrollable visible rows. Move that whole
+; existing viewport when its unchanged introduction needs more lines; do not
+; wrap it over the first Ready/Running status or leave scrollbar hit-testing
+; at its previous top. If even this composition exceeds the original footer,
+; preserve the baseline rather than stretching or partially moving artwork.
+ReflowPopulatedMacroBook()
+{
+    global CharacterPage, MacroItems, MacroBookControls, MacroBookRows
+    global MacroScrollTrack, MacroScrollThumb, AccessibilityTextSize
+    if !IsObject(CharacterPage) || !MacroItems.Length
+        || MacroBookControls.Length < 2
+        return 0
+    scale := GetCharacterBookScale()
+    explanation := MacroBookControls[2]
+    offset := 0, copyHeight := BookS(48)
+    if AccessibilityTextSize != "Normal"
+    {
+        copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
+            explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
+            + BookS(4))
+        offset := Max(0, 87 + Ceil(copyHeight / scale) + 5 - 140)
+    }
+    shownCount := Min(MacroItems.Length, MacroBookRows.Length)
+    if 214 + (shownCount - 1) * 70 + offset + 36 + 30 > 570
+        offset := 0, copyHeight := BookS(48)
+    MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
+        BookS(355), copyHeight)
+    for position, row in MacroBookRows
+    {
+        targetY := 140 + (position - 1) * 70 + offset
+        if row.Y != targetY + 19
+        {
+            row.Y := targetY + 19
+            row.NameScale := 0 ; next name/rename refresh uses the new Y
+        }
+        MoveMacroTextIfChanged(row.Status, BookS(551), BookS(targetY),
+            BookS(329), BookS(17))
+        MoveMacroStyledIfChanged(row.Tick, 525, targetY + 20, 18, 18)
+        MoveMacroStyledIfChanged(row.Name, 551, targetY + 19,
+            row.NameWidth, 22)
+        MoveMacroStyledIfChanged(row.Run, 551, targetY + 42, 103, 20)
+        MoveMacroStyledIfChanged(row.Stop, 663, targetY + 42, 103, 20)
+        MoveMacroStyledIfChanged(row.Remove, 775, targetY + 42, 105, 20)
+    }
+    MoveMacroTextIfChanged(MacroScrollTrack, BookS(887),
+        BookS(140 + offset), BookS(8), BookS(272))
+    CharacterPage.MacroViewportOffset := offset
+    return offset
+}
+
 ; The empty Macro Book shares the approved fixed parchment with Characters.
 ; Measure its complete copy and move the notice and Upload as a single stack.
 ; Populated rows have a separate scrolling/rename layout and stay untouched.
@@ -150,7 +211,10 @@ ReflowEmptyMacroBook()
     MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(150),
         BookS(355), BookS(28))
     if MacroItems.Length || AccessibilityTextSize = "Normal"
+    {
+        CharacterPage.MacroViewportOffset := 0
         return 188
+    }
     scale := GetCharacterBookScale()
     copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
         explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
@@ -187,6 +251,7 @@ RefreshMacroBookRows()
     shown := !LaunchSettingsHeading.Visible
     selectedIndex := MacroList.GetNext()
     busy := IsObject(MacroImport)
+    populatedOffset := count ? ReflowPopulatedMacroBook() : 0
     editVisible := false
     MacroList.Visible := false
     for position, itemRow in MacroBookRows
@@ -245,7 +310,8 @@ RefreshMacroBookRows()
     {
         thumbHeight := Max(25, Round(272 * MacroBookRows.Length / count))
         travel := 272 - thumbHeight
-        thumbY := 140 + Round(MacroScrollOffset / maximum * travel)
+        thumbY := 140 + populatedOffset
+            + Round(MacroScrollOffset / maximum * travel)
         MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
     }
     ; Keep empty-state content close to the introduction, then follow
@@ -253,9 +319,9 @@ RefreshMacroBookRows()
     ; For 0/1/2/3/4+ entries, y is 188/214/284/354/424.
     ; Match row pitch so Upload stays 12px clear of final action row.
     visibleCount := Min(count, MacroBookRows.Length)
-    emptyUploadY := ReflowEmptyMacroBook()
+    emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188
     desiredUploadY := count = 0 ? emptyUploadY
-        : 214 + (visibleCount - 1) * 70
+        : 214 + (visibleCount - 1) * 70 + populatedOffset
     MacroImportButton.GetPos(, &oldUploadY)
     if oldUploadY != BookS(desiredUploadY)
     {
@@ -342,9 +408,10 @@ RefreshMacroNameRow(row, name, editing)
         if fieldY != BookS(row.Y) || fieldWidth != BookS(x - 555)
             MacroNameEdit.Move(BookS(551), BookS(row.Y), BookS(x - 555), BookS(22))
     }
-    row.Rename.GetPos(&buttonX, , &buttonWidth)
+    row.Rename.GetPos(&buttonX, &buttonY, &buttonWidth)
     width := editing ? 49 : 21
-    if buttonX != BookS(x) || buttonWidth != BookS(width)
+    if buttonX != BookS(x) || buttonY != BookS(row.Y)
+        || buttonWidth != BookS(width)
         MoveStyledButton(row.Rename, x, row.Y, width, 22)
     caption := editing ? "Save" : Chr(0x270E)
     if row.Rename.Text != caption
