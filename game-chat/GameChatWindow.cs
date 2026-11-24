@@ -9,6 +9,11 @@ internal sealed partial class GameChatWindow : Form
     // initialization lifecycle intact without painting an undocked window.
     bool startupPresentationPending = true;
 
+    // Cloaking suppresses pixels, not activation. The initial framework show
+    // must not take foreground focus before the launcher owns this popup.
+    // After docking, ordinary user-driven focus remains available.
+    protected override bool ShowWithoutActivation => startupPresentationPending;
+
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);

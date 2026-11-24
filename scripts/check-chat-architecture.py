@@ -2860,6 +2860,7 @@ expect(
 expect(
     "WinForms first show stays compositor-cloaked until initial dock and saved visibility are ready",
     'const int DWMWA_CLOAK = 13;' in source
+    and 'protected override bool ShowWithoutActivation => startupPresentationPending;' in chat_window
     and 'protected override void OnHandleCreated(EventArgs e)' in source
     and 'if (startupPresentationPending)\n            SetStartupWindowCloak(true);' in source
     and 'DwmSetWindowAttribute(Handle, DWMWA_CLOAK, ref value, sizeof(int))' in source
