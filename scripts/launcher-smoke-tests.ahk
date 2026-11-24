@@ -1354,6 +1354,71 @@ CheckExtendedBookArtwork()
     finally DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
 }
 
+; Test the live parent transaction, including the invisible state induced
+; by WM_SETREDRAW(FALSE), with independent requests from both columns.
+CheckSharedBookExpansion()
+{
+    global CharacterPage, LauncherGui, Profiles, ButtonPaint
+    savedPage := IsSet(CharacterPage) ? CharacterPage : 0
+    savedOwner := IsSet(LauncherGui) ? LauncherGui : 0
+    savedProfiles := IsSet(Profiles) ? Profiles : []
+    InitButtonPainter()
+    ; The fixture owns only its temporary artwork, never a live Book image.
+    savedImage := ButtonPaint.BookExtended
+    ButtonPaint.BookExtended := 0
+    owner := Gui("-Caption -Border -DPIScale")
+    page := Gui("-Caption -Border -DPIScale +Owner" owner.Hwnd)
+    try
+    {
+        LauncherGui := owner
+        CharacterPage := page
+        Profiles := []
+        owner.Show("Hide x0 y0 w480 h360")
+        page.OwnedContentScale := 0.5
+        page.BookExtra := 0
+        page.BookCharacterExtra := 0
+        page.BookMacroExtra := 0
+        page.BookBackground := page.Add("Picture", "x0 y0 w480 h325",
+            A_ScriptDir "\assets\backgrounds\character-book.png")
+        page.BookCloseButton := page.Add("Text", "x258 y288 w45 h15", "Close")
+        page.Show("Hide w480 h325")
+        if !SetCharacterBookLayoutExtra("Characters", 64)
+            || !SetCharacterBookLayoutExtra("Macros", 96)
+            throw Error("Shared Book expansion refused a fitting fixture.")
+        if GetCharacterBookExtra() != 96 || !ButtonPaint.BookExtended
+            throw Error("Shared Book did not choose its larger request.")
+        page.BookBackground.GetPos(, , &pictureW, &pictureH)
+        page.BookCloseButton.GetPos(, &footerY)
+        WinGetPos(, , &windowW, &windowH, "ahk_id " page.Hwnd)
+        if pictureW != 480 || pictureH != BookS(746)
+            || footerY != BookS(671)
+            || windowW != Round(480 * A_ScreenDPI / 96)
+            || windowH != Round(BookS(746) * A_ScreenDPI / 96)
+            || DllCall("IsWindowVisible", "Ptr", page.Hwnd)
+            throw Error("Expanded hidden Book parent/Picture/footer diverged.")
+        if !SetCharacterBookLayoutExtra("Macros", 0)
+            || GetCharacterBookExtra() != 64
+            || !SetCharacterBookLayoutExtra("Characters", 0)
+            || GetCharacterBookExtra() || ButtonPaint.BookExtended
+            throw Error("Shared Book did not restore its independent requests.")
+        page.BookBackground.GetPos(, , &pictureW, &pictureH)
+        page.BookCloseButton.GetPos(, &footerY)
+        if pictureW != 480 || pictureH != 325 || footerY != BookS(575)
+            throw Error("Shared Book did not restore Normal geometry.")
+    }
+    finally
+    {
+        if ButtonPaint.BookExtended
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.BookExtended)
+        ButtonPaint.BookExtended := savedImage
+        page.Destroy()
+        owner.Destroy()
+        CharacterPage := savedPage
+        LauncherGui := savedOwner
+        Profiles := savedProfiles
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1364,6 +1429,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredEmptyMacroBook()
     CheckMeasuredPopulatedMacroBook()
     CheckExtendedBookArtwork()
+    CheckSharedBookExpansion()
     try
     {
         bodyHeights := [], settingsHeights := []

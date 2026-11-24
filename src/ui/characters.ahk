@@ -72,15 +72,14 @@ SetCharacterBookLayoutExtra(side, required)
         try ApplyExtendedBookArtwork(page, extra)
         catch
             return false
-        ; Hidden/cached pages are resized by their existing staged Show.
-        ; A live page changes size without activation or a visibility toggle.
-        if DllCall("IsWindowVisible", "Ptr", page.Hwnd)
-        {
-            DllCall("SetWindowPos", "Ptr", page.Hwnd, "Ptr", 0,
-                "Int", 0, "Int", 0, "Int", Round(BookS(960) * A_ScreenDPI / 96),
-                "Int", Round(BookS(650 + extra) * A_ScreenDPI / 96), "UInt", 0x16)
-            PositionOwnedMenuAtParent(page, LauncherGui)
-        }
+        ; WM_SETREDRAW(FALSE) removes WS_VISIBLE during the existing
+        ; character refresh transaction. Resize even then, otherwise the
+        ; larger Picture is clipped by the stale 650px parent after reveal.
+        ; SetWindowPos neither activates nor reveals a hidden/cached page.
+        DllCall("SetWindowPos", "Ptr", page.Hwnd, "Ptr", 0,
+            "Int", 0, "Int", 0, "Int", Round(BookS(960) * A_ScreenDPI / 96),
+            "Int", Round(BookS(650 + extra) * A_ScreenDPI / 96), "UInt", 0x16)
+        PositionOwnedMenuAtParent(page, LauncherGui)
     }
     page.BookCharacterExtra := leftExtra
     page.BookMacroExtra := rightExtra
