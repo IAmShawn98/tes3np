@@ -108,6 +108,62 @@ ReflowLauncherAccessibleEdgeControls(scale)
     ButtonFaces[LauncherChatToggle.Hwnd].Y := AccessibilityTextSize = "Normal" ? tab.Y : ty / scale
 }
 
+; Prepare the exact final-size native face bitmaps before the first Show.
+; The scratch surface is private GDI memory, never a capture of the desktop.
+; A hidden owner cannot be prepared through PaintButtonNow, which skips
+; invisible controls. Keep the existing paint path for the actual window.
+PrepareInitialLauncherFaces()
+{
+    global LauncherGui, ButtonFaces
+    if DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
+        return false
+    handles := [], width := 0, height := 0
+    rect := Buffer(16, 0)
+    for handle, face in ButtonFaces
+    {
+        if !DllCall("IsWindow", "Ptr", handle) || !LauncherFaceCacheEligible(face)
+            continue
+        if !DllCall("GetClientRect", "Ptr", handle, "Ptr", rect)
+            continue
+        w := NumGet(rect, 8, "Int"), h := NumGet(rect, 12, "Int")
+        if w <= 0 || h <= 0
+            continue
+        handles.Push(handle)
+        width := Max(width, w), height := Max(height, h)
+    }
+    if !handles.Length
+        return true
+    screen := DllCall("GetDC", "Ptr", 0, "Ptr")
+    dc := 0, bitmap := 0, oldBitmap := 0
+    if !screen
+        return false
+    try
+    {
+        dc := DllCall("gdi32\CreateCompatibleDC", "Ptr", screen, "Ptr")
+        bitmap := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", screen,
+            "Int", width, "Int", height, "Ptr")
+        if !dc || !bitmap
+            return false
+        oldBitmap := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !oldBitmap || oldBitmap = -1
+            return false
+        for handle in handles
+            if DllCall("IsWindow", "Ptr", handle) && ButtonFaces.Has(handle)
+                PaintButtonToDC(handle, dc)
+        return true
+    }
+    finally
+    {
+        if oldBitmap && oldBitmap != -1
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        if dc
+            DllCall("gdi32\DeleteDC", "Ptr", dc)
+        if bitmap
+            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
+        DllCall("ReleaseDC", "Ptr", 0, "Ptr", screen)
+    }
+}
+
 ShowLauncherWindow(reuseCached := false, *)
 {
     global LauncherGui, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
@@ -173,6 +229,7 @@ ShowLauncherWindow(reuseCached := false, *)
     {
         LauncherGui.Show("Hide w960 h716")
         ApplyLauncherScaleToWindow(true, placement)
+        PrepareInitialLauncherFaces()
         LauncherGui.Show()
         RepaintMenuButtons()
         return
