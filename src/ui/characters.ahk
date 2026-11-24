@@ -252,8 +252,136 @@ RefreshProfiles()
         if ButtonFaces.Has(DataTransferButton.Hwnd)
             ButtonFaces[DataTransferButton.Hwnd].Text := DataTransferButton.Text
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
+        ; A populated book needs coordinated text/row/action geometry.
+        ; This keeps the fixed 960x650 art and all macro/editor controls intact.
+        ReflowAccessiblePopulatedCharacters()
     }
     finally EndInterfaceUpdate()
+}
+
+; The original character rows remain the immutable Normal baseline. For
+; larger text, use a two-line row: full name above accessible-width buttons.
+; Preflight the entire visible page before changing any controls. If this
+; arrangement cannot fit above the approved footer, leave the baseline intact;
+; NEVER partially move a row or silently distort the parchment.
+ReflowAccessiblePopulatedCharacters()
+{
+    global CharacterPage, CharacterRows, CharacterDescription, Profiles
+    global AddCharacterButton, AccessibilityTextSize, ButtonFaces
+    if !IsObject(CharacterPage) || !CharacterRows.Length
+        return false
+    count := Min(Profiles.Length, CharacterRows.Length)
+    scale := GetCharacterBookScale()
+    if AccessibilityTextSize = "Normal" || !count || count >= 10
+    {
+        RestoreAccessibleCharacterRowBaseline()
+        return false
+    }
+    paragraph := CharacterDescription.Text
+    paragraphHeight := Max(BookS(81),
+        MeasureAccessibleWrappedText(CharacterDescription, paragraph,
+            Max(1, BookS(390) - BookS(4))) + BookS(4))
+    rowY := Max(164, Ceil((BookS(80) + paragraphHeight + BookS(5)) / scale))
+    layouts := []
+    for position, controls in CharacterRows
+    {
+        if position > count
+            break
+        name := controls.Name.Text
+        ; Keep unbreakable long names out of a too-narrow hit rectangle.
+        single := MeasureAccessibleSingleLineText(controls.Name, name)
+        if single.Width > BookS(338) && !InStr(name, " ")
+        {
+            RestoreAccessibleCharacterRowBaseline()
+            return false
+        }
+        nameHeight := Max(23, Ceil((
+            MeasureAccessibleWrappedText(controls.Name, name, BookS(338))
+            + BookS(6)) / scale))
+        buttonHeight := 26
+        widths := []
+        for button in [controls.Play, controls.Edit, controls.Remove]
+        {
+            extent := MeasureAccessibleSingleLineText(button, button.Text)
+            widths.Push(Max(84, Ceil((extent.Width + BookS(18)) / scale)))
+            buttonHeight := Max(buttonHeight,
+                Ceil((extent.Height + BookS(8)) / scale))
+        }
+        if widths[1] + widths[2] + widths[3] + 12 > 370
+        {
+            RestoreAccessibleCharacterRowBaseline()
+            return false
+        }
+        buttonY := rowY + nameHeight + 4
+        nextY := buttonY + buttonHeight + 10
+        layouts.Push({Controls: controls, Y: rowY,
+            NameHeight: nameHeight, ButtonY: buttonY,
+            ButtonHeight: buttonHeight, Widths: widths})
+        rowY := nextY
+    }
+    addY := Max(540, rowY + 4)
+    ; Close/Export/Wipe are fixed at y575. Fit the complete proposed layout
+    ; above those controls rather than moving an isolated action over them.
+    if addY + 30 > 570
+    {
+        RestoreAccessibleCharacterRowBaseline()
+        return false
+    }
+    ; Grouped update: all coordinates are newly calculated from approved
+    ; anchors, never accumulated from the previously scaled/reflowed positions.
+    CharacterDescription.Move(BookS(70), BookS(80),
+        BookS(390), paragraphHeight)
+    for layout in layouts
+    {
+        controls := layout.Controls
+        y := layout.Y
+        MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
+        MoveStyledButton(controls.Name, 95, y, 345, layout.NameHeight)
+        x := 70
+        for index, button in [controls.Play, controls.Edit, controls.Remove]
+        {
+            width := layout.Widths[index]
+            MoveStyledButton(button, x, layout.ButtonY, width,
+                layout.ButtonHeight)
+            ; Text is already measured at its requested accessible font.
+            ; The GDI painter must not independently shrink that font.
+            if ButtonFaces.Has(button.Hwnd)
+                ButtonFaces[button.Hwnd].NoAccessibleDownfit := true
+            x += width + 6
+        }
+    }
+    MoveStyledButton(AddCharacterButton, 70, addY, 370, 30)
+    CharacterPage.AccessibleRowsReflowed := true
+    return true
+}
+
+RestoreAccessibleCharacterRowBaseline()
+{
+    global CharacterPage, CharacterRows, ButtonFaces
+    if !IsObject(CharacterPage)
+        || !CharacterPage.HasOwnProp("AccessibleRowsReflowed")
+        || !CharacterPage.AccessibleRowsReflowed
+        return
+    for index, controls in CharacterRows
+    {
+        y := 164 + (index - 1) * 24
+        MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
+        MoveStyledButton(controls.Name, 95, y, 140, 23)
+        for entry in [{Control: controls.Play, X: 240, Width: 55},
+            {Control: controls.Edit, X: 300, Width: 60},
+            {Control: controls.Remove, X: 365, Width: 75}]
+        {
+            button := entry.Control
+            MoveStyledButton(button, entry.X, y, entry.Width, 22)
+            if ButtonFaces.Has(button.Hwnd)
+            {
+                face := ButtonFaces[button.Hwnd]
+                if face.HasOwnProp("NoAccessibleDownfit")
+                    face.DeleteProp("NoAccessibleDownfit")
+            }
+        }
+    }
+    CharacterPage.AccessibleRowsReflowed := false
 }
 
 MoveStyledButton(control, x, y, width, height)
