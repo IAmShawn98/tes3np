@@ -402,22 +402,20 @@ ReflowAccessiblePopulatedCharacters()
             nameWidth := 140
             buttonX := 240
             widths := compactWidths
-            nameHeight := Max(23, Ceil((
-                MeasureAccessibleWrappedText(controls.Name, name, BookS(134))
-                + BookS(4)) / scale))
-            if single.Width > BookS(134) && !InStr(name, " ")
+            displayName := PrepareAccessibleBookName(controls.Name, name, BookS(134))
+            ; Prefer the wider column when a token needs explicit breaks.
+            if !(displayName == name)
                 sameLine := false
+            nameHeight := Max(23, Ceil((
+                MeasureAccessibleWrappedText(controls.Name, displayName, BookS(134))
+                + BookS(4)) / scale))
         }
         if !sameLine
         {
             ; When the action captions genuinely need more horizontal room,
             ; use the full parchment column, with buttons below the name.
-            if single.Width > BookS(338) && !InStr(name, " ")
-            {
-                RestoreAccessibleCharacterRowBaseline()
-                return false
-            }
             nameWidth := 345
+            displayName := PrepareAccessibleBookName(controls.Name, name, BookS(338))
             buttonX := 70
             widths := []
             for index, button in [controls.Play, controls.Edit, controls.Remove]
@@ -431,14 +429,14 @@ ReflowAccessiblePopulatedCharacters()
                 return false
             }
             nameHeight := Max(23, Ceil((
-                MeasureAccessibleWrappedText(controls.Name, name, BookS(338))
+                MeasureAccessibleWrappedText(controls.Name, displayName, BookS(338))
                 + BookS(4)) / scale))
         }
         buttonY := sameLine ? rowY : rowY + nameHeight + 4
         nextY := sameLine ? rowY + Max(nameHeight, buttonHeight, 23) + 4
             : buttonY + buttonHeight + 10
         layouts.Push({Controls: controls, Y: rowY, NameWidth: nameWidth,
-            NameHeight: nameHeight, ButtonX: buttonX, ButtonY: buttonY,
+            NameHeight: nameHeight, DisplayName: displayName, ButtonX: buttonX, ButtonY: buttonY,
             ButtonHeight: buttonHeight, Widths: widths,
             Gap: sameLine ? 5 : 6})
         rowY := nextY
@@ -478,7 +476,10 @@ ReflowAccessiblePopulatedCharacters()
             MoveStyledButton(controls.Name, 95, y,
                 layout.NameWidth, layout.NameHeight)
             if ButtonFaces.Has(controls.Name.Hwnd)
+            {
                 ButtonFaces[controls.Name.Hwnd].AccessibleWrappedName := true
+                ButtonFaces[controls.Name.Hwnd].AccessibleNameText := layout.DisplayName
+            }
             x := layout.ButtonX
             for index, button in [controls.Play, controls.Edit, controls.Remove]
             {
@@ -530,6 +531,8 @@ RestoreAccessibleCharacterRowBaseline()
             nameFace := ButtonFaces[controls.Name.Hwnd]
             if nameFace.HasOwnProp("AccessibleWrappedName")
                 nameFace.DeleteProp("AccessibleWrappedName")
+            if nameFace.HasOwnProp("AccessibleNameText")
+                nameFace.DeleteProp("AccessibleNameText")
         }
         for entry in [{Control: controls.Play, X: 240, Width: 55},
             {Control: controls.Edit, X: 300, Width: 60},

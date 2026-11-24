@@ -283,6 +283,9 @@ PaintButton(wParam, lParam, *)
                 return
             }
         }
+        if isLabel && face.HasOwnProp("AccessibleWrappedName")
+            && face.AccessibleWrappedName && face.HasOwnProp("AccessibleNameText")
+            labelText := face.AccessibleNameText
         scale := width / 220
         visibleHeight := height
         ; Paint the original full-height artwork and caption, then copy only

@@ -164,7 +164,7 @@ ReflowPopulatedMacroBook()
     statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
     measured := AccessibilityTextSize != "Normal"
     shownCount := Min(MacroItems.Length, MacroBookRows.Length)
-    widths := []
+    widths := [], displayNames := []
     if measured
     {
         copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
@@ -198,13 +198,10 @@ ReflowPopulatedMacroBook()
             extent := MeasureAccessibleSingleLineText(row.Name, item.Name)
             width := Min(maxNameW, Max(90, Ceil((extent.Width + BookS(8)) / scale)))
             widths.Push(width)
-            ; DrawText wraps at word boundaries. A single overlong token
-            ; needs the later artwork/width solution, not silent downfit.
-            for word in StrSplit(item.Name, A_Space)
-                if MeasureAccessibleSingleLineText(row.Name, word).Width > BookS(width - 8)
-                    measured := false
+            displayName := PrepareAccessibleBookName(row.Name, item.Name, BookS(width - 8))
+            displayNames.Push(displayName)
             nameH := Max(nameH, Ceil((MeasureAccessibleWrappedText(
-                row.Name, item.Name, BookS(width - 8)) + BookS(4)) / scale))
+                row.Name, displayName, BookS(width - 8)) + BookS(4)) / scale))
             for index, button in [row.Run, row.Stop, row.Remove]
             {
                 extent := MeasureAccessibleSingleLineText(button, button.Text)
@@ -247,7 +244,14 @@ ReflowPopulatedMacroBook()
         if measured && position <= widths.Length
             row.NameWidth := widths[position]
         if ButtonFaces.Has(row.Name.Hwnd)
-            ButtonFaces[row.Name.Hwnd].AccessibleWrappedName := measured
+        {
+            face := ButtonFaces[row.Name.Hwnd]
+            face.AccessibleWrappedName := measured
+            if measured && position <= displayNames.Length
+                face.AccessibleNameText := displayNames[position]
+            else if face.HasOwnProp("AccessibleNameText")
+                face.DeleteProp("AccessibleNameText")
+        }
         for button in [row.Rename, row.Run, row.Stop, row.Remove]
             if ButtonFaces.Has(button.Hwnd)
                 ButtonFaces[button.Hwnd].NoAccessibleDownfit := measured

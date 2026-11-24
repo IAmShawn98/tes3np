@@ -1458,7 +1458,7 @@ CheckTenCharacterBookExpansion()
         Loop 10
         {
             y := 164 + (A_Index - 1) * 24
-            name := "A Long Character Name From Balmora " A_Index
+            name := A_Index = 1 ? "UnbrokenBalmoraCharacterNameWithoutAnySpaces" : "A Long Character Name From Balmora " A_Index
             Profiles.Push({Name: name})
             SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
             tick := page.Add("Text", "x70 y" (y + 2) " w18 h18", "")
@@ -1487,8 +1487,11 @@ CheckTenCharacterBookExpansion()
         for row in CharacterRows
         {
             row.Name.GetPos(, &ny, &nw, &nh)
+            display := PrepareAccessibleBookName(row.Name, row.Name.Text, Max(1, nw - BookS(7)))
+            if StrReplace(display, "`n") != row.Name.Text
+                throw Error("Wrapping changed the actual character name.")
             if ny < previousBottom || nh < MeasureAccessibleWrappedText(row.Name,
-                row.Name.Text, Max(1, nw - BookS(6)))
+                display, Max(1, nw - BookS(7)))
                 throw Error("Ten-character name overlaps preceding content or clips.")
             rowBottom := ny + nh
             for action in [row.Play, row.Edit, row.Remove]
@@ -1531,6 +1534,36 @@ CheckTenCharacterBookExpansion()
     }
 }
 
+CheckAccessibleBookNameWrapping()
+{
+    global AccessibilityTextSize
+    savedMode := AccessibilityTextSize
+    page := Gui("-DPIScale")
+    try
+    {
+        AccessibilityTextSize := "Extra Large"
+        SetAccessibleTextFont(page, "s12 Norm", "Segoe UI")
+        original := "LongTokenWithoutSpacesLongTokenWithoutSpaces" Chr(0x1F600) "e" Chr(0x0301)
+        control := page.Add("Text", "x0 y0 w100 h20", original)
+        wrapped := PrepareAccessibleBookName(control, original, 100)
+        if !InStr(wrapped, "`n") || !(StrReplace(wrapped, "`n") == original)
+            || !(control.Text == original)
+            throw Error("Long Book names must wrap without editing their source.")
+        for line in StrSplit(wrapped, "`n")
+            if MeasureAccessibleSingleLineText(control, line).Width > 100
+                throw Error("A wrapped name line exceeds its measured width.")
+        if InStr(wrapped, "e`n" Chr(0x0301))
+            throw Error("A combining grapheme was split.")
+        if !(PrepareAccessibleBookName(control, original, 100) == wrapped)
+            throw Error("Cached name wrapping changed its output.")
+    }
+    finally
+    {
+        page.Destroy()
+        AccessibilityTextSize := savedMode
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1543,6 +1576,7 @@ CheckInterfaceTextAccessibility()
     CheckExtendedBookArtwork()
     CheckSharedBookExpansion()
     CheckTenCharacterBookExpansion()
+    CheckAccessibleBookNameWrapping()
     try
     {
         bodyHeights := [], settingsHeights := []

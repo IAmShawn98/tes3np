@@ -175,6 +175,54 @@ MeasureAccessibleSingleLineText(control, caption)
 }
 
 
+; Wrap oversized individual name tokens for the painted Book label only.
+; Preserve the complete source name (including spaces and Unicode grapheme
+; clusters). Ordinary word wrapping stays with DrawText, while long tokens
+; receive explicit visual line breaks. Cache by actual native font and width
+; so the macro process refresh does not repeatedly measure the same name.
+PrepareAccessibleBookName(control, caption, width)
+{
+    width := Max(1, Round(width))
+    font := DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x31,
+        "Ptr", 0, "Ptr", 0, "Ptr")
+    if control.HasOwnProp("AccessibleNameCache")
+    {
+        cache := control.AccessibleNameCache
+        if cache.Font = font && cache.Width = width && cache.Caption == caption
+            return cache.Display
+    }
+    display := "", cursor := 1
+    while RegExMatch(caption, "\S+", &word, cursor)
+    {
+        display .= SubStr(caption, cursor, word.Pos - cursor)
+        token := word[0]
+        if MeasureAccessibleSingleLineText(control, token).Width <= width
+            display .= token
+        else
+        {
+            chunk := "", pos := 1
+            while RegExMatch(token, "\X", &cluster, pos)
+            {
+                nextChunk := chunk cluster[0]
+                if chunk != "" && MeasureAccessibleSingleLineText(control, nextChunk).Width > width
+                {
+                    display .= chunk "`n"
+                    chunk := cluster[0]
+                }
+                else
+                    chunk := nextChunk
+                pos := cluster.Pos + cluster.Len
+            }
+            display .= chunk
+        }
+        cursor := word.Pos + word.Len
+    }
+    display .= SubStr(caption, cursor)
+    control.AccessibleNameCache := {Font: font, Width: width,
+        Caption: caption, Display: display}
+    return display
+}
+
 ; Pure geometry preflight for text-aware native layouts. Callers provide
 ; actual measured text heights, then check Feasible BEFORE moving any HWND.
 ; Items: {Id, Height, MinimumHeight, GapAfter, MinimumTop}.
