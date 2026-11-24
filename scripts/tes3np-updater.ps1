@@ -136,7 +136,7 @@ function Test-LauncherConfirmation {
         return $false
     }
 }
-function Wait-Parent{if($ParentPid -le 0){Write-UpdaterLog 'No parent PID supplied; continuing.';return};Update-Progress 'Waiting for the launcher to close...' 10;Write-UpdaterLog("Waiting for launcher PID $ParentPid to exit.");try{Wait-Process -Id $ParentPid -Timeout 30 -ErrorAction Stop;Write-UpdaterLog 'Original launcher exited.'}catch{if(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue){throw 'Launcher did not exit in time.'};Write-UpdaterLog 'Original launcher was already closed.'}}
+function Wait-Parent{if($ParentPid -le 0){Write-UpdaterLog 'No parent PID supplied; continuing.';return};Update-Progress 'Closing the launcher...' 10;Write-UpdaterLog("Waiting for launcher PID $ParentPid to exit.");try{Wait-Process -Id $ParentPid -Timeout 30 -ErrorAction Stop;Write-UpdaterLog 'Original launcher exited.'}catch{if(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue){throw 'Launcher did not exit in time.'};Write-UpdaterLog 'Original launcher was already closed.'}}
 function Assert-SafePaths {
     $separator = [IO.Path]::DirectorySeparatorChar
     $install = [IO.Path]::GetFullPath($InstallDir).TrimEnd($separator, [IO.Path]::AltDirectorySeparatorChar)
@@ -408,10 +408,10 @@ try {
     if (-not (Test-Path -LiteralPath $newExe -PathType Leaf)) {
         throw 'Updated launcher is missing after installation.'
     }
-    Update-Progress 'Starting the updated launcher...' 80
+    Update-Progress 'Restarting tes3np...' 80
     $launched = Start-Process -FilePath $newExe -ArgumentList @('--update-confirm', $Version, ('"' + $StateFile + '"')) -WorkingDirectory $InstallDir -PassThru
     Write-UpdaterLog("Updated launcher process started. PID=$($launched.Id)")
-    Update-Progress 'Finishing up...' 90
+    Update-Progress 'Confirming successful startup...' 90
 
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     while ([DateTime]::UtcNow -lt $deadline) {
@@ -442,7 +442,7 @@ try {
         throw
     }
     try {
-        Update-Progress 'The update could not finish. Restoring your previous version...' 70
+        Update-Progress 'Update failed. Restoring your previous version...' 70
         try { Set-State 'ROLLING_BACK' } catch { Write-UpdaterLog 'Could not record rollback start.' }
         if ($backupCompleted -and (Test-Path -LiteralPath $rollback)) {
             Stop-LaunchedProcessForRollback $launched
