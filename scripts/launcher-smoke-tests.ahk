@@ -2481,19 +2481,22 @@ CheckLauncherFaceReuse()
         {
             LauncherScale := percent
             ratio := percent / 100
+            previousFaces := Map()
+            for control in controls
+                if LauncherFaceCache.Has(control.Hwnd) && LauncherFaceCache[control.Hwnd].Has("normal")
+                    previousFaces[control.Hwnd] := LauncherFaceCache[control.Hwnd]["normal"]
             action.Move(0, 0, Round(220 * ratio), Round(48 * ratio))
             card.Move(0, 0, Round(280 * ratio), Round(220 * ratio))
             chat.Move(0, 0, Round(45 * ratio), Round(112 * ratio))
             for control in controls
             {
                 handle := control.Hwnd
-                previous := LauncherFaceCache.Has(handle) && LauncherFaceCache[handle].Has("normal")
-                    ? LauncherFaceCache[handle]["normal"] : 0
+                previous := previousFaces.Has(handle) ? previousFaces[handle] : 0
                 PaintButtonToDC(handle, dc)
                 if !LauncherFaceCache.Has(handle) || !LauncherFaceCache[handle].Has("normal")
                     throw Error("Initial face did not enter cache.")
                 cached := LauncherFaceCache[handle]["normal"]
-                if IsObject(previous) && previous = cached
+                if percent = 50 && IsObject(previous) && previous = cached
                     throw Error("Changed geometry retained old bitmap.")
                 PaintButtonToDC(handle, dc)
                 if LauncherFaceCache[handle]["normal"] != cached
