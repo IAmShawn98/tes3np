@@ -138,6 +138,18 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("drawFlags := 0x0810 ; DT_NOPREFIX | DT_WORDBREAK", renderer)
         self.assertIn("if cachedTextChanged", characters)
 
+    def test_editor_uses_measured_stack_and_right_column_ownership(self):
+        root = SOURCE.parents[1] / "src/ui"
+        characters = (root / "characters.ahk").read_text(encoding="utf-8-sig")
+        macros = (root / "macros.ahk").read_text(encoding="utf-8-sig")
+        self.assertIn("PlanBookEditorGeometry(LaunchSettingsHeading,", characters)
+        self.assertIn("MeasureAccessibleWrappedText(", characters)
+        self.assertIn('SetCharacterBookLayoutExtra("Macros", plan.Extra)', characters)
+        self.assertIn("ReflowProfileEditor()", characters)
+        self.assertIn("if !shown\n        return\n    selectedIndex", macros)
+        self.assertIn("controls.Species.Move(BookS(525), BookS(plan.DropdownY))", characters)
+        self.assertIn("ButtonFaces[button.Hwnd].NoAccessibleDownfit := measured", characters)
+
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
         self.assertEqual(report["scope"], ["src", "game-chat"])

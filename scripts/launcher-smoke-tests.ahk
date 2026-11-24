@@ -1564,6 +1564,83 @@ CheckAccessibleBookNameWrapping()
     }
 }
 
+CheckMeasuredBookEditorGeometry()
+{
+    global CharacterPage, AccessibilityTextSize
+    savedPage := IsSet(CharacterPage) ? CharacterPage : 0
+    savedMode := AccessibilityTextSize
+    try
+    {
+        for mode in ["Normal", "Extra Large"]
+        {
+            page := Gui("-DPIScale")
+            try
+            {
+                CharacterPage := page
+                AccessibilityTextSize := mode
+                SetAccessibleTextFont(page, "s19 Norm", "Segoe UI")
+                title := "Editing UnbrokenBalmoraCharacterNameWithoutSpaces"
+                heading := page.Add("Text", "x525 y45 w360 h30 Center", title)
+                SetAccessibleTextFont(page, "s10 Norm", "Segoe UI")
+                rows := []
+                for caption in ["Username", "Password", "Username screen delay (sec)",
+                    "Password screen delay (sec)", "Character loading delay (sec)"]
+                {
+                    label := page.Add("Text", "x525 y100 w355 h22", caption)
+                    input := page.Add("Edit", "x525 y123 w355 h25", "")
+                    rows.Push({Label: label, Input: input})
+                }
+                race := page.Add("Text", "x525 y351 w355 h22", "Race")
+                combo := page.Add("DropDownList", "x525 y376 w355 h240", ["Select race...", "Original Character"])
+                hint := page.Add("Text", "x525 y407 w355 h19", "Race: Dark Elf  |  Change portrait")
+                reconnect := page.Add("Text", "x551 y432 w329 h24", "Auto reconnect on crash")
+                save := page.Add("Text", "x635 y465 w140 h30", "Save changes")
+                dismiss := page.Add("Text", "x685 y507 w30 h24", "X")
+                controls := {Rows: rows, SpeciesLabel: race, Species: combo, Hint: hint,
+                    Reconnect: reconnect, Save: save, Dismiss: dismiss}
+                plan := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
+                if mode = "Normal"
+                {
+                    if plan.TitleHeight != 30 || plan.Rows[1].Y != 100
+                        || plan.Rows[5].Y != 300 || plan.RaceY != 351
+                        || plan.DropdownY != 376 || plan.HintY != 407
+                        || plan.ReconnectY != 432 || plan.SaveY != 465
+                        || plan.DismissY != 507 || plan.Extra
+                        throw Error("Normal editor anchors changed.")
+                }
+                else
+                {
+                    if plan.TitleHeight < MeasureAccessibleWrappedText(heading, plan.Title, 352)
+                        || !(StrReplace(plan.Title, "`n") == title) || !plan.FitsWidth
+                        throw Error("Editor title clips or loses its original name.")
+                    previous := 45 + plan.TitleHeight
+                    for index, row in rows
+                    {
+                        metrics := plan.Rows[index]
+                        if metrics.Y < previous
+                            || metrics.LabelHeight < MeasureAccessibleWrappedText(row.Label, row.Label.Text, 351)
+                            || metrics.InputHeight < MeasureAccessibleSingleLineText(row.Input, "Ag").Height
+                            throw Error("Editor field clips or overlaps preceding content.")
+                        previous := metrics.Y + metrics.LabelHeight + 1 + metrics.InputHeight
+                    }
+                    if plan.RaceY < previous || plan.HintY < plan.DropdownY
+                        || plan.ReconnectY < plan.HintY + plan.HintHeight
+                        || plan.SaveY < plan.ReconnectY + plan.ReconnectHeight
+                        || plan.DismissY < plan.SaveY + plan.SaveHeight
+                        || plan.DismissY + plan.DismissHeight + 5 > 570 + plan.Extra
+                        throw Error("Measured editor stack or footer overlaps.")
+                }
+            }
+            finally page.Destroy()
+        }
+    }
+    finally
+    {
+        CharacterPage := savedPage
+        AccessibilityTextSize := savedMode
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1577,6 +1654,7 @@ CheckInterfaceTextAccessibility()
     CheckSharedBookExpansion()
     CheckTenCharacterBookExpansion()
     CheckAccessibleBookNameWrapping()
+    CheckMeasuredBookEditorGeometry()
     try
     {
         bodyHeights := [], settingsHeights := []

@@ -655,7 +655,8 @@ EditProfile(index, *)
     try
     {
         profile := index ? Profiles[index] : NewCharacterProfile()
-        LaunchSettingsHeading.Text := index ? "Editing " profile.Name : "Add New Character"
+        CharacterPage.BookEditorHeadingText := index ? "Editing " profile.Name : "Add New Character"
+        LaunchSettingsHeading.Text := CharacterPage.BookEditorHeadingText
         LaunchSettingsHeading.Visible := true
         HideMacroBookPanel()
         SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
@@ -746,6 +747,113 @@ CreateProfileEditor()
     EditorControls.Push(EditorSaveButton)
     dismiss := AddStyledButton(CharacterPage, 685, 507, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
+    CharacterPage.BookEditorControls := {Rows: EditorRows, SpeciesLabel: speciesLabel,
+        Species: EditorSpeciesDropDown, Hint: EditorOCSpeciesHint, Tick: EditorReconnectTick,
+        Reconnect: reconnectLabel, Save: EditorSaveButton, Dismiss: dismiss}
+}
+
+; The right-hand column is either the editor or the Macro Book, never
+; both. Compute its entire stack using the native font already attached
+; to each HWND, preserving the original Normal anchors.
+PlanBookEditorGeometry(heading, originalTitle, controls, measured)
+{
+    scale := GetCharacterBookScale()
+    title := measured ? PrepareAccessibleBookName(heading, originalTitle, BookS(352)) : originalTitle
+    titleH := measured ? Max(30, Ceil((MeasureAccessibleWrappedText(
+        heading, title, BookS(352)) + BookS(4)) / scale)) : 30
+    rowY := Max(100, 45 + titleH + 15)
+    rows := []
+    for row in controls.Rows
+    {
+        labelH := measured ? Max(22, Ceil((MeasureAccessibleWrappedText(
+            row.Label, row.Label.Text, BookS(351)) + BookS(4)) / scale)) : 22
+        inputH := measured ? Max(25, Ceil((MeasureAccessibleSingleLineText(
+            row.Input, "Ag").Height + BookS(8)) / scale)) : 25
+        rows.Push({Y: rowY, LabelHeight: labelH, InputHeight: inputH})
+        rowY += labelH + 1 + inputH + 2
+    }
+    raceY := Max(351, rowY + 1)
+    raceH := measured ? Max(22, Ceil((MeasureAccessibleWrappedText(
+        controls.SpeciesLabel, controls.SpeciesLabel.Text, BookS(351)) + BookS(4)) / scale)) : 22
+    ddlY := raceY + raceH + 3
+    ; CB_GETITEMHEIGHT(-1) reports the selection field, not the full
+    ; drop-down list. Preserve the native combo's own font/list sizing.
+    nativeSelectionH := DllCall("SendMessageW", "Ptr", controls.Species.Hwnd,
+        "UInt", 0x154, "Ptr", -1, "Ptr", 0, "Ptr")
+    ddlH := measured ? Max(26, Ceil(nativeSelectionH / (scale * A_ScreenDPI / 96)) + 8) : 26
+    hintY := Max(407, ddlY + ddlH + 5)
+    hintH := measured ? Max(19, Ceil((MeasureAccessibleWrappedText(
+        controls.Hint, controls.Hint.Text, BookS(351)) + BookS(4)) / scale)) : 19
+    reconnectY := Max(432, hintY + hintH + 6)
+    reconnectH := measured ? Max(24, Ceil((MeasureAccessibleWrappedText(
+        controls.Reconnect, controls.Reconnect.Text, BookS(325)) + BookS(4)) / scale)) : 24
+    saveY := Max(465, reconnectY + reconnectH + 9)
+    saveH := 30, saveW := 140, dismissH := 24, dismissW := 30
+    if measured
+    {
+        saveExtent := MeasureAccessibleSingleLineText(controls.Save, controls.Save.Text)
+        dismissExtent := MeasureAccessibleSingleLineText(controls.Dismiss, controls.Dismiss.Text)
+        saveH := Max(saveH, Ceil((saveExtent.Height + BookS(8)) / scale))
+        saveW := Max(saveW, Ceil((saveExtent.Width + BookS(12)) / scale))
+        dismissH := Max(dismissH, Ceil((dismissExtent.Height + BookS(8)) / scale))
+        dismissW := Max(dismissW, Ceil((dismissExtent.Width + BookS(12)) / scale))
+    }
+    dismissY := Max(507, saveY + saveH + 12)
+    return {Title: title, TitleHeight: titleH, Rows: rows, RaceY: raceY,
+        RaceHeight: raceH, DropdownY: ddlY, HintY: hintY, HintHeight: hintH,
+        ReconnectY: reconnectY, ReconnectHeight: reconnectH, SaveY: saveY,
+        SaveHeight: saveH, SaveWidth: saveW, DismissY: dismissY,
+        DismissHeight: dismissH, DismissWidth: dismissW,
+        Extra: Max(0, dismissY + dismissH + 5 - 570),
+        FitsWidth: saveW <= 355 && dismissW <= 355}
+}
+
+ReflowProfileEditor()
+{
+    global CharacterPage, LaunchSettingsHeading, AccessibilityTextSize, ButtonFaces
+    if !IsObject(CharacterPage) || !CharacterPage.HasOwnProp("BookEditorControls")
+        || !CharacterPage.HasOwnProp("BookEditorHeadingText")
+        return
+    controls := CharacterPage.BookEditorControls
+    measured := AccessibilityTextSize != "Normal"
+    plan := PlanBookEditorGeometry(LaunchSettingsHeading,
+        CharacterPage.BookEditorHeadingText, controls, measured)
+    ; Reuse the right-column allocation because Macro Book is hidden.
+    if !plan.FitsWidth || !SetCharacterBookLayoutExtra("Macros", plan.Extra)
+    {
+        SetCharacterBookLayoutExtra("Macros", 0)
+        measured := false
+        plan := PlanBookEditorGeometry(LaunchSettingsHeading,
+            CharacterPage.BookEditorHeadingText, controls, false)
+    }
+    LaunchSettingsHeading.Text := plan.Title
+    MoveMacroTextIfChanged(LaunchSettingsHeading, BookS(525), BookS(45),
+        BookS(360), BookS(plan.TitleHeight))
+    for index, row in controls.Rows
+    {
+        metrics := plan.Rows[index]
+        ButtonFaces[row.Label.Hwnd].AccessibleWrappedName := measured
+        MoveMacroStyledIfChanged(row.Label, 525, metrics.Y, 355, metrics.LabelHeight)
+        MoveMacroTextIfChanged(row.Input, BookS(525), BookS(metrics.Y + metrics.LabelHeight + 1),
+            BookS(355), BookS(metrics.InputHeight))
+    }
+    for label in [controls.SpeciesLabel, controls.Reconnect]
+        ButtonFaces[label.Hwnd].AccessibleWrappedName := measured
+    MoveMacroStyledIfChanged(controls.SpeciesLabel, 525, plan.RaceY, 355, plan.RaceHeight)
+    ; Move the native combo without changing the height of its drop-down.
+    controls.Species.GetPos(, &oldDropdownY)
+    if oldDropdownY != BookS(plan.DropdownY)
+        controls.Species.Move(BookS(525), BookS(plan.DropdownY))
+    MoveMacroTextIfChanged(controls.Hint, BookS(525), BookS(plan.HintY),
+        BookS(355), BookS(plan.HintHeight))
+    MoveMacroStyledIfChanged(controls.Tick, 525, plan.ReconnectY + 3, 18, 18)
+    MoveMacroStyledIfChanged(controls.Reconnect, 551, plan.ReconnectY, 329, plan.ReconnectHeight)
+    for button in [controls.Save, controls.Dismiss]
+        ButtonFaces[button.Hwnd].NoAccessibleDownfit := measured
+    MoveMacroStyledIfChanged(controls.Save, 705 - plan.SaveWidth // 2,
+        plan.SaveY, plan.SaveWidth, plan.SaveHeight)
+    MoveMacroStyledIfChanged(controls.Dismiss, 700 - plan.DismissWidth // 2,
+        plan.DismissY, plan.DismissWidth, plan.DismissHeight)
 }
 
 ToggleEditorReconnect(*)
@@ -759,11 +867,13 @@ ToggleEditorReconnect(*)
 ; presentation-only entry; the race is chosen in a separate dialog.
 UpdateOriginalSpeciesHint()
 {
-    global EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode
+    global EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode, LaunchSettingsHeading
     isOriginal := EditorOriginalMode
     EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
         ? "Race: " EditorOriginalSpecies "  |  Change portrait" : ""
     EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
+    if IsObject(LaunchSettingsHeading) && LaunchSettingsHeading.Visible
+        ReflowProfileEditor()
     ; The race must be visible as soon as the dialog closes, even when the
     ; cached Character Book is reused without reopening Manage Characters.
     if IsObject(EditorOCSpeciesHint)

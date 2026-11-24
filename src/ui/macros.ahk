@@ -325,6 +325,10 @@ RefreshMacroBookRows()
     maximum := Max(0, count - MacroBookRows.Length)
     MacroScrollOffset := Max(0, Min(MacroScrollOffset, maximum))
     shown := !LaunchSettingsHeading.Visible
+    ; The visible editor owns the right column while macro process polling
+    ; continues. Its geometry must not be replaced by a hidden macro stack.
+    if !shown
+        return
     selectedIndex := MacroList.GetNext()
     busy := IsObject(MacroImport)
     populatedOffset := count ? ReflowPopulatedMacroBook() : 0
