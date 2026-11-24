@@ -1404,6 +1404,14 @@ CheckSharedBookExpansion()
             || windowH != Round(BookS(746) * A_ScreenDPI / 96)
             || DllCall("IsWindowVisible", "Ptr", page.Hwnd)
             throw Error("Expanded hidden Book parent/Picture/footer diverged.")
+        ; An odd-sized request must retain exact logical geometry rather
+        ; than rounding up to an artificial eight-pixel boundary.
+        if !SetCharacterBookLayoutExtra("Macros", 97)
+            || GetCharacterBookExtra() != 97
+            throw Error("Book extension inflated an exact logical request.")
+        page.BookBackground.GetPos(, , , &pictureH)
+        if pictureH != BookS(747)
+            throw Error("Exact Book extension and Picture height diverged.")
         if !SetCharacterBookLayoutExtra("Macros", 0)
             || GetCharacterBookExtra() != 64
             || !SetCharacterBookLayoutExtra("Characters", 0)

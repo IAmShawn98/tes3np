@@ -48,7 +48,10 @@ SetCharacterBookLayoutExtra(side, required)
     page := CharacterPage
     if required > 0
         page.BookExpansionFailure := ""
-    required := Max(0, Ceil(required / 8) * 8)
+    ; The bitmap generator already rounds its native scanline count.
+    ; Do not inflate logical window height: an otherwise fitting layout
+    ; must not be rejected solely by an arbitrary eight-pixel increment.
+    required := Max(0, Ceil(required))
     leftExtra := page.HasOwnProp("BookCharacterExtra") ? page.BookCharacterExtra : 0
     rightExtra := page.HasOwnProp("BookMacroExtra") ? page.BookMacroExtra : 0
     if side = "Characters"

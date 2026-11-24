@@ -124,6 +124,8 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn('x += width + layout.Gap', section)
         parent = characters[characters.index('SetCharacterBookLayoutExtra(side, required)'):characters.index('\nGetCharacterBookExtra()')]
         self.assertIn('extra := Max(leftExtra, rightExtra)', parent)
+        self.assertIn('required := Max(0, Ceil(required))', parent)
+        self.assertNotIn('Ceil(required / 8)', parent)
         self.assertIn('MonitorGetWorkArea(monitor', parent)
         self.assertIn('DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd', parent)
         self.assertNotIn('WinGetPos(', parent)
