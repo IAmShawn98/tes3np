@@ -36,6 +36,43 @@ ApplyCharacterBookScale(scale)
     }
 }
 
+; Measure the actual requested button font, not the renderer's fitted
+; fallback. Keep every original rectangle as a minimum in non-Normal modes.
+BookActionMetrics(control, caption, width, height)
+{
+    global AccessibilityTextSize
+    if AccessibilityTextSize = "Normal" || !IsObject(control)
+        return {Width: width, Height: height}
+    extent := MeasureAccessibleSingleLineText(control, caption)
+    scale := GetCharacterBookScale()
+    return {Width: Max(width, Ceil((extent.Width + BookS(8)) / scale)),
+        Height: Max(height, Ceil((extent.Height + Max(2, BookS(4))) / scale))}
+}
+
+GetBookFooterMetrics(page)
+{
+    global Profiles, AddCharacterButton, WipeCharacterButton, DataTransferButton
+    close := BookActionMetrics(page.HasOwnProp("BookCloseButton") ? page.BookCloseButton : 0, "Close", 90, 30)
+    add := {Width: 370, Height: 30}, wipe := add, transfer := {Width: 110, Height: 30}
+    if Profiles.Length
+    {
+        add := BookActionMetrics(AddCharacterButton, "Add character", 370, 30)
+        wipe := BookActionMetrics(WipeCharacterButton, "Wipe Character List", 370, 30)
+        transfer := BookActionMetrics(DataTransferButton, "Export Data", 110, 30)
+    }
+    return {CloseWidth: close.Width, TransferWidth: transfer.Width,
+        AddHeight: add.Height, FooterHeight: Max(close.Height, wipe.Height, transfer.Height),
+        Fits: add.Width <= 370 && wipe.Width <= 370 && close.Width + transfer.Width + 12 <= 370}
+}
+
+MoveMeasuredBookAction(control, x, y, width, height)
+{
+    global ButtonFaces, AccessibilityTextSize
+    if ButtonFaces.Has(control.Hwnd)
+        ButtonFaces[control.Hwnd].NoAccessibleDownfit := AccessibilityTextSize != "Normal"
+    MoveMacroStyledIfChanged(control, x, y, width, height)
+}
+
 ; Each column requests only the extra space it actually needs. The common
 ; parent takes the larger request, retains the approved footer gaps, and
 ; never silently reduces text or launcher scale to fit the monitor.
@@ -58,9 +95,16 @@ SetCharacterBookLayoutExtra(side, required)
         leftExtra := required
     else
         rightExtra := required
-    extra := Max(leftExtra, rightExtra)
+    footer := GetBookFooterMetrics(page)
+    if !footer.Fits
+    {
+        page.BookExpansionFailure := "Measured footer captions exceed the available width."
+        return false
+    }
+    ; Reserve footer growth separately from the content budget.
+    extra := Max(leftExtra, rightExtra) + footer.FooterHeight - 30
     oldExtra := page.HasOwnProp("BookExtra") ? page.BookExtra : 0
-    if extra && required
+    if extra
     {
         if !IsObject(LauncherGui)
             return false
@@ -103,13 +147,17 @@ SetCharacterBookLayoutExtra(side, required)
     page.BookMacroExtra := rightExtra
     ; RefreshProfiles can restore its normal positions before this call.
     ; Reconcile all shared footer controls even when the height is unchanged.
+    footerY := 605 + extra - footer.FooterHeight
     if IsObject(page.BookCloseButton)
-        MoveMacroStyledIfChanged(page.BookCloseButton, 515, 575 + extra, 90, 30)
+        MoveMeasuredBookAction(page.BookCloseButton, 515, footerY,
+            footer.CloseWidth, footer.FooterHeight)
     if Profiles.Length
     {
-        MoveMacroStyledIfChanged(AddCharacterButton, 70, 540 + extra, 370, 30)
-        MoveMacroStyledIfChanged(WipeCharacterButton, 70, 575 + extra, 370, 30)
-        MoveMacroStyledIfChanged(DataTransferButton, 775, 575 + extra, 110, 30)
+        MoveMeasuredBookAction(AddCharacterButton, 70, footerY - 5 - footer.AddHeight,
+            370, footer.AddHeight)
+        MoveMeasuredBookAction(WipeCharacterButton, 70, footerY, 370, footer.FooterHeight)
+        MoveMeasuredBookAction(DataTransferButton, 885 - footer.TransferWidth, footerY,
+            footer.TransferWidth, footer.FooterHeight)
     }
     return true
 }
@@ -328,6 +376,8 @@ RefreshProfiles()
         ; book's unchanged parchment/footers can contain them. The populated
         ; ten-row state needs its own all-control transaction.
         actionY := Profiles.Length ? 540 : 164
+        addMetrics := BookActionMetrics(AddCharacterButton, "Add character", 370, 30)
+        importMetrics := BookActionMetrics(DataTransferButton, "Import Data", 370, 30)
         copyY := CharacterBookDescriptionY()
         CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))
         if !Profiles.Length
@@ -339,16 +389,17 @@ RefreshProfiles()
                 + BookS(3)) / GetCharacterBookScale()))
             ; Keep Import above the original footer: no new scrolling, no
             ; bitmap stretching, and no partial move if text cannot fit.
-            if proposedAddY + 65 <= 570
+            if proposedAddY + addMetrics.Height + 5 + importMetrics.Height <= 570
+                && addMetrics.Width <= 370 && importMetrics.Width <= 370
             {
                 CharacterDescription.Move(BookS(70), BookS(copyY),
                     BookS(390), captionHeight)
                 actionY := proposedAddY
             }
         }
-        MoveStyledButton(AddCharacterButton, 70, actionY, 370, 30)
+        MoveMeasuredBookAction(AddCharacterButton, 70, actionY, 370, addMetrics.Height)
         transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : actionY + 35
+        transferY := Profiles.Length ? 575 : actionY + addMetrics.Height + 5
         ; Preserve the original wide Import Data layout and compact Export Data
         ; layout. MoveStyledButton updates both the native control and its painted
         ; face; do not change position or dimensions independently.
@@ -360,7 +411,8 @@ RefreshProfiles()
             try transferFace.Control.Visible := false
             try transferFace.Label.Visible := false
         }
-        MoveStyledButton(DataTransferButton, transferX, transferY, Profiles.Length ? 110 : 370, 30)
+        MoveMeasuredBookAction(DataTransferButton, transferX, transferY,
+            Profiles.Length ? 110 : 370, Profiles.Length ? 30 : importMetrics.Height)
         if ButtonFaces.Has(DataTransferButton.Hwnd)
         {
             transferFace := ButtonFaces[DataTransferButton.Hwnd]
@@ -498,10 +550,11 @@ ReflowAccessiblePopulatedCharacters()
     }
     addY := Max(540, rowY + 4,
         noticeVisible ? noticeY + noticeHeight + 8 : 0)
-    CharacterPage.BookRequiredCharacterExtra := Max(0, addY + 30 - 570)
+    addHeight := GetBookFooterMetrics(CharacterPage).AddHeight
+    CharacterPage.BookRequiredCharacterExtra := Max(0, addY + addHeight - 570)
     ; Preserve the original five-pixel Add/footer clearance. Expand the
     ; shared parent before moving rows if this measured stack needs space.
-    if !SetCharacterBookLayoutExtra("Characters", Max(0, addY + 30 - 570))
+    if !SetCharacterBookLayoutExtra("Characters", Max(0, addY + addHeight - 570))
     {
         RestoreAccessibleCharacterRowBaseline()
         return false
@@ -547,7 +600,7 @@ ReflowAccessiblePopulatedCharacters()
             if ButtonFaces.Has(CharacterLimitNotice.Hwnd)
                 ButtonFaces[CharacterLimitNotice.Hwnd].AccessibleWrappedName := true
         }
-        MoveStyledButton(AddCharacterButton, 70, Max(addY, 540 + GetCharacterBookExtra()), 370, 30)
+        ; The shared parent has already committed the measured Add/footer.
         return true
     }
     catch Error as err
@@ -555,7 +608,6 @@ ReflowAccessiblePopulatedCharacters()
         RestoreAccessibleCharacterRowBaseline()
         CharacterDescription.Move(BookS(70), BookS(80),
             BookS(390), BookS(81))
-        MoveStyledButton(AddCharacterButton, 70, 540 + GetCharacterBookExtra(), 370, 30)
         throw err
     }
 }

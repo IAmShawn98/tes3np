@@ -1534,6 +1534,13 @@ CheckTenCharacterBookExpansion()
         CharacterLimitNotice.GetPos(, &noticeY, , &noticeH)
         AddCharacterButton.GetPos(, &addY, , &addH)
         page.BookCloseButton.GetPos(, &closeY)
+        for action in [AddCharacterButton, WipeCharacterButton, DataTransferButton, page.BookCloseButton]
+        {
+            action.GetPos(, , &actionW, &actionH)
+            extent := MeasureAccessibleSingleLineText(action, action.Text)
+            if actionW < extent.Width || actionH < extent.Height + 2
+                throw Error("Measured footer caption does not fit its native control.")
+        }
         if noticeY < previousBottom || addY < noticeY + noticeH || closeY < addY + addH
             throw Error("Ten-character limit notice or common footer overlaps.")
         AccessibilityTextSize := "Normal"
