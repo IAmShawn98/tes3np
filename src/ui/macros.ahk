@@ -126,6 +126,15 @@ MacroItemDisplayState(item)
     return {Text: "Ready", Error: false}
 }
 
+; A one-second macro-process refresh must not needlessly repaint a
+; stationary text control. Positions are already in GUI pixels.
+MoveMacroTextIfChanged(control, x, y, width, height)
+{
+    control.GetPos(&oldX, &oldY, &oldWidth, &oldHeight)
+    if oldX != x || oldY != y || oldWidth != width || oldHeight != height
+        control.Move(x, y, width, height)
+}
+
 ; The empty Macro Book shares the approved fixed parchment with Characters.
 ; Measure its complete copy and move the notice and Upload as a single stack.
 ; Populated rows have a separate scrolling/rename layout and stay untouched.
@@ -136,8 +145,10 @@ ReflowEmptyMacroBook()
     if !IsObject(CharacterPage) || MacroBookControls.Length < 2
         return 188
     explanation := MacroBookControls[2]
-    explanation.Move(BookS(525), BookS(87), BookS(355), BookS(48))
-    MacroEmptyNotice.Move(BookS(525), BookS(150), BookS(355), BookS(28))
+    MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
+        BookS(355), BookS(48))
+    MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(150),
+        BookS(355), BookS(28))
     if MacroItems.Length || AccessibilityTextSize = "Normal"
         return 188
     scale := GetCharacterBookScale()
@@ -155,8 +166,9 @@ ReflowEmptyMacroBook()
     ; when this particular refresh has no visible error.
     if uploadY + 29 + 36 + 30 > 570
         return 188
-    explanation.Move(BookS(525), BookS(87), BookS(355), copyHeight)
-    MacroEmptyNotice.Move(BookS(525), BookS(noticeY),
+    MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
+        BookS(355), copyHeight)
+    MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(noticeY),
         BookS(355), BookS(emptyHeightLogical))
     return uploadY
 }
