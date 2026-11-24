@@ -329,32 +329,45 @@ ReflowAccessiblePopulatedCharacters()
     }
     ; Grouped update: all coordinates are newly calculated from approved
     ; anchors, never accumulated from the previously scaled/reflowed positions.
-    CharacterDescription.Move(BookS(70), BookS(80),
-        BookS(390), paragraphHeight)
-    for layout in layouts
-    {
-        controls := layout.Controls
-        y := layout.Y
-        MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
-        MoveStyledButton(controls.Name, 95, y, 345, layout.NameHeight)
-        if ButtonFaces.Has(controls.Name.Hwnd)
-            ButtonFaces[controls.Name.Hwnd].AccessibleWrappedName := true
-        x := 70
-        for index, button in [controls.Play, controls.Edit, controls.Remove]
-        {
-            width := layout.Widths[index]
-            MoveStyledButton(button, x, layout.ButtonY, width,
-                layout.ButtonHeight)
-            ; Text is already measured at its requested accessible font.
-            ; The GDI painter must not independently shrink that font.
-            if ButtonFaces.Has(button.Hwnd)
-                ButtonFaces[button.Hwnd].NoAccessibleDownfit := true
-            x += width + 6
-        }
-    }
-    MoveStyledButton(AddCharacterButton, 70, addY, 370, 30)
+    ; Mark rollback as armed *before* the first move: if a native HWND fails
+    ; halfway through, restore all row faces/hitboxes and Add's original slot.
     CharacterPage.AccessibleRowsReflowed := true
-    return true
+    try
+    {
+        CharacterDescription.Move(BookS(70), BookS(80),
+            BookS(390), paragraphHeight)
+        for layout in layouts
+        {
+            controls := layout.Controls
+            y := layout.Y
+            MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
+            MoveStyledButton(controls.Name, 95, y, 345, layout.NameHeight)
+            if ButtonFaces.Has(controls.Name.Hwnd)
+                ButtonFaces[controls.Name.Hwnd].AccessibleWrappedName := true
+            x := 70
+            for index, button in [controls.Play, controls.Edit, controls.Remove]
+            {
+                width := layout.Widths[index]
+                MoveStyledButton(button, x, layout.ButtonY, width,
+                    layout.ButtonHeight)
+                ; Text is already measured at its requested accessible font.
+                ; The GDI painter must not independently shrink that font.
+                if ButtonFaces.Has(button.Hwnd)
+                    ButtonFaces[button.Hwnd].NoAccessibleDownfit := true
+                x += width + 6
+            }
+        }
+        MoveStyledButton(AddCharacterButton, 70, addY, 370, 30)
+        return true
+    }
+    catch Error as err
+    {
+        RestoreAccessibleCharacterRowBaseline()
+        CharacterDescription.Move(BookS(70), BookS(80),
+            BookS(390), BookS(81))
+        MoveStyledButton(AddCharacterButton, 70, 540, 370, 30)
+        throw err
+    }
 }
 
 RestoreAccessibleCharacterRowBaseline()
