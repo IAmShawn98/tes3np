@@ -108,107 +108,12 @@ ReflowLauncherAccessibleEdgeControls(scale)
     ButtonFaces[LauncherChatToggle.Hwnd].Y := AccessibilityTextSize = "Normal" ? tab.Y : ty / scale
 }
 
-; Only the main launcher participates in native restore presentation.
-RegisterLauncherPresentationHandlers()
-{
-    OnMessage(0x0112, LauncherWindowSystemCommand)
-    OnMessage(0x0005, LauncherWindowSizeMessage)
-}
-
-LauncherWindowSystemCommand(wParam, lParam, msg, hwnd)
-{
-    global LauncherGui
-    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
-        || (wParam & 0xFFF0) != 0xF120 ; SC_RESTORE
-        || !DllCall("IsIconic", "Ptr", hwnd)
-        || (LauncherGui.HasOwnProp("StartupPresenting") && LauncherGui.StartupPresenting)
-        || (LauncherGui.HasOwnProp("RestorePresenting") && LauncherGui.RestorePresenting)
-        return
-    RestoreLauncherWindow(LauncherGui)
-    return 0
-}
-
-LauncherWindowSizeMessage(wParam, lParam, msg, hwnd)
-{
-    global LauncherGui
-    if !IsObject(LauncherGui) || hwnd != LauncherGui.Hwnd
-        return
-    if wParam = 1 ; SIZE_MINIMIZED
-    {
-        LauncherGui.WasMinimized := true
-        return
-    }
-    if wParam != 0 && wParam != 2
-        return
-    if !LauncherGui.HasOwnProp("WasMinimized") || !LauncherGui.WasMinimized
-        return
-    LauncherGui.WasMinimized := false
-    if (LauncherGui.HasOwnProp("StartupPresenting") && LauncherGui.StartupPresenting)
-        || (LauncherGui.HasOwnProp("RestorePresenting") && LauncherGui.RestorePresenting)
-        || DllCall("IsIconic", "Ptr", hwnd)
-        return
-    ; Direct ShowWindow restores may bypass SC_RESTORE. Repaint once,
-    ; without activating or repositioning the launcher.
-    LauncherGui.RestorePresenting := true
-    try
-    {
-        staged := SetPageCompositorCloak(LauncherGui, true)
-        PaintRestoredLauncher(LauncherGui, staged)
-    }
-    finally LauncherGui.RestorePresenting := false
-}
-
-PaintRestoredLauncher(gui, staged)
-{
-    if staged
-        RevealPaintedPage(gui)
-    else
-        DllCall("RedrawWindow", "Ptr", gui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
-}
-
-RestoreLauncherWindow(gui)
-{
-    if !DllCall("IsIconic", "Ptr", gui.Hwnd)
-        return false
-    gui.RestorePresenting := true
-    staged := false
-    try
-    {
-        staged := SetPageCompositorCloak(gui, true)
-        DllCall("ShowWindow", "Ptr", gui.Hwnd, "Int", 9) ; SW_RESTORE
-        gui.WasMinimized := false
-    }
-    finally
-    {
-        try PaintRestoredLauncher(gui, staged)
-        finally gui.RestorePresenting := false
-    }
-    return !DllCall("IsIconic", "Ptr", gui.Hwnd)
-}
-
-; Activate once after the initial compositor reveal, never from a timer.
-CompleteLauncherStartupPresentation(gui)
-{
-    if DllCall("IsIconic", "Ptr", gui.Hwnd)
-        RestoreLauncherWindow(gui)
-    else if !DllCall("IsWindowVisible", "Ptr", gui.Hwnd)
-        gui.Show()
-    if DllCall("GetForegroundWindow", "Ptr") != gui.Hwnd
-        try WinActivate("ahk_id " gui.Hwnd)
-}
-
 ShowLauncherWindow(reuseCached := false, *)
 {
     global LauncherGui, LauncherControlLayout, LauncherCachedScale, LauncherCachedLayoutCount
     global LauncherUpdateBadge, LauncherUpdateNumber, LauncherVersionLabel
-    restored := false
     if DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
-    {
-        if LauncherGui.HasOwnProp("StartupPresenting") && LauncherGui.StartupPresenting
-            DllCall("ShowWindow", "Ptr", LauncherGui.Hwnd, "Int", 9)
-        else
-            restored := RestoreLauncherWindow(LauncherGui)
-    }
+        DllCall("ShowWindow", "Ptr", LauncherGui.Hwnd, "Int", 9) ; SW_RESTORE
     placement := GetLauncherPlacement()
     if placement.Scale = LauncherCachedScale && DllCall("IsWindowVisible", "Ptr", LauncherGui.Hwnd)
         && LauncherControlLayout.Count = LauncherCachedLayoutCount
@@ -257,11 +162,8 @@ ShowLauncherWindow(reuseCached := false, *)
         }
         if healthy
         {
-            if !restored
-            {
-                LauncherGui.Show()
-                RepaintMenuButtons()
-            }
+            LauncherGui.Show()
+            RepaintMenuButtons()
             return
         }
         LogLauncherEvent("UI | Cached launcher geometry invalid; rebuilding launcher controls.")
