@@ -1445,119 +1445,6 @@ CheckMeasuredPopulatedMacroBook()
 ; Exercise the actual shipped PNG, not an imagined parchment rectangle.
 ; Confirm the native image is taller, original width is unchanged, and
 ; sampled top/footer pixels are not scaled by the inserted mirrored band.
-; Native test of the actual reduced Book painter and the precise child slice.
-; The synthetic edge also exercises opaque magenta and alpha coverage without
-; relying on a specific corner of the distributed artwork.
-CheckReducedBookRaster()
-{
-    global ButtonPaint, AccessibilityTextSize, LauncherMorrowindFont
-    InitButtonPainter()
-    source := 0, synthetic := 0, page := 0, dc := 0, bitmap := 0, oldBitmap := 0
-    savedMode := AccessibilityTextSize
-    try
-    {
-        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 16, "Int", 16,
-            "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &source)
-            throw Error("Could not create reduced Book edge fixture.")
-        Loop 16
-        {
-            y := A_Index - 1
-            Loop 16
-            {
-                x := A_Index - 1
-                pixel := x >= 4 && x <= 11 && y >= 4 && y <= 11
-                    ? 0xFF996633 : (x >= 3 && x <= 12 && y >= 3 && y <= 12
-                        ? 0x60996633 : 0xFFFF00FF)
-                if DllCall("gdiplus\GdipBitmapSetPixel", "Ptr", source,
-                    "Int", x, "Int", y, "UInt", pixel)
-                    throw Error("Could not initialize Book edge fixture.")
-            }
-        }
-        synthetic := CreateReducedBookRaster(source, 9, 9)
-        if DllCall("GetPixel", "Ptr", synthetic.DC, "Int", 0, "Int", 0, "UInt") != 0xFF00FF
-            || DllCall("GetPixel", "Ptr", synthetic.DC, "Int", 4, "Int", 4, "UInt") != 0x336699
-            throw Error("Reduced Book raster lost the exact key or solid artwork.")
-        Loop 9
-        {
-            y := A_Index - 1
-            Loop 9
-            {
-                color := DllCall("GetPixel", "Ptr", synthetic.DC, "Int", A_Index - 1, "Int", y, "UInt")
-                if color = 0xFFFFFFFF || (color != 0xFF00FF && (color & 0xFF) > 180
-                    && ((color >> 8) & 0xFF) < 100 && ((color >> 16) & 0xFF) > 150)
-                    throw Error("Reduced Book raster contains a non-key magenta fringe.")
-            }
-        }
-        AccessibilityTextSize := "Extra Large"
-        page := CreateAccessibleLayoutGui("-Caption -Border")
-        page.OwnedContentScale := 0.5
-        page.BookExtra := 0
-        page.BookBackground := page.Add("Picture", "x0 y0 w480 h325", GetBookSmokeArtworkPath())
-        AttachReducedBookPainter(page)
-        SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
-        name := AddBookLabel(page, 47, 91, 171, 17, "")
-        page.Show("Hide w480 h325")
-        raster := GetReducedBookRaster(page)
-        if !IsObject(raster) || GetReducedBookRaster(page).Bitmap != raster.Bitmap
-            throw Error("Reduced Book raster was not cached.")
-        dc := DllCall("CreateCompatibleDC", "Ptr", raster.DC, "Ptr")
-        bitmap := DllCall("CreateCompatibleBitmap", "Ptr", raster.DC,
-            "Int", raster.Width, "Int", raster.Height, "Ptr")
-        if !dc || !bitmap
-            throw Error("Could not allocate Book paint comparison surface.")
-        oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
-        ; Exercise the native Picture subclass, not only the raster helper.
-        DllCall("SendMessageW", "Ptr", page.BookBackground.Hwnd, "UInt", 0x0318,
-            "Ptr", dc, "Ptr", 4)
-        for point in [[0, 0], [raster.Width // 2, raster.Height // 2],
-            [raster.Width - 1, raster.Height - 1]]
-        {
-            expected := DllCall("GetPixel", "Ptr", raster.DC, "Int", point[1], "Int", point[2], "UInt")
-            actual := DllCall("GetPixel", "Ptr", dc, "Int", point[1], "Int", point[2], "UInt")
-            if expected = 0xFFFFFFFF || expected != actual
-                throw Error("Native reduced Book Picture differs from its raster.")
-        }
-        origin := Buffer(8, 0), bounds := Buffer(16, 0)
-        DllCall("MapWindowPoints", "Ptr", name.Hwnd, "Ptr", page.BookBackground.Hwnd,
-            "Ptr", origin, "UInt", 1)
-        DllCall("GetClientRect", "Ptr", name.Hwnd, "Ptr", bounds)
-        x := NumGet(origin, 0, "Int"), y := NumGet(origin, 4, "Int")
-        w := NumGet(bounds, 8, "Int"), h := NumGet(bounds, 12, "Int")
-        PaintButtonToDC(name.Hwnd, dc)
-        for point in [[0, 0], [w // 2, h // 2], [w - 1, h - 1]]
-        {
-            expected := DllCall("GetPixel", "Ptr", raster.DC,
-                "Int", x + point[1], "Int", y + point[2], "UInt")
-            actual := DllCall("GetPixel", "Ptr", dc, "Int", point[1], "Int", point[2], "UInt")
-            if expected = 0xFFFFFFFF || expected != actual
-                throw Error("Reduced Book label painted a mismatched parchment slice.")
-        }
-        originalHeight := raster.Height
-        page.BookBackground.Move(, , 480, 327)
-        resized := GetReducedBookRaster(page)
-        if !IsObject(resized) || resized.Height <= originalHeight
-            throw Error("Reduced Book did not regenerate for changed Picture bounds.")
-        page.OwnedContentScale := 1.0
-        if GetReducedBookRaster(page) || IsObject(ButtonPaint.BookRaster)
-            throw Error("Full-scale Book did not release the reduced raster.")
-    }
-    finally
-    {
-        if dc && oldBitmap
-            DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
-        if bitmap
-            DllCall("DeleteObject", "Ptr", bitmap)
-        if dc
-            DllCall("DeleteDC", "Ptr", dc)
-        if IsObject(page)
-            page.Destroy()
-        DestroyReducedBookRaster(synthetic)
-        if source
-            DllCall("gdiplus\GdipDisposeImage", "Ptr", source)
-        AccessibilityTextSize := savedMode
-    }
-}
-
 CheckExtendedBookArtwork()
 {
     global ButtonPaint
@@ -2163,8 +2050,6 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredPopulatedMacroBook()
     try FileAppend("CHECK: CheckExtendedBookArtwork (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckExtendedBookArtwork()
-    try FileAppend("CHECK: CheckReducedBookRaster (DPI=" A_ScreenDPI ")" Chr(10), "*")
-    CheckReducedBookRaster()
     try FileAppend("CHECK: CheckSharedBookExpansion (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckSharedBookExpansion()
     try FileAppend("CHECK: CheckTenCharacterBookExpansion (DPI=" A_ScreenDPI ")" Chr(10), "*")

@@ -27,8 +27,6 @@ ApplyCharacterBookScale(scale)
     if Abs(scale - previous) < 0.001
         return
     ScaleOwnedMenuContent(CharacterPage, scale)
-    if scale >= 0.999 && CharacterPage.HasOwnProp("BookRasterEnabled")
-        ReleaseReducedBookRaster(CharacterPage.BookBackground.Hwnd)
     if CharacterPage.HasOwnProp("BookBackground")
     {
         if CharacterPage.HasOwnProp("BookExtra") && CharacterPage.BookExtra
@@ -270,7 +268,6 @@ OpenCharacterPage(*)
     CharacterPage.BookMacroExtra := 0
     CharacterPage.BookBackground := CharacterPage.Add("Picture", "x0 y0 w960 h650",
         A_ScriptDir "\assets\backgrounds\character-book.png")
-    AttachReducedBookPainter(CharacterPage)
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
     ; Use the same native Morrowind-style face as Launcher Settings. Keep
     ; interactive buttons in their existing button font for readability.
