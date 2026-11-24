@@ -69,15 +69,18 @@ expect('SanitizeExistingDiagnosticLogs()' in diag,
 expect('"game-chat.log"' not in diag and '"game-chat-index.json"' not in diag,
        "private Discord archive must not be modified by log cleanup")
 startup = bootstrap.partition("\nStartLauncher()\n{")[2].partition("\n}")[0]
-presentation = embedded_chat.partition("\nShowLauncherWithGameUpdates()\n{")[2].partition("\n}")[0]
 start = startup.find("    LoadProfiles()")
 scrub = startup.find("    SanitizeExistingDiagnosticLogs()")
-chatstart = startup.find("    ShowLauncherWithGameUpdates()")
-expect(0 <= start < scrub < chatstart and "StartEmbeddedInGameChat" not in startup[:scrub],
-       "privacy scrub must follow profile loading and precede ChatHost")
-expect("        StartEmbeddedInGameChat()" in presentation
-       and "        SetTimer(StartEmbeddedInGameChat," in presentation,
-       "both launcher presentation paths must start ChatHost after the privacy scrub")
+show = startup.find("    ShowLauncherWindow()")
+chatstart = startup.find("    SetTimer(StartEmbeddedInGameChat, -1)")
+expect(0 <= start < scrub < show < chatstart
+       and startup.count("StartEmbeddedInGameChat") == 1,
+       "privacy scrub must follow profile loading and precede launcher presentation and ChatHost")
+expect(bootstrap.count("StartEmbeddedInGameChat") == 1
+       and embedded_chat.count("StartEmbeddedInGameChat") == 1
+       and "\nStartEmbeddedInGameChat()\n{" in embedded_chat
+       and "ShowLauncherWithGameUpdates" not in bootstrap + embedded_chat,
+       "ChatHost startup must use only the deferred post-scrub path")
 expect('content := SanitizeDiagnosticText(FileRead(path, "UTF-8"))' in settings
        and 'report .= SanitizeDiagnosticText(content)' in settings
        and 'A_Clipboard := SanitizeDiagnosticText(report)' in settings,
