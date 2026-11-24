@@ -87,9 +87,28 @@ class InventoryCoverageTests(unittest.TestCase):
         open_section = source[
             source.index("OpenCharacterPage(*)"):source.index("\nRefreshProfiles()\n{")]
         self.assertIn("cachedTextChanged := CharacterPage.HasOwnProp", open_section)
-        self.assertIn("if cachedTextChanged && !Profiles.Length", open_section)
+        self.assertIn("if cachedTextChanged", open_section)
         self.assertIn("RefreshProfiles()", open_section)
         self.assertIn('CharacterPage.Show("Hide w" Round(960 * bookScale)', open_section)
+
+    def test_populated_book_reflow_measures_and_restores_every_row(self):
+        root = SOURCE.parents[1] / "src/ui"
+        characters = (root / "characters.ahk").read_text(encoding="utf-8-sig")
+        renderer = (root / "renderer.ahk").read_text(encoding="utf-8-sig")
+        start = characters.index("ReflowAccessiblePopulatedCharacters()\n{")
+        end = characters.index("\nMoveStyledButton(control,", start)
+        section = characters[start:end]
+        self.assertIn("MeasureAccessibleWrappedText(CharacterDescription,", section)
+        self.assertIn("MeasureAccessibleWrappedText(controls.Name, name,", section)
+        self.assertIn("MeasureAccessibleSingleLineText(button, button.Text)", section)
+        self.assertIn("if addY + 30 > 570", section)
+        self.assertIn("MoveStyledButton(controls.Tick,", section)
+        self.assertIn("MoveStyledButton(controls.Name,", section)
+        self.assertIn("MoveStyledButton(button, x, layout.ButtonY,", section)
+        self.assertIn("RestoreAccessibleCharacterRowBaseline()", section)
+        self.assertIn("face.DeleteProp(\"NoAccessibleDownfit\")", section)
+        self.assertIn('face.HasOwnProp("NoAccessibleDownfit")', renderer)
+        self.assertIn("if cachedTextChanged", characters)
 
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
