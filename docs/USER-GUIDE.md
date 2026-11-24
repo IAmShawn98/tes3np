@@ -48,7 +48,7 @@ configuration and backs up the files it changes.
 
 If the server still rejects the load order, use **Copy Diagnostic Info** in
 the mismatch dialog. The report includes configuration flags and error counts.
-See [Expansion Pack import and recovery](PATCHING.md) for backup locations.
+Backups and import journals are stored under `%APPDATA%\tes3np\expansion-imports`.
 
 ## Custom TES3MP client and macros
 
@@ -61,7 +61,7 @@ from your Morrowind installation.
 
 The macro panel in **Manage Characters** accepts AutoHotkey scripts, ZIP
 packages, and links to installed Windows applications. Only run macros from
-sources you trust. See [Macro packages](MACRO-PACKAGES.md) for the format.
+sources you trust. ZIP packages must contain an `.ahk` script and its supporting files.
 
 ## Game Chat and Happy Hour
 
