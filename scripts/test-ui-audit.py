@@ -114,6 +114,9 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn('SetCharacterBookLayoutExtra("Characters", 0)', section)
         self.assertIn('Max(addY, 540 + GetCharacterBookExtra())', section)
         self.assertIn('compactWidths[3] + 10 <= 200', section)
+        self.assertIn('compactPitch <= stackedPitch', section)
+        self.assertIn('stackedFits', section)
+        self.assertIn('compactFits', section)
         self.assertIn('x += width + layout.Gap', section)
         parent = characters[characters.index('SetCharacterBookLayoutExtra(side, required)'):characters.index('\nGetCharacterBookExtra()')]
         self.assertIn('extra := Max(leftExtra, rightExtra)', parent)

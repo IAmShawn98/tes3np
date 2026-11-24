@@ -46,6 +46,8 @@ SetCharacterBookLayoutExtra(side, required)
     if !IsObject(CharacterPage) || !CharacterPage.HasOwnProp("BookBackground")
         return required = 0
     page := CharacterPage
+    if required > 0
+        page.BookExpansionFailure := ""
     required := Max(0, Ceil(required / 8) * 8)
     leftExtra := page.HasOwnProp("BookCharacterExtra") ? page.BookCharacterExtra : 0
     rightExtra := page.HasOwnProp("BookMacroExtra") ? page.BookMacroExtra : 0
@@ -70,13 +72,21 @@ SetCharacterBookLayoutExtra(side, required)
         dpi := A_ScreenDPI / 96
         if BookS(960) * dpi > right - left - 16
             || BookS(650 + extra) * dpi > bottom - top - 16
+        {
+            page.BookExpansionFailure := "Required " BookS(960) * dpi "x" BookS(650 + extra) * dpi
+                " pixels; available " (right - left - 16) "x" (bottom - top - 16)
+                " at scale " GetCharacterBookScale()
             return false
+        }
     }
     if extra != oldExtra
     {
         try ApplyExtendedBookArtwork(page, extra)
-        catch
+        catch Error as err
+        {
+            page.BookExpansionFailure := "Artwork extension failed: " err.Message
             return false
+        }
         ; WM_SETREDRAW(FALSE) removes WS_VISIBLE during the existing
         ; character refresh transaction. Resize even then, otherwise the
         ; larger Picture is clipped by the stale 650px parent after reveal.
@@ -382,11 +392,10 @@ ReflowAccessiblePopulatedCharacters()
         if position > count
             break
         name := controls.Name.Text
-        single := MeasureAccessibleSingleLineText(controls.Name, name)
-        ; Prefer the ORIGINAL one-line action columns. Enlarged Play/Edit/
-        ; Remove often still fit their actual measured widths, so keeping
-        ; them beside a wrapped name preserves space for six or more rows.
-        compactWidths := []
+        ; Measure BOTH arrangements. Narrow names next to the buttons can
+        ; use more vertical space than a full-width name above the buttons.
+        ; Choose the shorter complete row, not merely the first one that fits.
+        compactWidths := [], stackedWidths := []
         buttonHeight := 23
         for index, button in [controls.Play, controls.Edit, controls.Remove]
         {
@@ -394,52 +403,45 @@ ReflowAccessiblePopulatedCharacters()
             originalWidth := index = 1 ? 55 : index = 2 ? 60 : 75
             compactWidths.Push(Max(originalWidth,
                 Ceil((extent.Width + BookS(8)) / scale)))
+            stackedWidths.Push(Max(84, Ceil((extent.Width + BookS(12)) / scale)))
             buttonHeight := Max(buttonHeight,
                 Ceil((extent.Height + BookS(6)) / scale))
         }
-        ; The original 200px action band includes TWO 5px button gaps.
-        ; Six-pixel gaps made the minimum widths total 202px, preventing
-        ; the compact branch even when all three captions fit.
-        sameLine := compactWidths[1] + compactWidths[2]
+        compactFits := compactWidths[1] + compactWidths[2]
             + compactWidths[3] + 10 <= 200
-        if sameLine
+        stackedFits := stackedWidths[1] + stackedWidths[2] + stackedWidths[3] + 12 <= 370
+        if !compactFits && !stackedFits
         {
-            nameWidth := 140
-            buttonX := 240
-            widths := compactWidths
-            displayName := PrepareAccessibleBookName(controls.Name, name, BookS(134))
-            ; Prefer the wider column when a token needs explicit breaks.
-            if !(displayName == name)
-                sameLine := false
-            nameHeight := Max(23, Ceil((
-                MeasureAccessibleWrappedText(controls.Name, displayName, BookS(134))
-                + BookS(4)) / scale))
+            CharacterPage.BookExpansionFailure := "Character actions exceed both available bands."
+            RestoreAccessibleCharacterRowBaseline()
+            return false
         }
-        if !sameLine
+        displayName := PrepareAccessibleBookName(controls.Name, name, BookS(338))
+        nameHeight := Max(23, Ceil((
+            MeasureAccessibleWrappedText(controls.Name, displayName, BookS(338))
+            + BookS(4)) / scale))
+        stackedPitch := nameHeight + 4 + buttonHeight + 6
+        sameLine := false
+        if compactFits
         {
-            ; When the action captions genuinely need more horizontal room,
-            ; use the full parchment column, with buttons below the name.
-            nameWidth := 345
-            displayName := PrepareAccessibleBookName(controls.Name, name, BookS(338))
-            buttonX := 70
-            widths := []
-            for index, button in [controls.Play, controls.Edit, controls.Remove]
-            {
-                extent := MeasureAccessibleSingleLineText(button, button.Text)
-                widths.Push(Max(84, Ceil((extent.Width + BookS(18)) / scale)))
-            }
-            if widths[1] + widths[2] + widths[3] + 12 > 370
-            {
-                RestoreAccessibleCharacterRowBaseline()
-                return false
-            }
-            nameHeight := Max(23, Ceil((
-                MeasureAccessibleWrappedText(controls.Name, displayName, BookS(338))
+            compactDisplay := PrepareAccessibleBookName(controls.Name, name, BookS(134))
+            compactHeight := Max(23, Ceil((
+                MeasureAccessibleWrappedText(controls.Name, compactDisplay, BookS(134))
                 + BookS(4)) / scale))
+            compactPitch := Max(compactHeight, buttonHeight, 23) + 4
+            sameLine := !stackedFits || compactPitch <= stackedPitch
+            if sameLine
+            {
+                nameHeight := compactHeight
+                displayName := compactDisplay
+            }
         }
+        nameWidth := sameLine ? 140 : 345
+        buttonX := sameLine ? 240 : 70
+        widths := sameLine ? compactWidths : stackedWidths
         buttonY := sameLine ? rowY : rowY + nameHeight + 4
         nextY := sameLine ? rowY + Max(nameHeight, buttonHeight, 23) + 4
-            : buttonY + buttonHeight + 10
+            : buttonY + buttonHeight + 6
         layouts.Push({Controls: controls, Y: rowY, NameWidth: nameWidth,
             NameHeight: nameHeight, DisplayName: displayName, ButtonX: buttonX, ButtonY: buttonY,
             ButtonHeight: buttonHeight, Widths: widths,
@@ -457,6 +459,7 @@ ReflowAccessiblePopulatedCharacters()
     }
     addY := Max(540, rowY + 4,
         noticeVisible ? noticeY + noticeHeight + 8 : 0)
+    CharacterPage.BookRequiredCharacterExtra := Max(0, addY + 30 - 570)
     ; Preserve the original five-pixel Add/footer clearance. Expand the
     ; shared parent before moving rows if this measured stack needs space.
     if !SetCharacterBookLayoutExtra("Characters", Max(0, addY + 30 - 570))

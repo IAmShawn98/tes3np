@@ -1484,18 +1484,24 @@ CheckTenCharacterBookExpansion()
         ScaleOwnedMenuContent(page, 0.5)
         page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
         page.Show("Hide w480 h325")
-        if !ReflowAccessiblePopulatedCharacters() || GetCharacterBookExtra() <= 0
-            throw Error("Ten actual measured Extra Large character rows did not expand the Book.")
+        if !ReflowAccessiblePopulatedCharacters()
+            throw Error("Ten actual measured Extra Large character rows rejected: "
+                (page.HasOwnProp("BookExpansionFailure") ? page.BookExpansionFailure : "unknown reason")
+                "; requested extra=" (page.HasOwnProp("BookRequiredCharacterExtra") ? page.BookRequiredCharacterExtra : -1))
+        if GetCharacterBookExtra() <= 0
+            throw Error("Ten-character expansion fixture did not require extra space; requested="
+                page.BookRequiredCharacterExtra)
         CharacterDescription.GetPos(, &copyY, , &copyH)
         previousBottom := copyY + copyH
         for row in CharacterRows
         {
             row.Name.GetPos(, &ny, &nw, &nh)
-            display := PrepareAccessibleBookName(row.Name, row.Name.Text, Max(1, nw - BookS(7)))
+            width := nw = BookS(140) ? BookS(134) : BookS(338)
+            display := PrepareAccessibleBookName(row.Name, row.Name.Text, width)
             if StrReplace(display, "`n") != row.Name.Text
                 throw Error("Wrapping changed the actual character name.")
             if ny < previousBottom || nh < MeasureAccessibleWrappedText(row.Name,
-                display, Max(1, nw - BookS(7)))
+                display, width)
                 throw Error("Ten-character name overlaps preceding content or clips.")
             rowBottom := ny + nh
             for action in [row.Play, row.Edit, row.Remove]
