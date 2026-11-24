@@ -1245,7 +1245,8 @@ CheckMeasuredPopulatedMacroBook()
                 MacroBookControls := [heading, copy]
                 MacroBookRows := []
                 MacroItems := [{Name: "Macro one"}, {Name: "Macro two"},
-                    {Name: "Macro three"}, {Name: "Macro four"}]
+                    {Name: "Macro three"}, {Name: "Macro four"},
+                    {Name: "A longer fifth macro name requiring multiple lines"}]
                 MacroScrollOffset := 0
                 SetAccessibleTextFont(page, "s10 Norm", "Segoe UI")
                 MacroNameEdit := page.Add("Edit", "x551 y159 w125 h22 Hidden")
@@ -1287,6 +1288,9 @@ CheckMeasuredPopulatedMacroBook()
                 }
                 else if page.MacroRowsMeasured
                 {
+                    before := MeasureMacroNameCollection(MacroBookRows[1].Name, MacroItems, 270)
+                    if before.Items[5].Height > before.Height || before.Items.Length != 5
+                        throw Error("Macro collection ignored an offscreen name.")
                     for row in MacroBookRows
                     {
                         row.Status.GetPos(, &sy, , &sh)
@@ -1301,6 +1305,11 @@ CheckMeasuredPopulatedMacroBook()
                     required := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
                     if copyH < required || rowY < copyY + copyH + 5
                         throw Error("Populated macro rows overlap the larger explanation.")
+                    MacroScrollOffset := 1
+                    nextOffset := ReflowPopulatedMacroBook()
+                    if !page.MacroRowsMeasured || page.MacroRowPitch != pitch
+                        || nextOffset != offset || page.MacroViewportHeight != trackH
+                        throw Error("Scrolling changed measured Macro Book viewport geometry.")
                 }
             }
             finally page.Destroy()

@@ -146,6 +146,42 @@ MoveMacroStyledIfChanged(control, x, y, width, height)
         MoveStyledButton(control, x, y, width, height)
 }
 
+; Cache name measurements for the entire collection, not just the four
+; visible slots. Scrolling changes the visible labels, never the row pitch.
+MeasureMacroNameCollection(sample, items, maxNameW)
+{
+    global CharacterPage, AccessibilityTextSize
+    scale := GetCharacterBookScale()
+    font := DllCall("SendMessageW", "Ptr", sample.Hwnd, "UInt", 0x31,
+        "Ptr", 0, "Ptr", 0, "Ptr")
+    previous := CharacterPage.HasOwnProp("MacroNameMetrics") ? CharacterPage.MacroNameMetrics : 0
+    key := Format("{}|{}|{}|{}|{}", font, maxNameW, scale, A_ScreenDPI, AccessibilityTextSize)
+    cache := Map()
+    cache.CaseSense := true
+    ordered := [], maxHeight := 22
+    for item in items
+    {
+        if cache.Has(item.Name)
+            metrics := cache[item.Name]
+        else if IsObject(previous) && previous.Key == key && previous.Names.Has(item.Name)
+            metrics := previous.Names[item.Name]
+        else
+        {
+            extent := MeasureAccessibleSingleLineText(sample, item.Name)
+            width := Min(maxNameW, Max(90, Ceil((extent.Width + BookS(8)) / scale)))
+            displayName := PrepareAccessibleBookName(sample, item.Name, BookS(width - 8))
+            height := Ceil((MeasureAccessibleWrappedText(sample, displayName,
+                BookS(width - 8)) + BookS(4)) / scale)
+            metrics := {Width: width, Display: displayName, Height: height}
+        }
+        cache[item.Name] := metrics
+        ordered.Push(metrics)
+        maxHeight := Max(maxHeight, metrics.Height)
+    }
+    CharacterPage.MacroNameMetrics := {Key: key, Names: cache}
+    return {Items: ordered, Height: maxHeight}
+}
+
 ; The existing four-slot viewport uses a common measured row pitch. All
 ; rectangles are recomputed from Normal anchors, including the scroll track.
 ; Preflight the complete stack and request shared artwork height before
@@ -191,18 +227,15 @@ ReflowPopulatedMacroBook()
             nameH := Max(nameH, Ceil((editExtent.Height + BookS(8)) / scale))
         }
         maxNameW := 325 - Max(saveW, pencilW)
+        collection := MeasureMacroNameCollection(sample.Name, MacroItems, maxNameW)
+        nameH := Max(nameH, collection.Height)
         for position, row in MacroBookRows
         {
             if position > shownCount
                 break
-            item := MacroItems[MacroScrollOffset + position]
-            extent := MeasureAccessibleSingleLineText(row.Name, item.Name)
-            width := Min(maxNameW, Max(90, Ceil((extent.Width + BookS(8)) / scale)))
-            widths.Push(width)
-            displayName := PrepareAccessibleBookName(row.Name, item.Name, BookS(width - 8))
-            displayNames.Push(displayName)
-            nameH := Max(nameH, Ceil((MeasureAccessibleWrappedText(
-                row.Name, displayName, BookS(width - 8)) + BookS(4)) / scale))
+            metrics := collection.Items[MacroScrollOffset + position]
+            widths.Push(metrics.Width)
+            displayNames.Push(metrics.Display)
             for index, button in [row.Run, row.Stop, row.Remove]
             {
                 extent := MeasureAccessibleSingleLineText(button, button.Text)
@@ -247,6 +280,8 @@ ReflowPopulatedMacroBook()
         row.PencilWidth := pencilW
         if measured && position <= widths.Length
             row.NameWidth := widths[position]
+        else if !measured && row.NameScale = 0
+            row.NameWidth := 125
         if ButtonFaces.Has(row.Name.Hwnd)
         {
             face := ButtonFaces[row.Name.Hwnd]
