@@ -1800,6 +1800,75 @@ CheckMeasuredBookEditorGeometry()
     }
 }
 
+CheckMeasuredLauncherEdgeControls()
+{
+    global AccessibilityTextSize, LauncherGui, LauncherControlLayout, ButtonFaces
+    global LauncherExpansionToggle, LauncherChatToggle, DragStrip
+    savedMode := AccessibilityTextSize
+    savedGui := IsSet(LauncherGui) ? LauncherGui : 0
+    savedLayout := LauncherControlLayout
+    savedExpansion := IsSet(LauncherExpansionToggle) ? LauncherExpansionToggle : 0
+    savedChat := IsSet(LauncherChatToggle) ? LauncherChatToggle : 0
+    savedDrag := IsSet(DragStrip) ? DragStrip : 0
+    panel := CreateAccessibleLayoutGui("-Caption -Border")
+    buttons := []
+    try
+    {
+        AccessibilityTextSize := "Normal"
+        LauncherGui := panel
+        LauncherExpansionToggle := AddStyledButton(panel, 0, 0, 190, 27,
+            "Expansion Pack: Enabled", (*) => 0)
+        LauncherChatToggle := AddStyledButton(panel, 0, 294, 45, 112, "Game Chat", (*) => 0)
+        buttons := [LauncherExpansionToggle, LauncherChatToggle]
+        ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true
+        DragStrip := panel.Add("Text", "x205 y0 w589 h48", "")
+        CaptureLauncherControlLayout()
+        for scale in [0.5, 1.0]
+        {
+            for mode in ["Normal", "Large", "Extra Large", "Normal"]
+            {
+                AccessibilityTextSize := mode
+                for button in buttons
+                    ApplyLauncherButtonFont(ButtonFaces[button.Hwnd], scale)
+                ReflowLauncherAccessibleEdgeControls(scale)
+                LauncherExpansionToggle.GetPos(, , &ew, &eh)
+                LauncherChatToggle.GetPos(, &ty, &tw, &th)
+                DragStrip.GetPos(&dx, , &dw)
+                if mode = "Normal"
+                {
+                    if ew != Round(190 * scale) || eh != Round(27 * scale)
+                        || ty != Round(294 * scale) || tw != Round(45 * scale)
+                        || th != Round(112 * scale) || dx != Round(205 * scale)
+                        throw Error("Normal launcher edge geometry changed.")
+                }
+                else
+                {
+                    for caption in ["Expansion Pack: Enabled", "Expansion Pack: Disabled", "Expansion Pack: Unverified"]
+                    {
+                        extent := MeasureAccessibleSingleLineText(LauncherExpansionToggle, caption)
+                        if ew < extent.Width + 4 || eh < extent.Height + 2
+                            throw Error("Expansion state caption clips.")
+                    }
+                    metrics := MeasureLauncherChatCaption(LauncherChatToggle, scale)
+                    if Round(tw * A_ScreenDPI / 96) < metrics.RequiredWidth
+                        || Round(th * A_ScreenDPI / 96) < metrics.RequiredHeight
+                        || dx < ew || dx + dw != Round(794 * scale)
+                        throw Error("Measured launcher edge controls clip or overlap.")
+                }
+            }
+        }
+    }
+    finally
+    {
+        for button in buttons
+            UnregisterThemedControl(button)
+        panel.Destroy()
+        LauncherGui := savedGui, LauncherControlLayout := savedLayout
+        LauncherExpansionToggle := savedExpansion, LauncherChatToggle := savedChat, DragStrip := savedDrag
+        AccessibilityTextSize := savedMode
+    }
+}
+
 CheckMeasuredVersionStatusHeader()
 {
     global AccessibilityTextSize
@@ -1865,6 +1934,7 @@ CheckInterfaceTextAccessibility()
     try FileAppend("CHECK: CheckMeasuredBookEditorGeometry (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredBookEditorGeometry()
     CheckMeasuredVersionStatusHeader()
+    CheckMeasuredLauncherEdgeControls()
     try
     {
         bodyHeights := [], settingsHeights := []

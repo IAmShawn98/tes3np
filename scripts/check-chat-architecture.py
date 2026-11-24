@@ -2409,6 +2409,10 @@ expect(
     and 'Max(5, Round(size * scale))' in launcher_button_font
     and "ApplyLauncherButtonFont(face, scale)" in font_update
     and "ApplyLauncherButtonFont(face, scale)" in launcher_layout
+    and "ReflowLauncherAccessibleEdgeControls(scale)" in font_update
+    and "ReflowLauncherAccessibleEdgeControls(scale)" in launcher_layout
+    and "MeasureLauncherChatCaption(LauncherChatToggle, scale)" in launcher_layout
+    and "AccessibleEdgeRects" in launcher_layout
     and "face.Control.Move(" not in font_update,
 )
 # Interface Text is a single native font preference, not a button-only
@@ -2550,7 +2554,7 @@ expect(
     update_dialogs.count("CreateGoldNativePrompt(0,") == 3
     and update_dialogs.count("ShowGoldNativePrompt(") == 3
     and "ScaleOwnedMenuContent(panel, scale)" in update_dialogs
-    and "AddUpdateNotesViewport(panel, releaseNotes, scale)" in update_dialogs
+    and "AddUpdateNotesViewport(panel, releaseNotes, scale, 0, topExtra)" in update_dialogs
     and "scale := GetUpdatePromptFitScale(panel)" in update_dialogs
     and "(width - 32) / panel.NativePromptWidth" in update_dialogs
     and "(height - 32) / panel.NativePromptHeight" in update_dialogs
@@ -2645,7 +2649,7 @@ expect(
     and 'order := ["New Features", "Improvements", "Bug Fixes",' in update_notes
     and '"Changes in This Update"' in update_dialogs
     and 'if ReleaseNoteFits(titleControl, title, 548)' in update_dialogs
-    and 'AddUpdateNotesViewport(panel, releaseNotes, scale)' in update_dialogs
+    and 'AddUpdateNotesViewport(panel, releaseNotes, scale, 0, topExtra)' in update_dialogs
     and 'BuildPublishedPreviewSections(records)' in update_notes
     and '"Updates You Missed"' in update_dialogs
     and 'missedVersions := notes.HasOwnProp("MissedVersions") ? notes.MissedVersions : []' in update_dialogs
