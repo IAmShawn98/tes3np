@@ -57,25 +57,33 @@ WebView2RuntimeAvailable()
 ShowLauncherWithGameUpdates()
 {
     global EmbeddedChatPid, LauncherGui, LauncherUpdatesFirstPaintReady
-    if !SetPageCompositorCloak(LauncherGui, true)
-    {
-        ShowLauncherWindow()
-        SetTimer(StartEmbeddedInGameChat, -1)
-        return
-    }
-
+    LauncherGui.StartupPresenting := true
     try
     {
-        ShowLauncherWindow()
-        StartEmbeddedInGameChat()
-        ; The hosted frame inherits the launcher's cloak. Only wait for native
-        ; painting, with a short fallback for unavailable or slow Chat Hosts.
-        start := A_TickCount
-        while !LauncherUpdatesFirstPaintReady && EmbeddedChatPid
-            && ProcessExist(EmbeddedChatPid) && A_TickCount - start < 800
-            Sleep(10)
+        if !SetPageCompositorCloak(LauncherGui, true)
+        {
+            ShowLauncherWindow()
+            SetTimer(StartEmbeddedInGameChat, -1)
+        }
+        else
+        {
+            try
+            {
+                ShowLauncherWindow()
+                if DllCall("IsIconic", "Ptr", LauncherGui.Hwnd)
+                    DllCall("ShowWindow", "Ptr", LauncherGui.Hwnd, "Int", 9)
+                StartEmbeddedInGameChat()
+                ; Preserve the bounded Game Updates first-paint wait.
+                start := A_TickCount
+                while !LauncherUpdatesFirstPaintReady && EmbeddedChatPid
+                    && ProcessExist(EmbeddedChatPid) && A_TickCount - start < 800
+                    Sleep(10)
+            }
+            finally RevealPaintedPage(LauncherGui)
+        }
     }
-    finally RevealPaintedPage(LauncherGui)
+    finally LauncherGui.StartupPresenting := false
+    CompleteLauncherStartupPresentation(LauncherGui)
 }
 
 StartEmbeddedInGameChat()

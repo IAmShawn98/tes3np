@@ -721,6 +721,67 @@ CheckCachedCharacterReturn()
     ExitApp(0)
 }
 
+; Exercise actual native restore commands and direct ShowWindow on a disposable
+; launcher. Do not start Chat Host, read profiles or change saved settings.
+CheckLauncherNativePresentation()
+{
+    global LauncherGui
+    savedGui := LauncherGui
+    probe := Gui("-Caption -Border", "Launcher presentation smoke")
+    probe.Add("Text", "x12 y12 w230 h35", "Paint-ready launcher")
+    probe.Add("Button", "x12 y50 w120 h25", "Test")
+    LauncherGui := probe
+    RegisterLauncherPresentationHandlers()
+    try
+    {
+        probe.Show("w280 h100")
+        DllCall("ShowWindow", "Ptr", probe.Hwnd, "Int", 6)
+        if !DllCall("IsIconic", "Ptr", probe.Hwnd)
+            throw Error("Could not minimize launcher startup fixture.")
+        CompleteLauncherStartupPresentation(probe)
+        if DllCall("IsIconic", "Ptr", probe.Hwnd)
+            || !DllCall("IsWindowVisible", "Ptr", probe.Hwnd)
+            throw Error("Startup presentation left launcher minimized or hidden.")
+        before := Buffer(16, 0), after := Buffer(16, 0)
+        DllCall("GetWindowRect", "Ptr", probe.Hwnd, "Ptr", before)
+        for direct in [false, true]
+        {
+            DllCall("ShowWindow", "Ptr", probe.Hwnd, "Int", 6)
+            Sleep(50)
+            if !DllCall("IsIconic", "Ptr", probe.Hwnd)
+                throw Error("Ordinary minimize was not preserved.")
+            if direct
+                DllCall("ShowWindow", "Ptr", probe.Hwnd, "Int", 9)
+            else if !DllCall("PostMessageW", "Ptr", probe.Hwnd, "UInt", 0x0112,
+                "Ptr", 0xF120, "Ptr", 0, "Int")
+                throw Error("Could not post native restore command.")
+            start := A_TickCount
+            while DllCall("IsIconic", "Ptr", probe.Hwnd) && A_TickCount - start < 1000
+                Sleep(10)
+            if DllCall("IsIconic", "Ptr", probe.Hwnd)
+                || !DllCall("IsWindowVisible", "Ptr", probe.Hwnd)
+                || (probe.HasOwnProp("RestorePresenting") && probe.RestorePresenting)
+                throw Error("Native launcher restore did not complete.")
+            cloak := Buffer(4, 0)
+            if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", probe.Hwnd,
+                "UInt", 14, "Ptr", cloak, "UInt", 4, "Int") = 0
+                && (NumGet(cloak, 0, "Int") & 1)
+                throw Error("Launcher remained compositor-cloaked after restore.")
+            DllCall("GetWindowRect", "Ptr", probe.Hwnd, "Ptr", after)
+            for offset in [0, 4, 8, 12]
+                if NumGet(before, offset, "Int") != NumGet(after, offset, "Int")
+                    throw Error("Native restore changed launcher bounds.")
+        }
+    }
+    finally
+    {
+        OnMessage(0x0112, LauncherWindowSystemCommand, 0)
+        OnMessage(0x0005, LauncherWindowSizeMessage, 0)
+        LauncherGui := savedGui
+        probe.Destroy()
+    }
+}
+
 ; Exercise owner-relative positioning, monitor bounds, and scaled font cleanup.
 CheckOwnedMenuScaling()
 {
@@ -818,6 +879,8 @@ CheckOwnedMenuScaling()
                 ExitApp(221)
             }
         }
+        try FileAppend("CHECK: CheckLauncherNativePresentation" Chr(10), "*")
+        CheckLauncherNativePresentation()
         CheckDisplaySettingsAndReleaseNotes()
         ; A compiled GUI launch can lack console streams. Preserve the real result.
         try FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")

@@ -359,7 +359,7 @@ internal sealed partial class GameChatWindow
         Log("STARTUP | Chat position and visibility ready in " + dockClock.ElapsedMilliseconds + "ms");
         // Actual launcher movement repairs the missing frame pixels on layered AHK windows.
         // Reproduce that exact compositor event once, then restore its original position.
-        if (GetWindowRect(owner, out var bounds))
+        if (!IsIconic(owner) && IsWindowVisible(owner) && GetWindowRect(owner, out var bounds))
         {
             const uint SWP_NOSIZE_NOZORDER_NOACTIVATE = 0x0001 | 0x0004 | 0x0010;
             Log("STARTUP | Owner compositor refresh begin");

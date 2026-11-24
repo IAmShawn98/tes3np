@@ -468,6 +468,20 @@ expect(
     and "(discordAccountStatus == DiscordAccountStatus.Checking && serverUpdatesDisplay.Open)" in server_updates,
 )
 expect(
+    "Launcher startup activates after reveal and native restore stages child paint",
+    'RegisterLauncherPresentationHandlers()' in bootstrap
+    and 'OnMessage(0x0112, LauncherWindowSystemCommand)' in launcher_layout
+    and 'OnMessage(0x0005, LauncherWindowSizeMessage)' in launcher_layout
+    and in_order(section_between(embedded_chat, "ShowLauncherWithGameUpdates()", "StartEmbeddedInGameChat()\n{"),
+                 "finally RevealPaintedPage(LauncherGui)", "CompleteLauncherStartupPresentation(LauncherGui)")
+    and in_order(section_between(launcher_layout, "RestoreLauncherWindow(gui)\n{", "CompleteLauncherStartupPresentation(gui)"),
+                 "SetPageCompositorCloak(gui, true)", 'DllCall("ShowWindow", "Ptr", gui.Hwnd, "Int", 9)',
+                 "PaintRestoredLauncher(gui, staged)")
+    and 'if (!IsIconic(owner) && IsWindowVisible(owner) && GetWindowRect(owner, out var bounds))' in source
+    and 'CheckLauncherNativePresentation()' in launcher_smoke_tests,
+)
+
+expect(
     "Game Updates tracks its launcher anchor as an owned top-level window",
     'LauncherGui.OnEvent("Size", LauncherServerUpdatesResized)' in bootstrap
     and "SetTimer(RepaintLauncherServerUpdates, -50)" in embedded_chat
