@@ -126,6 +126,41 @@ MacroItemDisplayState(item)
     return {Text: "Ready", Error: false}
 }
 
+; The empty Macro Book shares the approved fixed parchment with Characters.
+; Measure its complete copy and move the notice and Upload as a single stack.
+; Populated rows have a separate scrolling/rename layout and stay untouched.
+ReflowEmptyMacroBook()
+{
+    global CharacterPage, MacroItems, MacroBookControls
+    global MacroEmptyNotice, AccessibilityTextSize
+    if !IsObject(CharacterPage) || MacroBookControls.Length < 2
+        return 188
+    explanation := MacroBookControls[2]
+    explanation.Move(BookS(525), BookS(87), BookS(355), BookS(48))
+    MacroEmptyNotice.Move(BookS(525), BookS(150), BookS(355), BookS(28))
+    if MacroItems.Length || AccessibilityTextSize = "Normal"
+        return 188
+    scale := GetCharacterBookScale()
+    copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
+        explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
+        + BookS(4))
+    emptyHeight := Max(BookS(28), MeasureAccessibleWrappedText(
+        MacroEmptyNotice, MacroEmptyNotice.Text,
+        Max(1, BookS(355) - BookS(4))) + BookS(4))
+    copyHeightLogical := Ceil(copyHeight / scale)
+    emptyHeightLogical := Ceil(emptyHeight / scale)
+    noticeY := Max(150, 87 + copyHeightLogical + 15)
+    uploadY := Max(188, noticeY + emptyHeightLogical + 10)
+    ; Reserve room for existing upload-progress copy below Upload, even
+    ; when this particular refresh has no visible error.
+    if uploadY + 29 + 36 + 30 > 570
+        return 188
+    explanation.Move(BookS(525), BookS(87), BookS(355), copyHeight)
+    MacroEmptyNotice.Move(BookS(525), BookS(noticeY),
+        BookS(355), BookS(emptyHeightLogical))
+    return uploadY
+}
+
 RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
@@ -206,7 +241,9 @@ RefreshMacroBookRows()
     ; For 0/1/2/3/4+ entries, y is 188/214/284/354/424.
     ; Match row pitch so Upload stays 12px clear of final action row.
     visibleCount := Min(count, MacroBookRows.Length)
-    desiredUploadY := count = 0 ? 188 : 214 + (visibleCount - 1) * 70
+    emptyUploadY := ReflowEmptyMacroBook()
+    desiredUploadY := count = 0 ? emptyUploadY
+        : 214 + (visibleCount - 1) * 70
     MacroImportButton.GetPos(, &oldUploadY)
     if oldUploadY != BookS(desiredUploadY)
     {
@@ -216,7 +253,6 @@ RefreshMacroBookRows()
         if wasVisible
             MacroImportButton.Visible := false
         MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)
-        MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36), BookS(355), BookS(30))
         if wasVisible
         {
             MacroImportButton.Visible := true
@@ -225,6 +261,10 @@ RefreshMacroBookRows()
                     "Ptr", 0, "Ptr", 0, "UInt", 0x385)
         }
     }
+    ; The message must follow Upload even if its visible text changed
+    ; without a button move. The previous path left this at an old Y.
+    MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36),
+        BookS(355), BookS(30))
     ; Only import failures/progress use the message area below Upload.
     ; Regular Ready/Running/Missing appears above each macro's name.
     feedback := MacroStatus.Text
