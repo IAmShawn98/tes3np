@@ -15,6 +15,7 @@ ButtonWindowProc(handle, message, wParam, lParam, subclassID, reference)
     {
         ; Closing a parent destroys its child HWNDs without calling the
         ; individual control helpers. Unregister before HWND reuse.
+        ReleaseLauncherFaceCache(handle)
         if ButtonFaces.Has(handle)
             try UnregisterThemedControl(ButtonFaces[handle].Control)
     }
@@ -435,7 +436,204 @@ ApplyExtendedBookArtwork(page, extra)
     }
 }
 
-PaintButton(wParam, lParam, *)
+global LauncherFaceCache := Map()
+global LauncherFacePaintBusy := Map()
+
+; Reuse finished artwork only for the stable main-launcher faces.
+; Cached bitmaps are unselected between paints; never retain a DC or desktop capture.
+LauncherFaceCacheEligible(face)
+{
+    global LauncherGui
+    if !IsSet(LauncherGui) || !IsObject(LauncherGui) || face.Window != LauncherGui.Hwnd
+        return false
+    if face.HasOwnProp("IsDiscordName") || face.HasOwnProp("IsDiscordPortrait")
+        || face.HasOwnProp("IsLoading") || face.HasOwnProp("IsTick")
+        || face.HasOwnProp("MacroSelected") || face.HasOwnProp("UseControlPosition")
+        || face.Gui.HasOwnProp("BookBackground")
+        return false
+    if face.HasOwnProp("IsInfo") || face.HasOwnProp("IsChatTab")
+        return true
+    if face.HasOwnProp("IsLabel") || !face.HasOwnProp("Y")
+        return false
+    ; Four action rows, Expansion Pack and Settings only.
+    return face.Y = 447 || face.Y = 487 || face.Y = 527 || face.Y = 567
+        || face.Y = 0 || face.Y = 684
+}
+
+LauncherFaceCacheKey(handle, face, width, height)
+{
+    global LauncherScale, AccessibilityTextSize, EnhancedReadability, LauncherChatOpen
+    font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+    definition := Buffer(92, 0) ; LOGFONTW: an HFONT alone can be recycled.
+    if !font || DllCall("gdi32\GetObjectW", "Ptr", font, "Int", definition.Size,
+        "Ptr", definition, "Int") != definition.Size
+        return ""
+    fontKey := ""
+    Loop 23
+        fontKey .= Format("{:08X}", NumGet(definition, (A_Index - 1) * 4, "UInt"))
+    face.Control.GetPos(&x, &y, &logicalWidth, &logicalHeight)
+    caption := face.Control.Text
+    return width "|" height "|" font "|" fontKey "|" LauncherScale "|" A_ScreenDPI
+        . "|" AccessibilityTextSize "|" EnhancedReadability
+        . "|" (face.HasOwnProp("IsChatTab") ? LauncherChatOpen : 0)
+        . "|" face.State "|" face.Y "|" (face.HasOwnProp("X") ? face.X : 0)
+        . "|" x "|" y "|" logicalWidth "|" logicalHeight "|" face.Control.Enabled
+        . "|" (face.HasOwnProp("Book") ? face.Book : 0)
+        . "|" (face.HasOwnProp("BaseWidth") ? face.BaseWidth : 0)
+        . "|" (face.HasOwnProp("BaseHeight") ? face.BaseHeight : 0)
+        . "|" (face.HasOwnProp("TopPadding") ? face.TopPadding : 0)
+        . "|" (face.HasOwnProp("TextColor") ? face.TextColor : "default")
+        . "|" (face.HasOwnProp("Heading") ? face.Heading : "")
+        . "|" (face.HasOwnProp("BodyBottom") ? face.BodyBottom : 0)
+        . "|" StrLen(caption) ":" caption
+}
+
+ReleaseLauncherFaceCache(handle)
+{
+    global LauncherFaceCache, LauncherFacePaintBusy
+    previousCritical := A_IsCritical
+    Critical("On")
+    try
+    {
+        ; Nested destruction must not delete a selected bitmap.
+        if LauncherFacePaintBusy.Has(handle)
+        {
+            LauncherFacePaintBusy[handle] := true
+            return
+        }
+        if !LauncherFaceCache.Has(handle)
+            return
+        for state, entry in LauncherFaceCache[handle]
+            DllCall("gdi32\DeleteObject", "Ptr", entry.Bitmap)
+        LauncherFaceCache.Delete(handle)
+    }
+    finally Critical(previousCritical)
+}
+
+ForgetThemedFace(handle)
+{
+    global ButtonFaces
+    ReleaseLauncherFaceCache(handle)
+    if ButtonFaces.Has(handle)
+        ButtonFaces.Delete(handle)
+}
+
+DisposeLauncherFaceCache()
+{
+    global LauncherFaceCache
+    handles := []
+    for handle in LauncherFaceCache
+        handles.Push(handle)
+    for handle in handles
+        ReleaseLauncherFaceCache(handle)
+}
+
+PaintButton(wParam, lParam, args*)
+{
+    global ButtonFaces, ButtonPaint
+    if !lParam || !IsSet(ButtonPaint) || ButtonPaint.Disposed
+        return
+    handle := NumGet(lParam, A_PtrSize = 8 ? 24 : 20, "Ptr")
+    if ButtonFaces.Has(handle) && DllCall("IsWindow", "Ptr", handle)
+        && LauncherFaceCacheEligible(ButtonFaces[handle])
+        return PaintReusableLauncherFace(wParam, lParam, handle, ButtonFaces[handle], args*)
+    return RenderButtonFace(wParam, lParam, args*)
+}
+
+PaintReusableLauncherFace(wParam, lParam, handle, face, args*)
+{
+    global LauncherFaceCache, LauncherFacePaintBusy, ButtonFaces, ButtonPaint
+    if LauncherFacePaintBusy.Has(handle)
+        return RenderButtonFace(wParam, lParam, args*)
+    target := NumGet(lParam, A_PtrSize = 8 ? 32 : 24, "Ptr")
+    rect := A_PtrSize = 8 ? 40 : 28
+    width := NumGet(lParam, rect + 8, "Int") - NumGet(lParam, rect, "Int")
+    height := NumGet(lParam, rect + 12, "Int") - NumGet(lParam, rect + 4, "Int")
+    state := face.State
+    if !target || width <= 0 || height <= 0
+        || (state != "normal" && state != "hover" && state != "down")
+        return RenderButtonFace(wParam, lParam, args*)
+    previousCritical := A_IsCritical
+    Critical("On")
+    LauncherFacePaintBusy[handle] := false
+    dc := 0, bitmap := 0, oldBitmap := 0, ownedBitmap := false
+    try
+    {
+        if !ButtonFaces.Has(handle) || ButtonFaces[handle] != face
+            return
+        key := LauncherFaceCacheKey(handle, face, width, height)
+        if key = ""
+            return RenderButtonFace(wParam, lParam, args*)
+        if !LauncherFaceCache.Has(handle)
+            LauncherFaceCache[handle] := Map()
+        states := LauncherFaceCache[handle]
+        hit := states.Has(state) && states[state].Face = face && states[state].Key == key
+        dc := DllCall("gdi32\CreateCompatibleDC", "Ptr", target, "Ptr")
+        if !dc
+            return RenderButtonFace(wParam, lParam, args*)
+        if hit
+            bitmap := states[state].Bitmap
+        else
+        {
+            bitmap := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
+            ownedBitmap := !!bitmap
+        }
+        if !bitmap
+            return RenderButtonFace(wParam, lParam, args*)
+        oldBitmap := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !oldBitmap || oldBitmap = -1
+        {
+            oldBitmap := 0
+            return RenderButtonFace(wParam, lParam, args*)
+        }
+        if !hit
+        {
+            ; Keep the original painter and its complete DRAWITEMSTRUCT.
+            item := Buffer(A_PtrSize = 8 ? 64 : 48, 0)
+            DllCall("ntdll\RtlMoveMemory", "Ptr", item, "Ptr", lParam, "UPtr", item.Size)
+            NumPut("Ptr", dc, item, A_PtrSize = 8 ? 32 : 24)
+            if !RenderButtonFace(wParam, item.Ptr, args*)
+                return
+            ; Nested callbacks may change inputs or destroy the HWND.
+            if LauncherFacePaintBusy[handle] || ButtonPaint.Disposed
+                || !ButtonFaces.Has(handle) || ButtonFaces[handle] != face
+                || !DllCall("IsWindow", "Ptr", handle)
+                return
+            if !(key == LauncherFaceCacheKey(handle, face, width, height))
+                return RenderButtonFace(wParam, lParam, args*)
+        }
+        if !DllCall("gdi32\BitBlt", "Ptr", target, "Int", 0, "Int", 0,
+            "Int", width, "Int", height, "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+            return RenderButtonFace(wParam, lParam, args*)
+        if !hit
+        {
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+            oldBitmap := 0
+            ; At most one bitmap for each of normal, hover and down.
+            if states.Has(state)
+                DllCall("gdi32\DeleteObject", "Ptr", states[state].Bitmap)
+            states[state] := {Face: face, Key: key, Bitmap: bitmap}
+            ownedBitmap := false
+        }
+        return true
+    }
+    finally
+    {
+        if oldBitmap
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        if ownedBitmap
+            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
+        if dc
+            DllCall("gdi32\DeleteDC", "Ptr", dc)
+        releasePending := LauncherFacePaintBusy[handle]
+        LauncherFacePaintBusy.Delete(handle)
+        if releasePending
+            ReleaseLauncherFaceCache(handle)
+        Critical(previousCritical)
+    }
+}
+
+RenderButtonFace(wParam, lParam, *)
 {
     previousCritical := A_IsCritical
     Critical("On")
@@ -448,7 +646,7 @@ PaintButton(wParam, lParam, *)
         if !handle || !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
         {
             if handle && ButtonFaces.Has(handle)
-                ButtonFaces.Delete(handle)
+                ForgetThemedFace(handle)
             return
         }
         face := ButtonFaces[handle]
@@ -473,14 +671,14 @@ PaintButton(wParam, lParam, *)
             ; Controls can be destroyed while a queued paint is unwinding.
             if !DllCall("IsWindow", "Ptr", handle)
             {
-                ButtonFaces.Delete(handle)
+                ForgetThemedFace(handle)
                 return
             }
             try labelText := face.Label.Text
             catch
             {
                 if ButtonFaces.Has(handle)
-                    ButtonFaces.Delete(handle)
+                    ForgetThemedFace(handle)
                 return
             }
         }
@@ -773,6 +971,7 @@ DisposeButtonPainter(*)
     if !IsSet(ButtonPaint) || ButtonPaint.Disposed
         return
     ButtonPaint.Disposed := true
+    DisposeLauncherFaceCache()
     OnMessage(0x002B, PaintButton, 0)
     OnMessage(0x0014, KeepButtonBackground, 0)
     OnMessage(0x0020, HandleNativeClickableCursor, 0)
