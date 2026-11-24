@@ -102,10 +102,136 @@ InitButtonPainter()
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\quest.png", "Ptr*", &quest)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\together.png", "Ptr*", &together)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\icons\discord.png", "Ptr*", &discordLogo)
-    ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book, DiscordLogo: discordLogo}
+    ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book, BookExtended: 0, DiscordLogo: discordLogo}
     OnMessage(0x002B, PaintButton)
     OnMessage(0x0014, KeepButtonBackground)
     OnMessage(0x0020, HandleNativeClickableCursor)
+}
+
+; Insert mirrored strips in the straight middle of the existing Book.
+; The observed right-hand parchment begins its triangular footer below
+; this band. All original pixels, including corners, spine and triangle,
+; remain in their original order; no decorative region is stretched.
+CreateExtendedBookArtwork(source, extra)
+{
+    if !source || extra <= 0
+        throw Error("An original book and positive extension are required.")
+    width := 0, height := 0
+    if DllCall("gdiplus\GdipGetImageWidth", "Ptr", source, "UInt*", &width)
+        || DllCall("gdiplus\GdipGetImageHeight", "Ptr", source, "UInt*", &height)
+        || width < 1 || height < 1
+        throw Error("Could not read the original Book artwork.")
+    seam := Round(height * 340 / 650)
+    band := Max(1, Round(height * 80 / 650))
+    added := 2 * Ceil(extra * height / 1300)
+    result := 0, graphics := 0
+    try
+    {
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width,
+            "Int", height + added, "Int", 0, "Int", 0x26200A,
+            "Ptr", 0, "Ptr*", &result) || !result
+            throw Error("Could not allocate extended Book artwork.")
+        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", result,
+            "Ptr*", &graphics) || !graphics
+            throw Error("Could not prepare extended Book artwork.")
+        DllCall("gdiplus\GdipSetCompositingMode", "Ptr", graphics, "Int", 1)
+        DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 5)
+        DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
+        DrawBookArtworkStrip(graphics, source, width, 0, seam, 0)
+        dest := seam, remaining := added
+        while remaining
+        {
+            half := Min(band, remaining // 2)
+            ; Reverse the strip and then copy it forward to return to the
+            ; same source seam. All pixels are copied at native dimensions.
+            points := Buffer(24, 0)
+            NumPut("Int", 0, "Int", dest + half,
+                "Int", width, "Int", dest + half,
+                "Int", 0, "Int", dest, points)
+            if DllCall("gdiplus\GdipDrawImagePointsRectI", "Ptr", graphics,
+                "Ptr", source, "Ptr", points, "Int", 3,
+                "Int", 0, "Int", seam - half, "Int", width, "Int", half,
+                "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
+                throw Error("Could not mirror the Book texture.")
+            DrawBookArtworkStrip(graphics, source, width, seam - half,
+                half, dest + half)
+            dest += 2 * half, remaining -= 2 * half
+        }
+        DrawBookArtworkStrip(graphics, source, width, seam, height - seam, dest)
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        image := result
+        result := 0
+        return image
+    }
+    finally
+    {
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if result
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", result)
+    }
+}
+
+DrawBookArtworkStrip(graphics, source, width, sourceY, height, destY)
+{
+    if DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics,
+        "Ptr", source, "Int", 0, "Int", destY, "Int", width, "Int", height,
+        "Int", 0, "Int", sourceY, "Int", width, "Int", height,
+        "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
+        throw Error("Could not copy a Book artwork strip.")
+}
+
+; The Picture control and owner-drawn controls must share ONE composed
+; image. The temporary PNG is only a native Picture loading mechanism;
+; it is deleted immediately and never enters launcher data or the package.
+ApplyExtendedBookArtwork(page, extra)
+{
+    global ButtonPaint
+    InitButtonPainter()
+    oldImage := ButtonPaint.BookExtended
+    oldExtra := page.HasOwnProp("BookExtra") ? page.BookExtra : 0
+    if !extra
+    {
+        page.BookBackground.Move(, , BookS(960), BookS(650))
+        page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+        page.BookExtra := 0
+        ButtonPaint.BookExtended := 0
+        if oldImage
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", oldImage)
+        return
+    }
+    candidate := 0, temporary := A_Temp "\tes3np-book-" NewLauncherFileId() ".png"
+    try
+    {
+        candidate := CreateExtendedBookArtwork(ButtonPaint.Book, extra)
+        encoder := Buffer(16, 0)
+        if DllCall("ole32\CLSIDFromString",
+            "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", encoder)
+            || DllCall("gdiplus\GdipSaveImageToFile", "Ptr", candidate,
+                "WStr", temporary, "Ptr", encoder, "Ptr", 0)
+            throw Error("Could not encode extended Book artwork.")
+        ; The image is ready before changing the visible Picture rectangle.
+        page.BookBackground.Move(, , BookS(960), BookS(650 + extra))
+        page.BookBackground.Value := temporary
+        page.BookExtra := extra
+        ButtonPaint.BookExtended := candidate
+        candidate := 0
+        if oldImage
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", oldImage)
+    }
+    catch Error as err
+    {
+        page.BookBackground.Move(, , BookS(960), BookS(650 + oldExtra))
+        throw err
+    }
+    finally
+    {
+        if candidate
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", candidate)
+        if FileExist(temporary)
+            try FileDelete(temporary)
+    }
 }
 
 PaintButton(wParam, lParam, *)
@@ -178,12 +304,15 @@ PaintButton(wParam, lParam, *)
             face.Control.GetPos(&logicalX, &logicalY, &logicalWidth, &logicalHeight)
             dpiScale := width / logicalWidth
             x := face.X, y := face.Y, bookWidth := 960, bookHeight := 650
-            if face.HasOwnProp("UseControlPosition")
+            extended := face.Gui.HasOwnProp("BookExtra") && face.Gui.BookExtra
+                && ButtonPaint.BookExtended
+            if face.HasOwnProp("UseControlPosition") || extended
             {
                 x := logicalX, y := logicalY
                 face.Gui.BookBackground.GetPos(, , &bookWidth, &bookHeight)
             }
-            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Book, "Int", Round(-x * dpiScale), "Int", Round(-y * dpiScale), "Int", Round(bookWidth * dpiScale), "Int", Round(bookHeight * dpiScale))
+            bookImage := extended ? ButtonPaint.BookExtended : ButtonPaint.Book
+            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", bookImage, "Int", Round(-x * dpiScale), "Int", Round(-y * dpiScale), "Int", Round(bookWidth * dpiScale), "Int", Round(bookHeight * dpiScale))
         }
         else
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))
@@ -426,7 +555,7 @@ DisposeButtonPainter(*)
                 DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", ButtonPaintCallback, "UPtr", 1)
         CallbackFree(ButtonPaintCallback)
     }
-    for image in [ButtonPaint.Artwork, ButtonPaint.Parchment, ButtonPaint.Book, ButtonPaint.Background, ButtonPaint.DiscordLogo]
+    for image in [ButtonPaint.Artwork, ButtonPaint.Parchment, ButtonPaint.Book, ButtonPaint.BookExtended, ButtonPaint.Background, ButtonPaint.DiscordLogo]
         if image
             DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
     for heading in ButtonPaint.Headings

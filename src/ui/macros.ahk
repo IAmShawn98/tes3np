@@ -215,10 +215,12 @@ ReflowPopulatedMacroBook()
         }
     }
     pitch := statusH + 2 + nameH + 1 + actionH + 8
-    if !measured || 140 + offset + shownCount * pitch + 4 + 36 + 30 > 570
+    requiredExtra := Max(0, 144 + offset + shownCount * pitch + 36 + 30 - 570)
+    if !measured || !SetCharacterBookLayoutExtra("Macros", requiredExtra)
     {
         ; Preserve the previous feasible intro-only layout until the
         ; intact parchment can accommodate the entire measured stack.
+        SetCharacterBookLayoutExtra("Macros", 0)
         measured := false
         statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
         pitch := 70
@@ -272,6 +274,7 @@ ReflowEmptyMacroBook()
     global MacroEmptyNotice, AccessibilityTextSize
     if !IsObject(CharacterPage) || MacroBookControls.Length < 2
         return 188
+    SetCharacterBookLayoutExtra("Macros", 0)
     explanation := MacroBookControls[2]
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
         BookS(355), BookS(48))

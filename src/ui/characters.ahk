@@ -28,7 +28,80 @@ ApplyCharacterBookScale(scale)
         return
     ScaleOwnedMenuContent(CharacterPage, scale)
     if CharacterPage.HasOwnProp("BookBackground")
-        CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+    {
+        if CharacterPage.HasOwnProp("BookExtra") && CharacterPage.BookExtra
+            ApplyExtendedBookArtwork(CharacterPage, CharacterPage.BookExtra)
+        else
+            CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+    }
+}
+
+; Each column requests only the extra space it actually needs. The common
+; parent takes the larger request, retains the approved footer gaps, and
+; never silently reduces text or launcher scale to fit the monitor.
+SetCharacterBookLayoutExtra(side, required)
+{
+    global CharacterPage, LauncherGui, Profiles, AddCharacterButton
+    global WipeCharacterButton, DataTransferButton
+    if !IsObject(CharacterPage) || !CharacterPage.HasOwnProp("BookBackground")
+        return required = 0
+    page := CharacterPage
+    required := Max(0, Ceil(required / 8) * 8)
+    leftExtra := page.HasOwnProp("BookCharacterExtra") ? page.BookCharacterExtra : 0
+    rightExtra := page.HasOwnProp("BookMacroExtra") ? page.BookMacroExtra : 0
+    if side = "Characters"
+        leftExtra := required
+    else
+        rightExtra := required
+    extra := Max(leftExtra, rightExtra)
+    oldExtra := page.HasOwnProp("BookExtra") ? page.BookExtra : 0
+    if extra > oldExtra
+    {
+        if !IsObject(LauncherGui)
+            return false
+        WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
+        monitor := MonitorFromPoint(x + w // 2, y + h // 2)
+        MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
+        dpi := A_ScreenDPI / 96
+        if BookS(960) * dpi > right - left - 16
+            || BookS(650 + extra) * dpi > bottom - top - 16
+            return false
+    }
+    if extra != oldExtra
+    {
+        try ApplyExtendedBookArtwork(page, extra)
+        catch
+            return false
+        ; Hidden/cached pages are resized by their existing staged Show.
+        ; A live page changes size without activation or a visibility toggle.
+        if DllCall("IsWindowVisible", "Ptr", page.Hwnd)
+        {
+            DllCall("SetWindowPos", "Ptr", page.Hwnd, "Ptr", 0,
+                "Int", 0, "Int", 0, "Int", Round(BookS(960) * A_ScreenDPI / 96),
+                "Int", Round(BookS(650 + extra) * A_ScreenDPI / 96), "UInt", 0x16)
+            PositionOwnedMenuAtParent(page, LauncherGui)
+        }
+    }
+    page.BookCharacterExtra := leftExtra
+    page.BookMacroExtra := rightExtra
+    ; RefreshProfiles can restore its normal positions before this call.
+    ; Reconcile all shared footer controls even when the height is unchanged.
+    if IsObject(page.BookCloseButton)
+        MoveMacroStyledIfChanged(page.BookCloseButton, 515, 575 + extra, 90, 30)
+    if Profiles.Length
+    {
+        MoveMacroStyledIfChanged(AddCharacterButton, 70, 540 + extra, 370, 30)
+        MoveMacroStyledIfChanged(WipeCharacterButton, 70, 575 + extra, 370, 30)
+        MoveMacroStyledIfChanged(DataTransferButton, 775, 575 + extra, 110, 30)
+    }
+    return true
+}
+
+GetCharacterBookExtra()
+{
+    global CharacterPage
+    return IsObject(CharacterPage) && CharacterPage.HasOwnProp("BookExtra")
+        ? CharacterPage.BookExtra : 0
 }
 
 OpenCharacterPage(*)
@@ -52,14 +125,18 @@ OpenCharacterPage(*)
                 && CharacterPage.InterfaceFontMode != AccessibilityTextSize
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
+            scaleChanged := Abs(GetCharacterBookScale() - bookScale) >= 0.001
             ApplyCharacterBookScale(bookScale)
             ; Both empty and populated Character Book rows depend on the
             ; selected native font. Recompute only after a cached text-choice
             ; change; ordinary reopen keeps its previously accepted fast path.
-            if cachedTextChanged
+            if cachedTextChanged || scaleChanged
+            {
                 RefreshProfiles()
+                RefreshMacroProcesses()
+            }
             CharacterPage.Show("Hide w" Round(960 * bookScale)
-                " h" Round(650 * bookScale))
+                " h" Round((650 + GetCharacterBookExtra()) * bookScale))
             PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
             CharacterPage.Show()
             if staged
@@ -91,6 +168,9 @@ OpenCharacterPage(*)
     V016CharacterLayoutApplied := false
     CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
+    CharacterPage.BookExtra := 0
+    CharacterPage.BookCharacterExtra := 0
+    CharacterPage.BookMacroExtra := 0
     CharacterPage.BookBackground := CharacterPage.Add("Picture", "x0 y0 w960 h650",
         A_ScriptDir "\assets\backgrounds\character-book.png")
     BookDragStrip := CharacterPage.Add("Text", "x45 y25 w800 h32 BackgroundTrans +0x100")
@@ -131,7 +211,7 @@ OpenCharacterPage(*)
     CharacterLimitNotice.Visible := false
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
-    AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
+    CharacterPage.BookCloseButton := AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
     CharacterPage.OnEvent("Close", CloseCharacterPage)
     CharacterPage.OnEvent("Escape", CloseCharacterPage)
@@ -151,9 +231,15 @@ OpenCharacterPage(*)
     try
     {
         bookScale := GetOwnedMenuScale()
+        scaleChanged := Abs(GetCharacterBookScale() - bookScale) >= 0.001
         ApplyCharacterBookScale(bookScale)
+        if scaleChanged
+        {
+            RefreshProfiles()
+            RefreshMacroProcesses()
+        }
         CharacterPage.Show("Hide w" Round(960 * bookScale)
-            " h" Round(650 * bookScale))
+            " h" Round((650 + GetCharacterBookExtra()) * bookScale))
         PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
         CharacterPage.Show()
         ; Preserve the original magenta color key and custom button faces.
@@ -368,7 +454,7 @@ ReflowAccessiblePopulatedCharacters()
         noticeVisible ? noticeY + noticeHeight + 8 : 0)
     ; Close/Export/Wipe are fixed at y575. Fit the complete proposed layout
     ; above those controls rather than moving an isolated action over them.
-    if addY + 30 > 570
+    if !SetCharacterBookLayoutExtra("Characters", Max(0, addY + 30 - 570))
     {
         RestoreAccessibleCharacterRowBaseline()
         return false
@@ -405,9 +491,13 @@ ReflowAccessiblePopulatedCharacters()
             }
         }
         if noticeVisible
+        {
             MoveStyledButton(CharacterLimitNotice, 70, noticeY, 370,
                 noticeHeight)
-        MoveStyledButton(AddCharacterButton, 70, addY, 370, 30)
+            if ButtonFaces.Has(CharacterLimitNotice.Hwnd)
+                ButtonFaces[CharacterLimitNotice.Hwnd].AccessibleWrappedName := true
+        }
+        MoveStyledButton(AddCharacterButton, 70, Max(addY, 540 + GetCharacterBookExtra()), 370, 30)
         return true
     }
     catch Error as err
@@ -415,7 +505,7 @@ ReflowAccessiblePopulatedCharacters()
         RestoreAccessibleCharacterRowBaseline()
         CharacterDescription.Move(BookS(70), BookS(80),
             BookS(390), BookS(81))
-        MoveStyledButton(AddCharacterButton, 70, 540, 370, 30)
+        MoveStyledButton(AddCharacterButton, 70, 540 + GetCharacterBookExtra(), 370, 30)
         throw err
     }
 }
@@ -423,6 +513,7 @@ ReflowAccessiblePopulatedCharacters()
 RestoreAccessibleCharacterRowBaseline()
 {
     global CharacterPage, CharacterRows, ButtonFaces, CharacterLimitNotice
+    SetCharacterBookLayoutExtra("Characters", 0)
     if !IsObject(CharacterPage)
         || !CharacterPage.HasOwnProp("AccessibleRowsReflowed")
         || !CharacterPage.AccessibleRowsReflowed
@@ -453,6 +544,8 @@ RestoreAccessibleCharacterRowBaseline()
         }
     }
     MoveStyledButton(CharacterLimitNotice, 70, 429, 370, 25)
+    if ButtonFaces.Has(CharacterLimitNotice.Hwnd)
+        ButtonFaces[CharacterLimitNotice.Hwnd].AccessibleWrappedName := false
     CharacterPage.AccessibleRowsReflowed := false
 }
 

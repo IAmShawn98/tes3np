@@ -1316,6 +1316,44 @@ CheckMeasuredPopulatedMacroBook()
     }
 }
 
+; Exercise the actual shipped PNG, not an imagined parchment rectangle.
+; Confirm the native image is taller, original width is unchanged, and
+; sampled top/footer pixels are not scaled by the inserted mirrored band.
+CheckExtendedBookArtwork()
+{
+    global ButtonPaint
+    InitButtonPainter()
+    source := ButtonPaint.Book
+    image := CreateExtendedBookArtwork(source, 160)
+    try
+    {
+        sw := 0, sh := 0, dw := 0, dh := 0
+        DllCall("gdiplus\GdipGetImageWidth", "Ptr", source, "UInt*", &sw)
+        DllCall("gdiplus\GdipGetImageHeight", "Ptr", source, "UInt*", &sh)
+        DllCall("gdiplus\GdipGetImageWidth", "Ptr", image, "UInt*", &dw)
+        DllCall("gdiplus\GdipGetImageHeight", "Ptr", image, "UInt*", &dh)
+        if dw != sw || dh - sh != 2 * Ceil(160 * sh / 1300)
+            throw Error("Extended Book artwork dimensions are incorrect.")
+        for fraction in [0.15, 0.5, 0.85]
+        {
+            x := Floor(sw * fraction)
+            for vertical in [0.12, 0.25, 0.75, 0.9]
+            {
+                y := Floor(sh * vertical)
+                targetY := y + (vertical > 0.5 ? dh - sh : 0)
+                before := 0, after := 0
+                if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", source,
+                    "Int", x, "Int", y, "UInt*", &before)
+                    || DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image,
+                        "Int", x, "Int", targetY, "UInt*", &after)
+                    || before != after
+                    throw Error("Original Book corner/footer pixels changed.")
+            }
+        }
+    }
+    finally DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1325,6 +1363,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredV016SettingsCopy()
     CheckMeasuredEmptyMacroBook()
     CheckMeasuredPopulatedMacroBook()
+    CheckExtendedBookArtwork()
     try
     {
         bodyHeights := [], settingsHeights := []
