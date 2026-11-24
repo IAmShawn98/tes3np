@@ -1419,6 +1419,113 @@ CheckSharedBookExpansion()
     }
 }
 
+; Run the actual ten-profile row reflow, not just the offline planner.
+; Use disposable controls and real accessible Windows fonts; no profile
+; files or user data are loaded or changed.
+CheckTenCharacterBookExpansion()
+{
+    global CharacterPage, LauncherGui, Profiles, ButtonPaint, CharacterRows
+    global CharacterDescription, AddCharacterButton, WipeCharacterButton
+    global DataTransferButton, CharacterLimitNotice, MaxCharacters
+    global CharacterListPage, AccessibilityTextSize, LauncherMorrowindFont
+    savedPage := CharacterPage, savedOwner := LauncherGui, savedProfiles := Profiles
+    savedRows := CharacterRows, savedDescription := CharacterDescription
+    savedAdd := AddCharacterButton, savedWipe := WipeCharacterButton
+    savedTransfer := DataTransferButton, savedNotice := CharacterLimitNotice
+    savedMax := MaxCharacters, savedListPage := CharacterListPage
+    savedMode := AccessibilityTextSize
+    savedImage := ButtonPaint.BookExtended
+    ButtonPaint.BookExtended := 0
+    owner := Gui("-Caption -Border -DPIScale")
+    page := Gui("-Caption -Border -DPIScale +Owner" owner.Hwnd)
+    try
+    {
+        LauncherGui := owner, CharacterPage := page
+        Profiles := [], CharacterRows := [], MaxCharacters := 10, CharacterListPage := 1
+        AccessibilityTextSize := "Extra Large"
+        owner.Show("Hide x0 y0 w480 h360")
+        page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
+        page.BookBackground := page.Add("Picture", "x0 y0 w960 h650",
+            A_ScriptDir "\assets\backgrounds\character-book.png")
+        SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
+        CharacterDescription := page.Add("Text", "x70 y80 w390 h81 +Wrap",
+            "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!")
+        Loop 10
+        {
+            y := 164 + (A_Index - 1) * 24
+            name := "A Long Character Name From Balmora " A_Index
+            Profiles.Push({Name: name})
+            SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
+            tick := page.Add("Text", "x70 y" (y + 2) " w18 h18", "")
+            label := page.Add("Text", "x95 y" y " w140 h23", name)
+            SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+            play := page.Add("Text", "x240 y" y " w55 h22", "Play")
+            edit := page.Add("Text", "x300 y" y " w60 h22", "Edit")
+            remove := page.Add("Text", "x365 y" y " w75 h22", "Remove")
+            CharacterRows.Push({Tick: tick, Name: label, Play: play, Edit: edit, Remove: remove})
+        }
+        SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
+        CharacterLimitNotice := page.Add("Text", "x70 y429 w370 h25",
+            "* You have reached the server character limit.")
+        SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+        AddCharacterButton := page.Add("Text", "x70 y540 w370 h30", "Add character")
+        WipeCharacterButton := page.Add("Text", "x70 y575 w370 h30", "Wipe Character List")
+        DataTransferButton := page.Add("Text", "x775 y575 w110 h30", "Export Data")
+        page.BookCloseButton := page.Add("Text", "x515 y575 w90 h30", "Close")
+        ScaleOwnedMenuContent(page, 0.5)
+        page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+        page.Show("Hide w480 h325")
+        if !ReflowAccessiblePopulatedCharacters() || GetCharacterBookExtra() <= 0
+            throw Error("Ten actual measured Extra Large character rows did not expand the Book.")
+        CharacterDescription.GetPos(, &copyY, , &copyH)
+        previousBottom := copyY + copyH
+        for row in CharacterRows
+        {
+            row.Name.GetPos(, &ny, &nw, &nh)
+            if ny < previousBottom || nh < MeasureAccessibleWrappedText(row.Name,
+                row.Name.Text, Max(1, nw - BookS(6)))
+                throw Error("Ten-character name overlaps preceding content or clips.")
+            rowBottom := ny + nh
+            for action in [row.Play, row.Edit, row.Remove]
+            {
+                action.GetPos(, &by, &bw, &bh)
+                extent := MeasureAccessibleSingleLineText(action, action.Text)
+                if by < ny || bh < extent.Height || bw < extent.Width
+                    throw Error("Ten-character action clips or overlaps preceding content.")
+                rowBottom := Max(rowBottom, by + bh)
+            }
+            previousBottom := rowBottom
+        }
+        CharacterLimitNotice.GetPos(, &noticeY, , &noticeH)
+        AddCharacterButton.GetPos(, &addY, , &addH)
+        page.BookCloseButton.GetPos(, &closeY)
+        if noticeY < previousBottom || addY < noticeY + noticeH || closeY < addY + addH
+            throw Error("Ten-character limit notice or common footer overlaps.")
+        AccessibilityTextSize := "Normal"
+        ReflowAccessiblePopulatedCharacters()
+        if GetCharacterBookExtra() || page.AccessibleRowsReflowed
+            throw Error("Ten-character Normal restoration left expanded state.")
+        CharacterRows[10].Name.GetPos(, &lastY)
+        AddCharacterButton.GetPos(, &addY)
+        if lastY != BookS(164 + 9 * 24) || addY != BookS(540)
+            throw Error("Ten-character Normal anchors were not restored.")
+    }
+    finally
+    {
+        if ButtonPaint.BookExtended
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.BookExtended)
+        ButtonPaint.BookExtended := savedImage
+        page.Destroy()
+        owner.Destroy()
+        CharacterPage := savedPage, LauncherGui := savedOwner, Profiles := savedProfiles
+        CharacterRows := savedRows, CharacterDescription := savedDescription
+        AddCharacterButton := savedAdd, WipeCharacterButton := savedWipe
+        DataTransferButton := savedTransfer, CharacterLimitNotice := savedNotice
+        MaxCharacters := savedMax, CharacterListPage := savedListPage
+        AccessibilityTextSize := savedMode
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1430,6 +1537,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredPopulatedMacroBook()
     CheckExtendedBookArtwork()
     CheckSharedBookExpansion()
+    CheckTenCharacterBookExpansion()
     try
     {
         bodyHeights := [], settingsHeights := []

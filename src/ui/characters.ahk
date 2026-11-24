@@ -55,7 +55,7 @@ SetCharacterBookLayoutExtra(side, required)
         rightExtra := required
     extra := Max(leftExtra, rightExtra)
     oldExtra := page.HasOwnProp("BookExtra") ? page.BookExtra : 0
-    if extra > oldExtra
+    if extra && required
     {
         if !IsObject(LauncherGui)
             return false
@@ -346,9 +346,9 @@ RefreshProfiles()
 
 ; The original character rows remain the immutable Normal baseline. For
 ; larger text, use a two-line row: full name above accessible-width buttons.
-; Preflight the entire visible page before changing any controls. If this
-; arrangement cannot fit above the approved footer, leave the baseline intact;
-; NEVER partially move a row or silently distort the parchment.
+; Preflight the entire visible page and request additional parent height
+; when needed. If the monitor cannot fit the complete arrangement, preserve
+; the previous baseline; never partially move a row or distort the parchment.
 ReflowAccessiblePopulatedCharacters()
 {
     global CharacterPage, CharacterRows, CharacterDescription, Profiles
@@ -392,9 +392,11 @@ ReflowAccessiblePopulatedCharacters()
             buttonHeight := Max(buttonHeight,
                 Ceil((extent.Height + BookS(6)) / scale))
         }
-        ; The 200px action band includes TWO 6px button gaps.
+        ; The original 200px action band includes TWO 5px button gaps.
+        ; Six-pixel gaps made the minimum widths total 202px, preventing
+        ; the compact branch even when all three captions fit.
         sameLine := compactWidths[1] + compactWidths[2]
-            + compactWidths[3] + 12 <= 200
+            + compactWidths[3] + 10 <= 200
         if sameLine
         {
             nameWidth := 140
@@ -437,7 +439,8 @@ ReflowAccessiblePopulatedCharacters()
             : buttonY + buttonHeight + 10
         layouts.Push({Controls: controls, Y: rowY, NameWidth: nameWidth,
             NameHeight: nameHeight, ButtonX: buttonX, ButtonY: buttonY,
-            ButtonHeight: buttonHeight, Widths: widths})
+            ButtonHeight: buttonHeight, Widths: widths,
+            Gap: sameLine ? 5 : 6})
         rowY := nextY
     }
     noticeVisible := Profiles.Length >= MaxCharacters
@@ -451,8 +454,8 @@ ReflowAccessiblePopulatedCharacters()
     }
     addY := Max(540, rowY + 4,
         noticeVisible ? noticeY + noticeHeight + 8 : 0)
-    ; Close/Export/Wipe are fixed at y575. Fit the complete proposed layout
-    ; above those controls rather than moving an isolated action over them.
+    ; Preserve the original five-pixel Add/footer clearance. Expand the
+    ; shared parent before moving rows if this measured stack needs space.
     if !SetCharacterBookLayoutExtra("Characters", Max(0, addY + 30 - 570))
     {
         RestoreAccessibleCharacterRowBaseline()
@@ -486,7 +489,7 @@ ReflowAccessiblePopulatedCharacters()
                 ; The GDI painter must not independently shrink that font.
                 if ButtonFaces.Has(button.Hwnd)
                     ButtonFaces[button.Hwnd].NoAccessibleDownfit := true
-                x += width + 6
+                x += width + layout.Gap
             }
         }
         if noticeVisible

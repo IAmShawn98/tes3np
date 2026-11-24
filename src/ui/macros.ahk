@@ -148,8 +148,8 @@ MoveMacroStyledIfChanged(control, x, y, width, height)
 
 ; The existing four-slot viewport uses a common measured row pitch. All
 ; rectangles are recomputed from Normal anchors, including the scroll track.
-; Preflight the complete stack before changing any HWND; full artwork
-; expansion is still required for combinations that exceed the footer.
+; Preflight the complete stack and request shared artwork height before
+; changing any HWND; keep the prior layout if monitor fit is impossible.
 ReflowPopulatedMacroBook()
 {
     global CharacterPage, MacroItems, MacroBookControls, MacroBookRows
@@ -218,8 +218,8 @@ ReflowPopulatedMacroBook()
     requiredExtra := Max(0, 144 + offset + shownCount * pitch + 36 + 30 - 570)
     if !measured || !SetCharacterBookLayoutExtra("Macros", requiredExtra)
     {
-        ; Preserve the previous feasible intro-only layout until the
-        ; intact parchment can accommodate the entire measured stack.
+        ; Preserve the previous feasible intro-only layout if the
+        ; complete measured stack cannot fit in the available work area.
         SetCharacterBookLayoutExtra("Macros", 0)
         measured := false
         statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
