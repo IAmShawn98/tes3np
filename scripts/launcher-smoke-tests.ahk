@@ -1500,7 +1500,7 @@ CheckTenCharacterBookExpansion()
         for row in CharacterRows
         {
             row.Name.GetPos(, &ny, &nw, &nh)
-            width := nw = BookS(140) ? BookS(134) : BookS(338)
+            width := nw = BookS(345) ? BookS(338) : Max(1, nw - BookS(6))
             display := PrepareAccessibleBookName(row.Name, row.Name.Text, width)
             if StrReplace(display, "`n") != row.Name.Text
                 throw Error("Wrapping changed the actual character name.")
@@ -1508,12 +1508,17 @@ CheckTenCharacterBookExpansion()
                 display, width)
                 throw Error("Ten-character name overlaps preceding content or clips.")
             rowBottom := ny + nh
+            row.Name.GetPos(&nameX)
+            previousActionRight := 0
             for action in [row.Play, row.Edit, row.Remove]
             {
-                action.GetPos(, &by, &bw, &bh)
+                action.GetPos(&bx, &by, &bw, &bh)
                 extent := MeasureAccessibleSingleLineText(action, action.Text)
                 if by < ny || bh < extent.Height || bw < extent.Width
+                    || bx < previousActionRight || bx + bw > BookS(440)
+                    || (by < ny + nh && bx < nameX + nw)
                     throw Error("Ten-character action clips or overlaps preceding content.")
+                previousActionRight := bx + bw
                 rowBottom := Max(rowBottom, by + bh)
             }
             previousBottom := rowBottom

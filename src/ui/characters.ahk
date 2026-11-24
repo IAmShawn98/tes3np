@@ -419,53 +419,65 @@ ReflowAccessiblePopulatedCharacters()
         ; Measure BOTH arrangements. Narrow names next to the buttons can
         ; use more vertical space than a full-width name above the buttons.
         ; Choose the shorter complete row, not merely the first one that fits.
-        compactWidths := [], stackedWidths := []
+        compactWidths := [], stackedWidths := [], fittedWidths := []
         buttonHeight := 23
         for index, button in [controls.Play, controls.Edit, controls.Remove]
         {
             extent := MeasureAccessibleSingleLineText(button, button.Text)
             originalWidth := index = 1 ? 55 : index = 2 ? 60 : 75
-            compactWidths.Push(Max(originalWidth,
-                Ceil((extent.Width + BookS(8)) / scale)))
+            ; Keep comfortable action widths when possible. A tighter
+            ; accessible alternative still reserves actual caption width,
+            ; eight logical pixels of padding and a usable native target.
+            captionWidth := Ceil((extent.Width + BookS(8)) / scale)
+            compactWidths.Push(Max(originalWidth, captionWidth))
+            fittedWidths.Push(Max(index = 3 ? 60 : 44, captionWidth))
             stackedWidths.Push(Max(84, Ceil((extent.Width + BookS(12)) / scale)))
             buttonHeight := Max(buttonHeight,
                 Ceil((extent.Height + BookS(6)) / scale))
         }
-        compactFits := compactWidths[1] + compactWidths[2]
-            + compactWidths[3] + 10 <= 200
         stackedFits := stackedWidths[1] + stackedWidths[2] + stackedWidths[3] + 12 <= 370
-        if !compactFits && !stackedFits
+        displayName := PrepareAccessibleBookName(controls.Name, name, BookS(338))
+        nameHeight := Max(23, Ceil((
+            MeasureAccessibleWrappedText(controls.Name, displayName, BookS(338))
+            + BookS(4)) / scale))
+        ; Four logical pixels between rows match the compact arrangement.
+        ; Keep the name/action clearance independently at four pixels.
+        stackedPitch := nameHeight + 4 + buttonHeight + 4
+        sameLine := false, bestPitch := stackedFits ? stackedPitch : 1000000
+        nameWidth := 345, buttonX := 70, widths := stackedWidths
+        for candidate in [compactWidths, fittedWidths]
+        {
+            actionWidth := candidate[1] + candidate[2] + candidate[3] + 10
+            ; Share the whole 345px name/action band, rather than rejecting
+            ; any action group wider than the old fixed 200px allocation.
+            candidateNameWidth := 340 - actionWidth
+            if candidateNameWidth < 90
+                continue
+            compactDisplay := PrepareAccessibleBookName(controls.Name, name,
+                BookS(candidateNameWidth - 6))
+            compactHeight := Max(23, Ceil((
+                MeasureAccessibleWrappedText(controls.Name, compactDisplay,
+                    BookS(candidateNameWidth - 6)) + BookS(4)) / scale))
+            compactPitch := Max(compactHeight, buttonHeight, 23) + 4
+            if compactPitch <= bestPitch
+            {
+                bestPitch := compactPitch
+                sameLine := true
+                nameHeight := compactHeight
+                displayName := compactDisplay
+                nameWidth := candidateNameWidth
+                buttonX := 100 + nameWidth
+                widths := candidate
+            }
+        }
+        if !sameLine && !stackedFits
         {
             CharacterPage.BookExpansionFailure := "Character actions exceed both available bands."
             RestoreAccessibleCharacterRowBaseline()
             return false
         }
-        displayName := PrepareAccessibleBookName(controls.Name, name, BookS(338))
-        nameHeight := Max(23, Ceil((
-            MeasureAccessibleWrappedText(controls.Name, displayName, BookS(338))
-            + BookS(4)) / scale))
-        stackedPitch := nameHeight + 4 + buttonHeight + 6
-        sameLine := false
-        if compactFits
-        {
-            compactDisplay := PrepareAccessibleBookName(controls.Name, name, BookS(134))
-            compactHeight := Max(23, Ceil((
-                MeasureAccessibleWrappedText(controls.Name, compactDisplay, BookS(134))
-                + BookS(4)) / scale))
-            compactPitch := Max(compactHeight, buttonHeight, 23) + 4
-            sameLine := !stackedFits || compactPitch <= stackedPitch
-            if sameLine
-            {
-                nameHeight := compactHeight
-                displayName := compactDisplay
-            }
-        }
-        nameWidth := sameLine ? 140 : 345
-        buttonX := sameLine ? 240 : 70
-        widths := sameLine ? compactWidths : stackedWidths
         buttonY := sameLine ? rowY : rowY + nameHeight + 4
-        nextY := sameLine ? rowY + Max(nameHeight, buttonHeight, 23) + 4
-            : buttonY + buttonHeight + 6
+        nextY := rowY + bestPitch
         layouts.Push({Controls: controls, Y: rowY, NameWidth: nameWidth,
             NameHeight: nameHeight, DisplayName: displayName, ButtonX: buttonX, ButtonY: buttonY,
             ButtonHeight: buttonHeight, Widths: widths,
