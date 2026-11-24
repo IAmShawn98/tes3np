@@ -425,8 +425,9 @@ CreateGameLoginProgress(layout)
         window.Add("Text", "x" line[1] " y" line[2]
             " w" line[3] " h" line[4] " BackgroundD1AE67", "")
     SetAccessibleTextFont(window, "s" fontSize(15) " Bold cF2E4D0", "Georgia")
+    ; SS_CENTER already wraps. Explicit +Wrap selects the left-aligned static type.
     window.ProgressTitle := window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
-        " h" (enlarged ? plan.TitleH : p(38)) " Center BackgroundTrans" (enlarged ? " +Wrap" : " +0x4000"), "Logging in...")
+        " h" (enlarged ? plan.TitleH : p(38)) " Center BackgroundTrans" (enlarged ? "" : " +0x4000"), "Logging in...")
     portraitPath := GetCharacterLoginIconPath(LoginProgressSpecies, LoginProgressPortraitFile)
     pictureOptions := "x" p(174) " y" (enlarged ? plan.PortraitY : p(60)) " w" p(72) " h" p(72)
     ; Icon1 applies to ICO resources, but not to custom PNG/JPG/BMP portraits.
@@ -463,7 +464,7 @@ CreateGameLoginProgress(layout)
     window.ProgressBottomLine := window.Add("Text", "x" p(27) " y" (enlarged ? plan.BottomLineY : p(391)) " w" p(366) " h" p(2) " Background806B51", "")
     SetAccessibleTextFont(window, "s" fontSize(10) " Bold cD3B687", "Segoe UI")
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" (enlarged ? plan.FooterY : p(403))
-        " w" p(372) " h" (enlarged ? plan.FooterH : p(25)) " Center BackgroundTrans" (enlarged ? " +Wrap" : " +0x4000"), "")
+        " w" p(372) " h" (enlarged ? plan.FooterH : p(25)) " Center BackgroundTrans" (enlarged ? "" : " +0x4000"), "")
     LoginProgressSummaryDots := []
     Loop 4
     {

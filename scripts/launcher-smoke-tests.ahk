@@ -1919,6 +1919,14 @@ CheckMeasuredFooterVersionAndLoginCard()
                 CreateGameLoginProgress(layout)
                 try
                 {
+                    ; Check the actual native static type, not just the option string.
+                    ; SS_CENTER (1) must survive the enlarged layout constructor.
+                    for control in [LoginProgressGui.ProgressTitle, LoginProgressFooter]
+                    {
+                        style := DllCall("user32\GetWindowLongW", "Ptr", control.Hwnd, "Int", -16, "UInt")
+                        if (style & 0x1F) != 1
+                            throw Error("Enlarged login title or status lost centered alignment.")
+                    }
                     LoginProgressStageStarted := A_TickCount
                     for stage in [1, 2, 3, 4, 5]
                     {
