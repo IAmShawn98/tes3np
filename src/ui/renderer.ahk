@@ -212,7 +212,7 @@ CopyBookPixelRows(source, sourceStride, target, targetStride,
 ; No AHK pixel loop, new window subclass or image work during WM_PAINT.
 CreateKeyedReducedBookImage(source, width, height)
 {
-    sw := 0, sh := 0, sampled := 0, keyed := 0, graphics := 0, attrs := 0
+    sw := 0, sh := 0, sampled := 0, graphics := 0, attrs := 0
     try
     {
         if width < 1 || height < 1
@@ -242,31 +242,9 @@ CreateKeyedReducedBookImage(source, width, height)
         graphics := 0
         DllCall("gdiplus\GdipDisposeImageAttributes", "Ptr", attrs)
         attrs := 0
-        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width,
-            "Int", height, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &keyed)
-            || DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", keyed, "Ptr*", &graphics)
-            || DllCall("gdiplus\GdipCreateImageAttributes", "Ptr*", &attrs)
-            throw Error("Could not allocate keyed Book artwork.")
-        ; Preserve RGB, map 8-bit alpha 0..127 to zero and 128..255 to one.
-        matrix := Buffer(100, 0)
-        for offset in [0, 24, 48, 96]
-            NumPut("Float", 1.0, matrix, offset)
-        NumPut("Float", 255.0, matrix, 72)
-        NumPut("Float", -127.0, matrix, 92)
-        if DllCall("gdiplus\GdipSetImageAttributesColorMatrix", "Ptr", attrs,
-            "Int", 1, "Int", 1, "Ptr", matrix, "Ptr", 0, "Int", 0)
-            || DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 5)
-            || DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
-            || DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFFF00FF)
-            || DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", sampled,
-                "Int", 0, "Int", 0, "Int", width, "Int", height,
-                "Int", 0, "Int", 0, "Int", width, "Int", height, "Int", 2,
-                "Ptr", attrs, "Ptr", 0, "Ptr", 0)
-            throw Error("Could not key the reduced Book edges.")
-        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
-        graphics := 0
-        result := keyed
-        keyed := 0
+        KeyReducedBookPixels(sampled, width, height)
+        result := sampled
+        sampled := 0
         return result
     }
     finally
@@ -277,8 +255,42 @@ CreateKeyedReducedBookImage(source, width, height)
             DllCall("gdiplus\GdipDisposeImageAttributes", "Ptr", attrs)
         if sampled
             DllCall("gdiplus\GdipDisposeImage", "Ptr", sampled)
-        if keyed
-            DllCall("gdiplus\GdipDisposeImage", "Ptr", keyed)
+    }
+}
+
+; Operate on straight ARGB after resampling, before the native Picture loads.
+; The layered window needs a binary color key, not partial alpha blended
+; onto magenta. Convert each physical pixel exactly once, outside WM_PAINT.
+KeyReducedBookPixels(image, width, height)
+{
+    rect := Buffer(16, 0), data := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+    NumPut("Int", width, "Int", height, rect, 8)
+    if DllCall("gdiplus\GdipBitmapLockBits", "Ptr", image, "Ptr", rect,
+        "UInt", 3, "Int", 0x26200A, "Ptr", data)
+        throw Error("Could not lock reduced Book pixels.")
+    try
+    {
+        stride := NumGet(data, 8, "Int"), scan := NumGet(data, 16, "Ptr")
+        if !scan || Abs(stride) < width * 4
+            throw Error("Invalid reduced Book pixel buffer.")
+        Loop height
+        {
+            row := scan + (A_Index - 1) * stride
+            Loop width
+            {
+                offset := (A_Index - 1) * 4
+                pixel := NumGet(row, offset, "UInt")
+                if (pixel >> 24) < 128
+                    NumPut("UInt", 0xFFFF00FF, row, offset)
+                else if (pixel >> 24) != 255
+                    NumPut("UInt", pixel | 0xFF000000, row, offset)
+            }
+        }
+    }
+    finally
+    {
+        if DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", image, "Ptr", data)
+            throw Error("Could not unlock reduced Book pixels.")
     }
 }
 

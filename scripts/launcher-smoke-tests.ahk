@@ -1451,9 +1451,25 @@ CheckReducedBookPicture()
 {
     global ButtonPaint
     InitButtonPainter()
-    source := 0, image := 0, page := 0, dc := 0, bitmap := 0, oldBitmap := 0
+    source := 0, image := 0, threshold := 0, page := 0, dc := 0, bitmap := 0, oldBitmap := 0
     try
     {
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 4, "Int", 1,
+            "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &threshold)
+            throw Error("Could not create Book alpha boundary fixture.")
+        for index, pixel in [0x00996633, 0x7F996633, 0x80996633, 0xFF996633]
+            if DllCall("gdiplus\GdipBitmapSetPixel", "Ptr", threshold,
+                "Int", index - 1, "Int", 0, "UInt", pixel)
+                throw Error("Could not initialize Book alpha boundary fixture.")
+        KeyReducedBookPixels(threshold, 4, 1)
+        for index, expected in [0xFFFF00FF, 0xFFFF00FF, 0xFF996633, 0xFF996633]
+        {
+            actual := 0
+            if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", threshold,
+                "Int", index - 1, "Int", 0, "UInt*", &actual) || actual != expected
+                throw Error(Format("Book alpha boundary pixel {}: expected 0x{:08X}, got 0x{:08X}.",
+                    index, expected, actual))
+        }
         if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 16, "Int", 16,
             "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &source)
             throw Error("Could not create Book edge fixture.")
@@ -1476,7 +1492,8 @@ CheckReducedBookPicture()
         if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 0, "Int", 0, "UInt*", &outer)
             || DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 4, "Int", 4, "UInt*", &inner)
             || outer != 0xFFFF00FF || inner != 0xFF996633
-            throw Error("Reduced Book key or solid center did not survive downsampling.")
+            throw Error(Format("Reduced Book key or solid center did not survive downsampling: edge=0x{:08X}, center=0x{:08X}.",
+                outer, inner))
         Loop 8
         {
             y := A_Index - 1
@@ -1488,7 +1505,8 @@ CheckReducedBookPicture()
                     || (color >> 24) != 255
                     || (color != 0xFFFF00FF && (color & 0xFF) > 150
                         && ((color >> 8) & 0xFF) < 100 && ((color >> 16) & 0xFF) > 180)
-                    throw Error("Reduced Book contains a non-key pink edge.")
+                    throw Error(Format("Reduced Book contains a non-key pink edge at {},{}: 0x{:08X}.",
+                        A_Index - 1, y, color))
             }
         }
         page := CreateAccessibleLayoutGui("-Caption -Border")
@@ -1539,6 +1557,8 @@ CheckReducedBookPicture()
             page.Destroy()
         if image
             DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+        if threshold
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", threshold)
         if source
             DllCall("gdiplus\GdipDisposeImage", "Ptr", source)
     }
