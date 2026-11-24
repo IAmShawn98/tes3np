@@ -2500,14 +2500,20 @@ CheckLauncherFaceReuse()
             action.Move(0, 0, Round(220 * ratio), Round(48 * ratio))
             card.Move(0, 0, Round(280 * ratio), Round(220 * ratio))
             chat.Move(0, 0, Round(45 * ratio), Round(112 * ratio))
+            if DllCall("IsWindowVisible", "Ptr", panel.Hwnd)
+                throw Error("Initial face preparation fixture must start hidden.")
+            if !PrepareInitialLauncherFaces() || DllCall("IsWindowVisible", "Ptr", panel.Hwnd)
+                throw Error("Initial face preparation failed or exposed the hidden window.")
             for control in controls
             {
                 handle := control.Hwnd
                 previous := previousFaces.Has(handle) ? previousFaces[handle] : 0
-                PaintButtonToDC(handle, dc)
                 if !LauncherFaceCache.Has(handle) || !LauncherFaceCache[handle].Has("normal")
-                    throw Error("Initial face did not enter cache.")
+                    throw Error("Initial face was not prepared while hidden.")
                 cached := LauncherFaceCache[handle]["normal"]
+                PaintButtonToDC(handle, dc)
+                if LauncherFaceCache[handle]["normal"] != cached
+                    throw Error("First paint reconstructed a prepared face.")
                 if percent = 50 && IsObject(previous)
                 {
                     if previous = cached
@@ -2588,7 +2594,7 @@ CheckLauncherFaceReuse()
             if LauncherFaceCache.Has(handle)
                 throw Error("Unregistered control retained face cache.")
         }
-        try FileAppend("PASS: main launcher face reuse, original pixels, input invalidation and GDI cleanup at 50 and 100 percent" Chr(10), "*")
+        try FileAppend("PASS: hidden initial face preparation, reuse, original pixels, input invalidation and GDI cleanup at 50 and 100 percent" Chr(10), "*")
     }
     finally
     {
