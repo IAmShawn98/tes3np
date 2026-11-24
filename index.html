@@ -18,8 +18,8 @@
       <div class="jumbotron-ornament" aria-hidden="true"></div>
       <p class="intro">A robust game launcher for the Morrowind private server <a href="https://wiki.nerevarineprophecies.com/Main_Page">Nerevarine Prophecies</a>.</p>
       <div class="download-row">
-        <a class="download" href="https://github.com/IAmShawn98/tes3np/releases/download/v0.1.21-alpha.1/tes3np-v0.1.21-alpha.1-windows.zip">Download for Windows</a>
-        <span class="release">v0.1.21-alpha.1 · ZIP</span>
+        <a class="download" href="https://github.com/IAmShawn98/tes3np/releases/download/v0.1.21-alpha.2/tes3np-v0.1.21-alpha.2-windows.zip">Download for Windows</a>
+        <span class="release">v0.1.21-alpha.2 · ZIP</span>
       </div>
       <div class="jumbotron-frame" aria-hidden="true"></div>
     </section>
@@ -141,14 +141,48 @@
       <section id="latest-update">
         <h2>Latest Update</h2>
         <div class="release-summary">
-          <h3 id="release-version">v0.1.21-alpha.1</h3>
-          <span class="release-date" id="release-published-date">Published November 22, 2026</span>
+          <h3 id="release-version">v0.1.21-alpha.2</h3>
+          <span class="release-date" id="release-published-date">Published November 24, 2026</span>
         </div>
-        <p class="release-current-build" id="release-current-build">Latest download: v0.1.21-alpha.1</p>
+        <p class="release-current-build" id="release-current-build">Latest download: v0.1.21-alpha.2</p>
         <div class="release-panel" id="release-notes-panel" role="region" aria-label="Published update history">
           <div id="release-notes-body">
+            <article class="release-entry" id="patch-v0.1.21-alpha.2">
+              <h3>Latest Patch — v0.1.21-alpha.2</h3>
+              <span class="release-entry-date">Published November 24, 2026</span>
+              <div class="release-entry-body">
+                <p>Changes since the last public release, v0.1.21-alpha.1.</p>
+                <h4>Improvements</h4>
+                <ul>
+                <li><strong>Game Chat:</strong> Increased the message input area to make writing and reviewing longer messages easier.</li>
+                <li><strong>Game Chat:</strong> Added a matching gold-themed scrollbar to the message input area and enlarged the Send button.</li>
+                <li><strong>Happy Hour:</strong> Improved announcement detection and added automatic retries when announcements fail to load.</li>
+                <li><strong>Accessibility:</strong> Expanded the Interface Text setting to support more text throughout the launcher, including menus, descriptions, status messages and dialogs.</li>
+                <li><strong>Manage Characters:</strong> Improved the layout when using Large or Extra Large text. Character names now occupy a full-width row, with Play, Edit and Remove buttons underneath.</li>
+                <li><strong>Manage Characters:</strong> Added automatic pagination when characters cannot fit on a single page.</li>
+                <li><strong>Manage Macros:</strong> Improved the layout of macro names, controls and scrolling when using larger interface text.</li>
+                <li><strong>Launcher Performance:</strong> Improved startup speed and interface responsiveness by optimizing rendering and allowing the launcher to finish loading before initializing background services.</li>
+                <li><strong>Launcher Updates:</strong> Improved update notifications, progress messages and error descriptions to make the entire update process clearer.</li>
+                <li><strong>Documentation:</strong> Consolidated the launcher documentation into a more comprehensive User Guide.</li>
+                </ul>
+                <h4>Bug Fixes</h4>
+                <ul>
+                <li><strong>Launcher Startup:</strong> Fixed an issue where the launcher could briefly disappear or appear minimized when starting.</li>
+                <li><strong>Launcher Interface:</strong> Fixed visible popping and flickering when minimizing and restoring the launcher.</li>
+                <li><strong>Launcher Interface:</strong> Fixed partially rendered interface elements appearing during initial startup.</li>
+                <li><strong>Display Settings:</strong> Fixed flickering when previewing or reverting changes between significantly different launcher sizes.</li>
+                <li><strong>Manage Characters:</strong> Fixed pink outlines and mismatched background artwork when using smaller launcher sizes.</li>
+                <li><strong>Game Chat:</strong> Fixed overlapping text and arrows on the Game Chat tab when using larger interface text.</li>
+                <li><strong>Expansion Pack:</strong> Fixed the Expansion Pack status caption being cut off when using larger interface text.</li>
+                <li><strong>Version Status:</strong> Fixed overlapping and clipped text in the Version Status window.</li>
+                <li><strong>Launcher Interface:</strong> Fixed the launcher version number becoming misaligned or partially cut off when using larger interface text.</li>
+                <li><strong>Login Progress:</strong> Fixed clipped progress indicators and incorrectly aligned text when using larger interface text.</li>
+                <li><strong>Launcher Updates:</strong> Fixed incorrect progress bar advancement while preparing launcher updates.</li>
+                </ul>
+              </div>
+            </article>
             <article class="release-entry" id="patch-v0.1.21-alpha.1">
-              <h3>Latest Patch — v0.1.21-alpha.1</h3>
+              <h3>Earlier Patch — v0.1.21-alpha.1</h3>
               <span class="release-entry-date">Published November 22, 2026</span>
               <div class="release-entry-body">
                 <p>Changes since the last public release, v0.1.21-alpha.</p>
@@ -223,7 +257,7 @@
           </div>
         </div>
         <div class="release-links">
-          <a id="current-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha.1">View latest update on GitHub</a>
+          <a id="current-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha.2">View latest update on GitHub</a>
           <a id="base-release-link" href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.21-alpha">View base release on GitHub</a>
           <div class="release-archive"><span>Previous releases:</span>
             <span id="release-archive-links"><a href="https://github.com/IAmShawn98/tes3np/releases/tag/v0.1.20-alpha">v0.1.20-alpha</a></span>
@@ -251,6 +285,6 @@
   </div>
 
   <script src="./carousel.js?v=7" defer></script>
-  <script src="./release-history.js?v=3" defer></script>
+  <script src="./release-history.js?v=4" defer></script>
 </body>
 </html>

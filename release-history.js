@@ -1,6 +1,6 @@
 /* TES3NP website release browser.
  * The verified alpha feed determines the downloadable version; only published
- * GitHub releases supply changelogs. The baked-in .21.1 history remains the fallback.
+ * GitHub releases supply changelogs. The baked-in published history remains the fallback.
  */
 (() => {
   'use strict';
@@ -285,6 +285,7 @@
     // Preserve working download, original changelog and archive links.
     // Retain the saved verified history and download if the API is unavailable.
     byId('release-history-status').textContent =
-      'Live history could not be checked. Displaying the saved v0.1.21-alpha.1 update history.';
+      'Live history could not be checked. Displaying the saved ' +
+      byId('release-version').textContent + ' update history.';
   });
 })();
