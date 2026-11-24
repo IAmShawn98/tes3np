@@ -1450,36 +1450,37 @@ CheckMeasuredPopulatedMacroBook()
 ; relying on a specific corner of the distributed artwork.
 CheckReducedBookRaster()
 {
-    global ButtonPaint, AccessibilityTextSize
+    global ButtonPaint, AccessibilityTextSize, LauncherMorrowindFont
     InitButtonPainter()
     source := 0, synthetic := 0, page := 0, dc := 0, bitmap := 0, oldBitmap := 0
     savedMode := AccessibilityTextSize
     try
     {
-        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 8, "Int", 8,
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 16, "Int", 16,
             "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &source)
             throw Error("Could not create reduced Book edge fixture.")
-        Loop 8
+        Loop 16
         {
             y := A_Index - 1
-            Loop 8
+            Loop 16
             {
                 x := A_Index - 1
-                pixel := x >= 2 && x <= 5 && y >= 2 && y <= 5
-                    ? 0xFF996633 : 0xFFFF00FF
+                pixel := x >= 4 && x <= 11 && y >= 4 && y <= 11
+                    ? 0xFF996633 : (x >= 3 && x <= 12 && y >= 3 && y <= 12
+                        ? 0x60996633 : 0xFFFF00FF)
                 if DllCall("gdiplus\GdipBitmapSetPixel", "Ptr", source,
                     "Int", x, "Int", y, "UInt", pixel)
                     throw Error("Could not initialize Book edge fixture.")
             }
         }
-        synthetic := CreateReducedBookRaster(source, 13, 13)
+        synthetic := CreateReducedBookRaster(source, 9, 9)
         if DllCall("GetPixel", "Ptr", synthetic.DC, "Int", 0, "Int", 0, "UInt") != 0xFF00FF
-            || DllCall("GetPixel", "Ptr", synthetic.DC, "Int", 6, "Int", 6, "UInt") != 0x336699
+            || DllCall("GetPixel", "Ptr", synthetic.DC, "Int", 4, "Int", 4, "UInt") != 0x336699
             throw Error("Reduced Book raster lost the exact key or solid artwork.")
-        Loop 13
+        Loop 9
         {
             y := A_Index - 1
-            Loop 13
+            Loop 9
             {
                 color := DllCall("GetPixel", "Ptr", synthetic.DC, "Int", A_Index - 1, "Int", y, "UInt")
                 if color = 0xFFFFFFFF || (color != 0xFF00FF && (color & 0xFF) > 180

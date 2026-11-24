@@ -541,7 +541,9 @@ PaintButton(wParam, lParam, *)
         dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
         bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
         oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
-        bookRasterPainted := face.Book && CopyReducedBookRaster(face.Gui, dc, handle, width, height)
+        bookRasterPainted := !isChatTab && !isDiscordName && !isDiscordPortrait
+            && face.HasOwnProp("Book") && face.Book
+            && CopyReducedBookRaster(face.Gui, dc, handle, width, height)
         graphics := 0
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
         DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
