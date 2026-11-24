@@ -102,7 +102,7 @@ InitButtonPainter()
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\quest.png", "Ptr*", &quest)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\headings\together.png", "Ptr*", &together)
     DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\icons\discord.png", "Ptr*", &discordLogo)
-    ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book, BookExtended: 0, DiscordLogo: discordLogo}
+    ButtonPaint := {Background: background, Headings: Map("Quest", quest, "Together", together), Module: module, Disposed: false, Token: token, Artwork: artwork, Parchment: parchment, Book: book, BookExtended: 0, BookRaster: 0, BookRasterPicture: 0, DiscordLogo: discordLogo}
     OnMessage(0x002B, PaintButton)
     OnMessage(0x0014, KeepButtonBackground)
     OnMessage(0x0020, HandleNativeClickableCursor)
@@ -256,6 +256,229 @@ ApplyExtendedBookArtwork(page, extra)
     }
 }
 
+; A reduced Book must have exactly one physical-pixel background. Native
+; Picture stretching and independently rounded child widths otherwise sample
+; different parchment pixels. Flatten fractional alpha to the parent's exact
+; color key before presenting the raster; never blend onto a magenta matte.
+CreateReducedBookRaster(source, width, height)
+{
+    image := 0, graphics := 0, attrs := 0, bitmap := 0, dc := 0, oldBitmap := 0
+    locked := false
+    rect := Buffer(16, 0), data := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+    NumPut("Int", width, "Int", height, rect, 8)
+    try
+    {
+        sw := 0, sh := 0
+        if DllCall("gdiplus\GdipGetImageWidth", "Ptr", source, "UInt*", &sw)
+            || DllCall("gdiplus\GdipGetImageHeight", "Ptr", source, "UInt*", &sh)
+            || !sw || !sh || width < 1 || height < 1
+            throw Error("Invalid reduced Book dimensions.")
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width,
+            "Int", height, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &image)
+            || DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", image, "Ptr*", &graphics)
+            || DllCall("gdiplus\GdipCreateImageAttributes", "Ptr*", &attrs)
+            throw Error("Could not allocate reduced Book artwork.")
+        ; Source-copy preserves coverage. Exact magenta source pixels, if any,
+        ; are transparent during resampling rather than mixed into the edge.
+        if DllCall("gdiplus\GdipSetCompositingMode", "Ptr", graphics, "Int", 1)
+            || DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
+            || DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
+            || DllCall("gdiplus\GdipSetImageAttributesColorKeys", "Ptr", attrs,
+                "Int", 1, "Int", 1, "UInt", 0xFFFF00FF, "UInt", 0xFFFF00FF)
+            || DllCall("gdiplus\GdipSetImageAttributesWrapMode", "Ptr", attrs,
+                "Int", 3, "UInt", 0, "Int", 0)
+            || DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0)
+            || DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", source,
+                "Int", 0, "Int", 0, "Int", width, "Int", height,
+                "Int", 0, "Int", 0, "Int", sw, "Int", sh, "Int", 2,
+                "Ptr", attrs, "Ptr", 0, "Ptr", 0)
+            throw Error("Could not resample reduced Book artwork.")
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        if DllCall("gdiplus\GdipBitmapLockBits", "Ptr", image, "Ptr", rect,
+            "UInt", 3, "Int", 0x26200A, "Ptr", data)
+            throw Error("Could not lock reduced Book pixels.")
+        locked := true
+        stride := NumGet(data, 8, "Int"), scan := NumGet(data, 16, "Ptr")
+        if !scan || Abs(stride) < width * 4
+            throw Error("Invalid reduced Book pixel buffer.")
+        Loop height
+        {
+            row := scan + (A_Index - 1) * stride
+            Loop width
+            {
+                offset := (A_Index - 1) * 4
+                pixel := NumGet(row, offset, "UInt")
+                ; The layered HWND supports a binary key, not per-pixel
+                ; alpha. Preserve the straight RGB of covered artwork.
+                NumPut("UInt", (pixel >> 24) < 128 ? 0xFFFF00FF
+                    : pixel | 0xFF000000, row, offset)
+            }
+        }
+        status := DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", image, "Ptr", data)
+        locked := false
+        if status || DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", image,
+            "Ptr*", &bitmap, "UInt", 0xFFFF00FF) || !bitmap
+            throw Error("Could not create keyed Book bitmap.")
+        dc := DllCall("CreateCompatibleDC", "Ptr", 0, "Ptr")
+        if !dc
+            throw Error("Could not create Book raster DC.")
+        oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !oldBitmap || oldBitmap = -1
+            throw Error("Could not select Book raster bitmap.")
+        result := {DC: dc, Bitmap: bitmap, OldBitmap: oldBitmap, Width: width, Height: height}
+        dc := 0, bitmap := 0, oldBitmap := 0
+        return result
+    }
+    finally
+    {
+        if locked
+            DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", image, "Ptr", data)
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if attrs
+            DllCall("gdiplus\GdipDisposeImageAttributes", "Ptr", attrs)
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+        if dc && oldBitmap && oldBitmap != -1
+            DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        if bitmap
+            DllCall("DeleteObject", "Ptr", bitmap)
+        if dc
+            DllCall("DeleteDC", "Ptr", dc)
+    }
+}
+
+DestroyReducedBookRaster(raster)
+{
+    if !IsObject(raster)
+        return
+    DllCall("SelectObject", "Ptr", raster.DC, "Ptr", raster.OldBitmap)
+    DllCall("DeleteObject", "Ptr", raster.Bitmap)
+    DllCall("DeleteDC", "Ptr", raster.DC)
+}
+
+ReleaseReducedBookRaster(owner := 0)
+{
+    global ButtonPaint
+    if !IsSet(ButtonPaint) || !IsObject(ButtonPaint.BookRaster)
+        return
+    if owner && ButtonPaint.BookRaster.Owner != owner
+        return
+    DestroyReducedBookRaster(ButtonPaint.BookRaster)
+    ButtonPaint.BookRaster := 0
+}
+
+GetReducedBookRaster(page)
+{
+    global ButtonPaint
+    if !page.HasOwnProp("BookRasterEnabled") || !page.BookRasterEnabled
+        return 0
+    picture := page.BookBackground.Hwnd
+    if !page.HasOwnProp("OwnedContentScale") || page.OwnedContentScale >= 0.999
+    {
+        ReleaseReducedBookRaster(picture)
+        return 0
+    }
+    rect := Buffer(16, 0)
+    if !DllCall("GetClientRect", "Ptr", picture, "Ptr", rect)
+        return 0
+    width := NumGet(rect, 8, "Int"), height := NumGet(rect, 12, "Int")
+    source := page.BookExtra && ButtonPaint.BookExtended
+        ? ButtonPaint.BookExtended : ButtonPaint.Book
+    if width < 1 || height < 1 || !source
+        return 0
+    cached := ButtonPaint.BookRaster
+    if IsObject(cached) && cached.Owner = picture && cached.Source = source
+        && cached.Width = width && cached.Height = height
+        return cached
+    key := picture ":" source ":" width ":" height
+    if page.HasOwnProp("BookRasterFailure") && page.BookRasterFailure = key
+        return 0
+    try candidate := CreateReducedBookRaster(source, width, height)
+    catch Error as err
+    {
+        ; Keep the existing native Picture path usable on allocation failure.
+        ; Do not repeatedly allocate on every child WM_PAINT.
+        page.BookRasterFailure := key
+        return 0
+    }
+    page.BookRasterFailure := ""
+    candidate.Owner := picture
+    candidate.Source := source
+    ReleaseReducedBookRaster()
+    ButtonPaint.BookRaster := candidate
+    return candidate
+}
+
+CopyReducedBookRaster(page, target, handle, width, height)
+{
+    raster := GetReducedBookRaster(page)
+    if !IsObject(raster)
+        return false
+    origin := Buffer(8, 0)
+    ; Map actual HWND device pixels, not separately rounded logical widths.
+    DllCall("MapWindowPoints", "Ptr", handle, "Ptr", raster.Owner, "Ptr", origin, "UInt", 1)
+    x := NumGet(origin, 0, "Int"), y := NumGet(origin, 4, "Int")
+    if x < 0 || y < 0 || x + width > raster.Width || y + height > raster.Height
+        return false
+    return DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0,
+        "Int", width, "Int", height, "Ptr", raster.DC, "Int", x, "Int", y,
+        "UInt", 0xCC0020, "Int") != 0
+}
+
+AttachReducedBookPainter(page)
+{
+    global ButtonPaint, BookRasterCallback
+    InitButtonPainter()
+    if !IsSet(BookRasterCallback)
+        BookRasterCallback := CallbackCreate(ReducedBookWindowProc, "Fast", 6)
+    handle := page.BookBackground.Hwnd
+    if !DllCall("comctl32\SetWindowSubclass", "Ptr", handle, "Ptr", BookRasterCallback,
+        "UPtr", 1, "UPtr", 0)
+        throw Error("Could not attach reduced Book painter.")
+    ButtonPaint.BookRasterPicture := handle
+    page.BookRasterEnabled := true
+}
+
+ReducedBookWindowProc(handle, message, wParam, lParam, subclassID, reference)
+{
+    global ButtonPaint, BookRasterCallback
+    if message = 0x0082 ; WM_NCDESTROY
+    {
+        ReleaseReducedBookRaster(handle)
+        if ButtonPaint.BookRasterPicture = handle
+            ButtonPaint.BookRasterPicture := 0
+        DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle,
+            "Ptr", BookRasterCallback, "UPtr", subclassID)
+    }
+    else if message = 0x000F || message = 0x0318 || message = 0x0014
+    {
+        control := GuiCtrlFromHwnd(handle)
+        if IsObject(control)
+        {
+            raster := GetReducedBookRaster(control.Gui)
+            if IsObject(raster)
+            {
+                if message = 0x0014 ; WM_ERASEBKGND
+                    return 1
+                if message = 0x0318 ; WM_PRINTCLIENT
+                {
+                    CopyReducedBookRaster(control.Gui, wParam, handle, raster.Width, raster.Height)
+                    return 0
+                }
+                paint := Buffer(A_PtrSize = 8 ? 72 : 64, 0)
+                target := DllCall("BeginPaint", "Ptr", handle, "Ptr", paint, "Ptr")
+                try CopyReducedBookRaster(control.Gui, target, handle, raster.Width, raster.Height)
+                finally DllCall("EndPaint", "Ptr", handle, "Ptr", paint)
+                return 0
+            }
+        }
+    }
+    return DllCall("comctl32\DefSubclassProc", "Ptr", handle, "UInt", message,
+        "Ptr", wParam, "Ptr", lParam, "Ptr")
+}
+
 PaintButton(wParam, lParam, *)
 {
     previousCritical := A_IsCritical
@@ -318,12 +541,18 @@ PaintButton(wParam, lParam, *)
         dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
         bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
         oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        bookRasterPainted := face.Book && CopyReducedBookRaster(face.Gui, dc, handle, width, height)
         graphics := 0
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
         DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
-        DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
+        if !bookRasterPainted
+            DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
         if isChatTab || isDiscordName || isDiscordPortrait
             PaintLauncherBackgroundSlice(graphics, face.X, face.Y, (A_ScreenDPI / 96) * LauncherScale / 100)
+        else if bookRasterPainted
+        {
+            ; The shared device-pixel parchment slice is already present.
+        }
         else if face.Book
         {
             face.Control.GetPos(&logicalX, &logicalY, &logicalWidth, &logicalHeight)
@@ -578,7 +807,7 @@ PaintButtonToDC(handle, dc)
 
 DisposeButtonPainter(*)
 {
-    global ButtonPaint, ButtonPaintCallback, ButtonFaces
+    global ButtonPaint, ButtonPaintCallback, ButtonFaces, BookRasterCallback
     if !IsSet(ButtonPaint) || ButtonPaint.Disposed
         return
     ButtonPaint.Disposed := true
@@ -592,6 +821,14 @@ DisposeButtonPainter(*)
                 DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", ButtonPaintCallback, "UPtr", 1)
         CallbackFree(ButtonPaintCallback)
     }
+    if IsSet(BookRasterCallback)
+    {
+        if ButtonPaint.BookRasterPicture && DllCall("IsWindow", "Ptr", ButtonPaint.BookRasterPicture)
+            DllCall("comctl32\RemoveWindowSubclass", "Ptr", ButtonPaint.BookRasterPicture,
+                "Ptr", BookRasterCallback, "UPtr", 1)
+        CallbackFree(BookRasterCallback)
+    }
+    ReleaseReducedBookRaster()
     for image in [ButtonPaint.Artwork, ButtonPaint.Parchment, ButtonPaint.Book, ButtonPaint.BookExtended, ButtonPaint.Background, ButtonPaint.DiscordLogo]
         if image
             DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
