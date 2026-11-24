@@ -187,7 +187,7 @@ class InventoryCoverageTests(unittest.TestCase):
         windows = (root / "windows.ahk").read_text(encoding="utf-8-sig")
         characters = (root / "characters.ahk").read_text(encoding="utf-8-sig")
         settings = (root / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
-        self.assertIn("gui.AccessibleLayoutDpi := A_ScreenDPI / 96", windows)
+        self.assertIn("panel.AccessibleLayoutDpi := A_ScreenDPI / 96", windows)
         self.assertIn("Floor(width * dpi)", windows)
         self.assertIn('Ceil(NumGet(bounds, 12, "Int") / dpi)', windows)
         self.assertIn('Ceil(NumGet(bounds, 0, "Int") / dpi)', windows)

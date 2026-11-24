@@ -117,9 +117,9 @@ AccessibleLayoutDpi(control)
 
 CreateAccessibleLayoutGui(options := "", title := "")
 {
-    gui := Gui(options, title)
-    gui.AccessibleLayoutDpi := A_ScreenDPI / 96
-    return gui
+    panel := Gui(options, title)
+    panel.AccessibleLayoutDpi := A_ScreenDPI / 96
+    return panel
 }
 
 MeasureAccessibleWrappedText(control, caption, width)
