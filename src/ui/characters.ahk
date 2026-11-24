@@ -268,11 +268,12 @@ ReflowAccessiblePopulatedCharacters()
 {
     global CharacterPage, CharacterRows, CharacterDescription, Profiles
     global AddCharacterButton, AccessibilityTextSize, ButtonFaces
+    global CharacterLimitNotice, MaxCharacters
     if !IsObject(CharacterPage) || !CharacterRows.Length
         return false
     count := Min(Profiles.Length, CharacterRows.Length)
     scale := GetCharacterBookScale()
-    if AccessibilityTextSize = "Normal" || !count || count >= 10
+    if AccessibilityTextSize = "Normal" || !count
     {
         RestoreAccessibleCharacterRowBaseline()
         return false
@@ -350,7 +351,17 @@ ReflowAccessiblePopulatedCharacters()
             ButtonHeight: buttonHeight, Widths: widths})
         rowY := nextY
     }
-    addY := Max(540, rowY + 4)
+    noticeVisible := Profiles.Length >= MaxCharacters
+    noticeY := 429, noticeHeight := 25
+    if noticeVisible
+    {
+        noticeY := Max(429, rowY + 4)
+        noticeHeight := Max(25, Ceil((
+            MeasureAccessibleWrappedText(CharacterLimitNotice,
+                CharacterLimitNotice.Text, BookS(362)) + BookS(4)) / scale))
+    }
+    addY := Max(540, rowY + 4,
+        noticeVisible ? noticeY + noticeHeight + 8 : 0)
     ; Close/Export/Wipe are fixed at y575. Fit the complete proposed layout
     ; above those controls rather than moving an isolated action over them.
     if addY + 30 > 570
@@ -389,6 +400,9 @@ ReflowAccessiblePopulatedCharacters()
                 x += width + 6
             }
         }
+        if noticeVisible
+            MoveStyledButton(CharacterLimitNotice, 70, noticeY, 370,
+                noticeHeight)
         MoveStyledButton(AddCharacterButton, 70, addY, 370, 30)
         return true
     }
@@ -404,7 +418,7 @@ ReflowAccessiblePopulatedCharacters()
 
 RestoreAccessibleCharacterRowBaseline()
 {
-    global CharacterPage, CharacterRows, ButtonFaces
+    global CharacterPage, CharacterRows, ButtonFaces, CharacterLimitNotice
     if !IsObject(CharacterPage)
         || !CharacterPage.HasOwnProp("AccessibleRowsReflowed")
         || !CharacterPage.AccessibleRowsReflowed
@@ -434,6 +448,7 @@ RestoreAccessibleCharacterRowBaseline()
             }
         }
     }
+    MoveStyledButton(CharacterLimitNotice, 70, 429, 370, 25)
     CharacterPage.AccessibleRowsReflowed := false
 }
 
