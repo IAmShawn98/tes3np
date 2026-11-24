@@ -337,6 +337,8 @@ ReflowAccessiblePopulatedCharacters()
         y := layout.Y
         MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
         MoveStyledButton(controls.Name, 95, y, 345, layout.NameHeight)
+        if ButtonFaces.Has(controls.Name.Hwnd)
+            ButtonFaces[controls.Name.Hwnd].AccessibleWrappedName := true
         x := 70
         for index, button in [controls.Play, controls.Edit, controls.Remove]
         {
@@ -367,6 +369,12 @@ RestoreAccessibleCharacterRowBaseline()
         y := 164 + (index - 1) * 24
         MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
         MoveStyledButton(controls.Name, 95, y, 140, 23)
+        if ButtonFaces.Has(controls.Name.Hwnd)
+        {
+            nameFace := ButtonFaces[controls.Name.Hwnd]
+            if nameFace.HasOwnProp("AccessibleWrappedName")
+                nameFace.DeleteProp("AccessibleWrappedName")
+        }
         for entry in [{Control: controls.Play, X: 240, Width: 55},
             {Control: controls.Edit, X: 300, Width: 60},
             {Control: controls.Remove, X: 365, Width: 75}]
