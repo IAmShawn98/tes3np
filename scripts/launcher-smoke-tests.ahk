@@ -2449,6 +2449,18 @@ CheckExtremeDisplayFrameCoverage()
     }
 }
 
+AssertLauncherFaceBitmapReleased(entry)
+{
+    if !entry.HasOwnProp("DeleteResult")
+        throw Error("Cache entry did not reach native bitmap retirement.")
+    if !entry.DeleteResult || !entry.ReleaseFlushBefore || !entry.ReleaseFlushAfter
+        || entry.ReleaseDataBytes
+        throw Error("Native bitmap retirement failed: handle=" Format("0x{:X}", entry.Bitmap)
+            " DeleteObject=" entry.DeleteResult " flushBefore=" entry.ReleaseFlushBefore
+            " flushAfter=" entry.ReleaseFlushAfter " GetObjectW bytes=" entry.ReleaseDataBytes
+            " GetObjectType=" entry.ReleaseType)
+}
+
 CheckLauncherFaceReuse()
 {
     global LauncherGui, LauncherScale, AccessibilityTextSize, EnhancedReadability
@@ -2496,8 +2508,12 @@ CheckLauncherFaceReuse()
                 if !LauncherFaceCache.Has(handle) || !LauncherFaceCache[handle].Has("normal")
                     throw Error("Initial face did not enter cache.")
                 cached := LauncherFaceCache[handle]["normal"]
-                if percent = 50 && IsObject(previous) && previous = cached
-                    throw Error("Changed geometry retained old bitmap.")
+                if percent = 50 && IsObject(previous)
+                {
+                    if previous = cached
+                        throw Error("Changed geometry retained old bitmap.")
+                    AssertLauncherFaceBitmapReleased(previous)
+                }
                 PaintButtonToDC(handle, dc)
                 if LauncherFaceCache[handle]["normal"] != cached
                     throw Error("Unchanged face was rendered again.")
@@ -2531,11 +2547,13 @@ CheckLauncherFaceReuse()
             PaintButtonToDC(action.Hwnd, dc)
             if LauncherFaceCache[action.Hwnd]["normal"] = before
                 throw Error("Changed action caption retained stale bitmap.")
+            AssertLauncherFaceBitmapReleased(before)
             before := LauncherFaceCache[action.Hwnd]["normal"]
             action.SetFont("s" (percent = 100 ? 14 : 15) " Bold", "Segoe UI")
             PaintButtonToDC(action.Hwnd, dc)
             if LauncherFaceCache[action.Hwnd]["normal"] = before
                 throw Error("Changed native font retained stale bitmap.")
+            AssertLauncherFaceBitmapReleased(before)
             for state in ["hover", "down", "normal"]
             {
                 ButtonFaces[action.Hwnd].State := state
@@ -2548,27 +2566,28 @@ CheckLauncherFaceReuse()
             PaintButtonToDC(action.Hwnd, dc)
             if LauncherFaceCache[action.Hwnd]["normal"] = before
                 throw Error("Contrast change retained stale bitmap.")
+            AssertLauncherFaceBitmapReleased(before)
             before := LauncherFaceCache[chat.Hwnd]["normal"]
             LauncherChatOpen := !LauncherChatOpen
             PaintButtonToDC(chat.Hwnd, dc)
             if LauncherFaceCache[chat.Hwnd]["normal"] = before
                 throw Error("Chat direction retained stale bitmap.")
+            AssertLauncherFaceBitmapReleased(before)
         }
-        released := []
-        for control in controls
-            for state, entry in LauncherFaceCache[control.Hwnd]
-                released.Push(entry.Bitmap)
         for control in controls
         {
             handle := control.Hwnd
+            released := []
+            for state, entry in LauncherFaceCache[handle]
+                released.Push(entry)
             UnregisterThemedControl(control)
+            ; Check the actual deletion and immediate BITMAP query for every entry,
+            ; not a later type lookup after unrelated native calls can reuse a handle.
+            for entry in released
+                AssertLauncherFaceBitmapReleased(entry)
             if LauncherFaceCache.Has(handle)
                 throw Error("Unregistered control retained face cache.")
         }
-        DllCall("gdi32\GdiFlush")
-        for releasedBitmap in released
-            if DllCall("gdi32\GetObjectType", "Ptr", releasedBitmap, "UInt")
-                throw Error("Released face bitmap is still alive.")
         try FileAppend("PASS: main launcher face reuse, original pixels, input invalidation and GDI cleanup at 50 and 100 percent" Chr(10), "*")
     }
     finally
