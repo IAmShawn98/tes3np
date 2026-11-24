@@ -59,8 +59,13 @@ SetCharacterBookLayoutExtra(side, required)
     {
         if !IsObject(LauncherGui)
             return false
-        WinGetPos(&x, &y, &w, &h, "ahk_id " LauncherGui.Hwnd)
-        monitor := MonitorFromPoint(x + w // 2, y + h // 2)
+        ; The owner may be hidden or have redraw suppressed during staging.
+        ; Use its actual HWND rectangle, just like PositionOwnedMenuAtParent.
+        ownerRect := Buffer(16, 0)
+        if !DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", ownerRect)
+            return false
+        monitor := MonitorFromPoint((NumGet(ownerRect, 0, "Int") + NumGet(ownerRect, 8, "Int")) // 2,
+            (NumGet(ownerRect, 4, "Int") + NumGet(ownerRect, 12, "Int")) // 2)
         MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
         dpi := A_ScreenDPI / 96
         if BookS(960) * dpi > right - left - 16
