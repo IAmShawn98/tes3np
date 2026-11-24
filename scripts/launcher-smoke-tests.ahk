@@ -1209,6 +1209,90 @@ CheckMeasuredEmptyMacroBook()
     }
 }
 
+; Test the populated Macro Book against real native font extents without
+; importing a file, editing a macro, launching a process, or touching AppData.
+CheckMeasuredPopulatedMacroBook()
+{
+    global CharacterPage, MacroBookControls, MacroBookRows, MacroItems
+    global MacroScrollTrack, MacroScrollThumb, AccessibilityTextSize
+    global LauncherMorrowindFont
+    savedPage := IsSet(CharacterPage) ? CharacterPage : 0
+    savedControls := IsSet(MacroBookControls) ? MacroBookControls : []
+    savedRows := IsSet(MacroBookRows) ? MacroBookRows : []
+    savedItems := IsSet(MacroItems) ? MacroItems : []
+    savedTrack := IsSet(MacroScrollTrack) ? MacroScrollTrack : 0
+    savedThumb := IsSet(MacroScrollThumb) ? MacroScrollThumb : 0
+    savedMode := AccessibilityTextSize
+    try
+    {
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            page := Gui("-DPIScale")
+            try
+            {
+                CharacterPage := page
+                SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
+                heading := page.Add("Text", "x525 y45 w355 h32", "Manage Macros")
+                copy := page.Add("Text", "x525 y87 w355 h48 +Wrap",
+                    "Upload, run, or stop macros here. Click the pencil to rename a macro.")
+                MacroBookControls := [heading, copy]
+                MacroBookRows := []
+                MacroItems := [1, 2, 3, 4]
+                Loop 4
+                {
+                    y := 140 + (A_Index - 1) * 70
+                    SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
+                    status := page.Add("Text", "x551 y" y " w329 h17", "Ready")
+                    SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
+                    tick := page.Add("Text", "x525 y" (y + 20) " w18 h18", "")
+                    name := page.Add("Text", "x551 y" (y + 19) " w125 h22", "Macro")
+                    run := page.Add("Text", "x551 y" (y + 42) " w103 h20", "Run")
+                    stop := page.Add("Text", "x663 y" (y + 42) " w103 h20", "Stop")
+                    remove := page.Add("Text", "x775 y" (y + 42) " w105 h20", "Remove")
+                    MacroBookRows.Push({Tick: tick, Status: status,
+                        Name: name, NameWidth: 125, NameScale: 0,
+                        Y: y + 19, Run: run, Stop: stop, Remove: remove})
+                }
+                MacroScrollTrack := page.Add("Text", "x887 y140 w8 h272", "")
+                MacroScrollThumb := page.Add("Text", "x888 y140 w6 h40", "")
+                offset := ReflowPopulatedMacroBook()
+                copy.GetPos(, &copyY, , &copyH)
+                MacroBookRows[1].Status.GetPos(, &rowY)
+                MacroBookRows[4].Remove.GetPos(, &lastActionY, , &lastActionH)
+                MacroScrollTrack.GetPos(, &trackY, , &trackH)
+                if trackY != 140 + offset || trackH != 272
+                    || rowY != 140 + offset
+                    || lastActionY + lastActionH + 12 != 424 + offset
+                    || 424 + offset + 36 + 30 > 570
+                    throw Error("Populated Macro Book viewport/Upload offsets diverged.")
+                if mode = "Normal"
+                {
+                    if copyY != 87 || copyH != 48 || offset != 0
+                        throw Error("Normal populated Macro Book coordinates changed.")
+                }
+                else if offset
+                {
+                    required := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
+                    if copyH < required || rowY < copyY + copyH + 5
+                        throw Error("Populated macro rows overlap the larger explanation.")
+                }
+            }
+            finally page.Destroy()
+        }
+    }
+    finally
+    {
+        CharacterPage := savedPage
+        MacroBookControls := savedControls
+        MacroBookRows := savedRows
+        MacroItems := savedItems
+        MacroScrollTrack := savedTrack
+        MacroScrollThumb := savedThumb
+        AccessibilityTextSize := savedMode
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1217,6 +1301,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredAccessibleBookPreflight()
     CheckMeasuredV016SettingsCopy()
     CheckMeasuredEmptyMacroBook()
+    CheckMeasuredPopulatedMacroBook()
     try
     {
         bodyHeights := [], settingsHeights := []
