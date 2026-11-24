@@ -1169,8 +1169,9 @@ CheckMeasuredEmptyMacroBook()
             testPage := Gui("-DPIScale")
             try
             {
-                SetAccessibleTextFont(testPage, "s11 Norm c241408", LauncherMorrowindFont)
+                SetAccessibleTextFont(testPage, "s19 Norm c241408", LauncherMorrowindFont)
                 heading := testPage.Add("Text", "x525 y45 w355 h32", "Manage Macros")
+                SetAccessibleTextFont(testPage, "s11 Norm c241408", LauncherMorrowindFont)
                 copy := testPage.Add("Text", "x525 y87 w355 h48 +Wrap",
                     "Upload, run, or stop macros here. Click the pencil to rename a macro.")
                 notice := testPage.Add("Text", "x525 y150 w355 h28 +Wrap",
@@ -1182,6 +1183,7 @@ CheckMeasuredEmptyMacroBook()
                 uploadY := ReflowEmptyMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
                 notice.GetPos(, &noticeY, , &noticeH)
+                heading.GetPos(, &headingY, , &headingH)
                 if mode = "Normal"
                 {
                     if copyY != 87 || copyH != 48 || noticeY != 150
@@ -1191,7 +1193,9 @@ CheckMeasuredEmptyMacroBook()
                 else
                 {
                     requiredH := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
-                    if copyH < requiredH || noticeY < copyY + copyH + 15
+                    if headingH < MeasureAccessibleWrappedText(heading, heading.Text, 351)
+                        || copyY < headingY + headingH + 10
+                        || copyH < requiredH || noticeY < copyY + copyH + 15
                         || uploadY < noticeY + noticeH + 10
                         throw Error("Empty Macro Book explanation/notice/Upload overlapped.")
                 }

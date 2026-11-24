@@ -73,9 +73,9 @@ SetCharacterBookLayoutExtra(side, required)
         if BookS(960) * dpi > right - left - 16
             || BookS(650 + extra) * dpi > bottom - top - 16
         {
-            page.BookExpansionFailure := "Required " BookS(960) * dpi "x" BookS(650 + extra) * dpi
-                " pixels; available " (right - left - 16) "x" (bottom - top - 16)
-                " at scale " GetCharacterBookScale()
+            page.BookExpansionFailure := Format("Required {}x{} pixels; available {}x{} at scale {}",
+                BookS(960) * dpi, BookS(650 + extra) * dpi,
+                right - left - 16, bottom - top - 16, GetCharacterBookScale())
             return false
         }
     }
@@ -116,6 +116,27 @@ GetCharacterBookExtra()
     global CharacterPage
     return IsObject(CharacterPage) && CharacterPage.HasOwnProp("BookExtra")
         ? CharacterPage.BookExtra : 0
+}
+
+; Measure headings before positioning their dependent introductory copy.
+; Normal retains the exact original heading height and copy anchor.
+BookHeadingCopyY(heading, x, width, originalHeight, originalCopyY)
+{
+    global AccessibilityTextSize
+    height := originalHeight
+    if AccessibilityTextSize != "Normal"
+        height := Max(originalHeight, Ceil((MeasureAccessibleWrappedText(
+            heading, heading.Text, BookS(width - 4)) + BookS(4)) / GetCharacterBookScale()))
+    MoveMacroTextIfChanged(heading, BookS(x), BookS(45), BookS(width), BookS(height))
+    return originalCopyY + height - originalHeight
+}
+
+CharacterBookDescriptionY()
+{
+    global CharacterPage
+    if !IsObject(CharacterPage) || !CharacterPage.HasOwnProp("BookCharacterHeading")
+        return 80
+    return BookHeadingCopyY(CharacterPage.BookCharacterHeading, 70, 380, 30, 80)
 }
 
 OpenCharacterPage(*)
@@ -192,6 +213,7 @@ OpenCharacterPage(*)
     ; interactive buttons in their existing button font for readability.
     SetAccessibleTextFont(CharacterPage, "s19 Norm c241408", LauncherMorrowindFont)
     CharacterHeading := CharacterPage.Add("Text", "x70 y45 w380 h30 Center BackgroundTrans", "Manage Characters")
+    CharacterPage.BookCharacterHeading := CharacterHeading
     ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
@@ -303,19 +325,20 @@ RefreshProfiles()
         ; book's unchanged parchment/footers can contain them. The populated
         ; ten-row state needs its own all-control transaction.
         actionY := Profiles.Length ? 540 : 164
-        CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))
+        copyY := CharacterBookDescriptionY()
+        CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))
         if !Profiles.Length
         {
             captionHeight := Max(BookS(81),
                 MeasureAccessibleWrappedText(CharacterDescription, descriptionText,
                     Max(1, BookS(390) - BookS(4))) + BookS(4))
-            proposedAddY := Max(164, Ceil((BookS(80) + captionHeight
+            proposedAddY := Max(164, Ceil((BookS(copyY) + captionHeight
                 + BookS(3)) / GetCharacterBookScale()))
             ; Keep Import above the original footer: no new scrolling, no
             ; bitmap stretching, and no partial move if text cannot fit.
             if proposedAddY + 65 <= 570
             {
-                CharacterDescription.Move(BookS(70), BookS(80),
+                CharacterDescription.Move(BookS(70), BookS(copyY),
                     BookS(390), captionHeight)
                 actionY := proposedAddY
             }
@@ -381,11 +404,12 @@ ReflowAccessiblePopulatedCharacters()
         RestoreAccessibleCharacterRowBaseline()
         return false
     }
+    copyY := CharacterBookDescriptionY()
     paragraph := CharacterDescription.Text
     paragraphHeight := Max(BookS(81),
         MeasureAccessibleWrappedText(CharacterDescription, paragraph,
             Max(1, BookS(390) - BookS(4))) + BookS(4))
-    rowY := Max(164, Ceil((BookS(80) + paragraphHeight + BookS(5)) / scale))
+    rowY := Max(164, Ceil((BookS(copyY) + paragraphHeight + BookS(5)) / scale))
     layouts := []
     for position, controls in CharacterRows
     {
@@ -474,7 +498,7 @@ ReflowAccessiblePopulatedCharacters()
     CharacterPage.AccessibleRowsReflowed := true
     try
     {
-        CharacterDescription.Move(BookS(70), BookS(80),
+        CharacterDescription.Move(BookS(70), BookS(copyY),
             BookS(390), paragraphHeight)
         for layout in layouts
         {

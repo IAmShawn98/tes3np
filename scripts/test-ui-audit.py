@@ -76,7 +76,7 @@ class InventoryCoverageTests(unittest.TestCase):
         begin = source.index("RefreshProfiles()\n{")
         end = source.index("\nMoveStyledButton(control,", begin)
         refresh = source[begin:end]
-        self.assertIn("CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))", refresh)
+        self.assertIn("CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))", refresh)
         self.assertIn("if !Profiles.Length", refresh)
         self.assertIn("MeasureAccessibleWrappedText(CharacterDescription, descriptionText,", refresh)
         self.assertIn("if proposedAddY + 65 <= 570", refresh)
@@ -99,6 +99,9 @@ class InventoryCoverageTests(unittest.TestCase):
         end = characters.index("\nMoveStyledButton(control,", start)
         section = characters[start:end]
         self.assertIn("MeasureAccessibleWrappedText(CharacterDescription,", section)
+        self.assertIn("copyY := CharacterBookDescriptionY()", section)
+        self.assertIn("return BookHeadingCopyY(CharacterPage.BookCharacterHeading, 70, 380, 30, 80)", characters)
+        self.assertIn("copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)", (root / "macros.ahk").read_text(encoding="utf-8-sig"))
         self.assertIn("PrepareAccessibleBookName(controls.Name, name,", section)
         self.assertIn("MeasureAccessibleWrappedText(controls.Name, displayName,", section)
         self.assertIn("AccessibleNameText := layout.DisplayName", section)

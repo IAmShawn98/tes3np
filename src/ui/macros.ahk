@@ -160,6 +160,7 @@ ReflowPopulatedMacroBook()
         return 0
     scale := GetCharacterBookScale()
     explanation := MacroBookControls[2]
+    copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)
     offset := 0, copyHeight := BookS(48)
     statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
     measured := AccessibilityTextSize != "Normal"
@@ -170,7 +171,7 @@ ReflowPopulatedMacroBook()
         copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
             explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
             + BookS(4))
-        offset := Max(0, 87 + Ceil(copyHeight / scale) + 5 - 140)
+        offset := Max(0, copyY + Ceil(copyHeight / scale) + 5 - 140)
         sample := MacroBookRows[1]
         ; Reserve status/error lines before they appear so polling and
         ; entering rename mode do not shift a row for ordinary state changes.
@@ -222,12 +223,15 @@ ReflowPopulatedMacroBook()
         statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
         pitch := 70
         if 214 + (shownCount - 1) * pitch + offset + 36 + 30 > 570
-            offset := 0, copyHeight := BookS(48)
+        {
+            offset := 0, copyHeight := BookS(48), copyY := 87
+            MoveMacroTextIfChanged(MacroBookControls[1], BookS(525), BookS(45), BookS(355), BookS(32))
+        }
     }
     CharacterPage.MacroRowsMeasured := measured
     CharacterPage.MacroRowPitch := pitch
     CharacterPage.MacroViewportHeight := 4 * pitch - 8
-    MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
+    MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), copyHeight)
     for position, row in MacroBookRows
     {
@@ -280,7 +284,8 @@ ReflowEmptyMacroBook()
         return 188
     SetCharacterBookLayoutExtra("Macros", 0)
     explanation := MacroBookControls[2]
-    MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
+    copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)
+    MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), BookS(48))
     MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(150),
         BookS(355), BookS(28))
@@ -300,13 +305,13 @@ ReflowEmptyMacroBook()
         Max(1, BookS(355) - BookS(4))) + BookS(4))
     copyHeightLogical := Ceil(copyHeight / scale)
     emptyHeightLogical := Ceil(emptyHeight / scale)
-    noticeY := Max(150, 87 + copyHeightLogical + 15)
+    noticeY := Max(150, copyY + copyHeightLogical + 15)
     uploadY := Max(188, noticeY + emptyHeightLogical + 10)
     ; Reserve room for existing upload-progress copy below Upload, even
     ; when this particular refresh has no visible error.
     if uploadY + 29 + 36 + 30 > 570
         return 188
-    MoveMacroTextIfChanged(explanation, BookS(525), BookS(87),
+    MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), copyHeight)
     MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(noticeY),
         BookS(355), BookS(emptyHeightLogical))

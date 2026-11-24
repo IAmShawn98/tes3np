@@ -2041,7 +2041,7 @@ expect(
     and 'CharacterPage.BookBackground.Value := A_ScriptDir' in characters_ui
     and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
     and 'x := BookS(x), y := BookS(y)' in characters_ui
-    and 'CharacterDescription.Move(BookS(70), BookS(80), BookS(390), BookS(81))' in characters_ui
+    and 'CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))' in characters_ui
     and 'y := 164 + (index - 1) * 24' in characters_ui
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
