@@ -491,6 +491,23 @@ LauncherFaceCacheKey(handle, face, width, height)
         . "|" StrLen(caption) ":" caption
 }
 
+; Retire only after the painting DC has been destroyed. Record the native
+; result immediately, before a later control operation can recycle a handle.
+ReleaseLauncherFaceBitmap(entry)
+{
+    entry.Retired := true
+    entry.ReleaseFlushBefore := DllCall("gdi32\GdiFlush", "Int")
+    entry.DeleteResult := DllCall("gdi32\DeleteObject", "Ptr", entry.Bitmap, "Int")
+    entry.ReleaseFlushAfter := DllCall("gdi32\GdiFlush", "Int")
+    definition := Buffer(A_PtrSize = 8 ? 32 : 24, 0) ; BITMAP
+    entry.ReleaseDataBytes := DllCall("gdi32\GetObjectW", "Ptr", entry.Bitmap,
+        "Int", definition.Size, "Ptr", definition, "Int")
+    entry.ReleaseType := DllCall("gdi32\GetObjectType", "Ptr", entry.Bitmap, "UInt")
+    ; A failed DeleteObject leaves ownership with us. Keep that retired entry
+    ; for a later release attempt; do not replace it with another bitmap.
+    return entry.DeleteResult != 0
+}
+
 ReleaseLauncherFaceCache(handle)
 {
     global LauncherFaceCache, LauncherFacePaintBusy
@@ -506,9 +523,15 @@ ReleaseLauncherFaceCache(handle)
         }
         if !LauncherFaceCache.Has(handle)
             return
-        for state, entry in LauncherFaceCache[handle]
-            DllCall("gdi32\DeleteObject", "Ptr", entry.Bitmap)
-        LauncherFaceCache.Delete(handle)
+        states := LauncherFaceCache[handle]
+        released := []
+        for state, entry in states
+            if ReleaseLauncherFaceBitmap(entry)
+                released.Push(state)
+        for state in released
+            states.Delete(state)
+        if !states.Count
+            LauncherFaceCache.Delete(handle)
     }
     finally Critical(previousCritical)
 }
@@ -570,7 +593,8 @@ PaintReusableLauncherFace(wParam, lParam, handle, face, args*)
         if !LauncherFaceCache.Has(handle)
             LauncherFaceCache[handle] := Map()
         states := LauncherFaceCache[handle]
-        hit := states.Has(state) && states[state].Face = face && states[state].Key == key
+        hit := states.Has(state) && !states[state].HasOwnProp("Retired")
+            && states[state].Face = face && states[state].Key == key
         dc := DllCall("gdi32\CreateCompatibleDC", "Ptr", target, "Ptr")
         if !dc
             return RenderButtonFace(wParam, lParam, args*)
@@ -610,11 +634,17 @@ PaintReusableLauncherFace(wParam, lParam, handle, face, args*)
             return RenderButtonFace(wParam, lParam, args*)
         if !hit
         {
-            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+            restored := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldBitmap, "Ptr")
+            if !restored || restored = -1
+                return true ; already painted, but do not retain this bitmap
             oldBitmap := 0
+            if !DllCall("gdi32\DeleteDC", "Ptr", dc, "Int")
+                return true
+            dc := 0
+            ; Transfer ownership only after the memory DC has been destroyed.
             ; At most one bitmap for each of normal, hover and down.
-            if states.Has(state)
-                DllCall("gdi32\DeleteObject", "Ptr", states[state].Bitmap)
+            if states.Has(state) && !ReleaseLauncherFaceBitmap(states[state])
+                return true
             states[state] := {Face: face, Key: key, Bitmap: bitmap}
             ownedBitmap := false
         }
@@ -624,10 +654,10 @@ PaintReusableLauncherFace(wParam, lParam, handle, face, args*)
     {
         if oldBitmap
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldBitmap)
-        if ownedBitmap
-            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
         if dc
             DllCall("gdi32\DeleteDC", "Ptr", dc)
+        if ownedBitmap
+            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
         releasePending := LauncherFacePaintBusy[handle]
         LauncherFacePaintBusy.Delete(handle)
         if releasePending
