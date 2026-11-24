@@ -1872,6 +1872,120 @@ CheckMeasuredLauncherEdgeControls()
     }
 }
 
+CheckMeasuredFooterVersionAndLoginCard()
+{
+    global AccessibilityTextSize, LoginProgressGui, LoginProgressRows
+    global LoginProgressFooter, LoginProgressCharacterName, LoginProgressSummaryDots
+    global LoginProgressName, LoginProgressMode, LoginProgressStage, LoginProgressStageStarted
+    savedMode := AccessibilityTextSize
+    savedGui := LoginProgressGui, savedRows := LoginProgressRows, savedFooter := LoginProgressFooter
+    savedCharacter := LoginProgressCharacterName, savedDots := LoginProgressSummaryDots
+    savedName := LoginProgressName, savedLoginMode := LoginProgressMode
+    savedStage := LoginProgressStage, savedStarted := LoginProgressStageStarted
+    panel := CreateAccessibleLayoutGui()
+    try
+    {
+        label := panel.Add("Text", "x12 y691 w180 h18", "tes3np · v0.1.21-alpha.1")
+        for scale in [0.5, 1.0]
+        {
+            for mode in ["Normal", "Large", "Extra Large", "Normal"]
+            {
+                AccessibilityTextSize := mode
+                label.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), "Segoe UI")
+                rect := GetLauncherVersionLabelRect(label, scale, Round(180 * scale))
+                if mode = "Normal"
+                {
+                    if rect.Y != Round(691 * scale) || rect.H != Round(18 * scale)
+                        throw Error("Normal footer position changed.")
+                }
+                else if rect.Y + rect.H != Round(709 * scale)
+                    || rect.H < Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale())
+                    throw Error("Enlarged footer text clips or sinks.")
+            }
+        }
+        for mode in ["Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            for area in [{X: 0, Y: 0, Width: 1920, Height: 1080},
+                {X: 10, Y: 20, Width: 640, Height: 360}]
+            {
+                LoginProgressName := "Long Character Name Without Clipping"
+                layout := FitAccessibleGameLoginProgress(area, area, A_ScreenDPI / 96, LoginProgressName)
+                if !IsObject(layout) || layout.Height > area.Height || layout.Width > area.Width
+                    throw Error("Measured login card exceeds game client.")
+                ; The source and compiled fixture both use the production
+                ; constructor; its icon is in the verified resource root.
+                LoginProgressGui := 0
+                CreateGameLoginProgress(layout)
+                try
+                {
+                    LoginProgressStageStarted := A_TickCount
+                    for stage in [1, 2, 3, 4, 5]
+                    {
+                        LoginProgressStage := stage
+                        LoginProgressMode := stage = 5 ? "complete" : "login"
+                        RenderGameLoginProgress()
+                        previousBottom := 0
+                        for control in [LoginProgressGui.ProgressTitle, LoginProgressGui.ProgressPortrait,
+                            LoginProgressCharacterName, LoginProgressGui.ProgressTopLine]
+                        {
+                            control.GetPos(, &y, , &h)
+                            if y < previousBottom
+                                throw Error("Measured login header overlaps.")
+                            previousBottom := y + h
+                        }
+                        for row in LoginProgressRows
+                        {
+                            for control in [row.Label, row.Dot, row.Symbol]
+                            {
+                                control.GetPos(, , &w, &h)
+                                if control.Text != "" && h < MeasureAccessibleWrappedText(control, control.Text, w)
+                                    throw Error("Login step glyph clips.")
+                            }
+                            row.Label.GetPos(, &ly, , &lh)
+                            row.Dot.GetPos(, &dy, , &dh)
+                            if ly < previousBottom || dy < ly + lh
+                                throw Error("Login step overlaps.")
+                            previousBottom := dy + dh
+                        }
+                        LoginProgressGui.ProgressBottomLine.GetPos(, &lineY, , &lineH)
+                        LoginProgressFooter.GetPos(, &fy, &fw, &fh)
+                        if lineY < previousBottom || fy < lineY + lineH
+                            || fh < MeasureAccessibleWrappedText(LoginProgressFooter, LoginProgressFooter.Text, fw)
+                            throw Error("Login footer overlaps or clips.")
+                        for marker in LoginProgressSummaryDots
+                        {
+                            for control in [marker.Circle, marker.Symbol]
+                            {
+                                control.GetPos(, &y, &w, &h)
+                                if y < fy + fh || y + h >= layout.Height
+                                    || (control.Text != "" && h < MeasureAccessibleWrappedText(control, control.Text, w))
+                                    throw Error("Login summary marker clips.")
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    LoginProgressGui.Destroy()
+                    LoginProgressGui := 0
+                }
+            }
+        }
+    }
+    finally
+    {
+        if IsObject(LoginProgressGui) && LoginProgressGui != savedGui
+            try LoginProgressGui.Destroy()
+        panel.Destroy()
+        LoginProgressGui := savedGui, LoginProgressRows := savedRows, LoginProgressFooter := savedFooter
+        LoginProgressCharacterName := savedCharacter, LoginProgressSummaryDots := savedDots
+        LoginProgressName := savedName, LoginProgressMode := savedLoginMode
+        LoginProgressStage := savedStage, LoginProgressStageStarted := savedStarted
+        AccessibilityTextSize := savedMode
+    }
+}
+
 CheckMeasuredVersionStatusHeader()
 {
     global AccessibilityTextSize
@@ -1938,6 +2052,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredBookEditorGeometry()
     CheckMeasuredVersionStatusHeader()
     CheckMeasuredLauncherEdgeControls()
+    CheckMeasuredFooterVersionAndLoginCard()
     try
     {
         bodyHeights := [], settingsHeights := []

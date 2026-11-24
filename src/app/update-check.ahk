@@ -61,7 +61,9 @@ ScaleLauncherVersionLabel(scale)
     if IsObject(LauncherVersionLabel)
     {
         LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), "Segoe UI")
-        FitLauncherVersionLabelToText(LauncherVersionLabel)
+        LauncherVersionLabel.GetPos(, , &currentWidth)
+        rect := GetLauncherVersionLabelRect(LauncherVersionLabel, scale, currentWidth)
+        LauncherVersionLabel.Move(, rect.Y, rect.W, rect.H)
     }
     ApplyLauncherBadgeFont(scale)
     if IsObject(LauncherUpdateBadge)
@@ -191,6 +193,22 @@ LauncherVersionLabelRequiredWidth(label)
         / GetLauncherBadgeDpiScale()) + 2
 }
 
+GetLauncherVersionLabelRect(label, scale, baseWidth)
+{
+    global AccessibilityTextSize, LauncherControlLayout
+    ; Recompute from immutable anchors so restoring Normal never retains
+    ; the larger font's width or the higher vertical position.
+    if LauncherControlLayout.Has(label.Hwnd)
+        baseWidth := Round(LauncherControlLayout[label.Hwnd].Width * scale)
+    h := Round(18 * scale), y := Round(691 * scale)
+    if AccessibilityTextSize != "Normal"
+    {
+        h := Max(h, Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale()) + 2)
+        y := Round(709 * scale) - h
+    }
+    return {Y: y, W: Max(baseWidth, LauncherVersionLabelRequiredWidth(label)), H: h}
+}
+
 FitLauncherVersionLabelToText(label)
 {
     try required := LauncherVersionLabelRequiredWidth(label)
@@ -242,10 +260,16 @@ SetLauncherUnreadBadgeNumber(count)
     value := "" Max(1, Integer(count))
     scale := LauncherScale / 100
     diameter := LauncherUnreadBadgeDiameter(count, scale)
-    LauncherUpdateBadge.GetPos(&oldX, , &oldWidth, &oldHeight)
+    LauncherUpdateBadge.GetPos(&oldX, &oldY, &oldWidth, &oldHeight)
     x := GetLauncherUnreadBadgeX(LauncherVersionLabel, scale)
+    baseY := Round(689 * scale)
+    baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
+    LauncherVersionLabel.GetPos(, &labelY, , &labelH)
+    ; Follow the measured label center, preserving the existing Normal inset.
+    labelOffset := Round(labelY + labelH / 2 - (Round(691 * scale) + Round(18 * scale) / 2))
+    centeredY := baseY - Floor((diameter - baseDiameter) / 2) + Max(1, Round(5 / GetLauncherBadgeDpiScale())) + labelOffset
     if LauncherUpdateNumber.Text = value && oldWidth = diameter
-        && oldHeight = diameter && oldX = x
+        && oldHeight = diameter && oldX = x && oldY = centeredY
         return
     wasVisible := LauncherUpdateBadge.Visible
     if wasVisible
@@ -254,11 +278,6 @@ SetLauncherUnreadBadgeNumber(count)
         LauncherUpdateBadge.Visible := false
         RedrawLauncherUpdateBadge()
     }
-    baseY := Round(689 * scale)
-    baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
-    ; The small circle was sitting slightly above the visible letterforms.
-    ; Apply a modest physical-pixel offset, independent of Windows DPI.
-    centeredY := baseY - Floor((diameter - baseDiameter) / 2) + Max(1, Round(5 / GetLauncherBadgeDpiScale()))
     ; Explicit bitmap size plus SS_REALSIZECONTROL keeps the 48px PNG from
     ; showing at its native size. Load first, then set final control bounds:
     ; replacing Picture.Value must never re-expand the resized circle.

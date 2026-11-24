@@ -208,7 +208,11 @@ GetGameLoginProgressLayout(hwnd, gameWindow)
         x := Max(x, NumGet(info, 4, "Int")), y := Max(y, NumGet(info, 8, "Int"))
         width := right - x, height := bottom - y
     }
+    global AccessibilityTextSize, LoginProgressName
     layout := FitGameLoginProgress({X: x, Y: y, Width: width, Height: height}, gameWindow, A_ScreenDPI / 96)
+    if IsObject(layout) && AccessibilityTextSize != "Normal"
+        layout := FitAccessibleGameLoginProgress({X: x, Y: y, Width: width, Height: height},
+            gameWindow, A_ScreenDPI / 96, LoginProgressName)
     if IsObject(layout)
         layout.GameWindow := gameWindow
     return layout
@@ -219,8 +223,11 @@ TranslateGameLoginProgress(layout, gameWindow)
     anchor := layout.GameWindow
     if gameWindow.Width != anchor.Width || gameWindow.Height != anchor.Height
         return 0
-    return {X: gameWindow.X + (layout.X - anchor.X), Y: gameWindow.Y + (layout.Y - anchor.Y),
-        Width: layout.Width, Height: layout.Height, Scale: layout.Scale, GameWindow: gameWindow}
+    translated := layout.Clone()
+    translated.X := gameWindow.X + (layout.X - anchor.X)
+    translated.Y := gameWindow.Y + (layout.Y - anchor.Y)
+    translated.GameWindow := gameWindow
+    return translated
 }
 
 TrackGameLoginProgressWindow(hwnd)
@@ -294,6 +301,105 @@ GameLoginProgressFontSize(points, scale)
     return scale >= normalScale ? points : Max(1, Floor(points * scale / normalScale))
 }
 
+; Measure the same fonts used by the production card in physical pixels.
+; Reserve both the circle and either overlaid symbol, including the larger
+; active exclamation mark. The complete stack is planned before first paint.
+MeasureGameLoginProgressPlan(scale, name)
+{
+    p := (value) => Max(1, Round(value * scale))
+    panel := Gui("-DPIScale")
+    try
+    {
+        sample := panel.Add("Text", "x0 y0 w1 h1", "")
+        font := (points, style, family) => SetAccessibleTextFont(sample,
+            "s" GameLoginProgressFontSize(points, scale) " " style, family)
+        width := p(420)
+        font(15, "Bold", "Georgia")
+        titleH := Max(p(38), MeasureAccessibleWrappedText(sample, "Logging in...", p(380)) + p(4))
+        font(13, "Bold", "Georgia")
+        nameDisplay := PrepareAccessibleBookName(sample, name, Max(1, p(372) - p(8)))
+        nameH := Max(p(30), MeasureAccessibleWrappedText(sample, nameDisplay, Max(1, p(372) - p(4))) + p(4))
+        font(11, "Norm", "Segoe UI")
+        labelH := p(22)
+        for caption in ["Loading Name Screen...", "Typing Name...", "Loading Password Screen...", "Typing Password..."]
+            labelH := Max(labelH, MeasureAccessibleWrappedText(sample, caption, p(360)) + p(4))
+        font(13, "Norm", "Segoe UI Symbol")
+        dot := MeasureAccessibleSingleLineText(sample, "●")
+        font(12, "Bold", "Segoe UI Symbol")
+        check := MeasureAccessibleSingleLineText(sample, "✔")
+        font(14, "Bold", "Segoe UI")
+        active := MeasureAccessibleSingleLineText(sample, "!")
+        dotW := Max(p(30), Max(dot.Width, check.Width, active.Width) + p(6))
+        dotH := Max(p(21), Max(dot.Height, check.Height, active.Height) + p(6))
+        font(10, "Bold", "Segoe UI")
+        footerH := p(25)
+        for caption in ["Loading name screen...", "Typing name...", "Loading password screen...", "Typing password...", "Login Complete!"]
+            footerH := Max(footerH, MeasureAccessibleWrappedText(sample, caption, p(372)) + p(4))
+        font(18, "Norm", "Segoe UI Symbol")
+        circle := MeasureAccessibleSingleLineText(sample, "●")
+        font(15, "Bold", "Segoe UI Symbol")
+        check := MeasureAccessibleSingleLineText(sample, "✔")
+        font(17, "Bold", "Segoe UI")
+        active := MeasureAccessibleSingleLineText(sample, "!")
+        summaryW := Max(p(28), Max(circle.Width, check.Width, active.Width) + p(6))
+        summaryH := Max(p(27), Max(circle.Height, check.Height, active.Height) + p(6))
+        summaryPitch := Max(p(42), summaryW + p(10))
+        portraitY := p(21) + titleH + p(4)
+        nameY := portraitY + p(72) + p(11)
+        topLineY := nameY + nameH + p(8)
+        rows := [], y := topLineY + p(16)
+        Loop 4
+        {
+            dotY := y + labelH + p(1)
+            rows.Push({LabelY: y, LabelH: labelH, DotY: dotY, DotW: dotW, DotH: dotH})
+            y := dotY + dotH + p(4)
+        }
+        bottomLineY := y + p(5)
+        footerY := bottomLineY + p(12)
+        summaryY := footerY + footerH + p(12)
+        height := Max(p(481), summaryY + summaryH + p(14))
+        return {Width: width, Height: height, TitleH: titleH, PortraitY: portraitY,
+            NameY: nameY, NameH: nameH, NameDisplay: nameDisplay, TopLineY: topLineY,
+            Rows: rows, BottomLineY: bottomLineY, FooterY: footerY, FooterH: footerH,
+            SummaryY: summaryY, SummaryW: summaryW, SummaryH: summaryH, SummaryPitch: summaryPitch}
+    }
+    finally panel.Destroy()
+}
+
+FitAccessibleGameLoginProgress(area, gameWindow, normalScale, name)
+{
+    global AccessibilityTextSize
+    ; The timer and game movement must not repeatedly create measurement
+    ; windows. Cache the geometry, not the absolute screen position.
+    static cached := 0
+    if area.Width < 1 || area.Height < 1
+        return 0
+    if !IsObject(cached) || cached.W != area.Width || cached.H != area.Height
+        || cached.Dpi != normalScale || cached.Mode != AccessibilityTextSize || !(cached.Name == name)
+    {
+        scale := Min(normalScale, area.Width / 420, area.Height / 481)
+        plan := 0
+        Loop 12
+        {
+            plan := MeasureGameLoginProgressPlan(scale, name)
+            if plan.Width <= area.Width && plan.Height <= area.Height
+                break
+            scale *= Min(0.97, area.Width / plan.Width, area.Height / plan.Height)
+        }
+        if !IsObject(plan) || plan.Width > area.Width || plan.Height > area.Height
+            return 0
+        cached := {W: area.Width, H: area.Height, Dpi: normalScale,
+            Mode: AccessibilityTextSize, Name: name, Scale: scale, Plan: plan}
+    }
+    plan := cached.Plan, scale := cached.Scale
+    anchor := scale < normalScale ? area : gameWindow
+    x := anchor.X + Round((anchor.Width - plan.Width) / 2)
+    y := anchor.Y + Round((anchor.Height - plan.Height) / 2)
+    return {Scale: scale, Width: plan.Width, Height: plan.Height, Plan: plan,
+        X: Max(area.X, Min(area.X + area.Width - plan.Width, x)),
+        Y: Max(area.Y, Min(area.Y + area.Height - plan.Height, y))}
+}
+
 CreateGameLoginProgress(layout)
 {
     global LoginProgressGui, LoginProgressRows
@@ -306,58 +412,71 @@ CreateGameLoginProgress(layout)
     ; Register the window before adding controls so partial setup is disposable.
     LoginProgressGui := window
     window.ProgressScale := layout.Scale
+    plan := layout.HasOwnProp("Plan") ? layout.Plan : 0
+    enlarged := IsObject(plan)
+    window.ProgressPlan := plan
     window.BackColor := "28241F"
 
     ; Four 4px gold strips are always visible in the production card.
     ; They are inset, so none are clipped by the native client bounds.
-    for line in [[0, 0, 420, 4], [0, 477, 420, 4], [0, 0, 4, 481], [416, 0, 4, 481]]
-        window.Add("Text", "x" p(line[1]) " y" p(line[2])
-            " w" p(line[3]) " h" p(line[4]) " BackgroundD1AE67", "")
+    border := Max(1, p(4))
+    for line in [[0, 0, layout.Width, border], [0, layout.Height - border, layout.Width, border],
+        [0, 0, border, layout.Height], [layout.Width - border, 0, border, layout.Height]]
+        window.Add("Text", "x" line[1] " y" line[2]
+            " w" line[3] " h" line[4] " BackgroundD1AE67", "")
     SetAccessibleTextFont(window, "s" fontSize(15) " Bold cF2E4D0", "Georgia")
-    window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
-        " h" p(38) " Center BackgroundTrans +0x4000", "Logging in...")
+    window.ProgressTitle := window.Add("Text", "x" p(20) " y" p(21) " w" p(380)
+        " h" (enlarged ? plan.TitleH : p(38)) " Center BackgroundTrans" (enlarged ? " +Wrap" : " +0x4000"), "Logging in...")
     portraitPath := GetCharacterLoginIconPath(LoginProgressSpecies, LoginProgressPortraitFile)
-    pictureOptions := "x" p(174) " y" p(60) " w" p(72) " h" p(72)
+    pictureOptions := "x" p(174) " y" (enlarged ? plan.PortraitY : p(60)) " w" p(72) " h" p(72)
     ; Icon1 applies to ICO resources, but not to custom PNG/JPG/BMP portraits.
     if RegExMatch(portraitPath, "i)\.ico$")
         pictureOptions .= " Icon1"
-    window.Add("Picture", pictureOptions, portraitPath)
+    window.ProgressPortrait := window.Add("Picture", pictureOptions, portraitPath)
     SetAccessibleTextFont(window, "s" fontSize(13) " Bold cF2E4D0", "Georgia")
-    LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" p(143)
-        " w" p(372) " h" p(30) " Center BackgroundTrans", "")
-    window.Add("Text", "x" p(27) " y" p(181) " w" p(366) " h" p(2) " Background806B51", "")
+    LoginProgressCharacterName := window.Add("Text", "x" p(24) " y" (enlarged ? plan.NameY : p(143))
+        " w" p(372) " h" (enlarged ? plan.NameH : p(30)) " Center BackgroundTrans", "")
+    window.ProgressTopLine := window.Add("Text", "x" p(27) " y" (enlarged ? plan.TopLineY : p(181)) " w" p(366) " h" p(2) " Background806B51", "")
     steps := ["Loading Name Screen...", "Typing Name...",
         "Loading Password Screen...", "Typing Password..."]
     LoginProgressRows := []
     for index, labelText in steps
     {
-        y := p(197 + (index - 1) * 46)
+        y := enlarged ? plan.Rows[index].LabelY : p(197 + (index - 1) * 46)
+        labelH := enlarged ? plan.Rows[index].LabelH : p(22)
+        dotY := enlarged ? plan.Rows[index].DotY : y + p(23)
+        dotW := enlarged ? plan.Rows[index].DotW : p(30)
+        dotH := enlarged ? plan.Rows[index].DotH : p(21)
+        dotX := enlarged ? Round((layout.Width - dotW) / 2) : p(195)
         SetAccessibleTextFont(window, "s" fontSize(11) " cC8BFB4", "Segoe UI")
         label := window.Add("Text", "x" p(30) " y" y " w" p(360)
-            " h" p(22) " Center BackgroundTrans", labelText)
+            " h" labelH " Center BackgroundTrans", labelText)
         SetAccessibleTextFont(window, "s" fontSize(13) " cFFFFFF", "Segoe UI Symbol")
-        dot := window.Add("Text", "x" p(195) " y" (y + p(23))
-            " w" p(30) " h" p(21) " Center BackgroundTrans", "●")
+        dot := window.Add("Text", "x" dotX " y" dotY
+            " w" dotW " h" dotH " Center BackgroundTrans" (enlarged ? " +0x200" : ""), "●")
         SetAccessibleTextFont(window, "s" fontSize(12) " Bold c173C2A", "Segoe UI Symbol")
-        symbol := window.Add("Text", "x" p(195) " y" (y + p(23))
-            " w" p(30) " h" p(21) " Center BackgroundTrans +0x200 Hidden", "✔")
+        symbol := window.Add("Text", "x" dotX " y" dotY
+            " w" dotW " h" dotH " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressRows.Push({Dot: dot, Label: label, Symbol: symbol,
             BaseText: labelText, SymbolText: "", DotColor: "", LabelColor: ""})
     }
-    window.Add("Text", "x" p(27) " y" p(391) " w" p(366) " h" p(2) " Background806B51", "")
+    window.ProgressBottomLine := window.Add("Text", "x" p(27) " y" (enlarged ? plan.BottomLineY : p(391)) " w" p(366) " h" p(2) " Background806B51", "")
     SetAccessibleTextFont(window, "s" fontSize(10) " Bold cD3B687", "Segoe UI")
-    LoginProgressFooter := window.Add("Text", "x" p(24) " y" p(403)
-        " w" p(372) " h" p(25) " Center BackgroundTrans +0x4000", "")
+    LoginProgressFooter := window.Add("Text", "x" p(24) " y" (enlarged ? plan.FooterY : p(403))
+        " w" p(372) " h" (enlarged ? plan.FooterH : p(25)) " Center BackgroundTrans" (enlarged ? " +Wrap" : " +0x4000"), "")
     LoginProgressSummaryDots := []
     Loop 4
     {
-        x := p(135 + (A_Index - 1) * 42)
+        x := enlarged ? Round((layout.Width - plan.SummaryW - 3 * plan.SummaryPitch) / 2) + (A_Index - 1) * plan.SummaryPitch : p(135 + (A_Index - 1) * 42)
+        summaryY := enlarged ? plan.SummaryY : p(440)
+        summaryW := enlarged ? plan.SummaryW : p(28)
+        summaryH := enlarged ? plan.SummaryH : p(27)
         SetAccessibleTextFont(window, "s" fontSize(18) " cFFFFFF", "Segoe UI Symbol")
-        circle := window.Add("Text", "x" x " y" p(440)
-            " w" p(28) " h" p(27) " Center BackgroundTrans +0x4000", "●")
+        circle := window.Add("Text", "x" x " y" summaryY
+            " w" summaryW " h" summaryH " Center BackgroundTrans" (enlarged ? " +0x200" : " +0x4000"), "●")
         SetAccessibleTextFont(window, "s" fontSize(15) " Bold c173C2A", "Segoe UI Symbol")
-        symbol := window.Add("Text", "x" x " y" p(442)
-            " w" p(28) " h" p(27) " Center BackgroundTrans +0x200 Hidden", "✔")
+        symbol := window.Add("Text", "x" x " y" (enlarged ? summaryY : p(442))
+            " w" summaryW " h" summaryH " Center BackgroundTrans +0x200 Hidden", "✔")
         LoginProgressSummaryDots.Push({Circle: circle, Symbol: symbol, Color: "", SymbolText: ""})
     }
     window.Show("Hide x" layout.X " y" layout.Y " w" layout.Width " h" layout.Height)
@@ -370,9 +489,10 @@ RenderGameLoginProgress()
     global LoginProgressMode, LoginProgressStage, LoginProgressStageStarted
     scale := LoginProgressGui.ProgressScale
     dirty := false
-    if LoginProgressCharacterName.Text != LoginProgressName
+    displayName := IsObject(LoginProgressGui.ProgressPlan) ? LoginProgressGui.ProgressPlan.NameDisplay : LoginProgressName
+    if LoginProgressCharacterName.Text != displayName
     {
-        LoginProgressCharacterName.Text := LoginProgressName
+        LoginProgressCharacterName.Text := displayName
         dirty := true
     }
     complete := LoginProgressMode = "complete"
@@ -503,7 +623,9 @@ PresentGameLoginProgress(gameHwnd, layout)
     {
         if LoginProgressMode = ""
             return
+        plan := layout.HasOwnProp("Plan") ? layout.Plan : 0
         if !IsObject(previous) || previous.ProgressScale != layout.Scale
+            || previous.ProgressPlan != plan
         {
             ; Construct the new size while hidden and paint current state.
             ; Keep the same login stage, generation, and dismissal deadline.

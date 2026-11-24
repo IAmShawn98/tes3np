@@ -149,8 +149,10 @@ ShowLauncherWindow(reuseCached := false, *)
             ; applying the minimum font size. Validate that measured width
             ; rather than mistaking a legitimate fit for stale geometry.
             if IsObject(LauncherVersionLabel) && hwnd = LauncherVersionLabel.Hwnd
-                try expectedWidth := Max(expectedWidth,
-                    LauncherVersionLabelRequiredWidth(item.Control))
+            {
+                rect := GetLauncherVersionLabelRect(item.Control, ratio, expectedWidth)
+                expectedWidth := rect.W, expectedY := rect.Y, expectedHeight := rect.H
+            }
             if Abs(x - expectedX) > 2 || Abs(y - expectedY) > 2
                 || Abs(w - expectedWidth) > 2 || Abs(h - expectedHeight) > 2
             {
