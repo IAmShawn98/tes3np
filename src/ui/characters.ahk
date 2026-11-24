@@ -268,10 +268,13 @@ ReflowAccessiblePopulatedCharacters()
 {
     global CharacterPage, CharacterRows, CharacterDescription, Profiles
     global AddCharacterButton, AccessibilityTextSize, ButtonFaces
-    global CharacterLimitNotice, MaxCharacters
+    global CharacterLimitNotice, MaxCharacters, CharacterListPage
     if !IsObject(CharacterPage) || !CharacterRows.Length
         return false
-    count := Min(Profiles.Length, CharacterRows.Length)
+    ; A later profile page may contain fewer than ten VISIBLE rows. Hidden
+    ; slots must not consume height or cause a false full-book rejection.
+    first := (CharacterListPage - 1) * CharacterRows.Length + 1
+    count := Min(Max(0, Profiles.Length - first + 1), CharacterRows.Length)
     scale := GetCharacterBookScale()
     if AccessibilityTextSize = "Normal" || !count
     {
