@@ -32,18 +32,25 @@ Require-Source '!manifest\.updateEnabled' 'emergency update disable handling'
 # Preserve safe package verification, a staged transaction and rollback, but
 # avoid prompting two additional times after that explicit choice.
 Require-Source 'LogLauncherEvent\("ERROR \| UPDATE \| "' 'update failure is logged'
-Require-Source 'ShowUpdateStatusPanel\("error", AppConfig\.Version\)' 'update failure opens status panel'
+Require-Source 'failureMode := "error"' 'update check starts with check-failure presentation'
+Require-Source 'ShowUpdateStatusPanel\(failureMode, AppConfig\.Version\)' 'update failure opens the phase-specific status panel'
+Require-Source 'failureMode := "download"' 'download failure classified separately' $installSource
+Require-Source 'failureMode := "verification"\s+SetInterfaceLoadingText\("Checking download integrity\.\.\."\)' 'verification failures classified before size and SHA-256 checks' $installSource
+Require-Source 'failureMode := "prepare"\s+SetInterfaceLoadingText\("Preparing installation\.\.\."\)' 'preparation failures classified after integrity checks' $installSource
+if ($installSource.Contains('SetInterfaceLoadingText("Downloading update...")')) {
+    throw 'The caller already advances the shared loading card to the download phase.'
+}
 Require-Source 'if choice = "Yes" \{' 'Update Now is the single explicit approval'
 Require-Source 'BeginInterfaceUpdate\(LauncherGui, "Downloading update\.\.\."' 'existing download progress is retained'
-Require-Source 'staged := DownloadAndStageUpdate\(manifest\)' 'package is downloaded and verified before installation'
+Require-Source 'staged := DownloadAndStageUpdate\(manifest, &failureMode\)' 'package is downloaded and verified before installation'
 Require-Source 'handedOff := true' 'verified stage hands off to transactional installer'
 Require-Source 'if staged != "" && !handedOff' 'failed or cancelled handoffs clean up staged payloads'
 Require-Source 'DeleteLauncherStagingTree\(staged\)' 'unhanded-off stage is safely removed'
 
 $previewGate = $source.IndexOf('choice := ShowUpdatePreview(AppConfig.Version, latest, manifest.channel, kind)')
 $singleGate = $source.IndexOf('if choice = "Yes" {', $previewGate)
-$progress = $source.IndexOf('BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)', $singleGate)
-$stage = $source.IndexOf('staged := DownloadAndStageUpdate(manifest)', $progress)
+$progress = $source.IndexOf('BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 6)', $singleGate)
+$stage = $source.IndexOf('staged := DownloadAndStageUpdate(manifest, &failureMode)', $progress)
 $launch = $source.IndexOf('StartTransactionalUpdate(manifest.version, staged)', $stage)
 $handoff = $source.IndexOf('handedOff := true', $launch)
 $exit = $source.IndexOf('ExitApp(0)', $handoff)
@@ -91,14 +98,22 @@ Write-Host 'PASS: release generator and launcher package metadata contract.'
 # Both dialogs use the same styled, measured viewport and select the requested version.
 Require-Source 'if kind = "" \{[^}]*ShowUpdateStatusPanel\("current", AppConfig\.Version\)' 'current dialog copy when no newer release is available'
 
-Require-Source 'message := "If an update is published, you will be notified\."' 'up-to-date status uses concise notification wording' $dialogSource
+Require-Source 'Message: "You''re running the latest version of tes3np\."' 'up-to-date status uses concise installed-version wording' $dialogSource
+Require-Source 'copy := GetUpdateStatusCopy\(mode\)' 'production status uses the tested phase-specific copy' $dialogSource
+Require-Source 'Unable to Check for Updates' 'check-failure status' $dialogSource
+Require-Source 'Unable to Download Update' 'download-failure status' $dialogSource
+Require-Source 'Update Verification Failed' 'verification-failure status' $dialogSource
+Require-Source 'Unable to Prepare Update' 'preparation-failure status' $dialogSource
 Require-Source 'panel\.Add\("Text", "x30 y65 w740 h30 BackgroundTrans", message\)' 'status description uses single-line height' $dialogSource
 if ($dialogSource.Contains('You are running the latest and greatest version of the tes3np launcher!')) {
     throw 'Obsolete up-to-date status wording must not return.'
 }
-Require-Source 'kind = "hotfix" \? "A Patch Is Available For v" installedVersion' 'hotfix preview heading names the installed version dynamically' $dialogSource
+Require-Source 'title := GetUpdatePreviewHeading\(channel, kind\)' 'production preview uses tested channel-specific heading' $dialogSource
+Require-Source 'A New Patch Is Available, S''wit!' 'hotfix title does not repeat the installed version' $dialogSource
 Require-Source 'if ReleaseNoteFits\(titleControl, title, 548\)' 'variable-length headings fit their measured native width' $dialogSource
-Require-Source 'releaseType := channel = "alpha" \? "Alpha" : channel = "beta" \? "Beta" : "Stable Release"' 'regular update title calls the stable channel Stable Release' $dialogSource
+Require-Source 'A New Alpha Is Available, S''wit!' 'alpha feature title' $dialogSource
+Require-Source 'A New Beta Is Available, S''wit!' 'beta feature title' $dialogSource
+Require-Source 'A New Stable Release Is Available, Fetcher!' 'stable feature title' $dialogSource
 Require-Source 'ReadPublishedCategorizedUpdateNotes\(installedVersion, latestVersion, true\)' 'update preview categorizes missed published versions' $dialogSource
 
 # The preview must derive each version field's width from actual rendered text,
