@@ -1,9 +1,9 @@
 name: Static and PowerShell checks
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
+# Maintainer rule: conserve Actions minutes. Run manually only for major
+# update/release validation; use local regression checks during development.
 
 permissions:
   contents: read

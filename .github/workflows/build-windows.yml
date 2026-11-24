@@ -2,12 +2,8 @@ name: Build Windows launcher
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-# Alpha development keeps automatic source/PowerShell/C# checks via checks.yml.
-# Full Windows packaging is intentionally manual on alpha to conserve Actions
-# minutes and artifact storage.
+# Maintainer rule: reserve hosted Windows packaging for deliberate update
+# and release validation. Routine pushes must not consume Actions minutes.
 
 permissions:
   contents: read
