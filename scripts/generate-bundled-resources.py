@@ -24,8 +24,11 @@ required = (
     "scripts/import-expansion-pack.ps1", "scripts/select-expansion-package.ps1",
     "scripts/tes3np-updater.ps1", "scripts/fetch-release-notes.ps1",
 )
-required += ("assets/carousel/clean.png",)
-required += tuple(f"assets/carousel/default/{index:02}.png" for index in range(1, 30))
+required += (
+    "assets/carousel/clean.png",
+    "assets/carousel/default/07.png",
+    "assets/carousel/default/17.png",
+)
 resources = []
 for name in required:
     path = root / name

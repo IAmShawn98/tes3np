@@ -5,14 +5,13 @@ global LauncherCarousel := 0
 CreateLauncherCarousel(background, parchment)
 {
     global LauncherCarousel
-    paths := [""]
-    Loop 29
-    {
-        path := A_ScriptDir "\assets\carousel\default\" Format("{:02}", A_Index) ".png"
-        if !FileExist(path)
+    ; Keep stable endpoint IDs and load only assigned artwork.
+    ; Endpoint 1 uses the original native launcher background.
+    paths := Map(1, "", 8, A_ScriptDir "\assets\carousel\default\07.png",
+        18, A_ScriptDir "\assets\carousel\default\17.png")
+    for index, path in paths
+        if index != 1 && !FileExist(path)
             return
-        paths.Push(path)
-    }
     cleanPath := A_ScriptDir "\assets\carousel\clean.png"
     if !FileExist(cleanPath)
         return

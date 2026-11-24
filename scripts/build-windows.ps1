@@ -594,7 +594,7 @@ RunLauncherChecks(A_Args)
             throw "Missing extracted UI asset: $asset"
         }
     }
-    # Verify the clean carousel backdrop separately from the 29 slides.
+    # Verify the clean carousel backdrop separately from the assigned slides.
     $cleanBackdrop = 'assets\carousel\clean.png'
     $sourceBackdrop = Join-Path $projectRoot $cleanBackdrop
     $extractedBackdrop = Join-Path $resourceRoot $cleanBackdrop
@@ -603,8 +603,7 @@ RunLauncherChecks(A_Args)
         throw "Bundled carousel backdrop differs from source."
     }
     # Verify the exact carousel assets extracted from the compiled executable.
-    foreach ($index in 1..29) {
-        $relative = 'assets\carousel\default\{0:00}.png' -f $index
+    foreach ($relative in @('assets\carousel\default\07.png', 'assets\carousel\default\17.png')) {
         $sourceSlide = Join-Path $projectRoot $relative
         $extractedSlide = Join-Path $resourceRoot $relative
         if (!(Test-Path -LiteralPath $extractedSlide -PathType Leaf) -or
