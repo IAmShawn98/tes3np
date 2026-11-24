@@ -587,6 +587,7 @@ CheckForUpdates(*)
     UpdateBusy := true
     staged := ""
     handedOff := false
+    failureMode := "error"
     LogLauncherEvent("UPDATE | Checking trusted update manifest. Current: v" AppConfig.Version ".")
     try {
         manifest := ParseAndValidateUpdateManifest(DownloadUpdateText(GetUpdateManifestUrl(AppConfig.Version)), AppConfig.Version)
@@ -614,10 +615,12 @@ CheckForUpdates(*)
         ; Update Now is the explicit user action that authorizes download,
         ; verification, and installation. Do not add redundant prompts.
         if choice = "Yes" {
-            BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 5)
+            failureMode := "download"
+            ; The shared loading card advances once for each of six phases.
+            BeginInterfaceUpdate(LauncherGui, "Downloading update...", true, 6)
             try {
-                staged := DownloadAndStageUpdate(manifest)
-                SetInterfaceLoadingText("Update ready to install...")
+                staged := DownloadAndStageUpdate(manifest, &failureMode)
+                SetInterfaceLoadingText("Ready to install!")
             } finally EndInterfaceUpdate()
             LogLauncherEvent("UPDATE | READY | Verified update staged for v" latest ".")
             ; Keep the established transactional worker and startup rollback.
@@ -630,7 +633,7 @@ CheckForUpdates(*)
         }
     } catch Error as err {
         LogLauncherEvent("ERROR | UPDATE | " Type(err))
-        ShowUpdateStatusPanel("error", AppConfig.Version)
+        ShowUpdateStatusPanel(failureMode, AppConfig.Version)
     } finally {
         if staged != "" && !handedOff
             DeleteLauncherStagingTree(staged)
