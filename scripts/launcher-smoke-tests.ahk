@@ -1428,10 +1428,15 @@ CheckTenCharacterBookExpansion()
     global CharacterDescription, AddCharacterButton, WipeCharacterButton
     global DataTransferButton, CharacterLimitNotice, MaxCharacters
     global CharacterListPage, AccessibilityTextSize, LauncherMorrowindFont
-    savedPage := CharacterPage, savedOwner := LauncherGui, savedProfiles := Profiles
-    savedRows := CharacterRows, savedDescription := CharacterDescription
-    savedAdd := AddCharacterButton, savedWipe := WipeCharacterButton
-    savedTransfer := DataTransferButton, savedNotice := CharacterLimitNotice
+    savedPage := IsSet(CharacterPage) ? CharacterPage : 0
+    savedOwner := IsSet(LauncherGui) ? LauncherGui : 0
+    savedProfiles := IsSet(Profiles) ? Profiles : []
+    savedRows := IsSet(CharacterRows) ? CharacterRows : []
+    savedDescription := IsSet(CharacterDescription) ? CharacterDescription : 0
+    savedAdd := IsSet(AddCharacterButton) ? AddCharacterButton : 0
+    savedWipe := IsSet(WipeCharacterButton) ? WipeCharacterButton : 0
+    savedTransfer := IsSet(DataTransferButton) ? DataTransferButton : 0
+    savedNotice := IsSet(CharacterLimitNotice) ? CharacterLimitNotice : 0
     savedMax := MaxCharacters, savedListPage := CharacterListPage
     savedMode := AccessibilityTextSize
     savedImage := ButtonPaint.BookExtended
@@ -1515,7 +1520,7 @@ CheckTenCharacterBookExpansion()
         if ButtonPaint.BookExtended
             DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.BookExtended)
         ButtonPaint.BookExtended := savedImage
-        page.Destroy()
+        DestroyScaledMenu(page)
         owner.Destroy()
         CharacterPage := savedPage, LauncherGui := savedOwner, Profiles := savedProfiles
         CharacterRows := savedRows, CharacterDescription := savedDescription
