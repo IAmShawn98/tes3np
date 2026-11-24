@@ -2113,7 +2113,7 @@ expect(
     "Manage Macros empty state and Upload button do not leave blank action row",
     'MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28' in macro_menu_ui
     and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro_menu_ui
-    and 'emptyUploadY := ReflowEmptyMacroBook()' in macro_menu_ui
+    and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
@@ -2132,7 +2132,7 @@ expect(
     "Macro rows have a true line break between action buttons and next Ready status",
     'y := 140 + (position - 1) * 70' in macro_menu_ui
     and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro_menu_ui
-    and 'emptyUploadY := ReflowEmptyMacroBook()' in macro_menu_ui
+    and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and '"x887 y140 w8 h272 Background704C27 +0x100 Hidden"' in macro_menu_ui
@@ -2143,7 +2143,7 @@ expect(
     "Populated macro rows begin close to description with scroll and Upload aligned",
     'explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans"' in macro_menu_ui
     and 'y := 140 + (position - 1) * 70' in macro_menu_ui
-    and 'emptyUploadY := ReflowEmptyMacroBook()' in macro_menu_ui
+    and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and '"x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden"' in macro_menu_ui
