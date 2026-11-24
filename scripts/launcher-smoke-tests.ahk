@@ -1445,6 +1445,105 @@ CheckMeasuredPopulatedMacroBook()
 ; Exercise the actual shipped PNG, not an imagined parchment rectangle.
 ; Confirm the native image is taller, original width is unchanged, and
 ; sampled top/footer pixels are not scaled by the inserted mirrored band.
+; Test edge conversion separately from normal Picture loading; then exercise
+; the actual scaled Picture and existing themed label painter without hooks.
+CheckReducedBookPicture()
+{
+    global ButtonPaint
+    InitButtonPainter()
+    source := 0, image := 0, page := 0, dc := 0, bitmap := 0, oldBitmap := 0
+    try
+    {
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 16, "Int", 16,
+            "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &source)
+            throw Error("Could not create Book edge fixture.")
+        Loop 16
+        {
+            y := A_Index - 1
+            Loop 16
+            {
+                x := A_Index - 1
+                color := x >= 4 && x <= 11 && y >= 4 && y <= 11
+                    ? 0xFF996633 : (x >= 3 && x <= 12 && y >= 3 && y <= 12
+                        ? 0x60996633 : 0xFFFF00FF)
+                if DllCall("gdiplus\GdipBitmapSetPixel", "Ptr", source,
+                    "Int", x, "Int", y, "UInt", color)
+                    throw Error("Could not initialize Book edge fixture.")
+            }
+        }
+        image := CreateKeyedReducedBookImage(source, 8, 8)
+        outer := 0, inner := 0
+        if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 0, "Int", 0, "UInt*", &outer)
+            || DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 4, "Int", 4, "UInt*", &inner)
+            || outer != 0xFFFF00FF || inner != 0xFF996633
+            throw Error("Reduced Book key or solid center did not survive downsampling.")
+        Loop 8
+        {
+            y := A_Index - 1
+            Loop 8
+            {
+                color := 0
+                if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image,
+                    "Int", A_Index - 1, "Int", y, "UInt*", &color)
+                    || (color >> 24) != 255
+                    || (color != 0xFFFF00FF && (color & 0xFF) > 150
+                        && ((color >> 8) & 0xFF) < 100 && ((color >> 16) & 0xFF) > 180)
+                    throw Error("Reduced Book contains a non-key pink edge.")
+            }
+        }
+        page := CreateAccessibleLayoutGui("-Caption -Border")
+        page.OwnedContentScale := 0.5
+        page.BookExtra := 0
+        page.BookBackground := page.Add("Picture", "x0 y0 w480 h325", GetBookSmokeArtworkPath())
+        name := AddBookLabel(page, 47, 91, 171, 17, "")
+        tick := AddBookTick(page, 35, 92, (*) => 0)
+        page.Show("Hide w480 h325")
+        if !TryLoadReducedBookPicture(page, ButtonPaint.Book)
+            throw Error("Reduced Book native Picture load failed.")
+        bounds := ReducedBookPictureBounds(page, name.Hwnd)
+        tickBounds := ReducedBookPictureBounds(page, tick.Hwnd)
+        if !IsObject(bounds) || !IsObject(tickBounds) || bounds.Width != tickBounds.Width
+            || bounds.Height != tickBounds.Height || bounds.X <= tickBounds.X
+            throw Error("Reduced Book controls disagree on physical artwork bounds.")
+        rect := Buffer(16, 0)
+        DllCall("GetClientRect", "Ptr", name.Hwnd, "Ptr", rect)
+        w := NumGet(rect, 8, "Int"), h := NumGet(rect, 12, "Int")
+        dc := DllCall("CreateCompatibleDC", "Ptr", 0, "Ptr")
+        screen := DllCall("GetDC", "Ptr", 0, "Ptr")
+        try bitmap := DllCall("CreateCompatibleBitmap", "Ptr", screen, "Int", w, "Int", h, "Ptr")
+        finally DllCall("ReleaseDC", "Ptr", 0, "Ptr", screen)
+        if !dc || !bitmap
+            throw Error("Could not allocate reduced Book paint probe.")
+        oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !CopyNativeBookPictureSlice(bounds, dc, w, h)
+            throw Error("Native reduced Book Picture is not a device-sized bitmap.")
+        points := [[0, 0], [w // 2, h // 2], [w - 1, h - 1]]
+        expected := []
+        for point in points
+            expected.Push(DllCall("GetPixel", "Ptr", dc, "Int", point[1], "Int", point[2], "UInt"))
+        PaintButtonToDC(name.Hwnd, dc)
+        for index, point in points
+            if expected[index] = 0xFFFFFFFF || expected[index] != DllCall("GetPixel",
+                "Ptr", dc, "Int", point[1], "Int", point[2], "UInt")
+                throw Error("Reduced Book name face differs from native Picture.")
+    }
+    finally
+    {
+        if dc && oldBitmap && oldBitmap != -1
+            DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        if bitmap
+            DllCall("DeleteObject", "Ptr", bitmap)
+        if dc
+            DllCall("DeleteDC", "Ptr", dc)
+        if IsObject(page)
+            page.Destroy()
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+        if source
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", source)
+    }
+}
+
 CheckExtendedBookArtwork()
 {
     global ButtonPaint
@@ -2050,6 +2149,8 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredPopulatedMacroBook()
     try FileAppend("CHECK: CheckExtendedBookArtwork (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckExtendedBookArtwork()
+    try FileAppend("CHECK: CheckReducedBookPicture (DPI=" A_ScreenDPI ")" Chr(10), "*")
+    CheckReducedBookPicture()
     try FileAppend("CHECK: CheckSharedBookExpansion (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckSharedBookExpansion()
     try FileAppend("CHECK: CheckTenCharacterBookExpansion (DPI=" A_ScreenDPI ")" Chr(10), "*")

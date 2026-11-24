@@ -20,7 +20,7 @@ BookS(value)
 ; reload the one parchment bitmap to fit the new Picture rectangle.
 ApplyCharacterBookScale(scale)
 {
-    global CharacterPage
+    global CharacterPage, ButtonPaint
     if !IsObject(CharacterPage)
         return
     previous := GetCharacterBookScale()
@@ -32,7 +32,10 @@ ApplyCharacterBookScale(scale)
         if CharacterPage.HasOwnProp("BookExtra") && CharacterPage.BookExtra
             ApplyExtendedBookArtwork(CharacterPage, CharacterPage.BookExtra)
         else
-            CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+        {
+            if !TryLoadReducedBookPicture(CharacterPage, ButtonPaint.Book)
+                CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+        }
     }
 }
 

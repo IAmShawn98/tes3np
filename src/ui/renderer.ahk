@@ -207,6 +207,171 @@ CopyBookPixelRows(source, sourceStride, target, targetStride,
 ; The Picture control and owner-drawn controls must share ONE composed
 ; image. The temporary PNG is only a native Picture loading mechanism;
 ; it is deleted immediately and never enters launcher data or the package.
+; Prepare color-key edges once, on the existing Picture load path.
+; Resample transparent artwork first, then threshold coverage natively.
+; No AHK pixel loop, new window subclass or image work during WM_PAINT.
+CreateKeyedReducedBookImage(source, width, height)
+{
+    sw := 0, sh := 0, sampled := 0, keyed := 0, graphics := 0, attrs := 0
+    try
+    {
+        if width < 1 || height < 1
+            || DllCall("gdiplus\GdipGetImageWidth", "Ptr", source, "UInt*", &sw)
+            || DllCall("gdiplus\GdipGetImageHeight", "Ptr", source, "UInt*", &sh)
+            || !sw || !sh
+            throw Error("Invalid Book image dimensions.")
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width,
+            "Int", height, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &sampled)
+            || DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", sampled, "Ptr*", &graphics)
+            || DllCall("gdiplus\GdipCreateImageAttributes", "Ptr*", &attrs)
+            throw Error("Could not prepare reduced Book image.")
+        if DllCall("gdiplus\GdipSetCompositingMode", "Ptr", graphics, "Int", 1)
+            || DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
+            || DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
+            || DllCall("gdiplus\GdipSetImageAttributesColorKeys", "Ptr", attrs,
+                "Int", 1, "Int", 1, "UInt", 0xFFFF00FF, "UInt", 0xFFFF00FF)
+            || DllCall("gdiplus\GdipSetImageAttributesWrapMode", "Ptr", attrs,
+                "Int", 3, "UInt", 0, "Int", 0)
+            || DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0)
+            || DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", source,
+                "Int", 0, "Int", 0, "Int", width, "Int", height,
+                "Int", 0, "Int", 0, "Int", sw, "Int", sh, "Int", 2,
+                "Ptr", attrs, "Ptr", 0, "Ptr", 0)
+            throw Error("Could not resample Book artwork.")
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        DllCall("gdiplus\GdipDisposeImageAttributes", "Ptr", attrs)
+        attrs := 0
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width,
+            "Int", height, "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &keyed)
+            || DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", keyed, "Ptr*", &graphics)
+            || DllCall("gdiplus\GdipCreateImageAttributes", "Ptr*", &attrs)
+            throw Error("Could not allocate keyed Book artwork.")
+        ; Preserve RGB, map 8-bit alpha 0..127 to zero and 128..255 to one.
+        matrix := Buffer(100, 0)
+        for offset in [0, 24, 48, 96]
+            NumPut("Float", 1.0, matrix, offset)
+        NumPut("Float", 255.0, matrix, 72)
+        NumPut("Float", -127.0, matrix, 92)
+        if DllCall("gdiplus\GdipSetImageAttributesColorMatrix", "Ptr", attrs,
+            "Int", 1, "Int", 1, "Ptr", matrix, "Ptr", 0, "Int", 0)
+            || DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 5)
+            || DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
+            || DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFFF00FF)
+            || DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", sampled,
+                "Int", 0, "Int", 0, "Int", width, "Int", height,
+                "Int", 0, "Int", 0, "Int", width, "Int", height, "Int", 2,
+                "Ptr", attrs, "Ptr", 0, "Ptr", 0)
+            throw Error("Could not key the reduced Book edges.")
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        result := keyed
+        keyed := 0
+        return result
+    }
+    finally
+    {
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if attrs
+            DllCall("gdiplus\GdipDisposeImageAttributes", "Ptr", attrs)
+        if sampled
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", sampled)
+        if keyed
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", keyed)
+    }
+}
+
+TryLoadReducedBookPicture(page, source)
+{
+    if !page.HasOwnProp("OwnedContentScale") || page.OwnedContentScale >= 0.999
+        return false
+    rect := Buffer(16, 0)
+    if !DllCall("GetClientRect", "Ptr", page.BookBackground.Hwnd, "Ptr", rect)
+        return false
+    width := NumGet(rect, 8, "Int"), height := NumGet(rect, 12, "Int")
+    image := 0, temporary := A_Temp "\tes3np-book-keyed-" NewLauncherFileId() ".png"
+    try
+    {
+        image := CreateKeyedReducedBookImage(source, width, height)
+        encoder := Buffer(16, 0)
+        if DllCall("ole32\CLSIDFromString",
+            "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", encoder)
+            || DllCall("gdiplus\GdipSaveImageToFile", "Ptr", image,
+                "WStr", temporary, "Ptr", encoder, "Ptr", 0)
+            throw Error("Could not encode reduced Book artwork.")
+        page.BookBackground.Value := temporary
+        return true
+    }
+    catch Error
+    {
+        ; Preserve the established native Picture fallback.
+        return false
+    }
+    finally
+    {
+        if image
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+        if FileExist(temporary)
+            try FileDelete(temporary)
+    }
+}
+
+; Use the actual native Picture's physical bounds for all reduced Book
+; faces. In particular, a 7px tick and a 173px name must not derive
+; different DPI multipliers from separately rounded widths.
+ReducedBookPictureBounds(page, handle)
+{
+    if !page.HasOwnProp("OwnedContentScale") || page.OwnedContentScale >= 0.999
+        || !page.HasOwnProp("BookBackground")
+        return 0
+    picture := page.BookBackground.Hwnd
+    rect := Buffer(16, 0), origin := Buffer(8, 0)
+    if !DllCall("GetClientRect", "Ptr", picture, "Ptr", rect)
+        return 0
+    DllCall("MapWindowPoints", "Ptr", handle, "Ptr", picture, "Ptr", origin, "UInt", 1)
+    width := NumGet(rect, 8, "Int"), height := NumGet(rect, 12, "Int")
+    if width < 1 || height < 1
+        return 0
+    return {Picture: picture, X: NumGet(origin, 0, "Int"),
+        Y: NumGet(origin, 4, "Int"), Width: width, Height: height}
+}
+
+; The existing native STATIC owns this bitmap. Borrow it for one BitBlt;
+; never select it permanently, delete it, or change the Picture procedure.
+CopyNativeBookPictureSlice(bounds, target, width, height)
+{
+    if !IsObject(bounds) || bounds.X < 0 || bounds.Y < 0
+        || bounds.X + width > bounds.Width || bounds.Y + height > bounds.Height
+        return false
+    bitmap := DllCall("SendMessageW", "Ptr", bounds.Picture, "UInt", 0x0173,
+        "Ptr", 0, "Ptr", 0, "Ptr") ; STM_GETIMAGE, IMAGE_BITMAP
+    definition := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+    if !bitmap || !DllCall("gdi32\GetObjectW", "Ptr", bitmap,
+        "Int", definition.Size, "Ptr", definition, "Int")
+        || NumGet(definition, 4, "Int") != bounds.Width
+        || Abs(NumGet(definition, 8, "Int")) != bounds.Height
+        return false
+    dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
+    if !dc
+        return false
+    oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+    try
+    {
+        if !oldBitmap || oldBitmap = -1
+            return false
+        return DllCall("BitBlt", "Ptr", target, "Int", 0, "Int", 0,
+            "Int", width, "Int", height, "Ptr", dc, "Int", bounds.X,
+            "Int", bounds.Y, "UInt", 0xCC0020, "Int") != 0
+    }
+    finally
+    {
+        if oldBitmap && oldBitmap != -1
+            DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        DllCall("DeleteDC", "Ptr", dc)
+    }
+}
+
 ApplyExtendedBookArtwork(page, extra)
 {
     global ButtonPaint
@@ -216,7 +381,8 @@ ApplyExtendedBookArtwork(page, extra)
     if !extra
     {
         page.BookBackground.Move(, , BookS(960), BookS(650))
-        page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+        if !TryLoadReducedBookPicture(page, ButtonPaint.Book)
+            page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
         page.BookExtra := 0
         ButtonPaint.BookExtended := 0
         if oldImage
@@ -235,7 +401,8 @@ ApplyExtendedBookArtwork(page, extra)
             throw Error("Could not encode extended Book artwork.")
         ; The image is ready before changing the visible Picture rectangle.
         page.BookBackground.Move(, , BookS(960), BookS(650 + extra))
-        page.BookBackground.Value := temporary
+        if !TryLoadReducedBookPicture(page, candidate)
+            page.BookBackground.Value := temporary
         page.BookExtra := extra
         ButtonPaint.BookExtended := candidate
         candidate := 0
@@ -318,13 +485,20 @@ PaintButton(wParam, lParam, *)
         dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
         bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
         oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        reducedBounds := 0, nativeSlice := false
+        if !isChatTab && !isDiscordName && !isDiscordPortrait && face.HasOwnProp("Book") && face.Book
+        {
+            reducedBounds := ReducedBookPictureBounds(face.Gui, handle)
+            nativeSlice := CopyNativeBookPictureSlice(reducedBounds, dc, width, height)
+        }
         graphics := 0
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
         DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
-        DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
+        if !nativeSlice
+            DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFFC6A369)
         if isChatTab || isDiscordName || isDiscordPortrait
             PaintLauncherBackgroundSlice(graphics, face.X, face.Y, (A_ScreenDPI / 96) * LauncherScale / 100)
-        else if face.Book
+        else if face.Book && !nativeSlice
         {
             face.Control.GetPos(&logicalX, &logicalY, &logicalWidth, &logicalHeight)
             dpiScale := width / logicalWidth
@@ -337,9 +511,14 @@ PaintButton(wParam, lParam, *)
                 face.Gui.BookBackground.GetPos(, , &bookWidth, &bookHeight)
             }
             bookImage := extended ? ButtonPaint.BookExtended : ButtonPaint.Book
-            DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", bookImage, "Int", Round(-x * dpiScale), "Int", Round(-y * dpiScale), "Int", Round(bookWidth * dpiScale), "Int", Round(bookHeight * dpiScale))
+            if IsObject(reducedBounds)
+                DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", bookImage,
+                    "Int", -reducedBounds.X, "Int", -reducedBounds.Y,
+                    "Int", reducedBounds.Width, "Int", reducedBounds.Height)
+            else
+                DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", bookImage, "Int", Round(-x * dpiScale), "Int", Round(-y * dpiScale), "Int", Round(bookWidth * dpiScale), "Int", Round(bookHeight * dpiScale))
         }
-        else
+        else if !nativeSlice
             DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Parchment, "Int", Round(-49 * scale), "Int", Round((372 - face.Y) * scale), "Int", Round(318 * scale), "Int", Round(305 * scale))
         shift := face.State = "down" ? 2 : 0
         if isDiscordPortrait
