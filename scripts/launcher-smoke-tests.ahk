@@ -1276,6 +1276,18 @@ CheckMeasuredEmptyMacroBook()
 
 ; Test the populated Macro Book against real native font extents without
 ; importing a file, editing a macro, launching a process, or touching AppData.
+GetBookSmokeArtworkPath()
+{
+    global BundledResourceRoot
+    ; Standalone EXE tests must use the extracted asset, just like production.
+    ; scripts/ is deliberately outside the staged src/ resource path rewriter.
+    assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir
+    path := assetRoot "\assets\backgrounds\character-book.png"
+    if !FileExist(path)
+        throw Error("Book smoke fixture cannot load character-book.png from its resource root.")
+    return path
+}
+
 CheckMeasuredPopulatedMacroBook()
 {
     global CharacterPage, MacroBookControls, MacroBookRows, MacroItems
@@ -1311,7 +1323,7 @@ CheckMeasuredPopulatedMacroBook()
                 owner.Show("Hide x0 y0 w480 h360")
                 page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
                 page.BookLayoutFixtureWorkArea := {Width: Round(1920 * A_ScreenDPI / 96), Height: Round(1200 * A_ScreenDPI / 96)}
-                page.BookBackground := page.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
+                page.BookBackground := page.Add("Picture", "x0 y0 w960 h650", GetBookSmokeArtworkPath())
                 SetAccessibleTextFont(page, "s19 Norm", LauncherMorrowindFont)
                 heading := page.Add("Text", "x525 y45 w355 h32", "Manage Macros")
                 SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
@@ -1351,7 +1363,7 @@ CheckMeasuredPopulatedMacroBook()
                 SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
                 MacroStatus := page.Add("Text", "x525 y224 w355 h30 +Wrap", "Import failed: A long diagnostic message describing the rejected archive and the existing supported import format.")
                 ScaleOwnedMenuContent(page, 0.5)
-                page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+                page.BookBackground.Value := GetBookSmokeArtworkPath()
                 page.Show("Hide w480 h325")
                 offset := ReflowPopulatedMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
@@ -1493,7 +1505,7 @@ CheckSharedBookExpansion()
         page.BookCharacterExtra := 0
         page.BookMacroExtra := 0
         page.BookBackground := page.Add("Picture", "x0 y0 w480 h325",
-            A_ScriptDir "\assets\backgrounds\character-book.png")
+            GetBookSmokeArtworkPath())
         page.BookCloseButton := page.Add("Text", "x258 y288 w45 h15", "Close")
         page.Show("Hide w480 h325")
         if SetCharacterBookLayoutExtra("Characters", 100000) || GetCharacterBookExtra()
@@ -1580,7 +1592,7 @@ CheckTenCharacterBookExpansion()
         page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
         page.BookLayoutFixtureWorkArea := {Width: Round(1920 * A_ScreenDPI / 96), Height: Round(1200 * A_ScreenDPI / 96)}
         page.BookBackground := page.Add("Picture", "x0 y0 w960 h650",
-            A_ScriptDir "\assets\backgrounds\character-book.png")
+            GetBookSmokeArtworkPath())
         SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
         CharacterDescription := page.Add("Text", "x70 y80 w390 h81 +Wrap",
             "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!")
@@ -1607,7 +1619,7 @@ CheckTenCharacterBookExpansion()
         DataTransferButton := page.Add("Text", "x775 y575 w110 h30", "Export Data")
         page.BookCloseButton := page.Add("Text", "x515 y575 w90 h30", "Close")
         ScaleOwnedMenuContent(page, 0.5)
-        page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+        page.BookBackground.Value := GetBookSmokeArtworkPath()
         page.Show("Hide w480 h325")
         if !ReflowAccessiblePopulatedCharacters()
             throw Error("Ten actual measured Extra Large character rows rejected: "
@@ -1792,16 +1804,27 @@ CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
     oldMode := AccessibilityTextSize, oldScale := V016SettingsScale
+    try FileAppend("CHECK: CheckAccessibleLayoutPreflight (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckAccessibleLayoutPreflight()
+    try FileAppend("CHECK: CheckMeasuredAccessibleBookPreflight (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredAccessibleBookPreflight()
+    try FileAppend("CHECK: CheckMeasuredV016SettingsCopy (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredV016SettingsCopy()
+    try FileAppend("CHECK: CheckMeasuredV016ActionRows (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredV016ActionRows()
+    try FileAppend("CHECK: CheckMeasuredEmptyMacroBook (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredEmptyMacroBook()
+    try FileAppend("CHECK: CheckMeasuredPopulatedMacroBook (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredPopulatedMacroBook()
+    try FileAppend("CHECK: CheckExtendedBookArtwork (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckExtendedBookArtwork()
+    try FileAppend("CHECK: CheckSharedBookExpansion (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckSharedBookExpansion()
+    try FileAppend("CHECK: CheckTenCharacterBookExpansion (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckTenCharacterBookExpansion()
+    try FileAppend("CHECK: CheckAccessibleBookNameWrapping (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckAccessibleBookNameWrapping()
+    try FileAppend("CHECK: CheckMeasuredBookEditorGeometry (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredBookEditorGeometry()
     try
     {

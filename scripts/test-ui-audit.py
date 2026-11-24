@@ -195,6 +195,13 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("settings := CreateAccessibleLayoutGui(", settings)
         self.assertNotIn("Round((w - padding) * A_ScreenDPI / 96)", settings)
 
+    def test_book_smoke_artwork_uses_compiled_resource_root(self):
+        smoke = (SOURCE.parents[1] / "scripts/launcher-smoke-tests.ahk").read_text(encoding="utf-8-sig")
+        self.assertIn("assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir", smoke)
+        self.assertIn('path := assetRoot "\\assets\\backgrounds\\character-book.png"', smoke)
+        self.assertNotIn('A_ScriptDir "\\assets\\backgrounds\\character-book.png"', smoke)
+        self.assertEqual(smoke.count("GetBookSmokeArtworkPath()"), 6)
+
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
         self.assertEqual(report["scope"], ["src", "game-chat"])
