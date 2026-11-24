@@ -575,7 +575,10 @@ ScrollMacroWheel(wParam)
     scale := (A_ScreenDPI / 96) * GetCharacterBookScale()
     x := (x - NumGet(origin, 0, "Int")) / scale
     y := (y - NumGet(origin, 4, "Int")) / scale
-    if x < 520 || x > 900 || y < 150 || y > 396
+    viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")
+        ? CharacterPage.MacroViewportOffset : 0
+    if x < 520 || x > 900 || y < 150 + viewportOffset
+        || y > 396 + viewportOffset
         return false
     delta := (wParam >> 16) << 48 >> 48
     if delta
@@ -619,7 +622,10 @@ DragMacroScroll()
     thumbHeight /= GetCharacterBookScale()
     travel := Max(1, 272 - thumbHeight)
     maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
-    ScrollMacroBook(Round((localY - 140 - MacroScrollGrab) / travel * maximum))
+    viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")
+        ? CharacterPage.MacroViewportOffset : 0
+    ScrollMacroBook(Round((localY - (140 + viewportOffset)
+        - MacroScrollGrab) / travel * maximum))
 }
 
 ReleaseMacroScroll()
