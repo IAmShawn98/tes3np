@@ -197,6 +197,10 @@ PaintButton(wParam, lParam, *)
         oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
         fitLabel := isDiscordName ? LauncherDiscordStatus = 0 : !isLabel && !isChatTab && !isDiscordPortrait
+        ; When the actual Character Book row has reflowed to its measured
+        ; accessible button widths, never shrink the requested font back down.
+        if face.HasOwnProp("NoAccessibleDownfit") && face.NoAccessibleDownfit
+            fitLabel := false
         fittedFont := fitLabel && labelText != "" && font
             ? FitButtonLabelFont(dc, font, labelText, Max(1, width - 4), Max(1, height - 2)) : 0
         if fittedFont
