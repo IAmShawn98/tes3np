@@ -53,10 +53,10 @@ OpenCharacterPage(*)
             RefreshCachedBookTextPreference(CharacterPage)
             bookScale := GetOwnedMenuScale()
             ApplyCharacterBookScale(bookScale)
-            ; The empty book's description and action stack depend on the
-            ; actual font. A cached font change must recompute that live
-            ; geometry before reveal, but ordinary cached reopen stays fast.
-            if cachedTextChanged && !Profiles.Length
+            ; Both empty and populated Character Book rows depend on the
+            ; selected native font. Recompute only after a cached text-choice
+            ; change; ordinary reopen keeps its previously accepted fast path.
+            if cachedTextChanged
                 RefreshProfiles()
             CharacterPage.Show("Hide w" Round(960 * bookScale)
                 " h" Round(650 * bookScale))
