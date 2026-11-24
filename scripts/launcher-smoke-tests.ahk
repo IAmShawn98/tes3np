@@ -2120,19 +2120,40 @@ CheckMeasuredFooterVersionAndLoginCard()
 CheckMeasuredVersionStatusHeader()
 {
     global AccessibilityTextSize
+    for channel in ["alpha", "beta", "live"]
+    {
+        if GetUpdatePreviewHeading(channel, "hotfix") != "A New Patch Is Available, S'wit!"
+            throw Error("Hotfix heading must not repeat installed version.")
+    }
+    if GetUpdatePreviewHeading("alpha", "update") != "A New Alpha Is Available, S'wit!"
+        || GetUpdatePreviewHeading("beta", "update") != "A New Beta Is Available, S'wit!"
+        || GetUpdatePreviewHeading("live", "update") != "A New Stable Release Is Available, Fetcher!"
+        throw Error("Incorrect feature release heading.")
+    titles := Map("current", "You're All Caught Up, Fetcher!", "disabled", "Automatic Updates Are Unavailable",
+        "error", "Unable to Check for Updates", "download", "Unable to Download Update",
+        "verification", "Update Verification Failed", "prepare", "Unable to Prepare Update")
     saved := AccessibilityTextSize
     try
     {
         for mode in ["Normal", "Large", "Extra Large"]
+        for state, expected in titles
         {
             AccessibilityTextSize := mode
+            copy := GetUpdateStatusCopy(state)
+            if copy.Title != expected
+                throw Error("Incorrect update status heading: " state)
+            expectedMessage := state = "current" ? "You're running the latest version of tes3np."
+                : state = "disabled" ? "Visit GitHub Releases to download updates manually."
+                : "Please try again later. Your installed version has not been changed."
+            if copy.Message != expectedMessage
+                throw Error("Incorrect update status description: " state)
             panel := Gui("-DPIScale")
             try
             {
                 SetAccessibleTextFont(panel, "s14 Bold", "Georgia")
-                title := panel.Add("Text", "x30 y20 w740 h38", "You're All Caught Up, Fetcher!")
+                title := panel.Add("Text", "x30 y20 w740 h38", copy.Title)
                 SetAccessibleTextFont(panel, "s10", "Segoe UI")
-                message := panel.Add("Text", "x30 y65 w740 h30", "If an update is published, you will be notified.")
+                message := panel.Add("Text", "x30 y65 w740 h30", copy.Message)
                 SetAccessibleTextFont(panel, "s12 Bold", "Georgia")
                 heading := panel.Add("Text", "x30 y123 w430 h30", "Release Notes")
                 SetAccessibleTextFont(panel, "s9", "Segoe UI")
