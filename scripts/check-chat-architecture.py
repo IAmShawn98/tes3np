@@ -2147,8 +2147,11 @@ expect(
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and '"x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden"' in macro_menu_ui
-    and 'thumbY := 140 + Round(MacroScrollOffset / maximum * travel)' in macro_menu_ui
-    and 'ScrollMacroBook(Round((localY - 140 - MacroScrollGrab) / travel * maximum))' in macro_menu_ui,
+    and 'thumbY := 140 + populatedOffset' in macro_menu_ui
+    and '+ Round(MacroScrollOffset / maximum * travel)' in macro_menu_ui
+    and 'viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")' in macro_menu_ui
+    and 'ScrollMacroBook(Round((localY - (140 + viewportOffset)' in macro_menu_ui
+    and '- MacroScrollGrab) / travel * maximum))' in macro_menu_ui,
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",
