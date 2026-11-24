@@ -453,18 +453,20 @@ expect(
                  "Bounds = bounds;", "viewport.Show();", "scrollbar.Show();"),
 )
 expect(
-    "Game Updates paints with the launcher's first frame independently of Discord sign-in",
-    "ShowLauncherWithGameUpdates()" in bootstrap
-    and in_order(section_between(embedded_chat, "ShowLauncherWithGameUpdates()", "StartEmbeddedInGameChat()\n{"),
-                 "SetPageCompositorCloak(LauncherGui, true)", "StartEmbeddedInGameChat()",
-                 "while !LauncherUpdatesFirstPaintReady", "A_TickCount - start < 800",
-                 "finally RevealPaintedPage(LauncherGui)")
+    "Launcher first paint completes before optional Chat Host startup",
+    in_order(section_between(bootstrap, "StartLauncher()\n{", "RequireLauncherAssets()\n{"),
+                 "BuildLauncherWindow()", "RegisterLauncherEventHandlers()", "ShowLauncherWindow()",
+                 'DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)',
+                 'LogLauncherEvent("Launcher startup completed.', "SetTimer(StartEmbeddedInGameChat, -1)")
+    and "ShowLauncherWithGameUpdates" not in bootstrap + embedded_chat
+    and "LauncherUpdatesFirstPaintReady" not in embedded_chat
+    and "SetPageCompositorCloak(LauncherGui, true)" not in embedded_chat
+    and "PostMessage(owner, 0x833B, new IntPtr(1), Handle)" not in updates_panel
     and in_order(chat_window, "Shown += (_, _) => PositionServerUpdatesPanel();", "Shown += StartDiscordAsync;")
     and in_order(section_between(updates_panel, "var panel = serverUpdatesPanel = new LatestUpdatesPanel(this);", "catch (Exception ex)"),
                  "panel.SetDocument(", "PositionServerUpdatesPanel();")
     and in_order(section_between(updates_panel, "void PositionServerUpdatesPanel()", "void UpdateServerUpdatesDocument("),
-                 "panel.SetLauncherBounds(bounds, ServerUpdatesShellExpanded);", "panel.Show();", "panel.Update();",
-                 "PostMessage(owner, 0x833B, new IntPtr(1), Handle);")
+                 "panel.SetLauncherBounds(bounds, ServerUpdatesShellExpanded);", "panel.Show();", "panel.Update();")
     and "(discordAccountStatus == DiscordAccountStatus.Checking && serverUpdatesDisplay.Open)" in server_updates,
 )
 expect(

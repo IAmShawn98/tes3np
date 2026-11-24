@@ -105,11 +105,7 @@ internal sealed partial class GameChatWindow
             panel.Show();
         }
         KeepServerUpdatesInLauncherStack();
-        if (showing)
-        {
-            panel.Update();
-            PostMessage(owner, 0x833B, new IntPtr(1), Handle);
-        }
+        if (showing) panel.Update();
         panel.EnsureFeed();
     }
 

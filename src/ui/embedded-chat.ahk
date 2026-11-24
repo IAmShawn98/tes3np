@@ -9,7 +9,6 @@ global LauncherDiscordStatus := 0
 global LauncherDiscordAvatar := 0
 global LauncherDiscordAvatarStream := 0
 global LauncherUpdatesSlot := 0
-global LauncherUpdatesFirstPaintReady := false
 
 EnsureEmbeddedChatHostCurrent(host)
 {
@@ -52,30 +51,6 @@ WebView2RuntimeAvailable()
         }
     }
     return false
-}
-
-ShowLauncherWithGameUpdates()
-{
-    global EmbeddedChatPid, LauncherGui, LauncherUpdatesFirstPaintReady
-    if !SetPageCompositorCloak(LauncherGui, true)
-    {
-        ShowLauncherWindow()
-        SetTimer(StartEmbeddedInGameChat, -1)
-        return
-    }
-
-    try
-    {
-        ShowLauncherWindow()
-        StartEmbeddedInGameChat()
-        ; The hosted frame inherits the launcher's cloak. Only wait for native
-        ; painting, with a short fallback for unavailable or slow Chat Hosts.
-        start := A_TickCount
-        while !LauncherUpdatesFirstPaintReady && EmbeddedChatPid
-            && ProcessExist(EmbeddedChatPid) && A_TickCount - start < 800
-            Sleep(10)
-    }
-    finally RevealPaintedPage(LauncherGui)
 }
 
 StartEmbeddedInGameChat()
@@ -232,12 +207,7 @@ CreateLauncherServerUpdates()
 
 ReceiveLauncherServerUpdatesHostMessage(wParam, sender, msg, hwnd)
 {
-    global LauncherUpdatesFirstPaintReady
-    if !IsLauncherDiscordMessage(sender, hwnd)
-        return
-    if wParam = 1
-        LauncherUpdatesFirstPaintReady := true
-    else if wParam = 0
+    if wParam = 0 && IsLauncherDiscordMessage(sender, hwnd)
         SetTimer(RepaintLauncherServerUpdates, -1)
 }
 

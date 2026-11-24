@@ -4,7 +4,7 @@ global LauncherExpansionToggle := 0
 
 StartLauncher()
 {
-    global HoverTimer
+    global HoverTimer, LauncherGui
 
     LogLauncherEvent("Launcher startup beginning.")
     RequireLauncherAssets()
@@ -25,12 +25,17 @@ StartLauncher()
     BuildLauncherWindow()
     RegisterLauncherEventHandlers()
     SetTimer(HoverTimer, 30)
-    ShowLauncherWithGameUpdates()
+    ; Present the native launcher independently of the optional Chat Host.
+    ShowLauncherWindow()
+    ; RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW: finish native
+    ; child painting before background services are scheduled.
+    DllCall("RedrawWindow", "Ptr", LauncherGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0181)
 
     SetTimer(CleanupStaleLauncherData, -1000)
     SetTimer(CheckForUpdateAvailability, -250)
     SetTimer(OfferDesktopShortcutOnFirstLaunch, -1800)
     LogLauncherEvent("Launcher startup completed. Version v" AppConfig.Version ".")
+    SetTimer(StartEmbeddedInGameChat, -1)
 }
 
 RequireLauncherAssets()
