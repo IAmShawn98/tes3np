@@ -305,6 +305,14 @@ OpenCharacterPage(*)
     CharacterLimitNotice := AddBookLabel(CharacterPage, 70, 429, 370, 25, "* You have reached the server character limit.")
     ButtonFaces[CharacterLimitNotice.Hwnd].TextColor := 0x0000FF
     CharacterLimitNotice.Visible := false
+    CharacterPage.BookPreviousPage := AddStyledButton(CharacterPage, 70, 490, 112, 30,
+        "Previous", ChangeCharacterBookPage.Bind(-1))
+    CharacterPage.BookNextPage := AddStyledButton(CharacterPage, 328, 490, 112, 30,
+        "Next", ChangeCharacterBookPage.Bind(1))
+    SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
+    CharacterPage.BookPageLabel := CharacterPage.Add("Text", "x184 y490 w142 h30 Center BackgroundTrans Hidden", "")
+    CharacterPage.BookPreviousPage.Visible := false
+    CharacterPage.BookNextPage.Visible := false
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
     CharacterPage.BookCloseButton := AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
@@ -358,24 +366,6 @@ RefreshProfiles()
     BeginInterfaceUpdate(0, "Refreshing character list...")
     try
     {
-        CharacterListPage := Max(1, Min(CharacterListPage, Max(1, Ceil(Profiles.Length / 10))))
-        first := (CharacterListPage - 1) * 10 + 1
-        for position, controls in CharacterRows
-        {
-            index := first + position - 1
-            visible := index <= Profiles.Length
-            controls.Tick.Visible := visible
-            controls.Name.Visible := visible
-            controls.Play.Visible := visible
-            controls.Edit.Visible := visible
-            controls.Remove.Visible := visible
-            if visible
-            {
-                if controls.Name.Text != Profiles[index].Name
-                    controls.Name.Text := Profiles[index].Name
-                SetBookTick(controls.Tick, SelectedProfile = index)
-            }
-        }
         descriptionText := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
         CharacterDescription.Text := descriptionText
         CharacterDescription.Visible := true
@@ -441,7 +431,8 @@ RefreshProfiles()
         AddCharacterButton.Enabled := Profiles.Length < MaxCharacters
         ; A populated book needs coordinated text/row/action geometry.
         ; This keeps the fixed 960x650 art and all macro/editor controls intact.
-        ReflowAccessiblePopulatedCharacters()
+        if !ReflowAccessiblePopulatedCharacters()
+            BindCharacterBookRows(PlanCharacterBookPages([], 0, 10))
     }
     finally EndInterfaceUpdate()
 }
@@ -458,14 +449,11 @@ ReflowAccessiblePopulatedCharacters()
     global CharacterLimitNotice, MaxCharacters, CharacterListPage
     if !IsObject(CharacterPage) || !CharacterRows.Length
         return false
-    ; A later profile page may contain fewer than ten VISIBLE rows. Hidden
-    ; slots must not consume height or cause a false full-book rejection.
-    first := (CharacterListPage - 1) * CharacterRows.Length + 1
-    count := Min(Max(0, Profiles.Length - first + 1), CharacterRows.Length)
     scale := GetCharacterBookScale()
-    if AccessibilityTextSize = "Normal" || !count
+    if AccessibilityTextSize = "Normal" || !Profiles.Length
     {
         RestoreAccessibleCharacterRowBaseline()
+        BindCharacterBookRows(PlanCharacterBookPages([], 0, 10))
         return false
     }
     copyY := CharacterBookDescriptionY()
@@ -473,101 +461,85 @@ ReflowAccessiblePopulatedCharacters()
     paragraphHeight := Max(BookS(81),
         MeasureAccessibleWrappedText(CharacterDescription, paragraph,
             Max(1, BookS(390) - BookS(4))) + BookS(4))
-    rowY := Max(164, Ceil((BookS(copyY) + paragraphHeight + BookS(5)) / scale))
-    layouts := []
-    for position, controls in CharacterRows
+    firstY := Max(164, Ceil((BookS(copyY) + paragraphHeight + BookS(5)) / scale))
+    ; Every profile is measured against the same full-width name lane.
+    ; Use all names, not just the current page, for a stable page partition.
+    controls := CharacterRows[1]
+    widths := [], buttonHeight := 23
+    for button in [controls.Play, controls.Edit, controls.Remove]
     {
-        if position > count
-            break
-        name := controls.Name.Text
-        ; Measure BOTH arrangements. Narrow names next to the buttons can
-        ; use more vertical space than a full-width name above the buttons.
-        ; Choose the shorter complete row, not merely the first one that fits.
-        compactWidths := [], stackedWidths := [], fittedWidths := []
-        buttonHeight := 23
-        for index, button in [controls.Play, controls.Edit, controls.Remove]
-        {
-            extent := MeasureAccessibleSingleLineText(button, button.Text)
-            originalWidth := index = 1 ? 55 : index = 2 ? 60 : 75
-            ; Keep comfortable action widths when possible. A tighter
-            ; accessible alternative still reserves actual caption width,
-            ; eight logical pixels of padding and a usable native target.
-            captionWidth := Ceil((extent.Width + BookS(8)) / scale)
-            compactWidths.Push(Max(originalWidth, captionWidth))
-            fittedWidths.Push(Max(index = 3 ? 60 : 44, captionWidth))
-            stackedWidths.Push(Max(84, Ceil((extent.Width + BookS(12)) / scale)))
-            buttonHeight := Max(buttonHeight,
-                Ceil((extent.Height + BookS(6)) / scale))
-        }
-        stackedFits := stackedWidths[1] + stackedWidths[2] + stackedWidths[3] + 12 <= 370
+        extent := MeasureAccessibleSingleLineText(button, button.Text)
+        widths.Push(Max(84, Ceil((extent.Width + BookS(12)) / scale)))
+        buttonHeight := Max(buttonHeight, Ceil((extent.Height + BookS(6)) / scale))
+    }
+    if widths[1] + widths[2] + widths[3] + 12 > 345
+    {
+        CharacterPage.BookExpansionFailure := "Character actions exceed the full name lane."
+        RestoreAccessibleCharacterRowBaseline()
+        return false
+    }
+    metrics := [], pitches := []
+    for profile in Profiles
+    {
+        name := profile.Name
         displayName := PrepareAccessibleBookName(controls.Name, name, BookS(338))
         nameHeight := Max(23, Ceil((
             MeasureAccessibleWrappedText(controls.Name, displayName, BookS(338))
             + BookS(4)) / scale))
-        ; Four logical pixels between rows match the compact arrangement.
-        ; Keep the name/action clearance independently at four pixels.
-        stackedPitch := nameHeight + 4 + buttonHeight + 4
-        sameLine := false, bestPitch := stackedFits ? stackedPitch : 1000000
-        nameWidth := 345, buttonX := 70, widths := stackedWidths
-        for candidate in [compactWidths, fittedWidths]
-        {
-            actionWidth := candidate[1] + candidate[2] + candidate[3] + 10
-            ; Share the whole 345px name/action band, rather than rejecting
-            ; any action group wider than the old fixed 200px allocation.
-            candidateNameWidth := 340 - actionWidth
-            if candidateNameWidth < 90
-                continue
-            compactDisplay := PrepareAccessibleBookName(controls.Name, name,
-                BookS(candidateNameWidth - 6))
-            compactHeight := Max(23, Ceil((
-                MeasureAccessibleWrappedText(controls.Name, compactDisplay,
-                    BookS(candidateNameWidth - 6)) + BookS(4)) / scale))
-            compactPitch := Max(compactHeight, buttonHeight, 23) + 4
-            if compactPitch <= bestPitch
-            {
-                bestPitch := compactPitch
-                sameLine := true
-                nameHeight := compactHeight
-                displayName := compactDisplay
-                nameWidth := candidateNameWidth
-                buttonX := 100 + nameWidth
-                widths := candidate
-            }
-        }
-        if !sameLine && !stackedFits
-        {
-            CharacterPage.BookExpansionFailure := "Character actions exceed both available bands."
-            RestoreAccessibleCharacterRowBaseline()
-            return false
-        }
-        buttonY := sameLine ? rowY : rowY + nameHeight + 4
-        nextY := rowY + bestPitch
-        layouts.Push({Controls: controls, Y: rowY, NameWidth: nameWidth,
-            NameHeight: nameHeight, DisplayName: displayName, ButtonX: buttonX, ButtonY: buttonY,
-            ButtonHeight: buttonHeight, Widths: widths,
-            Gap: sameLine ? 5 : 6})
-        rowY := nextY
+        pitch := nameHeight + 4 + buttonHeight + 8
+        metrics.Push({DisplayName: displayName, NameHeight: nameHeight, Pitch: pitch})
+        pitches.Push(pitch)
     }
     noticeVisible := Profiles.Length >= MaxCharacters
-    noticeY := 429, noticeHeight := 25
-    if noticeVisible
-    {
-        noticeY := Max(429, rowY + 4)
-        noticeHeight := Max(25, Ceil((
-            MeasureAccessibleWrappedText(CharacterLimitNotice,
-                CharacterLimitNotice.Text, BookS(362)) + BookS(4)) / scale))
-    }
-    addY := Max(540, rowY + 4,
-        noticeVisible ? noticeY + noticeHeight + 8 : 0)
+    noticeHeight := noticeVisible ? Max(25, Ceil((
+        MeasureAccessibleWrappedText(CharacterLimitNotice,
+            CharacterLimitNotice.Text, BookS(362)) + BookS(4)) / scale)) : 0
     addHeight := GetBookFooterMetrics(CharacterPage).AddHeight
-    CharacterPage.BookRequiredCharacterExtra := Max(0, addY + addHeight - 570)
-    ; Preserve the original five-pixel Add/footer clearance. Expand the
-    ; shared parent before moving rows if this measured stack needs space.
-    if !SetCharacterBookLayoutExtra("Characters", Max(0, addY + addHeight - 570))
+    addY := 570 - addHeight
+    navHeight := 30
+    if CharacterPage.HasOwnProp("BookPreviousPage")
+    {
+        navHeight := Max(navHeight,
+            BookActionMetrics(CharacterPage.BookPreviousPage, "Previous", 112, 30).Height,
+            BookActionMetrics(CharacterPage.BookNextPage, "Next", 112, 30).Height,
+            Ceil((MeasureAccessibleWrappedText(CharacterPage.BookPageLabel,
+                "Page 10 of 10", BookS(138)) + BookS(4)) / scale))
+    }
+    ; Prefer the approved 650px book, reserving the complete footer/notice.
+    ; Reserve navigation only if the first no-navigation plan needs pages.
+    limitY := addY - 8 - (noticeVisible ? noticeHeight + 8 : 0)
+    pages := PlanCharacterBookPages(pitches, limitY - firstY)
+    if pages.Length > 1
+    {
+        limitY -= navHeight + 8
+        pages := PlanCharacterBookPages(pitches, limitY - firstY)
+    }
+    ; Exceptional single rows may need the existing reversible expansion.
+    required := 0
+    for pitch in pitches
+        required := Max(required, firstY + pitch - limitY)
+    CharacterPage.BookRequiredCharacterExtra := required
+    if !SetCharacterBookLayoutExtra("Characters", required)
     {
         RestoreAccessibleCharacterRowBaseline()
         return false
     }
+    BindCharacterBookRows(pages)
+    current := pages[CharacterListPage]
+    layouts := [], rowY := firstY
+    Loop current.Count
+    {
+        position := A_Index
+        item := metrics[current.First + position - 1]
+        layouts.Push({Controls: CharacterRows[position], Y: rowY, NameWidth: 345,
+            NameHeight: item.NameHeight, DisplayName: item.DisplayName,
+            ButtonX: 95, ButtonY: rowY + item.NameHeight + 4,
+            ButtonHeight: buttonHeight, Widths: widths, Gap: 6})
+        rowY += item.Pitch
+    }
+    noticeY := limitY + required + 4
+    if pages.Length > 1
+        PositionCharacterBookNavigation(limitY + required + (noticeVisible ? noticeHeight + 8 : 0), navHeight)
     ; Grouped update: all coordinates are newly calculated from approved
     ; anchors, never accumulated from the previously scaled/reflowed positions.
     ; Mark rollback as armed *before* the first move: if a native HWND fails
@@ -619,6 +591,108 @@ ReflowAccessiblePopulatedCharacters()
             BookS(390), BookS(81))
         throw err
     }
+}
+
+PlanCharacterBookPages(pitches, budget, fixedSize := 0)
+{
+    global Profiles
+    pages := [], first := 1, count := 0, used := 0
+    if fixedSize
+    {
+        while first <= Profiles.Length
+        {
+            count := Min(fixedSize, Profiles.Length - first + 1)
+            pages.Push({First: first, Count: count})
+            first += count
+        }
+    }
+    else
+    {
+        for index, pitch in pitches
+        {
+            if count && (used + pitch > budget || count >= 10)
+            {
+                pages.Push({First: first, Count: count})
+                first := index, count := 0, used := 0
+            }
+            used += pitch
+            count += 1
+        }
+        if count
+            pages.Push({First: first, Count: count})
+    }
+    if !pages.Length
+        pages.Push({First: 1, Count: 0})
+    return pages
+}
+
+BindCharacterBookRows(pages)
+{
+    global CharacterPage, CharacterRows, Profiles, SelectedProfile, CharacterListPage, ButtonFaces
+    CharacterListPage := Max(1, Min(CharacterListPage, pages.Length))
+    CharacterPage.BookPages := pages
+    current := pages[CharacterListPage]
+    CharacterPage.BookVisibleFirst := current.First
+    CharacterPage.BookVisibleCount := current.Count
+    for position, controls in CharacterRows
+    {
+        visible := position <= current.Count
+        index := current.First + position - 1
+        for control in [controls.Tick, controls.Name, controls.Play, controls.Edit, controls.Remove]
+            control.Visible := visible
+        if visible
+        {
+            if controls.Name.Text != Profiles[index].Name
+                controls.Name.Text := Profiles[index].Name
+            if ButtonFaces.Has(controls.Tick.Hwnd)
+                SetBookTick(controls.Tick, SelectedProfile = index)
+        }
+    }
+    if CharacterPage.HasOwnProp("BookPreviousPage")
+    {
+        showNav := pages.Length > 1
+        CharacterPage.BookPreviousPage.Visible := showNav
+        CharacterPage.BookNextPage.Visible := showNav
+        CharacterPage.BookPageLabel.Visible := showNav
+        CharacterPage.BookPreviousPage.Enabled := CharacterListPage > 1
+        CharacterPage.BookNextPage.Enabled := CharacterListPage < pages.Length
+        CharacterPage.BookPageLabel.Text := "Page " CharacterListPage " of " pages.Length
+    }
+}
+
+PositionCharacterBookNavigation(y, height)
+{
+    global CharacterPage
+    if !CharacterPage.HasOwnProp("BookPreviousPage")
+        return
+    MoveMeasuredBookAction(CharacterPage.BookPreviousPage, 70, y, 112, height)
+    MoveMeasuredBookAction(CharacterPage.BookNextPage, 328, y, 112, height)
+    CharacterPage.BookPageLabel.Move(BookS(184), BookS(y), BookS(142), BookS(height))
+}
+
+ChangeCharacterBookPage(delta, *)
+{
+    global CharacterPage, CharacterListPage
+    if !IsObject(CharacterPage) || !CharacterPage.HasOwnProp("BookPages")
+        return
+    nextPage := Max(1, Min(CharacterPage.BookPages.Length, CharacterListPage + delta))
+    if nextPage = CharacterListPage
+        return
+    CharacterListPage := nextPage
+    RefreshProfiles()
+}
+
+VisibleCharacterProfileIndex(position)
+{
+    global CharacterPage, CharacterListPage, Profiles
+    if IsObject(CharacterPage) && CharacterPage.HasOwnProp("BookVisibleFirst")
+    {
+        if position < 1 || position > CharacterPage.BookVisibleCount
+            return 0
+        return CharacterPage.BookVisibleFirst + position - 1
+    }
+    index := (CharacterListPage - 1) * 10 + position
+    return index >= 1 && index <= Profiles.Length ? index : 0
 }
 
 RestoreAccessibleCharacterRowBaseline()
@@ -688,13 +762,15 @@ MoveStyledButton(control, x, y, width, height)
 EditVisibleProfile(position, *)
 {
     global CharacterListPage
-    EditProfile((CharacterListPage - 1) * 10 + position)
+    index := VisibleCharacterProfileIndex(position)
+    if index
+        EditProfile(index)
 }
 
 ChooseProfile(position, control, *)
 {
     global Profiles, SelectedProfile, CharacterListPage, CharacterPage, DataFile
-    index := (CharacterListPage - 1) * 10 + position
+    index := VisibleCharacterProfileIndex(position)
     if index < 1 || index > Profiles.Length || SelectedProfile = index
         return
     ; Explain favorite switching only once per launcher profile. Remember the
@@ -1363,7 +1439,8 @@ SaveProfileEditor(index, fields, *)
             ; No additional dialog is needed until the user picks another.
             if Profiles.Length = 1 || SelectedProfile < 1
                 SelectedProfile := 1
-            CharacterListPage := Ceil(Profiles.Length / 10)
+            ; Clamp to the last measured page after adding a character.
+            CharacterListPage := 1000000
         }
         try SaveProfiles()
         catch
@@ -1390,7 +1467,7 @@ SaveProfileEditor(index, fields, *)
 RemoveVisibleProfile(position, *)
 {
     global Profiles, SelectedProfile, CharacterListPage, CharacterPage
-    index := (CharacterListPage - 1) * 10 + position
+    index := VisibleCharacterProfileIndex(position)
     if index < 1 || index > Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")

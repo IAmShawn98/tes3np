@@ -234,7 +234,7 @@ Require-Source 'actionY := 511 \+ rowExtra \+ notesSpace \+ missedSpace' 'produc
 Require-Source 'AddStyledButton\(preview, 109, actionY, 181, 34, "Update Now"' 'update button is centered under the card' $dialogSource
 Require-Source 'AddStyledButton\(preview, 313, actionY, 181, 34, "Not Now"' 'Not Now is centered beside Update Now' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production updater enters the single-action update flow' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'installed Version Status stays unchanged' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, 0, topExtra\)' 'installed Version Status stays unchanged' $dialogSource
 Require-Source 'BuildPublishedPreviewSections\(records\)' 'preview data comes only from the published version parser' $notesSource
 Require-Source 'EarlierLabels: earlierLabels' 'published missed versions are retained in the pinned summary' $notesSource
 Require-Source 'compactLayout := false, fixedEarlier := false\)' 'preview-only compact notes layout leaves installed status unaffected' $notesSource
@@ -293,7 +293,7 @@ if (Test-Path 'scripts/test-update-preview-visual.ps1') {
 Write-Host 'PASS: normal startup uses published updates only; development preview removed.'
 
 Require-Source 'ReadInstalledCumulativeNotes\(notesVersion\)' 'status merges the installed base release and hotfixes' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status retains original note geometry' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, 0, topExtra\)' 'version status retains original note geometry' $dialogSource
 Require-Source 'response.Download := true, DestroyScaledMenu\(preview\)' 'production update retains the approved Update Now action' $dialogSource
 
 $previewStart = $dialogSource.IndexOf('ShowUpdatePreview(installedVersion')
@@ -350,7 +350,7 @@ Require-Source 'return bundled != "" \? bundled : ReadPublishedVersionNotes\(ver
 Require-Source 'heading\[1\] = version' 'exact bundled version heading' $notesSource
 Require-Source 'return kind = "heading" \? "s12 Bold cE7BE70"' 'gold category headings remain' $notesSource
 Require-Source 'CreateGoldNativePrompt\(0, "tes3np \u2014 Version Status", 800, 600\)' 'version status uses the gold modal' $dialogSource
-Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale\)' 'version status keeps measured scrolling without tabs' $dialogSource
+Require-Source 'AddUpdateNotesViewport\(panel, releaseNotes, scale, 0, topExtra\)' 'version status keeps measured scrolling without tabs' $dialogSource
 Require-Source 'ShowGoldNativePrompt\(preview, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(preview\)' 'update preview paints buttons immediately after show' $dialogSource
 Require-Source 'ShowGoldNativePrompt\(panel, scale\)\r?\n\s*PaintGoldUpdateDialogButtons\(panel\)' 'version status paints its footer immediately after show' $dialogSource
 if ($dialogSource.Contains('AddUpdateNoteTabs(') -or

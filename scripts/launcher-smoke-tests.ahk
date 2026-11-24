@@ -1621,53 +1621,56 @@ CheckTenCharacterBookExpansion()
         ScaleOwnedMenuContent(page, 0.5)
         page.BookBackground.Value := GetBookSmokeArtworkPath()
         page.Show("Hide w480 h325")
+        ; Real measured rows must partition all ten profiles, not enlarge
+        ; the Book until all ten stacked rows happen to fit simultaneously.
         if !ReflowAccessiblePopulatedCharacters()
-            throw Error("Ten actual measured Extra Large character rows rejected: "
-                (page.HasOwnProp("BookExpansionFailure") ? page.BookExpansionFailure : "unknown reason")
-                "; requested extra=" (page.HasOwnProp("BookRequiredCharacterExtra") ? page.BookRequiredCharacterExtra : -1))
-        if GetCharacterBookExtra() <= 0
-            throw Error("Ten-character expansion fixture did not require extra space; requested="
-                page.BookRequiredCharacterExtra)
-        CharacterDescription.GetPos(, &copyY, , &copyH)
-        previousBottom := copyY + copyH
-        for row in CharacterRows
+            throw Error("Measured stacked character pages rejected.")
+        if page.BookPages.Length < 2
+            throw Error("Ten enlarged names did not create additional pages.")
+        expectedIndex := 1
+        for pageNumber, range in page.BookPages
         {
-            row.Name.GetPos(, &ny, &nw, &nh)
-            width := nw = BookS(345) ? BookS(338) : Max(1, nw - BookS(6))
-            display := PrepareAccessibleBookName(row.Name, row.Name.Text, width)
-            if StrReplace(display, "`n") != row.Name.Text
-                throw Error("Wrapping changed the actual character name.")
-            if ny < previousBottom || nh < MeasureAccessibleWrappedText(row.Name,
-                display, width)
-                throw Error("Ten-character name overlaps preceding content or clips.")
-            rowBottom := ny + nh
-            row.Name.GetPos(&nameX)
-            previousActionRight := 0
-            for action in [row.Play, row.Edit, row.Remove]
+            CharacterListPage := pageNumber
+            if !ReflowAccessiblePopulatedCharacters()
+                throw Error("Could not reflow a measured character page.")
+            CharacterDescription.GetPos(, &copyY, , &copyH)
+            previousBottom := copyY + copyH
+            Loop range.Count
             {
-                action.GetPos(&bx, &by, &bw, &bh)
-                extent := MeasureAccessibleSingleLineText(action, action.Text)
-                if by < ny || bh < extent.Height || bw < extent.Width
-                    || bx < previousActionRight || bx + bw > BookS(440)
-                    || (by < ny + nh && bx < nameX + nw)
-                    throw Error("Ten-character action clips or overlaps preceding content.")
-                previousActionRight := bx + bw
-                rowBottom := Max(rowBottom, by + bh)
+                position := A_Index
+                row := CharacterRows[position]
+                if VisibleCharacterProfileIndex(position) != expectedIndex
+                    || row.Name.Text != Profiles[expectedIndex].Name
+                    throw Error("Character page action mapping is incorrect.")
+                row.Name.GetPos(&nx, &ny, &nw, &nh)
+                display := PrepareAccessibleBookName(row.Name, row.Name.Text, BookS(338))
+                if ny < previousBottom || nw != BookS(345)
+                    || nh < MeasureAccessibleWrappedText(row.Name, display, BookS(338))
+                    throw Error("Full-width character name clips or overlaps.")
+                rowBottom := ny + nh
+                previousRight := 0
+                for action in [row.Play, row.Edit, row.Remove]
+                {
+                    action.GetPos(&bx, &by, &bw, &bh)
+                    extent := MeasureAccessibleSingleLineText(action, action.Text)
+                    if by < ny + nh || bw < extent.Width || bh < extent.Height
+                        || bx < previousRight || bx + bw > BookS(440) + 1
+                        throw Error("Stacked character actions clip or overlap.")
+                    previousRight := bx + bw
+                    rowBottom := Max(rowBottom, by + bh)
+                }
+                previousBottom := rowBottom
+                expectedIndex += 1
             }
-            previousBottom := rowBottom
+            if VisibleCharacterProfileIndex(range.Count + 1)
+                throw Error("Hidden character row still has an active profile index.")
+            CharacterLimitNotice.GetPos(, &noticeY, , &noticeH)
+            AddCharacterButton.GetPos(, &addY, , &addH)
+            if noticeY < previousBottom || addY < noticeY + noticeH
+                throw Error("Character pagination overlaps limit notice or footer.")
         }
-        CharacterLimitNotice.GetPos(, &noticeY, , &noticeH)
-        AddCharacterButton.GetPos(, &addY, , &addH)
-        page.BookCloseButton.GetPos(, &closeY)
-        for action in [AddCharacterButton, WipeCharacterButton, DataTransferButton, page.BookCloseButton]
-        {
-            action.GetPos(, , &actionW, &actionH)
-            extent := MeasureAccessibleSingleLineText(action, action.Text)
-            if actionW < extent.Width || actionH < extent.Height + 2
-                throw Error("Measured footer caption does not fit its native control.")
-        }
-        if noticeY < previousBottom || addY < noticeY + noticeH || closeY < addY + addH
-            throw Error("Ten-character limit notice or common footer overlaps.")
+        if expectedIndex != Profiles.Length + 1
+            throw Error("Measured pages skipped or duplicated characters.")
         AccessibilityTextSize := "Normal"
         ReflowAccessiblePopulatedCharacters()
         if GetCharacterBookExtra() || page.AccessibleRowsReflowed

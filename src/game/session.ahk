@@ -54,7 +54,9 @@ LaunchProfile(*)
 PlayVisibleProfile(position, *)
 {
     global CharacterListPage
-    LaunchProfileIndex((CharacterListPage - 1) * 10 + position)
+    index := VisibleCharacterProfileIndex(position)
+    if index
+        LaunchProfileIndex(index)
 }
 
 ValidateLaunch(profile, executable)
