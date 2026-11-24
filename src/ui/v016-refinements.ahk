@@ -79,7 +79,7 @@ PlanV016MeasuredRows(groups)
             {
                 rect := Buffer(16, 0)
                 if DllCall("GetWindowRect", "Ptr", control.Hwnd, "Ptr", rect)
-                    h := Ceil((NumGet(rect, 12, "Int") - NumGet(rect, 4, "Int")) * 96 / A_ScreenDPI)
+                    h := Ceil((NumGet(rect, 12, "Int") - NumGet(rect, 4, "Int")) / AccessibleLayoutDpi(control))
             }
             height := h, action := ButtonFaces.Has(control.Hwnd)
             if !combo
@@ -87,9 +87,8 @@ PlanV016MeasuredRows(groups)
                 ; Paired buttons stay paired; wrap the full caption inside
                 ; its measured taller face rather than shrinking its font.
                 padding := action ? V016S(8) : V016S(4)
-                height := Max(h, Ceil(MeasureAccessibleWrappedText(control,
-                    control.Text, Max(1, Round((w - padding) * A_ScreenDPI / 96)))
-                    * 96 / A_ScreenDPI) + Max(2, V016S(action ? 6 : 4)))
+                height := Max(h, MeasureAccessibleWrappedText(control,
+                    control.Text, Max(1, w - padding)) + Max(2, V016S(action ? 6 : 4)))
                 if action
                     actionHeight := Max(actionHeight, height)
             }
@@ -251,7 +250,7 @@ OpenLauncherSettingsV016(*)
     ; Match the existing launcher scale, with the monitor as an upper bound.
     V016SettingsScale := GetV016SettingsFitScale()
 
-    settings := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
+    settings := CreateAccessibleLayoutGui("+Owner" LauncherGui.Hwnd " -Caption -Border -MinimizeBox -MaximizeBox +ToolWindow", "tes3np — Launcher Settings")
     settings.MarginX := 0, settings.MarginY := 0
     settings.BackColor := "010101"
     settings.MenuButtonScale := V016SettingsScale

@@ -182,6 +182,19 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("face.AccessibleWrappedButton := true", settings)
         self.assertIn("drawFlags := 0x0811", renderer)
 
+    def test_accessible_native_measurements_use_matching_coordinate_units(self):
+        root = SOURCE.parents[1] / "src/ui"
+        windows = (root / "windows.ahk").read_text(encoding="utf-8-sig")
+        characters = (root / "characters.ahk").read_text(encoding="utf-8-sig")
+        settings = (root / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+        self.assertIn("gui.AccessibleLayoutDpi := A_ScreenDPI / 96", windows)
+        self.assertIn("Floor(width * dpi)", windows)
+        self.assertIn('Ceil(NumGet(bounds, 12, "Int") / dpi)', windows)
+        self.assertIn('Ceil(NumGet(bounds, 0, "Int") / dpi)', windows)
+        self.assertIn("CharacterPage := CreateAccessibleLayoutGui(", characters)
+        self.assertIn("settings := CreateAccessibleLayoutGui(", settings)
+        self.assertNotIn("Round((w - padding) * A_ScreenDPI / 96)", settings)
+
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
         self.assertEqual(report["scope"], ["src", "game-chat"])

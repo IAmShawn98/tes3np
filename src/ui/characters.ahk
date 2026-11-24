@@ -117,12 +117,21 @@ SetCharacterBookLayoutExtra(side, required)
             (NumGet(ownerRect, 4, "Int") + NumGet(ownerRect, 12, "Int")) // 2)
         MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
         dpi := A_ScreenDPI / 96
-        if BookS(960) * dpi > right - left - 16
-            || BookS(650 + extra) * dpi > bottom - top - 16
+        availableWidth := right - left - 16, availableHeight := bottom - top - 16
+        ; Disposable native layout fixtures can supply a fixed test work area.
+        ; Production Book construction never sets this property; real monitor
+        ; rejection is exercised separately with no override.
+        if page.HasOwnProp("BookLayoutFixtureWorkArea") && !DllCall("IsWindowVisible", "Ptr", page.Hwnd)
+        {
+            availableWidth := page.BookLayoutFixtureWorkArea.Width - 16
+            availableHeight := page.BookLayoutFixtureWorkArea.Height - 16
+        }
+        if Round(BookS(960) * dpi) > availableWidth
+            || Round(BookS(650 + extra) * dpi) > availableHeight
         {
             page.BookExpansionFailure := Format("Required {}x{} pixels; available {}x{} at scale {}",
                 BookS(960) * dpi, BookS(650 + extra) * dpi,
-                right - left - 16, bottom - top - 16, GetCharacterBookScale())
+                availableWidth, availableHeight, GetCharacterBookScale())
             return false
         }
     }
@@ -252,7 +261,7 @@ OpenCharacterPage(*)
     EditorControls := []
     ; A rebuilt character book needs its canonical button layout reapplied.
     V016CharacterLayoutApplied := false
-    CharacterPage := Gui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
+    CharacterPage := CreateAccessibleLayoutGui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
     CharacterPage.BookExtra := 0
     CharacterPage.BookCharacterExtra := 0

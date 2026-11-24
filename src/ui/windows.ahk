@@ -106,6 +106,22 @@ GetOwnedMenuFitScale(owner, width, height, horizontalMargin := 24, verticalMargi
 ; Uses the *current native font* instead of assuming a character/line count.
 ; Read-only: this helper never changes a window rectangle or font. A caller
 ; must first establish that the entire view can accommodate a reflow.
+AccessibleLayoutDpi(control)
+{
+    ; AHK default DPI-scaled GUI coordinates are logical; GDI metrics are
+    ; physical pixels. Explicitly mark the DPI-scaled layouts and probes.
+    ; Existing unscaled pixel fixtures/callers keep their original units.
+    return control.Gui.HasOwnProp("AccessibleLayoutDpi")
+        ? control.Gui.AccessibleLayoutDpi : 1.0
+}
+
+CreateAccessibleLayoutGui(options := "", title := "")
+{
+    gui := Gui(options, title)
+    gui.AccessibleLayoutDpi := A_ScreenDPI / 96
+    return gui
+}
+
 MeasureAccessibleWrappedText(control, caption, width)
 {
     if !IsObject(control) || !DllCall("IsWindow", "Ptr", control.Hwnd)
@@ -125,12 +141,13 @@ MeasureAccessibleWrappedText(control, caption, width)
         if font
             previous := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         bounds := Buffer(16, 0)
-        NumPut("Int", 0, "Int", 0, "Int", Max(1, Round(width)), "Int", 0, bounds)
+        dpi := AccessibleLayoutDpi(control)
+        NumPut("Int", 0, "Int", 0, "Int", Max(1, Floor(width * dpi)), "Int", 0, bounds)
         ; DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX.
         if !DllCall("user32\DrawTextW", "Ptr", dc, "WStr", caption, "Int", -1,
             "Ptr", bounds, "UInt", 0xC10)
             throw Error("Failed to measure wrapped interface text.")
-        return NumGet(bounds, 12, "Int")
+        return Ceil(NumGet(bounds, 12, "Int") / dpi)
     }
     finally
     {
@@ -163,8 +180,9 @@ MeasureAccessibleSingleLineText(control, caption)
         if !DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc,
             "WStr", caption, "Int", StrLen(caption), "Ptr", bounds, "Int")
             throw Error("Failed to measure horizontal interface text.")
-        return {Width: NumGet(bounds, 0, "Int"),
-            Height: NumGet(bounds, 4, "Int")}
+        dpi := AccessibleLayoutDpi(control)
+        return {Width: Ceil(NumGet(bounds, 0, "Int") / dpi),
+            Height: Ceil(NumGet(bounds, 4, "Int") / dpi)}
     }
     finally
     {

@@ -1045,7 +1045,7 @@ CheckMeasuredAccessibleBookPreflight()
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
-            probe := Gui("-DPIScale")
+            probe := CreateAccessibleLayoutGui()
             try
             {
                 SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
@@ -1081,7 +1081,8 @@ CheckMeasuredAccessibleBookPreflight()
                     Max(23, characterHeight), Max(62, macroNameHeight + 40),
                     1920, 1200)
                 if !plan.Feasible
-                    throw Error("Measured accessible text exceeded the full-work-area fixture at " mode ".")
+                    throw Error(Format("Measured Book preflight rejected {}: logical copy={} macro={} name={} macro name={} required={} DPI={}.",
+                        mode, descriptionHeight, macroHeight, characterHeight, macroNameHeight, plan.RequiredHeight, A_ScreenDPI))
                 if plan.CharacterTop < 80 + Max(81, descriptionHeight) + 3
                     || plan.MacroTop < 87 + Max(48, macroHeight) + 5
                     throw Error("Measured text overlaps a neighboring row at " mode ".")
@@ -1120,7 +1121,7 @@ CheckMeasuredV016ActionRows()
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
-            panel := Gui("-DPIScale")
+            panel := CreateAccessibleLayoutGui()
             buttons := []
             try
             {
@@ -1181,7 +1182,7 @@ CheckMeasuredV016SettingsCopy()
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
-            panel := Gui("-DPIScale")
+            panel := CreateAccessibleLayoutGui()
             try
             {
                 SetAccessibleTextFont(panel, "s11 Norm c382314", "Georgia")
@@ -1226,7 +1227,7 @@ CheckMeasuredEmptyMacroBook()
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
-            testPage := Gui("-DPIScale")
+            testPage := CreateAccessibleLayoutGui()
             try
             {
                 SetAccessibleTextFont(testPage, "s19 Norm c241408", LauncherMorrowindFont)
@@ -1302,13 +1303,14 @@ CheckMeasuredPopulatedMacroBook()
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
-            owner := Gui("-Caption -Border -DPIScale")
-            page := Gui("-Caption -Border -DPIScale +Owner" owner.Hwnd)
+            owner := CreateAccessibleLayoutGui("-Caption -Border")
+            page := CreateAccessibleLayoutGui("-Caption -Border +Owner" owner.Hwnd)
             try
             {
                 LauncherGui := owner, CharacterPage := page, Profiles := []
                 owner.Show("Hide x0 y0 w480 h360")
                 page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
+                page.BookLayoutFixtureWorkArea := {Width: Round(1920 * A_ScreenDPI / 96), Height: Round(1200 * A_ScreenDPI / 96)}
                 page.BookBackground := page.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
                 SetAccessibleTextFont(page, "s19 Norm", LauncherMorrowindFont)
                 heading := page.Add("Text", "x525 y45 w355 h32", "Manage Macros")
@@ -1478,8 +1480,8 @@ CheckSharedBookExpansion()
     ; The fixture owns only its temporary artwork, never a live Book image.
     savedImage := ButtonPaint.BookExtended
     ButtonPaint.BookExtended := 0
-    owner := Gui("-Caption -Border -DPIScale")
-    page := Gui("-Caption -Border -DPIScale +Owner" owner.Hwnd)
+    owner := CreateAccessibleLayoutGui("-Caption -Border")
+    page := CreateAccessibleLayoutGui("-Caption -Border +Owner" owner.Hwnd)
     try
     {
         LauncherGui := owner
@@ -1494,6 +1496,8 @@ CheckSharedBookExpansion()
             A_ScriptDir "\assets\backgrounds\character-book.png")
         page.BookCloseButton := page.Add("Text", "x258 y288 w45 h15", "Close")
         page.Show("Hide w480 h325")
+        if SetCharacterBookLayoutExtra("Characters", 100000) || GetCharacterBookExtra()
+            throw Error("Actual-monitor capacity accepted an impossible Book height.")
         if !SetCharacterBookLayoutExtra("Characters", 64)
             || !SetCharacterBookLayoutExtra("Macros", 96)
             throw Error("Shared Book expansion refused a fitting fixture.")
@@ -1565,8 +1569,8 @@ CheckTenCharacterBookExpansion()
     savedMode := AccessibilityTextSize
     savedImage := ButtonPaint.BookExtended
     ButtonPaint.BookExtended := 0
-    owner := Gui("-Caption -Border -DPIScale")
-    page := Gui("-Caption -Border -DPIScale +Owner" owner.Hwnd)
+    owner := CreateAccessibleLayoutGui("-Caption -Border")
+    page := CreateAccessibleLayoutGui("-Caption -Border +Owner" owner.Hwnd)
     try
     {
         LauncherGui := owner, CharacterPage := page
@@ -1574,6 +1578,7 @@ CheckTenCharacterBookExpansion()
         AccessibilityTextSize := "Extra Large"
         owner.Show("Hide x0 y0 w480 h360")
         page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
+        page.BookLayoutFixtureWorkArea := {Width: Round(1920 * A_ScreenDPI / 96), Height: Round(1200 * A_ScreenDPI / 96)}
         page.BookBackground := page.Add("Picture", "x0 y0 w960 h650",
             A_ScriptDir "\assets\backgrounds\character-book.png")
         SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
@@ -1680,7 +1685,7 @@ CheckAccessibleBookNameWrapping()
 {
     global AccessibilityTextSize
     savedMode := AccessibilityTextSize
-    page := Gui("-DPIScale")
+    page := CreateAccessibleLayoutGui()
     try
     {
         AccessibilityTextSize := "Extra Large"
@@ -1715,7 +1720,7 @@ CheckMeasuredBookEditorGeometry()
     {
         for mode in ["Normal", "Extra Large"]
         {
-            page := Gui("-DPIScale")
+            page := CreateAccessibleLayoutGui()
             try
             {
                 CharacterPage := page
