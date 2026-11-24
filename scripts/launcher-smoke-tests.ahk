@@ -818,6 +818,7 @@ CheckOwnedMenuScaling()
                 ExitApp(221)
             }
         }
+        CheckLauncherFaceReuse()
         CheckDisplaySettingsAndReleaseNotes()
         ; A compiled GUI launch can lack console streams. Preserve the real result.
         try FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
@@ -2445,6 +2446,143 @@ CheckExtremeDisplayFrameCoverage()
             source.Destroy()
             backdrop.Destroy()
         }
+    }
+}
+
+CheckLauncherFaceReuse()
+{
+    global LauncherGui, LauncherScale, AccessibilityTextSize, EnhancedReadability
+    global ButtonFaces, LauncherFaceCache, LauncherChatOpen
+    savedGui := LauncherGui, savedScale := LauncherScale, savedText := AccessibilityTextSize
+    savedContrast := EnhancedReadability, savedChat := LauncherChatOpen
+    panel := Gui("-DPIScale")
+    dc := 0, bitmap := 0, oldBitmap := 0, screen := 0
+    controls := []
+    try
+    {
+        LauncherGui := panel
+        LauncherScale := 100, AccessibilityTextSize := "Normal", EnhancedReadability := false
+        action := AddLauncherButton(447, "Start New Adventure", (*) => 0)
+        controls.Push(action)
+        card := AddInfoCard(82, 75, 280, 220, "Quest", "Native cached card test", 151)
+        controls.Push(card)
+        chat := AddStyledButton(panel, 0, 294, 45, 112, "Game Chat", (*) => 0)
+        controls.Push(chat)
+        ButtonFaces[chat.Hwnd].IsChatTab := true
+        if LauncherFaceCacheEligible({Window: savedGui.Hwnd})
+            throw Error("Face cache included an unrelated owner.")
+        screen := DllCall("GetDC", "Ptr", 0, "Ptr")
+        dc := DllCall("CreateCompatibleDC", "Ptr", screen, "Ptr")
+        bitmap := DllCall("CreateCompatibleBitmap", "Ptr", screen, "Int", 512, "Int", 512, "Ptr")
+        oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !screen || !dc || !bitmap || !oldBitmap || oldBitmap = -1
+            throw Error("Could not create face reuse test surface.")
+        for percent in [100, 50]
+        {
+            LauncherScale := percent
+            ratio := percent / 100
+            action.Move(0, 0, Round(220 * ratio), Round(48 * ratio))
+            card.Move(0, 0, Round(280 * ratio), Round(220 * ratio))
+            chat.Move(0, 0, Round(45 * ratio), Round(112 * ratio))
+            for control in controls
+            {
+                handle := control.Hwnd
+                previous := LauncherFaceCache.Has(handle) && LauncherFaceCache[handle].Has("normal")
+                    ? LauncherFaceCache[handle]["normal"] : 0
+                PaintButtonToDC(handle, dc)
+                if !LauncherFaceCache.Has(handle) || !LauncherFaceCache[handle].Has("normal")
+                    throw Error("Initial face did not enter cache.")
+                cached := LauncherFaceCache[handle]["normal"]
+                if IsObject(previous) && previous = cached
+                    throw Error("Changed geometry retained old bitmap.")
+                PaintButtonToDC(handle, dc)
+                if LauncherFaceCache[handle]["normal"] != cached
+                    throw Error("Unchanged face was rendered again.")
+                ; Compare native output with the same original painter, not a mock.
+                item := Buffer(A_PtrSize = 8 ? 64 : 48, 0)
+                rect := A_PtrSize = 8 ? 40 : 28
+                NumPut("Ptr", handle, item, A_PtrSize = 8 ? 24 : 20)
+                NumPut("Ptr", dc, item, A_PtrSize = 8 ? 32 : 24)
+                DllCall("GetClientRect", "Ptr", handle, "Ptr", item.Ptr + rect)
+                w := NumGet(item, rect + 8, "Int"), h := NumGet(item, rect + 12, "Int")
+                samples := []
+                Loop 5
+                {
+                    sy := (A_Index * h) // 6
+                    Loop 5
+                    {
+                        sx := (A_Index * w) // 6
+                        samples.Push({X: sx, Y: sy,
+                            Color: DllCall("GetPixel", "Ptr", dc, "Int", sx, "Int", sy, "UInt")})
+                    }
+                }
+                if !RenderButtonFace(0, item.Ptr)
+                    throw Error("Original renderer failed.")
+                for sample in samples
+                    if sample.Color = 0xFFFFFFFF || sample.Color != DllCall("GetPixel", "Ptr", dc,
+                        "Int", sample.X, "Int", sample.Y, "UInt")
+                        throw Error("Reused face differed from original pixels.")
+            }
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            action.Text := "Returning Fetcher " percent
+            PaintButtonToDC(action.Hwnd, dc)
+            if LauncherFaceCache[action.Hwnd]["normal"] = before
+                throw Error("Changed action caption retained stale bitmap.")
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            action.SetFont("s" (percent = 100 ? 14 : 15) " Bold", "Segoe UI")
+            PaintButtonToDC(action.Hwnd, dc)
+            if LauncherFaceCache[action.Hwnd]["normal"] = before
+                throw Error("Changed native font retained stale bitmap.")
+            for state in ["hover", "down", "normal"]
+            {
+                ButtonFaces[action.Hwnd].State := state
+                PaintButtonToDC(action.Hwnd, dc)
+            }
+            if LauncherFaceCache[action.Hwnd].Count != 3
+                throw Error("Face state cache was not bounded to three entries.")
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            EnhancedReadability := !EnhancedReadability
+            PaintButtonToDC(action.Hwnd, dc)
+            if LauncherFaceCache[action.Hwnd]["normal"] = before
+                throw Error("Contrast change retained stale bitmap.")
+            before := LauncherFaceCache[chat.Hwnd]["normal"]
+            LauncherChatOpen := !LauncherChatOpen
+            PaintButtonToDC(chat.Hwnd, dc)
+            if LauncherFaceCache[chat.Hwnd]["normal"] = before
+                throw Error("Chat direction retained stale bitmap.")
+        }
+        released := []
+        for control in controls
+            for state, entry in LauncherFaceCache[control.Hwnd]
+                released.Push(entry.Bitmap)
+        for control in controls
+        {
+            handle := control.Hwnd
+            UnregisterThemedControl(control)
+            if LauncherFaceCache.Has(handle)
+                throw Error("Unregistered control retained face cache.")
+        }
+        DllCall("gdi32\GdiFlush")
+        for releasedBitmap in released
+            if DllCall("gdi32\GetObjectType", "Ptr", releasedBitmap, "UInt")
+                throw Error("Released face bitmap is still alive.")
+        try FileAppend("PASS: main launcher face reuse, original pixels, input invalidation and GDI cleanup at 50 and 100 percent" Chr(10), "*")
+    }
+    finally
+    {
+        for control in controls
+            UnregisterThemedControl(control)
+        panel.Destroy()
+        if oldBitmap && oldBitmap != -1
+            DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        if bitmap
+            DllCall("DeleteObject", "Ptr", bitmap)
+        if dc
+            DllCall("DeleteDC", "Ptr", dc)
+        if screen
+            DllCall("ReleaseDC", "Ptr", 0, "Ptr", screen)
+        LauncherGui := savedGui, LauncherScale := savedScale, AccessibilityTextSize := savedText
+        EnhancedReadability := savedContrast, LauncherChatOpen := savedChat
     }
 }
 
