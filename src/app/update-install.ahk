@@ -1,28 +1,31 @@
 ; Stage a verified update and coordinate installation, startup confirmation, and recovery.
 
-DownloadAndStageUpdate(manifest)
+DownloadAndStageUpdate(manifest, &failureMode)
 {
+    failureMode := "download"
     root := A_Temp "\tes3np-update\" NewLauncherFileId()
     part := root "\tes3np-windows.zip.part"
     stage := root "\staged"
     DirCreate(root)
     try {
-        SetInterfaceLoadingText("Downloading update...")
+        ; The caller already started the shared loading card's download phase.
         LogLauncherEvent("UPDATE | Download started | v" manifest.version ".")
         Download(manifest.PackageUrl, part)
         if !FileExist(part)
             throw Error("Downloaded update package is missing.")
-        SetInterfaceLoadingText("Checking download size...")
+        failureMode := "verification"
+        SetInterfaceLoadingText("Checking download integrity...")
         if FileGetSize(part) != manifest.size
             throw Error("Downloaded update size does not match trusted metadata.")
         SetInterfaceLoadingText("Verifying update...")
         if SHA256File(part) != StrLower(manifest.sha256)
             throw Error("Downloaded update failed SHA-256 verification.")
         LogLauncherEvent("UPDATE | Download verified | SHA-256 and size match trusted metadata.")
-        SetInterfaceLoadingText("Preparing update...")
+        failureMode := "prepare"
+        SetInterfaceLoadingText("Preparing installation...")
         ValidateUpdateArchive(part, stage)
         FileDelete(part)
-        SetInterfaceLoadingText("Saving update state...")
+        SetInterfaceLoadingText("Preparing for restart...")
         state := root "\update-state.ini"
         IniWrite("STAGED", state, "Update", "State")
         IniWrite(manifest.version, state, "Update", "Version")
