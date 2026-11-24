@@ -108,6 +108,9 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("RestoreAccessibleCharacterRowBaseline()", section)
         self.assertIn("face.DeleteProp(\"NoAccessibleDownfit\")", section)
         self.assertIn('face.HasOwnProp("NoAccessibleDownfit")', renderer)
+        self.assertIn('AccessibleWrappedName := true', section)
+        self.assertIn('nameFace.DeleteProp("AccessibleWrappedName")', section)
+        self.assertIn("drawFlags := 0x0810 ; DT_NOPREFIX | DT_WORDBREAK", renderer)
         self.assertIn("if cachedTextChanged", characters)
 
     def test_inventory_serializes_with_expected_categories(self):
