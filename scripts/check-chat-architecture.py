@@ -2116,7 +2116,7 @@ expect(
     and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
-    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro_menu_ui
     and 'maximum := Max(0, count - MacroBookRows.Length)' in macro_menu_ui,
 )
 expect(
@@ -2125,7 +2125,7 @@ expect(
     and 'EditSelectedMacroBindings' not in macro_menu_ui
     and 'ReadMacroBindings' not in macro_menu_ui
     and 'TES3NP_BINDINGS' not in macro_menu_ui
-    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro_menu_ui
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro_menu_ui
     and '#Include src\\ui\\macro-bindings.ahk' not in entry_script,
 )
 expect(

@@ -182,6 +182,28 @@ MeasureMacroNameCollection(sample, items, maxNameW)
     return {Items: ordered, Height: maxHeight}
 }
 
+; Measure Upload and its complete feedback copy before the shared height
+; request. Keep the seven-pixel original gap below Upload and the approved
+; Normal bottom of the four-row feedback stack (490), not the footer (570).
+GetMacroUploadMetrics()
+{
+    global AccessibilityTextSize, MacroImportButton, MacroStatus
+    height := 29, feedbackHeight := 30
+    if AccessibilityTextSize != "Normal"
+    {
+        if IsSet(MacroImportButton) && IsObject(MacroImportButton)
+            height := BookActionMetrics(MacroImportButton, "Upload Macro", 355, 29).Height
+        if IsSet(MacroStatus) && IsObject(MacroStatus)
+        {
+            scale := GetCharacterBookScale()
+            for caption in ["Extracting and checking macro package...", "The script could not be imported.", MacroStatus.Text]
+                feedbackHeight := Max(feedbackHeight, Ceil((MeasureAccessibleWrappedText(
+                    MacroStatus, caption, BookS(351)) + BookS(4)) / scale))
+        }
+    }
+    return {UploadHeight: height, FeedbackHeight: feedbackHeight, FeedbackOffset: height + 7}
+}
+
 ; The existing four-slot viewport uses a common measured row pitch. All
 ; rectangles are recomputed from Normal anchors, including the scroll track.
 ; Preflight the complete stack and request shared artwork height before
@@ -246,7 +268,8 @@ ReflowPopulatedMacroBook()
         }
     }
     pitch := statusH + 2 + nameH + 1 + actionH + 8
-    requiredExtra := Max(0, 144 + offset + shownCount * pitch + 36 + 30 - 570)
+    upload := GetMacroUploadMetrics()
+    requiredExtra := Max(0, 144 + offset + shownCount * pitch + upload.FeedbackOffset + upload.FeedbackHeight - 490)
     if !measured || !SetCharacterBookLayoutExtra("Macros", requiredExtra)
     {
         ; Preserve the previous feasible intro-only layout if the
@@ -255,12 +278,14 @@ ReflowPopulatedMacroBook()
         measured := false
         statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
         pitch := 70
-        if 214 + (shownCount - 1) * pitch + offset + 36 + 30 > 570
+        upload := {UploadHeight: 29, FeedbackHeight: 30, FeedbackOffset: 36}
+        if 214 + (shownCount - 1) * pitch + offset + 36 + 30 > 490
         {
             offset := 0, copyHeight := BookS(48), copyY := 87
             MoveMacroTextIfChanged(MacroBookControls[1], BookS(525), BookS(45), BookS(355), BookS(32))
         }
     }
+    CharacterPage.MacroUploadMetrics := upload
     CharacterPage.MacroRowsMeasured := measured
     CharacterPage.MacroRowPitch := pitch
     CharacterPage.MacroViewportHeight := 4 * pitch - 8
@@ -317,7 +342,8 @@ ReflowEmptyMacroBook()
     global MacroEmptyNotice, AccessibilityTextSize
     if !IsObject(CharacterPage) || MacroBookControls.Length < 2
         return 188
-    SetCharacterBookLayoutExtra("Macros", 0)
+    upload := GetMacroUploadMetrics()
+    CharacterPage.MacroUploadMetrics := upload
     explanation := MacroBookControls[2]
     copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
@@ -326,6 +352,7 @@ ReflowEmptyMacroBook()
         BookS(355), BookS(28))
     if MacroItems.Length || AccessibilityTextSize = "Normal"
     {
+        SetCharacterBookLayoutExtra("Macros", 0)
         CharacterPage.MacroViewportOffset := 0
         CharacterPage.MacroRowPitch := 70
         CharacterPage.MacroViewportHeight := 272
@@ -344,8 +371,12 @@ ReflowEmptyMacroBook()
     uploadY := Max(188, noticeY + emptyHeightLogical + 10)
     ; Reserve room for existing upload-progress copy below Upload, even
     ; when this particular refresh has no visible error.
-    if uploadY + 29 + 36 + 30 > 570
+    if !SetCharacterBookLayoutExtra("Macros", Max(0, uploadY + upload.FeedbackOffset + upload.FeedbackHeight - 490))
+    {
+        SetCharacterBookLayoutExtra("Macros", 0)
+        CharacterPage.MacroUploadMetrics := {UploadHeight: 29, FeedbackHeight: 30, FeedbackOffset: 36}
         return 188
+    }
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), copyHeight)
     MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(noticeY),
@@ -358,7 +389,7 @@ RefreshMacroBookRows()
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
     global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
     global MacroImportButton, CharacterPage, InterfaceUpdating, MacroNameEdit
-    global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont
+    global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont, AccessibilityTextSize
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
     count := MacroItems.Length
@@ -444,15 +475,18 @@ RefreshMacroBookRows()
     emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188
     desiredUploadY := count = 0 ? emptyUploadY
         : 144 + visibleCount * rowPitch + populatedOffset
-    MacroImportButton.GetPos(, &oldUploadY)
-    if oldUploadY != BookS(desiredUploadY)
+    upload := CharacterPage.MacroUploadMetrics
+    MacroImportButton.GetPos(, &oldUploadY, , &oldUploadHeight)
+    if ButtonFaces.Has(MacroImportButton.Hwnd)
+        ButtonFaces[MacroImportButton.Hwnd].NoAccessibleDownfit := AccessibilityTextSize != "Normal"
+    if oldUploadY != BookS(desiredUploadY) || oldUploadHeight != BookS(upload.UploadHeight)
     {
         ; Move the themed hit target and painted face together. Hide while
         ; relocating to avoid leaving stale button artwork on parchment.
         wasVisible := MacroImportButton.Visible
         if wasVisible
             MacroImportButton.Visible := false
-        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)
         if wasVisible
         {
             MacroImportButton.Visible := true
@@ -463,10 +497,8 @@ RefreshMacroBookRows()
     }
     ; Follow Upload when its stack changes, but do not move/repaint this
     ; native HWND every one-second macro process polling refresh.
-    MacroStatus.GetPos(, &oldStatusY)
-    if oldStatusY != BookS(desiredUploadY + 36)
-        MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36),
-            BookS(355), BookS(30))
+    MoveMacroTextIfChanged(MacroStatus, BookS(525), BookS(desiredUploadY + upload.FeedbackOffset),
+        BookS(355), BookS(upload.FeedbackHeight))
     ; Only import failures/progress use the message area below Upload.
     ; Regular Ready/Running/Missing appears above each macro's name.
     feedback := MacroStatus.Text

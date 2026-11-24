@@ -484,10 +484,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'CharacterPage.MacroRowPitch := pitch' in macro
             and 'CharacterPage.MacroViewportHeight := 4 * pitch - 8' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
-            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
-            and 'if oldStatusY != BookS(desiredUploadY + 36)' in macro
-            and 'MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36),' in macro
-            and 'BookS(355), BookS(30))' in macro
+            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro
+            and 'MoveMacroTextIfChanged(MacroStatus, BookS(525), BookS(desiredUploadY + upload.FeedbackOffset),' in macro
+            and 'BookS(355), BookS(upload.FeedbackHeight))' in macro
             and 'if wasVisible' in macro
             and 'DllCall("RedrawWindow", "Ptr", CharacterPage.Hwnd,' in macro
             and 'MoveStyledButton(control, x, y, width, height)' in character_ui

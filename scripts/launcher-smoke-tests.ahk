@@ -1220,6 +1220,14 @@ CheckMeasuredPopulatedMacroBook()
     global CharacterPage, MacroBookControls, MacroBookRows, MacroItems
     global MacroScrollTrack, MacroScrollThumb, AccessibilityTextSize
     global LauncherMorrowindFont, MacroScrollOffset, MacroNameEdit
+    global LauncherGui, Profiles, ButtonPaint, MacroImportButton, MacroStatus
+    savedOwner := IsSet(LauncherGui) ? LauncherGui : 0
+    savedProfiles := IsSet(Profiles) ? Profiles : []
+    savedUpload := IsSet(MacroImportButton) ? MacroImportButton : 0
+    savedStatus := IsSet(MacroStatus) ? MacroStatus : 0
+    InitButtonPainter()
+    savedImage := ButtonPaint.BookExtended
+    ButtonPaint.BookExtended := 0
     savedOffset := IsSet(MacroScrollOffset) ? MacroScrollOffset : 0
     savedEdit := IsSet(MacroNameEdit) ? MacroNameEdit : 0
     savedPage := IsSet(CharacterPage) ? CharacterPage : 0
@@ -1234,12 +1242,17 @@ CheckMeasuredPopulatedMacroBook()
         for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
-            page := Gui("-DPIScale")
+            owner := Gui("-Caption -Border -DPIScale")
+            page := Gui("-Caption -Border -DPIScale +Owner" owner.Hwnd)
             try
             {
-                CharacterPage := page
-                SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
+                LauncherGui := owner, CharacterPage := page, Profiles := []
+                owner.Show("Hide x0 y0 w480 h360")
+                page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
+                page.BookBackground := page.Add("Picture", "x0 y0 w960 h650", A_ScriptDir "\assets\backgrounds\character-book.png")
+                SetAccessibleTextFont(page, "s19 Norm", LauncherMorrowindFont)
                 heading := page.Add("Text", "x525 y45 w355 h32", "Manage Macros")
+                SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
                 copy := page.Add("Text", "x525 y87 w355 h48 +Wrap",
                     "Upload, run, or stop macros here. Click the pencil to rename a macro.")
                 MacroBookControls := [heading, copy]
@@ -1258,6 +1271,7 @@ CheckMeasuredPopulatedMacroBook()
                     SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
                     tick := page.Add("Text", "x525 y" (y + 20) " w18 h18", "")
                     name := page.Add("Text", "x551 y" (y + 19) " w125 h22", "Macro")
+                    SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
                     run := page.Add("Text", "x551 y" (y + 42) " w103 h20", "Run")
                     stop := page.Add("Text", "x663 y" (y + 42) " w103 h20", "Stop")
                     remove := page.Add("Text", "x775 y" (y + 42) " w105 h20", "Remove")
@@ -1269,6 +1283,14 @@ CheckMeasuredPopulatedMacroBook()
                 }
                 MacroScrollTrack := page.Add("Text", "x887 y140 w8 h272", "")
                 MacroScrollThumb := page.Add("Text", "x888 y140 w6 h40", "")
+                SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+                MacroImportButton := page.Add("Text", "x525 y188 w355 h29", "Upload Macro")
+                page.BookCloseButton := page.Add("Text", "x515 y575 w90 h30", "Close")
+                SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
+                MacroStatus := page.Add("Text", "x525 y224 w355 h30 +Wrap", "Import failed: A long diagnostic message describing the rejected archive and the existing supported import format.")
+                ScaleOwnedMenuContent(page, 0.5)
+                page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+                page.Show("Hide w480 h325")
                 offset := ReflowPopulatedMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
                 MacroBookRows[1].Status.GetPos(, &rowY)
@@ -1276,43 +1298,57 @@ CheckMeasuredPopulatedMacroBook()
                 MacroScrollTrack.GetPos(, &trackY, , &trackH)
                 pitch := page.MacroRowPitch
                 uploadY := 144 + 4 * pitch + offset
-                if trackY != 140 + offset || trackH != 4 * pitch - 8
-                    || rowY != 140 + offset
-                    || lastActionY + lastActionH + 12 != uploadY
-                    || uploadY + 36 + 30 > 570
+                upload := page.MacroUploadMetrics
+                if trackY != BookS(140 + offset) || trackH != BookS(4 * pitch - 8)
+                    || rowY != BookS(140 + offset)
+                    || Abs(lastActionY + lastActionH + BookS(12) - BookS(uploadY)) > 1
+                    || uploadY + upload.FeedbackOffset + upload.FeedbackHeight > 490 + GetCharacterBookExtra()
                     throw Error("Populated Macro Book viewport/Upload offsets diverged.")
                 if mode = "Normal"
                 {
-                    if copyY != 87 || copyH != 48 || offset != 0 || pitch != 70
+                    if copyY != BookS(87) || copyH != BookS(48) || offset != 0 || pitch != 70
                         throw Error("Normal populated Macro Book coordinates changed.")
                 }
-                else if page.MacroRowsMeasured
+                else
                 {
+                    if !page.MacroRowsMeasured
+                        throw Error("Measured Macro Book fallback rejected the full fixture.")
+                    if BookS(upload.UploadHeight) < MeasureAccessibleSingleLineText(MacroImportButton, "Upload Macro").Height
+                        || BookS(upload.FeedbackHeight) < MeasureAccessibleWrappedText(MacroStatus, MacroStatus.Text, BookS(351))
+                        throw Error("Macro Upload or complete feedback clips.")
                     before := MeasureMacroNameCollection(MacroBookRows[1].Name, MacroItems, 270)
                     if before.Items[5].Height > before.Height || before.Items.Length != 5
                         throw Error("Macro collection ignored an offscreen name.")
-                    for row in MacroBookRows
+                    for position, row in MacroBookRows
                     {
                         row.Status.GetPos(, &sy, , &sh)
                         row.Name.GetPos(, &ny, &nw, &nh)
                         row.Run.GetPos(, &ay, , &ah)
-                        if sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", 325)
-                            || nh < MeasureAccessibleWrappedText(row.Name, row.Name.Text, nw - 8)
+                        display := PrepareAccessibleBookName(row.Name, MacroItems[position].Name, Max(1, nw - BookS(8)))
+                        if sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", BookS(325))
+                            || nh < MeasureAccessibleWrappedText(row.Name, display, Max(1, nw - BookS(8)))
                             || ah < MeasureAccessibleSingleLineText(row.Run, "Run").Height
-                            || ny < sy + sh || ay < ny + nh
+                            || ny + 1 < sy + sh || ay + 1 < ny + nh
                             throw Error("Measured macro controls overlap or clip.")
                     }
-                    required := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
-                    if copyH < required || rowY < copyY + copyH + 5
+                    required := MeasureAccessibleWrappedText(copy, copy.Text, BookS(351)) + BookS(4)
+                    if copyH < required || rowY + 1 < copyY + copyH + BookS(5)
                         throw Error("Populated macro rows overlap the larger explanation.")
                     MacroScrollOffset := 1
                     nextOffset := ReflowPopulatedMacroBook()
                     if !page.MacroRowsMeasured || page.MacroRowPitch != pitch
-                        || nextOffset != offset || page.MacroViewportHeight != trackH
+                        || nextOffset != offset || BookS(page.MacroViewportHeight) != trackH
                         throw Error("Scrolling changed measured Macro Book viewport geometry.")
                 }
             }
-            finally page.Destroy()
+            finally
+            {
+                if ButtonPaint.BookExtended
+                    DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.BookExtended)
+                ButtonPaint.BookExtended := 0
+                DestroyScaledMenu(page)
+                owner.Destroy()
+            }
         }
     }
     finally
@@ -1326,6 +1362,9 @@ CheckMeasuredPopulatedMacroBook()
         AccessibilityTextSize := savedMode
         MacroScrollOffset := savedOffset
         MacroNameEdit := savedEdit
+        LauncherGui := savedOwner, Profiles := savedProfiles
+        MacroImportButton := savedUpload, MacroStatus := savedStatus
+        ButtonPaint.BookExtended := savedImage
     }
 }
 
