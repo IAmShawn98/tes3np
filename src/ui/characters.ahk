@@ -307,8 +307,9 @@ ReflowAccessiblePopulatedCharacters()
             buttonHeight := Max(buttonHeight,
                 Ceil((extent.Height + BookS(6)) / scale))
         }
+        ; The 200px action band includes TWO 6px button gaps.
         sameLine := compactWidths[1] + compactWidths[2]
-            + compactWidths[3] + 10 <= 200
+            + compactWidths[3] + 12 <= 200
         if sameLine
         {
             nameWidth := 140
