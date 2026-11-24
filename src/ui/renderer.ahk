@@ -124,62 +124,84 @@ CreateExtendedBookArtwork(source, extra)
     seam := Round(height * 340 / 650)
     band := Max(1, Round(height * 80 / 650))
     added := 2 * Ceil(extra * height / 1300)
-    result := 0, graphics := 0
+    result := 0, sourceLocked := false, targetLocked := false
+    sourceData := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+    targetData := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+    sourceRect := Buffer(16, 0), targetRect := Buffer(16, 0)
+    NumPut("Int", width, "Int", height, sourceRect, 8)
+    NumPut("Int", width, "Int", height + added, targetRect, 8)
     try
     {
         if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width,
             "Int", height + added, "Int", 0, "Int", 0x26200A,
             "Ptr", 0, "Ptr*", &result) || !result
             throw Error("Could not allocate extended Book artwork.")
-        if DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", result,
-            "Ptr*", &graphics) || !graphics
-            throw Error("Could not prepare extended Book artwork.")
-        DllCall("gdiplus\GdipSetCompositingMode", "Ptr", graphics, "Int", 1)
-        DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 5)
-        DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", graphics, "Int", 4)
-        DrawBookArtworkStrip(graphics, source, width, 0, seam, 0)
+        ; Lock both bitmaps as straight 32-bit ARGB. GDI+ DrawImage can
+        ; change pixels through interpolation/compositing even at 1:1.
+        ; Copy exact scanlines, including the original alpha channel.
+        if DllCall("gdiplus\GdipBitmapLockBits", "Ptr", source,
+            "Ptr", sourceRect, "UInt", 1, "Int", 0x26200A, "Ptr", sourceData)
+            throw Error("Could not lock original Book pixels.")
+        sourceLocked := true
+        if DllCall("gdiplus\GdipBitmapLockBits", "Ptr", result,
+            "Ptr", targetRect, "UInt", 2, "Int", 0x26200A, "Ptr", targetData)
+            throw Error("Could not lock extended Book pixels.")
+        targetLocked := true
+        sourceStride := NumGet(sourceData, 8, "Int")
+        targetStride := NumGet(targetData, 8, "Int")
+        sourceScan := NumGet(sourceData, 16, "Ptr")
+        targetScan := NumGet(targetData, 16, "Ptr")
+        if !sourceScan || !targetScan || Abs(sourceStride) < width * 4
+            || Abs(targetStride) < width * 4
+            throw Error("Invalid Book pixel buffer.")
+        CopyBookPixelRows(sourceScan, sourceStride, targetScan, targetStride,
+            width, 0, 0, seam)
         dest := seam, remaining := added
         while remaining
         {
             half := Min(band, remaining // 2)
-            ; Reverse the strip and then copy it forward to return to the
-            ; same source seam. All pixels are copied at native dimensions.
-            points := Buffer(24, 0)
-            NumPut("Int", 0, "Int", dest + half,
-                "Int", width, "Int", dest + half,
-                "Int", 0, "Int", dest, points)
-            if DllCall("gdiplus\GdipDrawImagePointsRectI", "Ptr", graphics,
-                "Ptr", source, "Ptr", points, "Int", 3,
-                "Int", 0, "Int", seam - half, "Int", width, "Int", half,
-                "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
-                throw Error("Could not mirror the Book texture.")
-            DrawBookArtworkStrip(graphics, source, width, seam - half,
-                half, dest + half)
+            CopyBookPixelRows(sourceScan, sourceStride, targetScan, targetStride,
+                width, seam - 1, dest, half, -1)
+            CopyBookPixelRows(sourceScan, sourceStride, targetScan, targetStride,
+                width, seam - half, dest + half, half)
             dest += 2 * half, remaining -= 2 * half
         }
-        DrawBookArtworkStrip(graphics, source, width, seam, height - seam, dest)
-        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
-        graphics := 0
+        CopyBookPixelRows(sourceScan, sourceStride, targetScan, targetStride,
+            width, seam, dest, height - seam)
+        status := DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", result, "Ptr", targetData)
+        targetLocked := false
+        if status
+            throw Error("Could not unlock extended Book pixels.")
+        status := DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", source, "Ptr", sourceData)
+        sourceLocked := false
+        if status
+            throw Error("Could not unlock original Book pixels.")
         image := result
         result := 0
         return image
     }
     finally
     {
-        if graphics
-            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if targetLocked
+            DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", result, "Ptr", targetData)
+        if sourceLocked
+            DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", source, "Ptr", sourceData)
         if result
             DllCall("gdiplus\GdipDisposeImage", "Ptr", result)
     }
 }
 
-DrawBookArtworkStrip(graphics, source, width, sourceY, height, destY)
+CopyBookPixelRows(source, sourceStride, target, targetStride,
+    width, sourceY, targetY, count, direction := 1)
 {
-    if DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics,
-        "Ptr", source, "Int", 0, "Int", destY, "Int", width, "Int", height,
-        "Int", 0, "Int", sourceY, "Int", width, "Int", height,
-        "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
-        throw Error("Could not copy a Book artwork strip.")
+    Loop count
+    {
+        offset := A_Index - 1
+        DllCall("ntdll\RtlMoveMemory",
+            "Ptr", target + (targetY + offset) * targetStride,
+            "Ptr", source + (sourceY + offset * direction) * sourceStride,
+            "UPtr", width * 4)
+    }
 }
 
 ; The Picture control and owner-drawn controls must share ONE composed
