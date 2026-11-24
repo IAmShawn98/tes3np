@@ -44,7 +44,38 @@ Open **Launcher Settings → Launcher Data → Report A Bug** to send a descript
 
 ## Latest Update
 
-### Latest Patch — v0.1.21-alpha.1
+### Latest Patch — v0.1.21-alpha.2
+
+Changes since the last public release, v0.1.21-alpha.1.
+
+#### Improvements
+
+- **Game Chat:** Increased the message input area to make writing and reviewing longer messages easier.
+- **Game Chat:** Added a matching gold-themed scrollbar to the message input area and enlarged the Send button.
+- **Happy Hour:** Improved announcement detection and added automatic retries when announcements fail to load.
+- **Accessibility:** Expanded the Interface Text setting to support more text throughout the launcher, including menus, descriptions, status messages and dialogs.
+- **Manage Characters:** Improved the layout when using Large or Extra Large text. Character names now occupy a full-width row, with Play, Edit and Remove buttons underneath.
+- **Manage Characters:** Added automatic pagination when characters cannot fit on a single page.
+- **Manage Macros:** Improved the layout of macro names, controls and scrolling when using larger interface text.
+- **Launcher Performance:** Improved startup speed and interface responsiveness by optimizing rendering and allowing the launcher to finish loading before initializing background services.
+- **Launcher Updates:** Improved update notifications, progress messages and error descriptions to make the entire update process clearer.
+- **Documentation:** Consolidated the launcher documentation into a more comprehensive User Guide.
+
+#### Bug Fixes
+
+- **Launcher Startup:** Fixed an issue where the launcher could briefly disappear or appear minimized when starting.
+- **Launcher Interface:** Fixed visible popping and flickering when minimizing and restoring the launcher.
+- **Launcher Interface:** Fixed partially rendered interface elements appearing during initial startup.
+- **Display Settings:** Fixed flickering when previewing or reverting changes between significantly different launcher sizes.
+- **Manage Characters:** Fixed pink outlines and mismatched background artwork when using smaller launcher sizes.
+- **Game Chat:** Fixed overlapping text and arrows on the Game Chat tab when using larger interface text.
+- **Expansion Pack:** Fixed the Expansion Pack status caption being cut off when using larger interface text.
+- **Version Status:** Fixed overlapping and clipped text in the Version Status window.
+- **Launcher Interface:** Fixed the launcher version number becoming misaligned or partially cut off when using larger interface text.
+- **Login Progress:** Fixed clipped progress indicators and incorrectly aligned text when using larger interface text.
+- **Launcher Updates:** Fixed incorrect progress bar advancement while preparing launcher updates.
+
+### Patch — v0.1.21-alpha.1
 
 Changes since the last public release, v0.1.21-alpha.
 

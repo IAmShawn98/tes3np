@@ -50,7 +50,7 @@ global ExpansionRecoveryPending := false
 global ExpansionToggleRunning := false
 
 ; Shared defaults; saved profile keys and runtime phase names remain compatible.
-global AppConfig := {Version: "0.1.21-alpha.1", Server: "NerevarineProphecies.servegame.com:25565",
+global AppConfig := {Version: "0.1.21-alpha.2", Server: "NerevarineProphecies.servegame.com:25565",
     Wiki: "https://wiki.nerevarineprophecies.com/Main_Page", UsernameDelay: 20,
     PasswordDelay: 3, LoadDelay: 20, WatchdogMs: 1000, TooltipMs: 100,
     GameWindowWaitMs: 30000}
