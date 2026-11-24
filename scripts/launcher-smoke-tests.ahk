@@ -1150,6 +1150,65 @@ CheckMeasuredV016SettingsCopy()
     }
 }
 
+; Check the ACTUAL Macro Book empty-state mover with real GDI fonts.
+; This fixture never creates/imports/runs a macro or changes launcher data.
+CheckMeasuredEmptyMacroBook()
+{
+    global CharacterPage, MacroBookControls, MacroEmptyNotice, MacroItems
+    global AccessibilityTextSize, LauncherMorrowindFont
+    oldPage := IsSet(CharacterPage) ? CharacterPage : 0
+    oldControls := IsSet(MacroBookControls) ? MacroBookControls : []
+    oldNotice := IsSet(MacroEmptyNotice) ? MacroEmptyNotice : 0
+    oldItems := IsSet(MacroItems) ? MacroItems : []
+    oldMode := AccessibilityTextSize
+    try
+    {
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            testPage := Gui("-DPIScale")
+            try
+            {
+                SetAccessibleTextFont(testPage, "s11 Norm c241408", LauncherMorrowindFont)
+                heading := testPage.Add("Text", "x525 y45 w355 h32", "Manage Macros")
+                copy := testPage.Add("Text", "x525 y87 w355 h48 +Wrap",
+                    "Upload, run, or stop macros here. Click the pencil to rename a macro.")
+                notice := testPage.Add("Text", "x525 y150 w355 h28 +Wrap",
+                    "No macros installed yet.")
+                CharacterPage := testPage
+                MacroBookControls := [heading, copy]
+                MacroEmptyNotice := notice
+                MacroItems := []
+                uploadY := ReflowEmptyMacroBook()
+                copy.GetPos(, &copyY, , &copyH)
+                notice.GetPos(, &noticeY, , &noticeH)
+                if mode = "Normal"
+                {
+                    if copyY != 87 || copyH != 48 || noticeY != 150
+                        || noticeH != 28 || uploadY != 188
+                        throw Error("Normal Macro Book empty-state coordinates changed.")
+                }
+                else
+                {
+                    requiredH := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
+                    if copyH < requiredH || noticeY < copyY + copyH + 15
+                        || uploadY < noticeY + noticeH + 10
+                        throw Error("Empty Macro Book explanation/notice/Upload overlapped.")
+                }
+            }
+            finally testPage.Destroy()
+        }
+    }
+    finally
+    {
+        CharacterPage := oldPage
+        MacroBookControls := oldControls
+        MacroEmptyNotice := oldNotice
+        MacroItems := oldItems
+        AccessibilityTextSize := oldMode
+    }
+}
+
 CheckInterfaceTextAccessibility()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1157,6 +1216,7 @@ CheckInterfaceTextAccessibility()
     CheckAccessibleLayoutPreflight()
     CheckMeasuredAccessibleBookPreflight()
     CheckMeasuredV016SettingsCopy()
+    CheckMeasuredEmptyMacroBook()
     try
     {
         bodyHeights := [], settingsHeights := []
