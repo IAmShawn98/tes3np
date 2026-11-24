@@ -26,6 +26,17 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     return response.Accepted
 }
 
+GetUpdatePreviewHeading(channel, kind)
+{
+    if kind = "hotfix"
+        return "A New Patch Is Available, S'wit!"
+    if channel = "alpha"
+        return "A New Alpha Is Available, S'wit!"
+    if channel = "beta"
+        return "A New Beta Is Available, S'wit!"
+    return "A New Stable Release Is Available, Fetcher!"
+}
+
 ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 {
     ; The 600 x 556 compact composition follows the approved gold fantasy
@@ -57,8 +68,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     try
     {
         SetAccessibleTextFont(preview, kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
-        releaseType := channel = "alpha" ? "Alpha" : channel = "beta" ? "Beta" : "Stable Release"
-        title := kind = "hotfix" ? "A Patch Is Available For v" installedVersion : "A New " releaseType " Is Available to Download, S'wit!"
+        title := GetUpdatePreviewHeading(channel, kind)
         titleControl := preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
         ; Preserve the approved one-line heading at every supported version
         ; length. Let actual Windows text metrics determine a smaller font.
@@ -647,20 +657,26 @@ ReflowVersionStatusHeader(title, message, heading, build)
     return Max(0, headingY + Max(headingH, 6 + buildH) + 5 - 158)
 }
 
+GetUpdateStatusCopy(mode)
+{
+    if mode = "current"
+        return {Title: "You're All Caught Up, Fetcher!", Message: "You're running the latest version of tes3np."}
+    if mode = "disabled"
+        return {Title: "Automatic Updates Are Unavailable", Message: "Visit GitHub Releases to download updates manually."}
+    title := mode = "download" ? "Unable to Download Update"
+        : mode = "verification" ? "Update Verification Failed"
+        : mode = "prepare" ? "Unable to Prepare Update" : "Unable to Check for Updates"
+    return {Title: title, Message: "Please try again later. Your installed version has not been changed."}
+}
+
 ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
 {
     ; The version-status screen describes the installed package, never an
     ; uninstalled update advertised by a disabled feed.
     notesVersion := installedVersion
-    title := "You're All Caught Up, Fetcher!"
-    message := "If an update is published, you will be notified."
-    if mode = "error" {
-        title := "Could Not Check for Updates"
-        message := "Showing release notes for your installed version."
-    } else if mode = "disabled" {
-        title := "Automatic Updates Are Unavailable"
-        message := "Check GitHub Releases for download options."
-    }
+    copy := GetUpdateStatusCopy(mode)
+    title := copy.Title
+    message := copy.Message
     releaseNotes := ReadInstalledCumulativeNotes(notesVersion)
     state := {Retry: false}
     panel := CreateGoldNativePrompt(0, "tes3np — Version Status", 800, 600)
