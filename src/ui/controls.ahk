@@ -90,7 +90,7 @@ UnregisterThemedControl(control)
         KeyboardFocusButton := 0
     if IsSet(ButtonPaintCallback) && DllCall("IsWindow", "Ptr", handle)
         DllCall("comctl32\RemoveWindowSubclass", "Ptr", handle, "Ptr", ButtonPaintCallback, "UPtr", 1)
-    ButtonFaces.Delete(handle)
+    ForgetThemedFace(handle)
 }
 
 DestroyBookControl(control)
@@ -107,7 +107,7 @@ ShowButtonFace(handle)
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
     {
         if ButtonFaces.Has(handle)
-            ButtonFaces.Delete(handle)
+            ForgetThemedFace(handle)
         return
     }
     face := ButtonFaces[handle]
@@ -145,7 +145,7 @@ RepaintMenuButtons(*)
         PaintButtonNow(handle)
     }
     for handle in stale
-        ButtonFaces.Delete(handle)
+        ForgetThemedFace(handle)
 }
 
 SyncDynamicButtonGeometry()
@@ -174,7 +174,7 @@ SyncDynamicButtonGeometry()
         face.BaseHeight := height
     }
     for handle in stale
-        ButtonFaces.Delete(handle)
+        ForgetThemedFace(handle)
 }
 
 FinishButtonDisplay()
@@ -231,7 +231,7 @@ UpdateButtonHover()
         }
     }
     for handle in stale
-        ButtonFaces.Delete(handle)
+        ForgetThemedFace(handle)
     previous := HoverButton
     previousPress := PressedButton
     HoverButton := nextHover
@@ -304,7 +304,7 @@ ReleaseButton(wParam, lParam, msg, hwnd)
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
     {
         if ButtonFaces.Has(handle)
-            ButtonFaces.Delete(handle)
+            ForgetThemedFace(handle)
         PressedButton := 0
         HoverButton := 0
         DllCall("ReleaseCapture")
@@ -330,7 +330,7 @@ ActivateThemedButton(handle)
     if !ButtonFaces.Has(handle) || !DllCall("IsWindow", "Ptr", handle)
     {
         if ButtonFaces.Has(handle)
-            ButtonFaces.Delete(handle)
+            ForgetThemedFace(handle)
         return
     }
     face := ButtonFaces[handle]
