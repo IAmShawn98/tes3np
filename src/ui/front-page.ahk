@@ -8,13 +8,14 @@ BuildFrontPage()
     LauncherGui.BackColor := "272722"
     ; The approved vintage creature artwork is baked into this background.
     ; Draw it only once: no second beast picture or alignment seam.
-    LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
+    background := LauncherGui.Add("Picture", "x0 y-4 w960 h720", A_ScriptDir "\assets\backgrounds\launcher.png")
     ; Static Happy Hour dust is behind buttons/text and shares this HWND.
     ; The existing banner signal toggles visibility alongside Jiub's face.
     CreateHappyHourDust()
     ; Leave both corner controls outside the draggable area.
     DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 BackgroundTrans +0x100")
-    LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
+    parchment := LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
+    CreateLauncherCarousel(background, parchment)
     SetAccessibleTextFont(LauncherGui, "s10 Norm", "Palatino Linotype")
     ; Keep the Quest copy clear of the updates panel over the bottom of the backdrop.
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 151)

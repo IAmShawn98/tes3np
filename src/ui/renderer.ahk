@@ -452,6 +452,8 @@ LauncherFaceCacheEligible(face)
         || face.HasOwnProp("AccessibleWrappedName") || face.HasOwnProp("AccessibleWrappedButton")
         || face.Gui.HasOwnProp("BookBackground")
         return false
+    if face.HasOwnProp("IsInfo") && face.Heading = "Together" && LauncherCarouselBackdropActive()
+        return false
     if face.HasOwnProp("IsInfo") || face.HasOwnProp("IsChatTab")
         return true
     if face.HasOwnProp("IsLabel") || !face.HasOwnProp("Y")
@@ -1115,10 +1117,11 @@ FillLoadingRect(dc, left, top, right, bottom, color)
     DllCall("DeleteObject", "Ptr", brush)
 }
 
-PaintLauncherBackgroundSlice(graphics, x, y, scale)
+PaintLauncherBackgroundSlice(graphics, x, y, scale, handle := 0)
 {
     global ButtonPaint
     DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Background, "Int", Round(-x * scale), "Int", Round((-4 - y) * scale), "Int", Round(960 * scale), "Int", Round(720 * scale))
+    PaintLauncherCarouselBackdrop(graphics, x, y, scale, handle)
 }
 
 ; Info cards deliberately retain their original artwork-integrated renderer.
@@ -1136,7 +1139,9 @@ PaintInfoCard(handle, target, width, height)
     scale := width / face.BaseWidth
     DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
     DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
-    PaintLauncherBackgroundSlice(graphics, face.X, face.Y, scale)
+    PaintLauncherBackgroundSlice(graphics, face.X, face.Y, scale, handle)
+    if face.Heading != "Together" || !PaintLauncherCarouselInfoShade(graphics, width, height, scale)
+    {
     tile := Max(1, Round(4 * scale))
     y := 0
     while y < height
@@ -1153,6 +1158,7 @@ PaintInfoCard(handle, target, width, height)
             x += tile
         }
         y += tile
+    }
     }
     DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Headings[face.Heading], "Int", Round(8 * scale), "Int", Round(3 * scale), "Int", Round(264 * scale), "Int", Round(85 * scale))
     DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)

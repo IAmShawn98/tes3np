@@ -68,7 +68,8 @@ RefreshHappyHourJiub()
     if IsObject(HappyHourJiubPicture)
         HappyHourJiubPicture.Visible := HappyHourBannerVisible
     for dust in HappyHourDustPictures
-        dust.Visible := HappyHourBannerVisible
+        dust.Visible := HappyHourBannerVisible && !LauncherCarouselBackdropActive()
+    SyncLauncherCarouselHappyHour(HappyHourBannerVisible)
     ; Safety: restore Jiub if ChatHost crashes while the banner is active.
     SetTimer(CheckHappyHourHost, HappyHourBannerVisible ? 1500 : 0)
 }

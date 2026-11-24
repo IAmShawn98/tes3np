@@ -13,6 +13,7 @@
 #Include src\ui\controls.ahk
 #Include src\ui\loading.ahk
 #Include src\ui\login-progress.ahk
+#Include src\ui\launcher-carousel.ahk
 #Include src\ui\front-page.ahk
 #Include src\ui\actions.ahk
 #Include src\ui\embedded-chat.ahk

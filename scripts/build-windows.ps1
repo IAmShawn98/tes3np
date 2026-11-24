@@ -594,6 +594,24 @@ RunLauncherChecks(A_Args)
             throw "Missing extracted UI asset: $asset"
         }
     }
+    # Verify the clean carousel backdrop separately from the 29 slides.
+    $cleanBackdrop = 'assets\carousel\clean.png'
+    $sourceBackdrop = Join-Path $projectRoot $cleanBackdrop
+    $extractedBackdrop = Join-Path $resourceRoot $cleanBackdrop
+    if (!(Test-Path -LiteralPath $extractedBackdrop -PathType Leaf) -or
+        (GetTes3npSha256 $extractedBackdrop) -ine (GetTes3npSha256 $sourceBackdrop)) {
+        throw "Bundled carousel backdrop differs from source."
+    }
+    # Verify the exact carousel assets extracted from the compiled executable.
+    foreach ($index in 1..29) {
+        $relative = 'assets\carousel\default\{0:00}.png' -f $index
+        $sourceSlide = Join-Path $projectRoot $relative
+        $extractedSlide = Join-Path $resourceRoot $relative
+        if (!(Test-Path -LiteralPath $extractedSlide -PathType Leaf) -or
+            (GetTes3npSha256 $extractedSlide) -ine (GetTes3npSha256 $sourceSlide)) {
+            throw "Bundled carousel artwork differs from source: $relative"
+        }
+    }
     # Verify that all import helpers are truly available in the compiled
     # launcher's extracted resource directory, not only in the source checkout.
     # An omitted worker can pass COM/source checks yet fail on a real click.
