@@ -480,7 +480,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
             and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro
             and 'desiredUploadY := count = 0 ? emptyUploadY' in macro
-            and ': 214 + (visibleCount - 1) * 70 + populatedOffset' in macro
+            and ': 144 + visibleCount * rowPitch + populatedOffset' in macro
+            and 'CharacterPage.MacroRowPitch := pitch' in macro
+            and 'CharacterPage.MacroViewportHeight := 4 * pitch - 8' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, 29)' in macro
             and 'if oldStatusY != BookS(desiredUploadY + 36)' in macro
@@ -505,7 +507,7 @@ def check(allow_missing_payload: bool = False) -> None:
         "scroll wheel and draggable thumb still attached":
             'MacroScrollTrack := CharacterPage.Add("Text"' in macro
             and 'MacroScrollThumb := CharacterPage.Add("Text"' in macro
-            and 'MacroScrollThumb.Move(BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))' in macro
+            and 'MoveMacroTextIfChanged(MacroScrollThumb, BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))' in macro
             and 'ScrollMacroWheel(wParam)' in macro
             and 'PressMacroScroll(hwnd)' in macro
             and 'DragMacroScroll()' in macro

@@ -1215,7 +1215,9 @@ CheckMeasuredPopulatedMacroBook()
 {
     global CharacterPage, MacroBookControls, MacroBookRows, MacroItems
     global MacroScrollTrack, MacroScrollThumb, AccessibilityTextSize
-    global LauncherMorrowindFont
+    global LauncherMorrowindFont, MacroScrollOffset, MacroNameEdit
+    savedOffset := IsSet(MacroScrollOffset) ? MacroScrollOffset : 0
+    savedEdit := IsSet(MacroNameEdit) ? MacroNameEdit : 0
     savedPage := IsSet(CharacterPage) ? CharacterPage : 0
     savedControls := IsSet(MacroBookControls) ? MacroBookControls : []
     savedRows := IsSet(MacroBookRows) ? MacroBookRows : []
@@ -1238,7 +1240,11 @@ CheckMeasuredPopulatedMacroBook()
                     "Upload, run, or stop macros here. Click the pencil to rename a macro.")
                 MacroBookControls := [heading, copy]
                 MacroBookRows := []
-                MacroItems := [1, 2, 3, 4]
+                MacroItems := [{Name: "Macro one"}, {Name: "Macro two"},
+                    {Name: "Macro three"}, {Name: "Macro four"}]
+                MacroScrollOffset := 0
+                SetAccessibleTextFont(page, "s10 Norm", "Segoe UI")
+                MacroNameEdit := page.Add("Edit", "x551 y159 w125 h22 Hidden")
                 Loop 4
                 {
                     y := 140 + (A_Index - 1) * 70
@@ -1250,7 +1256,9 @@ CheckMeasuredPopulatedMacroBook()
                     run := page.Add("Text", "x551 y" (y + 42) " w103 h20", "Run")
                     stop := page.Add("Text", "x663 y" (y + 42) " w103 h20", "Stop")
                     remove := page.Add("Text", "x775 y" (y + 42) " w105 h20", "Remove")
-                    MacroBookRows.Push({Tick: tick, Status: status,
+                    SetAccessibleTextFont(page, "s10 Bold", "Segoe UI Symbol")
+                    rename := page.Add("Text", "x680 y" (y + 19) " w21 h22", Chr(0x270E))
+                    MacroBookRows.Push({Tick: tick, Status: status, Rename: rename,
                         Name: name, NameWidth: 125, NameScale: 0,
                         Y: y + 19, Run: run, Stop: stop, Remove: remove})
                 }
@@ -1261,18 +1269,31 @@ CheckMeasuredPopulatedMacroBook()
                 MacroBookRows[1].Status.GetPos(, &rowY)
                 MacroBookRows[4].Remove.GetPos(, &lastActionY, , &lastActionH)
                 MacroScrollTrack.GetPos(, &trackY, , &trackH)
-                if trackY != 140 + offset || trackH != 272
+                pitch := page.MacroRowPitch
+                uploadY := 144 + 4 * pitch + offset
+                if trackY != 140 + offset || trackH != 4 * pitch - 8
                     || rowY != 140 + offset
-                    || lastActionY + lastActionH + 12 != 424 + offset
-                    || 424 + offset + 36 + 30 > 570
+                    || lastActionY + lastActionH + 12 != uploadY
+                    || uploadY + 36 + 30 > 570
                     throw Error("Populated Macro Book viewport/Upload offsets diverged.")
                 if mode = "Normal"
                 {
-                    if copyY != 87 || copyH != 48 || offset != 0
+                    if copyY != 87 || copyH != 48 || offset != 0 || pitch != 70
                         throw Error("Normal populated Macro Book coordinates changed.")
                 }
-                else if offset
+                else if page.MacroRowsMeasured
                 {
+                    for row in MacroBookRows
+                    {
+                        row.Status.GetPos(, &sy, , &sh)
+                        row.Name.GetPos(, &ny, &nw, &nh)
+                        row.Run.GetPos(, &ay, , &ah)
+                        if sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", 325)
+                            || nh < MeasureAccessibleWrappedText(row.Name, row.Name.Text, nw - 8)
+                            || ah < MeasureAccessibleSingleLineText(row.Run, "Run").Height
+                            || ny < sy + sh || ay < ny + nh
+                            throw Error("Measured macro controls overlap or clip.")
+                    }
                     required := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
                     if copyH < required || rowY < copyY + copyH + 5
                         throw Error("Populated macro rows overlap the larger explanation.")
@@ -1290,6 +1311,8 @@ CheckMeasuredPopulatedMacroBook()
         MacroScrollTrack := savedTrack
         MacroScrollThumb := savedThumb
         AccessibilityTextSize := savedMode
+        MacroScrollOffset := savedOffset
+        MacroNameEdit := savedEdit
     }
 }
 

@@ -2046,7 +2046,7 @@ expect(
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
-    and 'MacroScrollThumb.Move(BookS(888)' in macro_menu_ui
+    and 'MoveMacroTextIfChanged(MacroScrollThumb, BookS(888)' in macro_menu_ui
     and 'if oldUploadY != BookS(desiredUploadY)' in macro_menu_ui
     and 'ShowLauncherWindow(true)' in characters_close,
 )
@@ -2136,8 +2136,11 @@ expect(
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and '"x887 y140 w8 h272 Background704C27 +0x100 Hidden"' in macro_menu_ui
-    and 'travel := 272 - thumbHeight' in macro_menu_ui
-    and 'travel := Max(1, 272 - thumbHeight)' in macro_menu_ui,
+    and 'pitch := statusH + 2 + nameH + 1 + actionH + 8' in macro_menu_ui
+    and 'CharacterPage.MacroViewportHeight := 4 * pitch - 8' in macro_menu_ui
+    and ': 144 + visibleCount * rowPitch + populatedOffset' in macro_menu_ui
+    and 'travel := viewportHeight - thumbHeight' in macro_menu_ui
+    and 'travel := Max(1, CharacterPage.MacroViewportHeight - thumbHeight)' in macro_menu_ui,
 )
 expect(
     "Populated macro rows begin close to description with scroll and Upload aligned",
