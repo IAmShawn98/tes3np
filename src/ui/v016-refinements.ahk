@@ -61,6 +61,84 @@ AddV016SettingsCopy(settings, x, y, width, reservedHeight, text)
     return Max(0, measuredHeight - reserved)
 }
 
+; Reflow existing controls in ordered rows after building the measured
+; explanatory copy. Normal retains its original positions and dimensions.
+PlanV016MeasuredRows(groups)
+{
+    global ButtonFaces
+    placements := [], offset := 0, previousBottom := 0
+    for group in groups
+    {
+        entries := [], originalTop := 100000, originalBottom := 0
+        actionHeight := 0
+        for control in group
+        {
+            control.GetPos(&x, &y, &w, &h)
+            combo := control.Type = "DropDownList"
+            if combo
+            {
+                rect := Buffer(16, 0)
+                if DllCall("GetWindowRect", "Ptr", control.Hwnd, "Ptr", rect)
+                    h := Ceil((NumGet(rect, 12, "Int") - NumGet(rect, 4, "Int")) * 96 / A_ScreenDPI)
+            }
+            height := h, action := ButtonFaces.Has(control.Hwnd)
+            if !combo
+            {
+                ; Paired buttons stay paired; wrap the full caption inside
+                ; its measured taller face rather than shrinking its font.
+                padding := action ? V016S(8) : V016S(4)
+                height := Max(h, Ceil(MeasureAccessibleWrappedText(control,
+                    control.Text, Max(1, Round((w - padding) * A_ScreenDPI / 96)))
+                    * 96 / A_ScreenDPI) + Max(2, V016S(action ? 6 : 4)))
+                if action
+                    actionHeight := Max(actionHeight, height)
+            }
+            originalTop := Min(originalTop, y)
+            originalBottom := Max(originalBottom, y + h)
+            entries.Push({Control: control, X: x, Y: y, Width: w,
+                Height: height, Combo: combo, Action: action})
+        }
+        if previousBottom
+            offset := Max(offset, previousBottom + V016S(4) - originalTop)
+        bottom := originalBottom + offset
+        for entry in entries
+        {
+            entry.Y += offset
+            if entry.Action
+                entry.Height := actionHeight
+            placements.Push(entry)
+            bottom := Max(bottom, entry.Y + entry.Height)
+        }
+        previousBottom := bottom
+        offset := Max(offset, bottom - originalBottom)
+    }
+    return {Entries: placements, Extra: Max(0, offset)}
+}
+
+ApplyV016MeasuredRows(groups)
+{
+    global AccessibilityTextSize, ButtonFaces
+    if AccessibilityTextSize = "Normal"
+        return 0
+    plan := PlanV016MeasuredRows(groups)
+    for entry in plan.Entries
+    {
+        control := entry.Control
+        if entry.Combo
+            control.Move(entry.X, entry.Y)
+        else if entry.Action
+        {
+            face := ButtonFaces[control.Hwnd]
+            face.NoAccessibleDownfit := true
+            face.AccessibleWrappedButton := true
+            MoveStyledButton(control, entry.X, entry.Y, entry.Width, entry.Height)
+        }
+        else
+            control.Move(entry.X, entry.Y, entry.Width, entry.Height)
+    }
+    return plan.Extra
+}
+
 GrowV016SettingsParchment(settings, extra)
 {
     if extra <= settings.ParchmentExtra
@@ -219,8 +297,6 @@ OpenLauncherSettingsV016(*)
     SetAccessibleTextFont(settings, "s" V016Font(11) " Norm c382314", LauncherMorrowindFont)
     copyExtra += AddV016SettingsCopy(settings, 70, V016S(335) + copyExtra, 410, 42,
         "Improves readability by providing stronger contrast and brighter button text.")
-    GrowV016SettingsParchment(settings, copyExtra)
-
     readabilityValue := {Value: V016ReadabilityState}
     followWindowsValue := {Value: FollowWindowsAccessibility ? 1 : 0}
     reduceMotionBox := {Value: settings.SavedReduceMotion}
@@ -233,6 +309,18 @@ OpenLauncherSettingsV016(*)
     ; appeared before the desktop-shortcut button divided this row.
     AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30),
         "Close Settings", CloseLauncherSettingsV016.Bind(settings))
+
+    ; Group the existing native controls in construction order. The only
+    ; non-content control is the shared parchment Picture.
+    mainRows := []
+    for control in settings
+        if control != settings.Parchment
+            mainRows.Push(control)
+    copyExtra += ApplyV016MeasuredRows([[mainRows[1]], [mainRows[2], mainRows[3]],
+        [mainRows[4]], [mainRows[5], mainRows[6]], [mainRows[7]],
+        [mainRows[8]], [mainRows[9]], [mainRows[10], mainRows[11]],
+        [mainRows[12], mainRows[13]], [mainRows[14]]])
+    GrowV016SettingsParchment(settings, copyExtra)
 
     ; Keep both parchment views in the same GUI. The common backdrop is never
     ; destroyed, and all data controls are created only once per settings window.
@@ -399,11 +487,14 @@ OpenAppDataSettingsV016(settings, *)
         AddStyledButton(settings, V016S(32), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
         AddStyledButton(settings, V016S(266), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
         AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
-        if GrowV016SettingsParchment(settings, copyExtra)
-            settings.Show("NA h" (V016S(590) + settings.ParchmentExtra))
         for control in settings
             if !before.Has(control.Hwnd)
                 V016SettingsDataControls.Push(control)
+        rows := V016SettingsDataControls
+        copyExtra += ApplyV016MeasuredRows([[rows[1]], [rows[2]], [rows[3]],
+            [rows[4], rows[5]], [rows[6]], [rows[7]], [rows[8], rows[9]], [rows[10]]])
+        if GrowV016SettingsParchment(settings, copyExtra)
+            settings.Show("NA h" (V016S(590) + settings.ParchmentExtra))
     }
     ; Hide only the main view; keep the shared parchment picture visible.
     V016SettingsDataActive := true

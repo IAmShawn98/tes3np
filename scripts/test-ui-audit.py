@@ -170,6 +170,18 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("controls.Species.Move(BookS(525), BookS(plan.DropdownY))", characters)
         self.assertIn("ButtonFaces[button.Hwnd].NoAccessibleDownfit := measured", characters)
 
+    def test_settings_and_data_measure_existing_action_rows(self):
+        root = SOURCE.parents[1] / "src/ui"
+        settings = (root / "v016-refinements.ahk").read_text(encoding="utf-8-sig")
+        renderer = (root / "renderer.ahk").read_text(encoding="utf-8-sig")
+        self.assertIn("PlanV016MeasuredRows(groups)", settings)
+        self.assertIn("copyExtra += ApplyV016MeasuredRows([[mainRows[1]]", settings)
+        self.assertIn("copyExtra += ApplyV016MeasuredRows([[rows[1]]", settings)
+        self.assertIn("previousBottom + V016S(4) - originalTop", settings)
+        self.assertIn("face.NoAccessibleDownfit := true", settings)
+        self.assertIn("face.AccessibleWrappedButton := true", settings)
+        self.assertIn("drawFlags := 0x0811", renderer)
+
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
         self.assertEqual(report["scope"], ["src", "game-chat"])

@@ -406,6 +406,18 @@ PaintButton(wParam, lParam, *)
             if isLabel && face.HasOwnProp("AccessibleWrappedName")
                 && face.AccessibleWrappedName
                 drawFlags := 0x0810 ; DT_NOPREFIX | DT_WORDBREAK
+            else if !isLabel && face.HasOwnProp("AccessibleWrappedButton")
+                && face.AccessibleWrappedButton
+            {
+                ; DT_CENTER | DT_NOPREFIX | DT_WORDBREAK; center the
+                ; entire measured multiline caption in its expanded face.
+                drawFlags := 0x0811
+                measuredBounds := Buffer(16, 0)
+                NumPut("Int", 2, "Int", 0, "Int", width - 2, "Int", 0, measuredBounds)
+                textHeight := DllCall("DrawTextW", "Ptr", dc, "WStr", labelText,
+                    "Int", -1, "Ptr", measuredBounds, "UInt", drawFlags | 0x400)
+                NumPut("Int", Max(0, (height - textHeight) // 2) + shift, bounds, 4)
+            }
             DllCall("DrawTextW", "Ptr", dc, "WStr", labelText, "Int", -1,
                 "Ptr", bounds, "UInt", drawFlags)
         }

@@ -1110,6 +1110,66 @@ CheckMeasuredAccessibleBookPreflight()
 
 ; Verify the ACTUAL Settings copy builder, not a parallel synthetic layout.
 ; The new measured height must push subsequent controls out of the way.
+CheckMeasuredV016ActionRows()
+{
+    global AccessibilityTextSize, V016SettingsScale, ButtonFaces
+    savedMode := AccessibilityTextSize, savedScale := V016SettingsScale
+    try
+    {
+        V016SettingsScale := 1.0
+        for mode in ["Normal", "Large", "Extra Large"]
+        {
+            AccessibilityTextSize := mode
+            panel := Gui("-DPIScale")
+            buttons := []
+            try
+            {
+                SetAccessibleTextFont(panel, "s19 Norm", "Segoe UI")
+                heading := panel.Add("Text", "x32 y20 w448 h24", "Launcher Data & Diagnostics")
+                SetAccessibleTextFont(panel, "s13 Norm", "Segoe UI")
+                label := panel.Add("Text", "x32 y50 w145 h24", "Interface text")
+                combo := panel.Add("DropDownList", "x184 y45 w296 h200", ["Normal", "Large", "Extra Large"])
+                left := AddStyledButton(panel, 32, 80, 120, 30, "Copy Expansion Pack Logs", (*) => 0)
+                right := AddStyledButton(panel, 166, 80, 120, 30, "Copy Render Errors", (*) => 0)
+                back := AddStyledButton(panel, 32, 120, 448, 30, "Go Back", (*) => 0)
+                buttons := [left, right, back]
+                extra := ApplyV016MeasuredRows([[heading], [label, combo], [left, right], [back]])
+                left.GetPos(, &ly, &lw, &lh)
+                right.GetPos(, &ry, , &rh)
+                back.GetPos(, &by)
+                if mode = "Normal"
+                {
+                    if extra || ly != 80 || lh != 30 || by != 120
+                        throw Error("Normal Settings action positions changed.")
+                }
+                else
+                {
+                    if lh < MeasureAccessibleWrappedText(left, left.Text, lw - 8)
+                        || ly != ry || lh != rh || by < ly + lh + 4
+                        || !ButtonFaces[left.Hwnd].NoAccessibleDownfit
+                        || !ButtonFaces[left.Hwnd].AccessibleWrappedButton
+                        throw Error("Measured Settings action row clips or overlaps.")
+                    heading.GetPos(, &hy, , &hh)
+                    label.GetPos(, &labelY, , &labelH)
+                    if labelY < hy + hh || ly < labelY + labelH
+                        throw Error("Measured Settings heading or label overlaps.")
+                }
+            }
+            finally
+            {
+                for button in buttons
+                    UnregisterThemedControl(button)
+                panel.Destroy()
+            }
+        }
+    }
+    finally
+    {
+        AccessibilityTextSize := savedMode
+        V016SettingsScale := savedScale
+    }
+}
+
 CheckMeasuredV016SettingsCopy()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -1730,6 +1790,7 @@ CheckInterfaceTextAccessibility()
     CheckAccessibleLayoutPreflight()
     CheckMeasuredAccessibleBookPreflight()
     CheckMeasuredV016SettingsCopy()
+    CheckMeasuredV016ActionRows()
     CheckMeasuredEmptyMacroBook()
     CheckMeasuredPopulatedMacroBook()
     CheckExtendedBookArtwork()
