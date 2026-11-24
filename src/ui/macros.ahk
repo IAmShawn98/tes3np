@@ -261,10 +261,12 @@ RefreshMacroBookRows()
                     "Ptr", 0, "Ptr", 0, "UInt", 0x385)
         }
     }
-    ; The message must follow Upload even if its visible text changed
-    ; without a button move. The previous path left this at an old Y.
-    MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36),
-        BookS(355), BookS(30))
+    ; Follow Upload when its stack changes, but do not move/repaint this
+    ; native HWND every one-second macro process polling refresh.
+    MacroStatus.GetPos(, &oldStatusY)
+    if oldStatusY != BookS(desiredUploadY + 36)
+        MacroStatus.Move(BookS(525), BookS(desiredUploadY + 36),
+            BookS(355), BookS(30))
     ; Only import failures/progress use the message area below Upload.
     ; Regular Ready/Running/Missing appears above each macro's name.
     feedback := MacroStatus.Text
