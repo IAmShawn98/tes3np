@@ -1470,34 +1470,37 @@ CheckReducedBookPicture()
                 throw Error(Format("Book alpha boundary pixel {}: expected 0x{:08X}, got 0x{:08X}.",
                     index, expected, actual))
         }
-        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 16, "Int", 16,
+        ; Keep an interior plateau wider than the high-quality bicubic
+        ; sampling footprint. The 2:1 reduction still crosses both hard
+        ; magenta and partial-alpha edges; the center must remain exact.
+        if DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", 64, "Int", 64,
             "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &source)
             throw Error("Could not create Book edge fixture.")
-        Loop 16
+        Loop 64
         {
             y := A_Index - 1
-            Loop 16
+            Loop 64
             {
                 x := A_Index - 1
-                color := x >= 4 && x <= 11 && y >= 4 && y <= 11
-                    ? 0xFF996633 : (x >= 3 && x <= 12 && y >= 3 && y <= 12
+                color := x >= 16 && x <= 47 && y >= 16 && y <= 47
+                    ? 0xFF996633 : (x >= 14 && x <= 49 && y >= 14 && y <= 49
                         ? 0x60996633 : 0xFFFF00FF)
                 if DllCall("gdiplus\GdipBitmapSetPixel", "Ptr", source,
                     "Int", x, "Int", y, "UInt", color)
                     throw Error("Could not initialize Book edge fixture.")
             }
         }
-        image := CreateKeyedReducedBookImage(source, 8, 8)
+        image := CreateKeyedReducedBookImage(source, 32, 32)
         outer := 0, inner := 0
         if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 0, "Int", 0, "UInt*", &outer)
-            || DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 4, "Int", 4, "UInt*", &inner)
+            || DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image, "Int", 16, "Int", 16, "UInt*", &inner)
             || outer != 0xFFFF00FF || inner != 0xFF996633
             throw Error(Format("Reduced Book key or solid center did not survive downsampling: edge=0x{:08X}, center=0x{:08X}.",
                 outer, inner))
-        Loop 8
+        Loop 32
         {
             y := A_Index - 1
-            Loop 8
+            Loop 32
             {
                 color := 0
                 if DllCall("gdiplus\GdipBitmapGetPixel", "Ptr", image,
