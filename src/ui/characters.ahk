@@ -288,34 +288,65 @@ ReflowAccessiblePopulatedCharacters()
         if position > count
             break
         name := controls.Name.Text
-        ; Keep unbreakable long names out of a too-narrow hit rectangle.
         single := MeasureAccessibleSingleLineText(controls.Name, name)
-        if single.Width > BookS(338) && !InStr(name, " ")
-        {
-            RestoreAccessibleCharacterRowBaseline()
-            return false
-        }
-        nameHeight := Max(23, Ceil((
-            MeasureAccessibleWrappedText(controls.Name, name, BookS(338))
-            + BookS(6)) / scale))
-        buttonHeight := 26
-        widths := []
-        for button in [controls.Play, controls.Edit, controls.Remove]
+        ; Prefer the ORIGINAL one-line action columns. Enlarged Play/Edit/
+        ; Remove often still fit their actual measured widths, so keeping
+        ; them beside a wrapped name preserves space for six or more rows.
+        compactWidths := []
+        buttonHeight := 23
+        for index, button in [controls.Play, controls.Edit, controls.Remove]
         {
             extent := MeasureAccessibleSingleLineText(button, button.Text)
-            widths.Push(Max(84, Ceil((extent.Width + BookS(18)) / scale)))
+            originalWidth := index = 1 ? 55 : index = 2 ? 60 : 75
+            compactWidths.Push(Max(originalWidth,
+                Ceil((extent.Width + BookS(8)) / scale)))
             buttonHeight := Max(buttonHeight,
-                Ceil((extent.Height + BookS(8)) / scale))
+                Ceil((extent.Height + BookS(6)) / scale))
         }
-        if widths[1] + widths[2] + widths[3] + 12 > 370
+        sameLine := compactWidths[1] + compactWidths[2]
+            + compactWidths[3] + 10 <= 200
+        if sameLine
         {
-            RestoreAccessibleCharacterRowBaseline()
-            return false
+            nameWidth := 140
+            buttonX := 240
+            widths := compactWidths
+            nameHeight := Max(23, Ceil((
+                MeasureAccessibleWrappedText(controls.Name, name, BookS(134))
+                + BookS(4)) / scale))
+            if single.Width > BookS(134) && !InStr(name, " ")
+                sameLine := false
         }
-        buttonY := rowY + nameHeight + 4
-        nextY := buttonY + buttonHeight + 10
-        layouts.Push({Controls: controls, Y: rowY,
-            NameHeight: nameHeight, ButtonY: buttonY,
+        if !sameLine
+        {
+            ; When the action captions genuinely need more horizontal room,
+            ; use the full parchment column, with buttons below the name.
+            if single.Width > BookS(338) && !InStr(name, " ")
+            {
+                RestoreAccessibleCharacterRowBaseline()
+                return false
+            }
+            nameWidth := 345
+            buttonX := 70
+            widths := []
+            for index, button in [controls.Play, controls.Edit, controls.Remove]
+            {
+                extent := MeasureAccessibleSingleLineText(button, button.Text)
+                widths.Push(Max(84, Ceil((extent.Width + BookS(18)) / scale)))
+            }
+            if widths[1] + widths[2] + widths[3] + 12 > 370
+            {
+                RestoreAccessibleCharacterRowBaseline()
+                return false
+            }
+            nameHeight := Max(23, Ceil((
+                MeasureAccessibleWrappedText(controls.Name, name, BookS(338))
+                + BookS(4)) / scale))
+        }
+        buttonY := sameLine ? rowY : rowY + nameHeight + 4
+        nextY := sameLine ? rowY + Max(nameHeight, buttonHeight, 23) + 4
+            : buttonY + buttonHeight + 10
+        layouts.Push({Controls: controls, Y: rowY, NameWidth: nameWidth,
+            NameHeight: nameHeight, ButtonX: buttonX, ButtonY: buttonY,
             ButtonHeight: buttonHeight, Widths: widths})
         rowY := nextY
     }
@@ -341,10 +372,11 @@ ReflowAccessiblePopulatedCharacters()
             controls := layout.Controls
             y := layout.Y
             MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
-            MoveStyledButton(controls.Name, 95, y, 345, layout.NameHeight)
+            MoveStyledButton(controls.Name, 95, y,
+                layout.NameWidth, layout.NameHeight)
             if ButtonFaces.Has(controls.Name.Hwnd)
                 ButtonFaces[controls.Name.Hwnd].AccessibleWrappedName := true
-            x := 70
+            x := layout.ButtonX
             for index, button in [controls.Play, controls.Edit, controls.Remove]
             {
                 width := layout.Widths[index]
