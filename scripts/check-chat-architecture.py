@@ -2575,7 +2575,7 @@ expect(
     "Default launcher artwork is independent of characters and Happy Hour; alternate slides are retired",
     'paths := Map(1, "")' in status_carousel
     and 'Tracks: Map("default", [1])' in status_carousel
-    and artwork_selector.strip() == 'return "default"'
+    and artwork_selector.strip() == 'SelectLauncherArtworkTrack()\n{\n    return "default"'
     and 'assets/carousel/clean.png' in bundled_artwork
     and all(path not in bundled_artwork and not (ROOT / path).exists()
         for path in ("assets/carousel/default/07.png", "assets/carousel/default/17.png"))
