@@ -12,9 +12,10 @@ BuildMacroBookPanel()
     MacroScrollOffset := 0
     MacroScrollDragging := false
     MacroScrollGrab := 0
-    SetAccessibleTextFont(CharacterPage, "s19 Norm c241408", LauncherMorrowindFont)
+    SetAccessibleTextFont(CharacterPage, "s19 Norm c100A05", LauncherMorrowindFont)
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
-    SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
+    ; Stronger ink and heavier strokes keep the copy legible on mottled parchment.
+    SetAccessibleTextFont(CharacterPage, "s11 Bold c100A05", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
         "Upload, run, or stop macros here. Click the pencil to rename a macro.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
