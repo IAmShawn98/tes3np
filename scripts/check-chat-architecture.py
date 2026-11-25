@@ -2569,6 +2569,20 @@ expect(
     and '$ProgressStatus.Font = $ProgressThemeStatusFont' in updater_worker,
 )
 status_carousel = (ROOT / "src" / "ui" / "launcher-carousel.ahk").read_text(encoding="utf-8-sig")
+artwork_selector = section_between(status_carousel, "SelectLauncherArtworkTrack()\n{", "\n}")
+bundled_artwork = (ROOT / "scripts" / "generate-bundled-resources.py").read_text(encoding="utf-8-sig")
+expect(
+    "Default launcher artwork is independent of characters and Happy Hour; alternate slides are retired",
+    'paths := Map(1, "")' in status_carousel
+    and 'Tracks: Map("default", [1])' in status_carousel
+    and artwork_selector.strip() == 'return "default"'
+    and 'assets/carousel/clean.png' in bundled_artwork
+    and all(path not in bundled_artwork and not (ROOT / path).exists()
+        for path in ("assets/carousel/default/07.png", "assets/carousel/default/17.png"))
+    and 'desired := !!(state.Active && !state.Failed && HappyHourBannerVisible && HappyHourDustPictures.Length)' in status_carousel
+    and 'dust.Visible := HappyHourBannerVisible && !desired' in status_carousel
+    and 'Bundled UI artwork differs from source:' in windows_build,
+)
 expect(
     "Server status shade and caption share artwork-centered paint bounds",
     'LauncherStatusPaintBounds(handle, width)' in native_renderer

@@ -26,8 +26,6 @@ required = (
 )
 required += (
     "assets/carousel/clean.png",
-    "assets/carousel/default/07.png",
-    "assets/carousel/default/17.png",
 )
 resources = []
 for name in required:

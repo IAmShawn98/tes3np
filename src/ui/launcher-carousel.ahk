@@ -1,4 +1,4 @@
-; v10: real Happy Hour artwork track on the approved v8 renderer; no native painter changes.
+; Default artwork is the only assigned track; preserve the renderer for future slides.
 ; The original native controls paint normally until the first transition.
 global LauncherCarousel := 0
 
@@ -7,8 +7,7 @@ CreateLauncherCarousel(background, parchment)
     global LauncherCarousel
     ; Keep stable endpoint IDs and load only assigned artwork.
     ; Endpoint 1 uses the original native launcher background.
-    paths := Map(1, "", 8, A_ScriptDir "\assets\carousel\default\07.png",
-        18, A_ScriptDir "\assets\carousel\default\17.png")
+    paths := Map(1, "")
     for index, path in paths
         if index != 1 && !FileExist(path)
             return
@@ -17,7 +16,7 @@ CreateLauncherCarousel(background, parchment)
         return
     LauncherCarousel := {Background: background, Parchment: parchment, Callback: 0, Paths: paths,
         CleanPath: cleanPath, Current: 1, Next: 0, Elapsed: 0, Fade: 0, Last: 0,
-        Tracks: Map("default", [1], "no_characters", [18], "happy_hour", [8]), Track: "",
+        Tracks: Map("default", [1]), Track: "",
         Frames: Map(), Snapshot: 0, Width: 0, Height: 0, Active: false, Failed: false,
         DustComposited: false, DustLayer: 0, DustWidth: 0, DustHeight: 0,
         TransparentRepair: false, Transparent: Map(), Attached: [],
@@ -34,15 +33,11 @@ StartLauncherCarousel(*)
     TickLauncherCarousel()
 }
 
-; Profile mutations are committed under InterfaceUpdating, which the tick
-; already respects. Zero saved characters selects the welcome track.
+; No profile-count or event-specific artwork is currently assigned.
+; Happy Hour banners and particles remain independent of artwork selection.
 SelectLauncherArtworkTrack()
 {
-    global Profiles, HappyHourBannerVisible
-    ; Live event art takes precedence; restore the current profile track on end.
-    if HappyHourBannerVisible
-        return "happy_hour"
-    return Profiles.Length = 0 ? "no_characters" : "default"
+    return "default"
 }
 
 ; Tracks are arrays of stable endpoint IDs in Paths. Future holiday/event

@@ -602,13 +602,18 @@ RunLauncherChecks(A_Args)
         (GetTes3npSha256 $extractedBackdrop) -ine (GetTes3npSha256 $sourceBackdrop)) {
         throw "Bundled carousel backdrop differs from source."
     }
-    # Verify the exact carousel assets extracted from the compiled executable.
-    foreach ($relative in @('assets\carousel\default\07.png', 'assets\carousel\default\17.png')) {
-        $sourceSlide = Join-Path $projectRoot $relative
-        $extractedSlide = Join-Path $resourceRoot $relative
-        if (!(Test-Path -LiteralPath $extractedSlide -PathType Leaf) -or
-            (GetTes3npSha256 $extractedSlide) -ine (GetTes3npSha256 $sourceSlide)) {
-            throw "Bundled carousel artwork differs from source: $relative"
+    # Verify the active default artwork and shared Book against source bytes.
+    foreach ($relative in @('assets\backgrounds\launcher.png', 'assets\backgrounds\character-book.png')) {
+        $sourceArtwork = Join-Path $projectRoot $relative
+        $extractedArtwork = Join-Path $resourceRoot $relative
+        if (!(Test-Path -LiteralPath $extractedArtwork -PathType Leaf) -or
+            (GetTes3npSha256 $extractedArtwork) -ine (GetTes3npSha256 $sourceArtwork)) {
+            throw "Bundled UI artwork differs from source: $relative"
+        }
+    }
+    foreach ($retiredSlide in @('assets\carousel\default\07.png', 'assets\carousel\default\17.png')) {
+        if (Test-Path -LiteralPath (Join-Path $resourceRoot $retiredSlide)) {
+            throw "Retired carousel artwork was extracted: $retiredSlide"
         }
     }
     # Verify that all import helpers are truly available in the compiled
