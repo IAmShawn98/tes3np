@@ -425,7 +425,7 @@ PaintLauncherCarouselPicture(state, handle, target)
                 "Int", 0, "Int", 0, "Int", w, "Int", h))
         }
         if role = "drag"
-            PaintLauncherStatusShade(graphics, w, h)
+            PaintLauncherStatusShade(graphics, handle, w, h)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         graphics := 0
         if role = "heading" || role = "version" || role = "drag"
@@ -503,15 +503,16 @@ DrawLauncherCarouselNativeText(handle, dc, width, height, role)
             {
                 ; Status-only dark outline, scaled with the drag-strip height.
                 ; Draw into the same fresh backing buffer, never over old text.
+                bounds := LauncherStatusPaintBounds(handle, width)
                 radius := Max(1, Round(height / 32))
                 DllCall("SetTextColor", "Ptr", dc, "UInt", 0x080808)
                 for offset in [[-radius, -radius], [0, -radius], [radius, -radius],
                     [-radius, 0], [radius, 0], [-radius, radius], [0, radius], [radius, radius]]
                 {
-                    NumPut("Int", offset[1], "Int", offset[2], "Int", width + offset[1], "Int", height + offset[2], rect)
+                    NumPut("Int", bounds.L + offset[1], "Int", offset[2], "Int", bounds.R + offset[1], "Int", height + offset[2], rect)
                     DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", flags)
                 }
-                NumPut("Int", 0, "Int", 0, "Int", width, "Int", height, rect)
+                NumPut("Int", bounds.L, "Int", 0, "Int", bounds.R, "Int", height, rect)
                 DllCall("SetTextColor", "Ptr", dc, "UInt", statusColor)
             }
             DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", flags)

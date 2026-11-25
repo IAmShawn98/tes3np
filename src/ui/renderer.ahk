@@ -1089,7 +1089,7 @@ PaintLauncherServerStatusBase(handle, target)
             if !DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\happy-hour\pixie-dust.png", "Ptr*", &dust) && dust
                 DrawLauncherCarouselControlArtwork(graphics, handle, HappyHourDustPictures[1].Hwnd, dust)
         }
-        PaintLauncherStatusShade(graphics, w, h)
+        PaintLauncherStatusShade(graphics, handle, w, h)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         graphics := 0
         DrawLauncherCarouselNativeText(handle, dc, w, h, "drag")
@@ -1256,14 +1256,33 @@ PaintLauncherFeatheredShade(graphics, width, height, scale, offsetX := 0, peak :
             DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
 }
 
-PaintLauncherStatusShade(graphics, width, height)
+LauncherStatusPaintBounds(handle, width)
 {
-    ; Match the actual drag-strip scale and keep the shade centered on the
-    ; unchanged caption, including larger Interface Text preferences.
+    global LauncherStatusBackground
+    ; Center on the launcher artwork, not its asymmetric drag hit area.
+    ; Screen-pixel coordinates remain correct after DPI/scale/accessibility reflow.
+    a := Buffer(16, 0), b := Buffer(16, 0)
+    center := width / 2
+    if IsObject(LauncherStatusBackground)
+        && DllCall("GetWindowRect", "Ptr", LauncherStatusBackground.Hwnd, "Ptr", a)
+        && DllCall("GetWindowRect", "Ptr", handle, "Ptr", b)
+    {
+        actual := (NumGet(a, 0, "Int") + NumGet(a, 8, "Int")) / 2 - NumGet(b, 0, "Int")
+        if actual > 0 && actual < width
+            center := actual
+    }
+    half := Min(center, width - center)
+    return {L: Round(center - half), R: Round(center + half)}
+}
+
+PaintLauncherStatusShade(graphics, handle, width, height)
+{
+    ; Use the exact same symmetric paint area as the caption and outline.
+    bounds := LauncherStatusPaintBounds(handle, width)
     scale := height / 48
-    bandWidth := Min(width, Round(330 * scale * AccessibilityFontMultiplier()))
+    bandWidth := Min(bounds.R - bounds.L, Round(330 * scale * AccessibilityFontMultiplier()))
     PaintLauncherFeatheredShade(graphics, bandWidth, height, scale,
-        Round((width - bandWidth) / 2), 150, 48, 16, 16)
+        Round((bounds.L + bounds.R - bandWidth) / 2), 150, 48, 16, 16)
 }
 
 PaintInfoCard(handle, target, width, height)

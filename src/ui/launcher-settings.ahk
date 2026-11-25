@@ -285,7 +285,7 @@ ApplyLauncherStatusFont(scale)
     global DragStrip, LauncherServerStatus, LauncherMorrowindFont
     if IsObject(DragStrip)
         DragStrip.SetFont("s" Max(5, Round(AccessibilityFontSize(14) * scale))
-            " Norm c" LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)
+            " Bold c" LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)
 }
 
 ApplyLauncherButtonFont(face, scale)

@@ -2465,11 +2465,21 @@ status_font = section_between(
 )
 expect(
     "Server status uses shared Morrowind typography through startup, scaling and Interface Text changes",
-    'SetAccessibleTextFont(LauncherGui, "s14 Norm cD5D5D5", LauncherMorrowindFont)' in front_layout
+    'SetAccessibleTextFont(LauncherGui, "s14 Bold cD5D5D5", LauncherMorrowindFont)' in front_layout
     and 'AccessibilityFontSize(14) * scale' in status_font
-    and 'LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)' in status_font
+    and '" Bold c" LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)' in status_font
     and 'ApplyLauncherStatusFont(scale)' in launcher_layout
     and 'ApplyLauncherStatusFont(scale)' in font_update,
+)
+status_carousel = (ROOT / "src" / "ui" / "launcher-carousel.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Server status shade and caption share artwork-centered paint bounds",
+    'LauncherStatusPaintBounds(handle, width)' in native_renderer
+    and 'LauncherStatusPaintBounds(handle, width)' in status_carousel
+    and 'PaintLauncherStatusShade(graphics, handle, w, h)' in native_renderer
+    and 'PaintLauncherStatusShade(graphics, handle, w, h)' in status_carousel
+    and 'bounds.L + bounds.R - bandWidth' in native_renderer
+    and 'NumPut("Int", bounds.L, "Int", 0, "Int", bounds.R, "Int", height, rect)' in status_carousel,
 )
 launcher_scale_apply = section_between(
     launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true, placement := unset)\n{", "\n}",
