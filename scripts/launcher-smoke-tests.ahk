@@ -841,8 +841,13 @@ CheckOwnedMenuScaling()
     }
     catch Error as err
     {
-        try FileAppend("FAIL: owned menu scale/position - " Type(err) " in " err.What
-            " at line " err.Line ": " SanitizeDiagnosticText(err.Message) Chr(10), "**")
+        detail := "FAIL: owned menu scale/position - " Type(err) " in " err.What
+            " at line " err.Line ": " SanitizeDiagnosticText(err.Message) Chr(10)
+        try FileAppend(detail, "**")
+        ; The GUI-subsystem executable may lack usable stderr. The build owns
+        ; this disposable receipt and prints it before reporting code 217.
+        if A_Args.Length = 2 && A_Args[1] = "--check-owned-menu-scaling"
+            try FileAppend(detail, A_Args[2], "UTF-8-RAW")
         ExitApp(217)
     }
     ExitApp(0)

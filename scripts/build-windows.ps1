@@ -655,9 +655,16 @@ RunLauncherChecks(A_Args)
         throw 'Patch payload was embedded into the launcher instead of kept separate.'
     }
     Step 'Verified no Expansion Pack or markerless client was embedded in launcher resources'
-    $menuCode = Invoke-BuildProcess $executable '--check-owned-menu-scaling' 'Compiled menu smoke test' 30000 `
+    $menuReceipt = Join-Path $buildRoot 'menu-smoke-failure.txt'
+    $menuArguments = '--check-owned-menu-scaling "' + $menuReceipt + '"'
+    $menuCode = Invoke-BuildProcess $executable $menuArguments 'Compiled menu smoke test' 30000 `
         -WorkingDirectory $package -ShowOutput
-    if ($menuCode -ne 0) { throw "Compiled menu smoke test failed with code $menuCode." }
+    if ($menuCode -ne 0) {
+        if (Test-Path -LiteralPath $menuReceipt -PathType Leaf) {
+            Write-Host (Get-Content -LiteralPath $menuReceipt -Raw -Encoding UTF8)
+        }
+        throw "Compiled menu smoke test failed with code $menuCode."
+    }
     # Package the pinned official non-VR runtime so startup can run offline.
     Step 'Using prechecked official TES3MP 0.8.1 Win64 release archive'
     if (!$reuseTes3mp) {

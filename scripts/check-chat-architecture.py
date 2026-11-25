@@ -2500,6 +2500,8 @@ expect(
         and '"Georgia"' not in (ROOT / p).read_text(encoding="utf-8-sig")
         for p in theme_heading_sources)
     and 'return LauncherMorrowindFont' in settings_ui
+    and 'LauncherThemeFont()' in diagnostic_fixture
+    and 'MismatchFixtureDisallow("theme font resolution")' in diagnostic_fixture
     and 'return kind = "heading" ? LauncherThemeFont() : "Segoe UI"' in
         (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
     and 'SetAccessibleTextFont(menu, "s17 Bold cC5A45C", LauncherThemeFont())' in settings_ui
@@ -2516,6 +2518,14 @@ expect(
     and "-expansion-ui" not in theme_probe.split("return (!A_IsCompiled", 1)[-1]
     and in_order(theme_dispatch, "if LauncherCheckUsesThemeFont(args)", "InitializeLauncherMorrowindFont()")
     and "if LauncherCheckUsesThemeFont(A_Args)\n    PrepareBundledResources()\nRunLauncherChecks(A_Args)" in windows_build,
+)
+expect(
+    "Compiled menu smoke failures retain their sanitized assertion in a disposable build receipt",
+    'A_Args[1] = "--check-owned-menu-scaling"' in launcher_smoke_tests
+    and 'FileAppend(detail, A_Args[2], "UTF-8-RAW")' in launcher_smoke_tests
+    and 'SanitizeDiagnosticText(err.Message)' in launcher_smoke_tests
+    and "menu-smoke-failure.txt" in windows_build
+    and 'Get-Content -LiteralPath $menuReceipt -Raw -Encoding UTF8' in windows_build,
 )
 chat_typography = (chat_root / "GameChatTypography.cs").read_text(encoding="utf-8-sig")
 chat_web_loader = (chat_root / "GameChatWeb.cs").read_text(encoding="utf-8-sig")

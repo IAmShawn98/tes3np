@@ -58,6 +58,11 @@ SetAccessibleTextFont(target, options, fontName := unset)
     return MismatchFixtureDisallow("accessible UI font")
 }
 
+LauncherThemeFont()
+{
+    return MismatchFixtureDisallow("theme font resolution")
+}
+
 SendLauncherChatCommand(command, targetHwnd := 0)
 {
     return MismatchFixtureDisallow("ChatHost command")
