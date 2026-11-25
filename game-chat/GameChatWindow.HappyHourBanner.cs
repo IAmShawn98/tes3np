@@ -87,7 +87,7 @@ internal sealed partial class GameChatWindow
         if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
         string heading = "HAPPY HOUR ACTIVE";
         using var masteryFont = GameChatTypography.ThemeFont(12, System.Drawing.FontStyle.Bold);
-        using var timerFont = GameChatTypography.BodyFont(11, System.Drawing.FontStyle.Bold);
+        using var timerFont = GameChatTypography.ThemeFont(11, System.Drawing.FontStyle.Bold);
         int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
             happyHourBannerRainbow.Font));
         width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
@@ -132,7 +132,7 @@ internal sealed partial class GameChatWindow
         // HAPPY HOUR ACTIVE - Mastery Points Are Doubled! (60m 0s)
         DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
         using var masteryFont = GameChatTypography.ThemeFont(12, System.Drawing.FontStyle.Bold);
-        using var timerFont = GameChatTypography.BodyFont(11, System.Drawing.FontStyle.Bold);
+        using var timerFont = GameChatTypography.ThemeFont(11, System.Drawing.FontStyle.Bold);
         DrawSegment("Mastery Points Are Doubled!", masteryFont,
             System.Drawing.Color.Yellow);
         DrawSegment(" ", masteryFont, System.Drawing.Color.FromArgb(215, 170, 77));

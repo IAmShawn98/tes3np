@@ -18,7 +18,7 @@ BuildFrontPage()
     InitializeLauncherServerStatus(background)
     parchment := LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     CreateLauncherCarousel(background, parchment)
-    SetAccessibleTextFont(LauncherGui, "s10 Norm", "Palatino Linotype")
+    SetAccessibleTextFont(LauncherGui, "s10 Norm", LauncherThemeFont())
     ; Keep the Quest copy clear of the updates panel over the bottom of the backdrop.
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 151)
     AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events. The road to godhood is never a lonely one!")
@@ -27,7 +27,7 @@ BuildFrontPage()
     ; handwritten lettering readable against the parchment.
     SetAccessibleTextFont(LauncherGui, "s19 Norm c241408", LauncherMorrowindFont)
     LauncherHeading := LauncherGui.Add("Text", "x330 y414 w300 h34 Center BackgroundTrans", "Game Launcher")
-    SetAccessibleTextFont(LauncherGui, "s11", "Segoe UI")
+    SetAccessibleTextFont(LauncherGui, "s11", LauncherThemeFont())
     HoverButton := 0
     PressedButton := 0
     BuildButtonViewport()

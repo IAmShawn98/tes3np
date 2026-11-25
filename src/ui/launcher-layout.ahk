@@ -43,7 +43,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
                 continue
             if face.HasOwnProp("IsInfo")
                 face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale))
-                    " Norm", "Palatino Linotype")
+                    " Norm", LauncherThemeFont())
             else if !face.HasOwnProp("IsLabel")
                 ApplyLauncherButtonFont(face, scale)
         }

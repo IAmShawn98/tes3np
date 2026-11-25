@@ -770,11 +770,11 @@ OpenClientSelectionSettings(*)
     heading.GetPos(, , , &headingHeight)
     activeY := Max(78, 25 + headingHeight + 8)
     display := mode = "Bundled" ? "Using the included TES3MP setup" : "Using your custom TES3MP setup"
-    SetAccessibleTextFont(menu, "s11 Bold cE7BE70", "Segoe UI")
+    SetAccessibleTextFont(menu, "s11 Bold cE7BE70", LauncherThemeFont())
     activeLabel := menu.Add("Text", "x30 y" activeY " w620 BackgroundTrans +Wrap", display)
     activeLabel.GetPos(, , , &activeHeight)
     detailsY := Max(115, activeY + activeHeight + 8)
-    SetAccessibleTextFont(menu, "s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(menu, "s10 Norm cEDE1C9", LauncherThemeFont())
     details := menu.Add("Text", "x30 y" detailsY " w620 BackgroundTrans +Wrap",
         "Choose which copy of TES3MP opens when you launch the game. "
         . "TES3NP comes with a setup that's ready to play.")
@@ -785,7 +785,7 @@ OpenClientSelectionSettings(*)
     reactivate.Enabled := saved
     restoreY := (saved ? 286 : 238) + textOffset
     restore := AddStyledButton(menu, 30, restoreY, 620, 40, "Use Included TES3MP", (*) => RestoreBundledClientV016(menu))
-    SetAccessibleTextFont(menu, "s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(menu, "s10 Norm cEDE1C9", LauncherThemeFont())
     statusY := (saved ? 339 : 291) + textOffset
     statusLabel := menu.Add("Text", "x30 y" statusY " w620 h48 BackgroundTrans +Wrap", "")
     closeY := (saved ? 399 : 351) + textOffset
@@ -877,7 +877,7 @@ ConfigureCustomClientV016(menu, *)
     heading := options.Add("Text", "x30 y22 w580 BackgroundTrans +Wrap", "Set Up Your Custom EXE")
     heading.GetPos(, , , &headingHeight)
     detailsY := Max(72, 22 + headingHeight + 8)
-    SetAccessibleTextFont(options, "s10 Norm cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(options, "s10 Norm cEDE1C9", LauncherThemeFont())
     details := options.Add("Text", "x30 y" detailsY " w580 BackgroundTrans +Wrap",
         "TES3NP will use the tes3mp.exe you selected. If it came with its own DLLs or other files, "
         . "choose the folder that contains them. If you're only swapping the EXE, use the files that come with TES3NP.")

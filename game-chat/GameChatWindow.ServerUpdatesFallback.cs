@@ -7,7 +7,7 @@ using static GameChatNative;
 internal sealed partial class GameChatWindow
 {
     const int ServerUpdateBodyLimit = 3800;
-    static string ServerUpdatesRtfHeader => @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Palatino Linotype;}{\f1 " + GameChatTypography.ThemeFace + ";}}" +
+    static string ServerUpdatesRtfHeader => @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 " + GameChatTypography.ThemeFace + ";}{\f1 " + GameChatTypography.ThemeFace + ";}}" +
         @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
         @"\red184\green169\blue142;}\f0\fs21";
 

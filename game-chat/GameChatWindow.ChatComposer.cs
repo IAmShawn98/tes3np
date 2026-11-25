@@ -15,7 +15,7 @@ internal sealed partial class GameChatWindow
     {
         Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter,
         ForeColor = Color.FromArgb(201, 179, 137), BackColor = Color.FromArgb(23, 18, 14),
-        Text = "Opening Discord composer…"
+        UseCompatibleTextRendering = true, Text = "Opening Discord composer…"
     };
     WebView2? chatComposerBrowser;
     Size composerClip;

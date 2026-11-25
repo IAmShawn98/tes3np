@@ -293,7 +293,7 @@ ApplyLauncherButtonFont(face, scale)
     size := AccessibilityFontSize(10)
     if face.HasOwnProp("BaseWidth") && face.BaseWidth < 180
         size := Min(size, 11)
-    face.Control.SetFont("s" Max(5, Round(size * scale)) " Bold", "Segoe UI")
+    face.Control.SetFont("s" Max(5, Round(size * scale)) " Bold", LauncherThemeFont())
 }
 
 ApplyAccessibilityTextSize(suspendRedraw := true)
@@ -316,7 +316,7 @@ ApplyAccessibilityTextSize(suspendRedraw := true)
                 continue
             if face.HasOwnProp("IsInfo")
                 face.Control.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale))
-                    " Norm", "Palatino Linotype")
+                    " Norm", LauncherThemeFont())
             else if !face.HasOwnProp("IsLabel")
                 ApplyLauncherButtonFont(face, scale)
         }

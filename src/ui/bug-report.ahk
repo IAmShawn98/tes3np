@@ -27,13 +27,13 @@ BuildBugReportPage(settings)
     SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
     prompt := settings.Add("Text", "x" V016S(32) " y" V016S(165) " w" V016S(448)
         " h" V016S(22) " BackgroundTrans", "What happened?")
-    SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", "Segoe UI")
+    SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", LauncherThemeFont())
     settings.ReportMessage := AddThemedEdit(settings, "x" V016S(32) " y" V016S(190)
         " w" V016S(448) " h" V016S(76) " Multi WantReturn Limit4000")
 
     settings.ReportAdd := AddStyledButton(settings, V016S(32), V016S(273), V016S(214), V016S(30),
         "Add Screenshots (0)", AddBugReportScreenshots.Bind(settings))
-    SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", "Segoe UI")
+    SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", LauncherThemeFont())
     box := settings.Add("Text", "x" V016S(32) " y" V016S(309) " w" V016S(448)
         " h" V016S(112) " +Border BackgroundE2CEA2")
     settings.ReportEmpty := settings.Add("Text", "x" V016S(41) " y" V016S(320) " w" V016S(430)
@@ -42,14 +42,14 @@ BuildBugReportPage(settings)
     Loop 5
     {
         rowY := 312 + (A_Index - 1) * 21
-        SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", "Segoe UI")
+        SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", LauncherThemeFont())
         name := settings.Add("Text", "x" V016S(41) " y" V016S(rowY) " w" V016S(392)
             " h" V016S(21) " +0x4280 BackgroundE2CEA2")
         remove := AddStyledButton(settings, V016S(441), V016S(rowY), V016S(32), V016S(20),
             "×", RemoveBugReportScreenshot.Bind(settings, A_Index))
         settings.ReportRows.Push({Name: name, Remove: remove})
     }
-    SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", "Segoe UI")
+    SetAccessibleTextFont(settings, "s" V016Font(10) " Norm c382314", LauncherThemeFont())
     note := settings.Add("Text", "x" V016S(32) " y" V016S(426) " w" V016S(448)
         " h" V016S(19) " BackgroundTrans", "Recent diagnostic logs are attached automatically.")
     settings.ReportStatus := settings.Add("Text", "x" V016S(32) " y" V016S(448)

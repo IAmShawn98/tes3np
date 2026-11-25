@@ -3,12 +3,12 @@ using System.Drawing.Text;
 using System.Runtime.InteropServices;
 
 // Use the exact launcher font asset. GDI and GDI+ are process-private;
-// WebView2 gets the same embedded bytes only in TES3NP-owned documents.
+// WebView2 gets the same embedded bytes in TES3NP-owned or scoped themed presentations.
 internal static class GameChatTypography
 {
     const string ResourceName = "tes3np.GameChat.MysticCards.ttf";
     const string FallbackFace = "Georgia";
-    internal const string BodyFace = "Palatino Linotype";
+    // All launcher-owned text shares one theme face.
     static readonly Lazy<byte[]> FontBytes = new(() =>
     {
         using var stream = typeof(GameChatTypography).Assembly.GetManifestResourceStream(ResourceName);
@@ -74,7 +74,14 @@ internal static class GameChatTypography
         return new Font(FallbackFace, size, style);
     }
 
-    internal static Font BodyFont(float size, FontStyle style) => new(BodyFace, size, style);
+    // Load the public bundled font directly from bytes in the browser. No
+    // remote font URL, network request or CSP changes on Discord's origin.
+    static readonly Lazy<string> BrowserFontScript = new(() => FontBytes.Value.Length == 0 ? "" :
+        "try { if (!Array.from(document.fonts).some(f => f.family === 'TES3NP Theme')) {" +
+        "const face = new FontFace('TES3NP Theme', Uint8Array.from(atob('" +
+        Convert.ToBase64String(FontBytes.Value) +
+        "'), c => c.charCodeAt(0))); document.fonts.add(face); face.load().catch(() => document.fonts.delete(face)); } } catch {}");
+    internal static string BrowserFontInstall => BrowserFontScript.Value;
 
     internal static string WebFontCss => FontBytes.Value.Length == 0 ? "" :
         "@font-face{font-family:'TES3NP Theme';src:url(data:font/ttf;base64," +

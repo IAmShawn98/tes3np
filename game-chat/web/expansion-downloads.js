@@ -19,6 +19,7 @@
   }
   function setup() {
     if (panel || !document.documentElement) return;
+    /* TES3NP_THEME_FONT_LOAD */
     const style=document.createElement('style');
     style.textContent=[
       '#tes3np-zip-card {position:fixed!important;inset:0!important;',
@@ -26,7 +27,7 @@
       'flex-direction:column!important;justify-content:center!important;',
       'box-sizing:border-box!important;padding:12px 16px!important;',
       'background:#1b1b1f!important;color:#ece4d4!important;',
-      'font:14px/1.5 "Segoe UI",Arial,sans-serif!important;overflow:auto!important}',
+      'font:14px/1.5 "TES3NP Theme","Mystic Cards",Georgia,serif!important;overflow:auto!important}',
       '#tes3np-zip-card a {display:block;border:1px solid #4f4b52;',
       'background:#292a33;color:#77baff!important;border-radius:5px;',
       'padding:14px;text-decoration:none!important;overflow-wrap:anywhere}',

@@ -13,6 +13,7 @@ $ErrorActionPreference='Stop'
 $LogFile=Join-Path $env:APPDATA 'tes3np\launcher.log'
 $ProgressForm=$null;$ProgressStatus=$null;$ProgressBar=$null
 $ProgressThemeCollection=$null;$ProgressThemeMemory=[IntPtr]::Zero;$ProgressThemeTitleFont=$null
+$ProgressThemeBodyFont=$null;$ProgressThemeStatusFont=$null
 function Write-UpdaterLog([string]$Message) {
     try {
         # A standalone worker must remove sensitive fields before writing the
@@ -51,25 +52,27 @@ function Write-UpdaterLog([string]$Message) {
     }
 }
 # Load a private, in-memory copy so updating the installed font cannot be blocked.
-function New-ProgressThemeFont {
+function New-ProgressThemeFont([float]$Size, $RequestedStyle) {
     try {
         $fontPath = Join-Path $PSScriptRoot '..\assets\fonts\MysticCards.ttf'
         if (!(Test-Path -LiteralPath $fontPath -PathType Leaf)) {
-            return [Drawing.Font]::new('Georgia', 14, [Drawing.FontStyle]::Bold)
+            return [Drawing.Font]::new('Georgia', $Size, $RequestedStyle)
         }
-        $fontBytes = [IO.File]::ReadAllBytes($fontPath)
-        $script:ProgressThemeMemory = [Runtime.InteropServices.Marshal]::AllocHGlobal($fontBytes.Length)
-        [Runtime.InteropServices.Marshal]::Copy($fontBytes, 0, $ProgressThemeMemory, $fontBytes.Length)
-        $script:ProgressThemeCollection = [Drawing.Text.PrivateFontCollection]::new()
-        $ProgressThemeCollection.AddMemoryFont($ProgressThemeMemory, $fontBytes.Length)
+        if (!$ProgressThemeCollection) {
+            $fontBytes = [IO.File]::ReadAllBytes($fontPath)
+            $script:ProgressThemeMemory = [Runtime.InteropServices.Marshal]::AllocHGlobal($fontBytes.Length)
+            [Runtime.InteropServices.Marshal]::Copy($fontBytes, 0, $ProgressThemeMemory, $fontBytes.Length)
+            $script:ProgressThemeCollection = [Drawing.Text.PrivateFontCollection]::new()
+            $ProgressThemeCollection.AddMemoryFont($ProgressThemeMemory, $fontBytes.Length)
+        }
         $family = $ProgressThemeCollection.Families | Where-Object Name -eq 'Mystic Cards' | Select-Object -First 1
         if (!$family) { throw 'Theme face unavailable.' }
-        $style = if ($family.IsStyleAvailable([Drawing.FontStyle]::Bold)) {
-            [Drawing.FontStyle]::Bold
+        $style = if ($family.IsStyleAvailable($RequestedStyle)) {
+            $RequestedStyle
         } else { [Drawing.FontStyle]::Regular }
-        return [Drawing.Font]::new($family, 14, $style)
+        return [Drawing.Font]::new($family, $Size, $style)
     } catch {
-        return [Drawing.Font]::new('Georgia', 14, [Drawing.FontStyle]::Bold)
+        return [Drawing.Font]::new('Georgia', $Size, $RequestedStyle)
     }
 }
 
@@ -104,17 +107,20 @@ function Show-ProgressWindow {
 
     $title = New-Object Windows.Forms.Label
     $title.Text = 'Updating tes3np...'
-    $script:ProgressThemeTitleFont = New-ProgressThemeFont
+    $script:ProgressThemeTitleFont = New-ProgressThemeFont 14 ([Drawing.FontStyle]::Bold)
     $title.Font = $ProgressThemeTitleFont
     $title.UseCompatibleTextRendering = $true
     $message = New-Object Windows.Forms.Label
     $message.Text = "Installing v$Version. The launcher will restart automatically when finished.`r`nPlease don't reopen tes3np manually."
-    $message.Font = [Drawing.Font]::new('Segoe UI', 9)
+    $script:ProgressThemeBodyFont = New-ProgressThemeFont 9 ([Drawing.FontStyle]::Regular)
+    $message.Font = $ProgressThemeBodyFont
     $script:ProgressStatus = New-Object Windows.Forms.Label
     $ProgressStatus.Text = 'Preparing update...'
-    $ProgressStatus.Font = [Drawing.Font]::new('Segoe UI', 9, [Drawing.FontStyle]::Bold)
+    $script:ProgressThemeStatusFont = New-ProgressThemeFont 9 ([Drawing.FontStyle]::Bold)
+    $ProgressStatus.Font = $ProgressThemeStatusFont
 
     foreach ($label in @($title, $message, $ProgressStatus)) {
+        $label.UseCompatibleTextRendering = $true
         $label.AutoSize = $true
         $label.MaximumSize = [Drawing.Size]::new($textWidth, 0)
         $label.Margin = [Windows.Forms.Padding]::new(0, 0, 0, 10)
@@ -150,6 +156,8 @@ function Close-ProgressWindow {
     $script:ProgressStatus = $null
     $script:ProgressBar = $null
     if ($ProgressThemeTitleFont) { $ProgressThemeTitleFont.Dispose(); $script:ProgressThemeTitleFont = $null }
+    if ($ProgressThemeBodyFont) { $ProgressThemeBodyFont.Dispose(); $script:ProgressThemeBodyFont = $null }
+    if ($ProgressThemeStatusFont) { $ProgressThemeStatusFont.Dispose(); $script:ProgressThemeStatusFont = $null }
     if ($ProgressThemeCollection) { $ProgressThemeCollection.Dispose(); $script:ProgressThemeCollection = $null }
     if ($ProgressThemeMemory -ne [IntPtr]::Zero) {
         [Runtime.InteropServices.Marshal]::FreeHGlobal($ProgressThemeMemory)

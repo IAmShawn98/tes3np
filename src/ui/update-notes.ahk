@@ -618,7 +618,7 @@ UpdateNoteFont(kind, premium := false, compact := false, scale := 1.0)
 
 UpdateNoteFontFace(kind, premium := false)
 {
-    return kind = "heading" ? LauncherThemeFont() : "Segoe UI"
+    return LauncherThemeFont()
 }
 
 ReleaseNoteLineHeight(control)
@@ -780,7 +780,7 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     up := AddStyledButton(panel, arrowX, arrowTop, px(20), px(22), "↑", (*) => (page.Offset -= 1, refresh()))
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22), "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
-        SetAccessibleTextFont(arrow, UpdateNoteFont("heading", premium, compactLayout, scale), "Segoe UI")
+        SetAccessibleTextFont(arrow, UpdateNoteFont("heading", premium, compactLayout, scale), LauncherThemeFont())
     refresh()
     wheelCallback := UpdateNotesMouseWheel.Bind(viewport.Hwnd, page, refresh)
     OnMessage(0x0201, dragStartCallback, 1)

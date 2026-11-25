@@ -169,7 +169,7 @@ internal sealed partial class GameChatWindow
     async Task ApplyCss()
     {
         if (web.CoreWebView2 == null) return;
-        var js = "(() => { const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
+        var js = "(() => { " + GameChatTypography.BrowserFontInstall + " const css = " + System.Text.Json.JsonSerializer.Serialize(userCss) +
             "; let style=document.getElementById('tes3np-chat-style'); if(!style){style=document.createElement('style');style.id='tes3np-chat-style';document.head.appendChild(style);} style.textContent=css; if(document.body&&!document.getElementById('tes3np-frame')){const f=document.createElement('div');f.id='tes3np-frame';document.body.appendChild(f);} })()";
         try { await web.CoreWebView2.ExecuteScriptAsync(js); await HideChannelHeader(); } catch (Exception ex) { Log("CSS error: " + ex.GetType().Name); }
     }

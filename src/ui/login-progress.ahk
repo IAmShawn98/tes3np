@@ -319,7 +319,7 @@ MeasureGameLoginProgressPlan(scale, name)
         font(13, "Bold", LauncherThemeFont())
         nameDisplay := PrepareAccessibleBookName(sample, name, Max(1, p(372) - p(8)))
         nameH := Max(p(30), MeasureAccessibleWrappedText(sample, nameDisplay, Max(1, p(372) - p(4))) + p(4))
-        font(11, "Norm", "Segoe UI")
+        font(11, "Norm", LauncherThemeFont())
         labelH := p(22)
         for caption in ["Loading Name Screen...", "Typing Name...", "Loading Password Screen...", "Typing Password..."]
             labelH := Max(labelH, MeasureAccessibleWrappedText(sample, caption, p(360)) + p(4))
@@ -327,11 +327,11 @@ MeasureGameLoginProgressPlan(scale, name)
         dot := MeasureAccessibleSingleLineText(sample, "●")
         font(12, "Bold", "Segoe UI Symbol")
         check := MeasureAccessibleSingleLineText(sample, "✔")
-        font(14, "Bold", "Segoe UI")
+        font(14, "Bold", LauncherThemeFont())
         active := MeasureAccessibleSingleLineText(sample, "!")
         dotW := Max(p(30), Max(dot.Width, check.Width, active.Width) + p(6))
         dotH := Max(p(21), Max(dot.Height, check.Height, active.Height) + p(6))
-        font(10, "Bold", "Segoe UI")
+        font(10, "Bold", LauncherThemeFont())
         footerH := p(25)
         for caption in ["Loading name screen...", "Typing name...", "Loading password screen...", "Typing password...", "Login Complete!"]
             footerH := Max(footerH, MeasureAccessibleWrappedText(sample, caption, p(372)) + p(4))
@@ -339,7 +339,7 @@ MeasureGameLoginProgressPlan(scale, name)
         circle := MeasureAccessibleSingleLineText(sample, "●")
         font(15, "Bold", "Segoe UI Symbol")
         check := MeasureAccessibleSingleLineText(sample, "✔")
-        font(17, "Bold", "Segoe UI")
+        font(17, "Bold", LauncherThemeFont())
         active := MeasureAccessibleSingleLineText(sample, "!")
         summaryW := Max(p(28), Max(circle.Width, check.Width, active.Width) + p(6))
         summaryH := Max(p(27), Max(circle.Height, check.Height, active.Height) + p(6))
@@ -449,7 +449,7 @@ CreateGameLoginProgress(layout)
         dotW := enlarged ? plan.Rows[index].DotW : p(30)
         dotH := enlarged ? plan.Rows[index].DotH : p(21)
         dotX := enlarged ? Round((layout.Width - dotW) / 2) : p(195)
-        SetAccessibleTextFont(window, "s" fontSize(11) " cC8BFB4", "Segoe UI")
+        SetAccessibleTextFont(window, "s" fontSize(11) " cC8BFB4", LauncherThemeFont())
         label := window.Add("Text", "x" p(30) " y" y " w" p(360)
             " h" labelH " Center BackgroundTrans", labelText)
         SetAccessibleTextFont(window, "s" fontSize(13) " cFFFFFF", "Segoe UI Symbol")
@@ -462,7 +462,7 @@ CreateGameLoginProgress(layout)
             BaseText: labelText, SymbolText: "", DotColor: "", LabelColor: ""})
     }
     window.ProgressBottomLine := window.Add("Text", "x" p(27) " y" (enlarged ? plan.BottomLineY : p(391)) " w" p(366) " h" p(2) " Background806B51", "")
-    SetAccessibleTextFont(window, "s" fontSize(10) " Bold cD3B687", "Segoe UI")
+    SetAccessibleTextFont(window, "s" fontSize(10) " Bold cD3B687", LauncherThemeFont())
     LoginProgressFooter := window.Add("Text", "x" p(24) " y" (enlarged ? plan.FooterY : p(403))
         " w" p(372) " h" (enlarged ? plan.FooterH : p(25)) " Center BackgroundTrans" (enlarged ? "" : " +0x4000"), "")
     LoginProgressSummaryDots := []
@@ -531,7 +531,7 @@ RenderGameLoginProgress()
             if symbol = "✔"
                 SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(12, scale) " Bold c173C2A", "Segoe UI Symbol")
             else if symbol = "!"
-                SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(14, scale) " Bold c173C2A", "Segoe UI")
+                SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(14, scale) " Bold c173C2A", LauncherThemeFont())
             row.SymbolText := symbol
             dirty := true
         }
@@ -559,7 +559,7 @@ RenderGameLoginProgress()
             if symbol = "✔"
                 SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(15, scale) " Bold c173C2A", "Segoe UI Symbol")
             else if symbol = "!"
-                SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(17, scale) " Bold c173C2A", "Segoe UI")
+                SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(17, scale) " Bold c173C2A", LauncherThemeFont())
             marker.SymbolText := symbol
             dirty := true
         }

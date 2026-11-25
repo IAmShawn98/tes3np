@@ -2502,10 +2502,18 @@ expect(
     and 'return LauncherMorrowindFont' in settings_ui
     and 'LauncherThemeFont()' in diagnostic_fixture
     and 'MismatchFixtureDisallow("theme font resolution")' in diagnostic_fixture
-    and 'return kind = "heading" ? LauncherThemeFont() : "Segoe UI"' in
+    and 'return LauncherThemeFont()' in
         (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
     and 'SetAccessibleTextFont(menu, "s17 Bold cC5A45C", LauncherThemeFont())' in settings_ui
     and 'SetAccessibleTextFont(options, "s15 Bold cC5A45C", LauncherThemeFont())' in settings_ui,
+)
+expect(
+    "All native launcher-owned text uses Mystic Cards rather than outdated normal-text font families",
+    all(not re.search(r'"(?:Segoe UI|Palatino Linotype)"', p.read_text(encoding="utf-8-sig"))
+        for p in (ROOT / "src").rglob("*.ahk"))
+    and 'SetAccessibleTextFont(LauncherGui, "s10 Bold", LauncherThemeFont())' in
+        (ROOT / "src/ui/controls.ahk").read_text(encoding="utf-8-sig")
+    and 'LauncherThemeFont()' in launcher_smoke_tests,
 )
 theme_probe = section_between(launcher_smoke_tests, "\nLauncherCheckUsesThemeFont(args)\n{", "\nRunLauncherChecks(args)")
 theme_dispatch = section_between(launcher_smoke_tests, "\nRunLauncherChecks(args)\n{", "\nCheckCategorizedUpdateNotes()")
@@ -2532,7 +2540,7 @@ chat_web_loader = (chat_root / "GameChatWeb.cs").read_text(encoding="utf-8-sig")
 updates_html = (chat_web / "server-updates.html").read_text(encoding="utf-8-sig")
 updater_worker = (ROOT / "scripts" / "tes3np-updater.ps1").read_text(encoding="utf-8-sig")
 expect(
-    "Chat Host and local web headings use the same bundled theme font with readable body roles",
+    "Chat Host and all launcher-owned web text use the same bundled theme font",
     'MysticCards.ttf' in chat_project and 'MysticCardsFontLicense.txt' in chat_project
     and 'AddFontMemResourceEx' in chat_typography and 'AddMemoryFont' in chat_typography
     and 'GameChatTypography.ThemeFont' in (chat_root / "GameChatWindow.Surface.cs").read_text(encoding="utf-8-sig")
@@ -2541,18 +2549,24 @@ expect(
     and 'fileName is "message-feed.html" or "server-updates.html"' in chat_web_loader
     and 'GameChatTypography.WebFontCss' in chat_web_loader
     and '/* TES3NP_THEME_FONT */' in message_page and '/* TES3NP_THEME_FONT */' in updates_html
-    and "font-src data:" in updates_html and "'TES3NP Theme'" in updates_html
-    and 'Palatino Linotype' in message_page
-    and 'Palatino Linotype' in (chat_web / "discord-chat-composer.js").read_text(encoding="utf-8-sig")
+    and "font-src data:" in updates_html and '"TES3NP Theme"' in updates_html
+    and '"TES3NP Theme"' in message_page
+    and '"TES3NP Theme"' in (chat_web / "discord-chat-composer.js").read_text(encoding="utf-8-sig")
+    and 'new FontFace' in chat_typography and 'document.fonts.add(face)' in chat_typography
+    and 'GameChatTypography.BrowserFontInstall' in chat_web_loader
+    and '/* TES3NP_THEME_FONT_LOAD */' in (chat_web / "discord-chat-composer.js").read_text(encoding="utf-8-sig")
     and 'Segoe UI Emoji' in updates_html,
 )
 expect(
-    "Standalone updater theme title is loaded in memory without locking the installed font",
+    "Standalone updater text uses the shared font loaded in memory without locking the installed font",
     'New-ProgressThemeFont' in updater_worker
     and 'ReadAllBytes($fontPath)' in updater_worker
     and 'AddMemoryFont($ProgressThemeMemory' in updater_worker
     and 'FreeHGlobal($ProgressThemeMemory)' in updater_worker
-    and '$title.UseCompatibleTextRendering = $true' in updater_worker,
+    and '$title.UseCompatibleTextRendering = $true' in updater_worker
+    and '$label.UseCompatibleTextRendering = $true' in updater_worker
+    and '$message.Font = $ProgressThemeBodyFont' in updater_worker
+    and '$ProgressStatus.Font = $ProgressThemeStatusFont' in updater_worker,
 )
 status_carousel = (ROOT / "src" / "ui" / "launcher-carousel.ahk").read_text(encoding="utf-8-sig")
 expect(
@@ -2683,7 +2697,7 @@ expect(
     and 'update-unread-circle.png' in update_check
     and 'LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)' in update_check
     and 'LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels' in update_check
-    and 'number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")' in update_check
+    and 'number.SetFont("s" size " Bold cFFFFFF", LauncherThemeFont())' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
     and 'size := Max(6, Round(AccessibilityFontSize(16) * scale / GetLauncherBadgeDpiScale()))' in update_check
@@ -2812,8 +2826,8 @@ expect(
     and 'gap := 24' in update_dialogs
     and 'AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)' in update_dialogs
     and 'PositionCompactMetadataPair(pair, x, y)' in update_dialogs
-    and 'SetAccessibleTextFont(panel, "s" compactFontSize " Bold cE7BE70", "Segoe UI")' in update_dialogs
-    and 'SetAccessibleTextFont(panel, "s" compactFontSize " Norm cFFF0DC", "Segoe UI")' in update_dialogs
+    and 'SetAccessibleTextFont(panel, "s" compactFontSize " Bold cE7BE70", LauncherThemeFont())' in update_dialogs
+    and 'SetAccessibleTextFont(panel, "s" compactFontSize " Norm cFFF0DC", LauncherThemeFont())' in update_dialogs
     and '{Label: "Installed:", Value: "v" installedVersion}' in update_dialogs
     and '{Label: "Latest:", Value: "v" latestVersion}' in update_dialogs
     and '{Label: "Channel:", Value: channelName}' in update_dialogs

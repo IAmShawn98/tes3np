@@ -846,7 +846,7 @@ EditProfile(index, *)
         LaunchSettingsHeading.Text := CharacterPage.BookEditorHeadingText
         LaunchSettingsHeading.Visible := true
         HideMacroBookPanel()
-        SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
+        SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
         global EditorFields
         entries := [["Name", "Username", profile.Name], ["Password", "Password", profile.Password],
             ["UsernameDelay", "Username screen delay (sec)", profile.UsernameDelay],
@@ -888,7 +888,7 @@ EditProfile(index, *)
 CreateProfileEditor()
 {
     global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint, EditorReconnectTick
-    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     EditorRows := []
     Loop 5
     {
@@ -905,7 +905,7 @@ CreateProfileEditor()
         EditorControls.Push(input)
     }
     SetInterfaceLoadingText("Loading race selector...")
-    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Race")
     speciesOptions := ["Select race..."]
     for item in CharacterSpeciesOptions()
@@ -914,7 +914,7 @@ CreateProfileEditor()
     EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
         "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
     EditorSpeciesDropDown.OnEvent("Change", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
-    SetAccessibleTextFont(CharacterPage, "s9 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s9 c382314", LauncherThemeFont())
     ; The old hint overlapped the DDL's collapsed native control (y376..~402),
     ; so its text could remain invisible until the book was reconstructed.
     EditorOCSpeciesHint := CharacterPage.Add("Text",
@@ -922,7 +922,7 @@ CreateProfileEditor()
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
     ; by clicking the persistent race line without changing the layout.
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
-    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
     EditorReconnectTick := AddBookTick(CharacterPage, 525, 435, ToggleEditorReconnect)
     reconnectLabel := AddBookLabel(CharacterPage, 551, 432, 329, 24, "Auto reconnect on crash")
@@ -1170,7 +1170,7 @@ PromptOriginalCharacterSpecies(current := "")
     dialog := Gui("+Owner" CharacterPage.Hwnd " -MinimizeBox -MaximizeBox",
         "Original Character race")
     dialog.BackColor := "E2CEA2"
-    SetAccessibleTextFont(dialog, "s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(dialog, "s10 c382314", LauncherThemeFont())
     dialog.Add("Text", "x20 y17 w320 h40",
         "What is your original character's race?")
     options := ["Select race..."]

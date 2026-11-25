@@ -748,7 +748,7 @@ CheckOwnedMenuScaling()
     ox := ml + 100, oy := mt + 90
     LauncherGui.Show("x" ox " y" oy " w560 h425")
     child := Gui("+Owner" LauncherGui.Hwnd " -Caption -Border", "Child menu")
-    child.SetFont("s12", "Segoe UI")
+    child.SetFont("s12", LauncherThemeFont())
     label := child.Add("Text", "x20 y25 w210 h30", "Scaled menu")
     button := child.Add("Button", "x30 y95 w160 h40", "Test")
     try
@@ -1146,9 +1146,9 @@ CheckMeasuredV016ActionRows()
             buttons := []
             try
             {
-                SetAccessibleTextFont(panel, "s19 Norm", "Segoe UI")
+                SetAccessibleTextFont(panel, "s19 Norm", LauncherThemeFont())
                 heading := panel.Add("Text", "x32 y20 w448 h24", "Launcher Data & Diagnostics")
-                SetAccessibleTextFont(panel, "s13 Norm", "Segoe UI")
+                SetAccessibleTextFont(panel, "s13 Norm", LauncherThemeFont())
                 label := panel.Add("Text", "x32 y50 w145 h24", "Interface text")
                 combo := panel.Add("DropDownList", "x184 y45 w296 h200", ["Normal", "Large", "Extra Large"])
                 left := AddStyledButton(panel, 32, 80, 120, 30, "Copy Expansion Pack Logs", (*) => 0)
@@ -1356,7 +1356,7 @@ CheckMeasuredPopulatedMacroBook()
                     {Name: "Macro three"}, {Name: "Macro four"},
                     {Name: "A longer fifth macro name requiring multiple lines"}]
                 MacroScrollOffset := 0
-                SetAccessibleTextFont(page, "s10 Norm", "Segoe UI")
+                SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
                 MacroNameEdit := page.Add("Edit", "x551 y159 w125 h22 Hidden")
                 Loop 4
                 {
@@ -1366,7 +1366,7 @@ CheckMeasuredPopulatedMacroBook()
                     SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
                     tick := page.Add("Text", "x525 y" (y + 20) " w18 h18", "")
                     name := page.Add("Text", "x551 y" (y + 19) " w125 h22", "Macro")
-                    SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+                    SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
                     run := page.Add("Text", "x551 y" (y + 42) " w103 h20", "Run")
                     stop := page.Add("Text", "x663 y" (y + 42) " w103 h20", "Stop")
                     remove := page.Add("Text", "x775 y" (y + 42) " w105 h20", "Remove")
@@ -1378,7 +1378,7 @@ CheckMeasuredPopulatedMacroBook()
                 }
                 MacroScrollTrack := page.Add("Text", "x887 y140 w8 h272", "")
                 MacroScrollThumb := page.Add("Text", "x888 y140 w6 h40", "")
-                SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+                SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
                 MacroImportButton := page.Add("Text", "x525 y188 w355 h29", "Upload Macro")
                 page.BookCloseButton := page.Add("Text", "x515 y575 w90 h30", "Close")
                 SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
@@ -1747,7 +1747,7 @@ CheckTenCharacterBookExpansion()
             SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
             tick := page.Add("Text", "x70 y" (y + 2) " w18 h18", "")
             label := page.Add("Text", "x95 y" y " w140 h23", name)
-            SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+            SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
             play := page.Add("Text", "x240 y" y " w55 h22", "Play")
             edit := page.Add("Text", "x300 y" y " w60 h22", "Edit")
             remove := page.Add("Text", "x365 y" y " w75 h22", "Remove")
@@ -1756,7 +1756,7 @@ CheckTenCharacterBookExpansion()
         SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
         CharacterLimitNotice := page.Add("Text", "x70 y429 w370 h25",
             "* You have reached the server character limit.")
-        SetAccessibleTextFont(page, "s10 Bold", "Segoe UI")
+        SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
         AddCharacterButton := page.Add("Text", "x70 y540 w370 h30", "Add character")
         WipeCharacterButton := page.Add("Text", "x70 y575 w370 h30", "Wipe Character List")
         DataTransferButton := page.Add("Text", "x775 y575 w110 h30", "Export Data")
@@ -1847,7 +1847,7 @@ CheckAccessibleBookNameWrapping()
     try
     {
         AccessibilityTextSize := "Extra Large"
-        SetAccessibleTextFont(page, "s12 Norm", "Segoe UI")
+        SetAccessibleTextFont(page, "s12 Norm", LauncherThemeFont())
         original := "LongTokenWithoutSpacesLongTokenWithoutSpaces" Chr(0x1F600) "e" Chr(0x0301)
         control := page.Add("Text", "x0 y0 w100 h20", original)
         wrapped := PrepareAccessibleBookName(control, original, 100)
@@ -1883,10 +1883,10 @@ CheckMeasuredBookEditorGeometry()
             {
                 CharacterPage := page
                 AccessibilityTextSize := mode
-                SetAccessibleTextFont(page, "s19 Norm", "Segoe UI")
+                SetAccessibleTextFont(page, "s19 Norm", LauncherThemeFont())
                 title := "Editing UnbrokenBalmoraCharacterNameWithoutSpaces"
                 heading := page.Add("Text", "x525 y45 w360 h30 Center", title)
-                SetAccessibleTextFont(page, "s10 Norm", "Segoe UI")
+                SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
                 rows := []
                 for caption in ["Username", "Password", "Username screen delay (sec)",
                     "Password screen delay (sec)", "Character loading delay (sec)"]
@@ -2034,7 +2034,7 @@ CheckMeasuredFooterVersionAndLoginCard()
             for mode in ["Normal", "Large", "Extra Large", "Normal"]
             {
                 AccessibilityTextSize := mode
-                label.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), "Segoe UI")
+                label.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), LauncherThemeFont())
                 rect := GetLauncherVersionLabelRect(label, scale, Round(180 * scale))
                 if mode = "Normal"
                 {
@@ -2172,11 +2172,11 @@ CheckMeasuredVersionStatusHeader()
             {
                 SetAccessibleTextFont(panel, "s14 Bold", LauncherThemeFont())
                 title := panel.Add("Text", "x30 y20 w740 h38", copy.Title)
-                SetAccessibleTextFont(panel, "s10", "Segoe UI")
+                SetAccessibleTextFont(panel, "s10", LauncherThemeFont())
                 message := panel.Add("Text", "x30 y65 w740 h30", copy.Message)
                 SetAccessibleTextFont(panel, "s12 Bold", LauncherThemeFont())
                 heading := panel.Add("Text", "x30 y123 w430 h30", "Release Notes")
-                SetAccessibleTextFont(panel, "s9", "Segoe UI")
+                SetAccessibleTextFont(panel, "s9", LauncherThemeFont())
                 build := panel.Add("Text", "x482 y129 w288 h22", "Build: v0.1.21-alpha.1")
                 extra := ReflowVersionStatusHeader(title, message, heading, build)
                 heading.GetPos(, &hy, , &hh)
@@ -2237,7 +2237,7 @@ CheckInterfaceTextAccessibility()
             panel := Gui("-DPIScale")
             try
             {
-                SetAccessibleTextFont(panel, "s11 Norm c382314", "Segoe UI")
+                SetAccessibleTextFont(panel, "s11 Norm c382314", LauncherThemeFont())
                 body := panel.Add("Text", "x4 y4 w330 h40", "Character and settings copy")
                 bodyHeights.Push(NativeInterfaceFontHeight(body))
                 SetAccessibleTextFont(body, "c241408")
@@ -2257,7 +2257,7 @@ CheckInterfaceTextAccessibility()
         book := Gui("-DPIScale")
         try
         {
-            SetAccessibleTextFont(book, "s11 Norm", "Segoe UI")
+            SetAccessibleTextFont(book, "s11 Norm", LauncherThemeFont())
             label := book.Add("Text", "x20 y20 w300 h30", "Cached character menu")
             book.InterfaceFontMode := "Normal"
             label.GetPos(&x, &y, &width, &height)
@@ -2596,7 +2596,7 @@ CheckLauncherFaceReuse()
                 throw Error("Changed action caption retained stale bitmap.")
             AssertLauncherFaceBitmapReleased(before)
             before := LauncherFaceCache[action.Hwnd]["normal"]
-            action.SetFont("s" (percent = 100 ? 14 : 15) " Bold", "Segoe UI")
+            action.SetFont("s" (percent = 100 ? 14 : 15) " Bold", LauncherThemeFont())
             PaintButtonToDC(action.Hwnd, dc)
             if LauncherFaceCache[action.Hwnd]["normal"] = before
                 throw Error("Changed native font retained stale bitmap.")
@@ -2944,7 +2944,7 @@ CheckUnreadBadgeTextAdjacency()
 {
     dpi := GetLauncherBadgeDpiScale()
     panel := Gui(, "Unread badge text adjacency smoke")
-    panel.SetFont("s9 cC5A45C", "Segoe UI")
+    panel.SetFont("s9 cC5A45C", LauncherThemeFont())
     label := panel.Add("Text", "x12 y10 BackgroundTrans",
         "tes3np · v0.1.21-alpha.1")
     label.GetPos(, , &naturalWidth)
@@ -2956,7 +2956,7 @@ CheckUnreadBadgeTextAdjacency()
             scale := percent / 100
             label.Move(Round(12 * scale), Round(10 * scale),
                 Round(padded * scale), Round(18 * scale))
-            label.SetFont("s" Max(5, Round(9 * scale)), "Segoe UI")
+            label.SetFont("s" Max(5, Round(9 * scale)), LauncherThemeFont())
             FitLauncherVersionLabelToText(label)
             label.GetPos(&labelX, , &labelWidth)
             badgeX := GetLauncherUnreadBadgeX(label, scale)
@@ -2992,7 +2992,7 @@ CheckCircularUpdateBadgeRendering()
         panel := Gui("-DPIScale", "Circular update badge smoke")
         badge := panel.Add("Text",
             "x0 y0 w22 h22 Center +0x200 BackgroundD63232", "1")
-        badge.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+        badge.SetFont("s10 Bold cFFFFFF", LauncherThemeFont())
         region := 0
         try
         {

@@ -1,5 +1,6 @@
 (() => {
   if (window.top !== window) return;
+  /* TES3NP_THEME_FONT_LOAD */
   const roots = '[class^="emojiPicker_"], [class*=" emojiPicker_"], ' +
     '[class^="emojiPicker-"], [class*=" emojiPicker-"], [role="dialog"][aria-label*="Emoji" i]';
   const choices = '[class^="emojiItem_"], [class*=" emojiItem_"], [role="gridcell"], [data-emoji-id], [data-type="emoji"]';
@@ -48,7 +49,8 @@
         background: #232428; pointer-events: none; }
       html[${isolated}], html[${isolated}] body { background: #232428 !important; }
       html[${isolated}] body :not(:where([${marker}], [${marker}] *)) { visibility: hidden !important; }
-      html[${isolated}] [${marker}] { visibility: visible !important; }
+      html[${isolated}] [${marker}] { visibility: visible !important; font-family: "TES3NP Theme","Mystic Cards",Georgia,serif !important; }
+      html[${isolated}] [${marker}] :is(input, [role="searchbox"], [role="combobox"], [role="heading"], label) { font-family: "TES3NP Theme","Mystic Cards",Georgia,serif !important; }
       /* Discord's server icons reference SVG masks defined outside the picker. */
       html[${isolated}] svg :is(defs, mask, clipPath),
       html[${isolated}] svg :is(defs, mask, clipPath) * { visibility: visible !important; }

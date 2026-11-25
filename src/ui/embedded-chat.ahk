@@ -440,7 +440,7 @@ CreateLauncherChatCaptionFont(height)
         "Int", -height, "Int", 0, "Int", 900, "Int", 900,
         "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
         "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
-        "UInt", 0, "Str", "Segoe UI", "Ptr")
+        "UInt", 0, "Str", LauncherThemeFont(), "Ptr")
 }
 
 GetLauncherChatCaptionMetrics(dc, label, paintScale)
@@ -513,7 +513,7 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
                 "Int", -fittedHeight, "Int", 0, "Int", 900, "Int", 900,
                 "Int", 700, "UInt", 0, "UInt", 0, "UInt", 0,
                 "UInt", 1, "UInt", 0, "UInt", 0, "UInt", 0,
-                "UInt", 0, "Str", "Segoe UI", "Ptr")
+                "UInt", 0, "Str", LauncherThemeFont(), "Ptr")
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
         }
     }

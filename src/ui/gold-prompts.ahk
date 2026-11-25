@@ -48,6 +48,7 @@ CreateGoldNativePrompt(owner, title, width, height)
     try
     {
         panel := Gui("-Caption -Border -DPIScale +Owner" backdrop.Hwnd, title)
+        SetAccessibleTextFont(panel, "s10 Norm", LauncherThemeFont())
         panel.MarginX := 0, panel.MarginY := 0
         panel.BackColor := "C5A45C"
         ; Keep the interior control so prompts that change height can resize the frame and fill together.

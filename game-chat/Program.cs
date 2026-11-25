@@ -18,6 +18,7 @@ internal static class Program
         int baseWidth = args.Length > 1 && int.TryParse(args[1], out int width) && width > 0
             ? width : 960;
         ApplicationConfiguration.Initialize();
+        Application.SetDefaultFont(GameChatTypography.ThemeFont(9, System.Drawing.FontStyle.Regular));
         var chat = new GameChatWindow(new IntPtr(owner), baseWidth);
         Application.Run(chat);
         chat.WaitForChatArchiveOnExit();

@@ -10,7 +10,7 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     try {
         SetAccessibleTextFont(window, "s15 Bold cC5A45C", LauncherThemeFont())
         extra := AddGoldPromptCopy(window, 32, 26, 588, 32, title)
-        SetAccessibleTextFont(window, "s10 cFFFFFF", "Segoe UI")
+        SetAccessibleTextFont(window, "s10 cFFFFFF", LauncherThemeFont())
         extra += AddGoldPromptCopy(window, 32, 86 + extra, 588, 67, message)
         AddStyledButton(window, 221, 203 + extra, 185, 34, confirmLabel, (*) => (response.Accepted := true, DestroyScaledMenu(window)))
         AddStyledButton(window, 422, 203 + extra, 185, 34, "Not Now", (*) => DestroyScaledMenu(window))
@@ -194,7 +194,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     rows := [], badges := []
     for slot in [1, 2, 3, 4]
     {
-        SetAccessibleTextFont(panel, "s" Max(4, Round(10 * scale)) " Underline cFFF0DC", "Segoe UI")
+        SetAccessibleTextFont(panel, "s" Max(4, Round(10 * scale)) " Underline cFFF0DC", LauncherThemeFont())
         link := panel.Add("Text", "Hidden x" left " y" (rowTop + (slot - 1) * rowStep)
             . " w" rowWidth " h" rowHeight " BackgroundTrans +0x100", "")
         link.OnEvent("Click", OpenMissedUpdateVersion.Bind(page, slot))
@@ -215,7 +215,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
 
     ; This control stays in its own fixed footer area, independent from the
     ; missed-release scroll offset and scrollbar thumb position.
-    SetAccessibleTextFont(panel, "s9 Bold cFFF0DC", "Segoe UI")
+    SetAccessibleTextFont(panel, "s9 Bold cFFF0DC", LauncherThemeFont())
     markReadY := px(528 + topExtra + bottomExtra)
     clearButton := AddStyledButton(panel, px(34), markReadY, px(118), px(26),
         "Mark Read", ClearMissedUpdateBadges.Bind(page))
@@ -249,7 +249,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
             caption := "v" item.Version
             SetAccessibleTextFont(row, "s" Max(4, Round(10 * scale))
                 . (item.Url != "" ? " Underline cFFF0DC" : " Norm cFFF0DC"),
-                "Segoe UI")
+                LauncherThemeFont())
             while StrLen(caption) > 2
                 && !ReleaseNoteFits(row, caption, rowWidth - px(36))
                 caption := SubStr(caption, 1, -2) "…"
@@ -279,7 +279,7 @@ AddMissedUpdateLinks(panel, versions, scale, topExtra := 0, bottomExtra := 0, he
     down := AddStyledButton(panel, arrowX, arrowBottom, px(20), px(22),
         "↓", (*) => (page.Offset += 1, refresh()))
     for arrow in [up, down]
-        SetAccessibleTextFont(arrow, UpdateNoteFont("heading", true, true, scale), "Segoe UI")
+        SetAccessibleTextFont(arrow, UpdateNoteFont("heading", true, true, scale), LauncherThemeFont())
     refresh()
     if IsObject(observer)
     {
@@ -499,7 +499,7 @@ AddUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel, compac
         return AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
 
     ; Preserve the separate Version Status / legacy metadata layout.
-    SetAccessibleTextFont(panel, "s10 Bold cEDE1C9", "Segoe UI")
+    SetAccessibleTextFont(panel, "s10 Bold cEDE1C9", LauncherThemeFont())
     baseX := 30
     labelY := 80
     rightEdge := 770
@@ -569,10 +569,10 @@ AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
         {
             for item in captions
             {
-                SetAccessibleTextFont(probe, "s" fontSize " Bold cE7BE70", "Segoe UI")
+                SetAccessibleTextFont(probe, "s" fontSize " Bold cE7BE70", LauncherThemeFont())
                 labelProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Label)
                 labelProbe.GetPos(, , &labelWidth)
-                SetAccessibleTextFont(probe, "s" fontSize " Norm cFFF0DC", "Segoe UI")
+                SetAccessibleTextFont(probe, "s" fontSize " Norm cFFF0DC", LauncherThemeFont())
                 valueProbe := probe.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Value)
                 valueProbe.GetPos(, , &valueWidth)
                 measuredWidth += labelWidth + valueWidth + 7
@@ -588,10 +588,10 @@ AddCompactUpdatePreviewMetadata(panel, installedVersion, latestVersion, channel)
     pairs := []
     for item in captions
     {
-        SetAccessibleTextFont(panel, "s" compactFontSize " Bold cE7BE70", "Segoe UI")
+        SetAccessibleTextFont(panel, "s" compactFontSize " Bold cE7BE70", LauncherThemeFont())
         labelControl := panel.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Label)
         labelControl.GetPos(, , &labelWidth)
-        SetAccessibleTextFont(panel, "s" compactFontSize " Norm cFFF0DC", "Segoe UI")
+        SetAccessibleTextFont(panel, "s" compactFontSize " Norm cFFF0DC", LauncherThemeFont())
         valueControl := panel.Add("Text", "x0 y0 BackgroundTrans +0x80", item.Value)
         valueControl.GetPos(, , &valueWidth)
         labelWidth += 2
@@ -684,11 +684,11 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     try {
         SetAccessibleTextFont(panel, "s14 Bold cC5A45C", LauncherThemeFont())
         titleControl := panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
-        SetAccessibleTextFont(panel, "s10 cEDE1C9", "Segoe UI")
+        SetAccessibleTextFont(panel, "s10 cEDE1C9", LauncherThemeFont())
         messageControl := panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
         SetAccessibleTextFont(panel, "s12 Bold cC5A45C", LauncherThemeFont())
         notesHeading := panel.Add("Text", "x30 y123 w430 h30 BackgroundTrans", "Release Notes")
-        SetAccessibleTextFont(panel, "s9 cC5A45C", "Segoe UI")
+        SetAccessibleTextFont(panel, "s9 cC5A45C", LauncherThemeFont())
         buildLabel := panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
         topExtra := ReflowVersionStatusHeader(titleControl, messageControl, notesHeading, buildLabel)
         AddStyledButton(panel, 178, 544, 212, 34, "Check For Updates", (*) => (state.Retry := true, DestroyScaledMenu(panel)))

@@ -55,7 +55,7 @@ BuildMacroBookPanel()
             Run: run, Stop: stop, Remove: remove})
         MacroBookControls.Push(tick, status, name, rename, run, stop, remove)
     }
-    SetAccessibleTextFont(CharacterPage, "s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y159 w125 h22 Hidden Limit100 -Multi")
     MacroNameEdit.EditingItem := 0
     MacroNameEdit.ErrorText := ""
@@ -1119,7 +1119,7 @@ ChooseMacroScript(scripts)
     result := {Entry: ""}
     chooser := Gui("+Owner" MacroPage.Hwnd " -MinimizeBox -MaximizeBox", "Choose macro script")
     chooser.BackColor := "E2CEA2"
-    SetAccessibleTextFont(chooser, "s10 c382314", "Segoe UI")
+    SetAccessibleTextFont(chooser, "s10 c382314", LauncherThemeFont())
     chooser.Add("Text", "x20 y20 w460 h40", "This package has more than one script. Choose the main .ahk file to run.")
     list := chooser.Add("DropDownList", "x20 y70 w460 Choose1", scripts)
     button := chooser.Add("Button", "x260 y115 w100 h30 Default", "Import")

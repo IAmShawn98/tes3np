@@ -32,12 +32,12 @@
   border: 0 !important; box-shadow: none !important;
 }
 [class*="messageContent_"], [class*="markup_"] {
-  font: 13px/1.4 Georgia, "Palatino Linotype", serif !important;
+  font: 13px/1.4 "TES3NP Theme","Mystic Cards",Georgia,serif !important;
   color: #ead6aa !important; white-space: pre-wrap !important;
   overflow-wrap: anywhere !important; letter-spacing: .08px !important;
 }
 [class*="username_"] {
-  font: bold 12px/1.35 Georgia, serif !important;
+  font: bold 12px/1.35 "TES3NP Theme","Mystic Cards",Georgia,serif !important;
   color: #d8b26d !important; letter-spacing: .2px !important;
 }
 [class*="timestamp_"], [class*="divider_"], [class*="repliedMessage_"],

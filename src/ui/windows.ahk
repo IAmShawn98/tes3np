@@ -118,6 +118,7 @@ AccessibleLayoutDpi(control)
 CreateAccessibleLayoutGui(options := "", title := "")
 {
     panel := Gui(options, title)
+    SetAccessibleTextFont(panel, "s10 Norm", LauncherThemeFont())
     panel.AccessibleLayoutDpi := A_ScreenDPI / 96
     return panel
 }

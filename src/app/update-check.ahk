@@ -12,7 +12,7 @@ global LauncherPublishedVersions := []
 CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel
-    LauncherGui.SetFont("s9 cC5A45C", "Segoe UI")
+    LauncherGui.SetFont("s9 cC5A45C", LauncherThemeFont())
     ; AHK only auto-sizes a Text control to its full caption when neither
     ; dimension is specified at creation. Giving it h18 here used a narrow
     ; default width and cut the version number off at 50% launcher scale.
@@ -39,7 +39,7 @@ CreateLauncherUpdateBadge()
         A_ScriptDir "\assets\controls\update-unread-circle.png")
     LauncherUpdateNumber := LauncherGui.Add("Text",
         "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundTrans", "1")
-    LauncherUpdateNumber.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+    LauncherUpdateNumber.SetFont("s10 Bold cFFFFFF", LauncherThemeFont())
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)
     LauncherUpdateNumber.Visible := false
@@ -60,7 +60,7 @@ ScaleLauncherVersionLabel(scale)
     global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     if IsObject(LauncherVersionLabel)
     {
-        LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), "Segoe UI")
+        LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), LauncherThemeFont())
         LauncherVersionLabel.GetPos(, , &currentWidth)
         rect := GetLauncherVersionLabelRect(LauncherVersionLabel, scale, currentWidth)
         LauncherVersionLabel.Move(, rect.Y, rect.W, rect.H)
@@ -86,14 +86,14 @@ ApplyLauncherBadgeFont(scale, sample := 0)
     if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
         "Ptr", bounds, "Int")
     {
-        number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+        number.SetFont("s" size " Bold cFFFFFF", LauncherThemeFont())
         return
     }
     availableWidth := Max(1, NumGet(bounds, 8, "Int") - 1)
     availableHeight := Max(1, NumGet(bounds, 12, "Int"))
     Loop 12
     {
-        number.SetFont("s" size " Bold cFFFFFF", "Segoe UI")
+        number.SetFont("s" size " Bold cFFFFFF", LauncherThemeFont())
         try
         {
             if ReleaseNoteFits(number, number.Text,

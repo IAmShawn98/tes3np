@@ -87,6 +87,7 @@ internal sealed partial class GameChatWindow
         for (int i = 0; i < bounds.Length; i++)
             if (!int.TryParse(args[i + 3], NumberStyles.Integer, CultureInfo.InvariantCulture, out bounds[i])) return true;
         ApplicationConfiguration.Initialize();
+        Application.SetDefaultFont(GameChatTypography.ThemeFont(9, FontStyle.Regular));
         using var picker = new DiscordReactionPickerForm(args[1], args[2] == "cache",
             Rectangle.FromLTRB(bounds[0], bounds[1], bounds[2], bounds[3]));
         Application.Run(picker);
