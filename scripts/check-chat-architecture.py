@@ -2452,8 +2452,8 @@ expect(
     and 'face.HasOwnProp("IsInfo")' in font_update
     and 'AccessibilityFontSize(19) * scale' in font_update
     and "ScaleLauncherVersionLabel(scale)" in font_update
-    and 'AccessibilityFontSize(9) * scale' in update_check
-    and 'AccessibilityFontSize(16) * scale' in update_check
+    and 'AccessibilityFontSize(12) * scale' in update_check
+    and 'AccessibilityFontSize(20) * scale' in update_check
     and 'AccessibilityFontSize(10) * scale' in launcher_layout
     and 'AccessibilityFontSize(19) * scale' in launcher_layout
     and "RefreshCachedBookTextPreference(CharacterPage)" in (ROOT / "src/ui/characters.ahk").read_text(encoding="utf-8-sig")
@@ -2724,10 +2724,10 @@ expect(
     and 'number.SetFont("s" size " Bold cFFFFFF", LauncherThemeFont())' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateBadge)' in update_check
     and 'CreateEllipticRgn' in update_check
-    and 'size := Max(6, Round(AccessibilityFontSize(16) * scale / GetLauncherBadgeDpiScale()))' in update_check
+    and 'size := Max(6, Round(AccessibilityFontSize(20) * scale / GetLauncherBadgeDpiScale()))' in update_check
     and 'ApplyLauncherBadgeFont(scale, sample := 0)' in update_check
     and 'ApplyLauncherBadgeFont(scale, number)' in launcher_smoke_tests
-    and 'if percent = 100 && measuredHeight < 16' in launcher_smoke_tests
+    and 'if percent = 100 && measuredHeight < 18' in launcher_smoke_tests
     and 'if !HasSeenUpdateAutoPreview(manifest.version)' in update_check
     and 'LauncherUpdateBadge.Visible := false' in update_check
     and 'if !wasVisible' in update_check
@@ -2747,10 +2747,10 @@ expect(
     and 'innerWidth := Max(1, Round(diameter * 0.90))' in update_check
     and 'innerHeight := innerWidth' in update_check
     and 'ShapeCircularUpdateBadge(LauncherUpdateNumber)' in update_check
-    and 'y694 w14 h11 Center +0x200 BackgroundTrans' in update_check
-    and 'y694 w14 h11 Center +0x200 BackgroundD63232' not in update_check
-    and 'x" x " y689 w22 h22 +0x40 BackgroundTrans' in update_check
-    and 'if width > 30' in launcher_smoke_tests
+    and 'h" inner " Center +0x200 BackgroundTrans' in update_check
+    and 'BackgroundD63232' not in update_check
+    and 'h" diameter " +0x40 BackgroundTrans' in update_check
+    and 'if width > expectedPixels + 2' in launcher_smoke_tests
     and 'ShapeCircularUpdateBadge(number)' in launcher_smoke_tests
     and 'Center +0x200 BackgroundTrans", "24"' in launcher_smoke_tests
     and 'Unread numeral overlay region is not circular.' in launcher_smoke_tests
@@ -2758,9 +2758,13 @@ expect(
     and 'assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir' in launcher_smoke_tests
     and 'badgeAsset := assetRoot "\\assets\\controls\\update-unread-circle.png"' in launcher_smoke_tests
     and 'if !FileExist(badgeAsset)' in launcher_smoke_tests
-    and 'physical := Max(20, Round((21 + 6 * (digits - 1)) * scale))' in update_check
+    and 'physical := Max(24, Round(AccessibilityFontSize(26 + 7 * (digits - 1)) * scale))' in update_check
     and 'LauncherUpdateBadge.Move(x, centeredY, diameter, diameter)' in update_check
-    and 'centeredY := baseY - Floor((diameter - baseDiameter) / 2) + Max(1, Round(5 / GetLauncherBadgeDpiScale()))' in update_check
+    and 'centeredY := GetLauncherUnreadBadgeY(LauncherVersionLabel, diameter, scale)' in update_check
+    and 'Round(714 * scale) - diameter' in update_check
+    and 'Round(709 * scale) - h' in update_check
+    and 'for count in [1, 24, 100]' in launcher_smoke_tests
+    and 'Enlarged footer badge exceeds the available launcher footer.' in launcher_smoke_tests
     and 'rowTop := px(362 + topExtra + bottomExtra)' in update_dialogs
     and 'if listY < Round(462 * scale) - 1' in launcher_smoke_tests
     and 'region := DllCall("gdi32\\CreateEllipticRgn"' in update_check

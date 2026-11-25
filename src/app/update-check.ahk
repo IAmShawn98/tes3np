@@ -12,16 +12,13 @@ global LauncherPublishedVersions := []
 CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel
-    LauncherGui.SetFont("s9 cC5A45C", LauncherThemeFont())
-    ; AHK only auto-sizes a Text control to its full caption when neither
-    ; dimension is specified at creation. Giving it h18 here used a narrow
-    ; default width and cut the version number off at 50% launcher scale.
-    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y691 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    LauncherGui.SetFont("s12 cC5A45C", LauncherThemeFont())
+    ; Auto-size the caption first, then reserve a measured, vertically
+    ; centered footer rectangle before the immutable layout is captured.
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y685 +0x200 BackgroundTrans", "tes3np · v" AppConfig.Version)
     LauncherVersionLabel.GetPos(, , &naturalWidth)
-    ; The launcher scales bounds by 50%, but keeps this text at least 5pt
-    ; (9pt at 100%); reserve enough width for that font-size floor.
-    ; The badge uses the final width as its adjacent alignment anchor.
-    LauncherVersionLabel.Move(, , Ceil(naturalWidth * 1.25) + 4, 18)
+    rect := GetLauncherVersionLabelRect(LauncherVersionLabel, 1, Ceil(naturalWidth * 1.25) + 4)
+    LauncherVersionLabel.Move(, rect.Y, rect.W, rect.H)
     FitLauncherVersionLabelToText(LauncherVersionLabel)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
 }
@@ -32,14 +29,21 @@ CreateLauncherUpdateBadge()
 {
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     x := GetLauncherUnreadBadgeX(LauncherVersionLabel, 1)
-    ; A blank alpha-transparent red disk supplies a genuinely circular edge.
-    ; The white number sits entirely inside the circle with no baked-in "1".
+    diameter := LauncherUnreadBadgeDiameter(1, 1)
+    y := GetLauncherUnreadBadgeY(LauncherVersionLabel, diameter, 1)
+    inner := Max(1, Round(diameter * 0.90))
+    inset := Floor((diameter - inner) / 2)
+    bitmapPixels := Max(1, Round(diameter * GetLauncherBadgeDpiScale()))
+    ; Keep the picture and numeral sized from the same footer geometry.
     LauncherUpdateBadge := LauncherGui.Add("Picture",
-        "x" x " y689 w22 h22 +0x40 BackgroundTrans",
-        A_ScriptDir "\assets\controls\update-unread-circle.png")
+        "x" x " y" y " w" diameter " h" diameter " +0x40 BackgroundTrans",
+        "*w" bitmapPixels " *h" bitmapPixels " " A_ScriptDir "\assets\controls\update-unread-circle.png")
+    LauncherUpdateBadge.Move(x, y, diameter, diameter)
     LauncherUpdateNumber := LauncherGui.Add("Text",
-        "x" (x + 4) " y694 w14 h11 Center +0x200 BackgroundTrans", "1")
-    LauncherUpdateNumber.SetFont("s10 Bold cFFFFFF", LauncherThemeFont())
+        "x" (x + inset) " y" (y + inset) " w" inner " h" inner " Center +0x200 BackgroundTrans", "1")
+    ApplyLauncherBadgeFont(1)
+    ShapeCircularUpdateBadge(LauncherUpdateBadge)
+    ShapeCircularUpdateBadge(LauncherUpdateNumber)
     LauncherUpdateBadge.OnEvent("Click", CheckForUpdates)
     LauncherUpdateNumber.OnEvent("Click", CheckForUpdates)
     LauncherUpdateNumber.Visible := false
@@ -60,7 +64,7 @@ ScaleLauncherVersionLabel(scale)
     global LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
     if IsObject(LauncherVersionLabel)
     {
-        LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), LauncherThemeFont())
+        LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(12) * scale)), LauncherThemeFont())
         LauncherVersionLabel.GetPos(, , &currentWidth)
         rect := GetLauncherVersionLabelRect(LauncherVersionLabel, scale, currentWidth)
         LauncherVersionLabel.Move(, rect.Y, rect.W, rect.H)
@@ -81,7 +85,7 @@ ApplyLauncherBadgeFont(scale, sample := 0)
         return
     ; Use more of the existing red circle for visibly larger white digits.
     ; Measure the actual native glyphs and back off only if they would clip.
-    size := Max(6, Round(AccessibilityFontSize(16) * scale / GetLauncherBadgeDpiScale()))
+    size := Max(6, Round(AccessibilityFontSize(20) * scale / GetLauncherBadgeDpiScale()))
     bounds := Buffer(16, 0)
     if !DllCall("user32\GetClientRect", "Ptr", number.Hwnd,
         "Ptr", bounds, "Int")
@@ -195,17 +199,13 @@ LauncherVersionLabelRequiredWidth(label)
 
 GetLauncherVersionLabelRect(label, scale, baseWidth)
 {
-    global AccessibilityTextSize, LauncherControlLayout
-    ; Recompute from immutable anchors so restoring Normal never retains
-    ; the larger font's width or the higher vertical position.
+    global LauncherControlLayout
+    ; Measure all sizes, including Normal and the minimum point size at
+    ; reduced scales. Preserve the bottom anchor through font resets.
     if LauncherControlLayout.Has(label.Hwnd)
         baseWidth := Round(LauncherControlLayout[label.Hwnd].Width * scale)
-    h := Round(18 * scale), y := Round(691 * scale)
-    if AccessibilityTextSize != "Normal"
-    {
-        h := Max(h, Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale()) + 2)
-        y := Round(709 * scale) - h
-    }
+    h := Max(Round(24 * scale), Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale()) + 2)
+    y := Round(709 * scale) - h
     return {Y: y, W: Max(baseWidth, LauncherVersionLabelRequiredWidth(label)), H: h}
 }
 
@@ -232,23 +232,31 @@ GetLauncherUnreadBadgeX(label, scale)
         textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
         textWidth := Ceil(textPixels / dpi)
         if textWidth > 0
-            return labelX + textWidth + Max(1, Round(3 * scale))
+            return labelX + textWidth + Max(1, Round(4 * scale))
     }
     catch Error
     {
         ; A missing device context must not keep the launcher from loading.
     }
     ; Fall back to the unpadded original width, not the 25%-extended box.
-    return labelX + Round(Max(1, labelWidth - 4) / 1.25) + Max(1, Round(3 * scale))
+    return labelX + Round(Max(1, labelWidth - 4) / 1.25) + Max(1, Round(4 * scale))
 }
 
 LauncherUnreadBadgeDiameter(count, scale)
 {
     digits := StrLen("" Max(1, count))
-    ; At full launcher scale, "24" gets ~23 PHYSICAL pixels, not the
-    ; image's 48px native size. Smaller launcher scales retain a readable 20px min.
-    physical := Max(20, Round((21 + 6 * (digits - 1)) * scale))
+    ; Physical pixels, not the original bitmap size. The circle follows
+    ; launcher scale and Interface Text while keeping a readable floor.
+    physical := Max(24, Round(AccessibilityFontSize(26 + 7 * (digits - 1)) * scale))
     return Max(1, Round(physical / GetLauncherBadgeDpiScale()))
+}
+
+GetLauncherUnreadBadgeY(label, diameter, scale)
+{
+    label.GetPos(, &labelY, , &labelH)
+    ; Center on the text rectangle and keep the entire circle inside the
+    ; launcher at reduced scale, where the physical-pixel floor applies.
+    return Min(Round(labelY + (labelH - diameter) / 2), Round(714 * scale) - diameter)
 }
 
 SetLauncherUnreadBadgeNumber(count)
@@ -262,12 +270,7 @@ SetLauncherUnreadBadgeNumber(count)
     diameter := LauncherUnreadBadgeDiameter(count, scale)
     LauncherUpdateBadge.GetPos(&oldX, &oldY, &oldWidth, &oldHeight)
     x := GetLauncherUnreadBadgeX(LauncherVersionLabel, scale)
-    baseY := Round(689 * scale)
-    baseDiameter := LauncherUnreadBadgeDiameter(1, scale)
-    LauncherVersionLabel.GetPos(, &labelY, , &labelH)
-    ; Follow the measured label center, preserving the existing Normal inset.
-    labelOffset := Round(labelY + labelH / 2 - (Round(691 * scale) + Round(18 * scale) / 2))
-    centeredY := baseY - Floor((diameter - baseDiameter) / 2) + Max(1, Round(5 / GetLauncherBadgeDpiScale())) + labelOffset
+    centeredY := GetLauncherUnreadBadgeY(LauncherVersionLabel, diameter, scale)
     if LauncherUpdateNumber.Text = value && oldWidth = diameter
         && oldHeight = diameter && oldX = x && oldY = centeredY
         return

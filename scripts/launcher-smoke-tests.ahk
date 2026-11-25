@@ -2028,22 +2028,30 @@ CheckMeasuredFooterVersionAndLoginCard()
     panel := CreateAccessibleLayoutGui()
     try
     {
-        label := panel.Add("Text", "x12 y691 w180 h18", "tes3np · v0.1.21-alpha.1")
+        label := panel.Add("Text", "x12 y685 w240 h24 +0x200", "tes3np · v0.1.21-alpha.1")
         for scale in [0.5, 1.0]
         {
             for mode in ["Normal", "Large", "Extra Large", "Normal"]
             {
                 AccessibilityTextSize := mode
-                label.SetFont("s" Max(5, Round(AccessibilityFontSize(9) * scale)), LauncherThemeFont())
-                rect := GetLauncherVersionLabelRect(label, scale, Round(180 * scale))
-                if mode = "Normal"
-                {
-                    if rect.Y != Round(691 * scale) || rect.H != Round(18 * scale)
-                        throw Error("Normal footer position changed.")
-                }
-                else if rect.Y + rect.H != Round(709 * scale)
-                    || rect.H < Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale())
+                label.SetFont("s" Max(5, Round(AccessibilityFontSize(12) * scale)), LauncherThemeFont())
+                rect := GetLauncherVersionLabelRect(label, scale, Round(240 * scale))
+                label.Move(Round(12 * scale), rect.Y, rect.W, rect.H)
+                if rect.Y + rect.H != Round(709 * scale)
+                    || rect.H < Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale()) + 2
+                    || rect.W < LauncherVersionLabelRequiredWidth(label)
                     throw Error("Enlarged footer text clips or sinks.")
+                for count in [1, 24, 100]
+                {
+                    diameter := LauncherUnreadBadgeDiameter(count, scale)
+                    badgeY := GetLauncherUnreadBadgeY(label, diameter, scale)
+                    badgeX := GetLauncherUnreadBadgeX(label, scale)
+                    if badgeY < 0 || badgeY + diameter > Round(714 * scale)
+                        || badgeX + diameter >= Round(820 * scale)
+                        throw Error("Enlarged footer badge exceeds the available launcher footer.")
+                    if badgeY != Min(Round(rect.Y + (rect.H - diameter) / 2), Round(714 * scale) - diameter)
+                        throw Error("Footer badge is not aligned to the measured label.")
+                }
             }
         }
         for mode in ["Large", "Extra Large"]
@@ -2858,7 +2866,7 @@ CheckUnreadPublishedReleaseCounts()
         dpiScale := GetLauncherBadgeDpiScale()
         diameter := LauncherUnreadBadgeDiameter(24, scale)
         oneDigit := LauncherUnreadBadgeDiameter(1, scale)
-        expectedPixels := Max(20, Round(27 * scale))
+        expectedPixels := Max(24, Round(AccessibilityFontSize(33) * scale))
         if diameter < oneDigit || diameter < 1
             throw Error("Two-digit unread badge must fit a readable, circular number.")
         panel := Gui(, "Native numeric unread badge smoke")
@@ -2881,7 +2889,7 @@ CheckUnreadPublishedReleaseCounts()
                 throw Error("Unread badge must be " expectedPixels
                     " physical pixels at " percent "% launcher scale, actual "
                     width "x" height " (DPI " dpiScale ").")
-            if width > 30
+            if width > expectedPixels + 2
                 throw Error("Footer unread circle is visually oversized: " width " pixels.")
             ; Verify the ACTUAL white two-digit overlay can use a readable
             ; font inside that unchanged circle. Check native text metrics,
@@ -2902,7 +2910,7 @@ CheckUnreadPublishedReleaseCounts()
             if !ReleaseNoteFits(number, number.Text, usableWidth)
                 || measuredHeight > usableHeight
                 throw Error("Enlarged unread digits clip the unchanged circular badge.")
-            if percent = 100 && measuredHeight < 16
+            if percent = 100 && measuredHeight < 18
                 throw Error("Unread numeral is still too small to read at full launcher scale.")
             region := DllCall("gdi32\CreateRectRgn", "Int", 0, "Int", 0,
                 "Int", 0, "Int", 0, "Ptr")
@@ -2934,7 +2942,7 @@ CheckUnreadPublishedReleaseCounts()
             panel.Destroy()
         }
     }
-    try FileAppend("PASS: unread counts 4,3,2,1,0 and 20-27px PNG circle with legible fitted numeral" Chr(10), "*")
+    try FileAppend("PASS: unread counts 4,3,2,1,0 and enlarged PNG circle with legible fitted numeral" Chr(10), "*")
 }
 
 ; The version Text control has intentionally padded bounds to avoid clipping
@@ -2944,7 +2952,7 @@ CheckUnreadBadgeTextAdjacency()
 {
     dpi := GetLauncherBadgeDpiScale()
     panel := Gui(, "Unread badge text adjacency smoke")
-    panel.SetFont("s9 cC5A45C", LauncherThemeFont())
+    panel.SetFont("s12 cC5A45C", LauncherThemeFont())
     label := panel.Add("Text", "x12 y10 BackgroundTrans",
         "tes3np · v0.1.21-alpha.1")
     label.GetPos(, , &naturalWidth)
@@ -2955,19 +2963,18 @@ CheckUnreadBadgeTextAdjacency()
         {
             scale := percent / 100
             label.Move(Round(12 * scale), Round(10 * scale),
-                Round(padded * scale), Round(18 * scale))
-            label.SetFont("s" Max(5, Round(9 * scale)), LauncherThemeFont())
+                Round(padded * scale), Round(24 * scale))
+            label.SetFont("s" Max(5, Round(12 * scale)), LauncherThemeFont())
             FitLauncherVersionLabelToText(label)
             label.GetPos(&labelX, , &labelWidth)
             badgeX := GetLauncherUnreadBadgeX(label, scale)
             textPixels := MeasureMissedUpdateTextWidth(label, label.Text)
             if labelWidth < Ceil(textPixels / dpi) + 1
                 throw Error("Footer version glyphs still clip after native text fitting.")
-            ; The circle previously sat visibly above the text baseline.
-            ; Require a positive five-screen-pixel downward alignment.
-            downInset := Max(1, Round(5 / dpi))
-            if downInset < 1 || Abs(downInset * dpi - 5) > dpi
-                throw Error("Unread badge vertical offset is inconsistent with display DPI.")
+            label.GetPos(, &labelY, , &labelH)
+            diameter := LauncherUnreadBadgeDiameter(1, scale)
+            if GetLauncherUnreadBadgeY(label, diameter, scale) != Round(labelY + (labelH - diameter) / 2)
+                throw Error("Unread badge must align with the version label center.")
             screenGap := Round((badgeX - labelX) * dpi - textPixels)
             if screenGap < 0 || screenGap > Round(8 * dpi)
                 throw Error("Footer badge must follow visible version text, "
