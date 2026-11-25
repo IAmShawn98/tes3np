@@ -39,11 +39,8 @@ internal sealed partial class GameChatWindow
         }
         if (status == discordAccountStatus) return;
         discordAccountStatus = status;
-        if (status != DiscordAccountStatus.SignedIn)
-        {
-            CloseChatComposer();
-            ResetServerStatus();
-        }
+        if (status != DiscordAccountStatus.SignedIn) CloseChatComposer();
+        if (status != DiscordAccountStatus.SignedIn) ResetServerStatus();
         if (status == DiscordAccountStatus.SignedIn)
             discordProfileDisplayDeadline = DateTime.UtcNow.AddSeconds(6);
         else if (status != DiscordAccountStatus.SigningOut)
