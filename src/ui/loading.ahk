@@ -292,7 +292,7 @@ CreateLoadingCard(owner, x, y, width, height, message := unset)
         scale := width / 960
         cw := Round(320 * scale)
         ch := Round(68 * scale)
-        SetAccessibleTextFont(card, "s" Round(11 * scale * 96 / A_ScreenDPI) " cC5A45C", "Georgia")
+        SetAccessibleTextFont(card, "s" Round(11 * scale * 96 / A_ScreenDPI) " cC5A45C", LauncherThemeFont())
         panel := card.Add("Custom", "ClassStatic x0 y0 w" cw " h" ch, IsSet(message) ? message : InterfaceLoadingText)
         ButtonFaces[panel.Hwnd] := {Control: panel, Label: panel, Gui: card, Window: card.Hwnd, IsLabel: true,
             IsLoading: true, Progress: 0, State: "normal", Action: 0}

@@ -618,7 +618,7 @@ UpdateNoteFont(kind, premium := false, compact := false, scale := 1.0)
 
 UpdateNoteFontFace(kind, premium := false)
 {
-    return premium && kind = "heading" ? "Georgia" : "Segoe UI"
+    return kind = "heading" ? LauncherThemeFont() : "Segoe UI"
 }
 
 ReleaseNoteLineHeight(control)

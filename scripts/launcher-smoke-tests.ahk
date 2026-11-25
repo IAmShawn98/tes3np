@@ -8,6 +8,12 @@ RunLauncherChecks(args)
     if !args.Length
         return
 
+    if args[1] ~= "^--check(?:-expansion-ui|-expansion-window|-page-compositor|-cached-character-return|-owned-menu-scaling|-game-login-card)?$"
+    {
+        InitializeLauncherMorrowindFont()
+        OnExit((*) => ReleaseLauncherMorrowindFont())
+    }
+
     switch args[1]
     {
         case "--check":
@@ -1049,16 +1055,16 @@ CheckMeasuredAccessibleBookPreflight()
             probe := CreateAccessibleLayoutGui()
             try
             {
-                SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
+                SetAccessibleTextFont(probe, "s11 Norm c241408", LauncherThemeFont())
                 description := probe.Add("Text", "x8 y8 w390 h81", fullDescription)
                 if MeasureAccessibleWrappedText(description, "", 382) != 0
                     throw Error("Empty native status text should have zero text height.")
                 descriptionHeight := MeasureAccessibleWrappedText(description,
                     fullDescription, 382)
-                SetAccessibleTextFont(probe, "s11 Norm c241408", "Georgia")
+                SetAccessibleTextFont(probe, "s11 Norm c241408", LauncherThemeFont())
                 macro := probe.Add("Text", "x8 y100 w355 h48", macroCopy)
                 macroHeight := MeasureAccessibleWrappedText(macro, macroCopy, 347)
-                SetAccessibleTextFont(probe, "s12 Norm c241408", "Georgia")
+                SetAccessibleTextFont(probe, "s12 Norm c241408", LauncherThemeFont())
                 characterName := probe.Add("Text", "x8 y160 w140 h23", "Character Name")
                 characterHeight := MeasureAccessibleWrappedText(characterName,
                     "Character Name", 136)
@@ -1067,7 +1073,7 @@ CheckMeasuredAccessibleBookPreflight()
                 if longNameMetrics.Width <= 140
                     throw Error("Long-name fixture did not exceed the original fixed name column.")
                 nameWidths.Push(longNameMetrics.Width)
-                SetAccessibleTextFont(probe, "s12 Norm c241408", "Georgia")
+                SetAccessibleTextFont(probe, "s12 Norm c241408", LauncherThemeFont())
                 macroName := probe.Add("Text", "x8 y205 w125 h22", "Macro Name")
                 macroNameHeight := MeasureAccessibleWrappedText(macroName,
                     "Macro Name", 121)
@@ -1186,7 +1192,7 @@ CheckMeasuredV016SettingsCopy()
             panel := CreateAccessibleLayoutGui()
             try
             {
-                SetAccessibleTextFont(panel, "s11 Norm c382314", "Georgia")
+                SetAccessibleTextFont(panel, "s11 Norm c382314", LauncherThemeFont())
                 extra := AddV016SettingsCopy(panel, 20, 35, 180, 30, fullCopy)
                 label := 0
                 for ctrl in panel
@@ -2150,11 +2156,11 @@ CheckMeasuredVersionStatusHeader()
             panel := Gui("-DPIScale")
             try
             {
-                SetAccessibleTextFont(panel, "s14 Bold", "Georgia")
+                SetAccessibleTextFont(panel, "s14 Bold", LauncherThemeFont())
                 title := panel.Add("Text", "x30 y20 w740 h38", copy.Title)
                 SetAccessibleTextFont(panel, "s10", "Segoe UI")
                 message := panel.Add("Text", "x30 y65 w740 h30", copy.Message)
-                SetAccessibleTextFont(panel, "s12 Bold", "Georgia")
+                SetAccessibleTextFont(panel, "s12 Bold", LauncherThemeFont())
                 heading := panel.Add("Text", "x30 y123 w430 h30", "Release Notes")
                 SetAccessibleTextFont(panel, "s9", "Segoe UI")
                 build := panel.Add("Text", "x482 y129 w288 h22", "Build: v0.1.21-alpha.1")
@@ -2223,7 +2229,7 @@ CheckInterfaceTextAccessibility()
                 SetAccessibleTextFont(body, "c241408")
                 if NativeInterfaceFontHeight(body) != bodyHeights[bodyHeights.Length]
                     throw Error("Changing a font color incorrectly resized its text.")
-                SetAccessibleTextFont(panel, "s" V016Font(13) " Norm c241408", "Georgia")
+                SetAccessibleTextFont(panel, "s" V016Font(13) " Norm c241408", LauncherThemeFont())
                 settingsLabel := panel.Add("Text", "x4 y48 w330 h40", "Settings section label")
                 settingsHeights.Push(NativeInterfaceFontHeight(settingsLabel))
             }
@@ -3326,7 +3332,7 @@ CheckMissedUpdateLinkViewport()
             panel := Gui("-DPIScale", "Missed updates viewport smoke")
             ; Mirror the production heading BEFORE launcher scaling, so its
             ; real scaled HWND bounds can be checked against the opaque list.
-            panel.SetFont("s12 Bold cE7BE70", "Georgia")
+            panel.SetFont("s12 Bold cE7BE70", LauncherThemeFont())
             heading := panel.Add("Text", "x40 y424 w520 h28 BackgroundTrans", "Updates You Missed")
             ; Disposable records exercise one, several and many releases.
             ; Their read callbacks never access the user's real INI state.

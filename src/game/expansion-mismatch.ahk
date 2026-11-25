@@ -837,7 +837,7 @@ ShowTES3MPExpansionMismatchDialog(mode := "Mismatch", authConfirmed := false)
     ShowLauncherWindow(true)
     dialog := Gui("+Owner" LauncherGui.Hwnd " -MaximizeBox -MinimizeBox", "tes3np")
     dialog.BackColor := "1B140B"
-    SetAccessibleTextFont(dialog, "s16 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(dialog, "s16 Bold cC5A45C", LauncherThemeFont())
     installing := mode = "Install" || mode = "Browse"
     if installing
     {

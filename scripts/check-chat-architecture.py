@@ -2490,6 +2490,21 @@ expect(
     and 'PublishServerStatus(confirm == urlJson ? status : ServerStatusState.Unknown);' in status_probe
     and 'MatchOnlineStatusImage(bitmap) ? ServerStatusState.Online : ServerStatusState.Unknown' in status_probe,
 )
+theme_heading_sources = [
+    "src/ui/update-dialogs.ahk", "src/ui/update-notes.ahk", "src/ui/patcher.ahk",
+    "src/ui/login-progress.ahk", "src/ui/loading.ahk", "src/game/expansion-mismatch.ahk",
+]
+expect(
+    "Native themed headings use the resolved shared font, not hardcoded Georgia",
+    all('LauncherThemeFont()' in (ROOT / p).read_text(encoding="utf-8-sig")
+        and '"Georgia"' not in (ROOT / p).read_text(encoding="utf-8-sig")
+        for p in theme_heading_sources)
+    and 'return LauncherMorrowindFont' in settings_ui
+    and 'return kind = "heading" ? LauncherThemeFont() : "Segoe UI"' in
+        (ROOT / "src" / "ui" / "update-notes.ahk").read_text(encoding="utf-8-sig")
+    and 'SetAccessibleTextFont(menu, "s17 Bold cC5A45C", LauncherThemeFont())' in settings_ui
+    and 'SetAccessibleTextFont(options, "s15 Bold cC5A45C", LauncherThemeFont())' in settings_ui,
+)
 status_carousel = (ROOT / "src" / "ui" / "launcher-carousel.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Server status shade and caption share artwork-centered paint bounds",

@@ -225,6 +225,13 @@ InitializeLauncherMorrowindFont()
     }
 }
 
+; Shared resolved theme face, including the existing Georgia fallback.
+LauncherThemeFont()
+{
+    global LauncherMorrowindFont
+    return LauncherMorrowindFont
+}
+
 ReleaseLauncherMorrowindFont()
 {
     global LauncherMorrowindFontLoaded, LauncherMorrowindFontPath
@@ -758,7 +765,7 @@ OpenClientSelectionSettings(*)
     ownerHwnd := V016SettingsGuiHwnd && DllCall("IsWindow", "Ptr", V016SettingsGuiHwnd) ? V016SettingsGuiHwnd : LauncherGui.Hwnd
     initialHeight := saved ? 460 : 412
     menu := CreateGoldNativePrompt(ownerHwnd, "tes3np — TES3MP Setup", 680, initialHeight)
-    SetAccessibleTextFont(menu, "s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(menu, "s17 Bold cC5A45C", LauncherThemeFont())
     heading := menu.Add("Text", "x30 y25 w620 BackgroundTrans +Wrap", "TES3MP Setup")
     heading.GetPos(, , , &headingHeight)
     activeY := Max(78, 25 + headingHeight + 8)
@@ -866,7 +873,7 @@ ConfigureCustomClientV016(menu, *)
     ; Preserve the dependency workflow inside the same borderless,
     ; changelog-style native card system as its parent TES3MP Setup.
     options := CreateGoldNativePrompt(menu, "Set Up Your Custom EXE", 640, 382)
-    SetAccessibleTextFont(options, "s15 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(options, "s15 Bold cC5A45C", LauncherThemeFont())
     heading := options.Add("Text", "x30 y22 w580 BackgroundTrans +Wrap", "Set Up Your Custom EXE")
     heading.GetPos(, , , &headingHeight)
     detailsY := Max(72, 22 + headingHeight + 8)

@@ -828,7 +828,7 @@ ShowExpansionInstallPrompt(onDecision := 0, installedVersion := "", updateVersio
     }
     prompt := CreateGoldNativePrompt(LauncherGui, "Install Expansion Pack", 680, 256)
     prompt.ExpansionDecision := onDecision
-    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", LauncherThemeFont())
     extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39,
         IsObject(onDecision) ? "Update Expansion Pack" : "Install Expansion Pack")
     SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
@@ -875,7 +875,7 @@ ShowUnverifiedExistingExpansionPackPrompt(config)
         return
     prompt := CreateGoldNativePrompt(LauncherGui, "Check Existing Expansion Pack", 680, 250)
     prompt.ExpansionCheckConfig := config
-    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", LauncherThemeFont())
     extra := AddGoldPromptCopy(prompt, 30, 27, 620, 39, "Existing Expansion Pack Detected")
     SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 80 + extra, 620, 82,
@@ -923,7 +923,7 @@ ShowExistingExpansionPackFoundPrompt(onContinue, alreadyEnabled := false, review
     ; wrapped text increases both the button offset and the dialog height.
     prompt := CreateGoldNativePrompt(LauncherGui, "Existing Expansion Pack Verified", 680, 328)
     prompt.ExpansionFoundContinue := onContinue
-    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", LauncherThemeFont())
     extra := AddGoldPromptCopy(prompt, 30, 27, 620, 43, "Existing Expansion Pack Verified")
     SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 91 + extra, 620, 76,
@@ -1015,7 +1015,7 @@ ShowExpansionAutoFailureDialog(reason := "", stage := "Download", retry := 0)
         : "The automatic download could not be completed. You can try again, or choose an Expansion Pack ZIP or extracted folder already on your computer."
     prompt := CreateGoldNativePrompt(LauncherGui, title, 700, 318)
     prompt.ExpansionRetry := retry
-    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", LauncherThemeFont())
     extra := AddGoldPromptCopy(prompt, 30, 24, 640, 43, title)
     SetAccessibleTextFont(prompt, "s11 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 86 + extra, 640, 91, explanation)
@@ -1095,7 +1095,7 @@ CheckFirstRunMorrowind(resumeExpansion := false, *)
     ; selection and optional automatic Expansion Pack resumption.
     prompt := CreateGoldNativePrompt(LauncherGui, "TES3NP - Morrowind Installation Not Found", 680, 350)
     prompt.ResumeExpansionPack := resumeExpansion
-    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", "Georgia")
+    SetAccessibleTextFont(prompt, "s17 Bold cC5A45C", LauncherThemeFont())
     extra := AddGoldPromptCopy(prompt, 30, 26, 620, 40, "Morrowind Installation Not Found")
     SetAccessibleTextFont(prompt, "s10 Norm cEDE1C9", "Segoe UI")
     extra += AddGoldPromptCopy(prompt, 30, 85 + extra, 620, 135,

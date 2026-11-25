@@ -8,7 +8,7 @@ ShowGoldUpdateConfirmation(title, message, confirmLabel)
     response := {Accepted: false}
     window := CreateGoldNativePrompt(0, "tes3np — Update Confirmation", 640, 258)
     try {
-        SetAccessibleTextFont(window, "s15 Bold cC5A45C", "Georgia")
+        SetAccessibleTextFont(window, "s15 Bold cC5A45C", LauncherThemeFont())
         extra := AddGoldPromptCopy(window, 32, 26, 588, 32, title)
         SetAccessibleTextFont(window, "s10 cFFFFFF", "Segoe UI")
         extra += AddGoldPromptCopy(window, 32, 86 + extra, 588, 67, message)
@@ -67,14 +67,14 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
     closeMissed := 0
     try
     {
-        SetAccessibleTextFont(preview, kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", "Georgia")
+        SetAccessibleTextFont(preview, kind = "hotfix" ? "s14 Bold cE7BE70" : "s12 Bold cE7BE70", LauncherThemeFont())
         title := GetUpdatePreviewHeading(channel, kind)
         titleControl := preview.Add("Text", "x22 y14 w555 h31 BackgroundTrans", title)
         ; Preserve the approved one-line heading at every supported version
         ; length. Let actual Windows text metrics determine a smaller font.
         for fontSize in (kind = "hotfix" ? [14, 13, 12, 11, 10] : [12, 11, 10, 9])
         {
-            SetAccessibleTextFont(titleControl, "s" fontSize " Bold cE7BE70", "Georgia")
+            SetAccessibleTextFont(titleControl, "s" fontSize " Bold cE7BE70", LauncherThemeFont())
             if ReleaseNoteFits(titleControl, title, 548)
                 break
         }
@@ -91,7 +91,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
             GrowGoldNativePrompt(preview, rowExtra)
         }
 
-        SetAccessibleTextFont(preview, "s11 Bold cE7BE70", "Georgia")
+        SetAccessibleTextFont(preview, "s11 Bold cE7BE70", LauncherThemeFont())
         preview.Add("Text", "x21 y" (96 + rowExtra) " w558 h30 BackgroundTrans", "Changes in This Update")
         ; One continuous outer frame contains the latest hotfix, readable
         ; scrollable notes, a gold rule, and fixed earlier-update summary.
@@ -100,7 +100,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
 
         if notes.Title != ""
         {
-            SetAccessibleTextFont(preview, "s11 Bold cE7BE70", "Georgia")
+            SetAccessibleTextFont(preview, "s11 Bold cE7BE70", LauncherThemeFont())
             latestTitle := preview.Add("Text", "x40 y" (139 + rowExtra)
                 . " BackgroundTrans +0x80", notes.Title)
             latestTitle.GetPos(, , &naturalTitleWidth)
@@ -119,7 +119,7 @@ ShowUpdatePreview(installedVersion, latestVersion, channel, kind)
         if hasMissed
         {
             preview.Add("Text", "x40 y" (312 + rowExtra + notesSpace) " w520 h2 BackgroundC5A45C")
-            SetAccessibleTextFont(preview, "s12 Bold cE7BE70", "Georgia")
+            SetAccessibleTextFont(preview, "s12 Bold cE7BE70", LauncherThemeFont())
             missedHeading := preview.Add("Text", "x40 y" (324 + rowExtra + notesSpace)
                 . " w520 h28 BackgroundTrans", "Updates You Missed")
             ; A second fine gold rule separates the heading from the actual
@@ -682,11 +682,11 @@ ShowUpdateStatusPanel(mode, installedVersion, latestVersion := "")
     panel := CreateGoldNativePrompt(0, "tes3np — Version Status", 800, 600)
     closeNotes := 0
     try {
-        SetAccessibleTextFont(panel, "s14 Bold cC5A45C", "Georgia")
+        SetAccessibleTextFont(panel, "s14 Bold cC5A45C", LauncherThemeFont())
         titleControl := panel.Add("Text", "x30 y20 w740 h38 BackgroundTrans", title)
         SetAccessibleTextFont(panel, "s10 cEDE1C9", "Segoe UI")
         messageControl := panel.Add("Text", "x30 y65 w740 h30 BackgroundTrans", message)
-        SetAccessibleTextFont(panel, "s12 Bold cC5A45C", "Georgia")
+        SetAccessibleTextFont(panel, "s12 Bold cC5A45C", LauncherThemeFont())
         notesHeading := panel.Add("Text", "x30 y123 w430 h30 BackgroundTrans", "Release Notes")
         SetAccessibleTextFont(panel, "s9 cC5A45C", "Segoe UI")
         buildLabel := panel.Add("Text", "x482 y129 w288 h22 BackgroundTrans", "Build: v" notesVersion)
