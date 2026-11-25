@@ -370,8 +370,13 @@ OpenLauncherDiscordAccount(*)
     }
     if LauncherDiscordStatus != 2
         return
-    dropdown := Menu()
-    dropdown.Add("Sign out", (*) => SendLauncherDiscordAccountCommand(17))
+    ; Keep the menu and its callback alive after the popup is dismissed.
+    static dropdown := 0
+    if !IsObject(dropdown)
+    {
+        dropdown := Menu()
+        dropdown.Add("Sign out", (*) => SendLauncherDiscordAccountCommand(17))
+    }
     rect := Buffer(16, 0)
     DllCall("user32\GetWindowRect", "Ptr", LauncherDiscordPortrait.Hwnd, "Ptr", rect)
     oldMode := A_CoordModeMenu
@@ -382,7 +387,12 @@ OpenLauncherDiscordAccount(*)
 
 SendLauncherDiscordAccountCommand(command)
 {
-    if !SendLauncherChatCommand(command)
+    if command = 17
+        try LogLauncherEvent("DISCORD | Sign-out selected.")
+    sent := SendLauncherChatCommand(command)
+    if command = 17
+        try LogLauncherEvent("DISCORD | Sign-out command " (sent ? "posted." : "not delivered."))
+    if !sent
         MsgBox("Discord is unavailable in the launcher. Reopen the launcher and try again.", "Discord account", "Icon!")
 }
 

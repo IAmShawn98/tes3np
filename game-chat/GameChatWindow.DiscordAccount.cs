@@ -39,6 +39,7 @@ internal sealed partial class GameChatWindow
         }
         if (status == discordAccountStatus) return;
         discordAccountStatus = status;
+        discordAccountDirty = true;
         if (status != DiscordAccountStatus.SignedIn) CloseChatComposer();
         ResetServerStatus();
         if (status == DiscordAccountStatus.SignedIn)
@@ -54,7 +55,6 @@ internal sealed partial class GameChatWindow
             nextDiscordAccountCheck = DateTime.MinValue;
             nextDesktopDiscordAccountCheck = DateTime.MinValue;
         }
-        discordAccountDirty = true;
     }
 
     async Task RefreshDiscordAccount(CoreWebView2 core, ulong navigationId, string url)
@@ -261,20 +261,13 @@ internal sealed partial class GameChatWindow
 
     async Task SignOutDiscord()
     {
+        Log("DISCORD | Sign-out command received.");
         if (closingChat || signingOutDiscord || discordAccountStatus != DiscordAccountStatus.SignedIn ||
-            web.CoreWebView2 is not { } core) return;
-
-        SetDiscordAccountStatus(DiscordAccountStatus.SigningOut);
-        discordAccountRevision++;
-        CloseDiscordAccountBrowser();
-        PublishDiscordAccount();
-        ResetServerUpdates();
-        SuspendHappyHourUntilDiscordReturns("signed out in the launcher");
-        DismissDiscordSignIn();
-        CloseEmbeddedExpansionDownloads();
-        SetChatOpen(false);
-        lastFeed = "";
-        feedInitialized = false;
+            web.CoreWebView2 is not { } core)
+        {
+            Log("DISCORD | Sign-out ignored; account state=" + discordAccountStatus + ".");
+            return;
+        }
 
         // Unload the Discord document before clearing the launcher-only browser
         // profile so scripts in the old account cannot repopulate its storage.
@@ -285,36 +278,63 @@ internal sealed partial class GameChatWindow
             if (e.NavigationId == discordNavigationId && core.Source == blank)
                 unloaded.TrySetResult(e.IsSuccess);
         }
-        core.NavigationCompleted += OnBlankLoaded;
+        bool blankHandlerAttached = false;
+        string phase = "account transition";
         try
         {
+            Log("DISCORD | Sign-out starting account transition.");
+            SetDiscordAccountStatus(DiscordAccountStatus.SigningOut);
+            phase = "account cleanup";
+            discordAccountRevision++;
+            CloseDiscordAccountBrowser();
+            PublishDiscordAccount();
+            ResetServerUpdates();
+            SuspendHappyHourUntilDiscordReturns("signed out in the launcher");
+            DismissDiscordSignIn();
+            CloseEmbeddedExpansionDownloads();
+            SetChatOpen(false);
+            lastFeed = "";
+            feedInitialized = false;
+
+            phase = "unload";
+            Log("DISCORD | Sign-out unloading Discord page.");
+            core.NavigationCompleted += OnBlankLoaded;
+            blankHandlerAttached = true;
             core.Navigate(blank);
             if (!await unloaded.Task.WaitAsync(TimeSpan.FromSeconds(5)))
                 throw new InvalidOperationException("Could not unload the previous Discord account.");
             if (closingChat || IsDisposed) return;
+            phase = "clear site data";
+            Log("DISCORD | Sign-out clearing launcher Discord site data.");
             await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.AllSite);
             if (closingChat || IsDisposed) return;
+            phase = "signed-out presentation";
             freshDiscordProfile = false;
             SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);
             ShowDiscordSignIn();
             core.Navigate(DiscordLoginUrl);
+            PublishDiscordAccount();
+            Log("DISCORD | Sign-out completed.");
         }
         catch (Exception ex)
         {
             if (closingChat || IsDisposed) return;
-            Log("Discord sign-out: " + ex.GetType().Name);
+            Log("Discord sign-out: " + phase + ": " + ex.GetType().Name);
+            PostMessage(owner, DiscordSignOutFailed, IntPtr.Zero, Handle);
             if (signingOutDiscord)
             {
-                SetDiscordAccountStatus(DiscordAccountStatus.SignedIn);
-                nextDiscordAccountCheck = DateTime.MinValue;
-                PostMessage(owner, DiscordSignOutFailed, IntPtr.Zero, Handle);
-                try { core.Navigate(Channel); }
+                try
+                {
+                    SetDiscordAccountStatus(DiscordAccountStatus.SignedIn);
+                    nextDiscordAccountCheck = DateTime.MinValue;
+                    core.Navigate(Channel);
+                }
                 catch (Exception recoveryError) { Log("Discord sign-out recovery: " + recoveryError.GetType().Name); }
             }
         }
         finally
         {
-            if (!closingChat && !IsDisposed) core.NavigationCompleted -= OnBlankLoaded;
+            if (blankHandlerAttached && !closingChat && !IsDisposed) core.NavigationCompleted -= OnBlankLoaded;
         }
     }
 }

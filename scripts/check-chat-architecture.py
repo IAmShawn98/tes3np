@@ -2472,6 +2472,19 @@ expect(
     and 'ApplyLauncherStatusFont(scale)' in launcher_layout
     and 'ApplyLauncherStatusFont(scale)' in font_update,
 )
+discord_sign_out = section_between(source, "async Task SignOutDiscord()", "\n}")
+expect(
+    "Discord sign-out retains its menu callback and traces command delivery and guarded logout phases",
+    'static dropdown := 0' in embedded_chat
+    and 'dropdown.Add("Sign out", (*) => SendLauncherDiscordAccountCommand(17))' in embedded_chat
+    and 'DISCORD | Sign-out selected.' in embedded_chat
+    and 'DISCORD | Sign-out command ' in embedded_chat
+    and in_order(discord_sign_out, 'Sign-out command received.', 'Sign-out ignored;',
+        'try', 'SetDiscordAccountStatus(DiscordAccountStatus.SigningOut);',
+        'PublishDiscordAccount();', 'ResetServerUpdates();', 'core.Navigate(blank);',
+        'ClearBrowsingDataAsync(', 'SetDiscordAccountStatus(DiscordAccountStatus.SignedOut);',
+        'Sign-out completed.', 'catch (Exception ex)', 'Discord sign-out: '),
+)
 status_probe = (chat_root / "GameChatWindow.ServerStatus.cs").read_text(encoding="utf-8-sig")
 status_receive = section_between(embedded_chat, "\nReceiveLauncherServerStatus(", "\nCheckLauncherServerStatus(")
 status_expiry = section_between(embedded_chat, "\nCheckLauncherServerStatus(", "\nLauncherServerStatusColor(")
