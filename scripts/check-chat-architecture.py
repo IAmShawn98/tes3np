@@ -2755,6 +2755,19 @@ expect(
     and 'rowStyles[1] := "body"' in update_notes
     and 'UpdateNoteRowPaintState[sample.Hwnd].Kind := "body"' in update_notes,
 )
+footer_version_constructor = section_between(update_check, "\nCreateLauncherVersionLabel()\n{", "\nCreateLauncherUpdateBadge()")
+footer_version_rect = section_between(update_check, "\nGetLauncherVersionLabelRect(", "\nFitLauncherVersionLabelToText(")
+expect(
+    "Version-only footer reflows measured text and retains corner anchors",
+    '"v" AppConfig.Version' in footer_version_constructor
+    and '"tes3np · v"' not in footer_version_constructor
+    and 'GetLauncherVersionLabelRect(LauncherVersionLabel, 1, naturalWidth)' in footer_version_constructor
+    and 'try width := LauncherVersionLabelRequiredWidth(label)' in footer_version_rect
+    and 'W: width' in footer_version_rect
+    and 'LauncherVersionLabel.Move(Round(12 * scale), rect.Y, rect.W, rect.H)' in update_check
+    and 'Version-only footer must fit its text and retain the corner anchors.' in launcher_smoke_tests
+    and 'Version-only footer badge overlaps or leaves the footer.' in launcher_smoke_tests,
+)
 footer_badge_constructor = section_between(update_check, "\nCreateLauncherUpdateBadge()\n{", "\nIsLauncherFooterUpdateCursorTarget")
 expect(
     "Production footer startup creates Picture with a plain asset path before resizing",

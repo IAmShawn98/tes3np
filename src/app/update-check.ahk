@@ -13,11 +13,11 @@ CreateLauncherVersionLabel()
 {
     global AppConfig, LauncherGui, LauncherVersionLabel
     LauncherGui.SetFont("s12 cC5A45C", LauncherThemeFont())
-    ; Auto-size the caption first, then reserve a measured, vertically
-    ; centered footer rectangle before the immutable layout is captured.
-    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y685 +0x200 BackgroundTrans", "tes3np · v" AppConfig.Version)
+    ; Measure the version-only caption against the existing corner anchors.
+    ; Do not retain a transparent width reserve from the previous caption.
+    LauncherVersionLabel := LauncherGui.Add("Text", "x12 y685 +0x200 BackgroundTrans", "v" AppConfig.Version)
     LauncherVersionLabel.GetPos(, , &naturalWidth)
-    rect := GetLauncherVersionLabelRect(LauncherVersionLabel, 1, Ceil(naturalWidth * 1.25) + 4)
+    rect := GetLauncherVersionLabelRect(LauncherVersionLabel, 1, naturalWidth)
     LauncherVersionLabel.Move(, rect.Y, rect.W, rect.H)
     FitLauncherVersionLabelToText(LauncherVersionLabel)
     LauncherVersionLabel.OnEvent("Click", CheckForUpdates)
@@ -70,7 +70,7 @@ ScaleLauncherVersionLabel(scale)
         LauncherVersionLabel.SetFont("s" Max(5, Round(AccessibilityFontSize(12) * scale)), LauncherThemeFont())
         LauncherVersionLabel.GetPos(, , &currentWidth)
         rect := GetLauncherVersionLabelRect(LauncherVersionLabel, scale, currentWidth)
-        LauncherVersionLabel.Move(, rect.Y, rect.W, rect.H)
+        LauncherVersionLabel.Move(Round(12 * scale), rect.Y, rect.W, rect.H)
     }
     ApplyLauncherBadgeFont(scale)
     if IsObject(LauncherUpdateBadge)
@@ -191,9 +191,9 @@ GetLauncherBadgeDpiScale()
     return Max(1, A_ScreenDPI / 96)
 }
 
-; The version font has a 5pt floor at small launcher scales, so the
-; captured 100%-size Text rectangle can become narrower than its glyphs.
-; Expand only when real GDI metrics require it, preserving baseline padding.
+; Fit the current glyphs with two logical pixels of safety padding.
+; Re-measure when scaling or Interface Text changes so shorter text frees
+; its old space and the minimum font size still fits at reduced scales.
 LauncherVersionLabelRequiredWidth(label)
 {
     return Ceil(MeasureMissedUpdateTextWidth(label, label.Text)
@@ -203,13 +203,16 @@ LauncherVersionLabelRequiredWidth(label)
 GetLauncherVersionLabelRect(label, scale, baseWidth)
 {
     global LauncherControlLayout
-    ; Measure all sizes, including Normal and the minimum point size at
-    ; reduced scales. Preserve the bottom anchor through font resets.
+    ; Use the immutable scaled width only as a fallback. The current font
+    ; determines the actual hit rectangle and the bottom anchor stays fixed.
     if LauncherControlLayout.Has(label.Hwnd)
         baseWidth := Round(LauncherControlLayout[label.Hwnd].Width * scale)
     h := Max(Round(24 * scale), Ceil(ReleaseNoteLineHeight(label) / GetLauncherBadgeDpiScale()) + 2)
     y := Round(709 * scale) - h
-    return {Y: y, W: Max(baseWidth, LauncherVersionLabelRequiredWidth(label)), H: h}
+    try width := LauncherVersionLabelRequiredWidth(label)
+    catch Error
+        width := Max(1, baseWidth)
+    return {Y: y, W: width, H: h}
 }
 
 FitLauncherVersionLabelToText(label)
@@ -223,7 +226,7 @@ FitLauncherVersionLabelToText(label)
 }
 
 ; Anchor to the actual RENDERED end of the version label, not the
-; deliberately padded Text-control width (which created the large gap).
+; Text-control width, so the safety padding does not accumulate.
 ; GetTextExtentPoint32W returns device pixels; GUI GetPos uses DPI-aware
 ; coordinates, so convert before composing the adjacent X position.
 GetLauncherUnreadBadgeX(label, scale)
@@ -241,8 +244,9 @@ GetLauncherUnreadBadgeX(label, scale)
     {
         ; A missing device context must not keep the launcher from loading.
     }
-    ; Fall back to the unpadded original width, not the 25%-extended box.
-    return labelX + Round(Max(1, labelWidth - 4) / 1.25) + Max(1, Round(4 * scale))
+    ; Without native metrics, stay outside the actual control rather than
+    ; guessing from the obsolete padded width and risking overlap.
+    return labelX + labelWidth + Max(1, Round(4 * scale))
 }
 
 LauncherUnreadBadgeDiameter(count, scale)

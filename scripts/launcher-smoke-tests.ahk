@@ -2028,7 +2028,7 @@ CheckMeasuredFooterVersionAndLoginCard()
     panel := CreateAccessibleLayoutGui()
     try
     {
-        label := panel.Add("Text", "x12 y685 w240 h24 +0x200", "tes3np · v0.1.21-alpha.1")
+        label := panel.Add("Text", "x12 y685 w240 h24 +0x200", "v0.1.21-alpha.1")
         for scale in [0.5, 1.0]
         {
             for mode in ["Normal", "Large", "Extra Large", "Normal"]
@@ -2951,7 +2951,7 @@ CheckUnreadPublishedReleaseCounts()
 CheckLauncherFooterStartup()
 {
     global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
-    global LauncherScale, AccessibilityTextSize
+    global LauncherScale, AccessibilityTextSize, AppConfig
     savedGui := LauncherGui, savedLabel := LauncherVersionLabel
     savedBadge := LauncherUpdateBadge, savedNumber := LauncherUpdateNumber
     savedScale := LauncherScale, savedText := AccessibilityTextSize
@@ -2963,22 +2963,41 @@ CheckLauncherFooterStartup()
         AccessibilityTextSize := "Normal"
         CreateLauncherVersionLabel()
         CreateLauncherUpdateBadge()
-        for count in [1, 24, 100, 1]
+        if LauncherVersionLabel.Text != ("v" AppConfig.Version)
+            throw Error("Footer must show only the installed version.")
+        for percent in [100, 50, 70, 100]
         {
-            SetLauncherUnreadBadgeNumber(count)
-            LauncherUpdateBadge.GetPos(&x, &y, &w, &h)
-            diameter := LauncherUnreadBadgeDiameter(count, 1)
-            if w != diameter || h != diameter || x != GetLauncherUnreadBadgeX(LauncherVersionLabel, 1)
-                || y != GetLauncherUnreadBadgeY(LauncherVersionLabel, diameter, 1)
-                || LauncherUpdateNumber.Text != ("" count)
-                throw Error("Production footer startup or count resize has incorrect geometry.")
-            if LauncherUpdateBadge.Visible || LauncherUpdateNumber.Visible
-                throw Error("Production footer badge must stay hidden until an update is available.")
-            rect := Buffer(16, 0)
-            if !DllCall("user32\GetClientRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", rect, "Int")
-                || Abs(NumGet(rect, 8, "Int") - Round(diameter * GetLauncherBadgeDpiScale())) > 2
-                || NumGet(rect, 8, "Int") != NumGet(rect, 12, "Int")
-                throw Error("Production footer Picture has incorrect native size.")
+            LauncherScale := percent
+            scale := percent / 100
+            for mode in ["Normal", "Large", "Extra Large", "Normal"]
+            {
+                AccessibilityTextSize := mode
+                ScaleLauncherVersionLabel(scale)
+                LauncherVersionLabel.GetPos(&lx, &ly, &lw, &lh)
+                required := LauncherVersionLabelRequiredWidth(LauncherVersionLabel)
+                if lx != Round(12 * scale) || ly + lh != Round(709 * scale)
+                    || lw != required || lh < Ceil(ReleaseNoteLineHeight(LauncherVersionLabel) / GetLauncherBadgeDpiScale()) + 2
+                    throw Error("Version-only footer must fit its text and retain the corner anchors.")
+                for count in [1, 24, 100, 1]
+                {
+                    SetLauncherUnreadBadgeNumber(count)
+                    LauncherUpdateBadge.GetPos(&x, &y, &w, &h)
+                    diameter := LauncherUnreadBadgeDiameter(count, scale)
+                    if w != diameter || h != diameter || x != GetLauncherUnreadBadgeX(LauncherVersionLabel, scale)
+                        || y != GetLauncherUnreadBadgeY(LauncherVersionLabel, diameter, scale)
+                        || LauncherUpdateNumber.Text != ("" count)
+                        throw Error("Production footer startup or count resize has incorrect geometry.")
+                    if x < lx + lw || x + w >= Round(820 * scale) || y < 0 || y + h > Round(714 * scale)
+                        throw Error("Version-only footer badge overlaps or leaves the footer.")
+                    if LauncherUpdateBadge.Visible || LauncherUpdateNumber.Visible
+                        throw Error("Production footer badge must stay hidden until an update is available.")
+                    rect := Buffer(16, 0)
+                    if !DllCall("user32\GetClientRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", rect, "Int")
+                        || Abs(NumGet(rect, 8, "Int") - Round(diameter * GetLauncherBadgeDpiScale())) > 2
+                        || NumGet(rect, 8, "Int") != NumGet(rect, 12, "Int")
+                        throw Error("Production footer Picture has incorrect native size.")
+                }
+            }
         }
     }
     finally
@@ -2988,19 +3007,18 @@ CheckLauncherFooterStartup()
         LauncherUpdateBadge := savedBadge, LauncherUpdateNumber := savedNumber
         LauncherScale := savedScale, AccessibilityTextSize := savedText
     }
-    try FileAppend("PASS: production footer startup and hidden badge count resizing" Chr(10), "*")
+    try FileAppend("PASS: production version-only footer corner reflow and hidden badge count resizing" Chr(10), "*")
 }
 
-; The version Text control has intentionally padded bounds to avoid clipping
-; at small launcher scales. The unread badge must follow the actual rendered
-; last glyph, not that large transparent Text rectangle.
+; Stress-test a deliberately oversized sample Text control. The unread badge
+; must follow the rendered last glyph, not the padded fixture rectangle.
 CheckUnreadBadgeTextAdjacency()
 {
     dpi := GetLauncherBadgeDpiScale()
     panel := Gui(, "Unread badge text adjacency smoke")
     panel.SetFont("s12 cC5A45C", LauncherThemeFont())
     label := panel.Add("Text", "x12 y10 BackgroundTrans",
-        "tes3np · v0.1.21-alpha.1")
+        "v0.1.21-alpha.1")
     label.GetPos(, , &naturalWidth)
     padded := Ceil(naturalWidth * 1.25) + 4
     try
