@@ -1,6 +1,16 @@
 ; Build and CI probes use the launcher's real modules and process exit codes.
 ; Every recognized check exits before normal startup.
 
+LauncherCheckUsesThemeFont(args)
+{
+    if !args.Length
+        return false
+    ; Keep the compiled --check and --check-expansion-ui probes resource-free.
+    ; Source checks can use the source assets; compiled UI checks need extraction.
+    return (!A_IsCompiled && args[1] = "--check")
+        || args[1] ~= "^--check(?:-expansion-window|-page-compositor|-cached-character-return|-owned-menu-scaling|-game-login-card)$"
+}
+
 RunLauncherChecks(args)
 {
     if !A_IsCompiled && args.Length = 4 && args[4] = "--check-update-state"
@@ -8,7 +18,7 @@ RunLauncherChecks(args)
     if !args.Length
         return
 
-    if args[1] ~= "^--check(?:-expansion-ui|-expansion-window|-page-compositor|-cached-character-return|-owned-menu-scaling|-game-login-card)?$"
+    if LauncherCheckUsesThemeFont(args)
     {
         InitializeLauncherMorrowindFont()
         OnExit((*) => ReleaseLauncherMorrowindFont())

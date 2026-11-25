@@ -2505,6 +2505,18 @@ expect(
     and 'SetAccessibleTextFont(menu, "s17 Bold cC5A45C", LauncherThemeFont())' in settings_ui
     and 'SetAccessibleTextFont(options, "s15 Bold cC5A45C", LauncherThemeFont())' in settings_ui,
 )
+theme_probe = section_between(launcher_smoke_tests, "\nLauncherCheckUsesThemeFont(args)\n{", "\nRunLauncherChecks(args)")
+theme_dispatch = section_between(launcher_smoke_tests, "\nRunLauncherChecks(args)\n{", "\nCheckCategorizedUpdateNotes()")
+expect(
+    "Font smoke probes initialize resources before loading fonts and keep compiled non-UI checks resource-free",
+    '(!A_IsCompiled && args[1] = "--check")' in theme_probe
+    and all(flag in theme_probe for flag in [
+        "-expansion-window", "-page-compositor", "-cached-character-return",
+        "-owned-menu-scaling", "-game-login-card"])
+    and "-expansion-ui" not in theme_probe.split("return (!A_IsCompiled", 1)[-1]
+    and in_order(theme_dispatch, "if LauncherCheckUsesThemeFont(args)", "InitializeLauncherMorrowindFont()")
+    and "if LauncherCheckUsesThemeFont(A_Args)\n    PrepareBundledResources()\nRunLauncherChecks(A_Args)" in windows_build,
+)
 chat_typography = (chat_root / "GameChatTypography.cs").read_text(encoding="utf-8-sig")
 chat_web_loader = (chat_root / "GameChatWeb.cs").read_text(encoding="utf-8-sig")
 updates_html = (chat_web / "server-updates.html").read_text(encoding="utf-8-sig")

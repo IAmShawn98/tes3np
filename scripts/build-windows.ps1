@@ -516,13 +516,13 @@ if A_Args.Length && A_Args[1] = "--check-resources"
     ExitApp(0)
 '@
     $entryText = [regex]::Replace($entryText, $markerLine, $resourceSetup)
-    # The compiled UI probes use the painter before normal launcher startup.
+    # The staged source and compiled UI probes need assets before font/painter initialization.
     $launcherChecksLine = '(?m)^RunLauncherChecks\(A_Args\)(?=\r?$)'
     if ([regex]::Matches($entryText, $launcherChecksLine).Count -ne 1) {
         throw 'Expected exactly one launcher check dispatch in tes3np.ahk.'
     }
     $resourceProbeSetup = @'
-if A_Args.Length && (A_Args[1] = "--check-owned-menu-scaling" || A_Args[1] = "--check-expansion-window")
+if LauncherCheckUsesThemeFont(A_Args)
     PrepareBundledResources()
 RunLauncherChecks(A_Args)
 '@
