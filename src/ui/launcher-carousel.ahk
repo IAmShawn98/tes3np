@@ -424,6 +424,8 @@ PaintLauncherCarouselPicture(state, handle, target)
             CheckLauncherCarouselGdi(DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", faceImage,
                 "Int", 0, "Int", 0, "Int", w, "Int", h))
         }
+        if role = "drag"
+            PaintLauncherStatusShade(graphics, w, h)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         graphics := 0
         if role = "heading" || role = "version" || role = "drag"
@@ -662,7 +664,7 @@ PaintLauncherCarouselInfoShade(graphics, width, height, scale)
     state := LauncherCarousel
     if state.ShadeFailed
         return false
-    candidate := 0, layerGraphics := 0, brush := 0
+    candidate := 0, layerGraphics := 0
     try
     {
         if !state.Shade || state.ShadeWidth != width || state.ShadeHeight != height || state.ShadeScale != scale
@@ -673,28 +675,7 @@ PaintLauncherCarouselInfoShade(graphics, width, height, scale)
             CheckLauncherCarouselGdi(DllCall("gdiplus\GdipGraphicsClear", "Ptr", layerGraphics, "UInt", 0))
             ; SourceCopy preserves the exact per-tile alpha on this empty layer.
             CheckLauncherCarouselGdi(DllCall("gdiplus\GdipSetCompositingMode", "Ptr", layerGraphics, "Int", 1))
-            tile := Max(1, Round(4 * scale))
-            y := 0
-            while y < height
-            {
-                x := 0
-                while x < width
-                {
-                    edgeX := Min(1, (x + tile / 2) / (28 * scale), (width - x - tile / 2) / (28 * scale))
-                    edgeY := Min(1, (y + tile / 2) / (22 * scale), (height - y - tile / 2) / (38 * scale))
-                    alpha := Round(190 * Max(0, edgeX) * Max(0, edgeY))
-                    if alpha
-                    {
-                        CheckLauncherCarouselGdi(DllCall("gdiplus\GdipCreateSolidFill", "UInt", (alpha << 24) | 0x191710, "Ptr*", &brush))
-                        CheckLauncherCarouselGdi(DllCall("gdiplus\GdipFillRectangle", "Ptr", layerGraphics, "Ptr", brush,
-                            "Float", x, "Float", y, "Float", Min(tile, width - x), "Float", Min(tile, height - y)))
-                        DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
-                        brush := 0
-                    }
-                    x += tile
-                }
-                y += tile
-            }
+            PaintLauncherFeatheredShade(layerGraphics, width, height, scale, 0, 190, 28, 22, 38, true)
             DllCall("gdiplus\GdipDeleteGraphics", "Ptr", layerGraphics)
             layerGraphics := 0
             ReleaseLauncherCarouselShade(state)
@@ -714,8 +695,6 @@ PaintLauncherCarouselInfoShade(graphics, width, height, scale)
     }
     finally
     {
-        if brush
-            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
         if layerGraphics
             DllCall("gdiplus\GdipDeleteGraphics", "Ptr", layerGraphics)
         if candidate

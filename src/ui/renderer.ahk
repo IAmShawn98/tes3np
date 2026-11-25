@@ -1089,6 +1089,7 @@ PaintLauncherServerStatusBase(handle, target)
             if !DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\happy-hour\pixie-dust.png", "Ptr*", &dust) && dust
                 DrawLauncherCarouselControlArtwork(graphics, handle, HappyHourDustPictures[1].Hwnd, dust)
         }
+        PaintLauncherStatusShade(graphics, w, h)
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         graphics := 0
         DrawLauncherCarouselNativeText(handle, dc, w, h, "drag")
@@ -1211,6 +1212,60 @@ PaintLauncherBackgroundSlice(graphics, x, y, scale, handle := 0)
 
 ; Info cards deliberately retain their original artwork-integrated renderer.
 ; Accessibility contrast applies only to interactive controls, never these cards.
+; Shared warm-charcoal feather used by the information cards and status.
+; The defaults preserve the original information-card tile geometry.
+PaintLauncherFeatheredShade(graphics, width, height, scale, offsetX := 0, peak := 190, fadeX := 28, fadeTop := 22, fadeBottom := 38, strict := false)
+{
+    if width <= 0 || height <= 0 || scale <= 0
+        return
+    tile := Max(1, Round(4 * scale))
+    brush := 0
+    try
+    {
+        y := 0
+        while y < height
+        {
+            x := 0
+            while x < width
+            {
+                edgeX := Min(1, (x + tile / 2) / (fadeX * scale), (width - x - tile / 2) / (fadeX * scale))
+                edgeY := Min(1, (y + tile / 2) / (fadeTop * scale), (height - y - tile / 2) / (fadeBottom * scale))
+                alpha := Round(peak * Max(0, edgeX) * Max(0, edgeY))
+                if alpha
+                {
+                    status := DllCall("gdiplus\GdipCreateSolidFill", "UInt", (alpha << 24) | 0x191710, "Ptr*", &brush)
+                    if strict
+                        CheckLauncherCarouselGdi(status)
+                    if !status && brush
+                    {
+                        status := DllCall("gdiplus\GdipFillRectangle", "Ptr", graphics, "Ptr", brush,
+                            "Float", offsetX + x, "Float", y, "Float", Min(tile, width - x), "Float", Min(tile, height - y))
+                        if strict
+                            CheckLauncherCarouselGdi(status)
+                        DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+                        brush := 0
+                    }
+                }
+                x += tile
+            }
+            y += tile
+        }
+    }
+    finally
+        if brush
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+}
+
+PaintLauncherStatusShade(graphics, width, height)
+{
+    ; Match the actual drag-strip scale and keep the shade centered on the
+    ; unchanged caption, including larger Interface Text preferences.
+    scale := height / 48
+    bandWidth := Min(width, Round(330 * scale * AccessibilityFontMultiplier()))
+    PaintLauncherFeatheredShade(graphics, bandWidth, height, scale,
+        Round((width - bandWidth) / 2), 150, 48, 16, 16)
+}
+
 PaintInfoCard(handle, target, width, height)
 {
     global ButtonFaces, ButtonPaint
@@ -1226,25 +1281,7 @@ PaintInfoCard(handle, target, width, height)
     DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7)
     PaintLauncherBackgroundSlice(graphics, face.X, face.Y, scale, handle)
     if face.Heading != "Together" || !PaintLauncherCarouselInfoShade(graphics, width, height, scale)
-    {
-    tile := Max(1, Round(4 * scale))
-    y := 0
-    while y < height
-    {
-        x := 0
-        while x < width
-        {
-            edgeX := Min(1, (x + tile / 2) / (28 * scale), (width - x - tile / 2) / (28 * scale))
-            edgeY := Min(1, (y + tile / 2) / (22 * scale), (height - y - tile / 2) / (38 * scale))
-            alpha := Round(190 * Max(0, edgeX) * Max(0, edgeY))
-            DllCall("gdiplus\GdipCreateSolidFill", "UInt", (alpha << 24) | 0x191710, "Ptr*", &brush)
-            DllCall("gdiplus\GdipFillRectangle", "Ptr", graphics, "Ptr", brush, "Float", x, "Float", y, "Float", Min(tile, width - x), "Float", Min(tile, height - y))
-            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
-            x += tile
-        }
-        y += tile
-    }
-    }
+        PaintLauncherFeatheredShade(graphics, width, height, scale)
     DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", ButtonPaint.Headings[face.Heading], "Int", Round(8 * scale), "Int", Round(3 * scale), "Int", Round(264 * scale), "Int", Round(85 * scale))
     DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
     font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
