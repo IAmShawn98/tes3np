@@ -2495,7 +2495,13 @@ expect(
     and 'ServerStatusPollInterval = TimeSpan.FromSeconds(10)' in status_probe
     and 'readingServerStatus || DateTime.UtcNow < nextServerStatusCheck' in status_probe
     and 'nextServerStatusCheck = DateTime.UtcNow + ServerStatusPollInterval;' in status_probe
-    and 'ResolveServerStatus(ReadDiscordServerStatus, ReadWikiServerStatus)' in status_probe
+    and 'ResolveServerStatus(useDiscord, ReadDiscordServerStatus, ReadWikiServerStatus)' in status_probe
+    and 'bool useDiscord = ServerStatusAuthenticated && discordEnvironment != null;' in status_probe
+    and 'if (revision == serverStatusRevision)' in status_probe
+    and 'serverStatusRevision++;' in status_probe
+    and 'signedOutDiscordCalls != 0' in status_probe
+    and 'if (useDiscord)' in status_probe
+    and 'serverStatusSourceDeadline = DateTime.UtcNow.AddSeconds(45)' in status_probe
     and 'PublishServerStatus(result.Status, result.Source);' in status_probe
     and status_probe.count('PublishServerStatus(') == 2
     and in_order(status_probe, 'try { status = await discord(); }',
