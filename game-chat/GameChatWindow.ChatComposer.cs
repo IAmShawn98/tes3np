@@ -32,8 +32,12 @@ internal sealed partial class GameChatWindow
     {
         chatComposerViewport.Visible = nativeMode && !discordLoginVisible;
         if (!nativeMode || discordLoginVisible) return;
-        chatComposerViewport.SetBounds(ChatPixels(15), ClientSize.Height - ChatPixels(14 + ChatComposerHeight),
-            Math.Max(1, ClientSize.Width - ChatPixels(30)), ChatPixels(ChatComposerHeight));
+        // Match the painted frame body (13px sides, 14px footer).
+        // Round the shared inset once so both sides remain flush at any scale.
+        int inset = ChatPixels(13);
+        int height = ChatPixels(ChatComposerHeight);
+        chatComposerViewport.SetBounds(inset, ClientSize.Height - ChatPixels(14) - height,
+            Math.Max(1, ClientSize.Width - 2 * inset), height);
         if (chatComposerBrowser is { IsDisposed: false } browser) SizeChatComposer(browser);
     }
 

@@ -2622,6 +2622,21 @@ CheckLauncherFaceReuse()
             if LauncherFaceCache[action.Hwnd]["normal"] = before
                 throw Error("Contrast change retained stale bitmap.")
             AssertLauncherFaceBitmapReleased(before)
+            ; Probe the actual painted rim at each size and interaction state.
+            for state in ["normal", "hover", "down"]
+            {
+                ButtonFaces[chat.Hwnd].State := state
+                PaintButtonToDC(chat.Hwnd, dc)
+                bounds := Buffer(16, 0)
+                DllCall("GetClientRect", "Ptr", chat.Hwnd, "Ptr", bounds)
+                cw := NumGet(bounds, 8, "Int"), ch := NumGet(bounds, 12, "Int")
+                for px in [cw // 4, cw // 2, 3 * cw // 4]
+                    for py in [0, 1, ch - 2, ch - 1]
+                        if DllCall("GetPixel", "Ptr", dc, "Int", px, "Int", py, "UInt") != 0xFFFFFF
+                            throw Error("Game Chat rim must have no exposed gap.")
+            }
+            ButtonFaces[chat.Hwnd].State := "normal"
+            PaintButtonToDC(chat.Hwnd, dc)
             before := LauncherFaceCache[chat.Hwnd]["normal"]
             LauncherChatOpen := !LauncherChatOpen
             PaintButtonToDC(chat.Hwnd, dc)

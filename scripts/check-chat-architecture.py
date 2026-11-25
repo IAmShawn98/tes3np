@@ -603,8 +603,13 @@ composer_height = re.search(
 expect(
     "Chat composer shows at least three wrapped draft lines without shrinking message history",
     composer_height is not None and 84 <= int(composer_height[1]) <= 100
-    and 'ClientSize.Height - ChatPixels(14 + ChatComposerHeight)' in composer
+    and 'ClientSize.Height - ChatPixels(14) - height' in composer
     and 'ChatPixels(ChatComposerHeight)' in composer
+    and 'int inset = ChatPixels(13);' in composer
+    and 'ClientSize.Width - 2 * inset' in composer
+    and 'padding: 0 0 0 7px !important;' in composer_page
+    and 'if (flushRight && flushTop && flushBottom' in composer_page
+    and 'outline-offset: -2px !important;' in composer_page
     and 'int composerSpace = nativeMode ? ChatPixels(ChatComposerSpace) : 0;' in source
     and 'ClientSize.Height - ChatPixels(78) - composerSpace' in source
     and 'int dockHeight = chatHeight + (nativeMode ? ChatComposerSpace : 0);' in source
@@ -3009,6 +3014,9 @@ expect(
                  'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)')
     and section_between(embedded_chat, '\nPaintLauncherChatTab(', '\nToggleLauncherChat(').count(
         'DllCall("user32\\FrameRect"') == 2
+    and 'NumPut("Int", 1, "Int", 1, "Int", w - 1, "Int", h - 1, rect)' in embedded_chat
+    and '0xFF8F7855' in native_renderer
+    and 'Game Chat rim must have no exposed gap.' in launcher_smoke_tests
     and 'SetLauncherHandCursor()' in section_between(native_renderer, 'ButtonWindowProc(handle,', '\nSetLauncherHandCursor()')
     and "requestedHeight := Max(9, Round(AccessibilityFontSize(21) * paintScale))" in embedded_chat
     and "availableAdvance := Max(1, baselineY - Max(2, Round(h * 0.06)))" in embedded_chat

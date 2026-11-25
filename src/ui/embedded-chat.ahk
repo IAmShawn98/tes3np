@@ -486,8 +486,8 @@ MeasureLauncherChatCaption(control, paintScale)
 PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
 {
     global LauncherScale, LauncherChatOpen, AccessibilityTextSize
-    ; The outer line covers the artwork's transparent edge. Keep both lines
-    ; one pixel wide so the original double frame stays sharp at smaller sizes.
+    ; Join the two one-pixel frame strokes: no exposed strip between
+    ; the rim and button face, including at reduced launcher sizes.
     frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x00FFFFFF, "Ptr")
     if frame
     {
@@ -496,7 +496,7 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
             rect := Buffer(16, 0)
             NumPut("Int", 0, "Int", 0, "Int", w, "Int", h, rect)
             DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
-            NumPut("Int", 2, "Int", 2, "Int", w - 2, "Int", h - 2, rect)
+            NumPut("Int", 1, "Int", 1, "Int", w - 1, "Int", h - 1, rect)
             DllCall("user32\FrameRect", "Ptr", dc, "Ptr", rect, "Ptr", frame)
         }
         finally DllCall("gdi32\DeleteObject", "Ptr", frame)

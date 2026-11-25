@@ -861,6 +861,18 @@ PaintButtonArtwork(graphics, face, width, height, shift)
 {
     global ButtonPaint, EnhancedReadability
     scale := width / 220
+    if face.HasOwnProp("IsChatTab")
+    {
+        ; Keep the face fixed under the rim even when pressed. Fill the
+        ; transparent artwork edges with a matching bronze, not backdrop.
+        shift := 0
+        tabBrush := 0
+        if !DllCall("gdiplus\GdipCreateSolidFill", "UInt", 0xFF8F7855, "Ptr*", &tabBrush)
+        {
+            DllCall("gdiplus\GdipFillRectangleI", "Ptr", graphics, "Ptr", tabBrush, "Int", 0, "Int", 0, "Int", width, "Int", height)
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", tabBrush)
+        }
+    }
     if face.Book
         DllCall("gdiplus\GdipDrawImageRectRectI", "Ptr", graphics, "Ptr", ButtonPaint.Artwork, "Int", 0, "Int", shift, "Int", width, "Int", height, "Int", 44, "Int", 171, "Int", 2086, "Int", 390, "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
     else

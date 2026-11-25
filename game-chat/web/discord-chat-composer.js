@@ -21,10 +21,10 @@
         inset: 0 auto auto 0 !important; box-sizing: border-box !important;
         width: var(--tes3np-compose-width) !important; height: var(--tes3np-compose-height) !important;
         display: flex !important; flex-direction: row !important; align-items: center !important; gap: 6px !important;
-        margin: 0 !important; padding: 0 5px 0 7px !important;
+        margin: 0 !important; padding: 0 0 0 7px !important;
         --tes3np-compose-font: 18px/24px "TES3NP Theme","Mystic Cards",Georgia,serif;
         overflow: hidden !important; color: #f1e4ca !important; background: #17120e !important;
-        border: 1px solid #907343 !important; border-radius: 3px !important;
+        border: 1px solid #907343 !important; border-radius: 0 !important;
       }
       [${editorWrapperMarker}] {
         position: relative !important; display: flex !important; flex-direction: row !important; align-items: center !important;
@@ -93,7 +93,7 @@
         max-height: none !important; margin: 0 !important; padding: 0 !important;
         color: #e5c68d !important;
         background: linear-gradient(90deg,#24180d 0%,#4d371c 50%,#302111 100%) !important;
-        border: 2px ridge #b79a60 !important; border-radius: 2px !important; cursor: pointer !important;
+        border: 2px ridge #b79a60 !important; border-radius: 0 !important; cursor: pointer !important;
       }
       [${sendMarker}]::before {
         content: ''; width: 24px; height: 21px; background: currentColor;
@@ -103,7 +103,7 @@
         color: #fff0c9 !important;
         background: linear-gradient(90deg,#3b2914 0%,#76582c 50%,#4e361a 100%) !important;
       }
-      [${sendMarker}]:focus-visible { outline: 1px solid #e5c68d !important; outline-offset: 1px !important; }
+      [${sendMarker}]:focus-visible { outline: 1px solid #e5c68d !important; outline-offset: -2px !important; }
       [${areaMarker}]:focus-within { border-color: #d5b477 !important; }
     `;
     root.append(style);
@@ -204,7 +204,12 @@
         const bar = area.getBoundingClientRect();
         const text = editor.getBoundingClientRect();
         const send = sendButton.getBoundingClientRect();
-        if (Math.abs(bar.width - width) <= 2 && bar.height >= height - 2 &&
+        const edge = getComputedStyle(area);
+        // Require the send control to meet the inside of the composer rim.
+        const flushRight = Math.abs(bar.right - send.right - parseFloat(edge.borderRightWidth)) <= 1;
+        const flushTop = Math.abs(send.top - bar.top - parseFloat(edge.borderTopWidth)) <= 1;
+        const flushBottom = Math.abs(bar.bottom - send.bottom - parseFloat(edge.borderBottomWidth)) <= 1;
+        if (flushRight && flushTop && flushBottom && Math.abs(bar.width - width) <= 2 && bar.height >= height - 2 &&
             Math.abs(bar.left) <= 2 && Math.abs(bar.top) <= 2 &&
             text.width >= Math.min(60, width / 2) && text.height >= 10 &&
             text.left >= bar.left && text.right <= send.left &&
