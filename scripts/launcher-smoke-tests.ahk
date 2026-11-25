@@ -841,8 +841,7 @@ CheckOwnedMenuScaling()
     }
     catch Error as err
     {
-        detail := "FAIL: owned menu scale/position - " Type(err) " in " err.What
-            " at line " err.Line ": " SanitizeDiagnosticText(err.Message) Chr(10)
+        detail := Format("FAIL: owned menu scale/position - {} in {} at line {}: {}`n", Type(err), err.What, err.Line, SanitizeDiagnosticText(err.Message))
         try FileAppend(detail, "**")
         ; The GUI-subsystem executable may lack usable stderr. The build owns
         ; this disposable receipt and prints it before reporting code 217.
