@@ -1,6 +1,9 @@
 ; Chat Host runs WebView2 in a child window of the launcher.
 global EmbeddedChatPid := 0
-global LauncherServerStatus := 0
+; Status 3 is local startup verification only; host IPC remains 0-2.
+global LauncherServerStatus := 3
+global LauncherServerStatusFontSize := 16
+global LauncherServerStatusStarted := 0
 global LauncherServerStatusSeen := 0
 global LauncherStatusPainterCallback := 0
 global LauncherStatusBackground := 0
@@ -67,6 +70,7 @@ StartEmbeddedInGameChat()
     if !FileExist(host)
     {
         try LogLauncherEvent("CHAT | Embedded host executable not installed.")
+        SetLauncherServerStatus(0)
         ShowLauncherDiscordLoginIfLoading()
         return
     }
@@ -83,6 +87,7 @@ StartEmbeddedInGameChat()
     {
         EmbeddedChatPid := 0
         try LogLauncherEvent("CHAT | Failed to start WebView2 host (" Type(err) ").")
+        SetLauncherServerStatus(0)
         ShowLauncherDiscordLoginIfLoading()
     }
 }
@@ -117,7 +122,8 @@ CreateLauncherDiscordAccount()
 
 InitializeLauncherServerStatus(background)
 {
-    global DragStrip, LauncherStatusBackground, LauncherStatusPainterCallback
+    global DragStrip, LauncherStatusBackground, LauncherStatusPainterCallback, LauncherServerStatusStarted
+    LauncherServerStatusStarted := A_TickCount
     InitButtonPainter()
     LauncherStatusBackground := background
     LauncherStatusPainterCallback := CallbackCreate(LauncherServerStatusWindowProc, "Fast", 6)
@@ -158,7 +164,15 @@ ReceiveLauncherServerStatus(status, sender, msg, hwnd)
 
 CheckLauncherServerStatus(*)
 {
-    global EmbeddedChatPid, LauncherServerStatusSeen
+    global EmbeddedChatPid, LauncherServerStatusSeen, LauncherServerStatus, LauncherServerStatusStarted
+    if LauncherServerStatus = 3
+    {
+        ; The launcher appears before its optional host starts. Allow initial authentication
+        ; and channel acquisition, but never leave verification on screen indefinitely.
+        if (EmbeddedChatPid && !ProcessExist(EmbeddedChatPid)) || A_TickCount - LauncherServerStatusStarted >= 60000
+            SetLauncherServerStatus(0)
+        return
+    }
     if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid) || A_TickCount - LauncherServerStatusSeen > 35000
         SetLauncherServerStatus(0)
 }

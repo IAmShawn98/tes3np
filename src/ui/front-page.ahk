@@ -1,7 +1,7 @@
 ﻿; Front-page layout. Coordinates are logical pixels at 96 DPI.
 BuildFrontPage()
 {
-    global LauncherGui, DragStrip, LauncherHeading, LauncherMorrowindFont
+    global LauncherGui, DragStrip, LauncherHeading, LauncherMorrowindFont, LauncherServerStatusFontSize
     global ButtonFaces, HoverButton, PressedButton
     ButtonFaces := Map()
     LauncherGui.Opt("+OwnDialogs")
@@ -13,8 +13,8 @@ BuildFrontPage()
     ; The existing banner signal toggles visibility alongside Jiub's face.
     CreateHappyHourDust()
     ; Leave both corner controls outside the draggable area.
-    SetAccessibleTextFont(LauncherGui, "s14 Bold cD5D5D5", LauncherMorrowindFont)
-    DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200", "Server Status Unknown")
+    SetAccessibleTextFont(LauncherGui, "s" LauncherServerStatusFontSize " Bold cD5D5D5", LauncherMorrowindFont)
+    DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200", "Verifying Server Status...")
     InitializeLauncherServerStatus(background)
     parchment := LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     CreateLauncherCarousel(background, parchment)

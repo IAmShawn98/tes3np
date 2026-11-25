@@ -282,9 +282,9 @@ SetAccessibleTextFont(target, options, fontName := unset)
 ; Share the status typography between window scale and Interface Text changes.
 ApplyLauncherStatusFont(scale)
 {
-    global DragStrip, LauncherServerStatus, LauncherMorrowindFont
+    global DragStrip, LauncherServerStatus, LauncherMorrowindFont, LauncherServerStatusFontSize
     if IsObject(DragStrip)
-        DragStrip.SetFont("s" Max(5, Round(AccessibilityFontSize(14) * scale))
+        DragStrip.SetFont("s" Max(5, Round(AccessibilityFontSize(LauncherServerStatusFontSize) * scale))
             " Bold c" LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)
 }
 

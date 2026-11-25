@@ -76,7 +76,8 @@ internal sealed partial class GameChatWindow
                 core.DownloadStarting += (_, e) => e.Cancel = true;
                 core.NavigationStarting += (_, e) => e.Cancel = !IsServerStatusRoute(e.Uri);
                 core.Navigate(ServerStatusChannel);
-                PublishServerStatus(ServerStatusState.Unknown);
+                // Navigation is not a completed initial status check.
+                if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);
                 return;
             }
             source.PositionOffScreen();
@@ -95,13 +96,15 @@ internal sealed partial class GameChatWindow
                 !ulong.TryParse(tail.AsSpan(8), out _))
             {
                 statusTail = null;
-                PublishServerStatus(ServerStatusState.Unknown);
+                // The initial DOM may still be loading; the launcher bounds verification.
+                if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);
                 return;
             }
             if (tail != statusTail)
             {
                 statusTail = tail;
-                PublishServerStatus(ServerStatusState.Unknown);
+                // Require the second matching tail read before publishing an initial result.
+                if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);
                 nextServerStatusCheck = DateTime.UtcNow.AddSeconds(2);
                 return;
             }

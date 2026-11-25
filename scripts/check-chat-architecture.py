@@ -2465,11 +2465,30 @@ status_font = section_between(
 )
 expect(
     "Server status uses shared Morrowind typography through startup, scaling and Interface Text changes",
-    'SetAccessibleTextFont(LauncherGui, "s14 Bold cD5D5D5", LauncherMorrowindFont)' in front_layout
-    and 'AccessibilityFontSize(14) * scale' in status_font
+    'SetAccessibleTextFont(LauncherGui, "s" LauncherServerStatusFontSize " Bold cD5D5D5", LauncherMorrowindFont)' in front_layout
+    and 'global LauncherServerStatusFontSize := 16' in embedded_chat
+    and 'AccessibilityFontSize(LauncherServerStatusFontSize) * scale' in status_font
     and '" Bold c" LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)' in status_font
     and 'ApplyLauncherStatusFont(scale)' in launcher_layout
     and 'ApplyLauncherStatusFont(scale)' in font_update,
+)
+status_probe = (chat_root / "GameChatWindow.ServerStatus.cs").read_text(encoding="utf-8-sig")
+status_receive = section_between(embedded_chat, "\nReceiveLauncherServerStatus(", "\nCheckLauncherServerStatus(")
+status_expiry = section_between(embedded_chat, "\nCheckLauncherServerStatus(", "\nLauncherServerStatusColor(")
+expect(
+    "Server status starts verifying, retains validated IPC and expires to Unknown",
+    'global LauncherServerStatus := 3' in embedded_chat
+    and '"Verifying Server Status..."' in front_layout
+    and 'LauncherServerStatusStarted := A_TickCount' in embedded_chat
+    and 'status < 0 || status > 2 || !IsLauncherDiscordMessage(sender, hwnd)' in status_receive
+    and 'LauncherServerStatus = 3' in status_expiry
+    and 'A_TickCount - LauncherServerStatusStarted >= 60000' in status_expiry
+    and 'A_TickCount - LauncherServerStatusSeen > 35000' in status_expiry
+    and 'SetLauncherServerStatus(0)' in status_expiry
+    and 'status = 1 ? "Server Online!" : status = 2 ? "Server Offline" : "Server Status Unknown"' in embedded_chat
+    and status_probe.count('if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);') == 3
+    and 'PublishServerStatus(confirm == urlJson ? status : ServerStatusState.Unknown);' in status_probe
+    and 'MatchOnlineStatusImage(bitmap) ? ServerStatusState.Online : ServerStatusState.Unknown' in status_probe,
 )
 status_carousel = (ROOT / "src" / "ui" / "launcher-carousel.ahk").read_text(encoding="utf-8-sig")
 expect(
