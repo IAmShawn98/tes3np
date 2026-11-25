@@ -426,7 +426,7 @@ PaintLauncherCarouselPicture(state, handle, target)
         }
         DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
         graphics := 0
-        if role = "heading" || role = "version"
+        if role = "heading" || role = "version" || role = "drag"
             DrawLauncherCarouselNativeText(handle, dc, w, h, role)
         savedClip := DllCall("SaveDC", "Ptr", target, "Int")
         if !savedClip
@@ -473,8 +473,8 @@ DrawLauncherCarouselControlArtwork(graphics, target, source, image)
 ; The backing bitmap is already opaque; no native transparent erase is needed.
 DrawLauncherCarouselNativeText(handle, dc, width, height, role)
 {
-    global LauncherHeading, LauncherVersionLabel
-    control := role = "heading" ? LauncherHeading : LauncherVersionLabel
+    global LauncherHeading, LauncherVersionLabel, DragStrip, LauncherServerStatus
+    control := role = "heading" ? LauncherHeading : role = "drag" ? DragStrip : LauncherVersionLabel
     label := control.Text
     font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
     saved := DllCall("SaveDC", "Ptr", dc, "Int")
@@ -486,11 +486,13 @@ DrawLauncherCarouselNativeText(handle, dc, width, height, role)
             DllCall("SelectObject", "Ptr", dc, "Ptr", font)
         DllCall("SetBkMode", "Ptr", dc, "Int", 1)
         ; Original heading RGB 241408, version RGB C5A45C (COLORREF BGR).
-        DllCall("SetTextColor", "Ptr", dc, "UInt", role = "heading" ? 0x081424 : 0x5CA4C5)
+        rgb := Integer("0x" LauncherServerStatusColor(LauncherServerStatus))
+        statusColor := ((rgb & 0xFF) << 16) | (rgb & 0xFF00) | ((rgb >> 16) & 0xFF)
+        DllCall("SetTextColor", "Ptr", dc, "UInt", role = "heading" ? 0x081424 : role = "drag" ? statusColor : 0x5CA4C5)
         rect := Buffer(16, 0)
         NumPut("Int", width, "Int", height, rect, 8)
         style := DllCall("GetWindowLongW", "Ptr", handle, "Int", -16, "UInt")
-        flags := 0x800 | (role = "heading" ? 1 : 0)
+        flags := 0x800 | (role = "heading" || role = "drag" ? 1 : 0)
         if style & 0x200 ; SS_CENTERIMAGE
             flags |= 0x24 ; DT_SINGLELINE | DT_VCENTER
         if label != ""

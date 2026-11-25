@@ -1,5 +1,7 @@
 ; Chat Host runs WebView2 in a child window of the launcher.
 global EmbeddedChatPid := 0
+global LauncherServerStatus := 0
+global LauncherServerStatusSeen := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
@@ -86,6 +88,7 @@ StartEmbeddedInGameChat()
 StopEmbeddedInGameChat()
 {
     global EmbeddedChatPid
+    SetLauncherServerStatus(0)
     ReleaseLauncherDiscordAvatar()
     pid := EmbeddedChatPid
     if !pid
@@ -108,6 +111,48 @@ CreateLauncherDiscordAccount()
     ; Run before the Expansion handler, which acknowledges its own COPYDATA.
     OnMessage(0x004A, ReceiveLauncherDiscordAccount, -1)
     OnMessage(0x833A, LauncherDiscordSignOutFailed)
+}
+
+InitializeLauncherServerStatus()
+{
+    OnMessage(0x833C, ReceiveLauncherServerStatus)
+    SetTimer(CheckLauncherServerStatus, 2000)
+}
+
+ReceiveLauncherServerStatus(status, sender, msg, hwnd)
+{
+    global LauncherServerStatusSeen
+    if status < 0 || status > 2 || !IsLauncherDiscordMessage(sender, hwnd)
+        return 0
+    LauncherServerStatusSeen := A_TickCount
+    SetLauncherServerStatus(status)
+    return 1
+}
+
+CheckLauncherServerStatus(*)
+{
+    global EmbeddedChatPid, LauncherServerStatusSeen
+    if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid) || A_TickCount - LauncherServerStatusSeen > 35000
+        SetLauncherServerStatus(0)
+}
+
+LauncherServerStatusColor(status)
+{
+    return status = 1 ? "70E044" : status = 2 ? "F06B63" : "D5D5D5"
+}
+
+SetLauncherServerStatus(status)
+{
+    global DragStrip, LauncherServerStatus
+    if status = LauncherServerStatus
+        return
+    LauncherServerStatus := status
+    if IsObject(DragStrip)
+    {
+        DragStrip.SetFont("c" LauncherServerStatusColor(status))
+        DragStrip.Text := status = 1 ? "Server Online!" : status = 2 ? "Server Offline" : "Server Status Unknown"
+        DllCall("RedrawWindow", "Ptr", DragStrip.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0101)
+    }
 }
 
 IsLauncherDiscordMessage(sender, hwnd)

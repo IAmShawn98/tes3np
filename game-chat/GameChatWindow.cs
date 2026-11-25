@@ -110,6 +110,7 @@ internal sealed partial class GameChatWindow : Form
         CloseDiscordAccountBrowser();
         CloseChatComposer();
         ResetServerUpdates();
+        ResetServerStatus();
         discordSignInWindow?.Dispose();
         borderTexture?.Dispose();
         scrollbarTexture?.Dispose();
@@ -130,6 +131,7 @@ internal sealed partial class GameChatWindow : Form
             await CheckDiscordAuthentication();
             PublishDiscordAccount();
             _ = RefreshServerUpdates();
+            _ = RefreshServerStatus();
             RetryDueHappyHourImages();
             await RefreshNativeMessages();
             if (closingChat || IsDisposed) return;
