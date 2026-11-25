@@ -496,7 +496,24 @@ DrawLauncherCarouselNativeText(handle, dc, width, height, role)
         if style & 0x200 ; SS_CENTERIMAGE
             flags |= 0x24 ; DT_SINGLELINE | DT_VCENTER
         if label != ""
+        {
+            if role = "drag"
+            {
+                ; Status-only dark outline, scaled with the drag-strip height.
+                ; Draw into the same fresh backing buffer, never over old text.
+                radius := Max(1, Round(height / 32))
+                DllCall("SetTextColor", "Ptr", dc, "UInt", 0x080808)
+                for offset in [[-radius, -radius], [0, -radius], [radius, -radius],
+                    [-radius, 0], [radius, 0], [-radius, radius], [0, radius], [radius, radius]]
+                {
+                    NumPut("Int", offset[1], "Int", offset[2], "Int", width + offset[1], "Int", height + offset[2], rect)
+                    DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", flags)
+                }
+                NumPut("Int", 0, "Int", 0, "Int", width, "Int", height, rect)
+                DllCall("SetTextColor", "Ptr", dc, "UInt", statusColor)
+            }
             DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", flags)
+        }
     }
     finally DllCall("RestoreDC", "Ptr", dc, "Int", saved)
 }
