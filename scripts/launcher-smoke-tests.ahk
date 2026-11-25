@@ -3031,6 +3031,34 @@ CheckCircularUpdateBadgeRendering()
     try FileAppend("PASS: circular red update badge has native clipping at 50 and 100 percent" Chr(10), "*")
 }
 
+; Inspect the actual painted rows in display order. A valid sentence can wrap
+; across native controls, including at reduced launcher scale and high DPI.
+ReadVisibleReleaseNotePage(panel, topBound, bottomBound)
+{
+    global UpdateNoteRowPaintState
+    text := "", previousBottom := topBound
+    for row in panel
+    {
+        if !row.Visible || !UpdateNoteRowPaintState.Has(row.Hwnd)
+            continue
+        row.GetPos(, &top, &width, &height)
+        if top < topBound || top < previousBottom || top + height > bottomBound
+            throw Error("Visible release-note rows overlap or exceed the viewport.")
+        if height < ReleaseNoteLineHeight(row) || !ReleaseNoteFits(row, row.Text, width)
+            throw Error("Visible release-note text does not fit its measured row.")
+        previousBottom := top + height
+        text .= row.Text " "
+    }
+    ; Ignore only whitespace introduced by wrapping; every non-space
+    ; character must still be present, in order, on the visible page.
+    return RegExReplace(text, "\s+")
+}
+
+ReleaseNotePageContains(pageText, phrase)
+{
+    return InStr(pageText, RegExReplace(phrase, "\s+")) != 0
+}
+
 ; Exercise the real expanded-history scroll viewport against a disposable native
 ; panel. Only these local fixture notes are used; this never calls the updater,
 ; changes the published feed, or writes installed-version/user data.
@@ -3077,32 +3105,20 @@ CheckExpandablePublishedPreviewViewport()
             foundPrevious := false, foundOlder := false
             Loop 100
             {
-                for row in panel
-                {
-                    if !row.Visible
-                        continue
-                    if InStr(row.Text, "Previous improvement.")
-                        foundPrevious := true
-                    if InStr(row.Text, "Older correction.")
-                        foundOlder := true
-                    if !InStr(row.Text, "Previous improvement.")
-                        && !InStr(row.Text, "Older correction.")
-                        continue
-                    row.GetPos(, &top, , &height)
-                    if top < Round(214 * scale) || top + height > Round(544 * scale)
-                        throw Error("Expanded missed-update content overlaps the preview header or footer.")
-                }
+                pageText := ReadVisibleReleaseNotePage(panel, Round(214 * scale), Round(544 * scale))
+                foundPrevious := foundPrevious || ReleaseNotePageContains(pageText, "Previous improvement.")
+                foundOlder := foundOlder || ReleaseNotePageContains(pageText, "Older correction.")
                 if foundPrevious && foundOlder
                     break
                 ButtonFaces[down.Hwnd].Action.Call()
             }
             if !foundPrevious || !foundOlder
-                throw Error("Earlier missed hotfix details cannot be reached by scrolling.")
+                throw Error(Format("Earlier missed hotfix details cannot be reached at {} percent: previous={}, older={}.", percent, foundPrevious, foundOlder))
             switcher.Update.Call(sections.Compact)
-            for row in panel
-                if row.Visible && (InStr(row.Text, "Previous improvement.")
-                    || InStr(row.Text, "Older correction."))
-                    throw Error("Collapsing earlier history did not hide older changes.")
+            pageText := ReadVisibleReleaseNotePage(panel, Round(214 * scale), Round(544 * scale))
+            if ReleaseNotePageContains(pageText, "Previous improvement.")
+                || ReleaseNotePageContains(pageText, "Older correction.")
+                throw Error("Collapsing earlier history did not hide older changes.")
         }
         finally
         {
@@ -3189,16 +3205,14 @@ CheckCompactPublishedPreviewViewport()
             if percent = 82 || percent = 100
             {
                 seenFirst := false, seenLast := false
-                for row in panel
-                    if row.Visible && row.Text = "New Features"
-                        seenFirst := true
+                pageText := ReadVisibleReleaseNotePage(panel, Round(178 * scale), Round(409 * scale))
+                seenFirst := ReleaseNotePageContains(pageText, "New Features")
                 if !seenFirst
                     throw Error("Compact notes lost the first New Features heading.")
                 Loop 100
                 {
-                    for row in panel
-                        if row.Visible && InStr(row.Text, "Fixed Expansion Pack")
-                            seenLast := true
+                    pageText := ReadVisibleReleaseNotePage(panel, Round(178 * scale), Round(409 * scale))
+                    seenLast := ReleaseNotePageContains(pageText, "Fixed Expansion Pack disable flow when verification fails.")
                     if seenLast
                         break
                     if !down.Visible
@@ -3220,15 +3234,8 @@ CheckCompactPublishedPreviewViewport()
             seenOlder := false
             Loop 100
             {
-                for row in panel
-                {
-                    if !row.Visible || !InStr(row.Text, "Older sample repair.")
-                        continue
-                    row.GetPos(, &y, , &height)
-                    if y < Round(178 * scale) || y + height > Round(409 * scale)
-                        throw Error("Expanded earlier notes overlap the fixed preview summary.")
-                    seenOlder := true
-                }
+                pageText := ReadVisibleReleaseNotePage(panel, Round(178 * scale), Round(409 * scale))
+                seenOlder := ReleaseNotePageContains(pageText, "Older sample repair.")
                 if seenOlder
                     break
                 ButtonFaces[down.Hwnd].Action.Call()
@@ -3236,9 +3243,9 @@ CheckCompactPublishedPreviewViewport()
             if !seenOlder
                 throw Error("Earlier note cannot be scrolled into the compact preview.")
             switcher.Update.Call(sections.Latest)
-            for row in panel
-                if row.Visible && InStr(row.Text, "Older sample repair.")
-                    throw Error("Collapsing compact history did not restore latest-only notes.")
+            pageText := ReadVisibleReleaseNotePage(panel, Round(178 * scale), Round(409 * scale))
+            if ReleaseNotePageContains(pageText, "Older sample repair.")
+                throw Error("Collapsing compact history did not restore latest-only notes.")
         }
         finally
         {
@@ -3273,25 +3280,10 @@ CheckCompactPublishedPreviewViewport()
                 throw Error("Bundled hotfix scrollbar has no native down action.")
             Loop 100
             {
-                for control in panel
-                {
-                    if !control.Visible
-                        continue
-                    if control.Text = "Bug Fixes"
-                        seenFix := true
-                    if InStr(control.Text, "Fixed an issue")
-                        seenFirstFix := true
-                    if InStr(control.Text, "verified.")
-                        seenFinalFix := true
-                    if control.Text = "Bug Fixes"
-                        || InStr(control.Text, "Fixed an issue")
-                        || InStr(control.Text, "verified.")
-                    {
-                        control.GetPos(, &rowY, , &rowHeight)
-                        if rowY < 178 || rowY + rowHeight > 580
-                            throw Error("Bundled hotfix note exceeds scroll viewport.")
-                    }
-                }
+                pageText := ReadVisibleReleaseNotePage(panel, 178, 580)
+                seenFix := seenFix || ReleaseNotePageContains(pageText, "Bug Fixes")
+                seenFirstFix := seenFirstFix || ReleaseNotePageContains(pageText, "Fixed an issue")
+                seenFinalFix := seenFinalFix || ReleaseNotePageContains(pageText, "verified.")
                 if seenFix && seenFirstFix && seenFinalFix
                     break
                 if !down.Visible

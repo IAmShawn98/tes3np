@@ -2689,6 +2689,16 @@ expect(
     and "thumb.Move(thumbX, thumbY, thumbWidth, thumbHeight)" in update_notes,
 )
 expect(
+    "Release note scrolling checks wrapped visible text, real row bounds and current measured font",
+    'ReadVisibleReleaseNotePage(panel, topBound, bottomBound)' in launcher_smoke_tests
+    and 'ReleaseNoteFits(row, row.Text, width)' in launcher_smoke_tests
+    and 'top + height > bottomBound' in launcher_smoke_tests
+    and 'ReleaseNotePageContains(pageText, "Previous improvement.")' in launcher_smoke_tests
+    and 'ReleaseNotePageContains(pageText, "Older correction.")' in launcher_smoke_tests
+    and 'rowStyles[1] := "body"' in update_notes
+    and 'UpdateNoteRowPaintState[sample.Hwnd].Kind := "body"' in update_notes,
+)
+expect(
     "Update footer shows circular unread badge counts at all scales and clears when viewed",
     'CreateLauncherUpdateBadge()' in bootstrap
     and 'global LauncherUpdateBadge := 0' in update_check

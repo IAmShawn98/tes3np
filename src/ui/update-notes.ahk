@@ -757,6 +757,10 @@ AddUpdateNotesViewport(panel, notes, scale, switcher := 0, topExtra := 0, bottom
     updateNotes(newNotes)
     {
         page.Lines := BuildStyledReleaseNoteRows(newNotes, sample, width - Max(2, px(10)), premium, compactLayout, scale)
+        ; Measurement restores the first reusable row to the body font.
+        ; Synchronize its style cache and painter before the next refresh.
+        rowStyles[1] := "body"
+        UpdateNoteRowPaintState[sample.Hwnd].Kind := "body"
         page.Offset := 1
         lastOffset := page.Lines.Length
         used := rowHeight
