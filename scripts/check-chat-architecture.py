@@ -2460,6 +2460,17 @@ expect(
     and "RefreshCachedBookTextPreference(book)" in (ROOT / "src/ui/windows.ahk").read_text(encoding="utf-8-sig")
     and "CheckInterfaceTextAccessibility()" in launcher_smoke_tests,
 )
+status_font = section_between(
+    display_settings, "\nApplyLauncherStatusFont(scale)\n{", "\nApplyLauncherButtonFont("
+)
+expect(
+    "Server status uses shared Morrowind typography through startup, scaling and Interface Text changes",
+    'SetAccessibleTextFont(LauncherGui, "s14 Norm cD5D5D5", LauncherMorrowindFont)' in front_layout
+    and 'AccessibilityFontSize(14) * scale' in status_font
+    and 'LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)' in status_font
+    and 'ApplyLauncherStatusFont(scale)' in launcher_layout
+    and 'ApplyLauncherStatusFont(scale)' in font_update,
+)
 launcher_scale_apply = section_between(
     launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true, placement := unset)\n{", "\n}",
 )

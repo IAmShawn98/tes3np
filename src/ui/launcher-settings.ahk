@@ -279,6 +279,15 @@ SetAccessibleTextFont(target, options, fontName := unset)
     return target.SetFont(options)
 }
 
+; Share the status typography between window scale and Interface Text changes.
+ApplyLauncherStatusFont(scale)
+{
+    global DragStrip, LauncherServerStatus, LauncherMorrowindFont
+    if IsObject(DragStrip)
+        DragStrip.SetFont("s" Max(5, Round(AccessibilityFontSize(14) * scale))
+            " Norm c" LauncherServerStatusColor(LauncherServerStatus), LauncherMorrowindFont)
+}
+
 ApplyLauncherButtonFont(face, scale)
 {
     size := AccessibilityFontSize(10)
@@ -316,6 +325,7 @@ ApplyAccessibilityTextSize(suspendRedraw := true)
         if IsObject(LauncherHeading)
             LauncherHeading.SetFont("s" Max(1, Round(AccessibilityFontSize(19) * scale))
                 " Norm c241408", LauncherMorrowindFont)
+        ApplyLauncherStatusFont(scale)
         ReflowLauncherAccessibleEdgeControls(scale)
         ScaleLauncherVersionLabel(scale)
     }

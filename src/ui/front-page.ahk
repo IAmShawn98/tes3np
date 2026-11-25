@@ -13,7 +13,7 @@ BuildFrontPage()
     ; The existing banner signal toggles visibility alongside Jiub's face.
     CreateHappyHourDust()
     ; Leave both corner controls outside the draggable area.
-    SetAccessibleTextFont(LauncherGui, "s14 Bold cD5D5D5", "Segoe UI")
+    SetAccessibleTextFont(LauncherGui, "s14 Norm cD5D5D5", LauncherMorrowindFont)
     DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200", "Server Status Unknown")
     InitializeLauncherServerStatus(background)
     parchment := LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")

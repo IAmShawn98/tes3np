@@ -23,7 +23,6 @@ CaptureLauncherControlLayout()
 ApplyLauncherControlScale(suspendRedraw := true)
 {
     global LauncherGui, LauncherScale, LauncherControlLayout, ButtonFaces, LauncherHeading, LauncherMorrowindFont
-    global DragStrip, LauncherServerStatus
     if !IsObject(LauncherGui) || LauncherControlLayout.Count = 0
         return
     scale := LauncherScale / 100
@@ -51,9 +50,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
         if IsObject(LauncherHeading)
             LauncherHeading.SetFont("s" Max(1, Round(AccessibilityFontSize(19) * scale))
                 " Norm c241408", LauncherMorrowindFont)
-        if IsObject(DragStrip)
-            DragStrip.SetFont("s" Max(5, Round(AccessibilityFontSize(14) * scale))
-                " Bold c" LauncherServerStatusColor(LauncherServerStatus), "Segoe UI")
+        ApplyLauncherStatusFont(scale)
         ReflowLauncherAccessibleEdgeControls(scale)
         ScaleLauncherVersionLabel(scale)
     }
