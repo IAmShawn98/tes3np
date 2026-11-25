@@ -2,6 +2,8 @@
 global EmbeddedChatPid := 0
 global LauncherServerStatus := 0
 global LauncherServerStatusSeen := 0
+global LauncherStatusPainterCallback := 0
+global LauncherStatusBackground := 0
 global LauncherChatToggle := 0
 global LauncherChatMenu := 0
 global LauncherChatOpen := false
@@ -113,10 +115,35 @@ CreateLauncherDiscordAccount()
     OnMessage(0x833A, LauncherDiscordSignOutFailed)
 }
 
-InitializeLauncherServerStatus()
+InitializeLauncherServerStatus(background)
 {
+    global DragStrip, LauncherStatusBackground, LauncherStatusPainterCallback
+    InitButtonPainter()
+    LauncherStatusBackground := background
+    LauncherStatusPainterCallback := CallbackCreate(LauncherServerStatusWindowProc, "Fast", 6)
+    if !DllCall("comctl32\SetWindowSubclass", "Ptr", DragStrip.Hwnd, "Ptr", LauncherStatusPainterCallback, "UPtr", 1, "UPtr", 0)
+    {
+        CallbackFree(LauncherStatusPainterCallback)
+        LauncherStatusPainterCallback := 0
+        try LogLauncherEvent("UI | Server status painter unavailable.")
+    }
     OnMessage(0x833C, ReceiveLauncherServerStatus)
     SetTimer(CheckLauncherServerStatus, 2000)
+}
+
+DisposeLauncherServerStatus()
+{
+    global DragStrip, LauncherStatusBackground, LauncherStatusPainterCallback
+    SetTimer(CheckLauncherServerStatus, 0)
+    OnMessage(0x833C, ReceiveLauncherServerStatus, 0)
+    if LauncherStatusPainterCallback
+    {
+        if IsObject(DragStrip) && DllCall("IsWindow", "Ptr", DragStrip.Hwnd)
+            DllCall("comctl32\RemoveWindowSubclass", "Ptr", DragStrip.Hwnd, "Ptr", LauncherStatusPainterCallback, "UPtr", 1)
+        CallbackFree(LauncherStatusPainterCallback)
+        LauncherStatusPainterCallback := 0
+    }
+    LauncherStatusBackground := 0
 }
 
 ReceiveLauncherServerStatus(status, sender, msg, hwnd)
@@ -143,15 +170,16 @@ LauncherServerStatusColor(status)
 
 SetLauncherServerStatus(status)
 {
-    global DragStrip, LauncherServerStatus
+    global DragStrip, LauncherServerStatus, LauncherStatusPainterCallback
     if status = LauncherServerStatus
         return
     LauncherServerStatus := status
     if IsObject(DragStrip)
     {
-        DragStrip.SetFont("c" LauncherServerStatusColor(status))
-        DragStrip.Text := status = 1 ? "Server Online!" : status = 2 ? "Server Offline" : "Server Status Unknown"
-        DllCall("RedrawWindow", "Ptr", DragStrip.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x0101)
+        if !LauncherStatusPainterCallback
+            DragStrip.SetFont("c" LauncherServerStatusColor(status))
+        label := status = 1 ? "Server Online!" : status = 2 ? "Server Offline" : "Server Status Unknown"
+        SetPaintedLabelText(DragStrip, label)
     }
 }
 

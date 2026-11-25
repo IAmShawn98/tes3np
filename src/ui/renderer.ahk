@@ -1026,6 +1026,91 @@ DisposeButtonPainter(*)
     DllCall("FreeLibrary", "Ptr", ButtonPaint.Module)
 }
 
+; Base status painting is independent of carousel activation. The later
+; carousel subclass owns the drag strip during composited Happy Hour dust.
+; Every other paint restores the original artwork before drawing one label.
+LauncherServerStatusWindowProc(handle, message, wParam, lParam, subclassID, reference)
+{
+    if message = 0x0014
+        return 1
+    if message = 0x000F || message = 0x0318
+    {
+        paint := Buffer(A_PtrSize = 8 ? 72 : 64, 0)
+        previousCritical := A_IsCritical
+        Critical("On")
+        dc := message = 0x000F ? DllCall("BeginPaint", "Ptr", handle, "Ptr", paint, "Ptr") : wParam
+        try
+        {
+            if dc
+                PaintLauncherServerStatusBase(handle, dc)
+        }
+        catch Error as err
+            try LogLauncherEvent("UI | Server status paint failed: " Type(err))
+        finally
+        {
+            if message = 0x000F
+                DllCall("EndPaint", "Ptr", handle, "Ptr", paint)
+            Critical(previousCritical)
+        }
+        return 0
+    }
+    return DllCall("comctl32\DefSubclassProc", "Ptr", handle, "UInt", message, "Ptr", wParam, "Ptr", lParam, "Ptr")
+}
+
+PaintLauncherServerStatusBase(handle, target)
+{
+    global LauncherStatusBackground, ButtonPaint, HappyHourBannerVisible, HappyHourDustPictures
+    rect := Buffer(16, 0)
+    if !DllCall("GetClientRect", "Ptr", handle, "Ptr", rect)
+        return
+    w := NumGet(rect, 8, "Int"), h := NumGet(rect, 12, "Int")
+    if w <= 0 || h <= 0 || !IsObject(LauncherStatusBackground)
+        return
+    dc := 0, bitmap := 0, old := 0, graphics := 0, dust := 0
+    try
+    {
+        dc := DllCall("gdi32\CreateCompatibleDC", "Ptr", target, "Ptr")
+        bitmap := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", target, "Int", w, "Int", h, "Ptr")
+        if !dc || !bitmap
+            throw Error("Status paint buffer unavailable.")
+        old := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !old || old = -1
+            throw Error("Status paint buffer selection failed.")
+        CheckLauncherCarouselGdi(DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics))
+        CheckLauncherCarouselGdi(DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", graphics, "Int", 7))
+        CheckLauncherCarouselGdi(DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFF272722))
+        DrawLauncherCarouselControlArtwork(graphics, handle, LauncherStatusBackground.Hwnd, ButtonPaint.Background)
+        ; The top strip never intersects the changing artwork region. If
+        ; native dust is visible before carousel attachment, preserve its
+        ; single-pass appearance without sampling screen or old label pixels.
+        if HappyHourBannerVisible && HappyHourDustPictures.Length
+            && HappyHourDustPictures[1].Visible
+        {
+            if !DllCall("gdiplus\GdipLoadImageFromFile", "WStr", A_ScriptDir "\assets\happy-hour\pixie-dust.png", "Ptr*", &dust) && dust
+                DrawLauncherCarouselControlArtwork(graphics, handle, HappyHourDustPictures[1].Hwnd, dust)
+        }
+        DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        graphics := 0
+        DrawLauncherCarouselNativeText(handle, dc, w, h, "drag")
+        if !DllCall("gdi32\BitBlt", "Ptr", target, "Int", 0, "Int", 0, "Int", w, "Int", h,
+            "Ptr", dc, "Int", 0, "Int", 0, "UInt", 0xCC0020)
+            throw Error("Status paint copy failed.")
+    }
+    finally
+    {
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        if dust
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", dust)
+        if old && old != -1
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", old)
+        if dc
+            DllCall("gdi32\DeleteDC", "Ptr", dc)
+        if bitmap
+            DllCall("gdi32\DeleteObject", "Ptr", bitmap)
+    }
+}
+
 PaintLoadingPanel(handle, target, width, height)
 {
     global ButtonFaces

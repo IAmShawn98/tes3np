@@ -15,7 +15,7 @@ BuildFrontPage()
     ; Leave both corner controls outside the draggable area.
     SetAccessibleTextFont(LauncherGui, "s11 Bold cD5D5D5", "Segoe UI")
     DragStrip := LauncherGui.Add("Text", "x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200", "Server Status Unknown")
-    InitializeLauncherServerStatus()
+    InitializeLauncherServerStatus(background)
     parchment := LauncherGui.Add("Picture", "x321 y361 w318 h305 BackgroundTrans", A_ScriptDir "\assets\controls\scroll-panel.png")
     CreateLauncherCarousel(background, parchment)
     SetAccessibleTextFont(LauncherGui, "s10 Norm", "Palatino Linotype")
