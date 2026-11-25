@@ -2712,6 +2712,17 @@ expect(
     and 'rowStyles[1] := "body"' in update_notes
     and 'UpdateNoteRowPaintState[sample.Hwnd].Kind := "body"' in update_notes,
 )
+footer_badge_constructor = section_between(update_check, "\nCreateLauncherUpdateBadge()\n{", "\nIsLauncherFooterUpdateCursorTarget")
+expect(
+    "Production footer startup creates Picture with a plain asset path before resizing",
+    'A_ScriptDir "\\assets\\controls\\update-unread-circle.png")' in footer_badge_constructor
+    and in_order(footer_badge_constructor, 'LauncherUpdateBadge := LauncherGui.Add("Picture",',
+        'A_ScriptDir "\\assets\\controls\\update-unread-circle.png")',
+        'LauncherUpdateBadge.Value := "*w" bitmapPixels', 'LauncherUpdateBadge.Move(x, y, diameter, diameter)')
+    and 'CheckLauncherFooterStartup()' in launcher_smoke_tests
+    and in_order(section_between(launcher_smoke_tests, "\nCheckLauncherFooterStartup()\n{", "\nCheckUnreadBadgeTextAdjacency()"),
+        'CreateLauncherVersionLabel()', 'CreateLauncherUpdateBadge()', 'SetLauncherUnreadBadgeNumber(count)'),
+)
 expect(
     "Update footer shows circular unread badge counts at all scales and clears when viewed",
     'CreateLauncherUpdateBadge()' in bootstrap

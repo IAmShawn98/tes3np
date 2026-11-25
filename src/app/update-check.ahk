@@ -34,10 +34,13 @@ CreateLauncherUpdateBadge()
     inner := Max(1, Round(diameter * 0.90))
     inset := Floor((diameter - inner) / 2)
     bitmapPixels := Max(1, Round(diameter * GetLauncherBadgeDpiScale()))
-    ; Keep the picture and numeral sized from the same footer geometry.
+    ; Gui.Add expects the image path here, not Picture.Value's size-prefixed
+    ; syntax. Create with the plain asset, then resize the loaded picture.
     LauncherUpdateBadge := LauncherGui.Add("Picture",
         "x" x " y" y " w" diameter " h" diameter " +0x40 BackgroundTrans",
-        "*w" bitmapPixels " *h" bitmapPixels " " A_ScriptDir "\assets\controls\update-unread-circle.png")
+        A_ScriptDir "\assets\controls\update-unread-circle.png")
+    LauncherUpdateBadge.Value := "*w" bitmapPixels " *h" bitmapPixels " "
+        . A_ScriptDir "\assets\controls\update-unread-circle.png"
     LauncherUpdateBadge.Move(x, y, diameter, diameter)
     LauncherUpdateNumber := LauncherGui.Add("Text",
         "x" (x + inset) " y" (y + inset) " w" inner " h" inner " Center +0x200 BackgroundTrans", "1")

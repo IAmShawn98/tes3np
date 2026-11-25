@@ -2849,6 +2849,7 @@ CheckUnreadPublishedReleaseCounts()
     finally
         try FileDelete(fixture)
     CheckUnreadBadgeTextAdjacency()
+    CheckLauncherFooterStartup()
     ; The actual launcher uses a PNG Picture control. An earlier Text-only
     ; test passed while Windows painted the native 48px PNG as a 52px circle.
     ; This compiled probe must read the same extracted asset as production:
@@ -2943,6 +2944,51 @@ CheckUnreadPublishedReleaseCounts()
         }
     }
     try FileAppend("PASS: unread counts 4,3,2,1,0 and enlarged PNG circle with legible fitted numeral" Chr(10), "*")
+}
+
+; Exercise the real startup constructors, not just a parallel Picture fixture.
+; No update requests, click handlers or persisted read receipts are invoked.
+CheckLauncherFooterStartup()
+{
+    global LauncherGui, LauncherVersionLabel, LauncherUpdateBadge, LauncherUpdateNumber
+    global LauncherScale, AccessibilityTextSize
+    savedGui := LauncherGui, savedLabel := LauncherVersionLabel
+    savedBadge := LauncherUpdateBadge, savedNumber := LauncherUpdateNumber
+    savedScale := LauncherScale, savedText := AccessibilityTextSize
+    panel := Gui("-Caption -Border", "Launcher footer startup smoke")
+    try
+    {
+        LauncherGui := panel
+        LauncherScale := 100
+        AccessibilityTextSize := "Normal"
+        CreateLauncherVersionLabel()
+        CreateLauncherUpdateBadge()
+        for count in [1, 24, 100, 1]
+        {
+            SetLauncherUnreadBadgeNumber(count)
+            LauncherUpdateBadge.GetPos(&x, &y, &w, &h)
+            diameter := LauncherUnreadBadgeDiameter(count, 1)
+            if w != diameter || h != diameter || x != GetLauncherUnreadBadgeX(LauncherVersionLabel, 1)
+                || y != GetLauncherUnreadBadgeY(LauncherVersionLabel, diameter, 1)
+                || LauncherUpdateNumber.Text != ("" count)
+                throw Error("Production footer startup or count resize has incorrect geometry.")
+            if LauncherUpdateBadge.Visible || LauncherUpdateNumber.Visible
+                throw Error("Production footer badge must stay hidden until an update is available.")
+            rect := Buffer(16, 0)
+            if !DllCall("user32\GetClientRect", "Ptr", LauncherUpdateBadge.Hwnd, "Ptr", rect, "Int")
+                || Abs(NumGet(rect, 8, "Int") - Round(diameter * GetLauncherBadgeDpiScale())) > 2
+                || NumGet(rect, 8, "Int") != NumGet(rect, 12, "Int")
+                throw Error("Production footer Picture has incorrect native size.")
+        }
+    }
+    finally
+    {
+        panel.Destroy()
+        LauncherGui := savedGui, LauncherVersionLabel := savedLabel
+        LauncherUpdateBadge := savedBadge, LauncherUpdateNumber := savedNumber
+        LauncherScale := savedScale, AccessibilityTextSize := savedText
+    }
+    try FileAppend("PASS: production footer startup and hidden badge count resizing" Chr(10), "*")
 }
 
 ; The version Text control has intentionally padded bounds to avoid clipping
