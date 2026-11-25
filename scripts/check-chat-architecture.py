@@ -2483,12 +2483,36 @@ expect(
     and 'status < 0 || status > 2 || !IsLauncherDiscordMessage(sender, hwnd)' in status_receive
     and 'LauncherServerStatus = 3' in status_expiry
     and 'A_TickCount - LauncherServerStatusStarted >= 60000' in status_expiry
-    and 'A_TickCount - LauncherServerStatusSeen > 35000' in status_expiry
+    and 'A_TickCount - LauncherServerStatusSeen > 45000' in status_expiry
     and 'SetLauncherServerStatus(0)' in status_expiry
     and 'status = 1 ? "Server Online!" : status = 2 ? "Server Offline" : "Server Status Unknown"' in embedded_chat
-    and status_probe.count('if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);') == 3
-    and 'PublishServerStatus(confirm == urlJson ? status : ServerStatusState.Unknown);' in status_probe
-    and 'MatchOnlineStatusImage(bitmap) ? ServerStatusState.Online : ServerStatusState.Unknown' in status_probe,
+    and 'PostMessage(owner, ServerStatusMessage, new IntPtr((int)status), Handle);' in status_probe
+    and 'confirm == urlJson ? status : ServerStatusState.Unknown' in status_probe,
+)
+expect(
+    "Server status polls continuously, prioritizes valid Discord images, then tries public wiki before Unknown",
+    'watch.Tick += (_, _) => _ = RefreshServerStatus();' in chat_window
+    and 'ServerStatusPollInterval = TimeSpan.FromSeconds(10)' in status_probe
+    and 'readingServerStatus || DateTime.UtcNow < nextServerStatusCheck' in status_probe
+    and 'nextServerStatusCheck = DateTime.UtcNow + ServerStatusPollInterval;' in status_probe
+    and 'ResolveServerStatus(ReadDiscordServerStatus, ReadWikiServerStatus)' in status_probe
+    and 'PublishServerStatus(result.Status, result.Source);' in status_probe
+    and status_probe.count('PublishServerStatus(') == 2
+    and in_order(status_probe, 'try { status = await discord(); }',
+        'if (status != ServerStatusState.Unknown) return (status, "Discord");', 'try { status = await wiki(); }')
+    and 'MatchOnlineStatusImage(bitmap) ? ServerStatusState.Online : ServerStatusState.Offline' in status_probe
+    and 'validateImageData: true' in status_probe
+    and 'statusImageHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)' in status_probe
+    and 'Task.FromException<ServerStatusState>' in status_probe
+    and 'IsStatusImageUri(url, out var uri)' in status_probe
+    and 'https://wiki.nerevarineprophecies.com/Main_Page' in status_probe
+    and 'AllowAutoRedirect = false, UseCookies = false' in status_probe
+    and 'NoCache = true, NoStore = true' in status_probe
+    and 'ParseWikiServerStatus(' in status_probe
+    and 'result != ServerStatusState.Unknown && result != current' in status_probe
+    and 'CheckServerStatusCoverage()' in source
+    and '--check-server-status' in source
+    and "'--check-server-status'" in windows_build,
 )
 theme_heading_sources = [
     "src/ui/update-dialogs.ahk", "src/ui/update-notes.ahk", "src/ui/patcher.ahk",

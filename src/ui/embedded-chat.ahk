@@ -173,7 +173,9 @@ CheckLauncherServerStatus(*)
             SetLauncherServerStatus(0)
         return
     }
-    if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid) || A_TickCount - LauncherServerStatusSeen > 35000
+    ; Allow a complete bounded Discord + wiki retry before declaring a dead
+    ; heartbeat. Explicit Unknown from the host still applies immediately.
+    if !EmbeddedChatPid || !ProcessExist(EmbeddedChatPid) || A_TickCount - LauncherServerStatusSeen > 45000
         SetLauncherServerStatus(0)
 }
 

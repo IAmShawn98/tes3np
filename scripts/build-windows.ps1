@@ -776,6 +776,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     if (!(Test-Path -LiteralPath (Join-Path $hostOutput 'assets\DiscordInt.png') -PathType Leaf)) {
         throw 'Published Discord sign-in emblem is missing.'
     }
+    if ((Invoke-BuildProcess (Join-Path $hostOutput 'tes3np.ChatHost.exe') '--check-server-status' 'Server status classification and fallback smoke test' 30000) -ne 0) {
+        throw 'Server status classification or fallback smoke test failed.'
+    }
     # Keep editable CSS and layout files beside the published chat host.
     Copy-Item (Join-Path $projectRoot 'game-chat\chat.css') (Join-Path $hostOutput 'chat.css') -Force
     Copy-Item (Join-Path $projectRoot 'game-chat\chat.ini') (Join-Path $hostOutput 'chat.ini') -Force

@@ -14,6 +14,11 @@ internal static class Program
             Environment.ExitCode = GameChatWindow.CheckHappyHourHistoryCoverage();
             return;
         }
+        if (args.Length == 1 && args[0] == "--check-server-status")
+        {
+            Environment.ExitCode = GameChatWindow.CheckServerStatusCoverage();
+            return;
+        }
         if (args.Length < 1 || !long.TryParse(args[0], out long owner)) return;
         int baseWidth = args.Length > 1 && int.TryParse(args[1], out int width) && width > 0
             ? width : 960;

@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using static GameChatNative;
@@ -7,18 +9,24 @@ using static GameChatNative;
 internal sealed partial class GameChatWindow
 {
     const string ServerStatusChannel = "https://discord.com/channels/509601787901116437/511706884584243210";
+    const string ServerStatusWiki = "https://wiki.nerevarineprophecies.com/Main_Page";
     const uint ServerStatusMessage = 0x833C;
+    static readonly TimeSpan ServerStatusPollInterval = TimeSpan.FromSeconds(10);
     enum ServerStatusState { Unknown, Online, Offline }
     static readonly Lazy<string> SeekServerStatusTail = GameChatWeb.Page("seek-latest-messages.js");
     static readonly Lazy<string> ExtractServerStatusImage = GameChatWeb.Page("extract-server-status.js");
     static readonly HttpClient statusImageHttp = new(new HttpClientHandler { AllowAutoRedirect = false })
         { Timeout = TimeSpan.FromSeconds(10) };
+    static readonly HttpClient statusWikiHttp = new(new HttpClientHandler
+        { AllowAutoRedirect = false, UseCookies = false, AutomaticDecompression = DecompressionMethods.All })
+        { Timeout = TimeSpan.FromSeconds(8) };
     ServerUpdatesWindow? serverStatusWindow;
     DateTime nextServerStatusCheck;
     bool readingServerStatus;
     string? statusTail;
     ServerStatusState publishedServerStatus;
     bool serverStatusPublished;
+    string? publishedServerStatusSource;
 
     bool ServerStatusAuthenticated => !closingChat && !IsDisposed &&
         discordAccountStatus == DiscordAccountStatus.SignedIn && !discordAccountDirty;
@@ -27,13 +35,14 @@ internal sealed partial class GameChatWindow
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length == 0 && uri.IsDefaultPort &&
         string.Equals(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'), ServerStatusChannel, StringComparison.OrdinalIgnoreCase);
 
-    void PublishServerStatus(ServerStatusState status)
+    void PublishServerStatus(ServerStatusState status, string source)
     {
         if (closingChat || IsDisposed || !IsWindow(owner)) return;
-        if (!serverStatusPublished || publishedServerStatus != status)
-            Log("SERVER STATUS | " + status);
+        if (!serverStatusPublished || publishedServerStatus != status || publishedServerStatusSource != source)
+            Log("SERVER STATUS | " + status + " (" + source + ")");
         serverStatusPublished = true;
         publishedServerStatus = status;
+        publishedServerStatusSource = source;
         PostMessage(owner, ServerStatusMessage, new IntPtr((int)status), Handle);
     }
 
@@ -44,21 +53,43 @@ internal sealed partial class GameChatWindow
         statusTail = null;
         nextServerStatusCheck = DateTime.MinValue;
         previous?.Dispose();
-        PublishServerStatus(ServerStatusState.Unknown);
     }
 
+    // Independent of the chat refresh/visibility/authentication loop. A
+    // failed Discord read is not itself a published Unknown result.
     async Task RefreshServerStatus()
     {
-        if (!ServerStatusAuthenticated)
-        {
-            if (serverStatusWindow != null || publishedServerStatus != ServerStatusState.Unknown)
-                ResetServerStatus();
-            return;
-        }
-        if (readingServerStatus || DateTime.UtcNow < nextServerStatusCheck ||
-            discordEnvironment is not { } environment) return;
+        if (closingChat || IsDisposed || !IsWindow(owner) ||
+            readingServerStatus || DateTime.UtcNow < nextServerStatusCheck) return;
         readingServerStatus = true;
-        nextServerStatusCheck = DateTime.UtcNow.AddSeconds(10);
+        nextServerStatusCheck = DateTime.UtcNow + ServerStatusPollInterval;
+        try
+        {
+            var result = await ResolveServerStatus(ReadDiscordServerStatus, ReadWikiServerStatus);
+            PublishServerStatus(result.Status, result.Source);
+        }
+        finally
+        {
+            readingServerStatus = false;
+        }
+    }
+
+    static async Task<(ServerStatusState Status, string Source)> ResolveServerStatus(
+        Func<Task<ServerStatusState>> discord, Func<Task<ServerStatusState>> wiki)
+    {
+        ServerStatusState status;
+        try { status = await discord(); }
+        catch { status = ServerStatusState.Unknown; }
+        if (status != ServerStatusState.Unknown) return (status, "Discord");
+        try { status = await wiki(); }
+        catch { status = ServerStatusState.Unknown; }
+        return (status, status == ServerStatusState.Unknown ? "Neither" : "Wiki");
+    }
+
+    async Task<ServerStatusState> ReadDiscordServerStatus()
+    {
+        if (!ServerStatusAuthenticated || discordEnvironment is not { } environment)
+            return ServerStatusState.Unknown;
         var source = serverStatusWindow;
         try
         {
@@ -67,7 +98,8 @@ internal sealed partial class GameChatWindow
                 source = serverStatusWindow = new ServerUpdatesWindow();
                 source.Show();
                 await source.Browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(8));
-                if (!ServerStatusAuthenticated || source != serverStatusWindow || source.IsDisposed) return;
+                if (!ServerStatusAuthenticated || source != serverStatusWindow || source.IsDisposed)
+                    return ServerStatusState.Unknown;
                 var core = source.Browser.CoreWebView2;
                 core.Settings.AreDevToolsEnabled = false;
                 core.Settings.AreDefaultContextMenusEnabled = false;
@@ -76,63 +108,112 @@ internal sealed partial class GameChatWindow
                 core.DownloadStarting += (_, e) => e.Cancel = true;
                 core.NavigationStarting += (_, e) => e.Cancel = !IsServerStatusRoute(e.Uri);
                 core.Navigate(ServerStatusChannel);
-                // Navigation is not a completed initial status check.
-                if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);
-                return;
+                return ServerStatusState.Unknown;
             }
             source.PositionOffScreen();
             var channel = source.Browser.CoreWebView2;
             if (!IsServerStatusRoute(channel.Source))
             {
                 ResetServerStatus();
-                nextServerStatusCheck = DateTime.UtcNow.AddSeconds(30);
-                return;
+                nextServerStatusCheck = DateTime.UtcNow + ServerStatusPollInterval;
+                return ServerStatusState.Unknown;
             }
             string tailJson = await channel.ExecuteScriptAsync(SeekServerStatusTail.Value).WaitAsync(TimeSpan.FromSeconds(3));
             string? tail = JsonSerializer.Deserialize<string>(tailJson);
             if (!ServerStatusAuthenticated || source != serverStatusWindow || source.IsDisposed ||
-                !IsServerStatusRoute(channel.Source)) return;
+                !IsServerStatusRoute(channel.Source)) return ServerStatusState.Unknown;
             if (tail == null || !tail.StartsWith("present:", StringComparison.Ordinal) ||
                 !ulong.TryParse(tail.AsSpan(8), out _))
             {
                 statusTail = null;
-                // The initial DOM may still be loading; the launcher bounds verification.
-                if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);
-                return;
+                return ServerStatusState.Unknown;
             }
             if (tail != statusTail)
             {
                 statusTail = tail;
-                // Require the second matching tail read before publishing an initial result.
-                if (serverStatusPublished) PublishServerStatus(ServerStatusState.Unknown);
                 nextServerStatusCheck = DateTime.UtcNow.AddSeconds(2);
-                return;
+                return ServerStatusState.Unknown;
             }
             string urlJson = await channel.ExecuteScriptAsync(ExtractServerStatusImage.Value +
                 "(" + JsonSerializer.Serialize(tail.Substring(8)) + ")").WaitAsync(TimeSpan.FromSeconds(3));
             string? url = JsonSerializer.Deserialize<string>(urlJson);
             if (!ServerStatusAuthenticated || source != serverStatusWindow || source.IsDisposed ||
-                !IsServerStatusRoute(channel.Source)) return;
+                !IsServerStatusRoute(channel.Source)) return ServerStatusState.Unknown;
             var status = await ReadServerStatusImage(url);
             if (!ServerStatusAuthenticated || source != serverStatusWindow || source.IsDisposed ||
-                !IsServerStatusRoute(channel.Source)) return;
-            // The source can change while the image is being retrieved.
+                !IsServerStatusRoute(channel.Source)) return ServerStatusState.Unknown;
             string confirm = await channel.ExecuteScriptAsync(ExtractServerStatusImage.Value +
                 "(" + JsonSerializer.Serialize(tail.Substring(8)) + ")").WaitAsync(TimeSpan.FromSeconds(3));
-            if (ServerStatusAuthenticated && source == serverStatusWindow && !source.IsDisposed &&
-                IsServerStatusRoute(channel.Source))
-                PublishServerStatus(confirm == urlJson ? status : ServerStatusState.Unknown);
+            return ServerStatusAuthenticated && source == serverStatusWindow && !source.IsDisposed &&
+                IsServerStatusRoute(channel.Source) && confirm == urlJson ? status : ServerStatusState.Unknown;
         }
         catch (Exception ex)
         {
             if (source == serverStatusWindow && !closingChat && !IsDisposed)
             {
-                Log("SERVER STATUS | Probe unavailable: " + ex.GetType().Name);
+                Log("SERVER STATUS | Discord probe unavailable: " + ex.GetType().Name);
                 ResetServerStatus();
-                nextServerStatusCheck = DateTime.UtcNow.AddSeconds(30);
+                nextServerStatusCheck = DateTime.UtcNow + ServerStatusPollInterval;
             }
+            return ServerStatusState.Unknown;
         }
-        finally { readingServerStatus = false; }
+    }
+
+    static ServerStatusState ParseWikiServerStatus(string html)
+    {
+        // Ignore markup, executable text and comments. Require the exact
+        // server-status sentence, not unrelated mentions of online/offline.
+        const RegexOptions options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+        var timeout = TimeSpan.FromSeconds(1);
+        string visible = Regex.Replace(html,
+            @"<!--[\s\S]*?-->|<(script|style|template|noscript)\b[^>]*>[\s\S]*?</\1\s*>",
+            " ", options, timeout);
+        visible = WebUtility.HtmlDecode(Regex.Replace(visible, @"<[^>]*>", " ", options, timeout));
+        var matches = Regex.Matches(visible,
+            @"\bNerevarine\s+Prophecies\s+is\s+currently\s+(online|offline)\b",
+            options, timeout);
+        var result = ServerStatusState.Unknown;
+        foreach (Match match in matches)
+        {
+            var current = match.Groups[1].Value.Equals("online", StringComparison.OrdinalIgnoreCase)
+                ? ServerStatusState.Online : ServerStatusState.Offline;
+            if (result != ServerStatusState.Unknown && result != current) return ServerStatusState.Unknown;
+            result = current;
+        }
+        return result;
+    }
+
+    async Task<ServerStatusState> ReadWikiServerStatus()
+    {
+        if (closingChat || IsDisposed) return ServerStatusState.Unknown;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            using var request = new HttpRequestMessage(HttpMethod.Get, ServerStatusWiki);
+            request.Headers.UserAgent.ParseAdd("tes3np-status/1.0");
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true };
+            using var response = await statusWikiHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            const int limit = 2_000_000;
+            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > limit ||
+                response.Content.Headers.ContentType?.MediaType is not ("text/html" or "application/xhtml+xml"))
+                return ServerStatusState.Unknown;
+            using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
+            using var bytes = new MemoryStream();
+            byte[] buffer = new byte[16384];
+            int read;
+            while ((read = await input.ReadAsync(buffer.AsMemory(), timeout.Token)) > 0)
+            {
+                if (bytes.Length + read > limit) return ServerStatusState.Unknown;
+                bytes.Write(buffer, 0, read);
+            }
+            return ParseWikiServerStatus(System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+        }
+        catch (Exception ex)
+        {
+            if (!closingChat && !IsDisposed)
+                Log("SERVER STATUS | Wiki probe unavailable: " + ex.GetType().Name);
+            return ServerStatusState.Unknown;
+        }
     }
 
     static bool IsStatusImageUri(string? url, out Uri? uri)
@@ -146,13 +227,13 @@ internal sealed partial class GameChatWindow
     static async Task<ServerStatusState> ReadServerStatusImage(string? url)
     {
         if (!IsStatusImageUri(url, out var uri)) return ServerStatusState.Unknown;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
         request.Headers.Referrer = new Uri("https://discord.com/");
-        using var response = await statusImageHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await statusImageHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > 2_000_000)
             return ServerStatusState.Unknown;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
         using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
         using var bytes = new MemoryStream();
         byte[] buffer = new byte[16384];
@@ -163,15 +244,19 @@ internal sealed partial class GameChatWindow
             bytes.Write(buffer, 0, read);
         }
         bytes.Position = 0;
-        using var image = Image.FromStream(bytes);
+        using var image = Image.FromStream(bytes, useEmbeddedColorManagement: false, validateImageData: true);
         if (image.Width < 80 || image.Height < 16 || image.Width > 2048 || image.Height > 1024)
             return ServerStatusState.Unknown;
         using var bitmap = new Bitmap(image);
-        return MatchOnlineStatusImage(bitmap) ? ServerStatusState.Online : ServerStatusState.Unknown;
+        return ClassifyServerStatusImage(bitmap);
     }
 
-    // Screenshot-derived ONLINE glyph silhouette. No offline reference has
-    // been observed yet: unmatched images must remain Unknown, never Offline.
+    // Only call this for the validated attachment from the dedicated status
+    // channel, which uses two images. A valid non-online image means Offline.
+    static ServerStatusState ClassifyServerStatusImage(Bitmap bitmap) =>
+        MatchOnlineStatusImage(bitmap) ? ServerStatusState.Online : ServerStatusState.Offline;
+
+    // Screenshot-derived ONLINE glyph silhouette.
     static readonly string[] OnlineStatusMask =
     [
         "001111100011111111111100001111111111011011111110",
@@ -185,6 +270,56 @@ internal sealed partial class GameChatWindow
         "011111110011000010011111110111001000011011111111",
         "001111100011000111111111101111111100011011111110"
     ];
+
+    // Offline, deterministic smoke check; no network, browser or user data.
+    internal static int CheckServerStatusCoverage()
+    {
+        try
+        {
+            if (ParseWikiServerStatus("<p>Nerevarine Prophecies is currently <b>online</b>.</p>") != ServerStatusState.Online ||
+                ParseWikiServerStatus("<p>Nerevarine&nbsp;Prophecies is currently <span>offline</span>.</p>") != ServerStatusState.Offline ||
+                ParseWikiServerStatus("<p>Server status unavailable</p>") != ServerStatusState.Unknown ||
+                ParseWikiServerStatus("Nerevarine Prophecies is currently online. Nerevarine Prophecies is currently offline.") != ServerStatusState.Unknown ||
+                ParseWikiServerStatus("<script>Nerevarine Prophecies is currently online.</script><!-- Nerevarine Prophecies is currently offline. -->") != ServerStatusState.Unknown)
+                return 1;
+            using var bitmap = new Bitmap(230, 70);
+            using (var graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.Clear(Color.Black);
+                graphics.FillRectangle(Brushes.Cyan, 5, 5, 192, 20);
+                for (int y = 0; y < 10; y++)
+                for (int x = 0; x < 48; x++)
+                    if (OnlineStatusMask[y][x] == '1')
+                        graphics.FillRectangle(Brushes.Lime, 20 + 2 * x, 35 + 2 * y, 2, 2);
+            }
+            if (ClassifyServerStatusImage(bitmap) != ServerStatusState.Online) return 2;
+            using (var graphics = Graphics.FromImage(bitmap))
+                graphics.FillRectangle(Brushes.Red, 20, 35, 96, 20);
+            if (ClassifyServerStatusImage(bitmap) != ServerStatusState.Offline) return 3;
+            foreach (var primary in Enum.GetValues<ServerStatusState>())
+            foreach (var fallback in Enum.GetValues<ServerStatusState>())
+            {
+                int calls = 0;
+                var result = ResolveServerStatus(() => Task.FromResult(primary),
+                    () => { calls++; return Task.FromResult(fallback); }).GetAwaiter().GetResult();
+                var expected = primary == ServerStatusState.Unknown ? fallback : primary;
+                if (result.Status != expected || calls != (primary == ServerStatusState.Unknown ? 1 : 0) ||
+                    result.Source != (primary != ServerStatusState.Unknown ? "Discord" :
+                        fallback != ServerStatusState.Unknown ? "Wiki" : "Neither"))
+                    return 4;
+            }
+            var recovered = ResolveServerStatus(
+                () => Task.FromException<ServerStatusState>(new InvalidOperationException()),
+                () => Task.FromResult(ServerStatusState.Online)).GetAwaiter().GetResult();
+            var failed = ResolveServerStatus(
+                () => Task.FromResult(ServerStatusState.Unknown),
+                () => Task.FromException<ServerStatusState>(new InvalidOperationException())).GetAwaiter().GetResult();
+            if (recovered != (ServerStatusState.Online, "Wiki") ||
+                failed != (ServerStatusState.Unknown, "Neither")) return 5;
+            return 0;
+        }
+        catch { return 6; }
+    }
 
     static bool IsStatusGreen(Color p) => p.A >= 64 && p.G > 55 && p.G > p.R + 18 && p.G > p.B + 18;
     static bool IsStatusBlue(Color p) => p.A >= 64 && p.B > 50 && p.B > p.R + 18 && p.G > p.R + 18;
