@@ -12,6 +12,7 @@
 $ErrorActionPreference='Stop'
 $LogFile=Join-Path $env:APPDATA 'tes3np\launcher.log'
 $ProgressForm=$null;$ProgressStatus=$null;$ProgressBar=$null
+$ProgressThemeCollection=$null;$ProgressThemeMemory=[IntPtr]::Zero;$ProgressThemeTitleFont=$null
 function Write-UpdaterLog([string]$Message) {
     try {
         # A standalone worker must remove sensitive fields before writing the
@@ -49,6 +50,29 @@ function Write-UpdaterLog([string]$Message) {
         # Never interrupt update/rollback when diagnostics are unavailable.
     }
 }
+# Load a private, in-memory copy so updating the installed font cannot be blocked.
+function New-ProgressThemeFont {
+    try {
+        $fontPath = Join-Path $PSScriptRoot '..\assets\fonts\MysticCards.ttf'
+        if (!(Test-Path -LiteralPath $fontPath -PathType Leaf)) {
+            return [Drawing.Font]::new('Georgia', 14, [Drawing.FontStyle]::Bold)
+        }
+        $fontBytes = [IO.File]::ReadAllBytes($fontPath)
+        $script:ProgressThemeMemory = [Runtime.InteropServices.Marshal]::AllocHGlobal($fontBytes.Length)
+        [Runtime.InteropServices.Marshal]::Copy($fontBytes, 0, $ProgressThemeMemory, $fontBytes.Length)
+        $script:ProgressThemeCollection = [Drawing.Text.PrivateFontCollection]::new()
+        $ProgressThemeCollection.AddMemoryFont($ProgressThemeMemory, $fontBytes.Length)
+        $family = $ProgressThemeCollection.Families | Where-Object Name -eq 'Mystic Cards' | Select-Object -First 1
+        if (!$family) { throw 'Theme face unavailable.' }
+        $style = if ($family.IsStyleAvailable([Drawing.FontStyle]::Bold)) {
+            [Drawing.FontStyle]::Bold
+        } else { [Drawing.FontStyle]::Regular }
+        return [Drawing.Font]::new($family, 14, $style)
+    } catch {
+        return [Drawing.Font]::new('Georgia', 14, [Drawing.FontStyle]::Bold)
+    }
+}
+
 function Show-ProgressWindow {
     if ($TestMode) { return }
     Add-Type -AssemblyName System.Windows.Forms
@@ -80,7 +104,9 @@ function Show-ProgressWindow {
 
     $title = New-Object Windows.Forms.Label
     $title.Text = 'Updating tes3np...'
-    $title.Font = [Drawing.Font]::new('Segoe UI', 14, [Drawing.FontStyle]::Bold)
+    $script:ProgressThemeTitleFont = New-ProgressThemeFont
+    $title.Font = $ProgressThemeTitleFont
+    $title.UseCompatibleTextRendering = $true
     $message = New-Object Windows.Forms.Label
     $message.Text = "Installing v$Version. The launcher will restart automatically when finished.`r`nPlease don't reopen tes3np manually."
     $message.Font = [Drawing.Font]::new('Segoe UI', 9)
@@ -123,6 +149,12 @@ function Close-ProgressWindow {
     $script:ProgressForm = $null
     $script:ProgressStatus = $null
     $script:ProgressBar = $null
+    if ($ProgressThemeTitleFont) { $ProgressThemeTitleFont.Dispose(); $script:ProgressThemeTitleFont = $null }
+    if ($ProgressThemeCollection) { $ProgressThemeCollection.Dispose(); $script:ProgressThemeCollection = $null }
+    if ($ProgressThemeMemory -ne [IntPtr]::Zero) {
+        [Runtime.InteropServices.Marshal]::FreeHGlobal($ProgressThemeMemory)
+        $script:ProgressThemeMemory = [IntPtr]::Zero
+    }
 }
 
 function Set-State([string]$State){$dir=Split-Path -Parent $StateFile;if($dir -and -not(Test-Path -LiteralPath $dir)){New-Item -ItemType Directory -Path $dir -Force|Out-Null};@('[Update]',"State=$State","Version=$Version","UpdatedUtc=$([DateTime]::UtcNow.ToString('o'))")|Set-Content -LiteralPath $StateFile -Encoding UTF8;Write-UpdaterLog("STATE | $State")}

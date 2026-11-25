@@ -30,7 +30,7 @@ internal sealed class DiscordSignInCard : Form
         Cursor = Cursors.Hand, TabStop = false
     };
     public Panel BrowserPanel { get; } = new() { Dock = DockStyle.Fill, BackColor = Color.Black };
-    readonly Font headingFont = new("Georgia", 16, FontStyle.Bold);
+    readonly Font headingFont = GameChatTypography.ThemeFont(16, FontStyle.Bold);
     readonly Font closeFont = new("Segoe UI", 14, FontStyle.Bold);
     bool layoutApplied;
     bool parked;
@@ -51,6 +51,7 @@ internal sealed class DiscordSignInCard : Form
         ShowInTaskbar = false;
         Padding = new Padding(2);
         heading.Font = headingFont;
+        heading.UseCompatibleTextRendering = true;
         close.Font = closeFont;
         shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));

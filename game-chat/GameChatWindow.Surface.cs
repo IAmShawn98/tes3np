@@ -44,7 +44,7 @@ internal sealed partial class GameChatWindow
         using var shadow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(37, 26, 15), 3);
         using var titleFill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(16, 12, 9));
         using var gold = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(216, 182, 112));
-        using var titleFont = new Font("Georgia", 14, FontStyle.Bold);
+        using var titleFont = GameChatTypography.ThemeFont(14, FontStyle.Bold);
         g.FillRectangle(rim, 0, 0, w, h);
         // Recreate the reference's densely mottled bronze stone rather
         // than overlaying speckles on the old horizontal wood texture.
@@ -156,7 +156,7 @@ internal sealed partial class GameChatWindow
         int bodyHeight = h - headerBottom - FrameFooterHeight;
         if (bodyHeight > 0) g.FillRectangle(black, 13, headerBottom + 1, w - 26, bodyHeight);
         g.DrawLine(goldPen, 12, headerBottom, w - 13, headerBottom);
-        using var headingFont = new Font("Georgia", 13 * headerScale, FontStyle.Regular);
+        using var headingFont = GameChatTypography.ThemeFont(13 * headerScale, FontStyle.Regular);
         var titleSize = g.MeasureString(title, headingFont);
         float availableWidth = Math.Max(1, w - 2 * headerSidePadding);
         float textWidth = Math.Max(1, availableWidth - 12 * headerScale);

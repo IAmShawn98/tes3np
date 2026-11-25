@@ -20,7 +20,7 @@
         width: var(--tes3np-compose-width) !important; height: var(--tes3np-compose-height) !important;
         display: flex !important; flex-direction: row !important; align-items: center !important; gap: 6px !important;
         margin: 0 !important; padding: 0 5px 0 7px !important;
-        --tes3np-compose-font: 18px/24px Georgia, serif;
+        --tes3np-compose-font: 18px/24px "Palatino Linotype", Georgia, serif;
         overflow: hidden !important; color: #f1e4ca !important; background: #17120e !important;
         border: 1px solid #907343 !important; border-radius: 3px !important;
       }

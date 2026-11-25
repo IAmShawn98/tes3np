@@ -144,7 +144,7 @@ internal sealed partial class GameChatWindow
         chatScale = scale;
         if (loadingFont == null)
         {
-            loadingFont = new Font("Georgia", 10, FontStyle.Regular);
+            loadingFont = GameChatTypography.ThemeFont(10, FontStyle.Regular);
             nativeMessages.Font = loadingFont;
         }
         FitWebView();

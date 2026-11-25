@@ -86,8 +86,8 @@ internal sealed partial class GameChatWindow
     {
         if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
         string heading = "HAPPY HOUR ACTIVE";
-        using var masteryFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
-        using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
+        using var masteryFont = GameChatTypography.ThemeFont(12, System.Drawing.FontStyle.Bold);
+        using var timerFont = GameChatTypography.BodyFont(11, System.Drawing.FontStyle.Bold);
         int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
             happyHourBannerRainbow.Font));
         width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
@@ -131,8 +131,8 @@ internal sealed partial class GameChatWindow
         // Literal spaces surrounding a visible hyphen, as requested:
         // HAPPY HOUR ACTIVE - Mastery Points Are Doubled! (60m 0s)
         DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
-        using var masteryFont = new System.Drawing.Font("Georgia", 12, System.Drawing.FontStyle.Bold);
-        using var timerFont = new System.Drawing.Font("Georgia", 11, System.Drawing.FontStyle.Bold);
+        using var masteryFont = GameChatTypography.ThemeFont(12, System.Drawing.FontStyle.Bold);
+        using var timerFont = GameChatTypography.BodyFont(11, System.Drawing.FontStyle.Bold);
         DrawSegment("Mastery Points Are Doubled!", masteryFont,
             System.Drawing.Color.Yellow);
         DrawSegment(" ", masteryFont, System.Drawing.Color.FromArgb(215, 170, 77));
@@ -243,7 +243,7 @@ internal sealed partial class GameChatWindow
             banner.Controls.Add(titleInset);
             var rainbow = new Panel {
                 BackColor = System.Drawing.Color.FromArgb(10, 9, 8),
-                Font = new System.Drawing.Font("Georgia", 13, System.Drawing.FontStyle.Bold)
+                Font = GameChatTypography.ThemeFont(13, System.Drawing.FontStyle.Bold)
             };
             rainbow.SetBounds(0, 0, 1, 32);
             titleInset.Controls.Add(rainbow);

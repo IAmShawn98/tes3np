@@ -13,6 +13,8 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="web\*" LogicalName="tes3np.GameChat.Web.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\assets\fonts\MysticCards.ttf" LogicalName="tes3np.GameChat.MysticCards.ttf" />
+    <Content Include="..\assets\fonts\MysticCardsFontLicense.txt" Link="licenses\MysticCardsFontLicense.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup><Content Include="border-texture.b64;scrollbar-texture.b64" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="assets\DiscordInt.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>

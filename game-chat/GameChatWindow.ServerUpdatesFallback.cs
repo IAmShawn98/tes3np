@@ -7,7 +7,7 @@ using static GameChatNative;
 internal sealed partial class GameChatWindow
 {
     const int ServerUpdateBodyLimit = 3800;
-    const string ServerUpdatesRtfHeader = @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Georgia;}}" +
+    static string ServerUpdatesRtfHeader => @"{\rtf1\ansi\ansicpg1252\uc1{\fonttbl{\f0 Palatino Linotype;}{\f1 " + GameChatTypography.ThemeFace + ";}}" +
         @"{\colortbl;\red241\green238\blue232;\red217\green196\blue156;\red101\green82\blue55;" +
         @"\red184\green169\blue142;}\f0\fs21";
 
@@ -22,7 +22,7 @@ internal sealed partial class GameChatWindow
         {
             var when = DiscordTimestamp(ulong.Parse(post.Id, CultureInfo.InvariantCulture)).ToLocalTime();
             rtf.Append(firstEntry ? @"\pard\qc" : @"\pard\qc\sb85");
-            rtf.Append(@"\sa0\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
+            rtf.Append(@"\f0\sa0\fs18\cf3 \u9472?\u9472?\u9472?  \cf2 ");
             AppendServerUpdatesRtfText(rtf, when.ToString(ServerUpdatesDateFormat).AsSpan());
             rtf.Append(@"  \cf3\u9472?\u9472?\u9472?\par ");
             firstEntry = false;
@@ -35,7 +35,7 @@ internal sealed partial class GameChatWindow
                 bool heading = block.Style == "heading" ||
                     (string.IsNullOrEmpty(block.Style) &&
                      block.Runs.All(run => string.IsNullOrWhiteSpace(run?.Text) || run.Bold));
-                rtf.Append(@"\pard\cf1\fs21\sa70 ");
+                rtf.Append(@"\pard\f0\cf1\fs21\sa70 ");
                 if (block.Style == "bullet" || block.Style == "number")
                 {
                     rtf.Append(@"\li230\fi-225\tx230 ");
@@ -43,7 +43,7 @@ internal sealed partial class GameChatWindow
                     else rtf.Append(Math.Clamp(block.Number, 1, 999)).Append('.');
                     rtf.Append(@"\tab ");
                 }
-                if (heading) rtf.Append(firstBlock ? @"\fs23 " : @"\sb45\fs23 ");
+                if (heading) rtf.Append(firstBlock ? @"\f1\fs23 " : @"\f1\sb45\fs23 ");
                 foreach (var run in block.Runs.Take(240))
                 {
                     if (remaining == 0) break;
@@ -60,7 +60,7 @@ internal sealed partial class GameChatWindow
             }
             if (post.Reactions is { Length: > 0 } reactions)
             {
-                rtf.Append(@"\pard\cf2\fs18\sa40 ");
+                rtf.Append(@"\pard\f0\cf2\fs18\sa40 ");
                 foreach (var reaction in reactions.Take(25))
                 {
                     AppendServerUpdatesRtfText(rtf, reaction.Name.AsSpan());

@@ -188,7 +188,7 @@
       box-shadow:none !important; z-index:1000 !important;
       display:flex !important; flex-direction:column !important;
       gap:2px !important; box-sizing:border-box !important;
-      font-family:Georgia,'Times New Roman',serif !important;
+      font-family:"Palatino Linotype",Georgia,serif !important;
     }
     [data-tes3np-login] * { box-sizing:border-box !important; }
     [data-tes3np-integration-logo] {
@@ -203,7 +203,7 @@
       padding:5px 4px 0 !important;
       border-top:none !important;
       color:#ddc99d !important;
-      font:13px/1.4 Georgia,'Times New Roman',serif !important;
+      font:13px/1.4 "Palatino Linotype",Georgia,serif !important;
       text-align:center !important;
       white-space:normal !important;
     }
@@ -215,13 +215,13 @@
     }
     [data-tes3np-login-heading] {
       text-align:center !important; color:#d9b469 !important;
-      font:20px Georgia,serif !important;
+      font:20px "Palatino Linotype",Georgia,serif !important;
       padding:8px 0 7px !important; margin:0 0 4px !important;
       border:0 !important; box-shadow:none !important;
       text-decoration:none !important;
     }
     [data-tes3np-login] label {
-      color:#ddc99d !important; font:15px Georgia,serif !important;
+      color:#ddc99d !important; font:15px "Segoe UI",sans-serif !important;
       text-transform:none !important;
     }
     [data-tes3np-login] input {
@@ -229,12 +229,12 @@
       border:1px solid #997644 !important; border-radius:0 !important;
       min-height:34px !important; height:34px !important;
       padding:5px 8px !important; width:100% !important;
-      font:16px Georgia,serif !important;
+      font:16px "Segoe UI",sans-serif !important;
     }
     [data-tes3np-login] button[type=submit] {
       background:#9b7439 !important; color:#fff0cb !important;
       border:1px solid #dfbb75 !important; border-radius:0 !important;
-      min-height:35px !important; font:17px Georgia,serif !important;
+      min-height:35px !important; font:17px "Segoe UI",sans-serif !important;
     }
     [data-tes3np-login] a,[data-tes3np-login] [role=link],
     [data-tes3np-login] button[class*="link"] {
@@ -256,7 +256,7 @@
       margin:14px 0 12px !important;
       background:#991f1f !important; color:#fff !important;
       border:1px solid #dfbb75 !important; border-radius:0 !important;
-      font:16px/1.4 Georgia,'Times New Roman',serif !important;
+      font:16px/1.4 "Segoe UI",sans-serif !important;
       text-align:center !important; cursor:pointer !important;
     }
     [data-tes3np-not-now]:hover {

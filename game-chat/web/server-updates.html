@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https://cdn.discordapp.com/emojis/ https://media.discordapp.net/emojis/ https://discord.com/assets/; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src https://cdn.discordapp.com/emojis/ https://media.discordapp.net/emojis/ https://discord.com/assets/; base-uri 'none'; form-action 'none'">
 <style>
+  /* TES3NP_THEME_FONT */
   * { box-sizing: border-box; }
   html, body { margin: 0; overflow: hidden; background: #0a0908; color: #f1eee8; }
-  body { font: 14px/1.25 Georgia, serif; }
+  body { font: 14px/1.25 "Palatino Linotype", Georgia, serif; }
   main { height: 100vh; position: relative; overflow: auto; scrollbar-width: none; padding: 2px 2px 3px; }
   main::-webkit-scrollbar { display: none; }
   main:focus { outline: 0; }
@@ -15,7 +16,7 @@
   .date { display: flex; align-items: center; gap: 5px; color: #d9c49c; font-size: 12px; margin-bottom: 2px; }
   .date::before, .date::after { content: ''; flex: 1; border-top: 1px solid #655237; }
   p, h2 { margin: 0 0 3px; overflow-wrap: anywhere; white-space: pre-wrap; }
-  h2 { font: bold 15px/1.2 Georgia, serif; }
+  h2 { font: bold 15px/1.2 'TES3NP Theme', Georgia, serif; }
   h2:not(:first-of-type) { margin-top: 4px; }
   .point { display: grid; grid-template-columns: 12px minmax(0, 1fr); }
   .numbered { grid-template-columns: max-content minmax(0, 1fr); column-gap: 5px; }

@@ -2505,6 +2505,33 @@ expect(
     and 'SetAccessibleTextFont(menu, "s17 Bold cC5A45C", LauncherThemeFont())' in settings_ui
     and 'SetAccessibleTextFont(options, "s15 Bold cC5A45C", LauncherThemeFont())' in settings_ui,
 )
+chat_typography = (chat_root / "GameChatTypography.cs").read_text(encoding="utf-8-sig")
+chat_web_loader = (chat_root / "GameChatWeb.cs").read_text(encoding="utf-8-sig")
+updates_html = (chat_web / "server-updates.html").read_text(encoding="utf-8-sig")
+updater_worker = (ROOT / "scripts" / "tes3np-updater.ps1").read_text(encoding="utf-8-sig")
+expect(
+    "Chat Host and local web headings use the same bundled theme font with readable body roles",
+    'MysticCards.ttf' in chat_project and 'MysticCardsFontLicense.txt' in chat_project
+    and 'AddFontMemResourceEx' in chat_typography and 'AddMemoryFont' in chat_typography
+    and 'GameChatTypography.ThemeFont' in (chat_root / "GameChatWindow.Surface.cs").read_text(encoding="utf-8-sig")
+    and 'GameChatTypography.ThemeFont' in sign_in_card
+    and 'GameChatTypography.ThemeFont' in happy_hour_banner
+    and 'fileName is "message-feed.html" or "server-updates.html"' in chat_web_loader
+    and 'GameChatTypography.WebFontCss' in chat_web_loader
+    and '/* TES3NP_THEME_FONT */' in message_page and '/* TES3NP_THEME_FONT */' in updates_html
+    and "font-src data:" in updates_html and "'TES3NP Theme'" in updates_html
+    and 'Palatino Linotype' in message_page
+    and 'Palatino Linotype' in (chat_web / "discord-chat-composer.js").read_text(encoding="utf-8-sig")
+    and 'Segoe UI Emoji' in updates_html,
+)
+expect(
+    "Standalone updater theme title is loaded in memory without locking the installed font",
+    'New-ProgressThemeFont' in updater_worker
+    and 'ReadAllBytes($fontPath)' in updater_worker
+    and 'AddMemoryFont($ProgressThemeMemory' in updater_worker
+    and 'FreeHGlobal($ProgressThemeMemory)' in updater_worker
+    and '$title.UseCompatibleTextRendering = $true' in updater_worker,
+)
 status_carousel = (ROOT / "src" / "ui" / "launcher-carousel.ahk").read_text(encoding="utf-8-sig")
 expect(
     "Server status shade and caption share artwork-centered paint bounds",
