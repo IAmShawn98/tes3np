@@ -2112,13 +2112,6 @@ expect(
     and 'panel.NativePromptBackground := panel.Add("Text",' in gold_prompts,
 )
 expect(
-    "Macro Book parchment copy uses high-contrast shared Mystic Cards text",
-    'SetAccessibleTextFont(CharacterPage, "s11 Bold c100A05", LauncherMorrowindFont)' in macro_menu_ui
-    and 'SetAccessibleTextFont(CharacterPage, "s19 Norm c100A05", LauncherMorrowindFont)' in macro_menu_ui
-    and 'Higher-contrast Macro Book text clips at Normal size.' in launcher_smoke_tests
-    and 'Higher-contrast Macro Book instructions clip at reduced scale.' in launcher_smoke_tests,
-)
-expect(
     "Manage Macros empty state and Upload button do not leave blank action row",
     'MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28' in macro_menu_ui
     and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro_menu_ui

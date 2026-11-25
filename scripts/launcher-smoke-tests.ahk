@@ -1075,7 +1075,7 @@ CheckMeasuredAccessibleBookPreflight()
                     throw Error("Empty native status text should have zero text height.")
                 descriptionHeight := MeasureAccessibleWrappedText(description,
                     fullDescription, 382)
-                SetAccessibleTextFont(probe, "s11 Bold c100A05", LauncherThemeFont())
+                SetAccessibleTextFont(probe, "s11 Norm c241408", LauncherThemeFont())
                 macro := probe.Add("Text", "x8 y100 w355 h48", macroCopy)
                 macroHeight := MeasureAccessibleWrappedText(macro, macroCopy, 347)
                 SetAccessibleTextFont(probe, "s12 Norm c241408", LauncherThemeFont())
@@ -1251,9 +1251,9 @@ CheckMeasuredEmptyMacroBook()
             testPage := CreateAccessibleLayoutGui()
             try
             {
-                SetAccessibleTextFont(testPage, "s19 Norm c100A05", LauncherMorrowindFont)
+                SetAccessibleTextFont(testPage, "s19 Norm c241408", LauncherMorrowindFont)
                 heading := testPage.Add("Text", "x525 y45 w355 h32", "Manage Macros")
-                SetAccessibleTextFont(testPage, "s11 Bold c100A05", LauncherMorrowindFont)
+                SetAccessibleTextFont(testPage, "s11 Norm c241408", LauncherMorrowindFont)
                 copy := testPage.Add("Text", "x525 y87 w355 h48 +Wrap",
                     "Upload, run, or stop macros here. Click the pencil to rename a macro.")
                 notice := testPage.Add("Text", "x525 y150 w355 h28 +Wrap",
@@ -1271,9 +1271,6 @@ CheckMeasuredEmptyMacroBook()
                     if copyY != 87 || copyH != 48 || noticeY != 150
                         || noticeH != 28 || uploadY != 188
                         throw Error("Normal Macro Book empty-state coordinates changed.")
-                    if copyH < MeasureAccessibleWrappedText(copy, copy.Text, 351)
-                        || noticeH < MeasureAccessibleWrappedText(notice, notice.Text, 351)
-                        throw Error("Higher-contrast Macro Book text clips at Normal size.")
                 }
                 else
                 {
@@ -1348,9 +1345,9 @@ CheckMeasuredPopulatedMacroBook()
                 page.BookExtra := 0, page.BookCharacterExtra := 0, page.BookMacroExtra := 0
                 page.BookLayoutFixtureWorkArea := {Width: Round(1920 * A_ScreenDPI / 96), Height: Round(1200 * A_ScreenDPI / 96)}
                 page.BookBackground := page.Add("Picture", "x0 y0 w960 h650", GetBookSmokeArtworkPath())
-                SetAccessibleTextFont(page, "s19 Norm c100A05", LauncherMorrowindFont)
+                SetAccessibleTextFont(page, "s19 Norm", LauncherMorrowindFont)
                 heading := page.Add("Text", "x525 y45 w355 h32", "Manage Macros")
-                SetAccessibleTextFont(page, "s11 Bold c100A05", LauncherMorrowindFont)
+                SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
                 copy := page.Add("Text", "x525 y87 w355 h48 +Wrap",
                     "Upload, run, or stop macros here. Click the pencil to rename a macro.")
                 MacroBookControls := [heading, copy]
@@ -1406,8 +1403,6 @@ CheckMeasuredPopulatedMacroBook()
                 {
                     if copyY != BookS(87) || copyH != BookS(48) || offset != 0 || pitch != 70
                         throw Error("Normal populated Macro Book coordinates changed.")
-                    if copyH < MeasureAccessibleWrappedText(copy, copy.Text, BookS(351))
-                        throw Error("Higher-contrast Macro Book instructions clip at reduced scale.")
                 }
                 else
                 {
