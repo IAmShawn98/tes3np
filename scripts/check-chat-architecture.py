@@ -3146,8 +3146,11 @@ expect(
     and 'window.top !== window || location.origin !== "https://map.nerevarineprophecies.com"' in map_filters
     and 'button.textContent = "Filter"' in map_filters
     and '"border-radius":"0"' in map_filters
-    and 'linear-gradient(#132725,#132725) padding-box' in map_filters
-    and 'repeat border-box' in map_filters
+    and 'background:"transparent"' in map_filters
+    and '"border-image-source": texture.startsWith("data:image/png;base64,")' in map_filters
+    and '"border-image-slice":"5", "border-image-repeat":"round"' in map_filters
+    and 'linear-gradient(' not in map_filters
+    and 'opacity:' not in map_filters
     and '"font-weight":"400"' in map_filters
     and 'inset 0 0 0 1px #c4a367' in map_filters
     and '"min-width":"clamp(64px, 18vw, 108px)"' in map_filters

@@ -42,15 +42,17 @@
         button.type = "button";
         button.textContent = "Filter";
         apply(button, {
-            // Square, raised gold rim around a recessed teal face.
+            // Square, raised gold rim; the live map remains visible through the face.
             display:"block", color:"#d9b574", "font-family":"'TES3NP Theme', Georgia, serif",
             "font-size":"clamp(12px, 4.2vw, 22px)", "font-weight":"400", "line-height":"1.12",
             "box-sizing":"border-box", "min-width":"clamp(64px, 18vw, 108px)",
             padding:"3px 10px", border:"clamp(3px, 1vw, 5px) solid transparent", "border-radius":"0",
-            "border-color":"#e5cb8c66 #6c4c2777 #49301bbb #d7b47777",
-            background: texture.startsWith("data:image/png;base64,")
-                ? "linear-gradient(#132725,#132725) padding-box, url(" + texture + ") repeat border-box"
-                : "linear-gradient(#132725,#132725) padding-box, linear-gradient(135deg,#e0be77,#775026,#cfa962) border-box",
+            "border-color":"#e5cb8c #6c4c27 #49301b #d7b477",
+            background:"transparent",
+            // No fill keyword: the border image paints only the rim, never its center.
+            "border-image-source": texture.startsWith("data:image/png;base64,") ? "url(" + texture + ")" : "none",
+            "border-image-slice":"5", "border-image-repeat":"round",
+            "text-shadow":"1px 1px 1px #17110c",
             "box-shadow":"inset 0 0 0 1px #c4a367, inset 1px 2px 2px #0a1413, 0 0 0 1px #392715, 1px 2px 1px #17110c",
             cursor:"pointer", "white-space":"nowrap", "touch-action":"manipulation"
         });
