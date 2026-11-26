@@ -465,7 +465,7 @@ LauncherFaceCacheEligible(face)
 
 LauncherFaceCacheKey(handle, face, width, height)
 {
-    global LauncherScale, AccessibilityTextSize, EnhancedReadability, LauncherChatOpen
+    global LauncherScale, AccessibilityTextSize, EnhancedReadability, LauncherChatOpen, LauncherMapOpen
     font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
     definition := Buffer(92, 0) ; LOGFONTW: an HFONT alone can be recycled.
     if !font || DllCall("gdi32\GetObjectW", "Ptr", font, "Int", definition.Size,
@@ -478,7 +478,8 @@ LauncherFaceCacheKey(handle, face, width, height)
     caption := face.HasOwnProp("IsInfo") ? face.Control.Text : face.Label.Text
     return width "|" height "|" font "|" fontKey "|" LauncherScale "|" A_ScreenDPI
         . "|" AccessibilityTextSize "|" EnhancedReadability
-        . "|" (face.HasOwnProp("IsChatTab") ? LauncherChatOpen : 0)
+        . "|" (face.HasOwnProp("IsMapTab") ? LauncherMapOpen : face.HasOwnProp("IsChatTab") ? LauncherChatOpen : 0)
+        . "|" face.HasOwnProp("IsMapTab")
         . "|" face.State "|" face.Y "|" (face.HasOwnProp("X") ? face.X : 0)
         . "|" x "|" y "|" logicalWidth "|" logicalHeight "|" face.Control.Enabled
         . "|" face.HasOwnProp("IsInfo") "|" face.HasOwnProp("IsChatTab")
@@ -787,7 +788,9 @@ RenderButtonFace(wParam, lParam, *)
         DllCall("SetTextColor", "Ptr", dc, "UInt", textColor)
         bounds := Buffer(16, 0)
         NumPut("Int", 2, "Int", shift, "Int", width - 2, "Int", height + shift, bounds)
-        if isChatTab
+        if face.HasOwnProp("IsMapTab")
+            PaintLauncherChatTab(dc, width, height, labelText, textColor, shift, true)
+        else if isChatTab
             PaintLauncherChatTab(dc, width, height, labelText, textColor, shift)
         else if isDiscordName
         {

@@ -36,6 +36,7 @@ class InventoryCoverageTests(unittest.TestCase):
             "src/ui/login-progress.ahk",
             "src/ui/patcher.ahk",
             "src/ui/embedded-chat.ahk",
+            "src/ui/server-map.ahk",
             "src/app/bootstrap.ahk",
             "game-chat/GameChatWindow.Layout.cs",
             "game-chat/GameChatWindow.Surface.cs",

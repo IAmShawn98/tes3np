@@ -64,7 +64,7 @@ ApplyLauncherControlScale(suspendRedraw := true)
 ReflowLauncherAccessibleEdgeControls(scale)
 {
     global LauncherGui, LauncherControlLayout, ButtonFaces, AccessibilityTextSize
-    global LauncherExpansionToggle, LauncherChatToggle, DragStrip
+    global LauncherExpansionToggle, LauncherChatToggle, DragStrip, LauncherMapToggle, LauncherBaseWidth
     if !IsObject(LauncherGui) || !LauncherControlLayout.Count
         return
     for control in [LauncherExpansionToggle, LauncherChatToggle, DragStrip]
@@ -103,6 +103,16 @@ ReflowLauncherAccessibleEdgeControls(scale)
         if x != entry.X || y != entry.Y || w != entry.W || h != entry.H
             entry.Control.Move(entry.X, entry.Y, entry.W, entry.H)
         LauncherGui.AccessibleEdgeRects[entry.Control.Hwnd] := entry
+    }
+    ; Mirror the measured chat dimensions on the right; the shorter Map
+    ; label shares the same scale, rim, height, and keyboard hit target.
+    if IsObject(LauncherMapToggle) && LauncherControlLayout.Has(LauncherMapToggle.Hwnd)
+    {
+        mx := Round(LauncherBaseWidth * scale) - tw
+        LauncherMapToggle.Move(mx, ty, tw, th)
+        LauncherGui.AccessibleEdgeRects[LauncherMapToggle.Hwnd] := {Control: LauncherMapToggle, X: mx, Y: ty, W: tw, H: th}
+        ButtonFaces[LauncherMapToggle.Hwnd].X := mx / scale
+        ButtonFaces[LauncherMapToggle.Hwnd].Y := ty / scale
     }
     ButtonFaces[LauncherExpansionToggle.Hwnd].NoAccessibleDownfit := AccessibilityTextSize != "Normal"
     ; The backdrop slice expects base design units.

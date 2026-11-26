@@ -3068,6 +3068,25 @@ expect(
     and "arrowHalf := Max(4, Round(9 * paintScale))" in embedded_chat
     and "arrowHeight := Max(4, Round(10 * paintScale))" in embedded_chat,
 )
+server_map = (ROOT / "src/ui/server-map.ahk").read_text(encoding="utf-8-sig")
+expect(
+    "Public map shell is a mirrored, independent, owned launcher pullout",
+    'CreateLauncherMapToggle()' in bootstrap
+    and 'DisposeLauncherMapPanel()' in bootstrap
+    and 'AddStyledButton(LauncherGui, 915, 294, 45, 112, "Map", ToggleLauncherMap)' in server_map
+    and 'ButtonFaces[LauncherMapToggle.Hwnd].IsChatTab := true' in server_map
+    and 'ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true' in server_map
+    and 'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift, true)' in native_renderer
+    and 'face.HasOwnProp("IsMapTab") ? LauncherMapOpen' in native_renderer
+    and 'LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen, mirrored)' in embedded_chat
+    and 'LauncherMapToggle.Move(mx, ty, tw, th)' in launcher_layout
+    and "Drak's Server Map" in server_map
+    and 'MapViewport := panel.Add("Text"' in server_map
+    and 'SendLauncherChatCommand' not in server_map and 'WebView' not in server_map
+    and 'SetTimer(SyncLauncherMapPanel, 0)' in server_map
+    and 'assets/controls/map-frame.png' in resource_generator
+    and 'CheckLauncherMapShell()' in launcher_smoke_tests,
+)
 host_freshness = section_between(embedded_chat, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
 expect(
     "Opening the source launcher never compiles ChatHost on the UI thread",

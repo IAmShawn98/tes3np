@@ -16,7 +16,7 @@ TEXT_SUFFIXES = {".ahk", ".ps1", ".py", ".md", ".yml", ".json"}
 SKIP_DIRS = {".git", ".venv", ".vscode", ".idea", "__pycache__", "dist", "build", "bin", "obj"}
 REQUIRED_ASSETS = (
     "backgrounds/launcher.png", "backgrounds/character-book.png",
-    "controls/scroll-panel.png", "controls/button.png",
+    "controls/scroll-panel.png", "controls/button.png", "controls/map-frame.png",
     "headings/quest.png", "headings/together.png", "icons/tes3np.ico",
 )
 

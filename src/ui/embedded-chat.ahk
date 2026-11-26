@@ -483,9 +483,9 @@ MeasureLauncherChatCaption(control, paintScale)
     }
 }
 
-PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
+PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
 {
-    global LauncherScale, LauncherChatOpen, AccessibilityTextSize
+    global LauncherScale, LauncherChatOpen, LauncherMapOpen, AccessibilityTextSize
     ; Join the two one-pixel frame strokes: no exposed strip between
     ; the rim and button face, including at reduced launcher sizes.
     frame := DllCall("gdi32\CreateSolidBrush", "UInt", 0x00FFFFFF, "Ptr")
@@ -537,6 +537,28 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
         captionX := w - metrics.Height - metrics.Pad
         arrowX := Round(captionX / 2)
     }
+    if mirrored
+    {
+        ; Opposite edge: center the shorter caption and separate the arrow.
+        metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
+        captionX := Max(1, Round(2 * paintScale))
+        edgePad := Max(1, Round(2 * paintScale))
+        minArrowHalf := Max(1, Round(4 * paintScale))
+        availableWidth := Max(1, w - captionX - 2 * edgePad - 2 * minArrowHalf)
+        if metrics.Height > availableWidth
+        {
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
+            DllCall("gdi32\DeleteObject", "Ptr", font)
+            font := CreateLauncherChatCaptionFont(Max(1, Floor(requestedHeight * availableWidth / metrics.Height)))
+            DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+            metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
+        }
+        baselineY := Round((h + metrics.Advance) / 2) + shift
+        arrowLeft := Min(w - edgePad - 2, captionX + metrics.Height + edgePad)
+        arrowRight := w - edgePad
+        arrowX := Round((arrowLeft + arrowRight) / 2)
+        mapArrowHalf := Max(1, Floor((arrowRight - arrowLeft) / 2))
+    }
     DllCall("gdi32\TextOutW", "Ptr", dc, "Int", captionX,
         "Int", baselineY, "Str", label, "Int", StrLen(label))
     DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
@@ -544,9 +566,11 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift)
     pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
     oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
     cx := arrowX, cy := Round(h * 0.50) + shift
-    direction := LauncherChatOpen ? -1 : 1
+    direction := LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen, mirrored)
     arrowHalf := Max(4, Round(9 * paintScale))
     arrowHeight := Max(4, Round(10 * paintScale))
+    if mirrored
+        arrowHalf := Min(arrowHalf, mapArrowHalf)
     DllCall("gdi32\MoveToEx", "Ptr", dc, "Int", cx - direction * arrowHalf, "Int", cy, "Ptr", 0)
     DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx + direction * arrowHalf, "Int", cy)
     DllCall("gdi32\LineTo", "Ptr", dc, "Int", cx, "Int", cy - arrowHeight)

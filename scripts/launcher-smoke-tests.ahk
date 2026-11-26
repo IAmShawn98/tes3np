@@ -836,6 +836,7 @@ CheckOwnedMenuScaling()
         }
         CheckLauncherFaceReuse()
         CheckPlayTogetherInfoCardFit()
+        CheckLauncherMapShell()
         CheckDisplaySettingsAndReleaseNotes()
         ; A compiled GUI launch can lack console streams. Preserve the real result.
         try FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
@@ -2033,8 +2034,9 @@ CheckMeasuredBookEditorGeometry()
 CheckMeasuredLauncherEdgeControls()
 {
     global AccessibilityTextSize, LauncherGui, LauncherControlLayout, ButtonFaces
-    global LauncherExpansionToggle, LauncherChatToggle, DragStrip
+    global LauncherExpansionToggle, LauncherChatToggle, DragStrip, LauncherMapToggle
     savedMode := AccessibilityTextSize
+    savedMap := LauncherMapToggle
     savedGui := IsSet(LauncherGui) ? LauncherGui : 0
     savedLayout := LauncherControlLayout
     savedExpansion := IsSet(LauncherExpansionToggle) ? LauncherExpansionToggle : 0
@@ -2049,7 +2051,8 @@ CheckMeasuredLauncherEdgeControls()
         LauncherExpansionToggle := AddStyledButton(panel, 0, 0, 190, 27,
             "Expansion Pack: Enabled", (*) => 0)
         LauncherChatToggle := AddStyledButton(panel, 0, 294, 45, 112, "Game Chat", (*) => 0)
-        buttons := [LauncherExpansionToggle, LauncherChatToggle]
+        CreateLauncherMapToggle()
+        buttons := [LauncherExpansionToggle, LauncherChatToggle, LauncherMapToggle]
         ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true
         DragStrip := panel.Add("Text", "x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200", "Verifying Server Status...")
         CaptureLauncherControlLayout()
@@ -2066,6 +2069,9 @@ CheckMeasuredLauncherEdgeControls()
                 LauncherExpansionToggle.GetPos(, , &ew, &eh)
                 LauncherChatToggle.GetPos(, &ty, &tw, &th)
                 DragStrip.GetPos(&dx, &dy, &dw, &dh)
+                LauncherMapToggle.GetPos(&mx, &my, &mw, &mh)
+                if mx + mw != Round(960 * scale) || my != ty || mw != tw || mh != th
+                    throw Error("Map tab does not mirror the measured Game Chat tab.")
                 if dy != 0 || dh != Round(48 * scale)
                     throw Error("Server status alignment changed the drag hit area.")
                 if mode = "Normal"
@@ -2099,6 +2105,7 @@ CheckMeasuredLauncherEdgeControls()
         panel.Destroy()
         LauncherGui := savedGui, LauncherControlLayout := savedLayout
         LauncherExpansionToggle := savedExpansion, LauncherChatToggle := savedChat, DragStrip := savedDrag
+        LauncherMapToggle := savedMap
         AccessibilityTextSize := savedMode
     }
 }
@@ -2807,6 +2814,68 @@ CheckLauncherFaceReuse()
             DllCall("ReleaseDC", "Ptr", 0, "Ptr", screen)
         LauncherGui := savedGui, LauncherScale := savedScale, AccessibilityTextSize := savedText
         EnhancedReadability := savedContrast, LauncherChatOpen := savedChat
+    }
+}
+
+CheckLauncherMapShell()
+{
+    global LauncherGui, LauncherMapToggle, LauncherMapPanel, LauncherMapOpen, LauncherScale, AccessibilityTextSize
+    savedGui := LauncherGui, savedToggle := LauncherMapToggle, savedPanel := LauncherMapPanel
+    savedOpen := LauncherMapOpen, savedScale := LauncherScale, savedText := AccessibilityTextSize
+    owner := Gui("-Caption -Border -DPIScale")
+    try
+    {
+        LauncherGui := owner, LauncherMapToggle := 0, LauncherMapPanel := 0, LauncherMapOpen := false
+        LauncherScale := 50, AccessibilityTextSize := "Normal"
+        CreateLauncherMapToggle()
+        LauncherMapToggle.Move(458, 147, 22, 56)
+        owner.Show("NA x40 y40 w480 h358")
+        if LauncherMapToggle.Text != "Map" || LauncherSideTabDirection(false, true) != -1
+            || LauncherSideTabDirection(true, true) != 1 || LauncherSideTabDirection(false) != 1
+            || LauncherSideTabDirection(true) != -1
+            throw Error("Map tab or mirrored arrow direction changed.")
+        for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 960, B: 716}]
+        {
+            placement := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work, 45)
+            if placement.X < work.L || placement.Y < work.T || placement.X + placement.W > work.R
+                || placement.Y + placement.H > work.B
+                || (work.R = 960 && (placement.Outside || placement.X + placement.W > 915))
+                || (work.R = 1920 && !placement.Outside)
+                throw Error("Map pullout placement covers the toggle or escapes the work area.")
+        }
+        Loop 2
+        {
+            ToggleLauncherMap()
+            if !LauncherMapOpen || !IsObject(LauncherMapPanel)
+                || !DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)
+                || DllCall("GetWindow", "Ptr", LauncherMapPanel.Hwnd, "UInt", 4, "Ptr") != owner.Hwnd
+                || LauncherMapPanel.MapTitle.Text != "Drak's Server Map" || LauncherMapPanel.MapViewport.Text != ""
+                throw Error("Map shell did not open as an empty owned panel.")
+            ; Disable asynchronous layout while inspecting synthetic dimensions.
+            SetTimer(SyncLauncherMapPanel, 0)
+            for mode in ["Normal", "Large", "Extra Large"]
+            {
+                AccessibilityTextSize := mode
+                LayoutLauncherMapPanel(LauncherMapPanel, 240, 202)
+                LauncherMapPanel.MapTitle.GetPos(, &ty, &tw, &th)
+                LauncherMapPanel.MapViewport.GetPos(, &vy, , &vh)
+                extent := MeasureAccessibleSingleLineText(LauncherMapPanel.MapTitle, LauncherMapPanel.MapTitle.Text)
+                if vy != ty + th || vh <= 0 || extent.Width > tw || extent.Height > th
+                    throw Error("Map title clips or overlaps its empty viewport.")
+            }
+            ToggleLauncherMap()
+            if LauncherMapOpen || DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)
+                throw Error("Map shell did not hide.")
+        }
+    }
+    finally
+    {
+        DisposeLauncherMapPanel()
+        if IsObject(LauncherMapToggle)
+            UnregisterThemedControl(LauncherMapToggle)
+        owner.Destroy()
+        LauncherGui := savedGui, LauncherMapToggle := savedToggle, LauncherMapPanel := savedPanel
+        LauncherMapOpen := savedOpen, LauncherScale := savedScale, AccessibilityTextSize := savedText
     }
 }
 

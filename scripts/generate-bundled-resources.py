@@ -14,7 +14,7 @@ output = root / "src" / "app" / "bundled-resources.generated.ahk"
 required = (
     "assets/backgrounds/launcher.png", "assets/backgrounds/character-book.png",
     "assets/controls/button.png", "assets/controls/scroll-panel.png",
-    "assets/controls/update-badge.png",
+    "assets/controls/update-badge.png", "assets/controls/map-frame.png",
     "assets/controls/update-unread-circle.png",
     "assets/fonts/MysticCards.ttf", "assets/fonts/MysticCardsFontLicense.txt",
     "assets/happy-hour/jiub-happy-hour.png", "assets/happy-hour/pixie-dust.png",

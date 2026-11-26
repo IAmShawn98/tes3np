@@ -17,6 +17,7 @@
 #Include src\ui\front-page.ahk
 #Include src\ui\actions.ahk
 #Include src\ui\embedded-chat.ahk
+#Include src\ui\server-map.ahk
 #Include src\ui\happy-hour.ahk
 #Include src\ui\characters.ahk
 #Include src\ui\macros.ahk

@@ -603,7 +603,7 @@ RunLauncherChecks(A_Args)
         throw "Bundled carousel backdrop differs from source."
     }
     # Verify the active default artwork and shared Book against source bytes.
-    foreach ($relative in @('assets\backgrounds\launcher.png', 'assets\backgrounds\character-book.png')) {
+    foreach ($relative in @('assets\backgrounds\launcher.png', 'assets\backgrounds\character-book.png', 'assets\controls\map-frame.png')) {
         $sourceArtwork = Join-Path $projectRoot $relative
         $extractedArtwork = Join-Path $resourceRoot $relative
         if (!(Test-Path -LiteralPath $extractedArtwork -PathType Leaf) -or
