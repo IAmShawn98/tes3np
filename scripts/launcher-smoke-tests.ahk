@@ -2776,8 +2776,14 @@ CheckPlayTogetherInfoCardFit()
         SetAccessibleTextFont(panel, "s10 Norm", LauncherThemeFont())
         card := AddPlayTogetherInfoCard()
         expected := "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events.`nThe road to godhood is never a lonely one!"
-        if StrReplace(card.Text, "`r`n", "`n") != expected
+        normalized := StrReplace(StrReplace(card.Text, "`r`n", "`n"), Chr(0xA0), " ")
+        if normalized != expected
             throw Error("Play Together copy or final sentence break changed.")
+        ; Preserve both paragraph endings as indivisible phrases.
+        nbsp := Chr(0xA0)
+        for phrase in ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"]
+            if !InStr(card.Text, phrase)
+                throw Error("Play Together paragraph ending can leave a lone word.")
         face := ButtonFaces[card.Hwnd]
         for percent in [30, 40, 50, 60, 70, 80, 90, 100]
         {
@@ -2807,6 +2813,16 @@ CheckPlayTogetherInfoCardFit()
                     fitted := FitWrappedLabelFont(dc, font, card.Text, rect)
                     if fitted
                         DllCall("SelectObject", "Ptr", dc, "Ptr", fitted, "Ptr")
+                    ; The protected endings must each fit on one native line
+                    ; with the actual font selected by the production fitter.
+                    for phrase in ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"]
+                    {
+                        extent := Buffer(8, 0)
+                        if !DllCall("GetTextExtentPoint32W", "Ptr", dc, "WStr", phrase,
+                            "Int", StrLen(phrase), "Ptr", extent)
+                            || NumGet(extent, 0, "Int") > NumGet(rect, 8, "Int") - NumGet(rect, 0, "Int")
+                            throw Error("Play Together protected phrase exceeds card width at " percent "% / " mode ".")
+                    }
                     DllCall("DrawTextW", "Ptr", dc, "WStr", card.Text, "Int", -1, "Ptr", measured, "UInt", 0xC10)
                     if NumGet(measured, 8, "Int") > NumGet(rect, 8, "Int")
                         || NumGet(measured, 12, "Int") > NumGet(rect, 12, "Int")

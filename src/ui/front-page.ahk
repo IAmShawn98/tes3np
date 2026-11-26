@@ -40,7 +40,7 @@ BuildFrontPage()
 
 AddPlayTogetherInfoCard()
 {
-    return AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events.`r`nThe road to godhood is never a lonely one!")
+    return AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and" Chr(0xA0) "events.`r`nThe road to godhood is never a" Chr(0xA0) "lonely" Chr(0xA0) "one!")
 }
 
 AddInfoCard(x, y, width, height, heading, text, bodyBottom := 0)

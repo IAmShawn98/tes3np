@@ -555,7 +555,10 @@ expect(
     "Play Together copy has a deliberate sentence break and uses native measured card bounds",
     'AddPlayTogetherInfoCard()' in front_layout
     and 'AddInfoCard(598, 75, 280, 265, "Together",' in front_layout
-    and 'events.`r`nThe road to godhood is never a lonely one!' in front_layout
+    and 'and" Chr(0xA0) "events.`r`nThe road to godhood is never a" Chr(0xA0) "lonely" Chr(0xA0) "one!"' in front_layout
+    and 'for phrase in ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"]' in launcher_smoke_tests
+    and 'normalized != expected' in launcher_smoke_tests
+    and 'Play Together protected phrase exceeds card width' in launcher_smoke_tests
     and 'rect := GetInfoCardBodyRect(face, width, height)' in native_renderer
     and 'fittedFont := FitWrappedLabelFont(dc, font, label, rect)' in native_renderer
     and 'CheckPlayTogetherInfoCardFit()' in launcher_smoke_tests
