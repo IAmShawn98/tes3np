@@ -556,13 +556,16 @@ expect(
     'AddPlayTogetherInfoCard()' in front_layout
     and 'AddInfoCard(598, 75, 280, 265, "Together",' in front_layout
     and 'and" Chr(0xA0) "events.`r`nThe road to godhood is never a" Chr(0xA0) "lonely" Chr(0xA0) "one!"' in front_layout
-    and 'for phrase in ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"]' in launcher_smoke_tests
+    and 'phrases := together ? ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"] : []' in launcher_smoke_tests
+    and 'for phrase in phrases' in launcher_smoke_tests
     and 'normalized != expected' in launcher_smoke_tests
     and 'Play Together protected phrase exceeds card width' in launcher_smoke_tests
     and 'rect := GetInfoCardBodyRect(face, width, height)' in native_renderer
     and 'fittedFont := FitWrappedLabelFont(dc, font, label, rect)' in native_renderer
     and 'CheckPlayTogetherInfoCardFit()' in launcher_smoke_tests
-    and 'card := AddPlayTogetherInfoCard()' in launcher_smoke_tests
+    and 'card := together ? AddPlayTogetherInfoCard() : AddQuestInfoCard()' in launcher_smoke_tests
+    and 'CheckLauncherInfoCardFit(true)' in launcher_smoke_tests
+    and 'CheckLauncherInfoCardFit(false)' in launcher_smoke_tests
     and 'fitted := FitWrappedLabelFont(dc, font, card.Text, rect)' in launcher_smoke_tests,
 )
 quest_body = re.search(r'AddInfoCard\(\d+, (\d+), \d+, \d+, "Quest", "[^"]*", (\d+)\)', front_layout)
@@ -574,7 +577,7 @@ expect(
     and "Round(face.BodyBottom * scale)" in native_renderer
     and quest_body is not None and updates_bounds is not None
     and all((int(quest_body[1]) * percent + 50) // 100 + (int(quest_body[2]) * percent + 50) // 100 + 1
-            < (int(updates_bounds[1]) * percent + 50) // 100 for percent in range(50, 101)),
+            < (int(updates_bounds[1]) * percent + 50) // 100 for percent in range(30, 101)),
 )
 
 show_sign_in = section_between(source, "void ShowDiscordSignIn()", "void RestoreGameChatAfterSignIn()")

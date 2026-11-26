@@ -2765,6 +2765,12 @@ CheckLauncherFaceReuse()
 
 CheckPlayTogetherInfoCardFit()
 {
+    CheckLauncherInfoCardFit(true)
+    CheckLauncherInfoCardFit(false)
+}
+
+CheckLauncherInfoCardFit(together)
+{
     global LauncherGui, LauncherScale, AccessibilityTextSize, ButtonFaces
     savedGui := LauncherGui, savedScale := LauncherScale, savedText := AccessibilityTextSize
     panel := Gui()
@@ -2774,14 +2780,16 @@ CheckPlayTogetherInfoCardFit()
         LauncherGui := panel
         LauncherScale := 100, AccessibilityTextSize := "Normal"
         SetAccessibleTextFont(panel, "s10 Norm", LauncherThemeFont())
-        card := AddPlayTogetherInfoCard()
-        expected := "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events.`nThe road to godhood is never a lonely one!"
+        card := together ? AddPlayTogetherInfoCard() : AddQuestInfoCard()
+        expected := together ? "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events.`nThe road to godhood is never a lonely one!"
+            : "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!"
         normalized := StrReplace(StrReplace(card.Text, "`r`n", "`n"), Chr(0xA0), " ")
         if normalized != expected
             throw Error("Play Together copy or final sentence break changed.")
         ; Preserve both paragraph endings as indivisible phrases.
         nbsp := Chr(0xA0)
-        for phrase in ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"]
+        phrases := together ? ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"] : []
+        for phrase in phrases
             if !InStr(card.Text, phrase)
                 throw Error("Play Together paragraph ending can leave a lone word.")
         face := ButtonFaces[card.Hwnd]
@@ -2815,7 +2823,7 @@ CheckPlayTogetherInfoCardFit()
                         DllCall("SelectObject", "Ptr", dc, "Ptr", fitted, "Ptr")
                     ; The protected endings must each fit on one native line
                     ; with the actual font selected by the production fitter.
-                    for phrase in ["and" nbsp "events.", "a" nbsp "lonely" nbsp "one!"]
+                    for phrase in phrases
                     {
                         extent := Buffer(8, 0)
                         if !DllCall("GetTextExtentPoint32W", "Ptr", dc, "WStr", phrase,
@@ -2826,7 +2834,7 @@ CheckPlayTogetherInfoCardFit()
                     DllCall("DrawTextW", "Ptr", dc, "WStr", card.Text, "Int", -1, "Ptr", measured, "UInt", 0xC10)
                     if NumGet(measured, 8, "Int") > NumGet(rect, 8, "Int")
                         || NumGet(measured, 12, "Int") > NumGet(rect, 12, "Int")
-                        throw Error("Play Together copy clips at " percent "% / " mode ".")
+                        throw Error(face.Heading " copy clips at " percent "% / " mode ".")
                 }
                 finally
                 {
@@ -2838,7 +2846,7 @@ CheckPlayTogetherInfoCardFit()
                 }
             }
         }
-        try FileAppend("PASS: Play Together complete copy and explicit sentence break fit native card bounds" Chr(10), "*")
+        try FileAppend("PASS: " face.Heading " complete copy fits native card bounds" Chr(10), "*")
     }
     finally
     {

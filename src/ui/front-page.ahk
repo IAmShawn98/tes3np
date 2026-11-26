@@ -20,7 +20,7 @@ BuildFrontPage()
     CreateLauncherCarousel(background, parchment)
     SetAccessibleTextFont(LauncherGui, "s10 Norm", LauncherThemeFont())
     ; Keep the Quest copy clear of the updates panel over the bottom of the backdrop.
-    AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 151)
+    AddQuestInfoCard()
     AddPlayTogetherInfoCard()
     ; Match the native Morrowind-style typography used by Launcher Settings
     ; and Characters. A slightly larger, darker regular face keeps the
@@ -36,6 +36,11 @@ BuildFrontPage()
     Loop 4
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters, A_Index = 1 ? 10 : 0))
     UpdateCharacterMenuLabel()
+}
+
+AddQuestInfoCard()
+{
+    return AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 134)
 }
 
 AddPlayTogetherInfoCard()
