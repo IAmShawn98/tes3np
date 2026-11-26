@@ -1192,6 +1192,72 @@ CheckMeasuredV016ActionRows()
     }
 }
 
+CheckV016DiagnosticsSpacing()
+{
+    global AccessibilityTextSize, V016SettingsScale, ButtonFaces
+    savedMode := AccessibilityTextSize, savedScale := V016SettingsScale
+    try
+    {
+        for scale in [0.5, 0.7, 1.0]
+        {
+            V016SettingsScale := scale
+            for mode in ["Normal", "Large", "Extra Large"]
+            {
+                AccessibilityTextSize := mode
+                panel := CreateAccessibleLayoutGui()
+                panel.MenuButtonScale := scale
+                try
+                {
+                    layout := BuildV016LauncherDataRows(panel)
+                    rows := layout.Rows
+                    if rows.Length != 10
+                        throw Error("Diagnostics layout lost a control.")
+                    previousBottom := 0
+                    for group in [[rows[1]], [rows[2]], [rows[3]], [rows[4], rows[5]],
+                        [rows[6]], [rows[7]], [rows[8], rows[9]], [rows[10]]]
+                    {
+                        rowBottom := 0, previousRight := 0, top := -1
+                        for control in group
+                        {
+                            control.GetPos(&x, &y, &w, &h)
+                            if y < previousBottom || x < previousRight || x + w > V016S(480)
+                                throw Error("Diagnostics controls overlap or exceed the page.")
+                            if top != -1 && y != top
+                                throw Error("Diagnostics paired buttons are not aligned.")
+                            top := y
+                            previousRight := x + w
+                            rowBottom := Max(rowBottom, y + h)
+                            if !ButtonFaces.Has(control.Hwnd) && control = rows[2]
+                                && h < MeasureAccessibleWrappedText(control, control.Text, Max(1, w - V016S(4)))
+                                throw Error("Diagnostics explanation clips.")
+                        }
+                        previousBottom := rowBottom
+                    }
+                    rows[1].GetPos(, &titleY)
+                    rows[10].GetPos(, &backY)
+                    if titleY != V016S(110) || previousBottom > V016S(470) + layout.Extra + V016S(2)
+                        throw Error("Diagnostics compact layout exceeds its measured content bounds.")
+                    if mode = "Normal" && backY != V016S(440) + layout.Extra
+                        throw Error("Diagnostics Go Back spacing does not follow the measured copy.")
+                }
+                finally
+                {
+                    for control in panel
+                        if ButtonFaces.Has(control.Hwnd)
+                            UnregisterThemedControl(control)
+                    panel.Destroy()
+                }
+            }
+        }
+    }
+    finally
+    {
+        AccessibilityTextSize := savedMode
+        V016SettingsScale := savedScale
+    }
+    try FileAppend("PASS: compact diagnostics production layout at 50/70/100 percent and all text sizes" Chr(10), "*")
+}
+
 CheckMeasuredV016SettingsCopy()
 {
     global AccessibilityTextSize, V016SettingsScale
@@ -2216,6 +2282,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredV016SettingsCopy()
     try FileAppend("CHECK: CheckMeasuredV016ActionRows (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredV016ActionRows()
+    CheckV016DiagnosticsSpacing()
     try FileAppend("CHECK: CheckMeasuredEmptyMacroBook (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredEmptyMacroBook()
     try FileAppend("CHECK: CheckMeasuredPopulatedMacroBook (DPI=" A_ScreenDPI ")" Chr(10), "*")

@@ -457,6 +457,40 @@ ResetLauncherSettingsV016(settings, scaleList, textList, readability, readabilit
     PreviewLauncherSettings(settings, scaleList, textList, readabilityValue, reduceMotionBox, followWindowsValue, true)
 }
 
+; The production builder is also used by the disposable layout smoke test.
+; Keep the shared parchment and all actions unchanged; tighten only this page.
+BuildV016LauncherDataRows(settings)
+{
+    global LauncherMorrowindFont
+    before := Map()
+    for control in settings
+        before[control.Hwnd] := true
+    SetAccessibleTextFont(settings, "s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
+    settings.Add("Text", "x" V016S(32) " y" V016S(110) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data & Diagnostics")
+    ; The original 10pt Morrowind font was difficult to read at default
+    ; scale. Use larger lettering and concise copy within the same panel.
+    SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
+    copyExtra := AddV016SettingsCopy(settings, 42, V016S(150), 428, 52,
+        "Characters and preferences are saved in AppData. Export characters before resetting.")
+    AddStyledButton(settings, V016S(32), V016S(214) + copyExtra, V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
+    AddStyledButton(settings, V016S(32), V016S(255) + copyExtra, V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
+    settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(255) + copyExtra, V016S(214), V016S(30),
+        "Report A Bug", OpenBugReportPage.Bind(settings))
+    SetAccessibleTextFont(settings, "s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
+    settings.Add("Text", "x" V016S(32) " y" (V016S(315) + copyExtra) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
+    AddStyledButton(settings, V016S(32), V016S(349) + copyExtra, V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
+    AddStyledButton(settings, V016S(32), V016S(390) + copyExtra, V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
+    AddStyledButton(settings, V016S(266), V016S(390) + copyExtra, V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
+    AddStyledButton(settings, V016S(32), V016S(440) + copyExtra, V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
+    rows := []
+    for control in settings
+        if !before.Has(control.Hwnd)
+            rows.Push(control)
+    copyExtra += ApplyV016MeasuredRows([[rows[1]], [rows[2]], [rows[3]],
+        [rows[4], rows[5]], [rows[6]], [rows[7]], [rows[8], rows[9]], [rows[10]]])
+    return {Rows: rows, Extra: copyExtra}
+}
+
 OpenAppDataSettingsV016(settings, *)
 {
     global V016SettingsMainControls, V016SettingsDataControls, V016SettingsDataActive
@@ -473,32 +507,9 @@ OpenAppDataSettingsV016(settings, *)
     ; Create the second view once. A return visit simply toggles visibility.
     if V016SettingsDataControls.Length = 0
     {
-        before := Map()
-        for control in settings
-            before[control.Hwnd] := true
-        SetAccessibleTextFont(settings, "s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
-        settings.Add("Text", "x" V016S(32) " y" V016S(126) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data & Diagnostics")
-        ; The original 10pt Morrowind font was difficult to read at default
-        ; scale. Use larger lettering and concise copy within the same panel.
-        SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
-        copyExtra := AddV016SettingsCopy(settings, 42, V016S(166), 428, 65,
-            "Characters and preferences are saved in AppData. Export characters before resetting.")
-        AddStyledButton(settings, V016S(32), V016S(243) + copyExtra, V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
-        AddStyledButton(settings, V016S(32), V016S(284) + copyExtra, V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
-        settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(284) + copyExtra, V016S(214), V016S(30),
-            "Report A Bug", OpenBugReportPage.Bind(settings))
-        SetAccessibleTextFont(settings, "s" V016Font(13) " Norm c241408", LauncherMorrowindFont)
-        settings.Add("Text", "x" V016S(32) " y" (V016S(351) + copyExtra) " w" V016S(448) " h" V016S(24) " BackgroundTrans", "Advanced Diagnostic Logs")
-        AddStyledButton(settings, V016S(32), V016S(385) + copyExtra, V016S(448), V016S(30), "Copy Launcher Logs", CopyAppDataLog.Bind("launcher.log"))
-        AddStyledButton(settings, V016S(32), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Expansion Pack Logs", CopyExpansionPackLogs)
-        AddStyledButton(settings, V016S(266), V016S(426) + copyExtra, V016S(214), V016S(30), "Copy Render Errors", CopyAppDataLog.Bind("render-errors.log"))
-        AddStyledButton(settings, V016S(32), V016S(483) + copyExtra, V016S(448), V016S(30), "Go Back", CloseLauncherDataV016.Bind(settings))
-        for control in settings
-            if !before.Has(control.Hwnd)
-                V016SettingsDataControls.Push(control)
-        rows := V016SettingsDataControls
-        copyExtra += ApplyV016MeasuredRows([[rows[1]], [rows[2]], [rows[3]],
-            [rows[4], rows[5]], [rows[6]], [rows[7]], [rows[8], rows[9]], [rows[10]]])
+        layout := BuildV016LauncherDataRows(settings)
+        V016SettingsDataControls := layout.Rows
+        copyExtra := layout.Extra
         if GrowV016SettingsParchment(settings, copyExtra)
             settings.Show("NA h" (V016S(590) + settings.ParchmentExtra))
     }
