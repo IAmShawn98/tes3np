@@ -835,6 +835,7 @@ CheckOwnedMenuScaling()
             }
         }
         CheckLauncherFaceReuse()
+        CheckPlayTogetherInfoCardFit()
         CheckDisplaySettingsAndReleaseNotes()
         ; A compiled GUI launch can lack console streams. Preserve the real result.
         try FileAppend("PASS: menus follow moved owner, stay onscreen, scale 50-100 percent and release generated fonts" Chr(10), "*")
@@ -2761,6 +2762,79 @@ CheckLauncherFaceReuse()
         EnhancedReadability := savedContrast, LauncherChatOpen := savedChat
     }
 }
+
+CheckPlayTogetherInfoCardFit()
+{
+    global LauncherGui, LauncherScale, AccessibilityTextSize, ButtonFaces
+    savedGui := LauncherGui, savedScale := LauncherScale, savedText := AccessibilityTextSize
+    panel := Gui()
+    card := 0, dc := 0
+    try
+    {
+        LauncherGui := panel
+        LauncherScale := 100, AccessibilityTextSize := "Normal"
+        SetAccessibleTextFont(panel, "s10 Norm", LauncherThemeFont())
+        card := AddPlayTogetherInfoCard()
+        expected := "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events.`nThe road to godhood is never a lonely one!"
+        if StrReplace(card.Text, "`r`n", "`n") != expected
+            throw Error("Play Together copy or final sentence break changed.")
+        face := ButtonFaces[card.Hwnd]
+        for percent in [30, 40, 50, 60, 70, 80, 90, 100]
+        {
+            LauncherScale := percent, scale := percent / 100
+            card.Move(Round(face.X * scale), Round(face.Y * scale),
+                Round(face.BaseWidth * scale), Round(face.BaseHeight * scale))
+            for mode in ["Normal", "Large", "Extra Large"]
+            {
+                AccessibilityTextSize := mode
+                card.SetFont("s" Max(5, Round(AccessibilityFontSize(10) * scale))
+                    " Norm", LauncherThemeFont())
+                client := Buffer(16, 0)
+                DllCall("GetClientRect", "Ptr", card.Hwnd, "Ptr", client)
+                w := NumGet(client, 8, "Int"), h := NumGet(client, 12, "Int")
+                rect := GetInfoCardBodyRect(face, w, h)
+                measured := Buffer(16, 0)
+                Loop 4
+                    NumPut("Int", NumGet(rect, (A_Index - 1) * 4, "Int"), measured, (A_Index - 1) * 4)
+                dc := DllCall("GetDC", "Ptr", card.Hwnd, "Ptr")
+                font := DllCall("SendMessageW", "Ptr", card.Hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+                if !dc || !font
+                    throw Error("Play Together native text measurement unavailable.")
+                original := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
+                fitted := 0
+                try
+                {
+                    fitted := FitWrappedLabelFont(dc, font, card.Text, rect)
+                    if fitted
+                        DllCall("SelectObject", "Ptr", dc, "Ptr", fitted, "Ptr")
+                    DllCall("DrawTextW", "Ptr", dc, "WStr", card.Text, "Int", -1, "Ptr", measured, "UInt", 0xC10)
+                    if NumGet(measured, 8, "Int") > NumGet(rect, 8, "Int")
+                        || NumGet(measured, 12, "Int") > NumGet(rect, 12, "Int")
+                        throw Error("Play Together copy clips at " percent "% / " mode ".")
+                }
+                finally
+                {
+                    DllCall("SelectObject", "Ptr", dc, "Ptr", original, "Ptr")
+                    if fitted
+                        DllCall("DeleteObject", "Ptr", fitted)
+                    DllCall("ReleaseDC", "Ptr", card.Hwnd, "Ptr", dc)
+                    dc := 0
+                }
+            }
+        }
+        try FileAppend("PASS: Play Together complete copy and explicit sentence break fit native card bounds" Chr(10), "*")
+    }
+    finally
+    {
+        if dc && IsObject(card)
+            DllCall("ReleaseDC", "Ptr", card.Hwnd, "Ptr", dc)
+        if IsObject(card)
+            UnregisterThemedControl(card)
+        panel.Destroy()
+        LauncherGui := savedGui, LauncherScale := savedScale, AccessibilityTextSize := savedText
+    }
+}
+
 
 CheckDisplaySettingsAndReleaseNotes()
 {

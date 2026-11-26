@@ -551,6 +551,17 @@ expect(
     and 'await ReadBackServerUpdateReaction(source, core, request);' in source
     and 'post with { Reactions = reactions }' in source,
 )
+expect(
+    "Play Together copy has a deliberate sentence break and uses native measured card bounds",
+    'AddPlayTogetherInfoCard()' in front_layout
+    and 'AddInfoCard(598, 75, 280, 265, "Together",' in front_layout
+    and 'events.`r`nThe road to godhood is never a lonely one!' in front_layout
+    and 'rect := GetInfoCardBodyRect(face, width, height)' in native_renderer
+    and 'fittedFont := FitWrappedLabelFont(dc, font, label, rect)' in native_renderer
+    and 'CheckPlayTogetherInfoCardFit()' in launcher_smoke_tests
+    and 'card := AddPlayTogetherInfoCard()' in launcher_smoke_tests
+    and 'fitted := FitWrappedLabelFont(dc, font, card.Text, rect)' in launcher_smoke_tests,
+)
 quest_body = re.search(r'AddInfoCard\(\d+, (\d+), \d+, \d+, "Quest", "[^"]*", (\d+)\)', front_layout)
 updates_bounds = re.search(r'LauncherUpdatesSlot := LauncherGui.Add\("Text",\s*"x\d+ y(\d+)', embedded_chat)
 expect(

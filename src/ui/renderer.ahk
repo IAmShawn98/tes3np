@@ -1297,6 +1297,15 @@ PaintLauncherStatusShade(graphics, handle, width, height)
         Round((bounds.L + bounds.R - bandWidth) / 2), 150, 48, 16, 16)
 }
 
+GetInfoCardBodyRect(face, width, height)
+{
+    scale := width / face.BaseWidth
+    rect := Buffer(16, 0)
+    bodyBottom := face.BodyBottom > 0 ? Round(face.BodyBottom * scale) : height - Round(16 * scale)
+    NumPut("Int", Round(18 * scale), "Int", Round(67 * scale), "Int", width - Round(18 * scale), "Int", bodyBottom, rect)
+    return rect
+}
+
 PaintInfoCard(handle, target, width, height)
 {
     global ButtonFaces, ButtonPaint
@@ -1318,9 +1327,7 @@ PaintInfoCard(handle, target, width, height)
     font := DllCall("SendMessageW", "Ptr", handle, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
     oldFont := DllCall("SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
     DllCall("SetBkMode", "Ptr", dc, "Int", 1)
-    rect := Buffer(16, 0)
-    bodyBottom := face.BodyBottom > 0 ? Round(face.BodyBottom * scale) : height - Round(16 * scale)
-    NumPut("Int", Round(18 * scale), "Int", Round(67 * scale), "Int", width - Round(18 * scale), "Int", bodyBottom, rect)
+    rect := GetInfoCardBodyRect(face, width, height)
     label := face.Control.Text
     fittedFont := FitWrappedLabelFont(dc, font, label, rect)
     if fittedFont

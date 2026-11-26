@@ -21,7 +21,7 @@ BuildFrontPage()
     SetAccessibleTextFont(LauncherGui, "s10 Norm", LauncherThemeFont())
     ; Keep the Quest copy clear of the updates panel over the bottom of the backdrop.
     AddInfoCard(82, 75, 280, 220, "Quest", "Experience Morrowind’s legendary main questline and epic DLC stories—the classic adventure you know and love, fully integrated into multiplayer!", 151)
-    AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events. The road to godhood is never a lonely one!")
+    AddPlayTogetherInfoCard()
     ; Match the native Morrowind-style typography used by Launcher Settings
     ; and Characters. A slightly larger, darker regular face keeps the
     ; handwritten lettering readable against the parchment.
@@ -36,6 +36,11 @@ BuildFrontPage()
     Loop 4
         MenuRows.Push(AddLauncherButton(447 + (A_Index - 1) * 40, "", OpenCharacters, A_Index = 1 ? 10 : 0))
     UpdateCharacterMenuLabel()
+}
+
+AddPlayTogetherInfoCard()
+{
+    return AddInfoCard(598, 75, 280, 265, "Together", "Experience Morrowind like never before! Join dozens of fetchers in the most popular, feature-rich Morrowind multiplayer experience ever crafted. Shape your character build with class masteries, take on enemy camps, face unique bosses, and enjoy fishing, crafting, housing, and events.`r`nThe road to godhood is never a lonely one!")
 }
 
 AddInfoCard(x, y, width, height, heading, text, bodyBottom := 0)
