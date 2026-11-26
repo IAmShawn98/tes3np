@@ -2673,7 +2673,14 @@ expect(
     and 'PaintLauncherStatusShade(graphics, handle, w, h)' in native_renderer
     and 'PaintLauncherStatusShade(graphics, handle, w, h)' in status_carousel
     and 'bounds.L + bounds.R - bandWidth' in native_renderer
-    and 'NumPut("Int", bounds.L, "Int", 0, "Int", bounds.R, "Int", height, rect)' in status_carousel,
+    and 'NumPut("Int", bounds.L, "Int", 0, "Int", bounds.R, "Int", captionHeight, rect)' in status_carousel
+    and 'bounds.R + offset[1], "Int", captionHeight + offset[2], rect)' in status_carousel
+    and 'captionHeight := GetLauncherStatusCaptionHeight(dc, label, height, radius)' in status_carousel
+    and 'Round(height * 3 / 4)' in status_carousel
+    and 'NumGet(extent, 4, "Int") + 2 * radius' in status_carousel
+    and 'x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200' in front_layout
+    and 'CheckLauncherStatusCaptionAlignment(DragStrip, scale)' in launcher_smoke_tests
+    and 'if dy != 0 || dh != Round(48 * scale)' in launcher_smoke_tests,
 )
 launcher_scale_apply = section_between(
     launcher_layout, "ApplyLauncherScaleToWindow(suspendRedraw := true, placement := unset)\n{", "\n}",

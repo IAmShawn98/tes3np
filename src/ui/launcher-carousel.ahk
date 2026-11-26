@@ -466,6 +466,17 @@ DrawLauncherCarouselControlArtwork(graphics, target, source, image)
         "Int", NumGet(a, 12, "Int") - NumGet(a, 4, "Int")))
 }
 
+; Align status text with the top header row without moving the drag HWND.
+; Leave room for enlarged native fonts and the existing scaled dark outline.
+GetLauncherStatusCaptionHeight(dc, label, height, radius)
+{
+    extent := Buffer(8, 0)
+    if !DllCall("GetTextExtentPoint32W", "Ptr", dc, "WStr", label,
+        "Int", StrLen(label), "Ptr", extent)
+        return height
+    return Min(height, Max(Round(height * 3 / 4), NumGet(extent, 4, "Int") + 2 * radius))
+}
+
 ; Preserve the live font, caption and alignment of the existing Text HWND.
 ; The backing bitmap is already opaque; no native transparent erase is needed.
 DrawLauncherCarouselNativeText(handle, dc, width, height, role)
@@ -500,14 +511,15 @@ DrawLauncherCarouselNativeText(handle, dc, width, height, role)
                 ; Draw into the same fresh backing buffer, never over old text.
                 bounds := LauncherStatusPaintBounds(handle, width)
                 radius := Max(1, Round(height / 32))
+                captionHeight := GetLauncherStatusCaptionHeight(dc, label, height, radius)
                 DllCall("SetTextColor", "Ptr", dc, "UInt", 0x080808)
                 for offset in [[-radius, -radius], [0, -radius], [radius, -radius],
                     [-radius, 0], [radius, 0], [-radius, radius], [0, radius], [radius, radius]]
                 {
-                    NumPut("Int", bounds.L + offset[1], "Int", offset[2], "Int", bounds.R + offset[1], "Int", height + offset[2], rect)
+                    NumPut("Int", bounds.L + offset[1], "Int", offset[2], "Int", bounds.R + offset[1], "Int", captionHeight + offset[2], rect)
                     DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", flags)
                 }
-                NumPut("Int", bounds.L, "Int", 0, "Int", bounds.R, "Int", height, rect)
+                NumPut("Int", bounds.L, "Int", 0, "Int", bounds.R, "Int", captionHeight, rect)
                 DllCall("SetTextColor", "Ptr", dc, "UInt", statusColor)
             }
             DllCall("DrawTextW", "Ptr", dc, "WStr", label, "Int", -1, "Ptr", rect, "UInt", flags)

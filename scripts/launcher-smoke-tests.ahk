@@ -2051,7 +2051,7 @@ CheckMeasuredLauncherEdgeControls()
         LauncherChatToggle := AddStyledButton(panel, 0, 294, 45, 112, "Game Chat", (*) => 0)
         buttons := [LauncherExpansionToggle, LauncherChatToggle]
         ButtonFaces[LauncherChatToggle.Hwnd].IsChatTab := true
-        DragStrip := panel.Add("Text", "x205 y0 w589 h48", "")
+        DragStrip := panel.Add("Text", "x205 y0 w589 h48 Center BackgroundTrans +0x100 +0x200", "Verifying Server Status...")
         CaptureLauncherControlLayout()
         for scale in [0.5, 1.0]
         {
@@ -2060,10 +2060,14 @@ CheckMeasuredLauncherEdgeControls()
                 AccessibilityTextSize := mode
                 for button in buttons
                     ApplyLauncherButtonFont(ButtonFaces[button.Hwnd], scale)
+                ApplyLauncherStatusFont(scale)
                 ReflowLauncherAccessibleEdgeControls(scale)
+                CheckLauncherStatusCaptionAlignment(DragStrip, scale)
                 LauncherExpansionToggle.GetPos(, , &ew, &eh)
                 LauncherChatToggle.GetPos(, &ty, &tw, &th)
-                DragStrip.GetPos(&dx, , &dw)
+                DragStrip.GetPos(&dx, &dy, &dw, &dh)
+                if dy != 0 || dh != Round(48 * scale)
+                    throw Error("Server status alignment changed the drag hit area.")
                 if mode = "Normal"
                 {
                     if ew != Round(190 * scale) || eh != Round(27 * scale)
@@ -2096,6 +2100,49 @@ CheckMeasuredLauncherEdgeControls()
         LauncherGui := savedGui, LauncherControlLayout := savedLayout
         LauncherExpansionToggle := savedExpansion, LauncherChatToggle := savedChat, DragStrip := savedDrag
         AccessibilityTextSize := savedMode
+    }
+}
+
+; Use the real scaled status font, native extents and shared painter helper.
+; Test all four captions without contacting Discord or changing live state.
+CheckLauncherStatusCaptionAlignment(control, scale)
+{
+    client := Buffer(16, 0)
+    if !DllCall("GetClientRect", "Ptr", control.Hwnd, "Ptr", client)
+        throw OSError()
+    height := NumGet(client, 12, "Int")
+    dc := DllCall("GetDC", "Ptr", control.Hwnd, "Ptr")
+    if !dc
+        throw OSError()
+    saved := 0
+    try
+    {
+        saved := DllCall("SaveDC", "Ptr", dc, "Int")
+        font := DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+        if !saved || !font
+            throw Error("Status alignment fixture cannot select the native font.")
+        DllCall("SelectObject", "Ptr", dc, "Ptr", font)
+        radius := Max(1, Round(height / 32))
+        for caption in ["Verifying Server Status...", "Server Online!", "Server Offline", "Server Status Unknown"]
+        {
+            extent := Buffer(8, 0)
+            if !DllCall("GetTextExtentPoint32W", "Ptr", dc, "WStr", caption,
+                "Int", StrLen(caption), "Ptr", extent)
+                throw Error("Status alignment fixture cannot measure the caption.")
+            needed := NumGet(extent, 4, "Int") + 2 * radius
+            rowHeight := GetLauncherStatusCaptionHeight(dc, caption, height, radius)
+            target := Round(height * 3 / 4)
+            if rowHeight < target || rowHeight > height || rowHeight < Min(height, needed)
+                throw Error("Status caption row clips or exceeds the drag strip.")
+            if needed <= target && rowHeight != target
+                throw Error("Status caption is not aligned with the upper header row.")
+        }
+    }
+    finally
+    {
+        if saved
+            DllCall("RestoreDC", "Ptr", dc, "Int", saved)
+        DllCall("ReleaseDC", "Ptr", control.Hwnd, "Ptr", dc)
     }
 }
 
