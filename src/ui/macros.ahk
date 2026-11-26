@@ -16,9 +16,9 @@ BuildMacroBookPanel()
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
-        "Upload, run, or stop macros here. Click the pencil to rename a macro.")
+        "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
-        "No macros installed yet.")
+        "You have no macros uploaded.")
     ; The hidden ListView retains every imported item and all existing handlers.
     ; Four rows are the viewport, not a limit on the number of macros.
     MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 Hidden -Multi",
@@ -204,10 +204,31 @@ GetMacroUploadMetrics()
     return {UploadHeight: height, FeedbackHeight: feedbackHeight, FeedbackOffset: height + 7}
 }
 
-; The existing four-slot viewport uses a common measured row pitch. All
-; rectangles are recomputed from Normal anchors, including the scroll track.
-; Preflight the complete stack and request shared artwork height before
-; changing any HWND; keep the prior layout if monitor fit is impossible.
+GetMacroVisibleSlots()
+{
+    global CharacterPage, MacroBookRows
+    return IsObject(CharacterPage) && CharacterPage.HasOwnProp("MacroVisibleSlots")
+        ? CharacterPage.MacroVisibleSlots : Max(1, MacroBookRows.Length)
+}
+
+; Prefer all four rows. On a constrained monitor retain the measured
+; introduction and use the existing scroll viewport with fewer visible rows.
+FitMacroViewport(offset, pitch, upload)
+{
+    global MacroItems, MacroBookRows
+    Loop MacroBookRows.Length
+    {
+        slots := MacroBookRows.Length - A_Index + 1
+        shownCount := Min(MacroItems.Length, slots)
+        requiredExtra := Max(0, 144 + offset + shownCount * pitch + upload.FeedbackOffset + upload.FeedbackHeight - 490)
+        if SetCharacterBookLayoutExtra("Macros", requiredExtra)
+            return slots
+    }
+    return 0
+}
+
+; Recompute the introduction and viewport from immutable design anchors.
+; Normal text also requires measurement for the longer introduction.
 ReflowPopulatedMacroBook()
 {
     global CharacterPage, MacroItems, MacroBookControls, MacroBookRows
@@ -219,17 +240,15 @@ ReflowPopulatedMacroBook()
     scale := GetCharacterBookScale()
     explanation := MacroBookControls[2]
     copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)
-    offset := 0, copyHeight := BookS(48)
+    copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
+        explanation, explanation.Text, Max(1, BookS(355) - BookS(4))) + BookS(4))
+    offset := Max(0, copyY + Ceil(copyHeight / scale) + 5 - 140)
     statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
     measured := AccessibilityTextSize != "Normal"
     shownCount := Min(MacroItems.Length, MacroBookRows.Length)
     widths := [], displayNames := []
     if measured
     {
-        copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
-            explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
-            + BookS(4))
-        offset := Max(0, copyY + Ceil(copyHeight / scale) + 5 - 140)
         sample := MacroBookRows[1]
         ; Reserve status/error lines before they appear so polling and
         ; entering rename mode do not shift a row for ordinary state changes.
@@ -255,9 +274,6 @@ ReflowPopulatedMacroBook()
         {
             if position > shownCount
                 break
-            metrics := collection.Items[MacroScrollOffset + position]
-            widths.Push(metrics.Width)
-            displayNames.Push(metrics.Display)
             for index, button in [row.Run, row.Stop, row.Remove]
             {
                 extent := MeasureAccessibleSingleLineText(button, button.Text)
@@ -269,26 +285,38 @@ ReflowPopulatedMacroBook()
     }
     pitch := statusH + 2 + nameH + 1 + actionH + 8
     upload := GetMacroUploadMetrics()
-    requiredExtra := Max(0, 144 + offset + shownCount * pitch + upload.FeedbackOffset + upload.FeedbackHeight - 490)
-    if !measured || !SetCharacterBookLayoutExtra("Macros", requiredExtra)
+    slots := (measured || AccessibilityTextSize = "Normal") ? FitMacroViewport(offset, pitch, upload) : 0
+    if !slots
     {
-        ; Preserve the previous feasible intro-only layout if the
-        ; complete measured stack cannot fit in the available work area.
-        SetCharacterBookLayoutExtra("Macros", 0)
+        ; Keep the existing compact action-row fallback without clipping
+        ; the longer introduction. Reduce visible slots before dropping copy.
         measured := false
         statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
         pitch := 70
         upload := {UploadHeight: 29, FeedbackHeight: 30, FeedbackOffset: 36}
-        if 214 + (shownCount - 1) * pitch + offset + 36 + 30 > 490
+        slots := FitMacroViewport(offset, pitch, upload)
+        if !slots
         {
-            offset := 0, copyHeight := BookS(48), copyY := 87
-            MoveMacroTextIfChanged(MacroBookControls[1], BookS(525), BookS(45), BookS(355), BookS(32))
+            SetCharacterBookLayoutExtra("Macros", 0)
+            slots := 1
+        }
+    }
+    CharacterPage.MacroVisibleSlots := slots
+    MacroScrollOffset := Max(0, Min(MacroScrollOffset, Max(0, MacroItems.Length - slots)))
+    if measured
+    {
+        Loop Min(MacroItems.Length, slots)
+        {
+            position := A_Index
+            metrics := collection.Items[MacroScrollOffset + position]
+            widths.Push(metrics.Width)
+            displayNames.Push(metrics.Display)
         }
     }
     CharacterPage.MacroUploadMetrics := upload
     CharacterPage.MacroRowsMeasured := measured
     CharacterPage.MacroRowPitch := pitch
-    CharacterPage.MacroViewportHeight := 4 * pitch - 8
+    CharacterPage.MacroViewportHeight := slots * pitch - 8
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), copyHeight)
     for position, row in MacroBookRows
@@ -346,18 +374,10 @@ ReflowEmptyMacroBook()
     CharacterPage.MacroUploadMetrics := upload
     explanation := MacroBookControls[2]
     copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)
-    MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
-        BookS(355), BookS(48))
-    MoveMacroTextIfChanged(MacroEmptyNotice, BookS(525), BookS(150),
-        BookS(355), BookS(28))
-    if MacroItems.Length || AccessibilityTextSize = "Normal"
-    {
-        SetCharacterBookLayoutExtra("Macros", 0)
-        CharacterPage.MacroViewportOffset := 0
-        CharacterPage.MacroRowPitch := 70
-        CharacterPage.MacroViewportHeight := 272
-        return 188
-    }
+    CharacterPage.MacroVisibleSlots := 4
+    CharacterPage.MacroViewportOffset := 0
+    CharacterPage.MacroRowPitch := 70
+    CharacterPage.MacroViewportHeight := 272
     scale := GetCharacterBookScale()
     copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
         explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
@@ -375,7 +395,7 @@ ReflowEmptyMacroBook()
     {
         SetCharacterBookLayoutExtra("Macros", 0)
         CharacterPage.MacroUploadMetrics := {UploadHeight: 29, FeedbackHeight: 30, FeedbackOffset: 36}
-        return 188
+        ; Keep the measured introduction even if artwork cannot grow.
     }
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), copyHeight)
@@ -393,8 +413,6 @@ RefreshMacroBookRows()
     if !IsObject(MacroList) || !MacroBookRows.Length
         return
     count := MacroItems.Length
-    maximum := Max(0, count - MacroBookRows.Length)
-    MacroScrollOffset := Max(0, Min(MacroScrollOffset, maximum))
     shown := !LaunchSettingsHeading.Visible
     ; The visible editor owns the right column while macro process polling
     ; continues. Its geometry must not be replaced by a hidden macro stack.
@@ -403,6 +421,9 @@ RefreshMacroBookRows()
     selectedIndex := MacroList.GetNext()
     busy := IsObject(MacroImport)
     populatedOffset := count ? ReflowPopulatedMacroBook() : 0
+    slots := count ? GetMacroVisibleSlots() : MacroBookRows.Length
+    maximum := Max(0, count - slots)
+    MacroScrollOffset := Max(0, Min(MacroScrollOffset, maximum))
     rowPitch := count ? CharacterPage.MacroRowPitch : 70
     viewportHeight := count ? CharacterPage.MacroViewportHeight : 272
     editVisible := false
@@ -410,7 +431,7 @@ RefreshMacroBookRows()
     for position, itemRow in MacroBookRows
     {
         index := MacroScrollOffset + position
-        visible := shown && index <= count
+        visible := shown && position <= slots && index <= count
         for control in [itemRow.Tick, itemRow.Status, itemRow.Rename,
             itemRow.Run, itemRow.Stop, itemRow.Remove]
             if control.Visible != visible
@@ -461,7 +482,7 @@ RefreshMacroBookRows()
         MacroScrollThumb.Visible := scrollable
     if scrollable
     {
-        thumbHeight := Max(25, Round(viewportHeight * MacroBookRows.Length / count))
+        thumbHeight := Max(25, Round(viewportHeight * slots / count))
         travel := viewportHeight - thumbHeight
         thumbY := 140 + populatedOffset
             + Round(MacroScrollOffset / maximum * travel)
@@ -469,9 +490,9 @@ RefreshMacroBookRows()
     }
     ; Keep empty-state content close to the introduction, then follow
     ; populated rows without putting Upload inside the scroll viewport.
-    ; For 0/1/2/3/4+ entries, y is 188/214/284/354/424.
+    ; The measured introduction and available row capacity determine Upload Y.
     ; Match row pitch so Upload stays 12px clear of final action row.
-    visibleCount := Min(count, MacroBookRows.Length)
+    visibleCount := Min(count, slots)
     emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188
     desiredUploadY := count = 0 ? emptyUploadY
         : 144 + visibleCount * rowPitch + populatedOffset
@@ -710,7 +731,7 @@ ScrollMacroBook(offset)
     global MacroScrollOffset, MacroItems, MacroBookRows
     if !IsObject(MacroBookRows) || !MacroBookRows.Length
         return
-    nextOffset := Max(0, Min(Max(0, MacroItems.Length - MacroBookRows.Length), offset))
+    nextOffset := Max(0, Min(Max(0, MacroItems.Length - GetMacroVisibleSlots()), offset))
     if nextOffset = MacroScrollOffset
         return
     MacroScrollOffset := nextOffset
@@ -723,7 +744,7 @@ ScrollMacroWheel(wParam)
     global MacroBookRows, MacroScrollOffset
     if !IsObject(CharacterPage) || !IsObject(MacroScrollTrack)
         || !MacroScrollTrack.Visible || LaunchSettingsHeading.Visible
-        || MacroItems.Length <= MacroBookRows.Length
+        || MacroItems.Length <= GetMacroVisibleSlots()
         return false
     MouseGetPos(&x, &y, &window)
     if window != CharacterPage.Hwnd
@@ -780,7 +801,7 @@ DragMacroScroll()
     MacroScrollThumb.GetPos(, , , &thumbHeight)
     thumbHeight /= GetCharacterBookScale()
     travel := Max(1, CharacterPage.MacroViewportHeight - thumbHeight)
-    maximum := Max(0, MacroItems.Length - MacroBookRows.Length)
+    maximum := Max(0, MacroItems.Length - GetMacroVisibleSlots())
     viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")
         ? CharacterPage.MacroViewportOffset : 0
     ScrollMacroBook(Round((localY - (140 + viewportOffset)
@@ -1065,7 +1086,7 @@ AddImportedMacro(folder, name, description, entry, kind := "Macro", target := ""
             MacroItems.Push({Folder: folder, Entry: entry, Name: name, Description: description,
                 Kind: kind, Target: target, ProcessHandle: 0})
             MacroList.Modify(row, "Select Focus")
-            MacroScrollOffset := Max(0, row - 4)
+            MacroScrollOffset := Max(0, row - 1)
             RefreshMacroButtons()
         }
         finally EndInterfaceUpdate()
@@ -1290,7 +1311,7 @@ RemoveSelectedMacro(*)
         MacroList.Delete(row)
         if MacroItems.Length
             MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
-        MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))
+        MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - GetMacroVisibleSlots()))
         RefreshMacroButtons()
     }
     finally EndInterfaceUpdate()

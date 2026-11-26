@@ -2138,7 +2138,7 @@ expect(
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro_menu_ui
-    and 'maximum := Max(0, count - MacroBookRows.Length)' in macro_menu_ui,
+    and 'maximum := Max(0, count - slots)' in macro_menu_ui,
 )
 expect(
     "Manage Macros delegates shortcut configuration to each imported macro",
@@ -2158,13 +2158,13 @@ expect(
     and 'return 188' in macro_menu_ui
     and '"x887 y140 w8 h272 Background704C27 +0x100 Hidden"' in macro_menu_ui
     and 'pitch := statusH + 2 + nameH + 1 + actionH + 8' in macro_menu_ui
-    and 'CharacterPage.MacroViewportHeight := 4 * pitch - 8' in macro_menu_ui
+    and 'CharacterPage.MacroViewportHeight := slots * pitch - 8' in macro_menu_ui
     and ': 144 + visibleCount * rowPitch + populatedOffset' in macro_menu_ui
     and 'travel := viewportHeight - thumbHeight' in macro_menu_ui
     and 'travel := Max(1, CharacterPage.MacroViewportHeight - thumbHeight)' in macro_menu_ui,
 )
 expect(
-    "Populated macro rows begin close to description with scroll and Upload aligned",
+    "Populated macro rows begin close to measured description with scroll and Upload aligned",
     'explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans"' in macro_menu_ui
     and 'y := 140 + (position - 1) * 70' in macro_menu_ui
     and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
@@ -2175,7 +2175,11 @@ expect(
     and '+ Round(MacroScrollOffset / maximum * travel)' in macro_menu_ui
     and 'viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")' in macro_menu_ui
     and 'ScrollMacroBook(Round((localY - (140 + viewportOffset)' in macro_menu_ui
-    and '- MacroScrollGrab) / travel * maximum))' in macro_menu_ui,
+    and '- MacroScrollGrab) / travel * maximum))' in macro_menu_ui
+    and 'Macros allow you to automate processes like fishing and training.' in macro_menu_ui
+    and 'You have no macros uploaded.' in macro_menu_ui
+    and 'FitMacroViewport(offset, pitch, upload)' in macro_menu_ui
+    and 'position <= slots && index <= count' in macro_menu_ui,
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",

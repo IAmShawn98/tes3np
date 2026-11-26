@@ -1059,7 +1059,7 @@ CheckMeasuredAccessibleBookPreflight()
     global AccessibilityTextSize
     previousMode := AccessibilityTextSize
     fullDescription := "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!"
-    macroCopy := "Upload, run, or stop macros here. Click the pencil to rename a macro."
+    macroCopy := "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use."
     heights := [], plans := [], nameWidths := [], macroNameWidths := []
     try
     {
@@ -1332,9 +1332,9 @@ CheckMeasuredEmptyMacroBook()
                 heading := testPage.Add("Text", "x525 y45 w355 h32", "Manage Macros")
                 SetAccessibleTextFont(testPage, "s11 Norm c241408", LauncherMorrowindFont)
                 copy := testPage.Add("Text", "x525 y87 w355 h48 +Wrap",
-                    "Upload, run, or stop macros here. Click the pencil to rename a macro.")
+                    "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
                 notice := testPage.Add("Text", "x525 y150 w355 h28 +Wrap",
-                    "No macros installed yet.")
+                    "You have no macros uploaded.")
                 CharacterPage := testPage
                 MacroBookControls := [heading, copy]
                 MacroEmptyNotice := notice
@@ -1343,21 +1343,13 @@ CheckMeasuredEmptyMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
                 notice.GetPos(, &noticeY, , &noticeH)
                 heading.GetPos(, &headingY, , &headingH)
-                if mode = "Normal"
-                {
-                    if copyY != 87 || copyH != 48 || noticeY != 150
-                        || noticeH != 28 || uploadY != 188
-                        throw Error("Normal Macro Book empty-state coordinates changed.")
-                }
-                else
-                {
-                    requiredH := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
-                    if headingH < MeasureAccessibleWrappedText(heading, heading.Text, 351)
-                        || copyY < headingY + headingH + 10
-                        || copyH < requiredH || noticeY < copyY + copyH + 15
-                        || uploadY < noticeY + noticeH + 10
-                        throw Error("Empty Macro Book explanation/notice/Upload overlapped.")
-                }
+                requiredH := MeasureAccessibleWrappedText(copy, copy.Text, 351) + 4
+                if headingH < MeasureAccessibleWrappedText(heading, heading.Text, 351)
+                    || copyY < headingY + headingH + 10
+                    || copyH < requiredH || noticeY < copyY + copyH + 15
+                    || noticeH < MeasureAccessibleWrappedText(notice, notice.Text, 351)
+                    || uploadY < noticeY + noticeH + 10
+                    throw Error("Empty Macro Book explanation/notice/Upload overlapped or clipped.")
             }
             finally testPage.Destroy()
         }
@@ -1426,7 +1418,7 @@ CheckMeasuredPopulatedMacroBook()
                 heading := page.Add("Text", "x525 y45 w355 h32", "Manage Macros")
                 SetAccessibleTextFont(page, "s11 Norm", LauncherMorrowindFont)
                 copy := page.Add("Text", "x525 y87 w355 h48 +Wrap",
-                    "Upload, run, or stop macros here. Click the pencil to rename a macro.")
+                    "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
                 MacroBookControls := [heading, copy]
                 MacroBookRows := []
                 MacroItems := [{Name: "Macro one"}, {Name: "Macro two"},
@@ -1466,20 +1458,22 @@ CheckMeasuredPopulatedMacroBook()
                 offset := ReflowPopulatedMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
                 MacroBookRows[1].Status.GetPos(, &rowY)
-                MacroBookRows[4].Remove.GetPos(, &lastActionY, , &lastActionH)
+                slots := GetMacroVisibleSlots()
+                MacroBookRows[slots].Remove.GetPos(, &lastActionY, , &lastActionH)
                 MacroScrollTrack.GetPos(, &trackY, , &trackH)
                 pitch := page.MacroRowPitch
-                uploadY := 144 + 4 * pitch + offset
+                uploadY := 144 + slots * pitch + offset
                 upload := page.MacroUploadMetrics
-                if trackY != BookS(140 + offset) || trackH != BookS(4 * pitch - 8)
+                if trackY != BookS(140 + offset) || trackH != BookS(slots * pitch - 8)
                     || rowY != BookS(140 + offset)
                     || Abs(lastActionY + lastActionH + BookS(12) - BookS(uploadY)) > 1
                     || uploadY + upload.FeedbackOffset + upload.FeedbackHeight > 490 + GetCharacterBookExtra()
                     throw Error("Populated Macro Book viewport/Upload offsets diverged.")
                 if mode = "Normal"
                 {
-                    if copyY != BookS(87) || copyH != BookS(48) || offset != 0 || pitch != 70
-                        throw Error("Normal populated Macro Book coordinates changed.")
+                    if copyY != BookS(87) || copyH < MeasureAccessibleWrappedText(copy, copy.Text, BookS(351)) + BookS(4)
+                        || rowY + 1 < copyY + copyH + BookS(5) || pitch != 70
+                        throw Error("Normal populated Macro Book introduction clips or overlaps.")
                 }
                 else
                 {
