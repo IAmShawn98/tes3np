@@ -3096,10 +3096,35 @@ expect(
     and 'LauncherMapToggle.Move(mx, ty, tw, th)' in launcher_layout
     and "Drak's Server Map" in server_map
     and 'MapViewport := panel.Add("Text"' in server_map
-    and 'SendLauncherChatCommand' not in server_map and 'WebView' not in server_map
+    and 'SendLauncherChatCommand' not in server_map and 'EmbeddedChatPid' not in server_map
+    and 'StartLauncherMapBrowser(LauncherMapPanel)' in server_map
+    and 'SetLauncherMapOpen(!LauncherMapOpen, false)' in launcher_smoke_tests
+    and 'LauncherMapPanel.MapBrowserStarted || LauncherMapPanel.MapBrowserPid' in launcher_smoke_tests
     and 'SetTimer(SyncLauncherMapPanel, 0)' in server_map
     and 'assets/controls/map-frame.png' in resource_generator
     and 'CheckLauncherMapShell()' in launcher_smoke_tests,
+)
+map_host = (chat_root / "ServerMapHost.cs").read_text(encoding="utf-8-sig")
+map_program = (chat_root / "Program.cs").read_text(encoding="utf-8-sig")
+expect(
+    "Public map uses a separate unauthenticated browser and a bounded native viewport",
+    'https://map.nerevarineprophecies.com/' in map_host
+    and in_order(map_program, 'args[0] == "--server-map"', 'ServerMapHost.Run(args)', 'new GameChatWindow(')
+    and 'Path.Combine(GameChatWindow.ChatDataRoot, "map-webview2")' in map_host
+    and 'GetParent(handle) != viewport' in map_host
+    and 'GetWindowThreadProcessId(viewport, out uint actualPid)' in map_host
+    and 'MoveWindow(handle, 0, 0, width, height, true)' in map_host
+    and 'core.NavigationStarting += (_, e) => e.Cancel = !IsMapUri(e.Uri);' in map_host
+    and 'core.NewWindowRequested += (_, e) => e.Handled = true;' in map_host
+    and 'core.DownloadStarting += (_, e) => e.Cancel = true;' in map_host
+    and 'CoreWebView2PermissionState.Deny' in map_host
+    and 'core.Settings.IsWebMessageEnabled = false;' in map_host
+    and 'core.Settings.AreHostObjectsAllowed = false;' in map_host
+    and 'core.Settings.IsPasswordAutosaveEnabled = false;' in map_host
+    and 'core.Settings.IsGeneralAutofillEnabled = false;' in map_host
+    and 'DiscordUserDataFolder' not in map_host and 'discordEnvironment' not in map_host
+    and 'ExecuteScriptAsync' not in map_host and 'AddHostObjectToScript' not in map_host
+    and '--check-map-policy' in windows_build
 )
 host_freshness = section_between(embedded_chat, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
 expect(

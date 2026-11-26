@@ -41,7 +41,7 @@ internal sealed partial class GameChatWindow : Form
     // Shared TES3NP data root, matching src/state.ahk::AppDataDirectory.
     // The chat companion runs in a separate process but must not invent
     // an independent persistent-data directory.
-    static readonly string ChatDataRoot = Path.Combine(
+    internal static readonly string ChatDataRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tes3np");
 
     readonly System.Windows.Forms.Timer watch = new() { Interval = 250 };

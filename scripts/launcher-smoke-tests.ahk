@@ -2853,11 +2853,12 @@ CheckLauncherMapShell()
             throw Error("Map must not fall back to an inward overlay.")
         Loop 2
         {
-            ToggleLauncherMap()
+            SetLauncherMapOpen(!LauncherMapOpen, false)
             if !LauncherMapOpen || !IsObject(LauncherMapPanel)
                 || !DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)
                 || DllCall("GetWindow", "Ptr", LauncherMapPanel.Hwnd, "UInt", 4, "Ptr") != owner.Hwnd
                 || LauncherMapPanel.MapTitle.Text != "Drak's Server Map" || LauncherMapPanel.MapViewport.Text != ""
+                || LauncherMapPanel.MapBrowserStarted || LauncherMapPanel.MapBrowserPid
                 throw Error("Map shell did not open as an empty owned panel.")
             ownerRect := Buffer(16, 0), mapRect := Buffer(16, 0)
             if !DllCall("GetWindowRect", "Ptr", owner.Hwnd, "Ptr", ownerRect)
@@ -2886,7 +2887,7 @@ CheckLauncherMapShell()
                     "UInt", 0x173, "Ptr", 0, "Ptr", 0, "Ptr")
                     throw Error("Unchanged map layout recreated its frame bitmap.")
             }
-            ToggleLauncherMap()
+            SetLauncherMapOpen(!LauncherMapOpen, false)
             if LauncherMapOpen || DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)
                 throw Error("Map shell did not hide.")
         }

@@ -3,6 +3,16 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--server-map")
+        {
+            Environment.ExitCode = ServerMapHost.Run(args);
+            return;
+        }
+        if (args.Length == 1 && args[0] == "--check-map-policy")
+        {
+            Environment.ExitCode = ServerMapHost.CheckPolicy();
+            return;
+        }
         if (GameChatWindow.TryRunDiscordReactionPicker(args)) return;
         if (args.Length == 1 && args[0] == "--check-chat-archive")
         {

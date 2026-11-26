@@ -1,5 +1,4 @@
-; First-stage public wiki map shell. No browser, authentication, or network
-; requests until the owner supplies and approves the actual map URL.
+; Public map in the native launcher frame, with its own isolated browser host.
 global LauncherMapToggle := 0
 global LauncherMapPanel := 0
 global LauncherMapOpen := false
@@ -24,7 +23,7 @@ ToggleLauncherMap(*)
     SetLauncherMapOpen(!LauncherMapOpen)
 }
 
-SetLauncherMapOpen(open)
+SetLauncherMapOpen(open, loadContent := true)
 {
     global LauncherMapOpen, LauncherMapPanel, LauncherMapToggle, LauncherGui
     if open && !IsObject(LauncherMapPanel)
@@ -40,6 +39,8 @@ SetLauncherMapOpen(open)
                 MsgBox("There is not enough room to open the map to the right of the launcher. Move the launcher left or reduce its scale.", "Drak's Server Map", "Icon!")
                 return
             }
+            if loadContent
+                StartLauncherMapBrowser(LauncherMapPanel)
             SetTimer(SyncLauncherMapPanel, 150)
         }
         catch
@@ -68,7 +69,12 @@ CreateLauncherMapPanel(owner)
     {
         panel.MapFrame := panel.Add("Picture", "x0 y0 w1 h1", panel.MapTexture)
         panel.MapTitle := panel.Add("Text", "x0 y0 w1 h1 Center +0x200 Background10100D cE1BD79", "Drak's Server Map")
-        panel.MapViewport := panel.Add("Text", "x0 y0 w1 h1 Background132725", "")
+        ; WS_CLIPCHILDREN prevents the native backing label from painting over
+        ; the separate WebView2 child. The label is also a retry target if needed.
+        panel.MapViewport := panel.Add("Text", "x0 y0 w1 h1 Center +0x200 +0x100 +0x02000000 Background132725 cE1BD79", "")
+        panel.MapViewport.OnEvent("Click", (*) => StartLauncherMapBrowser(panel))
+        panel.MapBrowserPid := 0
+        panel.MapBrowserStarted := false
         panel.MapSizeKey := ""
         panel.OnEvent("Close", (*) => SetLauncherMapOpen(false))
         panel.OnEvent("Escape", (*) => SetLauncherMapOpen(false))
@@ -276,6 +282,7 @@ LayoutLauncherMapPanel(panel, w, h)
     finally DllCall("gdi32\DeleteObject", "Ptr", frame)
     panel.MapFrame.Move(0, 0, w, h)
     panel.MapTitle.Move(Round((w - titleW) / 2), titleTop, titleW, Max(1, headerPx - titleTop))
+    panel.MapViewport.SetFont("s" Max(5, Round(AccessibilityFontSize(12) * scale * 96 / A_ScreenDPI)) " cE1BD79", LauncherThemeFont())
     panel.MapViewport.Move(rim, bodyTop, innerW, Max(1, h - footer - bodyTop))
     panel.MapSizeKey := key
 }
@@ -326,7 +333,39 @@ SyncLauncherMapPanel(allowOwnerMove := false, *)
             DllCall("SetWindowPos", "Ptr", LauncherMapPanel.Hwnd, "Ptr", 0,
                 "Int", placement.X, "Int", placement.Y, "Int", placement.W, "Int", placement.H, "UInt", 0x14)
     }
+    if LauncherMapPanel.MapBrowserStarted && LauncherMapPanel.MapBrowserPid
+        && !ProcessExist(LauncherMapPanel.MapBrowserPid)
+    {
+        LauncherMapPanel.MapBrowserPid := 0
+        LauncherMapPanel.MapViewport.Text := "Map unavailable. Click to retry."
+    }
     return true
+}
+
+StartLauncherMapBrowser(panel)
+{
+    global LauncherMapOpen
+    if !LauncherMapOpen || !IsObject(panel)
+        return
+    if panel.MapBrowserPid && ProcessExist(panel.MapBrowserPid)
+        return
+    panel.MapBrowserStarted := true
+    panel.MapBrowserPid := 0
+    panel.MapViewport.Text := "Loading map..."
+    host := A_ScriptDir "\chat-host\tes3np.ChatHost.exe"
+    if !FileExist(host)
+    {
+        panel.MapViewport.Text := "Map browser missing. Rebuild the launcher."
+        return
+    }
+    try
+    {
+        ownerPid := DllCall("GetCurrentProcessId", "UInt")
+        Run('"' host '" --server-map ' panel.MapViewport.Hwnd ' ' ownerPid, A_ScriptDir, , &pid)
+        panel.MapBrowserPid := pid
+    }
+    catch
+        panel.MapViewport.Text := "Map unavailable. Click to retry."
 }
 
 DisposeLauncherMapPanel()
@@ -335,6 +374,13 @@ DisposeLauncherMapPanel()
     SetTimer(SyncLauncherMapPanel, 0)
     LauncherMapOpen := false
     if IsObject(LauncherMapPanel)
+    {
+        pid := LauncherMapPanel.MapBrowserPid
         LauncherMapPanel.Destroy()
+        ; The map-only process detects its lost viewport and exits normally.
+        ; Do not terminate the shared Game Chat process or WebView2 workers.
+        if pid && ProcessExist(pid)
+            try ProcessWaitClose(pid, 2)
+    }
     LauncherMapPanel := 0
 }
