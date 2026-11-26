@@ -443,13 +443,19 @@ def check(allow_missing_payload: bool = False) -> None:
             'MacroPage := CharacterPage' in macro
             and 'BuildMacroBookPanel()' in character_ui
             and 'MacroPage := Gui(' not in macro,
-        "four reusable viewport rows preserve unlimited macro capacity":
+        "up to four reusable viewport rows adapt to available height and preserve unlimited macro capacity":
             'Loop 4\n    {\n        position := A_Index' in macro
             and 'y := 140 + (position - 1) * 70' in macro
-            and 'maximum := Max(0, count - MacroBookRows.Length)' in macro
+            and 'slots := MacroBookRows.Length - A_Index + 1' in macro
+            and 'if SetCharacterBookLayoutExtra("Macros", requiredExtra)' in macro
+            and 'slots := count ? GetMacroVisibleSlots() : MacroBookRows.Length' in macro
+            and 'maximum := Max(0, count - slots)' in macro
+            and 'visible := shown && position <= slots && index <= count' in macro
+            and 'MacroScrollOffset := Max(0, Min(MacroScrollOffset, Max(0, MacroItems.Length - slots)))' in macro
+            and 'MacroItems.Length - GetMacroVisibleSlots()' in macro
             and 'index := MacroScrollOffset + position' in macro
-            and 'MacroScrollOffset := Max(0, row - 4)' in macro
-            and 'MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - 4))' in macro
+            and 'MacroScrollOffset := Max(0, row - 1)' in macro
+            and 'MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - GetMacroVisibleSlots()))' in macro
             and 'MacroList.Visible := false' in macro
             and 'MacroListPage' not in macro,
         "status above the name and inline rename button, actions below":
@@ -477,12 +483,13 @@ def check(allow_missing_payload: bool = False) -> None:
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
             and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")' in macro
-            and 'visibleCount := Min(count, MacroBookRows.Length)' in macro
+            and 'visibleCount := Min(count, slots)' in macro
             and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro
             and 'desiredUploadY := count = 0 ? emptyUploadY' in macro
             and ': 144 + visibleCount * rowPitch + populatedOffset' in macro
             and 'CharacterPage.MacroRowPitch := pitch' in macro
-            and 'CharacterPage.MacroViewportHeight := 4 * pitch - 8' in macro
+            and 'CharacterPage.MacroViewportHeight := slots * pitch - 8' in macro
+            and 'Round(viewportHeight * slots / count)' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro
             and 'MoveMacroTextIfChanged(MacroStatus, BookS(525), BookS(desiredUploadY + upload.FeedbackOffset),' in macro

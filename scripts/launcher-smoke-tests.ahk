@@ -1459,6 +1459,8 @@ CheckMeasuredPopulatedMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
                 MacroBookRows[1].Status.GetPos(, &rowY)
                 slots := GetMacroVisibleSlots()
+                if slots < 1 || slots > MacroBookRows.Length
+                    throw Error("Macro viewport capacity is outside the reusable row count.")
                 MacroBookRows[slots].Remove.GetPos(, &lastActionY, , &lastActionH)
                 MacroScrollTrack.GetPos(, &trackY, , &trackH)
                 pitch := page.MacroRowPitch
@@ -1487,6 +1489,8 @@ CheckMeasuredPopulatedMacroBook()
                         throw Error("Macro collection ignored an offscreen name.")
                     for position, row in MacroBookRows
                     {
+                        if position > slots
+                            break
                         row.Status.GetPos(, &sy, , &sh)
                         row.Name.GetPos(, &ny, &nw, &nh)
                         row.Run.GetPos(, &ay, , &ah)
@@ -1506,6 +1510,14 @@ CheckMeasuredPopulatedMacroBook()
                         || nextOffset != offset || BookS(page.MacroViewportHeight) != trackH
                         throw Error("Scrolling changed measured Macro Book viewport geometry.")
                 }
+                ; Scroll beyond the end, then verify the last item remains
+                ; reachable and the visible stack does not change geometry.
+                MacroScrollOffset := MacroItems.Length
+                endOffset := ReflowPopulatedMacroBook()
+                if MacroScrollOffset != MacroItems.Length - slots
+                    || GetMacroVisibleSlots() != slots || page.MacroRowPitch != pitch
+                    || endOffset != offset || BookS(page.MacroViewportHeight) != trackH
+                    throw Error("Macro scroll clamp changed viewport or hid the last item.")
             }
             finally
             {
