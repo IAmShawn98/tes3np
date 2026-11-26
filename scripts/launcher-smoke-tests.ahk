@@ -1213,12 +1213,12 @@ CheckV016DiagnosticsSpacing()
                     if rows.Length != 10
                         throw Error("Diagnostics layout lost a control.")
                     if rows[1].Text != "Launcher Data" || rows[6].Text != "Diagnostic Logs"
-                        || rows[2].Text != "Open Launcher AppData Folder"
-                        || rows[3].Text != "Reset Launcher AppData" || rows[4].Text != "Report A Bug"
-                        || rows[5].Text != "The launcher's AppData files contain all saved data for the entire program. This includes saved characters, game logs, and log files for error reporting. Please, before resetting or deleting files, ensure you have exported your character data or made a backup of AppData to avoid corruption and data loss."
+                        || rows[3].Text != "Open Launcher AppData Folder"
+                        || rows[4].Text != "Reset Launcher AppData" || rows[5].Text != "Report A Bug"
+                        || rows[2].Text != "The launcher's AppData files contain all saved data for the entire program. This includes saved characters, game logs, and log files for error reporting. Please, before resetting or deleting files, ensure you have exported your character data or made a backup of AppData to avoid corruption and data loss."
                         throw Error("Diagnostics labels or reading order changed.")
                     previousBottom := 0
-                    for group in [[rows[1]], [rows[2]], [rows[3], rows[4]], [rows[5]],
+                    for group in [[rows[1]], [rows[2]], [rows[3]], [rows[4], rows[5]],
                         [rows[6]], [rows[7]], [rows[8], rows[9]], [rows[10]]]
                     {
                         rowBottom := 0, previousRight := 0, top := -1
@@ -1232,7 +1232,7 @@ CheckV016DiagnosticsSpacing()
                             top := y
                             previousRight := x + w
                             rowBottom := Max(rowBottom, y + h)
-                            if !ButtonFaces.Has(control.Hwnd) && control = rows[5]
+                            if !ButtonFaces.Has(control.Hwnd) && control = rows[2]
                                 && h < MeasureAccessibleWrappedText(control, control.Text, Max(1, w - V016S(4)))
                                 throw Error("Diagnostics explanation clips.")
                         }
@@ -1240,11 +1240,14 @@ CheckV016DiagnosticsSpacing()
                     }
                     rows[1].GetPos(, &titleY)
                     rows[10].GetPos(, &backY)
-                    rows[5].GetPos(, &copyY, , &copyH)
+                    rows[2].GetPos(, &copyY, , &copyH)
+                    rows[3].GetPos(, &openY)
+                    rows[4].GetPos(, &resetY)
                     rows[6].GetPos(, &logsY)
                     if titleY != V016S(110) || layout.Extra != Max(0, previousBottom - V016S(513))
                         throw Error("Diagnostics parchment growth must follow actual content bounds.")
-                    if mode = "Normal" && (copyY != V016S(233)
+                    if mode = "Normal" && (copyY != V016S(150)
+                        || openY != V016S(162) + copyH || resetY != V016S(203) + copyH
                         || logsY != V016S(245) + copyH || backY != V016S(370) + copyH)
                         throw Error("Diagnostics log and Go Back spacing must follow the measured warning.")
                 }

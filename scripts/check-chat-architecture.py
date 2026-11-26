@@ -2038,12 +2038,14 @@ expect(
     and 'settings.Parchment.Value := A_ScriptDir' in settings_ui
     and 'AddV016SettingsCopy(settings, 32, V016S(196), 448, 40,' in settings_open
     and 'AddV016SettingsCopy(settings, 32, V016S(269) + copyExtra, 448, 30,' in settings_open
-    and 'AddV016SettingsCopy(settings, 32, V016S(233), 448, 0,' in settings_ui,
+    and 'AddV016SettingsCopy(settings, 32, V016S(150), 448, 0,' in settings_ui,
 )
 expect(
-    "Launcher Data diagnostics uses ordered actions, measured warning and compact log rows",
+    "Launcher Data diagnostics uses warning-first layout and compact measured rows",
     'layout := BuildV016LauncherDataRows(settings)' in settings_ui
     and 'V016S(110)' in section_between(settings_ui, '\nBuildV016LauncherDataRows(', '\nOpenAppDataSettingsV016(')
+    and 'V016S(162) + copyHeight' in settings_ui
+    and 'V016S(203) + copyHeight' in settings_ui
     and 'V016S(370) + copyHeight' in settings_ui
     and 'Max(0, backY + backHeight - V016S(513))' in settings_ui
     and 'Diagnostics labels or reading order changed.' in launcher_smoke_tests
