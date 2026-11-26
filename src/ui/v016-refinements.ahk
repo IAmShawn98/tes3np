@@ -468,9 +468,10 @@ BuildV016LauncherDataRows(settings)
     SetAccessibleTextFont(settings, "s" V016Font(17) " Norm c241408", LauncherMorrowindFont)
     settings.Add("Text", "x" V016S(32) " y" V016S(110) " w" V016S(448) " h" V016S(32) " Center BackgroundTrans", "Launcher Data")
     ; Measure the complete warning rather than reserving a fixed paragraph box.
+    ; Keep the final phrase together with a nonbreaking space (U+00A0).
     SetAccessibleTextFont(settings, "s" V016Font(12) " Norm c382314", LauncherMorrowindFont)
     copyHeight := AddV016SettingsCopy(settings, 32, V016S(150), 448, 0,
-        "The launcher's AppData files contain all saved data for the entire program. This includes saved characters, game logs, and log files for error reporting. Please, before resetting or deleting files, ensure you have exported your character data or made a backup of AppData to avoid corruption and data loss.")
+        "The launcher's AppData files contain all saved data for the entire program. This includes saved characters, game logs, and log files for error reporting. Please, before resetting or deleting files, ensure you have exported your character data or made a backup of AppData to avoid corruption and data" Chr(0xA0) "loss.")
     AddStyledButton(settings, V016S(32), V016S(162) + copyHeight, V016S(448), V016S(30), "Open Launcher AppData Folder", OpenLauncherDataFolder)
     AddStyledButton(settings, V016S(32), V016S(203) + copyHeight, V016S(214), V016S(30), "Reset Launcher AppData", ShowResetAppDataActions)
     settings.ReportPageButton := AddStyledButton(settings, V016S(266), V016S(203) + copyHeight, V016S(214), V016S(30),

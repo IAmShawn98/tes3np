@@ -2044,6 +2044,8 @@ expect(
     "Launcher Data diagnostics uses warning-first layout and compact measured rows",
     'layout := BuildV016LauncherDataRows(settings)' in settings_ui
     and 'V016S(110)' in section_between(settings_ui, '\nBuildV016LauncherDataRows(', '\nOpenAppDataSettingsV016(')
+    and 'data" Chr(0xA0) "loss.' in settings_ui
+    and 'data" Chr(0xA0) "loss.' in launcher_smoke_tests
     and 'V016S(162) + copyHeight' in settings_ui
     and 'V016S(203) + copyHeight' in settings_ui
     and 'V016S(370) + copyHeight' in settings_ui

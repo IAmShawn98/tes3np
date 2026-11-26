@@ -1215,7 +1215,7 @@ CheckV016DiagnosticsSpacing()
                     if rows[1].Text != "Launcher Data" || rows[6].Text != "Diagnostic Logs"
                         || rows[3].Text != "Open Launcher AppData Folder"
                         || rows[4].Text != "Reset Launcher AppData" || rows[5].Text != "Report A Bug"
-                        || rows[2].Text != "The launcher's AppData files contain all saved data for the entire program. This includes saved characters, game logs, and log files for error reporting. Please, before resetting or deleting files, ensure you have exported your character data or made a backup of AppData to avoid corruption and data loss."
+                        || rows[2].Text != ("The launcher's AppData files contain all saved data for the entire program. This includes saved characters, game logs, and log files for error reporting. Please, before resetting or deleting files, ensure you have exported your character data or made a backup of AppData to avoid corruption and data" Chr(0xA0) "loss.")
                         throw Error("Diagnostics labels or reading order changed.")
                     previousBottom := 0
                     for group in [[rows[1]], [rows[2]], [rows[3]], [rows[4], rows[5]],
