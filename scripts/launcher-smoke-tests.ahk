@@ -2858,12 +2858,13 @@ CheckLauncherMapShell()
                 widthLimit := GetLauncherMapTabLanes(tabWidth, 1, scale).AvailableCaptionWidth
                 fittedHeight := Min(fontHeight, widthLimit)
                 lanes := GetLauncherMapTabLanes(tabWidth, fittedHeight, scale)
-                if lanes.ArrowX + lanes.ArrowHalf >= lanes.CaptionX
+                if lanes.ArrowX - lanes.ArrowHalf <= lanes.CaptionX + fittedHeight
                     || lanes.ArrowHalf < Max(1, Round(4 * scale))
-                    throw Error("Map arrow must precede the caption without overlap.")
-                if tabWidth - lanes.CaptionX - fittedHeight != lanes.CaptionPad
+                    || lanes.ArrowX + lanes.ArrowHalf > tabWidth - Max(1, Round(2 * scale))
+                    throw Error("Map arrow must follow the caption without overlap.")
+                if lanes.CaptionX != lanes.CaptionPad
                     || lanes.CaptionPad <= Max(1, Round(2 * scale))
-                    throw Error("Map caption must retain its inward right-edge inset.")
+                    throw Error("Map caption must retain its inward left-edge inset.")
             }
         }
         for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 1280, B: 716}]

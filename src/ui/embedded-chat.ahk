@@ -489,16 +489,16 @@ GetLauncherMapTabLanes(w, captionHeight, paintScale)
     captionPad := Max(pad + 1, Round(6 * paintScale))
     minArrowHalf := Max(1, Round(4 * paintScale))
     availableWidth := Max(1, w - captionPad - 2 * pad - 2 * minArrowHalf)
-    captionX := Max(pad, w - captionHeight - captionPad)
-    arrowLeft := pad
-    arrowRight := Max(arrowLeft + 2, captionX - pad)
-    return {CaptionX: captionX, ArrowX: Floor((arrowLeft + arrowRight) / 2),
+    captionX := captionPad
+    arrowRight := w - pad
+    arrowLeft := Min(arrowRight - 2, captionX + captionHeight + pad)
+    return {CaptionX: captionX, ArrowX: Ceil((arrowLeft + arrowRight) / 2),
         ArrowHalf: Max(1, Floor((arrowRight - arrowLeft) / 2)),
         AvailableCaptionWidth: availableWidth, CaptionPad: captionPad}
 }
 
 ; Rotated labels read bottom-to-top. Center the Map caption along the tab;
-; its separate horizontal lane controls the inset from the right edge.
+; its separate horizontal lane controls the inset from the left edge.
 GetLauncherMapCaptionBaseline(h, mapAdvance, shift)
 {
     return Round((h + mapAdvance) / 2) + shift
@@ -560,8 +560,8 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
     }
     if mirrored
     {
-        ; Keep Map vertically centered and inset its right-hand caption
-        ; without overlapping the existing arrow lane.
+        ; Mirror the chat tab horizontally: caption on the left, arrow on
+        ; the right. Keep the caption upright in its original reading direction.
         metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
         lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)
         availableWidth := lanes.AvailableCaptionWidth

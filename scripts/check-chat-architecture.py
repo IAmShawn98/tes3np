@@ -3092,9 +3092,10 @@ expect(
     and 'baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, shift)' in embedded_chat
     and 'return Round((h + mapAdvance) / 2) + shift' in embedded_chat
     and 'Map caption must remain vertically centered.' in launcher_smoke_tests
-    and 'Map caption must retain its inward right-edge inset.' in launcher_smoke_tests
-    and 'arrowRight := Max(arrowLeft + 2, captionX - pad)' in embedded_chat
-    and 'Map arrow must precede the caption without overlap.' in launcher_smoke_tests
+    and 'Map caption must retain its inward left-edge inset.' in launcher_smoke_tests
+    and 'captionX := captionPad' in embedded_chat
+    and 'arrowLeft := Min(arrowRight - 2, captionX + captionHeight + pad)' in embedded_chat
+    and 'Map arrow must follow the caption without overlap.' in launcher_smoke_tests
     and 'GdipCreateTexture' in server_map and 'GdipImageRotateFlip' in server_map
     and 'MapFrameNoise(&seed' in server_map
     and 'GdipDrawRectangleI' in server_map
