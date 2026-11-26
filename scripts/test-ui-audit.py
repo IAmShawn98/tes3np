@@ -175,7 +175,15 @@ class InventoryCoverageTests(unittest.TestCase):
         renderer = (root / "renderer.ahk").read_text(encoding="utf-8-sig")
         self.assertIn("PlanV016MeasuredRows(groups)", settings)
         self.assertIn("copyExtra += ApplyV016MeasuredRows([[mainRows[1]]", settings)
-        self.assertIn("copyExtra += ApplyV016MeasuredRows([[rows[1]]", settings)
+        data = settings[settings.index("BuildV016LauncherDataRows(settings)\n{"):
+                        settings.index("\nOpenAppDataSettingsV016(settings, *)")]
+        self.assertIn("ApplyV016MeasuredRows([[rows[1]], [rows[2]], [rows[3]],\n"
+                      "        [rows[4], rows[5]], [rows[6]], [rows[7]], [rows[8], rows[9]], [rows[10]]])", data)
+        self.assertIn("rows[10].GetPos(, &backY, , &backHeight)", data)
+        self.assertIn("return {Rows: rows, Extra: Max(0, backY + backHeight - V016S(513))}", data)
+        self.assertIn("layout := BuildV016LauncherDataRows(settings)", settings)
+        self.assertIn("copyExtra := layout.Extra", settings)
+        self.assertIn("if GrowV016SettingsParchment(settings, copyExtra)", settings)
         self.assertIn("previousBottom + V016S(4) - originalTop", settings)
         self.assertIn("face.NoAccessibleDownfit := true", settings)
         self.assertIn("face.AccessibleWrappedButton := true", settings)
@@ -199,7 +207,23 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("assetRoot := A_IsCompiled ? BundledResourceRoot : A_ScriptDir", smoke)
         self.assertIn('path := assetRoot "\\assets\\backgrounds\\character-book.png"', smoke)
         self.assertNotIn('A_ScriptDir "\\assets\\backgrounds\\character-book.png"', smoke)
-        self.assertEqual(smoke.count("GetBookSmokeArtworkPath()"), 6)
+        # Audit every artwork constructor and reset, not a fixed call count.
+        # New fixtures must use the helper without requiring a count update.
+        self.assertEqual(smoke.count("\\assets\\backgrounds\\character-book.png"), 1)
+        lines = smoke.splitlines()
+        constructors = resets = 0
+        for index, line in enumerate(lines):
+            if ".BookBackground :=" in line:
+                constructors += 1
+                assignment = line.strip()
+                if assignment.endswith(","):
+                    assignment += " " + lines[index + 1].strip()
+                self.assertTrue(assignment.endswith("GetBookSmokeArtworkPath())"), assignment)
+            elif ".BookBackground.Value :=" in line:
+                resets += 1
+                self.assertTrue(line.strip().endswith(":= GetBookSmokeArtworkPath()"), line)
+        self.assertGreater(constructors, 0)
+        self.assertGreater(resets, 0)
 
     def test_inventory_serializes_with_expected_categories(self):
         report = audit.summarize(audit.inventory())
