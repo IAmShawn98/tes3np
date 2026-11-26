@@ -566,7 +566,7 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
     pen := DllCall("gdi32\CreatePen", "Int", 0, "Int", Max(1, Round(4 * paintScale)), "UInt", labelColor, "Ptr")
     oldPen := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", pen, "Ptr")
     cx := arrowX, cy := Round(h * 0.50) + shift
-    direction := LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen)
+    direction := LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen, mirrored)
     arrowHalf := Max(4, Round(9 * paintScale))
     arrowHeight := Max(4, Round(10 * paintScale))
     if mirrored

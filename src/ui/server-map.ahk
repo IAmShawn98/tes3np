@@ -12,10 +12,10 @@ CreateLauncherMapToggle()
     ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true
 }
 
-LauncherSideTabDirection(isOpen)
+LauncherSideTabDirection(isOpen, isMap := false)
 {
-    ; Both tabs use the original Game Chat arrow convention.
-    return isOpen ? -1 : 1
+    ; Right-edge Map reverses the arrow convention; Game Chat is unchanged.
+    return (isOpen ? -1 : 1) * (isMap ? -1 : 1)
 }
 
 ToggleLauncherMap(*)
@@ -66,9 +66,7 @@ CreateLauncherMapPanel(owner)
     panel.MapTexture := A_ScriptDir "\assets\controls\map-frame.png"
     try
     {
-        panel.MapFrame := []
-        Loop 5
-            panel.MapFrame.Push(panel.Add("Picture", "x0 y0 w1 h1", panel.MapTexture))
+        panel.MapFrame := panel.Add("Picture", "x0 y0 w1 h1", panel.MapTexture)
         panel.MapTitle := panel.Add("Text", "x0 y0 w1 h1 Center +0x200 Background10100D cE1BD79", "Drak's Server Map")
         panel.MapViewport := panel.Add("Text", "x0 y0 w1 h1 Background132725", "")
         panel.MapSizeKey := ""
@@ -109,6 +107,142 @@ GetLauncherMapPlacement(owner, work, allowOwnerMove := false)
     return {Available: true, X: x, Y: y, W: w, H: h, OwnerX: ownerX}
 }
 
+; Paint at native client resolution; the source strip is a repeating texture,
+; not a single image to stretch over the entire window. Match the Game Chat
+; frame's tiled/rotated border, weathered header and nested bronze/gold trim.
+MapFrameCheck(status)
+{
+    if status
+        throw Error("Map frame graphics status " status)
+}
+
+MapFrameBrush(color, resources)
+{
+    brush := 0
+    MapFrameCheck(DllCall("gdiplus\GdipCreateSolidFill", "UInt", color, "Ptr*", &brush))
+    resources.Push(brush)
+    return brush
+}
+
+MapFramePen(color, width, resources)
+{
+    pen := 0
+    MapFrameCheck(DllCall("gdiplus\GdipCreatePen1", "UInt", color, "Float", width, "Int", 2, "Ptr*", &pen))
+    resources.Push(pen)
+    return pen
+}
+
+MapFrameFill(graphics, brush, x, y, w, h)
+{
+    if w > 0 && h > 0
+        MapFrameCheck(DllCall("gdiplus\GdipFillRectangleI", "Ptr", graphics, "Ptr", brush,
+            "Int", x, "Int", y, "Int", w, "Int", h))
+}
+
+MapFrameLine(graphics, pen, x1, y1, x2, y2)
+{
+    MapFrameCheck(DllCall("gdiplus\GdipDrawLineI", "Ptr", graphics, "Ptr", pen,
+        "Int", x1, "Int", y1, "Int", x2, "Int", y2))
+}
+
+MapFrameNoise(&seed, limit)
+{
+    ; Local deterministic grain; never changes the application's RNG state.
+    seed := Mod(seed * 1664525 + 1013904223, 4294967296)
+    return Mod(seed >> 16, Max(1, limit))
+}
+
+RenderLauncherMapFrame(texturePath, width, height, scale, headerBottom)
+{
+    InitButtonPainter()
+    bitmap := 0, graphics := 0, texture := 0, vertical := 0, handle := 0
+    brushes := [], pens := []
+    try
+    {
+        MapFrameCheck(DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width, "Int", height,
+            "Int", 0, "Int", 0x26200A, "Ptr", 0, "Ptr*", &bitmap))
+        MapFrameCheck(DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", bitmap, "Ptr*", &graphics))
+        MapFrameCheck(DllCall("gdiplus\GdipSetPageUnit", "Ptr", graphics, "Int", 2))
+        MapFrameCheck(DllCall("gdiplus\GdipGraphicsClear", "Ptr", graphics, "UInt", 0xFF97713A))
+        MapFrameCheck(DllCall("gdiplus\GdipScaleWorldTransform", "Ptr", graphics,
+            "Float", scale, "Float", scale, "Int", 0))
+        w := Ceil(width / scale), h := Ceil(height / scale)
+
+        MapFrameCheck(DllCall("gdiplus\GdipLoadImageFromFile", "WStr", texturePath, "Ptr*", &texture))
+        MapFrameCheck(DllCall("gdiplus\GdipCloneImage", "Ptr", texture, "Ptr*", &vertical))
+        MapFrameCheck(DllCall("gdiplus\GdipImageRotateFlip", "Ptr", vertical, "Int", 1))
+        horizontalBrush := 0, verticalBrush := 0
+        ; WrapModeTile is zero. Preserve the 88x15 source texel proportions.
+        MapFrameCheck(DllCall("gdiplus\GdipCreateTexture", "Ptr", texture, "Int", 0, "Ptr*", &horizontalBrush))
+        brushes.Push(horizontalBrush)
+        MapFrameCheck(DllCall("gdiplus\GdipCreateTexture", "Ptr", vertical, "Int", 0, "Ptr*", &verticalBrush))
+        brushes.Push(verticalBrush)
+        MapFrameFill(graphics, horizontalBrush, 0, 0, w, 13)
+        MapFrameFill(graphics, horizontalBrush, 0, h - 13, w, 13)
+        MapFrameFill(graphics, verticalBrush, 0, 0, 13, h)
+        MapFrameFill(graphics, verticalBrush, w - 13, 0, 13, h)
+
+        headerBase := MapFrameBrush(0xFF8F6D3C, brushes)
+        darkMottle := MapFrameBrush(0xFF70532D, brushes)
+        lightMottle := MapFrameBrush(0xFFB8975C, brushes)
+        midMottle := MapFrameBrush(0xFFA58148, brushes)
+        MapFrameFill(graphics, headerBase, 13, 13, w - 26, headerBottom - 12)
+        seed := 4108
+        Loop w * 10
+        {
+            n := A_Index - 1
+            x := 13 + MapFrameNoise(&seed, w - 26)
+            y := 13 + MapFrameNoise(&seed, headerBottom - 12)
+            fw := 1 + MapFrameNoise(&seed, 3), fh := 1 + MapFrameNoise(&seed, 2)
+            MapFrameFill(graphics, Mod(n, 5) = 0 ? lightMottle : (Mod(n, 3) = 0 ? midMottle : darkMottle),
+                x, y, fw, fh)
+        }
+        headerGold := MapFramePen(0xFFCFA962, 1, pens)
+        headerShade := MapFramePen(0xFF382714, 1, pens)
+        MapFrameLine(graphics, headerGold, 13, 14, w - 14, 14)
+        MapFrameLine(graphics, headerShade, 13, headerBottom - 3, w - 14, headerBottom - 3)
+
+        bright := MapFrameBrush(0xFFD3B16E, brushes)
+        dark := MapFrameBrush(0xFF392715, brushes)
+        seed := 4108
+        Loop w * 9
+        {
+            n := A_Index - 1
+            x := MapFrameNoise(&seed, w), y := MapFrameNoise(&seed, h)
+            if y < headerBottom + 2
+                continue
+            MapFrameFill(graphics, Mod(n, 3) = 0 ? bright : dark, x, y, 1 + MapFrameNoise(&seed, 3), 1)
+        }
+        goldPen := MapFramePen(0xFFE0BE77, 2, pens)
+        darkPen := MapFramePen(0xFF2D1D0E, 3, pens)
+        MapFrameCheck(DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics, "Ptr", goldPen,
+            "Int", 2, "Int", 2, "Int", w - 5, "Int", h - 5))
+        MapFrameCheck(DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics, "Ptr", darkPen,
+            "Int", 8, "Int", 8, "Int", w - 17, "Int", h - 17))
+        body := MapFrameBrush(0xFF132725, brushes)
+        MapFrameFill(graphics, body, 13, headerBottom + 1, w - 26, h - headerBottom - 14)
+        MapFrameLine(graphics, goldPen, 12, headerBottom, w - 13, headerBottom)
+
+        MapFrameCheck(DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics))
+        graphics := 0
+        MapFrameCheck(DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", bitmap,
+            "Ptr*", &handle, "UInt", 0xFF132725))
+        return handle
+    }
+    finally
+    {
+        if graphics
+            DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics)
+        for pen in pens
+            DllCall("gdiplus\GdipDeletePen", "Ptr", pen)
+        for brush in brushes
+            DllCall("gdiplus\GdipDeleteBrush", "Ptr", brush)
+        for image in [vertical, texture, bitmap]
+            if image
+                DllCall("gdiplus\GdipDisposeImage", "Ptr", image)
+    }
+}
+
 LayoutLauncherMapPanel(panel, w, h)
 {
     global AccessibilityTextSize
@@ -116,8 +250,8 @@ LayoutLauncherMapPanel(panel, w, h)
     if panel.MapSizeKey = key
         return
     scale := Min(w / 480, h / 405)
-    rim := Max(2, Round(7 * scale))
-    header := Max(8, Round(34 * scale))
+    rim := Max(2, Round(13 * scale)), footer := Max(2, Round(14 * scale))
+    titleTop := Max(1, Round(8 * scale))
     innerW := Max(1, w - 2 * rim)
     pad := Max(2, Round(6 * scale))
     titleSize := Max(5, Round(AccessibilityFontSize(16) * scale * 96 / A_ScreenDPI))
@@ -129,20 +263,20 @@ LayoutLauncherMapPanel(panel, w, h)
             break
         titleSize -= 1
     }
-    header := Min(Max(1, h - 2 * rim - 1), Max(header, extent.Height + 2 * pad))
-    titleW := Min(innerW, Max(Round(w * 0.78), extent.Width + 2 * pad))
-    rects := [
-        [0, 0, w, rim], [0, h - rim, w, rim],
-        [0, rim, rim, Max(1, h - 2 * rim)], [w - rim, rim, rim, Max(1, h - 2 * rim)],
-        [rim, rim, Max(1, w - 2 * rim), header]]
-    for index, rect in rects
-    {
-        picture := panel.MapFrame[index]
-        picture.Value := "*w" rect[3] " *h" rect[4] " " panel.MapTexture
-        picture.Move(rect[1], rect[2], rect[3], rect[4])
-    }
-    panel.MapTitle.Move(Round((w - titleW) / 2), rim, titleW, header)
-    panel.MapViewport.Move(rim, rim + header, Max(1, w - 2 * rim), Max(1, h - 2 * rim - header))
+    headerBottom := Min(Floor((h - footer - 2) / scale),
+        Max(51, Ceil((titleTop + extent.Height + 2 * pad) / scale)))
+    headerPx := Round(headerBottom * scale)
+    bodyTop := Min(h - footer - 1, Max(headerPx + 1, Round((headerBottom + 1) * scale)))
+    titleW := Min(innerW, extent.Width + Max(2 * pad, Round(28 * scale)))
+
+    frame := RenderLauncherMapFrame(panel.MapTexture, w, h, scale, headerBottom)
+    ; The Picture receives its own bitmap copy, so we can release our handle
+    ; immediately. No disk cache, paint subclass or stretched strip controls.
+    try panel.MapFrame.Value := "*w0 *h0 HBITMAP:*" frame
+    finally DllCall("gdi32\DeleteObject", "Ptr", frame)
+    panel.MapFrame.Move(0, 0, w, h)
+    panel.MapTitle.Move(Round((w - titleW) / 2), titleTop, titleW, Max(1, headerPx - titleTop))
+    panel.MapViewport.Move(rim, bodyTop, innerW, Max(1, h - footer - bodyTop))
     panel.MapSizeKey := key
 }
 

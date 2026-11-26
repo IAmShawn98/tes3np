@@ -2831,8 +2831,9 @@ CheckLauncherMapShell()
         LauncherMapToggle.Move(458, 147, 22, 56)
         owner.Show("NA x40 y40 w480 h358")
         if LauncherMapToggle.Text != "Map" || LauncherSideTabDirection(false) != 1
-            || LauncherSideTabDirection(true) != -1
-            throw Error("Map and Game Chat must share outward show/hide arrows.")
+            || LauncherSideTabDirection(true) != -1 || LauncherSideTabDirection(false, true) != -1
+            || LauncherSideTabDirection(true, true) != 1
+            throw Error("Map arrow states must reverse without changing Game Chat.")
         for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 1280, B: 716}]
         {
             placement := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work)
@@ -2872,8 +2873,18 @@ CheckLauncherMapShell()
                 LauncherMapPanel.MapTitle.GetPos(, &ty, &tw, &th)
                 LauncherMapPanel.MapViewport.GetPos(, &vy, , &vh)
                 extent := MeasureAccessibleSingleLineText(LauncherMapPanel.MapTitle, LauncherMapPanel.MapTitle.Text)
-                if vy != ty + th || vh <= 0 || extent.Width > tw || extent.Height > th
+                if vy <= ty + th || vh <= 0 || extent.Width > tw || extent.Height > th
                     throw Error("Map title clips or overlaps its empty viewport.")
+                frame := DllCall("SendMessageW", "Ptr", LauncherMapPanel.MapFrame.Hwnd,
+                    "UInt", 0x173, "Ptr", 0, "Ptr", 0, "Ptr")
+                info := Buffer(A_PtrSize = 8 ? 32 : 24, 0)
+                if !frame || !DllCall("gdi32\GetObjectW", "Ptr", frame, "Int", info.Size, "Ptr", info)
+                    || NumGet(info, 4, "Int") != 240 || Abs(NumGet(info, 8, "Int")) != 202
+                    throw Error("Map frame is not a native-size composed bitmap.")
+                LayoutLauncherMapPanel(LauncherMapPanel, 240, 202)
+                if frame != DllCall("SendMessageW", "Ptr", LauncherMapPanel.MapFrame.Hwnd,
+                    "UInt", 0x173, "Ptr", 0, "Ptr", 0, "Ptr")
+                    throw Error("Unchanged map layout recreated its frame bitmap.")
             }
             ToggleLauncherMap()
             if LauncherMapOpen || DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)

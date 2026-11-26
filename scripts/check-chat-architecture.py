@@ -3078,8 +3078,16 @@ expect(
     and 'ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true' in server_map
     and 'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift, true)' in native_renderer
     and 'face.HasOwnProp("IsMapTab") ? LauncherMapOpen' in native_renderer
-    and 'LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen)' in embedded_chat
-    and 'return isOpen ? -1 : 1' in server_map
+    and 'LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen, mirrored)' in embedded_chat
+    and 'return (isOpen ? -1 : 1) * (isMap ? -1 : 1)' in server_map
+    and 'LauncherSideTabDirection(false, true) != -1' in launcher_smoke_tests
+    and 'LauncherSideTabDirection(true, true) != 1' in launcher_smoke_tests
+    and 'GdipCreateTexture' in server_map and 'GdipImageRotateFlip' in server_map
+    and 'MapFrameNoise(&seed' in server_map
+    and 'GdipDrawRectangleI' in server_map
+    and 'RenderLauncherMapFrame(panel.MapTexture, w, h, scale, headerBottom)' in server_map
+    and 'Map frame is not a native-size composed bitmap.' in launcher_smoke_tests
+    and 'Unchanged map layout recreated its frame bitmap.' in launcher_smoke_tests
     and 'x := owner.R + ownerX - owner.L + gap' in server_map
     and 'return {Available: false}' in server_map
     and 'if available < minWidth && allowOwnerMove' in server_map
