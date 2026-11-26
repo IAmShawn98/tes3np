@@ -779,6 +779,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     if ((Invoke-BuildProcess (Join-Path $hostOutput 'tes3np.ChatHost.exe') '--check-server-status' 'Server status classification and fallback smoke test' 30000) -ne 0) {
         throw 'Server status classification or fallback smoke test failed.'
     }
+    if ((Invoke-BuildProcess (Join-Path $hostOutput 'tes3np.ChatHost.exe') '--check-chat-owner-visibility' 'Game Chat native owner visibility smoke test' 30000) -ne 0) {
+        throw 'Game Chat native owner visibility smoke test failed.'
+    }
     if ((Invoke-BuildProcess (Join-Path $hostOutput 'tes3np.ChatHost.exe') '--check-map-policy' 'Public map navigation policy smoke test' 30000) -ne 0) {
         throw 'Public map navigation policy smoke test failed.'
     }

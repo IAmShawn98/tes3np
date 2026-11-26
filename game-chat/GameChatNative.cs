@@ -52,6 +52,66 @@ internal static class GameChatNative
     [DllImport("dwmapi.dll")] internal static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     internal const int DWMWA_CLOAK = 13;
+    const int DWMWA_CLOAKED = 14;
+
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
+
+    internal static bool CanPresentOwnedChat(IntPtr owner, IntPtr chat)
+    {
+        if (!IsWindow(owner) || !IsWindow(chat) || GetWindow(chat, 4) != owner ||
+            !IsWindowVisible(owner) || IsIconic(owner)) return false;
+        // A cloaked launcher (for example on another virtual desktop) is
+        // not a visible docking surface. Native visibility remains the
+        // fallback if DWM cannot report the attribute.
+        return DwmGetWindowAttribute(owner, DWMWA_CLOAKED, out int cloaked, sizeof(int)) != 0 ||
+            cloaked == 0;
+    }
+
+    internal static bool SetOwnedChatVisibility(IntPtr owner, IntPtr chat, bool requested)
+    {
+        if (!IsWindow(chat)) return false;
+        if (!requested || !CanPresentOwnedChat(owner, chat))
+        {
+            if (IsWindowVisible(chat)) ShowWindow(chat, 0); // SW_HIDE
+            return false;
+        }
+        if (!IsWindowVisible(chat)) ShowWindow(chat, 4); // SW_SHOWNOACTIVATE
+        // Recheck after the native call in case the owner changed state
+        // between the eligibility check and the show.
+        if (!CanPresentOwnedChat(owner, chat))
+        {
+            ShowWindow(chat, 0);
+            return false;
+        }
+        return IsWindowVisible(chat);
+    }
+
+    // Offline, native HWND regression; no Discord session or user data.
+    internal static int CheckChatOwnerVisibility()
+    {
+        using var launcher = new Form { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual,
+            Location = new System.Drawing.Point(-20000, -20000), Size = new System.Drawing.Size(200, 120) };
+        using var chat = new Form { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual,
+            Location = new System.Drawing.Point(-20200, -20000), Size = new System.Drawing.Size(180, 120) };
+        IntPtr owner = launcher.Handle, popup = chat.Handle;
+        SetNativeWindowOwner(popup, owner);
+        ShowWindow(owner, 4);
+        if (!SetOwnedChatVisibility(owner, popup, true)) return 1;
+        SetOwnedChatVisibility(owner, popup, false);
+        if (IsWindowVisible(popup)) return 2;
+        ShowWindow(owner, 7); // SW_SHOWMINNOACTIVE
+        if (!IsIconic(owner) || SetOwnedChatVisibility(owner, popup, true) ||
+            IsWindowVisible(popup)) return 3;
+        ShowWindow(owner, 4);
+        if (IsIconic(owner) || !SetOwnedChatVisibility(owner, popup, true)) return 4;
+        ShowWindow(owner, 0);
+        if (SetOwnedChatVisibility(owner, popup, true) || IsWindowVisible(popup)) return 5;
+        ShowWindow(owner, 4);
+        if (!SetOwnedChatVisibility(owner, popup, true)) return 6;
+        SetNativeWindowOwner(popup, IntPtr.Zero);
+        if (SetOwnedChatVisibility(owner, popup, true) || IsWindowVisible(popup)) return 7;
+        return 0;
+    }
 
     [DllImport("user32.dll", EntryPoint = "PostMessageW")] internal static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 

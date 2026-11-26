@@ -128,7 +128,7 @@ expect(
     and in_order(section_between(source, 'void SetChatOpen(bool show)', 'static double OwnerLayoutScale'),
                  'goldScrollbar.Capture = false;', 'historyCatchupActive = false;',
                  'else if (!chatOpen) lastChatActivity = DateTime.Now;', 'chatOpen = show;',
-                 'else ShowWindow(Handle, 0);'),
+                 'if (!show) SetOwnedChatVisibility(owner, Handle, false);'),
 )
 expect(
     "History and Expansion callbacks ignore stale navigation or a replaced download request",
@@ -3263,6 +3263,23 @@ expect(
     and 'Log("STARTUP | Owner compositor refresh begin");' in source
     and 'PositionChatWindows();' in source
     and 'WatchLauncherMovement();' in source,
+)
+
+expect(
+    "Game Chat never presents an owned popup while the launcher is minimized, hidden or detached",
+    'GetWindow(chat, 4) != owner' in source
+    and '!IsWindowVisible(owner) || IsIconic(owner)' in source
+    and 'DwmGetWindowAttribute(owner, DWMWA_CLOAKED' in source
+    and in_order(section_between(source, 'internal static bool SetOwnedChatVisibility(', 'internal static int CheckChatOwnerVisibility()'),
+                 '!requested || !CanPresentOwnedChat(owner, chat)', 'ShowWindow(chat, 4)',
+                 'if (!CanPresentOwnedChat(owner, chat))', 'return IsWindowVisible(chat);')
+    and in_order(chat_layout, 'IsIconic(owner)', 'MoveWindow(Handle, target.X',
+                 'SetOwnedChatVisibility(owner, Handle, chatOpen && !discordLoginVisible);')
+    and 'CanPresentOwnedChat(owner, Handle))' in section_between(source, 'void NotifyForNewMessage(', 'bool MergeDiscordMessages(')
+    and 'watch.Tick += (_, _) => SyncChatOwnerPresentation();' in chat_window
+    and 'ShowWindow(Handle, 4)' not in section_between(source, 'void SetChatOpen(bool show)', 'void SyncChatOwnerPresentation()')
+    and '--check-chat-owner-visibility' in source
+    and "'--check-chat-owner-visibility'" in windows_build,
 )
 
 if errors:

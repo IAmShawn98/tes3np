@@ -305,10 +305,19 @@ internal sealed partial class GameChatWindow
         // Native owner movement covers scale previews and their rollback.
         // Chat polling also repairs placement if the native hook is unavailable.
         PositionHappyHourBanner();
-        if (!IsWindow(owner) || !GetWindowRect(owner, out var bounds) ||
-            bounds.Right <= bounds.Left || IsIconic(owner)) return;
+        if (!IsWindow(owner) || !IsWindowVisible(owner) || IsIconic(owner) ||
+            !GetWindowRect(owner, out var bounds) || bounds.Right <= bounds.Left ||
+            bounds.Bottom <= bounds.Top)
+        {
+            if (docked && IsHandleCreated) SetOwnedChatVisibility(owner, Handle, false);
+            return;
+        }
         var work = Screen.FromHandle(owner).WorkingArea;
-        if (work.Width <= 0 || work.Height <= 0) return;
+        if (work.Width <= 0 || work.Height <= 0)
+        {
+            if (docked && IsHandleCreated) SetOwnedChatVisibility(owner, Handle, false);
+            return;
+        }
         double launcherScale = OwnerLayoutScale(bounds.Right - bounds.Left, launcherBaseWidth, GetDpiForWindow(owner));
         int dockHeight = chatHeight + (nativeMode ? ChatComposerSpace : 0);
         double scale = FitPopupScale(launcherScale, chatWidth, dockHeight, work);
@@ -319,8 +328,16 @@ internal sealed partial class GameChatWindow
         var size = new Size(ChatPixels(chatWidth), ChatPixels(dockHeight));
         PositionDiscordSignIn(bounds, work);
         var target = DockBounds(bounds, work, size, size.Width);
-        if (chatOpen && Bounds != target)
-            MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);
+        if (!docked || !IsHandleCreated) return;
+        // Position successfully before revealing; never show at the last
+        // cached desktop location after the launcher has disappeared.
+        if (chatOpen && !discordLoginVisible && Bounds != target &&
+            !MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true))
+        {
+            SetOwnedChatVisibility(owner, Handle, false);
+            return;
+        }
+        SetOwnedChatVisibility(owner, Handle, chatOpen && !discordLoginVisible);
     }
 
     void DockToLauncher()

@@ -96,7 +96,8 @@ internal sealed partial class GameChatWindow
         // open or reset the user's auto-hide timer.
         if (newMessage && initialBackfillComplete &&
             !waitingForLiveFeedAfterHistory &&
-            chatDisplayMode == "Automatic")
+            chatDisplayMode == "Automatic" && docked && IsHandleCreated &&
+            CanPresentOwnedChat(owner, Handle))
         {
             lastChatActivity = DateTime.Now;
             SetChatOpen(true);

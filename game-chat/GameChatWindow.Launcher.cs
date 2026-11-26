@@ -97,19 +97,28 @@ internal sealed partial class GameChatWindow
         if (!discordLoginVisible) PositionChatWindows();
         if (IsHandleCreated)
         {
-            // SW_SHOW (5) activates this owned popup and steals foreground
-            // focus from parchment menus and native dialogs. Automatic
-            // message notifications must only reveal chat, never activate it.
-            if (show)
+            if (!show) SetOwnedChatVisibility(owner, Handle, false);
+            else if (IsWindowVisible(Handle) && CanPresentOwnedChat(owner, Handle))
             {
-                ShowWindow(Handle, 4); // SW_SHOWNOACTIVATE
                 FitWebView();
                 messageClip.PerformLayout();
                 frameSurface.Invalidate(true);
                 frameSurface.Update();
             }
-            else ShowWindow(Handle, 0);
         }
         NotifyLauncherChatState();
+    }
+
+    // Keep the requested open state separate from native presentation.
+    // This runs independently of asynchronous Discord/feed refreshes.
+    void SyncChatOwnerPresentation()
+    {
+        if (!docked || closingChat || IsDisposed || !IsHandleCreated) return;
+        if (!chatOpen || discordLoginVisible || !CanPresentOwnedChat(owner, Handle))
+        {
+            SetOwnedChatVisibility(owner, Handle, false);
+            return;
+        }
+        if (!IsWindowVisible(Handle)) PositionChatWindows();
     }
 }

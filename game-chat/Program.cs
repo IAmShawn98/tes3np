@@ -24,6 +24,12 @@ internal static class Program
             Environment.ExitCode = GameChatWindow.CheckHappyHourHistoryCoverage();
             return;
         }
+        if (args.Length == 1 && args[0] == "--check-chat-owner-visibility")
+        {
+            ApplicationConfiguration.Initialize();
+            Environment.ExitCode = GameChatNative.CheckChatOwnerVisibility();
+            return;
+        }
         if (args.Length == 1 && args[0] == "--check-server-status")
         {
             Environment.ExitCode = GameChatWindow.CheckServerStatusCoverage();
