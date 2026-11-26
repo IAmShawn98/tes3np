@@ -17,6 +17,46 @@
 
     let panel = null, savedDisplay = null, button = null, host = null;
     let collapsed = true, scheduled = false;
+    const attributionStyles = new WeakMap();
+    function isLeafletPrefixOnly(control) {
+    if (control.textContent.trim() !== "Leaflet" || control.children.length !== 1) return false;
+    const link = control.firstElementChild;
+    return link.tagName === "A" && link.textContent.trim() === "Leaflet" &&
+        /^https?:\/\/(?:www\.)?leafletjs\.com\/?$/i.test(link.href);
+}
+    function syncMapAttribution() {
+        // Only the optional library-only prefix may disappear. Layer/provider
+        // attribution stays visible and clear of the Filter button.
+        for (const control of document.querySelectorAll(".leaflet-bottom.leaflet-right .leaflet-control-attribution")) {
+            if (!host || !host.isConnected) {
+                const saved = attributionStyles.get(control);
+                if (saved) {
+                    for (const [name, entry] of Object.entries(saved)) {
+                        if (entry.value) control.style.setProperty(name, entry.value, entry.priority);
+                        else control.style.removeProperty(name);
+                    }
+                    attributionStyles.delete(control);
+                }
+                continue;
+            }
+            if (!attributionStyles.has(control)) {
+                const saved = {};
+                for (const name of ["display", "margin-right", "max-width"]) {
+                    saved[name] = {value:control.style.getPropertyValue(name), priority:control.style.getPropertyPriority(name)};
+                }
+                attributionStyles.set(control, saved);
+            }
+            const saved = attributionStyles.get(control);
+            if (isLeafletPrefixOnly(control)) {
+                control.style.setProperty("display", "none", "important");
+            } else {
+                if (saved.display.value) control.style.setProperty("display", saved.display.value, saved.display.priority);
+                else control.style.removeProperty("display");
+                const clearance = Math.ceil(host.getBoundingClientRect().width + 12);
+                apply(control, {"margin-right": clearance + "px", "max-width": Math.max(1, window.innerWidth - clearance - 6) + "px"});
+            }
+        }
+    }
     const texture = "/* TES3NP_MAP_BORDER_TEXTURE */";
     const apply = (element, styles) => {
         for (const [name, value] of Object.entries(styles)) element.style.setProperty(name, value, "important");
@@ -36,7 +76,7 @@
     function createButton() {
         host = document.createElement("div");
         host.id = "tes3np-map-filter-toggle";
-        apply(host, {position:"fixed", right:"10px", bottom:"22px", "z-index":"2147483646", "pointer-events":"auto"});
+        apply(host, {position:"fixed", right:"6px", bottom:"6px", "z-index":"2147483646", "pointer-events":"auto"});
         const shadow = host.attachShadow({mode:"closed"});
         button = document.createElement("button");
         button.type = "button";
@@ -67,28 +107,33 @@
         document.documentElement.appendChild(host);
     }
     function scan() {
-        if (panel && panel.isConnected && host && host.isConnected) return;
+        if (panel && panel.isConnected && host && host.isConnected) {
+            syncMapAttribution();
+            return;
+        }
         if (!panel || !panel.isConnected) {
             panel = findFilterPanel(document);
             if (!panel) {
                 if (host) host.remove();
                 host = button = null;
+                syncMapAttribution();
                 return;
             }
             savedDisplay = {value:panel.style.getPropertyValue("display"), priority:panel.style.getPropertyPriority("display")};
         }
         if (!host || !host.isConnected) createButton();
         update();
+        syncMapAttribution();
     }
     function schedule() {
-        if (scheduled || (panel && panel.isConnected && host && host.isConnected)) return;
+        if (scheduled) return;
         scheduled = true;
         setTimeout(() => { scheduled = false; scan(); }, 150);
     }
     function start() {
         scan();
-        new MutationObserver(schedule).observe(document.documentElement, {childList:true, subtree:true});
-        window.addEventListener("resize", () => { schedule(); fitPanel(); });
+        new MutationObserver(schedule).observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+        window.addEventListener("resize", () => { schedule(); fitPanel(); syncMapAttribution(); });
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, {once:true});
     else start();

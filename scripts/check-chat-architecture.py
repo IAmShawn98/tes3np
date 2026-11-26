@@ -3083,6 +3083,9 @@ expect(
     and 'LauncherSideTabDirection(false, true) != -1' in launcher_smoke_tests
     and 'LauncherSideTabDirection(true, true) != 1' in launcher_smoke_tests
     and 'lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)' in embedded_chat
+    and 'referenceAdvance := GetLauncherChatCaptionMetrics(dc, "Game Chat", paintScale).Advance' in embedded_chat
+    and 'baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, referenceAdvance, shift, AccessibilityTextSize = "Normal")' in embedded_chat
+    and 'Map caption must align to the upper Game Chat text edge.' in launcher_smoke_tests
     and 'arrowRight := Max(arrowLeft + 2, captionX - pad)' in embedded_chat
     and 'Map arrow must precede the caption without overlap.' in launcher_smoke_tests
     and 'GdipCreateTexture' in server_map and 'GdipImageRotateFlip' in server_map
@@ -3145,6 +3148,14 @@ expect(
     and in_order(map_host, 'core.AddScriptToExecuteOnDocumentCreatedAsync(FilterPresentation.Value)', 'core.Navigate(MapUrl);')
     and 'window.top !== window || location.origin !== "https://map.nerevarineprophecies.com"' in map_filters
     and 'button.textContent = "Filter"' in map_filters
+    and 'right:"6px", bottom:"6px"' in map_filters
+    and 'function isLeafletPrefixOnly(control)' in map_filters
+    and '.leaflet-bottom.leaflet-right .leaflet-control-attribution' in map_filters
+    and 'control.textContent.trim() !== "Leaflet" || control.children.length !== 1' in map_filters
+    and 'if (isLeafletPrefixOnly(control))' in map_filters
+    and 'control.style.setProperty("display", "none", "important")' in map_filters
+    and 'syncMapAttribution()' in map_filters
+    and '"margin-right": clearance + "px"' in map_filters
     and '"border-radius":"0"' in map_filters
     and 'background:"transparent"' in map_filters
     and '"border-image-source": texture.startsWith("data:image/png;base64,")' in map_filters

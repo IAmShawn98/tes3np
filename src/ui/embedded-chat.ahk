@@ -493,6 +493,15 @@ GetLauncherMapTabLanes(w, captionHeight, paintScale)
         ArrowHalf: Max(1, Floor((arrowRight - arrowLeft) / 2))}
 }
 
+; Rotated labels read bottom-to-top. Align their visible upper edge, not
+; their baseline or center, so the short Map caption starts at Game Chat's top.
+GetLauncherMapCaptionBaseline(h, mapAdvance, chatAdvance, shift, normal)
+{
+    pad := Max(2, Round(h * 0.06))
+    chatBaseline := normal ? Round(h * 0.87) + shift : Round((h + chatAdvance) / 2) + shift
+    return Min(h - pad, Max(pad + mapAdvance, chatBaseline - chatAdvance + mapAdvance))
+}
+
 PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
 {
     global LauncherScale, LauncherChatOpen, LauncherMapOpen, AccessibilityTextSize
@@ -549,7 +558,23 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
     }
     if mirrored
     {
-        ; Map uses the same left-arrow/right-caption order as Game Chat.
+        ; Map uses the same left-arrow/right-caption order and upper text
+        ; anchor as Game Chat, including its normal-mode advance fitting.
+        referenceAdvance := GetLauncherChatCaptionMetrics(dc, "Game Chat", paintScale).Advance
+        if AccessibilityTextSize = "Normal" && referenceAdvance > availableAdvance
+        {
+            referenceFont := CreateLauncherChatCaptionFont(Max(1, Floor(requestedHeight * availableAdvance / referenceAdvance)))
+            if referenceFont
+            {
+                priorFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", referenceFont, "Ptr")
+                try referenceAdvance := GetLauncherChatCaptionMetrics(dc, "Game Chat", paintScale).Advance
+                finally
+                {
+                    DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", priorFont, "Ptr")
+                    DllCall("gdi32\DeleteObject", "Ptr", referenceFont)
+                }
+            }
+        }
         metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
         edgePad := Max(1, Round(2 * paintScale))
         minArrowHalf := Max(1, Round(4 * paintScale))
@@ -562,7 +587,7 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
             metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
         }
-        baselineY := Round((h + metrics.Advance) / 2) + shift
+        baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, referenceAdvance, shift, AccessibilityTextSize = "Normal")
         lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)
         captionX := lanes.CaptionX
         arrowX := lanes.ArrowX

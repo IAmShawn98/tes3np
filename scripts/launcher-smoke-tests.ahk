@@ -2838,6 +2838,16 @@ CheckLauncherMapShell()
         {
             scale := percent / 100
             tabWidth := Round(45 * scale)
+            tabHeight := Round(112 * scale)
+            for normal in [true, false]
+            {
+                mapAdvance := Round(26 * scale), chatAdvance := Round(75 * scale)
+                chatBaseline := normal ? Round(tabHeight * 0.87) : Round((tabHeight + chatAdvance) / 2)
+                baseline := GetLauncherMapCaptionBaseline(tabHeight, mapAdvance, chatAdvance, 0, normal)
+                if baseline - mapAdvance != chatBaseline - chatAdvance
+                    || baseline >= Round((tabHeight + mapAdvance) / 2)
+                    throw Error("Map caption must align to the upper Game Chat text edge.")
+            }
             for fontHeight in [Round(16 * scale), Round(23 * scale), Round(30 * scale)]
             {
                 lanes := GetLauncherMapTabLanes(tabWidth, fontHeight, scale)

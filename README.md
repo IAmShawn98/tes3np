@@ -14,6 +14,8 @@ A robust game launcher for the Morrowind private server [Nerevarine Prophecies](
 - **Custom Game Clients** — Use the included TES3MP client or configure your own executable and dependencies.
 - **Game Chat and Happy Hour** — Read live Discord chat and see active Happy Hour countdowns from new or saved announcements.
 
+The embedded server map uses [Leaflet](https://leafletjs.com/), an open-source interactive mapping library.
+
 ## Download
 
 The recommended way to download TES3NP is to open the [**TES3NP website**](https://iamshawn98.github.io/tes3np/) and click **Download for Windows**.
