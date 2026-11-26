@@ -2834,6 +2834,18 @@ CheckLauncherMapShell()
             || LauncherSideTabDirection(true) != -1 || LauncherSideTabDirection(false, true) != -1
             || LauncherSideTabDirection(true, true) != 1
             throw Error("Map arrow states must reverse without changing Game Chat.")
+        for percent in [30, 40, 50, 60, 70, 80, 90, 100]
+        {
+            scale := percent / 100
+            tabWidth := Round(45 * scale)
+            for fontHeight in [Round(16 * scale), Round(23 * scale), Round(30 * scale)]
+            {
+                lanes := GetLauncherMapTabLanes(tabWidth, fontHeight, scale)
+                if lanes.ArrowX + lanes.ArrowHalf >= lanes.CaptionX
+                    || lanes.CaptionX + fontHeight > tabWidth
+                    throw Error("Map arrow must precede the caption without overlap.")
+            }
+        }
         for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 1280, B: 716}]
         {
             placement := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work)

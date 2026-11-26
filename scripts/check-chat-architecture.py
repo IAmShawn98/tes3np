@@ -3082,6 +3082,9 @@ expect(
     and 'return (isOpen ? -1 : 1) * (isMap ? -1 : 1)' in server_map
     and 'LauncherSideTabDirection(false, true) != -1' in launcher_smoke_tests
     and 'LauncherSideTabDirection(true, true) != 1' in launcher_smoke_tests
+    and 'lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)' in embedded_chat
+    and 'arrowRight := Max(arrowLeft + 2, captionX - pad)' in embedded_chat
+    and 'Map arrow must precede the caption without overlap.' in launcher_smoke_tests
     and 'GdipCreateTexture' in server_map and 'GdipImageRotateFlip' in server_map
     and 'MapFrameNoise(&seed' in server_map
     and 'GdipDrawRectangleI' in server_map
@@ -3111,9 +3114,18 @@ expect(
     'https://map.nerevarineprophecies.com/' in map_host
     and in_order(map_program, 'args[0] == "--server-map"', 'ServerMapHost.Run(args)', 'new GameChatWindow(')
     and 'Path.Combine(GameChatWindow.ChatDataRoot, "map-webview2")' in map_host
-    and 'GetParent(handle) != viewport' in map_host
+    and 'GetWindow(handle, 4) != frame' in map_host
     and 'GetWindowThreadProcessId(viewport, out uint actualPid)' in map_host
-    and 'MoveWindow(handle, 0, 0, width, height, true)' in map_host
+    and 'SetNativeWindowOwner(handle, frame)' in map_host
+    and 'SetParent(' not in map_host
+    and 'GetWindowRect(viewport, out var rect)' in map_host
+    and 'SetWindowPos(handle, IntPtr.Zero, rect.Left, rect.Top, width, height,' in map_host
+    and 'protected override bool ShowWithoutActivation => true;' in map_host
+    and 'WS_EX_NOACTIVATE | WS_EX_TRANSPARENT' in map_host
+    and 'if (!window.Visible || !IsWindowVisible(handle))' in map_host
+    and 'window.Show(frameOwner);' in map_host
+    and 'if (window.Visible) window.Hide();' in map_host
+    and in_order(map_host, 'status.Hide();', 'candidate.Show();', 'candidate.BringToFront();')
     and 'core.NavigationStarting += (_, e) => e.Cancel = !IsMapUri(e.Uri);' in map_host
     and 'core.NewWindowRequested += (_, e) => e.Handled = true;' in map_host
     and 'core.DownloadStarting += (_, e) => e.Cancel = true;' in map_host

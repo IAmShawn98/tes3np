@@ -483,6 +483,16 @@ MeasureLauncherChatCaption(control, paintScale)
     }
 }
 
+GetLauncherMapTabLanes(w, captionHeight, paintScale)
+{
+    pad := Max(1, Round(2 * paintScale))
+    captionX := Max(pad, w - captionHeight - pad)
+    arrowLeft := pad
+    arrowRight := Max(arrowLeft + 2, captionX - pad)
+    return {CaptionX: captionX, ArrowX: Floor((arrowLeft + arrowRight) / 2),
+        ArrowHalf: Max(1, Floor((arrowRight - arrowLeft) / 2))}
+}
+
 PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
 {
     global LauncherScale, LauncherChatOpen, LauncherMapOpen, AccessibilityTextSize
@@ -539,12 +549,11 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
     }
     if mirrored
     {
-        ; Opposite edge: center the shorter caption and separate the arrow.
+        ; Map uses the same left-arrow/right-caption order as Game Chat.
         metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
-        captionX := Max(1, Round(2 * paintScale))
         edgePad := Max(1, Round(2 * paintScale))
         minArrowHalf := Max(1, Round(4 * paintScale))
-        availableWidth := Max(1, w - captionX - 2 * edgePad - 2 * minArrowHalf)
+        availableWidth := Max(1, w - 3 * edgePad - 2 * minArrowHalf)
         if metrics.Height > availableWidth
         {
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
@@ -554,10 +563,10 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
             metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
         }
         baselineY := Round((h + metrics.Advance) / 2) + shift
-        arrowLeft := Min(w - edgePad - 2, captionX + metrics.Height + edgePad)
-        arrowRight := w - edgePad
-        arrowX := Round((arrowLeft + arrowRight) / 2)
-        mapArrowHalf := Max(1, Floor((arrowRight - arrowLeft) / 2))
+        lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)
+        captionX := lanes.CaptionX
+        arrowX := lanes.ArrowX
+        mapArrowHalf := lanes.ArrowHalf
     }
     DllCall("gdi32\TextOutW", "Ptr", dc, "Int", captionX,
         "Int", baselineY, "Str", label, "Int", StrLen(label))

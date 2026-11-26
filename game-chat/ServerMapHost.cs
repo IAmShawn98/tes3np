@@ -33,6 +33,17 @@ internal static class ServerMapHost
         viewport != IntPtr.Zero && IsWindow(viewport) &&
         GetWindowThreadProcessId(viewport, out uint actualPid) != 0 && actualPid == ownerPid;
 
+    // A normal activatable popup avoids cross-process static-control hit testing.
+    sealed class MapBrowserWindow : Form
+    {
+        protected override bool ShowWithoutActivation => true;
+    }
+
+    sealed class MapFrameOwner(IntPtr handle) : IWin32Window
+    {
+        public IntPtr Handle { get; } = handle;
+    }
+
     internal static int Run(string[] args)
     {
         if (args.Length != 3 || !long.TryParse(args[1], out long rawViewport) ||
@@ -40,12 +51,14 @@ internal static class ServerMapHost
             return 2;
         var viewport = new IntPtr(rawViewport);
         if (!IsViewport(viewport, ownerPid)) return 2;
+        IntPtr frame = GetParent(viewport);
+        if (!IsViewport(frame, ownerPid)) return 2;
 
         try
         {
             ApplicationConfiguration.Initialize();
             Application.SetDefaultFont(GameChatTypography.ThemeFont(9, FontStyle.Regular));
-            using var window = new Form
+            using var window = new MapBrowserWindow
             {
                 Text = "Server Map",
                 FormBorderStyle = FormBorderStyle.None,
@@ -55,7 +68,7 @@ internal static class ServerMapHost
                 BackColor = Color.FromArgb(19, 39, 37)
             };
             using var context = new ApplicationContext();
-            using var watch = new System.Windows.Forms.Timer { Interval = 250 };
+            using var watch = new System.Windows.Forms.Timer { Interval = 50 };
             var status = new Button
             {
                 Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat,
@@ -69,23 +82,46 @@ internal static class ServerMapHost
             DateTime? navigationDeadline = null;
             IntPtr handle = window.Handle;
             int style = GetWindowLong(handle, GWL_STYLE);
-            const int WS_CLIPSIBLINGS = 0x04000000;
-            const int WS_CLIPCHILDREN = 0x02000000;
-            SetWindowLong(handle, GWL_STYLE, (style | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN) & ~WS_POPUP);
-            SetParent(handle, viewport);
-            if (GetParent(handle) != viewport) return 3;
+            SetWindowLong(handle, GWL_STYLE, (style | WS_POPUP) & ~WS_CHILD);
+            const int WS_EX_NOACTIVATE = 0x08000000, WS_EX_TRANSPARENT = 0x20;
+            int exStyle = GetWindowLongEx(handle, GWL_EXSTYLE);
+            SetWindowLongEx(handle, GWL_EXSTYLE,
+                (exStyle | WS_EX_TOOLWINDOW) & ~(WS_EX_APPWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT));
+            SetNativeWindowOwner(handle, frame);
+            if (GetWindow(handle, 4) != frame) return 3;
+            var frameOwner = new MapFrameOwner(frame);
 
-            int previousWidth = -1, previousHeight = -1;
             bool Position()
             {
-                if (!IsViewport(viewport, ownerPid) || !IsWindow(handle) || GetParent(handle) != viewport ||
-                    !GetClientRect(viewport, out var rect)) return false;
-                int width = Math.Max(1, rect.Right - rect.Left), height = Math.Max(1, rect.Bottom - rect.Top);
-                if (width == previousWidth && height == previousHeight) return true;
-                if (!MoveWindow(handle, 0, 0, width, height, true)) return false;
-                previousWidth = width;
-                previousHeight = height;
-                return true;
+                if (!IsViewport(viewport, ownerPid) || !IsViewport(frame, ownerPid) ||
+                    GetParent(viewport) != frame || !IsWindow(handle) ||
+                    GetWindow(handle, 4) != frame) return false;
+                if (!IsWindowVisible(viewport) || !IsWindowVisible(frame) ||
+                    IsIconic(frame) || !IsWindowEnabled(frame))
+                {
+                    if (window.Visible) window.Hide();
+                    return true;
+                }
+                if (!GetWindowRect(viewport, out var rect)) return false;
+                int width = rect.Right - rect.Left, height = rect.Bottom - rect.Top;
+                if (width <= 0 || height <= 0) return true;
+                if (!GetWindowRect(handle, out var current) ||
+                    current.Left != rect.Left || current.Top != rect.Top ||
+                    current.Right != rect.Right || current.Bottom != rect.Bottom)
+                {
+                    const uint SWP_NOZORDER_NOACTIVATE = 0x0004 | 0x0010;
+                    if (!SetWindowPos(handle, IntPtr.Zero, rect.Left, rect.Top, width, height,
+                        SWP_NOZORDER_NOACTIVATE)) return false;
+                }
+                // Managed visibility keeps WebView2 and WinForms input state in sync.
+                if (!window.Visible || !IsWindowVisible(handle))
+                {
+                    // The native owner can hide an owned window before the
+                    // managed Visible flag catches up. Reconcile both states.
+                    if (window.Visible) window.Hide();
+                    window.Show(frameOwner);
+                }
+                return GetWindow(handle, 4) == frame;
             }
 
             void ShowFailure(WebView2? candidate)
@@ -95,6 +131,8 @@ internal static class ServerMapHost
                 navigationDeadline = null;
                 status.Text = "Map unavailable. Click to retry.";
                 status.TabStop = true;
+                if (candidate is { IsDisposed: false }) candidate.Hide();
+                status.Show();
                 status.BringToFront();
             }
 
@@ -105,6 +143,7 @@ internal static class ServerMapHost
                 failed = false;
                 status.Text = "Loading map...";
                 status.TabStop = false;
+                status.Show();
                 status.BringToFront();
                 navigationDeadline = null;
                 WebView2? attempted = null;
@@ -150,6 +189,8 @@ internal static class ServerMapHost
                             failed = false;
                             navigationDeadline = null;
                             status.TabStop = false;
+                            status.Hide();
+                            candidate.Show();
                             candidate.BringToFront();
                         }
                         else if (e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled)
@@ -179,16 +220,14 @@ internal static class ServerMapHost
                 }
                 if (navigationDeadline is DateTime deadline && DateTime.UtcNow >= deadline)
                     ShowFailure(browser);
-                if (!initialized)
+                if (!initialized && window.Visible)
                 {
                     initialized = true;
                     await LoadMap();
                 }
             };
             if (!Position()) return 3;
-            // Mount only inside the existing native viewport; never display
-            // an independent top-level browser or activate the launcher.
-            ShowWindow(handle, 4); // SW_SHOWNOACTIVATE
+            // Position has presented the owned browser without stealing focus.
             watch.Start();
             Application.Run(context);
             stopping = true;
