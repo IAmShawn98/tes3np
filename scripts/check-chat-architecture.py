@@ -3083,9 +3083,13 @@ expect(
     and 'LauncherSideTabDirection(false, true) != -1' in launcher_smoke_tests
     and 'LauncherSideTabDirection(true, true) != 1' in launcher_smoke_tests
     and 'lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)' in embedded_chat
-    and 'referenceAdvance := GetLauncherChatCaptionMetrics(dc, "Game Chat", paintScale).Advance' in embedded_chat
-    and 'baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, referenceAdvance, shift, AccessibilityTextSize = "Normal")' in embedded_chat
-    and 'Map caption must align to the upper Game Chat text edge.' in launcher_smoke_tests
+    and 'captionPad := Max(pad + 1, Round(6 * paintScale))' in embedded_chat
+    and 'availableWidth := lanes.AvailableCaptionWidth' in embedded_chat
+    and 'while metrics.Height > availableWidth && fittedHeight > 1' in embedded_chat
+    and 'baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, shift)' in embedded_chat
+    and 'return Round((h + mapAdvance) / 2) + shift' in embedded_chat
+    and 'Map caption must remain vertically centered.' in launcher_smoke_tests
+    and 'Map caption must retain its inward right-edge inset.' in launcher_smoke_tests
     and 'arrowRight := Max(arrowLeft + 2, captionX - pad)' in embedded_chat
     and 'Map arrow must precede the caption without overlap.' in launcher_smoke_tests
     and 'GdipCreateTexture' in server_map and 'GdipImageRotateFlip' in server_map

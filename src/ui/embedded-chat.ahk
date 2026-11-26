@@ -486,20 +486,22 @@ MeasureLauncherChatCaption(control, paintScale)
 GetLauncherMapTabLanes(w, captionHeight, paintScale)
 {
     pad := Max(1, Round(2 * paintScale))
-    captionX := Max(pad, w - captionHeight - pad)
+    captionPad := Max(pad + 1, Round(6 * paintScale))
+    minArrowHalf := Max(1, Round(4 * paintScale))
+    availableWidth := Max(1, w - captionPad - 2 * pad - 2 * minArrowHalf)
+    captionX := Max(pad, w - captionHeight - captionPad)
     arrowLeft := pad
     arrowRight := Max(arrowLeft + 2, captionX - pad)
     return {CaptionX: captionX, ArrowX: Floor((arrowLeft + arrowRight) / 2),
-        ArrowHalf: Max(1, Floor((arrowRight - arrowLeft) / 2))}
+        ArrowHalf: Max(1, Floor((arrowRight - arrowLeft) / 2)),
+        AvailableCaptionWidth: availableWidth, CaptionPad: captionPad}
 }
 
-; Rotated labels read bottom-to-top. Align their visible upper edge, not
-; their baseline or center, so the short Map caption starts at Game Chat's top.
-GetLauncherMapCaptionBaseline(h, mapAdvance, chatAdvance, shift, normal)
+; Rotated labels read bottom-to-top. Center the Map caption along the tab;
+; its separate horizontal lane controls the inset from the right edge.
+GetLauncherMapCaptionBaseline(h, mapAdvance, shift)
 {
-    pad := Max(2, Round(h * 0.06))
-    chatBaseline := normal ? Round(h * 0.87) + shift : Round((h + chatAdvance) / 2) + shift
-    return Min(h - pad, Max(pad + mapAdvance, chatBaseline - chatAdvance + mapAdvance))
+    return Round((h + mapAdvance) / 2) + shift
 }
 
 PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
@@ -558,36 +560,22 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
     }
     if mirrored
     {
-        ; Map uses the same left-arrow/right-caption order and upper text
-        ; anchor as Game Chat, including its normal-mode advance fitting.
-        referenceAdvance := GetLauncherChatCaptionMetrics(dc, "Game Chat", paintScale).Advance
-        if AccessibilityTextSize = "Normal" && referenceAdvance > availableAdvance
-        {
-            referenceFont := CreateLauncherChatCaptionFont(Max(1, Floor(requestedHeight * availableAdvance / referenceAdvance)))
-            if referenceFont
-            {
-                priorFont := DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", referenceFont, "Ptr")
-                try referenceAdvance := GetLauncherChatCaptionMetrics(dc, "Game Chat", paintScale).Advance
-                finally
-                {
-                    DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", priorFont, "Ptr")
-                    DllCall("gdi32\DeleteObject", "Ptr", referenceFont)
-                }
-            }
-        }
+        ; Keep Map vertically centered and inset its right-hand caption
+        ; without overlapping the existing arrow lane.
         metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
-        edgePad := Max(1, Round(2 * paintScale))
-        minArrowHalf := Max(1, Round(4 * paintScale))
-        availableWidth := Max(1, w - 3 * edgePad - 2 * minArrowHalf)
-        if metrics.Height > availableWidth
+        lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)
+        availableWidth := lanes.AvailableCaptionWidth
+        fittedHeight := requestedHeight
+        while metrics.Height > availableWidth && fittedHeight > 1
         {
+            fittedHeight := Max(1, Min(fittedHeight - 1, Floor(fittedHeight * availableWidth / metrics.Height)))
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
             DllCall("gdi32\DeleteObject", "Ptr", font)
-            font := CreateLauncherChatCaptionFont(Max(1, Floor(requestedHeight * availableWidth / metrics.Height)))
+            font := CreateLauncherChatCaptionFont(fittedHeight)
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", font, "Ptr")
             metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
         }
-        baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, referenceAdvance, shift, AccessibilityTextSize = "Normal")
+        baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, shift)
         lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)
         captionX := lanes.CaptionX
         arrowX := lanes.ArrowX

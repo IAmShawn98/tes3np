@@ -2839,21 +2839,26 @@ CheckLauncherMapShell()
             scale := percent / 100
             tabWidth := Round(45 * scale)
             tabHeight := Round(112 * scale)
-            for normal in [true, false]
+            for mapAdvance in [Round(26 * scale), Round(36 * scale), Round(46 * scale)]
             {
-                mapAdvance := Round(26 * scale), chatAdvance := Round(75 * scale)
-                chatBaseline := normal ? Round(tabHeight * 0.87) : Round((tabHeight + chatAdvance) / 2)
-                baseline := GetLauncherMapCaptionBaseline(tabHeight, mapAdvance, chatAdvance, 0, normal)
-                if baseline - mapAdvance != chatBaseline - chatAdvance
-                    || baseline >= Round((tabHeight + mapAdvance) / 2)
-                    throw Error("Map caption must align to the upper Game Chat text edge.")
+                for shift in [0, 1]
+                {
+                    baseline := GetLauncherMapCaptionBaseline(tabHeight, mapAdvance, shift)
+                    if Abs(2 * (baseline - shift) - mapAdvance - tabHeight) > 1
+                        throw Error("Map caption must remain vertically centered.")
+                }
             }
             for fontHeight in [Round(16 * scale), Round(23 * scale), Round(30 * scale)]
             {
-                lanes := GetLauncherMapTabLanes(tabWidth, fontHeight, scale)
+                widthLimit := GetLauncherMapTabLanes(tabWidth, 1, scale).AvailableCaptionWidth
+                fittedHeight := Min(fontHeight, widthLimit)
+                lanes := GetLauncherMapTabLanes(tabWidth, fittedHeight, scale)
                 if lanes.ArrowX + lanes.ArrowHalf >= lanes.CaptionX
-                    || lanes.CaptionX + fontHeight > tabWidth
+                    || lanes.ArrowHalf < Max(1, Round(4 * scale))
                     throw Error("Map arrow must precede the caption without overlap.")
+                if tabWidth - lanes.CaptionX - fittedHeight != lanes.CaptionPad
+                    || lanes.CaptionPad <= Max(1, Round(2 * scale))
+                    throw Error("Map caption must retain its inward right-edge inset.")
             }
         }
         for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 1280, B: 716}]
