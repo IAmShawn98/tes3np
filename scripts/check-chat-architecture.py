@@ -3073,7 +3073,7 @@ expect(
     "Public map shell is a mirrored, independent, owned launcher pullout",
     'CreateLauncherMapToggle()' in bootstrap
     and 'DisposeLauncherMapPanel()' in bootstrap
-    and 'AddStyledButton(LauncherGui, 915, 294, 45, 112, "Map", ToggleLauncherMap)' in server_map
+    and 'AddStyledButton(LauncherGui, 915, 294, 45, 112, "Server Map", ToggleLauncherMap)' in server_map
     and 'ButtonFaces[LauncherMapToggle.Hwnd].IsChatTab := true' in server_map
     and 'ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true' in server_map
     and 'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift, true)' in native_renderer
@@ -3085,7 +3085,10 @@ expect(
     and 'lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)' in embedded_chat
     and 'captionPad := Max(pad + 1, Round(6 * paintScale))' in embedded_chat
     and 'availableWidth := lanes.AvailableCaptionWidth' in embedded_chat
-    and 'while metrics.Height > availableWidth && fittedHeight > 1' in embedded_chat
+    and 'while (metrics.Height > availableWidth || metrics.Advance > availableMapAdvance) && fittedHeight > 1' in embedded_chat
+    and 'mapMetrics := MeasureLauncherChatCaption(LauncherMapToggle, scale)' in launcher_layout
+    and 'LauncherMapToggle.Text != "Server Map"' in launcher_smoke_tests
+    and 'for sideTab in [LauncherChatToggle, LauncherMapToggle]' in launcher_smoke_tests
     and 'baselineY := GetLauncherMapCaptionBaseline(h, metrics.Advance, shift)' in embedded_chat
     and 'return Round((h + mapAdvance) / 2) + shift' in embedded_chat
     and 'Map caption must remain vertically centered.' in launcher_smoke_tests

@@ -93,6 +93,12 @@ ReflowLauncherAccessibleEdgeControls(scale)
         dpi := A_ScreenDPI / 96
         tw := Max(tw, Ceil(metrics.RequiredWidth / dpi))
         th := Max(th, Ceil(metrics.RequiredHeight / dpi))
+        if IsObject(LauncherMapToggle) && LauncherControlLayout.Has(LauncherMapToggle.Hwnd)
+        {
+            mapMetrics := MeasureLauncherChatCaption(LauncherMapToggle, scale)
+            tw := Max(tw, Ceil(mapMetrics.RequiredWidth / dpi))
+            th := Max(th, Ceil(mapMetrics.RequiredHeight / dpi))
+        }
         ty := Round((tab.Y + tab.Height / 2) * scale - th / 2)
     }
     for entry in [{Control: LauncherExpansionToggle, X: 0, Y: 0, W: ew, H: eh},
@@ -104,8 +110,8 @@ ReflowLauncherAccessibleEdgeControls(scale)
             entry.Control.Move(entry.X, entry.Y, entry.W, entry.H)
         LauncherGui.AccessibleEdgeRects[entry.Control.Hwnd] := entry
     }
-    ; Mirror the measured chat dimensions on the right; the shorter Map
-    ; label shares the same scale, rim, height, and keyboard hit target.
+    ; Mirror the measured side-tab dimensions on the right so both
+    ; captions share the same scale, rim, height, and keyboard hit target.
     if IsObject(LauncherMapToggle) && LauncherControlLayout.Has(LauncherMapToggle.Hwnd)
     {
         mx := Round(LauncherBaseWidth * scale) - tw

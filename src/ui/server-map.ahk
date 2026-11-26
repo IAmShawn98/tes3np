@@ -6,7 +6,7 @@ global LauncherMapOpen := false
 CreateLauncherMapToggle()
 {
     global LauncherGui, LauncherMapToggle, ButtonFaces
-    LauncherMapToggle := AddStyledButton(LauncherGui, 915, 294, 45, 112, "Map", ToggleLauncherMap)
+    LauncherMapToggle := AddStyledButton(LauncherGui, 915, 294, 45, 112, "Server Map", ToggleLauncherMap)
     ButtonFaces[LauncherMapToggle.Hwnd].IsChatTab := true
     ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true
 }

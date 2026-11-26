@@ -2089,10 +2089,14 @@ CheckMeasuredLauncherEdgeControls()
                         if ew < extent.Width + 4 || eh < extent.Height + 2
                             throw Error("Expansion state caption clips.")
                     }
-                    metrics := MeasureLauncherChatCaption(LauncherChatToggle, scale)
-                    if Round(tw * A_ScreenDPI / 96) < metrics.RequiredWidth
-                        || Round(th * A_ScreenDPI / 96) < metrics.RequiredHeight
-                        || dx < ew || dx + dw != Round(794 * scale)
+                    for sideTab in [LauncherChatToggle, LauncherMapToggle]
+                    {
+                        metrics := MeasureLauncherChatCaption(sideTab, scale)
+                        if Round(tw * A_ScreenDPI / 96) < metrics.RequiredWidth
+                            || Round(th * A_ScreenDPI / 96) < metrics.RequiredHeight
+                            throw Error("Measured side-tab caption clips.")
+                    }
+                    if dx < ew || dx + dw != Round(794 * scale)
                         throw Error("Measured launcher edge controls clip or overlap.")
                 }
             }
@@ -2830,7 +2834,7 @@ CheckLauncherMapShell()
         CreateLauncherMapToggle()
         LauncherMapToggle.Move(458, 147, 22, 56)
         owner.Show("NA x40 y40 w480 h358")
-        if LauncherMapToggle.Text != "Map" || LauncherSideTabDirection(false) != 1
+        if LauncherMapToggle.Text != "Server Map" || LauncherSideTabDirection(false) != 1
             || LauncherSideTabDirection(true) != -1 || LauncherSideTabDirection(false, true) != -1
             || LauncherSideTabDirection(true, true) != 1
             throw Error("Map arrow states must reverse without changing Game Chat.")
@@ -2839,7 +2843,8 @@ CheckLauncherMapShell()
             scale := percent / 100
             tabWidth := Round(45 * scale)
             tabHeight := Round(112 * scale)
-            for mapAdvance in [Round(26 * scale), Round(36 * scale), Round(46 * scale)]
+            ; Cover longer Server Map advances as well as short captions.
+            for mapAdvance in [Round(46 * scale), Round(75 * scale), Round(95 * scale)]
             {
                 for shift in [0, 1]
                 {

@@ -565,10 +565,13 @@ PaintLauncherChatTab(dc, w, h, label, labelColor, shift, mirrored := false)
         metrics := GetLauncherChatCaptionMetrics(dc, label, paintScale)
         lanes := GetLauncherMapTabLanes(w, metrics.Height, paintScale)
         availableWidth := lanes.AvailableCaptionWidth
+        ; Reserve both vertical edges, including the pressed-state offset.
+        availableMapAdvance := Max(1, h - 2 * (Max(2, Round(h * 0.06)) + Abs(shift)))
         fittedHeight := requestedHeight
-        while metrics.Height > availableWidth && fittedHeight > 1
+        while (metrics.Height > availableWidth || metrics.Advance > availableMapAdvance) && fittedHeight > 1
         {
-            fittedHeight := Max(1, Min(fittedHeight - 1, Floor(fittedHeight * availableWidth / metrics.Height)))
+            fitRatio := Min(availableWidth / Max(1, metrics.Height), availableMapAdvance / Max(1, metrics.Advance))
+            fittedHeight := Max(1, Min(fittedHeight - 1, Floor(fittedHeight * fitRatio)))
             DllCall("gdi32\SelectObject", "Ptr", dc, "Ptr", oldFont, "Ptr")
             DllCall("gdi32\DeleteObject", "Ptr", font)
             font := CreateLauncherChatCaptionFont(fittedHeight)
