@@ -12,9 +12,10 @@ CreateLauncherMapToggle()
     ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true
 }
 
-LauncherSideTabDirection(isOpen, mirrored := false)
+LauncherSideTabDirection(isOpen)
 {
-    return (isOpen ? -1 : 1) * (mirrored ? -1 : 1)
+    ; Both tabs use the original Game Chat arrow convention.
+    return isOpen ? -1 : 1
 }
 
 ToggleLauncherMap(*)
@@ -33,7 +34,12 @@ SetLauncherMapOpen(open)
     {
         try
         {
-            SyncLauncherMapPanel()
+            if !SyncLauncherMapPanel(true)
+            {
+                SetLauncherMapOpen(false)
+                MsgBox("There is not enough room to open the map to the right of the launcher. Move the launcher left or reduce its scale.", "Drak's Server Map", "Icon!")
+                return
+            }
             SetTimer(SyncLauncherMapPanel, 150)
         }
         catch
@@ -77,23 +83,30 @@ CreateLauncherMapPanel(owner)
     }
 }
 
-; Work in physical screen pixels, preserving the reference map aspect ratio.
-; Prefer a right-side pullout. If it won't fit, overlay the launcher instead,
-; leaving its right-edge Map toggle reachable for closing.
-GetLauncherMapPlacement(owner, work, tabWidth)
+; Always dock outside the right edge. Fit the viewport to the monitor
+; without covering the launcher. An explicit open may move the owner left
+; just enough to make room; normal movement never relocates the owner.
+GetLauncherMapPlacement(owner, work, allowOwnerMove := false)
 {
     scale := Max(0.01, (owner.R - owner.L) / 960)
     gap := Max(1, Round(4 * scale))
-    availableRight := work.R - owner.R - gap
-    availableInside := owner.R - tabWidth - gap - work.L
-    outside := availableRight >= Round(480 * scale)
-    widthLimit := outside ? availableRight : availableInside
-    fit := Min(scale, Max(1, widthLimit) / 480, Max(1, work.B - work.T) / 405)
-    w := Max(1, Floor(480 * fit)), h := Max(1, Floor(405 * fit))
-    x := outside ? owner.R + gap : owner.R - tabWidth - gap - w
-    x := Max(work.L, Min(work.R - w, x))
+    desiredWidth := Max(1, Round(480 * scale))
+    minWidth := Min(desiredWidth, Max(160, Round(240 * scale)))
+    ownerX := owner.L
+    available := work.R - owner.R - gap
+    if available < minWidth && allowOwnerMove
+    {
+        needed := minWidth - available
+        ownerX := Max(work.L, owner.L - needed)
+        available += owner.L - ownerX
+    }
+    fit := Min(scale, available / 480, (work.B - work.T) / 405)
+    w := Floor(480 * fit), h := Floor(405 * fit)
+    if w < minWidth || h < 1
+        return {Available: false}
+    x := owner.R + ownerX - owner.L + gap
     y := Max(work.T, Min(work.B - h, Round((owner.T + owner.B - h) / 2)))
-    return {X: x, Y: y, W: w, H: h, Outside: outside}
+    return {Available: true, X: x, Y: y, W: w, H: h, OwnerX: ownerX}
 }
 
 LayoutLauncherMapPanel(panel, w, h)
@@ -133,7 +146,7 @@ LayoutLauncherMapPanel(panel, w, h)
     panel.MapSizeKey := key
 }
 
-SyncLauncherMapPanel(*)
+SyncLauncherMapPanel(allowOwnerMove := false, *)
 {
     global LauncherGui, LauncherMapPanel, LauncherMapOpen, LauncherMapToggle
     if !LauncherMapOpen || !IsObject(LauncherMapPanel) || !IsObject(LauncherGui)
@@ -144,16 +157,28 @@ SyncLauncherMapPanel(*)
         LauncherMapPanel.Hide()
         return
     }
-    bounds := Buffer(16, 0), tab := Buffer(16, 0)
+    bounds := Buffer(16, 0)
     if !DllCall("GetWindowRect", "Ptr", LauncherGui.Hwnd, "Ptr", bounds)
-        || !IsObject(LauncherMapToggle) || !DllCall("GetWindowRect", "Ptr", LauncherMapToggle.Hwnd, "Ptr", tab)
-        return
+        return false
     owner := {L: NumGet(bounds, 0, "Int"), T: NumGet(bounds, 4, "Int"),
         R: NumGet(bounds, 8, "Int"), B: NumGet(bounds, 12, "Int")}
     monitor := MonitorFromPoint((owner.L + owner.R) // 2, (owner.T + owner.B) // 2)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    placement := GetLauncherMapPlacement(owner, {L: left, T: top, R: right, B: bottom},
-        NumGet(tab, 8, "Int") - NumGet(tab, 0, "Int"))
+    placement := GetLauncherMapPlacement(owner, {L: left, T: top, R: right, B: bottom}, allowOwnerMove)
+    if !placement.Available
+    {
+        ; Never let a timer move the launcher or put the map over its art.
+        if !allowOwnerMove
+            SetLauncherMapOpen(false)
+        return false
+    }
+    if placement.OwnerX != owner.L
+    {
+        ; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE.
+        if !DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0,
+            "Int", placement.OwnerX, "Int", owner.T, "Int", 0, "Int", 0, "UInt", 0x15)
+            return false
+    }
     LayoutLauncherMapPanel(LauncherMapPanel, placement.W, placement.H)
     if !DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)
         LauncherMapPanel.Show("NA x" placement.X " y" placement.Y " w" placement.W " h" placement.H)
@@ -167,6 +192,7 @@ SyncLauncherMapPanel(*)
             DllCall("SetWindowPos", "Ptr", LauncherMapPanel.Hwnd, "Ptr", 0,
                 "Int", placement.X, "Int", placement.Y, "Int", placement.W, "Int", placement.H, "UInt", 0x14)
     }
+    return true
 }
 
 DisposeLauncherMapPanel()

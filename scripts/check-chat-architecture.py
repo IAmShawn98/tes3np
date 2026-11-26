@@ -3078,7 +3078,13 @@ expect(
     and 'ButtonFaces[LauncherMapToggle.Hwnd].IsMapTab := true' in server_map
     and 'PaintLauncherChatTab(dc, width, height, labelText, textColor, shift, true)' in native_renderer
     and 'face.HasOwnProp("IsMapTab") ? LauncherMapOpen' in native_renderer
-    and 'LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen, mirrored)' in embedded_chat
+    and 'LauncherSideTabDirection(mirrored ? LauncherMapOpen : LauncherChatOpen)' in embedded_chat
+    and 'return isOpen ? -1 : 1' in server_map
+    and 'x := owner.R + ownerX - owner.L + gap' in server_map
+    and 'return {Available: false}' in server_map
+    and 'if available < minWidth && allowOwnerMove' in server_map
+    and 'Map must not fall back to an inward overlay.' in launcher_smoke_tests
+    and 'Visible Map overlaps the launcher instead of docking outward.' in launcher_smoke_tests
     and 'LauncherMapToggle.Move(mx, ty, tw, th)' in launcher_layout
     and "Drak's Server Map" in server_map
     and 'MapViewport := panel.Add("Text"' in server_map

@@ -2830,19 +2830,26 @@ CheckLauncherMapShell()
         CreateLauncherMapToggle()
         LauncherMapToggle.Move(458, 147, 22, 56)
         owner.Show("NA x40 y40 w480 h358")
-        if LauncherMapToggle.Text != "Map" || LauncherSideTabDirection(false, true) != -1
-            || LauncherSideTabDirection(true, true) != 1 || LauncherSideTabDirection(false) != 1
+        if LauncherMapToggle.Text != "Map" || LauncherSideTabDirection(false) != 1
             || LauncherSideTabDirection(true) != -1
-            throw Error("Map tab or mirrored arrow direction changed.")
-        for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 960, B: 716}]
+            throw Error("Map and Game Chat must share outward show/hide arrows.")
+        for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 1280, B: 716}]
         {
-            placement := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work, 45)
-            if placement.X < work.L || placement.Y < work.T || placement.X + placement.W > work.R
-                || placement.Y + placement.H > work.B
-                || (work.R = 960 && (placement.Outside || placement.X + placement.W > 915))
-                || (work.R = 1920 && !placement.Outside)
-                throw Error("Map pullout placement covers the toggle or escapes the work area.")
+            placement := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work)
+            if !placement.Available || placement.X < 960 || placement.Y < work.T
+                || placement.X + placement.W > work.R || placement.Y + placement.H > work.B
+                || placement.OwnerX != 0
+                throw Error("Map must dock outside the right edge within the work area.")
         }
+        work := {L: 0, T: 0, R: 1440, B: 900}
+        edgeOwner := {L: 480, T: 0, R: 1440, B: 716}
+        shifted := GetLauncherMapPlacement(edgeOwner, work, true)
+        if !shifted.Available || shifted.OwnerX >= edgeOwner.L
+            || shifted.X < shifted.OwnerX + 960 || shifted.X + shifted.W > work.R
+            throw Error("Explicit Map opening must make room outside when possible.")
+        if GetLauncherMapPlacement(edgeOwner, work).Available
+            || GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, {L: 0, T: 0, R: 960, B: 716}, true).Available
+            throw Error("Map must not fall back to an inward overlay.")
         Loop 2
         {
             ToggleLauncherMap()
@@ -2851,6 +2858,11 @@ CheckLauncherMapShell()
                 || DllCall("GetWindow", "Ptr", LauncherMapPanel.Hwnd, "UInt", 4, "Ptr") != owner.Hwnd
                 || LauncherMapPanel.MapTitle.Text != "Drak's Server Map" || LauncherMapPanel.MapViewport.Text != ""
                 throw Error("Map shell did not open as an empty owned panel.")
+            ownerRect := Buffer(16, 0), mapRect := Buffer(16, 0)
+            if !DllCall("GetWindowRect", "Ptr", owner.Hwnd, "Ptr", ownerRect)
+                || !DllCall("GetWindowRect", "Ptr", LauncherMapPanel.Hwnd, "Ptr", mapRect)
+                || NumGet(mapRect, 0, "Int") < NumGet(ownerRect, 8, "Int")
+                throw Error("Visible Map overlaps the launcher instead of docking outward.")
             ; Disable asynchronous layout while inspecting synthetic dimensions.
             SetTimer(SyncLauncherMapPanel, 0)
             for mode in ["Normal", "Large", "Extra Large"]
