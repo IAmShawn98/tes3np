@@ -11,6 +11,20 @@ using static GameChatNative;
 internal static class ServerMapHost
 {
     internal const string MapUrl = "https://map.nerevarineprophecies.com/";
+    static readonly Lazy<string> FilterPresentation = new(() =>
+    {
+        string script = GameChatWeb.Page("map-filters.js").Value;
+        string texture = "";
+        try
+        {
+            string encoded = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "border-texture.b64"));
+            texture = "data:image/png;base64," + Convert.ToBase64String(Convert.FromBase64String(encoded));
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (FormatException) { }
+        return script.Replace("/* TES3NP_MAP_BORDER_TEXTURE */", texture, StringComparison.Ordinal);
+    });
 
     internal static bool IsMapUri(string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
@@ -197,6 +211,15 @@ internal static class ServerMapHost
                             ShowFailure(candidate);
                     };
                     core.ProcessFailed += (_, _) => ShowFailure(candidate);
+                    // Register presentation-only script before navigating. It checks
+                    // the exact top-level map origin and never exchanges host messages.
+                    try
+                    {
+                        await core.AddScriptToExecuteOnDocumentCreatedAsync(FilterPresentation.Value)
+                            .WaitAsync(TimeSpan.FromSeconds(5));
+                    }
+                    catch (Exception) { /* Keep the public map usable without the optional toggle. */ }
+                    if (stopping || candidate.IsDisposed || !IsViewport(viewport, ownerPid)) return;
                     navigationDeadline = DateTime.UtcNow.AddSeconds(30);
                     core.Navigate(MapUrl);
                 }

@@ -42,6 +42,7 @@ class InventoryCoverageTests(unittest.TestCase):
             "game-chat/GameChatWindow.Surface.cs",
             "game-chat/GameChatWindow.ChatComposer.cs",
             "game-chat/ServerMapHost.cs",
+            "game-chat/web/map-filters.js",
             "game-chat/chat.css",
         }
         self.assertEqual(set(), required - found,

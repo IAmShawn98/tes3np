@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DIRECTORIES = ("src", "game-chat")
-SUFFIXES = frozenset((".ahk", ".cs", ".css", ".html", ".htm", ".xaml"))
+SUFFIXES = frozenset((".ahk", ".cs", ".css", ".html", ".htm", ".xaml", ".js"))
 RULES = (
     ("control-construction", "control", r'\.Add\(|\bAddStyledButton\(|\bAddBookLabel\(|\bAddBookTick\(|\bAddV016SettingsCopy\('),
     ("fixed-native-rectangle", "geometry", r'\bx-?\d+\s+y-?\d+\s+w\d+\s+h\d+'),

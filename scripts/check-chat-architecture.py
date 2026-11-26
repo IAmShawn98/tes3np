@@ -3138,6 +3138,29 @@ expect(
     and 'ExecuteScriptAsync' not in map_host and 'AddHostObjectToScript' not in map_host
     and '--check-map-policy' in windows_build
 )
+map_filters = (chat_web / "map-filters.js").read_text(encoding="utf-8-sig")
+expect(
+    "Map Filters is a local presentation-only toggle preserving live filter selections",
+    'GameChatWeb.Page("map-filters.js").Value' in map_host
+    and in_order(map_host, 'core.AddScriptToExecuteOnDocumentCreatedAsync(FilterPresentation.Value)', 'core.Navigate(MapUrl);')
+    and 'window.top !== window || location.origin !== "https://map.nerevarineprophecies.com"' in map_filters
+    and 'button.textContent = "Filters"' in map_filters
+    and 'let collapsed = true' in map_filters
+    and 'doc.getElementById("filter-container")' in map_filters
+    and 'node === doc.body || node === doc.documentElement' in map_filters
+    and 'node.querySelector(' in map_filters
+    and 'setFilterVisibility(panel, collapsed, savedDisplay)' in map_filters
+    and 'panel.style.removeProperty("display")' in map_filters
+    and 'button.setAttribute("aria-expanded", String(!collapsed))' in map_filters
+    and 'fitPanel()' in map_filters
+    and 'MutationObserver(schedule)' in map_filters
+    and 'window.addEventListener("resize"' in map_filters
+    and 'fetch(' not in map_filters and 'postMessage(' not in map_filters
+    and 'localStorage' not in map_filters and 'sessionStorage' not in map_filters
+    and '.checked =' not in map_filters and 'location.reload' not in map_filters
+    and '/* TES3NP_THEME_FONT_LOAD */' in map_filters
+    and '/* TES3NP_MAP_BORDER_TEXTURE */' in map_filters
+)
 host_freshness = section_between(embedded_chat, "EnsureEmbeddedChatHostCurrent(host)", "\nWebView2RuntimeAvailable()")
 expect(
     "Opening the source launcher never compiles ChatHost on the UI thread",
