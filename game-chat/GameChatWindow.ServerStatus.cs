@@ -40,6 +40,7 @@ internal sealed partial class GameChatWindow
     void PublishServerStatus(ServerStatusState status, string source)
     {
         if (closingChat || IsDisposed || !IsWindow(owner)) return;
+        (status, source) = restartNotice.ResolveStatus(status, source, DateTimeOffset.UtcNow);
         if (!serverStatusPublished || publishedServerStatus != status || publishedServerStatusSource != source)
             Log("SERVER STATUS | " + status + " (" + source + ")");
         serverStatusPublished = true;

@@ -35,6 +35,19 @@ internal sealed partial class GameChatWindow
 
     DateTimeOffset happyHourEndsAt;
 
+    bool announcementFaceActive;
+
+    void SyncAnnouncementFace(bool active)
+    {
+        if (announcementFaceActive == active) return;
+        announcementFaceActive = active;
+        NotifyLauncherHappyHourFace(active);
+    }
+
+    string AnnouncementHeading => restartNotice.Active ? "SERVER RESTART" : "HAPPY HOUR ACTIVE";
+    string AnnouncementDetail => !restartNotice.Active ? "Mastery Points Are Doubled!" :
+        happyHourBannerClockText.Length == 0 ? "Waiting for server reboot..." : "Server is restarting in";
+
     static Form GoldHappyHourWindow(int width, int height, string title)
     {
         return new Form {
@@ -85,13 +98,13 @@ internal sealed partial class GameChatWindow
     void LayoutHappyHourBannerContents()
     {
         if (happyHourBannerTitleInset == null || happyHourBannerRainbow == null) return;
-        string heading = "HAPPY HOUR ACTIVE";
+        string heading = AnnouncementHeading;
         using var masteryFont = GameChatTypography.ThemeFont(12, System.Drawing.FontStyle.Bold);
         using var timerFont = GameChatTypography.ThemeFont(11, System.Drawing.FontStyle.Bold);
-        int width = 8 + heading.Sum(ch => HappyHourRunWidth(ch.ToString(),
-            happyHourBannerRainbow.Font));
+        int width = 8 + (restartNotice.Active ? HappyHourRunWidth(heading, happyHourBannerRainbow.Font) :
+            heading.Sum(ch => HappyHourRunWidth(ch.ToString(), happyHourBannerRainbow.Font)));
         width += HappyHourRunWidth(" - ", happyHourBannerRainbow.Font);
-        width += HappyHourRunWidth("Mastery Points Are Doubled!", masteryFont);
+        width += HappyHourRunWidth(AnnouncementDetail, masteryFont);
         width += HappyHourRunWidth(" ", masteryFont);
         width += HappyHourRunWidth(happyHourBannerClockText, timerFont);
         width += 8;
@@ -100,9 +113,9 @@ internal sealed partial class GameChatWindow
         happyHourBannerRequiredWidth = happyHourBannerTitleInset.Right + 10;
         if (!happyHourBannerLayoutLogged) {
             happyHourBannerLayoutLogged = true;
-            Log("HAPPY HOUR | Single-line banner measured width=" +
+            Log((restartNotice.Active ? "SERVER RESTART" : "HAPPY HOUR") + " | Single-line banner measured width=" +
                 happyHourBannerRequiredWidth + "; text='" + heading +
-                " - Mastery Points Are Doubled! " +
+                " - " + AnnouncementDetail + " " +
                 happyHourBannerClockText + "'");
         }
         happyHourBannerRainbow.Invalidate();
@@ -111,7 +124,7 @@ internal sealed partial class GameChatWindow
     void PaintHappyHourBannerLine(System.Drawing.Graphics graphics,
         System.Drawing.Font headingFont)
     {
-        string heading = "HAPPY HOUR ACTIVE";
+        string heading = AnnouncementHeading;
         string[] colors = { "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00",
             "#00FF7F", "#00FFFF", "#007FFF", "#7F00FF", "#FF00FF", "#00FF00" };
         int x = 8;
@@ -125,15 +138,18 @@ internal sealed partial class GameChatWindow
                 color, HappyHourLineFlags);
             x += width;
         }
-        for (int i = 0; i < heading.Length; i++)
-            DrawSegment(heading[i].ToString(), headingFont,
-                System.Drawing.ColorTranslator.FromHtml(colors[i % colors.Length]));
+        if (restartNotice.Active)
+            DrawSegment(heading, headingFont, System.Drawing.Color.FromArgb(255, 156, 49));
+        else
+            for (int i = 0; i < heading.Length; i++)
+                DrawSegment(heading[i].ToString(), headingFont,
+                    System.Drawing.ColorTranslator.FromHtml(colors[i % colors.Length]));
         // Literal spaces surrounding a visible hyphen, as requested:
         // HAPPY HOUR ACTIVE - Mastery Points Are Doubled! (60m 0s)
         DrawSegment(" - ", headingFont, System.Drawing.Color.FromArgb(215, 170, 77));
         using var masteryFont = GameChatTypography.ThemeFont(12, System.Drawing.FontStyle.Bold);
         using var timerFont = GameChatTypography.ThemeFont(11, System.Drawing.FontStyle.Bold);
-        DrawSegment("Mastery Points Are Doubled!", masteryFont,
+        DrawSegment(AnnouncementDetail, masteryFont,
             System.Drawing.Color.Yellow);
         DrawSegment(" ", masteryFont, System.Drawing.Color.FromArgb(215, 170, 77));
         DrawSegment(happyHourBannerClockText, timerFont, happyHourBannerClockColor);
@@ -175,16 +191,19 @@ internal sealed partial class GameChatWindow
         bool active = happyHourEndsAt > DateTimeOffset.UtcNow;
         // Derive the remaining time from the immutable, real Discord
         // expiry on every tick; never decrement a paused local counter.
-        happyHourBannerClockText = HappyHourBannerTime(happyHourEndsAt);
-        happyHourBannerClockColor = active
-            ? HappyHourTimerColor(happyHourEndsAt)
+        happyHourBannerClockText = restartNotice.Active
+            ? (restartNotice.IsOffline(DateTimeOffset.UtcNow) ? "" : HappyHourBannerTime(restartNotice.Deadline))
+            : HappyHourBannerTime(happyHourEndsAt);
+        happyHourBannerClockColor = restartNotice.Active
+            ? HappyHourTimerColor(restartNotice.Deadline)
+            : active ? HappyHourTimerColor(happyHourEndsAt)
             : System.Drawing.Color.FromArgb(215, 170, 77);
         LayoutHappyHourBannerContents();
     }
 
     void RefreshHappyHourBanner()
     {
-        if (happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner))
+        if ((!restartNotice.Active && happyHourEndsAt <= DateTimeOffset.UtcNow) || !IsWindow(owner))
         {
             if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
             happyHourBanner = null;
@@ -193,19 +212,20 @@ internal sealed partial class GameChatWindow
         // Menus must not pause the active countdown. Leave the
         // separate dialog gate below to protect focus and z-order.
         RefreshHappyHourBannerClock();
+        if (restartNotice.Active) SyncAnnouncementFace(false);
         if (OtherLauncherDialogOpen()) {
             // Leave existing launcher dialogs in control of focus/z-order.
             // This is the only gate before the single Happy Hour banner.
             if (DateTime.UtcNow - lastHappyHourBannerGateLog > TimeSpan.FromSeconds(10)) {
                 lastHappyHourBannerGateLog = DateTime.UtcNow;
-                Log("HAPPY HOUR | Banner waiting for launcher dialog; messageId=" +
-                    lastHappyHourMessageId);
+                Log(restartNotice.Active ? "SERVER RESTART | Banner waiting for launcher dialog" :
+                    "HAPPY HOUR | Banner waiting for launcher dialog; messageId=" + lastHappyHourMessageId);
             }
             return;
         }
         if (happyHourBanner == null || happyHourBanner.IsDisposed)
         {
-            var banner = GoldHappyHourWindow(620, 46, "tes3np Happy Hour");
+            var banner = GoldHappyHourWindow(620, 46, "tes3np Announcement");
             banner.FormBorderStyle = FormBorderStyle.None;
             banner.StartPosition = FormStartPosition.Manual;
             banner.BackColor = System.Drawing.Color.FromArgb(143, 109, 60);
@@ -254,7 +274,7 @@ internal sealed partial class GameChatWindow
             banner.FormClosed += (_, _) => {
                 // The visual theme follows this exact genuine banner lifecycle.
                 // Closing an expired banner restores Jiub automatically.
-                NotifyLauncherHappyHourFace(false);
+                SyncAnnouncementFace(false);
                 if (ReferenceEquals(happyHourBanner, banner)) {
                     happyHourBanner = null;
                     happyHourBannerTitleInset = null;
@@ -273,12 +293,12 @@ internal sealed partial class GameChatWindow
             banner.Show();
             SetNativeWindowOwner(banner.Handle, owner);
             // Notify Jiub only after the verified Discord-backed banner shows.
-            NotifyLauncherHappyHourFace(true);
+            SyncAnnouncementFace(!restartNotice.Active && happyHourEndsAt > DateTimeOffset.UtcNow);
             // Initialize the visible clock on the first show as well.
             RefreshHappyHourBannerClock();
-            Log("HAPPY HOUR | Banner window created for real message " +
-                lastHappyHourMessageId + "; expires=" +
-                happyHourEndsAt.ToString("O"));
+            Log(restartNotice.Active ? "SERVER RESTART | Shared banner window created" :
+                "HAPPY HOUR | Banner window created for real message " +
+                lastHappyHourMessageId + "; expires=" + happyHourEndsAt.ToString("O"));
         }
         // Native movement is synchronized by the launcher's WinEvent hook.
         // This call is a layout/fallback check, never the primary timer
@@ -286,15 +306,17 @@ internal sealed partial class GameChatWindow
         if (happyHourBanner is { IsDisposed: false }) {
             if (IsWindowVisible(owner) && !IsIconic(owner)) {
                 PositionHappyHourBanner();
+                if (happyHourBanner.Visible)
+                    SyncAnnouncementFace(!restartNotice.Active && happyHourEndsAt > DateTimeOffset.UtcNow);
                 if (!happyHourBanner.Visible) {
                     happyHourBanner.Show();
                     // The verified banner is visible again after a launcher restore.
-                    NotifyLauncherHappyHourFace(true);
+                    SyncAnnouncementFace(!restartNotice.Active && happyHourEndsAt > DateTimeOffset.UtcNow);
                 }
             } else if (happyHourBanner.Visible) {
                 happyHourBanner.Hide();
                 // Keep Jiub's appearance in sync when the banner is hidden.
-                NotifyLauncherHappyHourFace(false);
+                SyncAnnouncementFace(false);
             }
         }
     }
@@ -314,17 +336,20 @@ internal sealed partial class GameChatWindow
         happyHourTicker?.Stop();
         happyHourTicker?.Dispose();
         happyHourTicker = null;
-        if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
-        happyHourBanner = null;
+        if (!restartNotice.Active)
+        {
+            if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
+            happyHourBanner = null;
+        }
 
         var ticker = new System.Windows.Forms.Timer { Interval = 1000 };
         ticker.Tick += (_, _) => {
             if (happyHourEndsAt <= DateTimeOffset.UtcNow) {
                 ticker.Stop();
-                if (happyHourBanner is { IsDisposed: false }) happyHourBanner.Close();
+                if (!restartNotice.Active) RefreshHappyHourBanner();
                 return;
             }
-            RefreshHappyHourBanner();
+            if (!restartNotice.Active) RefreshHappyHourBanner();
         };
         happyHourTicker = ticker;
         ticker.Start();

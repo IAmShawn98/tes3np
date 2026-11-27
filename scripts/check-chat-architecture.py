@@ -225,7 +225,7 @@ expect(
 expect(
     "Banner presentation is independent of Discord authentication",
     "if (activationId == 0 || closingChat || IsDisposed) return;" in source
-    and "void RefreshHappyHourBanner()\n    {\n        if (happyHourEndsAt <= DateTimeOffset.UtcNow || !IsWindow(owner))" in source
+    and "void RefreshHappyHourBanner()\n    {\n        if ((!restartNotice.Active && happyHourEndsAt <= DateTimeOffset.UtcNow) || !IsWindow(owner))" in source
     and "void DetectLatestHappyHour()\n    {\n        if (closingChat || IsDisposed) return;" in source,
 )
 expect(
@@ -1729,16 +1729,17 @@ expect(
     "Jiub Happy Hour face must use only the existing verified banner signal",
     "OnMessage(0x8334, LauncherHappyHourFaceStateChanged)" in jiub_ui
     and "PostMessage(owner, 0x8334, active ? new IntPtr(1) : IntPtr.Zero" in source
-    and "NotifyLauncherHappyHourFace(true);" in source
-    and "NotifyLauncherHappyHourFace(false);" in source
+    and "SyncAnnouncementFace(!restartNotice.Active && happyHourEndsAt > DateTimeOffset.UtcNow);" in source
+    and "SyncAnnouncementFace(false);" in source
+    and "NotifyLauncherHappyHourFace(active);" in source
     and "HappyHourBannerVisible := visible" in jiub_ui,
 )
 expect(
     "Jiub Happy Hour face must follow banner close, hide and restore",
     'banner.FormClosed += (_, _) => {' in source
     and 'if (!happyHourBanner.Visible) {' in source
-    and 'happyHourBanner.Show();\n                    // The verified banner is visible again after a launcher restore.\n                    NotifyLauncherHappyHourFace(true);' in source
-    and 'happyHourBanner.Hide();\n                // Keep Jiub\'s appearance in sync when the banner is hidden.\n                NotifyLauncherHappyHourFace(false);' in source,
+    and 'happyHourBanner.Show();\n                    // The verified banner is visible again after a launcher restore.\n                    SyncAnnouncementFace(!restartNotice.Active && happyHourEndsAt > DateTimeOffset.UtcNow);' in source
+    and 'happyHourBanner.Hide();\n                // Keep Jiub\'s appearance in sync when the banner is hidden.\n                SyncAnnouncementFace(false);' in source,
 )
 expect(
     "Jiub picture must be a bundled native launcher control, without a floating window",
@@ -2656,6 +2657,30 @@ expect(
     and 'CheckServerStatusCoverage()' in source
     and '--check-server-status' in source
     and "'--check-server-status'" in windows_build,
+)
+restart_notice = (chat_root / "GameChatWindow.RestartNotice.cs").read_text(encoding="utf-8-sig")
+expect(
+    "Scheduled restart notices require bot provenance, source timestamps and shared announcement presentation",
+    'verifiedRestartAuthor:!!verifiedRestartAuthor' in feed_extractor
+    and 'const verifiedRestartAuthor = user ? isYagrum :' in feed_extractor
+    and 'VerifiedRestartAuthor = element.TryGetProperty("verifiedRestartAuthor"' in source
+    and 'if (!row.VerifiedRestartAuthor) return;' in restart_notice
+    and 'RegisterRestartEvent(row);' in source
+    and 'DetectLatestRestartNotice();' in happy_hour
+    and 'VerifiedRestartEvent = verifiedRestartEventIds.Contains(e.Key)' in source
+    and 'var sent = DiscordTimestamp(id);' in restart_notice
+    and 'id <= LastEventId' in restart_notice
+    and 'restartNotice.Active ? "SERVER RESTART" : "HAPPY HOUR ACTIVE"' in happy_hour_banner
+    and 'HappyHourBannerTime(restartNotice.Deadline)' in happy_hour_banner
+    and 'RestartSourceWindowCovered(happyHourSearchOldestId)' in chat_history
+    and 'watch.Tick += (_, _) => MaintainRestartNotice();' in chat_window
+    and '(status, source) = restartNotice.ResolveStatus(status, source, DateTimeOffset.UtcNow);' in status_probe
+    and 'IsOffline(now) ? (ServerStatusState.Offline, "Game Chat restart") : (status, source)' in restart_notice
+    and 'tracker.ResolveStatus(probe, "Discord", now)' in restart_notice
+    and 'PublishServerStatus(ServerStatusState.Online, "Game Chat reboot");' in restart_notice
+    and 'nextRestartStatusHeartbeat = now.AddSeconds(10);' in restart_notice
+    and 'CheckRestartNoticeCoverage()' in source
+    and "'--check-restart-notices'" in windows_build,
 )
 theme_heading_sources = [
     "src/ui/update-dialogs.ahk", "src/ui/update-notes.ahk", "src/ui/patcher.ahk",

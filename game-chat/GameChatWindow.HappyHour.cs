@@ -125,6 +125,7 @@ internal sealed partial class GameChatWindow
         try
         {
             EnsureChatLogLoaded();
+            DetectLatestRestartNotice();
             ulong latest = LatestArchivedHappyHourId();
             if (latest > lastHappyHourMessageId &&
                 DiscordTimestamp(latest).AddHours(1) > DateTimeOffset.UtcNow) {

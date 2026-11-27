@@ -25,6 +25,10 @@
     if (restoreTheme) theme.disabled = false;
   }
   let lastVisibleAuthor = '';
+  let previousVerifiedBot = false;
+  const verifiedBotById = window.__tes3npVerifiedRestartBotById ||
+    (window.__tes3npVerifiedRestartBotById = new Map());
+  if (verifiedBotById.size > 5000) verifiedBotById.clear();
   // Preserve an author already observed for this exact Discord message ID
   // when virtualized grouped messages lose their username header. Do not
   // infer authors for previously unseen headerless rows.
@@ -44,6 +48,20 @@
     // player chooses the same Discord display name.
     const isYagrum = user.toLowerCase() === 'yagrum' &&
       !!usernameEl?.closest('h3, [class*="header_"]')?.querySelector('[class*="botTag_"]');
+    // An ordinary display name does not establish bot provenance.
+    const messageContainer = el.querySelector('[class*="message_"]');
+    const groupStart = [...el.classList, ...(messageContainer?.classList || [])]
+      .some(c => c.startsWith('groupStart_'));
+    const labelled = (messageContainer?.getAttribute('aria-labelledby') || '') + ' ' +
+      (el.getAttribute('aria-labelledby') || '');
+    const headerId = labelled.match(/(?:^|\s)message-username-(\d+)(?:\s|$)/)?.[1];
+    const rowPrefix = el.id.slice(0, el.id.lastIndexOf('-') + 1);
+    const knownHeader = headerId && verifiedBotById.get(rowPrefix + headerId) === true;
+    const verifiedRestartAuthor = user ? isYagrum :
+      (verifiedBotById.get(el.id) === true ||
+       (!groupStart && !!messageContainer && (headerId ? knownHeader : previousVerifiedBot)));
+    if (user || verifiedRestartAuthor) verifiedBotById.set(el.id, !!verifiedRestartAuthor);
+    previousVerifiedBot = !!verifiedRestartAuthor && !(!user && groupStart);
     const contentNode = el.querySelector('[class*="messageContent_"]') ||
                         el.querySelector('[class*="markup_"]');
     const body = contentNode?.innerText?.trim() ||
@@ -79,6 +97,6 @@
           uniqueImages.set(key, url);
       } catch {}
     }
-    return {id:el.id,user,sourceAuthor,body,matchText,isYagrum,authorColor:authorColors[index],images:[...uniqueImages.values()].slice(0,4)};
+    return {id:el.id,user,sourceAuthor,body,matchText,isYagrum,verifiedRestartAuthor:!!verifiedRestartAuthor,authorColor:authorColors[index],images:[...uniqueImages.values()].slice(0,4)};
   }).filter(x => x.body || x.images.length));
 })();

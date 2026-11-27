@@ -776,6 +776,9 @@ Bethesda Morrowind game data is not bundled and must be supplied by users.
     if (!(Test-Path -LiteralPath (Join-Path $hostOutput 'assets\DiscordInt.png') -PathType Leaf)) {
         throw 'Published Discord sign-in emblem is missing.'
     }
+    if ((Invoke-BuildProcess (Join-Path $hostOutput 'tes3np.ChatHost.exe') '--check-restart-notices' 'Scheduled restart countdown and precedence smoke test' 30000) -ne 0) {
+        throw 'Scheduled restart countdown or precedence smoke test failed.'
+    }
     if ((Invoke-BuildProcess (Join-Path $hostOutput 'tes3np.ChatHost.exe') '--check-server-status' 'Server status classification and fallback smoke test' 30000) -ne 0) {
         throw 'Server status classification or fallback smoke test failed.'
     }

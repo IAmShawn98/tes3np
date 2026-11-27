@@ -81,6 +81,7 @@ internal sealed partial class GameChatWindow : Form
         Shown += StartDiscordAsync;
         FormClosing += CloseGameChat;
         // Status continues to poll even while a chat refresh awaits authentication or messages.
+        watch.Tick += (_, _) => MaintainRestartNotice();
         watch.Tick += (_, _) => _ = RefreshServerStatus();
         watch.Tick += (_, _) => SyncChatOwnerPresentation();
         watch.Tick += RefreshChatAsync;

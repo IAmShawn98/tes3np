@@ -339,13 +339,15 @@ internal sealed partial class GameChatWindow
             oldestLoaded <= DiscordTimestamp(candidateId);
         bool pastActiveWindow = oldestLoaded <= DateTimeOffset.UtcNow.AddHours(-1);
         bool complete = HappyHourSourceWindowCovered(happyHourTailConfirmed,
-            happyHourSearchOldestId, candidateId, DateTimeOffset.UtcNow);
+            happyHourSearchOldestId, candidateId, DateTimeOffset.UtcNow) &&
+            (pastActiveWindow || RestartSourceWindowCovered(happyHourSearchOldestId));
         // Discord may throttle or stop exposing history. Log partial
         // coverage rather than claiming detection succeeded.
         bool timedOut = initialBackfillAttempts >= 500 ||
             DateTime.UtcNow - initialBackfillStarted > TimeSpan.FromMinutes(6);
         if (complete || timedOut) {
             initialBackfillComplete = true;
+            DetectLatestRestartNotice();
             Log("HAPPY HOUR | History scan " +
                 (verifiedLatest ? "confirmed latest activation" :
                  pastActiveWindow ? "covered active hour" : "partial (paging limit)") +

@@ -35,6 +35,11 @@ internal static class Program
             Environment.ExitCode = GameChatNative.CheckChatOwnerVisibility();
             return;
         }
+        if (args.Length == 1 && args[0] == "--check-restart-notices")
+        {
+            Environment.ExitCode = GameChatWindow.CheckRestartNoticeCoverage();
+            return;
+        }
         if (args.Length == 1 && args[0] == "--check-server-status")
         {
             Environment.ExitCode = GameChatWindow.CheckServerStatusCoverage();

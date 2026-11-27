@@ -111,6 +111,7 @@ internal sealed partial class GameChatWindow
         {
             var (key, message, sourceAuthor, matchText) = row;
             ArchiveDiscordMessage(key, message, sourceAuthor, matchText);
+            RegisterRestartEvent(row);
             RegisterHappyHourImages(key, sourceAuthor, message.Images);
             LoadChatImages(message.Images);
             if (!history.TryGetValue(key, out var existing) ||

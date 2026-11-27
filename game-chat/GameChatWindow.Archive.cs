@@ -51,6 +51,8 @@ internal sealed partial class GameChatWindow
                     // pass the announcement's visual signature.
                     if (entry.VerifiedHappyHourImage && entry.Images is { Length: > 0 })
                         verifiedHappyHourImageIds.Add(entry.Id);
+                    if (entry.VerifiedRestartEvent && TryParseRestartNotice(entry.Body ?? "", out _))
+                        verifiedRestartEventIds.Add(entry.Id);
                 }
             }
             catch (Exception ex)
@@ -142,7 +144,8 @@ internal sealed partial class GameChatWindow
         var records = archivedChat.Select(e => new ChatArchiveEntry {
             Id = e.Key, User = e.Value.User, Body = e.Value.Body,
             Images = archivedImageUrls.TryGetValue(e.Key, out var imageUrls) ? imageUrls : Array.Empty<string>(),
-            VerifiedHappyHourImage = verifiedHappyHourImageIds.Contains(e.Key)
+            VerifiedHappyHourImage = verifiedHappyHourImageIds.Contains(e.Key),
+            VerifiedRestartEvent = verifiedRestartEventIds.Contains(e.Key)
         }).ToArray();
         bool changed = chatArchiveDirty;
         string indexPath = GameChatIndexFile, textPath = GameChatLogFile;
@@ -173,6 +176,7 @@ internal sealed partial class GameChatWindow
         public string Body { get; set; } = "";
         public string[] Images { get; set; } = Array.Empty<string>();
         public bool VerifiedHappyHourImage { get; set; }
+        public bool VerifiedRestartEvent { get; set; }
     }
 
     public static int CheckChatArchivePersistence()
@@ -195,7 +199,8 @@ internal sealed partial class GameChatWindow
                 !records[1].VerifiedHappyHourImage || records[1].Images.Single() != "fixture image" ||
                 !text.Contains("Tester: hello\\nworld [discord:1]") ||
                 !text.Contains("Yagrum: [image attachment] [discord:2]")) return 2;
-            var latest = new ChatArchiveEntry { Id = 3, User = "Tester", Body = "after retry" };
+            var latest = new ChatArchiveEntry { Id = 3, User = "Yagrum",
+                Body = "[SERVER]: -- Server is restarting in 10 seconds. --", VerifiedRestartEvent = true };
             Task<string?> failed;
             using (var held = File.Open(textPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -204,7 +209,9 @@ internal sealed partial class GameChatWindow
             }
             var retry = WriteChatArchiveSnapshot([first, image, latest], indexPath, textPath, false, failed);
             return retry.GetAwaiter().GetResult() == null &&
-                File.ReadAllText(textPath).Contains("Tester: after retry [discord:3]") &&
+                File.ReadAllText(textPath).Contains(latest.Body + " [discord:3]") &&
+                System.Text.Json.JsonSerializer.Deserialize<ChatArchiveEntry[]>(File.ReadAllText(indexPath)) is { } saved &&
+                saved[^1].VerifiedRestartEvent &&
                 !Directory.EnumerateFiles(root, "*.tmp").Any() ? 0 : 4;
         }
         finally

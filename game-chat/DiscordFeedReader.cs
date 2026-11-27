@@ -3,7 +3,10 @@ using System.Text.RegularExpressions;
 
 internal sealed record ChatMessage(string User, string Body, bool IsYagrum, string AuthorColor, string[] Images);
 
-internal readonly record struct DiscordFeedRow(ulong Id, ChatMessage Message, string SourceAuthor, string MatchText);
+internal readonly record struct DiscordFeedRow(ulong Id, ChatMessage Message, string SourceAuthor, string MatchText)
+{
+    public bool VerifiedRestartAuthor { get; init; }
+}
 
 internal static partial class DiscordFeedReader
 {
@@ -34,7 +37,10 @@ internal static partial class DiscordFeedReader
 
             var message = new ChatMessage(user, body, isYagrum, authorColor, images);
             rows.Add(new DiscordFeedRow(id, message, ReadString(element, "sourceAuthor") ?? user,
-                ReadString(element, "matchText") ?? ""));
+                ReadString(element, "matchText") ?? "") {
+                VerifiedRestartAuthor = element.TryGetProperty("verifiedRestartAuthor", out var restartFlag) &&
+                    restartFlag.ValueKind == JsonValueKind.True
+            });
         }
 
         return rows;
