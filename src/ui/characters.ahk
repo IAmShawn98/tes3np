@@ -173,7 +173,7 @@ SetCharacterBookLayoutExtra(side, required)
     ; Reconcile all shared footer controls even when the height is unchanged.
     footerY := 605 + extra - footer.FooterHeight
     if IsObject(page.BookCloseButton)
-        MoveMeasuredBookAction(page.BookCloseButton, 515, footerY,
+        MoveMeasuredBookAction(page.BookCloseButton, 885 - footer.CloseWidth, footerY,
             footer.CloseWidth, footer.FooterHeight)
     if Profiles.Length
     {
@@ -330,7 +330,7 @@ OpenCharacterPage(*)
     CharacterPage.BookNextPage.Visible := false
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
     WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Reset Character List", WipeCharacterData)
-    CharacterPage.BookCloseButton := AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
+    CharacterPage.BookCloseButton := AddStyledButton(CharacterPage, 795, 575, 90, 30, "Close", CloseCharacterPage)
     DataTransferButton := AddStyledButton(CharacterPage, 70, 540, 370, 30, "Export Character List", TransferLauncherData)
     CharacterPage.OnEvent("Close", CloseCharacterPage)
     CharacterPage.OnEvent("Escape", CloseCharacterPage)

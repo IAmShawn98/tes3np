@@ -110,7 +110,7 @@ class LayoutPlanningTest(unittest.TestCase):
         rect = dict(plan.controls)
         self.assertEqual(rect["character-rows"].y, 164)
         self.assertEqual(rect["macro-rows"].y, 140)
-        self.assertEqual(rect["footer-close"].y, 575)
+        self.assertEqual(rect["footer-close"], layout.Rect(795, 575, 90, 30))
         self.assertEqual(rect["add-character"], layout.Rect(70, 505, 370, 30))
         self.assertEqual(rect["export-character-list"], layout.Rect(70, 540, 370, 30))
         self.assertEqual(rect["footer-left"], layout.Rect(70, 575, 370, 30))
@@ -125,6 +125,7 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(rect["add-character"].bottom + 5, rect["export-character-list"].y)
         self.assertEqual(rect["export-character-list"].bottom + 5, rect["footer-left"].y)
         self.assertLessEqual(rect["macro-upload"].bottom + 8, rect["footer-close"].y)
+        self.assertEqual(rect["footer-close"].right, 885)
 
     def test_resizing_book_requires_artwork_safe_extension(self):
         normal = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)
@@ -179,7 +180,7 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(controls["character-10-remove"], layout.Rect(365, 380, 75, 22))
         self.assertEqual(controls["macro-1-status"], layout.Rect(551, 140, 329, 17))
         self.assertEqual(controls["macro-4-run"], layout.Rect(551, 392, 103, 20))
-        self.assertEqual(controls["footer-close"], layout.Rect(515, 575, 90, 30))
+        self.assertEqual(controls["footer-close"], layout.Rect(795, 575, 90, 30))
 
     def test_full_control_plan_reflows_all_row_buttons_together(self):
         normal = layout.plan_character_macro_book(70, 40, 23, 62, 1920, 1080)

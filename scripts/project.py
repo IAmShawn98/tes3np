@@ -400,6 +400,8 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'AddY: transferY - 5 - footer.AddHeight' in character_ui
             and 'MoveMeasuredBookAction(DataTransferButton, 70, stack.TransferY, 370, footer.TransferHeight)' in character_ui
             and 'MoveMeasuredBookAction(WipeCharacterButton, 70, stack.ResetY, 370, footer.FooterHeight)' in character_ui
+            and 'MoveMeasuredBookAction(page.BookCloseButton, 885 - footer.CloseWidth, footerY,' in character_ui
+            and 'AddStyledButton(CharacterPage, 795, 575, 90, 30, "Close", CloseCharacterPage)' in character_ui
             and 'DataTransferButton.Text := Profiles.Length ? "Export Character List" : "Import Data"' in character_ui
             and "Click on the tick box before one of your characters" not in character_ui
         ),

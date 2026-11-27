@@ -455,7 +455,7 @@ def plan_character_macro_book(
         ("macro-rows", Rect(525, macro_first, 355,
              max(0, macro_last - macro_first))),
         ("macro-upload", Rect(525, macro_upload, 355, 29)),
-        ("footer-close", Rect(515, footer_y, 90, 30)),
+        ("footer-close", Rect(795, footer_y, 90, 30)),
     ]
     if show_limit_notice:
         placements.append(("character-limit-notice", Rect(70, notice_top, 370, 25)))

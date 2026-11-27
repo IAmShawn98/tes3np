@@ -150,6 +150,8 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn('SetWindowPos', parent)
         self.assertNotIn('if DllCall("IsWindowVisible"', parent)
         self.assertIn('footerY := 605 + extra - footer.FooterHeight', parent)
+        self.assertIn('MoveMeasuredBookAction(page.BookCloseButton, 885 - footer.CloseWidth, footerY,', parent)
+        self.assertIn('AddStyledButton(CharacterPage, 795, 575, 90, 30, "Close", CloseCharacterPage)', characters)
         self.assertIn('stack := PlanCharacterBookActionStack(footerY, footer)', parent)
         self.assertIn('MoveMeasuredBookAction(AddCharacterButton, 70, stack.AddY, 370, footer.AddHeight)', parent)
         self.assertIn('MoveMeasuredBookAction(DataTransferButton, 70, stack.TransferY, 370, footer.TransferHeight)', parent)
