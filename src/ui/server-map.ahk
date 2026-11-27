@@ -33,12 +33,8 @@ SetLauncherMapOpen(open, loadContent := true)
     {
         try
         {
-            if !SyncLauncherMapPanel(true)
-            {
-                SetLauncherMapOpen(false)
-                MsgBox("There is not enough room to open the map to the right of the launcher. Move the launcher left or reduce its scale.", "Drak's Server Map", "Icon!")
-                return
-            }
+            ; Keep the requested open state even if the owner is temporarily hidden.
+            SyncLauncherMapPanel()
             if loadContent
                 StartLauncherMapBrowser(LauncherMapPanel)
             ; Follow native owner movement immediately; keep a fast watchdog for
@@ -91,30 +87,30 @@ CreateLauncherMapPanel(owner)
     }
 }
 
-; Always dock outside the right edge. Fit the viewport to the monitor
-; without covering the launcher. An explicit open may move the owner left
-; just enough to make room; normal movement never relocates the owner.
-GetLauncherMapPlacement(owner, work, allowOwnerMove := false)
+; Mirror Game Chat's monitor-edge policy: prefer the right dock, switch
+; sides when needed, and clamp the entire panel to the monitor work area.
+; Keep the map's native scale and gap; never move the launcher to make room.
+GetLauncherMapPlacement(owner, work)
 {
+    if owner.R <= owner.L || owner.B <= owner.T || work.R <= work.L || work.B <= work.T
+        return {Available: false}
     scale := Max(0.01, (owner.R - owner.L) / 960)
     gap := Max(1, Round(4 * scale))
-    desiredWidth := Max(1, Round(480 * scale))
-    minWidth := Min(desiredWidth, Max(160, Round(240 * scale)))
-    ownerX := owner.L
-    available := work.R - owner.R - gap
-    if available < minWidth && allowOwnerMove
-    {
-        needed := minWidth - available
-        ownerX := Max(work.L, owner.L - needed)
-        available += owner.L - ownerX
-    }
-    fit := Min(scale, available / 480, (work.B - work.T) / 405)
-    w := Floor(480 * fit), h := Floor(405 * fit)
-    if w < minWidth || h < 1
-        return {Available: false}
-    x := owner.R + ownerX - owner.L + gap
+    fit := Min(scale, (work.R - work.L) / 480, (work.B - work.T) / 405)
+    leftSpace := owner.L - work.L - gap
+    rightSpace := work.R - owner.R - gap
+    sideWidth := Max(leftSpace, rightSpace)
+    ; As in Game Chat, only fit to side space if a useful side exists.
+    ; Otherwise keep the work-area fitted size and allow clamped overlap.
+    if sideWidth >= Min(220, Round(480 * 0.5))
+        fit := Min(fit, sideWidth / 480)
+    w := Min(work.R - work.L, Max(1, Round(480 * fit)))
+    h := Min(work.B - work.T, Max(1, Round(405 * fit)))
+    dockRight := rightSpace >= w || (leftSpace < w && rightSpace >= leftSpace)
+    x := dockRight ? owner.R + gap : owner.L - gap - w
+    x := Max(work.L, Min(work.R - w, x))
     y := Max(work.T, Min(work.B - h, Round((owner.T + owner.B - h) / 2)))
-    return {Available: true, X: x, Y: y, W: w, H: h, OwnerX: ownerX}
+    return {Available: true, X: x, Y: y, W: w, H: h}
 }
 
 ; Paint at native client resolution; the source strip is a repeating texture,
@@ -300,17 +296,17 @@ LauncherMapOwnerMoved(wParam, lParam, msg, hwnd)
         SyncLauncherMapPanel()
 }
 
-SyncLauncherMapPanel(allowOwnerMove := false, *)
+SyncLauncherMapPanel(*)
 {
     static syncing := false
     if syncing
         return
     syncing := true
-    try return SyncLauncherMapPanelCore(allowOwnerMove)
+    try return SyncLauncherMapPanelCore()
     finally syncing := false
 }
 
-SyncLauncherMapPanelCore(allowOwnerMove := false)
+SyncLauncherMapPanelCore()
 {
     global LauncherGui, LauncherMapPanel, LauncherMapOpen, LauncherMapToggle
     if !LauncherMapOpen || !IsObject(LauncherMapPanel) || !IsObject(LauncherGui)
@@ -328,20 +324,12 @@ SyncLauncherMapPanelCore(allowOwnerMove := false)
         R: NumGet(bounds, 8, "Int"), B: NumGet(bounds, 12, "Int")}
     monitor := MonitorFromPoint((owner.L + owner.R) // 2, (owner.T + owner.B) // 2)
     MonitorGetWorkArea(monitor, &left, &top, &right, &bottom)
-    placement := GetLauncherMapPlacement(owner, {L: left, T: top, R: right, B: bottom}, allowOwnerMove)
+    placement := GetLauncherMapPlacement(owner, {L: left, T: top, R: right, B: bottom})
     if !placement.Available
     {
-        ; Never let a timer move the launcher or put the map over its art.
-        if !allowOwnerMove
-            SetLauncherMapOpen(false)
+        ; Invalid bounds can be temporary. Keep the tab open for recovery.
+        LauncherMapPanel.Hide()
         return false
-    }
-    if placement.OwnerX != owner.L
-    {
-        ; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE.
-        if !DllCall("SetWindowPos", "Ptr", LauncherGui.Hwnd, "Ptr", 0,
-            "Int", placement.OwnerX, "Int", owner.T, "Int", 0, "Int", 0, "UInt", 0x15)
-            return false
     }
     LayoutLauncherMapPanel(LauncherMapPanel, placement.W, placement.H)
     if !DllCall("IsWindowVisible", "Ptr", LauncherMapPanel.Hwnd)

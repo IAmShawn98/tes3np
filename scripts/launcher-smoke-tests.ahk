@@ -3205,23 +3205,32 @@ CheckLauncherMapShell()
                     throw Error("Map caption must retain its inward left-edge inset.")
             }
         }
-        for work in [{L: 0, T: 0, R: 1920, B: 1080}, {L: 0, T: 0, R: 1280, B: 716}]
+        work := {L: 0, T: 0, R: 1920, B: 1080}
+        leftEdge := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work)
+        rightEdge := GetLauncherMapPlacement({L: 960, T: 0, R: 1920, B: 716}, work)
+        if !leftEdge.Available || !rightEdge.Available || leftEdge.X != 964
+            || rightEdge.X + rightEdge.W != 956 || leftEdge.W != 480 || rightEdge.W != 480
+            throw Error("Map must prefer the right and switch sides without shrinking when space permits.")
+        ; A launcher filling its monitor must not collapse or close the panel.
+        tight := {L: 0, T: 0, R: 960, B: 716}
+        constrained := GetLauncherMapPlacement(tight, tight)
+        if !constrained.Available || constrained.W != 480 || constrained.H != 405
+            || constrained.X + constrained.W != tight.R
+            throw Error("Map must stay open and clamp to the work area when neither side fits.")
+        for work in [{L: 0, T: 0, R: 1280, B: 716}, {L: -1280, T: -100, R: 0, B: 616}]
         {
-            placement := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work)
-            if !placement.Available || placement.X < 960 || placement.Y < work.T
-                || placement.X + placement.W > work.R || placement.Y + placement.H > work.B
-                || placement.OwnerX != 0
-                throw Error("Map must dock outside the right edge within the work area.")
+            Loop 17
+            {
+                x := work.L - 160 + (A_Index - 1) * 50
+                placement := GetLauncherMapPlacement({L: x, T: work.T - 40, R: x + 960, B: work.T + 676}, work)
+                if !placement.Available || placement.W <= 0 || placement.H <= 0
+                    || placement.X < work.L || placement.Y < work.T
+                    || placement.X + placement.W > work.R || placement.Y + placement.H > work.B
+                    throw Error("Map edge movement must retain a usable on-screen placement.")
+            }
         }
-        work := {L: 0, T: 0, R: 1440, B: 900}
-        edgeOwner := {L: 480, T: 0, R: 1440, B: 716}
-        shifted := GetLauncherMapPlacement(edgeOwner, work, true)
-        if !shifted.Available || shifted.OwnerX >= edgeOwner.L
-            || shifted.X < shifted.OwnerX + 960 || shifted.X + shifted.W > work.R
-            throw Error("Explicit Map opening must make room outside when possible.")
-        if GetLauncherMapPlacement(edgeOwner, work).Available
-            || GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, {L: 0, T: 0, R: 960, B: 716}, true).Available
-            throw Error("Map must not fall back to an inward overlay.")
+        if GetLauncherMapPlacement(tight, {L: 0, T: 0, R: 0, B: 716}).Available
+            throw Error("Map must reject invalid work-area bounds.")
         Loop 2
         {
             SetLauncherMapOpen(!LauncherMapOpen, false)
@@ -3234,8 +3243,13 @@ CheckLauncherMapShell()
             ownerRect := Buffer(16, 0), mapRect := Buffer(16, 0)
             if !DllCall("GetWindowRect", "Ptr", owner.Hwnd, "Ptr", ownerRect)
                 || !DllCall("GetWindowRect", "Ptr", LauncherMapPanel.Hwnd, "Ptr", mapRect)
-                || NumGet(mapRect, 0, "Int") < NumGet(ownerRect, 8, "Int")
-                throw Error("Visible Map overlaps the launcher instead of docking outward.")
+                throw Error("Could not read Map docking bounds.")
+            monitor := MonitorFromPoint((NumGet(ownerRect, 0, "Int") + NumGet(ownerRect, 8, "Int")) // 2,
+                (NumGet(ownerRect, 4, "Int") + NumGet(ownerRect, 12, "Int")) // 2)
+            MonitorGetWorkArea(monitor, &wl, &wt, &wr, &wb)
+            if NumGet(mapRect, 0, "Int") < wl || NumGet(mapRect, 4, "Int") < wt
+                || NumGet(mapRect, 8, "Int") > wr || NumGet(mapRect, 12, "Int") > wb
+                throw Error("Visible Map must remain inside its monitor work area.")
             ; Disable asynchronous layout while inspecting synthetic dimensions.
             SetTimer(SyncLauncherMapPanel, 0)
             ; Exercise the same movement handler without relying on watchdog ticks.
@@ -3248,7 +3262,13 @@ CheckLauncherMapShell()
             if !DllCall("GetWindowRect", "Ptr", owner.Hwnd, "Ptr", movedOwner)
                 || !DllCall("GetWindowRect", "Ptr", LauncherMapPanel.Hwnd, "Ptr", movedMap)
                 || NumGet(movedOwner, 0, "Int") != NumGet(ownerRect, 0, "Int") - 5
-                || NumGet(movedMap, 0, "Int") != NumGet(mapRect, 0, "Int") - 5
+                throw Error("Map movement must not relocate the launcher.")
+            target := GetLauncherMapPlacement({L: NumGet(movedOwner, 0, "Int"), T: NumGet(movedOwner, 4, "Int"),
+                R: NumGet(movedOwner, 8, "Int"), B: NumGet(movedOwner, 12, "Int")}, {L: wl, T: wt, R: wr, B: wb})
+            if !LauncherMapOpen || !target.Available || NumGet(movedMap, 0, "Int") != target.X
+                || NumGet(movedMap, 4, "Int") != target.Y
+                || NumGet(movedMap, 8, "Int") != target.X + target.W
+                || NumGet(movedMap, 12, "Int") != target.Y + target.H
                 throw Error("Map movement notification did not translate the panel.")
             for mode in ["Normal", "Large", "Extra Large"]
             {

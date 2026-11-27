@@ -3172,11 +3172,19 @@ expect(
     and 'RenderLauncherMapFrame(panel.MapTexture, w, h, scale, headerBottom)' in server_map
     and 'Map frame is not a native-size composed bitmap.' in launcher_smoke_tests
     and 'Unchanged map layout recreated its frame bitmap.' in launcher_smoke_tests
-    and 'x := owner.R + ownerX - owner.L + gap' in server_map
+    and 'sideWidth := Max(leftSpace, rightSpace)' in server_map
+    and 'if sideWidth >= Min(220, Round(480 * 0.5))' in server_map
+    and 'fit := Min(fit, sideWidth / 480)' in server_map
+    and 'dockRight := rightSpace >= w || (leftSpace < w && rightSpace >= leftSpace)' in server_map
+    and 'x := dockRight ? owner.R + gap : owner.L - gap - w' in server_map
+    and 'x := Max(work.L, Min(work.R - w, x))' in server_map
     and 'return {Available: false}' in server_map
-    and 'if available < minWidth && allowOwnerMove' in server_map
-    and 'Map must not fall back to an inward overlay.' in launcher_smoke_tests
-    and 'Visible Map overlaps the launcher instead of docking outward.' in launcher_smoke_tests
+    and 'allowOwnerMove' not in server_map
+    and 'SetWindowPos", "Ptr", LauncherGui.Hwnd' not in server_map
+    and 'Map must prefer the right and switch sides without shrinking when space permits.' in launcher_smoke_tests
+    and 'Map must stay open and clamp to the work area when neither side fits.' in launcher_smoke_tests
+    and 'Map edge movement must retain a usable on-screen placement.' in launcher_smoke_tests
+    and 'Visible Map must remain inside its monitor work area.' in launcher_smoke_tests
     and 'LauncherMapToggle.Move(mx, ty, tw, th)' in launcher_layout
     and "Drak's Server Map" in server_map
     and 'MapViewport := panel.Add("Text"' in server_map
