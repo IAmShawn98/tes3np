@@ -164,7 +164,7 @@ ImportLauncherData()
         RefreshProfiles()
     }
     finally EndInterfaceUpdate()
-    MsgBox("Launcher data imported.", "Import Data")
+    MsgBox("Launcher data imported!", "Import Data")
 }
 
 ReadBackupInteger(path, section, key, minimum, maximum)

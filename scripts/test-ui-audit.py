@@ -194,6 +194,11 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("drawFlags := 0x0810 ; DT_NOPREFIX | DT_WORDBREAK", renderer)
         self.assertIn("if cachedTextChanged", characters)
 
+    def test_import_data_success_message(self):
+        source = (SOURCE.parents[1] / "src/data/backup.ahk").read_text(
+            encoding="utf-8-sig")
+        self.assertIn('MsgBox("Launcher data imported!", "Import Data")', source)
+
     def test_reset_character_list_warning_preserves_confirmation_gate(self):
         source = (SOURCE.parents[1] / "src/ui/characters.ahk").read_text(
             encoding="utf-8-sig")
