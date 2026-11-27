@@ -525,6 +525,22 @@ expect(
     and not (chat_root / 'web/emojibase-license.txt').exists()
     and 'BundledEmojiCatalog' not in source,
 )
+updates_extract = (chat_web / "extract-server-updates.js").read_text(encoding="utf-8-sig")
+expect(
+    "Discord reaction discovery supports the selected post's inline and hover-toolbar Add Reaction controls",
+    'function clickAddReaction(row)' in updates_extract
+    and 'row.querySelectorAll(selector)' in updates_extract
+    and 'row.contains(control)' in updates_extract
+    and 'candidate.disabled || control.disabled' in updates_extract
+    and "control.getAttribute('aria-disabled') === 'true'" in updates_extract
+    and '[class^="reactionBtn_"]' in updates_extract
+    and '[aria-label^="Add Reaction " i]' in updates_extract
+    and '[data-list-item-id$="add-reaction"]' in updates_extract
+    and 'messageId(item) === request.Id' in updates_extract
+    and "new PointerEvent('pointerover'" in updates_extract
+    and "new MouseEvent('mouseover'" in updates_extract
+    and "return clickAddReaction(row) ? 'clicked' : 'unavailable';" in updates_extract,
+)
 expect(
     "The Discord reaction window reveals only the measured native picker and restores it after focus changes",
     'GameChatWeb.Page("discord-reaction-picker.js")' in source

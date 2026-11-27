@@ -2055,7 +2055,7 @@ CheckMeasuredBookEditorGeometry()
                         || plan.Rows[3].Y != 264 || plan.Rows[5].Y != 364 || plan.RaceY != 424
                         || plan.DropdownY != 460 || plan.HintY != 491
                         || plan.ReconnectY != 516 || plan.SaveY != 549
-                        || plan.DismissY != 591 || plan.Extra != 50
+                        || plan.DismissY != 591 || plan.Extra != 100
                         throw Error("Normal editor anchors changed.")
                 }
                 else
@@ -2088,9 +2088,9 @@ CheckMeasuredBookEditorGeometry()
                         || plan.ReconnectY < plan.HintY + plan.HintHeight
                         || plan.SaveY < plan.ReconnectY + plan.ReconnectHeight
                         || plan.DismissY < plan.SaveY + plan.SaveHeight
-                        || plan.DismissY + plan.DismissHeight + 5 > 570 + plan.Extra
                         throw Error("Measured editor stack or footer overlaps.")
                 }
+                AssertBookEditorParchmentFit(plan)
                 if GetBookEditorAccountHeading(0) != "Register Existing Account"
                     || GetBookEditorAccountHeading(1) != "Registered Account"
                     throw Error("Editor account caption does not match Add/Edit mode.")
@@ -2099,6 +2099,7 @@ CheckMeasuredBookEditorGeometry()
                 if newPlan.Rows[1].Y < newPlan.AccountY + newPlan.AccountHeight + 12
                     || (mode != "Normal" && newPlan.AccountHeight < MeasureAccessibleWrappedText(accountHeading, accountHeading.Text, 351))
                     throw Error("New account heading clips or overlaps fields.")
+                AssertBookEditorParchmentFit(newPlan)
                 accountHeading.Text := GetBookEditorAccountHeading(1)
                 tight := PlanBookEditorGeometry(heading, title, controls, false, true)
                 if tight.Extra || tight.DismissY != tight.SaveY
@@ -2107,14 +2108,30 @@ CheckMeasuredBookEditorGeometry()
                     || tight.Rows[3].Y < tight.SectionY + tight.SectionHeight + 8
                     || tight.DropdownY < tight.RaceY + tight.RaceHeight + 8
                     throw Error("Compact editor does not fit base book with separated headings.")
+                AssertBookEditorParchmentFit(tight)
+                tightMeasured := PlanBookEditorGeometry(heading, title, controls, true, true)
+                AssertBookEditorParchmentFit(tightMeasured)
+                previous := tightMeasured.AccountY + tightMeasured.AccountHeight
+                for index, row in rows
+                {
+                    metrics := tightMeasured.Rows[index]
+                    if metrics.Y < previous || metrics.InputY != metrics.Y
+                        || metrics.InputX < 525 + metrics.LabelWidth + 8
+                        || metrics.InputX + metrics.InputWidth > 880
+                        || metrics.LabelHeight < MeasureAccessibleWrappedText(row.Label, row.Label.Text, metrics.LabelWidth - 4)
+                        || metrics.InputHeight < MeasureAccessibleSingleLineText(row.Input, "Ag").Height
+                        throw Error("Measured compact editor clips or overlaps fields.")
+                    previous := Max(metrics.Y + metrics.LabelHeight, metrics.InputY + metrics.InputHeight)
+                }
                 hint.Text := ""
                 compact := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
                 if compact.SectionY != plan.SectionY || compact.Rows[3].Y != plan.Rows[3].Y
                     || compact.ReconnectY != compact.HintY + 7
                     || compact.ReconnectY >= plan.ReconnectY
                     || compact.SaveY < compact.ReconnectY + compact.ReconnectHeight
-                    || compact.DismissY + compact.DismissHeight + 5 > 570 + compact.Extra
+                    || compact.Extra > plan.Extra
                     throw Error("Hidden portrait hint reserves excess editor space.")
+                AssertBookEditorParchmentFit(compact)
             }
             finally page.Destroy()
         }
@@ -2124,6 +2141,16 @@ CheckMeasuredBookEditorGeometry()
         CharacterPage := savedPage
         AccessibilityTextSize := savedMode
     }
+}
+
+AssertBookEditorParchmentFit(plan)
+{
+    if !plan.FitsWidth
+        throw Error("Editor action exceeds the available parchment width.")
+    if plan.ReconnectY + plan.ReconnectHeight + 5 > BookEditorSafeBottom(525, 355) + plan.Extra
+        || plan.SaveY + plan.SaveHeight + 5 > BookEditorSafeBottom(plan.SaveX, plan.SaveWidth) + plan.Extra
+        || plan.DismissY + plan.DismissHeight + 5 > BookEditorSafeBottom(plan.DismissX, plan.DismissWidth) + plan.Extra
+        throw Error("Editor content crosses the tapered parchment boundary.")
 }
 
 CheckMeasuredLauncherEdgeControls()

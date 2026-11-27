@@ -853,6 +853,7 @@ EditProfile(index, *)
         MsgBox("You can save up to 10 characters. Remove one before adding another.", "tes3np")
         return
     }
+    layoutReady := false
     BeginInterfaceUpdate(0, "Loading character settings...", true)
     try
     {
@@ -894,9 +895,13 @@ EditProfile(index, *)
         ButtonFaces[EditorSaveButton.Hwnd].Action := SaveProfileEditor.Bind(index, EditorFields)
         for control in EditorControls
             control.Visible := true
-        UpdateOriginalSpeciesHint()
+        layoutReady := UpdateOriginalSpeciesHint()
+        if !layoutReady
+            HideProfileEditor()
     }
     finally EndInterfaceUpdate()
+    if !layoutReady
+        MsgBox("The character editor needs more room. Choose a smaller Launcher Scale and try again.", "tes3np")
 }
 
 GetBookEditorAccountHeading(index)
@@ -908,8 +913,11 @@ GetBookEditorAccountHeading(index)
 CreateProfileEditor()
 {
     global CharacterPage, EditorControls, EditorRows, EditorSaveButton, EditorSpeciesDropDown, EditorOCSpeciesHint, EditorReconnectTick
+    global ButtonFaces
     SetAccessibleTextFont(CharacterPage, "s13 Bold c241408", LauncherThemeFont())
-    accountHeading := CharacterPage.Add("Text", "x525 y82 w355 h24 BackgroundTrans Hidden", GetBookEditorAccountHeading(0))
+    accountHeading := AddBookLabel(CharacterPage, 525, 82, 355, 24, GetBookEditorAccountHeading(0))
+    accountHeading.Visible := false
+    ButtonFaces[accountHeading.Hwnd].TextColor := 0x081424
     EditorControls.Push(accountHeading)
     SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     EditorRows := []
@@ -921,7 +929,9 @@ CreateProfileEditor()
         if position = 3
         {
             SetAccessibleTextFont(CharacterPage, "s13 Bold c241408", LauncherThemeFont())
-            autoLoginHeading := CharacterPage.Add("Text", "x525 y228 w355 h24 BackgroundTrans Hidden", "Auto Login")
+            autoLoginHeading := AddBookLabel(CharacterPage, 525, 228, 355, 24, "Auto Login")
+            autoLoginHeading.Visible := false
+            ButtonFaces[autoLoginHeading.Hwnd].TextColor := 0x081424
             EditorControls.Push(autoLoginHeading)
             SetAccessibleTextFont(CharacterPage, "s10 Norm c382314", LauncherThemeFont())
         }
@@ -936,7 +946,9 @@ CreateProfileEditor()
     }
     SetInterfaceLoadingText("Loading race selector...")
     SetAccessibleTextFont(CharacterPage, "s13 Bold c241408", LauncherThemeFont())
-    speciesLabel := CharacterPage.Add("Text", "x525 y424 w355 h24 BackgroundTrans Hidden", "Race Info")
+    speciesLabel := AddBookLabel(CharacterPage, 525, 424, 355, 24, "Race Info")
+    speciesLabel.Visible := false
+    ButtonFaces[speciesLabel.Hwnd].TextColor := 0x081424
     SetAccessibleTextFont(CharacterPage, "s10 Norm c382314", LauncherThemeFont())
     speciesOptions := ["Select race..."]
     for item in CharacterSpeciesOptions()
@@ -974,6 +986,15 @@ CreateProfileEditor()
 ; The right-hand column is either the editor or the Macro Book, never
 ; both. Compute its entire stack using the native font already attached
 ; to each HWND, preserving the original Normal anchors.
+; Conservative inner contour of the right-hand parchment in the original
+; 960x650 artwork. Extension rows above the taper move its boundary down.
+; Use the outermost horizontal edge of each control, not just its center.
+BookEditorSafeBottom(x, width)
+{
+    distance := Max(Abs(x - 705), Abs(x + width - 705))
+    return 445 + Floor(Max(0, 180 - distance) * 120 / 180)
+}
+
 PlanBookEditorGeometry(heading, originalTitle, controls, measured, compact := false)
 {
     scale := GetCharacterBookScale()
@@ -989,6 +1010,10 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured, compact := fa
     sectionH := measured ? Max(24, Ceil((MeasureAccessibleWrappedText(
         controls.AutoLoginHeading, controls.AutoLoginHeading.Text, BookS(351)) + BookS(4)) / scale)) : 24
     rows := []
+    ; Compact rows keep measured captions beside their fields.
+    labelW := compact ? 205 : 355
+    inputX := compact ? 738 : 525
+    inputW := 880 - inputX
     for index, row in controls.Rows
     {
         if index = 3
@@ -998,11 +1023,13 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured, compact := fa
             rowY := sectionY + sectionH + sectionGap
         }
         labelH := measured ? Max(22, Ceil((MeasureAccessibleWrappedText(
-            row.Label, row.Label.Text, BookS(351)) + BookS(4)) / scale)) : 22
+            row.Label, row.Label.Text, BookS(labelW - 4)) + BookS(4)) / scale)) : 22
         inputH := measured ? Max(25, Ceil((MeasureAccessibleSingleLineText(
             row.Input, "Ag").Height + BookS(8)) / scale)) : 25
-        rows.Push({Y: rowY, LabelHeight: labelH, InputHeight: inputH})
-        rowY += labelH + 1 + inputH + 2
+        inputY := compact ? rowY : rowY + labelH + 1
+        rows.Push({Y: rowY, LabelHeight: labelH, LabelWidth: labelW,
+            InputX: inputX, InputY: inputY, InputWidth: inputW, InputHeight: inputH})
+        rowY := Max(rowY + labelH, inputY + inputH) + (compact ? 5 : 2)
     }
     raceY := rowY + sectionGap - 2
     raceH := measured ? Max(24, Ceil((MeasureAccessibleWrappedText(
@@ -1036,6 +1063,9 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured, compact := fa
     dismissY := compact ? saveY : saveY + saveH + 12
     saveX := compact ? 705 - (saveW + 12 + dismissW) // 2 : 705 - saveW // 2
     dismissX := compact ? saveX + saveW + 12 : 700 - dismissW // 2
+    extra := Max(0, reconnectY + reconnectH + 5 - BookEditorSafeBottom(525, 355),
+        saveY + saveH + 5 - BookEditorSafeBottom(saveX, saveW),
+        dismissY + dismissH + 5 - BookEditorSafeBottom(dismissX, dismissW))
     return {Title: title, TitleHeight: titleH, Rows: rows,
         AccountY: accountY, AccountHeight: accountH, SaveX: saveX, DismissX: dismissX,
         SectionY: sectionY, SectionHeight: sectionH, RaceY: raceY,
@@ -1043,7 +1073,7 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured, compact := fa
         ReconnectY: reconnectY, ReconnectHeight: reconnectH, SaveY: saveY,
         SaveHeight: saveH, SaveWidth: saveW, DismissY: dismissY,
         DismissHeight: dismissH, DismissWidth: dismissW,
-        Extra: Max(0, Max(saveY + saveH, dismissY + dismissH) + 5 - 570),
+        Extra: extra,
         FitsWidth: compact ? saveW + 12 + dismissW <= 355 : saveW <= 355 && dismissW <= 355}
 }
 
@@ -1052,7 +1082,7 @@ ReflowProfileEditor()
     global CharacterPage, LaunchSettingsHeading, AccessibilityTextSize, ButtonFaces
     if !IsObject(CharacterPage) || !CharacterPage.HasOwnProp("BookEditorControls")
         || !CharacterPage.HasOwnProp("BookEditorHeadingText")
-        return
+        return false
     controls := CharacterPage.BookEditorControls
     measured := AccessibilityTextSize != "Normal"
     plan := PlanBookEditorGeometry(LaunchSettingsHeading,
@@ -1060,35 +1090,31 @@ ReflowProfileEditor()
     ; Reuse the right-column allocation because Macro Book is hidden.
     if !plan.FitsWidth || !SetCharacterBookLayoutExtra("Macros", plan.Extra)
     {
-        ; Try the compact footer without giving up measured text first.
+        ; Try measured compact rows before revealing any clipped layout.
+        ; Never apply a plan whose artwork extension could not be allocated.
+        measured := true
         plan := PlanBookEditorGeometry(LaunchSettingsHeading,
             CharacterPage.BookEditorHeadingText, controls, measured, true)
         if !plan.FitsWidth || !SetCharacterBookLayoutExtra("Macros", plan.Extra)
-        {
-            measured := false
-            plan := PlanBookEditorGeometry(LaunchSettingsHeading,
-                CharacterPage.BookEditorHeadingText, controls, false, true)
-            SetCharacterBookLayoutExtra("Macros", plan.Extra)
-        }
+            return false
     }
     LaunchSettingsHeading.Text := plan.Title
     MoveMacroTextIfChanged(LaunchSettingsHeading, BookS(525), BookS(45),
         BookS(360), BookS(plan.TitleHeight))
-    MoveMacroTextIfChanged(controls.AccountHeading, BookS(525), BookS(plan.AccountY),
-        BookS(355), BookS(plan.AccountHeight))
-    MoveMacroTextIfChanged(controls.AutoLoginHeading, BookS(525), BookS(plan.SectionY),
-        BookS(355), BookS(plan.SectionHeight))
+    for section in [controls.AccountHeading, controls.AutoLoginHeading, controls.SpeciesLabel]
+        ButtonFaces[section.Hwnd].AccessibleWrappedName := measured
+    MoveMacroStyledIfChanged(controls.AccountHeading, 525, plan.AccountY, 355, plan.AccountHeight)
+    MoveMacroStyledIfChanged(controls.AutoLoginHeading, 525, plan.SectionY, 355, plan.SectionHeight)
     for index, row in controls.Rows
     {
         metrics := plan.Rows[index]
         ButtonFaces[row.Label.Hwnd].AccessibleWrappedName := measured
-        MoveMacroStyledIfChanged(row.Label, 525, metrics.Y, 355, metrics.LabelHeight)
-        MoveMacroTextIfChanged(row.Input, BookS(525), BookS(metrics.Y + metrics.LabelHeight + 1),
-            BookS(355), BookS(metrics.InputHeight))
+        MoveMacroStyledIfChanged(row.Label, 525, metrics.Y, metrics.LabelWidth, metrics.LabelHeight)
+        MoveMacroTextIfChanged(row.Input, BookS(metrics.InputX), BookS(metrics.InputY),
+            BookS(metrics.InputWidth), BookS(metrics.InputHeight))
     }
     ButtonFaces[controls.Reconnect.Hwnd].AccessibleWrappedName := measured
-    MoveMacroTextIfChanged(controls.SpeciesLabel, BookS(525), BookS(plan.RaceY),
-        BookS(355), BookS(plan.RaceHeight))
+    MoveMacroStyledIfChanged(controls.SpeciesLabel, 525, plan.RaceY, 355, plan.RaceHeight)
     ; Move the native combo without changing the height of its drop-down.
     controls.Species.GetPos(, &oldDropdownY)
     if oldDropdownY != BookS(plan.DropdownY)
@@ -1103,6 +1129,7 @@ ReflowProfileEditor()
         plan.SaveY, plan.SaveWidth, plan.SaveHeight)
     MoveMacroStyledIfChanged(controls.Dismiss, plan.DismissX,
         plan.DismissY, plan.DismissWidth, plan.DismissHeight)
+    return true
 }
 
 ToggleEditorReconnect(*)
@@ -1118,11 +1145,16 @@ UpdateOriginalSpeciesHint()
 {
     global EditorOCSpeciesHint, EditorOriginalSpecies, EditorOriginalMode, LaunchSettingsHeading
     isOriginal := EditorOriginalMode
+    oldText := EditorOCSpeciesHint.Text
     EditorOCSpeciesHint.Text := isOriginal && EditorOriginalSpecies != ""
         ? "Race: " EditorOriginalSpecies "  |  Change portrait" : ""
-    EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
     if IsObject(LaunchSettingsHeading) && LaunchSettingsHeading.Visible
-        ReflowProfileEditor()
+        && !ReflowProfileEditor()
+    {
+        EditorOCSpeciesHint.Text := oldText
+        return false
+    }
+    EditorOCSpeciesHint.Visible := isOriginal && EditorOriginalSpecies != ""
     ; The race must be visible as soon as the dialog closes, even when the
     ; cached Character Book is reused without reopening Manage Characters.
     if IsObject(EditorOCSpeciesHint)
@@ -1130,12 +1162,31 @@ UpdateOriginalSpeciesHint()
         DllCall("RedrawWindow", "Ptr", EditorOCSpeciesHint.Hwnd, "Ptr", 0,
             "Ptr", 0, "UInt", 0x105)
     }
+    return true
+}
+
+; Preserve the previous selection if the new hint cannot fit the monitor.
+ApplyEditorPortraitHint(control, previous)
+{
+    global EditorPreviousSpeciesChoice, EditorOriginalPortraitSource, EditorOriginalPortraitFile
+    global EditorOriginalSpecies, EditorOriginalMode
+    if UpdateOriginalSpeciesHint()
+        return
+    EditorPreviousSpeciesChoice := previous.Choice
+    EditorOriginalPortraitSource := previous.Source
+    EditorOriginalPortraitFile := previous.File
+    EditorOriginalSpecies := previous.Species
+    EditorOriginalMode := previous.Mode
+    control.Choose(previous.Choice)
+    MsgBox("The character editor needs more room. Choose a smaller Launcher Scale and try again.", "tes3np")
 }
 
 ChooseOriginalCharacterPortrait(control, replaceOC := false)
 {
     global EditorPreviousSpeciesChoice, EditorOriginalPortraitSource
     global EditorOriginalPortraitFile, EditorOriginalSpecies, EditorOriginalMode
+    previous := {Choice: EditorPreviousSpeciesChoice, Source: EditorOriginalPortraitSource,
+        File: EditorOriginalPortraitFile, Species: EditorOriginalSpecies, Mode: EditorOriginalMode}
 
     if !replaceOC && control.Text != "Original Character"
     {
@@ -1144,7 +1195,7 @@ ChooseOriginalCharacterPortrait(control, replaceOC := false)
         EditorOriginalPortraitFile := ""
         EditorOriginalSpecies := ""
         EditorOriginalMode := false
-        UpdateOriginalSpeciesHint()
+        ApplyEditorPortraitHint(control, previous)
         return
     }
 
@@ -1187,7 +1238,7 @@ ChooseOriginalCharacterPortrait(control, replaceOC := false)
             EditorPreviousSpeciesChoice := selectedIndex
             break
         }
-    UpdateOriginalSpeciesHint()
+    ApplyEditorPortraitHint(control, previous)
 }
 
 IsValidOriginalCharacterImage(source)

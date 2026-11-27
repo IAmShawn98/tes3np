@@ -36,6 +36,28 @@
     return reactions;
   }
 
+  // A post with no reactions may expose Add Reaction only in its hover toolbar.
+  // Resolve a post-local action; never click an arbitrary emoji or another post.
+  function clickAddReaction(row) {
+    const selectors = [
+      '[class^="reactionBtn_"], [class*=" reactionBtn_"], [class*="addReactButton_"]',
+      '[aria-label="Add Reaction" i], [aria-label^="Add Reaction " i], [title="Add Reaction" i], ' +
+        '[data-list-item-id$="add-reaction"], [data-tooltip-text="Add Reaction" i]'
+    ];
+    for (const selector of selectors) {
+      for (const candidate of row.querySelectorAll(selector)) {
+        const control = candidate.closest('button, [role="button"]') ??
+          candidate.querySelector('button, [role="button"]') ?? candidate;
+        if (!row.contains(control) || candidate.disabled || control.disabled ||
+            candidate.getAttribute('aria-disabled') === 'true' || control.getAttribute('aria-disabled') === 'true')
+          continue;
+        control.click();
+        return true;
+      }
+    }
+    return false;
+  }
+
   if (request) {
     const row = [...rows].find(item => messageId(item) === request.Id);
     if (!row) return 'missing';
@@ -53,12 +75,17 @@
     if (request.Kind === 'picker') {
       row.scrollIntoView({ block: 'center' });
       const message = row.querySelector('[class^="message_"], [class*=" message_"]') ?? row;
-      message.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-      const add = row.querySelector('[class^="reactionBtn_"], [class*=" reactionBtn_"], ' +
-        '[class*="addReactButton_"], [aria-label="Add Reaction" i], [data-list-item-id$="___add-reaction"]');
-      if (!add || add.disabled || add.getAttribute('aria-disabled') === 'true') return 'unavailable';
-      add.click();
-      return 'clicked';
+      if (clickAddReaction(row)) return 'clicked';
+      // React may mount the toolbar after hover. The bounded caller retries
+      // allow that render to finish before searching again.
+      const bounds = message.getBoundingClientRect();
+      const hover = { bubbles: true, clientX: Math.round((bounds.left + bounds.right) / 2),
+        clientY: Math.round((bounds.top + bounds.bottom) / 2) };
+      if (typeof PointerEvent === 'function')
+        message.dispatchEvent(new PointerEvent('pointerover', { ...hover, pointerType: 'mouse' }));
+      message.dispatchEvent(new MouseEvent('mouseover', hover));
+      message.dispatchEvent(new MouseEvent('mouseenter', { ...hover, bubbles: false }));
+      return clickAddReaction(row) ? 'clicked' : 'unavailable';
     }
     return 'unavailable';
   }
