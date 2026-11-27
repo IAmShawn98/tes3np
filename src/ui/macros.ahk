@@ -473,7 +473,7 @@ RefreshMacroBookRows()
         if itemRow.StatusError != state.Error
         {
             ; Only the ink changes: preserve the measured scaled font.
-            itemRow.Status.SetFont(state.Error ? "cB22222" : "c241408")
+            SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")
             itemRow.StatusError := state.Error
         }
         running := MacroProcessRunning(item)

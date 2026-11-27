@@ -2223,7 +2223,7 @@ expect(
     and 'return 188' in macro_menu_ui
     and 'pitch := Max(70, headerH + 7 + actionH + 12)' in macro_menu_ui
     and 'x := 557 + row.NameWidth + width + 8' in macro_menu_ui
-    and 'itemRow.Status.SetFont(state.Error ? "cB22222" : "c241408")' in macro_menu_ui
+    and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")' in macro_menu_ui
     and 'Inline macro state overlaps name, rename or actions.' in launcher_smoke_tests
     and 'Macro state color change altered the measured font.' in launcher_smoke_tests
     and 'CharacterPage.MacroViewportHeight := slots * pitch - 12' in macro_menu_ui

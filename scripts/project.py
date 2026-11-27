@@ -524,7 +524,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
             and 'macro.LastError := "Could not stop"' in macro
             and 'macro.LastError := ""' in macro
-            and 'itemRow.Status.SetFont(state.Error ? "cB22222" : "c241408")' in macro
+            and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro
             and 'displayState := state.Error ? state.Text : "(" state.Text ")"' in macro
             and 'x := 557 + row.NameWidth + width + 8' in macro,

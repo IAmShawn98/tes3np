@@ -1563,8 +1563,8 @@ CheckMeasuredPopulatedMacroBook()
                     }
                     LayoutMacroRowStatus(row, false)
                     oldFontHeight := NativeInterfaceFontHeight(row.Status)
-                    row.Status.SetFont("cB22222")
-                    row.Status.SetFont("c241408")
+                    SetAccessibleTextFont(row.Status, "cB22222")
+                    SetAccessibleTextFont(row.Status, "c241408")
                     if NativeInterfaceFontHeight(row.Status) != oldFontHeight
                         throw Error("Macro state color change altered the measured font.")
                 }
