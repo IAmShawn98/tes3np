@@ -669,7 +669,16 @@ expect(
     and in_order(chat_layout, "Screen.FromHandle(owner).WorkingArea",
                  "FitPopupScale(launcherScale, chatWidth, dockHeight, work)",
                  "DockBounds(bounds, work, size, size.Width)",
-                 "MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true);")
+                 "!MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true))",
+                 "SetOwnedChatVisibility(owner, Handle, false);",
+                 "return;",
+                 "SetOwnedChatVisibility(owner, Handle, chatOpen && !discordLoginVisible);")
+    and re.search(
+        r"if \(chatOpen && !discordLoginVisible && Bounds != target &&\s*"
+        r"!MoveWindow\(Handle, target\.X, target\.Y, target\.Width, target\.Height, true\)\)\s*"
+        r"\{\s*SetOwnedChatVisibility\(owner, Handle, false\);\s*return;\s*\}",
+        chat_layout,
+    ) is not None
     and "MoveWindow(Handle, bounds.Left - chatWidth, y, chatWidth, windowHeight, true);" not in source,
 )
 expect(
