@@ -97,7 +97,7 @@ internal sealed partial class GameChatWindow
         if (newMessage && initialBackfillComplete &&
             !waitingForLiveFeedAfterHistory &&
             chatDisplayMode == "Automatic" && docked && IsHandleCreated &&
-            CanPresentOwnedChat(owner, Handle))
+            GameChatNative.CanPresentOwnedChat(owner, Handle))
         {
             lastChatActivity = DateTime.Now;
             SetChatOpen(true);

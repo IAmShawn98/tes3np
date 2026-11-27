@@ -3282,7 +3282,7 @@ expect(
                  'if (!CanPresentOwnedChat(owner, chat))', 'return IsWindowVisible(chat);')
     and in_order(chat_layout, 'IsIconic(owner)', 'MoveWindow(Handle, target.X',
                  'SetOwnedChatVisibility(owner, Handle, chatOpen && !discordLoginVisible);')
-    and 'CanPresentOwnedChat(owner, Handle))' in section_between(source, 'void NotifyForNewMessage(', 'bool MergeDiscordMessages(')
+    and 'GameChatNative.CanPresentOwnedChat(owner, Handle))' in section_between(source, 'void NotifyForNewMessage(', 'bool MergeDiscordMessages(')
     and 'watch.Tick += (_, _) => SyncChatOwnerPresentation();' in chat_window
     and 'ShowWindow(Handle, 4)' not in section_between(source, 'void SetChatOpen(bool show)', 'void SyncChatOwnerPresentation()')
     and '--check-chat-owner-visibility' in source
