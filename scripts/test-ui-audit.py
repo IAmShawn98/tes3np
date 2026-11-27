@@ -195,9 +195,16 @@ class InventoryCoverageTests(unittest.TestCase):
             "Are you sure you want to reset your character list?"
         )
         confirmation = 'if MsgBox("' + expected + '", "Reset Character List", 0x124) != "Yes"'
-        self.assertIn(confirmation + "\n        return", reset)
+        cancelled = 'MsgBox("Character list reset cancelled. No changes were made.", "Character List Reset", "Iconi")'
+        success = 'MsgBox("Your character list has been successfully reset.", "Character List Reset", "Iconi")'
+        self.assertIn(confirmation + "\n    {\n        " + cancelled + "\n        return\n    }", reset)
         self.assertLess(reset.index(confirmation), reset.index("StopGameRecovery()"))
-        self.assertLess(reset.index(confirmation), reset.index("Profiles := []"))
+        self.assertLess(reset.index(cancelled), reset.index("Profiles := []"))
+        self.assertIn('catch\n        {\n            Profiles := previousProfiles', reset)
+        self.assertIn('MsgBox("Could not save the character list. Check launcher data permissions.", "tes3np", "Icon!")\n            return', reset)
+        self.assertIn("RefreshProfiles()\n    }\n    finally EndInterfaceUpdate()\n    CharacterPage.Opt(\"+OwnDialogs\")\n    " + success, reset)
+        self.assertEqual(reset.count(success), 1)
+        self.assertEqual(reset.count(cancelled), 1)
 
     def test_editor_uses_measured_stack_and_right_column_ownership(self):
         root = SOURCE.parents[1] / "src/ui"
