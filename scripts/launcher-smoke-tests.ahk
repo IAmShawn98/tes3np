@@ -2047,7 +2047,7 @@ CheckMeasuredBookEditorGeometry()
                 SetAccessibleTextFont(page, "s19 Norm", LauncherThemeFont())
                 title := "Editing UnbrokenBalmoraCharacterNameWithoutSpaces"
                 heading := page.Add("Text", "x525 y45 w360 h30 Center", title)
-                SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
+                SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
                 rows := []
                 for caption in ["Username", "Password", "Username screen delay (sec)",
                     "Password screen delay (sec)", "Character loading delay (sec)"]
@@ -2060,15 +2060,25 @@ CheckMeasuredBookEditorGeometry()
                 accountHeading := page.Add("Text", "x525 y82 w355 h24", GetBookEditorAccountHeading(1))
                 autoLoginHeading := page.Add("Text", "x525 y228 w355 h24", "Auto Login")
                 race := page.Add("Text", "x525 y424 w355 h24", "Race Info")
-                SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
+                SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
                 combo := page.Add("DropDownList", "x525 y376 w355 h240", ["Select race...", "Original Character"])
+                SetAccessibleTextFont(page, "s9 Norm", LauncherThemeFont())
                 hint := page.Add("Text", "x525 y407 w355 h19", "Race: Dark Elf  |  Change portrait")
+                SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
                 reconnect := page.Add("Text", "x551 y432 w329 h24", "Auto reconnect on crash")
+                SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
                 save := page.Add("Text", "x635 y465 w140 h30", "Save changes")
                 dismiss := page.Add("Text", "x685 y507 w30 h24", "X")
                 controls := {Rows: rows, AccountHeading: accountHeading, AutoLoginHeading: autoLoginHeading,
                     SpeciesLabel: race, Species: combo, Hint: hint,
                     Reconnect: reconnect, Save: save, Dismiss: dismiss}
+                for row in rows
+                {
+                    AssertBookEditorBold(row.Label)
+                    AssertBookEditorBold(row.Input)
+                }
+                AssertBookEditorBold(combo)
+                AssertBookEditorBold(reconnect)
                 plan := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
                 if mode = "Normal"
                 {
@@ -2169,6 +2179,15 @@ CheckMeasuredBookEditorGeometry()
         CharacterPage := savedPage
         AccessibilityTextSize := savedMode
     }
+}
+
+AssertBookEditorBold(control)
+{
+    font := DllCall("SendMessageW", "Ptr", control.Hwnd, "UInt", 0x31, "Ptr", 0, "Ptr", 0, "Ptr")
+    definition := Buffer(92, 0) ; LOGFONTW
+    if !font || DllCall("gdi32\GetObjectW", "Ptr", font, "Int", definition.Size,
+        "Ptr", definition, "Int") != definition.Size || NumGet(definition, 16, "Int") < 700
+        throw Error("Character editor field did not receive the bold font.")
 }
 
 AssertBookEditorParchmentFit(plan)

@@ -181,6 +181,10 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("accountHeading := AddBookLabel(CharacterPage", characters)
         self.assertIn("autoLoginHeading := AddBookLabel(CharacterPage", characters)
         self.assertIn("speciesLabel := AddBookLabel(CharacterPage", characters)
+        editor = characters[characters.index("CreateProfileEditor()\n{"):characters.index("\nBookEditorSafeBottom(")]
+        bold = 'SetAccessibleTextFont(CharacterPage, "s10 Bold c382314", LauncherThemeFont())'
+        for marker in ("Loading setting label", "speciesOptions :=", "EditorControls.Push(speciesLabel"):
+            self.assertEqual(editor[editor.rfind("SetAccessibleTextFont", 0, editor.index(marker)):].splitlines()[0], bold)
         self.assertIn("BookEditorSafeBottom(x, width)", characters)
         self.assertIn("reconnectY + reconnectH + 5 - BookEditorSafeBottom(525, 355)", characters)
         self.assertIn("saveY + saveH + 5 - BookEditorSafeBottom(saveX, saveW)", characters)
