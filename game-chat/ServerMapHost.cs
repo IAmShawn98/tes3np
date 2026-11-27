@@ -82,7 +82,9 @@ internal static class ServerMapHost
                 BackColor = Color.FromArgb(19, 39, 37)
             };
             using var context = new ApplicationContext();
-            using var watch = new System.Windows.Forms.Timer { Interval = 50 };
+            // Match the launcher's fast position watchdog. This only checks
+            // native bounds; it never reloads the map or refreshes its tiles.
+            using var watch = new System.Windows.Forms.Timer { Interval = 16 };
             var status = new Button
             {
                 Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat,

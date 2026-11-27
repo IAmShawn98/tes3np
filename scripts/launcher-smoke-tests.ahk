@@ -3238,6 +3238,18 @@ CheckLauncherMapShell()
                 throw Error("Visible Map overlaps the launcher instead of docking outward.")
             ; Disable asynchronous layout while inspecting synthetic dimensions.
             SetTimer(SyncLauncherMapPanel, 0)
+            ; Exercise the same movement handler without relying on watchdog ticks.
+            if !DllCall("SetWindowPos", "Ptr", owner.Hwnd, "Ptr", 0,
+                "Int", NumGet(ownerRect, 0, "Int") - 5, "Int", NumGet(ownerRect, 4, "Int"),
+                "Int", 0, "Int", 0, "UInt", 0x15)
+                throw Error("Could not move the Map test owner.")
+            LauncherMapOwnerMoved(0, 0, 0x0003, owner.Hwnd)
+            movedOwner := Buffer(16, 0), movedMap := Buffer(16, 0)
+            if !DllCall("GetWindowRect", "Ptr", owner.Hwnd, "Ptr", movedOwner)
+                || !DllCall("GetWindowRect", "Ptr", LauncherMapPanel.Hwnd, "Ptr", movedMap)
+                || NumGet(movedOwner, 0, "Int") != NumGet(ownerRect, 0, "Int") - 5
+                || NumGet(movedMap, 0, "Int") != NumGet(mapRect, 0, "Int") - 5
+                throw Error("Map movement notification did not translate the panel.")
             for mode in ["Normal", "Large", "Extra Large"]
             {
                 AccessibilityTextSize := mode

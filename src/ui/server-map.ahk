@@ -41,7 +41,10 @@ SetLauncherMapOpen(open, loadContent := true)
             }
             if loadContent
                 StartLauncherMapBrowser(LauncherMapPanel)
-            SetTimer(SyncLauncherMapPanel, 150)
+            ; Follow native owner movement immediately; keep a fast watchdog for
+            ; visibility, work-area, scale and missed movement notifications.
+            OnMessage(0x0003, LauncherMapOwnerMoved)
+            SetTimer(SyncLauncherMapPanel, 16)
         }
         catch
         {
@@ -51,6 +54,7 @@ SetLauncherMapOpen(open, loadContent := true)
     }
     else
     {
+        OnMessage(0x0003, LauncherMapOwnerMoved, 0)
         SetTimer(SyncLauncherMapPanel, 0)
         if IsObject(LauncherMapPanel)
             LauncherMapPanel.Hide()
@@ -287,7 +291,26 @@ LayoutLauncherMapPanel(panel, w, h)
     panel.MapSizeKey := key
 }
 
+LauncherMapOwnerMoved(wParam, lParam, msg, hwnd)
+{
+    global LauncherGui, LauncherMapOpen
+    ; WM_MOVE also arrives for the map and other windows. Only the launcher
+    ; drives docking; do not intercept the native message or change activation.
+    if LauncherMapOpen && IsObject(LauncherGui) && hwnd = LauncherGui.Hwnd
+        SyncLauncherMapPanel()
+}
+
 SyncLauncherMapPanel(allowOwnerMove := false, *)
+{
+    static syncing := false
+    if syncing
+        return
+    syncing := true
+    try return SyncLauncherMapPanelCore(allowOwnerMove)
+    finally syncing := false
+}
+
+SyncLauncherMapPanelCore(allowOwnerMove := false)
 {
     global LauncherGui, LauncherMapPanel, LauncherMapOpen, LauncherMapToggle
     if !LauncherMapOpen || !IsObject(LauncherMapPanel) || !IsObject(LauncherGui)
@@ -371,6 +394,7 @@ StartLauncherMapBrowser(panel)
 DisposeLauncherMapPanel()
 {
     global LauncherMapPanel, LauncherMapOpen
+    OnMessage(0x0003, LauncherMapOwnerMoved, 0)
     SetTimer(SyncLauncherMapPanel, 0)
     LauncherMapOpen := false
     if IsObject(LauncherMapPanel)

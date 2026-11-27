@@ -3185,6 +3185,12 @@ expect(
     and 'SetLauncherMapOpen(!LauncherMapOpen, false)' in launcher_smoke_tests
     and 'LauncherMapPanel.MapBrowserStarted || LauncherMapPanel.MapBrowserPid' in launcher_smoke_tests
     and 'SetTimer(SyncLauncherMapPanel, 0)' in server_map
+    and 'SetTimer(SyncLauncherMapPanel, 16)' in server_map
+    and 'OnMessage(0x0003, LauncherMapOwnerMoved)' in server_map
+    and server_map.count('OnMessage(0x0003, LauncherMapOwnerMoved, 0)') == 2
+    and 'if LauncherMapOpen && IsObject(LauncherGui) && hwnd = LauncherGui.Hwnd' in server_map
+    and 'finally syncing := false' in server_map
+    and 'Map movement notification did not translate the panel.' in launcher_smoke_tests
     and 'assets/controls/map-frame.png' in resource_generator
     and 'CheckLauncherMapShell()' in launcher_smoke_tests,
 )
@@ -3200,6 +3206,7 @@ expect(
     and 'SetNativeWindowOwner(handle, frame)' in map_host
     and 'SetParent(' not in map_host
     and 'GetWindowRect(viewport, out var rect)' in map_host
+    and 'Timer { Interval = 16 }' in map_host
     and 'SetWindowPos(handle, IntPtr.Zero, rect.Left, rect.Top, width, height,' in map_host
     and 'protected override bool ShowWithoutActivation => true;' in map_host
     and 'WS_EX_NOACTIVATE | WS_EX_TRANSPARENT' in map_host
