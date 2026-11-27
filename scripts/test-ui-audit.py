@@ -140,6 +140,8 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("nameH := Max(nameH, collection.Height)", macros)
         self.assertIn("headerH := Max(nameH, statusH + 2)", macros)
         self.assertIn("LayoutMacroRowStatus(row, editing)", macros)
+        self.assertIn("available := Max(1, 880 - x - 8 - width)", macros)
+        self.assertIn("MoveMacroStyledIfChanged(row.Rename, x + statusW + 8, row.Y, width, row.NameHeight)", macros)
         self.assertIn('SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")', macros)
         self.assertIn('displayState := state.Error ? state.Text : "(" state.Text ")"', macros)
         self.assertIn("MoveMacroStyledIfChanged(row.Run, 525, actionY, 111, actionH)", macros)

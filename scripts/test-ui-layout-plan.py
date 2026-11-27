@@ -211,7 +211,10 @@ class LayoutPlanningTest(unittest.TestCase):
         controls = dict(positions)
         self.assertEqual(controls["character-1-name"], layout.Rect(95, 164, 140, 23))
         self.assertEqual(controls["character-10-remove"], layout.Rect(365, 398, 75, 22))
-        self.assertEqual(controls["macro-1-status"], layout.Rect(711, 147, 169, 20))
+        self.assertEqual(controls["macro-1-status"], layout.Rect(682, 147, 128, 20))
+        self.assertEqual(controls["macro-1-rename"], layout.Rect(818, 145, 21, 22))
+        self.assertLess(controls["macro-1-name"].right, controls["macro-1-status"].x)
+        self.assertLess(controls["macro-1-status"].right, controls["macro-1-rename"].x)
         self.assertEqual(controls["macro-4-run"], layout.Rect(525, 396, 111, 33))
         self.assertEqual(controls["footer-close"], layout.Rect(795, 575, 90, 30))
 

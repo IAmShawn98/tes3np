@@ -2222,7 +2222,10 @@ expect(
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
     and 'pitch := Max(70, headerH + 7 + actionH + 12)' in macro_menu_ui
-    and 'x := 557 + row.NameWidth + width + 8' in macro_menu_ui
+    and 'x := 557 + row.NameWidth' in macro_menu_ui
+    and 'available := Max(1, 880 - x - 8 - width)' in macro_menu_ui
+    and 'MoveMacroStyledIfChanged(row.Rename, x + statusW + 8, row.Y, width, row.NameHeight)' in macro_menu_ui
+    and 'Macro state must precede the rename button.' in launcher_smoke_tests
     and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")' in macro_menu_ui
     and 'Inline macro state overlaps name, rename or actions.' in launcher_smoke_tests
     and 'Macro state color change altered the measured font.' in launcher_smoke_tests

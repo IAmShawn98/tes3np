@@ -1487,7 +1487,7 @@ CheckMeasuredPopulatedMacroBook()
                 {
                     y := 140 + (A_Index - 1) * 70
                     SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
-                    status := page.Add("Text", "x752 y" (y + 2) " w128 h22", "(Ready)")
+                    status := page.Add("Text", "x682 y" (y + 2) " w128 h22", "(Ready)")
                     SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
                     tick := page.Add("Text", "x525 y" (y + 2) " w18 h18", "")
                     name := page.Add("Text", "x551 y" y " w125 h22", "Macro")
@@ -1496,7 +1496,7 @@ CheckMeasuredPopulatedMacroBook()
                     stop := page.Add("Text", "x646 y" (y + 29) " w112 h24", "Stop")
                     remove := page.Add("Text", "x768 y" (y + 29) " w112 h24", "Remove")
                     SetAccessibleTextFont(page, "s10 Bold", "Segoe UI Symbol")
-                    rename := page.Add("Text", "x682 y" y " w21 h22", Chr(0x270E))
+                    rename := page.Add("Text", "x818 y" y " w21 h22", Chr(0x270E))
                     MacroBookRows.Push({Tick: tick, Status: status, Rename: rename,
                         Name: name, NameWidth: 125, NameScale: 0,
                         Y: y, Run: run, Stop: stop, Remove: remove})
@@ -1549,18 +1549,24 @@ CheckMeasuredPopulatedMacroBook()
                         || ay != ty || ay != ry || ah != th || ah != rh
                         || tx + 1 < ax + aw + BookS(10) || rx + 1 < tx + tw + BookS(10)
                         throw Error("Macro action lane does not retain equal-height separated buttons.")
-                    for editing in [false, true]
+                    for caption in ["(Ready)", "(Running)", "Process tracking unavailable", "Could not save the macro name."]
                     {
-                        LayoutMacroRowStatus(row, editing)
-                        row.Rename.GetPos(&px, &py, &pw, &ph)
-                        row.Status.GetPos(&sx, &sy, &sw, &sh)
-                        if py != ny || ph != nh || px + 1 < nx + nw + BookS(6)
-                            || sx + 1 < px + pw + BookS(8) || Abs(sy - ny - BookS(2)) > 1
-                            || Abs(sx + sw - BookS(880)) > 1
-                            || ay + 1 < Max(ny + nh, sy + sh) + BookS(7)
-                            || sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", Max(1, sw - BookS(4)))
-                            throw Error("Inline macro state overlaps name, rename or actions.")
+                        row.Status.Text := caption
+                        for editing in [false, true]
+                        {
+                            LayoutMacroRowStatus(row, editing)
+                            row.Rename.GetPos(&px, &py, &pw, &ph)
+                            row.Status.GetPos(&sx, &sy, &sw, &sh)
+                            if sx + 1 < nx + nw + BookS(6) || px + 1 < sx + sw + BookS(8)
+                                throw Error("Macro state must precede the rename button.")
+                            if py != ny || ph != nh || Abs(sy - ny - BookS(2)) > 1
+                                || px + pw > BookS(880) + 1
+                                || ay + 1 < Max(ny + nh, sy + sh) + BookS(7)
+                                || sh < MeasureAccessibleWrappedText(row.Status, caption, Max(1, sw - BookS(4)))
+                                throw Error("Inline macro state overlaps name, rename or actions.")
+                        }
                     }
+                    row.Status.Text := "(Ready)"
                     LayoutMacroRowStatus(row, false)
                     oldFontHeight := NativeInterfaceFontHeight(row.Status)
                     SetAccessibleTextFont(row.Status, "cB22222")
@@ -1593,10 +1599,10 @@ CheckMeasuredPopulatedMacroBook()
                         row.Run.GetPos(&ax, &ay, , &ah)
                         row.Remove.GetPos(&rx, , &rw)
                         display := PrepareAccessibleBookName(row.Name, MacroItems[position].Name, Max(1, nw - BookS(8)))
-                        if sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", Max(1, sw - BookS(4)))
+                        if sh < MeasureAccessibleWrappedText(row.Status, row.Status.Text, Max(1, sw - BookS(4)))
                             || nh < MeasureAccessibleWrappedText(row.Name, display, Max(1, nw - BookS(8)))
                             || ah < MeasureAccessibleSingleLineText(row.Run, "Run").Height
-                            || Abs(sy - ny - BookS(2)) > 1 || sx < nx + nw + BookS(8)
+                            || Abs(sy - ny - BookS(2)) > 1 || sx + 1 < nx + nw + BookS(6)
                             || sx + sw > BookS(880) + 1 || ay + 1 < Max(ny + nh, sy + sh) + BookS(7)
                             || ax != BookS(525) || rx + rw > BookS(880) + 1
                             throw Error("Measured macro controls overlap or clip.")

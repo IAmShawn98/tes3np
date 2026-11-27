@@ -474,12 +474,12 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroScrollOffset := Max(0, row - 1)' in macro
             and 'MacroScrollOffset := GetMacroPagePlan(MacroItems.Length, GetMacroVisibleSlots(), MacroScrollOffset).Offset' in macro
             and 'MacroList.Visible := false' in macro,
-        "status beside the name and inline rename button, full-width actions below":
+        "status between the name and inline rename button, full-width actions below":
             'status := CharacterPage.Add("Text",' in macro
-            and '"x752 y" (y + 2) " w128 h22 BackgroundTrans c241408 +0x100", "")' in macro
+            and '"x682 y" (y + 2) " w128 h22 BackgroundTrans c241408 +0x100", "")' in macro
             and 'AddBookTick(CharacterPage, 525, y + 2, SelectMacroBookRow.Bind(position))' in macro
             and 'AddBookLabel(CharacterPage, 551, y, 125, 22, "")' in macro
-            and 'rename := AddStyledButton(CharacterPage, 682, y, 21, 22,' in macro
+            and 'rename := AddStyledButton(CharacterPage, 818, y, 21, 22,' in macro
             and 'EditMacroBookRow.Bind(position)' in macro
             and 'AddStyledButton(CharacterPage, 525, y + 29, 111, 24,' in macro
             and 'AddStyledButton(CharacterPage, 646, y + 29, 112, 24,' in macro
@@ -527,7 +527,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro
             and 'displayState := state.Error ? state.Text : "(" state.Text ")"' in macro
-            and 'x := 557 + row.NameWidth + width + 8' in macro,
+            and 'x := 557 + row.NameWidth' in macro
+            and 'available := Max(1, 880 - x - 8 - width)' in macro
+            and 'MoveMacroStyledIfChanged(row.Rename, x + statusW + 8, row.Y, width, row.NameHeight)' in macro,
         "macro pagination uses shared page ranges and matching native navigation":
             'CharacterPage.MacroPreviousPage := AddStyledButton' in macro
             and 'CharacterPage.MacroNextPage := AddStyledButton' in macro

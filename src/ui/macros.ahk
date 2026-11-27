@@ -26,16 +26,16 @@ BuildMacroBookPanel()
     Loop 4
     {
         position := A_Index
-        ; Name, rename and state share a header; actions occupy the full lane.
+        ; Name, state and rename share a header; actions occupy the full lane.
         y := 140 + (position - 1) * 70
         SetAccessibleTextFont(CharacterPage, "s9 Norm c241408", LauncherMorrowindFont)
         status := CharacterPage.Add("Text",
-            "x752 y" (y + 2) " w128 h22 BackgroundTrans c241408 +0x100", "")
+            "x682 y" (y + 2) " w128 h22 BackgroundTrans c241408 +0x100", "")
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
         tick := AddBookTick(CharacterPage, 525, y + 2, SelectMacroBookRow.Bind(position))
         name := AddBookLabel(CharacterPage, 551, y, 125, 22, "")
         ButtonFaces[name.Hwnd].UseControlPosition := true
-        rename := AddStyledButton(CharacterPage, 682, y, 21, 22,
+        rename := AddStyledButton(CharacterPage, 818, y, 21, 22,
             Chr(0x270E), EditMacroBookRow.Bind(position))
         ButtonFaces[rename.Hwnd].UseControlPosition := true
         SetAccessibleTextFont(rename, "s10 Bold", "Segoe UI Symbol")
@@ -460,7 +460,6 @@ RefreshMacroBookRows()
         }
         item := MacroItems[index]
         editing := IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = item
-        RefreshMacroNameRow(itemRow, item.Name, editing)
         editVisible := editVisible || editing
         selected := index = selectedIndex
         if ButtonFaces[itemRow.Tick.Hwnd].Checked != selected
@@ -476,6 +475,7 @@ RefreshMacroBookRows()
             SetAccessibleTextFont(itemRow.Status, state.Error ? "cB22222" : "c241408")
             itemRow.StatusError := state.Error
         }
+        RefreshMacroNameRow(itemRow, item.Name, editing)
         running := MacroProcessRunning(item)
         missing := !ValidMacroApplication(item)
             || (item.Kind != "App" && !ValidMacroEntry(item.Folder, item.Entry))
@@ -549,10 +549,17 @@ SelectMacroBookRow(position, *)
 LayoutMacroRowStatus(row, editing)
 {
     width := editing ? row.SaveWidth : row.PencilWidth
-    MoveMacroStyledIfChanged(row.Rename, 557 + row.NameWidth, row.Y, width, row.NameHeight)
-    x := 557 + row.NameWidth + width + 8
+    x := 557 + row.NameWidth
+    available := Max(1, 880 - x - 8 - width)
+    ; Short states sit directly beside the name; long errors use the
+    ; remaining measured lane and wrap without displacing the actions.
+    caption := row.Status.Text
+    scale := GetCharacterBookScale()
+    extent := caption = "" ? 0 : MeasureAccessibleSingleLineText(row.Status, caption).Width
+    statusW := Min(available, Max(24, Ceil((extent + BookS(4)) / scale)))
     MoveMacroTextIfChanged(row.Status, BookS(x), BookS(row.Y + 2),
-        BookS(Max(1, 880 - x)), BookS(row.StatusHeight))
+        BookS(statusW), BookS(row.StatusHeight))
+    MoveMacroStyledIfChanged(row.Rename, x + statusW + 8, row.Y, width, row.NameHeight)
 }
 
 RefreshMacroNameRow(row, name, editing)

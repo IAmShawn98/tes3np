@@ -330,10 +330,10 @@ def expand_book_control_positions(
         action_offset = name_height + 7
         action_height = max(24, macro_row_height - action_offset)
         controls.extend((
-            (prefix + "-status", Rect(711, y + 2, 169, name_height - 2)),
+            (prefix + "-status", Rect(682, y + 2, 128, name_height - 2)),
             (prefix + "-tick", Rect(525, y + 2, 18, 18)),
             (prefix + "-name", Rect(551, y, 125, name_height)),
-            (prefix + "-rename", Rect(682, y, 21, name_height)),
+            (prefix + "-rename", Rect(818, y, 21, name_height)),
             (prefix + "-run", Rect(525, y + action_offset, 111, action_height)),
             (prefix + "-stop", Rect(646, y + action_offset, 112, action_height)),
             (prefix + "-remove", Rect(768, y + action_offset, 112, action_height)),
