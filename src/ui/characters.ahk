@@ -908,8 +908,15 @@ CreateProfileEditor()
     Loop 5
     {
         position := A_Index
-        ; Keep the five editable fields evenly spaced.
-        y := 100 + (position - 1) * 50
+        ; Credentials sit above the dedicated auto-login settings section.
+        y := 82 + (position - 1) * 50 + (position >= 3 ? 28 : 0)
+        if position = 3
+        {
+            SetAccessibleTextFont(CharacterPage, "s13 Bold c241408", LauncherThemeFont())
+            autoLoginHeading := CharacterPage.Add("Text", "x525 y182 w355 h24 BackgroundTrans Hidden", "Auto Login Settings")
+            EditorControls.Push(autoLoginHeading)
+            SetAccessibleTextFont(CharacterPage, "s10 Norm c382314", LauncherThemeFont())
+        }
         SetInterfaceLoadingText("Loading setting label " position "...")
         label := AddBookLabel(CharacterPage, 525, y, 355, 22, "")
         SetInterfaceLoadingText("Loading setting field " position "...")
@@ -921,35 +928,35 @@ CreateProfileEditor()
     }
     SetInterfaceLoadingText("Loading race selector...")
     SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
-    speciesLabel := AddBookLabel(CharacterPage, 525, 351, 355, 22, "Race")
+    speciesLabel := AddBookLabel(CharacterPage, 525, 361, 355, 22, "Race")
     speciesOptions := ["Select race..."]
     for item in CharacterSpeciesOptions()
         speciesOptions.Push(item)
     speciesOptions.Push("Original Character")
     EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
-        "x525 y376 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
+        "x525 y386 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
     EditorSpeciesDropDown.OnEvent("Change", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
     SetAccessibleTextFont(CharacterPage, "s9 c382314", LauncherThemeFont())
-    ; The old hint overlapped the DDL's collapsed native control (y376..~402),
+    ; The hint must remain below the collapsed native race selector,
     ; so its text could remain invisible until the book was reconstructed.
     EditorOCSpeciesHint := CharacterPage.Add("Text",
-        "x525 y407 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
+        "x525 y417 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
     ; by clicking the persistent race line without changing the layout.
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
     SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
-    EditorReconnectTick := AddBookTick(CharacterPage, 525, 435, ToggleEditorReconnect)
-    reconnectLabel := AddBookLabel(CharacterPage, 551, 432, 329, 24, "Auto reconnect on crash")
+    EditorReconnectTick := AddBookTick(CharacterPage, 525, 445, ToggleEditorReconnect)
+    reconnectLabel := AddBookLabel(CharacterPage, 551, 442, 329, 24, "Auto reconnect on crash")
     reconnectLabel.Opt("+0x100")
     reconnectLabel.OnEvent("Click", ToggleEditorReconnect)
     EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
-    EditorSaveButton := AddStyledButton(CharacterPage, 635, 465, 140, 30, "Save changes", (*) => 0)
+    EditorSaveButton := AddStyledButton(CharacterPage, 635, 475, 140, 30, "Save changes", (*) => 0)
     EditorControls.Push(EditorSaveButton)
-    dismiss := AddStyledButton(CharacterPage, 685, 507, 30, 24, "X", CloseProfileEditor)
+    dismiss := AddStyledButton(CharacterPage, 685, 517, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
-    CharacterPage.BookEditorControls := {Rows: EditorRows, SpeciesLabel: speciesLabel,
+    CharacterPage.BookEditorControls := {Rows: EditorRows, AutoLoginHeading: autoLoginHeading, SpeciesLabel: speciesLabel,
         Species: EditorSpeciesDropDown, Hint: EditorOCSpeciesHint, Tick: EditorReconnectTick,
         Reconnect: reconnectLabel, Save: EditorSaveButton, Dismiss: dismiss}
 }
@@ -963,10 +970,18 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured)
     title := measured ? PrepareAccessibleBookName(heading, originalTitle, BookS(352)) : originalTitle
     titleH := measured ? Max(30, Ceil((MeasureAccessibleWrappedText(
         heading, title, BookS(352)) + BookS(4)) / scale)) : 30
-    rowY := Max(100, 45 + titleH + 15)
+    rowY := 45 + titleH + 7
+    sectionY := 0
+    sectionH := measured ? Max(24, Ceil((MeasureAccessibleWrappedText(
+        controls.AutoLoginHeading, controls.AutoLoginHeading.Text, BookS(351)) + BookS(4)) / scale)) : 24
     rows := []
-    for row in controls.Rows
+    for index, row in controls.Rows
     {
+        if index = 3
+        {
+            sectionY := rowY
+            rowY += sectionH + 4
+        }
         labelH := measured ? Max(22, Ceil((MeasureAccessibleWrappedText(
             row.Label, row.Label.Text, BookS(351)) + BookS(4)) / scale)) : 22
         inputH := measured ? Max(25, Ceil((MeasureAccessibleSingleLineText(
@@ -974,7 +989,7 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured)
         rows.Push({Y: rowY, LabelHeight: labelH, InputHeight: inputH})
         rowY += labelH + 1 + inputH + 2
     }
-    raceY := Max(351, rowY + 1)
+    raceY := rowY + 1
     raceH := measured ? Max(22, Ceil((MeasureAccessibleWrappedText(
         controls.SpeciesLabel, controls.SpeciesLabel.Text, BookS(351)) + BookS(4)) / scale)) : 22
     ddlY := raceY + raceH + 3
@@ -983,13 +998,13 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured)
     nativeSelectionH := DllCall("SendMessageW", "Ptr", controls.Species.Hwnd,
         "UInt", 0x154, "Ptr", -1, "Ptr", 0, "Ptr")
     ddlH := measured ? Max(26, Ceil(nativeSelectionH / (scale * A_ScreenDPI / 96)) + 8) : 26
-    hintY := Max(407, ddlY + ddlH + 5)
+    hintY := ddlY + ddlH + 5
     hintH := measured ? Max(19, Ceil((MeasureAccessibleWrappedText(
         controls.Hint, controls.Hint.Text, BookS(351)) + BookS(4)) / scale)) : 19
-    reconnectY := Max(432, hintY + hintH + 6)
+    reconnectY := hintY + hintH + 6
     reconnectH := measured ? Max(24, Ceil((MeasureAccessibleWrappedText(
         controls.Reconnect, controls.Reconnect.Text, BookS(325)) + BookS(4)) / scale)) : 24
-    saveY := Max(465, reconnectY + reconnectH + 9)
+    saveY := reconnectY + reconnectH + 9
     saveH := 30, saveW := 140, dismissH := 24, dismissW := 30
     if measured
     {
@@ -1000,8 +1015,9 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured)
         dismissH := Max(dismissH, Ceil((dismissExtent.Height + BookS(8)) / scale))
         dismissW := Max(dismissW, Ceil((dismissExtent.Width + BookS(12)) / scale))
     }
-    dismissY := Max(507, saveY + saveH + 12)
-    return {Title: title, TitleHeight: titleH, Rows: rows, RaceY: raceY,
+    dismissY := saveY + saveH + 12
+    return {Title: title, TitleHeight: titleH, Rows: rows,
+        SectionY: sectionY, SectionHeight: sectionH, RaceY: raceY,
         RaceHeight: raceH, DropdownY: ddlY, HintY: hintY, HintHeight: hintH,
         ReconnectY: reconnectY, ReconnectHeight: reconnectH, SaveY: saveY,
         SaveHeight: saveH, SaveWidth: saveW, DismissY: dismissY,
@@ -1031,6 +1047,8 @@ ReflowProfileEditor()
     LaunchSettingsHeading.Text := plan.Title
     MoveMacroTextIfChanged(LaunchSettingsHeading, BookS(525), BookS(45),
         BookS(360), BookS(plan.TitleHeight))
+    MoveMacroTextIfChanged(controls.AutoLoginHeading, BookS(525), BookS(plan.SectionY),
+        BookS(355), BookS(plan.SectionHeight))
     for index, row in controls.Rows
     {
         metrics := plan.Rows[index]

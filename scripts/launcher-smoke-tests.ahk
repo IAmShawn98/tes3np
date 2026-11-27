@@ -2033,22 +2033,26 @@ CheckMeasuredBookEditorGeometry()
                     input := page.Add("Edit", "x525 y123 w355 h25", "")
                     rows.Push({Label: label, Input: input})
                 }
-                race := page.Add("Text", "x525 y351 w355 h22", "Race")
+                SetAccessibleTextFont(page, "s13 Bold c241408", LauncherThemeFont())
+                autoLoginHeading := page.Add("Text", "x525 y182 w355 h24", "Auto Login Settings")
+                SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
+                race := page.Add("Text", "x525 y361 w355 h22", "Race")
                 combo := page.Add("DropDownList", "x525 y376 w355 h240", ["Select race...", "Original Character"])
                 hint := page.Add("Text", "x525 y407 w355 h19", "Race: Dark Elf  |  Change portrait")
                 reconnect := page.Add("Text", "x551 y432 w329 h24", "Auto reconnect on crash")
                 save := page.Add("Text", "x635 y465 w140 h30", "Save changes")
                 dismiss := page.Add("Text", "x685 y507 w30 h24", "X")
-                controls := {Rows: rows, SpeciesLabel: race, Species: combo, Hint: hint,
+                controls := {Rows: rows, AutoLoginHeading: autoLoginHeading, SpeciesLabel: race, Species: combo, Hint: hint,
                     Reconnect: reconnect, Save: save, Dismiss: dismiss}
                 plan := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
                 if mode = "Normal"
                 {
-                    if plan.TitleHeight != 30 || plan.Rows[1].Y != 100
-                        || plan.Rows[5].Y != 300 || plan.RaceY != 351
-                        || plan.DropdownY != 376 || plan.HintY != 407
-                        || plan.ReconnectY != 432 || plan.SaveY != 465
-                        || plan.DismissY != 507 || plan.Extra
+                    if plan.TitleHeight != 30 || plan.Rows[1].Y != 82
+                        || plan.Rows[2].Y != 132 || plan.SectionY != 182 || plan.SectionHeight != 24
+                        || plan.Rows[3].Y != 210 || plan.Rows[5].Y != 310 || plan.RaceY != 361
+                        || plan.DropdownY != 386 || plan.HintY != 417
+                        || plan.ReconnectY != 442 || plan.SaveY != 475
+                        || plan.DismissY != 517 || plan.Extra
                         throw Error("Normal editor anchors changed.")
                 }
                 else
@@ -2066,6 +2070,10 @@ CheckMeasuredBookEditorGeometry()
                             throw Error("Editor field clips or overlaps preceding content.")
                         previous := metrics.Y + metrics.LabelHeight + 1 + metrics.InputHeight
                     }
+                    if plan.SectionY < plan.Rows[2].Y + plan.Rows[2].LabelHeight + 1 + plan.Rows[2].InputHeight
+                        || plan.SectionHeight < MeasureAccessibleWrappedText(autoLoginHeading, autoLoginHeading.Text, 351)
+                        || plan.Rows[3].Y < plan.SectionY + plan.SectionHeight
+                        throw Error("Auto Login Settings heading clips or overlaps credentials/delays.")
                     if plan.RaceY < previous || plan.HintY < plan.DropdownY
                         || plan.ReconnectY < plan.HintY + plan.HintHeight
                         || plan.SaveY < plan.ReconnectY + plan.ReconnectHeight
