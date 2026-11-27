@@ -2091,7 +2091,7 @@ expect(
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
-    and 'MoveMacroTextIfChanged(MacroScrollThumb, BookS(888)' in macro_menu_ui
+    and 'MoveMacroTextIfChanged(page.MacroPageLabel, BookS(632)' in macro_menu_ui
     and 'if oldUploadY != BookS(desiredUploadY)' in macro_menu_ui
     and 'ShowLauncherWindow(true)' in characters_close,
 )
@@ -2175,12 +2175,12 @@ expect(
 expect(
     "Manage Macros empty state and Upload button do not leave blank action row",
     'MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28' in macro_menu_ui
-    and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro_menu_ui
+    and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 150, 29,' in macro_menu_ui
     and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
-    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro_menu_ui
-    and 'maximum := Max(0, count - slots)' in macro_menu_ui,
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, upload.UploadWidth, upload.UploadHeight)' in macro_menu_ui
+    and 'plan := GetMacroPagePlan(count, slots, MacroScrollOffset)' in macro_menu_ui,
 )
 expect(
     "Manage Macros delegates shortcut configuration to each imported macro",
@@ -2188,7 +2188,7 @@ expect(
     and 'EditSelectedMacroBindings' not in macro_menu_ui
     and 'ReadMacroBindings' not in macro_menu_ui
     and 'TES3NP_BINDINGS' not in macro_menu_ui
-    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro_menu_ui
+    and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, upload.UploadWidth, upload.UploadHeight)' in macro_menu_ui
     and '#Include src\\ui\\macro-bindings.ahk' not in entry_script,
 )
 expect(
@@ -2198,30 +2198,33 @@ expect(
     and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
-    and '"x887 y140 w8 h272 Background704C27 +0x100 Hidden"' in macro_menu_ui
     and 'pitch := statusH + 2 + nameH + 1 + actionH + 8' in macro_menu_ui
     and 'CharacterPage.MacroViewportHeight := slots * pitch - 8' in macro_menu_ui
     and ': 144 + visibleCount * rowPitch + populatedOffset' in macro_menu_ui
-    and 'travel := viewportHeight - thumbHeight' in macro_menu_ui
-    and 'travel := Max(1, CharacterPage.MacroViewportHeight - thumbHeight)' in macro_menu_ui,
+    and 'navigation := MacroItems.Length > slots ? upload.NavigationHeight + 8 : 0' in macro_menu_ui
+    and 'desiredUploadY += upload.NavigationHeight + 8' in macro_menu_ui,
 )
 expect(
-    "Populated macro rows begin close to measured description with scroll and Upload aligned",
+    "Populated macro rows use shared pagination with measured navigation and compact Upload",
     'explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans"' in macro_menu_ui
     and 'y := 140 + (position - 1) * 70' in macro_menu_ui
     and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
-    and '"x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden"' in macro_menu_ui
-    and 'thumbY := 140 + populatedOffset' in macro_menu_ui
-    and '+ Round(MacroScrollOffset / maximum * travel)' in macro_menu_ui
-    and 'viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")' in macro_menu_ui
-    and 'ScrollMacroBook(Round((localY - (140 + viewportOffset)' in macro_menu_ui
-    and '- MacroScrollGrab) / travel * maximum))' in macro_menu_ui
+    and 'pages := PlanFixedBookPages(count, slots)' in macro_menu_ui
+    and 'return PlanFixedBookPages(Profiles.Length, fixedSize)' in characters_ui
+    and 'caption := "Page " plan.Number " of " plan.Total' in macro_menu_ui
+    and 'MacroScrollOffset := (nextPage - 1) * slots' in macro_menu_ui
+    and 'page.MacroPreviousPage.Enabled := plan.Number > 1' in macro_menu_ui
+    and 'page.MacroNextPage.Enabled := plan.Number < plan.Total' in macro_menu_ui
     and 'Macros allow you to automate processes like fishing and training.' in macro_menu_ui
-    and 'You have no macros uploaded.' in macro_menu_ui
+    and 'No macros were found' in macro_menu_ui
     and 'FitMacroViewport(offset, pitch, upload)' in macro_menu_ui
-    and 'position <= slots && index <= count' in macro_menu_ui,
+    and 'position <= plan.Count && index <= count' in macro_menu_ui
+    and 'Loop pagePlan.Count' in macro_menu_ui
+    and 'MacroScrollTrack' not in macro_menu_ui
+    and 'MacroScrollThumb' not in macro_menu_ui
+    and 'CheckMacroPageRanges()' in launcher_smoke_tests,
 )
 expect(
     "Windows CI verifies all manual menu scales, moved owner and monitor-edge clamping",

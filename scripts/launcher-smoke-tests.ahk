@@ -1337,7 +1337,7 @@ CheckMeasuredEmptyMacroBook()
                 copy := testPage.Add("Text", "x525 y87 w355 h48 +Wrap",
                     "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
                 notice := testPage.Add("Text", "x525 y150 w355 h28 +Wrap",
-                    "You have no macros uploaded.")
+                    "No macros were found")
                 CharacterPage := testPage
                 MacroBookControls := [heading, copy]
                 MacroEmptyNotice := notice
@@ -1381,12 +1381,35 @@ GetBookSmokeArtworkPath()
     return path
 }
 
+CheckMacroPageRanges()
+{
+    for slots in [1, 2, 3, 4]
+        for count in [0, 1, 3, 4, 5, 8, 9, 23]
+        {
+            pages := PlanFixedBookPages(count, slots)
+            reached := 0
+            for number, page in pages
+            {
+                plan := GetMacroPagePlan(count, slots, page.First - 1)
+                if plan.Number != number || plan.Total != pages.Length
+                    || plan.Offset != reached || plan.Count != page.Count
+                    || plan.Count > slots
+                    throw Error("Macro page omitted or repeated an item.")
+                reached += plan.Count
+            }
+            last := GetMacroPagePlan(count, slots, count + 100)
+            if reached != count || last.Offset + last.Count != count || last.Number != last.Total
+                throw Error("Macro last page did not clamp after removal.")
+        }
+}
+
 CheckMeasuredPopulatedMacroBook()
 {
     global CharacterPage, MacroBookControls, MacroBookRows, MacroItems
-    global MacroScrollTrack, MacroScrollThumb, AccessibilityTextSize
+    global AccessibilityTextSize
     global LauncherMorrowindFont, MacroScrollOffset, MacroNameEdit
     global LauncherGui, Profiles, ButtonPaint, MacroImportButton, MacroStatus
+    CheckMacroPageRanges()
     savedOwner := IsSet(LauncherGui) ? LauncherGui : 0
     savedProfiles := IsSet(Profiles) ? Profiles : []
     savedUpload := IsSet(MacroImportButton) ? MacroImportButton : 0
@@ -1400,8 +1423,6 @@ CheckMeasuredPopulatedMacroBook()
     savedControls := IsSet(MacroBookControls) ? MacroBookControls : []
     savedRows := IsSet(MacroBookRows) ? MacroBookRows : []
     savedItems := IsSet(MacroItems) ? MacroItems : []
-    savedTrack := IsSet(MacroScrollTrack) ? MacroScrollTrack : 0
-    savedThumb := IsSet(MacroScrollThumb) ? MacroScrollThumb : 0
     savedMode := AccessibilityTextSize
     try
     {
@@ -1448,10 +1469,12 @@ CheckMeasuredPopulatedMacroBook()
                         Name: name, NameWidth: 125, NameScale: 0,
                         Y: y + 19, Run: run, Stop: stop, Remove: remove})
                 }
-                MacroScrollTrack := page.Add("Text", "x887 y140 w8 h272", "")
-                MacroScrollThumb := page.Add("Text", "x888 y140 w6 h40", "")
+                page.MacroPreviousPage := AddStyledButton(page, 525, 424, 105, 30, "Previous", (*) => 0)
+                page.MacroNextPage := AddStyledButton(page, 775, 424, 105, 30, "Next", (*) => 0)
+                SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
+                page.MacroPageLabel := page.Add("Text", "x632 y424 w141 h30 Center", "")
                 SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
-                MacroImportButton := page.Add("Text", "x525 y188 w355 h29", "Upload Macro")
+                MacroImportButton := page.Add("Text", "x525 y188 w150 h29", "Upload Macro")
                 page.BookCloseButton := page.Add("Text", "x515 y575 w90 h30", "Close")
                 SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
                 MacroStatus := page.Add("Text", "x525 y224 w355 h30 +Wrap", "Import failed: A long diagnostic message describing the rejected archive and the existing supported import format.")
@@ -1465,15 +1488,21 @@ CheckMeasuredPopulatedMacroBook()
                 if slots < 1 || slots > MacroBookRows.Length
                     throw Error("Macro viewport capacity is outside the reusable row count.")
                 MacroBookRows[slots].Remove.GetPos(, &lastActionY, , &lastActionH)
-                MacroScrollTrack.GetPos(, &trackY, , &trackH)
                 pitch := page.MacroRowPitch
-                uploadY := 144 + slots * pitch + offset
+                navY := 144 + slots * pitch + offset
                 upload := page.MacroUploadMetrics
-                if trackY != BookS(140 + offset) || trackH != BookS(slots * pitch - 8)
-                    || rowY != BookS(140 + offset)
-                    || Abs(lastActionY + lastActionH + BookS(12) - BookS(uploadY)) > 1
+                plan := GetMacroPagePlan(MacroItems.Length, slots, MacroScrollOffset)
+                if !PositionMacroBookNavigation(page, plan, navY, upload.NavigationHeight)
+                    throw Error("Overflowing macros need page navigation.")
+                uploadY := navY + upload.NavigationHeight + 8
+                page.MacroPreviousPage.GetPos(, &navActualY, , &navActualH)
+                if rowY != BookS(140 + offset)
+                    || Abs(lastActionY + lastActionH + BookS(12) - BookS(navY)) > 1
+                    || navActualY != BookS(navY) || navActualH != BookS(upload.NavigationHeight)
+                    || page.MacroPreviousPage.Enabled || !page.MacroNextPage.Enabled
+                    || upload.UploadWidth >= 355
                     || uploadY + upload.FeedbackOffset + upload.FeedbackHeight > 490 + GetCharacterBookExtra()
-                    throw Error("Populated Macro Book viewport/Upload offsets diverged.")
+                    throw Error("Populated Macro Book page navigation/Upload offsets diverged.")
                 if mode = "Normal"
                 {
                     if copyY != BookS(87) || copyH < MeasureAccessibleWrappedText(copy, copy.Text, BookS(351)) + BookS(4)
@@ -1507,20 +1536,27 @@ CheckMeasuredPopulatedMacroBook()
                     required := MeasureAccessibleWrappedText(copy, copy.Text, BookS(351)) + BookS(4)
                     if copyH < required || rowY + 1 < copyY + copyH + BookS(5)
                         throw Error("Populated macro rows overlap the larger explanation.")
-                    MacroScrollOffset := 1
+                    MacroScrollOffset := slots
                     nextOffset := ReflowPopulatedMacroBook()
                     if !page.MacroRowsMeasured || page.MacroRowPitch != pitch
-                        || nextOffset != offset || BookS(page.MacroViewportHeight) != trackH
-                        throw Error("Scrolling changed measured Macro Book viewport geometry.")
+                        || nextOffset != offset || MacroScrollOffset != slots
+                        throw Error("Paging changed measured Macro Book viewport geometry.")
                 }
-                ; Scroll beyond the end, then verify the last item remains
-                ; reachable and the visible stack does not change geometry.
+                ; Clamp to the last non-overlapping page, including its partial row count.
                 MacroScrollOffset := MacroItems.Length
                 endOffset := ReflowPopulatedMacroBook()
-                if MacroScrollOffset != MacroItems.Length - slots
+                last := GetMacroPagePlan(MacroItems.Length, slots, MacroScrollOffset)
+                PositionMacroBookNavigation(page, last, navY, upload.NavigationHeight)
+                if MacroScrollOffset != Floor((MacroItems.Length - 1) / slots) * slots
+                    || last.Offset + last.Count != MacroItems.Length
+                    || page.MacroNextPage.Enabled || !page.MacroPreviousPage.Enabled
                     || GetMacroVisibleSlots() != slots || page.MacroRowPitch != pitch
-                    || endOffset != offset || BookS(page.MacroViewportHeight) != trackH
-                    throw Error("Macro scroll clamp changed viewport or hid the last item.")
+                    || endOffset != offset
+                    throw Error("Macro page clamp changed geometry or hid the last item.")
+                single := GetMacroPagePlan(1, slots, 0)
+                if PositionMacroBookNavigation(page, single, navY, upload.NavigationHeight)
+                    || page.MacroPreviousPage.Visible || page.MacroNextPage.Visible || page.MacroPageLabel.Visible
+                    throw Error("A single macro page must not reserve visible navigation.")
             }
             finally
             {
@@ -1538,8 +1574,6 @@ CheckMeasuredPopulatedMacroBook()
         MacroBookControls := savedControls
         MacroBookRows := savedRows
         MacroItems := savedItems
-        MacroScrollTrack := savedTrack
-        MacroScrollThumb := savedThumb
         AccessibilityTextSize := savedMode
         MacroScrollOffset := savedOffset
         MacroNameEdit := savedEdit

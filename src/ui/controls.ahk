@@ -270,8 +270,6 @@ PressButton(wParam, lParam, msg, hwnd)
 ReleaseButton(wParam, lParam, msg, hwnd)
 {
     global ButtonFaces, PressedButton, HoverButton
-    if ReleaseMacroScroll()
-        return 0
     if ReleaseMenuScroll()
         return 0
     ; Mouse capture/focus changes can deliver mouse-up to a parent HWND even
@@ -379,8 +377,6 @@ HandleMouseDown(wParam, lParam, msg, hwnd)
         SendMessage(0xA1, 2, 0, , "ahk_id " CharacterPage.Hwnd)
         return 0
     }
-    if PressMacroScroll(hwnd)
-        return 0
     if PressMenuScroll(hwnd)
         return 0
     if hwnd = DragStrip.Hwnd

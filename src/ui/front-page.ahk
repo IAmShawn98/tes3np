@@ -152,7 +152,6 @@ PressMenuScroll(hwnd)
 
 DragMenuScroll(*)
 {
-    DragMacroScroll()
     global ScrollDragging
     if ScrollDragging
         ScrollFromPointer()
@@ -170,8 +169,6 @@ ReleaseMenuScroll()
 
 ScrollMenuWheel(wParam, lParam, msg, hwnd)
 {
-    if ScrollMacroWheel(wParam)
-        return 0
     global LauncherGui, MenuOffset, LauncherScale
     MouseGetPos(&x, &y, &window)
     if window != LauncherGui.Hwnd

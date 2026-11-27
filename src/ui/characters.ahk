@@ -602,19 +602,28 @@ ReflowAccessiblePopulatedCharacters()
     }
 }
 
+; Shared fixed-capacity pagination for both halves of the Character Book.
+PlanFixedBookPages(itemCount, pageSize)
+{
+    pages := [], first := 1
+    pageSize := Max(1, pageSize)
+    while first <= itemCount
+    {
+        count := Min(pageSize, itemCount - first + 1)
+        pages.Push({First: first, Count: count})
+        first += count
+    }
+    if !pages.Length
+        pages.Push({First: 1, Count: 0})
+    return pages
+}
+
 PlanCharacterBookPages(pitches, budget, fixedSize := 0)
 {
     global Profiles
     pages := [], first := 1, count := 0, used := 0
     if fixedSize
-    {
-        while first <= Profiles.Length
-        {
-            count := Min(fixedSize, Profiles.Length - first + 1)
-            pages.Push({First: first, Count: count})
-            first += count
-        }
-    }
+        return PlanFixedBookPages(Profiles.Length, fixedSize)
     else
     {
         for index, pitch in pitches

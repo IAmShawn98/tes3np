@@ -449,15 +449,16 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'slots := MacroBookRows.Length - A_Index + 1' in macro
             and 'if SetCharacterBookLayoutExtra("Macros", requiredExtra)' in macro
             and 'slots := count ? GetMacroVisibleSlots() : MacroBookRows.Length' in macro
-            and 'maximum := Max(0, count - slots)' in macro
-            and 'visible := shown && position <= slots && index <= count' in macro
-            and 'MacroScrollOffset := Max(0, Min(MacroScrollOffset, Max(0, MacroItems.Length - slots)))' in macro
-            and 'MacroItems.Length - GetMacroVisibleSlots()' in macro
+            and 'visible := shown && position <= plan.Count && index <= count' in macro
+            and 'pagePlan := GetMacroPagePlan(MacroItems.Length, slots, MacroScrollOffset)' in macro
+            and 'MacroScrollOffset := pagePlan.Offset' in macro
+            and 'Loop pagePlan.Count' in macro
+            and 'pages := PlanFixedBookPages(count, slots)' in macro
+            and 'return PlanFixedBookPages(Profiles.Length, fixedSize)' in character_ui
             and 'index := MacroScrollOffset + position' in macro
             and 'MacroScrollOffset := Max(0, row - 1)' in macro
-            and 'MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - GetMacroVisibleSlots()))' in macro
-            and 'MacroList.Visible := false' in macro
-            and 'MacroListPage' not in macro,
+            and 'MacroScrollOffset := GetMacroPagePlan(MacroItems.Length, GetMacroVisibleSlots(), MacroScrollOffset).Offset' in macro
+            and 'MacroList.Visible := false' in macro,
         "status above the name and inline rename button, actions below":
             'status := CharacterPage.Add("Text",' in macro
             and '"x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")' in macro
@@ -474,12 +475,12 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'caption := editing ? "Save" : Chr(0x270E)' in macro
             and '#HotIf MacroNameEditorFocused()\nEnter::SaveMacroName()' in macro
             and 'InputBox(' not in macro,
-        "Upload Macro follows populated rows and stays pinned on scrolling":
+        "Compact Upload Macro follows paginated rows and stays pinned across pages":
             'MacroDetails' not in macro
             and 'MacroBindingsButton' not in macro
             and 'EditSelectedMacroBindings' not in macro
             and 'TES3NP_BINDINGS' not in macro
-            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,' in macro
+            and 'MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 150, 29,' in macro
             and '"Upload Macro", ImportMacroPackage)' in macro
             and 'MacroStatus := CharacterPage.Add("Text",' in macro
             and '"x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")' in macro
@@ -489,9 +490,9 @@ def check(allow_missing_payload: bool = False) -> None:
             and ': 144 + visibleCount * rowPitch + populatedOffset' in macro
             and 'CharacterPage.MacroRowPitch := pitch' in macro
             and 'CharacterPage.MacroViewportHeight := slots * pitch - 8' in macro
-            and 'Round(viewportHeight * slots / count)' in macro
+            and 'desiredUploadY += upload.NavigationHeight + 8' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
-            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)' in macro
+            and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, upload.UploadWidth, upload.UploadHeight)' in macro
             and 'MoveMacroTextIfChanged(MacroStatus, BookS(525), BookS(desiredUploadY + upload.FeedbackOffset),' in macro
             and 'BookS(355), BookS(upload.FeedbackHeight))' in macro
             and 'if wasVisible' in macro
@@ -510,34 +511,29 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'macro.LastError := ""' in macro
             and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "s" Max(7, BookS(9)) " cB22222"' in macro
             and 'MacroStatus.Visible := shown && showFeedback' in macro,
-        "scroll wheel and draggable thumb still attached":
-            'MacroScrollTrack := CharacterPage.Add("Text"' in macro
-            and 'MacroScrollThumb := CharacterPage.Add("Text"' in macro
-            and 'MoveMacroTextIfChanged(MacroScrollThumb, BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))' in macro
-            and 'ScrollMacroWheel(wParam)' in macro
-            and 'PressMacroScroll(hwnd)' in macro
-            and 'DragMacroScroll()' in macro
-            and 'ReleaseMacroScroll()' in macro
-            and 'if ScrollMacroWheel(wParam)' in main_menu
-            and 'DragMacroScroll()' in main_menu
-            and 'if PressMacroScroll(hwnd)' in (
-                ROOT / "src/ui/controls.ahk"
-            ).read_text(encoding="utf-8-sig")
-            and 'if ReleaseMacroScroll()' in (
-                ROOT / "src/ui/controls.ahk"
-            ).read_text(encoding="utf-8-sig")
-            and 'MacroScrollOffset := 0' in (
-                ROOT / "src/state.ahk"
-            ).read_text(encoding="utf-8-sig"),
+        "macro pagination uses shared page ranges and matching native navigation":
+            'CharacterPage.MacroPreviousPage := AddStyledButton' in macro
+            and 'CharacterPage.MacroNextPage := AddStyledButton' in macro
+            and 'ChangeMacroBookPage.Bind(-1)' in macro
+            and 'ChangeMacroBookPage.Bind(1)' in macro
+            and 'caption := "Page " plan.Number " of " plan.Total' in macro
+            and 'MacroScrollOffset := (nextPage - 1) * slots' in macro
+            and 'navigation := MacroItems.Length > slots ? upload.NavigationHeight + 8 : 0' in macro
+            and 'MacroScrollTrack' not in macro
+            and 'DragMacroScroll()' not in main_menu
+            and 'ScrollMacroWheel(wParam)' not in main_menu
+            and 'PressMacroScroll(hwnd)' not in (ROOT / "src/ui/controls.ahk").read_text(encoding="utf-8-sig")
+            and 'ReleaseMacroScroll()' not in (ROOT / "src/ui/controls.ahk").read_text(encoding="utf-8-sig")
+            and 'MacroScrollOffset := 0' in (ROOT / "src/state.ahk").read_text(encoding="utf-8-sig"),
         "hidden selection model delegates to tested macro handlers":
             'MacroList.Modify(index, "Select Focus")' in macro
             and 'MacroList.OnEvent("ItemSelect", RefreshMacroButtons)' in macro
             and 'RunMacroBookRow(position, *)' in macro
             and 'StopMacroBookRow(position, *)' in macro
             and 'RemoveMacroBookRow(position, *)' in macro
-            and 'SelectMacroBookRow(position)\n    RunSelectedMacro()' in macro
-            and 'SelectMacroBookRow(position)\n    StopSelectedMacro()' in macro
-            and 'SelectMacroBookRow(position)\n    RemoveSelectedMacro()' in macro,
+            and 'if SelectMacroBookRow(position)\n        RunSelectedMacro()' in macro
+            and 'if SelectMacroBookRow(position)\n        StopSelectedMacro()' in macro
+            and 'if SelectMacroBookRow(position)\n        RemoveSelectedMacro()' in macro,
         "editing character still hides/restores macros":
             'HideMacroBookPanel()' in character_ui
             and 'ShowMacroBookPanel()' in character_ui,

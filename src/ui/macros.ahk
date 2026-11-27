@@ -5,22 +5,20 @@ BuildMacroBookPanel()
     global CharacterPage, LauncherMorrowindFont, ButtonFaces
     global MacroPage, MacroList, MacroStatus, MacroEmptyNotice
     global MacroImportButton, MacroBookControls, MacroBookRows, MacroNameEdit
-    global MacroScrollOffset, MacroScrollTrack, MacroScrollThumb, MacroScrollDragging, MacroScrollGrab
+    global MacroScrollOffset
     MacroPage := CharacterPage
     MacroBookControls := []
     MacroBookRows := []
     MacroScrollOffset := 0
-    MacroScrollDragging := false
-    MacroScrollGrab := 0
     SetAccessibleTextFont(CharacterPage, "s19 Norm c241408", LauncherMorrowindFont)
     heading := CharacterPage.Add("Text", "x525 y45 w355 h32 Center BackgroundTrans", "Manage Macros")
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
     explanation := CharacterPage.Add("Text", "x525 y87 w355 h48 BackgroundTrans",
         "Macros allow you to automate processes like fishing and training. The launcher contains some pre-built macros right out of the box for you to use right away. If you'd like, you can also write your own macros and upload them here for daily use.")
     MacroEmptyNotice := CharacterPage.Add("Text", "x525 y150 w355 h28 BackgroundTrans",
-        "You have no macros uploaded.")
+        "No macros were found")
     ; The hidden ListView retains every imported item and all existing handlers.
-    ; Four rows are the viewport, not a limit on the number of macros.
+    ; Four reusable rows per page, not a limit on the number of macros.
     MacroList := CharacterPage.Add("ListView", "x525 y144 w355 h226 Hidden -Multi",
         ["Name", "Status", "Type"])
     MacroList.OnEvent("ItemSelect", RefreshMacroButtons)
@@ -59,21 +57,24 @@ BuildMacroBookPanel()
     MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y159 w125 h22 Hidden Limit100 -Multi")
     MacroNameEdit.EditingItem := 0
     MacroNameEdit.ErrorText := ""
-    ; The scrollbar uses the existing character-book styling.
-    MacroScrollTrack := CharacterPage.Add("Text",
-        "x887 y140 w8 h272 Background704C27 +0x100 Hidden")
-    MacroScrollThumb := CharacterPage.Add("Text",
-        "x888 y140 w6 h40 BackgroundC69951 +0x100 Hidden")
-    ; The macro itself owns all hotkeys; keep Upload full-width and tight
-    ; against the last visible macro row without extra action slots.
-    MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 355, 29,
+    ; Match the Character Book's Previous / Page N of M / Next navigation.
+    CharacterPage.MacroPreviousPage := AddStyledButton(CharacterPage, 525, 424, 105, 30,
+        "Previous", ChangeMacroBookPage.Bind(-1))
+    CharacterPage.MacroNextPage := AddStyledButton(CharacterPage, 775, 424, 105, 30,
+        "Next", ChangeMacroBookPage.Bind(1))
+    SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
+    CharacterPage.MacroPageLabel := CharacterPage.Add("Text", "x632 y424 w141 h30 Center BackgroundTrans Hidden", "")
+    CharacterPage.MacroPreviousPage.Visible := false
+    CharacterPage.MacroNextPage.Visible := false
+    ; Keep the compact Upload action aligned with the introduction.
+    MacroImportButton := AddStyledButton(CharacterPage, 525, 188, 150, 29,
         "Upload Macro", ImportMacroPackage)
     ; Progress and failure feedback for imports appears under Upload.
     SetAccessibleTextFont(CharacterPage, "s9 Norm c241408", LauncherMorrowindFont)
     MacroStatus := CharacterPage.Add("Text",
         "x525 y224 w355 h30 Hidden BackgroundTrans c241408", "")
-    MacroBookControls.Push(MacroScrollTrack, MacroScrollThumb,
-        MacroImportButton, MacroStatus)
+    MacroBookControls.Push(CharacterPage.MacroPreviousPage, CharacterPage.MacroPageLabel,
+        CharacterPage.MacroNextPage, MacroImportButton, MacroStatus)
     LoadMacroPackages()
     ShowMacroBookPanel()
 }
@@ -102,7 +103,6 @@ HideMacroBookPanel()
         MacroNameEdit.EditingItem := 0
         MacroNameEdit.Visible := false
     }
-    ReleaseMacroScroll()
     for control in MacroBookControls
         try control.Visible := false
 }
@@ -147,7 +147,7 @@ MoveMacroStyledIfChanged(control, x, y, width, height)
 }
 
 ; Cache name measurements for the entire collection, not just the four
-; visible slots. Scrolling changes the visible labels, never the row pitch.
+; visible slots. Paging changes the visible labels, never the row pitch.
 MeasureMacroNameCollection(sample, items, maxNameW)
 {
     global CharacterPage, AccessibilityTextSize
@@ -187,12 +187,24 @@ MeasureMacroNameCollection(sample, items, maxNameW)
 ; Normal bottom of the four-row feedback stack (490), not the footer (570).
 GetMacroUploadMetrics()
 {
-    global AccessibilityTextSize, MacroImportButton, MacroStatus
-    height := 29, feedbackHeight := 30
+    global AccessibilityTextSize, MacroImportButton, MacroStatus, CharacterPage, MacroItems
+    width := 150, height := 29, feedbackHeight := 30, navHeight := 30
     if AccessibilityTextSize != "Normal"
     {
         if IsSet(MacroImportButton) && IsObject(MacroImportButton)
-            height := BookActionMetrics(MacroImportButton, "Upload Macro", 355, 29).Height
+        {
+            metrics := BookActionMetrics(MacroImportButton, "Upload Macro", 150, 29)
+            width := Min(355, metrics.Width), height := metrics.Height
+        }
+        if IsObject(CharacterPage) && CharacterPage.HasOwnProp("MacroPreviousPage")
+        {
+            for button in [CharacterPage.MacroPreviousPage, CharacterPage.MacroNextPage]
+                navHeight := Max(navHeight, BookActionMetrics(button, button.Text, 105, 30).Height)
+            label := CharacterPage.MacroPageLabel
+            caption := "Page " Max(1, MacroItems.Length) " of " Max(1, MacroItems.Length)
+            navHeight := Max(navHeight, Ceil((MeasureAccessibleWrappedText(label, caption,
+                BookS(137)) + BookS(4)) / GetCharacterBookScale()))
+        }
         if IsSet(MacroStatus) && IsObject(MacroStatus)
         {
             scale := GetCharacterBookScale()
@@ -201,7 +213,8 @@ GetMacroUploadMetrics()
                     MacroStatus, caption, BookS(351)) + BookS(4)) / scale))
         }
     }
-    return {UploadHeight: height, FeedbackHeight: feedbackHeight, FeedbackOffset: height + 7}
+    return {UploadWidth: width, UploadHeight: height, FeedbackHeight: feedbackHeight,
+        FeedbackOffset: height + 7, NavigationHeight: navHeight}
 }
 
 GetMacroVisibleSlots()
@@ -212,7 +225,7 @@ GetMacroVisibleSlots()
 }
 
 ; Prefer all four rows. On a constrained monitor retain the measured
-; introduction and use the existing scroll viewport with fewer visible rows.
+; introduction and use fewer rows per page.
 FitMacroViewport(offset, pitch, upload)
 {
     global MacroItems, MacroBookRows
@@ -220,7 +233,8 @@ FitMacroViewport(offset, pitch, upload)
     {
         slots := MacroBookRows.Length - A_Index + 1
         shownCount := Min(MacroItems.Length, slots)
-        requiredExtra := Max(0, 144 + offset + shownCount * pitch + upload.FeedbackOffset + upload.FeedbackHeight - 490)
+        navigation := MacroItems.Length > slots ? upload.NavigationHeight + 8 : 0
+        requiredExtra := Max(0, 144 + offset + shownCount * pitch + navigation + upload.FeedbackOffset + upload.FeedbackHeight - 490)
         if SetCharacterBookLayoutExtra("Macros", requiredExtra)
             return slots
     }
@@ -232,7 +246,7 @@ FitMacroViewport(offset, pitch, upload)
 ReflowPopulatedMacroBook()
 {
     global CharacterPage, MacroItems, MacroBookControls, MacroBookRows
-    global MacroScrollTrack, MacroScrollThumb, AccessibilityTextSize
+    global AccessibilityTextSize
     global MacroScrollOffset, MacroNameEdit, ButtonFaces
     if !IsObject(CharacterPage) || !MacroItems.Length
         || MacroBookControls.Length < 2
@@ -293,7 +307,8 @@ ReflowPopulatedMacroBook()
         measured := false
         statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
         pitch := 70
-        upload := {UploadHeight: 29, FeedbackHeight: 30, FeedbackOffset: 36}
+        upload := {UploadWidth: upload.UploadWidth, UploadHeight: 29, FeedbackHeight: 30,
+            FeedbackOffset: 36, NavigationHeight: upload.NavigationHeight}
         slots := FitMacroViewport(offset, pitch, upload)
         if !slots
         {
@@ -302,10 +317,11 @@ ReflowPopulatedMacroBook()
         }
     }
     CharacterPage.MacroVisibleSlots := slots
-    MacroScrollOffset := Max(0, Min(MacroScrollOffset, Max(0, MacroItems.Length - slots)))
+    pagePlan := GetMacroPagePlan(MacroItems.Length, slots, MacroScrollOffset)
+    MacroScrollOffset := pagePlan.Offset
     if measured
     {
-        Loop Min(MacroItems.Length, slots)
+        Loop pagePlan.Count
         {
             position := A_Index
             metrics := collection.Items[MacroScrollOffset + position]
@@ -355,15 +371,13 @@ ReflowPopulatedMacroBook()
         MoveMacroStyledIfChanged(row.Stop, 663, actionY, 103, actionH)
         MoveMacroStyledIfChanged(row.Remove, 775, actionY, 105, actionH)
     }
-    MoveMacroTextIfChanged(MacroScrollTrack, BookS(887),
-        BookS(140 + offset), BookS(8), BookS(CharacterPage.MacroViewportHeight))
     CharacterPage.MacroViewportOffset := offset
     return offset
 }
 
 ; The empty Macro Book shares the approved fixed parchment with Characters.
 ; Measure its complete copy and move the notice and Upload as a single stack.
-; Populated rows have a separate scrolling/rename layout and stay untouched.
+; Populated rows have a separate pagination/rename layout and stay untouched.
 ReflowEmptyMacroBook()
 {
     global CharacterPage, MacroItems, MacroBookControls
@@ -394,7 +408,8 @@ ReflowEmptyMacroBook()
     if !SetCharacterBookLayoutExtra("Macros", Max(0, uploadY + upload.FeedbackOffset + upload.FeedbackHeight - 490))
     {
         SetCharacterBookLayoutExtra("Macros", 0)
-        CharacterPage.MacroUploadMetrics := {UploadHeight: 29, FeedbackHeight: 30, FeedbackOffset: 36}
+        CharacterPage.MacroUploadMetrics := {UploadWidth: upload.UploadWidth, UploadHeight: 29,
+            FeedbackHeight: 30, FeedbackOffset: 36, NavigationHeight: upload.NavigationHeight}
         ; Keep the measured introduction even if artwork cannot grow.
     }
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
@@ -407,7 +422,7 @@ ReflowEmptyMacroBook()
 RefreshMacroBookRows()
 {
     global MacroList, MacroItems, MacroBookRows, MacroScrollOffset, MacroImport
-    global MacroEmptyNotice, MacroScrollTrack, MacroScrollThumb, MacroStatus
+    global MacroEmptyNotice, MacroStatus
     global MacroImportButton, CharacterPage, InterfaceUpdating, MacroNameEdit
     global LaunchSettingsHeading, ButtonFaces, LauncherMorrowindFont, AccessibilityTextSize
     if !IsObject(MacroList) || !MacroBookRows.Length
@@ -422,16 +437,15 @@ RefreshMacroBookRows()
     busy := IsObject(MacroImport)
     populatedOffset := count ? ReflowPopulatedMacroBook() : 0
     slots := count ? GetMacroVisibleSlots() : MacroBookRows.Length
-    maximum := Max(0, count - slots)
-    MacroScrollOffset := Max(0, Min(MacroScrollOffset, maximum))
+    plan := GetMacroPagePlan(count, slots, MacroScrollOffset)
+    MacroScrollOffset := plan.Offset
     rowPitch := count ? CharacterPage.MacroRowPitch : 70
-    viewportHeight := count ? CharacterPage.MacroViewportHeight : 272
     editVisible := false
     MacroList.Visible := false
     for position, itemRow in MacroBookRows
     {
         index := MacroScrollOffset + position
-        visible := shown && position <= slots && index <= count
+        visible := shown && position <= plan.Count && index <= count
         for control in [itemRow.Tick, itemRow.Status, itemRow.Rename,
             itemRow.Run, itemRow.Stop, itemRow.Remove]
             if control.Visible != visible
@@ -475,39 +489,27 @@ RefreshMacroBookRows()
     if MacroNameEdit.Visible != editVisible
         MacroNameEdit.Visible := editVisible
     MacroEmptyNotice.Visible := shown && count = 0
-    scrollable := shown && maximum > 0
-    if MacroScrollTrack.Visible != scrollable
-        MacroScrollTrack.Visible := scrollable
-    if MacroScrollThumb.Visible != scrollable
-        MacroScrollThumb.Visible := scrollable
-    if scrollable
-    {
-        thumbHeight := Max(25, Round(viewportHeight * slots / count))
-        travel := viewportHeight - thumbHeight
-        thumbY := 140 + populatedOffset
-            + Round(MacroScrollOffset / maximum * travel)
-        MoveMacroTextIfChanged(MacroScrollThumb, BookS(888), BookS(thumbY), BookS(6), BookS(thumbHeight))
-    }
     ; Keep empty-state content close to the introduction, then follow
-    ; populated rows without putting Upload inside the scroll viewport.
-    ; The measured introduction and available row capacity determine Upload Y.
-    ; Match row pitch so Upload stays 12px clear of final action row.
+    ; paginated rows. Keep navigation and Upload stationary across pages.
     visibleCount := Min(count, slots)
     emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188
     desiredUploadY := count = 0 ? emptyUploadY
         : 144 + visibleCount * rowPitch + populatedOffset
     upload := CharacterPage.MacroUploadMetrics
-    MacroImportButton.GetPos(, &oldUploadY, , &oldUploadHeight)
+    if PositionMacroBookNavigation(CharacterPage, plan, desiredUploadY, upload.NavigationHeight)
+        desiredUploadY += upload.NavigationHeight + 8
+    MacroImportButton.GetPos(, &oldUploadY, &oldUploadWidth, &oldUploadHeight)
     if ButtonFaces.Has(MacroImportButton.Hwnd)
         ButtonFaces[MacroImportButton.Hwnd].NoAccessibleDownfit := AccessibilityTextSize != "Normal"
-    if oldUploadY != BookS(desiredUploadY) || oldUploadHeight != BookS(upload.UploadHeight)
+    if oldUploadY != BookS(desiredUploadY) || oldUploadWidth != BookS(upload.UploadWidth)
+        || oldUploadHeight != BookS(upload.UploadHeight)
     {
         ; Move the themed hit target and painted face together. Hide while
         ; relocating to avoid leaving stale button artwork on parchment.
         wasVisible := MacroImportButton.Visible
         if wasVisible
             MacroImportButton.Visible := false
-        MoveStyledButton(MacroImportButton, 525, desiredUploadY, 355, upload.UploadHeight)
+        MoveStyledButton(MacroImportButton, 525, desiredUploadY, upload.UploadWidth, upload.UploadHeight)
         if wasVisible
         {
             MacroImportButton.Visible := true
@@ -532,11 +534,13 @@ RefreshMacroBookRows()
 SelectMacroBookRow(position, *)
 {
     global MacroList, MacroScrollOffset, MacroItems
-    index := MacroScrollOffset + position
-    if index < 1 || index > MacroItems.Length
-        return
+    plan := GetMacroPagePlan(MacroItems.Length, GetMacroVisibleSlots(), MacroScrollOffset)
+    if position < 1 || position > plan.Count
+        return false
+    index := plan.Offset + position
     MacroList.Modify(index, "Select Focus")
     RefreshMacroButtons()
+    return true
 }
 
 RefreshMacroNameRow(row, name, editing)
@@ -602,9 +606,10 @@ RefreshMacroNameRow(row, name, editing)
 EditMacroBookRow(position, *)
 {
     global MacroPage, MacroScrollOffset, MacroItems, MacroNameEdit
-    index := MacroScrollOffset + position
-    if index < 1 || index > MacroItems.Length
+    plan := GetMacroPagePlan(MacroItems.Length, GetMacroVisibleSlots(), MacroScrollOffset)
+    if position < 1 || position > plan.Count
         return
+    index := plan.Offset + position
     item := MacroItems[index]
     if IsObject(MacroNameEdit.EditingItem) && MacroNameEdit.EditingItem = item
     {
@@ -710,117 +715,72 @@ Escape::FinishMacroNameEdit()
 ; the tested macro execution, stop and removal callbacks.
 RunMacroBookRow(position, *)
 {
-    SelectMacroBookRow(position)
-    RunSelectedMacro()
+    if SelectMacroBookRow(position)
+        RunSelectedMacro()
 }
 
 StopMacroBookRow(position, *)
 {
-    SelectMacroBookRow(position)
-    StopSelectedMacro()
+    if SelectMacroBookRow(position)
+        StopSelectedMacro()
 }
 
 RemoveMacroBookRow(position, *)
 {
-    SelectMacroBookRow(position)
-    RemoveSelectedMacro()
+    if SelectMacroBookRow(position)
+        RemoveSelectedMacro()
 }
 
-ScrollMacroBook(offset)
+; The offset is the first item of a non-overlapping page, never a sliding
+; last viewport. Reuse the same fixed-capacity planner as Manage Characters.
+GetMacroPagePlan(count, slots, offset)
 {
-    global MacroScrollOffset, MacroItems, MacroBookRows
-    if !IsObject(MacroBookRows) || !MacroBookRows.Length
+    pages := PlanFixedBookPages(count, slots)
+    pageNumber := Max(1, Min(pages.Length, Floor(Max(0, offset) / Max(1, slots)) + 1))
+    current := pages[pageNumber]
+    return {Number: pageNumber, Total: pages.Length, Offset: current.First - 1, Count: current.Count}
+}
+
+PositionMacroBookNavigation(page, plan, y, height)
+{
+    if !page.HasOwnProp("MacroPreviousPage")
+        return false
+    showNav := plan.Total > 1
+    if showNav
+    {
+        MoveMacroStyledIfChanged(page.MacroPreviousPage, 525, y, 105, height)
+        MoveMacroStyledIfChanged(page.MacroNextPage, 775, y, 105, height)
+        MoveMacroTextIfChanged(page.MacroPageLabel, BookS(632), BookS(y), BookS(141), BookS(height))
+        caption := "Page " plan.Number " of " plan.Total
+        if page.MacroPageLabel.Text != caption
+            page.MacroPageLabel.Text := caption
+        if page.MacroPreviousPage.Enabled != (plan.Number > 1)
+            page.MacroPreviousPage.Enabled := plan.Number > 1
+        if page.MacroNextPage.Enabled != (plan.Number < plan.Total)
+            page.MacroNextPage.Enabled := plan.Number < plan.Total
+    }
+    for control in [page.MacroPreviousPage, page.MacroPageLabel, page.MacroNextPage]
+        if control.Visible != showNav
+            control.Visible := showNav
+    return showNav
+}
+
+ChangeMacroBookPage(delta, *)
+{
+    global MacroScrollOffset, MacroItems, MacroBookRows, LaunchSettingsHeading
+    if !IsObject(MacroBookRows) || !MacroBookRows.Length || LaunchSettingsHeading.Visible
         return
-    nextOffset := Max(0, Min(Max(0, MacroItems.Length - GetMacroVisibleSlots()), offset))
-    if nextOffset = MacroScrollOffset
+    slots := GetMacroVisibleSlots()
+    plan := GetMacroPagePlan(MacroItems.Length, slots, MacroScrollOffset)
+    nextPage := Max(1, Min(plan.Total, plan.Number + delta))
+    if nextPage = plan.Number
         return
-    MacroScrollOffset := nextOffset
+    MacroScrollOffset := (nextPage - 1) * slots
     RefreshMacroButtons()
-}
-
-ScrollMacroWheel(wParam)
-{
-    global CharacterPage, LaunchSettingsHeading, MacroScrollTrack, MacroItems
-    global MacroBookRows, MacroScrollOffset
-    if !IsObject(CharacterPage) || !IsObject(MacroScrollTrack)
-        || !MacroScrollTrack.Visible || LaunchSettingsHeading.Visible
-        || MacroItems.Length <= GetMacroVisibleSlots()
-        return false
-    MouseGetPos(&x, &y, &window)
-    if window != CharacterPage.Hwnd
-        return false
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    scale := (A_ScreenDPI / 96) * GetCharacterBookScale()
-    x := (x - NumGet(origin, 0, "Int")) / scale
-    y := (y - NumGet(origin, 4, "Int")) / scale
-    viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")
-        ? CharacterPage.MacroViewportOffset : 0
-    viewportHeight := CharacterPage.MacroViewportHeight
-    if x < 520 || x > 900 || y < 150 + viewportOffset
-        || y > 124 + viewportHeight + viewportOffset
-        return false
-    delta := (wParam >> 16) << 48 >> 48
-    if delta
-        ScrollMacroBook(MacroScrollOffset + (delta > 0 ? -3 : 3))
-    return true
-}
-
-PressMacroScroll(hwnd)
-{
-    global CharacterPage, MacroScrollTrack, MacroScrollThumb
-    global MacroScrollDragging, MacroScrollGrab
-    if !IsObject(MacroScrollTrack) || !MacroScrollTrack.Visible
-        || (hwnd != MacroScrollTrack.Hwnd && hwnd != MacroScrollThumb.Hwnd)
-        return false
-    MouseGetPos(, &pointerY)
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
-    MacroScrollThumb.GetPos(, &thumbY, , &thumbHeight)
-    thumbY /= GetCharacterBookScale()
-    thumbHeight /= GetCharacterBookScale()
-    MacroScrollGrab := hwnd = MacroScrollThumb.Hwnd
-        ? localY - thumbY : thumbHeight / 2
-    MacroScrollDragging := true
-    DllCall("SetCapture", "Ptr", hwnd)
-    DragMacroScroll()
-    return true
-}
-
-DragMacroScroll()
-{
-    global CharacterPage, MacroScrollDragging, MacroScrollGrab
-    global MacroItems, MacroBookRows, MacroScrollThumb
-    if !MacroScrollDragging
-        return
-    MouseGetPos(, &pointerY)
-    origin := Buffer(8, 0)
-    DllCall("ClientToScreen", "Ptr", CharacterPage.Hwnd, "Ptr", origin)
-    localY := (pointerY - NumGet(origin, 4, "Int")) / ((A_ScreenDPI / 96) * GetCharacterBookScale())
-    MacroScrollThumb.GetPos(, , , &thumbHeight)
-    thumbHeight /= GetCharacterBookScale()
-    travel := Max(1, CharacterPage.MacroViewportHeight - thumbHeight)
-    maximum := Max(0, MacroItems.Length - GetMacroVisibleSlots())
-    viewportOffset := CharacterPage.HasOwnProp("MacroViewportOffset")
-        ? CharacterPage.MacroViewportOffset : 0
-    ScrollMacroBook(Round((localY - (140 + viewportOffset)
-        - MacroScrollGrab) / travel * maximum))
-}
-
-ReleaseMacroScroll()
-{
-    global MacroScrollDragging
-    if !MacroScrollDragging
-        return false
-    MacroScrollDragging := false
-    DllCall("ReleaseCapture")
-    return true
 }
 
 CloseMacroPage(*)
 {
-    ReleaseMacroScroll()
     SetTimer(RefreshMacroProcesses, 0)
 }
 
@@ -1311,7 +1271,7 @@ RemoveSelectedMacro(*)
         MacroList.Delete(row)
         if MacroItems.Length
             MacroList.Modify(Min(row, MacroItems.Length), "Select Focus")
-        MacroScrollOffset := Min(MacroScrollOffset, Max(0, MacroItems.Length - GetMacroVisibleSlots()))
+        MacroScrollOffset := GetMacroPagePlan(MacroItems.Length, GetMacroVisibleSlots(), MacroScrollOffset).Offset
         RefreshMacroButtons()
     }
     finally EndInterfaceUpdate()
