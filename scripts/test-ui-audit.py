@@ -191,9 +191,7 @@ class InventoryCoverageTests(unittest.TestCase):
             encoding="utf-8-sig")
         reset = source[source.index("WipeCharacterData(*)\n{"):]
         expected = (
-            "This action will remove all registered characters from the launcher. Doing so will revoke auto logins until you add at least one character to the list.`n`n"
-            "Resetting your character list will NOT delete your actual in-game characters, only their launcher registration.`n`n"
-            "You can export your character list to save it for later if you want.`n`n"
+            "This action will remove all registered characters from the launcher and disable auto-login until you add at least one character to the list. Your actual in-game characters will NOT be deleted. You can back up your character list by selecting 'Export Character List' in Manage Characters and import it again at any time.`n`n"
             "Are you sure you want to reset your character list?"
         )
         confirmation = 'if MsgBox("' + expected + '", "Reset Character List", 0x124) != "Yes"'

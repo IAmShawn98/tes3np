@@ -1672,7 +1672,7 @@ WipeCharacterData(*)
     if !Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")
-    if MsgBox("This action will remove all registered characters from the launcher. Doing so will revoke auto logins until you add at least one character to the list.`n`nResetting your character list will NOT delete your actual in-game characters, only their launcher registration.`n`nYou can export your character list to save it for later if you want.`n`nAre you sure you want to reset your character list?", "Reset Character List", 0x124) != "Yes"
+    if MsgBox("This action will remove all registered characters from the launcher and disable auto-login until you add at least one character to the list. Your actual in-game characters will NOT be deleted. You can back up your character list by selecting 'Export Character List' in Manage Characters and import it again at any time.`n`nAre you sure you want to reset your character list?", "Reset Character List", 0x124) != "Yes"
         return
     previousProfiles := Profiles.Clone()
     previousFavorite := SelectedProfile
