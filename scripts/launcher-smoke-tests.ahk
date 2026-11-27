@@ -2014,7 +2014,7 @@ CheckMeasuredBookEditorGeometry()
     savedMode := AccessibilityTextSize
     try
     {
-        for mode in ["Normal", "Extra Large"]
+        for mode in ["Normal", "Large", "Extra Large"]
         {
             page := CreateAccessibleLayoutGui()
             try
@@ -2034,7 +2034,7 @@ CheckMeasuredBookEditorGeometry()
                     rows.Push({Label: label, Input: input})
                 }
                 SetAccessibleTextFont(page, "s13 Bold c241408", LauncherThemeFont())
-                autoLoginHeading := page.Add("Text", "x525 y182 w355 h24", "Auto Login Settings")
+                autoLoginHeading := page.Add("Text", "x525 y192 w355 h24", "Auto Login Settings")
                 SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
                 race := page.Add("Text", "x525 y361 w355 h22", "Race")
                 combo := page.Add("DropDownList", "x525 y376 w355 h240", ["Select race...", "Original Character"])
@@ -2048,11 +2048,11 @@ CheckMeasuredBookEditorGeometry()
                 if mode = "Normal"
                 {
                     if plan.TitleHeight != 30 || plan.Rows[1].Y != 82
-                        || plan.Rows[2].Y != 132 || plan.SectionY != 182 || plan.SectionHeight != 24
-                        || plan.Rows[3].Y != 210 || plan.Rows[5].Y != 310 || plan.RaceY != 361
-                        || plan.DropdownY != 386 || plan.HintY != 417
-                        || plan.ReconnectY != 442 || plan.SaveY != 475
-                        || plan.DismissY != 517 || plan.Extra
+                        || plan.Rows[2].Y != 132 || plan.SectionY != 192 || plan.SectionHeight != 24
+                        || plan.Rows[3].Y != 228 || plan.Rows[5].Y != 328 || plan.RaceY != 383
+                        || plan.DropdownY != 408 || plan.HintY != 439
+                        || plan.ReconnectY != 464 || plan.SaveY != 497
+                        || plan.DismissY != 539 || plan.Extra
                         throw Error("Normal editor anchors changed.")
                 }
                 else
@@ -2070,17 +2070,25 @@ CheckMeasuredBookEditorGeometry()
                             throw Error("Editor field clips or overlaps preceding content.")
                         previous := metrics.Y + metrics.LabelHeight + 1 + metrics.InputHeight
                     }
-                    if plan.SectionY < plan.Rows[2].Y + plan.Rows[2].LabelHeight + 1 + plan.Rows[2].InputHeight
+                    if plan.SectionY < plan.Rows[2].Y + plan.Rows[2].LabelHeight + 1 + plan.Rows[2].InputHeight + 12
                         || plan.SectionHeight < MeasureAccessibleWrappedText(autoLoginHeading, autoLoginHeading.Text, 351)
-                        || plan.Rows[3].Y < plan.SectionY + plan.SectionHeight
+                        || plan.Rows[3].Y < plan.SectionY + plan.SectionHeight + 12
                         throw Error("Auto Login Settings heading clips or overlaps credentials/delays.")
-                    if plan.RaceY < previous || plan.HintY < plan.DropdownY
+                    if plan.RaceY < previous + 7 || plan.HintY < plan.DropdownY
                         || plan.ReconnectY < plan.HintY + plan.HintHeight
                         || plan.SaveY < plan.ReconnectY + plan.ReconnectHeight
                         || plan.DismissY < plan.SaveY + plan.SaveHeight
                         || plan.DismissY + plan.DismissHeight + 5 > 570 + plan.Extra
                         throw Error("Measured editor stack or footer overlaps.")
                 }
+                hint.Text := ""
+                compact := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
+                if compact.SectionY != plan.SectionY || compact.Rows[3].Y != plan.Rows[3].Y
+                    || compact.ReconnectY != compact.HintY + 7
+                    || compact.ReconnectY >= plan.ReconnectY
+                    || compact.SaveY < compact.ReconnectY + compact.ReconnectHeight
+                    || compact.DismissY + compact.DismissHeight + 5 > 570 + compact.Extra
+                    throw Error("Hidden portrait hint reserves excess editor space.")
             }
             finally page.Destroy()
         }
