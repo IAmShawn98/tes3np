@@ -130,25 +130,35 @@ def character_book_left_column(
     measured_paragraph_height: int,
     row_count: int = 10,
     action_height: int = 30,
-    available_bottom: int = 570,
+    available_bottom: int = 605,
     show_limit_notice: bool = False,
 ) -> Plan:
     """Diagnostic only; does not authorize changing Character Book positions.
 
     Coordinates and row pitch mirror existing native Character Book geometry.
     The baseline top positions and footer constraints must be considered before
-    attempting any live reflow. The Add action ends at y570, just above
-    the fixed Wipe Character List action beginning near y575.
+    attempting any live reflow. The populated left stack starts at y505,
+    with Export and Reset below Add; the empty state retains Add/Import.
     """
     if measured_paragraph_height < 0 or action_height < 0:
         raise ValueError("Negative text/action height")
     items: list[TextBlock | FixedRows] = [
         TextBlock("complete-description", 81, measured_paragraph_height, gap_after=3),
-        FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=10),
+        FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=10 if row_count else 0),
     ]
     if show_limit_notice:
         items.append(TextBlock("character-limit-notice", 25, 25, minimum_top=429))
-    items.append(TextBlock("add-character", action_height, action_height, minimum_top=540))
+    if row_count:
+        items.extend((
+            TextBlock("add-character", action_height, action_height, minimum_top=505, gap_after=5),
+            TextBlock("export-character-list", action_height, action_height, gap_after=5),
+            TextBlock("reset-character-list", action_height, action_height),
+        ))
+    else:
+        items.extend((
+            TextBlock("add-character", action_height, action_height, minimum_top=164, gap_after=5),
+            TextBlock("import-data", action_height, action_height),
+        ))
     return plan_vertical_stack(
         top=80,
         available_bottom=available_bottom,
@@ -419,10 +429,9 @@ def plan_character_macro_book(
     last_left = left_first + (profile_count - 1) * effective_row_pitch + row_height if profile_count else left_first
     notice_top = max(429, last_left + 8) if show_limit_notice else 0
     notice_bottom = notice_top + 25 if show_limit_notice else 0
-    left_action = (max(540, last_left + 10, notice_bottom + 10)
+    left_action = (max(505, last_left + 10, notice_bottom + 10)
                    if profile_count else max(164, paragraph_bottom + 3))
-    left_action_bottom = (left_action + 65 if not profile_count
-                          else left_action + 30)
+    left_action_bottom = left_action + 65
 
     macro_text_bottom = 87 + max(48, macro_explanation_height)
     macro_first = max(140, macro_text_bottom + 5)
@@ -434,6 +443,8 @@ def plan_character_macro_book(
     # The two columns are independently laid out; the footer is downstream
     # of whichever column needs the most vertical room.
     footer_y = max(575, left_action_bottom + 5, macro_upload_bottom + 8)
+    if profile_count:
+        left_action = footer_y - 70
     needed_page_height = max(baseline_height, footer_y + 75)
     placements = [
         ("description", Rect(70, 80, 390, max(81, paragraph_height))),
@@ -449,10 +460,9 @@ def plan_character_macro_book(
     if show_limit_notice:
         placements.append(("character-limit-notice", Rect(70, notice_top, 370, 25)))
     if profile_count:
-        # Wipe uses the original 577px top and 25px height at Normal.
         placements.extend((
-            ("footer-left", Rect(70, footer_y + 2, 370, 25)),
-            ("footer-right", Rect(775, footer_y, 110, 30)),
+            ("export-character-list", Rect(70, footer_y - 35, 370, 30)),
+            ("footer-left", Rect(70, footer_y, 370, 30)),
         ))
     else:
         # With no characters, Import appears directly below Add and there is

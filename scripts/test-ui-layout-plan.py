@@ -27,13 +27,15 @@ class LayoutPlanningTest(unittest.TestCase):
         positions = {name: (top, bottom) for name, top, bottom in result.positions}
         self.assertEqual(positions["complete-description"], (80, 161))
         self.assertEqual(positions["character-rows"], (164, 403))
-        self.assertEqual(positions["add-character"], (540, 570))
+        self.assertEqual(positions["add-character"], (505, 535))
+        self.assertEqual(positions["export-character-list"], (540, 570))
+        self.assertEqual(positions["reset-character-list"], (575, 605))
 
     def test_large_paragraph_rejects_unsafe_10_row_plan(self):
         result = layout.character_book_left_column(measured_paragraph_height=220)
         self.assertFalse(result.feasible)
         self.assertGreater(result.overflow, 0)
-        self.assertEqual(result.available_bottom, 570)
+        self.assertEqual(result.available_bottom, 605)
         self.assertIn("overflow", result.violations[0])
 
     def test_character_limit_notice_is_part_of_available_height(self):
@@ -41,7 +43,9 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertTrue(normal.feasible)
         positions = {name: (top, bottom) for name, top, bottom in normal.positions}
         self.assertEqual(positions["character-limit-notice"], (429, 454))
-        self.assertEqual(positions["add-character"], (540, 570))
+        self.assertEqual(positions["add-character"], (505, 535))
+        self.assertEqual(positions["export-character-list"], (540, 570))
+        self.assertEqual(positions["reset-character-list"], (575, 605))
         large = layout.character_book_left_column(220, show_limit_notice=True)
         self.assertFalse(large.feasible)
         self.assertGreater(large.overflow, 0)
@@ -52,14 +56,17 @@ class LayoutPlanningTest(unittest.TestCase):
         again = layout.character_book_left_column(70)
         self.assertFalse(large.feasible)
         self.assertEqual(normal, again)
-        self.assertEqual(normal.positions[-1], ("add-character", 540, 570))
+        self.assertEqual(normal.positions[-1], ("reset-character-list", 575, 605))
 
     def test_empty_rows_still_reserve_action_area(self):
         result = layout.character_book_left_column(70, row_count=0)
         self.assertTrue(result.feasible)
         positions = {name: (top, bottom) for name, top, bottom in result.positions}
         self.assertEqual(positions["character-rows"][0], positions["character-rows"][1])
-        self.assertEqual(positions["add-character"], (540, 570))
+        self.assertEqual(positions["add-character"], (164, 194))
+        self.assertEqual(positions["import-data"], (199, 229))
+        self.assertNotIn("export-character-list", positions)
+        self.assertNotIn("reset-character-list", positions)
 
     def test_reject_invalid_dimensions_and_row_overlap(self):
         with self.assertRaises(ValueError):
@@ -73,7 +80,7 @@ class LayoutPlanningTest(unittest.TestCase):
         content = layout.character_book_left_column(220, show_limit_notice=True)
         self.assertFalse(content.feasible)
         page = layout.plan_responsive_parent(
-            content, minimum_page_height=650, footer_reserved_height=60,
+            content, minimum_page_height=650, footer_reserved_height=45,
             available_work_height=800,
         )
         self.assertTrue(page.feasible)
@@ -83,7 +90,7 @@ class LayoutPlanningTest(unittest.TestCase):
 
     def test_responsive_parent_rejects_small_screen_without_partial_commit(self):
         content = layout.character_book_left_column(220, show_limit_notice=True)
-        page = layout.plan_responsive_parent(content, 650, 60, 640)
+        page = layout.plan_responsive_parent(content, 650, 45, 640)
         self.assertFalse(page.feasible)
         self.assertEqual(page.target_height, 0)
         self.assertGreater(page.overflow, 0)
@@ -91,8 +98,8 @@ class LayoutPlanningTest(unittest.TestCase):
     def test_responsive_parent_returns_to_normal_baseline(self):
         large = layout.character_book_left_column(220, show_limit_notice=True)
         normal = layout.character_book_left_column(70, show_limit_notice=True)
-        larger_window = layout.plan_responsive_parent(large, 650, 60, 800)
-        restored_window = layout.plan_responsive_parent(normal, 650, 60, 800)
+        larger_window = layout.plan_responsive_parent(large, 650, 45, 800)
+        restored_window = layout.plan_responsive_parent(normal, 650, 45, 800)
         self.assertGreater(larger_window.target_height, restored_window.target_height)
         self.assertEqual(restored_window.target_height, 650)
 
@@ -104,6 +111,10 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(rect["character-rows"].y, 164)
         self.assertEqual(rect["macro-rows"].y, 140)
         self.assertEqual(rect["footer-close"].y, 575)
+        self.assertEqual(rect["add-character"], layout.Rect(70, 505, 370, 30))
+        self.assertEqual(rect["export-character-list"], layout.Rect(70, 540, 370, 30))
+        self.assertEqual(rect["footer-left"], layout.Rect(70, 575, 370, 30))
+        self.assertNotIn("footer-right", rect)
 
     def test_two_columns_grow_parent_with_large_full_text(self):
         plan = layout.plan_character_macro_book(220, 72, 23, 62, 1920, 1080)
@@ -111,7 +122,8 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertGreater(plan.page_height, 650)
         rect = dict(plan.controls)
         self.assertGreater(rect["character-rows"].y, 164)
-        self.assertLessEqual(rect["add-character"].bottom + 5, rect["footer-left"].y)
+        self.assertEqual(rect["add-character"].bottom + 5, rect["export-character-list"].y)
+        self.assertEqual(rect["export-character-list"].bottom + 5, rect["footer-left"].y)
         self.assertLessEqual(rect["macro-upload"].bottom + 8, rect["footer-close"].y)
 
     def test_resizing_book_requires_artwork_safe_extension(self):
@@ -223,7 +235,8 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertTrue(plan.feasible, plan.violations)
         positions = dict(layout.expand_book_control_positions(plan))
         self.assertEqual(positions["character-limit-notice"], layout.Rect(70, 429, 370, 25))
-        self.assertEqual(positions["footer-left"], layout.Rect(70, 577, 370, 25))
+        self.assertEqual(positions["footer-left"], layout.Rect(70, 575, 370, 30))
+        self.assertEqual(positions["export-character-list"], layout.Rect(70, 540, 370, 30))
         self.assertNotIn("import-data", positions)
         self.assertEqual(layout.validate_book_control_positions(
             plan, tuple(positions.items())), ())

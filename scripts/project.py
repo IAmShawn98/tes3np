@@ -394,7 +394,13 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'does not impact them in-game!"' in character_ui
             and 'CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))' in character_ui
             and 'y := 164 + (index - 1) * 24' in character_ui
-            and 'actionY := Profiles.Length ? 540 : 164' in character_ui
+            and 'actionY := Profiles.Length ? 505 : 164' in character_ui
+            and 'actionY := PlanCharacterBookActionStack(575, GetBookFooterMetrics(CharacterPage)).AddY' in character_ui
+            and 'transferY := footerY - 5 - footer.TransferHeight' in character_ui
+            and 'AddY: transferY - 5 - footer.AddHeight' in character_ui
+            and 'MoveMeasuredBookAction(DataTransferButton, 70, stack.TransferY, 370, footer.TransferHeight)' in character_ui
+            and 'MoveMeasuredBookAction(WipeCharacterButton, 70, stack.ResetY, 370, footer.FooterHeight)' in character_ui
+            and 'DataTransferButton.Text := Profiles.Length ? "Export Character List" : "Import Data"' in character_ui
             and "Click on the tick box before one of your characters" not in character_ui
         ),
         "favorite notice included in portable backup": (
