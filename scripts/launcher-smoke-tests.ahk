@@ -2259,6 +2259,9 @@ CheckMeasuredFooterVersionAndLoginCard()
                 try
                 {
                     plan := layout.Plan
+                    LoginProgressGui.ProgressFrame.GetPos(&fx, &fy, &fw, &fh)
+                    if fx != 0 || fy != 0 || fw != layout.Width || fh != layout.Height
+                        throw Error("Login strip frame bitmap does not cover the planned window.")
                     LoginProgressCharacterName.GetPos(&nx, &ny, &nw, &nh)
                     LoginProgressGui.ProgressPortrait.GetPos(&px, &py, &pw, &ph)
                     if nx < px + pw || nh < MeasureAccessibleWrappedText(LoginProgressCharacterName, plan.NameDisplay, nw)
@@ -2398,6 +2401,7 @@ CheckInterfaceTextAccessibility()
     CheckMeasuredBookEditorGeometry()
     CheckMeasuredVersionStatusHeader()
     CheckMeasuredLauncherEdgeControls()
+    try FileAppend("CHECK: CheckMeasuredFooterVersionAndLoginCard (DPI=" A_ScreenDPI ")" Chr(10), "*")
     CheckMeasuredFooterVersionAndLoginCard()
     try
     {

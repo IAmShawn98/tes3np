@@ -401,15 +401,25 @@ CreateGameLoginProgress(layout)
     window.BackColor := "18120B"
     plan := layout.Plan
     framePath := A_ScriptDir "\assets\controls\map-frame.png"
+    ; Use the same file-backed Picture construction and subsequent bitmap
+    ; assignment as the accepted native Server Map. Never pass a generated
+    ; HBITMAP descriptor to Gui.Add, or create an uninitialized Picture.
+    window.ProgressFrame := CreateGameLoginProgressPicture(window, framePath, 0, 0,
+        layout.Width, layout.Height, "frame")
     frame := RenderLauncherMapFrame(framePath, layout.Width, layout.Height, layout.Scale, 13, 0xFF18120B)
-    try window.ProgressFrame := window.Add("Picture", "x0 y0 w" layout.Width " h" layout.Height, "*w0 *h0 HBITMAP:*" frame)
+    try window.ProgressFrame.Value := "*w0 *h0 HBITMAP:*" frame
+    catch Error as err
+        throw Error("Login strip frame bitmap assignment failed.", -1, Type(err))
     finally DllCall("gdi32\DeleteObject", "Ptr", frame)
+    window.ProgressFrame.Move(0, 0, layout.Width, layout.Height)
     portraitPath := GetCharacterLoginIconPath(LoginProgressSpecies, LoginProgressPortraitFile)
     portraitY := plan.Rim + Floor((plan.BodyH - plan.Portrait) / 2)
     pictureOptions := "x" (plan.Rim + plan.Pad) " y" portraitY " w" plan.Portrait " h" plan.Portrait
     if RegExMatch(portraitPath, "i)\.ico$")
         pictureOptions .= " Icon1"
-    window.ProgressPortrait := window.Add("Picture", pictureOptions, portraitPath)
+    try window.ProgressPortrait := window.Add("Picture", pictureOptions, portraitPath)
+    catch Error as err
+        throw Error("Login strip portrait control creation failed.", -1, Type(err))
     SetAccessibleTextFont(window, "s" GameLoginProgressFontSize(13, layout.Scale) " Bold cF2E4D0", LauncherThemeFont())
     nameX := plan.Rim + plan.Portrait + 2 * plan.Pad
     nameY := plan.Rim + Floor((plan.BodyH - plan.NameH) / 2)
@@ -424,13 +434,31 @@ CreateGameLoginProgress(layout)
     {
         cell := plan.Cells[index]
         window.Add("Text", "x" (cell.X - plan.Divider) " y" cell.Y " w" plan.Divider " h" cell.H " BackgroundB8975C", "")
-        picture := window.Add("Picture", "x" cell.X " y" cell.Y " w" cell.W " h" cell.H)
+        picture := CreateGameLoginProgressPicture(window, framePath, cell.X, cell.Y,
+            cell.W, cell.H, "stage " index)
         LoginProgressRows.Push({Picture: picture, Caption: caption, Cell: cell, Fill: -1})
     }
     window.Add("Text", "x" (plan.FinishX - plan.Divider) " y" plan.Rim " w" plan.Divider " h" plan.BodyH " BackgroundB8975C", "")
-    LoginProgressCompletion := window.Add("Picture", "x" plan.FinishX " y" plan.Rim " w" plan.FinishW " h" plan.BodyH)
+    LoginProgressCompletion := CreateGameLoginProgressPicture(window, framePath, plan.FinishX, plan.Rim,
+        plan.FinishW, plan.BodyH, "completion")
     window.ProgressComplete := -1
     window.Show("Hide x" layout.X " y" layout.Y " w" layout.Width " h" layout.Height)
+}
+
+CreateGameLoginProgressPicture(window, seedPath, x, y, width, height, role)
+{
+    ; The real bitmap is painted before the hidden window is revealed.
+    ; Seed from the already bundled texture; no extra assets or disk cache.
+    if width < 1 || height < 1
+        throw Error("Login strip " role " has invalid dimensions.")
+    try
+    {
+        picture := window.Add("Picture", "x0 y0 w1 h1", seedPath)
+        picture.Move(x, y, width, height)
+        return picture
+    }
+    catch Error as err
+        throw Error("Login strip " role " Picture creation failed.", -1, Type(err))
 }
 
 ; Native bitmap per section: the fill covers its entire cell, with the
@@ -480,7 +508,9 @@ PaintGameLoginProgressCell(picture, sample, caption, width, height, pad, fill, t
         oldFont := 0
         DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
         oldBitmap := 0
-        picture.Value := "*w0 *h0 HBITMAP:*" bitmap
+        try picture.Value := "*w0 *h0 HBITMAP:*" bitmap
+        catch Error as err
+            throw Error("Login strip cell bitmap assignment failed.", -1, Type(err))
     }
     finally
     {

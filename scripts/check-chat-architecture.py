@@ -2430,6 +2430,13 @@ expect(
     and in_order(login_card_present, "CreateGameLoginProgress(layout)", "RenderGameLoginProgress()",
                  'PositionGameLoginProgress(LoginProgressGui.Hwnd, gameHwnd, layout', "try previous.Destroy()")
     and 'RenderLauncherMapFrame(framePath, layout.Width, layout.Height, layout.Scale, 13, 0xFF18120B)' in login_progress
+    and 'picture := window.Add("Picture", "x0 y0 w1 h1", seedPath)' in login_progress
+    and 'window.ProgressFrame.Value := "*w0 *h0 HBITMAP:*" frame' in login_progress
+    and 'window.ProgressFrame.Move(0, 0, layout.Width, layout.Height)' in login_progress
+    and 'window.ProgressFrame := CreateGameLoginProgressPicture(window, framePath' in login_progress
+    and 'picture := CreateGameLoginProgressPicture(window, framePath, cell.X' in login_progress
+    and 'LoginProgressCompletion := CreateGameLoginProgressPicture(window, framePath' in login_progress
+    and 'Login strip frame bitmap does not cover the planned window.' in launcher_smoke_tests
     and 'GameLoginProgressFill(index, stage, complete, elapsed, duration)' in login_progress
     and 'if complete || index < stage' in login_progress
     and 'return Min(95, Max(0, Floor(100 * elapsedMs / Max(1, durationMs))))' in login_progress
