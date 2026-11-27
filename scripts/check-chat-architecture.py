@@ -2096,6 +2096,24 @@ expect(
     and 'ShowLauncherWindow(true)' in characters_close,
 )
 expect(
+    "Character Book restores from bounded native face cache with complete artwork and state invalidation",
+    'CharacterBookFaceCacheEligible(face)' in native_renderer
+    and 'face.Window = CharacterPage.Hwnd' in native_renderer
+    and 'face.Gui.HasOwnProp("BookFaceArtworkRevision")' in native_renderer
+    and 'bookKey := CharacterBookFaceCacheKey(handle, face)' in native_renderer
+    and 'page.BookFaceArtworkRevision' in native_renderer
+    and 'face.HasOwnProp("Checked") ? face.Checked' in native_renderer
+    and 'face.HasOwnProp("MacroSelected") ? face.MacroSelected' in native_renderer
+    and 'face.HasOwnProp("AccessibleNameText") ? face.AccessibleNameText' in native_renderer
+    and 'face.HasOwnProp("AccessibleWrappedButton") ? face.AccessibleWrappedButton' in native_renderer
+    and 'CharacterPage.BookFaceArtworkRevision := 0' in characters_ui
+    and 'finally BumpBookFaceArtworkRevision(CharacterPage)' in characters_ui
+    and 'BumpBookFaceArtworkRevision(page)' in native_renderer
+    and 'CheckCharacterBookFaceReuse()' in launcher_smoke_tests
+    and 'Reused Book face differed from original pixels.' in launcher_smoke_tests
+    and 'Unregistered Book control retained face cache.' in launcher_smoke_tests,
+)
+expect(
     "Client, dependency and Morrowind use scaled native changelog cards; remaining dialogs follow owners",
     'CreateGoldNativePrompt(ownerHwnd, "tes3np — TES3MP Setup", 680, initialHeight)' in settings_ui
     and 'initialHeight := saved ? 460 : 412' in settings_ui

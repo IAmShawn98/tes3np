@@ -835,6 +835,7 @@ CheckOwnedMenuScaling()
             }
         }
         CheckLauncherFaceReuse()
+        CheckCharacterBookFaceReuse()
         CheckPlayTogetherInfoCardFit()
         CheckLauncherMapShell()
         CheckDisplaySettingsAndReleaseNotes()
@@ -2819,6 +2820,154 @@ CheckLauncherFaceReuse()
         LauncherGui := savedGui, LauncherScale := savedScale, AccessibilityTextSize := savedText
         EnhancedReadability := savedContrast, LauncherChatOpen := savedChat
     }
+}
+
+; Use the production painter and cache on a disposable, hidden Character Book.
+; Repeated paints simulate restoration without overriding native window state.
+CheckCharacterBookFaceReuse()
+{
+    global CharacterPage, ButtonFaces, ButtonPaint, LauncherFaceCache, AccessibilityTextSize
+    global EnhancedReadability
+    savedPage := IsSet(CharacterPage) ? CharacterPage : 0
+    savedMode := AccessibilityTextSize, savedContrast := EnhancedReadability
+    InitButtonPainter()
+    savedImage := ButtonPaint.BookExtended
+    ButtonPaint.BookExtended := 0
+    page := CreateAccessibleLayoutGui("-Caption -Border")
+    dc := 0, bitmap := 0, oldBitmap := 0, screen := 0
+    controls := []
+    try
+    {
+        CharacterPage := page, AccessibilityTextSize := "Normal", EnhancedReadability := false
+        page.BookExtra := 0, page.BookFaceArtworkRevision := 0
+        page.BookBackground := page.Add("Picture", "x0 y0 w960 h650", GetBookSmokeArtworkPath())
+        name := AddBookLabel(page, 95, 164, 140, 23, "Test Character")
+        action := AddStyledButton(page, 240, 164, 55, 22, "Play", (*) => 0)
+        tick := AddBookTick(page, 70, 166, (*) => 0)
+        controls := [name, action, tick]
+        page.Show("Hide w960 h650")
+        screen := DllCall("GetDC", "Ptr", 0, "Ptr")
+        dc := DllCall("CreateCompatibleDC", "Ptr", screen, "Ptr")
+        bitmap := DllCall("CreateCompatibleBitmap", "Ptr", screen, "Int", 1024, "Int", 512, "Ptr")
+        oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+        if !screen || !dc || !bitmap || !oldBitmap || oldBitmap = -1
+            throw Error("Could not create Book face cache test surface.")
+        for scale in [1.0, 0.5]
+        {
+            previousFaces := Map()
+            for control in controls
+                if LauncherFaceCache.Has(control.Hwnd) && LauncherFaceCache[control.Hwnd].Has("normal")
+                    previousFaces[control.Hwnd] := LauncherFaceCache[control.Hwnd]["normal"]
+            ApplyCharacterBookScale(scale)
+            for control in controls
+            {
+                handle := control.Hwnd
+                if !CharacterBookFaceCacheEligible(ButtonFaces[handle])
+                    throw Error("Character Book face was not cache eligible.")
+                PaintButtonToDC(handle, dc)
+                cached := LauncherFaceCache[handle]["normal"]
+                if previousFaces.Has(handle)
+                {
+                    if previousFaces[handle] = cached
+                        throw Error("Changed Book scale retained old bitmap.")
+                    AssertLauncherFaceBitmapReleased(previousFaces[handle])
+                }
+                PaintButtonToDC(handle, dc)
+                if LauncherFaceCache[handle]["normal"] != cached
+                    throw Error("Unchanged Book face was rendered again.")
+                item := Buffer(A_PtrSize = 8 ? 64 : 48, 0)
+                rect := A_PtrSize = 8 ? 40 : 28
+                NumPut("Ptr", handle, item, A_PtrSize = 8 ? 24 : 20)
+                NumPut("Ptr", dc, item, A_PtrSize = 8 ? 32 : 24)
+                DllCall("GetClientRect", "Ptr", handle, "Ptr", item.Ptr + rect)
+                w := NumGet(item, rect + 8, "Int"), h := NumGet(item, rect + 12, "Int")
+                samples := []
+                for sy in [h // 4, h // 2, 3 * h // 4]
+                    for sx in [w // 4, w // 2, 3 * w // 4]
+                        samples.Push({X: sx, Y: sy, Color: DllCall("GetPixel", "Ptr", dc,
+                            "Int", sx, "Int", sy, "UInt")})
+                if !RenderButtonFace(0, item.Ptr)
+                    throw Error("Original Book renderer failed.")
+                for sample in samples
+                    if sample.Color = 0xFFFFFFFF || sample.Color != DllCall("GetPixel", "Ptr", dc,
+                        "Int", sample.X, "Int", sample.Y, "UInt")
+                        throw Error("Reused Book face differed from original pixels.")
+            }
+            before := LauncherFaceCache[tick.Hwnd]["normal"]
+            SetBookTick(tick, !ButtonFaces[tick.Hwnd].Checked)
+            AssertBookFaceCacheReplacement(tick, dc, before)
+            before := LauncherFaceCache[name.Hwnd]["normal"]
+            name.Text := "Renamed Character " scale
+            AssertBookFaceCacheReplacement(name, dc, before)
+            before := LauncherFaceCache[name.Hwnd]["normal"]
+            ButtonFaces[name.Hwnd].AccessibleWrappedName := true
+            ButtonFaces[name.Hwnd].AccessibleNameText := "Wrapped name " scale
+            AssertBookFaceCacheReplacement(name, dc, before)
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            ButtonFaces[action.Hwnd].MacroSelected := scale = 1.0
+            AssertBookFaceCacheReplacement(action, dc, before)
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            ButtonFaces[action.Hwnd].AccessibleWrappedButton := scale = 1.0
+            AssertBookFaceCacheReplacement(action, dc, before)
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            action.GetPos(&x, &y, &w, &h)
+            action.Move(x + 3, y + 2)
+            AssertBookFaceCacheReplacement(action, dc, before)
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            ApplyExtendedBookArtwork(page, 80)
+            AssertBookFaceCacheReplacement(action, dc, before)
+            before := LauncherFaceCache[action.Hwnd]["normal"]
+            ApplyExtendedBookArtwork(page, 0)
+            AssertBookFaceCacheReplacement(action, dc, before)
+            for state in ["hover", "down", "normal"]
+            {
+                ButtonFaces[action.Hwnd].State := state
+                PaintButtonToDC(action.Hwnd, dc)
+            }
+            if LauncherFaceCache[action.Hwnd].Count != 3
+                throw Error("Book cache exceeded three interaction states.")
+        }
+        for control in controls
+        {
+            handle := control.Hwnd
+            released := []
+            for state, entry in LauncherFaceCache[handle]
+                released.Push(entry)
+            UnregisterThemedControl(control)
+            for entry in released
+                AssertLauncherFaceBitmapReleased(entry)
+            if LauncherFaceCache.Has(handle)
+                throw Error("Unregistered Book control retained face cache.")
+        }
+        try FileAppend("PASS: Character Book native face reuse, original pixels, state/artwork invalidation and GDI cleanup" Chr(10), "*")
+    }
+    finally
+    {
+        for control in controls
+            UnregisterThemedControl(control)
+        DestroyScaledMenu(page)
+        if ButtonPaint.BookExtended
+            DllCall("gdiplus\GdipDisposeImage", "Ptr", ButtonPaint.BookExtended)
+        ButtonPaint.BookExtended := savedImage
+        CharacterPage := savedPage, AccessibilityTextSize := savedMode, EnhancedReadability := savedContrast
+        if oldBitmap && oldBitmap != -1
+            DllCall("SelectObject", "Ptr", dc, "Ptr", oldBitmap)
+        if bitmap
+            DllCall("DeleteObject", "Ptr", bitmap)
+        if dc
+            DllCall("DeleteDC", "Ptr", dc)
+        if screen
+            DllCall("ReleaseDC", "Ptr", 0, "Ptr", screen)
+    }
+}
+
+AssertBookFaceCacheReplacement(control, dc, previous)
+{
+    global LauncherFaceCache
+    PaintButtonToDC(control.Hwnd, dc)
+    if LauncherFaceCache[control.Hwnd]["normal"] = previous
+        throw Error("Changed Book face input retained stale bitmap.")
+    AssertLauncherFaceBitmapReleased(previous)
 }
 
 CheckLauncherMapShell()

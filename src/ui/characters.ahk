@@ -26,17 +26,22 @@ ApplyCharacterBookScale(scale)
     previous := GetCharacterBookScale()
     if Abs(scale - previous) < 0.001
         return
-    ScaleOwnedMenuContent(CharacterPage, scale)
-    if CharacterPage.HasOwnProp("BookBackground")
+    BumpBookFaceArtworkRevision(CharacterPage)
+    try
     {
-        if CharacterPage.HasOwnProp("BookExtra") && CharacterPage.BookExtra
-            ApplyExtendedBookArtwork(CharacterPage, CharacterPage.BookExtra)
-        else
+        ScaleOwnedMenuContent(CharacterPage, scale)
+        if CharacterPage.HasOwnProp("BookBackground")
         {
-            if !TryLoadReducedBookPicture(CharacterPage, ButtonPaint.Book)
-                CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+            if CharacterPage.HasOwnProp("BookExtra") && CharacterPage.BookExtra
+                ApplyExtendedBookArtwork(CharacterPage, CharacterPage.BookExtra)
+            else
+            {
+                if !TryLoadReducedBookPicture(CharacterPage, ButtonPaint.Book)
+                    CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
+            }
         }
     }
+    finally BumpBookFaceArtworkRevision(CharacterPage)
 }
 
 ; Measure the actual requested button font, not the renderer's fitted
@@ -267,6 +272,7 @@ OpenCharacterPage(*)
     CharacterPage := CreateAccessibleLayoutGui("-Caption -Border +Owner" LauncherGui.Hwnd, "tes3np — Characters")
     CharacterPage.BackColor := "FF00FF"
     CharacterPage.BookExtra := 0
+    CharacterPage.BookFaceArtworkRevision := 0
     CharacterPage.BookCharacterExtra := 0
     CharacterPage.BookMacroExtra := 0
     CharacterPage.BookBackground := CharacterPage.Add("Picture", "x0 y0 w960 h650",

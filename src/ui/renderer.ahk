@@ -391,6 +391,7 @@ ApplyExtendedBookArtwork(page, extra)
     InitButtonPainter()
     oldImage := ButtonPaint.BookExtended
     oldExtra := page.HasOwnProp("BookExtra") ? page.BookExtra : 0
+    BumpBookFaceArtworkRevision(page)
     if !extra
     {
         page.BookBackground.Move(, , BookS(960), BookS(650))
@@ -398,6 +399,7 @@ ApplyExtendedBookArtwork(page, extra)
             page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
         page.BookExtra := 0
         ButtonPaint.BookExtended := 0
+        BumpBookFaceArtworkRevision(page)
         if oldImage
             DllCall("gdiplus\GdipDisposeImage", "Ptr", oldImage)
         return
@@ -419,12 +421,14 @@ ApplyExtendedBookArtwork(page, extra)
         page.BookExtra := extra
         ButtonPaint.BookExtended := candidate
         candidate := 0
+        BumpBookFaceArtworkRevision(page)
         if oldImage
             DllCall("gdiplus\GdipDisposeImage", "Ptr", oldImage)
     }
     catch Error as err
     {
         page.BookBackground.Move(, , BookS(960), BookS(650 + oldExtra))
+        BumpBookFaceArtworkRevision(page)
         throw err
     }
     finally
@@ -439,11 +443,32 @@ ApplyExtendedBookArtwork(page, extra)
 global LauncherFaceCache := Map()
 global LauncherFacePaintBusy := Map()
 
-; Reuse finished artwork only for the stable main-launcher faces.
+; The Character Book opts into the same bounded bitmap cache as the main
+; launcher. Other parchment dialogs retain their existing painting path.
+BumpBookFaceArtworkRevision(page)
+{
+    if page.HasOwnProp("BookFaceArtworkRevision")
+        page.BookFaceArtworkRevision += 1
+}
+
+CharacterBookFaceCacheEligible(face)
+{
+    global CharacterPage
+    return face.HasOwnProp("Gui") && face.Gui.HasOwnProp("BookFaceArtworkRevision")
+        && IsSet(CharacterPage) && IsObject(CharacterPage) && face.Gui = CharacterPage
+        && face.Window = CharacterPage.Hwnd && face.Gui.HasOwnProp("BookBackground")
+        && face.HasOwnProp("Book") && face.Book
+        && !face.HasOwnProp("IsInfo") && !face.HasOwnProp("IsLoading")
+        && !face.HasOwnProp("IsDiscordName") && !face.HasOwnProp("IsDiscordPortrait")
+        && !face.HasOwnProp("IsChatTab")
+}
+
 ; Cached bitmaps are unselected between paints; never retain a DC or desktop capture.
 LauncherFaceCacheEligible(face)
 {
     global LauncherGui
+    if CharacterBookFaceCacheEligible(face)
+        return true
     if !IsSet(LauncherGui) || !IsObject(LauncherGui) || face.Window != LauncherGui.Hwnd
         return false
     if face.HasOwnProp("IsDiscordName") || face.HasOwnProp("IsDiscordPortrait")
@@ -476,6 +501,13 @@ LauncherFaceCacheKey(handle, face, width, height)
         fontKey .= Format("{:08X}", NumGet(definition, (A_Index - 1) * 4, "UInt"))
     face.Control.GetPos(&x, &y, &logicalWidth, &logicalHeight)
     caption := face.HasOwnProp("IsInfo") ? face.Control.Text : face.Label.Text
+    bookKey := ""
+    if CharacterBookFaceCacheEligible(face)
+    {
+        bookKey := CharacterBookFaceCacheKey(handle, face)
+        if bookKey = ""
+            return ""
+    }
     return width "|" height "|" font "|" fontKey "|" LauncherScale "|" A_ScreenDPI
         . "|" AccessibilityTextSize "|" EnhancedReadability
         . "|" (face.HasOwnProp("IsMapTab") ? LauncherMapOpen : face.HasOwnProp("IsChatTab") ? LauncherChatOpen : 0)
@@ -491,7 +523,35 @@ LauncherFaceCacheKey(handle, face, width, height)
         . "|" (face.HasOwnProp("TextColor") ? face.TextColor : "default")
         . "|" (face.HasOwnProp("Heading") ? face.Heading : "")
         . "|" (face.HasOwnProp("BodyBottom") ? face.BodyBottom : 0)
-        . "|" StrLen(caption) ":" caption
+        . "|" StrLen(caption) ":" caption . bookKey
+}
+
+; Include every additional input used by the Book painter. Live bounds
+; and revision protect the reduced native bitmap and extended parchment,
+; including a reload that reuses the same native bitmap handle.
+CharacterBookFaceCacheKey(handle, face)
+{
+    global ButtonPaint
+    page := face.Gui, picture := page.BookBackground.Hwnd
+    rect := Buffer(16, 0), origin := Buffer(8, 0)
+    if !DllCall("GetClientRect", "Ptr", picture, "Ptr", rect)
+        return ""
+    DllCall("MapWindowPoints", "Ptr", handle, "Ptr", picture, "Ptr", origin, "UInt", 1)
+    bitmap := DllCall("SendMessageW", "Ptr", picture, "UInt", 0x0173,
+        "Ptr", 0, "Ptr", 0, "Ptr")
+    wrappedText := face.HasOwnProp("AccessibleNameText") ? face.AccessibleNameText : ""
+    return "|book|" page.BookFaceArtworkRevision "|" picture "|" bitmap
+        . "|" NumGet(rect, 8, "Int") "|" NumGet(rect, 12, "Int")
+        . "|" NumGet(origin, 0, "Int") "|" NumGet(origin, 4, "Int")
+        . "|" (page.HasOwnProp("OwnedContentScale") ? page.OwnedContentScale : 1)
+        . "|" (page.HasOwnProp("BookExtra") ? page.BookExtra : 0) "|" ButtonPaint.BookExtended
+        . "|" face.HasOwnProp("IsLabel") "|" face.HasOwnProp("IsTick")
+        . "|" (face.HasOwnProp("Checked") ? face.Checked : 0)
+        . "|" (face.HasOwnProp("MacroSelected") ? face.MacroSelected : 0)
+        . "|" face.HasOwnProp("UseControlPosition")
+        . "|" (face.HasOwnProp("AccessibleWrappedName") ? face.AccessibleWrappedName : 0)
+        . "|" (face.HasOwnProp("AccessibleWrappedButton") ? face.AccessibleWrappedButton : 0)
+        . "|" StrLen(wrappedText) ":" wrappedText
 }
 
 ; Retire only after the painting DC has been destroyed. Record the native
