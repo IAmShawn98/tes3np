@@ -2417,11 +2417,11 @@ login_card_present = section_between(login_progress, "PresentGameLoginProgress(g
 login_card_position = section_between(login_progress, "PositionGameLoginProgress(cardHwnd,", "PresentGameLoginProgress(gameHwnd, layout)")
 expect(
     "Game login progress retains its normal DPI layout when it fits and follows the visible TES3MP client",
-    "Min(normalScale, area.Width / 420, area.Height / 481)" in login_card_fit
-    and "anchor := scale < normalScale ? area : gameWindow" in login_card_fit
+    "Min(normalScale, area.Width / 960, area.Height / 112)" in login_card_fit
+    and "Y: area.Y + area.Height - height - margin" in login_card_fit
     and 'WinGetClientPos(&x, &y, &width, &height, "ahk_id " hwnd)' in login_card_layout
     and 'DllCall("GetMonitorInfoW"' in login_card_layout
-    and "A_ScreenDPI / 96)" in login_card_layout
+    and "A_ScreenDPI / 96, LoginProgressName)" in login_card_layout
     and "layout := GetGameLoginProgressLayout(hwnd, gameWindow)" in login_cleanup
     and "PresentGameLoginProgress(hwnd, layout)" in login_cleanup
     and "previous.ProgressScale != layout.Scale" in login_card_present
@@ -2429,8 +2429,16 @@ expect(
     and 'window.Show("Hide x" layout.X' in login_progress
     and in_order(login_card_present, "CreateGameLoginProgress(layout)", "RenderGameLoginProgress()",
                  'PositionGameLoginProgress(LoginProgressGui.Hwnd, gameHwnd, layout', "try previous.Destroy()")
-    and 'SetAccessibleTextFont(row.Symbol, "s" GameLoginProgressFontSize(14, scale)' in login_progress
-    and 'SetAccessibleTextFont(marker.Symbol, "s" GameLoginProgressFontSize(17, scale)' in login_progress
+    and 'RenderLauncherMapFrame(framePath, layout.Width, layout.Height, layout.Scale, 13, 0xFF18120B)' in login_progress
+    and 'GameLoginProgressFill(index, stage, complete, elapsed, duration)' in login_progress
+    and 'if complete || index < stage' in login_progress
+    and 'return Min(95, Max(0, Floor(100 * elapsedMs / Max(1, durationMs))))' in login_progress
+    and 'fillWidth := Round(width * fill / 100)' in login_progress
+    and 'NumPut("Int", fillWidth, rect, 8)' in login_progress
+    and 'top := Max(0, Floor((height - textH) / 2))' in login_progress
+    and '"UInt", 0x811)' in login_progress
+    and 'LoginProgressGui.ProgressComplete := complete' in login_progress
+    and 'Y: area.Y + area.Height - plan.Height - (base.X - area.X)' in login_progress
     and "CheckGameLoginProgressFit()" in launcher_smoke_tests,
 )
 expect(

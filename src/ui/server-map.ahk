@@ -158,7 +158,7 @@ MapFrameNoise(&seed, limit)
     return Mod(seed >> 16, Max(1, limit))
 }
 
-RenderLauncherMapFrame(texturePath, width, height, scale, headerBottom)
+RenderLauncherMapFrame(texturePath, width, height, scale, headerBottom, bodyColor := 0xFF132725)
 {
     InitButtonPainter()
     bitmap := 0, graphics := 0, texture := 0, vertical := 0, handle := 0
@@ -225,14 +225,14 @@ RenderLauncherMapFrame(texturePath, width, height, scale, headerBottom)
             "Int", 2, "Int", 2, "Int", w - 5, "Int", h - 5))
         MapFrameCheck(DllCall("gdiplus\GdipDrawRectangleI", "Ptr", graphics, "Ptr", darkPen,
             "Int", 8, "Int", 8, "Int", w - 17, "Int", h - 17))
-        body := MapFrameBrush(0xFF132725, brushes)
+        body := MapFrameBrush(bodyColor, brushes)
         MapFrameFill(graphics, body, 13, headerBottom + 1, w - 26, h - headerBottom - 14)
         MapFrameLine(graphics, goldPen, 12, headerBottom, w - 13, headerBottom)
 
         MapFrameCheck(DllCall("gdiplus\GdipDeleteGraphics", "Ptr", graphics))
         graphics := 0
         MapFrameCheck(DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", bitmap,
-            "Ptr*", &handle, "UInt", 0xFF132725))
+            "Ptr*", &handle, "UInt", bodyColor))
         return handle
     }
     finally

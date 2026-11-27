@@ -148,22 +148,20 @@ CheckGameLoginProgressFit()
     game := {X: -1300, Y: 20, Width: 1100, Height: 902}
     client := {X: -1292, Y: 51, Width: 1084, Height: 863}
     normal := FitGameLoginProgress(client, game, 1.5)
-    if normal.Scale != 1.5 || normal.Width != 630 || normal.Height != 722
-        || normal.X != -1065 || normal.Y != 110
+    if !IsObject(normal) || normal.X < client.X || normal.Y < client.Y
+        || normal.X + normal.Width > client.X + client.Width
+        || normal.Y + normal.Height != client.Y + client.Height - (normal.X - client.X)
+        || normal.Width <= normal.Height
         return false
-
     normal.GameWindow := game
     dragged := {X: 240, Y: -123, Width: game.Width, Height: game.Height}
     moved := TranslateGameLoginProgress(normal, dragged)
     returned := TranslateGameLoginProgress(moved, game)
-    if moved.X != 475 || moved.Y != -33 || moved.Scale != normal.Scale
+    if moved.X != normal.X + 1540 || moved.Y != normal.Y - 143 || moved.Scale != normal.Scale
         || moved.Width != normal.Width || moved.Height != normal.Height
         || returned.X != normal.X || returned.Y != normal.Y
         || IsObject(TranslateGameLoginProgress(moved, {X: 240, Y: -123, Width: 320, Height: game.Height}))
         return false
-
-    ; Both dimensions can limit the fit, including partially visible games
-    ; on a monitor to the left of the primary display.
     for area in [{X: 30, Y: 50, Width: 640, Height: 360},
         {X: -320, Y: 40, Width: 275, Height: 500},
         {X: 1, Y: 7, Width: 320, Height: 240}]
@@ -172,8 +170,22 @@ CheckGameLoginProgressFit()
         if !IsObject(fitted) || fitted.Scale >= 1.5
             || fitted.X < area.X || fitted.Y < area.Y
             || fitted.X + fitted.Width > area.X + area.Width
-            || fitted.Y + fitted.Height > area.Y + area.Height
-            || (fitted.Width != area.Width && fitted.Height != area.Height)
+            || fitted.Y + fitted.Height != area.Y + area.Height - (fitted.X - area.X)
+            || fitted.Width <= fitted.Height
+            return false
+    }
+    Loop 4
+    {
+        stage := A_Index
+        Loop 4
+        {
+            index := A_Index
+            expected := index < stage ? 100 : index = stage ? 50 : 0
+            if GameLoginProgressFill(index, stage, false, 500, 1000) != expected
+                || GameLoginProgressFill(index, stage, true, 0, 1000) != 100
+                return false
+        }
+        if GameLoginProgressFill(stage, stage, false, 2000, 1000) != 95
             return false
     }
     return !IsObject(FitGameLoginProgress({X: 0, Y: 0, Width: 0, Height: 100}, game, 1))
@@ -2195,11 +2207,11 @@ CheckLauncherStatusCaptionAlignment(control, scale)
 CheckMeasuredFooterVersionAndLoginCard()
 {
     global AccessibilityTextSize, LoginProgressGui, LoginProgressRows
-    global LoginProgressFooter, LoginProgressCharacterName, LoginProgressSummaryDots
+    global LoginProgressCompletion, LoginProgressCharacterName
     global LoginProgressName, LoginProgressMode, LoginProgressStage, LoginProgressStageStarted
     savedMode := AccessibilityTextSize
-    savedGui := LoginProgressGui, savedRows := LoginProgressRows, savedFooter := LoginProgressFooter
-    savedCharacter := LoginProgressCharacterName, savedDots := LoginProgressSummaryDots
+    savedGui := LoginProgressGui, savedRows := LoginProgressRows, savedFooter := LoginProgressCompletion
+    savedCharacter := LoginProgressCharacterName
     savedName := LoginProgressName, savedLoginMode := LoginProgressMode
     savedStage := LoginProgressStage, savedStarted := LoginProgressStageStarted
     panel := CreateAccessibleLayoutGui()
@@ -2231,7 +2243,7 @@ CheckMeasuredFooterVersionAndLoginCard()
                 }
             }
         }
-        for mode in ["Large", "Extra Large"]
+        for mode in ["Normal", "Large", "Extra Large"]
         {
             AccessibilityTextSize := mode
             for area in [{X: 0, Y: 0, Width: 1920, Height: 1080},
@@ -2240,65 +2252,39 @@ CheckMeasuredFooterVersionAndLoginCard()
                 LoginProgressName := "Long Character Name Without Clipping"
                 layout := FitAccessibleGameLoginProgress(area, area, A_ScreenDPI / 96, LoginProgressName)
                 if !IsObject(layout) || layout.Height > area.Height || layout.Width > area.Width
-                    throw Error("Measured login card exceeds game client.")
-                ; The source and compiled fixture both use the production
-                ; constructor; its icon is in the verified resource root.
+                    || layout.Y + layout.Height != area.Y + area.Height - (layout.X - area.X)
+                    throw Error("Measured login strip exceeds game client or loses bottom anchor.")
                 LoginProgressGui := 0
                 CreateGameLoginProgress(layout)
                 try
                 {
-                    ; Check the actual native static type, not just the option string.
-                    ; SS_CENTER (1) must survive the enlarged layout constructor.
-                    for control in [LoginProgressGui.ProgressTitle, LoginProgressFooter]
-                    {
-                        style := DllCall("user32\GetWindowLongW", "Ptr", control.Hwnd, "Int", -16, "UInt")
-                        if (style & 0x1F) != 1
-                            throw Error("Enlarged login title or status lost centered alignment.")
-                    }
+                    plan := layout.Plan
+                    LoginProgressCharacterName.GetPos(&nx, &ny, &nw, &nh)
+                    LoginProgressGui.ProgressPortrait.GetPos(&px, &py, &pw, &ph)
+                    if nx < px + pw || nh < MeasureAccessibleWrappedText(LoginProgressCharacterName, plan.NameDisplay, nw)
+                        || ny < plan.Rim || ny + nh > plan.Rim + plan.BodyH
+                        throw Error("Login profile clips or overlaps portrait.")
                     LoginProgressStageStarted := A_TickCount
                     for stage in [1, 2, 3, 4, 5]
                     {
                         LoginProgressStage := stage
                         LoginProgressMode := stage = 5 ? "complete" : "login"
                         RenderGameLoginProgress()
-                        previousBottom := 0
-                        for control in [LoginProgressGui.ProgressTitle, LoginProgressGui.ProgressPortrait,
-                            LoginProgressCharacterName, LoginProgressGui.ProgressTopLine]
+                        previousRight := plan.Rim + plan.ProfileW
+                        for index, row in LoginProgressRows
                         {
-                            control.GetPos(, &y, , &h)
-                            if y < previousBottom
-                                throw Error("Measured login header overlaps.")
-                            previousBottom := y + h
+                            row.Picture.GetPos(&x, &y, &w, &h)
+                            if x < previousRight + plan.Divider || y != plan.Rim || h != plan.BodyH
+                                || h < MeasureAccessibleWrappedText(LoginProgressGui.ProgressStageFont, row.Caption, w - 2 * plan.Pad)
+                                || (index < stage && row.Fill != 100) || (index > stage && row.Fill != 0)
+                                || (index = stage && row.Fill >= 100)
+                                throw Error("Login stage fill, text or geometry invalid.")
+                            previousRight := x + w
                         }
-                        for row in LoginProgressRows
-                        {
-                            for control in [row.Label, row.Dot, row.Symbol]
-                            {
-                                control.GetPos(, , &w, &h)
-                                if control.Text != "" && h < MeasureAccessibleWrappedText(control, control.Text, w)
-                                    throw Error("Login step glyph clips.")
-                            }
-                            row.Label.GetPos(, &ly, , &lh)
-                            row.Dot.GetPos(, &dy, , &dh)
-                            if ly < previousBottom || dy < ly + lh
-                                throw Error("Login step overlaps.")
-                            previousBottom := dy + dh
-                        }
-                        LoginProgressGui.ProgressBottomLine.GetPos(, &lineY, , &lineH)
-                        LoginProgressFooter.GetPos(, &fy, &fw, &fh)
-                        if lineY < previousBottom || fy < lineY + lineH
-                            || fh < MeasureAccessibleWrappedText(LoginProgressFooter, LoginProgressFooter.Text, fw)
-                            throw Error("Login footer overlaps or clips.")
-                        for marker in LoginProgressSummaryDots
-                        {
-                            for control in [marker.Circle, marker.Symbol]
-                            {
-                                control.GetPos(, &y, &w, &h)
-                                if y < fy + fh || y + h >= layout.Height
-                                    || (control.Text != "" && h < MeasureAccessibleWrappedText(control, control.Text, w))
-                                    throw Error("Login summary marker clips.")
-                            }
-                        }
+                        LoginProgressCompletion.GetPos(&x, &y, &w, &h)
+                        if x < previousRight + plan.Divider || x + w > layout.Width - plan.Rim
+                            || y != plan.Rim || h != plan.BodyH || LoginProgressGui.ProgressComplete != (stage = 5)
+                            throw Error("Login completion cell clips or completes prematurely.")
                     }
                 }
                 finally
@@ -2314,8 +2300,8 @@ CheckMeasuredFooterVersionAndLoginCard()
         if IsObject(LoginProgressGui) && LoginProgressGui != savedGui
             try LoginProgressGui.Destroy()
         panel.Destroy()
-        LoginProgressGui := savedGui, LoginProgressRows := savedRows, LoginProgressFooter := savedFooter
-        LoginProgressCharacterName := savedCharacter, LoginProgressSummaryDots := savedDots
+        LoginProgressGui := savedGui, LoginProgressRows := savedRows, LoginProgressCompletion := savedFooter
+        LoginProgressCharacterName := savedCharacter
         LoginProgressName := savedName, LoginProgressMode := savedLoginMode
         LoginProgressStage := savedStage, LoginProgressStageStarted := savedStarted
         AccessibilityTextSize := savedMode
