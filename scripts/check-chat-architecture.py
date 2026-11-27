@@ -670,8 +670,6 @@ expect(
                  "FitPopupScale(launcherScale, chatWidth, dockHeight, work)",
                  "DockBounds(bounds, work, size, size.Width)",
                  "!MoveWindow(Handle, target.X, target.Y, target.Width, target.Height, true))",
-                 "SetOwnedChatVisibility(owner, Handle, false);",
-                 "return;",
                  "SetOwnedChatVisibility(owner, Handle, chatOpen && !discordLoginVisible);")
     and re.search(
         r"if \(chatOpen && !discordLoginVisible && Bounds != target &&\s*"
