@@ -144,7 +144,7 @@ def character_book_left_column(
         raise ValueError("Negative text/action height")
     items: list[TextBlock | FixedRows] = [
         TextBlock("complete-description", 81, measured_paragraph_height, gap_after=3),
-        FixedRows("character-rows", row_count, row_height=23, row_pitch=24, gap_after=8 if row_count else 0),
+        FixedRows("character-rows", row_count, row_height=23, row_pitch=26, gap_after=8 if row_count else 0),
     ]
     if show_limit_notice:
         items.append(TextBlock("character-limit-notice", 25, 25, minimum_top=429, gap_after=8))
@@ -204,7 +204,7 @@ class BookPlan:
     macro_count: int = 4
     character_row_height: int = 23
     macro_row_height: int = 62
-    character_pitch: int = 24
+    character_pitch: int = 26
     macro_pitch: int = 70
     show_limit_notice: bool = False
     requires_art_extension: bool = False
@@ -327,16 +327,16 @@ def expand_book_control_positions(
         # name and action buttons. Grow the name region first, then start the
         # action row strictly below it, keeping the complete original content.
         name_height = max(22, macro_row_height * 3 // 10)
-        action_offset = max(42, 19 + name_height + 1)
-        action_height = max(20, macro_row_height - action_offset)
+        action_offset = name_height + 7
+        action_height = max(24, macro_row_height - action_offset)
         controls.extend((
-            (prefix + "-status", Rect(551, y, 329, 17)),
-            (prefix + "-tick", Rect(525, y + 20, 18, 18)),
-            (prefix + "-name", Rect(551, y + 19, 125, name_height)),
-            (prefix + "-rename", Rect(680, y + 19, 21, name_height)),
-            (prefix + "-run", Rect(551, y + action_offset, 103, action_height)),
-            (prefix + "-stop", Rect(663, y + action_offset, 103, action_height)),
-            (prefix + "-remove", Rect(775, y + action_offset, 105, action_height)),
+            (prefix + "-status", Rect(711, y + 2, 169, name_height - 2)),
+            (prefix + "-tick", Rect(525, y + 2, 18, 18)),
+            (prefix + "-name", Rect(551, y, 125, name_height)),
+            (prefix + "-rename", Rect(682, y, 21, name_height)),
+            (prefix + "-run", Rect(525, y + action_offset, 111, action_height)),
+            (prefix + "-stop", Rect(646, y + action_offset, 112, action_height)),
+            (prefix + "-remove", Rect(768, y + action_offset, 112, action_height)),
         ))
     # Aggregate rectangles are not returned because they intentionally
     # contain the individual controls. The footer is returned as independent
@@ -379,7 +379,7 @@ def plan_character_macro_book(
     screen_height: int,
     profile_count: int = 10,
     macro_count: int = 4,
-    row_pitch: int = 24,
+    row_pitch: int = 26,
     macro_pitch: int = 70,
     show_limit_notice: bool = False,
     ui_scale: float = 1.0,
@@ -419,10 +419,10 @@ def plan_character_macro_book(
             and measured_macro_name_width > 125)
     )
     # Grow the pitch when text/hit targets grow. Retain each column's
-    # original baseline spacing (1px for character rows, 8px for macros),
+    # baseline spacing (3px for character rows, 12px for macros),
     # instead of rejecting larger accessible fonts or overlapping the rows.
-    effective_row_pitch = max(row_pitch, row_height + 1)
-    effective_macro_pitch = max(macro_pitch, macro_row_height + 8)
+    effective_row_pitch = max(row_pitch, row_height + 3)
+    effective_macro_pitch = max(macro_pitch, macro_row_height + 12)
 
     # A column's planned height is measured from its original top anchor.
     paragraph_bottom = 80 + max(81, paragraph_height)
@@ -435,10 +435,10 @@ def plan_character_macro_book(
     left_action_bottom = left_action + (30 if profile_count else 65)
 
     macro_text_bottom = 87 + max(48, macro_explanation_height)
-    macro_first = max(140, macro_text_bottom + 5)
+    macro_first = max(140, macro_text_bottom + 10)
     macro_last = (macro_first + (macro_count - 1) * effective_macro_pitch + macro_row_height
                   if macro_count else macro_first)
-    macro_upload = max(188, macro_last + 8)
+    macro_upload = max(188, macro_last + 16)
     macro_upload_bottom = macro_upload + 29
 
     # The two columns are independently laid out; the footer is downstream
@@ -453,7 +453,7 @@ def plan_character_macro_book(
         ("macro-explanation", Rect(525, 87, 355, max(48, macro_explanation_height))),
         ("macro-rows", Rect(525, macro_first, 355,
              max(0, macro_last - macro_first))),
-        ("macro-upload", Rect(525, macro_upload, 355, 29)),
+        ("macro-upload", Rect(525, macro_upload, 150, 29)),
         ("footer-close", Rect(795, footer_y, 90, 30)),
     ]
     if show_limit_notice:

@@ -2110,7 +2110,7 @@ expect(
     and 'MoveStyledButton(control, x, y, width, height)' in characters_ui
     and 'x := BookS(x), y := BookS(y)' in characters_ui
     and 'CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))' in characters_ui
-    and 'y := 164 + (index - 1) * 24' in characters_ui
+    and 'y := 164 + (index - 1) * 26' in characters_ui
     and 'GetCharacterBookScale()' in characters_ui
     and 'BookS(value)' in characters_ui
     and 'GetCharacterBookScale()' in macro_menu_ui
@@ -2215,14 +2215,18 @@ expect(
     and '#Include src\\ui\\macro-bindings.ahk' not in entry_script,
 )
 expect(
-    "Macro rows have a true line break between action buttons and next Ready status",
+    "Macro rows keep status inline and separate full-width action groups",
     'y := 140 + (position - 1) * 70' in macro_menu_ui
-    and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro_menu_ui
+    and 'AddStyledButton(CharacterPage, 768, y + 29, 112, 24,' in macro_menu_ui
     and 'emptyUploadY := count = 0 ? ReflowEmptyMacroBook() : 188' in macro_menu_ui
     and 'desiredUploadY := count = 0 ? emptyUploadY' in macro_menu_ui
     and 'return 188' in macro_menu_ui
-    and 'pitch := statusH + 2 + nameH + 1 + actionH + 8' in macro_menu_ui
-    and 'CharacterPage.MacroViewportHeight := slots * pitch - 8' in macro_menu_ui
+    and 'pitch := Max(70, headerH + 7 + actionH + 12)' in macro_menu_ui
+    and 'x := 557 + row.NameWidth + width + 8' in macro_menu_ui
+    and 'itemRow.Status.SetFont(state.Error ? "cB22222" : "c241408")' in macro_menu_ui
+    and 'Inline macro state overlaps name, rename or actions.' in launcher_smoke_tests
+    and 'Macro state color change altered the measured font.' in launcher_smoke_tests
+    and 'CharacterPage.MacroViewportHeight := slots * pitch - 12' in macro_menu_ui
     and ': 144 + visibleCount * rowPitch + populatedOffset' in macro_menu_ui
     and 'navigation := MacroItems.Length > slots ? upload.NavigationHeight + 8 : 0' in macro_menu_ui
     and 'desiredUploadY += upload.NavigationHeight + 8' in macro_menu_ui,

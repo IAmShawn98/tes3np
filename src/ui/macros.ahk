@@ -26,35 +26,32 @@ BuildMacroBookPanel()
     Loop 4
     {
         position := A_Index
-        ; Leave an 8-pixel gap after each row's bottom button.
-        ; Previous 60px pitch overlapped the next row's "Ready" label.
-        ; Preserve 8px between macro rows and remove the unused space
-        ; above the first status by moving the populated list up 12px.
+        ; Name, rename and state share a header; actions occupy the full lane.
         y := 140 + (position - 1) * 70
         SetAccessibleTextFont(CharacterPage, "s9 Norm c241408", LauncherMorrowindFont)
         status := CharacterPage.Add("Text",
-            "x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")
+            "x752 y" (y + 2) " w128 h22 BackgroundTrans c241408 +0x100", "")
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
-        tick := AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))
-        name := AddBookLabel(CharacterPage, 551, y + 19, 125, 22, "")
+        tick := AddBookTick(CharacterPage, 525, y + 2, SelectMacroBookRow.Bind(position))
+        name := AddBookLabel(CharacterPage, 551, y, 125, 22, "")
         ButtonFaces[name.Hwnd].UseControlPosition := true
-        rename := AddStyledButton(CharacterPage, 680, y + 19, 21, 22,
+        rename := AddStyledButton(CharacterPage, 682, y, 21, 22,
             Chr(0x270E), EditMacroBookRow.Bind(position))
         ButtonFaces[rename.Hwnd].UseControlPosition := true
         SetAccessibleTextFont(rename, "s10 Bold", "Segoe UI Symbol")
-        run := AddStyledButton(CharacterPage, 551, y + 42, 103, 20,
+        run := AddStyledButton(CharacterPage, 525, y + 29, 111, 24,
             "Run", RunMacroBookRow.Bind(position))
-        stop := AddStyledButton(CharacterPage, 663, y + 42, 103, 20,
+        stop := AddStyledButton(CharacterPage, 646, y + 29, 112, 24,
             "Stop", StopMacroBookRow.Bind(position))
-        remove := AddStyledButton(CharacterPage, 775, y + 42, 105, 20,
+        remove := AddStyledButton(CharacterPage, 768, y + 29, 112, 24,
             "Remove", RemoveMacroBookRow.Bind(position))
         MacroBookRows.Push({Tick: tick, Status: status, StatusError: false,
-            Name: name, Rename: rename, Y: y + 19, NameWidth: 125, NameScale: 0,
+            Name: name, Rename: rename, Y: y, NameWidth: 125, NameScale: 0,
             Run: run, Stop: stop, Remove: remove})
         MacroBookControls.Push(tick, status, name, rename, run, stop, remove)
     }
     SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
-    MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y159 w125 h22 Hidden Limit100 -Multi")
+    MacroNameEdit := AddThemedEdit(CharacterPage, "x551 y140 w125 h22 Hidden Limit100 -Multi")
     MacroNameEdit.EditingItem := 0
     MacroNameEdit.ErrorText := ""
     ; Match the Character Book's Previous / Page N of M / Next navigation.
@@ -168,7 +165,7 @@ MeasureMacroNameCollection(sample, items, maxNameW)
         else
         {
             extent := MeasureAccessibleSingleLineText(sample, item.Name)
-            width := Min(maxNameW, Max(90, Ceil((extent.Width + BookS(8)) / scale)))
+            width := Min(maxNameW, Max(70, Ceil((extent.Width + BookS(8)) / scale)))
             displayName := PrepareAccessibleBookName(sample, item.Name, BookS(width - 8))
             height := Ceil((MeasureAccessibleWrappedText(sample, displayName,
                 BookS(width - 8)) + BookS(4)) / scale)
@@ -256,9 +253,9 @@ ReflowPopulatedMacroBook()
     copyY := BookHeadingCopyY(MacroBookControls[1], 525, 355, 32, 87)
     copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
         explanation, explanation.Text, Max(1, BookS(355) - BookS(4))) + BookS(4))
-    offset := Max(0, copyY + Ceil(copyHeight / scale) + 5 - 140)
-    statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
-    measured := AccessibilityTextSize != "Normal"
+    offset := Max(0, copyY + Ceil(copyHeight / scale) + 10 - 140)
+    statusH := 17, nameH := 22, actionH := 24, saveW := 49, pencilW := 21
+    measured := true
     shownCount := Min(MacroItems.Length, MacroBookRows.Length)
     widths := [], displayNames := []
     if measured
@@ -266,11 +263,11 @@ ReflowPopulatedMacroBook()
         sample := MacroBookRows[1]
         ; Reserve status/error lines before they appear so polling and
         ; entering rename mode do not shift a row for ordinary state changes.
-        for caption in ["Ready", "Running", "Application missing", "Script missing",
+        for caption in ["(Ready)", "(Running)", "Application missing", "Script missing",
             "Process tracking unavailable", "Runtime missing", "Launch failed",
             "Could not stop", "Enter a name (1–100 characters).", "Could not save the macro name."]
             statusH := Max(statusH, Ceil((MeasureAccessibleWrappedText(
-                sample.Status, caption, BookS(325)) + BookS(2)) / scale))
+                sample.Status, caption, BookS(124)) + BookS(2)) / scale))
         save := MeasureAccessibleSingleLineText(sample.Rename, "Save")
         pencil := MeasureAccessibleSingleLineText(sample.Rename, Chr(0x270E))
         saveW := Max(49, Ceil((save.Width + BookS(8)) / scale))
@@ -281,7 +278,10 @@ ReflowPopulatedMacroBook()
             editExtent := MeasureAccessibleSingleLineText(MacroNameEdit, "Ag")
             nameH := Max(nameH, Ceil((editExtent.Height + BookS(8)) / scale))
         }
-        maxNameW := 325 - Max(saveW, pencilW)
+        maxNameW := 329 - 14 - Max(saveW, pencilW) - 128
+        if maxNameW < 64
+            measured := false
+        maxNameW := Max(32, maxNameW)
         collection := MeasureMacroNameCollection(sample.Name, MacroItems, maxNameW)
         nameH := Max(nameH, collection.Height)
         for position, row in MacroBookRows
@@ -291,13 +291,14 @@ ReflowPopulatedMacroBook()
             for index, button in [row.Run, row.Stop, row.Remove]
             {
                 extent := MeasureAccessibleSingleLineText(button, button.Text)
-                if extent.Width + BookS(8) > BookS(index = 3 ? 105 : 103)
+                if extent.Width + BookS(8) > BookS(index = 1 ? 111 : 112)
                     measured := false
                 actionH := Max(actionH, Ceil((extent.Height + BookS(6)) / scale))
             }
         }
     }
-    pitch := statusH + 2 + nameH + 1 + actionH + 8
+    headerH := Max(nameH, statusH + 2)
+    pitch := Max(70, headerH + 7 + actionH + 12)
     upload := GetMacroUploadMetrics()
     slots := (measured || AccessibilityTextSize = "Normal") ? FitMacroViewport(offset, pitch, upload) : 0
     if !slots
@@ -305,8 +306,9 @@ ReflowPopulatedMacroBook()
         ; Keep the existing compact action-row fallback without clipping
         ; the longer introduction. Reduce visible slots before dropping copy.
         measured := false
-        statusH := 17, nameH := 22, actionH := 20, saveW := 49, pencilW := 21
-        pitch := 70
+        nameH := 22, actionH := 24, saveW := 49, pencilW := 21
+        headerH := Max(nameH, statusH + 2)
+        pitch := Max(70, headerH + 7 + actionH + 12)
         upload := {UploadWidth: upload.UploadWidth, UploadHeight: 29, FeedbackHeight: 30,
             FeedbackOffset: 36, NavigationHeight: upload.NavigationHeight}
         slots := FitMacroViewport(offset, pitch, upload)
@@ -332,19 +334,20 @@ ReflowPopulatedMacroBook()
     CharacterPage.MacroUploadMetrics := upload
     CharacterPage.MacroRowsMeasured := measured
     CharacterPage.MacroRowPitch := pitch
-    CharacterPage.MacroViewportHeight := slots * pitch - 8
+    CharacterPage.MacroViewportHeight := slots * pitch - 12
     MoveMacroTextIfChanged(explanation, BookS(525), BookS(copyY),
         BookS(355), copyHeight)
     for position, row in MacroBookRows
     {
         targetY := 140 + (position - 1) * pitch + offset
-        nameY := targetY + statusH + 2
-        actionY := nameY + nameH + 1
+        nameY := targetY
+        actionY := nameY + headerH + 7
         if row.Y != nameY || !row.HasOwnProp("Measured") || row.Measured != measured
             row.NameScale := 0
         row.Y := nameY
         row.Measured := measured
         row.NameHeight := nameH
+        row.StatusHeight := headerH - 2
         row.SaveWidth := saveW
         row.PencilWidth := pencilW
         if measured && position <= widths.Length
@@ -363,13 +366,12 @@ ReflowPopulatedMacroBook()
         for button in [row.Rename, row.Run, row.Stop, row.Remove]
             if ButtonFaces.Has(button.Hwnd)
                 ButtonFaces[button.Hwnd].NoAccessibleDownfit := measured
-        MoveMacroTextIfChanged(row.Status, BookS(551), BookS(targetY),
-            BookS(329), BookS(statusH))
-        MoveMacroStyledIfChanged(row.Tick, 525, nameY + 1, 18, 18)
+        LayoutMacroRowStatus(row, row.HasOwnProp("Editing") && row.Editing)
+        MoveMacroStyledIfChanged(row.Tick, 525, nameY + 2, 18, 18)
         MoveMacroStyledIfChanged(row.Name, 551, nameY, row.NameWidth, nameH)
-        MoveMacroStyledIfChanged(row.Run, 551, actionY, 103, actionH)
-        MoveMacroStyledIfChanged(row.Stop, 663, actionY, 103, actionH)
-        MoveMacroStyledIfChanged(row.Remove, 775, actionY, 105, actionH)
+        MoveMacroStyledIfChanged(row.Run, 525, actionY, 111, actionH)
+        MoveMacroStyledIfChanged(row.Stop, 646, actionY, 112, actionH)
+        MoveMacroStyledIfChanged(row.Remove, 768, actionY, 112, actionH)
     }
     CharacterPage.MacroViewportOffset := offset
     return offset
@@ -391,7 +393,7 @@ ReflowEmptyMacroBook()
     CharacterPage.MacroVisibleSlots := 4
     CharacterPage.MacroViewportOffset := 0
     CharacterPage.MacroRowPitch := 70
-    CharacterPage.MacroViewportHeight := 272
+    CharacterPage.MacroViewportHeight := 268
     scale := GetCharacterBookScale()
     copyHeight := Max(BookS(48), MeasureAccessibleWrappedText(
         explanation, explanation.Text, Max(1, BookS(355) - BookS(4)))
@@ -465,12 +467,13 @@ RefreshMacroBookRows()
             SetBookTick(itemRow.Tick, selected)
         state := editing && MacroNameEdit.ErrorText != ""
             ? {Text: MacroNameEdit.ErrorText, Error: true} : MacroItemDisplayState(item)
-        if itemRow.Status.Text != state.Text
-            itemRow.Status.Text := state.Text
+        displayState := state.Error ? state.Text : "(" state.Text ")"
+        if itemRow.Status.Text != displayState
+            itemRow.Status.Text := displayState
         if itemRow.StatusError != state.Error
         {
-            SetAccessibleTextFont(itemRow.Status, state.Error ? "s" Max(7, BookS(9)) " cB22222"
-                : "s" Max(7, BookS(9)) " c241408", LauncherMorrowindFont)
+            ; Only the ink changes: preserve the measured scaled font.
+            itemRow.Status.SetFont(state.Error ? "cB22222" : "c241408")
             itemRow.StatusError := state.Error
         }
         running := MacroProcessRunning(item)
@@ -523,7 +526,7 @@ RefreshMacroBookRows()
     MoveMacroTextIfChanged(MacroStatus, BookS(525), BookS(desiredUploadY + upload.FeedbackOffset),
         BookS(355), BookS(upload.FeedbackHeight))
     ; Only import failures/progress use the message area below Upload.
-    ; Regular Ready/Running/Missing appears above each macro's name.
+    ; Regular Ready/Running/Missing appears beside each macro's name.
     feedback := MacroStatus.Text
     showFeedback := busy || RegExMatch(feedback,
         "i)^(Import failed:|The script could not be imported)")
@@ -541,6 +544,15 @@ SelectMacroBookRow(position, *)
     MacroList.Modify(index, "Select Focus")
     RefreshMacroButtons()
     return true
+}
+
+LayoutMacroRowStatus(row, editing)
+{
+    width := editing ? row.SaveWidth : row.PencilWidth
+    MoveMacroStyledIfChanged(row.Rename, 557 + row.NameWidth, row.Y, width, row.NameHeight)
+    x := 557 + row.NameWidth + width + 8
+    MoveMacroTextIfChanged(row.Status, BookS(x), BookS(row.Y + 2),
+        BookS(Max(1, 880 - x)), BookS(row.StatusHeight))
 }
 
 RefreshMacroNameRow(row, name, editing)
@@ -563,7 +575,7 @@ RefreshMacroNameRow(row, name, editing)
             try
                 if DllCall("gdi32\GetTextExtentPoint32W", "Ptr", dc, "WStr", name,
                     "Int", StrLen(name), "Ptr", size, "Int")
-                    row.NameWidth := Min(274, Max(90, Ceil(NumGet(size, 0, "Int") / (scale * A_ScreenDPI / 96)) + 4))
+                    row.NameWidth := Min(138, Max(70, Ceil(NumGet(size, 0, "Int") / (scale * A_ScreenDPI / 96)) + 4))
             finally
             {
                 if oldFont
@@ -583,22 +595,19 @@ RefreshMacroNameRow(row, name, editing)
                 row.Name.Text := name
         }
     }
-    x := 555 + row.NameWidth
+    x := 557 + row.NameWidth
     if editing
     {
         MacroNameEdit.GetPos(, &fieldY, &fieldWidth, &fieldHeight)
-        if fieldY != BookS(row.Y) || fieldWidth != BookS(x - 555)
+        if fieldY != BookS(row.Y) || fieldWidth != BookS(x - 557)
             || fieldHeight != BookS(row.NameHeight)
-            MacroNameEdit.Move(BookS(551), BookS(row.Y), BookS(x - 555), BookS(row.NameHeight))
+            MacroNameEdit.Move(BookS(551), BookS(row.Y), BookS(x - 557), BookS(row.NameHeight))
     }
-    row.Rename.GetPos(&buttonX, &buttonY, &buttonWidth, &buttonHeight)
-    width := editing ? row.SaveWidth : row.PencilWidth
-    if buttonX != BookS(x) || buttonY != BookS(row.Y)
-        || buttonWidth != BookS(width) || buttonHeight != BookS(row.NameHeight)
-        MoveStyledButton(row.Rename, x, row.Y, width, row.NameHeight)
     caption := editing ? "Save" : Chr(0x270E)
     if row.Rename.Text != caption
         SetPaintedLabelText(row.Rename, caption)
+    row.Editing := editing
+    LayoutMacroRowStatus(row, editing)
     if row.Name.Visible = editing
         row.Name.Visible := !editing
 }

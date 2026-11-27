@@ -892,20 +892,20 @@ NativeInterfaceFontHeight(control)
 ; condition that the previous partial Character Book reflow got wrong.
 CheckAccessibleLayoutPreflight()
 {
-    rows := {Id: "character-rows", Height: 239, GapAfter: 8}
+    rows := {Id: "character-rows", Height: 257, GapAfter: 8}
     add := {Id: "add-character", Height: 30, GapAfter: 8}
     export := {Id: "export-character-list", Height: 30, MinimumTop: 540, GapAfter: 5}
     reset := {Id: "reset-character-list", Height: 30}
     baseline := PlanAccessibleVerticalStack([
         {Id: "full-description", Height: 81, GapAfter: 3}, rows, add, export, reset], 80, 605)
     if !baseline.Feasible || baseline.Items[1].Top != 80
-        || baseline.Items[2].Top != 164 || baseline.Items[3].Top != 411
+        || baseline.Items[2].Top != 164 || baseline.Items[3].Top != 429
         || baseline.Items[4].Top != 540 || baseline.Items[5].Top != 575
         throw Error("Baseline Character Book layout planning changed.")
     Loop 10
     {
         count := A_Index
-        if NormalCharacterAddY(count, false) != 164 + count * 24 + 7
+        if NormalCharacterAddY(count, false) != 164 + count * 26 + 5
             throw Error("Add character did not follow the visible row count.")
     }
     if NormalCharacterAddY(0, false) != 202 || NormalCharacterAddY(10, true) != 462
@@ -1010,7 +1010,7 @@ CheckAccessibleLayoutPreflight()
 
     normalBook := PlanAccessibleBookGeometry(70, 40, 23, 62, 1920, 1080)
     if !normalBook.Feasible || normalBook.Height != 650
-        || normalBook.CharacterTop != 164 || normalBook.MacroTop != 140
+        || normalBook.CharacterTop != 164 || normalBook.MacroTop != 145
         || normalBook.FooterTop != 575
         throw Error("Complete normal two-column Book baseline changed.")
     largeBook := PlanAccessibleBookGeometry(220, 72, 23, 62, 1920, 1080)
@@ -1487,19 +1487,19 @@ CheckMeasuredPopulatedMacroBook()
                 {
                     y := 140 + (A_Index - 1) * 70
                     SetAccessibleTextFont(page, "s9 Norm", LauncherMorrowindFont)
-                    status := page.Add("Text", "x551 y" y " w329 h17", "Ready")
+                    status := page.Add("Text", "x752 y" (y + 2) " w128 h22", "(Ready)")
                     SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
-                    tick := page.Add("Text", "x525 y" (y + 20) " w18 h18", "")
-                    name := page.Add("Text", "x551 y" (y + 19) " w125 h22", "Macro")
+                    tick := page.Add("Text", "x525 y" (y + 2) " w18 h18", "")
+                    name := page.Add("Text", "x551 y" y " w125 h22", "Macro")
                     SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
-                    run := page.Add("Text", "x551 y" (y + 42) " w103 h20", "Run")
-                    stop := page.Add("Text", "x663 y" (y + 42) " w103 h20", "Stop")
-                    remove := page.Add("Text", "x775 y" (y + 42) " w105 h20", "Remove")
+                    run := page.Add("Text", "x525 y" (y + 29) " w111 h24", "Run")
+                    stop := page.Add("Text", "x646 y" (y + 29) " w112 h24", "Stop")
+                    remove := page.Add("Text", "x768 y" (y + 29) " w112 h24", "Remove")
                     SetAccessibleTextFont(page, "s10 Bold", "Segoe UI Symbol")
-                    rename := page.Add("Text", "x680 y" (y + 19) " w21 h22", Chr(0x270E))
+                    rename := page.Add("Text", "x682 y" y " w21 h22", Chr(0x270E))
                     MacroBookRows.Push({Tick: tick, Status: status, Rename: rename,
                         Name: name, NameWidth: 125, NameScale: 0,
-                        Y: y + 19, Run: run, Stop: stop, Remove: remove})
+                        Y: y, Run: run, Stop: stop, Remove: remove})
                 }
                 page.MacroPreviousPage := AddStyledButton(page, 525, 424, 105, 30, "Previous", (*) => 0)
                 page.MacroNextPage := AddStyledButton(page, 775, 424, 105, 30, "Next", (*) => 0)
@@ -1515,7 +1515,7 @@ CheckMeasuredPopulatedMacroBook()
                 page.Show("Hide w480 h325")
                 offset := ReflowPopulatedMacroBook()
                 copy.GetPos(, &copyY, , &copyH)
-                MacroBookRows[1].Status.GetPos(, &rowY)
+                MacroBookRows[1].Name.GetPos(, &rowY)
                 slots := GetMacroVisibleSlots()
                 if slots < 1 || slots > MacroBookRows.Length
                     throw Error("Macro viewport capacity is outside the reusable row count.")
@@ -1529,16 +1529,49 @@ CheckMeasuredPopulatedMacroBook()
                 uploadY := navY + upload.NavigationHeight + 8
                 page.MacroPreviousPage.GetPos(, &navActualY, , &navActualH)
                 if rowY != BookS(140 + offset)
-                    || Abs(lastActionY + lastActionH + BookS(12) - BookS(navY)) > 1
+                    || lastActionY + lastActionH + BookS(16) > BookS(navY) + 1
                     || navActualY != BookS(navY) || navActualH != BookS(upload.NavigationHeight)
                     || page.MacroPreviousPage.Enabled || !page.MacroNextPage.Enabled
                     || upload.UploadWidth >= 355
                     || uploadY + upload.FeedbackOffset + upload.FeedbackHeight > 490 + GetCharacterBookExtra()
                     throw Error("Populated Macro Book page navigation/Upload offsets diverged.")
+                ; Check both pencil and Save widths on every interface size,
+                ; including native color-only state transitions.
+                for position, row in MacroBookRows
+                {
+                    if position > slots
+                        break
+                    row.Name.GetPos(&nx, &ny, &nw, &nh)
+                    row.Run.GetPos(&ax, &ay, &aw, &ah)
+                    row.Stop.GetPos(&tx, &ty, &tw, &th)
+                    row.Remove.GetPos(&rx, &ry, &rw, &rh)
+                    if ax != BookS(525) || Abs(rx + rw - BookS(880)) > 1
+                        || ay != ty || ay != ry || ah != th || ah != rh
+                        || tx + 1 < ax + aw + BookS(10) || rx + 1 < tx + tw + BookS(10)
+                        throw Error("Macro action lane does not retain equal-height separated buttons.")
+                    for editing in [false, true]
+                    {
+                        LayoutMacroRowStatus(row, editing)
+                        row.Rename.GetPos(&px, &py, &pw, &ph)
+                        row.Status.GetPos(&sx, &sy, &sw, &sh)
+                        if py != ny || ph != nh || px + 1 < nx + nw + BookS(6)
+                            || sx + 1 < px + pw + BookS(8) || Abs(sy - ny - BookS(2)) > 1
+                            || Abs(sx + sw - BookS(880)) > 1
+                            || ay + 1 < Max(ny + nh, sy + sh) + BookS(7)
+                            || sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", Max(1, sw - BookS(4)))
+                            throw Error("Inline macro state overlaps name, rename or actions.")
+                    }
+                    LayoutMacroRowStatus(row, false)
+                    oldFontHeight := NativeInterfaceFontHeight(row.Status)
+                    row.Status.SetFont("cB22222")
+                    row.Status.SetFont("c241408")
+                    if NativeInterfaceFontHeight(row.Status) != oldFontHeight
+                        throw Error("Macro state color change altered the measured font.")
+                }
                 if mode = "Normal"
                 {
                     if copyY != BookS(87) || copyH < MeasureAccessibleWrappedText(copy, copy.Text, BookS(351)) + BookS(4)
-                        || rowY + 1 < copyY + copyH + BookS(5) || pitch != 70
+                        || rowY + 1 < copyY + copyH + BookS(10) || pitch < 70
                         throw Error("Normal populated Macro Book introduction clips or overlaps.")
                 }
                 else
@@ -1548,25 +1581,28 @@ CheckMeasuredPopulatedMacroBook()
                     if BookS(upload.UploadHeight) < MeasureAccessibleSingleLineText(MacroImportButton, "Upload Macro").Height
                         || BookS(upload.FeedbackHeight) < MeasureAccessibleWrappedText(MacroStatus, MacroStatus.Text, BookS(351))
                         throw Error("Macro Upload or complete feedback clips.")
-                    before := MeasureMacroNameCollection(MacroBookRows[1].Name, MacroItems, 270)
+                    before := MeasureMacroNameCollection(MacroBookRows[1].Name, MacroItems, 138)
                     if before.Items[5].Height > before.Height || before.Items.Length != 5
                         throw Error("Macro collection ignored an offscreen name.")
                     for position, row in MacroBookRows
                     {
                         if position > slots
                             break
-                        row.Status.GetPos(, &sy, , &sh)
-                        row.Name.GetPos(, &ny, &nw, &nh)
-                        row.Run.GetPos(, &ay, , &ah)
+                        row.Status.GetPos(&sx, &sy, &sw, &sh)
+                        row.Name.GetPos(&nx, &ny, &nw, &nh)
+                        row.Run.GetPos(&ax, &ay, , &ah)
+                        row.Remove.GetPos(&rx, , &rw)
                         display := PrepareAccessibleBookName(row.Name, MacroItems[position].Name, Max(1, nw - BookS(8)))
-                        if sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", BookS(325))
+                        if sh < MeasureAccessibleWrappedText(row.Status, "Process tracking unavailable", Max(1, sw - BookS(4)))
                             || nh < MeasureAccessibleWrappedText(row.Name, display, Max(1, nw - BookS(8)))
                             || ah < MeasureAccessibleSingleLineText(row.Run, "Run").Height
-                            || ny + 1 < sy + sh || ay + 1 < ny + nh
+                            || Abs(sy - ny - BookS(2)) > 1 || sx < nx + nw + BookS(8)
+                            || sx + sw > BookS(880) + 1 || ay + 1 < Max(ny + nh, sy + sh) + BookS(7)
+                            || ax != BookS(525) || rx + rw > BookS(880) + 1
                             throw Error("Measured macro controls overlap or clip.")
                     }
                     required := MeasureAccessibleWrappedText(copy, copy.Text, BookS(351)) + BookS(4)
-                    if copyH < required || rowY + 1 < copyY + copyH + BookS(5)
+                    if copyH < required || rowY + 1 < copyY + copyH + BookS(10)
                         throw Error("Populated macro rows overlap the larger explanation.")
                     MacroScrollOffset := slots
                     nextOffset := ReflowPopulatedMacroBook()
@@ -1917,7 +1953,7 @@ CheckTenCharacterBookExpansion()
             "This is a list of all your characters. You can add, edit, or delete your character details at any time. Please note that adding, editing, and deleting characters on this list does not impact them in-game!")
         Loop 10
         {
-            y := 164 + (A_Index - 1) * 24
+            y := 164 + (A_Index - 1) * 26
             name := A_Index = 1 ? "UnbrokenBalmoraCharacterNameWithoutAnySpaces" : "A Long Character Name From Balmora " A_Index
             Profiles.Push({Name: name})
             SetAccessibleTextFont(page, "s12 Norm", LauncherMorrowindFont)
@@ -2019,7 +2055,7 @@ CheckTenCharacterBookExpansion()
         page.BookCloseButton.GetPos(&closeX, &closeY, &closeW)
         if closeX != BookS(795) || closeY != BookS(575) || closeW != BookS(90)
             throw Error("Close did not restore its Normal footer position.")
-        if lastY != BookS(164 + 9 * 24) || addY != BookS(462)
+        if lastY != BookS(164 + 9 * 26) || addY != BookS(462)
             || addX != BookS(70) || addW != BookS(120)
             || exportX != BookS(70) || exportY != BookS(540) || exportW != BookS(370)
             || resetX != BookS(70) || resetY != BookS(575) || resetW != BookS(370)

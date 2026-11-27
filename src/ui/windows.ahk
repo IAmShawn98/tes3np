@@ -482,8 +482,8 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
         throw Error("Character limit notice requires saved characters.")
     if uiScale <= 0 || dpiScale <= 0
         throw Error("Invalid owned-menu or monitor DPI scale.")
-    characterPitch := Max(24, characterRowHeight + 1)
-    macroPitch := Max(70, macroRowHeight + 8)
+    characterPitch := Max(26, characterRowHeight + 3)
+    macroPitch := Max(70, macroRowHeight + 12)
     descriptionBottom := 80 + Max(81, descriptionHeight)
     characterTop := Max(164, descriptionBottom + 3)
     characterBottom := characterCount
@@ -495,11 +495,11 @@ PlanAccessibleBookGeometry(descriptionHeight, macroTextHeight,
         : Max(164, descriptionBottom + 3)
     leftActionBottom := characterCount ? addTop + 30 : addTop + 65
     macroTextBottom := 87 + Max(48, macroTextHeight)
-    macroTop := Max(140, macroTextBottom + 5)
+    macroTop := Max(140, macroTextBottom + 10)
     macroBottom := macroCount
         ? macroTop + (macroCount - 1) * macroPitch + macroRowHeight
         : macroTop
-    uploadTop := Max(188, macroBottom + 8)
+    uploadTop := Max(188, macroBottom + 16)
     footerTop := Max(575, leftActionBottom + 5, uploadTop + 37)
     pageHeight := Max(650, footerTop + 75)
     ; Work-area values are physical pixels; Book geometry is logical.

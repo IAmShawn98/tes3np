@@ -393,9 +393,9 @@ def check(allow_missing_payload: bool = False) -> None:
             'descriptionText := "This is a list of all your characters.' in character_ui
             and 'does not impact them in-game!"' in character_ui
             and 'CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))' in character_ui
-            and 'y := 164 + (index - 1) * 24' in character_ui
+            and 'y := 164 + (index - 1) * 26' in character_ui
             and 'actionY := NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters)' in character_ui
-            and '164 + Min(count, 10) * 24 + 7' in character_ui
+            and '164 + Min(count, 10) * 26 + 5' in character_ui
             and 'return count ? 120 : 370' in character_ui
             and '"No characters were found."' in character_ui
             and 'emptyNotice.Visible := !Profiles.Length' in character_ui
@@ -474,16 +474,16 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'MacroScrollOffset := Max(0, row - 1)' in macro
             and 'MacroScrollOffset := GetMacroPagePlan(MacroItems.Length, GetMacroVisibleSlots(), MacroScrollOffset).Offset' in macro
             and 'MacroList.Visible := false' in macro,
-        "status above the name and inline rename button, actions below":
+        "status beside the name and inline rename button, full-width actions below":
             'status := CharacterPage.Add("Text",' in macro
-            and '"x551 y" y " w329 h17 BackgroundTrans c241408 +0x100", "")' in macro
-            and 'AddBookTick(CharacterPage, 525, y + 20, SelectMacroBookRow.Bind(position))' in macro
-            and 'AddBookLabel(CharacterPage, 551, y + 19, 125, 22, "")' in macro
-            and 'rename := AddStyledButton(CharacterPage, 680, y + 19, 21, 22,' in macro
+            and '"x752 y" (y + 2) " w128 h22 BackgroundTrans c241408 +0x100", "")' in macro
+            and 'AddBookTick(CharacterPage, 525, y + 2, SelectMacroBookRow.Bind(position))' in macro
+            and 'AddBookLabel(CharacterPage, 551, y, 125, 22, "")' in macro
+            and 'rename := AddStyledButton(CharacterPage, 682, y, 21, 22,' in macro
             and 'EditMacroBookRow.Bind(position)' in macro
-            and 'AddStyledButton(CharacterPage, 551, y + 42, 103, 20,' in macro
-            and 'AddStyledButton(CharacterPage, 663, y + 42, 103, 20,' in macro
-            and 'AddStyledButton(CharacterPage, 775, y + 42, 105, 20,' in macro,
+            and 'AddStyledButton(CharacterPage, 525, y + 29, 111, 24,' in macro
+            and 'AddStyledButton(CharacterPage, 646, y + 29, 112, 24,' in macro
+            and 'AddStyledButton(CharacterPage, 768, y + 29, 112, 24,' in macro,
         "inline rename uses the name row and supports keyboard save":
             'MacroNameEdit := AddThemedEdit(CharacterPage,' in macro
             and 'MacroNameEdit.Move(BookS(551), BookS(row.Y),' in macro
@@ -504,7 +504,7 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'desiredUploadY := count = 0 ? emptyUploadY' in macro
             and ': 144 + visibleCount * rowPitch + populatedOffset' in macro
             and 'CharacterPage.MacroRowPitch := pitch' in macro
-            and 'CharacterPage.MacroViewportHeight := slots * pitch - 8' in macro
+            and 'CharacterPage.MacroViewportHeight := slots * pitch - 12' in macro
             and 'desiredUploadY += upload.NavigationHeight + 8' in macro
             and 'if oldUploadY != BookS(desiredUploadY)' in macro
             and 'MoveStyledButton(MacroImportButton, 525, desiredUploadY, upload.UploadWidth, upload.UploadHeight)' in macro
@@ -524,8 +524,10 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'macro.LastError := missingRuntime ? "Runtime missing" : "Launch failed"' in macro
             and 'macro.LastError := "Could not stop"' in macro
             and 'macro.LastError := ""' in macro
-            and 'SetAccessibleTextFont(itemRow.Status, state.Error ? "s" Max(7, BookS(9)) " cB22222"' in macro
-            and 'MacroStatus.Visible := shown && showFeedback' in macro,
+            and 'itemRow.Status.SetFont(state.Error ? "cB22222" : "c241408")' in macro
+            and 'MacroStatus.Visible := shown && showFeedback' in macro
+            and 'displayState := state.Error ? state.Text : "(" state.Text ")"' in macro
+            and 'x := 557 + row.NameWidth + width + 8' in macro,
         "macro pagination uses shared page ranges and matching native navigation":
             'CharacterPage.MacroPreviousPage := AddStyledButton' in macro
             and 'CharacterPage.MacroNextPage := AddStyledButton' in macro

@@ -82,7 +82,7 @@ PlanCharacterBookActionStack(footerY, footer)
 
 NormalCharacterAddY(count, limitReached)
 {
-    return count ? Max(164 + Min(count, 10) * 24 + 7, limitReached ? 462 : 0) : 202
+    return count ? Max(164 + Min(count, 10) * 26 + 5, limitReached ? 462 : 0) : 202
 }
 
 NormalCharacterAddWidth(count)
@@ -324,9 +324,9 @@ OpenCharacterPage(*)
     {
         SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
         index := A_Index
-        ; Start just below the instructions; retain all ten 24px-spaced
+        ; Start just below the instructions; retain all ten 26px-spaced
         ; rows and their aligned painted buttons and hit targets.
-        y := 164 + (index - 1) * 24
+        y := 164 + (index - 1) * 26
         SetInterfaceLoadingText("Loading character checkbox " index "...")
         tick := AddBookTick(CharacterPage, 70, y + 2, ChooseProfile.Bind(index))
         SetInterfaceLoadingText("Loading character name " index "...")
@@ -774,7 +774,7 @@ RestoreAccessibleCharacterRowBaseline()
         return
     for index, controls in CharacterRows
     {
-        y := 164 + (index - 1) * 24
+        y := 164 + (index - 1) * 26
         MoveStyledButton(controls.Tick, 70, y + 2, 18, 18)
         MoveStyledButton(controls.Name, 95, y, 140, 23)
         if ButtonFaces.Has(controls.Name.Hwnd)
