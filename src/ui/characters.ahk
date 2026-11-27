@@ -61,16 +61,23 @@ GetBookFooterMetrics(page)
 {
     global Profiles, AddCharacterButton, WipeCharacterButton, DataTransferButton
     close := BookActionMetrics(page.HasOwnProp("BookCloseButton") ? page.BookCloseButton : 0, "Close", 90, 30)
-    add := {Width: 370, Height: 30}, wipe := add, transfer := {Width: 110, Height: 30}
+    add := {Width: 370, Height: 30}, wipe := add, transfer := add
     if Profiles.Length
     {
         add := BookActionMetrics(AddCharacterButton, "Add character", 370, 30)
-        wipe := BookActionMetrics(WipeCharacterButton, "Wipe Character List", 370, 30)
-        transfer := BookActionMetrics(DataTransferButton, "Export Data", 110, 30)
+        wipe := BookActionMetrics(WipeCharacterButton, "Reset Character List", 370, 30)
+        transfer := BookActionMetrics(DataTransferButton, "Export Character List", 370, 30)
     }
-    return {CloseWidth: close.Width, TransferWidth: transfer.Width,
-        AddHeight: add.Height, FooterHeight: Max(close.Height, wipe.Height, transfer.Height),
-        Fits: add.Width <= 370 && wipe.Width <= 370 && close.Width + transfer.Width + 12 <= 370}
+    return {CloseWidth: close.Width, TransferHeight: transfer.Height,
+        AddHeight: add.Height, FooterHeight: Max(close.Height, wipe.Height),
+        Fits: add.Width <= 370 && wipe.Width <= 370 && transfer.Width <= 370 && close.Width <= 370}
+}
+
+; Reserve the complete left action stack in both footer placement and page planning.
+PlanCharacterBookActionStack(footerY, footer)
+{
+    transferY := footerY - 5 - footer.TransferHeight
+    return {AddY: transferY - 5 - footer.AddHeight, TransferY: transferY, ResetY: footerY}
 }
 
 MoveMeasuredBookAction(control, x, y, width, height)
@@ -170,11 +177,10 @@ SetCharacterBookLayoutExtra(side, required)
             footer.CloseWidth, footer.FooterHeight)
     if Profiles.Length
     {
-        MoveMeasuredBookAction(AddCharacterButton, 70, footerY - 5 - footer.AddHeight,
-            370, footer.AddHeight)
-        MoveMeasuredBookAction(WipeCharacterButton, 70, footerY, 370, footer.FooterHeight)
-        MoveMeasuredBookAction(DataTransferButton, 885 - footer.TransferWidth, footerY,
-            footer.TransferWidth, footer.FooterHeight)
+        stack := PlanCharacterBookActionStack(footerY, footer)
+        MoveMeasuredBookAction(AddCharacterButton, 70, stack.AddY, 370, footer.AddHeight)
+        MoveMeasuredBookAction(DataTransferButton, 70, stack.TransferY, 370, footer.TransferHeight)
+        MoveMeasuredBookAction(WipeCharacterButton, 70, stack.ResetY, 370, footer.FooterHeight)
     }
     return true
 }
@@ -323,9 +329,9 @@ OpenCharacterPage(*)
     CharacterPage.BookPreviousPage.Visible := false
     CharacterPage.BookNextPage.Visible := false
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
-    WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Wipe Character List", WipeCharacterData)
+    WipeCharacterButton := AddStyledButton(CharacterPage, 70, 577, 370, 25, "Reset Character List", WipeCharacterData)
     CharacterPage.BookCloseButton := AddStyledButton(CharacterPage, 515, 575, 90, 30, "Close", CloseCharacterPage)
-    DataTransferButton := AddStyledButton(CharacterPage, 775, 575, 110, 30, "Export Data", TransferLauncherData)
+    DataTransferButton := AddStyledButton(CharacterPage, 70, 540, 370, 30, "Export Character List", TransferLauncherData)
     CharacterPage.OnEvent("Close", CloseCharacterPage)
     CharacterPage.OnEvent("Escape", CloseCharacterPage)
     SetInterfaceLoadingText("Loading character editor... ")
@@ -391,9 +397,13 @@ RefreshProfiles()
         ; the COMPLETE instructions and push Add/Import together only if the
         ; book's unchanged parchment/footers can contain them. The populated
         ; ten-row state needs its own all-control transaction.
-        actionY := Profiles.Length ? 540 : 164
+        actionY := Profiles.Length ? 505 : 164
         addMetrics := BookActionMetrics(AddCharacterButton, "Add character", 370, 30)
         importMetrics := BookActionMetrics(DataTransferButton, "Import Data", 370, 30)
+        transferMetrics := Profiles.Length
+            ? BookActionMetrics(DataTransferButton, "Export Character List", 370, 30) : importMetrics
+        if Profiles.Length
+            actionY := PlanCharacterBookActionStack(575, GetBookFooterMetrics(CharacterPage)).AddY
         copyY := CharacterBookDescriptionY()
         CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))
         if !Profiles.Length
@@ -414,11 +424,9 @@ RefreshProfiles()
             }
         }
         MoveMeasuredBookAction(AddCharacterButton, 70, actionY, 370, addMetrics.Height)
-        transferX := Profiles.Length ? 775 : 70
-        transferY := Profiles.Length ? 575 : actionY + addMetrics.Height + 5
-        ; Preserve the original wide Import Data layout and compact Export Data
-        ; layout. MoveStyledButton updates both the native control and its painted
-        ; face; do not change position or dimensions independently.
+        transferY := actionY + addMetrics.Height + 5
+        ; The transfer action shares the full-width left lane in both states.
+        ; MoveStyledButton updates both the native and painted face.
         ; Hide the existing painted face while the single transfer control moves.
         ; Otherwise its old location can remain drawn as a second (ghost) button.
         if ButtonFaces.Has(DataTransferButton.Hwnd)
@@ -427,8 +435,7 @@ RefreshProfiles()
             try transferFace.Control.Visible := false
             try transferFace.Label.Visible := false
         }
-        MoveMeasuredBookAction(DataTransferButton, transferX, transferY,
-            Profiles.Length ? 110 : 370, Profiles.Length ? 30 : importMetrics.Height)
+        MoveMeasuredBookAction(DataTransferButton, 70, transferY, 370, transferMetrics.Height)
         if ButtonFaces.Has(DataTransferButton.Hwnd)
         {
             transferFace := ButtonFaces[DataTransferButton.Hwnd]
@@ -440,7 +447,7 @@ RefreshProfiles()
         if Profiles.Length > 0
             MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
         CharacterLimitNotice.Visible := Profiles.Length >= MaxCharacters
-        DataTransferButton.Text := Profiles.Length ? "Export Data" : "Import Data"
+        DataTransferButton.Text := Profiles.Length ? "Export Character List" : "Import Data"
         ; Changing the native control text does not update the separately painted
         ; Morrowind button face. Keep both layers synchronized after Import Data.
         if ButtonFaces.Has(DataTransferButton.Hwnd)
@@ -511,8 +518,8 @@ ReflowAccessiblePopulatedCharacters()
     noticeHeight := noticeVisible ? Max(25, Ceil((
         MeasureAccessibleWrappedText(CharacterLimitNotice,
             CharacterLimitNotice.Text, BookS(362)) + BookS(4)) / scale)) : 0
-    addHeight := GetBookFooterMetrics(CharacterPage).AddHeight
-    addY := 570 - addHeight
+    footer := GetBookFooterMetrics(CharacterPage)
+    addY := PlanCharacterBookActionStack(575, footer).AddY
     navHeight := 30
     if CharacterPage.HasOwnProp("BookPreviousPage")
     {
@@ -1639,7 +1646,7 @@ WipeCharacterData(*)
     if !Profiles.Length
         return
     CharacterPage.Opt("+OwnDialogs")
-    if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active login recovery. Your in-game characters will NOT be deleted. Export Data first if you want a backup.", "Wipe Character Data", 0x124) != "Yes"
+    if MsgBox("Remove ALL saved characters and their passwords from this launcher? This also clears your favorite and stops any active login recovery. Your in-game characters will NOT be deleted. Export Character List first if you want a backup.", "Reset Character List", 0x124) != "Yes"
         return
     previousProfiles := Profiles.Clone()
     previousFavorite := SelectedProfile

@@ -1918,9 +1918,9 @@ CheckTenCharacterBookExpansion()
         CharacterLimitNotice := page.Add("Text", "x70 y429 w370 h25",
             "* You have reached the server character limit.")
         SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
-        AddCharacterButton := page.Add("Text", "x70 y540 w370 h30", "Add character")
-        WipeCharacterButton := page.Add("Text", "x70 y575 w370 h30", "Wipe Character List")
-        DataTransferButton := page.Add("Text", "x775 y575 w110 h30", "Export Data")
+        AddCharacterButton := page.Add("Text", "x70 y505 w370 h30", "Add character")
+        WipeCharacterButton := page.Add("Text", "x70 y575 w370 h30", "Reset Character List")
+        DataTransferButton := page.Add("Text", "x70 y540 w370 h30", "Export Character List")
         page.BookCloseButton := page.Add("Text", "x515 y575 w90 h30", "Close")
         ScaleOwnedMenuContent(page, 0.5)
         page.BookBackground.Value := GetBookSmokeArtworkPath()
@@ -1969,7 +1969,19 @@ CheckTenCharacterBookExpansion()
             if VisibleCharacterProfileIndex(range.Count + 1)
                 throw Error("Hidden character row still has an active profile index.")
             CharacterLimitNotice.GetPos(, &noticeY, , &noticeH)
-            AddCharacterButton.GetPos(, &addY, , &addH)
+            AddCharacterButton.GetPos(&addX, &addY, &addW, &addH)
+            DataTransferButton.GetPos(&exportX, &exportY, &exportW, &exportH)
+            WipeCharacterButton.GetPos(&resetX, &resetY, &resetW, &resetH)
+            if addX != exportX || exportX != resetX || addW != exportW || exportW != resetW
+                || exportY < addY + addH || resetY < exportY + exportH
+                throw Error("Character actions do not form a nonoverlapping left stack.")
+            for action in [AddCharacterButton, DataTransferButton, WipeCharacterButton]
+            {
+                action.GetPos(, , &actionW, &actionH)
+                extent := MeasureAccessibleSingleLineText(action, action.Text)
+                if actionW < extent.Width || actionH < extent.Height
+                    throw Error("Character footer caption clips.")
+            }
             if noticeY < previousBottom || addY < noticeY + noticeH
                 throw Error("Character pagination overlaps limit notice or footer.")
         }
@@ -1981,7 +1993,11 @@ CheckTenCharacterBookExpansion()
             throw Error("Ten-character Normal restoration left expanded state.")
         CharacterRows[10].Name.GetPos(, &lastY)
         AddCharacterButton.GetPos(, &addY)
-        if lastY != BookS(164 + 9 * 24) || addY != BookS(540)
+        DataTransferButton.GetPos(&exportX, &exportY, &exportW)
+        WipeCharacterButton.GetPos(&resetX, &resetY, &resetW)
+        if lastY != BookS(164 + 9 * 24) || addY != BookS(505)
+            || exportX != BookS(70) || exportY != BookS(540) || exportW != BookS(370)
+            || resetX != BookS(70) || resetY != BookS(575) || resetW != BookS(370)
             throw Error("Ten-character Normal anchors were not restored.")
     }
     finally
