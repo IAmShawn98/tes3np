@@ -208,7 +208,7 @@ CopyBookPixelRows(source, sourceStride, target, targetStride,
 ; The Picture control and owner-drawn controls must share ONE composed
 ; image. The temporary PNG is only a native Picture loading mechanism;
 ; it is deleted immediately and never enters launcher data or the package.
-; Prepare color-key edges once, on the existing Picture load path.
+; Prepare color-key edges once, on the existing Picture load path at every scale.
 ; Resample transparent artwork first, then threshold coverage natively.
 ; No AHK pixel loop, new window subclass or image work during WM_PAINT.
 CreateKeyedReducedBookImage(source, width, height)
@@ -295,10 +295,9 @@ KeyReducedBookPixels(image, width, height)
     }
 }
 
-TryLoadReducedBookPicture(page, source)
+TryLoadBookPicture(page, source)
 {
-    if !page.HasOwnProp("OwnedContentScale") || page.OwnedContentScale >= 0.999
-        return false
+    ; Use the same device-sized, color-keyed native artwork at every scale.
     rect := Buffer(16, 0)
     if !DllCall("GetClientRect", "Ptr", page.BookBackground.Hwnd, "Ptr", rect)
         return false
@@ -330,13 +329,11 @@ TryLoadReducedBookPicture(page, source)
     }
 }
 
-; Use the actual native Picture's physical bounds for all reduced Book
-; faces. In particular, a 7px tick and a 173px name must not derive
-; different DPI multipliers from separately rounded widths.
-ReducedBookPictureBounds(page, handle)
+; Use the actual native Picture physical bounds for every Book face.
+; Separately rounded label widths must not determine the artwork scale.
+BookPictureBounds(page, handle)
 {
-    if !page.HasOwnProp("OwnedContentScale") || page.OwnedContentScale >= 0.999
-        || !page.HasOwnProp("BookBackground")
+    if !page.HasOwnProp("BookBackground")
         return 0
     picture := page.BookBackground.Hwnd
     rect := Buffer(16, 0), origin := Buffer(8, 0)
@@ -395,7 +392,7 @@ ApplyExtendedBookArtwork(page, extra)
     if !extra
     {
         page.BookBackground.Move(, , BookS(960), BookS(650))
-        if !TryLoadReducedBookPicture(page, ButtonPaint.Book)
+        if !TryLoadBookPicture(page, ButtonPaint.Book)
             page.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
         page.BookExtra := 0
         ButtonPaint.BookExtended := 0
@@ -416,7 +413,7 @@ ApplyExtendedBookArtwork(page, extra)
             throw Error("Could not encode extended Book artwork.")
         ; The image is ready before changing the visible Picture rectangle.
         page.BookBackground.Move(, , BookS(960), BookS(650 + extra))
-        if !TryLoadReducedBookPicture(page, candidate)
+        if !TryLoadBookPicture(page, candidate)
             page.BookBackground.Value := temporary
         page.BookExtra := extra
         ButtonPaint.BookExtended := candidate
@@ -791,11 +788,11 @@ RenderButtonFace(wParam, lParam, *)
         dc := DllCall("CreateCompatibleDC", "Ptr", target, "Ptr")
         bitmap := DllCall("CreateCompatibleBitmap", "Ptr", target, "Int", width, "Int", height, "Ptr")
         oldBitmap := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
-        reducedBounds := 0, nativeSlice := false
+        bookBounds := 0, nativeSlice := false
         if !isChatTab && !isDiscordName && !isDiscordPortrait && face.HasOwnProp("Book") && face.Book
         {
-            reducedBounds := ReducedBookPictureBounds(face.Gui, handle)
-            nativeSlice := CopyNativeBookPictureSlice(reducedBounds, dc, width, height)
+            bookBounds := BookPictureBounds(face.Gui, handle)
+            nativeSlice := CopyNativeBookPictureSlice(bookBounds, dc, width, height)
         }
         graphics := 0
         DllCall("gdiplus\GdipCreateFromHDC", "Ptr", dc, "Ptr*", &graphics)
@@ -817,10 +814,10 @@ RenderButtonFace(wParam, lParam, *)
                 face.Gui.BookBackground.GetPos(, , &bookWidth, &bookHeight)
             }
             bookImage := extended ? ButtonPaint.BookExtended : ButtonPaint.Book
-            if IsObject(reducedBounds)
+            if IsObject(bookBounds)
                 DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", bookImage,
-                    "Int", -reducedBounds.X, "Int", -reducedBounds.Y,
-                    "Int", reducedBounds.Width, "Int", reducedBounds.Height)
+                    "Int", -bookBounds.X, "Int", -bookBounds.Y,
+                    "Int", bookBounds.Width, "Int", bookBounds.Height)
             else
                 DllCall("gdiplus\GdipDrawImageRectI", "Ptr", graphics, "Ptr", bookImage, "Int", Round(-x * dpiScale), "Int", Round(-y * dpiScale), "Int", Round(bookWidth * dpiScale), "Int", Round(bookHeight * dpiScale))
         }

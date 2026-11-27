@@ -1678,10 +1678,10 @@ CheckReducedBookPicture()
         name := AddBookLabel(page, 47, 91, 171, 17, "")
         tick := AddBookTick(page, 35, 92, (*) => 0)
         page.Show("Hide w480 h325")
-        if !TryLoadReducedBookPicture(page, ButtonPaint.Book)
+        if !TryLoadBookPicture(page, ButtonPaint.Book)
             throw Error("Reduced Book native Picture load failed.")
-        bounds := ReducedBookPictureBounds(page, name.Hwnd)
-        tickBounds := ReducedBookPictureBounds(page, tick.Hwnd)
+        bounds := BookPictureBounds(page, name.Hwnd)
+        tickBounds := BookPictureBounds(page, tick.Hwnd)
         if !IsObject(bounds) || !IsObject(tickBounds) || bounds.Width != tickBounds.Width
             || bounds.Height != tickBounds.Height || bounds.X <= tickBounds.X
             throw Error("Reduced Book controls disagree on physical artwork bounds.")
@@ -1706,6 +1706,29 @@ CheckReducedBookPicture()
             if expected[index] = 0xFFFFFFFF || expected[index] != DllCall("GetPixel",
                 "Ptr", dc, "Int", point[1], "Int", point[2], "UInt")
                 throw Error("Reduced Book name face differs from native Picture.")
+        ; Full-size extended page: use the same physical native slice for every label.
+        page.OwnedContentScale := 1.0
+        page.BookBackground.Move(0, 0, 960, 758)
+        name.Move(525, 236, 355, 24)
+        extendedProbe := CreateExtendedBookArtwork(ButtonPaint.Book, 108)
+        try
+        {
+            if !TryLoadBookPicture(page, extendedProbe)
+                throw Error("Full-size extended Book native Picture load failed.")
+            bounds := BookPictureBounds(page, name.Hwnd)
+            ; Reuse a small sample DC; full-size face painting copies the same top-left pixels.
+            if !IsObject(bounds) || !CopyNativeBookPictureSlice(bounds, dc, w, h)
+                throw Error("Full-size extended Book has no exact native slice.")
+            expected := []
+            for point in points
+                expected.Push(DllCall("GetPixel", "Ptr", dc, "Int", point[1], "Int", point[2], "UInt"))
+            PaintButtonToDC(name.Hwnd, dc)
+            for index, point in points
+                if expected[index] = 0xFFFFFFFF || expected[index] != DllCall("GetPixel",
+                    "Ptr", dc, "Int", point[1], "Int", point[2], "UInt")
+                    throw Error("Full-size extended Book face differs from native Picture.")
+        }
+        finally DllCall("gdiplus\GdipDisposeImage", "Ptr", extendedProbe)
     }
     finally
     {
@@ -2050,12 +2073,12 @@ CheckMeasuredBookEditorGeometry()
                 if mode = "Normal"
                 {
                     if plan.TitleHeight != 30 || plan.AccountY != 82 || plan.AccountHeight != 24
-                        || plan.Rows[1].Y != 118 || plan.Rows[2].Y != 168
-                        || plan.SectionY != 228 || plan.SectionHeight != 24
-                        || plan.Rows[3].Y != 264 || plan.Rows[5].Y != 364 || plan.RaceY != 424
-                        || plan.DropdownY != 460 || plan.HintY != 491
-                        || plan.ReconnectY != 516 || plan.SaveY != 549
-                        || plan.DismissY != 591 || plan.Extra != 100
+                        || plan.Rows[1].Y != 118 || plan.Rows[2].Y != 176
+                        || plan.SectionY != 236 || plan.SectionHeight != 24
+                        || plan.Rows[3].Y != 272 || plan.Rows[5].Y != 372 || plan.RaceY != 432
+                        || plan.DropdownY != 468 || plan.HintY != 499
+                        || plan.ReconnectY != 524 || plan.SaveY != 557
+                        || plan.DismissY != 599 || plan.Extra != 108
                         throw Error("Normal editor anchors changed.")
                 }
                 else
@@ -2090,6 +2113,8 @@ CheckMeasuredBookEditorGeometry()
                         || plan.DismissY < plan.SaveY + plan.SaveHeight
                         throw Error("Measured editor stack or footer overlaps.")
                 }
+                if plan.Rows[2].Y - (plan.Rows[1].InputY + plan.Rows[1].InputHeight) < 10
+                    throw Error("Username and password lack clear separation.")
                 AssertBookEditorParchmentFit(plan)
                 if GetBookEditorAccountHeading(0) != "Register Existing Account"
                     || GetBookEditorAccountHeading(1) != "Registered Account"
@@ -2102,6 +2127,9 @@ CheckMeasuredBookEditorGeometry()
                 AssertBookEditorParchmentFit(newPlan)
                 accountHeading.Text := GetBookEditorAccountHeading(1)
                 tight := PlanBookEditorGeometry(heading, title, controls, false, true)
+                if tight.Rows[2].Y - Max(tight.Rows[1].Y + tight.Rows[1].LabelHeight,
+                    tight.Rows[1].InputY + tight.Rows[1].InputHeight) < 9
+                    throw Error("Compact credential rows lack clear separation.")
                 if tight.Extra || tight.DismissY != tight.SaveY
                     || tight.DismissX < tight.SaveX + tight.SaveWidth + 12
                     || tight.Rows[1].Y < tight.AccountY + tight.AccountHeight + 8

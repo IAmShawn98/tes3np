@@ -36,7 +36,7 @@ ApplyCharacterBookScale(scale)
                 ApplyExtendedBookArtwork(CharacterPage, CharacterPage.BookExtra)
             else
             {
-                if !TryLoadReducedBookPicture(CharacterPage, ButtonPaint.Book)
+                if !TryLoadBookPicture(CharacterPage, ButtonPaint.Book)
                     CharacterPage.BookBackground.Value := A_ScriptDir "\assets\backgrounds\character-book.png"
             }
         }
@@ -353,6 +353,14 @@ OpenCharacterPage(*)
         }
         CharacterPage.Show("Hide w" Round(960 * bookScale)
             " h" Round((650 + GetCharacterBookExtra()) * bookScale))
+        ; The initial 100% path does not trigger ApplyCharacterBookScale.
+        ; Prepare the native bitmap before the first reveal in that case too.
+        if !scaleChanged && !GetCharacterBookExtra()
+        {
+            global ButtonPaint
+            if TryLoadBookPicture(CharacterPage, ButtonPaint.Book)
+                BumpBookFaceArtworkRevision(CharacterPage)
+        }
         PositionOwnedMenuAtParent(CharacterPage, LauncherGui)
         CharacterPage.Show()
         ; Preserve the original magenta color key and custom button faces.
@@ -925,11 +933,11 @@ CreateProfileEditor()
     {
         position := A_Index
         ; Credentials sit above the dedicated auto-login settings section.
-        y := 118 + (position - 1) * 50 + (position >= 3 ? 46 : 0)
+        y := 118 + (position - 1) * 50 + (position >= 2 ? 8 : 0) + (position >= 3 ? 46 : 0)
         if position = 3
         {
             SetAccessibleTextFont(CharacterPage, "s13 Bold c241408", LauncherThemeFont())
-            autoLoginHeading := AddBookLabel(CharacterPage, 525, 228, 355, 24, "Auto Login")
+            autoLoginHeading := AddBookLabel(CharacterPage, 525, 236, 355, 24, "Auto Login")
             autoLoginHeading.Visible := false
             ButtonFaces[autoLoginHeading.Hwnd].TextColor := 0x081424
             EditorControls.Push(autoLoginHeading)
@@ -946,7 +954,7 @@ CreateProfileEditor()
     }
     SetInterfaceLoadingText("Loading race selector...")
     SetAccessibleTextFont(CharacterPage, "s13 Bold c241408", LauncherThemeFont())
-    speciesLabel := AddBookLabel(CharacterPage, 525, 424, 355, 24, "Race Info")
+    speciesLabel := AddBookLabel(CharacterPage, 525, 432, 355, 24, "Race Info")
     speciesLabel.Visible := false
     ButtonFaces[speciesLabel.Hwnd].TextColor := 0x081424
     SetAccessibleTextFont(CharacterPage, "s10 Norm c382314", LauncherThemeFont())
@@ -955,27 +963,27 @@ CreateProfileEditor()
         speciesOptions.Push(item)
     speciesOptions.Push("Original Character")
     EditorSpeciesDropDown := CharacterPage.Add("DropDownList",
-        "x525 y460 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
+        "x525 y468 w355 h240 Choose1 Hidden BackgroundE2CEA2 c382314", speciesOptions)
     EditorSpeciesDropDown.OnEvent("Change", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown))
     SetAccessibleTextFont(CharacterPage, "s9 c382314", LauncherThemeFont())
     ; The hint must remain below the collapsed native race selector,
     ; so its text could remain invisible until the book was reconstructed.
     EditorOCSpeciesHint := CharacterPage.Add("Text",
-        "x525 y491 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
+        "x525 y499 w355 h19 Hidden BackgroundTrans c382314 +0x100", "")
     ; A selected DDL item cannot trigger Change twice: allow editing an OC
     ; by clicking the persistent race line without changing the layout.
     EditorOCSpeciesHint.OnEvent("Click", (*) => ChooseOriginalCharacterPortrait(EditorSpeciesDropDown, true))
     SetAccessibleTextFont(CharacterPage, "s10 c382314", LauncherThemeFont())
     EditorControls.Push(speciesLabel, EditorSpeciesDropDown, EditorOCSpeciesHint)
-    EditorReconnectTick := AddBookTick(CharacterPage, 525, 519, ToggleEditorReconnect)
-    reconnectLabel := AddBookLabel(CharacterPage, 551, 516, 329, 24, "Auto reconnect on crash")
+    EditorReconnectTick := AddBookTick(CharacterPage, 525, 527, ToggleEditorReconnect)
+    reconnectLabel := AddBookLabel(CharacterPage, 551, 524, 329, 24, "Auto reconnect on crash")
     reconnectLabel.Opt("+0x100")
     reconnectLabel.OnEvent("Click", ToggleEditorReconnect)
     EditorControls.Push(EditorReconnectTick, reconnectLabel)
     SetInterfaceLoadingText("Loading Save button...")
-    EditorSaveButton := AddStyledButton(CharacterPage, 635, 549, 140, 30, "Save changes", (*) => 0)
+    EditorSaveButton := AddStyledButton(CharacterPage, 635, 557, 140, 30, "Save changes", (*) => 0)
     EditorControls.Push(EditorSaveButton)
-    dismiss := AddStyledButton(CharacterPage, 685, 591, 30, 24, "X", CloseProfileEditor)
+    dismiss := AddStyledButton(CharacterPage, 685, 599, 30, 24, "X", CloseProfileEditor)
     EditorControls.Push(dismiss)
     CharacterPage.BookEditorControls := {Rows: EditorRows, AccountHeading: accountHeading,
         AutoLoginHeading: autoLoginHeading, SpeciesLabel: speciesLabel,
@@ -985,7 +993,7 @@ CreateProfileEditor()
 
 ; The right-hand column is either the editor or the Macro Book, never
 ; both. Compute its entire stack using the native font already attached
-; to each HWND, preserving the original Normal anchors.
+; to each HWND, preserving the title and first-field anchors.
 ; Conservative inner contour of the right-hand parchment in the original
 ; 960x650 artwork. Extension rows above the taper move its boundary down.
 ; Use the outermost horizontal edge of each control, not just its center.
@@ -1029,7 +1037,9 @@ PlanBookEditorGeometry(heading, originalTitle, controls, measured, compact := fa
         inputY := compact ? rowY : rowY + labelH + 1
         rows.Push({Y: rowY, LabelHeight: labelH, LabelWidth: labelW,
             InputX: inputX, InputY: inputY, InputWidth: inputW, InputHeight: inputH})
-        rowY := Max(rowY + labelH, inputY + inputH) + (compact ? 5 : 2)
+        ; Give the credential pairs a clear separation without changing delay spacing.
+        rowGap := index = 1 ? (compact ? 9 : 10) : (compact ? 5 : 2)
+        rowY := Max(rowY + labelH, inputY + inputH) + rowGap
     }
     raceY := rowY + sectionGap - 2
     raceH := measured ? Max(24, Ceil((MeasureAccessibleWrappedText(
