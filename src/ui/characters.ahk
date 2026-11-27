@@ -64,20 +64,36 @@ GetBookFooterMetrics(page)
     add := {Width: 370, Height: 30}, wipe := add, transfer := add
     if Profiles.Length
     {
-        add := BookActionMetrics(AddCharacterButton, "Add character", 370, 30)
+        add := BookActionMetrics(AddCharacterButton, "Add character", 120, 30)
         wipe := BookActionMetrics(WipeCharacterButton, "Reset Character List", 370, 30)
         transfer := BookActionMetrics(DataTransferButton, "Export Character List", 370, 30)
     }
     return {CloseWidth: close.Width, TransferHeight: transfer.Height,
-        AddHeight: add.Height, FooterHeight: Max(close.Height, wipe.Height),
+        AddWidth: add.Width, AddHeight: add.Height, FooterHeight: Max(close.Height, wipe.Height),
         Fits: add.Width <= 370 && wipe.Width <= 370 && transfer.Width <= 370 && close.Width <= 370}
 }
 
-; Reserve the complete left action stack in both footer placement and page planning.
+; Only Export and Reset belong to the footer. Add follows the visible rows.
 PlanCharacterBookActionStack(footerY, footer)
 {
     transferY := footerY - 5 - footer.TransferHeight
-    return {AddY: transferY - 5 - footer.AddHeight, TransferY: transferY, ResetY: footerY}
+    return {TransferY: transferY, ResetY: footerY}
+}
+
+NormalCharacterAddY(count, limitReached)
+{
+    return count ? Max(164 + Min(count, 10) * 24 + 7, limitReached ? 462 : 0) : 164
+}
+
+PositionNormalCharacterAdd()
+{
+    global Profiles, MaxCharacters, AddCharacterButton, ButtonFaces
+    if !Profiles.Length
+        return
+    if ButtonFaces.Has(AddCharacterButton.Hwnd)
+        ButtonFaces[AddCharacterButton.Hwnd].NoAccessibleDownfit := false
+    MoveStyledButton(AddCharacterButton, 70,
+        NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters), 120, 30)
 }
 
 MoveMeasuredBookAction(control, x, y, width, height)
@@ -178,7 +194,6 @@ SetCharacterBookLayoutExtra(side, required)
     if Profiles.Length
     {
         stack := PlanCharacterBookActionStack(footerY, footer)
-        MoveMeasuredBookAction(AddCharacterButton, 70, stack.AddY, 370, footer.AddHeight)
         MoveMeasuredBookAction(DataTransferButton, 70, stack.TransferY, 370, footer.TransferHeight)
         MoveMeasuredBookAction(WipeCharacterButton, 70, stack.ResetY, 370, footer.FooterHeight)
     }
@@ -292,7 +307,7 @@ OpenCharacterPage(*)
     ; Retain a hidden heading for the character editor.
     LaunchSettingsHeading := CharacterPage.Add("Text", "x525 y45 w360 h30 Center BackgroundTrans Hidden", "")
     SetAccessibleTextFont(CharacterPage, "s12 Norm c241408", LauncherMorrowindFont)
-    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 370, 30, "Add character", (*) => EditProfile(0))
+    AddCharacterButton := AddStyledButton(CharacterPage, 70, 164, 120, 30, "Add character", (*) => EditProfile(0))
     ; The approved copy fits in a compact description block. Do not leave
     ; a full extra paragraph of empty control space above the first row.
     SetAccessibleTextFont(CharacterPage, "s11 Norm c241408", LauncherMorrowindFont)
@@ -397,13 +412,11 @@ RefreshProfiles()
         ; the COMPLETE instructions and push Add/Import together only if the
         ; book's unchanged parchment/footers can contain them. The populated
         ; ten-row state needs its own all-control transaction.
-        actionY := Profiles.Length ? 505 : 164
-        addMetrics := BookActionMetrics(AddCharacterButton, "Add character", 370, 30)
+        actionY := NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters)
+        addMetrics := BookActionMetrics(AddCharacterButton, "Add character", 120, 30)
         importMetrics := BookActionMetrics(DataTransferButton, "Import Data", 370, 30)
         transferMetrics := Profiles.Length
             ? BookActionMetrics(DataTransferButton, "Export Character List", 370, 30) : importMetrics
-        if Profiles.Length
-            actionY := PlanCharacterBookActionStack(575, GetBookFooterMetrics(CharacterPage)).AddY
         copyY := CharacterBookDescriptionY()
         CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))
         if !Profiles.Length
@@ -423,8 +436,9 @@ RefreshProfiles()
                 actionY := proposedAddY
             }
         }
-        MoveMeasuredBookAction(AddCharacterButton, 70, actionY, 370, addMetrics.Height)
-        transferY := actionY + addMetrics.Height + 5
+        MoveMeasuredBookAction(AddCharacterButton, 70, actionY, addMetrics.Width, addMetrics.Height)
+        transferY := Profiles.Length ? PlanCharacterBookActionStack(575, GetBookFooterMetrics(CharacterPage)).TransferY
+            : actionY + addMetrics.Height + 5
         ; The transfer action shares the full-width left lane in both states.
         ; MoveStyledButton updates both the native and painted face.
         ; Hide the existing painted face while the single transfer control moves.
@@ -519,7 +533,7 @@ ReflowAccessiblePopulatedCharacters()
         MeasureAccessibleWrappedText(CharacterLimitNotice,
             CharacterLimitNotice.Text, BookS(362)) + BookS(4)) / scale)) : 0
     footer := GetBookFooterMetrics(CharacterPage)
-    addY := PlanCharacterBookActionStack(575, footer).AddY
+    transferY := PlanCharacterBookActionStack(575, footer).TransferY
     navHeight := 30
     if CharacterPage.HasOwnProp("BookPreviousPage")
     {
@@ -531,7 +545,7 @@ ReflowAccessiblePopulatedCharacters()
     }
     ; Prefer the approved 650px book, reserving the complete footer/notice.
     ; Reserve navigation only if the first no-navigation plan needs pages.
-    limitY := addY - 8 - (noticeVisible ? noticeHeight + 8 : 0)
+    limitY := transferY - 8 - footer.AddHeight - (noticeVisible ? noticeHeight + 8 : 0)
     pages := PlanCharacterBookPages(pitches, limitY - firstY)
     if pages.Length > 1
     {
@@ -561,9 +575,10 @@ ReflowAccessiblePopulatedCharacters()
             ButtonHeight: buttonHeight, Widths: widths, Gap: 6})
         rowY += item.Pitch
     }
-    noticeY := limitY + required + 4
-    if pages.Length > 1
-        PositionCharacterBookNavigation(limitY + required + (noticeVisible ? noticeHeight + 8 : 0), navHeight)
+    ; rowY is the end of the last actual row plus its existing 8px gap.
+    ; Keep Add next to the visible rows, not at the maximum page budget.
+    noticeY := rowY
+    addY := rowY + (noticeVisible ? noticeHeight + 8 : 0)
     ; Grouped update: all coordinates are newly calculated from approved
     ; anchors, never accumulated from the previously scaled/reflowed positions.
     ; Mark rollback as armed *before* the first move: if a native HWND fails
@@ -605,7 +620,10 @@ ReflowAccessiblePopulatedCharacters()
             if ButtonFaces.Has(CharacterLimitNotice.Hwnd)
                 ButtonFaces[CharacterLimitNotice.Hwnd].AccessibleWrappedName := true
         }
-        ; The shared parent has already committed the measured Add/footer.
+        MoveMeasuredBookAction(AddCharacterButton, 70, addY, footer.AddWidth, footer.AddHeight)
+        if pages.Length > 1
+            PositionCharacterBookNavigation(addY + footer.AddHeight + 8, navHeight)
+        ; The shared parent has already committed Export/Reset/Close.
         return true
     }
     catch Error as err
@@ -732,6 +750,7 @@ RestoreAccessibleCharacterRowBaseline()
 {
     global CharacterPage, CharacterRows, ButtonFaces, CharacterLimitNotice
     SetCharacterBookLayoutExtra("Characters", 0)
+    PositionNormalCharacterAdd()
     if !IsObject(CharacterPage)
         || !CharacterPage.HasOwnProp("AccessibleRowsReflowed")
         || !CharacterPage.AccessibleRowsReflowed

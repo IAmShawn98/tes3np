@@ -892,16 +892,24 @@ NativeInterfaceFontHeight(control)
 ; condition that the previous partial Character Book reflow got wrong.
 CheckAccessibleLayoutPreflight()
 {
-    rows := {Id: "character-rows", Height: 239, GapAfter: 10}
-    add := {Id: "add-character", Height: 30, MinimumTop: 505, GapAfter: 5}
-    export := {Id: "export-character-list", Height: 30, GapAfter: 5}
+    rows := {Id: "character-rows", Height: 239, GapAfter: 8}
+    add := {Id: "add-character", Height: 30, GapAfter: 8}
+    export := {Id: "export-character-list", Height: 30, MinimumTop: 540, GapAfter: 5}
     reset := {Id: "reset-character-list", Height: 30}
     baseline := PlanAccessibleVerticalStack([
         {Id: "full-description", Height: 81, GapAfter: 3}, rows, add, export, reset], 80, 605)
     if !baseline.Feasible || baseline.Items[1].Top != 80
-        || baseline.Items[2].Top != 164 || baseline.Items[3].Top != 505
+        || baseline.Items[2].Top != 164 || baseline.Items[3].Top != 411
         || baseline.Items[4].Top != 540 || baseline.Items[5].Top != 575
         throw Error("Baseline Character Book layout planning changed.")
+    Loop 10
+    {
+        count := A_Index
+        if NormalCharacterAddY(count, false) != 164 + count * 24 + 7
+            throw Error("Add character did not follow the visible row count.")
+    }
+    if NormalCharacterAddY(0, false) != 164 || NormalCharacterAddY(10, true) != 462
+        throw Error("Empty or full character list Add anchor changed.")
     enlarged := PlanAccessibleVerticalStack([
         {Id: "full-description", Height: 220, GapAfter: 3}, rows, add, export, reset], 80, 605)
     if enlarged.Feasible || enlarged.Overflow <= 0
@@ -1922,7 +1930,7 @@ CheckTenCharacterBookExpansion()
         CharacterLimitNotice := page.Add("Text", "x70 y429 w370 h25",
             "* You have reached the server character limit.")
         SetAccessibleTextFont(page, "s10 Bold", LauncherThemeFont())
-        AddCharacterButton := page.Add("Text", "x70 y505 w370 h30", "Add character")
+        AddCharacterButton := page.Add("Text", "x70 y462 w120 h30", "Add character")
         WipeCharacterButton := page.Add("Text", "x70 y575 w370 h30", "Reset Character List")
         DataTransferButton := page.Add("Text", "x70 y540 w370 h30", "Export Character List")
         page.BookCloseButton := page.Add("Text", "x795 y575 w90 h30", "Close")
@@ -1976,9 +1984,12 @@ CheckTenCharacterBookExpansion()
             AddCharacterButton.GetPos(&addX, &addY, &addW, &addH)
             DataTransferButton.GetPos(&exportX, &exportY, &exportW, &exportH)
             WipeCharacterButton.GetPos(&resetX, &resetY, &resetW, &resetH)
-            if addX != exportX || exportX != resetX || addW != exportW || exportW != resetW
-                || exportY < addY + addH || resetY < exportY + exportH
-                throw Error("Character actions do not form a nonoverlapping left stack.")
+            if addX != exportX || exportX != resetX || exportW != resetW
+                || addW > exportW || exportY < addY + addH || resetY < exportY + exportH
+                throw Error("Character actions overlap or leave the left lane.")
+            if Abs(noticeY - previousBottom - BookS(8)) > 2
+                || Abs(addY - noticeY - noticeH - BookS(8)) > 2
+                throw Error("Add character no longer follows the measured rows and notice.")
             for action in [AddCharacterButton, DataTransferButton, WipeCharacterButton]
             {
                 action.GetPos(, , &actionW, &actionH)
@@ -1999,13 +2010,14 @@ CheckTenCharacterBookExpansion()
         if GetCharacterBookExtra() || page.AccessibleRowsReflowed
             throw Error("Ten-character Normal restoration left expanded state.")
         CharacterRows[10].Name.GetPos(, &lastY)
-        AddCharacterButton.GetPos(, &addY)
+        AddCharacterButton.GetPos(&addX, &addY, &addW)
         DataTransferButton.GetPos(&exportX, &exportY, &exportW)
         WipeCharacterButton.GetPos(&resetX, &resetY, &resetW)
         page.BookCloseButton.GetPos(&closeX, &closeY, &closeW)
         if closeX != BookS(795) || closeY != BookS(575) || closeW != BookS(90)
             throw Error("Close did not restore its Normal footer position.")
-        if lastY != BookS(164 + 9 * 24) || addY != BookS(505)
+        if lastY != BookS(164 + 9 * 24) || addY != BookS(462)
+            || addX != BookS(70) || addW != BookS(120)
             || exportX != BookS(70) || exportY != BookS(540) || exportW != BookS(370)
             || resetX != BookS(70) || resetY != BookS(575) || resetW != BookS(370)
             throw Error("Ten-character Normal anchors were not restored.")

@@ -180,13 +180,14 @@ HandleV016SettingsHitTest(wParam, lParam, msg, hwnd)
 ApplyV016CharacterLayout(*)
 {
     global CharacterPage, V016CharacterLayoutApplied
-    global Profiles, AddCharacterButton, WipeCharacterButton, DataTransferButton
+    global Profiles, MaxCharacters, AddCharacterButton, WipeCharacterButton, DataTransferButton
     if V016CharacterLayoutApplied || !IsObject(CharacterPage)
         return
 
 
-    ; Seed the left action stack; RefreshProfiles applies measured reflow.
-    MoveStyledButton(AddCharacterButton, 70, Profiles.Length ? 505 : 164, 370, 30)
+    ; Seed Add below the current list; RefreshProfiles applies measured reflow.
+    MoveStyledButton(AddCharacterButton, 70,
+        NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters), 120, 30)
     MoveStyledButton(DataTransferButton, 70, Profiles.Length ? 540 : 199, 370, 30)
     MoveStyledButton(WipeCharacterButton, 70, 575, 370, 30)
     V016CharacterLayoutApplied := true

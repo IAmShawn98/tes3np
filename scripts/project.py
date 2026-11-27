@@ -394,10 +394,11 @@ def check(allow_missing_payload: bool = False) -> None:
             and 'does not impact them in-game!"' in character_ui
             and 'CharacterDescription.Move(BookS(70), BookS(copyY), BookS(390), BookS(81))' in character_ui
             and 'y := 164 + (index - 1) * 24' in character_ui
-            and 'actionY := Profiles.Length ? 505 : 164' in character_ui
-            and 'actionY := PlanCharacterBookActionStack(575, GetBookFooterMetrics(CharacterPage)).AddY' in character_ui
+            and 'actionY := NormalCharacterAddY(Profiles.Length, Profiles.Length >= MaxCharacters)' in character_ui
+            and '164 + Min(count, 10) * 24 + 7' in character_ui
             and 'transferY := footerY - 5 - footer.TransferHeight' in character_ui
-            and 'AddY: transferY - 5 - footer.AddHeight' in character_ui
+            and 'addY := rowY + (noticeVisible ? noticeHeight + 8 : 0)' in character_ui
+            and 'MoveMeasuredBookAction(AddCharacterButton, 70, addY, footer.AddWidth, footer.AddHeight)' in character_ui
             and 'MoveMeasuredBookAction(DataTransferButton, 70, stack.TransferY, 370, footer.TransferHeight)' in character_ui
             and 'MoveMeasuredBookAction(WipeCharacterButton, 70, stack.ResetY, 370, footer.FooterHeight)' in character_ui
             and 'MoveMeasuredBookAction(page.BookCloseButton, 885 - footer.CloseWidth, footerY,' in character_ui

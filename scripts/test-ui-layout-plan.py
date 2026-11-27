@@ -27,9 +27,25 @@ class LayoutPlanningTest(unittest.TestCase):
         positions = {name: (top, bottom) for name, top, bottom in result.positions}
         self.assertEqual(positions["complete-description"], (80, 161))
         self.assertEqual(positions["character-rows"], (164, 403))
-        self.assertEqual(positions["add-character"], (505, 535))
+        self.assertEqual(positions["add-character"], (411, 441))
         self.assertEqual(positions["export-character-list"], (540, 570))
         self.assertEqual(positions["reset-character-list"], (575, 605))
+
+    def test_add_follows_each_visible_character_count(self):
+        for count in range(1, 11):
+            with self.subTest(count=count):
+                simple = layout.character_book_left_column(70, row_count=count)
+                plan = layout.plan_character_macro_book(
+                    70, 40, 23, 62, 1920, 1080, profile_count=count)
+                self.assertTrue(simple.feasible)
+                self.assertTrue(plan.feasible, plan.violations)
+                rect = dict(plan.controls)
+                self.assertEqual(rect["add-character"].y, 164 + count * 24 + 7)
+                self.assertEqual(rect["add-character"].y, rect["character-rows"].bottom + 8)
+                self.assertEqual(rect["add-character"].width, 120)
+                self.assertEqual(rect["export-character-list"].y, 540)
+                self.assertEqual(dict((name, (top, bottom)) for name, top, bottom in simple.positions)["add-character"],
+                                 (rect["add-character"].y, rect["add-character"].bottom))
 
     def test_large_paragraph_rejects_unsafe_10_row_plan(self):
         result = layout.character_book_left_column(measured_paragraph_height=220)
@@ -43,7 +59,7 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertTrue(normal.feasible)
         positions = {name: (top, bottom) for name, top, bottom in normal.positions}
         self.assertEqual(positions["character-limit-notice"], (429, 454))
-        self.assertEqual(positions["add-character"], (505, 535))
+        self.assertEqual(positions["add-character"], (462, 492))
         self.assertEqual(positions["export-character-list"], (540, 570))
         self.assertEqual(positions["reset-character-list"], (575, 605))
         large = layout.character_book_left_column(220, show_limit_notice=True)
@@ -111,7 +127,7 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertEqual(rect["character-rows"].y, 164)
         self.assertEqual(rect["macro-rows"].y, 140)
         self.assertEqual(rect["footer-close"], layout.Rect(795, 575, 90, 30))
-        self.assertEqual(rect["add-character"], layout.Rect(70, 505, 370, 30))
+        self.assertEqual(rect["add-character"], layout.Rect(70, 411, 120, 30))
         self.assertEqual(rect["export-character-list"], layout.Rect(70, 540, 370, 30))
         self.assertEqual(rect["footer-left"], layout.Rect(70, 575, 370, 30))
         self.assertNotIn("footer-right", rect)
@@ -122,7 +138,8 @@ class LayoutPlanningTest(unittest.TestCase):
         self.assertGreater(plan.page_height, 650)
         rect = dict(plan.controls)
         self.assertGreater(rect["character-rows"].y, 164)
-        self.assertEqual(rect["add-character"].bottom + 5, rect["export-character-list"].y)
+        self.assertLessEqual(rect["add-character"].bottom + 8, rect["export-character-list"].y)
+        self.assertEqual(rect["add-character"].y, rect["character-rows"].bottom + 8)
         self.assertEqual(rect["export-character-list"].bottom + 5, rect["footer-left"].y)
         self.assertLessEqual(rect["macro-upload"].bottom + 8, rect["footer-close"].y)
         self.assertEqual(rect["footer-close"].right, 885)
@@ -221,7 +238,7 @@ class LayoutPlanningTest(unittest.TestCase):
             70, 40, 23, 62, 1920, 1080, profile_count=0, macro_count=0)
         self.assertTrue(plan.feasible, plan.violations)
         positions = dict(layout.expand_book_control_positions(plan))
-        self.assertEqual(positions["add-character"], layout.Rect(70, 164, 370, 30))
+        self.assertEqual(positions["add-character"], layout.Rect(70, 164, 120, 30))
         self.assertEqual(positions["import-data"], layout.Rect(70, 199, 370, 30))
         self.assertNotIn("footer-left", positions)
         self.assertNotIn("footer-right", positions)
@@ -252,7 +269,7 @@ class LayoutPlanningTest(unittest.TestCase):
         last_name = positions["character-10-name"]
         add = positions["add-character"]
         self.assertGreaterEqual(notice.y, last_name.bottom + 8)
-        self.assertGreaterEqual(add.y, notice.bottom + 10)
+        self.assertEqual(add.y, notice.bottom + 8)
         self.assertEqual(layout.validate_book_control_positions(
             plan, tuple(positions.items())), ())
 
