@@ -76,6 +76,7 @@ internal sealed partial class GameChatWindow : Form
         Log("Host launched; owner=" + owner);
         Width = 266; Height = 342;
         LoadLayout();
+        LoadChatPlacement();
         Shown += (_, _) => PositionServerUpdatesPanel();
         Shown += StartDiscordAsync;
         FormClosing += CloseGameChat;
@@ -92,6 +93,8 @@ internal sealed partial class GameChatWindow : Form
     {
         CancelPendingExpansionPrompt();
         closingChat = true;
+        FinishChatFrameDrag();
+        chatFrameDragTimer.Dispose();
         watch.Dispose();
         historyWatch.Dispose();
         QueueFinalChatArchiveSave();
@@ -142,7 +145,7 @@ internal sealed partial class GameChatWindow : Form
             if (pendingExpansionPrompt == 0 && !discordLoginVisible && !connectingChat &&
                 chatDisplayMode == "Automatic" && chatOpen &&
                 DateTime.Now - lastChatActivity > TimeSpan.FromSeconds(10) &&
-                !goldScrollbar.Capture && !ChatComposerHasFocus &&
+                !goldScrollbar.Capture && !chatFrameDragTimer.Enabled && !ChatComposerHasFocus &&
                 !Bounds.Contains(Cursor.Position))
                 SetChatOpen(false);
             if (nativeMode && goldScrollbar.Visible)

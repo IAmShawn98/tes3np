@@ -700,6 +700,13 @@ expect(
     "OwnerLayoutScale(bounds.Right - bounds.Left, launcherBaseWidth, GetDpiForWindow(owner))" in chat_layout
     and "sideWidth / (double)chatWidth" in chat_layout
     and "SetBrowserScale(messageBrowser" not in source
+    and 'Path.Combine(ChatDataRoot, "chat-window-bounds.txt")' in source
+    and 'WriteChatArchiveAtomically(chatPlacementFile, value)' in source
+    and 'if (manualChatBounds is Rectangle saved)' in chat_layout
+    and 'ResetChatPlacement();' in source
+    and 'AttachChatFrameInput();' in source
+    and '--check-chat-placement' in windows_build
+    and 'host.SaveServerUpdatesOffset(PointF.Empty);' in updates_panel
     and "BaseWidth = 520, BaseHeight = 750" in sign_in_card
     and "Math.Min(width, Math.Max(1, work.Width - 24))" in sign_in_layout
     and "Math.Min(height, Math.Max(1, work.Height - 24))" in sign_in_layout
@@ -3199,6 +3206,15 @@ expect(
     and 'if LauncherMapOpen && IsObject(LauncherGui) && hwnd = LauncherGui.Hwnd' in server_map
     and 'finally syncing := false' in server_map
     and 'Map movement notification did not translate the panel.' in launcher_smoke_tests
+    and 'Map manual placement geometry failed.' in launcher_smoke_tests
+    and 'Map saved bounds must validate.' in launcher_smoke_tests
+    and 'OnMessage(0x0201, LauncherMapFrameDown, -1)' in server_map
+    and 'OnMessage(0x0203, LauncherMapFrameDown, -1)' in server_map
+    and 'OnMessage(0x0020, LauncherMapFrameCursor, -1)' in server_map
+    and server_map.count('OnMessage(0x0020, LauncherMapFrameCursor, 0)') == 2
+    and 'panel.MapManualBounds := false' in server_map
+    and 'IniWrite(value, LauncherMapPlacementFile(), "Window", "Bounds")' in server_map
+    and 'if IsObject(LauncherMapPanel.MapManualBounds)' in server_map
     and 'assets/controls/map-frame.png' in resource_generator
     and 'CheckLauncherMapShell()' in launcher_smoke_tests,
 )

@@ -20,6 +20,7 @@ internal sealed partial class GameChatWindow
         frameSurface.Controls.Add(goldScrollbar);
         goldScrollbar.Paint += PaintChatScrollbar;
         AttachScrollbarInput();
+        AttachChatFrameInput();
         // Keep the native scrollbar hidden until the first actual feed.
         goldScrollbar.Visible = false;
         nativeMessages.Visible = true;

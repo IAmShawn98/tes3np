@@ -3205,6 +3205,19 @@ CheckLauncherMapShell()
                     throw Error("Map caption must retain its inward left-edge inset.")
             }
         }
+        manual := ParseLauncherMapBounds("-100,50,480,405")
+        if !IsObject(manual) || manual.X != -100 || manual.W != 480
+            || IsObject(ParseLauncherMapBounds("auto")) || IsObject(ParseLauncherMapBounds("0,0,-1,20"))
+            throw Error("Map saved bounds must validate.")
+        moved := ResizeLauncherMapBounds(manual, 16, 20, 30)
+        grown := ResizeLauncherMapBounds(manual, 10, 100, 80)
+        clamped := ClampLauncherMapBounds(manual, {L: -1280, T: 0, R: 0, B: 720})
+        if moved.X != -80 || moved.Y != 80 || grown.W != 580 || grown.H != 485 || clamped.X != -480
+            || ClampLauncherMapBounds({X: -700, Y: 50, W: 144, H: 122}, {L: -1280, T: 0, R: 0, B: 720}).W != 144
+            || LauncherMapFrameHit(2, 2, 480, 405, 7, 51) != 5
+            || LauncherMapFrameHit(100, 25, 480, 405, 7, 51) != 16
+            || LauncherMapFrameHit(100, 100, 480, 405, 7, 51)
+            throw Error("Map manual placement geometry failed.")
         work := {L: 0, T: 0, R: 1920, B: 1080}
         leftEdge := GetLauncherMapPlacement({L: 0, T: 0, R: 960, B: 716}, work)
         rightEdge := GetLauncherMapPlacement({L: 960, T: 0, R: 1920, B: 716}, work)

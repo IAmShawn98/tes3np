@@ -8,6 +8,11 @@ internal static class Program
             Environment.ExitCode = ServerMapHost.Run(args);
             return;
         }
+        if (args.Length == 1 && args[0] == "--check-chat-placement")
+        {
+            Environment.ExitCode = GameChatWindow.CheckChatPlacement();
+            return;
+        }
         if (args.Length == 1 && args[0] == "--check-map-policy")
         {
             Environment.ExitCode = ServerMapHost.CheckPolicy();

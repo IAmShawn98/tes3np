@@ -300,6 +300,180 @@ internal sealed partial class GameChatWindow
             Math.Clamp(y, work.Top, work.Bottom - size.Height), size.Width, size.Height);
     }
 
+    // User placement is independent of the installed chat.ini defaults.
+    readonly string chatPlacementFile = Path.Combine(ChatDataRoot, "chat-window-bounds.txt");
+    Rectangle? manualChatBounds;
+    Rectangle chatDragStart;
+    Point chatDragOrigin, chatLastTitlePoint;
+    int chatDragEdges;
+    bool chatDragChanged;
+    long chatLastTitleClick = -10000;
+    readonly System.Windows.Forms.Timer chatFrameDragTimer = new() { Interval = 16 };
+
+    static Rectangle? ParseChatBounds(string text)
+    {
+        var parts = text.Trim().Split(',');
+        if (parts.Length != 4 || !int.TryParse(parts[0], out int x) ||
+            !int.TryParse(parts[1], out int y) || !int.TryParse(parts[2], out int w) ||
+            !int.TryParse(parts[3], out int h) || x < -1000000 || x > 1000000 ||
+            y < -1000000 || y > 1000000 || w < 1 || w > 32768 || h < 1 || h > 32768)
+            return null;
+        return new Rectangle(x, y, w, h);
+    }
+
+    static Rectangle ClampChatBounds(Rectangle bounds, Rectangle work)
+    {
+        int w = Math.Clamp(bounds.Width, Math.Min(160, work.Width), work.Width);
+        int h = Math.Clamp(bounds.Height, Math.Min(160, work.Height), work.Height);
+        return new Rectangle(Math.Clamp(bounds.X, work.Left, work.Right - w),
+            Math.Clamp(bounds.Y, work.Top, work.Bottom - h), w, h);
+    }
+
+    void LoadChatPlacement()
+    {
+        try
+        {
+            if (File.Exists(chatPlacementFile))
+                manualChatBounds = ParseChatBounds(File.ReadAllText(chatPlacementFile));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    void SaveChatPlacement()
+    {
+        try
+        {
+            string value = manualChatBounds is Rectangle r
+                ? FormattableString.Invariant($"{r.X},{r.Y},{r.Width},{r.Height}") : "auto";
+            WriteChatArchiveAtomically(chatPlacementFile, value);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { Log("CHAT | Save placement: " + ex.GetType().Name); }
+    }
+
+    // Flags: left=1, right=2, top=4, bottom=8, title=16.
+    static int ChatFrameHit(Point p, Size size, int edge, int header)
+    {
+        int hit = (p.X < edge ? 1 : p.X >= size.Width - edge ? 2 : 0) |
+            (p.Y < edge ? 4 : p.Y >= size.Height - edge ? 8 : 0);
+        return hit != 0 ? hit : p.Y < header ? 16 : 0;
+    }
+
+    static Rectangle ResizeChatBounds(Rectangle start, int hit, int dx, int dy)
+    {
+        if (hit == 16) return new Rectangle(start.X + dx, start.Y + dy, start.Width, start.Height);
+        int l = (hit & 1) != 0 ? Math.Min(start.Right - 160, start.Left + dx) : start.Left;
+        int r = (hit & 2) != 0 ? Math.Max(start.Left + 160, start.Right + dx) : start.Right;
+        int t = (hit & 4) != 0 ? Math.Min(start.Bottom - 160, start.Top + dy) : start.Top;
+        int b = (hit & 8) != 0 ? Math.Max(start.Top + 160, start.Bottom + dy) : start.Bottom;
+        return Rectangle.FromLTRB(l, t, r, b);
+    }
+
+    int ChatFrameHit(Point p) => ChatFrameHit(p, frameSurface.ClientSize,
+        Math.Max(3, ChatPixels(7)), ChatPixels(FrameHeaderBottom(1)));
+
+    void AttachChatFrameInput()
+    {
+        chatFrameDragTimer.Tick += (_, _) =>
+        {
+            if (!chatOpen || !Visible || !CanPresentOwnedChat(owner, Handle)) { FinishChatFrameDrag(); return; }
+            TrackChatFrameDrag();
+            int primary = SystemInformation.MouseButtonsSwapped ? 0x02 : 0x01;
+            if ((GetAsyncKeyState(primary) & 0x8000) == 0) FinishChatFrameDrag();
+        };
+        frameSurface.MouseDown += (_, e) =>
+        {
+            if (!docked || !chatOpen || discordLoginVisible || e.Button != MouseButtons.Left) return;
+            int hit = ChatFrameHit(e.Location);
+            if (hit == 0) return;
+            Point cursor = Cursor.Position;
+            long now = Environment.TickCount64;
+            Size doubleSize = SystemInformation.DoubleClickSize;
+            if (hit == 16 && (e.Clicks > 1 || (now - chatLastTitleClick <= SystemInformation.DoubleClickTime &&
+                Math.Abs(cursor.X - chatLastTitlePoint.X) <= doubleSize.Width / 2 &&
+                Math.Abs(cursor.Y - chatLastTitlePoint.Y) <= doubleSize.Height / 2)))
+            {
+                ResetChatPlacement();
+                return;
+            }
+            chatLastTitleClick = hit == 16 ? now : -10000;
+            chatLastTitlePoint = cursor;
+            chatDragStart = Bounds;
+            chatDragOrigin = cursor;
+            chatDragEdges = hit;
+            chatDragChanged = false;
+            lastChatActivity = DateTime.Now;
+            frameSurface.Capture = true;
+            chatFrameDragTimer.Start();
+        };
+        frameSurface.MouseMove += (_, e) =>
+        {
+            if (chatFrameDragTimer.Enabled) return;
+            frameSurface.Cursor = ChatFrameHit(e.Location) switch
+            {
+                1 or 2 => Cursors.SizeWE, 4 or 8 => Cursors.SizeNS,
+                5 or 10 => Cursors.SizeNWSE, 6 or 9 => Cursors.SizeNESW,
+                16 => Cursors.SizeAll, _ => Cursors.Default
+            };
+        };
+        frameSurface.MouseUp += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left || !chatFrameDragTimer.Enabled) return;
+            TrackChatFrameDrag();
+            FinishChatFrameDrag();
+        };
+        frameSurface.MouseCaptureChanged += (_, _) =>
+        {
+            if (!frameSurface.Capture) FinishChatFrameDrag();
+        };
+    }
+
+    void ResetChatPlacement()
+    {
+        FinishChatFrameDrag();
+        chatLastTitleClick = -10000;
+        manualChatBounds = null;
+        SaveChatPlacement();
+        PositionChatWindows();
+    }
+
+    void TrackChatFrameDrag()
+    {
+        Point cursor = Cursor.Position;
+        int dx = cursor.X - chatDragOrigin.X, dy = cursor.Y - chatDragOrigin.Y;
+        if (!chatDragChanged && Math.Abs(dx) < 4 && Math.Abs(dy) < 4) return;
+        chatDragChanged = true;
+        chatLastTitleClick = -10000;
+        lastChatActivity = DateTime.Now;
+        var requested = ResizeChatBounds(chatDragStart, chatDragEdges, dx, dy);
+        manualChatBounds = ClampChatBounds(requested, Screen.FromPoint(cursor).WorkingArea);
+        PositionChatWindows();
+    }
+
+    void FinishChatFrameDrag()
+    {
+        if (!chatFrameDragTimer.Enabled) return;
+        chatFrameDragTimer.Stop();
+        if (frameSurface.Capture) frameSurface.Capture = false;
+        if (chatDragChanged) SaveChatPlacement();
+    }
+
+    internal static int CheckChatPlacement()
+    {
+        var start = new Rectangle(-100, 50, 400, 400);
+        var work = new Rectangle(-1280, 0, 1280, 720);
+        return ParseChatBounds("-100,50,400,400") == start &&
+            ParseChatBounds("auto") == null && ParseChatBounds("0,0,-1,5") == null &&
+            ResizeChatBounds(start, 16, 20, 30) == new Rectangle(-80, 80, 400, 400) &&
+            ResizeChatBounds(start, 10, 100, 80) == new Rectangle(-100, 50, 500, 480) &&
+            ResizeChatBounds(start, 5, 300, 300) == new Rectangle(140, 290, 160, 160) &&
+            ClampChatBounds(new Rectangle(-600, 50, 195, 249), work) == new Rectangle(-600, 50, 195, 249) &&
+            ClampChatBounds(start, work) == new Rectangle(-400, 50, 400, 400) &&
+            ChatFrameHit(new Point(2, 2), start.Size, 7, 51) == 5 &&
+            ChatFrameHit(new Point(100, 25), start.Size, 7, 51) == 16 &&
+            ChatFrameHit(new Point(100, 100), start.Size, 7, 51) == 0 ? 0 : 1;
+    }
+
     void PositionChatWindows()
     {
         // Native owner movement covers scale previews and their rollback.
@@ -324,10 +498,20 @@ internal sealed partial class GameChatWindow
         int sideWidth = Math.Max(bounds.Left - work.Left, work.Right - bounds.Right);
         if (sideWidth >= Math.Min(220, Pixels(chatWidth, 0.5)))
             scale = Math.Min(scale, sideWidth / (double)chatWidth);
+        // Manual geometry stays independent of launcher docking and uses a bounded theme scale.
+        if (manualChatBounds is Rectangle manual)
+        {
+            var fitted = ClampChatBounds(manual, Screen.FromRectangle(manual).WorkingArea);
+            scale = Math.Min(launcherScale, Math.Min(fitted.Width / 320d, fitted.Height / 320d));
+        }
         UpdateChatScale(scale);
         var size = new Size(ChatPixels(chatWidth), ChatPixels(dockHeight));
         PositionDiscordSignIn(bounds, work);
-        var target = DockBounds(bounds, work, size, size.Width);
+        Rectangle target;
+        if (manualChatBounds is Rectangle saved)
+            target = ClampChatBounds(saved, Screen.FromRectangle(saved).WorkingArea);
+        else
+            target = DockBounds(bounds, work, size, size.Width);
         if (!docked || !IsHandleCreated) return;
         // Position successfully before revealing; never show at the last
         // cached desktop location after the launcher has disappeared.

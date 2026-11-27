@@ -182,6 +182,8 @@ internal sealed partial class GameChatWindow
         Rectangle launcherAnchor;
         Point headerPressPosition, headerGrabOffset;
         bool headerMoved;
+        long lastHeaderClick = -10000;
+        Point lastHeaderClickPoint;
 
         internal LatestUpdatesPanel(GameChatWindow host)
         {
@@ -346,6 +348,20 @@ internal sealed partial class GameChatWindow
                 return;
 
             headerPressPosition = PointToScreen(e.Location);
+            long now = Environment.TickCount64;
+            Size clickSize = SystemInformation.DoubleClickSize;
+            if (e.Clicks > 1 || (now - lastHeaderClick <= SystemInformation.DoubleClickTime &&
+                Math.Abs(headerPressPosition.X - lastHeaderClickPoint.X) <= clickSize.Width / 2 &&
+                Math.Abs(headerPressPosition.Y - lastHeaderClickPoint.Y) <= clickSize.Height / 2))
+            {
+                FinishHeaderDrag();
+                lastHeaderClick = -10000;
+                host.SaveServerUpdatesOffset(PointF.Empty);
+                host.PositionServerUpdatesPanel();
+                return;
+            }
+            lastHeaderClick = now;
+            lastHeaderClickPoint = headerPressPosition;
             headerGrabOffset = e.Location;
             headerMoved = false;
             Capture = true;
@@ -405,6 +421,7 @@ internal sealed partial class GameChatWindow
                     headerPressPosition.Y - threshold.Height / 2, threshold.Width, threshold.Height);
                 if (clickArea.Contains(cursor)) return;
                 headerMoved = true;
+                lastHeaderClick = -10000;
             }
 
             var requested = new Rectangle(cursor.X - headerGrabOffset.X, cursor.Y - headerGrabOffset.Y, Width, Height);
