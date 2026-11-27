@@ -2034,25 +2034,28 @@ CheckMeasuredBookEditorGeometry()
                     rows.Push({Label: label, Input: input})
                 }
                 SetAccessibleTextFont(page, "s13 Bold c241408", LauncherThemeFont())
-                autoLoginHeading := page.Add("Text", "x525 y192 w355 h24", "Auto Login Settings")
+                accountHeading := page.Add("Text", "x525 y82 w355 h24", GetBookEditorAccountHeading(1))
+                autoLoginHeading := page.Add("Text", "x525 y228 w355 h24", "Auto Login")
+                race := page.Add("Text", "x525 y424 w355 h24", "Race Info")
                 SetAccessibleTextFont(page, "s10 Norm", LauncherThemeFont())
-                race := page.Add("Text", "x525 y361 w355 h22", "Race")
                 combo := page.Add("DropDownList", "x525 y376 w355 h240", ["Select race...", "Original Character"])
                 hint := page.Add("Text", "x525 y407 w355 h19", "Race: Dark Elf  |  Change portrait")
                 reconnect := page.Add("Text", "x551 y432 w329 h24", "Auto reconnect on crash")
                 save := page.Add("Text", "x635 y465 w140 h30", "Save changes")
                 dismiss := page.Add("Text", "x685 y507 w30 h24", "X")
-                controls := {Rows: rows, AutoLoginHeading: autoLoginHeading, SpeciesLabel: race, Species: combo, Hint: hint,
+                controls := {Rows: rows, AccountHeading: accountHeading, AutoLoginHeading: autoLoginHeading,
+                    SpeciesLabel: race, Species: combo, Hint: hint,
                     Reconnect: reconnect, Save: save, Dismiss: dismiss}
                 plan := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
                 if mode = "Normal"
                 {
-                    if plan.TitleHeight != 30 || plan.Rows[1].Y != 82
-                        || plan.Rows[2].Y != 132 || plan.SectionY != 192 || plan.SectionHeight != 24
-                        || plan.Rows[3].Y != 228 || plan.Rows[5].Y != 328 || plan.RaceY != 383
-                        || plan.DropdownY != 408 || plan.HintY != 439
-                        || plan.ReconnectY != 464 || plan.SaveY != 497
-                        || plan.DismissY != 539 || plan.Extra
+                    if plan.TitleHeight != 30 || plan.AccountY != 82 || plan.AccountHeight != 24
+                        || plan.Rows[1].Y != 118 || plan.Rows[2].Y != 168
+                        || plan.SectionY != 228 || plan.SectionHeight != 24
+                        || plan.Rows[3].Y != 264 || plan.Rows[5].Y != 364 || plan.RaceY != 424
+                        || plan.DropdownY != 460 || plan.HintY != 491
+                        || plan.ReconnectY != 516 || plan.SaveY != 549
+                        || plan.DismissY != 591 || plan.Extra != 50
                         throw Error("Normal editor anchors changed.")
                 }
                 else
@@ -2060,7 +2063,11 @@ CheckMeasuredBookEditorGeometry()
                     if plan.TitleHeight < MeasureAccessibleWrappedText(heading, plan.Title, 352)
                         || !(StrReplace(plan.Title, "`n") == title) || !plan.FitsWidth
                         throw Error("Editor title clips or loses its original name.")
-                    previous := 45 + plan.TitleHeight
+                    if plan.AccountY < 45 + plan.TitleHeight
+                        || plan.AccountHeight < MeasureAccessibleWrappedText(accountHeading, accountHeading.Text, 351)
+                        || plan.Rows[1].Y < plan.AccountY + plan.AccountHeight + 12
+                        throw Error("Account heading clips or overlaps credentials.")
+                    previous := plan.AccountY + plan.AccountHeight
                     for index, row in rows
                     {
                         metrics := plan.Rows[index]
@@ -2073,14 +2080,33 @@ CheckMeasuredBookEditorGeometry()
                     if plan.SectionY < plan.Rows[2].Y + plan.Rows[2].LabelHeight + 1 + plan.Rows[2].InputHeight + 12
                         || plan.SectionHeight < MeasureAccessibleWrappedText(autoLoginHeading, autoLoginHeading.Text, 351)
                         || plan.Rows[3].Y < plan.SectionY + plan.SectionHeight + 12
-                        throw Error("Auto Login Settings heading clips or overlaps credentials/delays.")
-                    if plan.RaceY < previous + 7 || plan.HintY < plan.DropdownY
+                        throw Error("Auto Login heading clips or overlaps credentials/delays.")
+                    if plan.RaceY < previous + 12
+                        || plan.RaceHeight < MeasureAccessibleWrappedText(race, race.Text, 351)
+                        || plan.DropdownY < plan.RaceY + plan.RaceHeight + 12
+                        || plan.HintY < plan.DropdownY
                         || plan.ReconnectY < plan.HintY + plan.HintHeight
                         || plan.SaveY < plan.ReconnectY + plan.ReconnectHeight
                         || plan.DismissY < plan.SaveY + plan.SaveHeight
                         || plan.DismissY + plan.DismissHeight + 5 > 570 + plan.Extra
                         throw Error("Measured editor stack or footer overlaps.")
                 }
+                if GetBookEditorAccountHeading(0) != "Register Existing Account"
+                    || GetBookEditorAccountHeading(1) != "Registered Account"
+                    throw Error("Editor account caption does not match Add/Edit mode.")
+                accountHeading.Text := GetBookEditorAccountHeading(0)
+                newPlan := PlanBookEditorGeometry(heading, "Add New Character", controls, mode != "Normal")
+                if newPlan.Rows[1].Y < newPlan.AccountY + newPlan.AccountHeight + 12
+                    || (mode != "Normal" && newPlan.AccountHeight < MeasureAccessibleWrappedText(accountHeading, accountHeading.Text, 351))
+                    throw Error("New account heading clips or overlaps fields.")
+                accountHeading.Text := GetBookEditorAccountHeading(1)
+                tight := PlanBookEditorGeometry(heading, title, controls, false, true)
+                if tight.Extra || tight.DismissY != tight.SaveY
+                    || tight.DismissX < tight.SaveX + tight.SaveWidth + 12
+                    || tight.Rows[1].Y < tight.AccountY + tight.AccountHeight + 8
+                    || tight.Rows[3].Y < tight.SectionY + tight.SectionHeight + 8
+                    || tight.DropdownY < tight.RaceY + tight.RaceHeight + 8
+                    throw Error("Compact editor does not fit base book with separated headings.")
                 hint.Text := ""
                 compact := PlanBookEditorGeometry(heading, title, controls, mode != "Normal")
                 if compact.SectionY != plan.SectionY || compact.Rows[3].Y != plan.Rows[3].Y
