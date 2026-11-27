@@ -183,7 +183,7 @@ class InventoryCoverageTests(unittest.TestCase):
         self.assertIn("PlanBookEditorGeometry(LaunchSettingsHeading,", characters)
         self.assertIn('"Auto Login"', characters)
         self.assertIn('"Race Info"', characters)
-        self.assertIn('return index ? "Registered Account" : "Register Existing Account"', characters)
+        self.assertIn('return index ? "Registered Character" : "Register Existing Character"', characters)
         self.assertIn("CharacterPage.BookEditorControls.AccountHeading.Text := GetBookEditorAccountHeading(index)", characters)
         self.assertIn("EditorControls.Push(accountHeading)", characters)
         self.assertIn("EditorControls.Push(autoLoginHeading)", characters)

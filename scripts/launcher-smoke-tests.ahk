@@ -2152,8 +2152,8 @@ CheckMeasuredBookEditorGeometry()
                 if plan.Rows[2].Y - (plan.Rows[1].InputY + plan.Rows[1].InputHeight) < 10
                     throw Error("Username and password lack clear separation.")
                 AssertBookEditorParchmentFit(plan)
-                if GetBookEditorAccountHeading(0) != "Register Existing Account"
-                    || GetBookEditorAccountHeading(1) != "Registered Account"
+                if GetBookEditorAccountHeading(0) != "Register Existing Character"
+                    || GetBookEditorAccountHeading(1) != "Registered Character"
                     throw Error("Editor account caption does not match Add/Edit mode.")
                 accountHeading.Text := GetBookEditorAccountHeading(0)
                 newPlan := PlanBookEditorGeometry(heading, "Add New Character", controls, mode != "Normal")

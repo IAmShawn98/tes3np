@@ -921,7 +921,7 @@ EditProfile(index, *)
 
 GetBookEditorAccountHeading(index)
 {
-    return index ? "Registered Account" : "Register Existing Account"
+    return index ? "Registered Character" : "Register Existing Character"
 }
 
 ; Build once while the book is hidden; later actions only populate these controls.
